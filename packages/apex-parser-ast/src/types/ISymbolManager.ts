@@ -99,6 +99,13 @@ export interface ISymbolManager {
   ): SymbolResolutionResult;
 
   /**
+   * Get all references in a file
+   * @param fileUri The file path to get references for
+   * @returns Array of all TypeReference objects in the file
+   */
+  getAllReferencesInFile(fileUri: string): TypeReference[];
+
+  /**
    * Get all symbols for completion purposes
    * @returns Array of all available symbols
    */

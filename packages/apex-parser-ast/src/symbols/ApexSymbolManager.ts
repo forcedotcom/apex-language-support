@@ -1483,40 +1483,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const properUri =
       getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
 
-    this.logger.debug(
-      () =>
-        `[addSymbolTable] Adding symbol table for ${properUri} (original URI: ${fileUri})`,
-    );
-
     // Add all symbols from the symbol table
     const symbols = symbolTable.getAllSymbols
       ? symbolTable.getAllSymbols()
       : [];
 
-    this.logger.debug(
-      () =>
-        `[addSymbolTable] Found ${symbols.length} symbols in symbol table for ${properUri}`,
-    );
-
     // Update all symbols to use the proper URI
     symbols.forEach((symbol: ApexSymbol) => {
       // Update the symbol's fileUri to match the table's fileUri
       symbol.fileUri = properUri;
-      this.logger.debug(
-        () =>
-          `[addSymbolTable] Adding symbol: ${symbol.name} ` +
-          `(kind: ${symbol.kind}) to symbol manager`,
-      );
       this.addSymbol(symbol, properUri, symbolTable);
     });
-
-    // Verify symbols were added
-    const symbolsAfterAdd = this.findSymbolsInFile(properUri);
-    this.logger.debug(
-      () =>
-        `[addSymbolTable] Symbols in symbol manager for ${properUri} after add: ` +
-        `${symbolsAfterAdd.length}`,
-    );
 
     // Process type references and add them to the symbol graph
     await this.processTypeReferencesToGraph(symbolTable, properUri);
@@ -1570,30 +1547,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // Default to scope strategy if none specified
     const resolutionStrategy = strategy || 'scope';
 
-    this.logger.debug(
-      () =>
-        `[getSymbolAtPosition] Looking for symbol at ${fileUri}:${position.line}:${position.character} ` +
-        `(strategy: ${resolutionStrategy})`,
-    );
-
     const result = await this.resolveWithStrategy(
       resolutionStrategy,
       fileUri,
       position,
     );
 
+    // Ensure result has hydrated ancestry/FQN before returning to UI layers
     if (result) {
-      this.logger.debug(
-        () =>
-          `[getSymbolAtPosition] Found symbol: ${result.name} (kind: ${result.kind})`,
-      );
-      // Ensure result has hydrated ancestry/FQN before returning to UI layers
       this.ensureSymbolIdentityHydrated(result);
-    } else {
-      this.logger.debug(
-        () =>
-          `[getSymbolAtPosition] No symbol found at ${fileUri}:${position.line}:${position.character}`,
-      );
     }
     return result;
   }
@@ -2207,29 +2169,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     position?: { line: number; character: number },
   ): Promise<ApexSymbol | null> {
     try {
-      this.logger.debug(
-        () =>
-          `[resolveTypeReferenceToSymbol] Resolving: ${typeReference.name} ` +
-          `(context: ${typeReference.context}) from ${sourceFile}`,
-      );
-
       // Step 0: Handle chained expression references
       if (this.isChainedTypeReference(typeReference)) {
-        this.logger.debug(
-          () =>
-            '[resolveTypeReferenceToSymbol] Detected chained reference, delegating to resolveChainedTypeReference',
-        );
         return this.resolveChainedTypeReference(typeReference, position);
       }
 
       // Step 1: Try qualified reference resolution using chainNodes
       const qualifierInfo = this.extractQualifierFromChain(typeReference);
       if (qualifierInfo && qualifierInfo.isQualified) {
-        this.logger.debug(
-          () =>
-            '[resolveTypeReferenceToSymbol] Trying qualified resolution: ' +
-            `${qualifierInfo.qualifier}.${qualifierInfo.member}`,
-        );
         const qualifiedSymbol = await this.resolveQualifiedReferenceFromChain(
           qualifierInfo.qualifier,
           qualifierInfo.member,
@@ -2237,43 +2184,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
 
         if (qualifiedSymbol) {
-          this.logger.debug(
-            () =>
-              `[resolveTypeReferenceToSymbol] Qualified resolution succeeded: ${qualifiedSymbol.name}`,
-          );
           return qualifiedSymbol;
-        } else {
-          this.logger.debug(
-            () =>
-              '[resolveTypeReferenceToSymbol] Qualified resolution failed for ' +
-              `${qualifierInfo.qualifier}.${qualifierInfo.member}`,
-          );
         }
       }
 
       // Step 2: Try built-in type resolution for the name itself
       const builtInSymbol = await this.resolveBuiltInType(typeReference.name);
       if (builtInSymbol) {
-        this.logger.debug(
-          () =>
-            `[resolveTypeReferenceToSymbol] Resolved as built-in type: ${typeReference.name}`,
-        );
         return builtInSymbol;
       }
 
       // Step 3: Try to find symbols by name
       const candidates = this.findSymbolByName(typeReference.name);
 
-      this.logger.debug(
-        () =>
-          `[resolveTypeReferenceToSymbol] Found ${candidates.length} candidates for name "${typeReference.name}"`,
-      );
-
       if (candidates.length === 0) {
-        this.logger.debug(
-          () =>
-            `[resolveTypeReferenceToSymbol] No candidates found for "${typeReference.name}"`,
-        );
         return null;
       }
 
@@ -3769,45 +3693,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return null;
     }
 
-    const chainNames = chainNodes.map((n) => n.name).join('.');
-    this.logger.debug(
-      () =>
-        `[resolveEntireChain] Resolving chain: ${chainNames} (${chainNodes.length} nodes)`,
-    );
-
     // Find all possible resolution paths
     const resolutionPaths =
       await this.findAllPossibleResolutionPaths(chainNodes);
 
-    this.logger.debug(
-      () =>
-        `[resolveEntireChain] Found ${resolutionPaths.length} possible resolution paths for chain: ${chainNames}`,
-    );
-
     if (resolutionPaths.length === 0) {
-      this.logger.warn(
-        () =>
-          `[resolveEntireChain] No valid resolution paths found for chain: ${chainNames}`,
-      );
-
-      // Log detailed information about why resolution failed
-      if (chainNodes.length > 0) {
-        const firstNode = chainNodes[0];
-        const firstNodeCandidates = this.findSymbolByName(firstNode.name);
-        this.logger.debug(
-          () =>
-            '[resolveEntireChain] First node "${firstNode.name}" has ' +
-            `${firstNodeCandidates.length} candidates in symbol manager'`,
-        );
-        if (firstNodeCandidates.length === 0) {
-          this.logger.debug(
-            () =>
-              '[resolveEntireChain] First node ' +
-              `${firstNode.name} not found in symbol manager - this is why chain resolution fails`,
-          );
-        }
-      }
-
       return null;
     }
 
@@ -3834,23 +3724,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const paths: ChainResolutionContext[][] = [];
     const pathStack = new Stack<ChainResolutionContext>();
 
-    const chainNames = chainNodes.map((n) => n.name).join('.');
-    this.logger.debug(
-      () =>
-        `[findAllPossibleResolutionPaths] Exploring paths for chain: ${chainNames}`,
-    );
-
     await this.exploreResolutionPaths(
       chainNodes,
       0,
       undefined,
       pathStack,
       paths,
-    );
-
-    this.logger.debug(
-      () =>
-        `[findAllPossibleResolutionPaths] Found ${paths.length} resolution paths for chain: ${chainNames}`,
     );
 
     paths.forEach((path, index) => {
@@ -4335,39 +4214,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return null;
         }
 
-        const chainNames = chainNodes.map((n) => n.name).join('.');
-        this.logger.debug(
-          () =>
-            `[resolveChainedTypeReference] Resolving chain: ${chainNames} (${chainNodes.length} nodes)`,
-        );
-
-        // Check if first node (qualifier) exists in symbol manager
-        if (chainNodes.length > 0) {
-          const firstNodeName = chainNodes[0].name;
-          const qualifierCandidates = this.findSymbolByName(firstNodeName);
-          this.logger.debug(
-            () =>
-              `[resolveChainedTypeReference] Found ${qualifierCandidates.length} candidates for qualifier ` +
-              `${firstNodeName}`,
-          );
-          if (qualifierCandidates.length > 0) {
-            qualifierCandidates.forEach((candidate, idx) => {
-              this.logger.debug(
-                () =>
-                  `[resolveChainedTypeReference] Qualifier candidate ${idx}: ${candidate.name} ` +
-                  `(kind: ${candidate.kind}) from ${candidate.key.path[0]}`,
-              );
-            });
-          }
-        }
-
         // Resolve the entire chain
         const resolvedChain = await this.resolveEntireChain(chainNodes);
         if (!resolvedChain) {
-          this.logger.warn(
-            () =>
-              `[resolveChainedTypeReference] Failed to resolve entire chain: ${chainNames}`,
-          );
           return null;
         }
 

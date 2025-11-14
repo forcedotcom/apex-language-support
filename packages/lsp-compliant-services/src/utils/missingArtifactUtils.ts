@@ -331,55 +331,6 @@ export class MissingArtifactUtils {
       // Transform LSP position to parser position for symbol manager
       const parserPosition = transformLspToParserPosition(position);
 
-      this.logger.debug(
-        () =>
-          `[extractReferenceAtPosition] LSP position: ${position.line}:${position.character} → ` +
-          `parser position: ${parserPosition.line}:${parserPosition.character} - ` +
-          `uri: ${uri}`,
-      );
-
-      // Get all references in file for debugging
-      const allReferences = (this.symbolManager as any).getAllReferencesInFile
-        ? (this.symbolManager as any).getAllReferencesInFile(uri)
-        : [];
-
-      this.logger.debug(
-        () =>
-          `[extractReferenceAtPosition] Total references in file: ${allReferences.length} - ` +
-          `uri: ${uri}`,
-      );
-
-      // Log references near the target position for debugging
-      if (allReferences.length > 0) {
-        const nearbyRefs = allReferences.filter(
-          (ref: any) =>
-            ref.location?.identifierRange &&
-            Math.abs(
-              ref.location.identifierRange.startLine - parserPosition.line,
-            ) <= 2,
-        );
-        this.logger.debug(
-          () =>
-            '[extractReferenceAtPosition] References within 2 lines of position ' +
-            `${parserPosition.line}: ${nearbyRefs.length} - ` +
-            `uri: ${uri}`,
-        );
-        if (nearbyRefs.length > 0) {
-          nearbyRefs.slice(0, 5).forEach((ref: any, idx: number) => {
-            const range = ref.location?.identifierRange;
-            if (range) {
-              this.logger.debug(
-                () =>
-                  `[extractReferenceAtPosition] Nearby ref ${idx + 1}: ${ref.name} at ` +
-                  `${range.startLine}:${range.startColumn}-${range.endLine}:${range.endColumn} ` +
-                  `(context: ${ref.context}) - ` +
-                  `uri: ${uri}`,
-              );
-            }
-          });
-        }
-      }
-
       // Check if there are references at this position using getReferencesAtPosition
       // This method specifically looks for TypeReference objects at the exact position
       const references = this.symbolManager.getReferencesAtPosition(
@@ -387,68 +338,26 @@ export class MissingArtifactUtils {
         parserPosition,
       );
 
-      this.logger.debug(
-        () =>
-          `[extractReferenceAtPosition] getReferencesAtPosition returned ${references?.length || 0} ` +
-          ` references at parser position ${parserPosition.line}:${parserPosition.character} - ` +
-          `uri: ${uri}`,
-      );
-
       if (references && references.length > 0) {
         // Use the first reference found at the position
         const reference = references[0];
-        const range = reference.location?.identifierRange;
         this.logger.debug(
           () =>
-            `[extractReferenceAtPosition] Found reference: ${reference.name} ` +
-            `(context: ${reference.context}) at ` +
-            `${range?.startLine}:${range?.startColumn}-${range?.endLine}:${range?.endColumn} - ` +
-            `uri: ${uri}`,
+            `Found reference at position: ${reference.name} (context: ${reference.context})`,
         );
         return reference;
       }
 
-      // No references found at precise position - log detailed debug info
+      // No references found at precise position
       this.logger.debug(
         () =>
-          '[extractReferenceAtPosition] No precise references found at parser position ' +
-          `${parserPosition.line}:${parserPosition.character} for missing artifact resolution - ` +
-          `uri: ${uri}`,
+          'No precise references found at position for missing artifact resolution',
       );
-
-      // Check if any references exist on the same line
-      if (allReferences.length > 0) {
-        const sameLineRefs = allReferences.filter(
-          (ref: any) =>
-            ref.location?.identifierRange &&
-            ref.location.identifierRange.startLine === parserPosition.line,
-        );
-        if (sameLineRefs.length > 0) {
-          this.logger.debug(
-            () =>
-              `[extractReferenceAtPosition] Found ${sameLineRefs.length} references on line ` +
-              `${parserPosition.line}, but none match character position ${parserPosition.character} - ` +
-              `uri: ${uri}`,
-          );
-          sameLineRefs.slice(0, 3).forEach((ref: any, idx: number) => {
-            const range = ref.location?.identifierRange;
-            if (range) {
-              this.logger.debug(
-                () =>
-                  `[extractReferenceAtPosition] Same-line ref ${idx + 1}: ${ref.name} at columns ` +
-                  `${range.startColumn}-${range.endColumn} (position ${parserPosition.character} not in range) - ` +
-                  `uri: ${uri}`,
-              );
-            }
-          });
-        }
-      }
-
       return null;
     } catch (error) {
       this.logger.debug(
         () =>
-          `[extractReferenceAtPosition] Error extracting symbol name for missing artifact resolution: ${error}`,
+          `Error extracting symbol name for missing artifact resolution: ${error}`,
       );
       return null;
     }
