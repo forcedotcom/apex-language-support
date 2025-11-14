@@ -7,7 +7,7 @@
  */
 
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import { ISymbolManager } from '../types/ISymbolManager';
 import { ServiceRegistry } from '../registry/ServiceRegistry';
 import {
   LSPRequestType,

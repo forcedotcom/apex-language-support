@@ -12,7 +12,7 @@ import type {
   FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
 import type { BlockingResult } from '../services/MissingArtifactResolutionService';
-import { LSPQueueManager } from '../queue/LSPQueueManager';
+import { LSPQueueManager } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for LSP connection to communicate with client

@@ -6,11 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
-import {
-  ApexSymbolProcessingManager,
-  ISymbolManager,
-} from '@salesforce/apex-lsp-parser-ast';
+import { getLogger } from '@salesforce/apex-lsp-shared';
+import { ApexSymbolProcessingManager } from '../symbols/ApexSymbolProcessingManager';
+import { ISymbolManager } from '../types/ISymbolManager';
 import {
   LSPRequestType,
   RequestPriority,
@@ -18,10 +16,17 @@ import {
 } from './LSPRequestQueue';
 import { ServiceRegistry } from '../registry/ServiceRegistry';
 import { GenericLSPRequestQueue } from './GenericLSPRequestQueue';
-import { ServiceFactory } from '../factories/ServiceFactory';
-import { DEFAULT_SERVICE_CONFIG } from '../config/ServiceConfiguration';
 import { GenericRequestHandler } from '../registry/GenericRequestHandler';
-import { ApexStorageManager } from '../storage/ApexStorageManager';
+
+/**
+ * Dependencies interface for LSPQueueManager initialization
+ */
+export interface LSPQueueManagerDependencies {
+  serviceFactory: any; // ServiceFactory from lsp-compliant-services
+  serviceConfig: any[]; // DEFAULT_SERVICE_CONFIG from lsp-compliant-services
+  storageManager: any; // ApexStorageManager from lsp-compliant-services
+  settingsManager: any; // ApexSettingsManager from lsp-compliant-services
+}
 
 /**
  * LSP Queue Manager
@@ -38,7 +43,7 @@ export class LSPQueueManager {
   private readonly serviceRegistry: ServiceRegistry;
   private isShutdown = false;
 
-  private constructor() {
+  private constructor(dependencies?: LSPQueueManagerDependencies) {
     // Initialize the service registry
     this.serviceRegistry = new ServiceRegistry();
 
@@ -48,8 +53,10 @@ export class LSPQueueManager {
     this.symbolManager =
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
 
-    // Register all services
-    this.registerServices();
+    // Register all services if dependencies are provided
+    if (dependencies) {
+      this.registerServices(dependencies);
+    }
 
     this.logger.debug(
       () => 'LSP Queue Manager initialized with service registry',
@@ -59,16 +66,11 @@ export class LSPQueueManager {
   /**
    * Register all services with the registry
    */
-  private registerServices(): void {
-    const serviceFactory = new ServiceFactory({
-      logger: this.logger,
-      symbolManager: this.symbolManager,
-      storageManager: ApexStorageManager.getInstance(),
-      settingsManager: ApexSettingsManager.getInstance(),
-    });
-
-    for (const config of DEFAULT_SERVICE_CONFIG) {
-      const service = config.serviceFactory({ serviceFactory });
+  private registerServices(dependencies: LSPQueueManagerDependencies): void {
+    for (const config of dependencies.serviceConfig) {
+      const service = config.serviceFactory({
+        serviceFactory: dependencies.serviceFactory,
+      });
       const handler = new GenericRequestHandler(
         config.requestType,
         service,
@@ -85,16 +87,17 @@ export class LSPQueueManager {
     }
 
     this.logger.debug(
-      () => `Registered ${DEFAULT_SERVICE_CONFIG.length} services`,
+      () => `Registered ${dependencies.serviceConfig.length} services`,
     );
   }
 
   /**
    * Get the singleton instance
+   * @param dependencies Optional dependencies for initialization (required on first call if services need to be registered)
    */
-  static getInstance(): LSPQueueManager {
+  static getInstance(dependencies?: LSPQueueManagerDependencies): LSPQueueManager {
     if (!LSPQueueManager.instance) {
-      LSPQueueManager.instance = new LSPQueueManager();
+      LSPQueueManager.instance = new LSPQueueManager(dependencies);
     }
     return LSPQueueManager.instance;
   }
@@ -274,5 +277,12 @@ export class LSPQueueManager {
    */
   isShutdownState(): boolean {
     return this.isShutdown;
+  }
+
+  /**
+   * Reset the singleton instance (for testing only)
+   */
+  static reset(): void {
+    LSPQueueManager.instance = null;
   }
 }

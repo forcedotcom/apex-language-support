@@ -73,3 +73,7 @@ export * from './semantics/annotations/index';
 
 // Export protocol handler utilities
 export * from './types/ProtocolHandler';
+
+// Export queue and registry components
+export * from './queue';
+export * from './registry';

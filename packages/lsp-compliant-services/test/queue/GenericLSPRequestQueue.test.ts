@@ -12,16 +12,12 @@ import {
   RequestPriority,
   ApexSettingsManager,
 } from '@salesforce/apex-lsp-shared';
-import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
-import { ServiceRegistry } from '../../src/registry/ServiceRegistry';
 import {
+  ISymbolManager,
+  ServiceRegistry,
   GenericLSPRequestQueue,
-  LSPQueueStateTag,
-  ServiceRegistryTag,
-  QueueSettingsTag,
-  LoggerTag,
-} from '../../src/queue/GenericLSPRequestQueue';
-import { LSPRequestType } from '../../src/queue/LSPRequestQueue';
+  LSPRequestType,
+} from '@salesforce/apex-lsp-parser-ast';
 import { BackgroundProcessingInitializationService } from '../../src/services/BackgroundProcessingInitializationService';
 
 // Mock the logger and settings manager

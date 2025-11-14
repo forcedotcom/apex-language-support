@@ -59,9 +59,13 @@ import {
   ApexStorage,
   dispatchProcessOnResolve,
   BackgroundProcessingInitializationService,
+  initializeLSPQueueManager,
 } from '@salesforce/apex-lsp-compliant-services';
 
-import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
+import {
+  ResourceLoader,
+  ApexSymbolProcessingManager,
+} from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Configuration for the LCS Adapter
@@ -991,6 +995,13 @@ export class LCSAdapter {
       this.logger.debug('🔧 Initializing background symbol processing...');
       BackgroundProcessingInitializationService.getInstance().initialize();
       this.logger.info('✅ Background symbol processing initialized');
+
+      // Initialize LSP queue manager with services
+      this.logger.debug('🔧 Initializing LSP queue manager...');
+      const symbolManager =
+        ApexSymbolProcessingManager.getInstance().getSymbolManager();
+      initializeLSPQueueManager(symbolManager);
+      this.logger.info('✅ LSP queue manager initialized');
     } catch (error) {
       this.logger.error(
         () =>

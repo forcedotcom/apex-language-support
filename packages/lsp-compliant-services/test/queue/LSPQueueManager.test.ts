@@ -7,10 +7,13 @@
  */
 
 import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
-import { ISymbolManager, ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
-import { LSPQueueManager } from '../../src/queue/LSPQueueManager';
-import { ServiceRegistry } from '../../src/registry/ServiceRegistry';
-import { LSPRequestType } from '../../src/queue/LSPRequestQueue';
+import {
+  ISymbolManager,
+  ApexSymbolProcessingManager,
+  LSPQueueManager,
+  ServiceRegistry,
+  LSPRequestType,
+} from '@salesforce/apex-lsp-parser-ast';
 import { BackgroundProcessingInitializationService } from '../../src/services/BackgroundProcessingInitializationService';
 
 // Mock the logger and settings manager
@@ -29,13 +32,17 @@ jest.mock('../../src/services/BackgroundProcessingInitializationService', () => 
   },
 }));
 
-// Mock ApexSymbolProcessingManager
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  ISymbolManager: {},
-  ApexSymbolProcessingManager: {
-    getInstance: jest.fn(),
-  },
-}));
+// Mock ApexSymbolProcessingManager (but not LSPQueueManager - we want to test the real one)
+jest.mock('@salesforce/apex-lsp-parser-ast', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
+  return {
+    ...actual,
+    ISymbolManager: {},
+    ApexSymbolProcessingManager: {
+      getInstance: jest.fn(),
+    },
+  };
+});
 
 // Mock ServiceFactory and related dependencies
 jest.mock('../../src/factories/ServiceFactory', () => ({
@@ -150,21 +157,21 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
     } as any);
 
     // Reset singleton instance
-    (LSPQueueManager as any).instance = undefined;
+    LSPQueueManager.reset();
   });
 
   afterEach(async () => {
     // Shutdown any existing singleton instance to prevent hanging intervals
-    const instance = (LSPQueueManager as any).instance;
-    if (instance) {
-      try {
+    try {
+      const instance = LSPQueueManager.getInstance();
+      if (instance && !instance.isShutdownState()) {
         await instance.shutdown();
-      } catch (_error) {
-        // Ignore shutdown errors
       }
+    } catch (_error) {
+      // Ignore shutdown errors
     }
     // Reset singleton instance
-    (LSPQueueManager as any).instance = undefined;
+    LSPQueueManager.reset();
   });
 
   describe('Singleton Pattern', () => {

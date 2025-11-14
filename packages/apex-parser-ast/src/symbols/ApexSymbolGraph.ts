@@ -630,6 +630,8 @@ export class ApexSymbolGraph {
       return symbolCopy;
     }
 
+    this.logger.debug(() => `Symbol not found: ${symbolName}`);
+
     return null;
   }
 

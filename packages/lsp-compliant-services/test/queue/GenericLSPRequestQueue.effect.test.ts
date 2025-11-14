@@ -11,10 +11,12 @@ import {
   RequestPriority,
   ApexSettingsManager,
 } from '@salesforce/apex-lsp-shared';
-import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
-import { ServiceRegistry } from '../../src/registry/ServiceRegistry';
-import { GenericLSPRequestQueue } from '../../src/queue/GenericLSPRequestQueue';
-import { LSPRequestType } from '../../src/queue/LSPRequestQueue';
+import {
+  ISymbolManager,
+  ServiceRegistry,
+  GenericLSPRequestQueue,
+  LSPRequestType,
+} from '@salesforce/apex-lsp-parser-ast';
 // eslint-disable-next-line max-len
 import { BackgroundProcessingInitializationService } from '../../src/services/BackgroundProcessingInitializationService';
 

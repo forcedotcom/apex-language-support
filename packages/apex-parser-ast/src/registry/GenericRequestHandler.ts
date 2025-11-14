@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import { ISymbolManager } from '../types/ISymbolManager';
 import { LSPRequestType, RequestPriority } from '../queue/LSPRequestQueue';
 import { LSPRequestHandler } from './ServiceRegistry';
 

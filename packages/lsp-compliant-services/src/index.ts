@@ -27,12 +27,20 @@ import type {
 } from '@salesforce/apex-lsp-shared';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
+import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import { HandlerFactory } from './factories/HandlerFactory';
 import { dispatchProcessOnDiagnostic } from './handlers/DiagnosticHandler';
 import { dispatchProcessOnFoldingRange } from './handlers/FoldingRangeHandler';
 import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
 import { HoverHandler } from './handlers/HoverHandler';
-import { LSPQueueManager } from './queue/LSPQueueManager';
+import {
+  LSPQueueManager,
+  LSPQueueManagerDependencies,
+} from '@salesforce/apex-lsp-parser-ast';
+import { ServiceFactory } from './factories/ServiceFactory';
+import { DEFAULT_SERVICE_CONFIG } from './config/ServiceConfiguration';
+import { ApexStorageManager } from './storage/ApexStorageManager';
+import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
 
 // Export storage interfaces and classes
 export * from './storage/ApexStorageBase';
@@ -90,8 +98,33 @@ export * from './storage/ApexStorageInterface';
 // Export ApexLib
 export * from './apexlib';
 
-// Export LSP queue system
-export * from './queue';
+// Export LSP queue system (re-export from apex-parser-ast)
+export * from '@salesforce/apex-lsp-parser-ast';
+
+/**
+ * Initialize LSPQueueManager with required dependencies
+ * This should be called during server initialization
+ */
+export function initializeLSPQueueManager(
+  symbolManager: ISymbolManager,
+): LSPQueueManager {
+  const logger = getLogger();
+  const serviceFactory = new ServiceFactory({
+    logger,
+    symbolManager,
+    storageManager: ApexStorageManager.getInstance(),
+    settingsManager: ApexSettingsManager.getInstance(),
+  });
+
+  const dependencies: LSPQueueManagerDependencies = {
+    serviceFactory,
+    serviceConfig: DEFAULT_SERVICE_CONFIG,
+    storageManager: ApexStorageManager.getInstance(),
+    settingsManager: ApexSettingsManager.getInstance(),
+  };
+
+  return LSPQueueManager.getInstance(dependencies);
+}
 
 /**
  * Dispatch function for document open events
