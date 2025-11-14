@@ -952,6 +952,14 @@ export class SymbolTable {
     return Array.from(this.symbolMap.values());
   }
 
+  findSymbolWith(
+    predicate: (entry: ApexSymbol) => boolean,
+  ): ApexSymbol | undefined {
+    const symbolEntry: [_: string, value: ApexSymbol] | undefined =
+      this.symbolMap.find((_, value) => predicate(value));
+    return symbolEntry ? symbolEntry[1] : undefined;
+  }
+
   /**
    * Add a type reference to the symbol table
    * @param ref The type reference to add
