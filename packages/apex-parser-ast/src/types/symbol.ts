@@ -1016,7 +1016,7 @@ export class SymbolTable {
    * @returns Array of all hierarchical references
    */
   getAllHierarchicalReferences(): HierarchicalReference[] {
-    return [...this.hierarchicalReferences]; // Return a copy to prevent external modification
+    return structuredClone(this.hierarchicalReferences); // Return a copy to prevent external modification
   }
 
   /**

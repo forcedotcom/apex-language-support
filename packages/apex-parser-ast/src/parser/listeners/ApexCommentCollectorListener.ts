@@ -266,7 +266,7 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
    * Get all collected comments
    */
   getResult(): ApexComment[] {
-    return [...this.comments]; // Return a copy to prevent external modification
+    return structuredClone(this.comments); // Return a copy to prevent external modification
   }
 
   /**
