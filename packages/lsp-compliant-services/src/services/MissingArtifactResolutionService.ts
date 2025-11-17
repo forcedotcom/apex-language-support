@@ -10,6 +10,7 @@ import {
   LoggerInterface,
   LSPConfigurationManager,
   ApexSettingsManager,
+  Priority,
 } from '@salesforce/apex-lsp-shared';
 import type { FindMissingArtifactParams } from '@salesforce/apex-lsp-shared';
 import { LSPQueueManager } from '../queue';
@@ -98,7 +99,7 @@ export class EnhancedMissingArtifactResolutionService
         'findMissingArtifact',
         params,
         {
-          priority: 'HIGH',
+          priority: Priority.High,
           timeout: params.timeoutMsHint || this.config.blockingWaitTimeoutMs,
         },
       );
@@ -233,8 +234,8 @@ export class EnhancedMissingArtifactResolutionService
   /**
    * Get queue statistics for monitoring
    */
-  getQueueStats() {
-    return this.getQueueManager().getStats();
+  async getQueueStats() {
+    return await this.getQueueManager().getStats();
   }
 }
 

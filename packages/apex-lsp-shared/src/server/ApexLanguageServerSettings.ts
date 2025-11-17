@@ -137,16 +137,11 @@ export interface LoadWorkspaceSettings {
 }
 
 /**
- * Request priority levels for queue processing
- */
-export type RequestPriority = 'IMMEDIATE' | 'HIGH' | 'NORMAL' | 'LOW';
-
-/**
  * Queue processing settings
  */
 export interface QueueProcessingSettings {
   /** Maximum number of concurrent tasks per priority level */
-  maxConcurrency: Record<RequestPriority, number>;
+  maxConcurrency: Record<string, number>;
 
   /** Number of tasks processed before yielding control to prevent blocking */
   yieldInterval: number;

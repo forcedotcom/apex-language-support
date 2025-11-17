@@ -7,7 +7,7 @@
  */
 
 import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
-import { RequestPriority } from '@salesforce/apex-lsp-shared';
+import type { Priority } from '@salesforce/apex-lsp-shared';
 
 /**
  * LSP request types with their priority levels
@@ -35,7 +35,7 @@ export type LSPRequestType =
 export interface LSPRequestTask {
   readonly id: string;
   readonly type: LSPRequestType;
-  readonly priority: RequestPriority;
+  readonly priority: Priority;
   readonly params: any;
   readonly symbolManager: ISymbolManager;
   readonly timestamp: number;

@@ -56,7 +56,7 @@ export class HoverHandler {
   /**
    * Get queue statistics for monitoring
    */
-  public getQueueStats() {
-    return this.queueManager.getStats();
+  public async getQueueStats() {
+    return await this.queueManager.getStats();
   }
 }

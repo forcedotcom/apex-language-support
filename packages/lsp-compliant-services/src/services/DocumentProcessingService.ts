@@ -17,6 +17,7 @@ import {
 import {
   LoggerInterface,
   ApexSettingsManager,
+  Priority,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -146,7 +147,7 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
       symbolTable,
       document.uri,
       {
-        priority: 'NORMAL', // Document changes are normal priority
+        priority: Priority.Normal,
         enableCrossFileResolution: true,
         enableReferenceProcessing: true,
       },
@@ -243,7 +244,7 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
           cached.symbolTable,
           event.document.uri,
           {
-            priority: 'HIGH', // Document open is high priority
+            priority: Priority.High,
             enableCrossFileResolution: true,
             enableReferenceProcessing: true,
           },
@@ -335,7 +336,7 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
       symbolTable,
       document.uri,
       {
-        priority: 'HIGH', // Document open is high priority
+        priority: Priority.High,
         enableCrossFileResolution: true,
         enableReferenceProcessing: true,
       },

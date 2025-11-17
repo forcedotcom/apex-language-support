@@ -14,15 +14,19 @@ import {
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
-// Mock getLogger
-jest.mock('@salesforce/apex-lsp-shared', () => ({
-  getLogger: jest.fn(() => ({
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  })),
-}));
+// Mock getLogger, but keep Priority from actual module
+jest.mock('@salesforce/apex-lsp-shared', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+  return {
+    ...actual,
+    getLogger: jest.fn(() => ({
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    })),
+  };
+});
 
 describe('ApexSymbolIndexingService', () => {
   let symbolManager: ApexSymbolManager;

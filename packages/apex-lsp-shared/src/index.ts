@@ -71,6 +71,9 @@ export * from './settings/LSPConfigurationManager';
 // Export client capabilities
 export * from './client/ApexClientCapabilities';
 
+// Export priority types
+export * from './types/priority';
+
 // Experimental protocol: Missing Artifact Resolution
 export type RequestKind =
   | 'definition'

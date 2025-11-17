@@ -7,22 +7,10 @@
  */
 
 import { Deferred, Effect, Fiber, Queue, Ref, Scope } from 'effect';
+import { Priority, AllPriorities } from '@salesforce/apex-lsp-shared';
 
-export const enum Priority {
-  Immediate = 0,
-  High = 1,
-  Normal = 2,
-  Low = 3,
-  Background = 4,
-}
-
-export const AllPriorities = [
-  Priority.Immediate,
-  Priority.High,
-  Priority.Normal,
-  Priority.Low,
-  Priority.Background,
-] as const;
+// Re-export Priority and AllPriorities for convenience
+export { Priority, AllPriorities };
 
 export interface ScheduledTask<A = never, E = never, R = never> {
   readonly fiber: Effect.Effect<Fiber.RuntimeFiber<A, E>, E, R>;

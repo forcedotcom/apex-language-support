@@ -7,15 +7,10 @@
  */
 
 import { Effect, Queue, Fiber } from 'effect';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, Priority } from '@salesforce/apex-lsp-shared';
 import { SymbolTable } from '../types/symbol';
 import type { CommentAssociation } from '../parser/listeners/ApexCommentCollectorListener';
 import { ApexSymbolManager } from './ApexSymbolManager';
-
-/**
- * Task priority levels for symbol processing
- */
-export type TaskPriority = 'HIGH' | 'NORMAL' | 'LOW';
 
 /**
  * Task status for tracking processing state
@@ -32,7 +27,7 @@ export type TaskStatus =
  * Symbol processing options
  */
 export interface SymbolProcessingOptions {
-  priority?: TaskPriority;
+  priority?: Priority;
   timeout?: number;
   retryAttempts?: number;
   concurrency?: number;
@@ -50,7 +45,7 @@ export interface SymbolProcessingTask {
   readonly symbolTable: SymbolTable;
   readonly fileUri: string;
   readonly documentVersion?: number;
-  readonly priority: TaskPriority;
+  readonly priority: Priority;
   readonly options: SymbolProcessingOptions;
   readonly timestamp: number;
   readonly retryCount: number;
@@ -64,7 +59,7 @@ export interface CommentAssociationTask {
   readonly id: string;
   readonly fileUri: string;
   readonly associations: CommentAssociation[];
-  readonly priority: TaskPriority;
+  readonly priority: Priority;
   readonly timestamp: number;
 }
 
@@ -689,9 +684,9 @@ export class ApexSymbolIndexingIntegration {
       symbolTable,
       fileUri,
       documentVersion,
-      priority: options.priority || 'NORMAL',
+      priority: options.priority || Priority.Normal,
       options: {
-        priority: 'NORMAL',
+        priority: Priority.Normal,
         timeout: 30000, // 30 seconds
         retryAttempts: 3,
         concurrency: 4,
@@ -711,7 +706,7 @@ export class ApexSymbolIndexingIntegration {
   scheduleCommentAssociations(
     fileUri: string,
     associations: CommentAssociation[],
-    priority: TaskPriority = 'NORMAL',
+    priority: Priority = Priority.Normal,
   ): string {
     const taskId = `task_${Date.now()}_${Math.random()
       .toString(36)

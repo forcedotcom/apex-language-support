@@ -17,6 +17,7 @@ import {
 import {
   LoggerInterface,
   ApexSettingsManager,
+  Priority,
 } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -80,7 +81,7 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
           cached.symbolTable,
           document.uri,
           {
-            priority: 'HIGH',
+            priority: Priority.High,
             enableCrossFileResolution: true,
             enableReferenceProcessing: true,
           },
@@ -148,7 +149,7 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
         symbolTable,
         document.uri,
         {
-          priority: 'HIGH', // Document save is high priority
+          priority: Priority.High,
           enableCrossFileResolution: true,
           enableReferenceProcessing: true,
         },

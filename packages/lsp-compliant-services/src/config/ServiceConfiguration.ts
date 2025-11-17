@@ -7,14 +7,14 @@
  */
 
 import { LSPRequestType } from '../queue';
-import { RequestPriority } from '@salesforce/apex-lsp-shared';
+import { Priority } from '@salesforce/apex-lsp-shared';
 
 /**
  * Service configuration interface
  */
 export interface ServiceConfig {
   requestType: LSPRequestType;
-  priority: RequestPriority;
+  priority: Priority;
   timeout: number;
   maxRetries: number;
   serviceFactory: (dependencies: any) => any;
@@ -26,42 +26,42 @@ export interface ServiceConfig {
 export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'hover',
-    priority: 'IMMEDIATE',
+    priority: Priority.Immediate,
     timeout: 100,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createHoverService(),
   },
   {
     requestType: 'completion',
-    priority: 'IMMEDIATE',
+    priority: Priority.Immediate,
     timeout: 100,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createCompletionService(),
   },
   {
     requestType: 'signatureHelp',
-    priority: 'IMMEDIATE',
+    priority: Priority.Immediate,
     timeout: 100,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createSignatureHelpService(),
   },
   {
     requestType: 'definition',
-    priority: 'HIGH',
+    priority: Priority.High,
     timeout: 1000,
     maxRetries: 1,
     serviceFactory: (deps) => deps.serviceFactory.createDefinitionService(),
   },
   {
     requestType: 'documentSymbol',
-    priority: 'HIGH',
+    priority: Priority.High,
     timeout: 1000,
     maxRetries: 1,
     serviceFactory: (deps) => deps.serviceFactory.createDocumentSymbolService(),
   },
   {
     requestType: 'documentOpen',
-    priority: 'HIGH',
+    priority: Priority.High,
     timeout: 1000,
     maxRetries: 1,
     serviceFactory: (deps) =>
@@ -70,7 +70,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
 
   {
     requestType: 'findMissingArtifact',
-    priority: 'LOW',
+    priority: Priority.Low,
     timeout: 30000,
     maxRetries: 1,
     serviceFactory: (deps) =>
@@ -78,21 +78,21 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   },
   {
     requestType: 'references',
-    priority: 'NORMAL',
+    priority: Priority.Normal,
     timeout: 5000,
     maxRetries: 2,
     serviceFactory: (deps) => deps.serviceFactory.createReferencesService(),
   },
   {
     requestType: 'diagnostics',
-    priority: 'NORMAL',
+    priority: Priority.Normal,
     timeout: 5000,
     maxRetries: 2,
     serviceFactory: (deps) => deps.serviceFactory.createDiagnosticService(),
   },
   {
     requestType: 'workspaceSymbol',
-    priority: 'NORMAL',
+    priority: Priority.Normal,
     timeout: 5000,
     maxRetries: 2,
     serviceFactory: (deps) =>
@@ -100,35 +100,35 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   },
   {
     requestType: 'documentSave',
-    priority: 'NORMAL',
+    priority: Priority.Normal,
     timeout: 5000,
     maxRetries: 2,
     serviceFactory: (deps) => deps.serviceFactory.createDocumentSymbolService(),
   },
   {
     requestType: 'documentChange',
-    priority: 'NORMAL',
+    priority: Priority.Normal,
     timeout: 5000,
     maxRetries: 2,
     serviceFactory: (deps) => deps.serviceFactory.createDocumentSymbolService(),
   },
   {
     requestType: 'codeAction',
-    priority: 'LOW',
+    priority: Priority.Low,
     timeout: 30000,
     maxRetries: 3,
     serviceFactory: (deps) => deps.serviceFactory.createCodeActionService(),
   },
   {
     requestType: 'rename',
-    priority: 'LOW',
+    priority: Priority.Low,
     timeout: 30000,
     maxRetries: 3,
     serviceFactory: (deps) => deps.serviceFactory.createRenameService(),
   },
   {
     requestType: 'documentClose',
-    priority: 'IMMEDIATE',
+    priority: Priority.Immediate,
     timeout: 100,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createDocumentSymbolService(),

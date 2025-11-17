@@ -117,9 +117,9 @@ export class BackgroundProcessingInitializationService {
   /**
    * Reset the singleton instance (useful for testing)
    */
-  static reset(): void {
+  static async reset(): Promise<void> {
     if (this.instance) {
-      this.instance.shutdown();
+      await this.instance.shutdown();
       this.instance = null;
     }
   }

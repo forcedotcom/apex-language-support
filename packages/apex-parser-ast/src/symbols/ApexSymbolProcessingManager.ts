@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, Priority } from '@salesforce/apex-lsp-shared';
 import { SymbolTable } from '../types/symbol';
 import { ApexSymbolManager } from './ApexSymbolManager';
 import {
@@ -126,7 +126,7 @@ export class ApexSymbolProcessingManager {
     return this.symbolIndexingService.scheduleCommentAssociations(
       fileUri,
       associations,
-      'NORMAL',
+      Priority.Normal,
     );
   }
 
