@@ -10,18 +10,18 @@
  * Priority levels for task scheduling and queue processing.
  *
  * Priority values:
- * - Immediate (0): Critical tasks that must execute immediately
- * - High (1): High-priority tasks
- * - Normal (2): Standard priority tasks
- * - Low (3): Low-priority tasks
- * - Background (4): Background tasks
+ * - Immediate (1): Critical tasks that must execute immediately
+ * - High (2): High-priority tasks
+ * - Normal (3): Standard priority tasks
+ * - Low (4): Low-priority tasks
+ * - Background (5): Background tasks
  */
 export enum Priority {
-  Immediate = 0,
-  High = 1,
-  Normal = 2,
-  Low = 3,
-  Background = 4,
+  Immediate = 1,
+  High = 2,
+  Normal = 3,
+  Low = 4,
+  Background = 5,
 }
 
 /**

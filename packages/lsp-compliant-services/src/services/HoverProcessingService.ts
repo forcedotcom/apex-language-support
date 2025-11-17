@@ -92,8 +92,26 @@ export class HoverProcessingService implements IHoverProcessor {
     );
 
     try {
+      // Verify symbol manager instance consistency
+      const symbolManagerInstance =
+        ApexSymbolProcessingManager.getInstance().getSymbolManager();
+      const isSameInstance = this.symbolManager === symbolManagerInstance;
+      this.logger.debug(
+        () =>
+          `Symbol manager instance check: ${isSameInstance ? 'matches singleton' : 'different instance'}`,
+      );
+
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
+
+      // Check if file has symbols indexed before lookup
+      const fileSymbols = this.symbolManager.findSymbolsInFile(
+        params.textDocument.uri,
+      );
+      this.logger.debug(
+        () =>
+          `Symbols in file ${params.textDocument.uri}: ${fileSymbols.length} symbols found`,
+      );
 
       let symbol = await this.symbolManager.getSymbolAtPosition(
         params.textDocument.uri,
@@ -104,7 +122,7 @@ export class HoverProcessingService implements IHoverProcessor {
       if (!symbol) {
         this.logger.debug(() => {
           const parserPos = formatPosition(parserPosition, 'parser');
-          return `No symbol found at parser position ${parserPos}`;
+          return `No symbol found at parser position ${parserPos} (file has ${fileSymbols.length} symbols indexed)`;
         });
 
         // Check if missing artifact resolution is enabled
@@ -125,7 +143,11 @@ export class HoverProcessingService implements IHoverProcessor {
         return null;
       }
 
-      this.logger.debug(() => `Found symbol: ${symbol.name} (${symbol.kind})`);
+      this.logger.debug(
+        () =>
+          `Found symbol: ${symbol?.name} (${symbol?.kind}) at position ` +
+          `${parserPosition.line}:${parserPosition.character}`,
+      );
 
       const hover = await this.createHoverInformation(symbol);
 

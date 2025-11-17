@@ -304,12 +304,14 @@ export class LSPQueueManager {
       await this.ensureSchedulerInitialized();
 
       // Get configuration from service registry
-      const priority = options.priority || this.serviceRegistry.getPriority(type);
+      const requestedPriority = options.priority;
+      const registryPriority = this.serviceRegistry.getPriority(type);
+      const priority = requestedPriority || registryPriority;
       const timeout = options.timeout || this.serviceRegistry.getTimeout(type);
 
       this.logger.debug(
         () =>
-          `Submitting ${type} request with priority ${priority}`,
+          `Submitting ${type} request with priority ${priority} (requested: ${requestedPriority ?? 'none'}, registry: ${registryPriority})`,
       );
 
       // Create QueuedItem from request
