@@ -11,7 +11,6 @@ import {
   Context,
   Effect,
   Queue,
-  Fiber,
   Ref,
   Deferred,
   Layer,
@@ -25,6 +24,8 @@ import {
   ScheduledTask,
   PriorityScheduler,
   PrioritySchedulerConfigShape,
+  QueuedItem,
+  SchedulerMetrics,
 } from '../types/queue';
 
 import { PrioritySchedulerConfig } from './priority-scheduler-config';
@@ -34,26 +35,16 @@ export class PrioritySchedulerService extends Context.Tag('PriorityScheduler')<
   PriorityScheduler
 >() {}
 
-interface QueuedItem {
-  readonly id: string;
-  readonly eff: Effect.Effect<unknown, unknown, unknown>;
-  readonly fiberDeferred: Deferred.Deferred<
-    Fiber.RuntimeFiber<any, any>,
-    never
-  >;
-  readonly requestType?: string;
-}
-
 interface InternalState {
-  readonly queues: ReadonlyMap<Priority, Queue.Queue<QueuedItem>>;
+  readonly queues: ReadonlyMap<
+    Priority,
+    Queue.Queue<QueuedItem<unknown, unknown, unknown>>
+  >;
   readonly tasksStarted: Ref.Ref<number>;
   readonly tasksCompleted: Ref.Ref<number>;
   readonly tasksDropped: Ref.Ref<number>;
   readonly shutdownSignal: Deferred.Deferred<void, void>;
 }
-
-const genId = (p = 'task') =>
-  `${p}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 function controllerLoop(
   state: InternalState,
@@ -135,24 +126,16 @@ function controllerLoop(
 /** Build scheduler with config + state */
 function makeScheduler(state: InternalState): PriorityScheduler {
   return {
-    offer(prio, eff, requestType) {
+    offer<A, E, R>(priority: Priority, queuedItem: QueuedItem<A, E, R>) {
       return Effect.gen(function* (_) {
-        const q = state.queues.get(prio)!;
-        const fiberDeferred = yield* _(
-          Deferred.make<Fiber.RuntimeFiber<any, any>, never>(),
-        );
-
-        const item: QueuedItem = {
-          id: genId(),
-          eff,
-          fiberDeferred,
-          requestType,
-        };
+        const q = state.queues.get(priority)!;
 
         // Retry until queue has space (since interface doesn't allow errors)
         let ok = false;
         while (!ok) {
-          ok = yield* _(Queue.offer(q, item));
+          ok = yield* _(
+            Queue.offer(q, queuedItem as QueuedItem<unknown, unknown, unknown>),
+          );
           if (!ok) {
             yield* _(Effect.sleep(Duration.millis(1)));
           }
@@ -160,12 +143,11 @@ function makeScheduler(state: InternalState): PriorityScheduler {
 
         // Return immediately after queuing - fiber is an Effect that resolves when available
         return {
-          fiber: Deferred.await(fiberDeferred),
-          requestType,
-        } satisfies ScheduledTask;
+          fiber: Deferred.await(queuedItem.fiberDeferred),
+          requestType: queuedItem.requestType,
+        } satisfies ScheduledTask<A, E, R>;
       });
     },
-
     metrics: Effect.gen(function* (_) {
       const ms: any = {};
 
@@ -178,9 +160,8 @@ function makeScheduler(state: InternalState): PriorityScheduler {
         tasksStarted: yield* _(Ref.get(state.tasksStarted)),
         tasksCompleted: yield* _(Ref.get(state.tasksCompleted)),
         tasksDropped: yield* _(Ref.get(state.tasksDropped)),
-      };
+      } satisfies SchedulerMetrics;
     }),
-
     shutdown: Deferred.succeed(state.shutdownSignal, undefined),
   };
 }
@@ -190,9 +171,19 @@ export const PrioritySchedulerLive = Layer.scoped(
   Effect.gen(function* (_) {
     const cfg = yield* _(PrioritySchedulerConfig);
 
-    const queues = new Map<Priority, Queue.Queue<QueuedItem>>();
+    const queues = new Map<
+      Priority,
+      Queue.Queue<QueuedItem<unknown, unknown, unknown>>
+    >();
     for (const p of AllPriorities) {
-      queues.set(p, yield* _(Queue.bounded<QueuedItem>(cfg.queueCapacity)));
+      queues.set(
+        p,
+        yield* _(
+          Queue.bounded<QueuedItem<unknown, unknown, unknown>>(
+            cfg.queueCapacity,
+          ),
+        ),
+      );
     }
 
     const state: InternalState = {

@@ -7,13 +7,51 @@
  */
 
 import { Effect, Layer, Fiber, Deferred, Ref } from 'effect';
-import { Priority, AllPriorities, ScheduledTask } from '../../src/types/queue';
+import {
+  Priority,
+  AllPriorities,
+  ScheduledTask,
+  QueuedItem,
+  PriorityScheduler,
+} from '../../src/types/queue';
 import {
   PrioritySchedulerService,
   PrioritySchedulerLive,
 } from '../../src/queue/priority-scheduler';
 import { PrioritySchedulerConfig } from '../../src/queue/priority-scheduler-config';
 import { PrioritySchedulerOO } from '../../src/queue/priority-scheduler-oo';
+
+// Helper to generate unique IDs
+const genId = (p = 'task') =>
+  `${p}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+// Helper to create a QueuedItem
+const createQueuedItem = <A, E, R>(
+  eff: Effect.Effect<A, E, R>,
+  requestType?: string,
+): Effect.Effect<QueuedItem<A, E, R>, never, never> =>
+  Effect.gen(function* () {
+    const fiberDeferred = yield* Deferred.make<Fiber.RuntimeFiber<A, E>, E>();
+    return {
+      id: genId(),
+      eff,
+      fiberDeferred,
+      requestType,
+    };
+  });
+
+// Helper to offer a task to a scheduler
+const offerTask = <A, E, R>(
+  scheduler: PriorityScheduler,
+  priority: Priority,
+  eff: Effect.Effect<A, E, R>,
+  requestType?: string,
+): Effect.Effect<ScheduledTask<A, E, R>, never, never> =>
+  Effect.gen(function* () {
+    const queuedItem = yield* createQueuedItem(eff, requestType);
+    const result = yield* scheduler.offer(priority, queuedItem);
+    return result;
+  });
 
 // Helper to await fiber with timeout and extract value
 const awaitFiber = <A>(fiber: Fiber.RuntimeFiber<A, any>) =>
@@ -46,10 +84,8 @@ describe('PriorityScheduler', () => {
 
       const program = Effect.gen(function* () {
         const scheduler = yield* PrioritySchedulerService;
-        const result = yield* scheduler.offer(
-          Priority.Normal,
-          Effect.succeed(42),
-        );
+        const queuedItem = yield* createQueuedItem(Effect.succeed(42));
+        const result = yield* scheduler.offer(Priority.Normal, queuedItem);
         // Wait for the fiber to complete with timeout
         const fiber = yield* result.fiber;
         const fiberResult = yield* awaitFiber(fiber);
@@ -75,12 +111,12 @@ describe('PriorityScheduler', () => {
       const startTime = Date.now();
       const program = Effect.gen(function* () {
         const scheduler = yield* PrioritySchedulerService;
-        const result = yield* scheduler.offer(
-          Priority.Normal,
+        const queuedItem = yield* createQueuedItem(
           Effect.sleep('100 millis').pipe(
             Effect.andThen(Effect.succeed('done')),
           ),
         );
+        const result = yield* scheduler.offer(Priority.Normal, queuedItem);
         const fiber = yield* result.fiber;
         yield* awaitFiber(fiber);
         return Date.now() - startTime;
@@ -105,11 +141,11 @@ describe('PriorityScheduler', () => {
 
       const program = Effect.gen(function* () {
         const scheduler = yield* PrioritySchedulerService;
-        const result = yield* scheduler.offer(
-          Priority.Normal,
+        const queuedItem = yield* createQueuedItem(
           Effect.succeed('test'),
           'hover',
         );
+        const result = yield* scheduler.offer(Priority.Normal, queuedItem);
         return result.requestType;
       });
 
@@ -139,15 +175,14 @@ describe('PriorityScheduler', () => {
         // Create a barrier to ensure both tasks are queued before processing
         const barrier = yield* Deferred.make<void, never>();
         const tasksRef = yield* Ref.make<{
-          high?: ScheduledTask;
-          immediate?: ScheduledTask;
+          high?: ScheduledTask<string, never, never>;
+          immediate?: ScheduledTask<string, never, never>;
         }>({});
 
         // Submit high priority first, but delay its execution start
         yield* Effect.fork(
-          scheduler
-            .offer(
-              Priority.High,
+          Effect.gen(function* () {
+            const queuedItem = yield* createQueuedItem(
               Effect.gen(function* () {
                 // Wait for barrier before starting execution
                 yield* Deferred.await(barrier);
@@ -155,12 +190,10 @@ describe('PriorityScheduler', () => {
                 yield* Effect.sleep('10 millis');
                 return 'high';
               }),
-            )
-            .pipe(
-              Effect.tap((task) =>
-                Ref.update(tasksRef, (t) => ({ ...t, high: task })),
-              ),
-            ),
+            );
+            const task = yield* scheduler.offer(Priority.High, queuedItem);
+            yield* Ref.update(tasksRef, (t) => ({ ...t, high: task }));
+          }),
         );
 
         // Small yield to allow High to be queued
@@ -168,21 +201,18 @@ describe('PriorityScheduler', () => {
 
         // Submit immediate priority second
         yield* Effect.fork(
-          scheduler
-            .offer(
-              Priority.Immediate,
+          Effect.gen(function* () {
+            const queuedItem = yield* createQueuedItem(
               Effect.gen(function* () {
                 // Wait for barrier before starting execution
                 yield* Deferred.await(barrier);
                 executionOrder.push(Priority.Immediate);
                 return 'immediate';
               }),
-            )
-            .pipe(
-              Effect.tap((task) =>
-                Ref.update(tasksRef, (t) => ({ ...t, immediate: task })),
-              ),
-            ),
+            );
+            const task = yield* scheduler.offer(Priority.Immediate, queuedItem);
+            yield* Ref.update(tasksRef, (t) => ({ ...t, immediate: task }));
+          }),
         );
 
         // Wait a bit for both offers to complete (tasks dequeued and forked)
@@ -233,7 +263,9 @@ describe('PriorityScheduler', () => {
 
         // Create a barrier to ensure all tasks are queued before processing
         const barrier = yield* Deferred.make<void, never>();
-        const tasksRef = yield* Ref.make<ScheduledTask[]>([]);
+        const tasksRef = yield* Ref.make<ScheduledTask<string, never, never>[]>(
+          [],
+        );
 
         // Submit all tasks in reverse priority order, but delay execution
         const priorities = [
@@ -248,22 +280,21 @@ describe('PriorityScheduler', () => {
         yield* Effect.all(
           priorities.map((priority) =>
             Effect.fork(
-              scheduler
-                .offer(
-                  priority,
-                  Effect.gen(function* () {
-                    // Wait for barrier before starting execution
-                    yield* Deferred.await(barrier);
-                    executionOrder.push(priority);
-                    yield* Effect.sleep('5 millis');
-                    return priority.toString();
-                  }),
-                )
-                .pipe(
-                  Effect.tap((task) =>
-                    Ref.update(tasksRef, (tasks) => [...tasks, task]),
-                  ),
+              offerTask(
+                scheduler,
+                priority,
+                Effect.gen(function* () {
+                  // Wait for barrier before starting execution
+                  yield* Deferred.await(barrier);
+                  executionOrder.push(priority);
+                  yield* Effect.sleep('5 millis');
+                  return priority.toString();
+                }),
+              ).pipe(
+                Effect.tap((task) =>
+                  Ref.update(tasksRef, (tasks) => [...tasks, task]),
                 ),
+              ),
             ),
           ),
         );
@@ -323,7 +354,8 @@ describe('PriorityScheduler', () => {
 
         // Submit multiple normal priority tasks
         const tasks = yield* Effect.all([
-          scheduler.offer(
+          offerTask(
+            scheduler,
             Priority.Normal,
             Effect.gen(function* () {
               executionOrder.push(1);
@@ -331,7 +363,8 @@ describe('PriorityScheduler', () => {
               return 1;
             }),
           ),
-          scheduler.offer(
+          offerTask(
+            scheduler,
             Priority.Normal,
             Effect.gen(function* () {
               executionOrder.push(2);
@@ -339,7 +372,8 @@ describe('PriorityScheduler', () => {
               return 2;
             }),
           ),
-          scheduler.offer(
+          offerTask(
+            scheduler,
             Priority.Normal,
             Effect.gen(function* () {
               executionOrder.push(3);
@@ -387,27 +421,32 @@ describe('PriorityScheduler', () => {
         const scheduler = yield* PrioritySchedulerService;
 
         // Create refs to track tasks
-        const highTasksRef = yield* Ref.make<ScheduledTask[]>([]);
-        const lowTaskRef = yield* Ref.make<ScheduledTask | null>(null);
+        const highTasksRef = yield* Ref.make<
+          ScheduledTask<string, never, never>[]
+        >([]);
+        const lowTaskRef = yield* Ref.make<ScheduledTask<
+          string,
+          never,
+          never
+        > | null>(null);
 
         // Submit many high priority tasks (forked to queue without waiting)
         yield* Effect.all(
           Array.from({ length: 5 }, (_, i) =>
             Effect.fork(
-              scheduler
-                .offer(
-                  Priority.High,
-                  Effect.gen(function* () {
-                    executionOrder.push(Priority.High);
-                    yield* Effect.sleep('5 millis');
-                    return `high-${i}`;
-                  }),
-                )
-                .pipe(
-                  Effect.tap((task) =>
-                    Ref.update(highTasksRef, (tasks) => [...tasks, task]),
-                  ),
+              offerTask(
+                scheduler,
+                Priority.High,
+                Effect.gen(function* () {
+                  executionOrder.push(Priority.High);
+                  yield* Effect.sleep('5 millis');
+                  return `high-${i}`;
+                }),
+              ).pipe(
+                Effect.tap((task) =>
+                  Ref.update(highTasksRef, (tasks) => [...tasks, task]),
                 ),
+              ),
             ),
           ),
         );
@@ -417,15 +456,14 @@ describe('PriorityScheduler', () => {
 
         // Submit a low priority task (forked to queue without waiting)
         yield* Effect.fork(
-          scheduler
-            .offer(
-              Priority.Low,
-              Effect.gen(function* () {
-                executionOrder.push(Priority.Low);
-                return 'low';
-              }),
-            )
-            .pipe(Effect.tap((task) => Ref.update(lowTaskRef, () => task))),
+          offerTask(
+            scheduler,
+            Priority.Low,
+            Effect.gen(function* () {
+              executionOrder.push(Priority.Low);
+              return 'low';
+            }),
+          ).pipe(Effect.tap((task) => Ref.update(lowTaskRef, () => task))),
         );
 
         // Wait a bit for all offers to complete (tasks dequeued and forked)
@@ -487,7 +525,8 @@ describe('PriorityScheduler', () => {
 
         // Submit tasks that will trigger starvation relief
         const tasks = yield* Effect.all([
-          scheduler.offer(
+          offerTask(
+            scheduler,
             Priority.High,
             Effect.gen(function* () {
               executionOrder.push(Priority.High);
@@ -495,7 +534,8 @@ describe('PriorityScheduler', () => {
               return 'high1';
             }),
           ),
-          scheduler.offer(
+          offerTask(
+            scheduler,
             Priority.High,
             Effect.gen(function* () {
               executionOrder.push(Priority.High);
@@ -503,14 +543,16 @@ describe('PriorityScheduler', () => {
               return 'high2';
             }),
           ),
-          scheduler.offer(
+          offerTask(
+            scheduler,
             Priority.Low,
             Effect.gen(function* () {
               executionOrder.push(Priority.Low);
               return 'low';
             }),
           ),
-          scheduler.offer(
+          offerTask(
+            scheduler,
             Priority.High,
             Effect.gen(function* () {
               executionOrder.push(Priority.High);
@@ -555,9 +597,13 @@ describe('PriorityScheduler', () => {
         const scheduler = yield* PrioritySchedulerService;
 
         // Submit tasks to different priority queues
-        yield* scheduler.offer(Priority.Immediate, Effect.succeed('immediate'));
-        yield* scheduler.offer(Priority.High, Effect.succeed('high'));
-        yield* scheduler.offer(Priority.Normal, Effect.succeed('normal'));
+        yield* offerTask(
+          scheduler,
+          Priority.Immediate,
+          Effect.succeed('immediate'),
+        );
+        yield* offerTask(scheduler, Priority.High, Effect.succeed('high'));
+        yield* offerTask(scheduler, Priority.Normal, Effect.succeed('normal'));
 
         // Wait a bit for processing
         yield* Effect.sleep('50 millis');
@@ -600,7 +646,7 @@ describe('PriorityScheduler', () => {
         // Submit multiple tasks
         const tasks = yield* Effect.all(
           Array.from({ length: 5 }, () =>
-            scheduler.offer(Priority.Normal, Effect.succeed('task')),
+            offerTask(scheduler, Priority.Normal, Effect.succeed('task')),
           ),
         );
 
@@ -650,11 +696,16 @@ describe('PriorityScheduler', () => {
         const scheduler = yield* PrioritySchedulerService;
 
         // Submit one task to each priority
-        yield* scheduler.offer(Priority.Immediate, Effect.succeed('immediate'));
-        yield* scheduler.offer(Priority.High, Effect.succeed('high'));
-        yield* scheduler.offer(Priority.Normal, Effect.succeed('normal'));
-        yield* scheduler.offer(Priority.Low, Effect.succeed('low'));
-        yield* scheduler.offer(
+        yield* offerTask(
+          scheduler,
+          Priority.Immediate,
+          Effect.succeed('immediate'),
+        );
+        yield* offerTask(scheduler, Priority.High, Effect.succeed('high'));
+        yield* offerTask(scheduler, Priority.Normal, Effect.succeed('normal'));
+        yield* offerTask(scheduler, Priority.Low, Effect.succeed('low'));
+        yield* offerTask(
+          scheduler,
           Priority.Background,
           Effect.succeed('background'),
         );
@@ -694,7 +745,8 @@ describe('PriorityScheduler', () => {
         // Submit more tasks than capacity
         const tasks = yield* Effect.all(
           Array.from({ length: 5 }, (_, i) =>
-            scheduler.offer(
+            offerTask(
+              scheduler,
               Priority.Normal,
               Effect.gen(function* () {
                 yield* Effect.sleep('10 millis');
@@ -740,7 +792,8 @@ describe('PriorityScheduler', () => {
         // Submit tasks that will fill the queue
         const tasks = yield* Effect.all(
           Array.from({ length: 3 }, (_, i) =>
-            scheduler.offer(
+            offerTask(
+              scheduler,
               Priority.Normal,
               Effect.gen(function* () {
                 yield* Effect.sleep('20 millis');
@@ -783,10 +836,10 @@ describe('PriorityScheduler', () => {
       const program = Effect.gen(function* () {
         const scheduler = yield* PrioritySchedulerService;
 
-        const result = yield* scheduler.offer(
-          Priority.Normal,
+        const queuedItem = yield* createQueuedItem(
           Effect.fail(new Error('Task error')) as Effect.Effect<never>,
         );
+        const result = yield* scheduler.offer(Priority.Normal, queuedItem);
 
         // Await the fiber directly - it should fail
         const fiber = yield* result.fiber;
@@ -822,15 +875,21 @@ describe('PriorityScheduler', () => {
         const scheduler = yield* PrioritySchedulerService;
 
         // Submit a failing task
+        const failQueuedItem = yield* createQueuedItem(
+          Effect.fail(new Error('Fail')) as Effect.Effect<never>,
+        );
         const failTask = yield* scheduler.offer(
           Priority.Normal,
-          Effect.fail(new Error('Fail')) as Effect.Effect<never>,
+          failQueuedItem,
         );
 
         // Submit a succeeding task
+        const successQueuedItem = yield* createQueuedItem(
+          Effect.succeed('success'),
+        );
         const successTask = yield* scheduler.offer(
           Priority.Normal,
-          Effect.succeed('success'),
+          successQueuedItem,
         );
 
         // Wait for the success task first
@@ -877,7 +936,7 @@ describe('PriorityScheduler', () => {
         const scheduler = yield* PrioritySchedulerService;
 
         // Submit a task
-        yield* scheduler.offer(Priority.Normal, Effect.succeed('task'));
+        yield* offerTask(scheduler, Priority.Normal, Effect.succeed('task'));
 
         // Shutdown
         yield* scheduler.shutdown;
@@ -905,9 +964,12 @@ describe('PriorityScheduler', () => {
         const scheduler = yield* PrioritySchedulerService;
 
         // Submit a task before shutdown - this should complete
+        const beforeQueuedItem = yield* createQueuedItem(
+          Effect.succeed('before-shutdown'),
+        );
         const beforeShutdownTask = yield* scheduler.offer(
           Priority.Normal,
-          Effect.succeed('before-shutdown'),
+          beforeQueuedItem,
         );
 
         // Wait for it to complete
@@ -920,9 +982,12 @@ describe('PriorityScheduler', () => {
         // Try to submit a task after shutdown
         // offer() will return immediately, but the fiber Effect won't resolve because
         // the deferred is never fulfilled (controller loop stopped)
+        const afterQueuedItem = yield* createQueuedItem(
+          Effect.succeed('after-shutdown'),
+        );
         const afterShutdownTask = yield* scheduler.offer(
           Priority.Normal,
-          Effect.succeed('after-shutdown'),
+          afterQueuedItem,
         );
 
         // Race getting the fiber (which waits for deferred) with a timeout
@@ -975,7 +1040,7 @@ describe('PriorityScheduler', () => {
         const scheduler = yield* PrioritySchedulerService;
 
         // Submit a quick task
-        yield* scheduler.offer(Priority.Normal, Effect.succeed('quick'));
+        yield* offerTask(scheduler, Priority.Normal, Effect.succeed('quick'));
 
         // Wait a bit - scheduler should be idle
         yield* Effect.sleep('50 millis');
@@ -1010,7 +1075,8 @@ describe('PriorityScheduler', () => {
         // Submit multiple tasks that take time
         const tasks = yield* Effect.all(
           Array.from({ length: 5 }, () =>
-            scheduler.offer(
+            offerTask(
+              scheduler,
               Priority.Normal,
               Effect.gen(function* () {
                 yield* Effect.sleep('50 millis');
@@ -1056,12 +1122,14 @@ describe('PriorityScheduler', () => {
       const program = Effect.gen(function* () {
         const scheduler = yield* PrioritySchedulerService;
 
-        const result1 = yield* scheduler.offer(
+        const result1 = yield* offerTask(
+          scheduler,
           Priority.Normal,
           Effect.succeed('result1'),
           'hover',
         );
-        const result2 = yield* scheduler.offer(
+        const result2 = yield* offerTask(
+          scheduler,
           Priority.Normal,
           Effect.succeed('result2'),
           'completion',
@@ -1116,7 +1184,10 @@ describe.skip('PrioritySchedulerOO', () => {
         idleSleepMs: 1,
       });
 
-      const result = await scheduler.offer(Priority.Normal, Effect.succeed(42));
+      const queuedItem = await Effect.runPromise(
+        createQueuedItem(Effect.succeed(42)),
+      );
+      const result = await scheduler.offer(Priority.Normal, queuedItem);
 
       expect(result).toBeDefined();
       expect(result.fiber).toBeDefined();
@@ -1134,11 +1205,10 @@ describe.skip('PrioritySchedulerOO', () => {
         idleSleepMs: 1,
       });
 
-      const result = await scheduler.offer(
-        Priority.Normal,
-        Effect.succeed('test'),
-        'hover',
+      const queuedItem = await Effect.runPromise(
+        createQueuedItem(Effect.succeed('test'), 'hover'),
       );
+      const result = await scheduler.offer(Priority.Normal, queuedItem);
 
       expect(result.requestType).toBe('hover');
     });
@@ -1151,10 +1221,10 @@ describe.skip('PrioritySchedulerOO', () => {
       });
 
       for (const priority of AllPriorities) {
-        const result = await scheduler.offer(
-          priority,
-          Effect.succeed(`result-${priority}`),
+        const queuedItem = await Effect.runPromise(
+          createQueuedItem(Effect.succeed(`result-${priority}`)),
         );
+        const result = await scheduler.offer(priority, queuedItem);
 
         expect(result).toBeDefined();
         const fiber = await Effect.runPromise(result.fiber);
@@ -1190,7 +1260,10 @@ describe.skip('PrioritySchedulerOO', () => {
       const initialMetrics = await scheduler.metrics();
       const initialStarted = initialMetrics.tasksStarted;
 
-      await scheduler.offer(Priority.Normal, Effect.succeed('task'));
+      const queuedItem = await Effect.runPromise(
+        createQueuedItem(Effect.succeed('task')),
+      );
+      await scheduler.offer(Priority.Normal, queuedItem);
       await Effect.runPromise(Effect.sleep('50 millis'));
 
       const finalMetrics = await scheduler.metrics();
@@ -1209,7 +1282,10 @@ describe.skip('PrioritySchedulerOO', () => {
         idleSleepMs: 1,
       });
 
-      await scheduler.offer(Priority.Normal, Effect.succeed('task'));
+      const queuedItem = await Effect.runPromise(
+        createQueuedItem(Effect.succeed('task')),
+      );
+      await scheduler.offer(Priority.Normal, queuedItem);
       await scheduler.shutdown();
 
       // Shutdown should complete without error
@@ -1238,9 +1314,12 @@ describe.skip('PrioritySchedulerOO', () => {
         idleSleepMs: 1,
       });
 
-      const promises = Array.from({ length: 10 }, (_, i) =>
-        scheduler.offer(Priority.Normal, Effect.succeed(`task-${i}`)),
-      );
+      const promises = Array.from({ length: 10 }, async (_, i) => {
+        const queuedItem = await Effect.runPromise(
+          createQueuedItem(Effect.succeed(`task-${i}`)),
+        );
+        return scheduler.offer(Priority.Normal, queuedItem);
+      });
 
       const results = await Promise.all(promises);
 
@@ -1263,31 +1342,43 @@ describe.skip('PrioritySchedulerOO', () => {
 
       // Submit tasks in reverse priority order (Background, High, Immediate)
       // to test that the scheduler respects priority even when submitted in wrong order
+      const backgroundQueuedItem = await Effect.runPromise(
+        createQueuedItem(
+          Effect.gen(function* () {
+            executionOrder.push(Priority.Background);
+            yield* Effect.sleep('10 millis');
+            return 'background';
+          }),
+        ),
+      );
       const backgroundTask = scheduler.offer(
         Priority.Background,
-        Effect.gen(function* () {
-          executionOrder.push(Priority.Background);
-          yield* Effect.sleep('10 millis');
-          return 'background';
-        }),
+        backgroundQueuedItem,
       );
 
-      const highTask = scheduler.offer(
-        Priority.High,
-        Effect.gen(function* () {
-          executionOrder.push(Priority.High);
-          yield* Effect.sleep('10 millis');
-          return 'high';
-        }),
+      const highQueuedItem = await Effect.runPromise(
+        createQueuedItem(
+          Effect.gen(function* () {
+            executionOrder.push(Priority.High);
+            yield* Effect.sleep('10 millis');
+            return 'high';
+          }),
+        ),
       );
+      const highTask = scheduler.offer(Priority.High, highQueuedItem);
 
+      const immediateQueuedItem = await Effect.runPromise(
+        createQueuedItem(
+          Effect.gen(function* () {
+            executionOrder.push(Priority.Immediate);
+            yield* Effect.sleep('10 millis');
+            return 'immediate';
+          }),
+        ),
+      );
       const immediateTask = scheduler.offer(
         Priority.Immediate,
-        Effect.gen(function* () {
-          executionOrder.push(Priority.Immediate);
-          yield* Effect.sleep('10 millis');
-          return 'immediate';
-        }),
+        immediateQueuedItem,
       );
 
       // Submit all concurrently but don't await individual offers

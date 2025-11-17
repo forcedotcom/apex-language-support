@@ -7,7 +7,7 @@
  */
 // src/queue/priority-scheduler-oo.ts
 import { Effect, Layer } from 'effect';
-import { Priority, ScheduledTask } from '../types/queue';
+import { Priority, QueuedItem, ScheduledTask } from '../types/queue';
 import {
   PrioritySchedulerLive,
   PrioritySchedulerService,
@@ -28,15 +28,14 @@ export class PrioritySchedulerOO {
   }
 
   /** Schedule a task */
-  offer<A>(
+  offer<A = never, E = never, R = never>(
     priority: Priority,
-    eff: Effect.Effect<A>,
-    requestType?: string,
-  ): Promise<ScheduledTask> {
+    queuedItem: QueuedItem<A, E, R>,
+  ): Promise<ScheduledTask<A, E, R>> {
     return Effect.runPromise(
       Effect.gen(function* () {
-        const sched = yield* PrioritySchedulerService;
-        return yield* sched.offer(priority, eff, requestType);
+        const scheduler = yield* PrioritySchedulerService;
+        return yield* scheduler.offer(priority, queuedItem);
       }).pipe(Effect.provide(this.layer)),
     );
   }
@@ -45,8 +44,8 @@ export class PrioritySchedulerOO {
   metrics(): Promise<any> {
     return Effect.runPromise(
       Effect.gen(function* () {
-        const sched = yield* PrioritySchedulerService;
-        return yield* sched.metrics;
+        const scheduler = yield* PrioritySchedulerService;
+        return yield* scheduler.metrics;
       }).pipe(Effect.provide(this.layer)),
     );
   }
@@ -55,8 +54,8 @@ export class PrioritySchedulerOO {
   shutdown(): Promise<void> {
     return Effect.runPromise(
       Effect.gen(function* () {
-        const sched = yield* PrioritySchedulerService;
-        return yield* sched.shutdown;
+        const scheduler = yield* PrioritySchedulerService;
+        return yield* scheduler.shutdown;
       }).pipe(Effect.provide(this.layer)),
     );
   }

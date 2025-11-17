@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Effect, Fiber } from 'effect';
+import { Deferred, Effect, Fiber } from 'effect';
 
 export const enum Priority {
   Immediate = 0,
@@ -24,8 +24,8 @@ export const AllPriorities = [
   Priority.Background,
 ] as const;
 
-export interface ScheduledTask {
-  readonly fiber: Effect.Effect<Fiber.RuntimeFiber<any, any>, never>;
+export interface ScheduledTask<A = never, E = never, R = never> {
+  readonly fiber: Effect.Effect<Fiber.RuntimeFiber<A, E>, E, R>;
   readonly requestType?: string;
 }
 
@@ -37,11 +37,10 @@ export interface SchedulerMetrics {
 }
 
 export interface PriorityScheduler {
-  offer: <A>(
-    prio: Priority,
-    task: Effect.Effect<A>,
-    requestType?: string,
-  ) => Effect.Effect<ScheduledTask>;
+  offer: <A, E, R>(
+    priority: Priority,
+    queuedItem: QueuedItem<A, E, R>,
+  ) => Effect.Effect<ScheduledTask<A, E, R>>;
   metrics: Effect.Effect<SchedulerMetrics>;
   shutdown: Effect.Effect<void>;
 }
@@ -50,4 +49,11 @@ export interface PrioritySchedulerConfigShape {
   queueCapacity: number;
   maxHighPriorityStreak: number;
   idleSleepMs: number;
+}
+
+export interface QueuedItem<A = never, E = never, R = never> {
+  readonly id: string;
+  readonly eff: Effect.Effect<A, E, R>;
+  readonly fiberDeferred: Deferred.Deferred<Fiber.RuntimeFiber<A, E>, E>;
+  readonly requestType?: string;
 }
