@@ -13,10 +13,12 @@ import {
 } from '@salesforce/apex-lsp-shared';
 import {
   ISymbolManager,
-  ServiceRegistry,
-  GenericLSPRequestQueue,
-  LSPRequestType,
 } from '@salesforce/apex-lsp-parser-ast';
+import {
+  ServiceRegistry,
+  LSPRequestType,
+} from '../../src/registry';
+import { GenericLSPRequestQueue } from '../../src/queue';
 // eslint-disable-next-line max-len
 import { BackgroundProcessingInitializationService } from '../../src/services/BackgroundProcessingInitializationService';
 

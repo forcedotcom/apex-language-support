@@ -74,6 +74,8 @@ export * from './semantics/annotations/index';
 // Export protocol handler utilities
 export * from './types/ProtocolHandler';
 
-// Export queue and registry components
-export * from './queue';
-export * from './registry';
+// Export queue components
+export * from './queue/priority-scheduler';
+export * from './queue/priority-scheduler-oo';
+export * from './queue/priority-scheduler-config';
+export * from './queue/priority-scheduler-utils';

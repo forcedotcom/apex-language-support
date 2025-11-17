@@ -6,18 +6,15 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Effect, Layer } from 'effect';
 import {
   getLogger,
   RequestPriority,
   ApexSettingsManager,
 } from '@salesforce/apex-lsp-shared';
-import {
-  ISymbolManager,
-  ServiceRegistry,
-  GenericLSPRequestQueue,
-  LSPRequestType,
-} from '@salesforce/apex-lsp-parser-ast';
+import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import { ServiceRegistry } from '../../src/registry';
+import { GenericLSPRequestQueue, LSPRequestType } from '../../src/queue';
+// eslint-disable-next-line max-len
 import { BackgroundProcessingInitializationService } from '../../src/services/BackgroundProcessingInitializationService';
 
 // Mock the logger and settings manager
@@ -95,6 +92,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
       findFilesForSymbol: jest.fn(),
       resolveSymbol: jest.fn(),
       getAllSymbolsForCompletion: jest.fn(),
+      getAllReferencesInFile: jest.fn(),
       findReferencesTo: jest.fn(),
       findReferencesFrom: jest.fn(),
       findRelatedSymbols: jest.fn(),
@@ -110,6 +108,10 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
       getAncestorChain: jest.fn(),
       getReferencesAtPosition: jest.fn(),
       getSymbolAtPosition: jest.fn(),
+      setCommentAssociations: jest.fn(),
+      getBlockCommentsForSymbol: jest.fn(),
+      getSymbolAtPositionWithinScope: jest.fn(),
+      createResolutionContextWithRequestType: jest.fn(),
     };
 
     serviceRegistry = new ServiceRegistry();
@@ -143,18 +145,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
     });
 
     it('should accept custom settings', () => {
-      const customSettings = {
-        maxConcurrency: {
-          IMMEDIATE: 10,
-          HIGH: 5,
-          NORMAL: 3,
-          LOW: 1,
-        },
-        yieldInterval: 25,
-        yieldDelayMs: 10,
-      };
-
-      const queue = new GenericLSPRequestQueue(serviceRegistry, customSettings);
+      const queue = new GenericLSPRequestQueue(serviceRegistry);
       queues.push(queue);
       expect(queue).toBeDefined();
     });
@@ -254,16 +245,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
       serviceRegistry.register(immediateHandler);
       serviceRegistry.register(normalHandler);
 
-      const queue = new GenericLSPRequestQueue(serviceRegistry, {
-        maxConcurrency: {
-          IMMEDIATE: 10,
-          HIGH: 5,
-          NORMAL: 5,
-          LOW: 1,
-        },
-        yieldInterval: 100,
-        yieldDelayMs: 10,
-      });
+      const queue = new GenericLSPRequestQueue(serviceRegistry);
       queues.push(queue);
 
       // Submit requests in reverse priority order
@@ -303,16 +285,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
 
       serviceRegistry.register(handler);
 
-      const queue = new GenericLSPRequestQueue(serviceRegistry, {
-        maxConcurrency: {
-          IMMEDIATE: 2,
-          HIGH: 5,
-          NORMAL: 5,
-          LOW: 1,
-        },
-        yieldInterval: 100,
-        yieldDelayMs: 10,
-      });
+      const queue = new GenericLSPRequestQueue(serviceRegistry);
       queues.push(queue);
 
       // Submit more requests than concurrency limit
@@ -417,16 +390,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
 
       serviceRegistry.register(handler);
 
-      const queue = new GenericLSPRequestQueue(serviceRegistry, {
-        maxConcurrency: {
-          IMMEDIATE: 10,
-          HIGH: 5,
-          NORMAL: 5,
-          LOW: 1,
-        },
-        yieldInterval: 100,
-        yieldDelayMs: 10,
-      });
+      const queue = new GenericLSPRequestQueue(serviceRegistry);
       queues.push(queue);
 
       await expect(
@@ -496,16 +460,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
 
       serviceRegistry.register(handler);
 
-      const queue = new GenericLSPRequestQueue(serviceRegistry, {
-        maxConcurrency: {
-          IMMEDIATE: 10,
-          HIGH: 5,
-          NORMAL: 5,
-          LOW: 1,
-        },
-        yieldInterval: 1, // Yield after every task
-        yieldDelayMs: 10,
-      });
+      const queue = new GenericLSPRequestQueue(serviceRegistry);
       queues.push(queue);
 
       // Submit multiple requests

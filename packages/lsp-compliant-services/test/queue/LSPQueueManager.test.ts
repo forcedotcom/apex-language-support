@@ -10,10 +10,12 @@ import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import {
   ISymbolManager,
   ApexSymbolProcessingManager,
-  LSPQueueManager,
-  ServiceRegistry,
-  LSPRequestType,
 } from '@salesforce/apex-lsp-parser-ast';
+import {
+  LSPQueueManager,
+  LSPRequestType,
+} from '../../src/queue';
+import { ServiceRegistry } from '../../src/registry';
 import { BackgroundProcessingInitializationService } from '../../src/services/BackgroundProcessingInitializationService';
 
 // Mock the logger and settings manager

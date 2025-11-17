@@ -6,17 +6,14 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ApexSymbolProcessingManager } from '../symbols/ApexSymbolProcessingManager';
-import { ISymbolManager } from '../types/ISymbolManager';
+import { RequestPriority, getLogger } from '@salesforce/apex-lsp-shared';
 import {
-  LSPRequestType,
-  RequestPriority,
-  LSPQueueStats,
-} from './LSPRequestQueue';
-import { ServiceRegistry } from '../registry/ServiceRegistry';
+  ApexSymbolProcessingManager,
+  ISymbolManager,
+} from '@salesforce/apex-lsp-parser-ast';
+import { LSPRequestType, LSPQueueStats } from './LSPRequestQueue';
 import { GenericLSPRequestQueue } from './GenericLSPRequestQueue';
-import { GenericRequestHandler } from '../registry/GenericRequestHandler';
+import { ServiceRegistry, GenericRequestHandler } from '../registry';
 
 /**
  * Dependencies interface for LSPQueueManager initialization

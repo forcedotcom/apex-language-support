@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Deferred, Effect, Fiber } from 'effect';
+import { Deferred, Effect, Fiber, Queue, Ref, Scope } from 'effect';
 
 export const enum Priority {
   Immediate = 0,
@@ -57,3 +57,35 @@ export interface QueuedItem<A = never, E = never, R = never> {
   readonly fiberDeferred: Deferred.Deferred<Fiber.RuntimeFiber<A, E>, E>;
   readonly requestType?: string;
 }
+
+// Internal state types for scheduler implementation
+export interface SchedulerInternalState {
+  readonly queues: ReadonlyMap<
+    Priority,
+    Queue.Queue<QueuedItem<unknown, unknown, unknown>>
+  >;
+  readonly tasksStarted: Ref.Ref<number>;
+  readonly tasksCompleted: Ref.Ref<number>;
+  readonly tasksDropped: Ref.Ref<number>;
+  readonly shutdownSignal: Deferred.Deferred<void, void>;
+}
+
+// Internal state types for scheduler utils
+export interface SchedulerUtilsUninitializedState {
+  readonly type: 'uninitialized';
+  readonly config?: PrioritySchedulerConfigShape;
+}
+
+export interface SchedulerUtilsInitializedState {
+  readonly type: 'initialized';
+  // Built scheduler service instance - stored for reuse
+  // This ensures singleton behavior - the same scheduler instance is used across all calls
+  readonly scheduler: PriorityScheduler;
+  // Persistent scope that keeps the scheduler alive across calls
+  // This ensures singleton behavior for the scoped layer
+  readonly scope: Scope.Scope;
+}
+
+export type SchedulerUtilsState =
+  | SchedulerUtilsUninitializedState
+  | SchedulerUtilsInitializedState;

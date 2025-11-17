@@ -26,6 +26,7 @@ import {
   PrioritySchedulerConfigShape,
   QueuedItem,
   SchedulerMetrics,
+  SchedulerInternalState,
 } from '../types/queue';
 
 import { PrioritySchedulerConfig } from './priority-scheduler-config';
@@ -35,19 +36,8 @@ export class PrioritySchedulerService extends Context.Tag('PriorityScheduler')<
   PriorityScheduler
 >() {}
 
-interface InternalState {
-  readonly queues: ReadonlyMap<
-    Priority,
-    Queue.Queue<QueuedItem<unknown, unknown, unknown>>
-  >;
-  readonly tasksStarted: Ref.Ref<number>;
-  readonly tasksCompleted: Ref.Ref<number>;
-  readonly tasksDropped: Ref.Ref<number>;
-  readonly shutdownSignal: Deferred.Deferred<void, void>;
-}
-
 function controllerLoop(
-  state: InternalState,
+  state: SchedulerInternalState,
   cfg: PrioritySchedulerConfigShape,
 ): Effect.Effect<void, never, never> {
   return Effect.gen(function* (_) {
@@ -124,7 +114,7 @@ function controllerLoop(
 }
 
 /** Build scheduler with config + state */
-function makeScheduler(state: InternalState): PriorityScheduler {
+function makeScheduler(state: SchedulerInternalState): PriorityScheduler {
   return {
     offer<A, E, R>(priority: Priority, queuedItem: QueuedItem<A, E, R>) {
       return Effect.gen(function* (_) {
@@ -162,7 +152,9 @@ function makeScheduler(state: InternalState): PriorityScheduler {
         tasksDropped: yield* _(Ref.get(state.tasksDropped)),
       } satisfies SchedulerMetrics;
     }),
-    shutdown: Deferred.succeed(state.shutdownSignal, undefined),
+    shutdown: Deferred.succeed(state.shutdownSignal, undefined).pipe(
+      Effect.asVoid,
+    ),
   };
 }
 
@@ -186,7 +178,7 @@ export const PrioritySchedulerLive = Layer.scoped(
       );
     }
 
-    const state: InternalState = {
+    const state: SchedulerInternalState = {
       queues,
       tasksStarted: yield* _(Ref.make(0)),
       tasksCompleted: yield* _(Ref.make(0)),

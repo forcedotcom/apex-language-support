@@ -32,11 +32,8 @@ import { dispatchProcessOnDiagnostic } from './handlers/DiagnosticHandler';
 import { dispatchProcessOnFoldingRange } from './handlers/FoldingRangeHandler';
 import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
 import { HoverHandler } from './handlers/HoverHandler';
-import {
-  ISymbolManager,
-  LSPQueueManager,
-  LSPQueueManagerDependencies,
-} from '@salesforce/apex-lsp-parser-ast';
+import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import { LSPQueueManager, LSPQueueManagerDependencies } from './queue';
 import { ServiceFactory } from './factories/ServiceFactory';
 import { DEFAULT_SERVICE_CONFIG } from './config/ServiceConfiguration';
 import { ApexStorageManager } from './storage/ApexStorageManager';
@@ -97,8 +94,11 @@ export * from './storage/ApexStorageInterface';
 // Export ApexLib
 export * from './apexlib';
 
-// Export LSP queue system (re-export from apex-parser-ast)
-export * from '@salesforce/apex-lsp-parser-ast';
+// Export LSP queue system
+export * from './queue';
+
+// Export registry components
+export * from './registry';
 
 /**
  * Initialize LSPQueueManager with required dependencies

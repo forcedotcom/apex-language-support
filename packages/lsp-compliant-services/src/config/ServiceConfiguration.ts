@@ -6,10 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  LSPRequestType,
-  RequestPriority,
-} from '@salesforce/apex-lsp-parser-ast';
+import { LSPRequestType } from '../queue';
+import { RequestPriority } from '@salesforce/apex-lsp-shared';
 
 /**
  * Service configuration interface

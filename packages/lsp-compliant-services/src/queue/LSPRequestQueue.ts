@@ -6,11 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ISymbolManager } from '../types/ISymbolManager';
+import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { RequestPriority } from '@salesforce/apex-lsp-shared';
-
-// Re-export RequestPriority for backward compatibility
-export type { RequestPriority };
 
 /**
  * LSP request types with their priority levels

@@ -6,12 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ISymbolManager } from '../types/ISymbolManager';
-import { ServiceRegistry } from '../registry/ServiceRegistry';
+import { RequestPriority, getLogger } from '@salesforce/apex-lsp-shared';
+import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import { ServiceRegistry } from '../registry';
 import {
   LSPRequestType,
-  RequestPriority,
   LSPRequestTask,
   LSPQueueStats,
 } from './LSPRequestQueue';

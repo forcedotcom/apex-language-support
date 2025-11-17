@@ -12,7 +12,7 @@ import {
   ApexSettingsManager,
 } from '@salesforce/apex-lsp-shared';
 import type { FindMissingArtifactParams } from '@salesforce/apex-lsp-shared';
-import { LSPQueueManager } from '@salesforce/apex-lsp-parser-ast';
+import { LSPQueueManager } from '../queue';
 import type { Connection } from 'vscode-languageserver';
 
 /**
