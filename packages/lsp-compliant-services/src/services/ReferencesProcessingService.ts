@@ -109,6 +109,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
               () =>
                 `Workspace load status: ${loadResult.status}, continuing with reference search`,
             );
+            return [];
           } else {
             this.logger.debug(
               () => 'Workspace loaded, searching for references',

@@ -294,7 +294,8 @@ export class LCSAdapter {
         await dispatchProcessOnOpenDocument(open);
       } catch (error) {
         this.logger.error(
-          () => `Error processing open: ${formattedError(error)}`,
+          () =>
+            `Error processing open for ${open.document.uri}: ${formattedError(error)}`,
         );
       }
     });
@@ -305,7 +306,8 @@ export class LCSAdapter {
         await dispatchProcessOnChangeDocument(change);
       } catch (error) {
         this.logger.error(
-          () => `Error processing change: ${formattedError(error)}`,
+          () =>
+            `Error processing change for ${change.document.uri}: ${formattedError(error)}`,
         );
       }
     });
@@ -315,7 +317,8 @@ export class LCSAdapter {
         await dispatchProcessOnSaveDocument(save);
       } catch (error) {
         this.logger.error(
-          () => `Error processing save: ${formattedError(error)}`,
+          () =>
+            `Error processing save for ${save.document.uri}: ${formattedError(error)}`,
         );
       }
     });
@@ -325,7 +328,8 @@ export class LCSAdapter {
         await dispatchProcessOnCloseDocument(close);
       } catch (error) {
         this.logger.error(
-          () => `Error processing close: ${formattedError(error)}`,
+          () =>
+            `Error processing close for ${close.document.uri}: ${formattedError(error)}`,
         );
       }
     });

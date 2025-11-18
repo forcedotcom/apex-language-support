@@ -76,8 +76,6 @@ export * from './semantics/annotations/index';
 export * from './types/ProtocolHandler';
 
 // Export queue components
-export * from './queue/priority-scheduler';
-export * from './queue/priority-scheduler-oo';
 export * from './queue/priority-scheduler-config';
 export * from './queue/priority-scheduler-utils';
 // Export queue types (includes Priority and AllPriorities re-exported from shared)

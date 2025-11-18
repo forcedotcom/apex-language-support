@@ -77,7 +77,10 @@ export class DocumentChangeProcessingService
 
       return [];
     } catch (error) {
-      this.logger.error(() => `Error processing document change: ${error}`);
+      this.logger.error(
+        () =>
+          `Error processing document change for ${event.document.uri}: ${error}`,
+      );
       return [];
     }
   }

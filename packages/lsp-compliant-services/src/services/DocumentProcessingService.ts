@@ -117,7 +117,10 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     );
 
     if (result.errors.length > 0) {
-      this.logger.debug(() => `Errors parsing document: ${result.errors}`);
+      this.logger.debug(
+        () =>
+          `Errors parsing document ${event.document.uri}: ${result.errors}`,
+      );
       const diagnostics = getDiagnosticsFromErrors(result.errors);
       return diagnostics;
     }
@@ -155,7 +158,8 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     );
 
     this.logger.debug(
-      () => `Document change symbol processing queued: ${taskId}`,
+      () =>
+        `Document change symbol processing queued: ${taskId} for ${document.uri}`,
     );
 
     // Monitor task completion and update cache
@@ -178,13 +182,17 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     try {
       await definitionUpserter.upsertDefinition(event);
     } catch (error) {
-      this.logger.error(() => `Error upserting definitions: ${error}`);
+      this.logger.error(
+        () => `Error upserting definitions for ${document.uri}: ${error}`,
+      );
     }
 
     try {
       await referencesUpserter.upsertReferences(event);
     } catch (error) {
-      this.logger.error(() => `Error upserting references: ${error}`);
+      this.logger.error(
+        () => `Error upserting references for ${document.uri}: ${error}`,
+      );
     }
 
     // Cache the parse result for future requests with same version
@@ -305,7 +313,8 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
 
     if (result.errors.length > 0) {
       this.logger.debug(
-        () => `Errors parsing document: ${JSON.stringify(result.errors)}`,
+        () =>
+          `Errors parsing document ${document.uri}: ${JSON.stringify(result.errors)}`,
       );
       const diagnostics = getDiagnosticsFromErrors(result.errors);
       return diagnostics;
@@ -344,7 +353,8 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     );
 
     this.logger.debug(
-      () => `Document open symbol processing queued: ${taskId}`,
+      () =>
+        `Document open symbol processing queued: ${taskId} for ${document.uri}`,
     );
 
     // Monitor task completion and update cache
@@ -371,7 +381,8 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     } catch (error) {
       // Log errors but don't throw - document processing should continue
       this.logger.error(
-        () => `Error upserting definitions/references: ${error}`,
+        () =>
+          `Error upserting definitions/references for ${document.uri}: ${error}`,
       );
     }
 
@@ -430,7 +441,8 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
       } catch (error) {
         // Best-effort; log but don't throw
         this.logger.debug(
-          () => `Error monitoring task ${taskId} completion: ${error}`,
+          () =>
+            `Error monitoring task ${taskId} completion for ${fileUri}: ${error}`,
         );
       }
     };

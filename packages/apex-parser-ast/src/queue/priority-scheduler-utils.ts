@@ -17,6 +17,7 @@ import {
   Chunk,
   Fiber,
 } from 'effect';
+
 import { getLogger, Priority } from '@salesforce/apex-lsp-shared';
 import {
   PriorityScheduler,
@@ -151,295 +152,311 @@ function controllerLoop(
 
   return Effect.gen(function* () {
     let streak = 0;
+    let _loopIteration = 0;
 
     while (true) {
       if (yield* Deferred.isDone(state.shutdownSignal)) return;
 
-      let executed = false;
-      const currentTime = Date.now();
+      yield* Effect.gen(function* () {
+        let executed = false;
+        const currentTime = Date.now();
 
-      // Periodic summary logging (every 30 seconds)
-      if (currentTime - lastSummaryLogTime >= SUMMARY_LOG_INTERVAL_MS) {
-        yield* logQueueSummary(state, cfg, logger);
-        lastSummaryLogTime = currentTime;
-      }
-
-      for (const p of AllPrioritiesWithCritical) {
-        const q = state.queues.get(p)!;
-        const queueSize = yield* Queue.size(q);
-        const oldSize = lastQueueSizes.get(p) || 0;
-
-        // Log significant queue size changes (>10 items)
-        if (Math.abs(queueSize - oldSize) > 10) {
-          logger.debug(
-            () =>
-              `[QUEUE] ${getPriorityName(p)} queue size changed: ${oldSize} -> ${queueSize}`,
-          );
-        }
-        lastQueueSizes.set(p, queueSize);
-
-        // Check threshold alerts
-        const utilization = (queueSize / state.queueCapacity) * 100;
-        if (utilization >= 90) {
-          logger.warn(
-            () =>
-              `[QUEUE] CRITICAL: ${getPriorityName(p)} queue at ${utilization.toFixed(1)}% ` +
-              `capacity (${queueSize}/${state.queueCapacity})`,
-          );
-        } else if (utilization >= 75) {
-          logger.warn(
-            () =>
-              `[QUEUE] WARNING: ${getPriorityName(p)} queue at ${utilization.toFixed(1)}% ` +
-              `capacity (${queueSize}/${state.queueCapacity})`,
-          );
+        // Periodic summary logging (every 30 seconds)
+        if (currentTime - lastSummaryLogTime >= SUMMARY_LOG_INTERVAL_MS) {
+          yield* logQueueSummary(state, cfg, logger);
+          lastSummaryLogTime = currentTime;
         }
 
-        const chunk = yield* Queue.takeUpTo(q, 1);
-
-        if (!Chunk.isEmpty(chunk)) {
-          const item = Chunk.unsafeHead(chunk)!;
-          executed = true;
-          streak++;
-
-          const requestType = item.requestType || 'unknown';
-          const startTime = Date.now();
-
-          // Track requestType
-          yield* Ref.update(state.requestTypeCounts, (counts) => {
-            const priorityCounts = counts.get(p) || new Map<string, number>();
-            const currentCount = priorityCounts.get(requestType) || 0;
-            priorityCounts.set(requestType, currentCount + 1);
-            counts.set(p, priorityCounts);
-            return counts;
-          });
-
-          // Increment active task count
-          yield* Ref.update(state.activeTaskCounts, (counts) => {
-            const current = counts.get(p) || 0;
-            counts.set(p, current + 1);
-            return counts;
-          });
-
-          yield* Ref.update(state.tasksStarted, (n) => n + 1);
-
-          // Log task start
-          logger.debug(
-            () =>
-              `[QUEUE] Started ${requestType} with priority ${getPriorityName(p)}`,
-          );
-
-          // Fork the effect to run it in the background
-          const fiber = yield* Effect.fork(
-            item.eff.pipe(
-              Effect.ensuring(
-                Effect.gen(function* () {
-                  const duration = Date.now() - startTime;
-                  // Decrement active task count
-                  yield* Ref.update(state.activeTaskCounts, (counts) => {
-                    const current = counts.get(p) || 0;
-                    counts.set(p, Math.max(0, current - 1));
-                    return counts;
-                  });
-                  yield* Ref.update(state.tasksCompleted, (n) => n + 1);
-                  // Log task completion
-                  logger.debug(
-                    () =>
-                      `[QUEUE] Completed ${requestType} with priority ${getPriorityName(p)}, duration: ${duration}ms`,
-                  );
-                }),
-              ),
-              Effect.catchAll((error) =>
-                Effect.gen(function* () {
-                  // Decrement active task count on error
-                  yield* Ref.update(state.activeTaskCounts, (counts) => {
-                    const current = counts.get(p) || 0;
-                    counts.set(p, Math.max(0, current - 1));
-                    return counts;
-                  });
-                  logger.error(
-                    () =>
-                      `[QUEUE] Failed ${requestType} with priority ${getPriorityName(p)}, error: ${error}`,
-                  );
-                  return Effect.fail(error);
-                }),
-              ),
-            ),
-          );
-
-          // Fulfill the deferred so the fiber Effect in ScheduledTask can resolve
-          yield* Deferred.succeed(item.fiberDeferred, fiber);
-
-          break;
-        }
-      }
-
-      // If no tasks were executed, sleep briefly before checking again
-      if (!executed) {
-        streak = 0;
-        yield* Effect.sleep(Duration.millis(cfg.idleSleepMs));
-      }
-
-      // Notify callback if registered and metrics have changed (only send updates when state changes)
-      const callback = yield* Ref.get(queueStateCallbackRef);
-      if (callback) {
-        try {
-          // Get current metrics synchronously for callback
-          const currentMetrics = yield* getCurrentMetrics(state);
-          const lastSent = yield* Ref.get(lastSentMetricsRef);
-
-          // Only send notification if metrics have changed (avoid sending when idle)
-          if (metricsChanged(lastSent, currentMetrics)) {
-            callback(currentMetrics);
-            // Store the metrics we just sent
-            yield* Ref.set(lastSentMetricsRef, currentMetrics);
-          }
-        } catch (error) {
-          // Don't let callback errors break the scheduler loop
-          logger.debug(() => `Queue state callback error: ${error}`);
-        }
-      }
-
-      // Enhanced starvation relief - process multiple lower-priority tasks based on queue imbalance
-      if (streak > cfg.maxHighPriorityStreak) {
-        logger.debug(
-          () =>
-            `[QUEUE] Starvation relief triggered after ${streak} high-priority tasks`,
-        );
-        streak = 0;
-
-        // Calculate queue sizes to determine relief batch size
-        const queueSizes = new Map<number, number>();
         for (const p of AllPrioritiesWithCritical) {
           const q = state.queues.get(p)!;
-          queueSizes.set(p, yield* Queue.size(q));
-        }
+          const queueSize = yield* Queue.size(q);
+          const oldSize = lastQueueSizes.get(p) || 0;
 
-        // Calculate total high-priority queue size (Critical + Immediate + High)
-        const highPriorityTotal =
-          (queueSizes.get(Critical) || 0) +
-          (queueSizes.get(Priority.Immediate) || 0) +
-          (queueSizes.get(Priority.High) || 0);
+          // Log significant queue size changes (>10 items)
+          if (Math.abs(queueSize - oldSize) > 10) {
+            logger.debug(
+              () =>
+                `[QUEUE] ${getPriorityName(p)} queue size changed: ${oldSize} -> ${queueSize}`,
+            );
+          }
+          lastQueueSizes.set(p, queueSize);
 
-        // Calculate total lower-priority queue size (Normal + Low + Background)
-        const lowerPriorityTotal =
-          (queueSizes.get(Priority.Normal) || 0) +
-          (queueSizes.get(Priority.Low) || 0) +
-          (queueSizes.get(Priority.Background) || 0);
-
-        // Determine batch size: process at least 5-10% of lower-priority queue, minimum 3-5 tasks
-        const reliefBatchSize = Math.max(
-          Math.min(Math.ceil(lowerPriorityTotal * 0.1), 10),
-          Math.min(5, lowerPriorityTotal),
-        );
-
-        logger.debug(
-          () =>
-            `[QUEUE] Relief batch size: ${reliefBatchSize} (high: ${highPriorityTotal}, low: ${lowerPriorityTotal})`,
-        );
-
-        let reliefProcessed = 0;
-
-        // Process lower-priority tasks in reverse order (Background -> Low -> Normal)
-        for (let i = AllPrioritiesWithCritical.length - 1; i >= 0; i--) {
-          const p = AllPrioritiesWithCritical[i];
-          // Skip Critical, Immediate, and High priorities in relief
-          if (
-            p === Critical ||
-            p === Priority.Immediate ||
-            p === Priority.High
-          ) {
-            continue;
+          // Check threshold alerts
+          const utilization = (queueSize / state.queueCapacity) * 100;
+          if (utilization >= 90) {
+            logger.warn(
+              () =>
+                `[QUEUE] CRITICAL: ${getPriorityName(p)} queue at ${utilization.toFixed(1)}% ` +
+                `capacity (${queueSize}/${state.queueCapacity})`,
+            );
+          } else if (utilization >= 75) {
+            logger.warn(
+              () =>
+                `[QUEUE] WARNING: ${getPriorityName(p)} queue at ${utilization.toFixed(1)}% ` +
+                `capacity (${queueSize}/${state.queueCapacity})`,
+            );
           }
 
-          if (reliefProcessed >= reliefBatchSize) {
-            break;
-          }
-
-          const q = state.queues.get(p)!;
-          const remainingBatch = reliefBatchSize - reliefProcessed;
-          const chunk = yield* Queue.takeUpTo(q, remainingBatch);
+          const chunk = yield* Queue.takeUpTo(q, 1);
 
           if (!Chunk.isEmpty(chunk)) {
-            const items = Chunk.toReadonlyArray(chunk);
-            reliefProcessed += items.length;
+            const item = Chunk.unsafeHead(chunk)!;
+            executed = true;
+            streak++;
 
-            for (const item of items) {
-              const requestType = item.requestType || 'unknown';
-              const startTime = Date.now();
+            const requestType = item.requestType || 'unknown';
+            const startTime = Date.now();
 
-              // Track requestType
-              yield* Ref.update(state.requestTypeCounts, (counts) => {
-                const priorityCounts =
-                  counts.get(p) || new Map<string, number>();
-                const currentCount = priorityCounts.get(requestType) || 0;
-                priorityCounts.set(requestType, currentCount + 1);
-                counts.set(p, priorityCounts);
-                return counts;
-              });
+            // Track requestType
+            yield* Ref.update(state.requestTypeCounts, (counts) => {
+              const priorityCounts = counts.get(p) || new Map<string, number>();
+              const currentCount = priorityCounts.get(requestType) || 0;
+              priorityCounts.set(requestType, currentCount + 1);
+              counts.set(p, priorityCounts);
+              return counts;
+            });
 
-              // Increment active task count
-              yield* Ref.update(state.activeTaskCounts, (counts) => {
-                const current = counts.get(p) || 0;
-                counts.set(p, current + 1);
-                return counts;
-              });
+            // Increment active task count
+            yield* Ref.update(state.activeTaskCounts, (counts) => {
+              const current = counts.get(p) || 0;
+              counts.set(p, current + 1);
+              return counts;
+            });
 
-              yield* Ref.update(state.tasksStarted, (n) => n + 1);
+            yield* Ref.update(state.tasksStarted, (n) => n + 1);
 
-              logger.debug(
-                () =>
-                  `[QUEUE] Started ${requestType} with priority ${getPriorityName(p)} (starvation relief)`,
-              );
+            // Log task start
+            logger.debug(
+              () =>
+                `[QUEUE] Started ${requestType} (id: ${item.id}) with priority ${getPriorityName(p)}`,
+            );
 
-              const fiber = yield* Effect.fork(
-                item.eff.pipe(
-                  Effect.ensuring(
-                    Effect.gen(function* () {
-                      const duration = Date.now() - startTime;
-                      // Decrement active task count
-                      yield* Ref.update(state.activeTaskCounts, (counts) => {
-                        const current = counts.get(p) || 0;
-                        counts.set(p, Math.max(0, current - 1));
-                        return counts;
-                      });
-                      yield* Ref.update(state.tasksCompleted, (n) => n + 1);
-                      logger.debug(
-                        () =>
-                          `[QUEUE] Completed ${requestType} with priority ${getPriorityName(p)}, ` +
-                          `duration: ${duration}ms`,
-                      );
-                    }),
-                  ),
-                  Effect.catchAll((error) =>
-                    Effect.gen(function* () {
-                      // Decrement active task count on error
-                      yield* Ref.update(state.activeTaskCounts, (counts) => {
-                        const current = counts.get(p) || 0;
-                        counts.set(p, Math.max(0, current - 1));
-                        return counts;
-                      });
-                      logger.error(
-                        () =>
-                          `[QUEUE] Failed ${requestType} with priority ${getPriorityName(p)}, error: ${error}`,
-                      );
-                      return Effect.fail(error);
-                    }),
-                  ),
+            // Fork the effect to run it in the background
+            const fiber = yield* Effect.fork(
+              item.eff.pipe(
+                Effect.ensuring(
+                  Effect.gen(function* () {
+                    const duration = Date.now() - startTime;
+                    // Decrement active task count
+                    yield* Ref.update(state.activeTaskCounts, (counts) => {
+                      const current = counts.get(p) || 0;
+                      counts.set(p, Math.max(0, current - 1));
+                      return counts;
+                    });
+                    yield* Ref.update(state.tasksCompleted, (n) => n + 1);
+                    // Log task completion
+                    logger.debug(
+                      () =>
+                        `[QUEUE] Completed ${requestType} (id: ${item.id}) with priority ${getPriorityName(p)}, ` +
+                        `duration: ${duration}ms`,
+                    );
+                  }),
                 ),
-              );
+                Effect.catchAll((error) =>
+                  Effect.gen(function* () {
+                    // Decrement active task count on error
+                    yield* Ref.update(state.activeTaskCounts, (counts) => {
+                      const current = counts.get(p) || 0;
+                      counts.set(p, Math.max(0, current - 1));
+                      return counts;
+                    });
+                    logger.error(
+                      () =>
+                        `[QUEUE] Failed ${requestType} (id: ${item.id}) ` +
+                        `with priority ${getPriorityName(p)}, error: ${error}`,
+                    );
+                    return Effect.fail(error);
+                  }),
+                ),
+              ),
+            );
 
-              yield* Deferred.succeed(item.fiberDeferred, fiber);
-            }
+            // Fulfill the deferred so the fiber Effect in ScheduledTask can resolve
+            yield* Deferred.succeed(item.fiberDeferred, fiber);
+
+            break;
           }
         }
 
-        if (reliefProcessed > 0) {
-          logger.debug(
-            () =>
-              `[QUEUE] Starvation relief processed ${reliefProcessed} lower-priority tasks`,
-          );
+        // If no tasks were executed, sleep briefly before checking again
+        if (!executed) {
+          streak = 0;
+          yield* Effect.sleep(Duration.millis(cfg.idleSleepMs));
         }
-      }
+
+        // Notify callback if registered and metrics have changed (only send updates when state changes)
+        const callback = yield* Ref.get(queueStateCallbackRef);
+        if (callback) {
+          try {
+            // Get current metrics synchronously for callback
+            const currentMetrics = yield* getCurrentMetrics(state);
+            const lastSent = yield* Ref.get(lastSentMetricsRef);
+
+            // Only send notification if metrics have changed (avoid sending when idle)
+            if (metricsChanged(lastSent, currentMetrics)) {
+              callback(currentMetrics);
+              // Store the metrics we just sent
+              yield* Ref.set(lastSentMetricsRef, currentMetrics);
+            }
+          } catch (error) {
+            // Don't let callback errors break the scheduler loop
+            logger.debug(() => `Queue state callback error: ${error}`);
+          }
+        }
+
+        // Enhanced starvation relief - process multiple lower-priority tasks based on queue imbalance
+        if (streak > cfg.maxHighPriorityStreak) {
+          yield* Effect.gen(function* () {
+            logger.debug(
+              () =>
+                `[QUEUE] Starvation relief triggered after ${streak} high-priority tasks`,
+            );
+            streak = 0;
+
+            // Calculate queue sizes to determine relief batch size
+            const queueSizes = new Map<number, number>();
+            for (const p of AllPrioritiesWithCritical) {
+              const q = state.queues.get(p)!;
+              queueSizes.set(p, yield* Queue.size(q));
+            }
+
+            // Calculate total high-priority queue size (Critical + Immediate + High)
+            const highPriorityTotal =
+              (queueSizes.get(Critical) || 0) +
+              (queueSizes.get(Priority.Immediate) || 0) +
+              (queueSizes.get(Priority.High) || 0);
+
+            // Calculate total lower-priority queue size (Normal + Low + Background)
+            const lowerPriorityTotal =
+              (queueSizes.get(Priority.Normal) || 0) +
+              (queueSizes.get(Priority.Low) || 0) +
+              (queueSizes.get(Priority.Background) || 0);
+
+            // Determine batch size: process at least 5-10% of lower-priority queue, minimum 3-5 tasks
+            const reliefBatchSize = Math.max(
+              Math.min(Math.ceil(lowerPriorityTotal * 0.1), 10),
+              Math.min(5, lowerPriorityTotal),
+            );
+
+            logger.debug(
+              () =>
+                `[QUEUE] Relief batch size: ${reliefBatchSize} ` +
+                `(high: ${highPriorityTotal}, low: ${lowerPriorityTotal})`,
+            );
+
+            let reliefProcessed = 0;
+
+            // Process lower-priority tasks in reverse order (Background -> Low -> Normal)
+            for (let i = AllPrioritiesWithCritical.length - 1; i >= 0; i--) {
+              const p = AllPrioritiesWithCritical[i];
+              // Skip Critical, Immediate, and High priorities in relief
+              if (
+                p === Critical ||
+                p === Priority.Immediate ||
+                p === Priority.High
+              ) {
+                continue;
+              }
+
+              if (reliefProcessed >= reliefBatchSize) {
+                break;
+              }
+
+              const q = state.queues.get(p)!;
+              const remainingBatch = reliefBatchSize - reliefProcessed;
+              const chunk = yield* Queue.takeUpTo(q, remainingBatch);
+
+              if (!Chunk.isEmpty(chunk)) {
+                const items = Chunk.toReadonlyArray(chunk);
+                reliefProcessed += items.length;
+
+                for (const item of items) {
+                  const requestType = item.requestType || 'unknown';
+                  const startTime = Date.now();
+
+                  // Track requestType
+                  yield* Ref.update(state.requestTypeCounts, (counts) => {
+                    const priorityCounts =
+                      counts.get(p) || new Map<string, number>();
+                    const currentCount = priorityCounts.get(requestType) || 0;
+                    priorityCounts.set(requestType, currentCount + 1);
+                    counts.set(p, priorityCounts);
+                    return counts;
+                  });
+
+                  // Increment active task count
+                  yield* Ref.update(state.activeTaskCounts, (counts) => {
+                    const current = counts.get(p) || 0;
+                    counts.set(p, current + 1);
+                    return counts;
+                  });
+
+                  yield* Ref.update(state.tasksStarted, (n) => n + 1);
+
+                  logger.debug(
+                    () =>
+                      `[QUEUE] Started ${requestType} (id: ${item.id}) ` +
+                      `with priority ${getPriorityName(p)} (starvation relief)`,
+                  );
+
+                  const fiber = yield* Effect.fork(
+                    item.eff.pipe(
+                      Effect.ensuring(
+                        Effect.gen(function* () {
+                          const duration = Date.now() - startTime;
+                          // Decrement active task count
+                          yield* Ref.update(
+                            state.activeTaskCounts,
+                            (counts) => {
+                              const current = counts.get(p) || 0;
+                              counts.set(p, Math.max(0, current - 1));
+                              return counts;
+                            },
+                          );
+                          yield* Ref.update(state.tasksCompleted, (n) => n + 1);
+                          logger.debug(
+                            () =>
+                              `[QUEUE] Completed ${requestType} (id: ${item.id}) ` +
+                              `with priority ${getPriorityName(p)}, duration: ${duration}ms`,
+                          );
+                        }),
+                      ),
+                      Effect.catchAll((error) =>
+                        Effect.gen(function* () {
+                          // Decrement active task count on error
+                          yield* Ref.update(
+                            state.activeTaskCounts,
+                            (counts) => {
+                              const current = counts.get(p) || 0;
+                              counts.set(p, Math.max(0, current - 1));
+                              return counts;
+                            },
+                          );
+                          logger.error(
+                            () =>
+                              `[QUEUE] Failed ${requestType} (id: ${item.id}) ` +
+                              `with priority ${getPriorityName(p)}, error: ${error}`,
+                          );
+                          return Effect.fail(error);
+                        }),
+                      ),
+                    ),
+                  );
+
+                  yield* Deferred.succeed(item.fiberDeferred, fiber);
+                }
+              }
+            }
+
+            if (reliefProcessed > 0) {
+              logger.debug(
+                () =>
+                  `[QUEUE] Starvation relief processed ${reliefProcessed} lower-priority tasks`,
+              );
+            }
+          });
+        }
+      });
     }
   }) as Effect.Effect<void, never, never>;
 }
@@ -575,6 +592,9 @@ const lastSentMetricsRef = Ref.unsafeMake<SchedulerMetrics | undefined>(
   undefined,
 );
 
+// Global Ref to store task ID counter for guaranteed unique IDs
+const taskIdCounterRef = Ref.unsafeMake<number>(0);
+
 // Default config values matching PrioritySchedulerConfigLive
 const DEFAULT_CONFIG = {
   queueCapacity: 64,
@@ -696,7 +716,7 @@ export function initialize(
           const queueSize = yield* Queue.size(q);
           logger.debug(
             () =>
-              `[QUEUE] Enqueued ${requestType} with priority ${getPriorityName(priority)}, ` +
+              `[QUEUE] Enqueued ${requestType} (id: ${queuedItem.id}) with priority ${getPriorityName(priority)}, ` +
               `queue size: ${queueSize}/${schedulerState.queueCapacity}`,
           );
 
@@ -862,6 +882,8 @@ export function reset(): Effect.Effect<void, never, never> {
     });
     yield* Ref.set(queueStateCallbackRef, undefined);
     yield* Ref.set(lastSentMetricsRef, undefined);
+    // Reset task ID counter on reset
+    yield* Ref.set(taskIdCounterRef, 0);
   });
 }
 
@@ -879,8 +901,10 @@ export function createQueuedItem<A, E, R>(
 ): Effect.Effect<QueuedItem<A, E, R>, never, never> {
   return Effect.gen(function* () {
     const fiberDeferred = yield* Deferred.make<Fiber.RuntimeFiber<A, E>, E>();
+    // Generate guaranteed unique ID using atomic counter
+    const taskId = yield* Ref.updateAndGet(taskIdCounterRef, (n) => n + 1);
     return {
-      id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      id: `task-${taskId}`,
       eff,
       fiberDeferred,
       requestType,

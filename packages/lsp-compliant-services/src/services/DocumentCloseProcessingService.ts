@@ -63,7 +63,10 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
       const storageManager = ApexStorageManager.getInstance();
       storage = storageManager.getStorage();
     } catch (error) {
-      this.logger.error(() => `Error getting storage manager: ${error}`);
+      this.logger.error(
+        () =>
+          `Error getting storage manager for ${event.document.uri}: ${error}`,
+      );
       storage = null;
     }
 
@@ -73,7 +76,8 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
         await storage.deleteDocument(event.document.uri);
       } catch (error) {
         this.logger.error(
-          () => `Error deleting document from storage: ${error}`,
+          () =>
+            `Error deleting document ${event.document.uri} from storage: ${error}`,
         );
       }
     }
@@ -83,7 +87,8 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
       this.symbolManager.removeFile(event.document.uri);
     } catch (error) {
       this.logger.error(
-        () => `Error removing file from symbol manager: ${error}`,
+        () =>
+          `Error removing file ${event.document.uri} from symbol manager: ${error}`,
       );
     }
 
