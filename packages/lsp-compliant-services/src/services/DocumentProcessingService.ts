@@ -13,12 +13,19 @@ import {
   CompilerService,
   ApexSymbolCollectorListener,
   ApexSymbolProcessingManager,
+  createQueuedItem,
+  offer,
+  SchedulerInitializationService,
+  type CompilationResult,
+  type CompilationResultWithComments,
+  type CompilationResultWithAssociations,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   LoggerInterface,
   ApexSettingsManager,
   Priority,
 } from '@salesforce/apex-lsp-shared';
+import { Effect, Fiber } from 'effect';
 
 import {
   getDiagnosticsFromErrors,
@@ -43,6 +50,69 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
       'comments' in (result as any) &&
       'commentAssociations' in (result as any)
     );
+  }
+
+  /**
+   * Compile document (pure Effect, can be queued)
+   * Wraps compilerService.compile() in Effect for non-blocking operation
+   */
+  private compileDocument(
+    document: TextDocument,
+    listener: ApexSymbolCollectorListener,
+    options: any,
+  ): Effect.Effect<
+    | CompilationResult<SymbolTable>
+    | CompilationResultWithComments<SymbolTable>
+    | CompilationResultWithAssociations<SymbolTable>,
+    never,
+    never
+  > {
+    const logger = this.logger;
+    return Effect.gen(function* () {
+      // Yield control before starting compilation
+      yield* Effect.yieldNow();
+
+      const compilerService = new CompilerService();
+      let result: CompilationResult<SymbolTable> | CompilationResultWithComments<SymbolTable> | CompilationResultWithAssociations<SymbolTable>;
+      
+      try {
+        result = yield* Effect.sync(() =>
+          compilerService.compile(
+            document.getText(),
+            document.uri,
+            listener,
+            options,
+          ),
+        );
+      } catch (error: unknown) {
+        logger.error(() => `Failed to compile document ${document.uri}: ${error}`);
+        // Return error result
+        result = {
+          fileName: document.uri,
+          result: null,
+          errors: [
+            {
+              type: 'semantic' as any,
+              severity: 'error' as any,
+              message:
+                error instanceof Error ? error.message : String(error),
+              line: 0,
+              column: 0,
+              fileUri: document.uri,
+            },
+          ],
+          warnings: [],
+        } as CompilationResult<SymbolTable>;
+      }
+
+      logger.debug(
+        () =>
+          `Compilation completed for ${document.uri}: ${result.errors.length} errors, ` +
+          `${result.warnings.length} warnings`,
+      );
+
+      return result;
+    });
   }
 
   /**
@@ -291,113 +361,199 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     // Store the document in storage for later retrieval by other handlers
     await storage.setDocument(document.uri, document);
 
-    // Create a symbol collector listener
-    const table = new SymbolTable();
-    const listener = new ApexSymbolCollectorListener(table);
-    const compilerService = new CompilerService();
+    // Queue compilation task (non-blocking)
+    try {
+      // Ensure scheduler is initialized
+      const schedulerService = SchedulerInitializationService.getInstance();
+      await schedulerService.ensureInitialized();
 
-    // Parse the document
-    const settingsManager = ApexSettingsManager.getInstance();
-    const fileSize = document.getText().length;
-    const options = settingsManager.getCompilationOptions(
-      'documentOpen',
-      fileSize,
-    );
+      // Create a symbol collector listener
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
 
-    const result = compilerService.compile(
-      document.getText(),
-      document.uri,
-      listener,
-      options,
-    );
+      // Get compilation options
+      const settingsManager = ApexSettingsManager.getInstance();
+      const fileSize = document.getText().length;
+      const options = settingsManager.getCompilationOptions(
+        'documentOpen',
+        fileSize,
+      );
 
-    if (result.errors.length > 0) {
+      // Create compilation Effect
+      const compileEffect = this.compileDocument(document, listener, options);
+
+      // Queue compilation task
+      const queuedItem = await Effect.runPromise(
+        createQueuedItem(compileEffect, 'document-compilation'),
+      );
+      const scheduledTask = await Effect.runPromise(
+        offer(Priority.High, queuedItem),
+      );
+
       this.logger.debug(
         () =>
-          `Errors parsing document ${document.uri}: ${JSON.stringify(result.errors)}`,
+          `Document compilation queued for ${document.uri} (version ${document.version})`,
       );
-      const diagnostics = getDiagnosticsFromErrors(result.errors);
-      return diagnostics;
-    }
 
-    // If comments were associated, store them with the symbol manager for later retrieval (e.g., hover)
-    if (DocumentProcessingService.hasCommentAssociationsLocally(result)) {
-      try {
-        const backgroundManager = ApexSymbolProcessingManager.getInstance();
-        backgroundManager.scheduleCommentAssociations(
-          document.uri,
-          (result as any).commentAssociations,
-        );
-      } catch (_e) {
-        // best-effort; ignore failures
-      }
-    }
-
-    // Get the symbol table from the listener
-    const symbolTable = listener.getResult();
-
-    // Get all symbols from the global scope
-    const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
-
-    // Queue symbol processing in the background for better performance
-    const backgroundManager = ApexSymbolProcessingManager.getInstance();
-    const taskId = backgroundManager.processSymbolTable(
-      symbolTable,
-      document.uri,
-      {
-        priority: Priority.High,
-        enableCrossFileResolution: true,
-        enableReferenceProcessing: true,
-      },
-      document.version,
-    );
-
-    this.logger.debug(
-      () =>
-        `Document open symbol processing queued: ${taskId} for ${document.uri}`,
-    );
-
-    // Monitor task completion and update cache
-    this.monitorTaskCompletion(taskId, document.uri, document.version);
-
-    // Create the definition provider
-    const definitionUpserter = new DefaultApexDefinitionUpserter(
-      storage,
-      globalSymbols,
-    );
-
-    // Create the references provider
-    const referencesUpserter = new DefaultApexReferencesUpserter(
-      storage,
-      globalSymbols,
-    );
-
-    // Upsert the definitions and references in parallel
-    try {
-      await Promise.all([
-        definitionUpserter.upsertDefinition(event),
-        referencesUpserter.upsertReferences(event),
-      ]);
+      // Process compilation result in background (don't await - let it run async)
+      this.processCompilationResult(
+        scheduledTask,
+        document,
+        listener,
+        event,
+        storage,
+        parseCache,
+      );
     } catch (error) {
-      // Log errors but don't throw - document processing should continue
+      this.logger.error(
+        () => `Error queuing document compilation: ${error}`,
+      );
+      // Return empty diagnostics on error
+    }
+
+    // Return immediately with empty diagnostics (will be updated when compilation completes)
+    return [];
+  }
+
+  /**
+   * Process compilation result when compilation task completes
+   * Handles errors, queues symbol processing, updates cache
+   */
+  private async processCompilationResult(
+    scheduledTask: {
+      fiber: Effect.Effect<
+        Fiber.RuntimeFiber<
+          | CompilationResult<SymbolTable>
+          | CompilationResultWithComments<SymbolTable>
+          | CompilationResultWithAssociations<SymbolTable>,
+          never
+        >,
+        never,
+        never
+      >;
+    },
+    document: TextDocument,
+    listener: ApexSymbolCollectorListener,
+    event: TextDocumentChangeEvent<TextDocument>,
+    storage: any,
+    parseCache: any,
+  ): Promise<void> {
+    try {
+      // Wait for compilation task to complete
+      const fiber = await Effect.runPromise(scheduledTask.fiber);
+      const result = await Effect.runPromise(Fiber.await(fiber));
+
+      if (result._tag === 'Failure') {
+        this.logger.error(
+          () => `Compilation failed for ${event.document.uri}: ${result.cause}`,
+        );
+        return;
+      }
+
+      const compilationResult = result.value as
+        | CompilationResult<SymbolTable>
+        | CompilationResultWithComments<SymbolTable>
+        | CompilationResultWithAssociations<SymbolTable>;
+
+      // Handle compilation errors
+      if (compilationResult.errors.length > 0) {
+        this.logger.debug(
+          () =>
+            `Errors parsing document ${document.uri}: ${JSON.stringify(compilationResult.errors)}`,
+        );
+        const diagnostics = getDiagnosticsFromErrors(compilationResult.errors);
+        parseCache.merge(event.document.uri, {
+          diagnostics,
+          documentVersion: event.document.version,
+        });
+        return;
+      }
+
+      // If comments were associated, store them
+      if (DocumentProcessingService.hasCommentAssociationsLocally(compilationResult)) {
+        try {
+          const backgroundManager = ApexSymbolProcessingManager.getInstance();
+          backgroundManager.scheduleCommentAssociations(
+            event.document.uri,
+            (compilationResult as any).commentAssociations,
+          );
+        } catch (_e) {
+          // best-effort; ignore failures
+        }
+      }
+
+      // Get the symbol table from the listener
+      const symbolTable = listener.getResult();
+
+      // Get all symbols from the global scope
+      const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
+
+      // Queue symbol processing in the background
+      const backgroundManager = ApexSymbolProcessingManager.getInstance();
+      const taskId = backgroundManager.processSymbolTable(
+        symbolTable,
+        event.document.uri,
+        {
+          priority: Priority.High,
+          enableCrossFileResolution: true,
+          enableReferenceProcessing: true,
+        },
+        event.document.version,
+      );
+
+      this.logger.debug(
+        () =>
+          `Document open symbol processing queued: ${taskId} for ${event.document.uri}`,
+      );
+
+      // Monitor task completion and update cache
+      this.monitorTaskCompletion(
+        taskId,
+        event.document.uri,
+        event.document.version,
+      );
+
+      // Create the definition provider
+      const definitionUpserter = new DefaultApexDefinitionUpserter(
+        storage,
+        globalSymbols,
+      );
+
+      // Create the references provider
+      const referencesUpserter = new DefaultApexReferencesUpserter(
+        storage,
+        globalSymbols,
+      );
+
+      // Upsert the definitions and references in parallel
+      try {
+        await Promise.all([
+          definitionUpserter.upsertDefinition(event),
+          referencesUpserter.upsertReferences(event),
+        ]);
+      } catch (error) {
+        // Log errors but don't throw
+        this.logger.error(
+          () =>
+            `Error upserting definitions/references for ${event.document.uri}: ${error}`,
+        );
+      }
+
+      // Cache the parse result
+      const diagnostics: Diagnostic[] = [];
+      parseCache.merge(event.document.uri, {
+        symbolTable,
+        diagnostics,
+        documentVersion: event.document.version,
+        documentLength: event.document.getText().length,
+        symbolsIndexed: false, // Will be set to true when indexing completes
+      });
+    } catch (error) {
       this.logger.error(
         () =>
-          `Error upserting definitions/references for ${document.uri}: ${error}`,
+          `Error processing compilation result for ${event.document.uri}: ${error}`,
       );
     }
-
-    // Cache the parse result for future requests with same version
-    // symbolsIndexed defaults to false for new entries
-    const diagnostics: Diagnostic[] = [];
-    parseCache.merge(event.document.uri, {
-      symbolTable,
-      diagnostics,
-      documentVersion: event.document.version,
-      documentLength: document.getText().length,
-      symbolsIndexed: false, // Will be set to true when indexing completes
-    });
-
-    return undefined;
   }
 
   /**

@@ -1489,11 +1489,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       : [];
 
     // Update all symbols to use the proper URI
-    symbols.forEach((symbol: ApexSymbol) => {
+    // Process in batches with yields for large symbol tables to prevent blocking
+    const batchSize = 100;
+    for (let i = 0; i < symbols.length; i++) {
+      const symbol = symbols[i];
       // Update the symbol's fileUri to match the table's fileUri
       symbol.fileUri = properUri;
       this.addSymbol(symbol, properUri, symbolTable);
-    });
+
+      // Yield every batchSize symbols to allow other tasks to run
+      if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
+        // Use setTimeout to yield to event loop
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
 
     // Process type references and add them to the symbol graph
     await this.processTypeReferencesToGraph(symbolTable, properUri);
@@ -1813,8 +1822,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       const typeReferences = symbolTable.getAllReferences();
 
-      for (const typeRef of typeReferences) {
-        await this.processTypeReferenceToGraph(typeRef, fileUri);
+      // Process references in batches with yields to prevent blocking
+      const batchSize = 50; // Process 50 references at a time
+      for (let i = 0; i < typeReferences.length; i += batchSize) {
+        const batch = typeReferences.slice(i, i + batchSize);
+
+        // Process batch
+        for (const typeRef of batch) {
+          await this.processTypeReferenceToGraph(typeRef, fileUri);
+        }
+
+        // Yield after each batch (except the last) to allow other tasks to run
+        if (i + batchSize < typeReferences.length) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
       }
     } catch (error) {
       this.logger.error(

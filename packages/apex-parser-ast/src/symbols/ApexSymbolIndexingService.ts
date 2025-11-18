@@ -318,6 +318,9 @@ export class ApexSymbolIndexingService {
       self.logger.debug(() => `Processing task ${task.id} for ${task.fileUri}`);
 
       if (task._tag === 'SymbolProcessingTask') {
+        // Yield control before starting symbol processing
+        yield* Effect.yieldNow();
+
         // Delegate to the symbol manager to do the actual work
         self.logger.debug(
           () =>
@@ -331,9 +334,9 @@ export class ApexSymbolIndexingService {
             `[processTask] Symbols in file before addSymbolTable: ${symbolsBefore.length}`,
         );
 
+        // Process symbols with yielding
         yield* Effect.tryPromise({
-          try: () =>
-            self.symbolManager.addSymbolTable(task.symbolTable, task.fileUri),
+          try: () => self.symbolManager.addSymbolTable(task.symbolTable, task.fileUri),
           catch: (error) => new Error(`Failed to add symbol table: ${error}`),
         });
 
