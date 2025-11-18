@@ -17,6 +17,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   LoggerInterface,
   LSPConfigurationManager,
+  Priority,
 } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -24,9 +25,13 @@ import {
   ApexSymbolProcessingManager,
   ISymbolManager,
   ReferenceType,
+  createQueuedItem,
+  offer,
+  SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 import { transformParserToLspPosition } from '../utils/positionUtils';
-import { WorkspaceLoadCoordinator } from './WorkspaceLoadCoordinator';
+import { ensureWorkspaceLoaded } from './WorkspaceLoadCoordinator';
 
 /**
  * Interface for references processing functionality
@@ -89,37 +94,34 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     );
 
     try {
-      // Always ensure workspace is loaded before searching for references
-      // Finding some references doesn't mean we have the complete picture
+      // Request workspace load in background (non-blocking)
+      // Queue the load task and proceed immediately with reference search
       const connection = this.getConnection();
       if (connection) {
-        this.logger.debug(
-          () => 'Ensuring workspace is loaded before searching for references',
-        );
-
         try {
-          const coordinator = WorkspaceLoadCoordinator.getInstance(this.logger);
-          const loadResult = await coordinator.ensureWorkspaceLoaded(
+          // Ensure scheduler is initialized
+          const schedulerService = SchedulerInitializationService.getInstance();
+          await schedulerService.ensureInitialized();
+
+          const loadEffect = ensureWorkspaceLoaded(
             connection,
+            this.logger,
             params.workDoneToken,
           );
 
-          if (loadResult.status !== 'loaded') {
-            this.logger.debug(
-              () =>
-                `Workspace load status: ${loadResult.status}, continuing with reference search`,
-            );
-            return [];
-          } else {
-            this.logger.debug(
-              () => 'Workspace loaded, searching for references',
-            );
-          }
-        } catch (error) {
-          this.logger.error(
-            () => `Error during workspace load coordination: ${error}`,
+          // Queue workspace load task (non-blocking)
+          const queuedItem = await Effect.runPromise(
+            createQueuedItem(loadEffect, 'workspace-load'),
           );
-          // Continue with reference search even if workspace load coordination fails
+          await Effect.runPromise(offer(Priority.Low, queuedItem));
+
+          this.logger.debug(
+            () =>
+              'Workspace load task queued, proceeding with reference search (results may be partial)',
+          );
+        } catch (error) {
+          this.logger.error(() => `Error queuing workspace load: ${error}`);
+          // Continue with reference search even if workspace load queuing fails
         }
       } else {
         this.logger.debug(
@@ -128,7 +130,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         );
       }
 
-      // Now search for references with the workspace loaded (or loading)
+      // Search for references immediately (may return partial results if workspace isn't fully loaded)
       const locations = await this.findReferences(params);
 
       this.logger.debug(
