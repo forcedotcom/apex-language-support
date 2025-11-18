@@ -7,8 +7,7 @@
  */
 
 import { Effect } from 'effect';
-import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
+import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import { initialize as schedulerInitialize } from '../queue/priority-scheduler-utils';
 
 /**
@@ -128,4 +127,3 @@ export class SchedulerInitializationService {
     return this.initialized;
   }
 }
-

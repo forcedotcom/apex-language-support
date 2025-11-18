@@ -41,6 +41,7 @@
   "commands.apex-ls-ts.setLogLevel.debug.title": "Set Apex-LS-TS Log Level: Debug",
   "commands.apex.showAggregatedLogs.title": "Show All Apex Logs",
   "commands.apex-ls-ts.showGraph.title": "Show Symbol Graph",
+  "commands.apex-ls-ts.showQueueState.title": "Show Queue State Dashboard",
   "commands.apex.profiling.start.title": "Start Performance Profiling",
   "commands.apex.profiling.stop.title": "Stop Performance Profiling",
   "commands.apex.profiling.status.title": "Show Profiling Status",

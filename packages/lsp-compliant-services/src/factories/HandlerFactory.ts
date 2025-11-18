@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  LoggerInterface,
+  ApexCapabilitiesManager,
+} from '@salesforce/apex-lsp-shared';
 
 import { DidChangeDocumentHandler } from '../handlers/DidChangeDocumentHandler';
 import {
@@ -60,7 +64,6 @@ import {
   GraphDataProcessingService,
   IGraphDataProcessor,
 } from '../services/GraphDataProcessingService';
-import { ApexCapabilitiesManager } from '@salesforce/apex-lsp-shared';
 
 /**
  * Factory for creating handlers with proper dependency injection
@@ -277,7 +280,11 @@ export class HandlerFactory {
     const capabilitiesManager = ApexCapabilitiesManager.getInstance();
     const queueStateProcessor = new QueueStateProcessingService(logger);
 
-    return new QueueStateHandler(logger, queueStateProcessor, capabilitiesManager);
+    return new QueueStateHandler(
+      logger,
+      queueStateProcessor,
+      capabilitiesManager,
+    );
   }
 
   /**
@@ -292,7 +299,11 @@ export class HandlerFactory {
     queueStateProcessor: IQueueStateProcessor,
     capabilitiesManager: ApexCapabilitiesManager,
   ): QueueStateHandler {
-    return new QueueStateHandler(logger, queueStateProcessor, capabilitiesManager);
+    return new QueueStateHandler(
+      logger,
+      queueStateProcessor,
+      capabilitiesManager,
+    );
   }
 
   /**
@@ -304,7 +315,11 @@ export class HandlerFactory {
     const capabilitiesManager = ApexCapabilitiesManager.getInstance();
     const graphDataProcessor = new GraphDataProcessingService(logger);
 
-    return new GraphDataHandler(logger, graphDataProcessor, capabilitiesManager);
+    return new GraphDataHandler(
+      logger,
+      graphDataProcessor,
+      capabilitiesManager,
+    );
   }
 
   /**
@@ -319,6 +334,10 @@ export class HandlerFactory {
     graphDataProcessor: IGraphDataProcessor,
     capabilitiesManager: ApexCapabilitiesManager,
   ): GraphDataHandler {
-    return new GraphDataHandler(logger, graphDataProcessor, capabilitiesManager);
+    return new GraphDataHandler(
+      logger,
+      graphDataProcessor,
+      capabilitiesManager,
+    );
   }
 }

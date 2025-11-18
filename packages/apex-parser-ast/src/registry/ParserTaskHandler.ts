@@ -29,4 +29,3 @@ export interface ParserTaskHandler<T = any, R = any> {
   readonly maxRetries: number;
   process(params: T, context: ParserTaskContext): Promise<R>;
 }
-

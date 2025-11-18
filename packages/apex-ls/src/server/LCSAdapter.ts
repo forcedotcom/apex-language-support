@@ -67,7 +67,10 @@ import {
 import {
   ResourceLoader,
   ApexSymbolProcessingManager,
+  setQueueStateChangeCallback,
+  SchedulerMetrics,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 
 /**
  * Configuration for the LCS Adapter
@@ -613,7 +616,9 @@ export class LCSAdapter {
           }
         },
       );
-      this.logger.debug('✅ apex/queueState handler registered (development mode)');
+      this.logger.debug(
+        '✅ apex/queueState handler registered (development mode)',
+      );
 
       // Register apex/graphData handler (development mode only)
       this.connection.onRequest('apex/graphData', async (params: any) => {
@@ -644,7 +649,9 @@ export class LCSAdapter {
           throw error;
         }
       });
-      this.logger.debug('✅ apex/graphData handler registered (development mode)');
+      this.logger.debug(
+        '✅ apex/graphData handler registered (development mode)',
+      );
     } else {
       this.logger.debug(
         '⚠️ Development mode endpoints not registered (production mode)',
@@ -1079,6 +1086,29 @@ export class LCSAdapter {
         ApexSymbolProcessingManager.getInstance().getSymbolManager();
       initializeLSPQueueManager(symbolManager);
       this.logger.info('✅ LSP queue manager initialized');
+
+      // Register queue state change callback to send notifications to client (development mode only)
+      const capabilitiesManager =
+        LSPConfigurationManager.getInstance().getCapabilitiesManager();
+      if (capabilitiesManager.getMode() === 'development') {
+        this.logger.debug('🔧 Registering queue state change callback...');
+        Effect.runSync(
+          setQueueStateChangeCallback((metrics: SchedulerMetrics) => {
+            try {
+              this.connection.sendNotification('apex/queueStateChanged', {
+                metrics,
+                metadata: {
+                  timestamp: Date.now(),
+                },
+              });
+            } catch (_error) {
+              // Don't log callback errors to avoid noise
+              // The callback is called very frequently (every loop iteration)
+            }
+          }),
+        );
+        this.logger.info('✅ Queue state change callback registered');
+      }
     } catch (error) {
       this.logger.error(
         () =>

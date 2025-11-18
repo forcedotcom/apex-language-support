@@ -96,4 +96,3 @@ export class QueueStateProcessingService implements IQueueStateProcessor {
     }
   }
 }
-

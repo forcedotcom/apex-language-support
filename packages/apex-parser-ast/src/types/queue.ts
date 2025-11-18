@@ -12,6 +12,22 @@ import { Priority, AllPriorities } from '@salesforce/apex-lsp-shared';
 // Re-export Priority and AllPriorities for convenience
 export { Priority, AllPriorities };
 
+/**
+ * Internal Critical priority (value 0) - highest priority for system tasks.
+ * NOT exposed in public Priority enum to maintain API stability.
+ * Used internally for system-initiated tasks like workspace load.
+ */
+export const Critical = 0 as const;
+
+/**
+ * Internal priority list that includes Critical priority.
+ * Used by scheduler internally, not exposed to consumers.
+ */
+export const AllPrioritiesWithCritical: readonly number[] = [
+  Critical,
+  ...AllPriorities,
+] as const;
+
 export interface ScheduledTask<A = never, E = never, R = never> {
   readonly fiber: Effect.Effect<Fiber.RuntimeFiber<A, E>, E, R>;
   readonly requestType?: string;
@@ -30,11 +46,13 @@ export interface SchedulerMetrics {
   readonly queueUtilization?: Readonly<Record<Priority, number>>;
   /** Currently active (executing) tasks per priority */
   readonly activeTasks?: Readonly<Record<Priority, number>>;
+  /** Queue capacity per priority (bounded size) */
+  readonly queueCapacity: number;
 }
 
 export interface PriorityScheduler {
   offer: <A, E, R>(
-    priority: Priority,
+    priority: Priority | typeof Critical,
     queuedItem: QueuedItem<A, E, R>,
   ) => Effect.Effect<ScheduledTask<A, E, R>>;
   metrics: Effect.Effect<SchedulerMetrics>;
@@ -54,10 +72,13 @@ export interface QueuedItem<A = never, E = never, R = never> {
   readonly requestType?: string;
 }
 
+// Internal priority type that includes Critical
+export type InternalPriority = Priority | typeof Critical;
+
 // Internal state types for scheduler implementation
 export interface SchedulerInternalState {
   readonly queues: ReadonlyMap<
-    Priority,
+    number,
     Queue.Queue<QueuedItem<unknown, unknown, unknown>>
   >;
   readonly tasksStarted: Ref.Ref<number>;
@@ -65,9 +86,9 @@ export interface SchedulerInternalState {
   readonly tasksDropped: Ref.Ref<number>;
   readonly shutdownSignal: Deferred.Deferred<void, void>;
   /** Request type counts per priority: priority -> requestType -> count */
-  readonly requestTypeCounts: Ref.Ref<Map<Priority, Map<string, number>>>;
+  readonly requestTypeCounts: Ref.Ref<Map<number, Map<string, number>>>;
   /** Active tasks per priority (currently executing) */
-  readonly activeTaskCounts: Ref.Ref<Map<Priority, number>>;
+  readonly activeTaskCounts: Ref.Ref<Map<number, number>>;
   /** Queue capacity per priority */
   readonly queueCapacity: number;
 }

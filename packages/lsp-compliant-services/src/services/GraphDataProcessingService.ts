@@ -7,12 +7,10 @@
  */
 
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
-import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
-import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
 import {
+  ISymbolManager,
+  ApexSymbolProcessingManager,
   GraphData,
-  GraphNode,
-  GraphEdge,
   FileGraphData,
   TypeGraphData,
 } from '@salesforce/apex-lsp-parser-ast';
@@ -116,7 +114,8 @@ export class GraphDataProcessingService implements IGraphDataProcessor {
       };
 
       this.logger.debug(
-        `Graph data request completed: type=${params.type}, nodeCount=${data.nodes.length}, edgeCount=${data.edges.length}, processingTime=${processingTime}ms`,
+        `Graph data request completed: type=${params.type}, nodeCount=${data.nodes.length}, ` +
+          `edgeCount=${data.edges.length}, processingTime=${processingTime}ms`,
       );
 
       return response;
@@ -136,4 +135,3 @@ export class GraphDataProcessingService implements IGraphDataProcessor {
     return ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 }
-

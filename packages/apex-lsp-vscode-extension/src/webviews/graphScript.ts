@@ -17,6 +17,11 @@ import { GraphRenderer, GraphData } from './graphRenderer';
 declare const acquireVsCodeApi: () => any;
 declare const graphData: GraphData;
 
+// Extend Window interface to include our custom properties
+interface WindowWithGraphData extends Window {
+  graphData?: GraphData;
+}
+
 // Initialize the graph when the page loads
 function initGraph() {
   console.log('Initializing graph from external script...');
@@ -27,11 +32,23 @@ function initGraph() {
     return;
   }
 
+  // Get graph data from window or use global
+  const win = window as unknown as WindowWithGraphData;
+  const data = win.graphData || graphData;
+  if (!data) {
+    console.error('Graph data not found');
+    return;
+  }
+
+  console.log('Graph data:', data);
+  console.log('Nodes:', data.nodes?.length || 0);
+  console.log('Edges:', data.edges?.length || 0);
+
   const vscode = acquireVsCodeApi();
   const renderer = new GraphRenderer(canvas, vscode);
 
   // Initialize with the graph data
-  renderer.initGraph(graphData);
+  renderer.initGraph(data);
 
   console.log('Graph initialized successfully');
 }
@@ -42,4 +59,3 @@ if (document.readyState === 'loading') {
 } else {
   initGraph();
 }
-

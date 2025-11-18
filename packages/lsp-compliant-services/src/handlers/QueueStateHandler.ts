@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LoggerInterface, ApexCapabilitiesManager } from '@salesforce/apex-lsp-shared';
+import {
+  LoggerInterface,
+  ApexCapabilitiesManager,
+} from '@salesforce/apex-lsp-shared';
 import { dispatch } from '../utils/handlerUtil';
 import {
   IQueueStateProcessor,
@@ -48,4 +51,3 @@ export class QueueStateHandler {
     );
   }
 }
-

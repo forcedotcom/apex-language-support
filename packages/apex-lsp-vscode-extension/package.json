@@ -377,6 +377,10 @@
         "title": "%commands.apex-ls-ts.showGraph.title%"
       },
       {
+        "command": "apex-ls-ts.showQueueState",
+        "title": "%commands.apex-ls-ts.showQueueState.title%"
+      },
+      {
         "command": "apex.profiling.start",
         "title": "%commands.apex.profiling.start.title%"
       },

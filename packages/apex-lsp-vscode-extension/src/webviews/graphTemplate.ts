@@ -336,4 +336,3 @@ function getNonce(): string {
   }
   return text;
 }
-

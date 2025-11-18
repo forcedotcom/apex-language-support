@@ -9,4 +9,3 @@
 export * from './ParserTaskType';
 export * from './ParserTaskHandler';
 export * from './ParserTaskRegistry';
-

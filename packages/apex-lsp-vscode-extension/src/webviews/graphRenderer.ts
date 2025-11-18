@@ -81,10 +81,13 @@ export class GraphRenderer {
   /**
    * Set up responsive canvas that maintains aspect ratio
    */
-  private setupResponsiveCanvas(): void {
-    const resizeCanvas = () => {
+  private setupResponsiveCanvas(onInitialResize?: () => void): void {
+    const resizeCanvas = (isInitial = false) => {
       const container = this.canvas.parentElement;
-      if (!container) return;
+      if (!container) {
+        console.warn('Canvas parent container not found');
+        return;
+      }
 
       // Use a small delay to ensure layout is complete
       setTimeout(() => {
@@ -92,8 +95,8 @@ export class GraphRenderer {
         const dpr = window.devicePixelRatio || 1;
 
         // Use the full available space
-        const width = Math.max(rect.width, 400);
-        const height = Math.max(rect.height, 300);
+        const width = Math.max(rect.width || 800, 400);
+        const height = Math.max(rect.height || 600, 300);
 
         // Set display size to fill the container
         this.canvas.style.width = '100%';
@@ -115,18 +118,28 @@ export class GraphRenderer {
           dpr,
           'Container rect:',
           rect,
+          'Canvas offset:',
+          this.canvas.offsetWidth,
+          this.canvas.offsetHeight,
         );
 
         // Re-render the graph
-        this.render();
+        if (this.nodes.length > 0) {
+          this.render();
+        }
+
+        // Call callback on initial resize
+        if (isInitial && onInitialResize) {
+          onInitialResize();
+        }
       }, 10);
     };
 
     // Initial resize
-    resizeCanvas();
+    resizeCanvas(true);
 
     // Add resize listener
-    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('resize', () => resizeCanvas(false));
 
     // Store resize function for cleanup
     (this.canvas as any)._resizeHandler = resizeCanvas;
@@ -143,9 +156,6 @@ export class GraphRenderer {
     if (data.nodes && data.nodes.length > 0) {
       console.log('First node:', data.nodes[0]);
     }
-
-    // Set up responsive canvas
-    this.setupResponsiveCanvas();
 
     // Convert data to internal format with physics properties
     this.nodes = data.nodes.map((node, index) => {
@@ -194,7 +204,8 @@ export class GraphRenderer {
 
       if (!sourceExists || !targetExists) {
         console.warn(
-          `Edge ${edge.id}: source=${edge.source} (exists: ${sourceExists}), target=${edge.target} (exists: ${targetExists})`,
+          `Edge ${edge.id}: source=${edge.source} (exists: ${sourceExists}), ` +
+            `target=${edge.target} (exists: ${targetExists})`,
         );
       }
 
@@ -225,14 +236,18 @@ export class GraphRenderer {
     // Initialize layout selection UI
     this.updateLayoutSelection();
 
-    // Start force-directed simulation
-    this.startSimulation();
+    // Set up responsive canvas (this will trigger initial render)
+    this.setupResponsiveCanvas(() => {
+      // After canvas is sized, start simulation and center
+      // Start force-directed simulation
+      this.startSimulation();
 
-    // Center the graph initially
-    this.centerGraph();
-
-    // Initial render
-    this.render();
+      // Center the graph initially (after canvas is sized)
+      setTimeout(() => {
+        this.centerGraph();
+        this.render();
+      }, 50);
+    });
   }
 
   private getNodeColor(type: string): string {
@@ -496,13 +511,33 @@ export class GraphRenderer {
   }
 
   private render(): void {
-    // Clear the entire canvas
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    // Ensure canvas is properly sized
+    const canvasWidth =
+      this.canvas.offsetWidth ||
+      this.canvas.width / (window.devicePixelRatio || 1);
+    const canvasHeight =
+      this.canvas.offsetHeight ||
+      this.canvas.height / (window.devicePixelRatio || 1);
 
-    // Debug: Log canvas dimensions and camera
-    console.log('Canvas dimensions:', this.canvas.width, this.canvas.height);
-    console.log('Camera:', this.camera);
-    console.log('Nodes count:', this.nodes.length);
+    if (canvasWidth === 0 || canvasHeight === 0) {
+      console.warn('Canvas not sized, skipping render', {
+        offsetWidth: this.canvas.offsetWidth,
+        offsetHeight: this.canvas.offsetHeight,
+        width: this.canvas.width,
+        height: this.canvas.height,
+      });
+      return;
+    }
+
+    // Clear the entire canvas (use display dimensions since context is scaled)
+    this.ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+    // Debug: Log canvas dimensions and camera (only occasionally to avoid spam)
+    if (Math.random() < 0.01) {
+      console.log('Canvas dimensions:', this.canvas.width, this.canvas.height);
+      console.log('Camera:', this.camera);
+      console.log('Nodes count:', this.nodes.length);
+    }
 
     // Apply camera transform
     this.ctx.save();
@@ -712,7 +747,28 @@ export class GraphRenderer {
   }
 
   private centerGraph(): void {
-    if (this.nodes.length === 0) return;
+    if (this.nodes.length === 0) {
+      console.warn('Cannot center graph: no nodes');
+      return;
+    }
+
+    // Ensure canvas has valid dimensions
+    const canvasWidth =
+      this.canvas.offsetWidth ||
+      this.canvas.width / (window.devicePixelRatio || 1);
+    const canvasHeight =
+      this.canvas.offsetHeight ||
+      this.canvas.height / (window.devicePixelRatio || 1);
+
+    if (canvasWidth === 0 || canvasHeight === 0) {
+      console.warn('Cannot center graph: canvas dimensions are 0', {
+        offsetWidth: this.canvas.offsetWidth,
+        offsetHeight: this.canvas.offsetHeight,
+        width: this.canvas.width,
+        height: this.canvas.height,
+      });
+      return;
+    }
 
     const bounds = {
       minX: Math.min(...this.nodes.map((n) => n.x)),
@@ -724,8 +780,17 @@ export class GraphRenderer {
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerY = (bounds.minY + bounds.maxY) / 2;
 
-    this.camera.x = this.canvas.offsetWidth / 2 - centerX;
-    this.camera.y = this.canvas.offsetHeight / 2 - centerY;
+    this.camera.x = canvasWidth / 2 - centerX * this.camera.zoom;
+    this.camera.y = canvasHeight / 2 - centerY * this.camera.zoom;
+
+    console.log('Centered graph:', {
+      canvasWidth,
+      canvasHeight,
+      centerX,
+      centerY,
+      camera: this.camera,
+      bounds,
+    });
 
     this.render();
   }

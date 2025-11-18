@@ -32,10 +32,7 @@ export class ParserTaskRegistry {
     } = {},
   ): void {
     this.handlers.set(handler.taskType, handler);
-    this.priorities.set(
-      handler.taskType,
-      config.priority || handler.priority,
-    );
+    this.priorities.set(handler.taskType, config.priority || handler.priority);
     this.timeouts.set(handler.taskType, config.timeout || handler.timeout);
     this.retryPolicies.set(
       handler.taskType,
@@ -95,4 +92,3 @@ export class ParserTaskRegistry {
     this.retryPolicies.clear();
   }
 }
-

@@ -19,11 +19,7 @@ import type {
   ApexComment,
   CommentAssociation,
 } from '../parser/listeners/ApexCommentCollectorListener';
-import type {
-  GraphData,
-  FileGraphData,
-  TypeGraphData,
-} from '../types/graph';
+import type { GraphData, FileGraphData, TypeGraphData } from '../types/graph';
 
 /**
  * Context for symbol resolution

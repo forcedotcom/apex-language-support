@@ -58,7 +58,8 @@ export class LSPQueueManager {
     }
 
     this.logger.debug(
-      () => 'LSP Queue Manager initialized (scheduler will initialize on first use)',
+      () =>
+        'LSP Queue Manager initialized (scheduler will initialize on first use)',
     );
   }
 
@@ -90,7 +91,10 @@ export class LSPQueueManager {
     const taskId = this.generateTaskId();
 
     return Effect.gen(function* () {
-      const fiberDeferred = yield* Deferred.make<Fiber.RuntimeFiber<T, Error>, Error>();
+      const fiberDeferred = yield* Deferred.make<
+        Fiber.RuntimeFiber<T, Error>,
+        Error
+      >();
 
       // Wrap request execution in an Effect
       const requestEffect = Effect.tryPromise({
@@ -178,35 +182,45 @@ export class LSPQueueManager {
    * Submit a hover request
    */
   async submitHoverRequest(params: any): Promise<any> {
-    return this.submitRequest('hover', params, { priority: Priority.Immediate });
+    return this.submitRequest('hover', params, {
+      priority: Priority.Immediate,
+    });
   }
 
   /**
    * Submit a completion request
    */
   async submitCompletionRequest(params: any): Promise<any> {
-    return this.submitRequest('completion', params, { priority: Priority.Immediate });
+    return this.submitRequest('completion', params, {
+      priority: Priority.Immediate,
+    });
   }
 
   /**
    * Submit a definition request
    */
   async submitDefinitionRequest(params: any): Promise<any> {
-    return this.submitRequest('definition', params, { priority: Priority.High });
+    return this.submitRequest('definition', params, {
+      priority: Priority.High,
+    });
   }
 
   /**
    * Submit a references request
    */
   async submitReferencesRequest(params: any): Promise<any> {
-    return this.submitRequest('references', params, { priority: Priority.Normal });
+    return this.submitRequest('references', params, {
+      priority: Priority.Normal,
+    });
   }
 
   /**
    * Submit a document symbol request
    */
   async submitDocumentSymbolRequest(params: any): Promise<any> {
-    return this.submitRequest('documentSymbol', params, { priority: Priority.High });
+    return this.submitRequest('documentSymbol', params, {
+      priority: Priority.High,
+    });
   }
 
   /**
@@ -222,7 +236,9 @@ export class LSPQueueManager {
    * Submit a diagnostics request
    */
   async submitDiagnosticsRequest(params: any): Promise<any> {
-    return this.submitRequest('diagnostics', params, { priority: Priority.Normal });
+    return this.submitRequest('diagnostics', params, {
+      priority: Priority.Normal,
+    });
   }
 
   /**
@@ -252,21 +268,27 @@ export class LSPQueueManager {
    * Submit a document open request
    */
   async submitDocumentOpenRequest(params: any): Promise<any> {
-    return this.submitRequest('documentOpen', params, { priority: Priority.High });
+    return this.submitRequest('documentOpen', params, {
+      priority: Priority.High,
+    });
   }
 
   /**
    * Submit a document save request
    */
   async submitDocumentSaveRequest(params: any): Promise<any> {
-    return this.submitRequest('documentSave', params, { priority: Priority.Normal });
+    return this.submitRequest('documentSave', params, {
+      priority: Priority.Normal,
+    });
   }
 
   /**
    * Submit a document change request
    */
   async submitDocumentChangeRequest(params: any): Promise<any> {
-    return this.submitRequest('documentChange', params, { priority: Priority.Normal });
+    return this.submitRequest('documentChange', params, {
+      priority: Priority.Normal,
+    });
   }
 
   /**
@@ -307,7 +329,8 @@ export class LSPQueueManager {
 
       this.logger.debug(
         () =>
-          `Submitting ${type} request with priority ${priority} (requested: ${requestedPriority ?? 'none'}, registry: ${registryPriority})`,
+          `Submitting ${type} request with priority ${priority} ` +
+          `(requested: ${requestedPriority ?? 'none'}, registry: ${registryPriority})`,
       );
 
       // Create QueuedItem from request
@@ -323,7 +346,9 @@ export class LSPQueueManager {
       );
 
       // Schedule the task using the priority scheduler
-      const scheduledTask = await Effect.runPromise(offer(priority, queuedItem));
+      const scheduledTask = await Effect.runPromise(
+        offer(priority, queuedItem),
+      );
 
       // Wait for the fiber to complete
       const fiber = await Effect.runPromise(scheduledTask.fiber);
@@ -334,14 +359,22 @@ export class LSPQueueManager {
         // The cause should be a Fail cause containing our Error
         let error: Error;
         // Check if cause is a Fail type (has _tag === 'Fail')
-        if (result.cause && typeof result.cause === 'object' && '_tag' in result.cause) {
+        if (
+          result.cause &&
+          typeof result.cause === 'object' &&
+          '_tag' in result.cause
+        ) {
           if (result.cause._tag === 'Fail' && 'error' in result.cause) {
             error = result.cause.error as Error;
           } else {
             // Try to extract from cause using Cause utilities
             try {
               const failureOption = Cause.failureOption(result.cause as any);
-              if (failureOption && '_tag' in failureOption && failureOption._tag === 'Some') {
+              if (
+                failureOption &&
+                '_tag' in failureOption &&
+                failureOption._tag === 'Some'
+              ) {
                 error = (failureOption as any).value as Error;
               } else {
                 error = new Error('Task failed');
@@ -386,7 +419,8 @@ export class LSPQueueManager {
     return {
       immediateQueueSize: schedulerMetrics.queueSizes[Priority.Immediate] || 0,
       highPriorityQueueSize: schedulerMetrics.queueSizes[Priority.High] || 0,
-      normalPriorityQueueSize: schedulerMetrics.queueSizes[Priority.Normal] || 0,
+      normalPriorityQueueSize:
+        schedulerMetrics.queueSizes[Priority.Normal] || 0,
       lowPriorityQueueSize: schedulerMetrics.queueSizes[Priority.Low] || 0,
       totalProcessed: schedulerMetrics.tasksStarted,
       totalFailed: schedulerMetrics.tasksDropped,

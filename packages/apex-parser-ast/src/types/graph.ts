@@ -120,4 +120,3 @@ export interface TypeGraphData extends GraphData {
   /** The symbol type this data represents */
   symbolType: string;
 }
-

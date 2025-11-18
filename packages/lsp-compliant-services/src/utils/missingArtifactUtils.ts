@@ -81,7 +81,9 @@ export class MissingArtifactUtils {
     const parserPosition = transformLspToParserPosition(position);
     this.logger.debug(
       () =>
-        `Trying to resolve missing artifact in background for ${uri} at ${parserPosition.line}:${parserPosition.character} (parser position, LSP was ${position.line}:${position.character})`,
+        `Trying to resolve missing artifact in background for ${uri} ` +
+        `at ${parserPosition.line}:${parserPosition.character} ` +
+        `(parser position, LSP was ${position.line}:${position.character})`,
     );
 
     try {

@@ -15,4 +15,3 @@ export enum ParserTaskType {
   DeferredReferenceProcess = 'deferred-reference-process',
   DeferredReferenceRetry = 'deferred-reference-retry',
 }
-

@@ -16,4 +16,3 @@ export function getGraphWebviewContent(
 ): string {
   return getTemplate(webview, extensionUri, graphData);
 }
-

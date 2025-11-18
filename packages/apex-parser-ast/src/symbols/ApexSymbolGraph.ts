@@ -9,7 +9,11 @@
 import { HashMap, DirectedGraph, DirectedVertex } from 'data-structure-typed';
 import { Effect } from 'effect';
 import { Priority } from '@salesforce/apex-lsp-shared';
-import { offer, createQueuedItem, metrics } from '../queue/priority-scheduler-utils';
+import {
+  offer,
+  createQueuedItem,
+  metrics,
+} from '../queue/priority-scheduler-utils';
 import {
   getLogger,
   type EnumValue,
@@ -282,7 +286,6 @@ export class ApexSymbolGraph {
     });
     // Note: Deferred reference processing now uses shared priority scheduler
   }
-
 
   /**
    * Process a deferred reference task with retry logic
@@ -1129,10 +1132,14 @@ export class ApexSymbolGraph {
       }
       this.activeRetryTimers.clear();
 
-      this.logger.debug(() => 'Deferred reference processing shutdown complete');
+      this.logger.debug(
+        () => 'Deferred reference processing shutdown complete',
+      );
     } catch (error) {
       // Ignore errors during shutdown
-      this.logger.debug(() => `Error during deferred processing shutdown: ${error}`);
+      this.logger.debug(
+        () => `Error during deferred processing shutdown: ${error}`,
+      );
     }
   }
 
@@ -2084,7 +2091,7 @@ export class ApexSymbolGraph {
     // Then, add reference relationships from the graph
     const vertexEntries = Array.from(this.symbolToVertex.entries());
 
-    for (const [symbolId, vertex] of vertexEntries) {
+    for (const [_symbolId, vertex] of vertexEntries) {
       if (!vertex) continue;
 
       // Get outgoing edges for this vertex
@@ -2172,7 +2179,6 @@ export class ApexSymbolGraph {
    */
   getGraphDataForFile(fileUri: string): import('../types/graph').FileGraphData {
     const fileSymbolIds = this.fileIndex.get(fileUri) || [];
-    const nodeIds = new Set(fileSymbolIds);
 
     const nodes: import('../types/graph').GraphNode[] = [];
     const edges: import('../types/graph').GraphEdge[] = [];

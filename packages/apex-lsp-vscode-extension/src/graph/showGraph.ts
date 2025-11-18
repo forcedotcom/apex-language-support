@@ -431,4 +431,3 @@ export async function showGraph(context: vscode.ExtensionContext) {
     }
   });
 }
-

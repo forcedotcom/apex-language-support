@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel, updateLogLevel } from './logging';
 import { showGraph } from './graph/showGraph';
+import { showQueueState } from './queue/showQueueState';
 import {
   updateProfilingToggleItem,
   getProfilingTag,
@@ -180,6 +181,19 @@ export const registerGraphCommand = (
     },
   );
   context.subscriptions.push(graphCommand);
+};
+
+export const registerQueueStateCommand = (
+  context: vscode.ExtensionContext,
+): void => {
+  const queueStateCommand = vscode.commands.registerCommand(
+    'apex-ls-ts.showQueueState',
+    () => {
+      console.log('Queue state command executed');
+      showQueueState(context);
+    },
+  );
+  context.subscriptions.push(queueStateCommand);
 };
 
 /**

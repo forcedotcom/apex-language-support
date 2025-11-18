@@ -21,6 +21,8 @@ import {
 import {
   Priority,
   AllPriorities,
+  Critical,
+  AllPrioritiesWithCritical,
   ScheduledTask,
   PriorityScheduler,
   PrioritySchedulerConfigShape,
@@ -48,7 +50,7 @@ function controllerLoop(
 
       let executed = false;
 
-      for (const p of AllPriorities) {
+      for (const p of AllPrioritiesWithCritical) {
         const q = state.queues.get(p)!;
         const chunk = yield* _(Queue.takeUpTo(q, 1));
 
@@ -85,8 +87,8 @@ function controllerLoop(
       if (streak > cfg.maxHighPriorityStreak) {
         streak = 0;
 
-        for (let i = AllPriorities.length - 1; i >= 0; i--) {
-          const q = state.queues.get(AllPriorities[i])!;
+        for (let i = AllPrioritiesWithCritical.length - 1; i >= 0; i--) {
+          const q = state.queues.get(AllPrioritiesWithCritical[i])!;
           const chunk = yield* _(Queue.takeUpTo(q, 1));
 
           if (!Chunk.isEmpty(chunk)) {
@@ -116,7 +118,10 @@ function controllerLoop(
 /** Build scheduler with config + state */
 function makeScheduler(state: SchedulerInternalState): PriorityScheduler {
   return {
-    offer<A, E, R>(priority: Priority, queuedItem: QueuedItem<A, E, R>) {
+    offer<A, E, R>(
+      priority: Priority | typeof Critical,
+      queuedItem: QueuedItem<A, E, R>,
+    ) {
       return Effect.gen(function* (_) {
         const q = state.queues.get(priority)!;
 
@@ -144,6 +149,7 @@ function makeScheduler(state: SchedulerInternalState): PriorityScheduler {
       const activeTasks: any = {};
       const requestTypeBreakdown: any = {};
 
+      // Only include public priorities in metrics (exclude Critical for API stability)
       for (const p of AllPriorities) {
         const queueSize = yield* _(Queue.size(state.queues.get(p)!));
         ms[p] = queueSize;
@@ -171,6 +177,7 @@ function makeScheduler(state: SchedulerInternalState): PriorityScheduler {
         requestTypeBreakdown,
         queueUtilization: utilization,
         activeTasks,
+        queueCapacity: state.queueCapacity,
       } satisfies SchedulerMetrics;
     }),
     shutdown: Deferred.succeed(state.shutdownSignal, undefined).pipe(
@@ -185,10 +192,10 @@ export const PrioritySchedulerLive = Layer.scoped(
     const cfg = yield* _(PrioritySchedulerConfig);
 
     const queues = new Map<
-      Priority,
+      number,
       Queue.Queue<QueuedItem<unknown, unknown, unknown>>
     >();
-    for (const p of AllPriorities) {
+    for (const p of AllPrioritiesWithCritical) {
       queues.set(
         p,
         yield* _(
@@ -200,14 +207,14 @@ export const PrioritySchedulerLive = Layer.scoped(
     }
 
     // Initialize requestType tracking map
-    const requestTypeCountsMap = new Map<Priority, Map<string, number>>();
-    for (const p of AllPriorities) {
+    const requestTypeCountsMap = new Map<number, Map<string, number>>();
+    for (const p of AllPrioritiesWithCritical) {
       requestTypeCountsMap.set(p, new Map<string, number>());
     }
 
     // Initialize active task counts map
-    const activeTaskCountsMap = new Map<Priority, number>();
-    for (const p of AllPriorities) {
+    const activeTaskCountsMap = new Map<number, number>();
+    for (const p of AllPrioritiesWithCritical) {
       activeTaskCountsMap.set(p, 0);
     }
 

@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+description: Provides access to Effect-TS docs
+alwaysApply: false
 ---
 <SYSTEM>This is the full developer documentation for Effect.</SYSTEM>
 

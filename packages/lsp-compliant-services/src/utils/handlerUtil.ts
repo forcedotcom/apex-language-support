@@ -163,9 +163,7 @@ export function shouldSuppressDiagnostics(uri: string): boolean {
  * @param params The queue state parameters
  * @returns Queue state response
  */
-export async function dispatchProcessOnQueueState(
-  params: any,
-): Promise<any> {
+export async function dispatchProcessOnQueueState(params: any): Promise<any> {
   const { QueueStateHandler } = await import('../handlers/QueueStateHandler');
   const { QueueStateProcessingService } = await import(
     '../services/QueueStateProcessingService'
