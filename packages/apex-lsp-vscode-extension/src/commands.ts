@@ -9,11 +9,12 @@
 import * as vscode from 'vscode';
 import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel, updateLogLevel } from './logging';
+import { showGraph } from './graph/showGraph';
 import {
-  updateLogLevelStatusItems,
-  refreshApexServerStatusLogLevel,
   updateProfilingToggleItem,
   getProfilingTag,
+  updateLogLevelStatusItems,
+  refreshApexServerStatusLogLevel,
 } from './status-bar';
 
 /**
@@ -166,6 +167,19 @@ export const registerLogLevelCommands = (
 
     context.subscriptions.push(command);
   });
+};
+
+export const registerGraphCommand = (
+  context: vscode.ExtensionContext,
+): void => {
+  const graphCommand = vscode.commands.registerCommand(
+    'apex-ls-ts.showGraph',
+    () => {
+      console.log('Graph command executed');
+      showGraph(context);
+    },
+  );
+  context.subscriptions.push(graphCommand);
 };
 
 /**

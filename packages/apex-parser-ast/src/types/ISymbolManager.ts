@@ -19,6 +19,11 @@ import type {
   ApexComment,
   CommentAssociation,
 } from '../parser/listeners/ApexCommentCollectorListener';
+import type {
+  GraphData,
+  FileGraphData,
+  TypeGraphData,
+} from '../types/graph';
 
 /**
  * Context for symbol resolution
@@ -265,4 +270,19 @@ export interface ISymbolManager {
     requestType?: string;
     position?: { line: number; character: number };
   };
+
+  /**
+   * Get graph data as JSON-serializable data
+   */
+  getGraphData(): GraphData;
+
+  /**
+   * Get graph data filtered by file as JSON-serializable data
+   */
+  getGraphDataForFile(fileUri: string): FileGraphData;
+
+  /**
+   * Get graph data filtered by symbol type as JSON-serializable data
+   */
+  getGraphDataByType(symbolType: string): TypeGraphData;
 }

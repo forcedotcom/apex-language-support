@@ -373,6 +373,10 @@
         "title": "%commands.apex.showAggregatedLogs.title%"
       },
       {
+        "command": "apex-ls-ts.showGraph",
+        "title": "%commands.apex-ls-ts.showGraph.title%"
+      },
+      {
         "command": "apex.profiling.start",
         "title": "%commands.apex.profiling.start.title%"
       },

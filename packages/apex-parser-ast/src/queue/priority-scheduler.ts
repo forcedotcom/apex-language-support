@@ -140,9 +140,27 @@ function makeScheduler(state: SchedulerInternalState): PriorityScheduler {
     },
     metrics: Effect.gen(function* (_) {
       const ms: any = {};
+      const utilization: any = {};
+      const activeTasks: any = {};
+      const requestTypeBreakdown: any = {};
 
       for (const p of AllPriorities) {
-        ms[p] = yield* _(Queue.size(state.queues.get(p)!));
+        const queueSize = yield* _(Queue.size(state.queues.get(p)!));
+        ms[p] = queueSize;
+        utilization[p] = (queueSize / state.queueCapacity) * 100;
+
+        // Get active task count
+        const activeCounts = yield* _(Ref.get(state.activeTaskCounts));
+        activeTasks[p] = activeCounts.get(p) || 0;
+
+        // Get requestType breakdown
+        const requestTypeCounts = yield* _(Ref.get(state.requestTypeCounts));
+        const priorityCounts = requestTypeCounts.get(p) || new Map();
+        const breakdown: Record<string, number> = {};
+        for (const [requestType, count] of priorityCounts.entries()) {
+          breakdown[requestType] = count;
+        }
+        requestTypeBreakdown[p] = breakdown;
       }
 
       return {
@@ -150,6 +168,9 @@ function makeScheduler(state: SchedulerInternalState): PriorityScheduler {
         tasksStarted: yield* _(Ref.get(state.tasksStarted)),
         tasksCompleted: yield* _(Ref.get(state.tasksCompleted)),
         tasksDropped: yield* _(Ref.get(state.tasksDropped)),
+        requestTypeBreakdown,
+        queueUtilization: utilization,
+        activeTasks,
       } satisfies SchedulerMetrics;
     }),
     shutdown: Deferred.succeed(state.shutdownSignal, undefined).pipe(
@@ -178,12 +199,27 @@ export const PrioritySchedulerLive = Layer.scoped(
       );
     }
 
+    // Initialize requestType tracking map
+    const requestTypeCountsMap = new Map<Priority, Map<string, number>>();
+    for (const p of AllPriorities) {
+      requestTypeCountsMap.set(p, new Map<string, number>());
+    }
+
+    // Initialize active task counts map
+    const activeTaskCountsMap = new Map<Priority, number>();
+    for (const p of AllPriorities) {
+      activeTaskCountsMap.set(p, 0);
+    }
+
     const state: SchedulerInternalState = {
       queues,
       tasksStarted: yield* _(Ref.make(0)),
       tasksCompleted: yield* _(Ref.make(0)),
       tasksDropped: yield* _(Ref.make(0)),
       shutdownSignal: yield* _(Deferred.make<void, void>()),
+      requestTypeCounts: yield* _(Ref.make(requestTypeCountsMap)),
+      activeTaskCounts: yield* _(Ref.make(activeTaskCountsMap)),
+      queueCapacity: cfg.queueCapacity,
     };
 
     // Start the controller loop in the background

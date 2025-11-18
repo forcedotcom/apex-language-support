@@ -50,6 +50,17 @@ import {
   CodeLensProcessingService,
   ICodeLensProcessor,
 } from '../services/CodeLensProcessingService';
+import { QueueStateHandler } from '../handlers/QueueStateHandler';
+import {
+  QueueStateProcessingService,
+  IQueueStateProcessor,
+} from '../services/QueueStateProcessingService';
+import { GraphDataHandler } from '../handlers/GraphDataHandler';
+import {
+  GraphDataProcessingService,
+  IGraphDataProcessor,
+} from '../services/GraphDataProcessingService';
+import { ApexCapabilitiesManager } from '@salesforce/apex-lsp-shared';
 
 /**
  * Factory for creating handlers with proper dependency injection
@@ -255,5 +266,59 @@ export class HandlerFactory {
     codeLensProcessor: ICodeLensProcessor,
   ): CodeLensHandler {
     return new CodeLensHandler(logger, codeLensProcessor);
+  }
+
+  /**
+   * Create a QueueStateHandler with default dependencies
+   * @returns A configured QueueStateHandler instance
+   */
+  static createQueueStateHandler(): QueueStateHandler {
+    const logger = getLogger();
+    const capabilitiesManager = ApexCapabilitiesManager.getInstance();
+    const queueStateProcessor = new QueueStateProcessingService(logger);
+
+    return new QueueStateHandler(logger, queueStateProcessor, capabilitiesManager);
+  }
+
+  /**
+   * Create a QueueStateHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param queueStateProcessor Custom queue state processor implementation
+   * @param capabilitiesManager Custom capabilities manager implementation
+   * @returns A configured QueueStateHandler instance
+   */
+  static createQueueStateHandlerWithDependencies(
+    logger: LoggerInterface,
+    queueStateProcessor: IQueueStateProcessor,
+    capabilitiesManager: ApexCapabilitiesManager,
+  ): QueueStateHandler {
+    return new QueueStateHandler(logger, queueStateProcessor, capabilitiesManager);
+  }
+
+  /**
+   * Create a GraphDataHandler with default dependencies
+   * @returns A configured GraphDataHandler instance
+   */
+  static createGraphDataHandler(): GraphDataHandler {
+    const logger = getLogger();
+    const capabilitiesManager = ApexCapabilitiesManager.getInstance();
+    const graphDataProcessor = new GraphDataProcessingService(logger);
+
+    return new GraphDataHandler(logger, graphDataProcessor, capabilitiesManager);
+  }
+
+  /**
+   * Create a GraphDataHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param graphDataProcessor Custom graph data processor implementation
+   * @param capabilitiesManager Custom capabilities manager implementation
+   * @returns A configured GraphDataHandler instance
+   */
+  static createGraphDataHandlerWithDependencies(
+    logger: LoggerInterface,
+    graphDataProcessor: IGraphDataProcessor,
+    capabilitiesManager: ApexCapabilitiesManager,
+  ): GraphDataHandler {
+    return new GraphDataHandler(logger, graphDataProcessor, capabilitiesManager);
   }
 }

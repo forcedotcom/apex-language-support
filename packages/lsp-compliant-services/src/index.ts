@@ -64,6 +64,8 @@ export * from './handlers/DiagnosticHandler';
 export * from './handlers/HoverHandler';
 export * from './handlers/MissingArtifactHandler';
 export * from './handlers/CodeLensHandler';
+export * from './handlers/QueueStateHandler';
+export * from './handlers/GraphDataHandler';
 
 // Export services
 export * from './services/DocumentProcessingService';
@@ -82,6 +84,8 @@ export * from './services/MissingArtifactResolutionService';
 export * from './services/IndexingObserver';
 export * from './services/SymbolManagerExtensions';
 export * from './services/CodeLensProcessingService';
+export * from './services/QueueStateProcessingService';
+export * from './services/GraphDataProcessingService';
 
 // Export factories
 export * from './factories/HandlerFactory';
@@ -283,4 +287,17 @@ export {
   dispatchProcessOnDiagnostic,
   dispatchProcessOnFoldingRange,
   dispatchProcessOnResolve,
+};
+
+// Export dispatch functions from handlerUtil
+export { dispatchProcessOnQueueState } from './utils/handlerUtil';
+
+/**
+ * Dispatch graph data processing request
+ * @param params The graph data parameters
+ * @returns Graph data response
+ */
+export const dispatchProcessOnGraphData = async (params: any): Promise<any> => {
+  const handler = HandlerFactory.createGraphDataHandler();
+  return await handler.handleGraphData(params);
 };

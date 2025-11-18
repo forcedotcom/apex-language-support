@@ -60,6 +60,8 @@ import {
   dispatchProcessOnResolve,
   BackgroundProcessingInitializationService,
   initializeLSPQueueManager,
+  dispatchProcessOnQueueState,
+  dispatchProcessOnGraphData,
 } from '@salesforce/apex-lsp-compliant-services';
 
 import {
@@ -574,6 +576,81 @@ export class LCSAdapter {
     );
 
     this.logger.debug('✅ apex/loadWorkspace handler registered');
+
+    // Register custom development-mode endpoints
+    const capabilitiesManager =
+      LSPConfigurationManager.getInstance().getCapabilitiesManager();
+    if (capabilitiesManager.getMode() === 'development') {
+      // Register apex/queueState handler (development mode only)
+      this.connection.onRequest(
+        'apex/queueState',
+        async (params: any): Promise<any> => {
+          this.logger.debug(
+            () =>
+              `🔍 apex/queueState request received: ${JSON.stringify(params)}`,
+          );
+          try {
+            const result = await dispatchProcessOnQueueState(params);
+            this.logger.debug(
+              () =>
+                `✅ apex/queueState processed successfully, result type: ${typeof result}`,
+            );
+            return result;
+          } catch (error) {
+            this.logger.error(
+              () =>
+                `Error processing queue state request: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+            );
+            this.logger.error(
+              () =>
+                `Queue state error stack: ${
+                  error instanceof Error ? error.stack : 'No stack'
+                }`,
+            );
+            throw error;
+          }
+        },
+      );
+      this.logger.debug('✅ apex/queueState handler registered (development mode)');
+
+      // Register apex/graphData handler (development mode only)
+      this.connection.onRequest('apex/graphData', async (params: any) => {
+        try {
+          this.logger.info(
+            `Graph data request received: ${JSON.stringify(params)}`,
+          );
+          this.logger.info('About to call dispatchProcessOnGraphData...');
+          const result = await dispatchProcessOnGraphData(params);
+          this.logger.info(
+            `Graph data processed successfully, result type: ${typeof result}`,
+          );
+          this.logger.info(
+            `Graph data result keys: ${Object.keys(result || {}).join(', ')}`,
+          );
+          return result;
+        } catch (error) {
+          this.logger.error(
+            `Error processing graph data request: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+          this.logger.error(
+            `Graph data error stack: ${
+              error instanceof Error ? error.stack : 'No stack'
+            }`,
+          );
+          throw error;
+        }
+      });
+      this.logger.debug('✅ apex/graphData handler registered (development mode)');
+    } else {
+      this.logger.debug(
+        '⚠️ Development mode endpoints not registered (production mode)',
+      );
+    }
+
     // Register profiling handlers (only in desktop/Node.js environment)
     this.registerProfilingHandlers();
   }

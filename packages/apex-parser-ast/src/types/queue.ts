@@ -22,6 +22,14 @@ export interface SchedulerMetrics {
   readonly tasksStarted: number;
   readonly tasksCompleted: number;
   readonly tasksDropped: number;
+  /** Request type breakdown per priority: priority -> requestType -> count */
+  readonly requestTypeBreakdown?: Readonly<
+    Record<Priority, Readonly<Record<string, number>>>
+  >;
+  /** Queue utilization percentage per priority (0-100) */
+  readonly queueUtilization?: Readonly<Record<Priority, number>>;
+  /** Currently active (executing) tasks per priority */
+  readonly activeTasks?: Readonly<Record<Priority, number>>;
 }
 
 export interface PriorityScheduler {
@@ -56,6 +64,12 @@ export interface SchedulerInternalState {
   readonly tasksCompleted: Ref.Ref<number>;
   readonly tasksDropped: Ref.Ref<number>;
   readonly shutdownSignal: Deferred.Deferred<void, void>;
+  /** Request type counts per priority: priority -> requestType -> count */
+  readonly requestTypeCounts: Ref.Ref<Map<Priority, Map<string, number>>>;
+  /** Active tasks per priority (currently executing) */
+  readonly activeTaskCounts: Ref.Ref<Map<Priority, number>>;
+  /** Queue capacity per priority */
+  readonly queueCapacity: number;
 }
 
 // Internal state types for scheduler utils

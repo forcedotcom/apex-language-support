@@ -4534,4 +4534,54 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return null;
     }
   }
+
+  /**
+   * Get graph data as JSON-serializable data
+   * Delegates to ApexSymbolGraph
+   */
+  getGraphData(): import('../types/graph').GraphData {
+    return this.symbolGraph.getGraphData();
+  }
+
+  /**
+   * Get graph data filtered by file as JSON-serializable data
+   * Delegates to ApexSymbolGraph
+   */
+  getGraphDataForFile(fileUri: string): import('../types/graph').FileGraphData {
+    return this.symbolGraph.getGraphDataForFile(fileUri);
+  }
+
+  /**
+   * Get graph data filtered by symbol type as JSON-serializable data
+   * Delegates to ApexSymbolGraph
+   */
+  getGraphDataByType(
+    symbolType: string,
+  ): import('../types/graph').TypeGraphData {
+    return this.symbolGraph.getGraphDataByType(symbolType);
+  }
+
+  /**
+   * Get graph data as a JSON string (for direct wire transmission)
+   * Delegates to ApexSymbolGraph
+   */
+  getGraphDataAsJSON(): string {
+    return this.symbolGraph.getGraphDataAsJSON();
+  }
+
+  /**
+   * Get graph data for a file as a JSON string
+   * Delegates to ApexSymbolGraph
+   */
+  getGraphDataForFileAsJSON(fileUri: string): string {
+    return this.symbolGraph.getGraphDataForFileAsJSON(fileUri);
+  }
+
+  /**
+   * Get graph data by type as a JSON string
+   * Delegates to ApexSymbolGraph
+   */
+  getGraphDataByTypeAsJSON(symbolType: string): string {
+    return this.symbolGraph.getGraphDataByTypeAsJSON(symbolType);
+  }
 }
