@@ -12,7 +12,9 @@ import {
   SymbolProcessingOptions,
 } from '../../src/symbols/ApexSymbolIndexingService';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, Priority } from '@salesforce/apex-lsp-shared';
+import { initialize as schedulerInitialize, reset as schedulerReset } from '../../src/queue/priority-scheduler-utils';
+import { Effect } from 'effect';
 
 // Mock getLogger, but keep Priority from actual module
 jest.mock('@salesforce/apex-lsp-shared', () => {
@@ -32,12 +34,27 @@ describe('ApexSymbolIndexingService', () => {
   let symbolManager: ApexSymbolManager;
   let indexingService: ApexSymbolIndexingIntegration;
 
+  beforeAll(async () => {
+    // Initialize scheduler before all tests
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
+  });
+
+  afterAll(async () => {
+    // Reset scheduler after all tests
+    await Effect.runPromise(schedulerReset());
+  });
+
   beforeEach(async () => {
     jest.clearAllMocks();
     symbolManager = new ApexSymbolManager();
     indexingService = new ApexSymbolIndexingIntegration(symbolManager);
-    // Give the worker fiber a moment to initialize
-    // This helps avoid race conditions with queue operations
+    // Give scheduler a moment to process any queued tasks
     await new Promise((resolve) => setTimeout(resolve, 10));
   });
 
@@ -60,7 +77,7 @@ describe('ApexSymbolIndexingService', () => {
       const symbolTable2 = new SymbolTable();
 
       const options: SymbolProcessingOptions = {
-        priority: 'NORMAL',
+        priority: Priority.Normal,
       };
 
       // Process version 1
@@ -92,7 +109,7 @@ describe('ApexSymbolIndexingService', () => {
       const symbolTable = new SymbolTable();
 
       const options: SymbolProcessingOptions = {
-        priority: 'NORMAL',
+        priority: Priority.Normal,
       };
 
       // Process first time
@@ -120,7 +137,7 @@ describe('ApexSymbolIndexingService', () => {
       const symbolTable = new SymbolTable();
 
       const options: SymbolProcessingOptions = {
-        priority: 'NORMAL',
+        priority: Priority.Normal,
       };
 
       // Process without version
@@ -146,7 +163,7 @@ describe('ApexSymbolIndexingService', () => {
       const symbolTable = new SymbolTable();
 
       const options: SymbolProcessingOptions = {
-        priority: 'NORMAL',
+        priority: Priority.Normal,
       };
 
       // Process without version
@@ -180,7 +197,7 @@ describe('ApexSymbolIndexingService', () => {
       const symbolTable2 = new SymbolTable();
 
       const options: SymbolProcessingOptions = {
-        priority: 'NORMAL',
+        priority: Priority.Normal,
       };
 
       const taskId1 = indexingService.processSymbolTable(
@@ -208,7 +225,7 @@ describe('ApexSymbolIndexingService', () => {
       const symbolTable = new SymbolTable();
 
       const options: SymbolProcessingOptions = {
-        priority: 'NORMAL',
+        priority: Priority.Normal,
       };
 
       const taskId = indexingService.processSymbolTable(
@@ -231,7 +248,7 @@ describe('ApexSymbolIndexingService', () => {
       const documentVersion = 5;
 
       const options: SymbolProcessingOptions = {
-        priority: 'NORMAL',
+        priority: Priority.Normal,
       };
 
       const taskId = indexingService.processSymbolTable(

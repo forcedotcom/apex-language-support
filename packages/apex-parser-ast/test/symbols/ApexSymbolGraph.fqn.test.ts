@@ -10,10 +10,28 @@ import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
+import { initialize as schedulerInitialize, reset as schedulerReset } from '../../src/queue/priority-scheduler-utils';
+import { Effect } from 'effect';
 
 describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
   let symbolGraph: ApexSymbolGraph;
   let compilerService: CompilerService;
+
+  beforeAll(async () => {
+    // Initialize scheduler before all tests
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
+  });
+
+  afterAll(async () => {
+    // Reset scheduler after all tests
+    await Effect.runPromise(schedulerReset());
+  });
 
   beforeEach(() => {
     symbolGraph = new ApexSymbolGraph();

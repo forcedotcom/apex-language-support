@@ -15,6 +15,7 @@ import {
   Deferred,
   Duration,
   Chunk,
+  Fiber,
 } from 'effect';
 import {
   Priority,
@@ -310,5 +311,28 @@ export function shutdown(): Effect.Effect<void, Error, never> {
 export function reset(): Effect.Effect<void, never, never> {
   return Ref.set(utilsStateRef, {
     type: 'uninitialized',
+  });
+}
+
+/**
+ * Create a QueuedItem from an Effect.
+ * This is a convenience helper for creating queued items to submit to the scheduler.
+ *
+ * @param eff - The Effect to wrap in a QueuedItem
+ * @param requestType - Optional request type identifier for tracking/monitoring
+ * @returns An Effect that produces a QueuedItem ready to be scheduled
+ */
+export function createQueuedItem<A, E, R>(
+  eff: Effect.Effect<A, E, R>,
+  requestType?: string,
+): Effect.Effect<QueuedItem<A, E, R>, never, never> {
+  return Effect.gen(function* () {
+    const fiberDeferred = yield* Deferred.make<Fiber.RuntimeFiber<A, E>, E>();
+    return {
+      id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      eff,
+      fiberDeferred,
+      requestType,
+    };
   });
 }

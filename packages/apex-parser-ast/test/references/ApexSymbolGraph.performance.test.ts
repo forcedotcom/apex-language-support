@@ -16,9 +16,27 @@ import {
   SymbolKind,
   SymbolVisibility,
 } from '../../src/types/symbol';
+import { initialize as schedulerInitialize, reset as schedulerReset } from '../../src/queue/priority-scheduler-utils';
+import { Effect } from 'effect';
 
 describe('ApexSymbolGraph - Performance Tests', () => {
   let graph: ApexSymbolGraph;
+
+  beforeAll(async () => {
+    // Initialize scheduler before all tests
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
+  });
+
+  afterAll(async () => {
+    // Reset scheduler after all tests
+    await Effect.runPromise(schedulerReset());
+  });
 
   beforeEach(() => {
     graph = new ApexSymbolGraph();

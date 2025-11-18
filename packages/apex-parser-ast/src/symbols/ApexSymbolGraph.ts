@@ -7,7 +7,9 @@
  */
 
 import { HashMap, DirectedGraph, DirectedVertex } from 'data-structure-typed';
-import { Effect, Queue, Fiber } from 'effect';
+import { Effect } from 'effect';
+import { Priority } from '@salesforce/apex-lsp-shared';
+import { offer, createQueuedItem, metrics } from '../queue/priority-scheduler-utils';
 import {
   getLogger,
   type EnumValue,
@@ -148,6 +150,7 @@ type DeferredProcessingTask = {
   readonly _tag: 'DeferredProcessingTask';
   readonly symbolName: string;
   readonly taskType: 'processDeferred' | 'retryPending';
+  readonly priority: Priority;
   readonly retryCount: number;
   readonly firstAttemptTime: number;
 };
@@ -264,11 +267,8 @@ export class ApexSymbolGraph {
     estimatedMemorySavings: 0,
   };
 
-  // Effect-TS Queue infrastructure for deferred reference processing
-  private deferredQueue: Queue.Queue<DeferredProcessingTask>;
-  private workerFiber: any = null;
+  // Deferred reference processing configuration
   private readonly DEFERRED_BATCH_SIZE = 50;
-  private readonly DEFERRED_QUEUE_CAPACITY = 1000;
   private readonly MAX_RETRY_ATTEMPTS = 10;
   private readonly RETRY_DELAY_MS = 100;
   private failedReferences: Map<string, DeferredProcessingTask> = new Map();
@@ -280,101 +280,44 @@ export class ApexSymbolGraph {
     this.resourceLoader = ResourceLoader.getInstance({
       preloadStdClasses: false,
     });
-
-    // Initialize Effect-TS queue for deferred reference processing
-    try {
-      this.deferredQueue = Effect.runSync(
-        Queue.bounded<DeferredProcessingTask>(this.DEFERRED_QUEUE_CAPACITY),
-      );
-      this.startDeferredWorker();
-    } catch (error) {
-      // If queue initialization fails, log and continue without deferred processing
-      this.logger.warn(
-        () => `Failed to initialize deferred reference queue: ${error}`,
-      );
-      // Create a dummy queue to prevent null reference errors
-      // This should not happen in normal operation
-      this.deferredQueue = Effect.runSync(
-        Queue.bounded<DeferredProcessingTask>(1),
-      );
-    }
+    // Note: Deferred reference processing now uses shared priority scheduler
   }
 
-  /**
-   * Start the background worker that processes deferred reference tasks from the queue
-   */
-  private startDeferredWorker(): void {
-    if (this.workerFiber) {
-      this.logger.warn(() => 'Deferred worker already running');
-      return;
-    }
-
-    const self = this;
-    const workerProgram = Effect.gen(function* () {
-      while (true) {
-        const task = yield* Queue.take(self.deferredQueue).pipe(
-          Effect.catchAll((error: unknown) => {
-            // Queue shutdown or interruption - exit the loop
-            const errorMsg =
-              error instanceof Error ? error.message : String(error);
-            if (
-              errorMsg.includes('shutdown') ||
-              errorMsg.includes('interrupt')
-            ) {
-              return Effect.fail(error as Error);
-            }
-            // Other errors - log and continue
-            self.logger.debug(() => `Queue.take error (will retry): ${error}`);
-            return Effect.fail(error as Error);
-          }),
-        );
-        yield* Effect.try({
-          try: () => self.processDeferredTask(task),
-          catch: (error) => new Error(`Deferred processing failed: ${error}`),
-        });
-      }
-    }).pipe(
-      Effect.catchAll((error: unknown) => {
-        // Worker is shutting down - this is expected
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        if (errorMsg.includes('shutdown') || errorMsg.includes('interrupt')) {
-          self.logger.debug(() => 'Deferred worker exiting (shutdown)');
-          return Effect.succeed(undefined);
-        }
-        // Unexpected error - log it
-        self.logger.error(() => `Deferred worker error: ${error}`);
-        return Effect.succeed(undefined);
-      }),
-    );
-
-    this.workerFiber = Effect.runFork(workerProgram);
-    this.logger.debug(() => 'Deferred reference worker started');
-  }
 
   /**
    * Process a deferred reference task with retry logic
+   * Returns an Effect for use with the priority scheduler
    */
-  private processDeferredTask(task: DeferredProcessingTask): void {
-    try {
-      if (task.taskType === 'processDeferred') {
-        const result = this.processDeferredReferencesBatch(task.symbolName);
-        if (result.needsRetry) {
-          this.requeueTask(task, result.reason);
+  private processDeferredTask(
+    task: DeferredProcessingTask,
+  ): Effect.Effect<void, Error, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      try {
+        if (task.taskType === 'processDeferred') {
+          const result = self.processDeferredReferencesBatch(task.symbolName);
+          if (result.needsRetry) {
+            self.requeueTask(task, result.reason);
+          }
+        } else {
+          const result = self.retryPendingDeferredReferencesBatch(
+            task.symbolName,
+          );
+          if (result.needsRetry) {
+            self.requeueTask(task, result.reason);
+          }
         }
-      } else {
-        const result = this.retryPendingDeferredReferencesBatch(
-          task.symbolName,
+      } catch (error) {
+        self.logger.error(
+          () =>
+            `Error processing deferred task for ${task.symbolName}: ${error}`,
         );
-        if (result.needsRetry) {
-          this.requeueTask(task, result.reason);
-        }
+        self.requeueTask(task, 'processing_error');
+        return yield* Effect.fail(
+          new Error(`Deferred processing failed: ${error}`),
+        );
       }
-    } catch (error) {
-      this.logger.error(
-        () => `Error processing deferred task for ${task.symbolName}: ${error}`,
-      );
-      this.requeueTask(task, 'processing_error');
-    }
+    });
   }
 
   /**
@@ -392,29 +335,44 @@ export class ApexSymbolGraph {
       return;
     }
 
-    // Re-queue with incremented retry count
+    // Re-queue with incremented retry count and lower priority for retries
     const retryTask: DeferredProcessingTask = {
       ...task,
       retryCount: task.retryCount + 1,
+      priority: Priority.Low, // Retries use lower priority
     };
 
     // Use setTimeout for retry delay to avoid async Effect issues
     // This schedules the re-queue after the delay without blocking
     // Track the timer so it can be cleared on shutdown
     // Use .unref() to prevent the timer from keeping the process alive
+    const self = this;
     const timer = setTimeout(() => {
-      this.activeRetryTimers.delete(timer);
+      self.activeRetryTimers.delete(timer);
       try {
-        Effect.runSync(Queue.offer(this.deferredQueue, retryTask));
+        // Create QueuedItem and schedule with priority scheduler
+        const queuedItemEffect = createQueuedItem(
+          self.processDeferredTask(retryTask),
+          retryTask.taskType === 'processDeferred'
+            ? 'deferred-reference-process'
+            : 'deferred-reference-retry',
+        );
+        const scheduledTaskEffect = Effect.gen(function* () {
+          const queuedItem = yield* queuedItemEffect;
+          return yield* offer(retryTask.priority, queuedItem);
+        });
+        Effect.runSync(scheduledTaskEffect);
       } catch (error) {
-        // Queue might be shutdown, ignore errors during shutdown
+        // Scheduler might not be initialized or other errors
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         if (
-          !(error instanceof Error && error.message.includes('shutdown')) &&
-          !(error instanceof Error && error.message.includes('interrupt'))
+          !errorMessage.includes('not initialized') &&
+          !errorMessage.includes('shutdown')
         ) {
-          this.logger.error(
+          self.logger.error(
             () =>
-              `Failed to re-queue deferred task for ${task.symbolName}: ${error}`,
+              `Failed to re-queue deferred task for ${task.symbolName}: ${errorMessage}`,
           );
         }
       }
@@ -548,16 +506,27 @@ export class ApexSymbolGraph {
         _tag: 'DeferredProcessingTask',
         symbolName: symbol.name,
         taskType: 'processDeferred',
+        priority: Priority.Normal, // Standard processing uses Normal priority
         retryCount: 0,
         firstAttemptTime: Date.now(),
       };
       try {
-        Effect.runSync(Queue.offer(this.deferredQueue, task));
+        const queuedItemEffect = createQueuedItem(
+          this.processDeferredTask(task),
+          'deferred-reference-process',
+        );
+        const scheduledTaskEffect = Effect.gen(function* () {
+          const queuedItem = yield* queuedItemEffect;
+          return yield* offer(task.priority, queuedItem);
+        });
+        Effect.runSync(scheduledTaskEffect);
       } catch (error) {
-        // If queue offer fails, log and continue - deferred processing will retry later
+        // If scheduling fails, log and continue - deferred processing will retry later
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         this.logger.debug(
           () =>
-            `Failed to enqueue deferred processing task for ${symbol.name}: ${error}`,
+            `Failed to enqueue deferred processing task for ${symbol.name}: ${errorMessage}`,
         );
       }
     }
@@ -568,16 +537,27 @@ export class ApexSymbolGraph {
         _tag: 'DeferredProcessingTask',
         symbolName: symbol.name,
         taskType: 'retryPending',
+        priority: Priority.Low, // Retry operations use Low priority
         retryCount: 0,
         firstAttemptTime: Date.now(),
       };
       try {
-        Effect.runSync(Queue.offer(this.deferredQueue, task));
+        const queuedItemEffect = createQueuedItem(
+          this.processDeferredTask(task),
+          'deferred-reference-retry',
+        );
+        const scheduledTaskEffect = Effect.gen(function* () {
+          const queuedItem = yield* queuedItemEffect;
+          return yield* offer(task.priority, queuedItem);
+        });
+        Effect.runSync(scheduledTaskEffect);
       } catch (error) {
-        // If queue offer fails, log and continue - retry will happen later
+        // If scheduling fails, log and continue - retry will happen later
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         this.logger.debug(
           () =>
-            `Failed to enqueue pending retry task for ${symbol.name}: ${error}`,
+            `Failed to enqueue pending retry task for ${symbol.name}: ${errorMessage}`,
         );
       }
     }
@@ -1105,16 +1085,19 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Get the current size of the deferred reference processing queue
+   * Get the current size of the deferred reference processing queue (from scheduler metrics)
    */
   getDeferredQueueSize(): number {
     try {
-      const size = Effect.runSync(Queue.size(this.deferredQueue));
-      // Queue.size can return -1 if queue is shutdown or in invalid state
-      return size >= 0 ? size : 0;
+      const schedulerMetrics = Effect.runSync(metrics());
+      // Sum Normal and Low priority queues (where deferred tasks are scheduled)
+      return (
+        (schedulerMetrics.queueSizes[Priority.Normal] || 0) +
+        (schedulerMetrics.queueSizes[Priority.Low] || 0)
+      );
     } catch (error) {
-      // If queue operations fail, return 0
-      this.logger.debug(() => `Failed to get queue size: ${error}`);
+      // If scheduler not initialized or error getting metrics, return 0
+      this.logger.debug(() => `Failed to get deferred queue size: ${error}`);
       return 0;
     }
   }
@@ -1134,39 +1117,22 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Shutdown the deferred reference worker and queue
+   * Shutdown deferred reference processing
+   * Note: The scheduler itself is shared and should not be shut down here.
+   * Only cleanup local resources (retry timers).
    */
   private shutdownDeferredWorker(): void {
     try {
-      // Clear all active retry timers first
+      // Clear all active retry timers
       for (const timer of this.activeRetryTimers) {
         clearTimeout(timer);
       }
       this.activeRetryTimers.clear();
 
-      // Shutdown the queue first (this will cause Queue.take to fail and exit the loop)
-      try {
-        Effect.runSync(Queue.shutdown(this.deferredQueue));
-      } catch (error) {
-        // Queue might already be shutdown, ignore
-        this.logger.debug(() => `Error shutting down queue: ${error}`);
-      }
-
-      // Then interrupt the worker fiber (in case it's still running)
-      if (this.workerFiber) {
-        try {
-          Effect.runSync(Fiber.interrupt(this.workerFiber));
-        } catch (error) {
-          // Fiber might already be interrupted, ignore
-          this.logger.debug(() => `Error interrupting worker fiber: ${error}`);
-        }
-        this.workerFiber = null;
-      }
-
-      this.logger.debug(() => 'Deferred reference worker shutdown complete');
+      this.logger.debug(() => 'Deferred reference processing shutdown complete');
     } catch (error) {
-      // Ignore errors during shutdown - queue might already be shutdown
-      this.logger.debug(() => `Error during worker shutdown: ${error}`);
+      // Ignore errors during shutdown
+      this.logger.debug(() => `Error during deferred processing shutdown: ${error}`);
     }
   }
 
@@ -1445,27 +1411,8 @@ export class ApexSymbolGraph {
       estimatedMemorySavings: 0,
     };
 
-    // Reinitialize queue and worker
-    try {
-      this.deferredQueue = Effect.runSync(
-        Queue.bounded<DeferredProcessingTask>(this.DEFERRED_QUEUE_CAPACITY),
-      );
-      this.startDeferredWorker();
-    } catch (error) {
-      // If reinitialization fails, log and continue
-      this.logger.warn(
-        () => `Failed to reinitialize deferred reference queue: ${error}`,
-      );
-      // Create a minimal queue to prevent null reference errors
-      try {
-        this.deferredQueue = Effect.runSync(
-          Queue.bounded<DeferredProcessingTask>(1),
-        );
-      } catch (e) {
-        // If even minimal queue creation fails, we're in a bad state
-        this.logger.error(() => `Critical: Cannot create deferred queue: ${e}`);
-      }
-    }
+    // Note: Deferred reference processing now uses shared priority scheduler
+    // No queue initialization needed here
   }
 
   /**

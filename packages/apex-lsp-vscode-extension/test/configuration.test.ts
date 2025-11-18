@@ -150,6 +150,11 @@ describe('Configuration Module', () => {
             loadMode: 'lazy',
             standardApexLibraryPath: undefined,
           },
+          scheduler: {
+            queueCapacity: 100,
+            maxHighPriorityStreak: 50,
+            idleSleepMs: 1,
+          },
           findMissingArtifact: {
             enabled: false,
             blockingWaitTimeoutMs: 2000,

@@ -65,6 +65,11 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       yieldInterval: 50,
       yieldDelayMs: 25,
     },
+    scheduler: {
+      queueCapacity: 100, // Increased from 64 to handle shared load between packages
+      maxHighPriorityStreak: 50,
+      idleSleepMs: 1,
+    },
     worker: {
       logLevel: 'info',
     },
@@ -125,6 +130,11 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       },
       yieldInterval: 25, // More frequent yielding in browser
       yieldDelayMs: 25,
+    },
+    scheduler: {
+      ...DEFAULT_APEX_SETTINGS.apex.scheduler,
+      // More conservative defaults for browser
+      queueCapacity: 64, // Lower capacity for browser
     },
     worker: {
       ...DEFAULT_APEX_SETTINGS.apex.worker,
@@ -254,6 +264,10 @@ export function mergeWithDefaults(
         ...baseDefaults.apex.queueProcessing,
         ...userSettings.apex?.queueProcessing,
       },
+      scheduler: {
+        ...baseDefaults.apex.scheduler,
+        ...userSettings.apex?.scheduler,
+      },
       worker: {
         ...baseDefaults.apex.worker,
         ...userSettings.apex?.worker,
@@ -300,6 +314,10 @@ export function mergeWithExisting(
       queueProcessing: {
         ...existingSettings.apex.queueProcessing,
         ...partialSettings.apex?.queueProcessing,
+      },
+      scheduler: {
+        ...existingSettings.apex.scheduler,
+        ...partialSettings.apex?.scheduler,
       },
       worker: {
         ...existingSettings.apex.worker,

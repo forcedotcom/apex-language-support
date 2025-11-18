@@ -41,6 +41,13 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
     warn: jest.fn(),
     error: jest.fn(),
   })),
+  Priority: {
+    Immediate: 1,
+    High: 2,
+    Normal: 3,
+    Low: 4,
+    Background: 5,
+  },
 }));
 
 // Skip DiagnosticProcessor mock since it's not essential for this test

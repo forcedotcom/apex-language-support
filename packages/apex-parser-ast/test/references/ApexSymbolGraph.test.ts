@@ -15,11 +15,29 @@ import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { SymbolKind, SymbolVisibility } from '../../src/types/symbol';
+import { initialize as schedulerInitialize, reset as schedulerReset } from '../../src/queue/priority-scheduler-utils';
+import { Effect } from 'effect';
 
 describe('ApexSymbolGraph', () => {
   let graph: ApexSymbolGraph;
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
+
+  beforeAll(async () => {
+    // Initialize scheduler before all tests
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
+  });
+
+  afterAll(async () => {
+    // Reset scheduler after all tests
+    await Effect.runPromise(schedulerReset());
+  });
 
   beforeEach(() => {
     graph = new ApexSymbolGraph();
@@ -2065,18 +2083,20 @@ describe('ApexSymbolGraph', () => {
       expect(stats.deferredQueueSize).toBeGreaterThanOrEqual(0);
     });
 
-    it('should properly shutdown and reinitialize queue on clear', () => {
+    it('should clear deferred references on clear', () => {
       // Add some deferred references
       const statsBefore = graph.getStats();
       const queueSizeBefore = statsBefore.deferredQueueSize;
 
-      // Clear should shutdown queue and reinitialize
+      // Clear should clear deferred references (scheduler is shared, not reinitialized)
       graph.clear();
 
-      // After clear, queue should be reinitialized
+      // After clear, deferred references should be cleared
       const statsAfter = graph.getStats();
-      expect(statsAfter.deferredQueueSize).toBe(0);
+      expect(statsAfter.deferredReferences).toBe(0);
       expect(statsAfter.failedReferencesCount).toBe(0);
+      // Queue size may still have tasks from scheduler (shared), but deferred refs are cleared
+      expect(statsAfter.deferredQueueSize).toBeGreaterThanOrEqual(0);
     });
 
     it('should not block event loop during deferred reference processing', async () => {

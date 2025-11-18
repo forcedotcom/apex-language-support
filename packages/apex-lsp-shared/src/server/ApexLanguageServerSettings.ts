@@ -151,6 +151,20 @@ export interface QueueProcessingSettings {
 }
 
 /**
+ * Priority scheduler settings
+ */
+export interface SchedulerSettings {
+  /** Queue capacity per priority level (default: 100) */
+  queueCapacity: number;
+
+  /** Maximum number of high-priority tasks before starvation relief (default: 50) */
+  maxHighPriorityStreak: number;
+
+  /** Idle sleep duration in milliseconds when no tasks available (default: 1) */
+  idleSleepMs: number;
+}
+
+/**
  * Complete Apex Language Server settings
  */
 export interface ApexLanguageServerSettings {
@@ -175,6 +189,9 @@ export interface ApexLanguageServerSettings {
 
     /** Queue processing settings */
     queueProcessing: QueueProcessingSettings;
+
+    /** Priority scheduler settings */
+    scheduler: SchedulerSettings;
 
     /** Server version for compatibility checks */
     version?: string;

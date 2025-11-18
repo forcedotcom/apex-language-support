@@ -15,6 +15,7 @@ import {
   TaskStatus,
   QueueStats,
 } from './ApexSymbolIndexingService';
+import { SchedulerInitializationService } from '../scheduler/SchedulerInitializationService';
 
 /**
  * Singleton manager for coordinating Apex symbol processing
@@ -49,11 +50,15 @@ export class ApexSymbolProcessingManager {
   /**
    * Initialize the symbol processing system
    */
-  initialize(): void {
+  async initialize(): Promise<void> {
     if (this.isInitialized) {
       this.logger.warn(() => 'ApexSymbolProcessingManager already initialized');
       return;
     }
+
+    // Ensure scheduler is initialized (shared across packages)
+    const schedulerService = SchedulerInitializationService.getInstance();
+    await schedulerService.ensureInitialized();
 
     this.isInitialized = true;
     this.logger.debug(

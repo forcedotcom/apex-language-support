@@ -11,10 +11,10 @@ import {
   ApexSymbolProcessingManager,
   ISymbolManager,
   QueuedItem,
-  initialize,
   offer,
   metrics,
   shutdown,
+  SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect, Deferred, Fiber, Cause } from 'effect';
 import { LSPRequestType, LSPQueueStats } from './LSPRequestQueue';
@@ -64,17 +64,13 @@ export class LSPQueueManager {
 
   /**
    * Ensure scheduler is initialized (lazy initialization)
+   * Uses centralized SchedulerInitializationService to ensure single initialization
    */
   private async ensureSchedulerInitialized(): Promise<void> {
     if (!this.schedulerInitialized) {
-      await Effect.runPromise(
-        initialize({
-          queueCapacity: 64,
-          maxHighPriorityStreak: 50,
-          idleSleepMs: 1,
-        }),
-      );
-      this.schedulerInitialized = true;
+      const schedulerService = SchedulerInitializationService.getInstance();
+      await schedulerService.ensureInitialized();
+      this.schedulerInitialized = schedulerService.isInitialized();
     }
   }
 

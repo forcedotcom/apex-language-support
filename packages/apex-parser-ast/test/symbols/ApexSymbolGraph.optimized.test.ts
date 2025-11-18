@@ -11,10 +11,28 @@ import {
   ReferenceType,
 } from '../../src/symbols/ApexSymbolGraph';
 import { SymbolTable, SymbolFactory, SymbolKind } from '../../src/types/symbol';
+import { initialize as schedulerInitialize, reset as schedulerReset } from '../../src/queue/priority-scheduler-utils';
+import { Effect } from 'effect';
 
 describe('ApexSymbolGraph - Optimized Architecture', () => {
   let symbolGraph: ApexSymbolGraph;
   let symbolTable: SymbolTable;
+
+  beforeAll(async () => {
+    // Initialize scheduler before all tests
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
+  });
+
+  afterAll(async () => {
+    // Reset scheduler after all tests
+    await Effect.runPromise(schedulerReset());
+  });
 
   beforeEach(() => {
     symbolGraph = new ApexSymbolGraph();

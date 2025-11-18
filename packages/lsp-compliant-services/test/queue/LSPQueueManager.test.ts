@@ -10,6 +10,7 @@ import { getLogger, ApexSettingsManager, Priority } from '@salesforce/apex-lsp-s
 import {
   ISymbolManager,
   ApexSymbolProcessingManager,
+  SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   LSPQueueManager,
@@ -141,6 +142,11 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
             yieldInterval: 50,
             yieldDelayMs: 25,
           },
+          scheduler: {
+            queueCapacity: 100,
+            maxHighPriorityStreak: 50,
+            idleSleepMs: 1,
+          },
         },
       }),
     } as any);
@@ -162,8 +168,9 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       isBackgroundProcessingInitialized: jest.fn().mockReturnValue(true),
     } as any);
 
-    // Reset singleton instance
+    // Reset singleton instances
     LSPQueueManager.reset();
+    SchedulerInitializationService.resetInstance();
   });
 
   afterEach(async () => {
@@ -176,8 +183,9 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
     } catch (_error) {
       // Ignore shutdown errors
     }
-    // Reset singleton instance
+    // Reset singleton instances
     LSPQueueManager.reset();
+    SchedulerInitializationService.resetInstance();
   });
 
   describe('Singleton Pattern', () => {

@@ -81,3 +81,9 @@ export * from './queue/priority-scheduler-config';
 export * from './queue/priority-scheduler-utils';
 // Export queue types (includes Priority and AllPriorities re-exported from shared)
 export * from './types/queue';
+
+// Export registry components
+export * from './registry';
+
+// Export scheduler initialization service
+export * from './scheduler/SchedulerInitializationService';
