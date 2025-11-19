@@ -112,7 +112,7 @@ export class ResourceLoader {
 
       // Start compilation if loadMode is 'full'
       if (this.loadMode === 'full') {
-        this.logger.info(() => '🚀 Starting full compilation mode...');
+        this.logger.debug(() => '🚀 Starting full compilation mode...');
         this.compilationPromise = this.compileAllArtifacts();
       }
     } else {
@@ -349,7 +349,7 @@ export class ResourceLoader {
         }
         // Allow updating loadMode if ZIP buffer hasn't been set yet
         if (!instance.zipBuffer) {
-          instance.logger.info(
+          instance.logger.debug(
             () =>
               `Updating loadMode from ${instance.loadMode} to ${effectiveOptions.loadMode} before ZIP buffer is set`,
           );
@@ -368,7 +368,7 @@ export class ResourceLoader {
    * @param buffer The ZIP file as a Uint8Array buffer
    */
   public setZipBuffer(buffer: Uint8Array): void {
-    this.logger.info(
+    this.logger.debug(
       () => `📦 Setting ZIP buffer directly (${buffer.length} bytes)`,
     );
     this.logger.debug(
@@ -378,14 +378,14 @@ export class ResourceLoader {
     );
     this.zipBuffer = buffer;
     this.extractZipFiles();
-    this.logger.info(
+    this.logger.debug(
       () =>
         `✅ ZIP buffer loaded: ${this.fileIndex.size} classes, ${this.namespaces.size} namespaces`,
     );
 
     // Start compilation if loadMode is 'full'
     if (this.loadMode === 'full') {
-      this.logger.info(() => '🚀 Starting full compilation mode...');
+      this.logger.debug(() => '🚀 Starting full compilation mode...');
       this.compilationPromise = this.compileAllArtifacts();
     } else {
       this.logger.debug(

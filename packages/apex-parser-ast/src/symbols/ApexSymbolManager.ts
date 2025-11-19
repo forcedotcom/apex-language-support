@@ -2049,21 +2049,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       // Step 1: Find the qualifier symbol
       let qualifierSymbols = this.findSymbolByName(qualifier);
-      this.logger.debug(
-        () =>
-          `[resolveQualifiedReferenceFromChain] Looking for qualifier "${qualifier}", ` +
-          `found ${qualifierSymbols.length} candidates`,
-      );
 
       // If no user-defined qualifier found, try built-in types
       if (qualifierSymbols.length === 0) {
         const builtInQualifier = await this.resolveBuiltInType(qualifier);
         if (builtInQualifier) {
           qualifierSymbols = [builtInQualifier];
-          this.logger.debug(
-            () =>
-              `[resolveQualifiedReferenceFromChain] Found built-in qualifier: ${qualifier}`,
-          );
         }
       }
 
@@ -2072,18 +2063,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const standardClass = await this.resolveStandardApexClass(qualifier);
         if (standardClass) {
           qualifierSymbols = [standardClass];
-          this.logger.debug(
-            () =>
-              `[resolveQualifiedReferenceFromChain] Found standard Apex class: ${qualifier}`,
-          );
         }
       }
 
       if (qualifierSymbols.length === 0) {
-        this.logger.debug(
-          () =>
-            `[resolveQualifiedReferenceFromChain] No qualifier found for "${qualifier}"`,
-        );
         return null;
       }
 
@@ -2091,11 +2074,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const qualifierSymbol = qualifierSymbols[0];
 
       // Step 2: Find the member within the qualifier
-      this.logger.debug(
-        () =>
-          `[resolveQualifiedReferenceFromChain] Looking for member "${member}" ` +
-          `in qualifier "${qualifier}" (fileUri: ${qualifierSymbol.fileUri})`,
-      );
       const memberSymbol = await this.resolveMemberInContext(
         { type: 'symbol', symbol: qualifierSymbol },
         member,
@@ -2103,16 +2081,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       );
 
       if (memberSymbol) {
-        this.logger.debug(
-          () =>
-            `[resolveQualifiedReferenceFromChain] Found member "${member}" in qualifier "${qualifier}"`,
-        );
         return memberSymbol;
-      } else {
-        this.logger.debug(
-          () =>
-            `[resolveQualifiedReferenceFromChain] Member "${member}" not found in qualifier "${qualifier}"`,
-        );
       }
 
       // Step 3: For method calls, try to resolve the qualifier itself if no member found
@@ -3519,11 +3488,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       // Step 1: Try to find TypeReferences at the exact position
       const typeReferences = this.getReferencesAtPosition(fileUri, position);
-      this.logger.debug(
-        () =>
-          `Type references at position ${position.line}:${position.character}: ${typeReferences.length}` +
-          `${typeReferences.map((t) => t.name).join(', ')}`,
-      );
 
       if (typeReferences.length > 0) {
         // Step 2: Try to resolve the most specific reference

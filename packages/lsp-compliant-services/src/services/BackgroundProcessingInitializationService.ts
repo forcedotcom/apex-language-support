@@ -46,7 +46,7 @@ export class BackgroundProcessingInitializationService {
       backgroundManager.initialize();
 
       this.isInitialized = true;
-      this.logger.info(() => 'Background processing initialized successfully');
+      this.logger.debug(() => 'Background processing initialized successfully');
 
       // Log initial queue stats
       const stats = backgroundManager.getQueueStats();
@@ -73,7 +73,7 @@ export class BackgroundProcessingInitializationService {
       backgroundManager.shutdown();
 
       this.isInitialized = false;
-      this.logger.info(() => 'Background processing shutdown complete');
+      this.logger.debug(() => 'Background processing shutdown complete');
     } catch (error) {
       this.logger.error(
         () => `Error during background processing shutdown: ${error}`,

@@ -542,7 +542,7 @@ function logQueueSummary(
     const tasksCompleted = yield* Ref.get(state.tasksCompleted);
     const tasksDropped = yield* Ref.get(state.tasksDropped);
 
-    logger.info(
+    logger.debug(
       () =>
         `[QUEUE] State: Critical=${criticalQueueSize}(${criticalActive}), ` +
         `Immediate=${queueSizes[Priority.Immediate]}(${activeTasks[Priority.Immediate]}), ` +

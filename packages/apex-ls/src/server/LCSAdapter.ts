@@ -121,7 +121,7 @@ export class LCSAdapter {
    * Internal initialization (register handlers, prepare services)
    */
   private async initialize(): Promise<void> {
-    this.logger.info('🚀 LCS Adapter initializing...');
+    this.logger.debug('🚀 LCS Adapter initializing...');
 
     try {
       const storageManager = ApexStorageManager.getInstance({
@@ -137,12 +137,12 @@ export class LCSAdapter {
     this.setupDocumentHandlers();
 
     // Document listener — safe now
-    this.logger.info(
+    this.logger.debug(
       'TextDocuments manager listening for notifications on connection',
     );
     this.documents.listen(this.connection);
 
-    this.logger.info(
+    this.logger.debug(
       '✅ LCS Adapter setup complete (awaiting client initialize...)',
     );
   }
@@ -183,7 +183,7 @@ export class LCSAdapter {
       resourceLoader.setZipBuffer(zipBuffer);
 
       const stats = resourceLoader.getDirectoryStatistics();
-      this.logger.info(
+      this.logger.debug(
         () =>
           '✅ Standard library resources loaded successfully: ' +
           `${stats.totalFiles} files across ${stats.namespaces.length} namespaces`,
@@ -200,8 +200,9 @@ export class LCSAdapter {
    * Request standard library ZIP from client
    */
   private async requestStandardLibraryZip(): Promise<Uint8Array> {
-    this.logger.info(
-      '📦 Requesting standard library ZIP from client via virtual file system...',
+    this.logger.debug(
+      () =>
+        '📦 Requesting standard library ZIP from client via virtual file system...',
     );
 
     const result = (await this.connection.sendRequest(
@@ -213,7 +214,7 @@ export class LCSAdapter {
       throw new Error('Client did not provide ZIP data');
     }
 
-    this.logger.info(
+    this.logger.debug(
       () => `📦 Received ZIP buffer from client (${result.size} bytes)`,
     );
 
@@ -250,8 +251,9 @@ export class LCSAdapter {
         const uri = params.textDocument?.uri;
         const languageId = params.textDocument?.languageId;
         const version = params.textDocument?.version;
-        this.logger.info(
-          `Received textDocument/didOpen notification for: ${uri} (language: ${languageId}, version: ${version})`,
+        this.logger.debug(
+          () =>
+            `Received textDocument/didOpen notification for: ${uri} (language: ${languageId}, version: ${version})`,
         );
       } catch (error) {
         this.logger.error(
@@ -268,13 +270,13 @@ export class LCSAdapter {
   private setupUtilityHandlers(): void {
     // Register shutdown handler
     this.connection.onRequest('shutdown', (): null => {
-      this.logger.info('Shutdown request received');
+      this.logger.debug(() => 'Shutdown request received');
       return null;
     });
 
     // Register exit notification handler
     this.connection.onNotification('exit', (): void => {
-      this.logger.info('Exit notification received');
+      this.logger.debug(() => 'Exit notification received');
       process.exit(0);
     });
 
@@ -628,16 +630,19 @@ export class LCSAdapter {
       // Register apex/graphData handler (development mode only)
       this.connection.onRequest('apex/graphData', async (params: any) => {
         try {
-          this.logger.info(
-            `Graph data request received: ${JSON.stringify(params)}`,
+          this.logger.debug(
+            () =>
+              `Graph data request received: ${JSON.stringify(params)}`,
           );
-          this.logger.info('About to call dispatchProcessOnGraphData...');
+          this.logger.debug(() => 'About to call dispatchProcessOnGraphData...');
           const result = await dispatchProcessOnGraphData(params);
-          this.logger.info(
-            `Graph data processed successfully, result type: ${typeof result}`,
+          this.logger.debug(
+            () =>
+              `Graph data processed successfully, result type: ${typeof result}`,
           );
-          this.logger.info(
-            `Graph data result keys: ${Object.keys(result || {}).join(', ')}`,
+          this.logger.debug(
+            () =>
+              `Graph data result keys: ${Object.keys(result || {}).join(', ')}`,
           );
           return result;
         } catch (error) {
@@ -749,7 +754,7 @@ export class LCSAdapter {
             params.type ?? settings.apex.environment.profilingType ?? 'cpu';
 
           const result = await service.startProfiling(profilingType);
-          this.logger.info(() => `Profiling started: ${result.message}`);
+          this.logger.debug(() => `Profiling started: ${result.message}`);
           return result;
         } catch (error) {
           this.logger.error(
@@ -792,12 +797,12 @@ export class LCSAdapter {
 
           const result = await service.stopProfiling(params?.tag);
           if (result.success && result.files) {
-            this.logger.info(
+            this.logger.debug(
               () =>
                 `Profiling stopped: ${result.message}, files: ${result.files.join(', ')}`,
             );
           } else {
-            this.logger.info(() => `Profiling stop: ${result.message}`);
+            this.logger.debug(() => `Profiling stop: ${result.message}`);
           }
           return result;
         } catch (error) {
@@ -893,8 +898,9 @@ export class LCSAdapter {
 
       // Start profiling
       const result = await profilingService.startProfiling(profilingType);
-      this.logger.info(
-        `🚀 Auto-started interactive profiling: ${result.message}`,
+      this.logger.debug(
+        () =>
+          `🚀 Auto-started interactive profiling: ${result.message}`,
       );
     } catch (error) {
       this.logger.error(`Failed to auto-start interactive profiling: ${error}`);
@@ -945,7 +951,7 @@ export class LCSAdapter {
     };
 
     // Log textDocumentSync capabilities being negotiated
-    this.logger.info(
+    this.logger.debug(
       () =>
         `Negotiating textDocumentSync capabilities: ${JSON.stringify(allCapabilities.textDocumentSync)}`,
     );
@@ -1083,14 +1089,14 @@ export class LCSAdapter {
     try {
       this.logger.debug('🔧 Initializing background symbol processing...');
       BackgroundProcessingInitializationService.getInstance().initialize();
-      this.logger.info('✅ Background symbol processing initialized');
+      this.logger.debug('✅ Background symbol processing initialized');
 
       // Initialize LSP queue manager with services
       this.logger.debug('🔧 Initializing LSP queue manager...');
       const symbolManager =
         ApexSymbolProcessingManager.getInstance().getSymbolManager();
       initializeLSPQueueManager(symbolManager);
-      this.logger.info('✅ LSP queue manager initialized');
+      this.logger.debug('✅ LSP queue manager initialized');
 
       // Register queue state change callback to send notifications to client (development mode only)
       const capabilitiesManager =
@@ -1112,7 +1118,7 @@ export class LCSAdapter {
             }
           }),
         );
-        this.logger.info('✅ Queue state change callback registered');
+        this.logger.debug('✅ Queue state change callback registered');
       }
     } catch (error) {
       this.logger.error(
@@ -1159,7 +1165,7 @@ export class LCSAdapter {
 
     if (this.hasWorkspaceFolderCapability) {
       this.connection.workspace.onDidChangeWorkspaceFolders((_event) => {
-        this.logger.info('Workspace folder change event received.');
+        this.logger.debug(() => 'Workspace folder change event received.');
       });
     }
 
@@ -1234,7 +1240,7 @@ export class LCSAdapter {
         newCapabilities.experimental?.findMissingArtifactProvider?.enabled;
 
       if (previousEnabled !== newEnabled) {
-        this.logger.info(
+        this.logger.debug(
           () =>
             `Missing artifact capability changed: ${previousEnabled} → ${newEnabled}`,
         );
@@ -1299,7 +1305,7 @@ export class LCSAdapter {
 
       // Update server mode if it differs from the client's setting
       if (currentMode !== clientServerMode) {
-        this.logger.info(
+        this.logger.debug(
           () =>
             `🔄 Client server mode is '${clientServerMode}',` +
             ` updating server from '${currentMode}' to '${clientServerMode}'`,
@@ -1490,7 +1496,7 @@ export class LCSAdapter {
         await this.connection.sendRequest('client/registerCapability', {
           registrations,
         });
-        this.logger.info(
+        this.logger.debug(
           () =>
             `✅ Dynamically registered ${registrations.length}` +
             ` capabilities: ${registrations.map((r) => r.method).join(', ')}`,
@@ -1525,8 +1531,9 @@ export class LCSAdapter {
         apexLsMode === 'development' || nodeEnv === 'development';
 
       if (isDevelopment) {
-        this.logger.info(
-          '🔧 Development mode detected via environment variables, initializing server in development mode',
+        this.logger.debug(
+          () =>
+            '🔧 Development mode detected via environment variables, initializing server in development mode',
         );
 
         // Initialize LSPConfigurationManager (will auto-detect development mode)
@@ -1589,8 +1596,9 @@ export class LCSAdapter {
     );
 
     this.hoverHandlerRegistered = true;
-    this.logger.info(
-      '✅ Hover handler registered (hoverProvider capability enabled)',
+    this.logger.debug(
+      () =>
+        '✅ Hover handler registered (hoverProvider capability enabled)',
     );
   }
 }

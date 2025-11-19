@@ -43,7 +43,7 @@ export class GraphDataHandler {
       );
     }
 
-    this.logger.info(
+    this.logger.debug(
       `GraphDataHandler: Handling graph data request: ${JSON.stringify(params)}`,
     );
 
@@ -52,7 +52,7 @@ export class GraphDataHandler {
         this.graphDataProcessor.processGraphData(params),
         'Error processing graph data request',
       );
-      this.logger.info(
+      this.logger.debug(
         `GraphDataHandler: Successfully processed request, result type: ${typeof result}`,
       );
       return result;

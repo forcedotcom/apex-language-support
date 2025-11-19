@@ -82,16 +82,7 @@ export class CaseInsensitiveHashMap<V = any, R = [string, V]> extends HashMap<
       this.originalKeys.set(normalizedKey, key);
     }
     // Always update the HashMap value, but preserve the original case from first touch
-    const result = super.set(normalizedKey, value);
-    // Verify the value was actually stored in the parent HashMap
-    const verifyGet = super.get(normalizedKey);
-    if (verifyGet === undefined && value !== undefined) {
-      console.warn(
-        '[CaseInsensitiveHashMap] set() succeeded but get() returns undefined ' +
-          `for key "${normalizedKey}" (original: "${key}")`,
-      );
-    }
-    return result;
+    return super.set(normalizedKey, value);
   }
 
   /**
@@ -115,17 +106,9 @@ export class CaseInsensitiveHashMap<V = any, R = [string, V]> extends HashMap<
    */
   override delete(key: string): boolean {
     const normalizedKey = key.toLowerCase();
-    const hadValue = super.get(normalizedKey) !== undefined;
     const deleted = super.delete(normalizedKey);
     if (deleted) {
       this.originalKeys.delete(normalizedKey);
-      // Debug logging for deletions
-      if (normalizedKey.includes('fileutilities')) {
-        console.warn(
-          `[CaseInsensitiveHashMap] Deleted key "${normalizedKey}" (original: "${key}"), ` +
-            `hadValue: ${hadValue}, deleted: ${deleted}`,
-        );
-      }
     }
     return deleted;
   }
