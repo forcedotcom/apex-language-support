@@ -47,6 +47,7 @@ import {
   dispatchProcessOnChangeDocument,
   dispatchProcessOnSaveDocument,
   dispatchProcessOnCloseDocument,
+  dispatchProcessOnDeleteDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
   dispatchProcessOnDefinition,
@@ -1161,6 +1162,22 @@ export class LCSAdapter {
         this.logger.info('Workspace folder change event received.');
       });
     }
+
+    // Register file delete handler
+    this.connection.workspace.onDidDeleteFiles(async (event) => {
+      try {
+        this.logger.debug(
+          () =>
+            `Processing workspace/didDeleteFiles for: ${event.files.map((f) => f.uri).join(', ')}`,
+        );
+        await dispatchProcessOnDeleteDocument(event);
+      } catch (error) {
+        this.logger.error(
+          () =>
+            `Error processing file delete: ${formattedError(error)}`,
+        );
+      }
+    });
 
     // Initialize ResourceLoader with standard library
     // Requests ZIP from client via apex/provideStandardLibrary

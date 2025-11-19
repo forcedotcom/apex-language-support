@@ -42,6 +42,65 @@ interface GraphData {
 }
 
 /**
+ * Save graph data to workspace .graph folder with timestamped filename
+ * @param graphData The graph data to save
+ */
+async function saveGraphDataToWorkspace(graphData: GraphData): Promise<void> {
+  try {
+    // Get workspace folder
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      console.warn('No workspace folder found, skipping graph data save');
+      return;
+    }
+
+    // Create .graph directory path
+    const graphDir = vscode.Uri.joinPath(workspaceFolder.uri, '.graph');
+
+    // Ensure .graph directory exists
+    try {
+      await vscode.workspace.fs.createDirectory(graphDir);
+    } catch (error) {
+      // Check if directory already exists
+      try {
+        const stat = await vscode.workspace.fs.stat(graphDir);
+        if (stat.type !== vscode.FileType.Directory) {
+          console.error('.graph exists but is not a directory');
+          return;
+        }
+        // Directory exists, which is fine
+      } catch (statError) {
+        // Directory doesn't exist and creation failed
+        console.error('Failed to create .graph directory:', error);
+        return;
+      }
+    }
+
+    // Generate timestamped filename (YYYY-MM-DD_HH-MM-SS.json)
+    const now = new Date();
+    const timestamp = now
+      .toISOString()
+      .replace(/T/, '_')
+      .replace(/:/g, '-')
+      .replace(/\..+/, '');
+    const filename = `graph_${timestamp}.json`;
+    const filePath = vscode.Uri.joinPath(graphDir, filename);
+
+    // Convert graph data to JSON string
+    const jsonData = JSON.stringify(graphData, null, 2);
+    const encoder = new TextEncoder();
+    const fileData = encoder.encode(jsonData);
+
+    // Write file
+    await vscode.workspace.fs.writeFile(filePath, fileData);
+    console.log(`Graph data saved to: ${filePath.fsPath}`);
+  } catch (error) {
+    console.error('Failed to save graph data to workspace:', error);
+    // Don't show error to user, just log it
+  }
+}
+
+/**
  * Generate canned graph data for testing the symbol graph functionality
  *
  * This function creates realistic sample data representing Apex classes and their relationships:
@@ -368,6 +427,9 @@ export async function showGraph(context: vscode.ExtensionContext) {
 
     // Extract the actual graph data from the response
     graphData = response.data || response;
+
+    // Save graph data to workspace .graph folder
+    await saveGraphDataToWorkspace(graphData);
   } catch (error) {
     console.error('Failed to get graph data from language server:', error);
     vscode.window.showWarningMessage(

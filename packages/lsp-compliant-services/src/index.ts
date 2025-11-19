@@ -19,6 +19,7 @@ import {
   Location,
   CodeLensParams,
   CodeLens,
+  DeleteFilesParams,
 } from 'vscode-languageserver';
 import type {
   FindMissingArtifactParams,
@@ -54,6 +55,7 @@ export * from './handlers/DidOpenDocumentHandler';
 export * from './handlers/DidChangeDocumentHandler';
 export * from './handlers/DidSaveDocumentHandler';
 export * from './handlers/DidCloseDocumentHandler';
+export * from './handlers/DidDeleteDocumentHandler';
 export * from './handlers/DocumentSymbolHandler';
 export * from './handlers/DefinitionHandler';
 export * from './handlers/ReferencesHandler';
@@ -72,6 +74,7 @@ export * from './services/DocumentProcessingService';
 export * from './services/DocumentSaveProcessingService';
 export * from './services/DocumentStateCache';
 export * from './services/DocumentCloseProcessingService';
+export * from './services/DocumentDeleteProcessingService';
 export * from './services/DocumentSymbolProcessingService';
 export * from './services/DefinitionProcessingService';
 export * from './services/DiagnosticProcessingService';
@@ -176,6 +179,18 @@ export const dispatchProcessOnSaveDocument = async (
 ): Promise<void> => {
   const handler = HandlerFactory.createDidSaveDocumentHandler();
   return await handler.handleDocumentSave(event);
+};
+
+/**
+ * Dispatch function for file delete events
+ * @param event The file delete event
+ * @returns Promise resolving to void
+ */
+export const dispatchProcessOnDeleteDocument = async (
+  event: DeleteFilesParams,
+): Promise<void> => {
+  const handler = HandlerFactory.createDidDeleteDocumentHandler();
+  return await handler.handleDocumentDelete(event);
 };
 
 /**

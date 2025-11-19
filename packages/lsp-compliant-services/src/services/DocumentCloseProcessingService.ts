@@ -11,10 +11,6 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import {
-  ApexSymbolProcessingManager,
-  ISymbolManager,
-} from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for document close processing functionality
@@ -32,16 +28,14 @@ export interface IDocumentCloseProcessor {
 
 /**
  * Service for processing document close events
+ * NOTE: This only handles document sync housekeeping (removing from storage).
+ * Symbols are NOT removed here - only didDelete operations should remove symbols.
  */
 export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
   private readonly logger: LoggerInterface;
-  private readonly symbolManager: ISymbolManager;
 
-  constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
+  constructor(logger: LoggerInterface) {
     this.logger = logger;
-    this.symbolManager =
-      symbolManager ||
-      ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 
   /**
@@ -70,7 +64,8 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
       storage = null;
     }
 
-    // Remove the document from storage
+    // Remove the document from storage (housekeeping only for doc sync)
+    // NOTE: Symbols are NOT removed here - only didDelete should remove symbols
     if (storage) {
       try {
         await storage.deleteDocument(event.document.uri);
@@ -80,16 +75,6 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
             `Error deleting document ${event.document.uri} from storage: ${error}`,
         );
       }
-    }
-
-    // Remove symbols for this file from the symbol manager
-    try {
-      this.symbolManager.removeFile(event.document.uri);
-    } catch (error) {
-      this.logger.error(
-        () =>
-          `Error removing file ${event.document.uri} from symbol manager: ${error}`,
-      );
     }
 
     this.logger.debug(

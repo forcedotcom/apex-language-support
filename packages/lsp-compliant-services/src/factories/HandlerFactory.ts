@@ -32,6 +32,11 @@ import {
   DocumentCloseProcessingService,
   IDocumentCloseProcessor,
 } from '../services/DocumentCloseProcessingService';
+import { DidDeleteDocumentHandler } from '../handlers/DidDeleteDocumentHandler';
+import {
+  DocumentDeleteProcessingService,
+  IDocumentDeleteProcessor,
+} from '../services/DocumentDeleteProcessingService';
 import { HoverHandler } from '../handlers/HoverHandler';
 import {
   HoverProcessingService,
@@ -173,6 +178,30 @@ export class HandlerFactory {
     documentCloseProcessor: IDocumentCloseProcessor,
   ): DidCloseDocumentHandler {
     return new DidCloseDocumentHandler(logger, documentCloseProcessor);
+  }
+
+  /**
+   * Create a DidDeleteDocumentHandler with default dependencies
+   * @returns A configured DidDeleteDocumentHandler instance
+   */
+  static createDidDeleteDocumentHandler(): DidDeleteDocumentHandler {
+    const logger = getLogger();
+    const documentDeleteProcessor = new DocumentDeleteProcessingService(logger);
+
+    return new DidDeleteDocumentHandler(logger, documentDeleteProcessor);
+  }
+
+  /**
+   * Create a DidDeleteDocumentHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param documentDeleteProcessor Custom document delete processor implementation
+   * @returns A configured DidDeleteDocumentHandler instance
+   */
+  static createDidDeleteDocumentHandlerWithDependencies(
+    logger: LoggerInterface,
+    documentDeleteProcessor: IDocumentDeleteProcessor,
+  ): DidDeleteDocumentHandler {
+    return new DidDeleteDocumentHandler(logger, documentDeleteProcessor);
   }
 
   /**

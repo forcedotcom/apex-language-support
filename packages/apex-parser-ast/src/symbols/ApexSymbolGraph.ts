@@ -20,7 +20,12 @@ import {
   Uint16,
   toUint16,
 } from '@salesforce/apex-lsp-shared';
-import { generateSymbolId, parseSymbolId } from '../types/UriBasedIdGenerator';
+import {
+  generateSymbolId,
+  parseSymbolId,
+  extractFilePathFromUri,
+} from '../types/UriBasedIdGenerator';
+import { CaseInsensitiveHashMap } from '../utils/CaseInsensitiveMap';
 
 import {
   ApexSymbol,
@@ -199,11 +204,12 @@ export class ApexSymbolGraph {
 
   /**
    * Maps symbol names to arrays of symbol IDs for name-based lookups
-   * Key: Symbol name (e.g., "MyClass", "myMethod")
+   * Key: Symbol name (e.g., "MyClass", "myMethod") - case-insensitive for Apex
    * Value: Array of symbol IDs that have this name
    * Used by: findSymbolByName(), handles overloading and multiple classes with same name
    */
-  private nameIndex: HashMap<string, string[]> = new HashMap();
+  private nameIndex: CaseInsensitiveHashMap<string[]> =
+    new CaseInsensitiveHashMap();
 
   /**
    * Maps file uris to arrays of symbol IDs for file-based lookups
@@ -215,24 +221,25 @@ export class ApexSymbolGraph {
 
   /**
    * Maps fully qualified names to symbol IDs for hierarchical lookups
-   * Key: Fully qualified name (e.g., "MyNamespace.MyClass.myMethod")
+   * Key: Fully qualified name (e.g., "MyNamespace.MyClass.myMethod") - case-insensitive for Apex
    * Value: Symbol ID
    * Used by: findSymbolByFQN(), hierarchical symbol resolution, namespace-aware lookups
    */
-  private fqnIndex: HashMap<string, string> = new HashMap();
+  private fqnIndex: CaseInsensitiveHashMap<string> =
+    new CaseInsensitiveHashMap();
 
   // OPTIMIZED: SymbolTable references for delegation
   private fileToSymbolTable: HashMap<string, SymbolTable> = new HashMap();
   private symbolToFiles: HashMap<string, string[]> = new HashMap();
 
-  // OPTIMIZED: Simple cache for frequently accessed symbols
-  private symbolCache: HashMap<string, ApexSymbol[]> = new HashMap();
+  // OPTIMIZED: Simple cache for frequently accessed symbols (case-insensitive for Apex)
+  private symbolCache: CaseInsensitiveHashMap<ApexSymbol[]> =
+    new CaseInsensitiveHashMap();
   private cacheSize = 0;
   private readonly MAX_CACHE_SIZE = 1000;
 
-  // Deferred references for lazy loading - keyed by symbol name instead of symbol ID
-  private deferredReferences: HashMap<
-    string,
+  // Deferred references for lazy loading - keyed by symbol name instead of symbol ID (case-insensitive for Apex)
+  private deferredReferences: CaseInsensitiveHashMap<
     Array<{
       sourceSymbol: ApexSymbol;
       referenceType: EnumValue<typeof ReferenceType>;
@@ -244,12 +251,11 @@ export class ApexSymbolGraph {
         namespace?: string;
       };
     }>
-  > = new HashMap();
+  > = new CaseInsensitiveHashMap();
 
   // Pending deferred references that failed resolution (source symbol not found)
-  // These are retried when new symbols are added, keyed by source symbol name
-  private pendingDeferredReferences: HashMap<
-    string,
+  // These are retried when new symbols are added, keyed by source symbol name (case-insensitive for Apex)
+  private pendingDeferredReferences: CaseInsensitiveHashMap<
     Array<{
       targetSymbolName: string;
       referenceType: EnumValue<typeof ReferenceType>;
@@ -261,7 +267,7 @@ export class ApexSymbolGraph {
         namespace?: string;
       };
     }>
-  > = new HashMap();
+  > = new CaseInsensitiveHashMap();
 
   private memoryStats = {
     totalSymbols: 0,
@@ -395,7 +401,18 @@ export class ApexSymbolGraph {
     fileUri: string,
     symbolTable?: SymbolTable,
   ): void {
-    const symbolId = this.getSymbolId(symbol, fileUri);
+    // Normalize URI once at the start to ensure consistency throughout
+    const normalizedFileUri = extractFilePathFromUri(fileUri);
+    const symbolId = this.getSymbolId(symbol, normalizedFileUri);
+
+    // Diagnostic: Extract URI from symbolId for comparison
+    let parsedSymbolIdUri: string | null = null;
+    try {
+      const parsed = parseSymbolId(symbolId);
+      parsedSymbolIdUri = parsed.uri;
+    } catch (_e) {
+      // Ignore parse errors
+    }
 
     // Check if symbol already exists to prevent duplicates
     if (this.symbolIds.has(symbolId)) {
@@ -405,13 +422,25 @@ export class ApexSymbolGraph {
     // OPTIMIZED: Register SymbolTable immediately for delegation
     let targetSymbolTable: SymbolTable;
     if (symbolTable) {
-      this.registerSymbolTable(symbolTable, fileUri);
+      // Log URI format consistency check
+      if (parsedSymbolIdUri && parsedSymbolIdUri !== normalizedFileUri) {
+        this.logger.debug(
+          () =>
+            '[addSymbol] URI mismatch detected: ' +
+            `normalized fileUri: ${normalizedFileUri}, ` +
+            `parsed from symbolId: ${parsedSymbolIdUri}, ` +
+            `symbol: ${symbol.name}`,
+        );
+      }
+
+      // Register with normalized URI to match what getSymbol() will look up
+      this.registerSymbolTable(symbolTable, normalizedFileUri);
       targetSymbolTable = symbolTable;
     } else {
       // For backward compatibility, create a minimal SymbolTable if none provided
       // This ensures the symbol can be found later
-      this.ensureSymbolTableForFile(fileUri);
-      targetSymbolTable = this.fileToSymbolTable.get(fileUri)!;
+      this.ensureSymbolTableForFile(normalizedFileUri);
+      targetSymbolTable = this.fileToSymbolTable.get(normalizedFileUri)!;
     }
 
     // Add the symbol to the SymbolTable
@@ -420,8 +449,8 @@ export class ApexSymbolGraph {
     // OPTIMIZED: Only track existence, don't store full symbol
     this.symbolIds.add(symbolId);
 
-    // Add to indexes for fast lookups
-    this.symbolFileMap.set(symbolId, fileUri);
+    // Add to indexes for fast lookups (use normalized URI)
+    this.symbolFileMap.set(symbolId, normalizedFileUri);
 
     // BUG FIX: Calculate and store FQN if not already present
     let fqnToUse = symbol.fqn;
@@ -460,12 +489,25 @@ export class ApexSymbolGraph {
     if (!existingNames.includes(symbolId)) {
       existingNames.push(symbolId);
       this.nameIndex.set(symbol.name, existingNames);
+      // Verify the symbol was actually stored by checking if we can retrieve it
+      const verifyRetrieval = this.nameIndex.get(symbol.name);
+      this.logger.debug(
+        () =>
+          `[addSymbol] Added "${symbol.name}" to nameIndex (symbolId: ${symbolId}, ` +
+          `existing count: ${existingNames.length}, verify retrieval: ${verifyRetrieval?.length || 0})`,
+      );
+    } else {
+      this.logger.debug(
+        () =>
+          `[addSymbol] Symbol "${symbol.name}" already in nameIndex (symbolId: ${symbolId})`,
+      );
     }
 
-    const fileSymbols = this.fileIndex.get(fileUri) || [];
+    // Use normalized URI for fileIndex to ensure consistency
+    const fileSymbols = this.fileIndex.get(normalizedFileUri) || [];
     if (!fileSymbols.includes(symbolId)) {
       fileSymbols.push(symbolId);
-      this.fileIndex.set(fileUri, fileSymbols);
+      this.fileIndex.set(normalizedFileUri, fileSymbols);
     }
 
     // OPTIMIZED: Add lightweight node to graph
@@ -587,8 +629,33 @@ export class ApexSymbolGraph {
     // Parse URI-based ID
     const parsed = parseSymbolId(symbolId);
     const symbolName = parsed.name;
-    const symbolTable = this.fileToSymbolTable.get(parsed.uri);
+    // Normalize URI to ensure consistent lookup (matches how SymbolTables are registered)
+    const normalizedUri = extractFilePathFromUri(parsed.uri);
+    const symbolTable = this.fileToSymbolTable.get(normalizedUri);
     if (!symbolTable) {
+      // Diagnostic logging for failed SymbolTable lookup
+      const registeredUris = Array.from(this.fileToSymbolTable.keys());
+      const isUserFile = parsed.uri.startsWith('file://');
+      const isApexLib = parsed.uri.startsWith('apexlib://');
+
+      this.logger.debug(
+        () =>
+          `[getSymbol] SymbolTable lookup failed for URI: ${normalizedUri} ` +
+          `(parsed URI: ${parsed.uri}, symbolId: ${symbolId}, symbolName: ${symbolName}, ` +
+          `isUserFile: ${isUserFile}, isApexLib: ${isApexLib})`,
+      );
+
+      // Log sample registered URIs for comparison (only if this is a user file to reduce noise)
+      if (isUserFile && registeredUris.length > 0) {
+        const sampleRegistered = registeredUris
+          .filter((uri) => uri.startsWith('file://'))
+          .slice(0, 3);
+        this.logger.debug(
+          () =>
+            `[getSymbol] Sample registered user file URIs: ${sampleRegistered.join(', ')}`,
+        );
+      }
+
       return null;
     }
 
@@ -601,7 +668,7 @@ export class ApexSymbolGraph {
       // Always create a deep copy to avoid mutating the original symbol
       const symbolCopy = {
         ...matchingSymbol,
-        fileUri: parsed.uri,
+        fileUri: normalizedUri,
         location: {
           ...matchingSymbol.location,
           symbolRange: { ...matchingSymbol.location.symbolRange },
@@ -630,15 +697,79 @@ export class ApexSymbolGraph {
     // }
 
     const symbolIds = this.nameIndex.get(name) || [];
+    // Debug: Check if nameIndex has the key (case-insensitive)
+    const hasKey = this.nameIndex.has(name);
+    // Try direct lowercase lookup to verify CaseInsensitiveHashMap is working
+    const lowerSymbolIds = this.nameIndex.get(name.toLowerCase()) || [];
+    const allKeys = Array.from(this.nameIndex.keys());
+    const matchingKeys = allKeys.filter(
+      (k) => k.toLowerCase() === name.toLowerCase(),
+    );
+    // Sample keys for debugging (show first 20 and any that match the search name)
+    const sampleKeys = allKeys.slice(0, 20);
+    const nameLower = name.toLowerCase();
+    const keysContainingName = allKeys.filter((k) =>
+      k.toLowerCase().includes(nameLower),
+    );
+    // Debug: If we have matching keys but lookup failed, check the parent HashMap directly
+    let directParentLookup: string[] | undefined;
+    if (matchingKeys.length > 0 && symbolIds.length === 0) {
+      // Try to access the parent HashMap's internal storage to see what's actually stored
+      try {
+        const parentMap = this.nameIndex as any;
+        // Check if the normalized key exists in the parent
+        const normalizedName = name.toLowerCase();
+        directParentLookup = parentMap.get(normalizedName) || [];
+      } catch (_e) {
+        // ignore
+      }
+    }
+    this.logger.debug(
+      () =>
+        `[findSymbolByName] Looking for "${name}", found ${symbolIds.length} symbolIds ` +
+        `(hasKey: ${hasKey}, lowercase lookup: ${lowerSymbolIds.length}, ` +
+        `matchingKeys: [${matchingKeys.join(', ')}], total keys: ${allKeys.length}` +
+        (directParentLookup !== undefined
+          ? `, direct parent lookup: ${directParentLookup.length}`
+          : ''),
+    );
+    // Only dump keys if lookup failed and we have keys (to avoid spam)
+    if (symbolIds.length === 0 && allKeys.length > 0) {
+      this.logger.debug(
+        () =>
+          `[findSymbolByName] Sample keys (first 20): [${sampleKeys.join(', ')}]`,
+      );
+      if (keysContainingName.length > 0) {
+        this.logger.debug(
+          () =>
+            `[findSymbolByName] Keys containing "${name}": [${keysContainingName.join(', ')}]`,
+        );
+      }
+    }
 
     const symbols: ApexSymbol[] = [];
+    let successfulRetrievals = 0;
+    let failedRetrievals = 0;
 
     for (const symbolId of symbolIds) {
       const symbol = this.getSymbol(symbolId);
       if (symbol) {
+        successfulRetrievals++;
         symbols.push(symbol);
+      } else {
+        failedRetrievals++;
+        this.logger.debug(
+          () =>
+            `[findSymbolByName] Failed to retrieve symbol for symbolId: ${symbolId} (name: ${name})`,
+        );
       }
     }
+
+    this.logger.debug(
+      () =>
+        `[findSymbolByName] For "${name}": ${successfulRetrievals} successful, ` +
+        `${failedRetrievals} failed, returning ${symbols.length} symbols`,
+    );
 
     // TEMPORARY: Disable symbolCache - never cache results
     // Cache the result if cache isn't full
@@ -695,9 +826,12 @@ export class ApexSymbolGraph {
 
   /**
    * OPTIMIZED: Get symbols in file by delegating to SymbolTable
+   * Normalizes URI to ensure consistent lookup
    */
   getSymbolsInFile(fileUri: string): ApexSymbol[] {
-    const symbolIds = this.fileIndex.get(fileUri) || [];
+    // Normalize URI to match how SymbolTables are registered
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    const symbolIds = this.fileIndex.get(normalizedUri) || [];
 
     const symbols: ApexSymbol[] = [];
 
@@ -706,6 +840,11 @@ export class ApexSymbolGraph {
       if (symbol) {
         symbols.push(symbol);
       } else {
+        this.logger.debug(
+          () =>
+            `[getSymbolsInFile] Failed to retrieve symbol for symbolId: ${symbolId} ` +
+            `(fileUri: ${normalizedUri})`,
+        );
       }
     }
 
@@ -1150,10 +1289,8 @@ export class ApexSymbolGraph {
     symbolName: string,
     context?: ResolutionContext,
   ): SymbolLookupResult | null {
-    const symbolIds =
-      this.nameIndex.get(symbolName) ||
-      this.nameIndex.get(symbolName.toLowerCase()) ||
-      [];
+    // CaseInsensitiveHashMap handles case-insensitive lookup automatically
+    const symbolIds = this.nameIndex.get(symbolName) || [];
 
     if (symbolIds.length === 0) {
       return null;
@@ -1214,25 +1351,63 @@ export class ApexSymbolGraph {
 
   /**
    * Get SymbolTable for a file
+   * Normalizes URI to ensure consistent lookup
    */
   getSymbolTableForFile(fileUri: string): SymbolTable | undefined {
-    return this.fileToSymbolTable.get(fileUri);
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    return this.fileToSymbolTable.get(normalizedUri);
   }
 
   /**
    * Register SymbolTable for a file
+   * Ensures URI is normalized consistently with getSymbolId() to avoid lookup mismatches
    */
   registerSymbolTable(symbolTable: SymbolTable, fileUri: string): void {
-    this.fileToSymbolTable.set(fileUri, symbolTable);
+    // Normalize URI the same way getSymbolId() does to ensure consistency
+    // This ensures SymbolTable lookup in getSymbol() will succeed
+    const normalizedUri = extractFilePathFromUri(fileUri);
+
+    const isUserFile = normalizedUri.startsWith('file://');
+    const isApexLib = normalizedUri.startsWith('apexlib://');
+
+    this.logger.debug(
+      () =>
+        `[registerSymbolTable] Registering SymbolTable for URI: ${normalizedUri} ` +
+        `(original: ${fileUri}, isUserFile: ${isUserFile}, isApexLib: ${isApexLib}, ` +
+        `symbolCount: ${symbolTable.getAllSymbols().length})`,
+    );
+
+    // Use normalized URI for registration to match what getSymbol() will look up
+    this.fileToSymbolTable.set(normalizedUri, symbolTable);
+
+    // Verify registration succeeded
+    const registered = this.fileToSymbolTable.get(normalizedUri);
+    if (!registered) {
+      this.logger.warn(
+        () =>
+          `[registerSymbolTable] Failed to register SymbolTable for URI: ${normalizedUri}`,
+      );
+    } else {
+      this.logger.debug(
+        () =>
+          `[registerSymbolTable] Successfully registered SymbolTable for URI: ${normalizedUri}`,
+      );
+    }
   }
 
   /**
    * Ensure a SymbolTable is registered for a file if it doesn't exist
+   * Normalizes URI to ensure consistency with SymbolTable registration
    */
   private ensureSymbolTableForFile(fileUri: string): void {
-    if (!this.fileToSymbolTable.has(fileUri)) {
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    if (!this.fileToSymbolTable.has(normalizedUri)) {
       const symbolTable = new SymbolTable();
-      this.fileToSymbolTable.set(fileUri, symbolTable);
+      this.fileToSymbolTable.set(normalizedUri, symbolTable);
+      this.logger.debug(
+        () =>
+          `[ensureSymbolTableForFile] Created new SymbolTable for URI: ${normalizedUri}`,
+      );
     }
   }
 
@@ -1424,9 +1599,17 @@ export class ApexSymbolGraph {
 
   /**
    * Remove a file's symbols from the graph
+   * Normalizes URI to ensure consistent lookup
    */
   removeFile(fileUri: string): void {
-    const symbolIds = this.fileIndex.get(fileUri) || [];
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    const symbolIds = this.fileIndex.get(normalizedUri) || [];
+
+    this.logger.debug(
+      () =>
+        `[removeFile] Removing file: ${normalizedUri} (parsed from: ${fileUri}), ` +
+        `found ${symbolIds.length} symbolIds`,
+    );
 
     for (const symbolId of symbolIds) {
       // Remove from graph
@@ -1447,6 +1630,11 @@ export class ApexSymbolGraph {
         if (ids) {
           const filteredIds = ids.filter((id) => id !== symbolId);
           if (filteredIds.length === 0) {
+            this.logger.debug(
+              () =>
+                `[removeFile] Deleting nameIndex entry "${name}" (symbolId: ${symbolId}, ` +
+                `fileUri: ${normalizedUri})`,
+            );
             this.nameIndex.delete(name);
           } else {
             this.nameIndex.set(name, filteredIds);
@@ -1455,11 +1643,11 @@ export class ApexSymbolGraph {
       }
     }
 
-    // Remove from file index
-    this.fileIndex.delete(fileUri);
+    // Remove from file index (use normalized URI)
+    this.fileIndex.delete(normalizedUri);
 
-    // Remove SymbolTable reference
-    this.fileToSymbolTable.delete(fileUri);
+    // Remove SymbolTable reference (use normalized URI)
+    this.fileToSymbolTable.delete(normalizedUri);
 
     this.memoryStats.totalSymbols -= symbolIds.length;
   }
@@ -1474,7 +1662,7 @@ export class ApexSymbolGraph {
     }
 
     // Extract just the file path from the fileUri (remove symbol name and line number)
-    const theFileUri = this.extractFilePathFromUri(
+    const theFileUri = extractFilePathFromUri(
       fileUri || symbol.fileUri || 'unknown',
     );
     const lineNumber = symbol.location?.identifierRange.startLine;
@@ -1484,26 +1672,6 @@ export class ApexSymbolGraph {
       undefined, // scopePath not available here
       lineNumber,
     );
-  }
-
-  /**
-   * Extract just the file path from a URI that may contain symbol name and line number
-   */
-  private extractFilePathFromUri(uri: string): string {
-    // If it's a built-in URI, return as-is
-    // TODO: remove once all apex classes are converted to use file uris
-    if (uri.startsWith('built-in://')) {
-      return uri;
-    }
-
-    // Remove symbol name and line number from the URI
-    // e.g., "file://TestClass.cls:TestClass:2" -> "file://TestClass.cls"
-    const parts = uri.split(':');
-    if (parts.length >= 3 && parts[0] === 'file') {
-      return `${parts[0]}://${parts[1]}`;
-    }
-
-    return uri;
   }
 
   /**
@@ -2033,11 +2201,40 @@ export class ApexSymbolGraph {
    */
   getAllNodes(): import('../types/graph').GraphNode[] {
     const nodes: import('../types/graph').GraphNode[] = [];
+    // Deduplicate by symbol.id since multiple symbolIds can resolve to the same symbol.id
+    const seenNodeIds = new Map<string, import('../types/graph').GraphNode>();
+
+    // Diagnostic tracking
+    const totalSymbolIds = this.symbolIds.size;
+    let successfulRetrievals = 0;
+    let failedRetrievals = 0;
+    const failedUris = new Set<string>();
+    const userFileUris = new Set<string>();
+    const apexLibUris = new Set<string>();
 
     // Iterate through all symbol IDs
     for (const symbolId of this.symbolIds) {
+      // Track URI types for diagnostics
+      try {
+        const parsed = parseSymbolId(symbolId);
+        if (parsed.uri.startsWith('file://')) {
+          userFileUris.add(parsed.uri);
+        } else if (parsed.uri.startsWith('apexlib://')) {
+          apexLibUris.add(parsed.uri);
+        }
+      } catch (_e) {
+        // Ignore parse errors for diagnostics
+      }
+
       const symbol = this.getSymbol(symbolId);
       if (symbol) {
+        successfulRetrievals++;
+        // Deduplicate by symbol.id (not symbolId) since getSymbol() finds by name
+        // Multiple symbolIds can resolve to the same symbol.id
+        if (seenNodeIds.has(symbol.id)) {
+          continue;
+        }
+
         // Get graph-specific properties from ReferenceNode
         const vertex = this.symbolToVertex.get(symbol.id);
         const nodeId = vertex?.value?.nodeId || 0;
@@ -2068,8 +2265,39 @@ export class ApexSymbolGraph {
           referenceCount: referenceCount,
         };
 
+        seenNodeIds.set(symbol.id, graphNode);
         nodes.push(graphNode);
+      } else {
+        failedRetrievals++;
+        try {
+          const parsed = parseSymbolId(symbolId);
+          failedUris.add(parsed.uri);
+        } catch (_e) {
+          // Ignore parse errors
+        }
       }
+    }
+
+    // Log diagnostic information
+    this.logger.debug(
+      () =>
+        `[getAllNodes] Total symbolIds: ${totalSymbolIds}, ` +
+        `Successful retrievals: ${successfulRetrievals}, ` +
+        `Failed retrievals: ${failedRetrievals}, ` +
+        `Unique nodes: ${nodes.length}`,
+    );
+    this.logger.debug(
+      () =>
+        `[getAllNodes] User file URIs in symbolIds: ${userFileUris.size}, ` +
+        `ApexLib URIs in symbolIds: ${apexLibUris.size}, ` +
+        `Registered SymbolTables: ${this.fileToSymbolTable.size}`,
+    );
+    if (failedUris.size > 0) {
+      this.logger.warn(
+        () =>
+          `[getAllNodes] Failed SymbolTable lookups for ${failedUris.size} URIs. ` +
+          `Sample failed URIs: ${Array.from(failedUris).slice(0, 5).join(', ')}`,
+      );
     }
 
     return nodes;
@@ -2162,12 +2390,14 @@ export class ApexSymbolGraph {
    * Get complete graph data (nodes + edges) as JSON-serializable data
    */
   getGraphData(): import('../types/graph').GraphData {
+    const nodes = this.getAllNodes();
+    const edges = this.getAllEdges();
     return {
-      nodes: this.getAllNodes(),
-      edges: this.getAllEdges(),
+      nodes,
+      edges,
       metadata: {
-        totalNodes: this.symbolIds.size,
-        totalEdges: this.memoryStats.totalEdges,
+        totalNodes: nodes.length,
+        totalEdges: edges.length,
         totalFiles: this.fileIndex.size,
         lastUpdated: Date.now(),
       },
@@ -2178,7 +2408,8 @@ export class ApexSymbolGraph {
    * Get graph data filtered by file as JSON-serializable data
    */
   getGraphDataForFile(fileUri: string): import('../types/graph').FileGraphData {
-    const fileSymbolIds = this.fileIndex.get(fileUri) || [];
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    const fileSymbolIds = this.fileIndex.get(normalizedUri) || [];
 
     const nodes: import('../types/graph').GraphNode[] = [];
     const edges: import('../types/graph').GraphEdge[] = [];

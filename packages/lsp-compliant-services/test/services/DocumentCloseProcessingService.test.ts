@@ -133,7 +133,7 @@ describe('DocumentCloseProcessingService', () => {
       getStorage: jest.fn(() => mockStorage),
     });
 
-    service = new DocumentCloseProcessingService(mockLogger, mockSymbolManager);
+    service = new DocumentCloseProcessingService(mockLogger);
   });
 
   describe('constructor', () => {

@@ -151,6 +151,38 @@ export const generateSymbolId = (
 };
 
 /**
+ * Extract just the file path from a URI that may contain symbol name and line number
+ * Uses the same logic as parseSymbolId() to handle all protocols consistently
+ * @param uri The URI that may contain symbol information
+ * @returns The base file URI without symbol parts
+ */
+export const extractFilePathFromUri = (uri: string): string => {
+  // If it's a built-in URI, return as-is (only special case)
+  if (uri.startsWith('built-in://')) {
+    return uri;
+  }
+
+  // Use the same logic as parseSymbolId() to extract URI portion
+  // Find the first colon (protocol separator)
+  const uriEnd = uri.indexOf(':');
+  if (uriEnd === -1) {
+    // No protocol separator, return as-is
+    return uri;
+  }
+
+  // Find the second colon (URI/symbol separator)
+  const secondColon = uri.indexOf(':', uriEnd + 1);
+  if (secondColon === -1) {
+    // No symbol part, return the full URI
+    return uri;
+  }
+
+  // Extract everything up to the second colon as the URI
+  // This works for all protocols: file://, apexlib://, etc.
+  return uri.substring(0, secondColon);
+};
+
+/**
  * Parse a URI-based ID back into its components
  * @param id The URI-based ID to parse
  * @returns Parsed ID components

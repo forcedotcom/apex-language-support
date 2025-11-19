@@ -57,6 +57,7 @@ import {
 import { FQNOptions, calculateFQN, getAncestorChain } from '../utils/FQNUtils';
 import type { SymbolProvider } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
+import { extractFilePathFromUri } from '../types/UriBasedIdGenerator';
 
 import { ResourceLoader } from '../utils/resourceLoader';
 import { STANDARD_APEX_LIBRARY_URI } from '../utils/ResourceUtils';
@@ -272,7 +273,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       this.unifiedCache.set(symbolId, symbol, 'symbol_lookup');
 
       // Invalidate related cache entries when symbols are added
-      this.unifiedCache.invalidatePattern(symbol.name);
+      // Normalize to lowercase to match cache key format in findSymbolByName()
+      const normalizedName = symbol.name.toLowerCase();
+      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
+      // Also invalidate by name pattern for broader matching (normalized)
+      this.unifiedCache.invalidatePattern(normalizedName);
       // Invalidate file-based cache when symbols are added to a file
       this.unifiedCache.invalidatePattern(`file_symbols_${fileUri}`);
     }
@@ -289,25 +294,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Find all symbols with a given name
    */
   findSymbolByName(name: string): ApexSymbol[] {
-    const cacheKey = `symbol_name_${name}`;
+    // Normalize cache key to lowercase for consistency (nameIndex is now case-insensitive)
+    const cacheKey = `symbol_name_${name.toLowerCase()}`;
     const cached = this.unifiedCache.get<ApexSymbol[]>(cacheKey);
     if (cached) {
       return cached;
     }
 
     // OPTIMIZED: Delegate to graph which delegates to SymbolTable
+    // nameIndex is now case-insensitive, so no fallback needed
     const symbols = this.symbolGraph.findSymbolByName(name) || [];
-    if (symbols.length === 0) {
-      // Case-insensitive fallback
-      const lower = name.toLowerCase();
-      if (lower !== name) {
-        const alt = this.symbolGraph.findSymbolByName(lower);
-        if (alt && alt.length > 0) {
-          this.unifiedCache.set(cacheKey, alt, 'symbol_lookup');
-          return alt;
-        }
-      }
-    }
     this.unifiedCache.set(cacheKey, symbols, 'symbol_lookup');
     return symbols;
   }
@@ -341,8 +337,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const properUri =
       getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
 
+    // Normalize URI using the same logic as getSymbolsInFile() to ensure consistency
+    // This ensures we use the same normalized URI that was used when registering SymbolTables
+    const normalizedUri = extractFilePathFromUri(properUri);
+
     // OPTIMIZED: Delegate to graph which delegates to SymbolTable
-    const symbols = this.symbolGraph.getSymbolsInFile(properUri);
+    const symbols = this.symbolGraph.getSymbolsInFile(normalizedUri);
     this.unifiedCache.set(cacheKey, symbols, 'file_lookup');
     return symbols;
   }
@@ -1483,19 +1483,25 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const properUri =
       getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
 
+    // Normalize URI using extractFilePathFromUri to ensure consistency with SymbolTable registration
+    // This ensures that fileIndex lookups will find the symbols
+    const normalizedUri = extractFilePathFromUri(properUri);
+
     // Add all symbols from the symbol table
     const symbols = symbolTable.getAllSymbols
       ? symbolTable.getAllSymbols()
       : [];
 
-    // Update all symbols to use the proper URI
+    // Update all symbols to use the normalized URI
     // Process in batches with yields for large symbol tables to prevent blocking
     const batchSize = 100;
+    const symbolNamesAdded = new Set<string>();
     for (let i = 0; i < symbols.length; i++) {
       const symbol = symbols[i];
-      // Update the symbol's fileUri to match the table's fileUri
-      symbol.fileUri = properUri;
-      this.addSymbol(symbol, properUri, symbolTable);
+      // Update the symbol's fileUri to match the normalized URI
+      symbol.fileUri = normalizedUri;
+      this.addSymbol(symbol, normalizedUri, symbolTable);
+      symbolNamesAdded.add(symbol.name);
 
       // Yield every batchSize symbols to allow other tasks to run
       if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
@@ -1504,8 +1510,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
     }
 
+    // Invalidate cache for all symbol names that were added
+    // This ensures that findSymbolByName() will see the newly added symbols
+    for (const symbolName of symbolNamesAdded) {
+      // Normalize to lowercase to match cache key format in findSymbolByName()
+      const normalizedName = symbolName.toLowerCase();
+      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
+    }
+
     // Process type references and add them to the symbol graph
-    await this.processTypeReferencesToGraph(symbolTable, properUri);
+    await this.processTypeReferencesToGraph(symbolTable, normalizedUri);
   }
 
   /**
@@ -1772,7 +1786,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         try {
           // Extract the base file URI from the symbol's fileUri
           // e.g., 'file:///test/TestClass.cls:file.TestClass.InnerClass:innerMethod' -> 'file:///test/TestClass.cls'
-          const baseFileUri = symbol.fileUri.split(':')[0];
+          const baseFileUri = extractFilePathFromUri(symbol.fileUri);
           const cacheForFile = this.getOrBuildParentCacheForFile(baseFileUri);
           const parentCandidate = cacheForFile.get(symbol.parentId) || null;
           if (parentCandidate) {
@@ -2035,12 +2049,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       // Step 1: Find the qualifier symbol
       let qualifierSymbols = this.findSymbolByName(qualifier);
+      this.logger.debug(
+        () =>
+          `[resolveQualifiedReferenceFromChain] Looking for qualifier "${qualifier}", ` +
+          `found ${qualifierSymbols.length} candidates`,
+      );
 
       // If no user-defined qualifier found, try built-in types
       if (qualifierSymbols.length === 0) {
         const builtInQualifier = await this.resolveBuiltInType(qualifier);
         if (builtInQualifier) {
           qualifierSymbols = [builtInQualifier];
+          this.logger.debug(
+            () =>
+              `[resolveQualifiedReferenceFromChain] Found built-in qualifier: ${qualifier}`,
+          );
         }
       }
 
@@ -2049,10 +2072,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const standardClass = await this.resolveStandardApexClass(qualifier);
         if (standardClass) {
           qualifierSymbols = [standardClass];
+          this.logger.debug(
+            () =>
+              `[resolveQualifiedReferenceFromChain] Found standard Apex class: ${qualifier}`,
+          );
         }
       }
 
       if (qualifierSymbols.length === 0) {
+        this.logger.debug(
+          () =>
+            `[resolveQualifiedReferenceFromChain] No qualifier found for "${qualifier}"`,
+        );
         return null;
       }
 
@@ -2060,6 +2091,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const qualifierSymbol = qualifierSymbols[0];
 
       // Step 2: Find the member within the qualifier
+      this.logger.debug(
+        () =>
+          `[resolveQualifiedReferenceFromChain] Looking for member "${member}" ` +
+          `in qualifier "${qualifier}" (fileUri: ${qualifierSymbol.fileUri})`,
+      );
       const memberSymbol = await this.resolveMemberInContext(
         { type: 'symbol', symbol: qualifierSymbol },
         member,
@@ -2067,7 +2103,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       );
 
       if (memberSymbol) {
+        this.logger.debug(
+          () =>
+            `[resolveQualifiedReferenceFromChain] Found member "${member}" in qualifier "${qualifier}"`,
+        );
         return memberSymbol;
+      } else {
+        this.logger.debug(
+          () =>
+            `[resolveQualifiedReferenceFromChain] Member "${member}" not found in qualifier "${qualifier}"`,
+        );
       }
 
       // Step 3: For method calls, try to resolve the qualifier itself if no member found
@@ -3474,6 +3519,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       // Step 1: Try to find TypeReferences at the exact position
       const typeReferences = this.getReferencesAtPosition(fileUri, position);
+      this.logger.debug(
+        () =>
+          `Type references at position ${position.line}:${position.character}: ${typeReferences.length}` +
+          `${typeReferences.map((t) => t.name).join(', ')}`,
+      );
 
       if (typeReferences.length > 0) {
         // Step 2: Try to resolve the most specific reference

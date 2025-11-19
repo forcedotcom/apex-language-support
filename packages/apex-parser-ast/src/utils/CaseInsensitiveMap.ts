@@ -20,7 +20,13 @@ export class CaseInsensitiveHashMap<V = any, R = [string, V]> extends HashMap<
   V,
   R
 > {
-  private originalKeys: Map<string, string> = new Map(); // lowercase -> original case
+  private originalKeys: HashMap<string, string, [string, string]> = new HashMap<
+    string,
+    string,
+    [string, string]
+  >([], {
+    hashFn: (key: string) => String(key).toLowerCase(),
+  }); // lowercase -> original case
 
   constructor(
     entryOrRawElements: Iterable<R | [string, V]> = [],
@@ -33,6 +39,21 @@ export class CaseInsensitiveHashMap<V = any, R = [string, V]> extends HashMap<
     };
 
     super(entryOrRawElements, caseInsensitiveOptions);
+    // Populate originalKeys from entries if they were passed to constructor
+    // This ensures first-touch principle is maintained even when constructing with entries
+    if (entryOrRawElements) {
+      for (const entry of entryOrRawElements) {
+        const entryArray = Array.isArray(entry)
+          ? (entry as [string, V])
+          : (entry as unknown as [string, V]);
+        const key = entryArray[0];
+        const normalizedKey = key.toLowerCase();
+        // Only set if not already set (first touch)
+        if (!this.originalKeys.has(normalizedKey)) {
+          this.originalKeys.set(normalizedKey, key);
+        }
+      }
+    }
   }
 
   /**
@@ -49,8 +70,28 @@ export class CaseInsensitiveHashMap<V = any, R = [string, V]> extends HashMap<
    */
   override set(key: string, value: V): boolean {
     const normalizedKey = key.toLowerCase();
-    this.originalKeys.set(normalizedKey, key); // Store original case
-    return super.set(normalizedKey, value);
+    // Ensure originalKeys is initialized (may be called during parent constructor)
+    if (!this.originalKeys) {
+      this.originalKeys = new HashMap<string, string, [string, string]>([], {
+        hashFn: (key: string) => String(key).toLowerCase(),
+      });
+    }
+    // First touch principle: preserve the first key case that was set
+    // Only set originalKeys if this is the first time this normalized key is being set
+    if (!this.originalKeys.has(normalizedKey)) {
+      this.originalKeys.set(normalizedKey, key);
+    }
+    // Always update the HashMap value, but preserve the original case from first touch
+    const result = super.set(normalizedKey, value);
+    // Verify the value was actually stored in the parent HashMap
+    const verifyGet = super.get(normalizedKey);
+    if (verifyGet === undefined && value !== undefined) {
+      console.warn(
+        '[CaseInsensitiveHashMap] set() succeeded but get() returns undefined ' +
+          `for key "${normalizedKey}" (original: "${key}")`,
+      );
+    }
+    return result;
   }
 
   /**
@@ -74,9 +115,17 @@ export class CaseInsensitiveHashMap<V = any, R = [string, V]> extends HashMap<
    */
   override delete(key: string): boolean {
     const normalizedKey = key.toLowerCase();
+    const hadValue = super.get(normalizedKey) !== undefined;
     const deleted = super.delete(normalizedKey);
     if (deleted) {
       this.originalKeys.delete(normalizedKey);
+      // Debug logging for deletions
+      if (normalizedKey.includes('fileutilities')) {
+        console.warn(
+          `[CaseInsensitiveHashMap] Deleted key "${normalizedKey}" (original: "${key}"), ` +
+            `hadValue: ${hadValue}, deleted: ${deleted}`,
+        );
+      }
     }
     return deleted;
   }
@@ -86,6 +135,28 @@ export class CaseInsensitiveHashMap<V = any, R = [string, V]> extends HashMap<
    */
   override keys(): IterableIterator<string> {
     return this.originalKeys.values();
+  }
+
+  /**
+   * Override entries to return original case keys
+   */
+  override entries(): IterableIterator<[string, V]> {
+    const originalEntries: Array<[string, V]> = [];
+    for (const [normalizedKey, originalKey] of this.originalKeys.entries()) {
+      const value = super.get(normalizedKey);
+      if (value !== undefined && originalKey !== undefined) {
+        originalEntries.push([originalKey, value]);
+      }
+    }
+    return originalEntries.values();
+  }
+
+  /**
+   * Override clear to also clear originalKeys
+   */
+  override clear(): void {
+    this.originalKeys.clear();
+    super.clear();
   }
 }
 

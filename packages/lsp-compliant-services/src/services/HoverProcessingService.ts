@@ -88,7 +88,7 @@ export class HoverProcessingService implements IHoverProcessor {
   public async processHover(params: HoverParams): Promise<Hover | null> {
     this.logger.debug(
       () =>
-        `Processing hover for ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
+        `Symbols in file ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
     );
 
     try {
@@ -110,7 +110,8 @@ export class HoverProcessingService implements IHoverProcessor {
       );
       this.logger.debug(
         () =>
-          `Symbols in file ${params.textDocument.uri}: ${fileSymbols.length} symbols found`,
+          `Symbols in file ${params.textDocument.uri}: ${fileSymbols.length} symbols found` +
+          `${fileSymbols.map((s) => s.name).join(', ')}`,
       );
 
       let symbol = await this.symbolManager.getSymbolAtPosition(
