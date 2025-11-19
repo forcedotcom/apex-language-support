@@ -18,7 +18,7 @@ import {
   Fiber,
 } from 'effect';
 
-import { getLogger, Priority } from '@salesforce/apex-lsp-shared';
+import { getLogger, Priority, AllPriorities } from '@salesforce/apex-lsp-shared';
 import {
   PriorityScheduler,
   PrioritySchedulerConfigShape,
@@ -28,7 +28,6 @@ import {
   SchedulerInternalState,
   SchedulerUtilsState,
   SchedulerUtilsInitializedState,
-  AllPriorities,
   Critical,
   AllPrioritiesWithCritical,
 } from '../types/queue';
@@ -265,7 +264,8 @@ function controllerLoop(
                         `[QUEUE] Failed ${requestType} (id: ${item.id}) ` +
                         `with priority ${getPriorityName(p)}, error: ${error}`,
                     );
-                    return Effect.fail(error);
+                    // Yield the failure to propagate it, not return it
+                    yield* Effect.fail(error);
                   }),
                 ),
               ),
@@ -437,7 +437,7 @@ function controllerLoop(
                               `[QUEUE] Failed ${requestType} (id: ${item.id}) ` +
                               `with priority ${getPriorityName(p)}, error: ${error}`,
                           );
-                          return Effect.fail(error);
+                          yield* Effect.fail(error);
                         }),
                       ),
                     ),

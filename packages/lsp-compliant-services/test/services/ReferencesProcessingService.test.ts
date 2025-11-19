@@ -42,9 +42,7 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
 });
 
 jest.mock('../../src/services/WorkspaceLoadCoordinator', () => ({
-  WorkspaceLoadCoordinator: {
-    getInstance: jest.fn(),
-  },
+  ensureWorkspaceLoaded: jest.fn(),
 }));
 
 describe('ReferencesProcessingService', () => {

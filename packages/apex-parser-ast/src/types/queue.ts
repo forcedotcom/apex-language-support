@@ -7,10 +7,10 @@
  */
 
 import { Deferred, Effect, Fiber, Queue, Ref, Scope } from 'effect';
-import { Priority, AllPriorities } from '@salesforce/apex-lsp-shared';
+import { Priority } from '@salesforce/apex-lsp-shared';
 
-// Re-export Priority and AllPriorities for convenience
-export { Priority, AllPriorities };
+// Re-export Priority for convenience
+export { Priority };
 
 /**
  * Internal Critical priority (value 0) - highest priority for system tasks.
@@ -25,7 +25,11 @@ export const Critical = 0 as const;
  */
 export const AllPrioritiesWithCritical: readonly number[] = [
   Critical,
-  ...AllPriorities,
+  Priority.Immediate,
+  Priority.High,
+  Priority.Normal,
+  Priority.Low,
+  Priority.Background,
 ] as const;
 
 export interface ScheduledTask<A = never, E = never, R = never> {

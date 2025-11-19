@@ -154,7 +154,9 @@ const getLogLevelString = (messageType: LogMessageType): string => {
     case 'info':
       return 'INFO';
     case 'log':
-      return 'TRACE';
+      // 'log' is used as a proxy for 'debug' in LSP (since LSP doesn't support 'debug' type)
+      // Display it as DEBUG to match the original intent
+      return 'DEBUG';
     case 'debug':
       return 'DEBUG';
     default:

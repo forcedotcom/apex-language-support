@@ -6,10 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Effect, Fiber } from 'effect';
+import { Deferred, Effect, Fiber, Ref } from 'effect';
+import { AllPriorities } from '@salesforce/apex-lsp-shared';
 import {
   Priority,
-  AllPriorities,
   ScheduledTask,
   QueuedItem,
 } from '../../src/types/queue';
@@ -67,10 +67,16 @@ describe('PriorityScheduler', () => {
   });
 
   afterEach(async () => {
-    await Effect.runPromise(shutdown()).pipe(
-      Effect.catchAll(() => Effect.succeed(undefined)),
-    );
-    await Effect.runPromise(reset());
+    try {
+      await Effect.runPromise(shutdown());
+    } catch {
+      // Ignore shutdown errors
+    }
+    try {
+      await Effect.runPromise(reset());
+    } catch {
+      // Ignore reset errors
+    }
   });
 
   describe('Basic Scheduling', () => {
@@ -120,8 +126,8 @@ describe('PriorityScheduler', () => {
 
       const program = Effect.gen(function* () {
         // Create a barrier to ensure both tasks are queued before processing
-        const barrier = yield* Effect.Deferred.make<void, never>();
-        const tasksRef = yield* Effect.Ref.make<{
+        const barrier = yield* Deferred.make<void, never>();
+        const tasksRef = yield* Ref.make<{
           high?: ScheduledTask<string, never, never>;
           immediate?: ScheduledTask<string, never, never>;
         }>({});
@@ -132,14 +138,14 @@ describe('PriorityScheduler', () => {
             const queuedItem = yield* createQueuedItem(
               Effect.gen(function* () {
                 // Wait for barrier before starting execution
-                yield* Effect.Deferred.await(barrier);
+                yield* Deferred.await(barrier);
                 executionOrder.push(Priority.High);
                 yield* Effect.sleep('10 millis');
                 return 'high';
               }),
             );
             const task = yield* offer(Priority.High, queuedItem);
-            yield* Effect.Ref.update(tasksRef, (t) => ({ ...t, high: task }));
+            yield* Ref.update(tasksRef, (t) => ({ ...t, high: task }));
           }),
         );
 
@@ -152,13 +158,13 @@ describe('PriorityScheduler', () => {
             const queuedItem = yield* createQueuedItem(
               Effect.gen(function* () {
                 // Wait for barrier before starting execution
-                yield* Effect.Deferred.await(barrier);
+                yield* Deferred.await(barrier);
                 executionOrder.push(Priority.Immediate);
                 return 'immediate';
               }),
             );
             const task = yield* offer(Priority.Immediate, queuedItem);
-            yield* Effect.Ref.update(tasksRef, (t) => ({
+            yield* Ref.update(tasksRef, (t) => ({
               ...t,
               immediate: task,
             }));
@@ -169,14 +175,14 @@ describe('PriorityScheduler', () => {
         yield* Effect.sleep('50 millis');
 
         // Get the tasks
-        const tasks = yield* Effect.Ref.get(tasksRef);
+        const tasks = yield* Ref.get(tasksRef);
         if (!tasks.high || !tasks.immediate) {
           throw new Error('Tasks not properly queued');
         }
 
         // Both tasks are now dequeued and forked, but execution is blocked by barrier
         // Release the barrier to allow execution
-        yield* Effect.Deferred.succeed(barrier, undefined);
+        yield* Deferred.succeed(barrier, undefined);
         yield* Effect.yieldNow(); // Allow scheduler to process
 
         // Wait for both to complete
@@ -200,8 +206,8 @@ describe('PriorityScheduler', () => {
 
       const program = Effect.gen(function* () {
         // Create a barrier to ensure all tasks are queued before processing
-        const barrier = yield* Effect.Deferred.make<void, never>();
-        const tasksRef = yield* Effect.Ref.make<
+        const barrier = yield* Deferred.make<void, never>();
+        const tasksRef = yield* Ref.make<
           ScheduledTask<string, never, never>[]
         >([]);
 
@@ -222,14 +228,14 @@ describe('PriorityScheduler', () => {
                 priority,
                 Effect.gen(function* () {
                   // Wait for barrier before starting execution
-                  yield* Effect.Deferred.await(barrier);
+                  yield* Deferred.await(barrier);
                   executionOrder.push(priority);
                   yield* Effect.sleep('5 millis');
                   return priority.toString();
                 }),
               ).pipe(
                 Effect.tap((task) =>
-                  Effect.Ref.update(tasksRef, (tasks) => [...tasks, task]),
+                  Ref.update(tasksRef, (tasks) => [...tasks, task]),
                 ),
               ),
             ),
@@ -240,14 +246,14 @@ describe('PriorityScheduler', () => {
         yield* Effect.sleep('50 millis');
 
         // Get all tasks
-        const tasks = yield* Effect.Ref.get(tasksRef);
+        const tasks = yield* Ref.get(tasksRef);
         if (tasks.length !== 5) {
           throw new Error(`Expected 5 tasks, got ${tasks.length}`);
         }
 
         // All tasks are now dequeued and forked, but execution is blocked by barrier
         // Release the barrier to allow execution
-        yield* Effect.Deferred.succeed(barrier, undefined);
+        yield* Deferred.succeed(barrier, undefined);
         yield* Effect.yieldNow(); // Allow scheduler to process
 
         // Wait for all tasks to complete
@@ -340,10 +346,10 @@ describe('PriorityScheduler', () => {
 
       const program = Effect.gen(function* () {
         // Create refs to track tasks
-        const highTasksRef = yield* Effect.Ref.make<
+        const highTasksRef = yield* Ref.make<
           ScheduledTask<string, never, never>[]
         >([]);
-        const lowTaskRef = yield* Effect.Ref.make<
+        const lowTaskRef = yield* Ref.make<
           ScheduledTask<string, never, never> | null
         >(null);
 
@@ -360,7 +366,7 @@ describe('PriorityScheduler', () => {
                 }),
               ).pipe(
                 Effect.tap((task) =>
-                  Effect.Ref.update(highTasksRef, (tasks) => [...tasks, task]),
+                  Ref.update(highTasksRef, (tasks) => [...tasks, task]),
                 ),
               ),
             ),
@@ -379,7 +385,7 @@ describe('PriorityScheduler', () => {
               return 'low';
             }),
           ).pipe(
-            Effect.tap((task) => Effect.Ref.update(lowTaskRef, () => task)),
+            Effect.tap((task) => Ref.update(lowTaskRef, () => task)),
           ),
         );
 
@@ -387,8 +393,8 @@ describe('PriorityScheduler', () => {
         yield* Effect.sleep('50 millis');
 
         // Get all tasks
-        const highTasks = yield* Effect.Ref.get(highTasksRef);
-        const lowTask = yield* Effect.Ref.get(lowTaskRef);
+        const highTasks = yield* Ref.get(highTasksRef);
+        const lowTask = yield* Ref.get(lowTaskRef);
 
         if (highTasks.length !== 5 || !lowTask) {
           throw new Error('Tasks not properly queued');
@@ -686,21 +692,38 @@ describe('PriorityScheduler', () => {
 
   describe('Error Handling', () => {
     it('should handle task errors gracefully', async () => {
-      const queuedItem = await Effect.runPromise(
-        createQueuedItem(Effect.fail(new Error('Task error')) as Effect.Effect<never>),
-      );
-      const result = await Effect.runPromise(offer(Priority.Normal, queuedItem));
+      const program = Effect.gen(function* () {
+        const queuedItem = yield* createQueuedItem(
+          Effect.fail(new Error('Task error')) as Effect.Effect<never>,
+        );
+        const result = yield* offer(Priority.Normal, queuedItem);
 
-      // Await the fiber directly - it should fail
-      const fiber = await Effect.runPromise(result.fiber);
-      const exit = await Effect.runPromise(Fiber.await(fiber));
+        // Get the fiber and await it - it should fail
+        const fiber = yield* result.fiber;
+        
+        // Wait longer for the task to execute and fail
+        yield* Effect.sleep('200 millis');
+        
+        // Check the exit status directly
+        const exit = yield* Fiber.await(fiber);
 
-      // Should handle the error
-      if (exit._tag === 'Success') {
-        throw new Error('Expected task to fail');
-      } else {
-        expect(exit.cause).toBeDefined();
-      }
+        // The scheduler catches errors but Effect.catchAll yields Effect.fail(error),
+        // so the fiber should still fail (error is propagated, not swallowed)
+        if (exit._tag === 'Success') {
+          // If it succeeded, that's unexpected - the task should have failed
+          // The scheduler's Effect.catchAll yields Effect.fail(error), so fiber should fail
+          throw new Error(
+            `Expected task to fail, but fiber exited with Success. Exit: ${JSON.stringify(exit)}`,
+          );
+        } else {
+          // Expected - fiber should fail
+          expect(exit.cause).toBeDefined();
+          return 'task-failed-as-expected';
+        }
+      });
+
+      const result = await Effect.runPromise(program);
+      expect(result).toBe('task-failed-as-expected');
     });
 
     it('should continue processing other tasks after error', async () => {
@@ -782,46 +805,34 @@ describe('PriorityScheduler', () => {
         // Shutdown
         yield* shutdown();
 
-        // Try to submit a task after shutdown
-        // offer() will return immediately, but the fiber Effect won't resolve because
-        // the deferred is never fulfilled (controller loop stopped)
+        // Wait a bit for shutdown to complete
+        yield* Effect.sleep('50 millis');
+
+        // Try to submit a task after shutdown - this should fail because scheduler is not initialized
         const afterQueuedItem = yield* createQueuedItem(
           Effect.succeed('after-shutdown'),
         );
-        const afterShutdownTask = yield* offer(
+        
+        // offer() should fail with "Scheduler not initialized" error
+        const afterShutdownTaskResult = yield* offer(
           Priority.Normal,
           afterQueuedItem,
+        ).pipe(
+          Effect.catchAll((error) => {
+            // Expected error - scheduler is not initialized after shutdown
+            return Effect.succeed(error.message);
+          }),
         );
-
-        // Race getting the fiber (which waits for deferred) with a timeout
-        // The deferred should never be fulfilled because controller loop stopped
-        const result = yield* Effect.race(
-          afterShutdownTask.fiber.pipe(
-            Effect.flatMap((fiber) =>
-              Fiber.await(fiber).pipe(
-                Effect.flatMap((exit) =>
-                  exit._tag === 'Success'
-                    ? Effect.succeed('completed')
-                    : Effect.succeed('failed'),
-                ),
-              ),
-            ),
-          ),
-          Effect.sleep('100 millis').pipe(
-            Effect.andThen(Effect.succeed('timeout')),
-          ),
-        );
-
-        return { beforeResult, afterShutdownResult: result };
+        
+        expect(afterShutdownTaskResult).toContain('Scheduler not initialized');
+        
+        return beforeResult;
       });
 
       const result = await Effect.runPromise(program);
 
       // Task before shutdown should complete
-      expect(result.beforeResult).toBe('before-shutdown');
-
-      // Task after shutdown should timeout (not complete) because controller loop stopped
-      expect(result.afterShutdownResult).toBe('timeout');
+      expect(result).toBe('before-shutdown');
     });
   });
 

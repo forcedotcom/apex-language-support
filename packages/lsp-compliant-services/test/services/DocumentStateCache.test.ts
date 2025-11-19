@@ -17,6 +17,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 
 // Mock getLogger to avoid console output during tests
 jest.mock('@salesforce/apex-lsp-shared', () => ({
+  ...jest.requireActual('@salesforce/apex-lsp-shared'),
   getLogger: jest.fn(() => ({
     debug: jest.fn(),
     info: jest.fn(),

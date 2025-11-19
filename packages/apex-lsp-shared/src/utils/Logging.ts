@@ -116,8 +116,10 @@ export class UniversalLogger implements LoggerInterface {
   ): void {
     try {
       if (this.connection) {
+        // Convert 'debug' to 'log' for LSP compatibility (LSP doesn't support 'debug' type)
+        const lspMessageType = LoggingUtils.getLogMessageType(messageType);
         this.connection.sendNotification('window/logMessage', {
-          type: messageType,
+          type: lspMessageType,
           message,
         });
       } else {

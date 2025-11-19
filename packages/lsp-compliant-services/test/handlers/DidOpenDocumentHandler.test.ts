@@ -16,6 +16,9 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
   return {
     ...actual,
     getLogger: jest.fn(),
+    ApexSettingsManager: {
+      getInstance: jest.fn(),
+    },
   };
 });
 
@@ -56,14 +59,6 @@ jest.mock('../../src/storage/ApexStorageManager', () => ({
   },
 }));
 
-// Mock the settings manager and logger
-jest.mock('@salesforce/apex-lsp-shared', () => ({
-  ...jest.requireActual('@salesforce/apex-lsp-shared'),
-  ApexSettingsManager: {
-    getInstance: jest.fn(),
-  },
-  getLogger: jest.fn(),
-}));
 
 // Mock the definition upserter
 jest.mock('../../src/definition/ApexDefinitionUpserter', () => ({
@@ -171,7 +166,8 @@ describe('DidOpenDocumentHandler', () => {
         mockEvent.document.uri,
         mockEvent.document,
       );
-      expect(result).toBeUndefined();
+      // processDocumentOpen returns Diagnostic[] which may be empty
+      expect(result).toEqual([]);
     });
 
     it('should log error and rethrow when storage fails', async () => {

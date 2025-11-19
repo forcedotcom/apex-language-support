@@ -274,4 +274,26 @@ export default defineConfig([
       options.alias = NODE_POLYFILLS;
     },
   },
+
+  // Webview Graph Script Bundle - Browser-compatible IIFE bundle
+  {
+    name: 'webview-graph',
+    entry: ['src/webviews/graphScript.ts'],
+    outDir: 'dist/webview',
+    format: ['iife'],
+    platform: 'browser',
+    target: 'es2020',
+    outExtension: () => ({ js: '.bundle.js' }),
+    sourcemap: true,
+    splitting: false,
+    // No external dependencies - bundle everything
+    external: [],
+    // Don't use globalName - let the IIFE execute immediately
+    esbuildOptions(options) {
+      options.platform = 'browser';
+      options.define = {
+        'process.env.NODE_ENV': '"production"',
+      };
+    },
+  },
 ]);

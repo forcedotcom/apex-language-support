@@ -137,22 +137,9 @@ describe('DocumentCloseProcessingService', () => {
   });
 
   describe('constructor', () => {
-    it('should create service with provided logger and symbol manager', () => {
+    it('should create service with provided logger', () => {
       expect(service).toBeDefined();
       expect(service).toBeInstanceOf(DocumentCloseProcessingService);
-    });
-
-    it('should create service with default symbol manager when not provided', () => {
-      const {
-        ApexSymbolProcessingManager,
-      } = require('@salesforce/apex-lsp-parser-ast');
-
-      new DocumentCloseProcessingService(mockLogger);
-
-      expect(ApexSymbolProcessingManager.getInstance).toHaveBeenCalled();
-      const instance = (ApexSymbolProcessingManager.getInstance as jest.Mock)
-        .mock.results[0].value;
-      expect(instance.getSymbolManager).toHaveBeenCalled();
     });
   });
 
@@ -176,9 +163,8 @@ describe('DocumentCloseProcessingService', () => {
       expect(mockStorage.deleteDocument).toHaveBeenCalledWith(
         event.document.uri,
       );
-      expect(mockSymbolManager.removeFile).toHaveBeenCalledWith(
-        event.document.uri,
-      );
+      // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
+      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
     });
 
@@ -203,28 +189,6 @@ describe('DocumentCloseProcessingService', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
 
-    it('should handle symbol manager errors gracefully', async () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.cls',
-          languageId: 'apex',
-          version: 1,
-          getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
-          lineCount: 1,
-        },
-        contentChanges: [],
-      };
-
-      mockSymbolManager.removeFile.mockImplementation(() => {
-        throw new Error('Symbol manager error');
-      });
-
-      await service.processDocumentClose(event);
-
-      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
-    });
 
     it('should log document close processing completion', async () => {
       const event: TextDocumentChangeEvent<TextDocument> = {
@@ -264,9 +228,8 @@ describe('DocumentCloseProcessingService', () => {
       expect(mockStorage.deleteDocument).toHaveBeenCalledWith(
         event.document.uri,
       );
-      expect(mockSymbolManager.removeFile).toHaveBeenCalledWith(
-        event.document.uri,
-      );
+      // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
+      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
     });
 
     it('should handle large document close', async () => {
@@ -289,9 +252,8 @@ describe('DocumentCloseProcessingService', () => {
       expect(mockStorage.deleteDocument).toHaveBeenCalledWith(
         event.document.uri,
       );
-      expect(mockSymbolManager.removeFile).toHaveBeenCalledWith(
-        event.document.uri,
-      );
+      // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
+      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
     });
   });
 
@@ -329,7 +291,7 @@ describe('DocumentCloseProcessingService', () => {
       );
     });
 
-    it('should remove file from symbol manager', async () => {
+    it('should NOT remove symbols on document close', async () => {
       const event: TextDocumentChangeEvent<TextDocument> = {
         document: {
           uri: 'file:///test.cls',
@@ -345,34 +307,9 @@ describe('DocumentCloseProcessingService', () => {
 
       await service.processDocumentClose(event);
 
-      expect(mockSymbolManager.removeFile).toHaveBeenCalledWith(
-        'file:///test.cls',
-      );
-    });
-
-    it('should perform cleanup operations in correct order', async () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.cls',
-          languageId: 'apex',
-          version: 1,
-          getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
-          lineCount: 1,
-        },
-        contentChanges: [],
-      };
-
-      await service.processDocumentClose(event);
-
-      // Verify order of operations
-      const deleteCallIndex =
-        mockStorage.deleteDocument.mock.invocationCallOrder[0];
-      const removeFileCallIndex =
-        mockSymbolManager.removeFile.mock.invocationCallOrder[0];
-
-      expect(deleteCallIndex).toBeLessThan(removeFileCallIndex);
+      // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
+      // This is intentional - didClose is only for document sync housekeeping
+      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
     });
   });
 
@@ -420,7 +357,8 @@ describe('DocumentCloseProcessingService', () => {
       await service.processDocumentClose(event);
 
       expect(mockStorage.deleteDocument).toHaveBeenCalledWith('');
-      expect(mockSymbolManager.removeFile).toHaveBeenCalledWith('');
+      // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
+      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
     });
 
     it('should continue processing even if storage deletion fails', async () => {
@@ -441,36 +379,8 @@ describe('DocumentCloseProcessingService', () => {
 
       await service.processDocumentClose(event);
 
-      // Should still attempt to remove from symbol manager
-      expect(mockSymbolManager.removeFile).toHaveBeenCalledWith(
-        event.document.uri,
-      );
-    });
-
-    it('should continue processing even if symbol manager removal fails', async () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.cls',
-          languageId: 'apex',
-          version: 1,
-          getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
-          lineCount: 1,
-        },
-        contentChanges: [],
-      };
-
-      mockSymbolManager.removeFile.mockImplementation(() => {
-        throw new Error('Symbol manager error');
-      });
-
-      await service.processDocumentClose(event);
-
-      // Should still attempt to delete from storage
-      expect(mockStorage.deleteDocument).toHaveBeenCalledWith(
-        event.document.uri,
-      );
+      // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
+      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
     });
   });
 
@@ -503,7 +413,8 @@ describe('DocumentCloseProcessingService', () => {
       await Promise.all(promises);
 
       expect(mockStorage.deleteDocument).toHaveBeenCalledTimes(10);
-      expect(mockSymbolManager.removeFile).toHaveBeenCalledTimes(10);
+      // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
+      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
     });
 
     it('should handle concurrent document closes', async () => {
@@ -526,7 +437,8 @@ describe('DocumentCloseProcessingService', () => {
       await Promise.all(promises);
 
       expect(mockStorage.deleteDocument).toHaveBeenCalledTimes(5);
-      expect(mockSymbolManager.removeFile).toHaveBeenCalledTimes(5);
+      // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
+      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
     });
   });
 });

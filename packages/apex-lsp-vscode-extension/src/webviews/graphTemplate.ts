@@ -21,11 +21,12 @@ export function getGraphWebviewContent(
   const encodedData = JSON.stringify(graphData);
 
   // Use proper webview URI construction - script is in dist/webview/
+  // Use bundled script that includes graphRenderer
   const scriptPath = vscode.Uri.joinPath(
     extensionUri,
     'dist',
     'webview',
-    'graphScript.js',
+    'graphScript.bundle.js',
   );
   const scriptUri = webview.asWebviewUri(scriptPath);
 
