@@ -14,8 +14,6 @@ import {
   ApexSymbolProcessingManager,
   ApexSymbolCollectorListener,
   SymbolTable,
-  offer,
-  createQueuedItem,
 } from '@salesforce/apex-lsp-parser-ast';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { getDocumentStateCache } from './DocumentStateCache';
@@ -93,8 +91,7 @@ export class DocumentProcessingService {
     const storage = this.storageManager.getStorage();
     const cache = getDocumentStateCache();
     const compilerService = new CompilerService();
-    const symbolManager =
-      ApexSymbolProcessingManager.getInstance().getSymbolManager();
+    const backgroundManager = ApexSymbolProcessingManager.getInstance();
 
     // Separate cached and uncached documents
     const uncachedEvents: TextDocumentChangeEvent<TextDocument>[] = [];
@@ -109,6 +106,29 @@ export class DocumentProcessingService {
         cachedResults.push(cached.diagnostics);
         // Still update storage
         await storage.setDocument(event.document.uri, event.document);
+
+        // Even if cached, ensure symbols are added to the symbol manager
+        // (they might have been cached from a diagnostic request that didn't add symbols)
+        if (cached.symbolTable) {
+          const symbolManager = backgroundManager.getSymbolManager();
+          const existingSymbols = symbolManager.findSymbolsInFile(
+            event.document.uri,
+          );
+          if (existingSymbols.length === 0) {
+            this.logger.debug(
+              () =>
+                `Batch: Cached file ${event.document.uri} has no symbols in manager, adding them now`,
+            );
+            await symbolManager.addSymbolTable(
+              cached.symbolTable,
+              event.document.uri,
+            );
+            this.logger.debug(
+              () =>
+                `Batch: Successfully added cached symbols synchronously for ${event.document.uri}`,
+            );
+          }
+        }
       } else {
         uncachedEvents.push(event);
       }
@@ -120,9 +140,12 @@ export class DocumentProcessingService {
     if (uncachedEvents.length > 0) {
       try {
         // Create listeners for each file
+        // Store listeners and symbol tables so we can access them later
+        const listeners: ApexSymbolCollectorListener[] = [];
         const compileConfigs = uncachedEvents.map((event) => {
           const table = new SymbolTable();
           const listener = new ApexSymbolCollectorListener(table);
+          listeners.push(listener);
           return {
             content: event.document.getText(),
             fileName: event.document.uri,
@@ -139,6 +162,7 @@ export class DocumentProcessingService {
         for (let i = 0; i < uncachedEvents.length; i++) {
           const event = uncachedEvents[i];
           const compileResult = compileResults[i];
+          const listener = listeners[i];
 
           // Update storage
           await storage.setDocument(event.document.uri, event.document);
@@ -147,11 +171,21 @@ export class DocumentProcessingService {
             // Extract diagnostics - handle both CompilationResult and CompilationResultWithComments
             const diagnostics = getDiagnosticsFromErrors(compileResult.errors);
 
-            // Get symbol table from result
-            const symbolTable =
-              compileResult.result instanceof SymbolTable
-                ? compileResult.result
-                : undefined;
+            // Get symbol table from result or listener
+            // compileResult.result should be the SymbolTable, but fallback to listener.getResult()
+            let symbolTable: SymbolTable | undefined;
+            if (compileResult.result instanceof SymbolTable) {
+              symbolTable = compileResult.result;
+            } else if (listener instanceof ApexSymbolCollectorListener) {
+              symbolTable = listener.getResult();
+            }
+
+            this.logger.debug(
+              () =>
+                `Batch processing ${event.document.uri}: symbolTable extracted: ` +
+                `${symbolTable ? 'yes' : 'no'}, from result: ${compileResult.result instanceof SymbolTable}, ` +
+                `from listener: ${listener instanceof ApexSymbolCollectorListener}`,
+            );
 
             // Cache diagnostics and symbol table
             cache.merge(event.document.uri, {
@@ -162,22 +196,39 @@ export class DocumentProcessingService {
               symbolsIndexed: false,
             });
 
-            // Queue symbol processing
+            // Add symbols synchronously so they're immediately available for hover/goto definition
+            // Then queue background processing for cross-file resolution and references
             if (symbolTable) {
-              const queuedItem = await Effect.runPromise(
-                createQueuedItem(
-                  Effect.sync(() => {
-                    symbolManager.addSymbolTable(
-                      symbolTable,
-                      event.document.uri,
-                    );
-                  }),
-                ),
+              const symbolManager = backgroundManager.getSymbolManager();
+              this.logger.debug(
+                () =>
+                  `Adding symbols synchronously for ${event.document.uri} (batch processing)`,
               );
-              await Effect.runPromise(
-                offer(Priority.Normal, queuedItem).pipe(
-                  Effect.tap(() => Effect.void),
-                ),
+              // Add symbols immediately (synchronous)
+              await symbolManager.addSymbolTable(
+                symbolTable,
+                event.document.uri,
+              );
+              this.logger.debug(
+                () =>
+                  `Successfully added symbols synchronously for ${event.document.uri}`,
+              );
+
+              // Queue additional background processing for cross-file resolution and references
+              backgroundManager.processSymbolTable(
+                symbolTable,
+                event.document.uri,
+                {
+                  priority: Priority.Normal,
+                  enableCrossFileResolution: true,
+                  enableReferenceProcessing: true,
+                },
+                event.document.version,
+              );
+            } else {
+              this.logger.warn(
+                () =>
+                  `No symbol table extracted for ${event.document.uri} in batch processing`,
               );
             }
 
@@ -210,8 +261,7 @@ export class DocumentProcessingService {
     const storage = this.storageManager.getStorage();
     const cache = getDocumentStateCache();
     const compilerService = new CompilerService();
-    const symbolManager =
-      ApexSymbolProcessingManager.getInstance().getSymbolManager();
+    const backgroundManager = ApexSymbolProcessingManager.getInstance();
 
     // Check cache first
     const cached = cache.getSymbolResult(
@@ -220,6 +270,31 @@ export class DocumentProcessingService {
     );
     if (cached) {
       await storage.setDocument(event.document.uri, event.document);
+
+      // Even if cached, we need to ensure symbols are added to the symbol manager
+      // (they might have been cached from a diagnostic request that didn't add symbols)
+      if (cached.symbolTable) {
+        const symbolManager = backgroundManager.getSymbolManager();
+        // Check if symbols already exist for this file
+        const existingSymbols = symbolManager.findSymbolsInFile(
+          event.document.uri,
+        );
+        if (existingSymbols.length === 0) {
+          this.logger.debug(
+            () =>
+              `Cached file ${event.document.uri} has no symbols in manager, adding them now`,
+          );
+          await symbolManager.addSymbolTable(
+            cached.symbolTable,
+            event.document.uri,
+          );
+          this.logger.debug(
+            () =>
+              `Successfully added cached symbols synchronously for ${event.document.uri}`,
+          );
+        }
+      }
+
       return cached.diagnostics;
     }
 
@@ -248,6 +323,12 @@ export class DocumentProcessingService {
             ? compileResult.result
             : undefined;
 
+        this.logger.debug(
+          () =>
+            `Single processing ${event.document.uri}: symbolTable extracted: ${symbolTable ? 'yes' : 'no'}, ` +
+            `type: ${typeof compileResult.result}, instanceof: ${compileResult.result instanceof SymbolTable}`,
+        );
+
         // Cache diagnostics and symbol table
         cache.merge(event.document.uri, {
           symbolTable,
@@ -257,19 +338,36 @@ export class DocumentProcessingService {
           symbolsIndexed: false,
         });
 
-        // Queue symbol processing
+        // Add symbols synchronously so they're immediately available for hover/goto definition
+        // Then queue background processing for cross-file resolution and references
         if (symbolTable) {
-          const queuedItem = await Effect.runPromise(
-            createQueuedItem(
-              Effect.sync(() => {
-                symbolManager.addSymbolTable(symbolTable, event.document.uri);
-              }),
-            ),
+          const symbolManager = backgroundManager.getSymbolManager();
+          this.logger.debug(
+            () =>
+              `Adding symbols synchronously for ${event.document.uri} (single processing)`,
           );
-          await Effect.runPromise(
-            offer(Priority.Normal, queuedItem).pipe(
-              Effect.tap(() => Effect.void),
-            ),
+          // Add symbols immediately (synchronous)
+          await symbolManager.addSymbolTable(symbolTable, event.document.uri);
+          this.logger.debug(
+            () =>
+              `Successfully added symbols synchronously for ${event.document.uri}`,
+          );
+
+          // Queue additional background processing for cross-file resolution and references
+          backgroundManager.processSymbolTable(
+            symbolTable,
+            event.document.uri,
+            {
+              priority: Priority.Normal,
+              enableCrossFileResolution: true,
+              enableReferenceProcessing: true,
+            },
+            event.document.version,
+          );
+        } else {
+          this.logger.warn(
+            () =>
+              `No symbol table extracted for ${event.document.uri} in single processing`,
           );
         }
 
