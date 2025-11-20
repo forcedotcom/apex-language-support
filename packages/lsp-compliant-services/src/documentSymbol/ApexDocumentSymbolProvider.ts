@@ -23,6 +23,7 @@ import {
   inTypeSymbolGroup,
   isMethodSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 
 import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
@@ -174,8 +175,6 @@ export class DefaultApexDocumentSymbolProvider
         }
       }
 
-      const symbols: DocumentSymbol[] = [];
-
       const currentScope = symbolTable.getCurrentScope();
 
       // Debug: Check what's in the symbol table
@@ -194,32 +193,13 @@ export class DefaultApexDocumentSymbolProvider
         inTypeSymbolGroup(symbol),
       );
 
-      // Process each top-level symbol and convert to LSP DocumentSymbol format
-      for (const symbol of topLevelSymbols) {
-        const documentSymbol = this.createDocumentSymbol(symbol);
+      // Process each top-level symbol and convert to LSP DocumentSymbol format (with yielding)
+      const symbolsResult = await Effect.runPromise(
+        this.provideDocumentSymbolsEffect(topLevelSymbols, symbolTable, logger),
+      );
 
-        // Recursively collect children for top-level symbol types (classes, interfaces, etc.)
-        const childScopes = symbolTable.getCurrentScope().getChildren();
-
-        const typeScope = childScopes.find(
-          (scope: any) => scope.name === symbol.name,
-        );
-
-        if (typeScope) {
-          logger.debug(
-            () => `Collecting children for ${symbol.kind} '${symbol.name}'`,
-          );
-          documentSymbol.children = this.collectChildren(
-            typeScope,
-            symbol.kind,
-          );
-        }
-
-        symbols.push(documentSymbol);
-      }
-
-      logger.debug(() => `Returning ${symbols.length} document symbols`);
-      return symbols;
+      logger.debug(() => `Returning ${symbolsResult.length} document symbols`);
+      return symbolsResult;
     } catch (error) {
       const errorMessage = JSON.stringify(error);
       logger.error(() => `Error providing document symbols: ${errorMessage}`);
@@ -347,59 +327,128 @@ export class DefaultApexDocumentSymbolProvider
   }
 
   /**
+   * Provide document symbols (Effect-based with yielding)
+   */
+  private provideDocumentSymbolsEffect(
+    topLevelSymbols: ApexSymbol[],
+    symbolTable: SymbolTable,
+    logger: any,
+  ): Effect.Effect<DocumentSymbol[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const symbols: DocumentSymbol[] = [];
+      const batchSize = 50;
+
+      // Process each top-level symbol and convert to LSP DocumentSymbol format
+      for (let i = 0; i < topLevelSymbols.length; i++) {
+        const symbol = topLevelSymbols[i];
+        const documentSymbol = self.createDocumentSymbol(symbol);
+
+        // Recursively collect children for top-level symbol types (classes, interfaces, etc.)
+        const childScopes = symbolTable.getCurrentScope().getChildren();
+
+        const typeScope = childScopes.find(
+          (scope: any) => scope.name === symbol.name,
+        );
+
+        if (typeScope) {
+          logger.debug(
+            () => `Collecting children for ${symbol.kind} '${symbol.name}'`,
+          );
+          documentSymbol.children = yield* self.collectChildrenEffect(
+            typeScope,
+            symbol.kind,
+          );
+        }
+
+        symbols.push(documentSymbol);
+
+        // Yield after every batchSize symbols
+        if ((i + 1) % batchSize === 0 && i + 1 < topLevelSymbols.length) {
+          yield* Effect.yieldNow();
+        }
+      }
+
+      return symbols;
+    });
+  }
+
+  /**
    * Recursively collects children symbols for a given scope and kind
    * This builds the hierarchical structure of the document outline
    */
   private collectChildren(scope: any, parentKind: string): DocumentSymbol[] {
-    const children: DocumentSymbol[] = [];
-    const childSymbols = scope.getAllSymbols();
-    const logger = getLogger();
+    return Effect.runSync(this.collectChildrenEffect(scope, parentKind));
+  }
 
-    logger.debug(
-      () =>
-        `Collecting children for ${parentKind} '${scope.name}': ${childSymbols.length} symbols found`,
-    );
+  /**
+   * Recursively collects children symbols for a given scope and kind (Effect-based with yielding)
+   * This builds the hierarchical structure of the document outline
+   */
+  private collectChildrenEffect(
+    scope: any,
+    parentKind: string,
+  ): Effect.Effect<DocumentSymbol[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const children: DocumentSymbol[] = [];
+      const childSymbols = scope.getAllSymbols();
+      const logger = getLogger();
+      const batchSize = 50;
 
-    for (const childSymbol of childSymbols) {
-      // For interfaces, only include methods (Apex interfaces can only contain method signatures)
-      if (
-        parentKind.toLowerCase() === 'interface' &&
-        !isMethodSymbol(childSymbol)
-      ) {
-        logger.debug(
-          () => `Skipping non-method symbol '${childSymbol.name}' in interface`,
-        );
-        continue;
-      }
+      logger.debug(
+        () =>
+          `Collecting children for ${parentKind} '${scope.name}': ${childSymbols.length} symbols found`,
+      );
 
-      const childDocumentSymbol = this.createDocumentSymbol(childSymbol);
-
-      // Recursively collect children for top-level symbol types
-      if (inTypeSymbolGroup(childSymbol)) {
-        const childScope = scope
-          .getChildren()
-          .find((s: any) => s.name === childSymbol.name);
-
-        if (childScope) {
+      for (let i = 0; i < childSymbols.length; i++) {
+        const childSymbol = childSymbols[i];
+        // For interfaces, only include methods (Apex interfaces can only contain method signatures)
+        if (
+          parentKind.toLowerCase() === 'interface' &&
+          !isMethodSymbol(childSymbol)
+        ) {
           logger.debug(
             () =>
-              `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}'`,
+              `Skipping non-method symbol '${childSymbol.name}' in interface`,
           );
-          childDocumentSymbol.children = this.collectChildren(
-            childScope,
-            childSymbol.kind,
-          );
+          continue;
+        }
+
+        const childDocumentSymbol = self.createDocumentSymbol(childSymbol);
+
+        // Recursively collect children for top-level symbol types
+        if (inTypeSymbolGroup(childSymbol)) {
+          const childScope = scope
+            .getChildren()
+            .find((s: any) => s.name === childSymbol.name);
+
+          if (childScope) {
+            logger.debug(
+              () =>
+                `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}'`,
+            );
+            childDocumentSymbol.children = yield* self.collectChildrenEffect(
+              childScope,
+              childSymbol.kind,
+            );
+          }
+        }
+
+        children.push(childDocumentSymbol);
+
+        // Yield after every batchSize symbols
+        if ((i + 1) % batchSize === 0 && i + 1 < childSymbols.length) {
+          yield* Effect.yieldNow();
         }
       }
 
-      children.push(childDocumentSymbol);
-    }
-
-    logger.debug(
-      () =>
-        `Collected ${children.length} children for ${parentKind} '${scope.name}'`,
-    );
-    return children;
+      logger.debug(
+        () =>
+          `Collected ${children.length} children for ${parentKind} '${scope.name}'`,
+      );
+      return children;
+    });
   }
 
   /**

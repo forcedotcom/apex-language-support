@@ -18,6 +18,7 @@ import {
   ISymbolManager,
   ApexSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 import {
   transformLspToParserPosition,
   transformParserToLspPosition,
@@ -269,24 +270,42 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
    * Get related definitions through relationships
    */
   private async getRelatedDefinitions(symbol: ApexSymbol): Promise<Location[]> {
-    const locations: Location[] = [];
+    return await Effect.runPromise(this.getRelatedDefinitionsEffect(symbol));
+  }
 
-    try {
-      // Find symbols that reference this symbol
-      const references = this.symbolManager.findReferencesTo(symbol);
+  /**
+   * Get related definitions through relationships (Effect-based with yielding)
+   */
+  private getRelatedDefinitionsEffect(
+    symbol: ApexSymbol,
+  ): Effect.Effect<Location[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const locations: Location[] = [];
+      const batchSize = 50;
 
-      for (const reference of references) {
-        // Get the source symbol from the reference
-        const location = this.createLocationFromSymbol(reference.symbol);
-        if (location) {
-          locations.push(location);
+      try {
+        // Find symbols that reference this symbol
+        const references = self.symbolManager.findReferencesTo(symbol);
+
+        for (let i = 0; i < references.length; i++) {
+          const reference = references[i];
+          // Get the source symbol from the reference
+          const location = self.createLocationFromSymbol(reference.symbol);
+          if (location) {
+            locations.push(location);
+          }
+          // Yield after every batchSize references
+          if ((i + 1) % batchSize === 0 && i + 1 < references.length) {
+            yield* Effect.yieldNow();
+          }
         }
+      } catch (error) {
+        self.logger.debug(() => `Error getting related definitions: ${error}`);
       }
-    } catch (error) {
-      this.logger.debug(() => `Error getting related definitions: ${error}`);
-    }
 
-    return locations;
+      return locations;
+    });
   }
 
   /**

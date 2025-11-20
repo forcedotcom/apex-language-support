@@ -13,12 +13,14 @@ import {
   SymbolTable,
   ApexSymbolCollectorListener,
   ApexSymbolProcessingManager,
+  type CompilationResult,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   LoggerInterface,
   ApexSettingsManager,
   Priority,
 } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { getDocumentStateCache } from './DocumentStateCache';
@@ -41,6 +43,64 @@ export interface IDocumentSaveProcessor {
  */
 export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
   constructor(private readonly logger: LoggerInterface) {}
+
+  /**
+   * Compile document (pure Effect, can be queued)
+   * Wraps compilerService.compile() in Effect for non-blocking operation
+   */
+  private compileDocument(
+    document: TextDocument,
+    listener: ApexSymbolCollectorListener,
+    options: any,
+  ): Effect.Effect<CompilationResult<SymbolTable>, never, never> {
+    const logger = this.logger;
+    return Effect.gen(function* () {
+      // Yield control before starting compilation
+      yield* Effect.yieldNow();
+
+      const compilerService = new CompilerService();
+      let result: CompilationResult<SymbolTable>;
+
+      try {
+        result = yield* Effect.sync(() =>
+          compilerService.compile(
+            document.getText(),
+            document.uri,
+            listener,
+            options,
+          ),
+        );
+      } catch (error: unknown) {
+        logger.error(
+          () => `Failed to compile document ${document.uri}: ${error}`,
+        );
+        // Return error result
+        result = {
+          fileName: document.uri,
+          result: null,
+          errors: [
+            {
+              type: 'semantic' as any,
+              severity: 'error' as any,
+              message: error instanceof Error ? error.message : String(error),
+              line: 0,
+              column: 0,
+              fileUri: document.uri,
+            },
+          ],
+          warnings: [],
+        } as CompilationResult<SymbolTable>;
+      }
+
+      logger.debug(
+        () =>
+          `Compilation completed for ${document.uri}: ${result.errors.length} errors, ` +
+          `${result.warnings.length} warnings`,
+      );
+
+      return result;
+    });
+  }
 
   /**
    * Process a document save event
@@ -110,9 +170,8 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
       // Create a symbol collector listener
       const table = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(table);
-      const compilerService = new CompilerService();
 
-      // Parse the document
+      // Parse the document using Effect-based compilation (with yielding)
       const settingsManager = ApexSettingsManager.getInstance();
       const fileSize = document.getText().length;
       const options = settingsManager.getCompilationOptions(
@@ -120,11 +179,8 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
         fileSize,
       );
 
-      const result = compilerService.compile(
-        document.getText(),
-        document.uri,
-        listener,
-        options,
+      const result = await Effect.runPromise(
+        this.compileDocument(document, listener, options),
       );
 
       if (result.errors.length > 0) {

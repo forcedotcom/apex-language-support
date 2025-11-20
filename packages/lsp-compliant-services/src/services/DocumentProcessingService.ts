@@ -173,9 +173,8 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     // Create a symbol collector listener
     const table = new SymbolTable();
     const listener = new ApexSymbolCollectorListener(table);
-    const compilerService = new CompilerService();
 
-    // Parse the document
+    // Parse the document using Effect-based compilation (with yielding)
     const settingsManager = ApexSettingsManager.getInstance();
     const fileSize = document.getText().length;
     const options = settingsManager.getCompilationOptions(
@@ -183,11 +182,8 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
       fileSize,
     );
 
-    const result = compilerService.compile(
-      document.getText(),
-      document.uri,
-      listener,
-      options,
+    const result = await Effect.runPromise(
+      this.compileDocument(document, listener, options),
     );
 
     if (result.errors.length > 0) {

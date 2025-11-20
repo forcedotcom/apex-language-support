@@ -14,7 +14,9 @@ import {
   ApexSymbolCollectorListener,
   ApexSymbolProcessingManager,
   ISymbolManager,
+  type CompilationResult,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 
 import {
   getDiagnosticsFromErrors,
@@ -76,6 +78,63 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+  }
+
+  /**
+   * Compile document (pure Effect, can be queued)
+   * Wraps compilerService.compile() in Effect for non-blocking operation
+   */
+  private compileDocumentEffect(
+    document: any,
+    listener: ApexSymbolCollectorListener,
+  ): Effect.Effect<CompilationResult<SymbolTable>, never, never> {
+    const logger = this.logger;
+    return Effect.gen(function* () {
+      // Yield control before starting compilation
+      yield* Effect.yieldNow();
+
+      const compilerService = new CompilerService();
+      let result: CompilationResult<SymbolTable>;
+
+      try {
+        result = yield* Effect.sync(() =>
+          compilerService.compile(
+            document.getText(),
+            document.uri,
+            listener,
+            {},
+          ),
+        );
+      } catch (error: unknown) {
+        logger.error(
+          () => `Failed to compile document ${document.uri}: ${error}`,
+        );
+        // Return error result
+        result = {
+          fileName: document.uri,
+          result: null,
+          errors: [
+            {
+              type: 'semantic' as any,
+              severity: 'error' as any,
+              message: error instanceof Error ? error.message : String(error),
+              line: 0,
+              column: 0,
+              fileUri: document.uri,
+            },
+          ],
+          warnings: [],
+        } as CompilationResult<SymbolTable>;
+      }
+
+      logger.debug(
+        () =>
+          `Compilation completed for ${document.uri}: ${result.errors.length} errors, ` +
+          `${result.warnings.length} warnings`,
+      );
+
+      return result;
+    });
   }
 
   /**
@@ -156,25 +215,23 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           () =>
             `Using cached parse result for diagnostics ${document.uri} (version ${document.version})`,
         );
-        // Convert cached errors to diagnostics and enhance
-        return this.enhanceDiagnosticsWithGraphAnalysis(
-          cached.diagnostics,
-          params.textDocument.uri,
-          [],
+        // Convert cached errors to diagnostics and enhance (with yielding)
+        return await Effect.runPromise(
+          this.enhanceDiagnosticsWithGraphAnalysisEffect(
+            cached.diagnostics,
+            params.textDocument.uri,
+            [],
+          ),
         );
       }
 
       // Create a symbol collector listener
       const table = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(table);
-      const compilerService = new CompilerService();
 
-      // Parse the document
-      const result = compilerService.compile(
-        document.getText(),
-        document.uri,
-        listener,
-        {},
+      // Parse the document using Effect-based compilation (with yielding)
+      const result = await Effect.runPromise(
+        this.compileDocumentEffect(document, listener),
       );
 
       // Get diagnostics from errors
@@ -188,18 +245,19 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         documentLength: document.getText().length,
       });
 
-      // Enhance diagnostics with cross-file analysis using ApexSymbolManager
-      return this.enhanceDiagnosticsWithGraphAnalysis(
-        diagnostics,
-        params.textDocument.uri,
-        result.errors,
-      ).then((enhancedDiagnostics) => {
-        this.logger.debug(
-          () =>
-            `Returning ${enhancedDiagnostics.length} diagnostics for: ${params.textDocument.uri}`,
-        );
-        return enhancedDiagnostics;
-      });
+      // Enhance diagnostics with cross-file analysis using ApexSymbolManager (with yielding)
+      const enhancedDiagnostics = await Effect.runPromise(
+        this.enhanceDiagnosticsWithGraphAnalysisEffect(
+          diagnostics,
+          params.textDocument.uri,
+          result.errors,
+        ),
+      );
+      this.logger.debug(
+        () =>
+          `Returning ${enhancedDiagnostics.length} diagnostics for: ${params.textDocument.uri}`,
+      );
+      return enhancedDiagnostics;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -219,64 +277,91 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     documentUri: string,
     parsingErrors: any[],
   ): Promise<Diagnostic[]> {
-    try {
-      const enhancedDiagnostics = [...diagnostics];
+    return await Effect.runPromise(
+      this.enhanceDiagnosticsWithGraphAnalysisEffect(
+        diagnostics,
+        documentUri,
+        parsingErrors,
+      ),
+    );
+  }
 
-      // Get symbols from ApexSymbolManager for this file
-      const fileSymbols = this.symbolManager.findSymbolsInFile(documentUri);
+  /**
+   * Enhance diagnostics with cross-file analysis using ApexSymbolManager (Effect-based with yielding)
+   */
+  private enhanceDiagnosticsWithGraphAnalysisEffect(
+    diagnostics: Diagnostic[],
+    documentUri: string,
+    parsingErrors: any[],
+  ): Effect.Effect<Diagnostic[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      try {
+        const enhancedDiagnostics = [...diagnostics];
 
-      if (fileSymbols.length === 0) {
-        return diagnostics; // Return original diagnostics if no graph data available
-      }
+        // Get symbols from ApexSymbolManager for this file
+        const fileSymbols = self.symbolManager.findSymbolsInFile(documentUri);
 
-      // Add cross-file dependency warnings
-      for (const symbol of fileSymbols) {
-        try {
-          const dependencyAnalysis =
-            this.symbolManager.analyzeDependencies(symbol);
-
-          // Check for circular dependencies
-          if (dependencyAnalysis.circularDependencies.length > 0) {
-            const circularDepDiagnostic: Diagnostic = {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 0 },
-              },
-              message: `Circular dependency detected for ${symbol.name}`,
-              severity: 2, // Warning
-              code: 'CIRCULAR_DEPENDENCY',
-              source: 'apex-symbol-manager',
-            };
-            enhancedDiagnostics.push(circularDepDiagnostic);
-          }
-
-          // Check for high impact symbols
-          if (dependencyAnalysis.impactScore > 0.8) {
-            const highImpactDiagnostic: Diagnostic = {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 0 },
-              },
-              message: `High impact symbol: ${symbol.name} affects ${dependencyAnalysis.dependents.length} symbols`,
-              severity: 1, // Information
-              code: 'HIGH_IMPACT_SYMBOL',
-              source: 'apex-symbol-manager',
-            };
-            enhancedDiagnostics.push(highImpactDiagnostic);
-          }
-        } catch (error) {
-          this.logger.debug(
-            () => `Error analyzing symbol ${symbol.name}: ${error}`,
-          );
+        if (fileSymbols.length === 0) {
+          return diagnostics; // Return original diagnostics if no graph data available
         }
-      }
 
-      return enhancedDiagnostics;
-    } catch (error) {
-      this.logger.debug(
-        () => `Error enhancing diagnostics with graph analysis: ${error}`,
-      );
-      return diagnostics; // Return original diagnostics on error
-    }
+        // Add cross-file dependency warnings
+        const batchSize = 50;
+        for (let i = 0; i < fileSymbols.length; i++) {
+          const symbol = fileSymbols[i];
+          try {
+            const dependencyAnalysis =
+              self.symbolManager.analyzeDependencies(symbol);
+
+            // Check for circular dependencies
+            if (dependencyAnalysis.circularDependencies.length > 0) {
+              const circularDepDiagnostic: Diagnostic = {
+                range: {
+                  start: { line: 0, character: 0 },
+                  end: { line: 0, character: 0 },
+                },
+                message: `Circular dependency detected for ${symbol.name}`,
+                severity: 2, // Warning
+                code: 'CIRCULAR_DEPENDENCY',
+                source: 'apex-symbol-manager',
+              };
+              enhancedDiagnostics.push(circularDepDiagnostic);
+            }
+
+            // Check for high impact symbols
+            if (dependencyAnalysis.impactScore > 0.8) {
+              const highImpactDiagnostic: Diagnostic = {
+                range: {
+                  start: { line: 0, character: 0 },
+                  end: { line: 0, character: 0 },
+                },
+                message: `High impact symbol: ${symbol.name} affects ${dependencyAnalysis.dependents.length} symbols`,
+                severity: 1, // Information
+                code: 'HIGH_IMPACT_SYMBOL',
+                source: 'apex-symbol-manager',
+              };
+              enhancedDiagnostics.push(highImpactDiagnostic);
+            }
+          } catch (error) {
+            self.logger.debug(
+              () => `Error analyzing symbol ${symbol.name}: ${error}`,
+            );
+          }
+
+          // Yield after every batchSize symbols
+          if ((i + 1) % batchSize === 0 && i + 1 < fileSymbols.length) {
+            yield* Effect.yieldNow();
+          }
+        }
+
+        return enhancedDiagnostics;
+      } catch (error) {
+        self.logger.debug(
+          () => `Error enhancing diagnostics with graph analysis: ${error}`,
+        );
+        return diagnostics; // Return original diagnostics on error
+      }
+    });
   }
 }
