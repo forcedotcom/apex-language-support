@@ -287,20 +287,20 @@ export class LCSAdapter {
    * Document lifecycle handlers
    */
   private setupDocumentHandlers(): void {
-    this.documents.onDidOpen(async (open) => {
-      try {
-        this.logger.debug(
-          () =>
-            `Processing textDocument/didOpen for: ${open.document.uri} ` +
-            `(version: ${open.document.version}, language: ${open.document.languageId})`,
-        );
-        await dispatchProcessOnOpenDocument(open);
-      } catch (error) {
+    this.documents.onDidOpen((open) => {
+      // Fire-and-forget: don't await to avoid blocking UI during workspace load
+      // Diagnostics will be published asynchronously via the batcher
+      this.logger.debug(
+        () =>
+          `Processing textDocument/didOpen for: ${open.document.uri} ` +
+          `(version: ${open.document.version}, language: ${open.document.languageId})`,
+      );
+      dispatchProcessOnOpenDocument(open).catch((error) => {
         this.logger.error(
           () =>
             `Error processing open for ${open.document.uri}: ${formattedError(error)}`,
         );
-      }
+      });
     });
 
     this.documents.onDidChangeContent(async (change) => {
