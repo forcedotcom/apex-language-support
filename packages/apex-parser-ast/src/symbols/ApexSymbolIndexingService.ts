@@ -336,7 +336,8 @@ export class ApexSymbolIndexingService {
 
         // Process symbols with yielding
         yield* Effect.tryPromise({
-          try: () => self.symbolManager.addSymbolTable(task.symbolTable, task.fileUri),
+          try: () =>
+            self.symbolManager.addSymbolTable(task.symbolTable, task.fileUri),
           catch: (error) => new Error(`Failed to add symbol table: ${error}`),
         });
 

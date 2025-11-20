@@ -334,13 +334,18 @@ export class ApexSymbolGraph {
     const self = this;
     return Effect.gen(function* () {
       try {
+        // Yield before starting batch processing
+        yield* Effect.yieldNow();
+
         if (task.taskType === 'processDeferred') {
-          const result = self.processDeferredReferencesBatch(task.symbolName);
+          const result = yield* self.processDeferredReferencesBatchEffect(
+            task.symbolName,
+          );
           if (result.needsRetry) {
             self.requeueTask(task, result.reason);
           }
         } else {
-          const result = self.retryPendingDeferredReferencesBatch(
+          const result = yield* self.retryPendingDeferredReferencesBatchEffect(
             task.symbolName,
           );
           if (result.needsRetry) {
@@ -872,6 +877,8 @@ export class ApexSymbolGraph {
 
   /**
    * OPTIMIZED: Find references to a symbol
+   * Note: This is a synchronous function. For large graphs, consider calling from
+   * an async context or using the async variant if available.
    */
   findReferencesTo(symbol: ApexSymbol): ReferenceResult[] {
     // Find the actual symbol in the graph by name and file path
@@ -934,6 +941,8 @@ export class ApexSymbolGraph {
 
   /**
    * OPTIMIZED: Find references from a symbol
+   * Note: This is a synchronous function. For large graphs, consider calling from
+   * an async context or using the async variant if available.
    */
   findReferencesFrom(symbol: ApexSymbol): ReferenceResult[] {
     // Find the actual symbol in the graph by name and file path
@@ -1786,8 +1795,158 @@ export class ApexSymbolGraph {
   }
 
   /**
+   * Process deferred references for a symbol in batches with retry tracking (Effect-based)
+   * Returns result indicating if retry is needed and why
+   * This version yields periodically to prevent blocking
+   */
+  private processDeferredReferencesBatchEffect(
+    symbolName: string,
+  ): Effect.Effect<BatchProcessingResult, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const deferred = self.deferredReferences.get(symbolName);
+      if (!deferred || deferred.length === 0) {
+        return { needsRetry: false, reason: 'success' };
+      }
+
+      // Find the target symbol by name
+      const targetSymbols = self.findSymbolByName(symbolName);
+      if (targetSymbols.length === 0) {
+        // Target symbol not found - re-queue for retry
+        return { needsRetry: true, reason: 'target_not_found' };
+      }
+
+      // Use the first symbol with this name
+      const targetSymbol = targetSymbols[0];
+      const targetId = self.getSymbolId(targetSymbol, targetSymbol.fileUri);
+
+      // Process in batches to avoid blocking
+      const batchSize = Math.min(self.DEFERRED_BATCH_SIZE, deferred.length);
+      const processed: typeof deferred = [];
+      let hasFailures = false;
+
+      for (let i = 0; i < batchSize; i++) {
+        const ref = deferred[i];
+        if (!ref) continue;
+
+        // Update fileUri lazily if needed (replaces expensive iteration from addSymbol)
+        if (!ref.sourceSymbol.fileUri) {
+          // Find source symbol to get fileUri
+          const sourceSymbols = self.findSymbolByName(ref.sourceSymbol.name);
+          if (sourceSymbols.length > 0) {
+            ref.sourceSymbol.fileUri = sourceSymbols[0].fileUri;
+          }
+        }
+
+        // Find the source symbol in the graph
+        const sourceSymbols = self.findSymbolByName(ref.sourceSymbol.name);
+
+        // If fileUri is undefined, match any symbol with the same name
+        // Otherwise, require exact fileUri match
+        const sourceSymbolInGraph = ref.sourceSymbol.fileUri
+          ? sourceSymbols.find((s) => s.fileUri === ref.sourceSymbol.fileUri)
+          : sourceSymbols[0]; // Take the first symbol with matching name
+
+        if (!sourceSymbolInGraph) {
+          // Source symbol not found - keep for retry later when source symbol is added
+          const pending =
+            self.pendingDeferredReferences.get(ref.sourceSymbol.name) || [];
+          pending.push({
+            targetSymbolName: symbolName,
+            referenceType: ref.referenceType,
+            location: ref.location,
+            context: ref.context,
+          });
+          self.pendingDeferredReferences.set(ref.sourceSymbol.name, pending);
+
+          self.logger.debug(
+            () =>
+              `Source symbol not found for deferred reference: ${ref.sourceSymbol.name}, ` +
+              'will retry when source symbol is added',
+          );
+          processed.push(ref);
+          hasFailures = true;
+          continue;
+        }
+
+        const sourceId = self.getSymbolId(
+          sourceSymbolInGraph,
+          sourceSymbolInGraph.fileUri,
+        );
+
+        // Create optimized reference edge
+        const referenceEdge: ReferenceEdge = {
+          type: ref.referenceType,
+          sourceFileUri: sourceSymbolInGraph.fileUri,
+          targetFileUri: targetSymbol.fileUri,
+          context: ref.context
+            ? {
+                methodName: ref.context.methodName,
+                parameterIndex: ref.context.parameterIndex
+                  ? toUint16(ref.context.parameterIndex)
+                  : undefined,
+                isStatic: ref.context.isStatic,
+                namespace: ref.context.namespace,
+              }
+            : undefined,
+        };
+
+        // Add edge to graph
+        const edgeAdded = self.referenceGraph.addEdge(
+          sourceId,
+          targetId,
+          1,
+          referenceEdge,
+        );
+        if (!edgeAdded) {
+          self.logger.debug(
+            () =>
+              `Failed to add deferred reference edge: ${sourceId} -> ${targetId}`,
+          );
+          processed.push(ref);
+          hasFailures = true;
+          continue;
+        }
+
+        // Update reference count
+        const targetVertex = self.symbolToVertex.get(targetId);
+        if (targetVertex && targetVertex.value) {
+          targetVertex.value.referenceCount++;
+        }
+
+        self.memoryStats.totalEdges++;
+        processed.push(ref);
+
+        // Yield every 10 items to allow other tasks to run
+        if ((i + 1) % 10 === 0) {
+          yield* Effect.yieldNow();
+        }
+      }
+
+      // Remove processed references
+      const remaining = deferred.slice(batchSize);
+      if (remaining.length > 0) {
+        self.deferredReferences.set(symbolName, remaining);
+        return {
+          needsRetry: true,
+          reason: 'partial_processing',
+          remainingCount: remaining.length,
+        };
+      } else {
+        self.deferredReferences.delete(symbolName);
+      }
+
+      return {
+        needsRetry: hasFailures,
+        reason: hasFailures ? 'source_not_found' : 'success',
+      };
+    });
+  }
+
+  /**
    * Process deferred references for a symbol in batches with retry tracking
    * Returns result indicating if retry is needed and why
+   * @deprecated Use processDeferredReferencesBatchEffect for Effect-based processing with yielding
    */
   private processDeferredReferencesBatch(
     symbolName: string,
@@ -1941,8 +2100,128 @@ export class ApexSymbolGraph {
   }
 
   /**
+   * Retry pending deferred references when source symbol is added (Effect-based)
+   * Returns result indicating if retry is needed and why
+   * This version yields periodically to prevent blocking
+   */
+  private retryPendingDeferredReferencesBatchEffect(
+    symbolName: string,
+  ): Effect.Effect<BatchProcessingResult, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const pending = self.pendingDeferredReferences.get(symbolName);
+      if (!pending || pending.length === 0) {
+        return { needsRetry: false, reason: 'success' };
+      }
+
+      // Find the source symbol
+      const sourceSymbols = self.findSymbolByName(symbolName);
+      if (sourceSymbols.length === 0) {
+        // Source symbol not found - re-queue for retry
+        return { needsRetry: true, reason: 'source_not_found' };
+      }
+
+      const sourceSymbol = sourceSymbols[0];
+      const sourceId = self.getSymbolId(sourceSymbol, sourceSymbol.fileUri);
+
+      // Process in batches to avoid blocking
+      const batchSize = Math.min(self.DEFERRED_BATCH_SIZE, pending.length);
+      const processed: typeof pending = [];
+      let hasFailures = false;
+
+      for (let i = 0; i < batchSize; i++) {
+        const ref = pending[i];
+        if (!ref) continue;
+
+        // Find the target symbol by name
+        const targetSymbols = self.findSymbolByName(ref.targetSymbolName);
+        if (targetSymbols.length === 0) {
+          // Target symbol still not found - keep for later retry
+          self.logger.debug(
+            () =>
+              `Target symbol not found for pending deferred reference: ${ref.targetSymbolName}, ` +
+              'will retry when target symbol is added',
+          );
+          processed.push(ref);
+          hasFailures = true;
+          continue;
+        }
+
+        const targetSymbol = targetSymbols[0];
+        const targetId = self.getSymbolId(targetSymbol, targetSymbol.fileUri);
+
+        // Create optimized reference edge
+        const referenceEdge: ReferenceEdge = {
+          type: ref.referenceType,
+          sourceFileUri: sourceSymbol.fileUri,
+          targetFileUri: targetSymbol.fileUri,
+          context: ref.context
+            ? {
+                methodName: ref.context.methodName,
+                parameterIndex: ref.context.parameterIndex
+                  ? toUint16(ref.context.parameterIndex)
+                  : undefined,
+                isStatic: ref.context.isStatic,
+                namespace: ref.context.namespace,
+              }
+            : undefined,
+        };
+
+        // Add edge to graph
+        const edgeAdded = self.referenceGraph.addEdge(
+          sourceId,
+          targetId,
+          1,
+          referenceEdge,
+        );
+        if (!edgeAdded) {
+          self.logger.debug(
+            () =>
+              `Failed to add pending deferred reference edge: ${sourceId} -> ${targetId}`,
+          );
+          processed.push(ref);
+          hasFailures = true;
+          continue;
+        }
+
+        // Update reference count
+        const targetVertex = self.symbolToVertex.get(targetId);
+        if (targetVertex && targetVertex.value) {
+          targetVertex.value.referenceCount++;
+        }
+
+        self.memoryStats.totalEdges++;
+        processed.push(ref);
+
+        // Yield every 10 items to allow other tasks to run
+        if ((i + 1) % 10 === 0) {
+          yield* Effect.yieldNow();
+        }
+      }
+
+      // Remove processed references
+      const remaining = pending.filter((ref) => !processed.includes(ref));
+      if (remaining.length === 0) {
+        self.pendingDeferredReferences.delete(symbolName);
+        return { needsRetry: false, reason: 'success' };
+      } else {
+        // Update with remaining references
+        self.pendingDeferredReferences.set(symbolName, remaining);
+        return {
+          needsRetry: true,
+          reason: hasFailures
+            ? 'target_not_found_or_edge_failed'
+            : 'batch_incomplete',
+          remainingCount: remaining.length,
+        };
+      }
+    });
+  }
+
+  /**
    * Retry pending deferred references when source symbol is added (batch version)
    * Returns result indicating if retry is needed and why
+   * @deprecated Use retryPendingDeferredReferencesBatchEffect for Effect-based processing with yielding
    */
   private retryPendingDeferredReferencesBatch(
     symbolName: string,

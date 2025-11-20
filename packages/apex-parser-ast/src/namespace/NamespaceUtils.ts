@@ -485,6 +485,8 @@ const applyResolutionRules = (
   symbolProvider: SymbolProvider,
 ): NamespaceResolutionResult => {
   // Apply rules in priority order
+  // Note: This is a synchronous function. For better performance with many rules,
+  // consider calling from an async context or converting to Effect-based resolution
   for (const rule of rules) {
     // Check if rule applies to this context
     if (!rule.appliesTo(context)) {
@@ -492,6 +494,7 @@ const applyResolutionRules = (
     }
 
     // Try to resolve using this rule
+    // Each rule.resolve() may perform symbol lookups which can be expensive
     const symbol = rule.resolve(context, symbolProvider);
 
     if (symbol) {
@@ -502,6 +505,8 @@ const applyResolutionRules = (
         confidence: calculateConfidence(rule, context),
       };
     }
+    // Note: Yielding between rules would require async/Effect conversion
+    // For now, this remains synchronous for backward compatibility
   }
 
   // No rule matched - create unresolved result

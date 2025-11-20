@@ -8,6 +8,7 @@
 import * as vscode from 'vscode';
 import { getGraphWebviewContent } from '../webviews/graphView';
 import { getClient } from '../language-server';
+import { formattedError } from '@salesforce/apex-lsp-shared';
 
 /**
  * Interface for graph node data
@@ -60,7 +61,7 @@ async function saveGraphDataToWorkspace(graphData: GraphData): Promise<void> {
     // Ensure .graph directory exists
     try {
       await vscode.workspace.fs.createDirectory(graphDir);
-    } catch (error) {
+    } catch (_error) {
       // Check if directory already exists
       try {
         const stat = await vscode.workspace.fs.stat(graphDir);
@@ -71,7 +72,10 @@ async function saveGraphDataToWorkspace(graphData: GraphData): Promise<void> {
         // Directory exists, which is fine
       } catch (statError) {
         // Directory doesn't exist and creation failed
-        console.error('Failed to create .graph directory:', error);
+        console.error(
+          'Failed to create .graph directory:',
+          formattedError(statError),
+        );
         return;
       }
     }

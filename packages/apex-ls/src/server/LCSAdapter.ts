@@ -631,10 +631,11 @@ export class LCSAdapter {
       this.connection.onRequest('apex/graphData', async (params: any) => {
         try {
           this.logger.debug(
-            () =>
-              `Graph data request received: ${JSON.stringify(params)}`,
+            () => `Graph data request received: ${JSON.stringify(params)}`,
           );
-          this.logger.debug(() => 'About to call dispatchProcessOnGraphData...');
+          this.logger.debug(
+            () => 'About to call dispatchProcessOnGraphData...',
+          );
           const result = await dispatchProcessOnGraphData(params);
           this.logger.debug(
             () =>
@@ -899,8 +900,7 @@ export class LCSAdapter {
       // Start profiling
       const result = await profilingService.startProfiling(profilingType);
       this.logger.debug(
-        () =>
-          `🚀 Auto-started interactive profiling: ${result.message}`,
+        () => `🚀 Auto-started interactive profiling: ${result.message}`,
       );
     } catch (error) {
       this.logger.error(`Failed to auto-start interactive profiling: ${error}`);
@@ -1179,8 +1179,7 @@ export class LCSAdapter {
         await dispatchProcessOnDeleteDocument(event);
       } catch (error) {
         this.logger.error(
-          () =>
-            `Error processing file delete: ${formattedError(error)}`,
+          () => `Error processing file delete: ${formattedError(error)}`,
         );
       }
     });
@@ -1597,8 +1596,7 @@ export class LCSAdapter {
 
     this.hoverHandlerRegistered = true;
     this.logger.debug(
-      () =>
-        '✅ Hover handler registered (hoverProvider capability enabled)',
+      () => '✅ Hover handler registered (hoverProvider capability enabled)',
     );
   }
 }

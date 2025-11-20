@@ -367,7 +367,9 @@ class QueueStateDashboard {
                 </div>
               </div>
             </div>
-            <div class="priority-content ${this.expandedPriorities.has(priority) ? 'expanded' : ''}" id="priority-content-${priority}">
+            <div class="priority-content ${this.expandedPriorities.has(priority) ? 'expanded' : ''}" 
+            style="display: ${this.expandedPriorities.has(priority) ? 'block' : 'none'}"
+            id="priority-content-${priority}">
               <div class="utilization-bar">
                 <div class="utilization-fill ${utilClass}" style="width: ${util}%"></div>
               </div>
@@ -426,9 +428,14 @@ class QueueStateDashboard {
     // Try to find the element - it should exist by the time render() is called
     const dashboardContent = document.getElementById('dashboard-content');
     if (dashboardContent) {
-      dashboardContent.addEventListener('click', this.handlePriorityHeaderClick);
+      dashboardContent.addEventListener(
+        'click',
+        this.handlePriorityHeaderClick,
+      );
       this.priorityTogglesSetup = true;
-      console.log('Priority toggle event listener attached to dashboard-content');
+      console.log(
+        'Priority toggle event listener attached to dashboard-content',
+      );
     } else {
       console.warn(
         'dashboard-content element not found, will retry on next render',

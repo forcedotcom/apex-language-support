@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { Effect } from 'effect';
 import { ApexSymbolGraph } from '../symbols/ApexSymbolGraph';
 import {
   GraphNode,
@@ -15,7 +16,10 @@ import {
   TypeGraphData,
 } from '../types/graph';
 import { ApexSymbol, SymbolTable } from '../types/symbol';
-import { parseSymbolId, extractFilePathFromUri } from '../types/UriBasedIdGenerator';
+import {
+  parseSymbolId,
+  extractFilePathFromUri,
+} from '../types/UriBasedIdGenerator';
 
 /**
  * Helper function to get the graph instance via singleton
@@ -25,116 +29,137 @@ function getGraph(): ApexSymbolGraph {
 }
 
 /**
- * Extract all graph nodes as JSON-serializable data
+ * Extract all graph nodes as JSON-serializable data (synchronous version)
+ * For better performance with large graphs, use getAllNodesEffect() instead
  */
 export function getAllNodes(): GraphNode[] {
-  const graph = getGraph();
-  const nodes: GraphNode[] = [];
-  // Deduplicate by symbol.id since multiple symbolIds can resolve to the same symbol.id
-  const seenNodeIds = new Map<string, GraphNode>();
+  return Effect.runSync(getAllNodesEffect());
+}
 
-  const symbolIds = graph.getSymbolIds();
-  const symbolToVertex = graph.getSymbolToVertex();
-  const fileToSymbolTable = graph.getFileToSymbolTable();
-  const logger = graph.getLoggerInstance();
+/**
+ * Extract all graph nodes as JSON-serializable data (Effect-based with yielding)
+ * This version yields periodically to prevent blocking and can be queued as Background task
+ */
+export function getAllNodesEffect(): Effect.Effect<GraphNode[], never, never> {
+  return Effect.gen(function* () {
+    const graph = getGraph();
+    const nodes: GraphNode[] = [];
+    // Deduplicate by symbol.id since multiple symbolIds can resolve to the same symbol.id
+    const seenNodeIds = new Map<string, GraphNode>();
 
-  // Diagnostic tracking
-  const totalSymbolIds = symbolIds.size;
-  let successfulRetrievals = 0;
-  let failedRetrievals = 0;
-  const failedUris = new Set<string>();
-  const userFileUris = new Set<string>();
-  const apexLibUris = new Set<string>();
+    const symbolIds = graph.getSymbolIds();
+    const symbolToVertex = graph.getSymbolToVertex();
+    const fileToSymbolTable = graph.getFileToSymbolTable();
+    const logger = graph.getLoggerInstance();
 
-  // Iterate through all symbol IDs
-  for (const symbolId of symbolIds) {
-    // Track URI types for diagnostics
-    try {
-      const parsed = parseSymbolId(symbolId);
-      if (parsed.uri.startsWith('file://')) {
-        userFileUris.add(parsed.uri);
-      } else if (parsed.uri.startsWith('apexlib://')) {
-        apexLibUris.add(parsed.uri);
-      }
-    } catch (_e) {
-      // Ignore parse errors for diagnostics
-    }
+    // Diagnostic tracking
+    const totalSymbolIds = symbolIds.size;
+    let successfulRetrievals = 0;
+    let failedRetrievals = 0;
+    const failedUris = new Set<string>();
+    const userFileUris = new Set<string>();
+    const apexLibUris = new Set<string>();
 
-    const symbol = graph.getSymbol(symbolId);
-    if (symbol) {
-      successfulRetrievals++;
-      // Deduplicate by symbol.id (not symbolId) since getSymbol() finds by name
-      // Multiple symbolIds can resolve to the same symbol.id
-      if (seenNodeIds.has(symbol.id)) {
-        continue;
-      }
+    const symbolIdsArray = Array.from(symbolIds);
+    const batchSize = 100;
 
-      // Get graph-specific properties from ReferenceNode
-      const vertex = symbolToVertex.get(symbol.id);
-      const nodeId = vertex?.value?.nodeId || 0;
-      const referenceCount = vertex?.value?.referenceCount || 0;
+    // Iterate through all symbol IDs with yielding
+    for (let i = 0; i < symbolIdsArray.length; i++) {
+      const symbolId = symbolIdsArray[i];
 
-      // Create proper GraphNode structure
-      const graphNode: GraphNode = {
-        id: symbol.id,
-        name: symbol.name,
-        kind: symbol.kind,
-        fileUri: symbol.fileUri,
-        fqn: symbol.fqn,
-        location: symbol.location,
-        modifiers: symbol.modifiers,
-        parentId: symbol.parentId,
-        namespace:
-          typeof symbol.namespace === 'string'
-            ? symbol.namespace
-            : symbol.namespace?.toString() || null,
-        annotations: symbol.annotations?.map((ann) => ({
-          name: ann.name,
-          parameters: ann.parameters?.map((param) => ({
-            name: param.name || '',
-            value: param.value,
-          })),
-        })),
-        nodeId: nodeId,
-        referenceCount: referenceCount,
-      };
-
-      seenNodeIds.set(symbol.id, graphNode);
-      nodes.push(graphNode);
-    } else {
-      failedRetrievals++;
+      // Track URI types for diagnostics
       try {
         const parsed = parseSymbolId(symbolId);
-        failedUris.add(parsed.uri);
+        if (parsed.uri.startsWith('file://')) {
+          userFileUris.add(parsed.uri);
+        } else if (parsed.uri.startsWith('apexlib://')) {
+          apexLibUris.add(parsed.uri);
+        }
       } catch (_e) {
-        // Ignore parse errors
+        // Ignore parse errors for diagnostics
+      }
+
+      const symbol = graph.getSymbol(symbolId);
+      if (symbol) {
+        successfulRetrievals++;
+        // Deduplicate by symbol.id (not symbolId) since getSymbol() finds by name
+        // Multiple symbolIds can resolve to the same symbol.id
+        if (seenNodeIds.has(symbol.id)) {
+          continue;
+        }
+
+        // Get graph-specific properties from ReferenceNode
+        const vertex = symbolToVertex.get(symbol.id);
+        const nodeId = vertex?.value?.nodeId || 0;
+        const referenceCount = vertex?.value?.referenceCount || 0;
+
+        // Create proper GraphNode structure
+        const graphNode: GraphNode = {
+          id: symbol.id,
+          name: symbol.name,
+          kind: symbol.kind,
+          fileUri: symbol.fileUri,
+          fqn: symbol.fqn,
+          location: symbol.location,
+          modifiers: symbol.modifiers,
+          parentId: symbol.parentId,
+          namespace:
+            typeof symbol.namespace === 'string'
+              ? symbol.namespace
+              : symbol.namespace?.toString() || null,
+          annotations: symbol.annotations?.map((ann) => ({
+            name: ann.name,
+            parameters: ann.parameters?.map((param) => ({
+              name: param.name || '',
+              value: param.value,
+            })),
+          })),
+          nodeId: nodeId,
+          referenceCount: referenceCount,
+        };
+
+        seenNodeIds.set(symbol.id, graphNode);
+        nodes.push(graphNode);
+      } else {
+        failedRetrievals++;
+        try {
+          const parsed = parseSymbolId(symbolId);
+          failedUris.add(parsed.uri);
+        } catch (_e) {
+          // Ignore parse errors
+        }
+      }
+
+      // Yield every batchSize symbols to allow other tasks to run
+      if ((i + 1) % batchSize === 0) {
+        yield* Effect.yieldNow();
       }
     }
-  }
 
-  // Log diagnostic information
-  logger.debug(
-    () =>
-      `[getAllNodes] Total symbolIds: ${totalSymbolIds}, ` +
-      `Successful retrievals: ${successfulRetrievals}, ` +
-      `Failed retrievals: ${failedRetrievals}, ` +
-      `Unique nodes: ${nodes.length}`,
-  );
-  logger.debug(
-    () =>
-      `[getAllNodes] User file URIs in symbolIds: ${userFileUris.size}, ` +
-      `ApexLib URIs in symbolIds: ${apexLibUris.size}, ` +
-      `Registered SymbolTables: ${fileToSymbolTable.size}`,
-  );
-  if (failedUris.size > 0) {
-    logger.warn(
+    // Log diagnostic information
+    logger.debug(
       () =>
-        `[getAllNodes] Failed SymbolTable lookups for ${failedUris.size} URIs. ` +
-        `Sample failed URIs: ${Array.from(failedUris).slice(0, 5).join(', ')}`,
+        `[getAllNodes] Total symbolIds: ${totalSymbolIds}, ` +
+        `Successful retrievals: ${successfulRetrievals}, ` +
+        `Failed retrievals: ${failedRetrievals}, ` +
+        `Unique nodes: ${nodes.length}`,
     );
-  }
+    logger.debug(
+      () =>
+        `[getAllNodes] User file URIs in symbolIds: ${userFileUris.size}, ` +
+        `ApexLib URIs in symbolIds: ${apexLibUris.size}, ` +
+        `Registered SymbolTables: ${fileToSymbolTable.size}`,
+    );
+    if (failedUris.size > 0) {
+      logger.warn(
+        () =>
+          `[getAllNodes] Failed SymbolTable lookups for ${failedUris.size} URIs. ` +
+          `Sample failed URIs: ${Array.from(failedUris).slice(0, 5).join(', ')}`,
+      );
+    }
 
-  return nodes;
+    return nodes;
+  });
 }
 
 /**
@@ -172,77 +197,114 @@ function addHierarchicalEdges(
 }
 
 /**
- * Extract all graph edges as JSON-serializable data
+ * Extract all graph edges as JSON-serializable data (synchronous version)
+ * For better performance with large graphs, use getAllEdgesEffect() instead
  */
 export function getAllEdges(): GraphEdge[] {
-  const graph = getGraph();
-  const edges: GraphEdge[] = [];
-
-  const fileToSymbolTable = graph.getFileToSymbolTable();
-  const symbolToVertex = graph.getSymbolToVertex();
-  const referenceGraph = graph.getReferenceGraph();
-
-  // First, add hierarchical relationships from SymbolTable structure
-  for (const [fileUri, symbolTable] of fileToSymbolTable.entries()) {
-    if (symbolTable) {
-      addHierarchicalEdges(symbolTable, fileUri, edges);
-    }
-  }
-
-  // Then, add reference relationships from the graph
-  const vertexEntries = Array.from(symbolToVertex.entries());
-
-  for (const [_symbolId, vertex] of vertexEntries) {
-    if (!vertex) continue;
-
-    // Get outgoing edges for this vertex
-    const outgoingEdges = referenceGraph.outgoingEdgesOf(vertex.key);
-
-    for (const edge of outgoingEdges) {
-      if (!edge.value) continue;
-
-      edges.push({
-        id: `${edge.src}-${edge.dest}`,
-        source: String(edge.src),
-        target: String(edge.dest),
-        type: edge.value.type,
-        sourceFileUri: edge.value.sourceFileUri,
-        targetFileUri: edge.value.targetFileUri,
-        context: edge.value.context
-          ? {
-              methodName: edge.value.context.methodName,
-              parameterIndex: edge.value.context.parameterIndex
-                ? Number(edge.value.context.parameterIndex)
-                : undefined,
-              isStatic: edge.value.context.isStatic,
-              namespace: edge.value.context.namespace,
-            }
-          : undefined,
-      });
-    }
-  }
-
-  return edges;
+  return Effect.runSync(getAllEdgesEffect());
 }
 
 /**
- * Get complete graph data (nodes + edges) as JSON-serializable data
+ * Extract all graph edges as JSON-serializable data (Effect-based with yielding)
+ * This version yields periodically to prevent blocking and can be queued as Background task
+ */
+export function getAllEdgesEffect(): Effect.Effect<GraphEdge[], never, never> {
+  return Effect.gen(function* () {
+    const graph = getGraph();
+    const edges: GraphEdge[] = [];
+
+    const fileToSymbolTable = graph.getFileToSymbolTable();
+    const symbolToVertex = graph.getSymbolToVertex();
+    const referenceGraph = graph.getReferenceGraph();
+
+    // First, add hierarchical relationships from SymbolTable structure
+    const fileEntries = Array.from(fileToSymbolTable.entries());
+    const fileBatchSize = 50;
+    for (let i = 0; i < fileEntries.length; i++) {
+      const [fileUri, symbolTable] = fileEntries[i];
+      if (symbolTable) {
+        addHierarchicalEdges(symbolTable, fileUri, edges);
+      }
+
+      // Yield after processing each batch of files
+      if ((i + 1) % fileBatchSize === 0) {
+        yield* Effect.yieldNow();
+      }
+    }
+
+    // Then, add reference relationships from the graph
+    const vertexEntries = Array.from(symbolToVertex.entries());
+    const vertexBatchSize = 100;
+
+    for (let i = 0; i < vertexEntries.length; i++) {
+      const [_symbolId, vertex] = vertexEntries[i];
+      if (!vertex) continue;
+
+      // Get outgoing edges for this vertex
+      const outgoingEdges = referenceGraph.outgoingEdgesOf(vertex.key);
+
+      for (const edge of outgoingEdges) {
+        if (!edge.value) continue;
+
+        edges.push({
+          id: `${edge.src}-${edge.dest}`,
+          source: String(edge.src),
+          target: String(edge.dest),
+          type: edge.value.type,
+          sourceFileUri: edge.value.sourceFileUri,
+          targetFileUri: edge.value.targetFileUri,
+          context: edge.value.context
+            ? {
+                methodName: edge.value.context.methodName,
+                parameterIndex: edge.value.context.parameterIndex
+                  ? Number(edge.value.context.parameterIndex)
+                  : undefined,
+                isStatic: edge.value.context.isStatic,
+                namespace: edge.value.context.namespace,
+              }
+            : undefined,
+        });
+      }
+
+      // Yield after processing each batch of vertices
+      if ((i + 1) % vertexBatchSize === 0) {
+        yield* Effect.yieldNow();
+      }
+    }
+
+    return edges;
+  });
+}
+
+/**
+ * Get complete graph data (nodes + edges) as JSON-serializable data (synchronous version)
+ * For better performance with large graphs, use getGraphDataEffect() instead
  */
 export function getGraphData(): GraphData {
-  const graph = getGraph();
-  const nodes = getAllNodes();
-  const edges = getAllEdges();
-  const fileIndex = graph.getFileIndex();
-  return {
-    nodes,
-    edges,
-    metadata: {
-      totalNodes: nodes.length,
-      totalEdges: edges.length,
-      totalFiles: fileIndex.size,
-      lastUpdated: Date.now(),
-    },
-  };
+  return Effect.runSync(getGraphDataEffect());
+}
+
+/**
+ * Get complete graph data (nodes + edges) as JSON-serializable data (Effect-based)
+ * This version can be queued as Background task for better performance
+ */
+export function getGraphDataEffect(): Effect.Effect<GraphData, never, never> {
+  return Effect.gen(function* () {
+    const graph = getGraph();
+    const nodes = yield* getAllNodesEffect();
+    const edges = yield* getAllEdgesEffect();
+    const fileIndex = graph.getFileIndex();
+    return {
+      nodes,
+      edges,
+      metadata: {
+        totalNodes: nodes.length,
+        totalEdges: edges.length,
+        totalFiles: fileIndex.size,
+        lastUpdated: Date.now(),
+      },
+    };
+  });
 }
 
 /**
@@ -428,4 +490,3 @@ export function getGraphDataForFileAsJSON(fileUri: string): string {
 export function getGraphDataByTypeAsJSON(symbolType: string): string {
   return JSON.stringify(getGraphDataByType(symbolType));
 }
-

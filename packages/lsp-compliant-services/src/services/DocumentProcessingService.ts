@@ -73,8 +73,11 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
       yield* Effect.yieldNow();
 
       const compilerService = new CompilerService();
-      let result: CompilationResult<SymbolTable> | CompilationResultWithComments<SymbolTable> | CompilationResultWithAssociations<SymbolTable>;
-      
+      let result:
+        | CompilationResult<SymbolTable>
+        | CompilationResultWithComments<SymbolTable>
+        | CompilationResultWithAssociations<SymbolTable>;
+
       try {
         result = yield* Effect.sync(() =>
           compilerService.compile(
@@ -85,7 +88,9 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
           ),
         );
       } catch (error: unknown) {
-        logger.error(() => `Failed to compile document ${document.uri}: ${error}`);
+        logger.error(
+          () => `Failed to compile document ${document.uri}: ${error}`,
+        );
         // Return error result
         result = {
           fileName: document.uri,
@@ -94,8 +99,7 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
             {
               type: 'semantic' as any,
               severity: 'error' as any,
-              message:
-                error instanceof Error ? error.message : String(error),
+              message: error instanceof Error ? error.message : String(error),
               line: 0,
               column: 0,
               fileUri: document.uri,
@@ -188,8 +192,7 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
 
     if (result.errors.length > 0) {
       this.logger.debug(
-        () =>
-          `Errors parsing document ${event.document.uri}: ${result.errors}`,
+        () => `Errors parsing document ${event.document.uri}: ${result.errors}`,
       );
       const diagnostics = getDiagnosticsFromErrors(result.errors);
       return diagnostics;
@@ -405,9 +408,7 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
         parseCache,
       );
     } catch (error) {
-      this.logger.error(
-        () => `Error queuing document compilation: ${error}`,
-      );
+      this.logger.error(() => `Error queuing document compilation: ${error}`);
       // Return empty diagnostics on error
     }
 
@@ -470,7 +471,11 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
       }
 
       // If comments were associated, store them
-      if (DocumentProcessingService.hasCommentAssociationsLocally(compilationResult)) {
+      if (
+        DocumentProcessingService.hasCommentAssociationsLocally(
+          compilationResult,
+        )
+      ) {
         try {
           const backgroundManager = ApexSymbolProcessingManager.getInstance();
           backgroundManager.scheduleCommentAssociations(

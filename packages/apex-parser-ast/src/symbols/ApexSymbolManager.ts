@@ -7,6 +7,7 @@
  */
 
 import { HashMap, Stack } from 'data-structure-typed';
+import { Effect } from 'effect';
 import { getLogger, type EnumValue } from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbol,
@@ -542,18 +543,41 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Get symbol metrics
+   * Get symbol metrics (synchronous version)
+   * For better performance with large symbol sets, use getSymbolMetricsEffect() instead
    */
   getSymbolMetrics(): Map<string, SymbolMetrics> {
-    const metrics = new Map<string, SymbolMetrics>();
-    const allSymbols = this.getAllSymbols();
+    return Effect.runSync(this.getSymbolMetricsEffect());
+  }
 
-    allSymbols.forEach((symbol) => {
-      const symbolId = this.getSymbolId(symbol);
-      metrics.set(symbolId, this.computeMetrics(symbol));
+  /**
+   * Get symbol metrics (Effect-based with yielding)
+   * This version yields periodically to prevent blocking and can be queued as Background task
+   */
+  getSymbolMetricsEffect(): Effect.Effect<
+    Map<string, SymbolMetrics>,
+    never,
+    never
+  > {
+    const self = this;
+    return Effect.gen(function* () {
+      const metrics = new Map<string, SymbolMetrics>();
+      const allSymbols = self.getAllSymbols();
+
+      const batchSize = 50;
+      for (let i = 0; i < allSymbols.length; i++) {
+        const symbol = allSymbols[i];
+        const symbolId = self.getSymbolId(symbol);
+        metrics.set(symbolId, self.computeMetrics(symbol));
+
+        // Yield every batchSize symbols to allow other tasks to run
+        if ((i + 1) % batchSize === 0) {
+          yield* Effect.yieldNow();
+        }
+      }
+
+      return metrics;
     });
-
-    return metrics;
   }
 
   /**
@@ -1305,7 +1329,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const symbols: ApexSymbol[] = [];
 
     // Get symbols from the symbol graph by iterating through file metadata
-    for (const [fileUri, _metadata] of this.fileMetadata.entries()) {
+    // Note: This is synchronous - for large workspaces, consider using async variant
+    const fileEntries = Array.from(this.fileMetadata.entries());
+    for (const [fileUri, _metadata] of fileEntries) {
       const fileSymbols = this.findSymbolsInFile(fileUri);
       symbols.push(...fileSymbols);
     }

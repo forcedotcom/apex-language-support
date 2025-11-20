@@ -26,9 +26,7 @@ export class DidDeleteDocumentHandler {
    * @param event The file delete event
    * @returns Promise resolving to void
    */
-  public async handleDocumentDelete(
-    event: DeleteFilesParams,
-  ): Promise<void> {
+  public async handleDocumentDelete(event: DeleteFilesParams): Promise<void> {
     this.logger.debug(
       () =>
         `Processing file delete: ${event.files.map((f: { uri: string }) => f.uri).join(', ')}`,
@@ -48,4 +46,3 @@ export class DidDeleteDocumentHandler {
     }
   }
 }
-

@@ -51,7 +51,8 @@ export class DocumentDeleteProcessingService
    */
   public async processDocumentDelete(event: DeleteFilesParams): Promise<void> {
     this.logger.debug(
-      () => `Processing file delete for: ${event.files.map((f: { uri: string }) => f.uri).join(', ')}`,
+      () =>
+        `Processing file delete for: ${event.files.map((f: { uri: string }) => f.uri).join(', ')}`,
     );
 
     // Get the storage manager instance
@@ -61,8 +62,7 @@ export class DocumentDeleteProcessingService
       storage = storageManager.getStorage();
     } catch (error) {
       this.logger.error(
-        () =>
-          `Error getting storage manager for file delete: ${error}`,
+        () => `Error getting storage manager for file delete: ${error}`,
       );
       storage = null;
     }
@@ -103,9 +103,7 @@ export class DocumentDeleteProcessingService
     }
 
     this.logger.debug(
-      () =>
-        `File delete processed for ${event.files.length} file(s)`,
+      () => `File delete processed for ${event.files.length} file(s)`,
     );
   }
 }
-
