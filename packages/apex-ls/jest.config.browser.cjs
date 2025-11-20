@@ -27,4 +27,7 @@ module.exports = {
   testEnvironmentOptions: {
     url: 'http://localhost',
   },
+  
+  // Global teardown to ensure scheduler is shut down after all tests
+  globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
 };

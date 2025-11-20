@@ -602,6 +602,78 @@ describe('PriorityScheduler', () => {
       expect(queueSizes[Priority.Low]).toBeDefined();
       expect(queueSizes[Priority.Background]).toBeDefined();
     });
+
+    it('should only trigger callback when metrics actually change (not on utilization/breakdown changes)', async () => {
+      await Effect.runPromise(shutdown());
+      
+      let callbackCount = 0;
+      const callbackMetrics: Array<{
+        queueSizes: Record<Priority, number>;
+        tasksStarted: number;
+        tasksCompleted: number;
+      }> = [];
+
+      await Effect.runPromise(
+        initialize(
+          defaultConfig,
+          (metrics) => {
+            callbackCount++;
+            callbackMetrics.push({
+              queueSizes: metrics.queueSizes,
+              tasksStarted: metrics.tasksStarted,
+              tasksCompleted: metrics.tasksCompleted,
+            });
+          },
+        ),
+      );
+
+      const program = Effect.gen(function* () {
+        // Submit a task and wait for it to complete
+        const task = yield* offerTask(
+          Priority.Normal,
+          Effect.succeed('task'),
+        );
+        const fiber = yield* task.fiber;
+        yield* awaitFiber(fiber);
+
+        // Wait for metrics to stabilize
+        yield* Effect.sleep('100 millis');
+
+        // Get final metrics
+        const finalMetrics = yield* metrics();
+
+        return {
+          callbackCount,
+          callbackMetrics,
+          finalMetrics,
+        };
+      });
+
+      const result = await Effect.runPromise(program);
+
+      // Callback should have been called at least once (when task was submitted)
+      expect(result.callbackCount).toBeGreaterThan(0);
+
+      // Verify that callbacks were only triggered when meaningful metrics changed
+      // (queue sizes, task counts, or active tasks - not utilization/breakdown)
+      if (result.callbackMetrics.length > 1) {
+        for (let i = 1; i < result.callbackMetrics.length; i++) {
+          const prev = result.callbackMetrics[i - 1];
+          const curr = result.callbackMetrics[i];
+
+          // At least one meaningful metric should have changed
+          const queueSizeChanged = AllPriorities.some(
+            (p) => prev.queueSizes[p] !== curr.queueSizes[p],
+          );
+          const taskCountChanged =
+            prev.tasksStarted !== curr.tasksStarted ||
+            prev.tasksCompleted !== curr.tasksCompleted;
+
+          // Callback should only fire when meaningful metrics change
+          expect(queueSizeChanged || taskCountChanged).toBe(true);
+        }
+      }
+    });
   });
 
   describe('Queue Capacity', () => {

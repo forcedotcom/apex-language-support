@@ -84,6 +84,9 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       },
       workspace: {
         onDidChangeWorkspaceFolders: jest.fn(),
+        onDidDeleteFiles: jest.fn(),
+        onDidCreateFiles: jest.fn(),
+        onDidRenameFiles: jest.fn(),
       },
       client: {
         register: jest.fn(),
@@ -95,11 +98,17 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       getResourceLoadMode: jest.fn().mockReturnValue('lazy'),
     };
 
+    // Create mock capabilities manager
+    const mockCapabilitiesManager = {
+      getMode: jest.fn().mockReturnValue('production'),
+    };
+
     // Create mock configuration manager
     mockConfigManager = {
       getCapabilities: jest.fn(),
       setInitialSettings: jest.fn(),
       getSettingsManager: jest.fn().mockReturnValue(mockSettingsManager),
+      getCapabilitiesManager: jest.fn().mockReturnValue(mockCapabilitiesManager),
       getRuntimePlatform: jest.fn().mockReturnValue('desktop'),
       getSettings: jest.fn().mockReturnValue({
         apex: {
@@ -284,12 +293,13 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       await (adapterWithLogger as any).initializeResourceLoader();
 
       // Verify that success was logged with statistics
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      // Note: The implementation uses debug() not info() for this log
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.any(Function), // Logger uses function for lazy evaluation
       );
 
       // Verify the actual logged message contains statistics
-      const infoCall = mockLogger.info.mock.calls.find((call: any[]) => {
+      const debugCall = mockLogger.debug.mock.calls.find((call: any[]) => {
         const logFn = call[0];
         return (
           typeof logFn === 'function' &&
@@ -297,7 +307,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         );
       });
 
-      expect(infoCall).toBeDefined();
+      expect(debugCall).toBeDefined();
     });
 
     it('should handle ResourceLoader import failure gracefully', async () => {

@@ -138,6 +138,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   constructor() {
     this.symbolGraph = new ApexSymbolGraph();
+    ApexSymbolGraph.setInstance(this.symbolGraph);
     this.fileMetadata = new HashMap();
     this.unifiedCache = new UnifiedCache(
       this.MAX_CACHE_SIZE,
@@ -3590,125 +3591,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Enhanced symbol resolution with ResourceLoader integration
-   */
-  private async resolveSymbolWithResourceLoader(
-    name: string,
-    context: SymbolResolutionContext,
-  ): Promise<ApexSymbol | null> {
-    // Step 1: Check if this is a standard Apex class using generated constants
-    if (this.resourceLoader && this.isStandardApexClass(name)) {
-      // Try to resolve from ResourceLoader first
-      const standardClass = await this.resolveStandardApexClassAsync(name);
-      if (standardClass) {
-        return standardClass;
-      }
-    }
-
-    // Step 2: Check built-in types
-    const builtInType = await this.resolveBuiltInType(name);
-    if (builtInType) {
-      return builtInType;
-    }
-
-    // Step 3: Check existing symbols in graph
-    const existingSymbols = this.findSymbolByName(name);
-    if (existingSymbols.length > 0) {
-      return this.selectMostSpecificSymbol(
-        existingSymbols,
-        context.sourceFile || '',
-      );
-    }
-
-    return null;
-  }
-
-  /**
-   * Async resolution of standard Apex classes with lazy loading
-   */
-  private async resolveStandardApexClassAsync(
-    name: string,
-  ): Promise<ApexSymbol | null> {
-    if (!this.resourceLoader) {
-      return null;
-    }
-
-    try {
-      // Extract namespace and class name
-      const parts = name.split('.');
-      if (parts.length < 2) {
-        return null;
-      }
-
-      const namespace = parts[0];
-      const className = parts[1];
-      const classPath = `${namespace}/${className}.cls`;
-
-      // Use generated constant to validate namespace
-      if (!this.resourceLoader.isStdApexNamespace(namespace)) {
-        return null;
-      }
-
-      // Check if class exists and is compiled
-      if (!this.resourceLoader.hasClass(classPath)) {
-        return null;
-      }
-
-      // Try to get compiled artifact (this will trigger lazy loading if needed)
-      const artifact = await this.resourceLoader.getCompiledArtifact(classPath);
-      if (artifact) {
-        // Extract symbol from compiled artifact
-        const symbolTable = artifact.compilationResult.result;
-        if (symbolTable) {
-          const symbols = symbolTable.getAllSymbols();
-          const classSymbol = symbols.find((s) => s.name === className);
-
-          if (classSymbol) {
-            // Ensure the symbol has proper metadata
-            classSymbol.fileUri = classPath;
-            classSymbol.fqn = name;
-            classSymbol.modifiers.isBuiltIn = false;
-
-            // Add to symbol graph for future lookups
-            this.addSymbol(classSymbol, classPath, symbolTable);
-
-            return classSymbol;
-          }
-        }
-      }
-
-      // If not compiled yet, trigger lazy compilation
-      const compiledArtifact =
-        await this.resourceLoader.loadAndCompileClass(classPath);
-      if (compiledArtifact) {
-        // Process the newly compiled artifact
-        const symbolTable = compiledArtifact.compilationResult.result;
-        if (symbolTable) {
-          const symbols = symbolTable.getAllSymbols();
-          const classSymbol = symbols.find((s) => s.name === className);
-
-          if (classSymbol) {
-            classSymbol.fileUri = classPath;
-            classSymbol.fqn = name;
-            classSymbol.modifiers.isBuiltIn = false;
-
-            // Add to symbol graph
-            this.addSymbol(classSymbol, classPath, symbolTable);
-
-            return classSymbol;
-          }
-        }
-      }
-
-      return null;
-    } catch (error) {
-      this.logger.warn(
-        () => `Failed to resolve standard Apex class ${name}: ${error}`,
-      );
-      return null;
-    }
-  }
-  /**
    * Check if a TypeReference is a chained expression reference
    */
   private isChainedTypeReference(typeReference: TypeReference): boolean {
@@ -4345,24 +4227,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Try to resolve a step as a namespace
-   */
-  private tryResolveAsNamespace(
-    stepName: string,
-    currentContext: ChainResolutionContext,
-  ): ApexSymbol | null {
-    // Check if this could be a namespace by looking for symbols in that namespace
-    const namespaceSymbols = this.findSymbolsInNamespace(stepName);
-    if (namespaceSymbols.length > 0) {
-      // Don't return a faux symbol - let the caller handle namespace context
-      // This will be handled by the NAMESPACE context resolution in the calling method
-      return null;
-    }
-
-    return null;
-  }
-
-  /**
    * Try to resolve a step as an instance (variable)
    */
   private async tryResolveAsInstance(
@@ -4387,25 +4251,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     );
     if (globalVariableSymbol) {
       return globalVariableSymbol;
-    }
-
-    return null;
-  }
-
-  /**
-   * Try to resolve a step as a property
-   */
-  private async tryResolveAsProperty(
-    stepName: string,
-    currentContext: ChainResolutionContext,
-  ): Promise<ApexSymbol | null> {
-    const propertySymbol = await this.resolveMemberInContext(
-      currentContext,
-      stepName,
-      'property',
-    );
-    if (propertySymbol) {
-      return propertySymbol;
     }
 
     return null;
@@ -4461,7 +4306,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
               // Add the symbol table to our graph for future use
               await this.addSymbolTable(symbolTable, contextFile);
-            } else {
             }
           } catch (_error) {}
         }

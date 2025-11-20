@@ -18,7 +18,11 @@ import {
   Fiber,
 } from 'effect';
 
-import { getLogger, Priority, AllPriorities } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  Priority,
+  AllPriorities,
+} from '@salesforce/apex-lsp-shared';
 import {
   PriorityScheduler,
   PrioritySchedulerConfigShape,
@@ -77,44 +81,6 @@ function metricsChanged(
     return true;
   }
 
-  // Compare queue utilization (if utilization changed, state changed)
-  if (previous.queueUtilization && current.queueUtilization) {
-    for (const priority of AllPriorities) {
-      const prevUtil = previous.queueUtilization[priority] || 0;
-      const currUtil = current.queueUtilization[priority] || 0;
-      // Only consider significant changes (> 1% difference to avoid noise)
-      if (Math.abs(prevUtil - currUtil) > 1) {
-        return true;
-      }
-    }
-  } else if (previous.queueUtilization !== current.queueUtilization) {
-    return true;
-  }
-
-  // Compare request type breakdown (if breakdown changed, state changed)
-  if (previous.requestTypeBreakdown && current.requestTypeBreakdown) {
-    for (const priority of AllPriorities) {
-      const prevBreakdown = previous.requestTypeBreakdown[priority] || {};
-      const currBreakdown = current.requestTypeBreakdown[priority] || {};
-      // Compare keys and values
-      const prevKeys = Object.keys(prevBreakdown).sort();
-      const currKeys = Object.keys(currBreakdown).sort();
-      if (prevKeys.length !== currKeys.length) {
-        return true;
-      }
-      for (let i = 0; i < prevKeys.length; i++) {
-        if (prevKeys[i] !== currKeys[i]) {
-          return true;
-        }
-        if (prevBreakdown[prevKeys[i]] !== currBreakdown[currKeys[i]]) {
-          return true;
-        }
-      }
-    }
-  } else if (previous.requestTypeBreakdown !== current.requestTypeBreakdown) {
-    return true;
-  }
-
   // No changes detected - queue is idle
   return false;
 }
@@ -139,7 +105,99 @@ function getPriorityName(priority: Priority | typeof Critical): string {
       return `Priority${priority}`;
   }
 }
-// Controller loop function (copied from priority-scheduler.ts to avoid circular dependency)
+
+/**
+ * Process a single queued item: track metrics, fork execution, handle completion/errors
+ * This function centralizes the common logic for processing tasks in both normal
+ * and starvation relief scenarios.
+ */
+function processQueuedItem<A, E, R>(
+  state: SchedulerInternalState,
+  item: QueuedItem<A, E, R>,
+  priority: Priority | typeof Critical,
+  logger: ReturnType<typeof getLogger>,
+  context?: 'starvation-relief',
+): Effect.Effect<void, never, R> {
+  return Effect.gen(function* () {
+    const requestType = item.requestType || 'unknown';
+    const startTime = Date.now();
+    const priorityName = getPriorityName(priority);
+    const contextSuffix =
+      context === 'starvation-relief' ? ' (starvation relief)' : '';
+
+    // Track requestType
+    yield* Ref.update(state.requestTypeCounts, (counts) => {
+      const priorityCounts = counts.get(priority) || new Map<string, number>();
+      const currentCount = priorityCounts.get(requestType) || 0;
+      priorityCounts.set(requestType, currentCount + 1);
+      counts.set(priority, priorityCounts);
+      return counts;
+    });
+
+    // Increment active task count
+    yield* Ref.update(state.activeTaskCounts, (counts) => {
+      const current = counts.get(priority) || 0;
+      counts.set(priority, current + 1);
+      return counts;
+    });
+
+    yield* Ref.update(state.tasksStarted, (n) => n + 1);
+
+    // Log task start
+    logger.debug(
+      () =>
+        `[QUEUE] Started ${requestType} (id: ${item.id}) with priority ${priorityName}${contextSuffix}`,
+    );
+
+    // Fork the effect to run it in the background
+    const fiber = yield* Effect.fork(
+      item.eff.pipe(
+        Effect.ensuring(
+          Effect.gen(function* () {
+            const duration = Date.now() - startTime;
+            // Decrement active task count
+            yield* Ref.update(state.activeTaskCounts, (counts) => {
+              const current = counts.get(priority) || 0;
+              counts.set(priority, Math.max(0, current - 1));
+              return counts;
+            });
+            yield* Ref.update(state.tasksCompleted, (n) => n + 1);
+            // Log task completion
+            logger.debug(
+              () =>
+                `[QUEUE] Completed ${requestType} (id: ${item.id}) with priority ${priorityName}, ` +
+                `duration: ${duration}ms`,
+            );
+          }),
+        ),
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            // Decrement active task count on error
+            yield* Ref.update(state.activeTaskCounts, (counts) => {
+              const current = counts.get(priority) || 0;
+              counts.set(priority, Math.max(0, current - 1));
+              return counts;
+            });
+            logger.error(
+              () =>
+                `[QUEUE] Failed ${requestType} (id: ${item.id}) ` +
+                `with priority ${priorityName}, error: ${error}`,
+            );
+            // Yield the failure to propagate it, not return it
+            yield* Effect.fail(error);
+          }),
+        ),
+      ),
+    );
+
+    // Fulfill the deferred so the fiber Effect in ScheduledTask can resolve
+    yield* Deferred.succeed(
+      item.fiberDeferred,
+      fiber as Fiber.RuntimeFiber<A, E>,
+    );
+  });
+}
+
 function controllerLoop(
   state: SchedulerInternalState,
   cfg: PrioritySchedulerConfigShape,
@@ -151,7 +209,6 @@ function controllerLoop(
 
   return Effect.gen(function* () {
     let streak = 0;
-    let _loopIteration = 0;
 
     while (true) {
       if (yield* Deferred.isDone(state.shutdownSignal)) return;
@@ -203,76 +260,7 @@ function controllerLoop(
             executed = true;
             streak++;
 
-            const requestType = item.requestType || 'unknown';
-            const startTime = Date.now();
-
-            // Track requestType
-            yield* Ref.update(state.requestTypeCounts, (counts) => {
-              const priorityCounts = counts.get(p) || new Map<string, number>();
-              const currentCount = priorityCounts.get(requestType) || 0;
-              priorityCounts.set(requestType, currentCount + 1);
-              counts.set(p, priorityCounts);
-              return counts;
-            });
-
-            // Increment active task count
-            yield* Ref.update(state.activeTaskCounts, (counts) => {
-              const current = counts.get(p) || 0;
-              counts.set(p, current + 1);
-              return counts;
-            });
-
-            yield* Ref.update(state.tasksStarted, (n) => n + 1);
-
-            // Log task start
-            logger.debug(
-              () =>
-                `[QUEUE] Started ${requestType} (id: ${item.id}) with priority ${getPriorityName(p)}`,
-            );
-
-            // Fork the effect to run it in the background
-            const fiber = yield* Effect.fork(
-              item.eff.pipe(
-                Effect.ensuring(
-                  Effect.gen(function* () {
-                    const duration = Date.now() - startTime;
-                    // Decrement active task count
-                    yield* Ref.update(state.activeTaskCounts, (counts) => {
-                      const current = counts.get(p) || 0;
-                      counts.set(p, Math.max(0, current - 1));
-                      return counts;
-                    });
-                    yield* Ref.update(state.tasksCompleted, (n) => n + 1);
-                    // Log task completion
-                    logger.debug(
-                      () =>
-                        `[QUEUE] Completed ${requestType} (id: ${item.id}) with priority ${getPriorityName(p)}, ` +
-                        `duration: ${duration}ms`,
-                    );
-                  }),
-                ),
-                Effect.catchAll((error) =>
-                  Effect.gen(function* () {
-                    // Decrement active task count on error
-                    yield* Ref.update(state.activeTaskCounts, (counts) => {
-                      const current = counts.get(p) || 0;
-                      counts.set(p, Math.max(0, current - 1));
-                      return counts;
-                    });
-                    logger.error(
-                      () =>
-                        `[QUEUE] Failed ${requestType} (id: ${item.id}) ` +
-                        `with priority ${getPriorityName(p)}, error: ${error}`,
-                    );
-                    // Yield the failure to propagate it, not return it
-                    yield* Effect.fail(error);
-                  }),
-                ),
-              ),
-            );
-
-            // Fulfill the deferred so the fiber Effect in ScheduledTask can resolve
-            yield* Deferred.succeed(item.fiberDeferred, fiber);
+            yield* processQueuedItem(state, item, p, logger);
 
             break;
           }
@@ -371,79 +359,13 @@ function controllerLoop(
                 reliefProcessed += items.length;
 
                 for (const item of items) {
-                  const requestType = item.requestType || 'unknown';
-                  const startTime = Date.now();
-
-                  // Track requestType
-                  yield* Ref.update(state.requestTypeCounts, (counts) => {
-                    const priorityCounts =
-                      counts.get(p) || new Map<string, number>();
-                    const currentCount = priorityCounts.get(requestType) || 0;
-                    priorityCounts.set(requestType, currentCount + 1);
-                    counts.set(p, priorityCounts);
-                    return counts;
-                  });
-
-                  // Increment active task count
-                  yield* Ref.update(state.activeTaskCounts, (counts) => {
-                    const current = counts.get(p) || 0;
-                    counts.set(p, current + 1);
-                    return counts;
-                  });
-
-                  yield* Ref.update(state.tasksStarted, (n) => n + 1);
-
-                  logger.debug(
-                    () =>
-                      `[QUEUE] Started ${requestType} (id: ${item.id}) ` +
-                      `with priority ${getPriorityName(p)} (starvation relief)`,
+                  yield* processQueuedItem(
+                    state,
+                    item,
+                    p,
+                    logger,
+                    'starvation-relief',
                   );
-
-                  const fiber = yield* Effect.fork(
-                    item.eff.pipe(
-                      Effect.ensuring(
-                        Effect.gen(function* () {
-                          const duration = Date.now() - startTime;
-                          // Decrement active task count
-                          yield* Ref.update(
-                            state.activeTaskCounts,
-                            (counts) => {
-                              const current = counts.get(p) || 0;
-                              counts.set(p, Math.max(0, current - 1));
-                              return counts;
-                            },
-                          );
-                          yield* Ref.update(state.tasksCompleted, (n) => n + 1);
-                          logger.debug(
-                            () =>
-                              `[QUEUE] Completed ${requestType} (id: ${item.id}) ` +
-                              `with priority ${getPriorityName(p)}, duration: ${duration}ms`,
-                          );
-                        }),
-                      ),
-                      Effect.catchAll((error) =>
-                        Effect.gen(function* () {
-                          // Decrement active task count on error
-                          yield* Ref.update(
-                            state.activeTaskCounts,
-                            (counts) => {
-                              const current = counts.get(p) || 0;
-                              counts.set(p, Math.max(0, current - 1));
-                              return counts;
-                            },
-                          );
-                          logger.error(
-                            () =>
-                              `[QUEUE] Failed ${requestType} (id: ${item.id}) ` +
-                              `with priority ${getPriorityName(p)}, error: ${error}`,
-                          );
-                          yield* Effect.fail(error);
-                        }),
-                      ),
-                    ),
-                  );
-
-                  yield* Deferred.succeed(item.fiberDeferred, fiber);
                 }
               }
             }
@@ -595,7 +517,7 @@ const lastSentMetricsRef = Ref.unsafeMake<SchedulerMetrics | undefined>(
 // Global Ref to store task ID counter for guaranteed unique IDs
 const taskIdCounterRef = Ref.unsafeMake<number>(0);
 
-// Default config values matching PrioritySchedulerConfigLive
+// Default config values (matching DEFAULT_APEX_SETTINGS.scheduler in apex-lsp-shared)
 const DEFAULT_CONFIG = {
   queueCapacity: 64,
   maxHighPriorityStreak: 50,

@@ -35,4 +35,5 @@ module.exports = {
   automock: false,
   resetMocks: false,
   testTimeout: 120_000, // 2 minuntes default timeout for tests
+  globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
 };
