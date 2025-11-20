@@ -71,6 +71,8 @@ export * from './handlers/GraphDataHandler';
 
 // Export services
 export * from './services/DocumentProcessingService';
+// DocumentOpenBatcher exports are handled via DocumentProcessingService
+// to avoid duplicate exports
 export * from './services/DocumentSaveProcessingService';
 export * from './services/DocumentStateCache';
 export * from './services/DocumentCloseProcessingService';

@@ -74,10 +74,18 @@ jest.mock('../../src/references/ApexReferencesUpserter', () => ({
   })),
 }));
 
+// Mock DocumentOpenBatcher
+jest.mock('../../src/services/DocumentOpenBatcher', () => ({
+  makeDocumentOpenBatcher: jest.fn(),
+  DocumentOpenBatcher: jest.fn(),
+}));
+
 // Import the handler after the logger mock is set up
 import { DidOpenDocumentHandler } from '../../src/handlers/DidOpenDocumentHandler';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
+import { makeDocumentOpenBatcher } from '../../src/services/DocumentOpenBatcher';
+import { Effect } from 'effect';
 
 describe('DidOpenDocumentHandler', () => {
   let handler: DidOpenDocumentHandler;
@@ -85,6 +93,7 @@ describe('DidOpenDocumentHandler', () => {
   let mockStorage: jest.Mocked<any>;
   let mockStorageManager: jest.Mocked<typeof ApexStorageManager>;
   let mockSettingsManager: jest.Mocked<typeof ApexSettingsManager>;
+  let mockBatcher: any;
 
   beforeEach(() => {
     // Reset all mocks
@@ -137,6 +146,18 @@ describe('DidOpenDocumentHandler', () => {
       getCompilationOptions: jest.fn().mockReturnValue({}),
     } as any);
 
+    // Setup batcher mock
+    mockBatcher = {
+      addDocumentOpen: jest.fn().mockReturnValue(Effect.succeed([])),
+      forceFlush: jest.fn().mockReturnValue(Effect.void),
+    } as any;
+    (makeDocumentOpenBatcher as jest.Mock).mockReturnValue(
+      Effect.succeed({
+        service: mockBatcher,
+        shutdown: Effect.void,
+      }),
+    );
+
     handler = new DidOpenDocumentHandler();
   });
 
@@ -150,7 +171,7 @@ describe('DidOpenDocumentHandler', () => {
       } as any,
     };
 
-    it('should process document open event successfully', async () => {
+    it('should process document open event successfully through batcher', async () => {
       // Act
       const result = await handler.handleDocumentOpen(mockEvent);
 
@@ -162,23 +183,33 @@ describe('DidOpenDocumentHandler', () => {
       expect(debugCall[0]()).toBe(
         'Processing document open: file:///test.cls (version: 1)',
       );
-      expect(mockStorage.setDocument).toHaveBeenCalledWith(
-        mockEvent.document.uri,
-        mockEvent.document,
-      );
-      // processDocumentOpen returns Diagnostic[] which may be empty
+      // Should route through batcher
+      expect(mockBatcher.addDocumentOpen).toHaveBeenCalledWith(mockEvent);
       expect(result).toEqual([]);
     });
 
-    it('should log error and rethrow when storage fails', async () => {
+    it('should log error and rethrow when batcher fails', async () => {
       // Arrange
-      const storageError = new Error('Storage failed');
-      mockStorage.setDocument.mockRejectedValue(storageError);
+      const batcherError = new Error('Batcher failed');
+      // Mock makeDocumentOpenBatcher to return a service that fails
+      const failingBatcher = {
+        addDocumentOpen: jest.fn().mockReturnValue(Effect.fail(batcherError)),
+        forceFlush: jest.fn().mockReturnValue(Effect.void),
+      };
+      (makeDocumentOpenBatcher as jest.Mock).mockReturnValue(
+        Effect.succeed({
+          service: failingBatcher,
+          shutdown: Effect.void,
+        }),
+      );
+      
+      // Create a new handler with the failing batcher
+      const handlerWithFailingBatcher = new DidOpenDocumentHandler();
 
       // Act & Assert
-      await expect(handler.handleDocumentOpen(mockEvent)).rejects.toThrow(
-        'Storage failed',
-      );
+      await expect(
+        handlerWithFailingBatcher.handleDocumentOpen(mockEvent),
+      ).rejects.toThrow('Batcher failed');
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
 
       // Verify the error message function was called with correct content
@@ -188,45 +219,37 @@ describe('DidOpenDocumentHandler', () => {
       expect(errorMsg).toContain(
         'Error processing document open for file:///test.cls',
       );
-      expect(errorMsg).toContain('Storage failed');
+      expect(errorMsg).toContain('Batcher failed');
     });
 
-    it('should log error when definition upserter fails', async () => {
-      // Arrange
-      const {
-        DefaultApexDefinitionUpserter,
-      } = require('../../src/definition/ApexDefinitionUpserter');
-      const definitionError = new Error('Definition failed');
-      DefaultApexDefinitionUpserter.mockImplementation(() => ({
-        upsertDefinition: jest.fn().mockRejectedValue(definitionError),
-      }));
-
-      // Act - should not throw, but should log error
-      const result = await handler.handleDocumentOpen(mockEvent);
-
-      // Assert - error should be logged but function should complete
-      // The error is caught and logged in the service, not in the handler
-      expect(result).toEqual([]);
-      expect(mockLogger.debug).toHaveBeenCalled();
+    it('should use batcher factory', async () => {
+      // Clear previous calls
+      jest.clearAllMocks();
+      
+      // Call handleDocumentOpen to trigger batcher initialization
+      await handler.handleDocumentOpen(mockEvent);
+      
+      // Verify that makeDocumentOpenBatcher was called
+      expect(makeDocumentOpenBatcher).toHaveBeenCalled();
     });
 
-    it('should log error when references upserter fails', async () => {
+    it('should handle batcher returning diagnostics', async () => {
       // Arrange
-      const {
-        DefaultApexReferencesUpserter,
-      } = require('../../src/references/ApexReferencesUpserter');
-      const referencesError = new Error('References failed');
-      DefaultApexReferencesUpserter.mockImplementation(() => ({
-        upsertReferences: jest.fn().mockRejectedValue(referencesError),
-      }));
+      const mockDiagnostics = [
+        {
+          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } },
+          message: 'Test error',
+          severity: 1,
+        },
+      ];
+      mockBatcher.addDocumentOpen.mockReturnValue(Effect.succeed(mockDiagnostics));
 
-      // Act - should not throw, but should log error
+      // Act
       const result = await handler.handleDocumentOpen(mockEvent);
 
-      // Assert - error should be logged but function should complete
-      // The error is caught and logged in the service, not in the handler
-      expect(result).toEqual([]);
-      expect(mockLogger.debug).toHaveBeenCalled();
+      // Assert
+      expect(result).toEqual(mockDiagnostics);
+      expect(mockBatcher.addDocumentOpen).toHaveBeenCalledWith(mockEvent);
     });
   });
 });

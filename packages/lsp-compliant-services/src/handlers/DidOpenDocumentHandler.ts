@@ -8,8 +8,12 @@
 import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-shared';
-import { dispatch } from '../utils/handlerUtil';
+import { Effect } from 'effect';
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
+import {
+  type DocumentOpenBatcherService,
+  makeDocumentOpenBatcher,
+} from '../services/DocumentOpenBatcher';
 
 /**
  * Handler for document open events
@@ -17,6 +21,7 @@ import { DocumentProcessingService } from '../services/DocumentProcessingService
 export class DidOpenDocumentHandler {
   private readonly logger: LoggerInterface;
   private readonly documentProcessingService: DocumentProcessingService;
+  private batcher: DocumentOpenBatcherService | null = null;
 
   /**
    * Handle document open event
@@ -26,10 +31,12 @@ export class DidOpenDocumentHandler {
   constructor(
     logger?: LoggerInterface,
     documentProcessingService?: DocumentProcessingService,
+    batcher?: DocumentOpenBatcherService,
   ) {
     this.logger = logger || getLogger();
     this.documentProcessingService =
       documentProcessingService || new DocumentProcessingService(this.logger);
+    this.batcher = batcher || null;
   }
 
   public async handleDocumentOpen(
@@ -41,10 +48,16 @@ export class DidOpenDocumentHandler {
     );
 
     try {
-      return await dispatch(
-        this.documentProcessingService.processDocumentOpen(event),
-        'Error processing document open',
-      );
+      // Initialize batcher if needed
+      if (!this.batcher) {
+        const { service } = await Effect.runPromise(
+          makeDocumentOpenBatcher(this.logger, this.documentProcessingService),
+        );
+        this.batcher = service;
+      }
+
+      // Route through batcher
+      return await Effect.runPromise(this.batcher.addDocumentOpen(event));
     } catch (error) {
       this.logger.error(
         () =>
