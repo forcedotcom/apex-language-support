@@ -92,15 +92,6 @@ export class HoverProcessingService implements IHoverProcessor {
     );
 
     try {
-      // Verify symbol manager instance consistency
-      const symbolManagerInstance =
-        ApexSymbolProcessingManager.getInstance().getSymbolManager();
-      const isSameInstance = this.symbolManager === symbolManagerInstance;
-      this.logger.debug(
-        () =>
-          `Symbol manager instance check: ${isSameInstance ? 'matches singleton' : 'different instance'}`,
-      );
-
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
 

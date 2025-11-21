@@ -1514,6 +1514,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // This ensures that fileIndex lookups will find the symbols
     const normalizedUri = extractFilePathFromUri(properUri);
 
+    // Register SymbolTable once for the entire file before processing symbols
+    // This avoids redundant registration calls for each symbol
+    this.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
+
     // Add all symbols from the symbol table
     const symbols = symbolTable.getAllSymbols
       ? symbolTable.getAllSymbols()
@@ -1527,7 +1531,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const symbol = symbols[i];
       // Update the symbol's fileUri to match the normalized URI
       symbol.fileUri = normalizedUri;
-      this.addSymbol(symbol, normalizedUri, symbolTable);
+      // Pass undefined for symbolTable since it's already registered above
+      // addSymbol() will use the registered SymbolTable via ensureSymbolTableForFile()
+      this.addSymbol(symbol, normalizedUri, undefined);
       symbolNamesAdded.add(symbol.name);
 
       // Yield every batchSize symbols to allow other tasks to run

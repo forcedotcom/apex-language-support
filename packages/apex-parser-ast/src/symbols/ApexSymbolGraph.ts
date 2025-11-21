@@ -450,6 +450,7 @@ export class ApexSymbolGraph {
     let targetSymbolTable: SymbolTable;
     if (symbolTable) {
       // Register with normalized URI to match what getSymbol() will look up
+      // registerSymbolTable() is now idempotent and will skip if same instance already registered
       this.registerSymbolTable(symbolTable, normalizedFileUri);
       targetSymbolTable = symbolTable;
     } else {
@@ -1284,17 +1285,22 @@ export class ApexSymbolGraph {
     // This ensures SymbolTable lookup in getSymbol() will succeed
     const normalizedUri = extractFilePathFromUri(fileUri);
 
-    const isUserFile = normalizedUri.startsWith('file://');
-    const isApexLib = normalizedUri.startsWith('apexlib://');
+    // Check if the same SymbolTable instance is already registered
+    const existing = this.fileToSymbolTable.get(normalizedUri);
+    if (existing === symbolTable) {
+      // Same instance already registered, skip redundant registration
+      return;
+    }
 
     this.logger.debug(
       () =>
         `[registerSymbolTable] Registering SymbolTable for URI: ${normalizedUri} ` +
-        `(original: ${fileUri}, isUserFile: ${isUserFile}, isApexLib: ${isApexLib}, ` +
+        `(original: ${fileUri}, ` +
         `symbolCount: ${symbolTable.getAllSymbols().length})`,
     );
 
     // Use normalized URI for registration to match what getSymbol() will look up
+    // This allows replacing placeholders created by ensureSymbolTableForFile()
     this.fileToSymbolTable.set(normalizedUri, symbolTable);
 
     // Verify registration succeeded
