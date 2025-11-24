@@ -208,7 +208,8 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
 
       // Verify FQN was calculated
       expect(foundSymbol!.fqn).toBeDefined();
-      expect(foundSymbol!.fqn).toBe('TestClass');
+      // FQN is normalized to lowercase for Apex case-insensitive convention
+      expect(foundSymbol!.fqn).toBe('testclass');
     });
 
     it('should preserve position data when symbols are retrieved by different methods', () => {

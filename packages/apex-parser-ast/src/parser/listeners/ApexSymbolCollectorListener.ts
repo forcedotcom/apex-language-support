@@ -3007,9 +3007,10 @@ export class ApexSymbolCollectorListener
   ): Namespace | null {
     // For standard Apex classes, extract namespace from file path
     if (this.currentFilePath && this.currentFilePath.startsWith('apexlib://')) {
-      // Extract namespace from path like 'apexlib://resources/ApexPages/Action.cls'
+      // Extract namespace from path like 'apexlib://resources/StandardApexLibrary/System/Assert.cls'
+      // The namespace is the directory after StandardApexLibrary (e.g., "System")
       const pathMatch = this.currentFilePath.match(
-        /apexlib:\/\/resources\/([^\/]+)\//,
+        /apexlib:\/\/resources\/StandardApexLibrary\/([^\/]+)\//,
       );
       if (pathMatch) {
         const namespaceName = pathMatch[1];
