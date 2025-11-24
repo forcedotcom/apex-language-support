@@ -244,23 +244,6 @@ export class LCSAdapter {
     this.connection.onDidChangeConfiguration(
       this.handleConfigurationChange.bind(this),
     );
-
-    // Register connection-level handler for textDocument/didOpen to log when notifications are received
-    this.connection.onNotification('textDocument/didOpen', (params: any) => {
-      try {
-        const uri = params.textDocument?.uri;
-        const languageId = params.textDocument?.languageId;
-        const version = params.textDocument?.version;
-        this.logger.debug(
-          () =>
-            `Received textDocument/didOpen notification for: ${uri} (language: ${languageId}, version: ${version})`,
-        );
-      } catch (error) {
-        this.logger.error(
-          `Error logging textDocument/didOpen notification: ${error}`,
-        );
-      }
-    });
   }
 
   /**

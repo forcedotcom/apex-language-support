@@ -33,6 +33,27 @@
       }
     },
     {
+      "name": "Attach to Language Server",
+      "type": "node",
+      "request": "attach",
+      "port": 6009,
+      "restart": true,
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "sourceMapPathOverrides": {
+        // Universal package patterns (handles all packages with different relative depths)
+        "../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        "../../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        "../../../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        "*/src/*": "${workspaceFolder}/packages/*/src/*",
+        // Extension-specific patterns (attach mode)
+        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*"
+      }
+    },
+    {
       "name": "Debug Jest Test (Prompt for Name)",
       "type": "node",
       "request": "launch",
@@ -129,27 +150,6 @@
         "../../../*/src/*": "${workspaceFolder}/packages/*/src/*",
         "*/src/*": "${workspaceFolder}/packages/*/src/*",
         // Extension-specific patterns (production mode)
-        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*"
-      }
-    },
-    {
-      "name": "Attach to Language Server",
-      "type": "node",
-      "request": "attach",
-      "port": 6009,
-      "restart": true,
-      "sourceMaps": true,
-      "resolveSourceMapLocations": [
-        "${workspaceFolder}/**",
-        "!**/node_modules/**"
-      ],
-      "sourceMapPathOverrides": {
-        // Universal package patterns (handles all packages with different relative depths)
-        "../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "../../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "../../../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "*/src/*": "${workspaceFolder}/packages/*/src/*",
-        // Extension-specific patterns (attach mode)
         "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*"
       }
     },
