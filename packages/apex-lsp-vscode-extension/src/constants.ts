@@ -81,6 +81,6 @@ export const DEBUG_CONFIG = {
   DEFAULT_MODE: 'off',
   INSPECT_MODE: 'inspect',
   INSPECT_BRK_MODE: 'inspect-brk',
-  ENNABLE_SOURCE_MAPS_FLAG: '--enable-source-maps',
+  ENABLE_SOURCE_MAPS_NODE_OPTION: '--enable-source-maps',
   NOLAZY_FLAG: '--nolazy',
 } as const;
