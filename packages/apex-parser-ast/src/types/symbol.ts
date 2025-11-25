@@ -224,6 +224,9 @@ export class SymbolFactory {
     const modifierFlags = this.modifiersToFlags(modifiers);
 
     // Calculate FQN if namespace is provided (case-insensitive for Apex)
+    // For top-level symbols, this gives us the full FQN immediately.
+    // For child symbols, this gives us a partial FQN (namespace.name) which will be
+    // recalculated later with the full parent hierarchy when the symbol is added to the graph.
     const fqn =
       namespace && typeof namespace === 'object' && 'toString' in namespace
         ? createTypeWithNamespace(namespace as Namespace, name, {

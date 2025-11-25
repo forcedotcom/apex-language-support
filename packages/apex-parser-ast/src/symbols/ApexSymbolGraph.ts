@@ -469,32 +469,45 @@ export class ApexSymbolGraph {
     // Add to indexes for fast lookups (use normalized URI)
     this.symbolFileMap.set(symbolId, normalizedFileUri);
 
-    // BUG FIX: Calculate and store FQN if not already present
+    // Calculate and store FQN, recalculating if needed to include parent hierarchy
+    // For child symbols (methods, fields, etc.), the initial FQN might only be namespace.name
+    // We recalculate here to get the full hierarchy (namespace.parent.name)
     let fqnToUse = symbol.fqn;
 
-    if (!fqnToUse) {
-      // Create a parent resolution function that works with the symbol's parent relationship
-      const getParent = (parentId: string): ApexSymbol | null => {
-        // First try to find by parentId in the symbol table
-        const allSymbols = targetSymbolTable.getAllSymbols();
-        const parentSymbol = allSymbols.find((s) => s.id === parentId);
-        if (parentSymbol) {
-          return parentSymbol;
-        }
+    // Create a parent resolution function that works with the symbol's parent relationship
+    const getParent = (parentId: string): ApexSymbol | null => {
+      // First try to find by parentId in the symbol table
+      const allSymbols = targetSymbolTable.getAllSymbols();
+      const parentSymbol = allSymbols.find((s) => s.id === parentId);
+      if (parentSymbol) {
+        return parentSymbol;
+      }
 
-        // If not found, try to find by name (for backward compatibility)
-        const symbolsByName = allSymbols.filter((s) => s.name === parentId);
-        if (symbolsByName.length > 0) {
-          return symbolsByName[0];
-        }
+      // If not found, try to find by name (for backward compatibility)
+      const symbolsByName = allSymbols.filter((s) => s.name === parentId);
+      if (symbolsByName.length > 0) {
+        return symbolsByName[0];
+      }
 
-        return null;
-      };
+      return null;
+    };
 
-      fqnToUse = calculateFQN(symbol, undefined, getParent);
-      // Store the calculated FQN on the symbol for consistency
+    // Recalculate FQN to ensure it includes the full parent hierarchy
+    // This is especially important for child symbols that initially only have namespace.name
+    const recalculatedFQN = calculateFQN(
+      symbol,
+      { normalizeCase: true },
+      getParent,
+    );
+
+    // Use recalculated FQN if:
+    // 1. No FQN was set initially, OR
+    // 2. The recalculated FQN is different (includes parent hierarchy)
+    if (!fqnToUse || recalculatedFQN !== fqnToUse) {
+      fqnToUse = recalculatedFQN;
+      // Store the calculated FQN on the symbol and key for consistency
       symbol.fqn = fqnToUse;
-    } else {
+      symbol.key.fqn = fqnToUse;
     }
 
     if (fqnToUse) {

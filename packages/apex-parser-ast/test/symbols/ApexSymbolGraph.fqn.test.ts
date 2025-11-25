@@ -79,10 +79,11 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       // Find the class symbol
       const classSymbol = symbols.find((s) => s.name === 'TestClass');
       expect(classSymbol).toBeDefined();
-      expect(classSymbol?.fqn).toBe('TestClass');
+      // FQN is normalized to lowercase for Apex case-insensitive convention
+      expect(classSymbol?.fqn).toBe('testclass');
 
-      // Verify FQN can be looked up
-      const foundSymbol = symbolGraph.findSymbolByFQN('TestClass');
+      // Verify FQN can be looked up (case-insensitive)
+      const foundSymbol = symbolGraph.findSymbolByFQN('testclass');
       expect(foundSymbol).toBeTruthy();
       expect(foundSymbol?.name).toBe('TestClass');
     });
@@ -121,10 +122,11 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       // Find the method symbol
       const methodSymbol = symbols.find((s) => s.name === 'myMethod');
       expect(methodSymbol).toBeDefined();
-      expect(methodSymbol?.fqn).toBe('TestClass.myMethod');
+      // FQN is normalized to lowercase for Apex case-insensitive convention
+      expect(methodSymbol?.fqn).toBe('testclass.mymethod');
 
-      // Verify FQN can be looked up
-      const foundSymbol = symbolGraph.findSymbolByFQN('TestClass.myMethod');
+      // Verify FQN can be looked up (case-insensitive)
+      const foundSymbol = symbolGraph.findSymbolByFQN('testclass.mymethod');
       expect(foundSymbol).toBeTruthy();
       expect(foundSymbol?.name).toBe('myMethod');
     });
@@ -168,8 +170,9 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
 
       expect(innerClass).toBeDefined();
       expect(methodSymbol).toBeDefined();
-      expect(innerClass?.fqn).toBe('OuterClass.InnerClass');
-      expect(methodSymbol?.fqn).toBe('OuterClass.InnerClass.innerMethod');
+      // FQN is normalized to lowercase for Apex case-insensitive convention
+      expect(innerClass?.fqn).toBe('outerclass.innerclass');
+      expect(methodSymbol?.fqn).toBe('outerclass.innerclass.innermethod');
 
       // Verify FQNs can be looked up
       const foundInnerClass = symbolGraph.findSymbolByFQN(

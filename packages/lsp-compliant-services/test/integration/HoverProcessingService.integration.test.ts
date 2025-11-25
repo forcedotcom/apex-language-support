@@ -666,9 +666,11 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('void standardapexlibrary.isnotnull(');
+        // When hovering on the class name, should show the class, not the method
+        expect(content).toContain('class Assert');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
+        // Should NOT show method signature when hovering on class name
+        expect(content).not.toContain('void system.assert.isnotnull(');
       }
     });
 
@@ -696,8 +698,81 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('void standardapexlibrary.isnotnull');
+        // Should show method signature with correct FQN (System.Assert.isnotnull, not standardapexlibrary.isnotnull)
+        expect(content).toContain('void system.assert.isnotnull');
         expect(content).toMatch(/static/);
+      }
+    });
+
+    it('should show class when hovering on Assert in Assert.isInstanceOfType', async () => {
+      mockStorage.getDocument.mockResolvedValue(fileUtilitiesTestDocument);
+
+      const text = fileUtilitiesTestDocument.getText();
+      const lines = text.split('\n');
+      // Find line with Assert.isInstanceOfType
+      const lineIndex = lines.findIndex((l) =>
+        l.includes('Assert.isInstanceOfType'),
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      // Find position of "Assert" (not "isInstanceOfType")
+      const assertCharIndex = lines[lineIndex].indexOf('Assert');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///FileUtilitiesTest.cls' },
+        position: { line: lineIndex, character: assertCharIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        expect(result.contents).toBeDefined();
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        expect(content).toContain('```apex');
+        // When hovering on "Assert", should show the class, not the method
+        // Hover shows FQN in lowercase: "class system.assert"
+        expect(content).toContain('class system.assert');
+        // Should NOT show method signature
+        expect(content).not.toContain('void system.assert.isinstanceoftype(');
+      }
+    });
+
+    it('should show method when hovering on isInstanceOfType in Assert.isInstanceOfType', async () => {
+      mockStorage.getDocument.mockResolvedValue(fileUtilitiesTestDocument);
+
+      const text = fileUtilitiesTestDocument.getText();
+      const lines = text.split('\n');
+      // Find line with Assert.isInstanceOfType
+      const lineIndex = lines.findIndex((l) =>
+        l.includes('Assert.isInstanceOfType'),
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      // Find position of "isInstanceOfType" (not "Assert")
+      const methodCharIndex = lines[lineIndex].indexOf('isInstanceOfType');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///FileUtilitiesTest.cls' },
+        position: { line: lineIndex, character: methodCharIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        expect(result.contents).toBeDefined();
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        expect(content).toContain('```apex');
+        // When hovering on "isInstanceOfType", should show the method signature
+        expect(content).toContain('void system.assert.isinstanceoftype(');
+        expect(content).toMatch(/static/);
+        // Should NOT show class definition
+        expect(content).not.toContain('class Assert');
       }
     });
 
@@ -725,7 +800,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('void standardapexlibrary.debug');
+        expect(content).toContain('void system.debug');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*static.*global/);
       }
     });
@@ -1011,7 +1086,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('void standardapexlibrary.debug(');
+        expect(content).toContain('void system.debug(');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
@@ -1039,7 +1114,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('void standardapexlibrary.debug');
+        expect(content).toContain('void system.debug');
         expect(content).toMatch(/static/);
       }
     });
@@ -1070,7 +1145,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('String standardapexlibrary.urlencode(');
+        expect(content).toContain('String system.urlencode(');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
@@ -1100,7 +1175,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('String standardapexlibrary.urlencode');
+        expect(content).toContain('String system.encodingutil.urlencode');
         expect(content).toMatch(/static/);
       }
     });
@@ -1131,7 +1206,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('String standardapexlibrary.urldecode(');
+        expect(content).toContain('String system.encodingutil.urldecode(');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
@@ -1161,7 +1236,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('String standardapexlibrary.urldecode');
+        expect(content).toContain('String system.encodingutil.urldecode');
         expect(content).toMatch(/static/);
       }
     });
@@ -1192,7 +1267,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('class standardapexlibrary.http');
+        expect(content).toContain('class system.http');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
@@ -1223,7 +1298,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('class standardapexlibrary.httprequest');
+        expect(content).toContain('class system.httprequest');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
@@ -1254,7 +1329,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('class standardapexlibrary.httpresponse');
+        expect(content).toContain('class system.httpresponse');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
@@ -1344,7 +1419,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('class BUILT_IN.List');
+        expect(content).toContain('class built_in.list');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*public/);
       }
     });
