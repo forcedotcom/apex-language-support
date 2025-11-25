@@ -106,16 +106,16 @@ describe('CoreBridge', () => {
     it('should handle transport messages', () => {
       const reader = createTransportMessageReader(mockTransport);
       const mockCallback = jest.fn();
-      
+
       reader.listen(mockCallback);
-      
+
       expect(mockTransport.listen).toHaveBeenCalled();
-      
+
       // Simulate message from transport by calling the handler that was passed to listen
       const messageHandler = mockTransport.listen.mock.calls[0][0];
       const testMessage = { jsonrpc: '2.0', method: 'test' };
       messageHandler(testMessage);
-      
+
       expect(mockCallback).toHaveBeenCalledWith(testMessage);
     });
 
@@ -124,14 +124,14 @@ describe('CoreBridge', () => {
       const mockErrorCallback = jest.fn();
 
       reader.onError(mockErrorCallback);
-      
+
       expect(mockTransport.onError).toHaveBeenCalled();
-      
+
       // Simulate error from transport
       const errorHandler = mockTransport.onError.mock.calls[0][0];
       const testError = new Error('Transport error');
       errorHandler(testError);
-      
+
       expect(mockErrorCallback).toHaveBeenCalledWith(testError);
     });
   });
@@ -188,7 +188,7 @@ describe('CoreBridge', () => {
       // Simulate malformed message
       const messageHandler = mockTransport.listen.mock.calls[0][0];
       messageHandler('invalid json');
-      
+
       // Should not crash and should still call the callback
       expect(mockCallback).toHaveBeenCalledWith('invalid json');
     });
@@ -198,7 +198,7 @@ describe('CoreBridge', () => {
       const largeMessage = {
         jsonrpc: '2.0',
         method: 'test',
-        params: { data: 'x'.repeat(10000) }
+        params: { data: 'x'.repeat(10000) },
       };
 
       await expect(writer.write(largeMessage)).resolves.not.toThrow();

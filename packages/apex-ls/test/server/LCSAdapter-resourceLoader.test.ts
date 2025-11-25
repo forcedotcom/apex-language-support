@@ -108,7 +108,9 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       getCapabilities: jest.fn(),
       setInitialSettings: jest.fn(),
       getSettingsManager: jest.fn().mockReturnValue(mockSettingsManager),
-      getCapabilitiesManager: jest.fn().mockReturnValue(mockCapabilitiesManager),
+      getCapabilitiesManager: jest
+        .fn()
+        .mockReturnValue(mockCapabilitiesManager),
       getRuntimePlatform: jest.fn().mockReturnValue('desktop'),
       getSettings: jest.fn().mockReturnValue({
         apex: {

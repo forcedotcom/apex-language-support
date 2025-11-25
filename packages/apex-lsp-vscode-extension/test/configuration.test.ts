@@ -222,7 +222,7 @@ describe('Configuration Module', () => {
       expect(settings.apex.findMissingArtifact.maxCandidatesToOpen).toBe(3); // Default
       expect(settings.apex.findMissingArtifact.timeoutMsHint).toBe(1500); // Default
       expect(settings.apex.findMissingArtifact.enablePerfMarks).toBe(false); // Default
-      
+
       // Should also have loadWorkspace defaults
       expect(settings.apex.loadWorkspace.enabled).toBe(true); // Default
       expect(settings.apex.loadWorkspace.maxConcurrency).toBe(50); // Default
@@ -240,7 +240,7 @@ describe('Configuration Module', () => {
                 enabled: false, // User overrides default
                 maxConcurrency: 25, // User overrides default
                 // yieldInterval and yieldDelayMs not provided, should use defaults
-              }
+              },
             };
           }
           return defaultValue;
@@ -252,7 +252,7 @@ describe('Configuration Module', () => {
       // Should use user overrides where provided
       expect(settings.apex.loadWorkspace.enabled).toBe(false); // User override
       expect(settings.apex.loadWorkspace.maxConcurrency).toBe(25); // User override
-      
+
       // Should use defaults where not provided
       expect(settings.apex.loadWorkspace.yieldInterval).toBe(50); // Default
       expect(settings.apex.loadWorkspace.yieldDelayMs).toBe(25); // Default

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Connection, MessageType } from 'vscode-languageserver/browser';
+import { Connection } from 'vscode-languageserver/browser';
 import {
   LogMessageParams,
   type LogMessageType,

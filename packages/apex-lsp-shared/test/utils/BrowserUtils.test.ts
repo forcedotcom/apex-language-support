@@ -30,9 +30,11 @@ describe('BrowserUtils', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Setup browser-like environment
-    (global as any).Worker = jest.fn().mockImplementation(() => new MockWorker());
+    (global as any).Worker = jest
+      .fn()
+      .mockImplementation(() => new MockWorker());
     (global as any).window = {
       location: { origin: 'https://example.com' },
     };
@@ -49,7 +51,7 @@ describe('BrowserUtils', () => {
     it('should create URL for relative worker file', () => {
       const context = { extensionUri: 'https://example.com/extension/' };
       const url = createWorkerUrl('worker.js', context);
-      
+
       expect(url).toBeInstanceOf(URL);
       expect(url.toString()).toBe('https://example.com/extension/worker.js');
     });
@@ -57,7 +59,7 @@ describe('BrowserUtils', () => {
     it('should handle absolute URLs', () => {
       const context = { extensionUri: 'https://example.com/extension/' };
       const url = createWorkerUrl('/absolute/worker.js', context);
-      
+
       expect(url).toBeInstanceOf(URL);
       expect(url.toString()).toBe('https://example.com/absolute/worker.js');
     });
@@ -65,7 +67,7 @@ describe('BrowserUtils', () => {
     it('should handle HTTP URLs', () => {
       const context = { extensionUri: 'https://example.com/extension/' };
       const url = createWorkerUrl('https://cdn.example.com/worker.js', context);
-      
+
       expect(url).toBeInstanceOf(URL);
       expect(url.toString()).toBe('https://cdn.example.com/worker.js');
     });
@@ -73,9 +75,11 @@ describe('BrowserUtils', () => {
     it('should apply VS Code Web test environment workaround', () => {
       const context = { extensionUri: 'https://example.com/static/' };
       const url = createWorkerUrl('dist/worker.mjs', context);
-      
+
       if (url.toString().includes('/static/dist/worker.mjs')) {
-        expect(url.toString()).toBe('https://example.com/static/devextensions/dist/worker.mjs');
+        expect(url.toString()).toBe(
+          'https://example.com/static/devextensions/dist/worker.mjs',
+        );
       }
     });
   });
@@ -84,9 +88,11 @@ describe('BrowserUtils', () => {
     it('should create worker with URL', () => {
       const context = { extensionUri: 'https://example.com/extension/' };
       const worker = createWorker('worker.js', context);
-      
+
       expect(worker).toBeInstanceOf(MockWorker);
-      expect((global as any).Worker).toHaveBeenCalledWith('https://example.com/extension/worker.js');
+      expect((global as any).Worker).toHaveBeenCalledWith(
+        'https://example.com/extension/worker.js',
+      );
     });
 
     it('should handle worker creation errors', () => {
@@ -95,7 +101,9 @@ describe('BrowserUtils', () => {
       });
 
       const context = { extensionUri: 'https://example.com/extension/' };
-      expect(() => createWorker('worker.js', context)).toThrow('Worker creation failed');
+      expect(() => createWorker('worker.js', context)).toThrow(
+        'Worker creation failed',
+      );
     });
   });
 
@@ -149,13 +157,13 @@ describe('BrowserUtils', () => {
     it('should handle complex extension URIs', () => {
       const context = { extensionUri: 'vscode-webview://abc123/extension/' };
       const url = createWorkerUrl('worker.js', context);
-      
+
       expect(url).toBeInstanceOf(URL);
     });
 
     it('should handle URL parsing errors', () => {
       const context = { extensionUri: 'invalid-url' };
-      
+
       expect(() => createWorkerUrl('worker.js', context)).toThrow();
     });
   });

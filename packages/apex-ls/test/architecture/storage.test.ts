@@ -150,7 +150,8 @@ describe('Storage Architecture', () => {
 
   describe('BrowserStorageFactory', () => {
     it('should create browser storage with IndexedDB', async () => {
-      const storage = await BrowserStorageFactory.createStorage();
+      const factory = new BrowserStorageFactory();
+      const storage = await factory.createStorage();
 
       expect(storage).toBeDefined();
       expect(typeof storage.getDocument).toBe('function');
@@ -160,7 +161,8 @@ describe('Storage Architecture', () => {
     });
 
     it('should initialize IndexedDB correctly', async () => {
-      const storage = await BrowserStorageFactory.createStorage({
+      const factory = new BrowserStorageFactory();
+      await factory.createStorage({
         storagePrefix: 'test-storage',
       });
 
@@ -171,7 +173,8 @@ describe('Storage Architecture', () => {
     });
 
     it('should handle storage operations', async () => {
-      const storage = await BrowserStorageFactory.createStorage();
+      const factory = new BrowserStorageFactory();
+      const storage = await factory.createStorage();
 
       // Test document operations
       await storage.setDocument('test-uri', mockTextDocument);
@@ -180,6 +183,7 @@ describe('Storage Architecture', () => {
       // These should not throw
       expect(storage.setDocument).toBeDefined();
       expect(storage.getDocument).toBeDefined();
+      expect(retrievedDoc).toBeDefined();
     });
 
     it('should handle storage errors gracefully', async () => {
@@ -189,7 +193,7 @@ describe('Storage Architecture', () => {
         return request;
       });
 
-      const factory = BrowserStorageFactory;
+      const factory = new BrowserStorageFactory();
 
       await expect(factory.createStorage()).rejects.toThrow(
         'Failed to open IndexedDB',
@@ -343,7 +347,8 @@ describe('Storage Architecture', () => {
     });
 
     it('browser storage should implement IStorage interface correctly', async () => {
-      const storage = await BrowserStorageFactory.createStorage();
+      const factory = new BrowserStorageFactory();
+      const storage = await factory.createStorage();
 
       await testStorageInterface(storage);
     });

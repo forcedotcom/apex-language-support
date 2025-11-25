@@ -38,7 +38,8 @@ describe('Environment Detection', () => {
     if (originalDocument) (global as any).document = originalDocument;
     if (originalProcess) (global as any).process = originalProcess;
     if (originalSelf) (global as any).self = originalSelf;
-    if (originalImportScripts) (global as any).importScripts = originalImportScripts;
+    if (originalImportScripts)
+      (global as any).importScripts = originalImportScripts;
   });
 
   describe('isNodeEnvironment', () => {
@@ -146,7 +147,9 @@ describe('Environment Detection', () => {
     });
 
     it('should throw error for unrecognized environment', () => {
-      expect(() => detectEnvironment()).toThrow('Unable to determine environment');
+      expect(() => detectEnvironment()).toThrow(
+        'Unable to determine environment',
+      );
     });
 
     it('should prioritize node over browser detection', () => {
@@ -201,7 +204,9 @@ describe('Environment Detection', () => {
 
     it('should throw error for unsupported environment', () => {
       // Clean environment should throw error in supportsFeature
-      expect(() => supportsFeature('localStorage')).toThrow('Environment detection failed');
+      expect(() => supportsFeature('localStorage')).toThrow(
+        'Environment detection failed',
+      );
     });
   });
 

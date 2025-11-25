@@ -8,11 +8,7 @@
 
 import { Deferred, Effect, Fiber, Ref } from 'effect';
 import { AllPriorities } from '@salesforce/apex-lsp-shared';
-import {
-  Priority,
-  ScheduledTask,
-  QueuedItem,
-} from '../../src/types/queue';
+import { Priority, ScheduledTask } from '../../src/types/queue';
 import {
   initialize,
   offer,
@@ -84,7 +80,9 @@ describe('PriorityScheduler', () => {
       const queuedItem = await Effect.runPromise(
         createQueuedItem(Effect.succeed(42)),
       );
-      const result = await Effect.runPromise(offer(Priority.Normal, queuedItem));
+      const result = await Effect.runPromise(
+        offer(Priority.Normal, queuedItem),
+      );
       // Wait for the fiber to complete with timeout
       const fiber = await Effect.runPromise(result.fiber);
       const fiberResult = await Effect.runPromise(awaitFiber(fiber));
@@ -101,7 +99,9 @@ describe('PriorityScheduler', () => {
           ),
         ),
       );
-      const result = await Effect.runPromise(offer(Priority.Normal, queuedItem));
+      const result = await Effect.runPromise(
+        offer(Priority.Normal, queuedItem),
+      );
       const fiber = await Effect.runPromise(result.fiber);
       await Effect.runPromise(awaitFiber(fiber));
       const elapsed = Date.now() - startTime;
@@ -115,7 +115,9 @@ describe('PriorityScheduler', () => {
       const queuedItem = await Effect.runPromise(
         createQueuedItem(Effect.succeed('test'), 'hover'),
       );
-      const result = await Effect.runPromise(offer(Priority.Normal, queuedItem));
+      const result = await Effect.runPromise(
+        offer(Priority.Normal, queuedItem),
+      );
 
       expect(result.requestType).toBe('hover');
     });
@@ -208,9 +210,9 @@ describe('PriorityScheduler', () => {
       const program = Effect.gen(function* () {
         // Create a barrier to ensure all tasks are queued before processing
         const barrier = yield* Deferred.make<void, never>();
-        const tasksRef = yield* Ref.make<
-          ScheduledTask<string, never, never>[]
-        >([]);
+        const tasksRef = yield* Ref.make<ScheduledTask<string, never, never>[]>(
+          [],
+        );
 
         // Submit all tasks in reverse priority order, but delay execution
         const priorities = [
@@ -350,9 +352,11 @@ describe('PriorityScheduler', () => {
         const highTasksRef = yield* Ref.make<
           ScheduledTask<string, never, never>[]
         >([]);
-        const lowTaskRef = yield* Ref.make<
-          ScheduledTask<string, never, never> | null
-        >(null);
+        const lowTaskRef = yield* Ref.make<ScheduledTask<
+          string,
+          never,
+          never
+        > | null>(null);
 
         // Submit many high priority tasks (forked to queue without waiting)
         yield* Effect.all(
@@ -385,9 +389,7 @@ describe('PriorityScheduler', () => {
               executionOrder.push(Priority.Low);
               return 'low';
             }),
-          ).pipe(
-            Effect.tap((task) => Ref.update(lowTaskRef, () => task)),
-          ),
+          ).pipe(Effect.tap((task) => Ref.update(lowTaskRef, () => task))),
         );
 
         // Wait a bit for all offers to complete (tasks dequeued and forked)
@@ -502,10 +504,7 @@ describe('PriorityScheduler', () => {
     it('should track queue sizes correctly', async () => {
       const program = Effect.gen(function* () {
         // Submit tasks to different priority queues
-        yield* offerTask(
-          Priority.Immediate,
-          Effect.succeed('immediate'),
-        );
+        yield* offerTask(Priority.Immediate, Effect.succeed('immediate'));
         yield* offerTask(Priority.High, Effect.succeed('high'));
         yield* offerTask(Priority.Normal, Effect.succeed('normal'));
 
@@ -576,17 +575,11 @@ describe('PriorityScheduler', () => {
     it('should track queue sizes for all priorities', async () => {
       const program = Effect.gen(function* () {
         // Submit one task to each priority
-        yield* offerTask(
-          Priority.Immediate,
-          Effect.succeed('immediate'),
-        );
+        yield* offerTask(Priority.Immediate, Effect.succeed('immediate'));
         yield* offerTask(Priority.High, Effect.succeed('high'));
         yield* offerTask(Priority.Normal, Effect.succeed('normal'));
         yield* offerTask(Priority.Low, Effect.succeed('low'));
-        yield* offerTask(
-          Priority.Background,
-          Effect.succeed('background'),
-        );
+        yield* offerTask(Priority.Background, Effect.succeed('background'));
 
         yield* Effect.sleep('50 millis');
 
@@ -606,7 +599,7 @@ describe('PriorityScheduler', () => {
 
     it('should only trigger callback when metrics actually change (not on utilization/breakdown changes)', async () => {
       await Effect.runPromise(shutdown());
-      
+
       let callbackCount = 0;
       const callbackMetrics: Array<{
         queueSizes: Record<Priority, number>;
@@ -615,25 +608,19 @@ describe('PriorityScheduler', () => {
       }> = [];
 
       await Effect.runPromise(
-        initialize(
-          defaultConfig,
-          (metrics) => {
-            callbackCount++;
-            callbackMetrics.push({
-              queueSizes: metrics.queueSizes,
-              tasksStarted: metrics.tasksStarted,
-              tasksCompleted: metrics.tasksCompleted,
-            });
-          },
-        ),
+        initialize(defaultConfig, (metrics) => {
+          callbackCount++;
+          callbackMetrics.push({
+            queueSizes: metrics.queueSizes,
+            tasksStarted: metrics.tasksStarted,
+            tasksCompleted: metrics.tasksCompleted,
+          });
+        }),
       );
 
       const program = Effect.gen(function* () {
         // Submit a task and wait for it to complete
-        const task = yield* offerTask(
-          Priority.Normal,
-          Effect.succeed('task'),
-        );
+        const task = yield* offerTask(Priority.Normal, Effect.succeed('task'));
         const fiber = yield* task.fiber;
         yield* awaitFiber(fiber);
 
@@ -773,10 +760,10 @@ describe('PriorityScheduler', () => {
 
         // Get the fiber and await it - it should fail
         const fiber = yield* result.fiber;
-        
+
         // Wait longer for the task to execute and fail
         yield* Effect.sleep('200 millis');
-        
+
         // Check the exit status directly
         const exit = yield* Fiber.await(fiber);
 
@@ -885,20 +872,20 @@ describe('PriorityScheduler', () => {
         const afterQueuedItem = yield* createQueuedItem(
           Effect.succeed('after-shutdown'),
         );
-        
+
         // offer() should fail with "Scheduler not initialized" error
         const afterShutdownTaskResult = yield* offer(
           Priority.Normal,
           afterQueuedItem,
         ).pipe(
-          Effect.catchAll((error) => {
+          Effect.catchAll((error) =>
             // Expected error - scheduler is not initialized after shutdown
-            return Effect.succeed(error.message);
-          }),
+            Effect.succeed(error.message),
+          ),
         );
-        
+
         expect(afterShutdownTaskResult).toContain('Scheduler not initialized');
-        
+
         return beforeResult;
       });
 
@@ -935,7 +922,8 @@ describe('PriorityScheduler', () => {
       const elapsed = await Effect.runPromise(program);
 
       // Should have elapsed time (scheduler was idle)
-      expect(elapsed).toBeGreaterThanOrEqual(50);
+      expect(elapsed).toBeGreaterThanOrEqual(40);
+      expect(elapsed).toBeLessThanOrEqual(60);
     });
   });
 

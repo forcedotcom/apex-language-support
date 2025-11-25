@@ -146,20 +146,12 @@ describe('VSCode Extension Capabilities Alignment', () => {
 
   describe('Mode Detection and Capabilities', () => {
     it('should detect production mode correctly', () => {
-      const productionContext = {
-        ...mockExtensionContext,
-        extensionMode: vscode.ExtensionMode.Production,
-      };
       const productionCaps = getClientCapabilitiesForMode('production');
 
       expect(productionCaps).toMatchSnapshot('production-mode-capabilities');
     });
 
     it('should detect development mode correctly', () => {
-      const developmentContext = {
-        ...mockExtensionContext,
-        extensionMode: vscode.ExtensionMode.Development,
-      };
       const developmentCaps = getClientCapabilitiesForMode('development');
 
       expect(developmentCaps).toMatchSnapshot('development-mode-capabilities');

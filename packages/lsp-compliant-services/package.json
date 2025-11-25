@@ -24,8 +24,8 @@
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix"
+    "lint": "eslint src test",
+    "lint:fix": "eslint src test --fix"
   },
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",

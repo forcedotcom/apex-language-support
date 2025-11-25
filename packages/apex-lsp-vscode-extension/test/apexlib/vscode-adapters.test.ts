@@ -68,15 +68,10 @@ describe('VSCodeLanguageClientAdapter', () => {
 describe('VSCodeEditorContextAdapter', () => {
   let mockContext: vscode.ExtensionContext;
   let mockDisposable: vscode.Disposable;
-  let mockProvider: vscode.TextDocumentContentProvider;
 
   beforeEach(() => {
     mockDisposable = {
       dispose: jest.fn(),
-    } as any;
-
-    mockProvider = {
-      provideTextDocumentContent: jest.fn(),
     } as any;
 
     mockContext = {

@@ -363,7 +363,9 @@ describe('Split Architecture Regression Tests', () => {
 
     it('should verify browser module exports correct interfaces', async () => {
       // Import BrowserStorageFactory directly from its source after removing re-exports
-      const storageModule = await import('../../src/storage/StorageImplementations');
+      const storageModule = await import(
+        '../../src/storage/StorageImplementations'
+      );
 
       // Browser storage should be available directly from StorageImplementations
       expect(storageModule.BrowserStorageFactory).toBeDefined();

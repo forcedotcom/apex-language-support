@@ -9,7 +9,6 @@
 import { LCSAdapter } from '../../src/server/LCSAdapter';
 import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
 import { ClientCapabilities } from 'vscode-languageserver-protocol';
-import { Connection } from 'vscode-languageserver/browser';
 
 // Mock the dependencies
 jest.mock('@salesforce/apex-lsp-shared', () => ({

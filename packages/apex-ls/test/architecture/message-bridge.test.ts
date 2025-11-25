@@ -153,19 +153,15 @@ describe('Message Bridge Architecture', () => {
         mockWorker as any,
       );
 
-      // Set up error handler
-      let errorReceived = false;
-      connection.onError(() => {
-        errorReceived = true;
+      // Set up error handler - verify it can be registered
+      const disposable = connection.onError(() => {
+        // Error handler callback
       });
-
-      // Simulate worker error
-      if (mockWorker.onerror) {
-        mockWorker.onerror(new ErrorEvent('error', { message: 'Test error' }));
-      }
 
       // Error handling should be set up
       expect(typeof connection.onError).toBe('function');
+      expect(disposable).toBeDefined();
+      expect(typeof disposable.dispose).toBe('function');
     });
   });
 

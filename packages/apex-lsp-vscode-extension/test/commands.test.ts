@@ -299,8 +299,9 @@ describe('Commands Module', () => {
         const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
-        const startCommand = (vscode.commands.registerCommand as jest.Mock)
-          .mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
+        const startCommand = (
+          vscode.commands.registerCommand as jest.Mock
+        ).mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
 
         mockLanguageClient.sendRequest.mockResolvedValue({
           success: true,
@@ -324,8 +325,9 @@ describe('Commands Module', () => {
         const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
-        const startCommand = (vscode.commands.registerCommand as jest.Mock)
-          .mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
+        const startCommand = (
+          vscode.commands.registerCommand as jest.Mock
+        ).mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
 
         mockLanguageClient.sendRequest.mockResolvedValue({
           success: true,
@@ -347,8 +349,9 @@ describe('Commands Module', () => {
         const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
-        const startCommand = (vscode.commands.registerCommand as jest.Mock)
-          .mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
+        const startCommand = (
+          vscode.commands.registerCommand as jest.Mock
+        ).mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
 
         await startCommand();
 
@@ -367,8 +370,9 @@ describe('Commands Module', () => {
         const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
-        const startCommand = (vscode.commands.registerCommand as jest.Mock)
-          .mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
+        const startCommand = (
+          vscode.commands.registerCommand as jest.Mock
+        ).mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
 
         await startCommand();
 
@@ -386,8 +390,9 @@ describe('Commands Module', () => {
         const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
-        const startCommand = (vscode.commands.registerCommand as jest.Mock)
-          .mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
+        const startCommand = (
+          vscode.commands.registerCommand as jest.Mock
+        ).mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
 
         await startCommand();
 
@@ -405,8 +410,9 @@ describe('Commands Module', () => {
         const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
-        const stopCommand = (vscode.commands.registerCommand as jest.Mock)
-          .mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
+        const stopCommand = (
+          vscode.commands.registerCommand as jest.Mock
+        ).mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
 
         mockLanguageClient.sendRequest.mockResolvedValue({
           success: true,
@@ -433,8 +439,9 @@ describe('Commands Module', () => {
         const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
-        const stopCommand = (vscode.commands.registerCommand as jest.Mock)
-          .mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
+        const stopCommand = (
+          vscode.commands.registerCommand as jest.Mock
+        ).mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
 
         mockLanguageClient.sendRequest.mockResolvedValue({
           success: true,
@@ -456,8 +463,9 @@ describe('Commands Module', () => {
         const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
-        const stopCommand = (vscode.commands.registerCommand as jest.Mock)
-          .mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
+        const stopCommand = (
+          vscode.commands.registerCommand as jest.Mock
+        ).mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
 
         await stopCommand();
 
@@ -478,8 +486,9 @@ describe('Commands Module', () => {
         const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
-        const stopCommand = (vscode.commands.registerCommand as jest.Mock)
-          .mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
+        const stopCommand = (
+          vscode.commands.registerCommand as jest.Mock
+        ).mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
 
         await stopCommand();
 
@@ -498,8 +507,9 @@ describe('Commands Module', () => {
         const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
-        const stopCommand = (vscode.commands.registerCommand as jest.Mock)
-          .mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
+        const stopCommand = (
+          vscode.commands.registerCommand as jest.Mock
+        ).mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
 
         await stopCommand();
 
