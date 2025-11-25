@@ -222,10 +222,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     if (!symbol.fqn) {
-      symbol.fqn = calculateFQN(
-        symbol,
-        { normalizeCase: true },
-        (parentId) => this.symbolGraph.getSymbol(parentId),
+      symbol.fqn = calculateFQN(symbol, { normalizeCase: true }, (parentId) =>
+        this.symbolGraph.getSymbol(parentId),
       );
       // Update key FQN for consistency
       symbol.key.fqn = symbol.fqn;
@@ -1836,10 +1834,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Compute FQN if missing or too generic
       if (!symbol.fqn || symbol.fqn === symbol.name) {
-        symbol.fqn = calculateFQN(
-          symbol,
-          { normalizeCase: true },
-          (parentId) => this.symbolGraph.getSymbol(parentId),
+        symbol.fqn = calculateFQN(symbol, { normalizeCase: true }, (parentId) =>
+          this.symbolGraph.getSymbol(parentId),
         );
       }
     } catch (_e) {
@@ -4188,7 +4184,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               // Return the resolved symbol at the target index
               return resolvedContext.symbol || null;
             }
-            
+
             // If the resolved context is not a symbol (e.g., namespace or global), and we're on the first node,
             // try to resolve the qualifier as a class symbol
             if (
@@ -4199,22 +4195,27 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             ) {
               const qualifierName = chainNodes[0].name;
               const qualifierSymbols = this.findSymbolByName(qualifierName);
-              
+
               // Filter for class symbols
               const classSymbols = qualifierSymbols.filter(
-                (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+                (s) =>
+                  s.kind === SymbolKind.Class ||
+                  s.kind === SymbolKind.Interface,
               );
-              
+
               if (classSymbols.length > 0) {
                 // Prefer standard Apex classes for qualified references
                 const standardClass = classSymbols.find(
-                  (s) => s.fileUri?.includes('apexlib://') || s.fileUri?.includes('StandardApexLibrary'),
+                  (s) =>
+                    s.fileUri?.includes('apexlib://') ||
+                    s.fileUri?.includes('StandardApexLibrary'),
                 );
                 return standardClass || classSymbols[0];
               }
-              
+
               // If no class found, try standard Apex class resolution
-              const standardClass = await this.resolveStandardApexClass(qualifierName);
+              const standardClass =
+                await this.resolveStandardApexClass(qualifierName);
               if (standardClass) {
                 return standardClass;
               }

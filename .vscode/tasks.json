@@ -34,6 +34,14 @@
       "problemMatcher": ["$tsc"],
       "label": "npm: compile",
       "detail": "Compile all packages for development"
+    },
+    {
+      "type": "shell",
+      "command": "npm run bundle",
+      "group": "build",
+      "problemMatcher": [],
+      "label": "npm: bundle",
+      "detail": "Bundle the VS Code extension"
     }
   ]
 }
