@@ -59,7 +59,6 @@ jest.mock('../../src/storage/ApexStorageManager', () => ({
   },
 }));
 
-
 // Mock the definition upserter
 jest.mock('../../src/definition/ApexDefinitionUpserter', () => ({
   DefaultApexDefinitionUpserter: jest.fn().mockImplementation(() => ({
@@ -172,8 +171,11 @@ describe('DidOpenDocumentHandler', () => {
     };
 
     it('should process document open event successfully through batcher', async () => {
-      // Act
-      const result = await handler.handleDocumentOpen(mockEvent);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentOpen(mockEvent);
+
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Assert
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
@@ -185,10 +187,9 @@ describe('DidOpenDocumentHandler', () => {
       );
       // Should route through batcher
       expect(mockBatcher.addDocumentOpen).toHaveBeenCalledWith(mockEvent);
-      expect(result).toEqual([]);
     });
 
-    it('should log error and rethrow when batcher fails', async () => {
+    it('should log error when batcher fails', async () => {
       // Arrange
       const batcherError = new Error('Batcher failed');
       // Mock makeDocumentOpenBatcher to return a service that fails
@@ -202,14 +203,17 @@ describe('DidOpenDocumentHandler', () => {
           shutdown: Effect.void,
         }),
       );
-      
+
       // Create a new handler with the failing batcher
       const handlerWithFailingBatcher = new DidOpenDocumentHandler();
 
-      // Act & Assert
-      await expect(
-        handlerWithFailingBatcher.handleDocumentOpen(mockEvent),
-      ).rejects.toThrow('Batcher failed');
+      // Act (void return, fire-and-forget - errors handled internally)
+      handlerWithFailingBatcher.handleDocumentOpen(mockEvent);
+
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Assert - error should be logged internally, not thrown
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
 
       // Verify the error message function was called with correct content
@@ -225,30 +229,40 @@ describe('DidOpenDocumentHandler', () => {
     it('should use batcher factory', async () => {
       // Clear previous calls
       jest.clearAllMocks();
-      
-      // Call handleDocumentOpen to trigger batcher initialization
-      await handler.handleDocumentOpen(mockEvent);
-      
+
+      // Call handleDocumentOpen to trigger batcher initialization (void return)
+      handler.handleDocumentOpen(mockEvent);
+
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
       // Verify that makeDocumentOpenBatcher was called
       expect(makeDocumentOpenBatcher).toHaveBeenCalled();
     });
 
-    it('should handle batcher returning diagnostics', async () => {
+    it('should handle batcher processing diagnostics', async () => {
       // Arrange
       const mockDiagnostics = [
         {
-          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } },
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 5 },
+          },
           message: 'Test error',
           severity: 1,
         },
       ];
-      mockBatcher.addDocumentOpen.mockReturnValue(Effect.succeed(mockDiagnostics));
+      mockBatcher.addDocumentOpen.mockReturnValue(
+        Effect.succeed(mockDiagnostics),
+      );
 
-      // Act
-      const result = await handler.handleDocumentOpen(mockEvent);
+      // Act (void return, fire-and-forget - diagnostics processed internally)
+      handler.handleDocumentOpen(mockEvent);
 
-      // Assert
-      expect(result).toEqual(mockDiagnostics);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Assert - verify batcher was called (diagnostics processed internally, not returned)
       expect(mockBatcher.addDocumentOpen).toHaveBeenCalledWith(mockEvent);
     });
   });

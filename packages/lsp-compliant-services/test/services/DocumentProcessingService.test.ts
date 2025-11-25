@@ -150,6 +150,7 @@ describe('DocumentProcessingService - Batch Processing', () => {
       getSymbolManager: jest.fn().mockReturnValue({
         addSymbolTable: jest.fn(),
         removeFile: jest.fn(),
+        findSymbolsInFile: jest.fn().mockReturnValue([]),
       }),
     };
     (ApexSymbolProcessingManager.getInstance as jest.Mock).mockReturnValue(
@@ -314,7 +315,9 @@ describe('DocumentProcessingService - Batch Processing', () => {
 
       expect(results).toHaveLength(2);
       // Should only compile the uncached document
-      expect(mockCompilerService.compileMultipleWithConfigs).toHaveBeenCalledWith(
+      expect(
+        mockCompilerService.compileMultipleWithConfigs,
+      ).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             fileName: 'file:///test2.cls',
@@ -440,11 +443,9 @@ describe('DocumentProcessingService - Batch Processing', () => {
 
       // Create mock symbol tables that will pass instanceof check
       // Use the mocked SymbolTable constructor to create instances
-      const mockSymbolTable1 = {
-      } as SymbolTable;
-      const mockSymbolTable2 = {
-      } as SymbolTable;
-      
+      const mockSymbolTable1 = {} as SymbolTable;
+      const mockSymbolTable2 = {} as SymbolTable;
+
       // Make them pass instanceof check by setting up the mock properly
       Object.setPrototypeOf(mockSymbolTable1, SymbolTable.prototype);
       Object.setPrototypeOf(mockSymbolTable2, SymbolTable.prototype);
@@ -501,10 +502,14 @@ describe('DocumentProcessingService - Batch Processing', () => {
         mockSymbolTable2,
         'file:///test2.cls',
       );
-      
+
       // Should also queue background processing for cross-file resolution
-      expect(mockSymbolProcessingManager.processSymbolTable).toHaveBeenCalledTimes(2);
-      expect(mockSymbolProcessingManager.processSymbolTable).toHaveBeenCalledWith(
+      expect(
+        mockSymbolProcessingManager.processSymbolTable,
+      ).toHaveBeenCalledTimes(2);
+      expect(
+        mockSymbolProcessingManager.processSymbolTable,
+      ).toHaveBeenCalledWith(
         mockSymbolTable1,
         'file:///test1.cls',
         expect.objectContaining({
@@ -514,7 +519,9 @@ describe('DocumentProcessingService - Batch Processing', () => {
         }),
         1, // document version
       );
-      expect(mockSymbolProcessingManager.processSymbolTable).toHaveBeenCalledWith(
+      expect(
+        mockSymbolProcessingManager.processSymbolTable,
+      ).toHaveBeenCalledWith(
         mockSymbolTable2,
         'file:///test2.cls',
         expect.objectContaining({
@@ -527,4 +534,3 @@ describe('DocumentProcessingService - Batch Processing', () => {
     });
   });
 });
-

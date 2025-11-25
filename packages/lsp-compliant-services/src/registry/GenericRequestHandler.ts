@@ -37,7 +37,21 @@ export class GenericRequestHandler<T = any, R = any>
     }
 
     // Call the service method with the parameters
-    return this.service[methodName](params);
+    const result = this.service[methodName](params);
+
+    // Handle both void and Promise return types
+    // If result is undefined (void method), return undefined
+    if (result === undefined) {
+      return undefined as R;
+    }
+
+    // If it's a Promise, await it
+    if (result instanceof Promise) {
+      return result;
+    }
+
+    // Otherwise return the result directly
+    return result;
   }
 
   /**

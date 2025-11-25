@@ -265,37 +265,102 @@ export class LSPQueueManager {
   }
 
   /**
-   * Submit a document open request
+   * Submit a notification (fire-and-forget, doesn't wait for completion)
+   * @param type The notification type
+   * @param params The notification parameters
+   * @param options Optional configuration
    */
-  async submitDocumentOpenRequest(params: any): Promise<any> {
-    return this.submitRequest('documentOpen', params, {
+  submitNotification(
+    type: LSPRequestType,
+    params: any,
+    options: {
+      priority?: Priority;
+      timeout?: number;
+      errorCallback?: (error: Error) => void;
+    } = {},
+  ): void {
+    if (this.isShutdown) {
+      const error = new Error('LSP Queue Manager is shutdown');
+      options.errorCallback?.(error);
+      return;
+    }
+
+    // Queue the work but don't wait for completion
+    (async () => {
+      try {
+        // Ensure scheduler is initialized
+        await this.ensureSchedulerInitialized();
+
+        // Get configuration from service registry
+        const requestedPriority = options.priority;
+        const registryPriority = this.serviceRegistry.getPriority(type);
+        const priority = requestedPriority || registryPriority;
+        const timeout =
+          options.timeout || this.serviceRegistry.getTimeout(type);
+
+        this.logger.debug(
+          () =>
+            `Submitting ${type} notification with priority ${priority} ` +
+            `(requested: ${requestedPriority ?? 'none'}, registry: ${registryPriority})`,
+        );
+
+        // Create QueuedItem from request
+        const queuedItem = await Effect.runPromise(
+          this.createQueuedItem<any>(
+            type,
+            params,
+            this.symbolManager,
+            timeout,
+            undefined, // No callback for notifications
+            options.errorCallback,
+          ),
+        );
+
+        // Schedule the task using the priority scheduler (don't wait)
+        await Effect.runPromise(offer(priority, queuedItem));
+
+        // Don't wait for completion - fire and forget
+      } catch (error) {
+        this.logger.error(
+          () => `Failed to submit ${type} notification: ${error}`,
+        );
+        options.errorCallback?.(error as Error);
+      }
+    })();
+  }
+
+  /**
+   * Submit a document open notification (fire-and-forget)
+   */
+  submitDocumentOpenNotification(params: any): void {
+    this.submitNotification('documentOpen', params, {
       priority: Priority.High,
     });
   }
 
   /**
-   * Submit a document save request
+   * Submit a document save notification (fire-and-forget)
    */
-  async submitDocumentSaveRequest(params: any): Promise<any> {
-    return this.submitRequest('documentSave', params, {
+  submitDocumentSaveNotification(params: any): void {
+    this.submitNotification('documentSave', params, {
       priority: Priority.Normal,
     });
   }
 
   /**
-   * Submit a document change request
+   * Submit a document change notification (fire-and-forget)
    */
-  async submitDocumentChangeRequest(params: any): Promise<any> {
-    return this.submitRequest('documentChange', params, {
+  submitDocumentChangeNotification(params: any): void {
+    this.submitNotification('documentChange', params, {
       priority: Priority.Normal,
     });
   }
 
   /**
-   * Submit a document close request
+   * Submit a document close notification (fire-and-forget)
    */
-  async submitDocumentCloseRequest(params: any): Promise<any> {
-    return this.submitRequest('documentClose', params, {
+  submitDocumentCloseNotification(params: any): void {
+    this.submitNotification('documentClose', params, {
       priority: Priority.Immediate,
     });
   }

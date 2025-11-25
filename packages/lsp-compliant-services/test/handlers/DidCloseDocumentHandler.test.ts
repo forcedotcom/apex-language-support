@@ -54,13 +54,14 @@ describe('DidCloseDocumentHandler', () => {
         contentChanges: [],
       };
 
-      mockProcessor.processDocumentClose.mockResolvedValue(undefined);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentClose(event);
 
-      const result = await handler.handleDocumentClose(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
       expect(mockProcessor.processDocumentClose).toHaveBeenCalledWith(event);
-      expect(result).toBeUndefined();
     });
 
     it('should handle processing errors gracefully', async () => {
@@ -78,12 +79,17 @@ describe('DidCloseDocumentHandler', () => {
       };
 
       const error = new Error('Processing failed');
-      mockProcessor.processDocumentClose.mockRejectedValue(error);
+      mockProcessor.processDocumentClose.mockImplementation(() => {
+        throw error;
+      });
 
-      await expect(handler.handleDocumentClose(event)).rejects.toThrow(
-        'Processing failed',
-      );
+      // Act (void return, fire-and-forget - errors handled internally)
+      handler.handleDocumentClose(event);
 
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Assert - error should be logged internally, not thrown
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
 
@@ -101,12 +107,13 @@ describe('DidCloseDocumentHandler', () => {
         contentChanges: [],
       };
 
-      mockProcessor.processDocumentClose.mockResolvedValue(undefined);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentClose(event);
 
-      const result = await handler.handleDocumentClose(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockProcessor.processDocumentClose).toHaveBeenCalledWith(event);
-      expect(result).toBeUndefined();
     });
 
     it('should handle large document close', async () => {
@@ -124,12 +131,13 @@ describe('DidCloseDocumentHandler', () => {
         contentChanges: [],
       };
 
-      mockProcessor.processDocumentClose.mockResolvedValue(undefined);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentClose(event);
 
-      const result = await handler.handleDocumentClose(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockProcessor.processDocumentClose).toHaveBeenCalledWith(event);
-      expect(result).toBeUndefined();
     });
 
     it('should log processing start and completion', async () => {
@@ -146,9 +154,11 @@ describe('DidCloseDocumentHandler', () => {
         contentChanges: [],
       };
 
-      mockProcessor.processDocumentClose.mockResolvedValue(undefined);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentClose(event);
 
-      await handler.handleDocumentClose(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
     });
@@ -173,10 +183,13 @@ describe('DidCloseDocumentHandler', () => {
         throw new Error('Synchronous error');
       });
 
-      await expect(handler.handleDocumentClose(event)).rejects.toThrow(
-        'Synchronous error',
-      );
+      // Act (void return, fire-and-forget - errors handled internally)
+      handler.handleDocumentClose(event);
 
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Assert - error should be logged internally, not thrown
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
 
@@ -194,12 +207,13 @@ describe('DidCloseDocumentHandler', () => {
         contentChanges: [],
       };
 
-      mockProcessor.processDocumentClose.mockResolvedValue(undefined);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentClose(event);
 
-      const result = await handler.handleDocumentClose(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockProcessor.processDocumentClose).toHaveBeenCalledWith(event);
-      expect(result).toBeUndefined();
     });
   });
 
@@ -220,22 +234,21 @@ describe('DidCloseDocumentHandler', () => {
 
       mockProcessor.processDocumentClose.mockResolvedValue(undefined);
 
-      // Process multiple closes rapidly
-      const promises = Array.from({ length: 10 }, (_, index) =>
+      // Process multiple closes rapidly (fire-and-forget)
+      for (let i = 0; i < 10; i++) {
         handler.handleDocumentClose({
           ...event,
           document: {
             ...event.document,
-            uri: `file:///test${index}.cls`,
+            uri: `file:///test${i}.cls`,
           },
-        }),
-      );
+        });
+      }
 
-      const results = await Promise.all(promises);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(results).toHaveLength(10);
       expect(mockProcessor.processDocumentClose).toHaveBeenCalledTimes(10);
-      results.forEach((result) => expect(result).toBeUndefined());
     });
 
     it('should handle concurrent document closes', async () => {
@@ -254,14 +267,13 @@ describe('DidCloseDocumentHandler', () => {
 
       mockProcessor.processDocumentClose.mockResolvedValue(undefined);
 
-      const promises = events.map((event) =>
-        handler.handleDocumentClose(event),
-      );
-      const results = await Promise.all(promises);
+      // Process concurrently (fire-and-forget)
+      events.forEach((event) => handler.handleDocumentClose(event));
 
-      expect(results).toHaveLength(5);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
       expect(mockProcessor.processDocumentClose).toHaveBeenCalledTimes(5);
-      results.forEach((result) => expect(result).toBeUndefined());
     });
   });
 
@@ -280,9 +292,11 @@ describe('DidCloseDocumentHandler', () => {
         contentChanges: [],
       };
 
-      mockProcessor.processDocumentClose.mockResolvedValue(undefined);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentClose(event);
 
-      await handler.handleDocumentClose(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
 
@@ -306,12 +320,17 @@ describe('DidCloseDocumentHandler', () => {
       };
 
       const error = new Error('Processing failed');
-      mockProcessor.processDocumentClose.mockRejectedValue(error);
+      mockProcessor.processDocumentClose.mockImplementation(() => {
+        throw error;
+      });
 
-      await expect(handler.handleDocumentClose(event)).rejects.toThrow(
-        'Processing failed',
-      );
+      // Act (void return, fire-and-forget - errors handled internally)
+      handler.handleDocumentClose(event);
 
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Assert - error should be logged internally, not thrown
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
 
       // Verify the error message contains the URI

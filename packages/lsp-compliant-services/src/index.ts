@@ -11,7 +11,6 @@ import {
   DocumentSymbolParams,
   SymbolInformation,
   DocumentSymbol,
-  Diagnostic,
   HoverParams,
   Hover,
   DefinitionParams,
@@ -135,52 +134,52 @@ export function initializeLSPQueueManager(
 }
 
 /**
- * Dispatch function for document open events
+ * Dispatch function for document open events (LSP notification - fire-and-forget)
  * Routes through LSPQueueManager for throttled processing during workspace load
  * @param event The document open event
- * @returns Promise resolving to diagnostics or undefined
  */
-export const dispatchProcessOnOpenDocument = async (
+export const dispatchProcessOnOpenDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
-): Promise<Diagnostic[] | undefined> => {
+): void => {
   const queueManager = LSPQueueManager.getInstance();
-  return await queueManager.submitDocumentOpenRequest(event);
+  // Error handling is done internally in submitDocumentOpenNotification
+  queueManager.submitDocumentOpenNotification(event);
 };
 
 /**
- * Dispatch function for document change events
+ * Dispatch function for document change events (LSP notification - fire-and-forget)
  * @param event The document change event
- * @returns Promise resolving to diagnostics or undefined
  */
-export const dispatchProcessOnChangeDocument = async (
+export const dispatchProcessOnChangeDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
-): Promise<Diagnostic[] | undefined> => {
+): void => {
   const handler = HandlerFactory.createDidChangeDocumentHandler();
-  return await handler.handleDocumentChange(event);
+  // Error handling is done internally in handleDocumentChange
+  handler.handleDocumentChange(event);
 };
 
 /**
- * Dispatch function for document close events
+ * Dispatch function for document close events (LSP notification - fire-and-forget)
  * @param event The document close event
- * @returns Promise resolving to void
  */
-export const dispatchProcessOnCloseDocument = async (
+export const dispatchProcessOnCloseDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
-): Promise<void> => {
+): void => {
   const handler = HandlerFactory.createDidCloseDocumentHandler();
-  return await handler.handleDocumentClose(event);
+  // Error handling is done internally in handleDocumentClose
+  handler.handleDocumentClose(event);
 };
 
 /**
- * Dispatch function for document save events
+ * Dispatch function for document save events (LSP notification - fire-and-forget)
  * @param event The document save event
- * @returns Promise resolving to void
  */
-export const dispatchProcessOnSaveDocument = async (
+export const dispatchProcessOnSaveDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
-): Promise<void> => {
+): void => {
   const handler = HandlerFactory.createDidSaveDocumentHandler();
-  return await handler.handleDocumentSave(event);
+  // Error handling is done internally in handleDocumentSave
+  handler.handleDocumentSave(event);
 };
 
 /**

@@ -17,13 +17,10 @@ import { ApexStorageManager } from '../storage/ApexStorageManager';
  */
 export interface IDocumentCloseProcessor {
   /**
-   * Process a document close event
+   * Process a document close event (LSP notification - fire-and-forget)
    * @param event The document close event
-   * @returns Promise resolving to void
    */
-  processDocumentClose(
-    event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<void>;
+  processDocumentClose(event: TextDocumentChangeEvent<TextDocument>): void;
 }
 
 /**
@@ -39,47 +36,49 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
   }
 
   /**
-   * Process a document close event
+   * Process a document close event (LSP notification - fire-and-forget)
    * @param event The document close event
-   * @returns Promise resolving to void
    */
-  public async processDocumentClose(
+  public processDocumentClose(
     event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<void> {
+  ): void {
     this.logger.debug(
       () =>
         `Processing document close for: ${event.document.uri} (version: ${event.document.version})`,
     );
 
-    // Get the storage manager instance
-    let storage;
-    try {
-      const storageManager = ApexStorageManager.getInstance();
-      storage = storageManager.getStorage();
-    } catch (error) {
-      this.logger.error(
-        () =>
-          `Error getting storage manager for ${event.document.uri}: ${error}`,
-      );
-      storage = null;
-    }
-
-    // Remove the document from storage (housekeeping only for doc sync)
-    // NOTE: Symbols are NOT removed here - only didDelete should remove symbols
-    if (storage) {
+    // Start async processing but don't return a promise
+    (async () => {
+      // Get the storage manager instance
+      let storage;
       try {
-        await storage.deleteDocument(event.document.uri);
+        const storageManager = ApexStorageManager.getInstance();
+        storage = storageManager.getStorage();
       } catch (error) {
         this.logger.error(
           () =>
-            `Error deleting document ${event.document.uri} from storage: ${error}`,
+            `Error getting storage manager for ${event.document.uri}: ${error}`,
         );
+        storage = null;
       }
-    }
 
-    this.logger.debug(
-      () =>
-        `Document close processed: ${event.document.uri} (version: ${event.document.version})`,
-    );
+      // Remove the document from storage (housekeeping only for doc sync)
+      // NOTE: Symbols are NOT removed here - only didDelete should remove symbols
+      if (storage) {
+        try {
+          await storage.deleteDocument(event.document.uri);
+        } catch (error) {
+          this.logger.error(
+            () =>
+              `Error deleting document ${event.document.uri} from storage: ${error}`,
+          );
+        }
+      }
+
+      this.logger.debug(
+        () =>
+          `Document close processed: ${event.document.uri} (version: ${event.document.version})`,
+      );
+    })();
   }
 }

@@ -5,7 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
@@ -39,31 +39,40 @@ export class DidOpenDocumentHandler {
     this.batcher = batcher || null;
   }
 
-  public async handleDocumentOpen(
+  /**
+   * Handle document open event (LSP notification - fire-and-forget)
+   * @param event The document open event
+   */
+  public handleDocumentOpen(
     event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined> {
+  ): void {
     this.logger.debug(
       () =>
         `Processing document open: ${event.document.uri} (version: ${event.document.version})`,
     );
 
-    try {
-      // Initialize batcher if needed
-      if (!this.batcher) {
-        const { service } = await Effect.runPromise(
-          makeDocumentOpenBatcher(this.logger, this.documentProcessingService),
-        );
-        this.batcher = service;
-      }
+    // Start async processing but don't return a promise
+    (async () => {
+      try {
+        // Initialize batcher if needed
+        if (!this.batcher) {
+          const { service } = await Effect.runPromise(
+            makeDocumentOpenBatcher(
+              this.logger,
+              this.documentProcessingService,
+            ),
+          );
+          this.batcher = service;
+        }
 
-      // Route through batcher
-      return await Effect.runPromise(this.batcher.addDocumentOpen(event));
-    } catch (error) {
-      this.logger.error(
-        () =>
-          `Error processing document open for ${event.document.uri}: ${error}`,
-      );
-      throw error;
-    }
+        // Route through batcher (diagnostics computed internally, not returned)
+        await Effect.runPromise(this.batcher.addDocumentOpen(event));
+      } catch (error) {
+        this.logger.error(
+          () =>
+            `Error processing document open for ${event.document.uri}: ${error}`,
+        );
+      }
+    })();
   }
 }

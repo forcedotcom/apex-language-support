@@ -6,11 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TextDocumentChangeEvent, Diagnostic } from 'vscode-languageserver';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
-import { dispatch } from '../utils/handlerUtil';
 import { IDocumentChangeProcessor } from '../services/DocumentChangeProcessingService';
 
 /**
@@ -23,29 +22,25 @@ export class DidChangeDocumentHandler {
   ) {}
 
   /**
-   * Handle document change event
+   * Handle document change event (LSP notification - fire-and-forget)
    * @param event The document change event
-   * @returns Diagnostics for the changed document
    */
-  public async handleDocumentChange(
+  public handleDocumentChange(
     event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined> {
+  ): void {
     this.logger.debug(
       () =>
         `Processing document change: ${event.document.uri} (version: ${event.document.version})`,
     );
 
+    // Call processor with error handling (fire-and-forget)
     try {
-      return await dispatch(
-        this.documentChangeProcessor.processDocumentChange(event),
-        'Error processing document change',
-      );
+      this.documentChangeProcessor.processDocumentChange(event);
     } catch (error) {
       this.logger.error(
         () =>
           `Error processing document change for ${event.document.uri}: ${error}`,
       );
-      throw error;
     }
   }
 }

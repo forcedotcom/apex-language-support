@@ -40,29 +40,40 @@ export class DocumentProcessingService {
   }
 
   /**
-   * Process a single document open event (public API)
+   * Process a single document open event (public API - LSP notification, fire-and-forget)
    * Routes through the batcher for batching support
+   * Diagnostics are computed internally but not returned (LSP notifications don't return values)
    */
-  public async processDocumentOpen(
+  public processDocumentOpen(
     event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined> {
+  ): void {
     this.logger.debug(
       () =>
         'Common Apex Language Server open document handler invoked ' +
         `for: ${event.document.uri} (version: ${event.document.version})`,
     );
 
-    // Initialize batcher if needed
-    if (!this.batcher) {
-      const { service, shutdown } = await Effect.runPromise(
-        makeDocumentOpenBatcher(this.logger, this),
-      );
-      this.batcher = service;
-      this.batcherShutdown = shutdown;
-    }
+    // Start async processing but don't return a promise
+    (async () => {
+      try {
+        // Initialize batcher if needed
+        if (!this.batcher) {
+          const { service, shutdown } = await Effect.runPromise(
+            makeDocumentOpenBatcher(this.logger, this),
+          );
+          this.batcher = service;
+          this.batcherShutdown = shutdown;
+        }
 
-    // Route through batcher
-    return await Effect.runPromise(this.batcher.addDocumentOpen(event));
+        // Route through batcher (diagnostics computed internally, not returned)
+        await Effect.runPromise(this.batcher.addDocumentOpen(event));
+      } catch (error) {
+        this.logger.error(
+          () =>
+            `Error processing document open for ${event.document.uri}: ${error}`,
+        );
+      }
+    })();
   }
 
   /**

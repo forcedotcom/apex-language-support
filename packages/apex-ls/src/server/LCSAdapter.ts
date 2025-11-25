@@ -271,53 +271,30 @@ export class LCSAdapter {
    */
   private setupDocumentHandlers(): void {
     this.documents.onDidOpen((open) => {
-      // Fire-and-forget: don't await to avoid blocking UI during workspace load
+      // Fire-and-forget: LSP notification, no response expected
       // Diagnostics will be published asynchronously via the batcher
       this.logger.debug(
         () =>
           `Processing textDocument/didOpen for: ${open.document.uri} ` +
           `(version: ${open.document.version}, language: ${open.document.languageId})`,
       );
-      dispatchProcessOnOpenDocument(open).catch((error) => {
-        this.logger.error(
-          () =>
-            `Error processing open for ${open.document.uri}: ${formattedError(error)}`,
-        );
-      });
+      dispatchProcessOnOpenDocument(open);
     });
 
-    this.documents.onDidChangeContent(async (change) => {
-      try {
-        this.logger.debug(() => `Document changed: ${change.document.uri}`);
-        await dispatchProcessOnChangeDocument(change);
-      } catch (error) {
-        this.logger.error(
-          () =>
-            `Error processing change for ${change.document.uri}: ${formattedError(error)}`,
-        );
-      }
+    this.documents.onDidChangeContent((change) => {
+      // Fire-and-forget: LSP notification, no response expected
+      this.logger.debug(() => `Document changed: ${change.document.uri}`);
+      dispatchProcessOnChangeDocument(change);
     });
 
-    this.documents.onDidSave(async (save) => {
-      try {
-        await dispatchProcessOnSaveDocument(save);
-      } catch (error) {
-        this.logger.error(
-          () =>
-            `Error processing save for ${save.document.uri}: ${formattedError(error)}`,
-        );
-      }
+    this.documents.onDidSave((save) => {
+      // Fire-and-forget: LSP notification, no response expected
+      dispatchProcessOnSaveDocument(save);
     });
 
-    this.documents.onDidClose(async (close) => {
-      try {
-        await dispatchProcessOnCloseDocument(close);
-      } catch (error) {
-        this.logger.error(
-          () =>
-            `Error processing close for ${close.document.uri}: ${formattedError(error)}`,
-        );
-      }
+    this.documents.onDidClose((close) => {
+      // Fire-and-forget: LSP notification, no response expected
+      dispatchProcessOnCloseDocument(close);
     });
   }
 

@@ -9,7 +9,6 @@ import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
-import { dispatch } from '../utils/handlerUtil';
 import { IDocumentSaveProcessor } from '../services/DocumentSaveProcessingService';
 
 /**
@@ -22,28 +21,25 @@ export class DidSaveDocumentHandler {
   ) {}
 
   /**
-   * Handle document save event
+   * Handle document save event (LSP notification - fire-and-forget)
    * @param event The document save event
    */
-  public async handleDocumentSave(
+  public handleDocumentSave(
     event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<void> {
+  ): void {
     this.logger.debug(
       () =>
         `Processing document save: ${event.document.uri} (version: ${event.document.version})`,
     );
 
+    // Call processor with error handling (fire-and-forget)
     try {
-      await dispatch(
-        this.documentSaveProcessor.processDocumentSave(event),
-        'Error processing document save',
-      );
+      this.documentSaveProcessor.processDocumentSave(event);
     } catch (error) {
       this.logger.error(
         () =>
           `Error processing document save for ${event.document.uri}: ${error}`,
       );
-      throw error;
     }
   }
 }

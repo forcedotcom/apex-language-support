@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TextDocumentChangeEvent, Diagnostic } from 'vscode-languageserver';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
@@ -21,13 +21,10 @@ import {
  */
 export interface IDocumentChangeProcessor {
   /**
-   * Process a document change event
+   * Process a document change event (LSP notification - fire-and-forget)
    * @param event The document change event
-   * @returns Diagnostics for the changed document
    */
-  processDocumentChange(
-    event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined>;
+  processDocumentChange(event: TextDocumentChangeEvent<TextDocument>): void;
 }
 
 /**
@@ -47,41 +44,37 @@ export class DocumentChangeProcessingService
   }
 
   /**
-   * Process a document change event
+   * Process a document change event (LSP notification - fire-and-forget)
    * @param event The document change event
-   * @returns Diagnostics for the changed document
    */
-  public async processDocumentChange(
+  public processDocumentChange(
     event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined> {
+  ): void {
     this.logger.debug(
       () =>
         `Processing document change for: ${event.document.uri} (version: ${event.document.version})`,
     );
 
-    try {
-      // Get the storage manager instance
-      const storageManager = ApexStorageManager.getInstance();
-      const storage = storageManager.getStorage();
+    // Start async processing but don't return a promise
+    (async () => {
+      try {
+        // Get the storage manager instance
+        const storageManager = ApexStorageManager.getInstance();
+        const storage = storageManager.getStorage();
 
-      // Update the document in storage
-      await storage.setDocument(event.document.uri, event.document);
+        // Update the document in storage
+        await storage.setDocument(event.document.uri, event.document);
 
-      // For now, return empty diagnostics
-      // In a full implementation, this would re-parse the document
-      // and return any parsing errors as diagnostics
-      this.logger.debug(
-        () =>
-          `Document change processed: ${event.document.uri} (version: ${event.document.version})`,
-      );
-
-      return [];
-    } catch (error) {
-      this.logger.error(
-        () =>
-          `Error processing document change for ${event.document.uri}: ${error}`,
-      );
-      return [];
-    }
+        this.logger.debug(
+          () =>
+            `Document change processed: ${event.document.uri} (version: ${event.document.version})`,
+        );
+      } catch (error) {
+        this.logger.error(
+          () =>
+            `Error processing document change for ${event.document.uri}: ${error}`,
+        );
+      }
+    })();
   }
 }
