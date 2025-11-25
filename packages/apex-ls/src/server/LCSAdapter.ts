@@ -588,38 +588,10 @@ export class LCSAdapter {
       );
 
       // Register apex/graphData handler (development mode only)
-      this.connection.onRequest('apex/graphData', async (params: any) => {
-        try {
-          this.logger.debug(
-            () => `Graph data request received: ${JSON.stringify(params)}`,
-          );
-          this.logger.debug(
-            () => 'About to call dispatchProcessOnGraphData...',
-          );
-          const result = await dispatchProcessOnGraphData(params);
-          this.logger.debug(
-            () =>
-              `Graph data processed successfully, result type: ${typeof result}`,
-          );
-          this.logger.debug(
-            () =>
-              `Graph data result keys: ${Object.keys(result || {}).join(', ')}`,
-          );
-          return result;
-        } catch (error) {
-          this.logger.error(
-            `Error processing graph data request: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
-          this.logger.error(
-            `Graph data error stack: ${
-              error instanceof Error ? error.stack : 'No stack'
-            }`,
-          );
-          throw error;
-        }
-      });
+      this.connection.onRequest(
+        'apex/graphData',
+        async (params: any) => await dispatchProcessOnGraphData(params),
+      );
       this.logger.debug(
         '✅ apex/graphData handler registered (development mode)',
       );

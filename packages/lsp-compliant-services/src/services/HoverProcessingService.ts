@@ -160,8 +160,12 @@ export class HoverProcessingService implements IHoverProcessor {
   private async createHoverInformation(symbol: ApexSymbol): Promise<Hover> {
     const content: string[] = [];
 
-    // Add FQN directly; symbol manager now hydrates identity for resolved symbols
-    const fqn = symbol.fqn || this.symbolManager.constructFQN(symbol);
+    // Construct FQN for display with original casing preserved
+    // Always construct a new FQN with normalizeCase: false for display purposes,
+    // even if symbol.fqn exists (which may be normalized to lowercase)
+    const fqn = this.symbolManager.constructFQN(symbol, {
+      normalizeCase: false,
+    });
 
     // Header: IDE-style signature for all symbol kinds
     content.push('');
