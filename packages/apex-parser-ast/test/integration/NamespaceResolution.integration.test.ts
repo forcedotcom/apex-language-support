@@ -32,12 +32,9 @@ describe('Namespace Resolution Integration', () => {
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();

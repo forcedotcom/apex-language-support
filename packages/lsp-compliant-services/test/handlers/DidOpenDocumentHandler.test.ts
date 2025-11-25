@@ -8,7 +8,7 @@
 
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 // Mock the logging module
 jest.mock('@salesforce/apex-lsp-shared', () => {
@@ -82,7 +82,6 @@ jest.mock('../../src/services/DocumentOpenBatcher', () => ({
 // Import the handler after the logger mock is set up
 import { DidOpenDocumentHandler } from '../../src/handlers/DidOpenDocumentHandler';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
-import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import { makeDocumentOpenBatcher } from '../../src/services/DocumentOpenBatcher';
 import { Effect } from 'effect';
 

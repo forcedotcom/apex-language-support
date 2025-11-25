@@ -16,7 +16,11 @@ import {
   DocumentSymbol,
 } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
+import {
+  enableConsoleLogging,
+  setLogLevel,
+  ApexSettingsManager,
+} from '@salesforce/apex-lsp-shared';
 
 import {
   DefaultApexDocumentSymbolProvider,
@@ -24,7 +28,6 @@ import {
 } from '../../src/documentSymbol/ApexDocumentSymbolProvider';
 
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
-import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 // Use real ApexSettingsManager instead of mock
 // The real settings manager provides comprehensive configuration that the parser needs

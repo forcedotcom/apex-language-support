@@ -6,13 +6,12 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import type {
+  LoggerInterface,
   FindMissingArtifactParams,
   FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
 import {
-  MissingArtifactResolutionService,
   MissingArtifactConfig,
   DEFAULT_MISSING_ARTIFACT_CONFIG,
   createMissingArtifactResolutionService,
@@ -28,22 +27,22 @@ const mockLogger: LoggerInterface = {
   log: jest.fn(),
 };
 
-const mockRpcClient = {
+const _mockRpcClient = {
   customRequest: jest.fn(),
 };
 
-const mockIndexingObserver = {
+const _mockIndexingObserver = {
   waitForAnyIndexed: jest.fn(),
   waitForFileIndexed: jest.fn(),
 };
 
-const mockDispatchQueues = {
+const _mockDispatchQueues = {
   high: {} as any,
   normal: {} as any,
   background: {} as any,
 };
 
-const mockSymbolManager = {
+const _mockSymbolManager = {
   waitForSymbol: jest.fn(),
   findSymbolByName: jest.fn(),
   findSymbolsInFile: jest.fn(),

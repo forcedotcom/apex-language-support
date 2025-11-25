@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ReferenceParams, Location, Position } from 'vscode-languageserver-protocol';
+import { ReferenceParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
@@ -34,7 +34,14 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => {
         ensureInitialized: jest.fn().mockResolvedValue(undefined),
       })),
     },
-    createQueuedItem: jest.fn((effect: any) => Effect.succeed({ eff: effect, id: 'test-id', fiberDeferred: null as any, requestType: 'test' })),
+    createQueuedItem: jest.fn((effect: any) =>
+      Effect.succeed({
+        eff: effect,
+        id: 'test-id',
+        fiberDeferred: null as any,
+        requestType: 'test',
+      }),
+    ),
     offer: jest.fn(() => Effect.succeed(undefined)),
   };
 });
@@ -51,7 +58,9 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
 
 const mockEnsureWorkspaceLoaded = jest.fn();
 jest.mock('../../src/services/WorkspaceLoadCoordinator', () => ({
-  ensureWorkspaceLoaded: jest.fn((...args: any[]) => mockEnsureWorkspaceLoaded(...args)),
+  ensureWorkspaceLoaded: jest.fn((...args: any[]) =>
+    mockEnsureWorkspaceLoaded(...args),
+  ),
 }));
 
 describe('ReferencesProcessingService', () => {
@@ -333,4 +342,3 @@ describe('ReferencesProcessingService', () => {
     });
   });
 });
-

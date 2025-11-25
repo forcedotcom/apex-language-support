@@ -95,7 +95,9 @@ describe('DocumentOpenBatcher', () => {
       const batcherWithThreshold1 = result.service;
 
       const event = createMockEvent('file:///test1.cls');
-      const promise = Effect.runPromise(batcherWithThreshold1.addDocumentOpen(event));
+      const promise = Effect.runPromise(
+        batcherWithThreshold1.addDocumentOpen(event),
+      );
 
       // Should process immediately
       await promise;
@@ -162,7 +164,7 @@ describe('DocumentOpenBatcher', () => {
       // shuts down. This is a known limitation when testing Effect fibers with timers.
       // The functionality works correctly in production because the LSP server
       // keeps the runtime alive throughout its lifetime.
-      
+
       // Use real timers for this test since Effect.sleep doesn't work with fake timers
       jest.useRealTimers();
 
@@ -175,7 +177,9 @@ describe('DocumentOpenBatcher', () => {
       const batcherWithWindow = result.service;
 
       // Ensure mock returns a value
-      mockDocumentProcessingService.processDocumentOpenInternal.mockResolvedValue([]);
+      mockDocumentProcessingService.processDocumentOpenInternal.mockResolvedValue(
+        [],
+      );
 
       const event1 = createMockEvent('file:///test1.cls', 1);
       const promise1 = Effect.runPromise(
@@ -201,7 +205,7 @@ describe('DocumentOpenBatcher', () => {
       // Clean up - wait a bit for any pending operations
       await new Promise((resolve) => setTimeout(resolve, 50));
       await Effect.runPromise(result.shutdown);
-      
+
       // Restore fake timers
       jest.useFakeTimers();
     }, 10000); // Increase test timeout
@@ -409,9 +413,15 @@ describe('DocumentOpenBatcher', () => {
     it('should do nothing if no pending documents', async () => {
       await Effect.runPromise(batcher.forceFlush());
 
-      expect(mockDocumentProcessingService.processDocumentOpenBatch).not.toHaveBeenCalled();
-      expect(mockDocumentProcessingService.processDocumentOpen).not.toHaveBeenCalled();
-      expect(mockDocumentProcessingService.processDocumentOpenInternal).not.toHaveBeenCalled();
+      expect(
+        mockDocumentProcessingService.processDocumentOpenBatch,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockDocumentProcessingService.processDocumentOpen,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockDocumentProcessingService.processDocumentOpenInternal,
+      ).not.toHaveBeenCalled();
     });
   });
 });

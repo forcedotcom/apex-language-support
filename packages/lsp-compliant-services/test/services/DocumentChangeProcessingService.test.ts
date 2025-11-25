@@ -493,20 +493,6 @@ describe('DocumentChangeProcessingService', () => {
         contentChanges: [],
       };
 
-      // Mock the compilation result with errors
-      const mockCompileResult = {
-        errors: [
-          {
-            type: 'syntax',
-            severity: 'error',
-            message: 'Test error',
-            line: 1,
-            column: 1,
-            filePath: 'file:///Users/test/MyClass.cls',
-          },
-        ],
-      };
-
       // Skip CompilerService mock for this test since it's not essential
 
       // Skip getDiagnosticsFromErrors mock for this test since it's not essential

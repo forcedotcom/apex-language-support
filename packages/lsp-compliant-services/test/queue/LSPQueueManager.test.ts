@@ -18,7 +18,7 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import { LSPQueueManager, LSPRequestType } from '../../src/queue';
 import { ServiceRegistry } from '../../src/registry';
-import { BackgroundProcessingInitializationService } from '../../src/services/BackgroundProcessingInitializationService';
+import { BackgroundProcessingInitializationService } from '../../src/services/BackgroundProcessingInitializationService'; // eslint-disable-line max-len
 
 // Mock the logger and settings manager, but keep Priority from actual module
 jest.mock('@salesforce/apex-lsp-shared', () => {

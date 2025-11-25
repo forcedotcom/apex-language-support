@@ -415,4 +415,4 @@ describe('BooleanExpressionValidator', () => {
       expect(result.errors).toContain('invalid.logical.type');
     });
   });
-}); 
+});

@@ -15,7 +15,10 @@ import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { SymbolKind, SymbolVisibility } from '../../src/types/symbol';
-import { initialize as schedulerInitialize, reset as schedulerReset } from '../../src/queue/priority-scheduler-utils';
+import {
+  initialize as schedulerInitialize,
+  reset as schedulerReset,
+} from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 
 describe('ApexSymbolGraph', () => {
@@ -1881,8 +1884,14 @@ describe('ApexSymbolGraph', () => {
       );
 
       // Now add the target symbol (should trigger async processing)
-      const targetTable = new (await import('../../src/types/symbol')).SymbolTable();
-      graph.addSymbol(targetSymbol, 'file:///test/TargetClass.cls', targetTable);
+      const targetTable = new (
+        await import('../../src/types/symbol')
+      ).SymbolTable();
+      graph.addSymbol(
+        targetSymbol,
+        'file:///test/TargetClass.cls',
+        targetTable,
+      );
 
       // Wait for async processing to complete
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -2084,10 +2093,6 @@ describe('ApexSymbolGraph', () => {
     });
 
     it('should clear deferred references on clear', () => {
-      // Add some deferred references
-      const statsBefore = graph.getStats();
-      const queueSizeBefore = statsBefore.deferredQueueSize;
-
       // Clear should clear deferred references (scheduler is shared, not reinitialized)
       graph.clear();
 

@@ -7,13 +7,11 @@
  */
 
 import { SymbolTable } from '@salesforce/apex-lsp-parser-ast';
-import { Diagnostic } from 'vscode-languageserver-protocol';
 import {
   DocumentStateCache,
   DocumentState,
   getDocumentStateCache,
 } from '../../src/services/DocumentStateCache';
-import { getLogger } from '@salesforce/apex-lsp-shared';
 
 // Mock getLogger to avoid console output during tests
 jest.mock('@salesforce/apex-lsp-shared', () => ({
@@ -71,12 +69,13 @@ describe('DocumentStateCache', () => {
 
     it('should return null when version does not match', () => {
       const uri = 'file:///test.cls';
-      const result: CachedParseResult = {
+      const result: DocumentState = {
         symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
         documentLength: 100,
+        symbolsIndexed: false,
       };
 
       cache.set(uri, result);
@@ -142,12 +141,13 @@ describe('DocumentStateCache', () => {
 
     it('should not evict when updating existing entry', () => {
       const uri = 'file:///test.cls';
-      const result1: CachedParseResult = {
+      const result1: DocumentState = {
         symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
         documentLength: 100,
+        symbolsIndexed: false,
       };
 
       cache.set(uri, result1);
@@ -170,12 +170,13 @@ describe('DocumentStateCache', () => {
   describe('invalidate', () => {
     it('should remove specific cache entry', () => {
       const uri = 'file:///test.cls';
-      const result: CachedParseResult = {
+      const result: DocumentState = {
         symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
         documentLength: 100,
+        symbolsIndexed: false,
       };
 
       cache.set(uri, result);
@@ -188,12 +189,13 @@ describe('DocumentStateCache', () => {
 
     it('should increment invalidation count', () => {
       const uri = 'file:///test.cls';
-      const result: CachedParseResult = {
+      const result: DocumentState = {
         symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
         documentLength: 100,
+        symbolsIndexed: false,
       };
 
       cache.set(uri, result);
@@ -207,12 +209,13 @@ describe('DocumentStateCache', () => {
   describe('clear', () => {
     it('should remove all cache entries', () => {
       for (let i = 0; i < 5; i++) {
-        const result: CachedParseResult = {
+        const result: DocumentState = {
           symbolTable: new SymbolTable(),
           diagnostics: [],
           documentVersion: 1,
           timestamp: Date.now(),
           documentLength: 100,
+          symbolsIndexed: false,
         };
         cache.set(`file:///test${i}.cls`, result);
       }
@@ -224,12 +227,13 @@ describe('DocumentStateCache', () => {
 
     it('should increment eviction count', () => {
       for (let i = 0; i < 5; i++) {
-        const result: CachedParseResult = {
+        const result: DocumentState = {
           symbolTable: new SymbolTable(),
           diagnostics: [],
           documentVersion: 1,
           timestamp: Date.now(),
           documentLength: 100,
+          symbolsIndexed: false,
         };
         cache.set(`file:///test${i}.cls`, result);
       }
@@ -243,12 +247,13 @@ describe('DocumentStateCache', () => {
   describe('getStats', () => {
     it('should track cache hits and misses', () => {
       const uri = 'file:///test.cls';
-      const result: CachedParseResult = {
+      const result: DocumentState = {
         symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
         documentLength: 100,
+        symbolsIndexed: false,
       };
 
       // Set and retrieve (hit)
@@ -268,15 +273,14 @@ describe('DocumentStateCache', () => {
     });
 
     it('should track cache size and utilization', () => {
-      const maxSize = 10;
-
       for (let i = 0; i < 5; i++) {
-        const result: CachedParseResult = {
+        const result: DocumentState = {
           symbolTable: new SymbolTable(),
           diagnostics: [],
           documentVersion: 1,
           timestamp: Date.now(),
           documentLength: 100,
+          symbolsIndexed: false,
         };
         cache.set(`file:///test${i}.cls`, result);
       }
@@ -291,12 +295,13 @@ describe('DocumentStateCache', () => {
   describe('has', () => {
     it('should return true when URI is cached', () => {
       const uri = 'file:///test.cls';
-      const result: CachedParseResult = {
+      const result: DocumentState = {
         symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
         documentLength: 100,
+        symbolsIndexed: false,
       };
 
       cache.set(uri, result);
@@ -338,12 +343,13 @@ describe('DocumentStateCache', () => {
       const uri = 'file:///test.cls';
 
       // Set version 1
-      const result1: CachedParseResult = {
+      const result1: DocumentState = {
         symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
         documentLength: 100,
+        symbolsIndexed: false,
       };
       cache.set(uri, result1);
 
@@ -373,12 +379,13 @@ describe('DocumentStateCache', () => {
       const uri = 'file:///test.cls';
 
       for (let version = 1; version <= 5; version++) {
-        const result: CachedParseResult = {
+        const result: DocumentState = {
           symbolTable: new SymbolTable(),
           diagnostics: [],
           documentVersion: version,
           timestamp: Date.now(),
           documentLength: 100,
+          symbolsIndexed: false,
         };
 
         // Set version

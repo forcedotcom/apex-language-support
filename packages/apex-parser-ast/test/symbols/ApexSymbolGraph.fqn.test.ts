@@ -10,7 +10,10 @@ import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
-import { initialize as schedulerInitialize, reset as schedulerReset } from '../../src/queue/priority-scheduler-utils';
+import {
+  initialize as schedulerInitialize,
+  reset as schedulerReset,
+} from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 
 describe('ApexSymbolGraph FQN Bug Fix Tests', () => {

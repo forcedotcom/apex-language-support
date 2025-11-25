@@ -10,7 +10,6 @@ import { DidChangeDocumentHandler } from '../../src/handlers/DidChangeDocumentHa
 import { IDocumentChangeProcessor } from '../../src/services/DocumentChangeProcessingService';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { Diagnostic } from 'vscode-languageserver';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 describe('DidChangeDocumentHandler', () => {

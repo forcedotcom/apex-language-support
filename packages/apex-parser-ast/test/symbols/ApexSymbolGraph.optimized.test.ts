@@ -11,7 +11,10 @@ import {
   ReferenceType,
 } from '../../src/symbols/ApexSymbolGraph';
 import { SymbolTable, SymbolFactory, SymbolKind } from '../../src/types/symbol';
-import { initialize as schedulerInitialize, reset as schedulerReset } from '../../src/queue/priority-scheduler-utils';
+import {
+  initialize as schedulerInitialize,
+  reset as schedulerReset,
+} from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 
 describe('ApexSymbolGraph - Optimized Architecture', () => {

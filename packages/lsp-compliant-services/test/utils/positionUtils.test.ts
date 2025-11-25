@@ -130,7 +130,7 @@ describe('Position Utilities', () => {
       expect(result).toBe(true);
     });
 
-    it('should handle edge case: position at start line but after start column (ApexSymbolManager bounds check)', () => {
+    it('should handle edge case: position at start line but after start column', () => {
       // Test the specific scenario from the debug test
       // Position: { line: 1, character: 21 }
       // Symbol location: { startLine: 1, startColumn: 20, endLine: 1, endColumn: 40 }

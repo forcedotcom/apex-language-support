@@ -57,17 +57,21 @@ describe('ReferencesHandler', () => {
         },
       ];
 
-      mockReferencesProcessor.processReferences.mockResolvedValue(mockLocations);
+      mockReferencesProcessor.processReferences.mockResolvedValue(
+        mockLocations,
+      );
 
       // Act
       const result = await handler.handleReferences(params);
 
       // Assert
       expect(result).toEqual(mockLocations);
-      expect(
-        mockReferencesProcessor.processReferences,
-      ).toHaveBeenCalledWith(params);
-      expect(mockReferencesProcessor.processReferences).toHaveBeenCalledTimes(1);
+      expect(mockReferencesProcessor.processReferences).toHaveBeenCalledWith(
+        params,
+      );
+      expect(mockReferencesProcessor.processReferences).toHaveBeenCalledTimes(
+        1,
+      );
     });
 
     it('should return empty array when no references found', async () => {
@@ -84,9 +88,9 @@ describe('ReferencesHandler', () => {
 
       // Assert
       expect(result).toEqual([]);
-      expect(
-        mockReferencesProcessor.processReferences,
-      ).toHaveBeenCalledWith(params);
+      expect(mockReferencesProcessor.processReferences).toHaveBeenCalledWith(
+        params,
+      );
     });
 
     it('should handle processor errors gracefully', async () => {
@@ -103,9 +107,9 @@ describe('ReferencesHandler', () => {
       await expect(handler.handleReferences(params)).rejects.toThrow(
         'Processor error',
       );
-      expect(
-        mockReferencesProcessor.processReferences,
-      ).toHaveBeenCalledWith(params);
+      expect(mockReferencesProcessor.processReferences).toHaveBeenCalledWith(
+        params,
+      );
     });
 
     it('should handle null result from processor', async () => {
@@ -170,16 +174,18 @@ describe('ReferencesHandler', () => {
         },
       ];
 
-      mockReferencesProcessor.processReferences.mockResolvedValue(mockLocations);
+      mockReferencesProcessor.processReferences.mockResolvedValue(
+        mockLocations,
+      );
 
       // Act
       const result = await handler.handleReferences(params);
 
       // Assert
       expect(result).toEqual(mockLocations);
-      expect(
-        mockReferencesProcessor.processReferences,
-      ).toHaveBeenCalledWith(params);
+      expect(mockReferencesProcessor.processReferences).toHaveBeenCalledWith(
+        params,
+      );
     });
 
     it('should exclude declaration when includeDeclaration is false', async () => {
@@ -202,17 +208,18 @@ describe('ReferencesHandler', () => {
         },
       ];
 
-      mockReferencesProcessor.processReferences.mockResolvedValue(mockLocations);
+      mockReferencesProcessor.processReferences.mockResolvedValue(
+        mockLocations,
+      );
 
       // Act
       const result = await handler.handleReferences(params);
 
       // Assert
       expect(result).toEqual(mockLocations);
-      expect(
-        mockReferencesProcessor.processReferences,
-      ).toHaveBeenCalledWith(params);
+      expect(mockReferencesProcessor.processReferences).toHaveBeenCalledWith(
+        params,
+      );
     });
   });
 });
-

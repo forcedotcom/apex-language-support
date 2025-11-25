@@ -12,8 +12,11 @@ import {
   SymbolProcessingOptions,
 } from '../../src/symbols/ApexSymbolIndexingService';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
-import { getLogger, Priority } from '@salesforce/apex-lsp-shared';
-import { initialize as schedulerInitialize, reset as schedulerReset } from '../../src/queue/priority-scheduler-utils';
+import { Priority } from '@salesforce/apex-lsp-shared';
+import {
+  initialize as schedulerInitialize,
+  reset as schedulerReset,
+} from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 
 // Mock getLogger, but keep Priority from actual module
@@ -63,7 +66,7 @@ describe('ApexSymbolIndexingService', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     try {
       indexingService.shutdown();
-    } catch (error) {
+    } catch (_error) {
       // Ignore shutdown errors in tests
     }
     // Additional delay to ensure cleanup
@@ -268,4 +271,3 @@ describe('ApexSymbolIndexingService', () => {
     });
   });
 });
-

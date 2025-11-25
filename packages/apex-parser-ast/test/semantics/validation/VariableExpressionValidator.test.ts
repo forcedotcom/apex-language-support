@@ -39,7 +39,10 @@ describe('VariableExpressionValidator', () => {
   describe('validateVariableExpression', () => {
     it('should validate existing variable', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('testVar', TypePromotionSystem.INTEGER);
+      const variable = createMockVariable(
+        'testVar',
+        TypePromotionSystem.INTEGER,
+      );
       const symbolTable = new Map([['testVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableExpression(
@@ -112,7 +115,10 @@ describe('VariableExpressionValidator', () => {
 
     it('should validate variable with different case (case-insensitive)', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('TestVar', TypePromotionSystem.INTEGER);
+      const variable = createMockVariable(
+        'TestVar',
+        TypePromotionSystem.INTEGER,
+      );
       const symbolTable = new Map([['TestVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableExpression(
@@ -127,7 +133,10 @@ describe('VariableExpressionValidator', () => {
 
     it('should validate variable with exact case match', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('TestVar', TypePromotionSystem.INTEGER);
+      const variable = createMockVariable(
+        'TestVar',
+        TypePromotionSystem.INTEGER,
+      );
       const symbolTable = new Map([['TestVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableExpression(
@@ -144,7 +153,11 @@ describe('VariableExpressionValidator', () => {
   describe('validateVariableVisibility', () => {
     it('should validate public variable', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('publicVar', TypePromotionSystem.INTEGER, 'Public');
+      const variable = createMockVariable(
+        'publicVar',
+        TypePromotionSystem.INTEGER,
+        'Public',
+      );
       const symbolTable = new Map([['publicVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableVisibility(
@@ -158,7 +171,11 @@ describe('VariableExpressionValidator', () => {
 
     it('should validate private variable in same class', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('privateVar', TypePromotionSystem.INTEGER, 'Private');
+      const variable = createMockVariable(
+        'privateVar',
+        TypePromotionSystem.INTEGER,
+        'Private',
+      );
       const symbolTable = new Map([['privateVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableVisibility(
@@ -172,7 +189,11 @@ describe('VariableExpressionValidator', () => {
 
     it('should validate protected variable in same class', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('protectedVar', TypePromotionSystem.INTEGER, 'Protected');
+      const variable = createMockVariable(
+        'protectedVar',
+        TypePromotionSystem.INTEGER,
+        'Protected',
+      );
       const symbolTable = new Map([['protectedVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableVisibility(
@@ -186,7 +207,11 @@ describe('VariableExpressionValidator', () => {
 
     it('should validate global variable', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('globalVar', TypePromotionSystem.INTEGER, 'Global');
+      const variable = createMockVariable(
+        'globalVar',
+        TypePromotionSystem.INTEGER,
+        'Global',
+      );
       const symbolTable = new Map([['globalVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableVisibility(
@@ -202,7 +227,12 @@ describe('VariableExpressionValidator', () => {
   describe('validateVariableContext', () => {
     it('should validate static variable in static context', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('staticVar', TypePromotionSystem.INTEGER, 'Public', true);
+      const variable = createMockVariable(
+        'staticVar',
+        TypePromotionSystem.INTEGER,
+        'Public',
+        true,
+      );
       const symbolTable = new Map([['staticVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableContext(
@@ -217,7 +247,12 @@ describe('VariableExpressionValidator', () => {
 
     it('should validate instance variable in instance context', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('instanceVar', TypePromotionSystem.INTEGER, 'Public', false);
+      const variable = createMockVariable(
+        'instanceVar',
+        TypePromotionSystem.INTEGER,
+        'Public',
+        false,
+      );
       const symbolTable = new Map([['instanceVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableContext(
@@ -232,7 +267,12 @@ describe('VariableExpressionValidator', () => {
 
     it('should reject static variable in instance context', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('staticVar', TypePromotionSystem.INTEGER, 'Public', true);
+      const variable = createMockVariable(
+        'staticVar',
+        TypePromotionSystem.INTEGER,
+        'Public',
+        true,
+      );
       const symbolTable = new Map([['staticVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableContext(
@@ -248,7 +288,12 @@ describe('VariableExpressionValidator', () => {
 
     it('should allow instance variable in static context (if accessible)', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('instanceVar', TypePromotionSystem.INTEGER, 'Public', false);
+      const variable = createMockVariable(
+        'instanceVar',
+        TypePromotionSystem.INTEGER,
+        'Public',
+        false,
+      );
       const symbolTable = new Map([['instanceVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableContext(
@@ -265,7 +310,10 @@ describe('VariableExpressionValidator', () => {
   describe('validateVariableType', () => {
     it('should return correct type for integer variable', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('intVar', TypePromotionSystem.INTEGER);
+      const variable = createMockVariable(
+        'intVar',
+        TypePromotionSystem.INTEGER,
+      );
       const symbolTable = new Map([['intVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableExpression(
@@ -295,7 +343,10 @@ describe('VariableExpressionValidator', () => {
 
     it('should return correct type for boolean variable', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('boolVar', TypePromotionSystem.BOOLEAN);
+      const variable = createMockVariable(
+        'boolVar',
+        TypePromotionSystem.BOOLEAN,
+      );
       const symbolTable = new Map([['boolVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableExpression(
@@ -325,7 +376,10 @@ describe('VariableExpressionValidator', () => {
 
     it('should return correct type for decimal variable', () => {
       const scope = createMockScope();
-      const variable = createMockVariable('decVar', TypePromotionSystem.DECIMAL);
+      const variable = createMockVariable(
+        'decVar',
+        TypePromotionSystem.DECIMAL,
+      );
       const symbolTable = new Map([['decVar', variable]]);
 
       const result = VariableExpressionValidator.validateVariableExpression(
@@ -338,4 +392,4 @@ describe('VariableExpressionValidator', () => {
       expect(result.type).toBe(TypePromotionSystem.DECIMAL);
     });
   });
-}); 
+});

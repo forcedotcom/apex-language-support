@@ -189,7 +189,6 @@ describe('DocumentCloseProcessingService', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
 
-
     it('should log document close processing completion', async () => {
       const event: TextDocumentChangeEvent<TextDocument> = {
         document: {

@@ -7,12 +7,15 @@
  */
 
 import { DocumentSymbolParams } from 'vscode-languageserver';
-import { LoggerInterface, getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  LoggerInterface,
+  getLogger,
+  ApexSettingsManager,
+} from '@salesforce/apex-lsp-shared';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { DiagnosticProcessingService } from '../../src/services/DiagnosticProcessingService';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
-import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 // Mock dependencies
 jest.mock('@salesforce/apex-lsp-parser-ast', () => {

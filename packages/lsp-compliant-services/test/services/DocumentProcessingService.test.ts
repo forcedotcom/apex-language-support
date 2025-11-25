@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TextDocumentChangeEvent, Diagnostic } from 'vscode-languageserver';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import { Effect, Fiber } from 'effect';
@@ -19,7 +19,6 @@ import {
   offer,
   SchedulerInitializationService,
   type CompilationResult,
-  type CompilationResultWithComments,
 } from '@salesforce/apex-lsp-parser-ast';
 import { DocumentProcessingService } from '../../src/services/DocumentProcessingService';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
