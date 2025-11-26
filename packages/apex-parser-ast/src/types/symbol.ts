@@ -339,8 +339,6 @@ export interface ApexSymbol {
   location: SymbolLocation;
   fileUri: string;
   parentId: string | null;
-
-  // Legacy compatibility - will be removed in Phase 5
   key: SymbolKey;
 
   // Optional properties (lazy loaded)
@@ -359,7 +357,6 @@ export interface ApexSymbol {
   _isLoaded: boolean;
   _loadPromise?: Promise<void>;
 
-  // Legacy compatibility - will be removed in Phase 5
   modifiers: SymbolModifiers;
 }
 
