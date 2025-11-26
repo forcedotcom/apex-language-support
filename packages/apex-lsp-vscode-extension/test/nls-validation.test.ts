@@ -35,7 +35,7 @@ describe('NLS Validation', () => {
       const nlsKeys = Object.keys(packageNls);
 
       // Check each configuration property has an NLS reference
-      for (const [key, value] of Object.entries(properties)) {
+      for (const [, value] of Object.entries(properties)) {
         if (typeof value === 'object' && value !== null) {
           const configValue = value as any;
           if (
@@ -54,7 +54,7 @@ describe('NLS Validation', () => {
 
           // Check nested properties for missing artifact settings
           if (configValue.properties) {
-            for (const [nestedKey, nestedValue] of Object.entries(
+            for (const [, nestedValue] of Object.entries(
               configValue.properties,
             )) {
               const nestedConfigValue = nestedValue as any;
@@ -229,7 +229,7 @@ describe('NLS Validation', () => {
       };
 
       // Check that descriptions are meaningful (not just placeholder text)
-      for (const [key, description] of Object.entries(descriptions)) {
+      for (const [, description] of Object.entries(descriptions)) {
         expect(description).not.toMatch(/^(TODO|FIXME|TBD|placeholder)/i);
         expect(description.length).toBeGreaterThan(10); // At least 10 characters
         expect(description).not.toContain('undefined');

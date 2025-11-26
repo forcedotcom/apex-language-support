@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, Priority } from '@salesforce/apex-lsp-shared';
 import { SymbolTable } from '../types/symbol';
 import { ApexSymbolManager } from './ApexSymbolManager';
 import {
@@ -15,6 +15,7 @@ import {
   TaskStatus,
   QueueStats,
 } from './ApexSymbolIndexingService';
+import { SchedulerInitializationService } from '../scheduler/SchedulerInitializationService';
 
 /**
  * Singleton manager for coordinating Apex symbol processing
@@ -49,11 +50,15 @@ export class ApexSymbolProcessingManager {
   /**
    * Initialize the symbol processing system
    */
-  initialize(): void {
+  async initialize(): Promise<void> {
     if (this.isInitialized) {
       this.logger.warn(() => 'ApexSymbolProcessingManager already initialized');
       return;
     }
+
+    // Ensure scheduler is initialized (shared across packages)
+    const schedulerService = SchedulerInitializationService.getInstance();
+    await schedulerService.ensureInitialized();
 
     this.isInitialized = true;
     this.logger.debug(
@@ -126,7 +131,7 @@ export class ApexSymbolProcessingManager {
     return this.symbolIndexingService.scheduleCommentAssociations(
       fileUri,
       associations,
-      'NORMAL',
+      Priority.Normal,
     );
   }
 

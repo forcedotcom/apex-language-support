@@ -16,5 +16,7 @@ module.exports = {
       '<rootDir>/../apex-lsp-testbed/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
-  globalTeardown: '<rootDir>/test/teardown.js',
+  globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
+  // Increase test timeout to allow cleanup of setTimeout-based monitoring tasks
+  testTimeout: 30000,
 };

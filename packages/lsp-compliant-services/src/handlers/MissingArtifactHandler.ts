@@ -6,13 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { LoggerInterface, Priority } from '@salesforce/apex-lsp-shared';
 import type {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
 import type { BlockingResult } from '../services/MissingArtifactResolutionService';
-import { LSPQueueManager } from '../queue/LSPQueueManager';
+import { LSPQueueManager } from '../queue';
 
 /**
  * Interface for LSP connection to communicate with client
@@ -118,7 +118,7 @@ export class MissingArtifactHandler {
         'findMissingArtifact',
         params,
         {
-          priority: 'HIGH',
+          priority: Priority.High,
           timeout: params.timeoutMsHint || 2000, // Use client hint or default
         },
       );
@@ -148,7 +148,7 @@ export class MissingArtifactHandler {
     try {
       // Queue the request for background processing
       await this.queueManager.submitRequest('findMissingArtifact', params, {
-        priority: 'LOW',
+        priority: Priority.Low,
         timeout: 30000, // Longer timeout for background processing
       });
 
@@ -223,8 +223,8 @@ export class MissingArtifactHandler {
   /**
    * Get queue statistics for monitoring
    */
-  public getQueueStats() {
-    return this.queueManager.getStats();
+  public async getQueueStats() {
+    return await this.queueManager.getStats();
   }
 }
 

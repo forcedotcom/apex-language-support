@@ -8,11 +8,11 @@
 
 /**
  * Language Server Module Tests
- * 
+ *
  * Note: The language server implementation has been significantly refactored.
  * The previous tests were testing against an outdated API that no longer exists.
  * These tests have been removed as they were testing non-existent functionality.
- * 
+ *
  * TODO: Add new tests that match the current language server implementation.
  */
 

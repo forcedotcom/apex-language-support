@@ -890,7 +890,8 @@ describe('ApexSymbolManager', () => {
 
         // Verify FQN was calculated
         expect(foundClass.fqn).toBeDefined();
-        expect(foundClass.fqn).toBe('TestClass');
+        // FQN is normalized to lowercase for Apex case-insensitive convention
+        expect(foundClass.fqn).toBe('testclass');
       }
     });
 

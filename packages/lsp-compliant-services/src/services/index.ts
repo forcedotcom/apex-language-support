@@ -8,6 +8,16 @@
 
 // Export services
 export * from './DocumentProcessingService';
+// DocumentOpenBatcher types are re-exported via DocumentProcessingService to avoid duplicates
+export type {
+  DocumentOpenBatcherService,
+  DocumentOpenBatcher,
+  DocumentOpenBatchConfig,
+} from './DocumentOpenBatcher';
+export {
+  makeDocumentOpenBatcher,
+  DEFAULT_BATCH_CONFIG,
+} from './DocumentOpenBatcher';
 export * from './DocumentSaveProcessingService';
 export * from './DocumentStateCache';
 export * from './DocumentCloseProcessingService';
@@ -17,10 +27,6 @@ export * from './HoverProcessingService';
 export * from './BackgroundProcessingInitializationService';
 export * from './CompletionProcessingService';
 
-// Export LSP queue system
-export * from '../queue';
-
-// Export new registry system
-export * from '../registry';
+// Queue and registry are now exported from @salesforce/apex-lsp-parser-ast
 export * from '../factories';
 export * from '../config';

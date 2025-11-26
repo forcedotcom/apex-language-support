@@ -11,7 +11,7 @@ import { SymbolResolutionContext } from '../../types/ISymbolManager';
 /**
  * LSP request types that require position-based resolution
  */
-export type LSPRequestType =
+export type ResolutionRequestType =
   | 'hover'
   | 'definition'
   | 'references'
@@ -29,7 +29,7 @@ export interface ResolutionPosition {
  * Resolution request with type and position information
  */
 export interface ResolutionRequest {
-  type: LSPRequestType;
+  type: ResolutionRequestType;
   position: ResolutionPosition;
 }
 
@@ -60,6 +60,6 @@ export interface ResolutionResult {
  * Enhanced resolution context with request type information
  */
 export interface EnhancedResolutionContext extends SymbolResolutionContext {
-  requestType?: LSPRequestType;
+  requestType?: ResolutionRequestType;
   position?: ResolutionPosition;
 }

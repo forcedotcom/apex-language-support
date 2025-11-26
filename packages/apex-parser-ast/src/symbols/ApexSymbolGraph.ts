@@ -7,14 +7,25 @@
  */
 
 import { HashMap, DirectedGraph, DirectedVertex } from 'data-structure-typed';
-import { Effect, Queue, Fiber } from 'effect';
+import { Effect } from 'effect';
+import { Priority } from '@salesforce/apex-lsp-shared';
+import {
+  offer,
+  createQueuedItem,
+  metrics,
+} from '../queue/priority-scheduler-utils';
 import {
   getLogger,
   type EnumValue,
   Uint16,
   toUint16,
 } from '@salesforce/apex-lsp-shared';
-import { generateSymbolId, parseSymbolId } from '../types/UriBasedIdGenerator';
+import {
+  generateSymbolId,
+  parseSymbolId,
+  extractFilePathFromUri,
+} from '../types/UriBasedIdGenerator';
+import { CaseInsensitiveHashMap } from '../utils/CaseInsensitiveMap';
 
 import {
   ApexSymbol,
@@ -25,6 +36,16 @@ import {
 import { calculateFQN } from '../utils/FQNUtils';
 import { ResourceLoader } from '../utils/resourceLoader';
 import { isStandardApexUri } from '../types/ProtocolHandler';
+import {
+  getAllNodes as extractGetAllNodes,
+  getAllEdges as extractGetAllEdges,
+  getGraphData as extractGetGraphData,
+  getGraphDataForFile as extractGetGraphDataForFile,
+  getGraphDataByType as extractGetGraphDataByType,
+  getGraphDataAsJSON as extractGetGraphDataAsJSON,
+  getGraphDataForFileAsJSON as extractGetGraphDataForFileAsJSON,
+  getGraphDataByTypeAsJSON as extractGetGraphDataByTypeAsJSON,
+} from '../graphInfo/extractGraphData';
 
 /**
  * Context for symbol resolution
@@ -148,6 +169,7 @@ type DeferredProcessingTask = {
   readonly _tag: 'DeferredProcessingTask';
   readonly symbolName: string;
   readonly taskType: 'processDeferred' | 'retryPending';
+  readonly priority: Priority;
   readonly retryCount: number;
   readonly firstAttemptTime: number;
 };
@@ -166,6 +188,8 @@ interface BatchProcessingResult {
  * Eliminates duplicate symbol storage and delegates to SymbolTable
  */
 export class ApexSymbolGraph {
+  private static instance: ApexSymbolGraph | null = null;
+
   private readonly logger = getLogger();
 
   // OPTIMIZED: Only store references, not full symbols
@@ -192,11 +216,12 @@ export class ApexSymbolGraph {
 
   /**
    * Maps symbol names to arrays of symbol IDs for name-based lookups
-   * Key: Symbol name (e.g., "MyClass", "myMethod")
+   * Key: Symbol name (e.g., "MyClass", "myMethod") - case-insensitive for Apex
    * Value: Array of symbol IDs that have this name
    * Used by: findSymbolByName(), handles overloading and multiple classes with same name
    */
-  private nameIndex: HashMap<string, string[]> = new HashMap();
+  private nameIndex: CaseInsensitiveHashMap<string[]> =
+    new CaseInsensitiveHashMap();
 
   /**
    * Maps file uris to arrays of symbol IDs for file-based lookups
@@ -208,24 +233,25 @@ export class ApexSymbolGraph {
 
   /**
    * Maps fully qualified names to symbol IDs for hierarchical lookups
-   * Key: Fully qualified name (e.g., "MyNamespace.MyClass.myMethod")
+   * Key: Fully qualified name (e.g., "MyNamespace.MyClass.myMethod") - case-insensitive for Apex
    * Value: Symbol ID
    * Used by: findSymbolByFQN(), hierarchical symbol resolution, namespace-aware lookups
    */
-  private fqnIndex: HashMap<string, string> = new HashMap();
+  private fqnIndex: CaseInsensitiveHashMap<string> =
+    new CaseInsensitiveHashMap();
 
   // OPTIMIZED: SymbolTable references for delegation
   private fileToSymbolTable: HashMap<string, SymbolTable> = new HashMap();
   private symbolToFiles: HashMap<string, string[]> = new HashMap();
 
-  // OPTIMIZED: Simple cache for frequently accessed symbols
-  private symbolCache: HashMap<string, ApexSymbol[]> = new HashMap();
+  // OPTIMIZED: Simple cache for frequently accessed symbols (case-insensitive for Apex)
+  private symbolCache: CaseInsensitiveHashMap<ApexSymbol[]> =
+    new CaseInsensitiveHashMap();
   private cacheSize = 0;
   private readonly MAX_CACHE_SIZE = 1000;
 
-  // Deferred references for lazy loading - keyed by symbol name instead of symbol ID
-  private deferredReferences: HashMap<
-    string,
+  // Deferred references for lazy loading - keyed by symbol name instead of symbol ID (case-insensitive for Apex)
+  private deferredReferences: CaseInsensitiveHashMap<
     Array<{
       sourceSymbol: ApexSymbol;
       referenceType: EnumValue<typeof ReferenceType>;
@@ -237,12 +263,11 @@ export class ApexSymbolGraph {
         namespace?: string;
       };
     }>
-  > = new HashMap();
+  > = new CaseInsensitiveHashMap();
 
   // Pending deferred references that failed resolution (source symbol not found)
-  // These are retried when new symbols are added, keyed by source symbol name
-  private pendingDeferredReferences: HashMap<
-    string,
+  // These are retried when new symbols are added, keyed by source symbol name (case-insensitive for Apex)
+  private pendingDeferredReferences: CaseInsensitiveHashMap<
     Array<{
       targetSymbolName: string;
       referenceType: EnumValue<typeof ReferenceType>;
@@ -254,7 +279,7 @@ export class ApexSymbolGraph {
         namespace?: string;
       };
     }>
-  > = new HashMap();
+  > = new CaseInsensitiveHashMap();
 
   private memoryStats = {
     totalSymbols: 0,
@@ -264,11 +289,8 @@ export class ApexSymbolGraph {
     estimatedMemorySavings: 0,
   };
 
-  // Effect-TS Queue infrastructure for deferred reference processing
-  private deferredQueue: Queue.Queue<DeferredProcessingTask>;
-  private workerFiber: any = null;
+  // Deferred reference processing configuration
   private readonly DEFERRED_BATCH_SIZE = 50;
-  private readonly DEFERRED_QUEUE_CAPACITY = 1000;
   private readonly MAX_RETRY_ATTEMPTS = 10;
   private readonly RETRY_DELAY_MS = 100;
   private failedReferences: Map<string, DeferredProcessingTask> = new Map();
@@ -280,101 +302,67 @@ export class ApexSymbolGraph {
     this.resourceLoader = ResourceLoader.getInstance({
       preloadStdClasses: false,
     });
-
-    // Initialize Effect-TS queue for deferred reference processing
-    try {
-      this.deferredQueue = Effect.runSync(
-        Queue.bounded<DeferredProcessingTask>(this.DEFERRED_QUEUE_CAPACITY),
-      );
-      this.startDeferredWorker();
-    } catch (error) {
-      // If queue initialization fails, log and continue without deferred processing
-      this.logger.warn(
-        () => `Failed to initialize deferred reference queue: ${error}`,
-      );
-      // Create a dummy queue to prevent null reference errors
-      // This should not happen in normal operation
-      this.deferredQueue = Effect.runSync(
-        Queue.bounded<DeferredProcessingTask>(1),
-      );
-    }
+    // Note: Deferred reference processing now uses shared priority scheduler
   }
 
   /**
-   * Start the background worker that processes deferred reference tasks from the queue
+   * Get the singleton instance of ApexSymbolGraph
    */
-  private startDeferredWorker(): void {
-    if (this.workerFiber) {
-      this.logger.warn(() => 'Deferred worker already running');
-      return;
+  static getInstance(): ApexSymbolGraph {
+    if (!this.instance) {
+      throw new Error(
+        'ApexSymbolGraph instance not set. Call setInstance() first.',
+      );
     }
+    return this.instance;
+  }
 
-    const self = this;
-    const workerProgram = Effect.gen(function* () {
-      while (true) {
-        const task = yield* Queue.take(self.deferredQueue).pipe(
-          Effect.catchAll((error: unknown) => {
-            // Queue shutdown or interruption - exit the loop
-            const errorMsg =
-              error instanceof Error ? error.message : String(error);
-            if (
-              errorMsg.includes('shutdown') ||
-              errorMsg.includes('interrupt')
-            ) {
-              return Effect.fail(error as Error);
-            }
-            // Other errors - log and continue
-            self.logger.debug(() => `Queue.take error (will retry): ${error}`);
-            return Effect.fail(error as Error);
-          }),
-        );
-        yield* Effect.try({
-          try: () => self.processDeferredTask(task),
-          catch: (error) => new Error(`Deferred processing failed: ${error}`),
-        });
-      }
-    }).pipe(
-      Effect.catchAll((error: unknown) => {
-        // Worker is shutting down - this is expected
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        if (errorMsg.includes('shutdown') || errorMsg.includes('interrupt')) {
-          self.logger.debug(() => 'Deferred worker exiting (shutdown)');
-          return Effect.succeed(undefined);
-        }
-        // Unexpected error - log it
-        self.logger.error(() => `Deferred worker error: ${error}`);
-        return Effect.succeed(undefined);
-      }),
-    );
-
-    this.workerFiber = Effect.runFork(workerProgram);
-    this.logger.debug(() => 'Deferred reference worker started');
+  /**
+   * Set the singleton instance of ApexSymbolGraph
+   */
+  static setInstance(graph: ApexSymbolGraph): void {
+    this.instance = graph;
   }
 
   /**
    * Process a deferred reference task with retry logic
+   * Returns an Effect for use with the priority scheduler
    */
-  private processDeferredTask(task: DeferredProcessingTask): void {
-    try {
-      if (task.taskType === 'processDeferred') {
-        const result = this.processDeferredReferencesBatch(task.symbolName);
-        if (result.needsRetry) {
-          this.requeueTask(task, result.reason);
+  private processDeferredTask(
+    task: DeferredProcessingTask,
+  ): Effect.Effect<void, Error, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      try {
+        // Yield before starting batch processing
+        yield* Effect.yieldNow();
+
+        if (task.taskType === 'processDeferred') {
+          const result = yield* self.processDeferredReferencesBatchEffect(
+            task.symbolName,
+          );
+          if (result.needsRetry) {
+            self.requeueTask(task, result.reason);
+          }
+        } else {
+          const result = yield* self.retryPendingDeferredReferencesBatchEffect(
+            task.symbolName,
+          );
+          if (result.needsRetry) {
+            self.requeueTask(task, result.reason);
+          }
         }
-      } else {
-        const result = this.retryPendingDeferredReferencesBatch(
-          task.symbolName,
+      } catch (error) {
+        self.logger.error(
+          () =>
+            `Error processing deferred task for ${task.symbolName}: ${error}`,
         );
-        if (result.needsRetry) {
-          this.requeueTask(task, result.reason);
-        }
+        self.requeueTask(task, 'processing_error');
+        return yield* Effect.fail(
+          new Error(`Deferred processing failed: ${error}`),
+        );
       }
-    } catch (error) {
-      this.logger.error(
-        () => `Error processing deferred task for ${task.symbolName}: ${error}`,
-      );
-      this.requeueTask(task, 'processing_error');
-    }
+    });
   }
 
   /**
@@ -392,29 +380,44 @@ export class ApexSymbolGraph {
       return;
     }
 
-    // Re-queue with incremented retry count
+    // Re-queue with incremented retry count and lower priority for retries
     const retryTask: DeferredProcessingTask = {
       ...task,
       retryCount: task.retryCount + 1,
+      priority: Priority.Low, // Retries use lower priority
     };
 
     // Use setTimeout for retry delay to avoid async Effect issues
     // This schedules the re-queue after the delay without blocking
     // Track the timer so it can be cleared on shutdown
     // Use .unref() to prevent the timer from keeping the process alive
+    const self = this;
     const timer = setTimeout(() => {
-      this.activeRetryTimers.delete(timer);
+      self.activeRetryTimers.delete(timer);
       try {
-        Effect.runSync(Queue.offer(this.deferredQueue, retryTask));
+        // Create QueuedItem and schedule with priority scheduler
+        const queuedItemEffect = createQueuedItem(
+          self.processDeferredTask(retryTask),
+          retryTask.taskType === 'processDeferred'
+            ? 'deferred-reference-process'
+            : 'deferred-reference-retry',
+        );
+        const scheduledTaskEffect = Effect.gen(function* () {
+          const queuedItem = yield* queuedItemEffect;
+          return yield* offer(retryTask.priority, queuedItem);
+        });
+        Effect.runSync(scheduledTaskEffect);
       } catch (error) {
-        // Queue might be shutdown, ignore errors during shutdown
+        // Scheduler might not be initialized or other errors
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         if (
-          !(error instanceof Error && error.message.includes('shutdown')) &&
-          !(error instanceof Error && error.message.includes('interrupt'))
+          !errorMessage.includes('not initialized') &&
+          !errorMessage.includes('shutdown')
         ) {
-          this.logger.error(
+          self.logger.error(
             () =>
-              `Failed to re-queue deferred task for ${task.symbolName}: ${error}`,
+              `Failed to re-queue deferred task for ${task.symbolName}: ${errorMessage}`,
           );
         }
       }
@@ -434,7 +437,9 @@ export class ApexSymbolGraph {
     fileUri: string,
     symbolTable?: SymbolTable,
   ): void {
-    const symbolId = this.getSymbolId(symbol, fileUri);
+    // Normalize URI once at the start to ensure consistency throughout
+    const normalizedFileUri = extractFilePathFromUri(fileUri);
+    const symbolId = this.getSymbolId(symbol, normalizedFileUri);
 
     // Check if symbol already exists to prevent duplicates
     if (this.symbolIds.has(symbolId)) {
@@ -444,13 +449,15 @@ export class ApexSymbolGraph {
     // OPTIMIZED: Register SymbolTable immediately for delegation
     let targetSymbolTable: SymbolTable;
     if (symbolTable) {
-      this.registerSymbolTable(symbolTable, fileUri);
+      // Register with normalized URI to match what getSymbol() will look up
+      // registerSymbolTable() is now idempotent and will skip if same instance already registered
+      this.registerSymbolTable(symbolTable, normalizedFileUri);
       targetSymbolTable = symbolTable;
     } else {
       // For backward compatibility, create a minimal SymbolTable if none provided
       // This ensures the symbol can be found later
-      this.ensureSymbolTableForFile(fileUri);
-      targetSymbolTable = this.fileToSymbolTable.get(fileUri)!;
+      this.ensureSymbolTableForFile(normalizedFileUri);
+      targetSymbolTable = this.fileToSymbolTable.get(normalizedFileUri)!;
     }
 
     // Add the symbol to the SymbolTable
@@ -459,35 +466,48 @@ export class ApexSymbolGraph {
     // OPTIMIZED: Only track existence, don't store full symbol
     this.symbolIds.add(symbolId);
 
-    // Add to indexes for fast lookups
-    this.symbolFileMap.set(symbolId, fileUri);
+    // Add to indexes for fast lookups (use normalized URI)
+    this.symbolFileMap.set(symbolId, normalizedFileUri);
 
-    // BUG FIX: Calculate and store FQN if not already present
+    // Calculate and store FQN, recalculating if needed to include parent hierarchy
+    // For child symbols (methods, fields, etc.), the initial FQN might only be namespace.name
+    // We recalculate here to get the full hierarchy (namespace.parent.name)
     let fqnToUse = symbol.fqn;
 
-    if (!fqnToUse) {
-      // Create a parent resolution function that works with the symbol's parent relationship
-      const getParent = (parentId: string): ApexSymbol | null => {
-        // First try to find by parentId in the symbol table
-        const allSymbols = targetSymbolTable.getAllSymbols();
-        const parentSymbol = allSymbols.find((s) => s.id === parentId);
-        if (parentSymbol) {
-          return parentSymbol;
-        }
+    // Create a parent resolution function that works with the symbol's parent relationship
+    const getParent = (parentId: string): ApexSymbol | null => {
+      // First try to find by parentId in the symbol table
+      const allSymbols = targetSymbolTable.getAllSymbols();
+      const parentSymbol = allSymbols.find((s) => s.id === parentId);
+      if (parentSymbol) {
+        return parentSymbol;
+      }
 
-        // If not found, try to find by name (for backward compatibility)
-        const symbolsByName = allSymbols.filter((s) => s.name === parentId);
-        if (symbolsByName.length > 0) {
-          return symbolsByName[0];
-        }
+      // If not found, try to find by name (for backward compatibility)
+      const symbolsByName = allSymbols.filter((s) => s.name === parentId);
+      if (symbolsByName.length > 0) {
+        return symbolsByName[0];
+      }
 
-        return null;
-      };
+      return null;
+    };
 
-      fqnToUse = calculateFQN(symbol, undefined, getParent);
-      // Store the calculated FQN on the symbol for consistency
+    // Recalculate FQN to ensure it includes the full parent hierarchy
+    // This is especially important for child symbols that initially only have namespace.name
+    const recalculatedFQN = calculateFQN(
+      symbol,
+      { normalizeCase: true },
+      getParent,
+    );
+
+    // Use recalculated FQN if:
+    // 1. No FQN was set initially, OR
+    // 2. The recalculated FQN is different (includes parent hierarchy)
+    if (!fqnToUse || recalculatedFQN !== fqnToUse) {
+      fqnToUse = recalculatedFQN;
+      // Store the calculated FQN on the symbol and key for consistency
       symbol.fqn = fqnToUse;
-    } else {
+      symbol.key.fqn = fqnToUse;
     }
 
     if (fqnToUse) {
@@ -501,10 +521,11 @@ export class ApexSymbolGraph {
       this.nameIndex.set(symbol.name, existingNames);
     }
 
-    const fileSymbols = this.fileIndex.get(fileUri) || [];
+    // Use normalized URI for fileIndex to ensure consistency
+    const fileSymbols = this.fileIndex.get(normalizedFileUri) || [];
     if (!fileSymbols.includes(symbolId)) {
       fileSymbols.push(symbolId);
-      this.fileIndex.set(fileUri, fileSymbols);
+      this.fileIndex.set(normalizedFileUri, fileSymbols);
     }
 
     // OPTIMIZED: Add lightweight node to graph
@@ -548,16 +569,27 @@ export class ApexSymbolGraph {
         _tag: 'DeferredProcessingTask',
         symbolName: symbol.name,
         taskType: 'processDeferred',
+        priority: Priority.Normal, // Standard processing uses Normal priority
         retryCount: 0,
         firstAttemptTime: Date.now(),
       };
       try {
-        Effect.runSync(Queue.offer(this.deferredQueue, task));
+        const queuedItemEffect = createQueuedItem(
+          this.processDeferredTask(task),
+          'deferred-reference-process',
+        );
+        const scheduledTaskEffect = Effect.gen(function* () {
+          const queuedItem = yield* queuedItemEffect;
+          return yield* offer(task.priority, queuedItem);
+        });
+        Effect.runSync(scheduledTaskEffect);
       } catch (error) {
-        // If queue offer fails, log and continue - deferred processing will retry later
+        // If scheduling fails, log and continue - deferred processing will retry later
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         this.logger.debug(
           () =>
-            `Failed to enqueue deferred processing task for ${symbol.name}: ${error}`,
+            `Failed to enqueue deferred processing task for ${symbol.name}: ${errorMessage}`,
         );
       }
     }
@@ -568,16 +600,27 @@ export class ApexSymbolGraph {
         _tag: 'DeferredProcessingTask',
         symbolName: symbol.name,
         taskType: 'retryPending',
+        priority: Priority.Low, // Retry operations use Low priority
         retryCount: 0,
         firstAttemptTime: Date.now(),
       };
       try {
-        Effect.runSync(Queue.offer(this.deferredQueue, task));
+        const queuedItemEffect = createQueuedItem(
+          this.processDeferredTask(task),
+          'deferred-reference-retry',
+        );
+        const scheduledTaskEffect = Effect.gen(function* () {
+          const queuedItem = yield* queuedItemEffect;
+          return yield* offer(task.priority, queuedItem);
+        });
+        Effect.runSync(scheduledTaskEffect);
       } catch (error) {
-        // If queue offer fails, log and continue - retry will happen later
+        // If scheduling fails, log and continue - retry will happen later
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         this.logger.debug(
           () =>
-            `Failed to enqueue pending retry task for ${symbol.name}: ${error}`,
+            `Failed to enqueue pending retry task for ${symbol.name}: ${errorMessage}`,
         );
       }
     }
@@ -604,7 +647,9 @@ export class ApexSymbolGraph {
     // Parse URI-based ID
     const parsed = parseSymbolId(symbolId);
     const symbolName = parsed.name;
-    const symbolTable = this.fileToSymbolTable.get(parsed.uri);
+    // Normalize URI to ensure consistent lookup (matches how SymbolTables are registered)
+    const normalizedUri = extractFilePathFromUri(parsed.uri);
+    const symbolTable = this.fileToSymbolTable.get(normalizedUri);
     if (!symbolTable) {
       return null;
     }
@@ -618,7 +663,7 @@ export class ApexSymbolGraph {
       // Always create a deep copy to avoid mutating the original symbol
       const symbolCopy = {
         ...matchingSymbol,
-        fileUri: parsed.uri,
+        fileUri: normalizedUri,
         location: {
           ...matchingSymbol.location,
           symbolRange: { ...matchingSymbol.location.symbolRange },
@@ -647,7 +692,6 @@ export class ApexSymbolGraph {
     const symbolIds = this.nameIndex.get(name) || [];
 
     const symbols: ApexSymbol[] = [];
-
     for (const symbolId of symbolIds) {
       const symbol = this.getSymbol(symbolId);
       if (symbol) {
@@ -655,12 +699,11 @@ export class ApexSymbolGraph {
       }
     }
 
-    // TEMPORARY: Disable symbolCache - never cache results
     // Cache the result if cache isn't full
-    // if (this.cacheSize < this.MAX_CACHE_SIZE) {
-    //   this.symbolCache.set(name, symbols);
-    //   this.cacheSize++;
-    // }
+    if (this.cacheSize < this.MAX_CACHE_SIZE) {
+      this.symbolCache.set(name, symbols);
+      this.cacheSize++;
+    }
 
     return symbols;
   }
@@ -710,9 +753,12 @@ export class ApexSymbolGraph {
 
   /**
    * OPTIMIZED: Get symbols in file by delegating to SymbolTable
+   * Normalizes URI to ensure consistent lookup
    */
   getSymbolsInFile(fileUri: string): ApexSymbol[] {
-    const symbolIds = this.fileIndex.get(fileUri) || [];
+    // Normalize URI to match how SymbolTables are registered
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    const symbolIds = this.fileIndex.get(normalizedUri) || [];
 
     const symbols: ApexSymbol[] = [];
 
@@ -721,6 +767,11 @@ export class ApexSymbolGraph {
       if (symbol) {
         symbols.push(symbol);
       } else {
+        this.logger.debug(
+          () =>
+            `[getSymbolsInFile] Failed to retrieve symbol for symbolId: ${symbolId} ` +
+            `(fileUri: ${normalizedUri})`,
+        );
       }
     }
 
@@ -840,6 +891,8 @@ export class ApexSymbolGraph {
 
   /**
    * OPTIMIZED: Find references to a symbol
+   * Note: This is a synchronous function. For large graphs, consider calling from
+   * an async context or using the async variant if available.
    */
   findReferencesTo(symbol: ApexSymbol): ReferenceResult[] {
     // Find the actual symbol in the graph by name and file path
@@ -902,6 +955,8 @@ export class ApexSymbolGraph {
 
   /**
    * OPTIMIZED: Find references from a symbol
+   * Note: This is a synchronous function. For large graphs, consider calling from
+   * an async context or using the async variant if available.
    */
   findReferencesFrom(symbol: ApexSymbol): ReferenceResult[] {
     // Find the actual symbol in the graph by name and file path
@@ -1103,16 +1158,19 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Get the current size of the deferred reference processing queue
+   * Get the current size of the deferred reference processing queue (from scheduler metrics)
    */
   getDeferredQueueSize(): number {
     try {
-      const size = Effect.runSync(Queue.size(this.deferredQueue));
-      // Queue.size can return -1 if queue is shutdown or in invalid state
-      return size >= 0 ? size : 0;
+      const schedulerMetrics = Effect.runSync(metrics());
+      // Sum Normal and Low priority queues (where deferred tasks are scheduled)
+      return (
+        (schedulerMetrics.queueSizes[Priority.Normal] || 0) +
+        (schedulerMetrics.queueSizes[Priority.Low] || 0)
+      );
     } catch (error) {
-      // If queue operations fail, return 0
-      this.logger.debug(() => `Failed to get queue size: ${error}`);
+      // If scheduler not initialized or error getting metrics, return 0
+      this.logger.debug(() => `Failed to get deferred queue size: ${error}`);
       return 0;
     }
   }
@@ -1132,39 +1190,26 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Shutdown the deferred reference worker and queue
+   * Shutdown deferred reference processing
+   * Note: The scheduler itself is shared and should not be shut down here.
+   * Only cleanup local resources (retry timers).
    */
   private shutdownDeferredWorker(): void {
     try {
-      // Clear all active retry timers first
+      // Clear all active retry timers
       for (const timer of this.activeRetryTimers) {
         clearTimeout(timer);
       }
       this.activeRetryTimers.clear();
 
-      // Shutdown the queue first (this will cause Queue.take to fail and exit the loop)
-      try {
-        Effect.runSync(Queue.shutdown(this.deferredQueue));
-      } catch (error) {
-        // Queue might already be shutdown, ignore
-        this.logger.debug(() => `Error shutting down queue: ${error}`);
-      }
-
-      // Then interrupt the worker fiber (in case it's still running)
-      if (this.workerFiber) {
-        try {
-          Effect.runSync(Fiber.interrupt(this.workerFiber));
-        } catch (error) {
-          // Fiber might already be interrupted, ignore
-          this.logger.debug(() => `Error interrupting worker fiber: ${error}`);
-        }
-        this.workerFiber = null;
-      }
-
-      this.logger.debug(() => 'Deferred reference worker shutdown complete');
+      this.logger.debug(
+        () => 'Deferred reference processing shutdown complete',
+      );
     } catch (error) {
-      // Ignore errors during shutdown - queue might already be shutdown
-      this.logger.debug(() => `Error during worker shutdown: ${error}`);
+      // Ignore errors during shutdown
+      this.logger.debug(
+        () => `Error during deferred processing shutdown: ${error}`,
+      );
     }
   }
 
@@ -1175,10 +1220,8 @@ export class ApexSymbolGraph {
     symbolName: string,
     context?: ResolutionContext,
   ): SymbolLookupResult | null {
-    const symbolIds =
-      this.nameIndex.get(symbolName) ||
-      this.nameIndex.get(symbolName.toLowerCase()) ||
-      [];
+    // CaseInsensitiveHashMap handles case-insensitive lookup automatically
+    const symbolIds = this.nameIndex.get(symbolName) || [];
 
     if (symbolIds.length === 0) {
       return null;
@@ -1239,25 +1282,68 @@ export class ApexSymbolGraph {
 
   /**
    * Get SymbolTable for a file
+   * Normalizes URI to ensure consistent lookup
    */
   getSymbolTableForFile(fileUri: string): SymbolTable | undefined {
-    return this.fileToSymbolTable.get(fileUri);
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    return this.fileToSymbolTable.get(normalizedUri);
   }
 
   /**
    * Register SymbolTable for a file
+   * Ensures URI is normalized consistently with getSymbolId() to avoid lookup mismatches
    */
   registerSymbolTable(symbolTable: SymbolTable, fileUri: string): void {
-    this.fileToSymbolTable.set(fileUri, symbolTable);
+    // Normalize URI the same way getSymbolId() does to ensure consistency
+    // This ensures SymbolTable lookup in getSymbol() will succeed
+    const normalizedUri = extractFilePathFromUri(fileUri);
+
+    // Check if the same SymbolTable instance is already registered
+    const existing = this.fileToSymbolTable.get(normalizedUri);
+    if (existing === symbolTable) {
+      // Same instance already registered, skip redundant registration
+      return;
+    }
+
+    this.logger.debug(
+      () =>
+        `[registerSymbolTable] Registering SymbolTable for URI: ${normalizedUri} ` +
+        `(original: ${fileUri}, ` +
+        `symbolCount: ${symbolTable.getAllSymbols().length})`,
+    );
+
+    // Use normalized URI for registration to match what getSymbol() will look up
+    // This allows replacing placeholders created by ensureSymbolTableForFile()
+    this.fileToSymbolTable.set(normalizedUri, symbolTable);
+
+    // Verify registration succeeded
+    const registered = this.fileToSymbolTable.get(normalizedUri);
+    if (!registered) {
+      this.logger.warn(
+        () =>
+          `[registerSymbolTable] Failed to register SymbolTable for URI: ${normalizedUri}`,
+      );
+    } else {
+      this.logger.debug(
+        () =>
+          `[registerSymbolTable] Successfully registered SymbolTable for URI: ${normalizedUri}`,
+      );
+    }
   }
 
   /**
    * Ensure a SymbolTable is registered for a file if it doesn't exist
+   * Normalizes URI to ensure consistency with SymbolTable registration
    */
   private ensureSymbolTableForFile(fileUri: string): void {
-    if (!this.fileToSymbolTable.has(fileUri)) {
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    if (!this.fileToSymbolTable.has(normalizedUri)) {
       const symbolTable = new SymbolTable();
-      this.fileToSymbolTable.set(fileUri, symbolTable);
+      this.fileToSymbolTable.set(normalizedUri, symbolTable);
+      this.logger.debug(
+        () =>
+          `[ensureSymbolTableForFile] Created new SymbolTable for URI: ${normalizedUri}`,
+      );
     }
   }
 
@@ -1443,34 +1529,17 @@ export class ApexSymbolGraph {
       estimatedMemorySavings: 0,
     };
 
-    // Reinitialize queue and worker
-    try {
-      this.deferredQueue = Effect.runSync(
-        Queue.bounded<DeferredProcessingTask>(this.DEFERRED_QUEUE_CAPACITY),
-      );
-      this.startDeferredWorker();
-    } catch (error) {
-      // If reinitialization fails, log and continue
-      this.logger.warn(
-        () => `Failed to reinitialize deferred reference queue: ${error}`,
-      );
-      // Create a minimal queue to prevent null reference errors
-      try {
-        this.deferredQueue = Effect.runSync(
-          Queue.bounded<DeferredProcessingTask>(1),
-        );
-      } catch (e) {
-        // If even minimal queue creation fails, we're in a bad state
-        this.logger.error(() => `Critical: Cannot create deferred queue: ${e}`);
-      }
-    }
+    // Note: Deferred reference processing now uses shared priority scheduler
+    // No queue initialization needed here
   }
 
   /**
    * Remove a file's symbols from the graph
+   * Normalizes URI to ensure consistent lookup
    */
   removeFile(fileUri: string): void {
-    const symbolIds = this.fileIndex.get(fileUri) || [];
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    const symbolIds = this.fileIndex.get(normalizedUri) || [];
 
     for (const symbolId of symbolIds) {
       // Remove from graph
@@ -1499,11 +1568,11 @@ export class ApexSymbolGraph {
       }
     }
 
-    // Remove from file index
-    this.fileIndex.delete(fileUri);
+    // Remove from file index (use normalized URI)
+    this.fileIndex.delete(normalizedUri);
 
-    // Remove SymbolTable reference
-    this.fileToSymbolTable.delete(fileUri);
+    // Remove SymbolTable reference (use normalized URI)
+    this.fileToSymbolTable.delete(normalizedUri);
 
     this.memoryStats.totalSymbols -= symbolIds.length;
   }
@@ -1518,7 +1587,7 @@ export class ApexSymbolGraph {
     }
 
     // Extract just the file path from the fileUri (remove symbol name and line number)
-    const theFileUri = this.extractFilePathFromUri(
+    const theFileUri = extractFilePathFromUri(
       fileUri || symbol.fileUri || 'unknown',
     );
     const lineNumber = symbol.location?.identifierRange.startLine;
@@ -1528,26 +1597,6 @@ export class ApexSymbolGraph {
       undefined, // scopePath not available here
       lineNumber,
     );
-  }
-
-  /**
-   * Extract just the file path from a URI that may contain symbol name and line number
-   */
-  private extractFilePathFromUri(uri: string): string {
-    // If it's a built-in URI, return as-is
-    // TODO: remove once all apex classes are converted to use file uris
-    if (uri.startsWith('built-in://')) {
-      return uri;
-    }
-
-    // Remove symbol name and line number from the URI
-    // e.g., "file://TestClass.cls:TestClass:2" -> "file://TestClass.cls"
-    const parts = uri.split(':');
-    if (parts.length >= 3 && parts[0] === 'file') {
-      return `${parts[0]}://${parts[1]}`;
-    }
-
-    return uri;
   }
 
   /**
@@ -1765,8 +1814,158 @@ export class ApexSymbolGraph {
   }
 
   /**
+   * Process deferred references for a symbol in batches with retry tracking (Effect-based)
+   * Returns result indicating if retry is needed and why
+   * This version yields periodically to prevent blocking
+   */
+  private processDeferredReferencesBatchEffect(
+    symbolName: string,
+  ): Effect.Effect<BatchProcessingResult, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const deferred = self.deferredReferences.get(symbolName);
+      if (!deferred || deferred.length === 0) {
+        return { needsRetry: false, reason: 'success' };
+      }
+
+      // Find the target symbol by name
+      const targetSymbols = self.findSymbolByName(symbolName);
+      if (targetSymbols.length === 0) {
+        // Target symbol not found - re-queue for retry
+        return { needsRetry: true, reason: 'target_not_found' };
+      }
+
+      // Use the first symbol with this name
+      const targetSymbol = targetSymbols[0];
+      const targetId = self.getSymbolId(targetSymbol, targetSymbol.fileUri);
+
+      // Process in batches to avoid blocking
+      const batchSize = Math.min(self.DEFERRED_BATCH_SIZE, deferred.length);
+      const processed: typeof deferred = [];
+      let hasFailures = false;
+
+      for (let i = 0; i < batchSize; i++) {
+        const ref = deferred[i];
+        if (!ref) continue;
+
+        // Update fileUri lazily if needed (replaces expensive iteration from addSymbol)
+        if (!ref.sourceSymbol.fileUri) {
+          // Find source symbol to get fileUri
+          const sourceSymbols = self.findSymbolByName(ref.sourceSymbol.name);
+          if (sourceSymbols.length > 0) {
+            ref.sourceSymbol.fileUri = sourceSymbols[0].fileUri;
+          }
+        }
+
+        // Find the source symbol in the graph
+        const sourceSymbols = self.findSymbolByName(ref.sourceSymbol.name);
+
+        // If fileUri is undefined, match any symbol with the same name
+        // Otherwise, require exact fileUri match
+        const sourceSymbolInGraph = ref.sourceSymbol.fileUri
+          ? sourceSymbols.find((s) => s.fileUri === ref.sourceSymbol.fileUri)
+          : sourceSymbols[0]; // Take the first symbol with matching name
+
+        if (!sourceSymbolInGraph) {
+          // Source symbol not found - keep for retry later when source symbol is added
+          const pending =
+            self.pendingDeferredReferences.get(ref.sourceSymbol.name) || [];
+          pending.push({
+            targetSymbolName: symbolName,
+            referenceType: ref.referenceType,
+            location: ref.location,
+            context: ref.context,
+          });
+          self.pendingDeferredReferences.set(ref.sourceSymbol.name, pending);
+
+          self.logger.debug(
+            () =>
+              `Source symbol not found for deferred reference: ${ref.sourceSymbol.name}, ` +
+              'will retry when source symbol is added',
+          );
+          processed.push(ref);
+          hasFailures = true;
+          continue;
+        }
+
+        const sourceId = self.getSymbolId(
+          sourceSymbolInGraph,
+          sourceSymbolInGraph.fileUri,
+        );
+
+        // Create optimized reference edge
+        const referenceEdge: ReferenceEdge = {
+          type: ref.referenceType,
+          sourceFileUri: sourceSymbolInGraph.fileUri,
+          targetFileUri: targetSymbol.fileUri,
+          context: ref.context
+            ? {
+                methodName: ref.context.methodName,
+                parameterIndex: ref.context.parameterIndex
+                  ? toUint16(ref.context.parameterIndex)
+                  : undefined,
+                isStatic: ref.context.isStatic,
+                namespace: ref.context.namespace,
+              }
+            : undefined,
+        };
+
+        // Add edge to graph
+        const edgeAdded = self.referenceGraph.addEdge(
+          sourceId,
+          targetId,
+          1,
+          referenceEdge,
+        );
+        if (!edgeAdded) {
+          self.logger.debug(
+            () =>
+              `Failed to add deferred reference edge: ${sourceId} -> ${targetId}`,
+          );
+          processed.push(ref);
+          hasFailures = true;
+          continue;
+        }
+
+        // Update reference count
+        const targetVertex = self.symbolToVertex.get(targetId);
+        if (targetVertex && targetVertex.value) {
+          targetVertex.value.referenceCount++;
+        }
+
+        self.memoryStats.totalEdges++;
+        processed.push(ref);
+
+        // Yield every 10 items to allow other tasks to run
+        if ((i + 1) % 10 === 0) {
+          yield* Effect.yieldNow();
+        }
+      }
+
+      // Remove processed references
+      const remaining = deferred.slice(batchSize);
+      if (remaining.length > 0) {
+        self.deferredReferences.set(symbolName, remaining);
+        return {
+          needsRetry: true,
+          reason: 'partial_processing',
+          remainingCount: remaining.length,
+        };
+      } else {
+        self.deferredReferences.delete(symbolName);
+      }
+
+      return {
+        needsRetry: hasFailures,
+        reason: hasFailures ? 'source_not_found' : 'success',
+      };
+    });
+  }
+
+  /**
    * Process deferred references for a symbol in batches with retry tracking
    * Returns result indicating if retry is needed and why
+   * @deprecated Use processDeferredReferencesBatchEffect for Effect-based processing with yielding
    */
   private processDeferredReferencesBatch(
     symbolName: string,
@@ -1920,8 +2119,128 @@ export class ApexSymbolGraph {
   }
 
   /**
+   * Retry pending deferred references when source symbol is added (Effect-based)
+   * Returns result indicating if retry is needed and why
+   * This version yields periodically to prevent blocking
+   */
+  private retryPendingDeferredReferencesBatchEffect(
+    symbolName: string,
+  ): Effect.Effect<BatchProcessingResult, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const pending = self.pendingDeferredReferences.get(symbolName);
+      if (!pending || pending.length === 0) {
+        return { needsRetry: false, reason: 'success' };
+      }
+
+      // Find the source symbol
+      const sourceSymbols = self.findSymbolByName(symbolName);
+      if (sourceSymbols.length === 0) {
+        // Source symbol not found - re-queue for retry
+        return { needsRetry: true, reason: 'source_not_found' };
+      }
+
+      const sourceSymbol = sourceSymbols[0];
+      const sourceId = self.getSymbolId(sourceSymbol, sourceSymbol.fileUri);
+
+      // Process in batches to avoid blocking
+      const batchSize = Math.min(self.DEFERRED_BATCH_SIZE, pending.length);
+      const processed: typeof pending = [];
+      let hasFailures = false;
+
+      for (let i = 0; i < batchSize; i++) {
+        const ref = pending[i];
+        if (!ref) continue;
+
+        // Find the target symbol by name
+        const targetSymbols = self.findSymbolByName(ref.targetSymbolName);
+        if (targetSymbols.length === 0) {
+          // Target symbol still not found - keep for later retry
+          self.logger.debug(
+            () =>
+              `Target symbol not found for pending deferred reference: ${ref.targetSymbolName}, ` +
+              'will retry when target symbol is added',
+          );
+          processed.push(ref);
+          hasFailures = true;
+          continue;
+        }
+
+        const targetSymbol = targetSymbols[0];
+        const targetId = self.getSymbolId(targetSymbol, targetSymbol.fileUri);
+
+        // Create optimized reference edge
+        const referenceEdge: ReferenceEdge = {
+          type: ref.referenceType,
+          sourceFileUri: sourceSymbol.fileUri,
+          targetFileUri: targetSymbol.fileUri,
+          context: ref.context
+            ? {
+                methodName: ref.context.methodName,
+                parameterIndex: ref.context.parameterIndex
+                  ? toUint16(ref.context.parameterIndex)
+                  : undefined,
+                isStatic: ref.context.isStatic,
+                namespace: ref.context.namespace,
+              }
+            : undefined,
+        };
+
+        // Add edge to graph
+        const edgeAdded = self.referenceGraph.addEdge(
+          sourceId,
+          targetId,
+          1,
+          referenceEdge,
+        );
+        if (!edgeAdded) {
+          self.logger.debug(
+            () =>
+              `Failed to add pending deferred reference edge: ${sourceId} -> ${targetId}`,
+          );
+          processed.push(ref);
+          hasFailures = true;
+          continue;
+        }
+
+        // Update reference count
+        const targetVertex = self.symbolToVertex.get(targetId);
+        if (targetVertex && targetVertex.value) {
+          targetVertex.value.referenceCount++;
+        }
+
+        self.memoryStats.totalEdges++;
+        processed.push(ref);
+
+        // Yield every 10 items to allow other tasks to run
+        if ((i + 1) % 10 === 0) {
+          yield* Effect.yieldNow();
+        }
+      }
+
+      // Remove processed references
+      const remaining = pending.filter((ref) => !processed.includes(ref));
+      if (remaining.length === 0) {
+        self.pendingDeferredReferences.delete(symbolName);
+        return { needsRetry: false, reason: 'success' };
+      } else {
+        // Update with remaining references
+        self.pendingDeferredReferences.set(symbolName, remaining);
+        return {
+          needsRetry: true,
+          reason: hasFailures
+            ? 'target_not_found_or_edge_failed'
+            : 'batch_incomplete',
+          remainingCount: remaining.length,
+        };
+      }
+    });
+  }
+
+  /**
    * Retry pending deferred references when source symbol is added (batch version)
    * Returns result indicating if retry is needed and why
+   * @deprecated Use retryPendingDeferredReferencesBatchEffect for Effect-based processing with yielding
    */
   private retryPendingDeferredReferencesBatch(
     symbolName: string,
@@ -2069,5 +2388,92 @@ export class ApexSymbolGraph {
     const estimatedSymbolSize = 500; // bytes per symbol
     const savedBytes = this.memoryStats.totalSymbols * estimatedSymbolSize;
     return savedBytes;
+  }
+
+  /**
+   * Get all nodes (symbols) in the graph as JSON-serializable data
+   * Leverages existing SymbolTable.toJSON() cleaning patterns
+   */
+  getAllNodes(): import('../types/graph').GraphNode[] {
+    return extractGetAllNodes();
+  }
+
+  /**
+   * Get all edges (references) in the graph as JSON-serializable data
+   */
+  getAllEdges(): import('../types/graph').GraphEdge[] {
+    return extractGetAllEdges();
+  }
+
+  /**
+   * Get complete graph data (nodes + edges) as JSON-serializable data
+   */
+  getGraphData(): import('../types/graph').GraphData {
+    return extractGetGraphData();
+  }
+
+  /**
+   * Get graph data filtered by file as JSON-serializable data
+   */
+  getGraphDataForFile(fileUri: string): import('../types/graph').FileGraphData {
+    return extractGetGraphDataForFile(fileUri);
+  }
+
+  /**
+   * Get graph data filtered by symbol type as JSON-serializable data
+   */
+  getGraphDataByType(
+    symbolType: string,
+  ): import('../types/graph').TypeGraphData {
+    return extractGetGraphDataByType(symbolType);
+  }
+
+  /**
+   * Get graph data as a JSON string (for direct wire transmission)
+   * Leverages existing JSON.stringify patterns
+   */
+  getGraphDataAsJSON(): string {
+    return extractGetGraphDataAsJSON();
+  }
+
+  /**
+   * Get graph data for a file as a JSON string
+   */
+  getGraphDataForFileAsJSON(fileUri: string): string {
+    return extractGetGraphDataForFileAsJSON(fileUri);
+  }
+
+  /**
+   * Get graph data by type as a JSON string
+   */
+  getGraphDataByTypeAsJSON(symbolType: string): string {
+    return extractGetGraphDataByTypeAsJSON(symbolType);
+  }
+
+  /**
+   * Public accessor methods for graph data extraction functions
+   */
+  public getSymbolIds(): Set<string> {
+    return this.symbolIds;
+  }
+
+  public getSymbolToVertex(): HashMap<string, DirectedVertex<ReferenceNode>> {
+    return this.symbolToVertex;
+  }
+
+  public getReferenceGraph(): DirectedGraph<ReferenceNode, ReferenceEdge> {
+    return this.referenceGraph;
+  }
+
+  public getFileToSymbolTable(): HashMap<string, SymbolTable> {
+    return this.fileToSymbolTable;
+  }
+
+  public getFileIndex(): HashMap<string, string[]> {
+    return this.fileIndex;
+  }
+
+  public getLoggerInstance() {
+    return this.logger;
   }
 }

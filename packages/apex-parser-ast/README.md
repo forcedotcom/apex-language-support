@@ -525,3 +525,257 @@ const rangeComments = result.comments.filter(
   (c) => c.startLine >= 10 && c.endLine <= 20,
 );
 ```
+
+## Priority Queue Scheduler
+
+The package includes a high-performance priority-based task scheduler built on Effect-TS. This scheduler enables efficient background processing of tasks with configurable priority levels, making it ideal for language server operations like parsing, indexing, and symbol resolution.
+
+### Features
+
+- **Priority-Based Execution**: Five priority levels (Immediate, High, Normal, Low, Background) ensure critical tasks execute first
+- **Starvation Prevention**: Automatic relief mechanism prevents low-priority tasks from being starved
+- **Singleton Pattern**: Efficient singleton implementation ensures a single scheduler instance across your application
+- **Effect-TS Integration**: Built on Effect-TS for type-safe, composable async operations
+- **Metrics & Monitoring**: Built-in metrics for queue sizes, task counts, and performance monitoring
+- **Graceful Shutdown**: Clean shutdown mechanism ensures all tasks complete before termination
+
+### Priority Levels
+
+The scheduler supports five priority levels, ordered from highest to lowest:
+
+- **`Priority.Immediate`**: Critical tasks that must execute immediately (e.g., user-initiated actions)
+- **`Priority.High`**: High-priority tasks (e.g., active file parsing)
+- **`Priority.Normal`**: Standard priority tasks (e.g., background indexing)
+- **`Priority.Low`**: Low-priority tasks (e.g., deferred analysis)
+- **`Priority.Background`**: Background tasks (e.g., cleanup, maintenance)
+
+### Usage: Effect-TS (Recommended)
+
+For applications already using Effect-TS, use the `priority-scheduler-utils` API:
+
+```typescript
+import { Effect, Deferred, Fiber } from 'effect';
+import {
+  Priority,
+  QueuedItem,
+  initialize,
+  offer,
+  metrics,
+  shutdown,
+} from '@salesforce/apex-lsp-parser-ast';
+
+// 1. Initialize the scheduler at application startup
+await Effect.runPromise(
+  initialize({
+    queueCapacity: 64, // Capacity per priority queue
+    maxHighPriorityStreak: 50, // Starvation relief threshold
+    idleSleepMs: 1, // Controller idle sleep duration
+  }),
+);
+
+// 2. Create a queued item from an Effect
+const createQueuedItem = <A, E, R>(
+  eff: Effect.Effect<A, E, R>,
+  requestType?: string,
+): Effect.Effect<QueuedItem<A, E, R>, never, never> =>
+  Effect.gen(function* () {
+    const fiberDeferred = yield* Deferred.make<Fiber.RuntimeFiber<A, E>, E>();
+    return {
+      id: `task-${Date.now()}`,
+      eff,
+      fiberDeferred,
+      requestType,
+    };
+  });
+
+// 3. Schedule a task
+const queuedItem = await Effect.runPromise(
+  createQueuedItem(Effect.succeed('Hello, World!')),
+);
+
+const scheduledTask = await Effect.runPromise(offer(Priority.High, queuedItem));
+
+// 4. Wait for task completion
+const fiber = await Effect.runPromise(scheduledTask.fiber);
+const result = await Effect.runPromise(Fiber.await(fiber));
+console.log(result); // 'Hello, World!'
+
+// 5. Get metrics
+const schedulerMetrics = await Effect.runPromise(metrics());
+console.log(`Tasks started: ${schedulerMetrics.tasksStarted}`);
+console.log(`Tasks completed: ${schedulerMetrics.tasksCompleted}`);
+console.log(`Queue sizes:`, schedulerMetrics.queueSizes);
+
+// 6. Shutdown when done
+await Effect.runPromise(shutdown());
+```
+
+#### Composing with Effect Programs
+
+The Effect-based API integrates seamlessly with Effect programs:
+
+```typescript
+import { Effect } from 'effect';
+import {
+  Priority,
+  initialize,
+  offer,
+  metrics,
+  shutdown,
+} from '@salesforce/apex-lsp-parser-ast';
+
+const program = Effect.gen(function* () {
+  // Initialize scheduler
+  yield* initialize();
+
+  // Schedule multiple tasks
+  const task1 = yield* createQueuedItem(Effect.succeed('Task 1'), 'parse');
+  const task2 = yield* createQueuedItem(Effect.succeed('Task 2'), 'index');
+
+  const scheduled1 = yield* offer(Priority.High, task1);
+  const scheduled2 = yield* offer(Priority.Normal, task2);
+
+  // Get metrics
+  const schedulerMetrics = yield* metrics();
+  console.log(
+    `Queue has ${schedulerMetrics.queueSizes[Priority.High]} high-priority tasks`,
+  );
+
+  // Shutdown
+  yield* shutdown();
+});
+
+Effect.runPromise(program);
+```
+
+### Usage: Non-Effect (OOP Wrapper)
+
+For applications not using Effect-TS, use the `PrioritySchedulerOO` class:
+
+```typescript
+import {
+  PrioritySchedulerOO,
+  Priority,
+  QueuedItem,
+} from '@salesforce/apex-lsp-parser-ast';
+import { Effect, Deferred, Fiber } from 'effect';
+
+// 1. Create scheduler instance
+const scheduler = new PrioritySchedulerOO({
+  queueCapacity: 64,
+  maxHighPriorityStreak: 50,
+  idleSleepMs: 1,
+});
+
+// 2. Create a queued item
+const createQueuedItem = async <A, E, R>(
+  eff: Effect.Effect<A, E, R>,
+  requestType?: string,
+): Promise<QueuedItem<A, E, R>> => {
+  const fiberDeferred = await Effect.runPromise(
+    Deferred.make<Fiber.RuntimeFiber<A, E>, E>(),
+  );
+  return {
+    id: `task-${Date.now()}`,
+    eff,
+    fiberDeferred,
+    requestType,
+  };
+};
+
+// 3. Schedule a task
+const queuedItem = await createQueuedItem(Effect.succeed(42));
+const scheduledTask = await scheduler.offer(Priority.Normal, queuedItem);
+
+// 4. Wait for completion
+const fiber = await Effect.runPromise(scheduledTask.fiber);
+const result = await Effect.runPromise(Fiber.await(fiber));
+console.log(result); // 42
+
+// 5. Get metrics
+const metrics = await scheduler.metrics();
+console.log(`Tasks started: ${metrics.tasksStarted}`);
+
+// 6. Shutdown
+await scheduler.shutdown();
+```
+
+### Configuration Options
+
+Both APIs support the same configuration options:
+
+- **`queueCapacity`** (default: 64): Maximum number of tasks per priority queue. When full, `offer()` will retry until space is available.
+- **`maxHighPriorityStreak`** (default: 50): Maximum number of consecutive high-priority tasks before starvation relief kicks in. Lower values provide better fairness but may reduce throughput.
+- **`idleSleepMs`** (default: 1): Milliseconds the controller sleeps when no tasks are available. Lower values improve responsiveness but increase CPU usage.
+
+### Advanced Usage
+
+#### Priority Ordering Example
+
+Tasks are executed in priority order, with starvation prevention:
+
+```typescript
+// Submit tasks in reverse priority order
+const backgroundTask = await scheduler.offer(
+  Priority.Background,
+  await createQueuedItem(Effect.succeed('background')),
+);
+const highTask = await scheduler.offer(
+  Priority.High,
+  await createQueuedItem(Effect.succeed('high')),
+);
+const immediateTask = await scheduler.offer(
+  Priority.Immediate,
+  await createQueuedItem(Effect.succeed('immediate')),
+);
+
+// Tasks execute in priority order: immediate → high → background
+// (subject to starvation relief for fairness)
+```
+
+#### Error Handling
+
+The scheduler handles errors gracefully:
+
+```typescript
+const failingTask = await createQueuedItem(
+  Effect.fail(new Error('Task failed')),
+);
+
+const scheduled = await scheduler.offer(Priority.Normal, failingTask);
+const fiber = await Effect.runPromise(scheduled.fiber);
+
+// Handle the error
+const result = await Effect.runPromise(Fiber.await(fiber));
+if (result._tag === 'Failure') {
+  console.error('Task failed:', result.cause);
+}
+```
+
+#### Request Type Tracking
+
+Track different types of requests for monitoring:
+
+```typescript
+const parseTask = await createQueuedItem(
+  Effect.succeed(parsedResult),
+  'parse', // Request type identifier
+);
+
+const scheduled = await scheduler.offer(Priority.High, parseTask);
+console.log(scheduled.requestType); // 'parse'
+```
+
+### Performance Considerations
+
+- **Singleton Pattern**: The Effect-based utils API maintains a single scheduler instance, ensuring efficient resource usage
+- **Background Processing**: Tasks execute asynchronously in background fibers, never blocking the caller
+- **Back-Pressure**: Bounded queues provide natural back-pressure when the system is overloaded
+- **Starvation Prevention**: Automatic relief ensures low-priority tasks eventually execute
+
+### When to Use
+
+- **Language Server Operations**: Parsing, indexing, and symbol resolution with different priorities
+- **Background Processing**: Deferred analysis, cleanup, and maintenance tasks
+- **Request Handling**: Prioritizing user-initiated actions over background work
+- **Resource Management**: Controlling concurrency and preventing system overload

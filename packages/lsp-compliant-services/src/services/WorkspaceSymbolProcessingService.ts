@@ -18,6 +18,7 @@ import {
   ApexSymbolProcessingManager,
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 import { transformParserToLspPosition } from '../utils/positionUtils';
 
 /**
@@ -123,54 +124,72 @@ export class WorkspaceSymbolProcessingService
   private async getWorkspaceSymbols(
     context: WorkspaceSymbolContext,
   ): Promise<SymbolInformation[]> {
-    const symbols: SymbolInformation[] = [];
+    return await Effect.runPromise(this.getWorkspaceSymbolsEffect(context));
+  }
 
-    try {
-      // Get symbols from ApexSymbolManager using available methods
-      // For now, we'll use a simple approach - in practice, we'd need to implement getAllSymbols
-      const allSymbols: any[] = [];
+  /**
+   * Get workspace symbols using ApexSymbolManager (Effect-based with yielding)
+   */
+  private getWorkspaceSymbolsEffect(
+    context: WorkspaceSymbolContext,
+  ): Effect.Effect<SymbolInformation[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const symbols: SymbolInformation[] = [];
 
-      // This is a simplified implementation - in practice, ApexSymbolManager would need getAllSymbols method
-      // For now, we'll return empty results to avoid errors
-      this.logger.debug(
-        () =>
-          'Workspace symbol search requires getAllSymbols method in ApexSymbolManager',
-      );
+      try {
+        // Get symbols from ApexSymbolManager using available methods
+        // For now, we'll use a simple approach - in practice, we'd need to implement getAllSymbols
+        const allSymbols: any[] = [];
 
-      for (const symbol of allSymbols) {
-        // Apply filters
-        if (this.matchesWorkspaceSymbolContext(symbol, context)) {
-          const symbolInfo = this.createSymbolInformation(symbol);
-          if (symbolInfo) {
-            symbols.push(symbolInfo);
+        // This is a simplified implementation - in practice, ApexSymbolManager would need getAllSymbols method
+        // For now, we'll return empty results to avoid errors
+        self.logger.debug(
+          () =>
+            'Workspace symbol search requires getAllSymbols method in ApexSymbolManager',
+        );
+
+        const batchSize = 50;
+        for (let i = 0; i < allSymbols.length; i++) {
+          const symbol = allSymbols[i];
+          // Apply filters
+          if (self.matchesWorkspaceSymbolContext(symbol, context)) {
+            const symbolInfo = self.createSymbolInformation(symbol);
+            if (symbolInfo) {
+              symbols.push(symbolInfo);
+            }
+          }
+          // Yield after every batchSize symbols
+          if ((i + 1) % batchSize === 0 && i + 1 < allSymbols.length) {
+            yield* Effect.yieldNow();
           }
         }
+
+        // Apply relationship-based filtering if specified
+        if (context.relationshipTypes.length > 0) {
+          const relationshipFiltered = yield* self.filterByRelationshipsEffect(
+            symbols,
+            context,
+          );
+          symbols.length = 0;
+          symbols.push(...relationshipFiltered);
+        }
+
+        // Sort by relevance
+        symbols.sort((a, b) => {
+          const aRelevance = self.calculateSymbolRelevance(a, context);
+          const bRelevance = self.calculateSymbolRelevance(b, context);
+          return bRelevance - aRelevance;
+        });
+
+        // Limit results
+        return symbols.slice(0, context.maxResults);
+      } catch (error) {
+        self.logger.debug(() => `Error getting workspace symbols: ${error}`);
       }
 
-      // Apply relationship-based filtering if specified
-      if (context.relationshipTypes.length > 0) {
-        const relationshipFiltered = await this.filterByRelationships(
-          symbols,
-          context,
-        );
-        symbols.length = 0;
-        symbols.push(...relationshipFiltered);
-      }
-
-      // Sort by relevance
-      symbols.sort((a, b) => {
-        const aRelevance = this.calculateSymbolRelevance(a, context);
-        const bRelevance = this.calculateSymbolRelevance(b, context);
-        return bRelevance - aRelevance;
-      });
-
-      // Limit results
-      return symbols.slice(0, context.maxResults);
-    } catch (error) {
-      this.logger.debug(() => `Error getting workspace symbols: ${error}`);
-    }
-
-    return symbols;
+      return symbols;
+    });
   }
 
   /**
@@ -247,42 +266,66 @@ export class WorkspaceSymbolProcessingService
     symbols: SymbolInformation[],
     context: WorkspaceSymbolContext,
   ): Promise<SymbolInformation[]> {
-    const filtered: SymbolInformation[] = [];
+    return await Effect.runPromise(
+      this.filterByRelationshipsEffect(symbols, context),
+    );
+  }
 
-    for (const symbolInfo of symbols) {
-      try {
-        // Find the corresponding Apex symbol
-        const apexSymbols = this.symbolManager.findSymbolByName(
-          symbolInfo.name,
-        );
+  /**
+   * Filter symbols by relationships (Effect-based with yielding)
+   */
+  private filterByRelationshipsEffect(
+    symbols: SymbolInformation[],
+    context: WorkspaceSymbolContext,
+  ): Effect.Effect<SymbolInformation[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const filtered: SymbolInformation[] = [];
+      const batchSize = 50;
 
-        for (const apexSymbol of apexSymbols) {
-          // Check if symbol has relationships of the specified types
-          const hasRelationships = context.relationshipTypes.some((relType) => {
-            try {
-              const relatedSymbols = this.symbolManager.findRelatedSymbols(
-                apexSymbol,
-                relType,
-              );
-              return relatedSymbols.length > 0;
-            } catch (_error) {
-              return false;
+      for (let i = 0; i < symbols.length; i++) {
+        const symbolInfo = symbols[i];
+        try {
+          // Find the corresponding Apex symbol
+          const apexSymbols = self.symbolManager.findSymbolByName(
+            symbolInfo.name,
+          );
+
+          for (const apexSymbol of apexSymbols) {
+            // Check if symbol has relationships of the specified types
+            const hasRelationships = context.relationshipTypes.some(
+              (relType) => {
+                try {
+                  const relatedSymbols = self.symbolManager.findRelatedSymbols(
+                    apexSymbol,
+                    relType,
+                  );
+                  return relatedSymbols.length > 0;
+                } catch (_error) {
+                  return false;
+                }
+              },
+            );
+
+            if (hasRelationships) {
+              filtered.push(symbolInfo);
+              break;
             }
-          });
-
-          if (hasRelationships) {
-            filtered.push(symbolInfo);
-            break;
           }
+        } catch (error) {
+          self.logger.debug(
+            () => `Error filtering symbol by relationships: ${error}`,
+          );
         }
-      } catch (error) {
-        this.logger.debug(
-          () => `Error filtering symbol by relationships: ${error}`,
-        );
-      }
-    }
 
-    return filtered;
+        // Yield after every batchSize symbols
+        if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
+          yield* Effect.yieldNow();
+        }
+      }
+
+      return filtered;
+    });
   }
 
   /**

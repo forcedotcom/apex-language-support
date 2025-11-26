@@ -20,6 +20,7 @@ import {
   ISymbolManager,
   ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 
 /**
  * Interface for completion processing functionality
@@ -91,7 +92,7 @@ export class CompletionProcessingService implements ICompletionProcessor {
       // Analyze completion context
       const context = this.analyzeCompletionContext(document, params);
 
-      // Get completion candidates using ApexSymbolManager
+      // Get completion candidates using ApexSymbolManager (with yielding)
       const candidates = await this.getCompletionCandidates(context);
 
       // Convert to LSP completion items
@@ -158,74 +159,96 @@ export class CompletionProcessingService implements ICompletionProcessor {
   private async getCompletionCandidates(
     context: CompletionContext,
   ): Promise<Array<{ symbol: any; relevance: number; context: string }>> {
-    const candidates: Array<{
-      symbol: any;
-      relevance: number;
-      context: string;
-    }> = [];
+    return await Effect.runPromise(this.getCompletionCandidatesEffect(context));
+  }
 
-    // Create resolution context for ApexSymbolManager
-    const resolutionContext = {
-      sourceFile: context.document.uri,
-      importStatements: context.importStatements,
-      namespaceContext: context.namespaceContext,
-      currentScope: context.currentScope,
-      scopeChain: [context.currentScope],
-      expectedType: context.expectedType,
-      parameterTypes: [],
-      accessModifier: context.accessModifier,
-      isStatic: context.isStatic,
-      inheritanceChain: [],
-      interfaceImplementations: [],
-    };
+  /**
+   * Get completion candidates using ApexSymbolManager (Effect-based with yielding)
+   */
+  private getCompletionCandidatesEffect(
+    context: CompletionContext,
+  ): Effect.Effect<
+    Array<{ symbol: any; relevance: number; context: string }>,
+    never,
+    never
+  > {
+    const self = this;
+    return Effect.gen(function* () {
+      const candidates: Array<{
+        symbol: any;
+        relevance: number;
+        context: string;
+      }> = [];
 
-    // Get symbols by name patterns (for partial matches)
-    const partialMatches = this.getPartialMatches(context);
+      // Create resolution context for ApexSymbolManager
+      const resolutionContext = {
+        sourceFile: context.document.uri,
+        importStatements: context.importStatements,
+        namespaceContext: context.namespaceContext,
+        currentScope: context.currentScope,
+        scopeChain: [context.currentScope],
+        expectedType: context.expectedType,
+        parameterTypes: [],
+        accessModifier: context.accessModifier,
+        isStatic: context.isStatic,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
 
-    for (const partialMatch of partialMatches) {
-      try {
-        if (partialMatch === '*') {
-          // Handle wildcard pattern - get all symbols for completion
-          const allSymbols = this.symbolManager.getAllSymbolsForCompletion();
-          for (const symbol of allSymbols) {
-            candidates.push({
-              symbol,
-              relevance: 0.5, // Base relevance for wildcard matches
-              context: 'wildcard completion',
-            });
+      // Get symbols by name patterns (for partial matches)
+      const partialMatches = self.getPartialMatches(context);
+      const batchSize = 50;
+
+      for (const partialMatch of partialMatches) {
+        try {
+          if (partialMatch === '*') {
+            // Handle wildcard pattern - get all symbols for completion
+            const allSymbols = self.symbolManager.getAllSymbolsForCompletion();
+            for (let i = 0; i < allSymbols.length; i++) {
+              const symbol = allSymbols[i];
+              candidates.push({
+                symbol,
+                relevance: 0.5, // Base relevance for wildcard matches
+                context: 'wildcard completion',
+              });
+              // Yield after every batchSize symbols
+              if ((i + 1) % batchSize === 0 && i + 1 < allSymbols.length) {
+                yield* Effect.yieldNow();
+              }
+            }
+          } else {
+            // Use ApexSymbolManager's context-aware resolution
+            const result = self.symbolManager.resolveSymbol(
+              partialMatch,
+              resolutionContext,
+            );
+
+            if (result.symbol) {
+              candidates.push({
+                symbol: result.symbol,
+                relevance: result.confidence,
+                context: result.resolutionContext || 'context-aware resolution',
+              });
+            }
           }
-        } else {
-          // Use ApexSymbolManager's context-aware resolution
-          const result = this.symbolManager.resolveSymbol(
-            partialMatch,
-            resolutionContext,
+        } catch (error) {
+          // Continue with other candidates
+          self.logger.debug(
+            () => `Error resolving symbol ${partialMatch}: ${error}`,
           );
-
-          if (result.symbol) {
-            candidates.push({
-              symbol: result.symbol,
-              relevance: result.confidence,
-              context: result.resolutionContext || 'context-aware resolution',
-            });
-          }
         }
-      } catch (error) {
-        // Continue with other candidates
-        this.logger.debug(
-          () => `Error resolving symbol ${partialMatch}: ${error}`,
-        );
       }
-    }
 
-    // Add relationship-based suggestions
-    const relationshipSuggestions =
-      await this.getRelationshipSuggestions(context);
-    candidates.push(...relationshipSuggestions);
+      // Add relationship-based suggestions
+      const relationshipSuggestions =
+        yield* self.getRelationshipSuggestionsEffect(context);
+      candidates.push(...relationshipSuggestions);
 
-    // Sort by relevance
-    candidates.sort((a, b) => b.relevance - a.relevance);
+      // Sort by relevance
+      candidates.sort((a, b) => b.relevance - a.relevance);
 
-    return candidates;
+      return candidates;
+    });
   }
 
   /**
@@ -260,40 +283,70 @@ export class CompletionProcessingService implements ICompletionProcessor {
   private async getRelationshipSuggestions(
     context: CompletionContext,
   ): Promise<Array<{ symbol: any; relevance: number; context: string }>> {
-    const suggestions: Array<{
-      symbol: any;
-      relevance: number;
-      context: string;
-    }> = [];
+    return await Effect.runPromise(
+      this.getRelationshipSuggestionsEffect(context),
+    );
+  }
 
-    try {
-      // Get symbols in the current file
-      const fileSymbols = this.symbolManager.findSymbolsInFile(
-        context.document.uri,
-      );
+  /**
+   * Get relationship-based suggestions (Effect-based with yielding)
+   */
+  private getRelationshipSuggestionsEffect(
+    context: CompletionContext,
+  ): Effect.Effect<
+    Array<{ symbol: any; relevance: number; context: string }>,
+    never,
+    never
+  > {
+    const self = this;
+    return Effect.gen(function* () {
+      const suggestions: Array<{
+        symbol: any;
+        relevance: number;
+        context: string;
+      }> = [];
+      const batchSize = 50;
 
-      for (const symbol of fileSymbols) {
-        // Get related symbols based on relationships
-        const relatedSymbols = this.symbolManager.findRelatedSymbols(
-          symbol,
-          'method-call', // Focus on method calls for completion
+      try {
+        // Get symbols in the current file
+        const fileSymbols = self.symbolManager.findSymbolsInFile(
+          context.document.uri,
         );
 
-        for (const related of relatedSymbols) {
-          suggestions.push({
-            symbol: related,
-            relevance: 0.7, // Medium relevance for relationship-based suggestions
-            context: `related to ${symbol.name}`,
-          });
-        }
-      }
-    } catch (error) {
-      this.logger.debug(
-        () => `Error getting relationship suggestions: ${error}`,
-      );
-    }
+        for (let i = 0; i < fileSymbols.length; i++) {
+          const symbol = fileSymbols[i];
+          // Get related symbols based on relationships
+          const relatedSymbols = self.symbolManager.findRelatedSymbols(
+            symbol,
+            'method-call', // Focus on method calls for completion
+          );
 
-    return suggestions;
+          for (let j = 0; j < relatedSymbols.length; j++) {
+            const related = relatedSymbols[j];
+            suggestions.push({
+              symbol: related,
+              relevance: 0.7, // Medium relevance for relationship-based suggestions
+              context: `related to ${symbol.name}`,
+            });
+            // Yield after every batchSize related symbols
+            if ((j + 1) % batchSize === 0 && j + 1 < relatedSymbols.length) {
+              yield* Effect.yieldNow();
+            }
+          }
+
+          // Yield after every batchSize file symbols
+          if ((i + 1) % batchSize === 0 && i + 1 < fileSymbols.length) {
+            yield* Effect.yieldNow();
+          }
+        }
+      } catch (error) {
+        self.logger.debug(
+          () => `Error getting relationship suggestions: ${error}`,
+        );
+      }
+
+      return suggestions;
+    });
   }
 
   /**

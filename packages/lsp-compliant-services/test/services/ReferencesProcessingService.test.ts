@@ -6,9 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ReferenceParams, Location, Position } from 'vscode-languageserver-protocol';
+import { ReferenceParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
 
 import { ReferencesProcessingService } from '../../src/services/ReferencesProcessingService';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
@@ -28,6 +29,20 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => {
     ApexSymbolProcessingManager: {
       getInstance: jest.fn(),
     },
+    SchedulerInitializationService: {
+      getInstance: jest.fn(() => ({
+        ensureInitialized: jest.fn().mockResolvedValue(undefined),
+      })),
+    },
+    createQueuedItem: jest.fn((effect: any) =>
+      Effect.succeed({
+        eff: effect,
+        id: 'test-id',
+        fiberDeferred: null as any,
+        requestType: 'test',
+      }),
+    ),
+    offer: jest.fn(() => Effect.succeed(undefined)),
   };
 });
 
@@ -41,10 +56,11 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
   };
 });
 
+const mockEnsureWorkspaceLoaded = jest.fn();
 jest.mock('../../src/services/WorkspaceLoadCoordinator', () => ({
-  WorkspaceLoadCoordinator: {
-    getInstance: jest.fn(),
-  },
+  ensureWorkspaceLoaded: jest.fn((...args: any[]) =>
+    mockEnsureWorkspaceLoaded(...args),
+  ),
 }));
 
 describe('ReferencesProcessingService', () => {
@@ -54,11 +70,11 @@ describe('ReferencesProcessingService', () => {
   let mockSymbolManager: any;
   let mockConfigManager: any;
   let mockConnection: any;
-  let mockCoordinator: any;
 
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
+    mockEnsureWorkspaceLoaded.mockClear();
 
     // Setup logger
     logger = getLogger();
@@ -104,14 +120,10 @@ describe('ReferencesProcessingService', () => {
       mockConfigManager,
     );
 
-    // Setup mock coordinator
-    mockCoordinator = {
-      ensureWorkspaceLoaded: jest.fn(),
-    };
-
-    const { WorkspaceLoadCoordinator } = require('../../src/services/WorkspaceLoadCoordinator');
-    (WorkspaceLoadCoordinator.getInstance as jest.Mock).mockReturnValue(
-      mockCoordinator,
+    // Setup mock coordinator - ensureWorkspaceLoaded returns an Effect
+    // Default mock returns Effect that resolves to { status: 'loaded' }
+    mockEnsureWorkspaceLoaded.mockReturnValue(
+      Effect.succeed({ status: 'loaded' } as { status: 'loaded' }),
     );
 
     // Create service instance
@@ -167,17 +179,18 @@ describe('ReferencesProcessingService', () => {
       jest.spyOn(service as any, 'findReferences').mockResolvedValue([]);
 
       // Mock workspace coordinator to indicate workspace loaded
-      mockCoordinator.ensureWorkspaceLoaded.mockResolvedValue({
-        status: 'loaded',
-      });
+      mockEnsureWorkspaceLoaded.mockReturnValue(
+        Effect.succeed({ status: 'loaded' } as { status: 'loaded' }),
+      );
 
       // Act
       const result = await service.processReferences(params);
 
       // Assert
       expect(result).toBeDefined();
-      expect(mockCoordinator.ensureWorkspaceLoaded).toHaveBeenCalledWith(
+      expect(mockEnsureWorkspaceLoaded).toHaveBeenCalledWith(
         mockConnection,
+        expect.anything(), // logger
         params.workDoneToken,
       );
     });
@@ -214,7 +227,7 @@ describe('ReferencesProcessingService', () => {
 
       // Assert
       expect(result).toEqual([]);
-      expect(mockCoordinator.ensureWorkspaceLoaded).not.toHaveBeenCalled();
+      expect(mockEnsureWorkspaceLoaded).not.toHaveBeenCalled();
     });
 
     it('should handle missing document gracefully', async () => {
@@ -316,8 +329,8 @@ describe('ReferencesProcessingService', () => {
       });
 
       mockSymbolManager.findReferencesTo.mockReturnValue([]);
-      mockCoordinator.ensureWorkspaceLoaded.mockRejectedValue(
-        new Error('Workspace load failed'),
+      mockEnsureWorkspaceLoaded.mockReturnValue(
+        Effect.fail(new Error('Workspace load failed')),
       );
 
       // Act
@@ -325,8 +338,7 @@ describe('ReferencesProcessingService', () => {
 
       // Assert
       expect(result).toEqual([]);
-      expect(mockCoordinator.ensureWorkspaceLoaded).toHaveBeenCalled();
+      expect(mockEnsureWorkspaceLoaded).toHaveBeenCalled();
     });
   });
 });
-

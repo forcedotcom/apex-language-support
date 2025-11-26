@@ -28,6 +28,8 @@ import {
   initializeCommandState,
   registerLogLevelCommands,
   registerRestartCommand,
+  registerGraphCommand,
+  registerQueueStateCommand,
   registerProfilingCommands,
   setRestartHandler,
 } from './commands';
@@ -94,6 +96,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
   registerLogLevelCommands(context);
   logToOutputChannel('📝 Log level commands registered', 'debug');
+
+  // Register graph command
+  registerGraphCommand(context);
+  logToOutputChannel('📝 Graph command registered', 'debug');
+
+  // Register queue state command
+  registerQueueStateCommand(context);
+  logToOutputChannel('📝 Queue state command registered', 'debug');
 
   // Register profiling commands (only in desktop environment)
   if (vscode.env.uiKind !== vscode.UIKind.Web) {

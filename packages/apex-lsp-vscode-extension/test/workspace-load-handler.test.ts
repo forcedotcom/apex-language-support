@@ -6,19 +6,20 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Effect, Layer } from 'effect';
-import type { ClientInterface, LoadWorkspaceParams } from '@salesforce/apex-lsp-shared';
+import { Effect, Layer, Ref } from 'effect';
+import type {
+  ClientInterface,
+  LoadWorkspaceParams,
+} from '@salesforce/apex-lsp-shared';
 import {
   WorkspaceState,
   WorkspaceStateLive,
-  WorkspaceLoaderService,
   WorkspaceLoaderServiceLive,
   startWorkspaceLoad,
   handleLoadWorkspace,
   resetWorkspaceLoadingState,
 } from '../src/workspace-load-handler';
 import * as workspaceLoaderModule from '../src/workspace-loader';
-import { Ref } from 'effect';
 
 // Mock dependencies
 jest.mock('../src/workspace-loader', () => {
@@ -71,21 +72,24 @@ describe('Workspace Load Handler', () => {
     } as unknown as ClientInterface;
 
     // Mock loadWorkspaceForServer
-    mockLoadWorkspaceForServer = workspaceLoaderModule.loadWorkspaceForServer as jest.Mock;
+    mockLoadWorkspaceForServer =
+      workspaceLoaderModule.loadWorkspaceForServer as jest.Mock;
     mockLoadWorkspaceForServer.mockResolvedValue(undefined);
   });
 
   describe('deriveFilePatternsFromDocumentSelector', () => {
     it('should derive file patterns from document selector with file scheme', () => {
       const selector = [{ scheme: 'file', language: 'apex' }];
-      const patterns = workspaceLoaderModule.deriveFilePatternsFromDocumentSelector(selector);
+      const patterns =
+        workspaceLoaderModule.deriveFilePatternsFromDocumentSelector(selector);
 
       expect(patterns).toEqual(['**/*.cls', '**/*.trigger', '**/*.apex']);
     });
 
     it('should return empty array when no matching selector', () => {
       const selector = [{ scheme: 'vscode-test-web', language: 'apex' }];
-      const patterns = workspaceLoaderModule.deriveFilePatternsFromDocumentSelector(selector);
+      const patterns =
+        workspaceLoaderModule.deriveFilePatternsFromDocumentSelector(selector);
 
       expect(patterns).toEqual([]);
     });
@@ -95,14 +99,16 @@ describe('Workspace Load Handler', () => {
         { scheme: 'file', language: 'apex' },
         { scheme: 'file', language: 'apex' },
       ];
-      const patterns = workspaceLoaderModule.deriveFilePatternsFromDocumentSelector(selector);
+      const patterns =
+        workspaceLoaderModule.deriveFilePatternsFromDocumentSelector(selector);
 
       expect(patterns).toEqual(['**/*.cls', '**/*.trigger', '**/*.apex']);
       expect(patterns.length).toBe(new Set(patterns).size);
     });
 
     it('should handle empty selector array', () => {
-      const patterns = workspaceLoaderModule.deriveFilePatternsFromDocumentSelector([]);
+      const patterns =
+        workspaceLoaderModule.deriveFilePatternsFromDocumentSelector([]);
       expect(patterns).toEqual([]);
     });
   });
@@ -157,7 +163,10 @@ describe('Workspace Load Handler', () => {
       });
 
       const result = await Effect.runPromise(
-        Effect.provide(program, Layer.mergeAll(WorkspaceStateLive, WorkspaceLoaderServiceLive)),
+        Effect.provide(
+          program,
+          Layer.mergeAll(WorkspaceStateLive, WorkspaceLoaderServiceLive),
+        ),
       );
 
       expect(result).toEqual({ accepted: true, alreadyLoaded: true });
@@ -177,7 +186,10 @@ describe('Workspace Load Handler', () => {
       });
 
       const result = await Effect.runPromise(
-        Effect.provide(program, Layer.mergeAll(WorkspaceStateLive, WorkspaceLoaderServiceLive)),
+        Effect.provide(
+          program,
+          Layer.mergeAll(WorkspaceStateLive, WorkspaceLoaderServiceLive),
+        ),
       );
 
       expect(result).toEqual({ accepted: true, inProgress: true });
@@ -212,7 +224,10 @@ describe('Workspace Load Handler', () => {
       });
 
       const result = await Effect.runPromise(
-        Effect.provide(program, Layer.mergeAll(WorkspaceStateLive, WorkspaceLoaderServiceLive)),
+        Effect.provide(
+          program,
+          Layer.mergeAll(WorkspaceStateLive, WorkspaceLoaderServiceLive),
+        ),
       );
 
       expect(result).toEqual({ accepted: true, retryable: true });
@@ -298,7 +313,9 @@ describe('Workspace Load Handler', () => {
       const program = Effect.gen(function* (_) {
         const state = yield* _(WorkspaceState);
         yield* _(Ref.set(state.hasLoaded, true));
-        return yield* _(handleLoadWorkspace({ queryOnly: true }, mockLanguageClient));
+        return yield* _(
+          handleLoadWorkspace({ queryOnly: true }, mockLanguageClient),
+        );
       });
 
       const result = await Effect.runPromise(
@@ -315,7 +332,9 @@ describe('Workspace Load Handler', () => {
       const program = Effect.gen(function* (_) {
         const state = yield* _(WorkspaceState);
         yield* _(Ref.set(state.isLoading, true));
-        return yield* _(handleLoadWorkspace({ queryOnly: true }, mockLanguageClient));
+        return yield* _(
+          handleLoadWorkspace({ queryOnly: true }, mockLanguageClient),
+        );
       });
 
       const result = await Effect.runPromise(
@@ -332,7 +351,9 @@ describe('Workspace Load Handler', () => {
       const program = Effect.gen(function* (_) {
         const state = yield* _(WorkspaceState);
         yield* _(Ref.set(state.hasFailed, true));
-        return yield* _(handleLoadWorkspace({ queryOnly: true }, mockLanguageClient));
+        return yield* _(
+          handleLoadWorkspace({ queryOnly: true }, mockLanguageClient),
+        );
       });
 
       const result = await Effect.runPromise(
@@ -392,7 +413,7 @@ describe('Workspace Load Handler', () => {
 
       const program = Effect.gen(function* (_) {
         yield* _(startWorkspaceLoad(mockLanguageClient));
-        
+
         // Wait for async operations
         yield* _(Effect.sleep('100 millis'));
 
@@ -422,7 +443,7 @@ describe('Workspace Load Handler', () => {
 
       const program = Effect.gen(function* (_) {
         yield* _(startWorkspaceLoad(mockLanguageClient));
-        
+
         // Wait for async operations
         yield* _(Effect.sleep('200 millis'));
 
@@ -453,10 +474,10 @@ describe('Workspace Load Handler', () => {
       const program = Effect.gen(function* (_) {
         // Start first load
         const firstLoad = yield* _(startWorkspaceLoad(mockLanguageClient));
-        
+
         // Small delay to ensure first load sets loading state
         yield* _(Effect.sleep('10 millis'));
-        
+
         // Try second load
         const secondLoad = yield* _(startWorkspaceLoad(mockLanguageClient));
 
@@ -472,7 +493,9 @@ describe('Workspace Load Handler', () => {
 
       // One should be accepted, the other should be inProgress
       const results = [firstResult, secondResult];
-      const accepted = results.filter((r) => r.accepted === true && !r.inProgress);
+      const accepted = results.filter(
+        (r) => r.accepted === true && !r.inProgress,
+      );
       const inProgress = results.filter((r) => r.inProgress === true);
 
       expect(accepted.length).toBe(1);
@@ -480,4 +503,3 @@ describe('Workspace Load Handler', () => {
     });
   });
 });
-

@@ -5,267 +5,303 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-
 import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { LoggerInterface, Priority } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
 import {
-  SymbolTable,
   CompilerService,
-  ApexSymbolCollectorListener,
   ApexSymbolProcessingManager,
+  ApexSymbolCollectorListener,
+  SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
-import {
-  LoggerInterface,
-  ApexSettingsManager,
-} from '@salesforce/apex-lsp-shared';
-
-import {
-  getDiagnosticsFromErrors,
-  shouldSuppressDiagnostics,
-} from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
-import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpserter';
-import { IDocumentChangeProcessor } from './DocumentChangeProcessingService';
 import { getDocumentStateCache } from './DocumentStateCache';
+import {
+  makeDocumentOpenBatcher,
+  type DocumentOpenBatcherService,
+  DEFAULT_BATCH_CONFIG,
+  type DocumentOpenBatchConfig,
+} from './DocumentOpenBatcher';
+import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
 
 /**
- * Service for processing document changes
+ * Service for processing document open events
  */
-export class DocumentProcessingService implements IDocumentChangeProcessor {
-  constructor(private readonly logger: LoggerInterface) {}
+export class DocumentProcessingService {
+  private readonly logger: LoggerInterface;
+  private readonly storageManager: ApexStorageManager;
+  private batcher: DocumentOpenBatcherService | null = null;
+  private batcherShutdown: Effect.Effect<void, never> | null = null;
 
-  private static hasCommentAssociationsLocally(result: any): boolean {
-    return (
-      !!result &&
-      typeof result === 'object' &&
-      'comments' in (result as any) &&
-      'commentAssociations' in (result as any)
-    );
+  constructor(logger: LoggerInterface) {
+    this.logger = logger;
+    this.storageManager = ApexStorageManager.getInstance();
   }
 
   /**
-   * Process a document change event
-   * @param event The document change event
-   * @returns Diagnostics for the changed document
+   * Process a single document open event (public API - LSP notification, fire-and-forget)
+   * Routes through the batcher for batching support
+   * Diagnostics are computed internally but not returned (LSP notifications don't return values)
    */
-  public async processDocumentChange(
+  public processDocumentOpen(
     event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined> {
-    this.logger.debug(
-      () =>
-        'Common Apex Language Server change document handler invoked ' +
-        `for: ${event.document.uri} (version: ${event.document.version})`,
-    );
-
-    // Check parse result cache first
-    const parseCache = getDocumentStateCache();
-    const cached = parseCache.getSymbolResult(
-      event.document.uri,
-      event.document.version,
-    );
-
-    if (cached) {
-      this.logger.debug(
-        () =>
-          `Using cached parse result for ${event.document.uri} (version ${event.document.version})`,
-      );
-      return cached.diagnostics;
-    }
-
-    // Suppress diagnostics for standard Apex library classes
-    if (shouldSuppressDiagnostics(event.document.uri)) {
-      this.logger.debug(
-        () =>
-          `Suppressing diagnostics for standard Apex library: ${event.document.uri}`,
-      );
-      return [];
-    }
-
-    // Get the storage manager instance
-    const storageManager = ApexStorageManager.getInstance();
-    const storage = storageManager.getStorage();
-    const document = event.document;
-    if (!document) {
-      this.logger.error(
-        () => `Document not found for URI: ${event.document.uri}`,
-      );
-    }
-
-    // Store the document in storage for later retrieval by other handlers
-    await storage.setDocument(document.uri, document);
-
-    // Create a symbol collector listener
-    const table = new SymbolTable();
-    const listener = new ApexSymbolCollectorListener(table);
-    const compilerService = new CompilerService();
-
-    // Parse the document
-    const settingsManager = ApexSettingsManager.getInstance();
-    const fileSize = document.getText().length;
-    const options = settingsManager.getCompilationOptions(
-      'documentChange',
-      fileSize,
-    );
-
-    const result = compilerService.compile(
-      document.getText(),
-      document.uri,
-      listener,
-      options,
-    );
-
-    if (result.errors.length > 0) {
-      this.logger.debug(() => `Errors parsing document: ${result.errors}`);
-      const diagnostics = getDiagnosticsFromErrors(result.errors);
-      return diagnostics;
-    }
-
-    // Get the symbol table from the listener
-    const symbolTable = listener.getResult();
-
-    // Get all symbols from the global scope
-    const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
-
-    // If comments were associated, schedule persistence via background manager
-    if (DocumentProcessingService.hasCommentAssociationsLocally(result)) {
-      try {
-        const backgroundManager = ApexSymbolProcessingManager.getInstance();
-        backgroundManager.scheduleCommentAssociations(
-          document.uri,
-          (result as any).commentAssociations,
-        );
-      } catch (_e) {
-        // best-effort; ignore failures
-      }
-    }
-
-    // Queue symbol processing in the background for better performance
-    const backgroundManager = ApexSymbolProcessingManager.getInstance();
-    const taskId = backgroundManager.processSymbolTable(
-      symbolTable,
-      document.uri,
-      {
-        priority: 'NORMAL', // Document changes are normal priority
-        enableCrossFileResolution: true,
-        enableReferenceProcessing: true,
-      },
-      document.version,
-    );
-
-    this.logger.debug(
-      () => `Document change symbol processing queued: ${taskId}`,
-    );
-
-    // Monitor task completion and update cache
-    this.monitorTaskCompletion(taskId, document.uri, document.version);
-
-    // Create the definition provider
-    const definitionUpserter = new DefaultApexDefinitionUpserter(
-      storage,
-      globalSymbols,
-    );
-
-    // Create the references provider
-    const referencesUpserter = new DefaultApexReferencesUpserter(
-      storage,
-      globalSymbols,
-    );
-
-    // Upsert the definitions and references (these are fire-and-forget operations)
-    // In a real implementation, you might want to handle these differently
-    try {
-      await definitionUpserter.upsertDefinition(event);
-    } catch (error) {
-      this.logger.error(() => `Error upserting definitions: ${error}`);
-    }
-
-    try {
-      await referencesUpserter.upsertReferences(event);
-    } catch (error) {
-      this.logger.error(() => `Error upserting references: ${error}`);
-    }
-
-    // Cache the parse result for future requests with same version
-    // symbolsIndexed defaults to false for new entries
-    const diagnostics: Diagnostic[] = [];
-    parseCache.merge(event.document.uri, {
-      symbolTable,
-      diagnostics,
-      documentVersion: event.document.version,
-      documentLength: document.getText().length,
-      symbolsIndexed: false, // Will be set to true when indexing completes
-    });
-
-    return undefined; // No diagnostics to return
-  }
-
-  /**
-   * Process a document open event
-   * @param event The document open event
-   * @returns Diagnostics for the opened document
-   */
-  public async processDocumentOpen(
-    event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined> {
+  ): void {
     this.logger.debug(
       () =>
         'Common Apex Language Server open document handler invoked ' +
         `for: ${event.document.uri} (version: ${event.document.version})`,
     );
 
-    // Check parse result cache first
-    const parseCache = getDocumentStateCache();
-    const cached = parseCache.getSymbolResult(
-      event.document.uri,
-      event.document.version,
+    // Start async processing but don't return a promise
+    (async () => {
+      try {
+        // Initialize batcher if needed
+        if (!this.batcher) {
+          const { service, shutdown } = await Effect.runPromise(
+            makeDocumentOpenBatcher(this.logger, this),
+          );
+          this.batcher = service;
+          this.batcherShutdown = shutdown;
+        }
+
+        // Route through batcher (diagnostics computed internally, not returned)
+        await Effect.runPromise(this.batcher.addDocumentOpen(event));
+      } catch (error) {
+        this.logger.error(
+          () =>
+            `Error processing document open for ${event.document.uri}: ${error}`,
+        );
+      }
+    })();
+  }
+
+  /**
+   * Process a single document open event internally (used by batcher)
+   */
+  public async processDocumentOpenInternal(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<Diagnostic[] | undefined> {
+    return await this.processDocumentOpenSingle(event);
+  }
+
+  /**
+   * Process multiple document open events in a batch
+   */
+  public async processDocumentOpenBatch(
+    events: TextDocumentChangeEvent<TextDocument>[],
+  ): Promise<(Diagnostic[] | undefined)[]> {
+    if (events.length === 0) {
+      return [];
+    }
+
+    this.logger.debug(
+      () => `Processing batch of ${events.length} document opens`,
     );
 
-    if (cached) {
-      this.logger.debug(
-        () =>
-          `Using cached parse result for ${event.document.uri} (version ${event.document.version})`,
-      );
-      // Store the document in storage (always needed, even with cache hit)
-      const storageManager = ApexStorageManager.getInstance();
-      const storage = storageManager.getStorage();
-      await storage.setDocument(event.document.uri, event.document);
+    const storage = this.storageManager.getStorage();
+    const cache = getDocumentStateCache();
+    const compilerService = new CompilerService();
+    const backgroundManager = ApexSymbolProcessingManager.getInstance();
 
-      // Check if symbols need to be indexed
-      const fullCached = parseCache.get(
+    // Separate cached and uncached documents
+    const uncachedEvents: TextDocumentChangeEvent<TextDocument>[] = [];
+    const cachedResults: (Diagnostic[] | undefined)[] = [];
+
+    for (const event of events) {
+      const cached = cache.getSymbolResult(
         event.document.uri,
         event.document.version,
       );
-      if (fullCached && !fullCached.symbolsIndexed && cached.symbolTable) {
-        // Queue symbol processing if not already queued/in-progress
-        const backgroundManager = ApexSymbolProcessingManager.getInstance();
-        const taskId = backgroundManager.processSymbolTable(
-          cached.symbolTable,
-          event.document.uri,
-          {
-            priority: 'HIGH', // Document open is high priority
-            enableCrossFileResolution: true,
-            enableReferenceProcessing: true,
-          },
-          event.document.version,
+      if (cached) {
+        cachedResults.push(cached.diagnostics);
+        // Still update storage
+        await storage.setDocument(event.document.uri, event.document);
+
+        // Even if cached, ensure symbols are added to the symbol manager
+        // (they might have been cached from a diagnostic request that didn't add symbols)
+        if (cached.symbolTable) {
+          const symbolManager = backgroundManager.getSymbolManager();
+          const existingSymbols = symbolManager.findSymbolsInFile(
+            event.document.uri,
+          );
+          if (existingSymbols.length === 0) {
+            this.logger.debug(
+              () =>
+                `Batch: Cached file ${event.document.uri} has no symbols in manager, adding them now`,
+            );
+            await symbolManager.addSymbolTable(
+              cached.symbolTable,
+              event.document.uri,
+            );
+            this.logger.debug(
+              () =>
+                `Batch: Successfully added cached symbols synchronously for ${event.document.uri}`,
+            );
+          }
+        }
+      } else {
+        uncachedEvents.push(event);
+      }
+    }
+
+    // Process uncached documents in batch
+    const results: (Diagnostic[] | undefined)[] = [...cachedResults];
+
+    if (uncachedEvents.length > 0) {
+      try {
+        // Create listeners for each file
+        // Store listeners and symbol tables so we can access them later
+        const listeners: ApexSymbolCollectorListener[] = [];
+        const compileConfigs = uncachedEvents.map((event) => {
+          const table = new SymbolTable();
+          const listener = new ApexSymbolCollectorListener(table);
+          listeners.push(listener);
+          return {
+            content: event.document.getText(),
+            fileName: event.document.uri,
+            listener,
+            options: {},
+          };
+        });
+
+        const compileResults = await Effect.runPromise(
+          compilerService.compileMultipleWithConfigs(compileConfigs),
         );
 
-        if (taskId === 'deduplicated') {
+        // Process each result
+        for (let i = 0; i < uncachedEvents.length; i++) {
+          const event = uncachedEvents[i];
+          const compileResult = compileResults[i];
+          const listener = listeners[i];
+
+          // Update storage
+          await storage.setDocument(event.document.uri, event.document);
+
+          if (compileResult) {
+            // Extract diagnostics - handle both CompilationResult and CompilationResultWithComments
+            const diagnostics = getDiagnosticsFromErrors(compileResult.errors);
+
+            // Get symbol table from result or listener
+            // compileResult.result should be the SymbolTable, but fallback to listener.getResult()
+            let symbolTable: SymbolTable | undefined;
+            if (compileResult.result instanceof SymbolTable) {
+              symbolTable = compileResult.result;
+            } else if (listener instanceof ApexSymbolCollectorListener) {
+              symbolTable = listener.getResult();
+            }
+
+            this.logger.debug(
+              () =>
+                `Batch processing ${event.document.uri}: symbolTable extracted: ` +
+                `${symbolTable ? 'yes' : 'no'}, from result: ${compileResult.result instanceof SymbolTable}, ` +
+                `from listener: ${listener instanceof ApexSymbolCollectorListener}`,
+            );
+
+            // Cache diagnostics and symbol table
+            cache.merge(event.document.uri, {
+              symbolTable,
+              diagnostics,
+              documentVersion: event.document.version,
+              documentLength: event.document.getText().length,
+              symbolsIndexed: false,
+            });
+
+            // Add symbols synchronously so they're immediately available for hover/goto definition
+            // Then queue background processing for cross-file resolution and references
+            if (symbolTable) {
+              const symbolManager = backgroundManager.getSymbolManager();
+              this.logger.debug(
+                () =>
+                  `Adding symbols synchronously for ${event.document.uri} (batch processing)`,
+              );
+              // Add symbols immediately (synchronous)
+              await symbolManager.addSymbolTable(
+                symbolTable,
+                event.document.uri,
+              );
+              this.logger.debug(
+                () =>
+                  `Successfully added symbols synchronously for ${event.document.uri}`,
+              );
+
+              // Queue additional background processing for cross-file resolution and references
+              backgroundManager.processSymbolTable(
+                symbolTable,
+                event.document.uri,
+                {
+                  priority: Priority.Normal,
+                  enableCrossFileResolution: true,
+                  enableReferenceProcessing: true,
+                },
+                event.document.version,
+              );
+            } else {
+              this.logger.warn(
+                () =>
+                  `No symbol table extracted for ${event.document.uri} in batch processing`,
+              );
+            }
+
+            results.push(diagnostics);
+          } else {
+            results.push(undefined);
+          }
+        }
+      } catch (error) {
+        this.logger.error(
+          () =>
+            `Error processing batch: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        // Return empty diagnostics for failed items
+        for (let i = 0; i < uncachedEvents.length; i++) {
+          results.push([]);
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Process a single document open event
+   */
+  private async processDocumentOpenSingle(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<Diagnostic[] | undefined> {
+    const storage = this.storageManager.getStorage();
+    const cache = getDocumentStateCache();
+    const compilerService = new CompilerService();
+    const backgroundManager = ApexSymbolProcessingManager.getInstance();
+
+    // Check cache first
+    const cached = cache.getSymbolResult(
+      event.document.uri,
+      event.document.version,
+    );
+    if (cached) {
+      await storage.setDocument(event.document.uri, event.document);
+
+      // Even if cached, we need to ensure symbols are added to the symbol manager
+      // (they might have been cached from a diagnostic request that didn't add symbols)
+      if (cached.symbolTable) {
+        const symbolManager = backgroundManager.getSymbolManager();
+        // Check if symbols already exist for this file
+        const existingSymbols = symbolManager.findSymbolsInFile(
+          event.document.uri,
+        );
+        if (existingSymbols.length === 0) {
           this.logger.debug(
             () =>
-              `Symbol processing already queued for ${event.document.uri} (version ${event.document.version})`,
+              `Cached file ${event.document.uri} has no symbols in manager, adding them now`,
           );
-        } else {
-          this.logger.debug(
-            () =>
-              `Document open symbol processing queued from cache: ${taskId} ` +
-              `for ${event.document.uri} (version ${event.document.version})`,
-          );
-          // Monitor task completion and update cache
-          this.monitorTaskCompletion(
-            taskId,
+          await symbolManager.addSymbolTable(
+            cached.symbolTable,
             event.document.uri,
-            event.document.version,
+          );
+          this.logger.debug(
+            () =>
+              `Successfully added cached symbols synchronously for ${event.document.uri}`,
           );
         }
       }
@@ -273,168 +309,93 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
       return cached.diagnostics;
     }
 
-    // Get the storage manager instance
-    const storageManager = ApexStorageManager.getInstance();
-    const storage = storageManager.getStorage();
-
-    const document = event.document;
-
-    // Store the document in storage for later retrieval by other handlers
-    await storage.setDocument(document.uri, document);
-
-    // Create a symbol collector listener
-    const table = new SymbolTable();
-    const listener = new ApexSymbolCollectorListener(table);
-    const compilerService = new CompilerService();
-
-    // Parse the document
-    const settingsManager = ApexSettingsManager.getInstance();
-    const fileSize = document.getText().length;
-    const options = settingsManager.getCompilationOptions(
-      'documentOpen',
-      fileSize,
-    );
-
-    const result = compilerService.compile(
-      document.getText(),
-      document.uri,
-      listener,
-      options,
-    );
-
-    if (result.errors.length > 0) {
-      this.logger.debug(
-        () => `Errors parsing document: ${JSON.stringify(result.errors)}`,
-      );
-      const diagnostics = getDiagnosticsFromErrors(result.errors);
-      return diagnostics;
-    }
-
-    // If comments were associated, store them with the symbol manager for later retrieval (e.g., hover)
-    if (DocumentProcessingService.hasCommentAssociationsLocally(result)) {
-      try {
-        const backgroundManager = ApexSymbolProcessingManager.getInstance();
-        backgroundManager.scheduleCommentAssociations(
-          document.uri,
-          (result as any).commentAssociations,
-        );
-      } catch (_e) {
-        // best-effort; ignore failures
-      }
-    }
-
-    // Get the symbol table from the listener
-    const symbolTable = listener.getResult();
-
-    // Get all symbols from the global scope
-    const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
-
-    // Queue symbol processing in the background for better performance
-    const backgroundManager = ApexSymbolProcessingManager.getInstance();
-    const taskId = backgroundManager.processSymbolTable(
-      symbolTable,
-      document.uri,
-      {
-        priority: 'HIGH', // Document open is high priority
-        enableCrossFileResolution: true,
-        enableReferenceProcessing: true,
-      },
-      document.version,
-    );
-
-    this.logger.debug(
-      () => `Document open symbol processing queued: ${taskId}`,
-    );
-
-    // Monitor task completion and update cache
-    this.monitorTaskCompletion(taskId, document.uri, document.version);
-
-    // Create the definition provider
-    const definitionUpserter = new DefaultApexDefinitionUpserter(
-      storage,
-      globalSymbols,
-    );
-
-    // Create the references provider
-    const referencesUpserter = new DefaultApexReferencesUpserter(
-      storage,
-      globalSymbols,
-    );
-
-    // Upsert the definitions and references in parallel
     try {
-      await Promise.all([
-        definitionUpserter.upsertDefinition(event),
-        referencesUpserter.upsertReferences(event),
-      ]);
-    } catch (error) {
-      // Log errors but don't throw - document processing should continue
-      this.logger.error(
-        () => `Error upserting definitions/references: ${error}`,
+      // Update storage
+      await storage.setDocument(event.document.uri, event.document);
+
+      // Compile - create listener
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
+
+      const compileResult = compilerService.compile(
+        event.document.getText(),
+        event.document.uri,
+        listener,
+        {},
       );
-    }
 
-    // Cache the parse result for future requests with same version
-    // symbolsIndexed defaults to false for new entries
-    const diagnostics: Diagnostic[] = [];
-    parseCache.merge(event.document.uri, {
-      symbolTable,
-      diagnostics,
-      documentVersion: event.document.version,
-      documentLength: document.getText().length,
-      symbolsIndexed: false, // Will be set to true when indexing completes
-    });
+      if (compileResult) {
+        // Extract diagnostics
+        const diagnostics = getDiagnosticsFromErrors(compileResult.errors);
 
-    return undefined;
-  }
+        // Get symbol table from result
+        const symbolTable =
+          compileResult.result instanceof SymbolTable
+            ? compileResult.result
+            : undefined;
 
-  /**
-   * Monitor task completion and update cache when indexing completes
-   * @param taskId The task ID to monitor
-   * @param fileUri The file URI
-   * @param documentVersion The document version
-   */
-  private monitorTaskCompletion(
-    taskId: string,
-    fileUri: string,
-    documentVersion: number,
-  ): void {
-    // Skip monitoring for special task IDs
-    if (taskId === 'sync_fallback' || taskId === 'deduplicated') {
-      return;
-    }
-
-    // Check task status after a short delay and periodically
-    const checkTask = async (): Promise<void> => {
-      try {
-        const backgroundManager = ApexSymbolProcessingManager.getInstance();
-        const status = backgroundManager.getTaskStatus(taskId);
-
-        if (status === 'COMPLETED') {
-          // Update cache to mark symbols as indexed
-          const parseCache = getDocumentStateCache();
-          const cached = parseCache.get(fileUri, documentVersion);
-          if (cached && cached.documentVersion === documentVersion) {
-            parseCache.merge(fileUri, { symbolsIndexed: true });
-            this.logger.debug(
-              () =>
-                `Marked symbols as indexed for ${fileUri} (version ${documentVersion}) after task ${taskId} completed`,
-            );
-          }
-        } else if (status === 'PENDING' || status === 'RUNNING') {
-          // Task still in progress, check again after a delay
-          setTimeout(checkTask, 100);
-        }
-        // If status is FAILED or CANCELLED, don't update cache
-      } catch (error) {
-        // Best-effort; log but don't throw
         this.logger.debug(
-          () => `Error monitoring task ${taskId} completion: ${error}`,
+          () =>
+            `Single processing ${event.document.uri}: symbolTable extracted: ${symbolTable ? 'yes' : 'no'}, ` +
+            `type: ${typeof compileResult.result}, instanceof: ${compileResult.result instanceof SymbolTable}`,
         );
-      }
-    };
 
-    // Start checking after a short delay
-    setTimeout(checkTask, 100);
+        // Cache diagnostics and symbol table
+        cache.merge(event.document.uri, {
+          symbolTable,
+          diagnostics,
+          documentVersion: event.document.version,
+          documentLength: event.document.getText().length,
+          symbolsIndexed: false,
+        });
+
+        // Add symbols synchronously so they're immediately available for hover/goto definition
+        // Then queue background processing for cross-file resolution and references
+        if (symbolTable) {
+          const symbolManager = backgroundManager.getSymbolManager();
+          this.logger.debug(
+            () =>
+              `Adding symbols synchronously for ${event.document.uri} (single processing)`,
+          );
+          // Add symbols immediately (synchronous)
+          await symbolManager.addSymbolTable(symbolTable, event.document.uri);
+          this.logger.debug(
+            () =>
+              `Successfully added symbols synchronously for ${event.document.uri}`,
+          );
+
+          // Queue additional background processing for cross-file resolution and references
+          backgroundManager.processSymbolTable(
+            symbolTable,
+            event.document.uri,
+            {
+              priority: Priority.Normal,
+              enableCrossFileResolution: true,
+              enableReferenceProcessing: true,
+            },
+            event.document.version,
+          );
+        } else {
+          this.logger.warn(
+            () =>
+              `No symbol table extracted for ${event.document.uri} in single processing`,
+          );
+        }
+
+        return diagnostics;
+      }
+
+      return [];
+    } catch (error) {
+      this.logger.error(
+        () =>
+          `Error processing document open for ${event.document.uri}: ${error}`,
+      );
+      return [];
+    }
   }
 }
+
+// Re-export types and config from DocumentOpenBatcher for convenience
+export type { DocumentOpenBatchConfig };
+export { DEFAULT_BATCH_CONFIG };

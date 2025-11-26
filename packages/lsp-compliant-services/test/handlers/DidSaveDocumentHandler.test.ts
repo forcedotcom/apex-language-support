@@ -54,12 +54,11 @@ describe('DidSaveDocumentHandler', () => {
         document: mockDocument,
       };
 
-      mockDocumentSaveProcessor.processDocumentSave.mockResolvedValue(
-        undefined,
-      );
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentSave(mockEvent);
 
-      // Act
-      await handler.handleDocumentSave(mockEvent);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       // Assert
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
@@ -74,7 +73,7 @@ describe('DidSaveDocumentHandler', () => {
       ).toHaveBeenCalledWith(mockEvent);
     });
 
-    it('should log error and rethrow when document save processor fails', async () => {
+    it('should log error when document save processor fails', async () => {
       // Arrange
       const mockDocument = TextDocument.create(
         'file:///test.cls',
@@ -87,15 +86,17 @@ describe('DidSaveDocumentHandler', () => {
       };
       const mockError = new Error('Document save processing failed');
 
-      mockDocumentSaveProcessor.processDocumentSave.mockRejectedValue(
-        mockError,
-      );
+      mockDocumentSaveProcessor.processDocumentSave.mockImplementation(() => {
+        throw mockError;
+      });
 
-      // Act & Assert
-      await expect(handler.handleDocumentSave(mockEvent)).rejects.toThrow(
-        'Document save processing failed',
-      );
+      // Act (void return, fire-and-forget - errors handled internally)
+      handler.handleDocumentSave(mockEvent);
 
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Assert - error should be logged internally, not thrown
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
 
       // Verify the error message function was called with correct content

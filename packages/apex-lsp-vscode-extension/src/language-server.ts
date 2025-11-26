@@ -11,6 +11,7 @@ import type {
   ApexLanguageServerSettings,
   ClientInterface,
   RuntimePlatform,
+  LogMessageType,
 } from '@salesforce/apex-lsp-shared';
 import { getClientCapabilitiesForMode } from '@salesforce/apex-lsp-shared';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
@@ -372,10 +373,36 @@ async function createWebLanguageClient(
       cleanMessage = cleanMessage.substring(10); // Remove '[BROWSER] '
     }
 
+    // Convert LSP MessageType (number enum) to LogMessageType (string)
+    // LSP MessageType: Error=1, Warning=2, Info=3, Log=4
+    // Our LogMessageType: 'error' | 'warning' | 'info' | 'log' | 'debug'
+    let logMessageType: LogMessageType = 'info';
+    if (typeof type === 'number') {
+      switch (type) {
+        case 1: // MessageType.Error
+          logMessageType = 'error';
+          break;
+        case 2: // MessageType.Warning
+          logMessageType = 'warning';
+          break;
+        case 3: // MessageType.Info
+          logMessageType = 'info';
+          break;
+        case 4: // MessageType.Log
+          logMessageType = 'log';
+          break;
+        default:
+          logMessageType = 'info';
+      }
+    } else if (typeof type === 'string') {
+      // Already a string, use it directly (should be one of our LogMessageType values)
+      logMessageType = (type as LogMessageType) || 'info';
+    }
+
     // Format with timestamp and log level
     const formattedMessage = formatLogMessageWithTimestamp(
       cleanMessage,
-      type || 'info',
+      logMessageType,
     );
 
     const channel = getWorkerServerOutputChannel();

@@ -9,14 +9,18 @@
 import { UnifiedCache } from '../../src/symbols/ApexSymbolManager';
 
 // Mock the logger to avoid console output during tests
-jest.mock('@salesforce/apex-lsp-shared', () => ({
-  getLogger: () => ({
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  }),
-}));
+jest.mock('@salesforce/apex-lsp-shared', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+  return {
+    ...actual,
+    getLogger: () => ({
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    }),
+  };
+});
 
 describe.skip('UnifiedCache - Phase 3 Cache Consolidation', () => {
   let cache: UnifiedCache;

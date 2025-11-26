@@ -17,6 +17,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   LoggerInterface,
   LSPConfigurationManager,
+  Priority,
 } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -24,9 +25,13 @@ import {
   ApexSymbolProcessingManager,
   ISymbolManager,
   ReferenceType,
+  createQueuedItem,
+  offer,
+  SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 import { transformParserToLspPosition } from '../utils/positionUtils';
-import { WorkspaceLoadCoordinator } from './WorkspaceLoadCoordinator';
+import { ensureWorkspaceLoaded } from './WorkspaceLoadCoordinator';
 
 /**
  * Interface for references processing functionality
@@ -89,36 +94,34 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     );
 
     try {
-      // Always ensure workspace is loaded before searching for references
-      // Finding some references doesn't mean we have the complete picture
+      // Request workspace load in background (non-blocking)
+      // Queue the load task and proceed immediately with reference search
       const connection = this.getConnection();
       if (connection) {
-        this.logger.debug(
-          () => 'Ensuring workspace is loaded before searching for references',
-        );
-
         try {
-          const coordinator = WorkspaceLoadCoordinator.getInstance(this.logger);
-          const loadResult = await coordinator.ensureWorkspaceLoaded(
+          // Ensure scheduler is initialized
+          const schedulerService = SchedulerInitializationService.getInstance();
+          await schedulerService.ensureInitialized();
+
+          const loadEffect = ensureWorkspaceLoaded(
             connection,
+            this.logger,
             params.workDoneToken,
           );
 
-          if (loadResult.status !== 'loaded') {
-            this.logger.debug(
-              () =>
-                `Workspace load status: ${loadResult.status}, continuing with reference search`,
-            );
-          } else {
-            this.logger.debug(
-              () => 'Workspace loaded, searching for references',
-            );
-          }
-        } catch (error) {
-          this.logger.error(
-            () => `Error during workspace load coordination: ${error}`,
+          // Queue workspace load task (non-blocking)
+          const queuedItem = await Effect.runPromise(
+            createQueuedItem(loadEffect, 'workspace-load'),
           );
-          // Continue with reference search even if workspace load coordination fails
+          await Effect.runPromise(offer(Priority.Low, queuedItem));
+
+          this.logger.debug(
+            () =>
+              'Workspace load task queued, proceeding with reference search (results may be partial)',
+          );
+        } catch (error) {
+          this.logger.error(() => `Error queuing workspace load: ${error}`);
+          // Continue with reference search even if workspace load queuing fails
         }
       } else {
         this.logger.debug(
@@ -127,7 +130,7 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         );
       }
 
-      // Now search for references with the workspace loaded (or loading)
+      // Search for references immediately (may return partial results if workspace isn't fully loaded)
       const locations = await this.findReferences(params);
 
       this.logger.debug(
@@ -230,44 +233,70 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     symbol: any,
     includeDeclaration: boolean = false,
   ): Promise<Location[]> {
-    const locations: Location[] = [];
+    return await Effect.runPromise(
+      this.getReferenceLocationsEffect(symbol, includeDeclaration),
+    );
+  }
 
-    try {
-      // Include the declaration if requested
-      if (includeDeclaration) {
-        const declarationLocation = this.createLocationFromSymbol(symbol);
-        if (declarationLocation) {
-          locations.push(declarationLocation);
+  /**
+   * Get reference locations for a symbol (Effect-based with yielding)
+   */
+  private getReferenceLocationsEffect(
+    symbol: any,
+    includeDeclaration: boolean = false,
+  ): Effect.Effect<Location[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const locations: Location[] = [];
+
+      try {
+        // Include the declaration if requested
+        if (includeDeclaration) {
+          const declarationLocation = self.createLocationFromSymbol(symbol);
+          if (declarationLocation) {
+            locations.push(declarationLocation);
+          }
         }
+
+        // Get references to this symbol
+        const referencesTo = self.symbolManager.findReferencesTo(symbol);
+        const batchSize = 50;
+        for (let i = 0; i < referencesTo.length; i++) {
+          const reference = referencesTo[i];
+          const location = self.createLocationFromReference(reference);
+          if (location) {
+            locations.push(location);
+          }
+          // Yield after every batchSize references
+          if ((i + 1) % batchSize === 0 && i + 1 < referencesTo.length) {
+            yield* Effect.yieldNow();
+          }
+        }
+
+        // Get references from this symbol (for bidirectional analysis)
+        const referencesFrom = self.symbolManager.findReferencesFrom(symbol);
+        for (let i = 0; i < referencesFrom.length; i++) {
+          const reference = referencesFrom[i];
+          const location = self.createLocationFromReference(reference);
+          if (location) {
+            locations.push(location);
+          }
+          // Yield after every batchSize references
+          if ((i + 1) % batchSize === 0 && i + 1 < referencesFrom.length) {
+            yield* Effect.yieldNow();
+          }
+        }
+
+        // Get specific relationship type references
+        const relationshipReferences =
+          yield* self.getRelationshipTypeReferencesEffect(symbol);
+        locations.push(...relationshipReferences);
+      } catch (error) {
+        self.logger.debug(() => `Error getting reference locations: ${error}`);
       }
 
-      // Get references to this symbol
-      const referencesTo = this.symbolManager.findReferencesTo(symbol);
-      for (const reference of referencesTo) {
-        const location = this.createLocationFromReference(reference);
-        if (location) {
-          locations.push(location);
-        }
-      }
-
-      // Get references from this symbol (for bidirectional analysis)
-      const referencesFrom = this.symbolManager.findReferencesFrom(symbol);
-      for (const reference of referencesFrom) {
-        const location = this.createLocationFromReference(reference);
-        if (location) {
-          locations.push(location);
-        }
-      }
-
-      // Get specific relationship type references
-      const relationshipReferences =
-        await this.getRelationshipTypeReferences(symbol);
-      locations.push(...relationshipReferences);
-    } catch (error) {
-      this.logger.debug(() => `Error getting reference locations: ${error}`);
-    }
-
-    return locations;
+      return locations;
+    });
   }
 
   /**
@@ -330,89 +359,128 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   private async getRelationshipTypeReferences(
     symbol: any,
   ): Promise<Location[]> {
-    const locations: Location[] = [];
+    return await Effect.runPromise(
+      this.getRelationshipTypeReferencesEffect(symbol),
+    );
+  }
 
-    try {
-      // Get method calls using findRelatedSymbols with METHOD_CALL type
-      const methodCalls = this.symbolManager.findRelatedSymbols(
-        symbol,
-        ReferenceType.METHOD_CALL,
-      );
-      for (const call of methodCalls) {
-        const location = this.createLocationFromReference(call);
-        if (location) {
-          locations.push(location);
-        }
-      }
+  /**
+   * Get references by specific relationship types (Effect-based with yielding)
+   */
+  private getRelationshipTypeReferencesEffect(
+    symbol: any,
+  ): Effect.Effect<Location[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const locations: Location[] = [];
+      const batchSize = 50;
 
-      // Get field access using findRelatedSymbols with FIELD_ACCESS type
-      const fieldAccess = this.symbolManager.findRelatedSymbols(
-        symbol,
-        ReferenceType.FIELD_ACCESS,
-      );
-      for (const access of fieldAccess) {
-        const location = this.createLocationFromReference(access);
-        if (location) {
-          locations.push(location);
-        }
-      }
-
-      // Get type references using findRelatedSymbols with TYPE_REFERENCE type
-      const typeReferences = this.symbolManager.findRelatedSymbols(
-        symbol,
-        ReferenceType.TYPE_REFERENCE,
-      );
-      for (const ref of typeReferences) {
-        const location = this.createLocationFromReference(ref);
-        if (location) {
-          locations.push(location);
-        }
-      }
-
-      // Get constructor calls (if it's a class) using findRelatedSymbols with CONSTRUCTOR_CALL type
-      if (symbol.kind === 'class') {
-        const constructorCalls = this.symbolManager.findRelatedSymbols(
+      try {
+        // Get method calls using findRelatedSymbols with METHOD_CALL type
+        const methodCalls = self.symbolManager.findRelatedSymbols(
           symbol,
-          ReferenceType.CONSTRUCTOR_CALL,
+          ReferenceType.METHOD_CALL,
         );
-        for (const call of constructorCalls) {
-          const location = this.createLocationFromReference(call);
+        for (let i = 0; i < methodCalls.length; i++) {
+          const call = methodCalls[i];
+          const location = self.createLocationFromReference(call);
           if (location) {
             locations.push(location);
           }
+          if ((i + 1) % batchSize === 0 && i + 1 < methodCalls.length) {
+            yield* Effect.yieldNow();
+          }
         }
+
+        // Get field access using findRelatedSymbols with FIELD_ACCESS type
+        const fieldAccess = self.symbolManager.findRelatedSymbols(
+          symbol,
+          ReferenceType.FIELD_ACCESS,
+        );
+        for (let i = 0; i < fieldAccess.length; i++) {
+          const access = fieldAccess[i];
+          const location = self.createLocationFromReference(access);
+          if (location) {
+            locations.push(location);
+          }
+          if ((i + 1) % batchSize === 0 && i + 1 < fieldAccess.length) {
+            yield* Effect.yieldNow();
+          }
+        }
+
+        // Get type references using findRelatedSymbols with TYPE_REFERENCE type
+        const typeReferences = self.symbolManager.findRelatedSymbols(
+          symbol,
+          ReferenceType.TYPE_REFERENCE,
+        );
+        for (let i = 0; i < typeReferences.length; i++) {
+          const ref = typeReferences[i];
+          const location = self.createLocationFromReference(ref);
+          if (location) {
+            locations.push(location);
+          }
+          if ((i + 1) % batchSize === 0 && i + 1 < typeReferences.length) {
+            yield* Effect.yieldNow();
+          }
+        }
+
+        // Get constructor calls (if it's a class) using findRelatedSymbols with CONSTRUCTOR_CALL type
+        if (symbol.kind === 'class') {
+          const constructorCalls = self.symbolManager.findRelatedSymbols(
+            symbol,
+            ReferenceType.CONSTRUCTOR_CALL,
+          );
+          for (let i = 0; i < constructorCalls.length; i++) {
+            const call = constructorCalls[i];
+            const location = self.createLocationFromReference(call);
+            if (location) {
+              locations.push(location);
+            }
+            if ((i + 1) % batchSize === 0 && i + 1 < constructorCalls.length) {
+              yield* Effect.yieldNow();
+            }
+          }
+        }
+
+        // Get static access using findRelatedSymbols with STATIC_ACCESS type
+        const staticAccess = self.symbolManager.findRelatedSymbols(
+          symbol,
+          ReferenceType.STATIC_ACCESS,
+        );
+        for (let i = 0; i < staticAccess.length; i++) {
+          const access = staticAccess[i];
+          const location = self.createLocationFromReference(access);
+          if (location) {
+            locations.push(location);
+          }
+          if ((i + 1) % batchSize === 0 && i + 1 < staticAccess.length) {
+            yield* Effect.yieldNow();
+          }
+        }
+
+        // Get import references using findRelatedSymbols with IMPORT_REFERENCE type
+        const importReferences = self.symbolManager.findRelatedSymbols(
+          symbol,
+          ReferenceType.IMPORT_REFERENCE,
+        );
+        for (let i = 0; i < importReferences.length; i++) {
+          const ref = importReferences[i];
+          const location = self.createLocationFromReference(ref);
+          if (location) {
+            locations.push(location);
+          }
+          if ((i + 1) % batchSize === 0 && i + 1 < importReferences.length) {
+            yield* Effect.yieldNow();
+          }
+        }
+      } catch (error) {
+        self.logger.debug(
+          () => `Error getting relationship type references: ${error}`,
+        );
       }
 
-      // Get static access using findRelatedSymbols with STATIC_ACCESS type
-      const staticAccess = this.symbolManager.findRelatedSymbols(
-        symbol,
-        ReferenceType.STATIC_ACCESS,
-      );
-      for (const access of staticAccess) {
-        const location = this.createLocationFromReference(access);
-        if (location) {
-          locations.push(location);
-        }
-      }
-
-      // Get import references using findRelatedSymbols with IMPORT_REFERENCE type
-      const importReferences = this.symbolManager.findRelatedSymbols(
-        symbol,
-        ReferenceType.IMPORT_REFERENCE,
-      );
-      for (const ref of importReferences) {
-        const location = this.createLocationFromReference(ref);
-        if (location) {
-          locations.push(location);
-        }
-      }
-    } catch (error) {
-      this.logger.debug(
-        () => `Error getting relationship type references: ${error}`,
-      );
-    }
-
-    return locations;
+      return locations;
+    });
   }
 
   /**

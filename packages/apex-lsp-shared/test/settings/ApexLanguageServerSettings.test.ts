@@ -334,7 +334,7 @@ describe('ApexLanguageServerSettings Validation', () => {
             runtimePlatform: 'desktop',
             serverMode: 'production',
             profilingMode: 'none',
-          profilingType: 'cpu',
+            profilingType: 'cpu',
             commentCollectionLogLevel: 'info',
           },
           findMissingArtifact: {

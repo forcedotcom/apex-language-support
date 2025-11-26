@@ -88,12 +88,22 @@ export class HoverProcessingService implements IHoverProcessor {
   public async processHover(params: HoverParams): Promise<Hover | null> {
     this.logger.debug(
       () =>
-        `Processing hover for ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
+        `Symbols in file ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
     );
 
     try {
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
+
+      // Check if file has symbols indexed before lookup
+      const fileSymbols = this.symbolManager.findSymbolsInFile(
+        params.textDocument.uri,
+      );
+      this.logger.debug(
+        () =>
+          `Symbols in file ${params.textDocument.uri}: ${fileSymbols.length} symbols found` +
+          `${fileSymbols.map((s) => s.name).join(', ')}`,
+      );
 
       let symbol = await this.symbolManager.getSymbolAtPosition(
         params.textDocument.uri,
@@ -104,7 +114,7 @@ export class HoverProcessingService implements IHoverProcessor {
       if (!symbol) {
         this.logger.debug(() => {
           const parserPos = formatPosition(parserPosition, 'parser');
-          return `No symbol found at parser position ${parserPos}`;
+          return `No symbol found at parser position ${parserPos} (file has ${fileSymbols.length} symbols indexed)`;
         });
 
         // Check if missing artifact resolution is enabled
@@ -125,7 +135,11 @@ export class HoverProcessingService implements IHoverProcessor {
         return null;
       }
 
-      this.logger.debug(() => `Found symbol: ${symbol.name} (${symbol.kind})`);
+      this.logger.debug(
+        () =>
+          `Found symbol: ${symbol?.name} (${symbol?.kind}) at position ` +
+          `${parserPosition.line}:${parserPosition.character}`,
+      );
 
       const hover = await this.createHoverInformation(symbol);
 
@@ -146,8 +160,12 @@ export class HoverProcessingService implements IHoverProcessor {
   private async createHoverInformation(symbol: ApexSymbol): Promise<Hover> {
     const content: string[] = [];
 
-    // Add FQN directly; symbol manager now hydrates identity for resolved symbols
-    const fqn = symbol.fqn || this.symbolManager.constructFQN(symbol);
+    // Construct FQN for display with original casing preserved
+    // Always construct a new FQN with normalizeCase: false for display purposes,
+    // even if symbol.fqn exists (which may be normalized to lowercase)
+    const fqn = this.symbolManager.constructFQN(symbol, {
+      normalizeCase: false,
+    });
 
     // Header: IDE-style signature for all symbol kinds
     content.push('');

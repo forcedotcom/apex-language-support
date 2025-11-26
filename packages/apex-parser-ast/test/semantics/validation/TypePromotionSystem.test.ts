@@ -7,68 +7,95 @@
  */
 
 import { TypePromotionSystem } from '../../../src/semantics/validation/TypePromotionSystem';
-import type { ExpressionType } from '../../../src/semantics/validation/TypePromotionSystem';
 
 describe('TypePromotionSystem', () => {
   describe('isNumeric', () => {
     it('should return true for integer type', () => {
-      expect(TypePromotionSystem.isNumeric(TypePromotionSystem.INTEGER)).toBe(true);
+      expect(TypePromotionSystem.isNumeric(TypePromotionSystem.INTEGER)).toBe(
+        true,
+      );
     });
 
     it('should return true for long type', () => {
-      expect(TypePromotionSystem.isNumeric(TypePromotionSystem.LONG)).toBe(true);
+      expect(TypePromotionSystem.isNumeric(TypePromotionSystem.LONG)).toBe(
+        true,
+      );
     });
 
     it('should return true for double type', () => {
-      expect(TypePromotionSystem.isNumeric(TypePromotionSystem.DOUBLE)).toBe(true);
+      expect(TypePromotionSystem.isNumeric(TypePromotionSystem.DOUBLE)).toBe(
+        true,
+      );
     });
 
     it('should return true for decimal type', () => {
-      expect(TypePromotionSystem.isNumeric(TypePromotionSystem.DECIMAL)).toBe(true);
+      expect(TypePromotionSystem.isNumeric(TypePromotionSystem.DECIMAL)).toBe(
+        true,
+      );
     });
 
     it('should return false for string type', () => {
-      expect(TypePromotionSystem.isNumeric(TypePromotionSystem.STRING)).toBe(false);
+      expect(TypePromotionSystem.isNumeric(TypePromotionSystem.STRING)).toBe(
+        false,
+      );
     });
 
     it('should return false for boolean type', () => {
-      expect(TypePromotionSystem.isNumeric(TypePromotionSystem.BOOLEAN)).toBe(false);
+      expect(TypePromotionSystem.isNumeric(TypePromotionSystem.BOOLEAN)).toBe(
+        false,
+      );
     });
   });
 
   describe('isIntegerOrLong', () => {
     it('should return true for integer type', () => {
-      expect(TypePromotionSystem.isIntegerOrLong(TypePromotionSystem.INTEGER)).toBe(true);
+      expect(
+        TypePromotionSystem.isIntegerOrLong(TypePromotionSystem.INTEGER),
+      ).toBe(true);
     });
 
     it('should return true for long type', () => {
-      expect(TypePromotionSystem.isIntegerOrLong(TypePromotionSystem.LONG)).toBe(true);
+      expect(
+        TypePromotionSystem.isIntegerOrLong(TypePromotionSystem.LONG),
+      ).toBe(true);
     });
 
     it('should return false for double type', () => {
-      expect(TypePromotionSystem.isIntegerOrLong(TypePromotionSystem.DOUBLE)).toBe(false);
+      expect(
+        TypePromotionSystem.isIntegerOrLong(TypePromotionSystem.DOUBLE),
+      ).toBe(false);
     });
 
     it('should return false for string type', () => {
-      expect(TypePromotionSystem.isIntegerOrLong(TypePromotionSystem.STRING)).toBe(false);
+      expect(
+        TypePromotionSystem.isIntegerOrLong(TypePromotionSystem.STRING),
+      ).toBe(false);
     });
   });
 
   describe('isDateTime', () => {
     it('should return true for date type', () => {
-      expect(TypePromotionSystem.isDateTime(TypePromotionSystem.DATE)).toBe(true);
+      expect(TypePromotionSystem.isDateTime(TypePromotionSystem.DATE)).toBe(
+        true,
+      );
     });
 
     it('should return true for datetime type', () => {
-      expect(TypePromotionSystem.isDateTime(TypePromotionSystem.DATETIME)).toBe(true);
+      expect(TypePromotionSystem.isDateTime(TypePromotionSystem.DATETIME)).toBe(
+        true,
+      );
     });
 
     it('should return true for time type', () => {
-      expect(TypePromotionSystem.isDateTime(TypePromotionSystem.TIME)).toBe(true);
+      expect(TypePromotionSystem.isDateTime(TypePromotionSystem.TIME)).toBe(
+        true,
+      );
     });
 
     it('should return false for integer type', () => {
-      expect(TypePromotionSystem.isDateTime(TypePromotionSystem.INTEGER)).toBe(false);
+      expect(TypePromotionSystem.isDateTime(TypePromotionSystem.INTEGER)).toBe(
+        false,
+      );
     });
   });
 
@@ -170,4 +197,4 @@ describe('TypePromotionSystem', () => {
       });
     });
   });
-}); 
+});

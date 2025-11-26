@@ -37,7 +37,6 @@ jest.mock('../src/language-server', () => ({
 import * as vscode from 'vscode';
 import {
   createProfilingToggleItem,
-  showProfilingToggleItem,
   hideProfilingToggleItem,
   updateProfilingToggleItem,
   registerProfilingToggleCommand,
@@ -108,9 +107,7 @@ describe('Profiling Status Bar', () => {
     jest
       .spyOn(vscode.window, 'showInformationMessage')
       .mockResolvedValue(undefined);
-    jest
-      .spyOn(vscode.window, 'showErrorMessage')
-      .mockResolvedValue(undefined);
+    jest.spyOn(vscode.window, 'showErrorMessage').mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -166,10 +163,7 @@ describe('Profiling Status Bar', () => {
       expect(vscode.workspace.getConfiguration).toHaveBeenCalledWith(
         'apex.environment',
       );
-      expect(mockConfig.get).toHaveBeenCalledWith(
-        'profilingMode',
-        'none',
-      );
+      expect(mockConfig.get).toHaveBeenCalledWith('profilingMode', 'none');
       expect(vscode.languages.createLanguageStatusItem).toHaveBeenCalledWith(
         'apex-ls-ts.profiling.toggle',
         {
@@ -538,4 +532,3 @@ describe('Profiling Status Bar', () => {
     });
   });
 });
-

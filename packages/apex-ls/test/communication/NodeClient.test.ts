@@ -50,9 +50,11 @@ describe('Client', () => {
     });
 
     it('should initialize connection on construction', () => {
-      const { NodeMessageBridge } = require('../../src/communication/NodeBridge');
+      const {
+        NodeMessageBridge,
+      } = require('../../src/communication/NodeBridge');
       new Client({ logger: mockLogger });
-      
+
       expect(NodeMessageBridge.createConnection).toHaveBeenCalledWith({
         mode: 'stdio',
         logger: mockLogger,
@@ -85,7 +87,7 @@ describe('Client', () => {
     beforeEach(() => {
       client = new Client({ logger: mockLogger });
       // Allow connection to initialize
-      return new Promise(resolve => setTimeout(resolve, 0));
+      return new Promise((resolve) => setTimeout(resolve, 0));
     });
 
     it('should throw error when sending notification after disposal', () => {
@@ -104,21 +106,24 @@ describe('Client', () => {
     });
   });
 
-
   describe('Async Operations', () => {
     beforeEach(async () => {
       client = new Client({ logger: mockLogger });
       // Wait for connection to be established
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
     });
 
     it('should handle async request operations', async () => {
       const mockResult = { result: 'test' };
       mockConnection.sendRequest.mockResolvedValue(mockResult);
 
-      const result = await client.sendRequest('test/method', { param: 'value' });
+      const result = await client.sendRequest('test/method', {
+        param: 'value',
+      });
       expect(result).toBe(mockResult);
-      expect(mockConnection.sendRequest).toHaveBeenCalledWith('test/method', { param: 'value' });
+      expect(mockConnection.sendRequest).toHaveBeenCalledWith('test/method', {
+        param: 'value',
+      });
     });
 
     it('should handle initialize request', async () => {
@@ -127,9 +132,12 @@ describe('Client', () => {
 
       const params = { processId: 1234, rootUri: '/test' };
       const result = await client.initialize(params);
-      
+
       expect(result).toBe(mockInitializeResult);
-      expect(mockConnection.sendRequest).toHaveBeenCalledWith('initialize', params);
+      expect(mockConnection.sendRequest).toHaveBeenCalledWith(
+        'initialize',
+        params,
+      );
     });
   });
 });

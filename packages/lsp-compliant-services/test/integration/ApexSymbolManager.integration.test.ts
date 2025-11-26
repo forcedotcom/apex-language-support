@@ -158,7 +158,7 @@ describe('ApexSymbolManager Integration Tests', () => {
     // Clean up ApexSymbolProcessingManager to stop any running intervals
     try {
       ApexSymbolProcessingManager.reset();
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors during cleanup
     }
   });

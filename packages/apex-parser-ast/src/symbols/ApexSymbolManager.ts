@@ -7,6 +7,7 @@
  */
 
 import { HashMap, Stack } from 'data-structure-typed';
+import { Effect } from 'effect';
 import { getLogger, type EnumValue } from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbol,
@@ -57,6 +58,7 @@ import {
 import { FQNOptions, calculateFQN, getAncestorChain } from '../utils/FQNUtils';
 import type { SymbolProvider } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
+import { extractFilePathFromUri } from '../types/UriBasedIdGenerator';
 
 import { ResourceLoader } from '../utils/resourceLoader';
 import { STANDARD_APEX_LIBRARY_URI } from '../utils/ResourceUtils';
@@ -137,6 +139,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   constructor() {
     this.symbolGraph = new ApexSymbolGraph();
+    ApexSymbolGraph.setInstance(this.symbolGraph);
     this.fileMetadata = new HashMap();
     this.unifiedCache = new UnifiedCache(
       this.MAX_CACHE_SIZE,
@@ -219,9 +222,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     if (!symbol.fqn) {
-      symbol.fqn = calculateFQN(symbol, undefined, (parentId) =>
+      symbol.fqn = calculateFQN(symbol, { normalizeCase: true }, (parentId) =>
         this.symbolGraph.getSymbol(parentId),
       );
+      // Update key FQN for consistency
+      symbol.key.fqn = symbol.fqn;
     }
 
     const symbolId = this.getSymbolId(symbol, fileUri);
@@ -272,7 +277,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       this.unifiedCache.set(symbolId, symbol, 'symbol_lookup');
 
       // Invalidate related cache entries when symbols are added
-      this.unifiedCache.invalidatePattern(symbol.name);
+      // Normalize to lowercase to match cache key format in findSymbolByName()
+      const normalizedName = symbol.name.toLowerCase();
+      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
+      // Also invalidate by name pattern for broader matching (normalized)
+      this.unifiedCache.invalidatePattern(normalizedName);
       // Invalidate file-based cache when symbols are added to a file
       this.unifiedCache.invalidatePattern(`file_symbols_${fileUri}`);
     }
@@ -289,25 +298,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Find all symbols with a given name
    */
   findSymbolByName(name: string): ApexSymbol[] {
-    const cacheKey = `symbol_name_${name}`;
+    // Normalize cache key to lowercase for consistency (nameIndex is now case-insensitive)
+    const cacheKey = `symbol_name_${name.toLowerCase()}`;
     const cached = this.unifiedCache.get<ApexSymbol[]>(cacheKey);
     if (cached) {
       return cached;
     }
 
     // OPTIMIZED: Delegate to graph which delegates to SymbolTable
+    // nameIndex is now case-insensitive, so no fallback needed
     const symbols = this.symbolGraph.findSymbolByName(name) || [];
-    if (symbols.length === 0) {
-      // Case-insensitive fallback
-      const lower = name.toLowerCase();
-      if (lower !== name) {
-        const alt = this.symbolGraph.findSymbolByName(lower);
-        if (alt && alt.length > 0) {
-          this.unifiedCache.set(cacheKey, alt, 'symbol_lookup');
-          return alt;
-        }
-      }
-    }
     this.unifiedCache.set(cacheKey, symbols, 'symbol_lookup');
     return symbols;
   }
@@ -341,8 +341,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const properUri =
       getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
 
+    // Normalize URI using the same logic as getSymbolsInFile() to ensure consistency
+    // This ensures we use the same normalized URI that was used when registering SymbolTables
+    const normalizedUri = extractFilePathFromUri(properUri);
+
     // OPTIMIZED: Delegate to graph which delegates to SymbolTable
-    const symbols = this.symbolGraph.getSymbolsInFile(properUri);
+    const symbols = this.symbolGraph.getSymbolsInFile(normalizedUri);
     this.unifiedCache.set(cacheKey, symbols, 'file_lookup');
     return symbols;
   }
@@ -541,18 +545,41 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Get symbol metrics
+   * Get symbol metrics (synchronous version)
+   * For better performance with large symbol sets, use getSymbolMetricsEffect() instead
    */
   getSymbolMetrics(): Map<string, SymbolMetrics> {
-    const metrics = new Map<string, SymbolMetrics>();
-    const allSymbols = this.getAllSymbols();
+    return Effect.runSync(this.getSymbolMetricsEffect());
+  }
 
-    allSymbols.forEach((symbol) => {
-      const symbolId = this.getSymbolId(symbol);
-      metrics.set(symbolId, this.computeMetrics(symbol));
+  /**
+   * Get symbol metrics (Effect-based with yielding)
+   * This version yields periodically to prevent blocking and can be queued as Background task
+   */
+  getSymbolMetricsEffect(): Effect.Effect<
+    Map<string, SymbolMetrics>,
+    never,
+    never
+  > {
+    const self = this;
+    return Effect.gen(function* () {
+      const metrics = new Map<string, SymbolMetrics>();
+      const allSymbols = self.getAllSymbols();
+
+      const batchSize = 50;
+      for (let i = 0; i < allSymbols.length; i++) {
+        const symbol = allSymbols[i];
+        const symbolId = self.getSymbolId(symbol);
+        metrics.set(symbolId, self.computeMetrics(symbol));
+
+        // Yield every batchSize symbols to allow other tasks to run
+        if ((i + 1) % batchSize === 0) {
+          yield* Effect.yieldNow();
+        }
+      }
+
+      return metrics;
     });
-
-    return metrics;
   }
 
   /**
@@ -1304,7 +1331,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const symbols: ApexSymbol[] = [];
 
     // Get symbols from the symbol graph by iterating through file metadata
-    for (const [fileUri, _metadata] of this.fileMetadata.entries()) {
+    // Note: This is synchronous - for large workspaces, consider using async variant
+    const fileEntries = Array.from(this.fileMetadata.entries());
+    for (const [fileUri, _metadata] of fileEntries) {
       const fileSymbols = this.findSymbolsInFile(fileUri);
       symbols.push(...fileSymbols);
     }
@@ -1483,20 +1512,49 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const properUri =
       getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
 
+    // Normalize URI using extractFilePathFromUri to ensure consistency with SymbolTable registration
+    // This ensures that fileIndex lookups will find the symbols
+    const normalizedUri = extractFilePathFromUri(properUri);
+
+    // Register SymbolTable once for the entire file before processing symbols
+    // This avoids redundant registration calls for each symbol
+    this.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
+
     // Add all symbols from the symbol table
     const symbols = symbolTable.getAllSymbols
       ? symbolTable.getAllSymbols()
       : [];
 
-    // Update all symbols to use the proper URI
-    symbols.forEach((symbol: ApexSymbol) => {
-      // Update the symbol's fileUri to match the table's fileUri
-      symbol.fileUri = properUri;
-      this.addSymbol(symbol, properUri, symbolTable);
-    });
+    // Update all symbols to use the normalized URI
+    // Process in batches with yields for large symbol tables to prevent blocking
+    const batchSize = 100;
+    const symbolNamesAdded = new Set<string>();
+    for (let i = 0; i < symbols.length; i++) {
+      const symbol = symbols[i];
+      // Update the symbol's fileUri to match the normalized URI
+      symbol.fileUri = normalizedUri;
+      // Pass undefined for symbolTable since it's already registered above
+      // addSymbol() will use the registered SymbolTable via ensureSymbolTableForFile()
+      this.addSymbol(symbol, normalizedUri, undefined);
+      symbolNamesAdded.add(symbol.name);
+
+      // Yield every batchSize symbols to allow other tasks to run
+      if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
+        // Use setTimeout to yield to event loop
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    // Invalidate cache for all symbol names that were added
+    // This ensures that findSymbolByName() will see the newly added symbols
+    for (const symbolName of symbolNamesAdded) {
+      // Normalize to lowercase to match cache key format in findSymbolByName()
+      const normalizedName = symbolName.toLowerCase();
+      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
+    }
 
     // Process type references and add them to the symbol graph
-    await this.processTypeReferencesToGraph(symbolTable, properUri);
+    await this.processTypeReferencesToGraph(symbolTable, normalizedUri);
   }
 
   /**
@@ -1763,7 +1821,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         try {
           // Extract the base file URI from the symbol's fileUri
           // e.g., 'file:///test/TestClass.cls:file.TestClass.InnerClass:innerMethod' -> 'file:///test/TestClass.cls'
-          const baseFileUri = symbol.fileUri.split(':')[0];
+          const baseFileUri = extractFilePathFromUri(symbol.fileUri);
           const cacheForFile = this.getOrBuildParentCacheForFile(baseFileUri);
           const parentCandidate = cacheForFile.get(symbol.parentId) || null;
           if (parentCandidate) {
@@ -1776,7 +1834,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Compute FQN if missing or too generic
       if (!symbol.fqn || symbol.fqn === symbol.name) {
-        symbol.fqn = calculateFQN(symbol, undefined, (parentId) =>
+        symbol.fqn = calculateFQN(symbol, { normalizeCase: true }, (parentId) =>
           this.symbolGraph.getSymbol(parentId),
         );
       }
@@ -1813,8 +1871,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       const typeReferences = symbolTable.getAllReferences();
 
-      for (const typeRef of typeReferences) {
-        await this.processTypeReferenceToGraph(typeRef, fileUri);
+      // Process references in batches with yields to prevent blocking
+      const batchSize = 50; // Process 50 references at a time
+      for (let i = 0; i < typeReferences.length; i += batchSize) {
+        const batch = typeReferences.slice(i, i + batchSize);
+
+        // Process batch
+        for (const typeRef of batch) {
+          await this.processTypeReferenceToGraph(typeRef, fileUri);
+        }
+
+        // Yield after each batch (except the last) to allow other tasks to run
+        if (i + batchSize < typeReferences.length) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
       }
     } catch (error) {
       this.logger.error(
@@ -3555,125 +3625,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Enhanced symbol resolution with ResourceLoader integration
-   */
-  private async resolveSymbolWithResourceLoader(
-    name: string,
-    context: SymbolResolutionContext,
-  ): Promise<ApexSymbol | null> {
-    // Step 1: Check if this is a standard Apex class using generated constants
-    if (this.resourceLoader && this.isStandardApexClass(name)) {
-      // Try to resolve from ResourceLoader first
-      const standardClass = await this.resolveStandardApexClassAsync(name);
-      if (standardClass) {
-        return standardClass;
-      }
-    }
-
-    // Step 2: Check built-in types
-    const builtInType = await this.resolveBuiltInType(name);
-    if (builtInType) {
-      return builtInType;
-    }
-
-    // Step 3: Check existing symbols in graph
-    const existingSymbols = this.findSymbolByName(name);
-    if (existingSymbols.length > 0) {
-      return this.selectMostSpecificSymbol(
-        existingSymbols,
-        context.sourceFile || '',
-      );
-    }
-
-    return null;
-  }
-
-  /**
-   * Async resolution of standard Apex classes with lazy loading
-   */
-  private async resolveStandardApexClassAsync(
-    name: string,
-  ): Promise<ApexSymbol | null> {
-    if (!this.resourceLoader) {
-      return null;
-    }
-
-    try {
-      // Extract namespace and class name
-      const parts = name.split('.');
-      if (parts.length < 2) {
-        return null;
-      }
-
-      const namespace = parts[0];
-      const className = parts[1];
-      const classPath = `${namespace}/${className}.cls`;
-
-      // Use generated constant to validate namespace
-      if (!this.resourceLoader.isStdApexNamespace(namespace)) {
-        return null;
-      }
-
-      // Check if class exists and is compiled
-      if (!this.resourceLoader.hasClass(classPath)) {
-        return null;
-      }
-
-      // Try to get compiled artifact (this will trigger lazy loading if needed)
-      const artifact = await this.resourceLoader.getCompiledArtifact(classPath);
-      if (artifact) {
-        // Extract symbol from compiled artifact
-        const symbolTable = artifact.compilationResult.result;
-        if (symbolTable) {
-          const symbols = symbolTable.getAllSymbols();
-          const classSymbol = symbols.find((s) => s.name === className);
-
-          if (classSymbol) {
-            // Ensure the symbol has proper metadata
-            classSymbol.fileUri = classPath;
-            classSymbol.fqn = name;
-            classSymbol.modifiers.isBuiltIn = false;
-
-            // Add to symbol graph for future lookups
-            this.addSymbol(classSymbol, classPath, symbolTable);
-
-            return classSymbol;
-          }
-        }
-      }
-
-      // If not compiled yet, trigger lazy compilation
-      const compiledArtifact =
-        await this.resourceLoader.loadAndCompileClass(classPath);
-      if (compiledArtifact) {
-        // Process the newly compiled artifact
-        const symbolTable = compiledArtifact.compilationResult.result;
-        if (symbolTable) {
-          const symbols = symbolTable.getAllSymbols();
-          const classSymbol = symbols.find((s) => s.name === className);
-
-          if (classSymbol) {
-            classSymbol.fileUri = classPath;
-            classSymbol.fqn = name;
-            classSymbol.modifiers.isBuiltIn = false;
-
-            // Add to symbol graph
-            this.addSymbol(classSymbol, classPath, symbolTable);
-
-            return classSymbol;
-          }
-        }
-      }
-
-      return null;
-    } catch (error) {
-      this.logger.warn(
-        () => `Failed to resolve standard Apex class ${name}: ${error}`,
-      );
-      return null;
-    }
-  }
-  /**
    * Check if a TypeReference is a chained expression reference
    */
   private isChainedTypeReference(typeReference: TypeReference): boolean {
@@ -4233,6 +4184,42 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               // Return the resolved symbol at the target index
               return resolvedContext.symbol || null;
             }
+
+            // If the resolved context is not a symbol (e.g., namespace or global), and we're on the first node,
+            // try to resolve the qualifier as a class symbol
+            if (
+              chainMember.index === 0 &&
+              resolvedContext &&
+              (resolvedContext.type === 'namespace' ||
+                resolvedContext.type === 'global')
+            ) {
+              const qualifierName = chainNodes[0].name;
+              const qualifierSymbols = this.findSymbolByName(qualifierName);
+
+              // Filter for class symbols
+              const classSymbols = qualifierSymbols.filter(
+                (s) =>
+                  s.kind === SymbolKind.Class ||
+                  s.kind === SymbolKind.Interface,
+              );
+
+              if (classSymbols.length > 0) {
+                // Prefer standard Apex classes for qualified references
+                const standardClass = classSymbols.find(
+                  (s) =>
+                    s.fileUri?.includes('apexlib://') ||
+                    s.fileUri?.includes('StandardApexLibrary'),
+                );
+                return standardClass || classSymbols[0];
+              }
+
+              // If no class found, try standard Apex class resolution
+              const standardClass =
+                await this.resolveStandardApexClass(qualifierName);
+              if (standardClass) {
+                return standardClass;
+              }
+            }
           }
         }
 
@@ -4310,24 +4297,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Try to resolve a step as a namespace
-   */
-  private tryResolveAsNamespace(
-    stepName: string,
-    currentContext: ChainResolutionContext,
-  ): ApexSymbol | null {
-    // Check if this could be a namespace by looking for symbols in that namespace
-    const namespaceSymbols = this.findSymbolsInNamespace(stepName);
-    if (namespaceSymbols.length > 0) {
-      // Don't return a faux symbol - let the caller handle namespace context
-      // This will be handled by the NAMESPACE context resolution in the calling method
-      return null;
-    }
-
-    return null;
-  }
-
-  /**
    * Try to resolve a step as an instance (variable)
    */
   private async tryResolveAsInstance(
@@ -4352,25 +4321,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     );
     if (globalVariableSymbol) {
       return globalVariableSymbol;
-    }
-
-    return null;
-  }
-
-  /**
-   * Try to resolve a step as a property
-   */
-  private async tryResolveAsProperty(
-    stepName: string,
-    currentContext: ChainResolutionContext,
-  ): Promise<ApexSymbol | null> {
-    const propertySymbol = await this.resolveMemberInContext(
-      currentContext,
-      stepName,
-      'property',
-    );
-    if (propertySymbol) {
-      return propertySymbol;
     }
 
     return null;
@@ -4426,7 +4376,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
               // Add the symbol table to our graph for future use
               await this.addSymbolTable(symbolTable, contextFile);
-            } else {
             }
           } catch (_error) {}
         }
@@ -4533,5 +4482,55 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     } catch (_error) {
       return null;
     }
+  }
+
+  /**
+   * Get graph data as JSON-serializable data
+   * Delegates to ApexSymbolGraph
+   */
+  getGraphData(): import('../types/graph').GraphData {
+    return this.symbolGraph.getGraphData();
+  }
+
+  /**
+   * Get graph data filtered by file as JSON-serializable data
+   * Delegates to ApexSymbolGraph
+   */
+  getGraphDataForFile(fileUri: string): import('../types/graph').FileGraphData {
+    return this.symbolGraph.getGraphDataForFile(fileUri);
+  }
+
+  /**
+   * Get graph data filtered by symbol type as JSON-serializable data
+   * Delegates to ApexSymbolGraph
+   */
+  getGraphDataByType(
+    symbolType: string,
+  ): import('../types/graph').TypeGraphData {
+    return this.symbolGraph.getGraphDataByType(symbolType);
+  }
+
+  /**
+   * Get graph data as a JSON string (for direct wire transmission)
+   * Delegates to ApexSymbolGraph
+   */
+  getGraphDataAsJSON(): string {
+    return this.symbolGraph.getGraphDataAsJSON();
+  }
+
+  /**
+   * Get graph data for a file as a JSON string
+   * Delegates to ApexSymbolGraph
+   */
+  getGraphDataForFileAsJSON(fileUri: string): string {
+    return this.symbolGraph.getGraphDataForFileAsJSON(fileUri);
+  }
+
+  /**
+   * Get graph data by type as a JSON string
+   * Delegates to ApexSymbolGraph
+   */
+  getGraphDataByTypeAsJSON(symbolType: string): string {
+    return this.symbolGraph.getGraphDataByTypeAsJSON(symbolType);
   }
 }

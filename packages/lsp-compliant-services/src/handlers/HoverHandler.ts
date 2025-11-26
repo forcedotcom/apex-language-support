@@ -11,7 +11,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { dispatch } from '../utils/handlerUtil';
 import { IHoverProcessor } from '../services/HoverProcessingService';
-import { LSPQueueManager } from '../queue/LSPQueueManager';
+import { LSPQueueManager } from '../queue';
 
 /**
  * Handler for hover requests using the LSP queue system
@@ -56,7 +56,7 @@ export class HoverHandler {
   /**
    * Get queue statistics for monitoring
    */
-  public getQueueStats() {
-    return this.queueManager.getStats();
+  public async getQueueStats() {
+    return await this.queueManager.getStats();
   }
 }

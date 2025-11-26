@@ -7,10 +7,7 @@
  */
 
 import { StatementValidator } from '../../../src/semantics/validation/StatementValidator';
-import type {
-  ValidationResult,
-  ValidationScope,
-} from '../../../src/semantics/validation/ValidationResult';
+import type { ValidationScope } from '../../../src/semantics/validation/ValidationResult';
 import type { ExpressionType } from '../../../src/semantics/validation/TypePromotionSystem';
 
 /**

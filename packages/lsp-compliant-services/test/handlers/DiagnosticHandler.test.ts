@@ -13,6 +13,7 @@ import { processOnDiagnostic } from '../../src/handlers/DiagnosticHandler';
 
 // Mock the logging module
 jest.mock('@salesforce/apex-lsp-shared', () => ({
+  ...jest.requireActual('@salesforce/apex-lsp-shared'),
   getLogger: jest.fn(),
 }));
 

@@ -7,10 +7,7 @@
  */
 
 import { AddErrorMethodValidator } from '../../../src/semantics/validation/AddErrorMethodValidator';
-import type {
-  ValidationResult,
-  ValidationScope,
-} from '../../../src/semantics/validation/ValidationResult';
+import type { ValidationScope } from '../../../src/semantics/validation/ValidationResult';
 import type {
   SObjectFieldInfo,
   SObjectValidationContext,

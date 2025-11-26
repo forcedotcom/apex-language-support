@@ -7,7 +7,8 @@
  */
 
 import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
-import { LSPRequestType, RequestPriority } from '../queue/LSPRequestQueue';
+import { LSPRequestType } from '../queue';
+import { Priority } from '@salesforce/apex-lsp-shared';
 import { LSPRequestHandler } from './ServiceRegistry';
 
 /**
@@ -19,7 +20,7 @@ export class GenericRequestHandler<T = any, R = any>
   constructor(
     public readonly requestType: LSPRequestType,
     private readonly service: any,
-    public readonly priority: RequestPriority,
+    public readonly priority: Priority,
     public readonly timeout: number,
     public readonly maxRetries: number,
   ) {}
@@ -36,7 +37,21 @@ export class GenericRequestHandler<T = any, R = any>
     }
 
     // Call the service method with the parameters
-    return this.service[methodName](params);
+    const result = this.service[methodName](params);
+
+    // Handle both void and Promise return types
+    // If result is undefined (void method), return undefined
+    if (result === undefined) {
+      return undefined as R;
+    }
+
+    // If it's a Promise, await it
+    if (result instanceof Promise) {
+      return result;
+    }
+
+    // Otherwise return the result directly
+    return result;
   }
 
   /**

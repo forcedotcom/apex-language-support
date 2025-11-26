@@ -11,7 +11,6 @@ import {
   DocumentSymbolParams,
   SymbolInformation,
   DocumentSymbol,
-  Diagnostic,
   HoverParams,
   Hover,
   DefinitionParams,
@@ -19,20 +18,25 @@ import {
   Location,
   CodeLensParams,
   CodeLens,
+  DeleteFilesParams,
 } from 'vscode-languageserver';
-import { getLogger } from '@salesforce/apex-lsp-shared';
 import type {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
+import { ApexSettingsManager, getLogger } from '@salesforce/apex-lsp-shared';
 import { HandlerFactory } from './factories/HandlerFactory';
 import { dispatchProcessOnDiagnostic } from './handlers/DiagnosticHandler';
 import { dispatchProcessOnFoldingRange } from './handlers/FoldingRangeHandler';
 import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
 import { HoverHandler } from './handlers/HoverHandler';
-import { LSPQueueManager } from './queue/LSPQueueManager';
+import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import { LSPQueueManager, LSPQueueManagerDependencies } from './queue';
+import { ServiceFactory } from './factories/ServiceFactory';
+import { DEFAULT_SERVICE_CONFIG } from './config/ServiceConfiguration';
+import { ApexStorageManager } from './storage/ApexStorageManager';
 
 // Export storage interfaces and classes
 export * from './storage/ApexStorageBase';
@@ -50,6 +54,7 @@ export * from './handlers/DidOpenDocumentHandler';
 export * from './handlers/DidChangeDocumentHandler';
 export * from './handlers/DidSaveDocumentHandler';
 export * from './handlers/DidCloseDocumentHandler';
+export * from './handlers/DidDeleteDocumentHandler';
 export * from './handlers/DocumentSymbolHandler';
 export * from './handlers/DefinitionHandler';
 export * from './handlers/ReferencesHandler';
@@ -60,12 +65,17 @@ export * from './handlers/DiagnosticHandler';
 export * from './handlers/HoverHandler';
 export * from './handlers/MissingArtifactHandler';
 export * from './handlers/CodeLensHandler';
+export * from './handlers/QueueStateHandler';
+export * from './handlers/GraphDataHandler';
 
 // Export services
 export * from './services/DocumentProcessingService';
+// DocumentOpenBatcher exports are handled via DocumentProcessingService
+// to avoid duplicate exports
 export * from './services/DocumentSaveProcessingService';
 export * from './services/DocumentStateCache';
 export * from './services/DocumentCloseProcessingService';
+export * from './services/DocumentDeleteProcessingService';
 export * from './services/DocumentSymbolProcessingService';
 export * from './services/DefinitionProcessingService';
 export * from './services/DiagnosticProcessingService';
@@ -78,6 +88,8 @@ export * from './services/MissingArtifactResolutionService';
 export * from './services/IndexingObserver';
 export * from './services/SymbolManagerExtensions';
 export * from './services/CodeLensProcessingService';
+export * from './services/QueueStateProcessingService';
+export * from './services/GraphDataProcessingService';
 
 // Export factories
 export * from './factories/HandlerFactory';
@@ -93,53 +105,93 @@ export * from './apexlib';
 // Export LSP queue system
 export * from './queue';
 
+// Export registry components
+export * from './registry';
+
 /**
- * Dispatch function for document open events
+ * Initialize LSPQueueManager with required dependencies
+ * This should be called during server initialization
+ */
+export function initializeLSPQueueManager(
+  symbolManager: ISymbolManager,
+): LSPQueueManager {
+  const logger = getLogger();
+  const serviceFactory = new ServiceFactory({
+    logger,
+    symbolManager,
+    storageManager: ApexStorageManager.getInstance(),
+    settingsManager: ApexSettingsManager.getInstance(),
+  });
+
+  const dependencies: LSPQueueManagerDependencies = {
+    serviceFactory,
+    serviceConfig: DEFAULT_SERVICE_CONFIG,
+    storageManager: ApexStorageManager.getInstance(),
+    settingsManager: ApexSettingsManager.getInstance(),
+  };
+
+  return LSPQueueManager.getInstance(dependencies);
+}
+
+/**
+ * Dispatch function for document open events (LSP notification - fire-and-forget)
  * Routes through LSPQueueManager for throttled processing during workspace load
  * @param event The document open event
- * @returns Promise resolving to diagnostics or undefined
  */
-export const dispatchProcessOnOpenDocument = async (
+export const dispatchProcessOnOpenDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
-): Promise<Diagnostic[] | undefined> => {
+): void => {
   const queueManager = LSPQueueManager.getInstance();
-  return await queueManager.submitDocumentOpenRequest(event);
+  // Error handling is done internally in submitDocumentOpenNotification
+  queueManager.submitDocumentOpenNotification(event);
 };
 
 /**
- * Dispatch function for document change events
+ * Dispatch function for document change events (LSP notification - fire-and-forget)
  * @param event The document change event
- * @returns Promise resolving to diagnostics or undefined
  */
-export const dispatchProcessOnChangeDocument = async (
+export const dispatchProcessOnChangeDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
-): Promise<Diagnostic[] | undefined> => {
+): void => {
   const handler = HandlerFactory.createDidChangeDocumentHandler();
-  return await handler.handleDocumentChange(event);
+  // Error handling is done internally in handleDocumentChange
+  handler.handleDocumentChange(event);
 };
 
 /**
- * Dispatch function for document close events
+ * Dispatch function for document close events (LSP notification - fire-and-forget)
  * @param event The document close event
- * @returns Promise resolving to void
  */
-export const dispatchProcessOnCloseDocument = async (
+export const dispatchProcessOnCloseDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
-): Promise<void> => {
+): void => {
   const handler = HandlerFactory.createDidCloseDocumentHandler();
-  return await handler.handleDocumentClose(event);
+  // Error handling is done internally in handleDocumentClose
+  handler.handleDocumentClose(event);
 };
 
 /**
- * Dispatch function for document save events
+ * Dispatch function for document save events (LSP notification - fire-and-forget)
  * @param event The document save event
+ */
+export const dispatchProcessOnSaveDocument = (
+  event: TextDocumentChangeEvent<TextDocument>,
+): void => {
+  const handler = HandlerFactory.createDidSaveDocumentHandler();
+  // Error handling is done internally in handleDocumentSave
+  handler.handleDocumentSave(event);
+};
+
+/**
+ * Dispatch function for file delete events
+ * @param event The file delete event
  * @returns Promise resolving to void
  */
-export const dispatchProcessOnSaveDocument = async (
-  event: TextDocumentChangeEvent<TextDocument>,
+export const dispatchProcessOnDeleteDocument = async (
+  event: DeleteFilesParams,
 ): Promise<void> => {
-  const handler = HandlerFactory.createDidSaveDocumentHandler();
-  return await handler.handleDocumentSave(event);
+  const handler = HandlerFactory.createDidDeleteDocumentHandler();
+  return await handler.handleDocumentDelete(event);
 };
 
 /**
@@ -251,4 +303,17 @@ export {
   dispatchProcessOnDiagnostic,
   dispatchProcessOnFoldingRange,
   dispatchProcessOnResolve,
+};
+
+// Export dispatch functions from handlerUtil
+export { dispatchProcessOnQueueState } from './utils/handlerUtil';
+
+/**
+ * Dispatch graph data processing request
+ * @param params The graph data parameters
+ * @returns Graph data response
+ */
+export const dispatchProcessOnGraphData = async (params: any): Promise<any> => {
+  const handler = HandlerFactory.createGraphDataHandler();
+  return await handler.handleGraphData(params);
 };

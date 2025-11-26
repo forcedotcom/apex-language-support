@@ -177,12 +177,47 @@ function copyOutResources() {
 }
 
 /**
+ * Copy webview scripts from out/webviews to dist/webview
+ */
+function copyWebviewScripts() {
+  const distDir = path.resolve(__dirname, 'dist');
+  const outWebviewsDir = path.join(__dirname, 'out/webviews');
+  const distWebviewDir = path.join(distDir, 'webview');
+
+  try {
+    // Ensure dist/webview directory exists
+    fs.mkdirSync(distWebviewDir, { recursive: true });
+
+    // Copy webview script files (only .js files, not .d.ts or .map files)
+    if (fs.existsSync(outWebviewsDir)) {
+      const files = fs.readdirSync(outWebviewsDir);
+      files.forEach((file) => {
+        // Only copy .js files (skip .d.ts, .js.map, etc.)
+        if (file.endsWith('.js') && !file.endsWith('.d.ts')) {
+          const srcFile = path.join(outWebviewsDir, file);
+          const destFile = path.join(distWebviewDir, file);
+          fs.copyFileSync(srcFile, destFile);
+        }
+      });
+
+      console.log('✅ Copied webview scripts to dist/webview');
+    }
+  } catch (error) {
+    console.warn(
+      'Failed to copy webview scripts:',
+      (error as Error).message,
+    );
+  }
+}
+
+/**
  * Execute immediate post-build tasks (non-dependent on other packages)
  * Worker file copying is done in a separate postbundle script that Turbo can track
  */
 function executePostBuildTasks(): void {
   copyManifestFiles();
   copyOutResources();
+  copyWebviewScripts();
   copyStandardLibraryResources();
   fixPackagePaths();
 }
@@ -237,6 +272,28 @@ export default defineConfig([
 
       options.define = { global: 'globalThis' };
       options.alias = NODE_POLYFILLS;
+    },
+  },
+
+  // Webview Graph Script Bundle - Browser-compatible IIFE bundle
+  {
+    name: 'webview-graph',
+    entry: ['src/webviews/graphScript.ts'],
+    outDir: 'dist/webview',
+    format: ['iife'],
+    platform: 'browser',
+    target: 'es2020',
+    outExtension: () => ({ js: '.bundle.js' }),
+    sourcemap: true,
+    splitting: false,
+    // No external dependencies - bundle everything
+    external: [],
+    // Don't use globalName - let the IIFE execute immediately
+    esbuildOptions(options) {
+      options.platform = 'browser';
+      options.define = {
+        'process.env.NODE_ENV': '"production"',
+      };
     },
   },
 ]);

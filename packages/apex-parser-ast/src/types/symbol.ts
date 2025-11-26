@@ -224,6 +224,9 @@ export class SymbolFactory {
     const modifierFlags = this.modifiersToFlags(modifiers);
 
     // Calculate FQN if namespace is provided (case-insensitive for Apex)
+    // For top-level symbols, this gives us the full FQN immediately.
+    // For child symbols, this gives us a partial FQN (namespace.name) which will be
+    // recalculated later with the full parent hierarchy when the symbol is added to the graph.
     const fqn =
       namespace && typeof namespace === 'object' && 'toString' in namespace
         ? createTypeWithNamespace(namespace as Namespace, name, {
@@ -770,6 +773,8 @@ export class SymbolTable {
   private scopeMap: HashMap<string, SymbolScope> = new HashMap();
   private references: TypeReference[] = []; // Store type references
   private hierarchicalReferences: HierarchicalReference[] = []; // NEW: Store hierarchical references
+  // Array maintained incrementally to avoid expensive HashMap iterator in getAllSymbols()
+  private symbolArray: ApexSymbol[] = [];
 
   /**
    * Creates a new symbol table.
@@ -810,7 +815,27 @@ export class SymbolTable {
     }
 
     this.current.addSymbol(symbol);
-    this.symbolMap.set(this.keyToString(symbol.key), symbol);
+    const symbolKey = this.keyToString(symbol.key);
+    const existingSymbol = this.symbolMap.get(symbolKey);
+    this.symbolMap.set(symbolKey, symbol);
+
+    // Maintain array incrementally to avoid expensive HashMap iterator
+    if (existingSymbol) {
+      // Replace existing symbol in array if key already exists (HashMap overwrites)
+      // Find by comparing keys since the symbol object might be different
+      const index = this.symbolArray.findIndex(
+        (s) => this.keyToString(s.key) === symbolKey,
+      );
+      if (index !== -1) {
+        this.symbolArray[index] = symbol;
+      } else {
+        // Fallback: symbol not found in array, just push (shouldn't happen)
+        this.symbolArray.push(symbol);
+      }
+    } else {
+      // New symbol, add to array
+      this.symbolArray.push(symbol);
+    }
   }
 
   /**
@@ -949,15 +974,13 @@ export class SymbolTable {
    * @returns Array of all symbols
    */
   getAllSymbols(): ApexSymbol[] {
-    return Array.from(this.symbolMap.values());
+    return this.symbolArray;
   }
 
   findSymbolWith(
     predicate: (entry: ApexSymbol) => boolean,
   ): ApexSymbol | undefined {
-    const symbolEntry: [_: string, value: ApexSymbol] | undefined =
-      this.symbolMap.find((_, value) => predicate(value));
-    return symbolEntry ? symbolEntry[1] : undefined;
+    return this.symbolArray.find((symbol) => predicate(symbol));
   }
 
   /**

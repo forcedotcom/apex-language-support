@@ -6,11 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { SObjectRecalculateFormulasValidator } from '../../../src/semantics/validation/SObjectRecalculateFormulasValidator';
-import {
-  ValidationScope,
-  ValidationResult,
-} from '../../../src/semantics/validation/ValidationResult';
+import { SObjectRecalculateFormulasValidator } from '../../../src/semantics/validation/SObjectRecalculateFormulasValidator'; // eslint-disable-line max-len
+import { ValidationScope } from '../../../src/semantics/validation/ValidationResult';
 
 describe('SObjectRecalculateFormulasValidator', () => {
   let scope: ValidationScope;

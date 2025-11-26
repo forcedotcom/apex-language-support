@@ -7,10 +7,7 @@
  */
 
 import { DecimalToDoubleValidator } from '../../../src/semantics/validation/DecimalToDoubleValidator';
-import type {
-  ValidationResult,
-  ValidationScope,
-} from '../../../src/semantics/validation/ValidationResult';
+import type { ValidationScope } from '../../../src/semantics/validation/ValidationResult';
 import type { TypeInfo } from '../../../src/semantics/validation/TypeValidator';
 
 /**

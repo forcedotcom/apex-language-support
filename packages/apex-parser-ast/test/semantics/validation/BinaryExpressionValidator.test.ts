@@ -177,7 +177,9 @@ describe('BinaryExpressionValidator', () => {
           );
 
           expect(result.isValid).toBe(false);
-          expect(result.errors).toContain('invalid.numeric.arguments.expression');
+          expect(result.errors).toContain(
+            'invalid.numeric.arguments.expression',
+          );
         });
       });
 
@@ -285,7 +287,9 @@ describe('BinaryExpressionValidator', () => {
           );
 
           expect(result.isValid).toBe(false);
-          expect(result.errors).toContain('invalid.datetime.operand.expression');
+          expect(result.errors).toContain(
+            'invalid.datetime.operand.expression',
+          );
         });
       });
     });
@@ -518,4 +522,4 @@ describe('BinaryExpressionValidator', () => {
       expect(result.errors).toContain('invalid.bitwise.operator.arguments');
     });
   });
-}); 
+});

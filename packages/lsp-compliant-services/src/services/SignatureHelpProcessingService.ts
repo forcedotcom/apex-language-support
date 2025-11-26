@@ -22,6 +22,7 @@ import {
   ApexSymbolProcessingManager,
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 
 /**
@@ -191,20 +192,15 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
         interfaceImplementations: [],
       };
 
-      // Find method symbols by name
+      // Find method symbols by name (with yielding)
       const methodSymbols = this.symbolManager.findSymbolByName(
         context.methodName,
       );
 
-      for (const symbol of methodSymbols) {
-        if (symbol.kind === 'method') {
-          // Check if this method matches the context
-          if (this.matchesSignatureContext(symbol, context)) {
-            const signature = this.createSignatureInformation(symbol, context);
-            signatures.push(signature);
-          }
-        }
-      }
+      const methodSignatures = await Effect.runPromise(
+        this.processMethodSymbolsEffect(methodSymbols, context),
+      );
+      signatures.push(...methodSignatures);
 
       // If no exact matches, try to find related methods
       if (signatures.length === 0) {
@@ -288,49 +284,104 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
   }
 
   /**
+   * Process method symbols with yielding (Effect-based)
+   */
+  private processMethodSymbolsEffect(
+    methodSymbols: any[],
+    context: SignatureHelpContext,
+  ): Effect.Effect<SignatureInformation[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const signatures: SignatureInformation[] = [];
+      const batchSize = 50;
+
+      for (let i = 0; i < methodSymbols.length; i++) {
+        const symbol = methodSymbols[i];
+        if (symbol.kind === 'method') {
+          // Check if this method matches the context
+          if (self.matchesSignatureContext(symbol, context)) {
+            const signature = self.createSignatureInformation(symbol, context);
+            signatures.push(signature);
+          }
+        }
+        // Yield after every batchSize symbols
+        if ((i + 1) % batchSize === 0 && i + 1 < methodSymbols.length) {
+          yield* Effect.yieldNow();
+        }
+      }
+
+      return signatures;
+    });
+  }
+
+  /**
    * Find related signatures through relationships
    */
   private async findRelatedSignatures(
     context: SignatureHelpContext,
   ): Promise<SignatureInformation[]> {
-    const signatures: SignatureInformation[] = [];
+    const fileSymbols = this.symbolManager.findSymbolsInFile(
+      context.document.uri,
+    );
+    return await Effect.runPromise(
+      this.findRelatedSignaturesEffect(fileSymbols, context),
+    );
+  }
 
-    try {
-      // Get symbols in the current file
-      const fileSymbols = this.symbolManager.findSymbolsInFile(
-        context.document.uri,
-      );
+  /**
+   * Find related signatures through relationships (Effect-based with yielding)
+   */
+  private findRelatedSignaturesEffect(
+    fileSymbols: any[],
+    context: SignatureHelpContext,
+  ): Effect.Effect<SignatureInformation[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const signatures: SignatureInformation[] = [];
+      const batchSize = 50;
 
-      for (const symbol of fileSymbols) {
-        if (
-          symbol.kind === 'method' &&
-          symbol.name.includes(context.methodName)
-        ) {
-          // Get related methods through inheritance
-          const relatedSymbols = this.symbolManager.findRelatedSymbols(
-            symbol,
-            ReferenceType.INHERITANCE,
-          );
+      try {
+        for (let i = 0; i < fileSymbols.length; i++) {
+          const symbol = fileSymbols[i];
+          if (
+            symbol.kind === 'method' &&
+            symbol.name.includes(context.methodName)
+          ) {
+            // Get related methods through inheritance
+            const relatedSymbols = self.symbolManager.findRelatedSymbols(
+              symbol,
+              ReferenceType.INHERITANCE,
+            );
 
-          for (const related of relatedSymbols) {
-            if (
-              related.kind === 'method' &&
-              this.matchesSignatureContext(related, context)
-            ) {
-              const signature = this.createSignatureInformation(
-                related,
-                context,
-              );
-              signatures.push(signature);
+            for (let j = 0; j < relatedSymbols.length; j++) {
+              const related = relatedSymbols[j];
+              if (
+                related.kind === 'method' &&
+                self.matchesSignatureContext(related, context)
+              ) {
+                const signature = self.createSignatureInformation(
+                  related,
+                  context,
+                );
+                signatures.push(signature);
+              }
+              // Yield after every batchSize related symbols
+              if ((j + 1) % batchSize === 0 && j + 1 < relatedSymbols.length) {
+                yield* Effect.yieldNow();
+              }
             }
           }
+          // Yield after every batchSize file symbols
+          if ((i + 1) % batchSize === 0 && i + 1 < fileSymbols.length) {
+            yield* Effect.yieldNow();
+          }
         }
+      } catch (error) {
+        self.logger.debug(() => `Error finding related signatures: ${error}`);
       }
-    } catch (error) {
-      this.logger.debug(() => `Error finding related signatures: ${error}`);
-    }
 
-    return signatures;
+      return signatures;
+    });
   }
 
   /**

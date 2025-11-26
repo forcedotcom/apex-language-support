@@ -16,7 +16,7 @@
         "${workspaceFolder}/**",
         "!**/node_modules/**"
       ],
-      "preLaunchTask": "npm: compile",
+      "preLaunchTask": "npm: bundle",
       "env": {
         "NODE_OPTIONS": "--enable-source-maps",
         "APEX_LS_MODE": "development"
@@ -30,6 +30,27 @@
         "../*": "${workspaceFolder}/packages/apex-ls/src/*",
         "../../src/*": "${workspaceFolder}/packages/apex-ls/src/*",
         "../src/*": "${workspaceFolder}/packages/apex-ls/src/*"
+      }
+    },
+    {
+      "name": "Attach to Language Server",
+      "type": "node",
+      "request": "attach",
+      "port": 6009,
+      "restart": true,
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "sourceMapPathOverrides": {
+        // Universal package patterns (handles all packages with different relative depths)
+        "../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        "../../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        "../../../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        "*/src/*": "${workspaceFolder}/packages/*/src/*",
+        // Extension-specific patterns (attach mode)
+        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*"
       }
     },
     {
@@ -129,27 +150,6 @@
         "../../../*/src/*": "${workspaceFolder}/packages/*/src/*",
         "*/src/*": "${workspaceFolder}/packages/*/src/*",
         // Extension-specific patterns (production mode)
-        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*"
-      }
-    },
-    {
-      "name": "Attach to Language Server",
-      "type": "node",
-      "request": "attach",
-      "port": 6009,
-      "restart": true,
-      "sourceMaps": true,
-      "resolveSourceMapLocations": [
-        "${workspaceFolder}/**",
-        "!**/node_modules/**"
-      ],
-      "sourceMapPathOverrides": {
-        // Universal package patterns (handles all packages with different relative depths)
-        "../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "../../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "../../../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "*/src/*": "${workspaceFolder}/packages/*/src/*",
-        // Extension-specific patterns (attach mode)
         "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*"
       }
     },

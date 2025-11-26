@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  LoggerInterface,
+  ApexCapabilitiesManager,
+} from '@salesforce/apex-lsp-shared';
 
 import { DidChangeDocumentHandler } from '../handlers/DidChangeDocumentHandler';
 import {
@@ -28,6 +32,11 @@ import {
   DocumentCloseProcessingService,
   IDocumentCloseProcessor,
 } from '../services/DocumentCloseProcessingService';
+import { DidDeleteDocumentHandler } from '../handlers/DidDeleteDocumentHandler';
+import {
+  DocumentDeleteProcessingService,
+  IDocumentDeleteProcessor,
+} from '../services/DocumentDeleteProcessingService';
 import { HoverHandler } from '../handlers/HoverHandler';
 import {
   HoverProcessingService,
@@ -50,6 +59,16 @@ import {
   CodeLensProcessingService,
   ICodeLensProcessor,
 } from '../services/CodeLensProcessingService';
+import { QueueStateHandler } from '../handlers/QueueStateHandler';
+import {
+  QueueStateProcessingService,
+  IQueueStateProcessor,
+} from '../services/QueueStateProcessingService';
+import { GraphDataHandler } from '../handlers/GraphDataHandler';
+import {
+  GraphDataProcessingService,
+  IGraphDataProcessor,
+} from '../services/GraphDataProcessingService';
 
 /**
  * Factory for creating handlers with proper dependency injection
@@ -162,6 +181,30 @@ export class HandlerFactory {
   }
 
   /**
+   * Create a DidDeleteDocumentHandler with default dependencies
+   * @returns A configured DidDeleteDocumentHandler instance
+   */
+  static createDidDeleteDocumentHandler(): DidDeleteDocumentHandler {
+    const logger = getLogger();
+    const documentDeleteProcessor = new DocumentDeleteProcessingService(logger);
+
+    return new DidDeleteDocumentHandler(logger, documentDeleteProcessor);
+  }
+
+  /**
+   * Create a DidDeleteDocumentHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param documentDeleteProcessor Custom document delete processor implementation
+   * @returns A configured DidDeleteDocumentHandler instance
+   */
+  static createDidDeleteDocumentHandlerWithDependencies(
+    logger: LoggerInterface,
+    documentDeleteProcessor: IDocumentDeleteProcessor,
+  ): DidDeleteDocumentHandler {
+    return new DidDeleteDocumentHandler(logger, documentDeleteProcessor);
+  }
+
+  /**
    * Create a HoverHandler with default dependencies
    * @returns A configured HoverHandler instance
    */
@@ -255,5 +298,75 @@ export class HandlerFactory {
     codeLensProcessor: ICodeLensProcessor,
   ): CodeLensHandler {
     return new CodeLensHandler(logger, codeLensProcessor);
+  }
+
+  /**
+   * Create a QueueStateHandler with default dependencies
+   * @returns A configured QueueStateHandler instance
+   */
+  static createQueueStateHandler(): QueueStateHandler {
+    const logger = getLogger();
+    const capabilitiesManager = ApexCapabilitiesManager.getInstance();
+    const queueStateProcessor = new QueueStateProcessingService(logger);
+
+    return new QueueStateHandler(
+      logger,
+      queueStateProcessor,
+      capabilitiesManager,
+    );
+  }
+
+  /**
+   * Create a QueueStateHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param queueStateProcessor Custom queue state processor implementation
+   * @param capabilitiesManager Custom capabilities manager implementation
+   * @returns A configured QueueStateHandler instance
+   */
+  static createQueueStateHandlerWithDependencies(
+    logger: LoggerInterface,
+    queueStateProcessor: IQueueStateProcessor,
+    capabilitiesManager: ApexCapabilitiesManager,
+  ): QueueStateHandler {
+    return new QueueStateHandler(
+      logger,
+      queueStateProcessor,
+      capabilitiesManager,
+    );
+  }
+
+  /**
+   * Create a GraphDataHandler with default dependencies
+   * @returns A configured GraphDataHandler instance
+   */
+  static createGraphDataHandler(): GraphDataHandler {
+    const logger = getLogger();
+    const capabilitiesManager = ApexCapabilitiesManager.getInstance();
+    const graphDataProcessor = new GraphDataProcessingService(logger);
+
+    return new GraphDataHandler(
+      logger,
+      graphDataProcessor,
+      capabilitiesManager,
+    );
+  }
+
+  /**
+   * Create a GraphDataHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param graphDataProcessor Custom graph data processor implementation
+   * @param capabilitiesManager Custom capabilities manager implementation
+   * @returns A configured GraphDataHandler instance
+   */
+  static createGraphDataHandlerWithDependencies(
+    logger: LoggerInterface,
+    graphDataProcessor: IGraphDataProcessor,
+    capabilitiesManager: ApexCapabilitiesManager,
+  ): GraphDataHandler {
+    return new GraphDataHandler(
+      logger,
+      graphDataProcessor,
+      capabilitiesManager,
+    );
   }
 }

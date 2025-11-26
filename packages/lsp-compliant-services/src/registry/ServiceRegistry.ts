@@ -7,14 +7,15 @@
  */
 
 import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
-import { LSPRequestType, RequestPriority } from '../queue/LSPRequestQueue';
+import { LSPRequestType } from '../queue';
+import { Priority } from '@salesforce/apex-lsp-shared';
 
 /**
  * Generic LSP request handler interface
  */
 export interface LSPRequestHandler<T = any, R = any> {
   readonly requestType: LSPRequestType;
-  readonly priority: RequestPriority;
+  readonly priority: Priority;
   readonly timeout: number;
   readonly maxRetries: number;
   process(params: T, symbolManager: ISymbolManager): Promise<R>;
@@ -26,7 +27,7 @@ export interface LSPRequestHandler<T = any, R = any> {
  */
 export class ServiceRegistry {
   private readonly handlers = new Map<LSPRequestType, LSPRequestHandler>();
-  private readonly priorities = new Map<LSPRequestType, RequestPriority>();
+  private readonly priorities = new Map<LSPRequestType, Priority>();
   private readonly timeouts = new Map<LSPRequestType, number>();
   private readonly retryPolicies = new Map<LSPRequestType, number>();
 
@@ -36,7 +37,7 @@ export class ServiceRegistry {
   register<T, R>(
     handler: LSPRequestHandler<T, R>,
     config: {
-      priority?: RequestPriority;
+      priority?: Priority;
       timeout?: number;
       maxRetries?: number;
     } = {},
@@ -63,8 +64,8 @@ export class ServiceRegistry {
   /**
    * Get the priority for a request type
    */
-  getPriority(type: LSPRequestType): RequestPriority {
-    return this.priorities.get(type) || 'NORMAL';
+  getPriority(type: LSPRequestType): Priority {
+    return this.priorities.get(type) || Priority.Normal;
   }
 
   /**

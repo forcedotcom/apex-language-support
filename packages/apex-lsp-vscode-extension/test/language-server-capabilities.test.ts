@@ -7,7 +7,6 @@
  */
 
 import { getClientCapabilitiesForMode } from '@salesforce/apex-lsp-shared';
-import * as vscode from 'vscode';
 
 // Mock VSCode
 jest.mock('vscode', () => ({
@@ -32,37 +31,6 @@ jest.mock('vscode', () => ({
     Workspace: 2,
   },
 }));
-
-// Mock the extension context
-const mockExtensionContext = {
-  extensionMode: vscode.ExtensionMode.Development,
-  subscriptions: [],
-  extensionPath: '/test/extension/path',
-  globalState: {
-    get: jest.fn(),
-    update: jest.fn(),
-  },
-  secrets: {
-    get: jest.fn(),
-    store: jest.fn(),
-    delete: jest.fn(),
-  },
-  globalStorageUri: { fsPath: '/test/global/storage' },
-  logPath: '/test/log/path',
-  extensionUri: { fsPath: '/test/extension/uri' },
-  storageUri: { fsPath: '/test/storage/uri' },
-  extension: {
-    id: 'test-extension',
-    extensionPath: '/test/extension/path',
-    isActive: true,
-    packageJSON: {},
-    extensionKind: vscode.ExtensionKind.Workspace,
-    exports: {},
-  },
-  asAbsolutePath: jest.fn(
-    (relativePath: string) => `/test/extension/path/${relativePath}`,
-  ),
-} as any;
 
 describe('VSCode Extension Capabilities Alignment', () => {
   describe('Client Capabilities Configuration', () => {
@@ -146,20 +114,12 @@ describe('VSCode Extension Capabilities Alignment', () => {
 
   describe('Mode Detection and Capabilities', () => {
     it('should detect production mode correctly', () => {
-      const productionContext = {
-        ...mockExtensionContext,
-        extensionMode: vscode.ExtensionMode.Production,
-      };
       const productionCaps = getClientCapabilitiesForMode('production');
 
       expect(productionCaps).toMatchSnapshot('production-mode-capabilities');
     });
 
     it('should detect development mode correctly', () => {
-      const developmentContext = {
-        ...mockExtensionContext,
-        extensionMode: vscode.ExtensionMode.Development,
-      };
       const developmentCaps = getClientCapabilitiesForMode('development');
 
       expect(developmentCaps).toMatchSnapshot('development-mode-capabilities');

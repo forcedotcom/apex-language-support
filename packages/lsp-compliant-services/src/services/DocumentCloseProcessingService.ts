@@ -11,85 +11,74 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import {
-  ApexSymbolProcessingManager,
-  ISymbolManager,
-} from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for document close processing functionality
  */
 export interface IDocumentCloseProcessor {
   /**
-   * Process a document close event
+   * Process a document close event (LSP notification - fire-and-forget)
    * @param event The document close event
-   * @returns Promise resolving to void
    */
-  processDocumentClose(
-    event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<void>;
+  processDocumentClose(event: TextDocumentChangeEvent<TextDocument>): void;
 }
 
 /**
  * Service for processing document close events
+ * NOTE: This only handles document sync housekeeping (removing from storage).
+ * Symbols are NOT removed here - only didDelete operations should remove symbols.
  */
 export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
   private readonly logger: LoggerInterface;
-  private readonly symbolManager: ISymbolManager;
 
-  constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
+  constructor(logger: LoggerInterface) {
     this.logger = logger;
-    this.symbolManager =
-      symbolManager ||
-      ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 
   /**
-   * Process a document close event
+   * Process a document close event (LSP notification - fire-and-forget)
    * @param event The document close event
-   * @returns Promise resolving to void
    */
-  public async processDocumentClose(
+  public processDocumentClose(
     event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<void> {
+  ): void {
     this.logger.debug(
       () =>
         `Processing document close for: ${event.document.uri} (version: ${event.document.version})`,
     );
 
-    // Get the storage manager instance
-    let storage;
-    try {
-      const storageManager = ApexStorageManager.getInstance();
-      storage = storageManager.getStorage();
-    } catch (error) {
-      this.logger.error(() => `Error getting storage manager: ${error}`);
-      storage = null;
-    }
-
-    // Remove the document from storage
-    if (storage) {
+    // Start async processing but don't return a promise
+    (async () => {
+      // Get the storage manager instance
+      let storage;
       try {
-        await storage.deleteDocument(event.document.uri);
+        const storageManager = ApexStorageManager.getInstance();
+        storage = storageManager.getStorage();
       } catch (error) {
         this.logger.error(
-          () => `Error deleting document from storage: ${error}`,
+          () =>
+            `Error getting storage manager for ${event.document.uri}: ${error}`,
         );
+        storage = null;
       }
-    }
 
-    // Remove symbols for this file from the symbol manager
-    try {
-      this.symbolManager.removeFile(event.document.uri);
-    } catch (error) {
-      this.logger.error(
-        () => `Error removing file from symbol manager: ${error}`,
+      // Remove the document from storage (housekeeping only for doc sync)
+      // NOTE: Symbols are NOT removed here - only didDelete should remove symbols
+      if (storage) {
+        try {
+          await storage.deleteDocument(event.document.uri);
+        } catch (error) {
+          this.logger.error(
+            () =>
+              `Error deleting document ${event.document.uri} from storage: ${error}`,
+          );
+        }
+      }
+
+      this.logger.debug(
+        () =>
+          `Document close processed: ${event.document.uri} (version: ${event.document.version})`,
       );
-    }
-
-    this.logger.debug(
-      () =>
-        `Document close processed: ${event.document.uri} (version: ${event.document.version})`,
-    );
+    })();
   }
 }

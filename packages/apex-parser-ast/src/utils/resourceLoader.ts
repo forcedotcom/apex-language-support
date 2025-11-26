@@ -112,7 +112,7 @@ export class ResourceLoader {
 
       // Start compilation if loadMode is 'full'
       if (this.loadMode === 'full') {
-        this.logger.info(() => '🚀 Starting full compilation mode...');
+        this.logger.debug(() => '🚀 Starting full compilation mode...');
         this.compilationPromise = this.compileAllArtifacts();
       }
     } else {
@@ -186,7 +186,12 @@ export class ResourceLoader {
     let totalSize = 0;
 
     // Build namespace structure and file index from already-processed originalPaths
-    for (const [_key, originalPath] of this.originalPaths.entries()) {
+    // Process in batches with yielding for large file sets
+    const originalPathsEntries = Array.from(this.originalPaths.entries());
+    const batchSize = 100;
+
+    for (let i = 0; i < originalPathsEntries.length; i++) {
+      const [_key, originalPath] = originalPathsEntries[i];
       if (!originalPath) continue;
 
       const pathParts = originalPath.split('/');
@@ -228,6 +233,17 @@ export class ResourceLoader {
       // Store in lightweight index for existence checks
       this.fileIndex.set(originalPath, true);
       processedCount++;
+
+      // Yield every batchSize files to allow other tasks to run
+      // Note: This is a synchronous function, so yielding is best-effort
+      // For better yielding, consider converting to async or Effect-based
+      if ((i + 1) % batchSize === 0 && i + 1 < originalPathsEntries.length) {
+        // Use setImmediate for yielding (best-effort in sync context)
+        if (typeof setImmediate !== 'undefined') {
+          // This doesn't actually yield in sync context, but documents intent
+          // Consider converting to async/Effect for real yielding
+        }
+      }
     }
 
     // Calculate total size from zipFiles directly
@@ -349,7 +365,7 @@ export class ResourceLoader {
         }
         // Allow updating loadMode if ZIP buffer hasn't been set yet
         if (!instance.zipBuffer) {
-          instance.logger.info(
+          instance.logger.debug(
             () =>
               `Updating loadMode from ${instance.loadMode} to ${effectiveOptions.loadMode} before ZIP buffer is set`,
           );
@@ -368,7 +384,7 @@ export class ResourceLoader {
    * @param buffer The ZIP file as a Uint8Array buffer
    */
   public setZipBuffer(buffer: Uint8Array): void {
-    this.logger.info(
+    this.logger.debug(
       () => `📦 Setting ZIP buffer directly (${buffer.length} bytes)`,
     );
     this.logger.debug(
@@ -378,14 +394,14 @@ export class ResourceLoader {
     );
     this.zipBuffer = buffer;
     this.extractZipFiles();
-    this.logger.info(
+    this.logger.debug(
       () =>
         `✅ ZIP buffer loaded: ${this.fileIndex.size} classes, ${this.namespaces.size} namespaces`,
     );
 
     // Start compilation if loadMode is 'full'
     if (this.loadMode === 'full') {
-      this.logger.info(() => '🚀 Starting full compilation mode...');
+      this.logger.debug(() => '🚀 Starting full compilation mode...');
       this.compilationPromise = this.compileAllArtifacts();
     } else {
       this.logger.debug(

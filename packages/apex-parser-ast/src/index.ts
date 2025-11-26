@@ -34,6 +34,7 @@ export * from './types/source';
 export * from './types/unitType';
 export * from './types/classInfo';
 export * from './types/ISymbolManager';
+export * from './types/graph';
 
 // Export namespace resolution types and components
 export * from './namespace/NamespaceUtils';
@@ -73,3 +74,14 @@ export * from './semantics/annotations/index';
 
 // Export protocol handler utilities
 export * from './types/ProtocolHandler';
+
+// Export queue components
+export * from './queue/priority-scheduler-utils';
+// Export queue types (includes Priority and AllPriorities re-exported from shared)
+export * from './types/queue';
+
+// Export registry components
+export * from './registry';
+
+// Export scheduler initialization service
+export * from './scheduler/SchedulerInitializationService';

@@ -7,10 +7,7 @@
  */
 
 import { CompilationUnitValidator } from '../../../src/semantics/validation/CompilationUnitValidator';
-import type {
-  ValidationResult,
-  ValidationScope,
-} from '../../../src/semantics/validation/ValidationResult';
+import type { ValidationScope } from '../../../src/semantics/validation/ValidationResult';
 
 /**
  * Mock validation scope for testing

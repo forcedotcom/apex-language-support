@@ -11,218 +11,272 @@ import {
   LoggerInterface,
   LoadWorkspaceParams,
   LoadWorkspaceResult,
+  Priority,
 } from '@salesforce/apex-lsp-shared';
+import { Effect, Ref, Duration } from 'effect';
+import { createQueuedItem, offer } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Result of workspace load operation
  */
 export interface LoadResult {
-  status: 'loaded' | 'failed' | 'timeout';
+  status: 'loaded' | 'failed' | 'timeout' | 'loading';
 }
 
 /**
- * Coordinates workspace loading across multiple concurrent LSP requests.
- * Ensures only one load operation runs at a time and allows multiple
- * requests to wait on the same load.
+ * Module-level Ref for tracking workspace load state.
+ * Initialized once at module load time.
  */
-export class WorkspaceLoadCoordinator {
-  private static instance: WorkspaceLoadCoordinator | null = null;
-  private loadPromise: Promise<LoadResult> | null = null;
-  private loadInProgress = false;
-  private readonly logger: LoggerInterface;
+const loadInProgressRef = Effect.runSync(Ref.make(false));
 
-  private constructor(logger: LoggerInterface) {
-    this.logger = logger;
-  }
+/**
+ * Query workspace state without triggering load (pure Effect)
+ *
+ * @param connection Connection for server-client communication
+ * @param logger Logger for debug/error messages
+ * @returns Effect that resolves with workspace state
+ */
+function queryWorkspaceState(
+  connection: Connection,
+  logger: LoggerInterface,
+): Effect.Effect<LoadWorkspaceResult, Error, never> {
+  return Effect.gen(function* () {
+    const result = yield* Effect.tryPromise({
+      try: () =>
+        connection.sendRequest('apex/loadWorkspace', {
+          queryOnly: true,
+        } as LoadWorkspaceParams),
+      catch: (error) => error as Error,
+    });
 
-  /**
-   * Get the singleton instance
-   */
-  static getInstance(logger?: LoggerInterface): WorkspaceLoadCoordinator {
-    if (!WorkspaceLoadCoordinator.instance) {
-      if (!logger) {
-        throw new Error('Logger required for first initialization');
-      }
-      WorkspaceLoadCoordinator.instance = new WorkspaceLoadCoordinator(logger);
+    logger.debug(
+      () => `Workspace state query result: ${JSON.stringify(result)}`,
+    );
+    return result as LoadWorkspaceResult;
+  }).pipe(
+    Effect.catchAll((error) => {
+      logger.error(() => `Failed to query workspace state: ${error}`);
+      return Effect.succeed({
+        error: `Failed to query workspace state: ${error}`,
+      } as LoadWorkspaceResult);
+    }),
+  );
+}
+
+/**
+ * Trigger workspace load on client (pure Effect, can be queued)
+ * Returns Effect that sends load request but doesn't wait for completion
+ *
+ * @param connection Connection for server-client communication
+ * @param logger Logger for debug/error messages
+ * @param workDoneToken Optional progress token from client
+ * @returns Effect that resolves with load result
+ */
+function triggerWorkspaceLoad(
+  connection: Connection,
+  logger: LoggerInterface,
+  workDoneToken?: ProgressToken,
+): Effect.Effect<LoadWorkspaceResult, Error, never> {
+  return Effect.gen(function* () {
+    const result = yield* Effect.tryPromise({
+      try: () =>
+        connection.sendRequest('apex/loadWorkspace', {
+          workDoneToken,
+        } as LoadWorkspaceParams),
+      catch: (error) => error as Error,
+    });
+
+    logger.debug(() => `Workspace load result: ${JSON.stringify(result)}`);
+    return result as LoadWorkspaceResult;
+  }).pipe(
+    Effect.catchAll((error) => {
+      logger.error(() => `Failed to trigger workspace load: ${error}`);
+      return Effect.succeed({
+        error: `Failed to trigger workspace load: ${error}`,
+      } as LoadWorkspaceResult);
+    }),
+  );
+}
+
+/**
+ * Monitor workspace load progress (pure Effect)
+ * Queries state periodically, yields to queue between checks
+ * Re-queues itself if still loading
+ *
+ * @param connection Connection for server-client communication
+ * @param logger Logger for debug/error messages
+ * @param startTime Start time for timeout calculation
+ * @param maxWaitTime Maximum time to wait in milliseconds
+ * @param pollInterval Interval between checks in milliseconds
+ * @returns Effect that resolves when load completes or times out
+ */
+function monitorWorkspaceLoad(
+  connection: Connection,
+  logger: LoggerInterface,
+  startTime: number = Date.now(),
+  maxWaitTime: number = 30000,
+  pollInterval: number = 1000,
+): Effect.Effect<LoadResult, Error, never> {
+  return Effect.gen(function* () {
+    // Yield control to queue before checking
+    yield* Effect.yieldNow();
+
+    // Check if timeout exceeded
+    const elapsed = Date.now() - startTime;
+    if (elapsed >= maxWaitTime) {
+      logger.warn(() => 'Timeout waiting for client workspace load');
+      yield* Ref.set(loadInProgressRef, false);
+      return { status: 'timeout' } as LoadResult;
     }
-    return WorkspaceLoadCoordinator.instance;
-  }
 
-  /**
-   * Ensure workspace is loaded before processing request.
-   * If already loading, wait for that operation to complete.
-   * If not loaded, trigger load with progress reporting.
-   *
-   * Multiple concurrent calls share the same load operation.
-   * Only the first caller's progress token is used for reporting.
-   *
-   * @param connection Connection for server-client communication
-   * @param workDoneToken Optional progress token from client
-   * @returns Promise that resolves when workspace is loaded
-   */
-  async ensureWorkspaceLoaded(
-    connection: Connection,
-    workDoneToken?: ProgressToken,
-  ): Promise<LoadResult> {
-    // If load is already in progress, return the existing promise
-    if (this.loadPromise) {
-      this.logger.debug(
-        () => 'Workspace load already in progress, waiting for completion',
-      );
-      return this.loadPromise;
-    }
-
-    // Check current workspace state
-    const stateResult = await this.queryWorkspaceState(connection);
+    // Query workspace state
+    const stateResult = yield* queryWorkspaceState(connection, logger);
 
     if ('loaded' in stateResult && stateResult.loaded) {
-      this.logger.debug(() => 'Workspace already loaded');
-      return { status: 'loaded' };
-    }
-
-    if ('loading' in stateResult && stateResult.loading) {
-      this.logger.debug(
-        () => 'Workspace currently loading on client, creating wait promise',
-      );
-      // Client is loading, create a polling promise to wait for completion
-      this.loadPromise = this.waitForClientLoad(connection);
-      return this.loadPromise;
+      logger.debug(() => 'Client workspace load completed');
+      yield* Ref.set(loadInProgressRef, false);
+      return { status: 'loaded' } as LoadResult;
     }
 
     if ('failed' in stateResult && stateResult.failed) {
-      this.logger.debug(() => 'Previous workspace load failed, retrying');
+      logger.debug(() => 'Client workspace load failed');
+      yield* Ref.set(loadInProgressRef, false);
+      return { status: 'failed' } as LoadResult;
+    }
+
+    // Still loading - check if load is still in progress before re-queuing
+    const stillInProgress = yield* Ref.get(loadInProgressRef);
+    if (!stillInProgress) {
+      // Load completed/failed in another task, don't re-queue
+      logger.debug(() => 'Workspace load completed in another task');
+      return { status: 'loaded' } as LoadResult;
+    }
+
+    // Sleep and re-queue monitor task
+    yield* Effect.sleep(Duration.millis(pollInterval));
+
+    // Create and queue monitor task to continue checking
+    const monitorEffect = monitorWorkspaceLoad(
+      connection,
+      logger,
+      startTime,
+      maxWaitTime,
+      pollInterval,
+    );
+
+    const queuedItem = yield* createQueuedItem(
+      monitorEffect,
+      'workspace-load-monitor',
+    );
+
+    // Queue with low priority to not block other tasks
+    yield* offer(Priority.Low, queuedItem);
+
+    // Return intermediate status (monitor will continue)
+    return { status: 'loading' } as LoadResult;
+  });
+}
+
+/**
+ * Ensure workspace is loaded (pure Effect, can be queued)
+ * Queries state, triggers load if needed, queues monitor task
+ * Returns Effect that can be queued for non-blocking operation
+ *
+ * @param connection Connection for server-client communication
+ * @param logger Logger for debug/error messages
+ * @param workDoneToken Optional progress token from client
+ * @returns Effect that resolves when workspace load is initiated/monitored
+ */
+export function ensureWorkspaceLoaded(
+  connection: Connection,
+  logger: LoggerInterface,
+  workDoneToken?: ProgressToken,
+): Effect.Effect<LoadResult, Error, never> {
+  return Effect.gen(function* () {
+    // Check if load is already in progress
+    const inProgress = yield* Ref.get(loadInProgressRef);
+    if (inProgress) {
+      logger.debug(
+        () => 'Workspace load already in progress, monitoring existing load',
+      );
+      // Queue monitor task to wait for existing load
+      const monitorEffect = monitorWorkspaceLoad(connection, logger);
+      const queuedItem = yield* createQueuedItem(
+        monitorEffect,
+        'workspace-load-monitor',
+      );
+      yield* offer(Priority.Low, queuedItem);
+      return { status: 'loading' } as LoadResult;
+    }
+
+    // Query current workspace state
+    const stateResult = yield* queryWorkspaceState(connection, logger);
+
+    if ('loaded' in stateResult && stateResult.loaded) {
+      logger.debug(() => 'Workspace already loaded');
+      return { status: 'loaded' } as LoadResult;
+    }
+
+    if ('loading' in stateResult && stateResult.loading) {
+      logger.debug(
+        () => 'Workspace currently loading on client, queuing monitor task',
+      );
+      // Client is loading, queue monitor task
+      yield* Ref.set(loadInProgressRef, true);
+      const monitorEffect = monitorWorkspaceLoad(connection, logger);
+      const queuedItem = yield* createQueuedItem(
+        monitorEffect,
+        'workspace-load-monitor',
+      );
+      yield* offer(Priority.Low, queuedItem);
+      return { status: 'loading' } as LoadResult;
+    }
+
+    if ('failed' in stateResult && stateResult.failed) {
+      logger.debug(() => 'Previous workspace load failed, retrying');
       // Previous load failed, allow retry
     }
 
     // Trigger new workspace load
-    this.logger.debug(() => 'Triggering workspace load');
-    this.loadInProgress = true;
-    this.loadPromise = this.triggerWorkspaceLoad(connection, workDoneToken);
+    logger.debug(() => 'Triggering workspace load');
+    yield* Ref.set(loadInProgressRef, true);
 
-    return this.loadPromise;
-  }
+    // Queue trigger task
+    const triggerEffect = triggerWorkspaceLoad(
+      connection,
+      logger,
+      workDoneToken,
+    );
+    const triggerQueuedItem = yield* createQueuedItem(
+      triggerEffect,
+      'workspace-load-trigger',
+    );
+    yield* offer(Priority.Normal, triggerQueuedItem);
 
-  /**
-   * Query workspace state without triggering load
-   */
-  private async queryWorkspaceState(
-    connection: Connection,
-  ): Promise<LoadWorkspaceResult> {
-    try {
-      const result = await connection.sendRequest('apex/loadWorkspace', {
-        queryOnly: true,
-      } as LoadWorkspaceParams);
+    // Queue monitor task
+    const monitorEffect = monitorWorkspaceLoad(connection, logger);
+    const monitorQueuedItem = yield* createQueuedItem(
+      monitorEffect,
+      'workspace-load-monitor',
+    );
+    yield* offer(Priority.Low, monitorQueuedItem);
 
-      this.logger.debug(
-        () => `Workspace state query result: ${JSON.stringify(result)}`,
-      );
-      return result as LoadWorkspaceResult;
-    } catch (error) {
-      this.logger.error(() => `Failed to query workspace state: ${error}`);
-      return { error: `Failed to query workspace state: ${error}` };
-    }
-  }
+    return { status: 'loading' } as LoadResult;
+  });
+}
 
-  /**
-   * Wait for client-side workspace load to complete
-   */
-  private async waitForClientLoad(connection: Connection): Promise<LoadResult> {
-    const maxWaitTime = 30000; // 30 seconds
-    const pollInterval = 1000; // 1 second
-    const startTime = Date.now();
+/**
+ * Check if workspace load is currently in progress
+ *
+ * @returns true if load is in progress, false otherwise
+ */
+export function isLoadInProgress(): boolean {
+  return Effect.runSync(Ref.get(loadInProgressRef));
+}
 
-    while (Date.now() - startTime < maxWaitTime) {
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
-      const stateResult = await this.queryWorkspaceState(connection);
-
-      if ('loaded' in stateResult && stateResult.loaded) {
-        this.logger.debug(() => 'Client workspace load completed');
-        this.clearLoadPromise();
-        return { status: 'loaded' };
-      }
-
-      if ('failed' in stateResult && stateResult.failed) {
-        this.logger.debug(() => 'Client workspace load failed');
-        this.clearLoadPromise();
-        return { status: 'failed' };
-      }
-
-      // Continue polling if still loading
-    }
-
-    this.logger.warn(() => 'Timeout waiting for client workspace load');
-    this.clearLoadPromise();
-    return { status: 'timeout' };
-  }
-
-  /**
-   * Trigger workspace load on client
-   */
-  private async triggerWorkspaceLoad(
-    connection: Connection,
-    workDoneToken?: ProgressToken,
-  ): Promise<LoadResult> {
-    try {
-      const result = (await connection.sendRequest('apex/loadWorkspace', {
-        workDoneToken,
-      } as LoadWorkspaceParams)) as LoadWorkspaceResult;
-
-      this.logger.debug(
-        () => `Workspace load result: ${JSON.stringify(result)}`,
-      );
-
-      if ('accepted' in result && result.accepted) {
-        if (result.alreadyLoaded) {
-          this.logger.debug(() => 'Workspace was already loaded');
-          this.clearLoadPromise();
-          return { status: 'loaded' };
-        }
-
-        if (result.inProgress) {
-          this.logger.debug(
-            () => 'Workspace load initiated, waiting for completion',
-          );
-          // Load was initiated, wait for completion
-          return await this.waitForClientLoad(connection);
-        }
-
-        // Load was accepted, wait for completion
-        return await this.waitForClientLoad(connection);
-      }
-
-      this.logger.error(
-        () => `Workspace load not accepted: ${JSON.stringify(result)}`,
-      );
-      this.clearLoadPromise();
-      return { status: 'failed' };
-    } catch (error) {
-      this.logger.error(() => `Failed to trigger workspace load: ${error}`);
-      this.clearLoadPromise();
-      return { status: 'failed' };
-    }
-  }
-
-  /**
-   * Clear the current load promise
-   */
-  private clearLoadPromise(): void {
-    this.loadPromise = null;
-    this.loadInProgress = false;
-  }
-
-  /**
-   * Check if workspace load is currently in progress
-   */
-  isLoadInProgress(): boolean {
-    return this.loadInProgress;
-  }
-
-  /**
-   * Reset the coordinator (useful for testing)
-   */
-  reset(): void {
-    this.loadPromise = null;
-    this.loadInProgress = false;
-  }
+/**
+ * Reset the workspace load state (useful for testing)
+ */
+export function reset(): void {
+  Effect.runSync(Ref.set(loadInProgressRef, false));
 }

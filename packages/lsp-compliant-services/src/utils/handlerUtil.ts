@@ -157,3 +157,29 @@ export function getDiagnosticsFromErrors(
 export function shouldSuppressDiagnostics(uri: string): boolean {
   return isStandardApexUri(uri);
 }
+
+/**
+ * Dispatch queue state processing request
+ * @param params The queue state parameters
+ * @returns Queue state response
+ */
+export async function dispatchProcessOnQueueState(params: any): Promise<any> {
+  const { QueueStateHandler } = await import('../handlers/QueueStateHandler');
+  const { QueueStateProcessingService } = await import(
+    '../services/QueueStateProcessingService'
+  );
+  const { getLogger, ApexCapabilitiesManager } = await import(
+    '@salesforce/apex-lsp-shared'
+  );
+
+  const logger = getLogger();
+  const capabilitiesManager = ApexCapabilitiesManager.getInstance();
+  const queueStateProcessor = new QueueStateProcessingService(logger);
+  const handler = new QueueStateHandler(
+    logger,
+    queueStateProcessor,
+    capabilitiesManager,
+  );
+
+  return await handler.handleQueueState(params);
+}

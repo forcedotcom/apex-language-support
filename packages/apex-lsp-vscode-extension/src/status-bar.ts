@@ -392,6 +392,14 @@ export const updateProfilingToggleItem = async (): Promise<void> => {
         {},
       );
 
+      // Check if status response is valid
+      if (!status || typeof status !== 'object') {
+        profilingToggleItem.text = '$(record) Profiling';
+        profilingToggleItem.detail = 'Profiling not available';
+        profilingToggleItem.severity = vscode.LanguageStatusSeverity.Warning;
+        return;
+      }
+
       // Check if profiling is available
       if (!status.available) {
         profilingToggleItem.text = '$(record) Profiling';

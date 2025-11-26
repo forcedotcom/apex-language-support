@@ -6,16 +6,16 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Effect, Queue, Fiber } from 'effect';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
+import { getLogger, Priority } from '@salesforce/apex-lsp-shared';
 import { SymbolTable } from '../types/symbol';
 import type { CommentAssociation } from '../parser/listeners/ApexCommentCollectorListener';
 import { ApexSymbolManager } from './ApexSymbolManager';
-
-/**
- * Task priority levels for symbol processing
- */
-export type TaskPriority = 'HIGH' | 'NORMAL' | 'LOW';
+import {
+  offer,
+  createQueuedItem,
+  metrics,
+} from '../queue/priority-scheduler-utils';
 
 /**
  * Task status for tracking processing state
@@ -32,7 +32,7 @@ export type TaskStatus =
  * Symbol processing options
  */
 export interface SymbolProcessingOptions {
-  priority?: TaskPriority;
+  priority?: Priority;
   timeout?: number;
   retryAttempts?: number;
   concurrency?: number;
@@ -50,7 +50,7 @@ export interface SymbolProcessingTask {
   readonly symbolTable: SymbolTable;
   readonly fileUri: string;
   readonly documentVersion?: number;
-  readonly priority: TaskPriority;
+  readonly priority: Priority;
   readonly options: SymbolProcessingOptions;
   readonly timestamp: number;
   readonly retryCount: number;
@@ -64,7 +64,7 @@ export interface CommentAssociationTask {
   readonly id: string;
   readonly fileUri: string;
   readonly associations: CommentAssociation[];
-  readonly priority: TaskPriority;
+  readonly priority: Priority;
   readonly timestamp: number;
 }
 
@@ -275,127 +275,80 @@ class TaskRegistry {
 }
 
 /**
- * Effect-TS Queue Service for managing Apex symbol processing tasks
- * This service manages the queue and delegates actual processing to ApexSymbolManager
+ * Priority Scheduler Service for managing Apex symbol processing tasks
+ * This service uses the shared priority scheduler and delegates actual processing to ApexSymbolManager
  *
- * ## Effect-TS Usage
+ * ## Priority Scheduler Usage
  *
- * This service uses Effect-TS for managing asynchronous task processing:
+ * This service uses the shared priority scheduler for task processing:
  *
- * - **Queue**: Uses `Queue.bounded<IndexingTask>(100)` for thread-safe task queuing with back-pressure
- * - **Worker Fiber**: Background fiber processes tasks from the queue using `Effect.runFork`
- * - **Synchronous Operations**: Uses `Effect.runSync` for queue operations (offer, size, shutdown)
+ * - **Scheduler**: Uses `priority-scheduler-utils` for priority-based task scheduling
+ * - **Task Processing**: Tasks are wrapped in Effects and scheduled with their priority
+ * - **No Worker Fiber**: The scheduler handles task execution automatically
  *
  * ### Important Notes:
  *
- * 1. **Effect.runSync Limitations**: `Effect.runSync` cannot handle suspended effects. For bounded queues
- *    with sufficient capacity (100), `Queue.offer` should not suspend unless the queue is full.
+ * 1. **Scheduler Initialization**: The scheduler must be initialized before using this service.
+ *    This is handled by `SchedulerInitializationService` at application startup.
  *
- * 2. **Queue Operations**:
- *    - `Queue.offer()`: Adds a task to the queue. For bounded queues, only suspends if queue is full.
- *    - `Queue.take()`: Removes a task from the queue. Used by the worker fiber in an infinite loop.
- *    - `Queue.size()`: Returns current queue size synchronously.
- *    - `Queue.shutdown()`: Shuts down the queue, preventing further operations.
+ * 2. **Task Priority**: Tasks use the `Priority` enum from `@salesforce/apex-lsp-shared`.
+ *    Default priority is `Priority.Normal`.
  *
- * 3. **Worker Fiber**: The background worker runs continuously, taking tasks from the queue and processing
- *    them. The fiber is interrupted during shutdown.
- *
- * 4. **Error Handling**: Queue operations that might fail (e.g., during shutdown) should be wrapped in
- *    try-catch blocks to handle errors gracefully.
+ * 3. **Task Registry**: Maintains a registry of tasks for status tracking and deduplication.
  */
 export class ApexSymbolIndexingService {
-  private readonly queue: Queue.Queue<IndexingTask>;
   private readonly taskRegistry: TaskRegistry;
   private readonly symbolManager: ApexSymbolManager;
   private readonly logger = getLogger();
-  private workerFiber: any = null;
 
   constructor(symbolManager: ApexSymbolManager) {
     this.symbolManager = symbolManager;
     this.taskRegistry = new TaskRegistry();
-
-    // Use Effect-TS Queue for thread-safe operations with back-pressure
-    // Queue.bounded creates a bounded queue that can hold up to 100 tasks
-    // This operation is synchronous and safe to use with Effect.runSync
-    this.queue = Effect.runSync(Queue.bounded<IndexingTask>(100));
-  }
-
-  /**
-   * Start the background worker that processes tasks from the queue
-   *
-   * ## Effect-TS Worker Pattern
-   *
-   * This method creates a background fiber that continuously processes tasks:
-   *
-   * 1. **Effect.gen**: Uses generator syntax to create an Effect program
-   * 2. **Queue.take**: Suspends until a task is available in the queue
-   * 3. **Effect.tryPromise**: Wraps async task processing in an Effect
-   * 4. **Effect.runFork**: Runs the program in a background fiber that can be interrupted
-   *
-   * The worker runs indefinitely until interrupted via `shutdown()`. Each task is processed
-   * sequentially, ensuring thread-safe access to the symbol manager.
-   */
-  startWorker(): void {
-    if (this.workerFiber) {
-      this.logger.warn(() => 'Worker already running');
-      return;
-    }
-
-    const self = this;
-    const workerProgram = Effect.gen(function* () {
-      while (true) {
-        // Take a task from the queue
-        // This operation suspends until a task is available
-        const task = yield* Queue.take(self.queue);
-
-        // Process the task
-        // Effect.tryPromise converts the async processTask into an Effect
-        yield* Effect.tryPromise({
-          try: () => self.processTask(task),
-          catch: (error) => new Error(`Task processing failed: ${error}`),
-        });
-      }
-    });
-
-    // Run the worker in the background using Effect.runFork
-    // This creates a fiber that can be interrupted later via Fiber.interrupt
-    this.workerFiber = Effect.runFork(workerProgram);
-    this.logger.debug(() => 'Background worker started');
   }
 
   /**
    * Process a single task by delegating to the symbol manager
+   * Returns an Effect for use with the priority scheduler
    */
-  private async processTask(task: IndexingTask): Promise<void> {
-    try {
-      this.taskRegistry.updateTaskStatus(task.id, 'RUNNING');
+  private processTask(task: IndexingTask): Effect.Effect<void, Error, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      self.taskRegistry.updateTaskStatus(task.id, 'RUNNING');
 
-      this.logger.debug(() => `Processing task ${task.id} for ${task.fileUri}`);
+      self.logger.debug(() => `Processing task ${task.id} for ${task.fileUri}`);
 
       if (task._tag === 'SymbolProcessingTask') {
+        // Yield control before starting symbol processing
+        yield* Effect.yieldNow();
+
         // Delegate to the symbol manager to do the actual work
-        this.logger.debug(
+        self.logger.debug(
           () =>
             `[processTask] Adding symbol table for ${task.fileUri} (task: ${task.id})`,
         );
-        const symbolsBefore = this.symbolManager.findSymbolsInFile(
+        const symbolsBefore = self.symbolManager.findSymbolsInFile(
           task.fileUri,
         );
-        this.logger.debug(
+        self.logger.debug(
           () =>
             `[processTask] Symbols in file before addSymbolTable: ${symbolsBefore.length}`,
         );
 
-        await this.symbolManager.addSymbolTable(task.symbolTable, task.fileUri);
+        // Process symbols with yielding
+        yield* Effect.tryPromise({
+          try: () =>
+            self.symbolManager.addSymbolTable(task.symbolTable, task.fileUri),
+          catch: (error) => new Error(`Failed to add symbol table: ${error}`),
+        });
 
-        const symbolsAfter = this.symbolManager.findSymbolsInFile(task.fileUri);
-        this.logger.debug(
+        const symbolsAfter = self.symbolManager.findSymbolsInFile(task.fileUri);
+        self.logger.debug(
           () =>
             `[processTask] Symbols in file after addSymbolTable: ${symbolsAfter.length}`,
         );
         if (symbolsAfter.length > 0) {
           symbolsAfter.forEach((symbol, idx) => {
-            this.logger.debug(
+            self.logger.debug(
               () =>
                 `[processTask] Symbol ${idx}: ${symbol.name} (kind: ${symbol.kind})`,
             );
@@ -408,46 +361,37 @@ export class ApexSymbolIndexingService {
 
         // If cross-file resolution is enabled, trigger it
         if (task.options.enableCrossFileResolution) {
-          this.logger.debug(
+          self.logger.debug(
             () => `Cross-file resolution enabled for task ${task.id}`,
           );
           // The symbol manager will handle cross-file resolution internally
         }
       } else if (task._tag === 'CommentAssociationTask') {
         // Persist comment associations for later retrieval (e.g., hover)
-        this.symbolManager.setCommentAssociations(
+        self.symbolManager.setCommentAssociations(
           task.fileUri,
           task.associations,
         );
       }
 
-      this.taskRegistry.updateTaskStatus(task.id, 'COMPLETED');
-      this.logger.debug(() => `Task ${task.id} executed successfully`);
-    } catch (error) {
-      this.taskRegistry.updateTaskStatus(
-        task.id,
-        'FAILED',
-        undefined,
-        String(error),
-      );
-      this.logger.error(() => `Task ${task.id} failed: ${error}`);
-    }
+      self.taskRegistry.updateTaskStatus(task.id, 'COMPLETED');
+      self.logger.debug(() => `Task ${task.id} executed successfully`);
+    }).pipe(
+      Effect.catchAll((error) => {
+        self.taskRegistry.updateTaskStatus(
+          task.id,
+          'FAILED',
+          undefined,
+          String(error),
+        );
+        self.logger.error(() => `Task ${task.id} failed: ${error}`);
+        return Effect.fail(error as Error);
+      }),
+    );
   }
 
   /**
-   * Enqueue a task for background processing
-   *
-   * ## Effect-TS Queue Operations
-   *
-   * Uses `Effect.runSync(Queue.offer())` to add a task to the queue synchronously.
-   *
-   * **Important**: `Effect.runSync` cannot handle suspended effects. For bounded queues:
-   * - `Queue.offer` will only suspend if the queue is full (100 tasks)
-   * - In normal operation, the queue rarely fills up, so suspension is unlikely
-   * - If the queue is full, `Effect.runSync` will throw an `AsyncFiberException`
-   *
-   * **Error Handling**: Wraps the operation in try-catch to handle potential suspension
-   * or shutdown errors gracefully, similar to the pattern used in `ApexSymbolGraph`.
+   * Enqueue a task for background processing using the priority scheduler
    *
    * @param task The indexing task to enqueue
    */
@@ -455,73 +399,71 @@ export class ApexSymbolIndexingService {
     this.taskRegistry.registerTask(task);
 
     try {
-      // Use Effect.runSync to offer the task to the queue
-      // For bounded queues, offer will only suspend if the queue is full
-      // Since we have capacity 100 and typically only a few tasks, this should not suspend
-      Effect.runSync(Queue.offer(this.queue, task));
-      this.logger.debug(() => `Task ${task.id} enqueued`);
+      // Create a QueuedItem from the task processing Effect
+      const queuedItemEffect = createQueuedItem(
+        this.processTask(task),
+        task._tag === 'SymbolProcessingTask'
+          ? 'symbol-indexing'
+          : 'comment-association',
+      );
+
+      // Schedule the task with its priority
+      const priority =
+        task._tag === 'SymbolProcessingTask' ? task.priority : Priority.Normal;
+      const scheduledTaskEffect = Effect.gen(function* () {
+        const queuedItem = yield* queuedItemEffect;
+        return yield* offer(priority, queuedItem);
+      });
+
+      // Run the scheduling effect
+      Effect.runSync(scheduledTaskEffect);
+      this.logger.debug(
+        () => `Task ${task.id} enqueued with priority ${priority}`,
+      );
     } catch (error) {
-      // Handle potential suspension or shutdown errors
-      // Queue might be shutdown or full, or worker fiber might be suspended
-      // Check for AsyncFiberException by error name or message
-      const errorName = error?.constructor?.name || '';
+      // Handle scheduling errors
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      const isAsyncFiberError =
-        errorName === 'AsyncFiberException' ||
-        errorMessage.includes('cannot be resolved synchronously') ||
-        errorMessage.includes('AsyncFiberException') ||
-        errorMessage.includes('shutdown') ||
-        errorMessage.includes('interrupt');
-
-      if (isAsyncFiberError) {
-        this.logger.warn(
-          () =>
-            `Failed to enqueue task ${task.id}: ${errorMessage} - task will be skipped`,
-        );
-        // Don't throw - allow the test to continue
-        // In production, this indicates the queue is full or worker is suspended
-      } else {
-        // Re-throw unexpected errors
-        this.logger.error(
-          () => `Unexpected error enqueueing task ${task.id}: ${error}`,
-        );
-        throw error;
-      }
+      this.logger.error(
+        () => `Failed to enqueue task ${task.id}: ${errorMessage}`,
+      );
+      // Mark task as failed in registry
+      this.taskRegistry.updateTaskStatus(
+        task.id,
+        'FAILED',
+        undefined,
+        errorMessage,
+      );
     }
   }
 
   /**
-   * Get queue size
+   * Get queue size (aggregated from scheduler metrics)
    */
   getQueueSize(): number {
-    return Effect.runSync(Queue.size(this.queue));
+    try {
+      const schedulerMetrics = Effect.runSync(metrics());
+      // Sum all priority queue sizes
+      return Object.values(schedulerMetrics.queueSizes).reduce(
+        (sum, size) => sum + size,
+        0,
+      );
+    } catch (error) {
+      // If scheduler not initialized or error getting metrics, return 0
+      this.logger.debug(() => `Failed to get queue size: ${error}`);
+      return 0;
+    }
   }
 
   /**
-   * Shutdown the queue service
-   *
-   * ## Effect-TS Cleanup
-   *
-   * Properly shuts down the Effect-TS resources:
-   *
-   * 1. **Fiber.interrupt**: Interrupts the background worker fiber, stopping task processing
-   * 2. **Queue.shutdown**: Shuts down the queue, preventing further operations
-   *
-   * Both operations use `Effect.runSync` as they should complete synchronously during shutdown.
-   * The worker fiber will stop processing new tasks, and any tasks already being processed
-   * will complete before the fiber is fully interrupted.
+   * Shutdown the indexing service
+   * Note: The scheduler itself is shared and should not be shut down here.
+   * Only cleanup local resources (task registry).
    */
   shutdown(): void {
-    if (this.workerFiber) {
-      // Interrupt the worker fiber to stop processing tasks
-      Effect.runSync(Fiber.interrupt(this.workerFiber));
-      this.workerFiber = null;
-    }
-
-    // Shutdown the queue to prevent further operations
-    Effect.runSync(Queue.shutdown(this.queue));
-    this.logger.debug(() => 'Queue service shutdown complete');
+    // Cleanup task registry (completed/failed tasks older than 5 minutes)
+    this.taskRegistry.cleanup(5 * 60 * 1000);
+    this.logger.debug(() => 'Indexing service shutdown complete');
   }
 
   /**
@@ -565,7 +507,7 @@ export class ApexSymbolIndexingService {
   }
 
   /**
-   * Get queue statistics
+   * Get queue statistics (aggregated from scheduler metrics and task registry)
    */
   getQueueStats(): QueueStats {
     const taskStats = this.taskRegistry.getStats();
@@ -599,8 +541,7 @@ export class ApexSymbolIndexingIntegration {
 
   constructor(symbolManager: ApexSymbolManager) {
     this.indexingService = new ApexSymbolIndexingService(symbolManager);
-    // Start the background worker
-    this.indexingService.startWorker();
+    // Note: No worker needed - scheduler handles task execution
   }
 
   /**
@@ -689,9 +630,9 @@ export class ApexSymbolIndexingIntegration {
       symbolTable,
       fileUri,
       documentVersion,
-      priority: options.priority || 'NORMAL',
+      priority: options.priority || Priority.Normal,
       options: {
-        priority: 'NORMAL',
+        priority: Priority.Normal,
         timeout: 30000, // 30 seconds
         retryAttempts: 3,
         concurrency: 4,
@@ -711,7 +652,7 @@ export class ApexSymbolIndexingIntegration {
   scheduleCommentAssociations(
     fileUri: string,
     associations: CommentAssociation[],
-    priority: TaskPriority = 'NORMAL',
+    priority: Priority = Priority.Normal,
   ): string {
     const taskId = `task_${Date.now()}_${Math.random()
       .toString(36)

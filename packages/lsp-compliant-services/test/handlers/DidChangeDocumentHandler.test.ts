@@ -10,7 +10,6 @@ import { DidChangeDocumentHandler } from '../../src/handlers/DidChangeDocumentHa
 import { IDocumentChangeProcessor } from '../../src/services/DocumentChangeProcessingService';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { Diagnostic } from 'vscode-languageserver';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 describe('DidChangeDocumentHandler', () => {
@@ -64,26 +63,14 @@ describe('DidChangeDocumentHandler', () => {
         ],
       };
 
-      const expectedDiagnostics: Diagnostic[] = [
-        {
-          range: {
-            start: { line: 0, character: 0 },
-            end: { line: 0, character: 10 },
-          },
-          message: 'Test error',
-          severity: 1,
-        },
-      ];
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentChange(event);
 
-      mockProcessor.processDocumentChange.mockResolvedValue(
-        expectedDiagnostics,
-      );
-
-      const result = await handler.handleDocumentChange(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
       expect(mockProcessor.processDocumentChange).toHaveBeenCalledWith(event);
-      expect(result).toEqual(expectedDiagnostics);
     });
 
     it('should handle processing errors gracefully', async () => {
@@ -110,12 +97,17 @@ describe('DidChangeDocumentHandler', () => {
       };
 
       const error = new Error('Processing failed');
-      mockProcessor.processDocumentChange.mockRejectedValue(error);
+      mockProcessor.processDocumentChange.mockImplementation(() => {
+        throw error;
+      });
 
-      await expect(handler.handleDocumentChange(event)).rejects.toThrow(
-        'Processing failed',
-      );
+      // Act (void return, fire-and-forget - errors handled internally)
+      handler.handleDocumentChange(event);
 
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Assert - error should be logged internally, not thrown
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
 
@@ -133,12 +125,13 @@ describe('DidChangeDocumentHandler', () => {
         contentChanges: [],
       };
 
-      mockProcessor.processDocumentChange.mockResolvedValue([]);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentChange(event);
 
-      const result = await handler.handleDocumentChange(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockProcessor.processDocumentChange).toHaveBeenCalledWith(event);
-      expect(result).toEqual([]);
     });
 
     it('should handle large document changes', async () => {
@@ -165,12 +158,13 @@ describe('DidChangeDocumentHandler', () => {
         ],
       };
 
-      mockProcessor.processDocumentChange.mockResolvedValue([]);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentChange(event);
 
-      const result = await handler.handleDocumentChange(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockProcessor.processDocumentChange).toHaveBeenCalledWith(event);
-      expect(result).toEqual([]);
     });
 
     it('should log processing start and completion', async () => {
@@ -196,9 +190,11 @@ describe('DidChangeDocumentHandler', () => {
         ],
       };
 
-      mockProcessor.processDocumentChange.mockResolvedValue([]);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentChange(event);
 
-      await handler.handleDocumentChange(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
     });
@@ -226,11 +222,13 @@ describe('DidChangeDocumentHandler', () => {
         ],
       };
 
-      mockProcessor.processDocumentChange.mockResolvedValue(undefined);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentChange(event);
 
-      const result = await handler.handleDocumentChange(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
-      expect(result).toBeUndefined();
+      expect(mockProcessor.processDocumentChange).toHaveBeenCalledWith(event);
     });
   });
 
@@ -262,10 +260,13 @@ describe('DidChangeDocumentHandler', () => {
         throw new Error('Synchronous error');
       });
 
-      await expect(handler.handleDocumentChange(event)).rejects.toThrow(
-        'Synchronous error',
-      );
+      // Act (void return, fire-and-forget - errors handled internally)
+      handler.handleDocumentChange(event);
 
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Assert - error should be logged internally, not thrown
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
 
@@ -292,12 +293,13 @@ describe('DidChangeDocumentHandler', () => {
         ],
       };
 
-      mockProcessor.processDocumentChange.mockResolvedValue([]);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentChange(event);
 
-      const result = await handler.handleDocumentChange(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockProcessor.processDocumentChange).toHaveBeenCalledWith(event);
-      expect(result).toEqual([]);
     });
   });
 
@@ -327,16 +329,15 @@ describe('DidChangeDocumentHandler', () => {
 
       mockProcessor.processDocumentChange.mockResolvedValue([]);
 
-      // Process multiple changes rapidly
-      const promises = Array.from({ length: 10 }, () =>
-        handler.handleDocumentChange(event),
-      );
+      // Process multiple changes rapidly (fire-and-forget)
+      for (let i = 0; i < 10; i++) {
+        handler.handleDocumentChange(event);
+      }
 
-      const results = await Promise.all(promises);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(results).toHaveLength(10);
       expect(mockProcessor.processDocumentChange).toHaveBeenCalledTimes(10);
-      results.forEach((result) => expect(result).toEqual([]));
     });
 
     it('should handle concurrent document changes', async () => {
@@ -364,14 +365,13 @@ describe('DidChangeDocumentHandler', () => {
 
       mockProcessor.processDocumentChange.mockResolvedValue([]);
 
-      const promises = events.map((event) =>
-        handler.handleDocumentChange(event),
-      );
-      const results = await Promise.all(promises);
+      // Process concurrently (fire-and-forget)
+      events.forEach((event) => handler.handleDocumentChange(event));
 
-      expect(results).toHaveLength(5);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
       expect(mockProcessor.processDocumentChange).toHaveBeenCalledTimes(5);
-      results.forEach((result) => expect(result).toEqual([]));
     });
   });
 
@@ -399,9 +399,11 @@ describe('DidChangeDocumentHandler', () => {
         ],
       };
 
-      mockProcessor.processDocumentChange.mockResolvedValue([]);
+      // Act (void return, fire-and-forget)
+      handler.handleDocumentChange(event);
 
-      await handler.handleDocumentChange(event);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
 
@@ -434,12 +436,17 @@ describe('DidChangeDocumentHandler', () => {
       };
 
       const error = new Error('Processing failed');
-      mockProcessor.processDocumentChange.mockRejectedValue(error);
+      mockProcessor.processDocumentChange.mockImplementation(() => {
+        throw error;
+      });
 
-      await expect(handler.handleDocumentChange(event)).rejects.toThrow(
-        'Processing failed',
-      );
+      // Act (void return, fire-and-forget - errors handled internally)
+      handler.handleDocumentChange(event);
 
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Assert - error should be logged internally, not thrown
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
 
       // Verify the error message contains the URI

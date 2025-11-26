@@ -11,10 +11,31 @@ import {
   ReferenceType,
 } from '../../src/symbols/ApexSymbolGraph';
 import { SymbolTable, SymbolFactory, SymbolKind } from '../../src/types/symbol';
+import {
+  initialize as schedulerInitialize,
+  reset as schedulerReset,
+} from '../../src/queue/priority-scheduler-utils';
+import { Effect } from 'effect';
 
 describe('ApexSymbolGraph - Optimized Architecture', () => {
   let symbolGraph: ApexSymbolGraph;
   let symbolTable: SymbolTable;
+
+  beforeAll(async () => {
+    // Initialize scheduler before all tests
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
+  });
+
+  afterAll(async () => {
+    // Reset scheduler after all tests
+    await Effect.runPromise(schedulerReset());
+  });
 
   beforeEach(() => {
     symbolGraph = new ApexSymbolGraph();
@@ -190,7 +211,8 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
 
       // Verify FQN was calculated
       expect(foundSymbol!.fqn).toBeDefined();
-      expect(foundSymbol!.fqn).toBe('TestClass');
+      // FQN is normalized to lowercase for Apex case-insensitive convention
+      expect(foundSymbol!.fqn).toBe('testclass');
     });
 
     it('should preserve position data when symbols are retrieved by different methods', () => {

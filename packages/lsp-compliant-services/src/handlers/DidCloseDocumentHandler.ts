@@ -10,7 +10,6 @@ import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
-import { dispatch } from '../utils/handlerUtil';
 import { IDocumentCloseProcessor } from '../services/DocumentCloseProcessingService';
 
 /**
@@ -23,29 +22,25 @@ export class DidCloseDocumentHandler {
   ) {}
 
   /**
-   * Handle document close event
+   * Handle document close event (LSP notification - fire-and-forget)
    * @param event The document close event
-   * @returns Promise resolving to void
    */
-  public async handleDocumentClose(
+  public handleDocumentClose(
     event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<void> {
+  ): void {
     this.logger.debug(
       () =>
         `Processing document close: ${event.document.uri} (version: ${event.document.version})`,
     );
 
+    // Call processor with error handling (fire-and-forget)
     try {
-      return await dispatch(
-        this.documentCloseProcessor.processDocumentClose(event),
-        'Error processing document close',
-      );
+      this.documentCloseProcessor.processDocumentClose(event);
     } catch (error) {
       this.logger.error(
         () =>
           `Error processing document close for ${event.document.uri}: ${error}`,
       );
-      throw error;
     }
   }
 }

@@ -184,14 +184,16 @@ describe('DocumentChangeProcessingService', () => {
         ],
       };
 
-      const result = await service.processDocumentChange(event);
+      service.processDocumentChange(event);
+
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockStorage.setDocument).toHaveBeenCalledWith(
         event.document.uri,
         event.document,
       );
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
-      expect(result).toEqual([]);
     });
 
     it('should handle processing errors gracefully', async () => {
@@ -219,10 +221,12 @@ describe('DocumentChangeProcessingService', () => {
 
       mockStorage.setDocument.mockRejectedValue(new Error('Storage error'));
 
-      const result = await service.processDocumentChange(event);
+      service.processDocumentChange(event);
+
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
-      expect(result).toEqual([]);
     });
 
     it('should log document processing completion', async () => {
@@ -248,7 +252,10 @@ describe('DocumentChangeProcessingService', () => {
         ],
       };
 
-      await service.processDocumentChange(event);
+      service.processDocumentChange(event);
+
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
     });
@@ -267,13 +274,15 @@ describe('DocumentChangeProcessingService', () => {
         contentChanges: [],
       };
 
-      const result = await service.processDocumentChange(event);
+      service.processDocumentChange(event);
+
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockStorage.setDocument).toHaveBeenCalledWith(
         event.document.uri,
         event.document,
       );
-      expect(result).toEqual([]);
     });
 
     it('should handle large document changes', async () => {
@@ -300,13 +309,15 @@ describe('DocumentChangeProcessingService', () => {
         ],
       };
 
-      const result = await service.processDocumentChange(event);
+      service.processDocumentChange(event);
+
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockStorage.setDocument).toHaveBeenCalledWith(
         event.document.uri,
         event.document,
       );
-      expect(result).toEqual([]);
     });
   });
 
@@ -353,10 +364,12 @@ describe('DocumentChangeProcessingService', () => {
         ],
       };
 
-      const result = await service.processDocumentChange(event);
+      service.processDocumentChange(event);
+
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
-      expect(result).toEqual([]);
     });
 
     it('should handle invalid document URIs', async () => {
@@ -382,10 +395,12 @@ describe('DocumentChangeProcessingService', () => {
         ],
       };
 
-      const result = await service.processDocumentChange(event);
+      service.processDocumentChange(event);
+
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockStorage.setDocument).toHaveBeenCalledWith('', event.document);
-      expect(result).toEqual([]);
     });
   });
 
@@ -413,16 +428,15 @@ describe('DocumentChangeProcessingService', () => {
         ],
       };
 
-      // Process multiple changes rapidly
-      const promises = Array.from({ length: 10 }, () =>
-        service.processDocumentChange(event),
-      );
+      // Process multiple changes rapidly (fire-and-forget)
+      for (let i = 0; i < 10; i++) {
+        service.processDocumentChange(event);
+      }
 
-      const results = await Promise.all(promises);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(results).toHaveLength(10);
       expect(mockStorage.setDocument).toHaveBeenCalledTimes(10);
-      results.forEach((result) => expect(result).toEqual([]));
     });
 
     it('should suppress diagnostics for standard Apex library URIs', async () => {
@@ -434,9 +448,11 @@ describe('DocumentChangeProcessingService', () => {
         contentChanges: [],
       };
 
-      const result = await service.processDocumentChange(event);
+      service.processDocumentChange(event);
 
-      expect(result).toEqual([]);
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
       // Verify that no document processing occurred after suppression check
       // Note: setDocument may still be called for logging purposes
@@ -459,9 +475,11 @@ describe('DocumentChangeProcessingService', () => {
           contentChanges: [],
         };
 
-        const result = await service.processDocumentChange(event);
+        service.processDocumentChange(event);
 
-        expect(result).toEqual([]);
+        // Wait for async operations to complete
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
         expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
       }
     });
@@ -475,28 +493,16 @@ describe('DocumentChangeProcessingService', () => {
         contentChanges: [],
       };
 
-      // Mock the compilation result with errors
-      const mockCompileResult = {
-        errors: [
-          {
-            type: 'syntax',
-            severity: 'error',
-            message: 'Test error',
-            line: 1,
-            column: 1,
-            filePath: 'file:///Users/test/MyClass.cls',
-          },
-        ],
-      };
-
       // Skip CompilerService mock for this test since it's not essential
 
       // Skip getDiagnosticsFromErrors mock for this test since it's not essential
 
-      const result = await service.processDocumentChange(event);
+      service.processDocumentChange(event);
 
-      // Since we removed the mocks, just verify the method was called
-      expect(result).toBeDefined();
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Since it's fire-and-forget, just verify the method was called
       expect(mockStorage.setDocument).toHaveBeenCalledWith(
         event.document.uri,
         event.document,
