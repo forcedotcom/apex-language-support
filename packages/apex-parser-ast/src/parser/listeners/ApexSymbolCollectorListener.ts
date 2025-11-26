@@ -312,7 +312,7 @@ export class ApexSymbolCollectorListener
         }
 
         // Check for nested inner class by checking if currentTypeSymbol has a parent
-        if (this.currentTypeSymbol && this.currentTypeSymbol.parent) {
+        if (this.currentTypeSymbol && this.currentTypeSymbol.parentId) {
           this.addError(
             `Inner class '${name}' cannot be defined within another inner class. ` +
               'Apex does not support nested inner classes.',
@@ -371,19 +371,13 @@ export class ApexSymbolCollectorListener
         classSymbol.annotations = annotations;
       }
 
-      // Store the previous type symbol for parent relationship
-      const previousTypeSymbol = this.currentTypeSymbol;
-
       // Store the current class symbol
       this.currentTypeSymbol = classSymbol;
 
       // Add symbol to current scope
       this.symbolTable.addSymbol(classSymbol);
 
-      // Manually set parent relationship if this is an inner class
-      if (previousTypeSymbol) {
-        classSymbol.parent = previousTypeSymbol;
-      }
+      // Parent property removed - parentId is set during symbol creation
 
       // Enter class scope
       this.symbolTable.enterScope(name);
@@ -586,7 +580,9 @@ export class ApexSymbolCollectorListener
 
       // Check for method override
       if (modifiers.isOverride) {
-        const parentClass = this.currentTypeSymbol?.parent;
+        const parentClass = this.currentTypeSymbol
+          ? this.getParent(this.currentTypeSymbol)
+          : null;
         if (!parentClass) {
           this.addWarning(
             `Override method ${name} must ensure a parent class has a compatible method`,
@@ -2089,6 +2085,20 @@ export class ApexSymbolCollectorListener
   /**
    * Reset modifiers to defaults
    */
+  /**
+   * Get parent symbol using parentId lookup from SymbolTable
+   * @param symbol The symbol to get the parent for
+   * @returns The parent symbol if found, null otherwise
+   */
+  private getParent(symbol: ApexSymbol): ApexSymbol | null {
+    if (!symbol.parentId) {
+      return null;
+    }
+    return (
+      this.symbolTable.findSymbolWith((s) => s.id === symbol.parentId) || null
+    );
+  }
+
   private resetModifiers(): void {
     this.currentModifiers = this.createDefaultModifiers();
   }
@@ -2430,7 +2440,7 @@ export class ApexSymbolCollectorListener
     if (!symbol) {
       return false;
     }
-    const parent = symbol.parent;
+    const parent = this.getParent(symbol);
     return parent !== null && parent !== undefined && isClassSymbol(parent);
   }
 
@@ -2449,7 +2459,7 @@ export class ApexSymbolCollectorListener
     }
 
     // Start with the parent
-    let current = symbolToCheck.parent;
+    let current = this.getParent(symbolToCheck);
     let classCount = 0;
 
     // Traverse up the parent chain
@@ -2462,7 +2472,7 @@ export class ApexSymbolCollectorListener
           return true;
         }
       }
-      current = current.parent;
+      current = this.getParent(current);
     }
 
     return false;
@@ -2983,10 +2993,7 @@ export class ApexSymbolCollectorListener
       scopePath, // Pass scope path for unique ID generation
     ) as TypeSymbol;
 
-    // Fix the parent key to use the correct kind
-    if (parent && typeSymbol.parentKey) {
-      typeSymbol.parentKey.kind = parent.kind;
-    }
+    // Parent key removed - use parentId for parent resolution
 
     // For enums, we need to add the values array
     // TODO: change to a more generic approach
@@ -3122,7 +3129,7 @@ export class ApexSymbolCollectorListener
     let current = this.currentTypeSymbol;
     while (current) {
       path.unshift(current.name);
-      current = current.parent as TypeSymbol | null;
+      current = current ? (this.getParent(current) as TypeSymbol | null) : null;
     }
     return path;
   }

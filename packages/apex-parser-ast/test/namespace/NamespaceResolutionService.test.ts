@@ -13,6 +13,7 @@ import {
   SymbolLocation,
   SymbolFactory,
   SymbolVisibility,
+  VariableSymbol,
 } from '../../src/types/symbol';
 import {
   CompilationContext,
@@ -66,6 +67,12 @@ const createMockSymbolTableWithTypeReferences = (): SymbolTable => {
   symbolTable.addSymbol(classSymbol);
 
   // Add a variable symbol with a type reference that needs resolution
+  const typeInfo = {
+    name: 'System.List<String>',
+    isArray: false,
+    isGeneric: true,
+    genericTypes: ['String'],
+  };
   const variableSymbol = SymbolFactory.createFullSymbol(
     'testVar',
     SymbolKind.Variable,
@@ -73,15 +80,10 @@ const createMockSymbolTableWithTypeReferences = (): SymbolTable => {
     'test.cls',
     mockModifiers,
     classSymbol.id,
-    {
-      type: {
-        name: 'System.List<String>',
-        isArray: false,
-        isGeneric: true,
-        genericTypes: ['String'],
-      },
-    },
-  );
+    undefined, // typeData - type is now set directly on VariableSymbol
+  ) as VariableSymbol;
+  // Set the type property for VariableSymbol interface compatibility
+  variableSymbol.type = typeInfo;
   symbolTable.addSymbol(variableSymbol);
 
   return symbolTable;
@@ -143,13 +145,11 @@ describe('NamespaceResolutionService', () => {
 
       // Verify that type references were resolved
       const symbols = symbolTable.getAllSymbols();
-      const variableSymbol = symbols.find((s) => s.name === 'testVar');
-      expect(
-        (variableSymbol?._typeData?.type as any)?.resolvedSymbol,
-      ).toBeDefined();
-      expect((variableSymbol?._typeData?.type as any)?.resolvedSymbol).toBe(
-        mockResolvedSymbol,
-      );
+      const variableSymbol = symbols.find(
+        (s) => s.name === 'testVar',
+      ) as VariableSymbol;
+      expect(variableSymbol?.type?.resolvedSymbol).toBeDefined();
+      expect(variableSymbol?.type?.resolvedSymbol).toBe(mockResolvedSymbol);
     });
 
     it('should handle unresolved references gracefully', () => {
@@ -167,10 +167,10 @@ describe('NamespaceResolutionService', () => {
 
       // Verify that unresolved references are handled without errors
       const symbols = symbolTable.getAllSymbols();
-      const variableSymbol = symbols.find((s) => s.name === 'testVar');
-      expect(
-        (variableSymbol?._typeData?.type as any)?.resolvedSymbol,
-      ).toBeUndefined();
+      const variableSymbol = symbols.find(
+        (s) => s.name === 'testVar',
+      ) as VariableSymbol;
+      expect(variableSymbol?.type?.resolvedSymbol).toBeUndefined();
     });
 
     it('should handle symbols without type data', () => {
@@ -216,6 +216,11 @@ describe('NamespaceResolutionService', () => {
       const symbolTable = new SymbolTable();
 
       // Add a variable with a qualified type name
+      const typeInfo = {
+        name: 'MyNamespace.MyClass',
+        isArray: false,
+        isGeneric: false,
+      };
       const variableSymbol = SymbolFactory.createFullSymbol(
         'qualifiedVar',
         SymbolKind.Variable,
@@ -223,14 +228,9 @@ describe('NamespaceResolutionService', () => {
         'test.cls',
         mockModifiers,
         null,
-        {
-          type: {
-            name: 'MyNamespace.MyClass',
-            isArray: false,
-            isGeneric: false,
-          },
-        },
-      );
+        undefined, // typeData - type is now set directly on VariableSymbol
+      ) as VariableSymbol;
+      variableSymbol.type = typeInfo;
       symbolTable.addSymbol(variableSymbol);
 
       const compilationContext = createMockCompilationContext();
@@ -250,16 +250,21 @@ describe('NamespaceResolutionService', () => {
       );
 
       const symbols = symbolTable.getAllSymbols();
-      const resolvedVariable = symbols.find((s) => s.name === 'qualifiedVar');
-      expect((resolvedVariable?._typeData?.type as any)?.resolvedSymbol).toBe(
-        mockResolvedSymbol,
-      );
+      const resolvedVariable = symbols.find(
+        (s) => s.name === 'qualifiedVar',
+      ) as VariableSymbol;
+      expect(resolvedVariable?.type?.resolvedSymbol).toBe(mockResolvedSymbol);
     });
 
     it('should handle type names without dots (simple types)', () => {
       const symbolTable = new SymbolTable();
 
       // Add a variable with a simple type name
+      const typeInfo = {
+        name: 'String',
+        isArray: false,
+        isGeneric: false,
+      };
       const variableSymbol = SymbolFactory.createFullSymbol(
         'simpleVar',
         SymbolKind.Variable,
@@ -267,14 +272,9 @@ describe('NamespaceResolutionService', () => {
         'test.cls',
         mockModifiers,
         null,
-        {
-          type: {
-            name: 'String',
-            isArray: false,
-            isGeneric: false,
-          },
-        },
-      );
+        undefined, // typeData - type is now set directly on VariableSymbol
+      ) as VariableSymbol;
+      variableSymbol.type = typeInfo;
       symbolTable.addSymbol(variableSymbol);
 
       const compilationContext = createMockCompilationContext();
@@ -294,10 +294,10 @@ describe('NamespaceResolutionService', () => {
       );
 
       const symbols = symbolTable.getAllSymbols();
-      const resolvedVariable = symbols.find((s) => s.name === 'simpleVar');
-      expect((resolvedVariable?._typeData?.type as any)?.resolvedSymbol).toBe(
-        mockResolvedSymbol,
-      );
+      const resolvedVariable = symbols.find(
+        (s) => s.name === 'simpleVar',
+      ) as VariableSymbol;
+      expect(resolvedVariable?.type?.resolvedSymbol).toBe(mockResolvedSymbol);
     });
   });
 
@@ -401,6 +401,12 @@ describe('NamespaceResolutionService', () => {
       const symbolTable = new SymbolTable();
 
       // Add a variable with a type name that has special characters
+      const typeInfo = {
+        name: 'System.List<String>', // Generic type
+        isArray: false,
+        isGeneric: true,
+        genericTypes: ['String'],
+      };
       const variableSymbol = SymbolFactory.createFullSymbol(
         'specialVar',
         SymbolKind.Variable,
@@ -408,15 +414,9 @@ describe('NamespaceResolutionService', () => {
         'test.cls',
         mockModifiers,
         null,
-        {
-          type: {
-            name: 'System.List<String>', // Generic type
-            isArray: false,
-            isGeneric: true,
-            genericTypes: ['String'],
-          },
-        },
-      );
+        undefined, // typeData - type is now set directly on VariableSymbol
+      ) as VariableSymbol;
+      variableSymbol.type = typeInfo;
       symbolTable.addSymbol(variableSymbol);
 
       const compilationContext = createMockCompilationContext();
@@ -436,10 +436,10 @@ describe('NamespaceResolutionService', () => {
       );
 
       const symbols = symbolTable.getAllSymbols();
-      const resolvedVariable = symbols.find((s) => s.name === 'specialVar');
-      expect((resolvedVariable?._typeData?.type as any)?.resolvedSymbol).toBe(
-        mockResolvedSymbol,
-      );
+      const resolvedVariable = symbols.find(
+        (s) => s.name === 'specialVar',
+      ) as VariableSymbol;
+      expect(resolvedVariable?.type?.resolvedSymbol).toBe(mockResolvedSymbol);
     });
   });
 

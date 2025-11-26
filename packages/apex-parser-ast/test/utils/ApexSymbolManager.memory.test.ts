@@ -255,7 +255,7 @@ describe.skip('ApexSymbolManager - Phase 6.5 Memory Optimization Tests', () => {
       location,
       fileUri,
       null,
-      0,
+      // Use default modifiers
     );
   };
 

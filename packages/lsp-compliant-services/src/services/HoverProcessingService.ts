@@ -29,6 +29,7 @@ import {
   isTriggerSymbol,
   isConstructorSymbol,
   isVariableSymbol,
+  VariableSymbol,
   inTypeSymbolGroup,
 } from '@salesforce/apex-lsp-parser-ast';
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
@@ -192,7 +193,8 @@ export class HoverProcessingService implements IHoverProcessor {
     } else if (isTriggerSymbol(symbol)) {
       content.push(`trigger ${fqn || symbol.name}`);
     } else if (isVariableSymbol(symbol)) {
-      const type = symbol._typeData?.type?.name ?? 'unknown';
+      const variableSymbol = symbol as VariableSymbol;
+      const type = variableSymbol.type?.name ?? 'unknown';
       content.push(`${type} ${fqn || symbol.name}`);
     } else {
       content.push(fqn || symbol.name);
@@ -217,12 +219,11 @@ export class HoverProcessingService implements IHoverProcessor {
     if (this.capabilitiesManager.getMode() === 'development') {
       // Add type information (compact) for value-like symbols
       const isTypeLike = inTypeSymbolGroup(symbol);
-      if (
-        !isMethodSymbol(symbol) &&
-        !isTypeLike &&
-        symbol._typeData?.type?.name
-      ) {
-        content.push(`**Type:** ${symbol._typeData?.type?.name}`);
+      if (!isMethodSymbol(symbol) && !isTypeLike && isVariableSymbol(symbol)) {
+        const variableSymbol = symbol as VariableSymbol;
+        if (variableSymbol.type?.name) {
+          content.push(`**Type:** ${variableSymbol.type.name}`);
+        }
       }
 
       if (isMethodSymbol(symbol)) {

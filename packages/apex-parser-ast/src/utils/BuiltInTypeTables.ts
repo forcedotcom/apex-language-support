@@ -221,10 +221,8 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
         prefix: 'built-in',
         name: name,
       },
-      parentKey: null,
       fileUri: 'built-in://apex',
       parentId: null,
-      _modifierFlags: 0,
       _isLoaded: true,
       modifiers: {
         visibility: SymbolVisibility.Public,

@@ -319,7 +319,8 @@ public class TestClass {
         .find((s) => s.name === 'InnerClass');
 
       expect(innerClass).toBeDefined();
-      expect(innerClass?.parent).toBe(outerClass);
+      // Parent property removed - check parentId instead
+      expect(innerClass?.parentId).toBe(outerClass?.id);
       expect(innerClass?.kind).toBe(SymbolKind.Class);
     });
 

@@ -17,6 +17,8 @@ import {
   ApexSymbolProcessingManager,
   ISymbolManager,
   ApexSymbol,
+  inTypeSymbolGroup,
+  TypeSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 import {
@@ -317,17 +319,17 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     const locations: Location[] = [];
 
     try {
-      if (
-        symbol._typeData?.interfaces &&
-        Array.isArray(symbol._typeData.interfaces)
-      ) {
-        for (const interfaceName of symbol._typeData.interfaces) {
-          const interfaceSymbol =
-            this.symbolManager.findSymbolByFQN(interfaceName);
-          if (interfaceSymbol) {
-            const location = this.createLocationFromSymbol(interfaceSymbol);
-            if (location) {
-              locations.push(location);
+      if (inTypeSymbolGroup(symbol)) {
+        const typeSymbol = symbol as TypeSymbol;
+        if (typeSymbol.interfaces && Array.isArray(typeSymbol.interfaces)) {
+          for (const interfaceName of typeSymbol.interfaces) {
+            const interfaceSymbol =
+              this.symbolManager.findSymbolByFQN(interfaceName);
+            if (interfaceSymbol) {
+              const location = this.createLocationFromSymbol(interfaceSymbol);
+              if (location) {
+                locations.push(location);
+              }
             }
           }
         }
@@ -348,28 +350,32 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     const locations: Location[] = [];
 
     try {
-      // Get superclass definition
-      if (symbol._typeData?.superClass) {
-        const superClassSymbol = this.symbolManager.findSymbolByFQN(
-          symbol._typeData.superClass,
-        );
-        if (superClassSymbol) {
-          const location = this.createLocationFromSymbol(superClassSymbol);
-          if (location) {
-            locations.push(location);
-          }
-        }
-      }
+      if (inTypeSymbolGroup(symbol)) {
+        const typeSymbol = symbol as TypeSymbol;
 
-      // Get extended interface definitions
-      if (symbol.kind === 'interface' && symbol._typeData?.interfaces) {
-        for (const interfaceName of symbol._typeData.interfaces) {
-          const interfaceSymbol =
-            this.symbolManager.findSymbolByFQN(interfaceName);
-          if (interfaceSymbol) {
-            const location = this.createLocationFromSymbol(interfaceSymbol);
+        // Get superclass definition
+        if (typeSymbol.superClass) {
+          const superClassSymbol = this.symbolManager.findSymbolByFQN(
+            typeSymbol.superClass,
+          );
+          if (superClassSymbol) {
+            const location = this.createLocationFromSymbol(superClassSymbol);
             if (location) {
               locations.push(location);
+            }
+          }
+        }
+
+        // Get extended interface definitions
+        if (symbol.kind === 'interface' && typeSymbol.interfaces) {
+          for (const interfaceName of typeSymbol.interfaces) {
+            const interfaceSymbol =
+              this.symbolManager.findSymbolByFQN(interfaceName);
+            if (interfaceSymbol) {
+              const location = this.createLocationFromSymbol(interfaceSymbol);
+              if (location) {
+                locations.push(location);
+              }
             }
           }
         }

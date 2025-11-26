@@ -70,25 +70,6 @@ export function calculateFQN(
       currentParentId = parent.parentId ?? null;
       depth++;
     }
-  } else if (symbol.parent) {
-    // Fallback to direct parent property traversal (for test scenarios)
-    let currentParent: ApexSymbol | null = symbol.parent;
-    let depth = 0;
-
-    while (currentParent && depth < 10) {
-      // Prevent infinite loops
-      if (!currentParent) {
-        break;
-      }
-
-      // Only include parent if it's not a block scope
-      if (!isBlockScope(currentParent)) {
-        parts.unshift(currentParent.name);
-      }
-
-      currentParent = currentParent.parent ?? null;
-      depth++;
-    }
   }
 
   let fqn = parts.join('.');
@@ -97,7 +78,7 @@ export function calculateFQN(
   if (symbol.namespace) {
     // If symbol has its own namespace, use it
     fqn = `${symbol.namespace}.${fqn}`;
-  } else if (options?.defaultNamespace && !symbol.parent) {
+  } else if (options?.defaultNamespace && !symbol.parentId) {
     // Only apply default namespace to top-level symbols
     fqn = `${options.defaultNamespace}.${fqn}`;
     symbol.namespace = options.defaultNamespace;
