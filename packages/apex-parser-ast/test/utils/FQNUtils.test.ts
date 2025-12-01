@@ -32,52 +32,60 @@ describe('FQN Utilities', () => {
   afterAll(() => {
     resetResourceLoader();
   });
+  // Map to store symbols by ID for getParent lookup
+  const symbolMap = new Map<string, ApexSymbol>();
+
   const createTestSymbol = (
     name: string,
     kind: SymbolKind,
     parent: ApexSymbol | null = null,
-  ): ApexSymbol => ({
-    name,
-    kind,
-    modifiers: {
-      visibility: SymbolVisibility.Public,
-      isStatic: false,
-      isFinal: false,
-      isAbstract: false,
-      isVirtual: false,
-      isOverride: false,
-      isTransient: false,
-      isTestMethod: false,
-      isWebService: false,
-      isBuiltIn: false,
-    },
-    parent,
-    location: {
-      symbolRange: {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 10,
-      },
-      identifierRange: {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 10,
-      },
-    },
-    id: '',
-    fileUri: '',
-    parentId: null,
-    key: {
-      prefix: kind,
+  ): ApexSymbol => {
+    const id = `test://${name}`;
+    const symbol: ApexSymbol = {
       name,
-      path: parent ? [...parent.key.path, name] : [name],
-    },
-    parentKey: null,
-    _modifierFlags: 0,
-    _isLoaded: false,
-  });
+      kind,
+      modifiers: {
+        visibility: SymbolVisibility.Public,
+        isStatic: false,
+        isFinal: false,
+        isAbstract: false,
+        isVirtual: false,
+        isOverride: false,
+        isTransient: false,
+        isTestMethod: false,
+        isWebService: false,
+        isBuiltIn: false,
+      },
+      location: {
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+      },
+      id,
+      fileUri: 'test://',
+      parentId: parent ? parent.id : null,
+      key: {
+        prefix: kind,
+        name,
+        path: parent ? [...parent.key.path, name] : [name],
+      },
+      _isLoaded: false,
+    };
+    symbolMap.set(id, symbol);
+    return symbol;
+  };
+
+  const getParent = (parentId: string): ApexSymbol | null =>
+    symbolMap.get(parentId) || null;
 
   describe('calculateFQN', () => {
     it('should calculate simple FQN for a standalone symbol', () => {
@@ -88,7 +96,9 @@ describe('FQN Utilities', () => {
     it('should calculate FQN for a symbol with parent', () => {
       const parent = createTestSymbol('ParentClass', SymbolKind.Class);
       const child = createTestSymbol('ChildMethod', SymbolKind.Method, parent);
-      expect(calculateFQN(child)).toBe('ParentClass.ChildMethod');
+      expect(calculateFQN(child, undefined, getParent)).toBe(
+        'ParentClass.ChildMethod',
+      );
     });
 
     it('should calculate FQN for a symbol with multiple parents', () => {
@@ -102,7 +112,7 @@ describe('FQN Utilities', () => {
         grandparent,
       );
       const child = createTestSymbol('ChildMethod', SymbolKind.Method, parent);
-      expect(calculateFQN(child)).toBe(
+      expect(calculateFQN(child, undefined, getParent)).toBe(
         'GrandparentClass.ParentClass.ChildMethod',
       );
     });
@@ -120,7 +130,9 @@ describe('FQN Utilities', () => {
         SymbolKind.Method,
         parentSymbol,
       );
-      expect(calculateFQN(childSymbol)).toBe('ParentClass.ChildMethod');
+      expect(calculateFQN(childSymbol, undefined, getParent)).toBe(
+        'ParentClass.ChildMethod',
+      );
     });
 
     it('should calculate FQN with nested hierarchy', () => {
@@ -138,7 +150,9 @@ describe('FQN Utilities', () => {
         SymbolKind.Method,
         parentSymbol,
       );
-      expect(calculateFQN(childSymbol)).toBe('OuterClass.InnerClass.myMethod');
+      expect(calculateFQN(childSymbol, undefined, getParent)).toBe(
+        'OuterClass.InnerClass.myMethod',
+      );
     });
 
     it.skip('should not apply namespace if already inherited from parent', () => {
@@ -153,7 +167,11 @@ describe('FQN Utilities', () => {
         parentWithNamespace,
       );
       expect(
-        calculateFQN(childSymbol, { defaultNamespace: 'NewNamespace' }),
+        calculateFQN(
+          childSymbol,
+          { defaultNamespace: 'NewNamespace' },
+          getParent,
+        ),
       ).toBe('ParentClass.ChildMethod');
       expect(childSymbol.namespace).toBe('ExistingNamespace');
     });
@@ -174,10 +192,18 @@ describe('FQN Utilities', () => {
         parentSymbol,
       );
       expect(
-        calculateFQN(parentSymbol, { defaultNamespace: 'MyNamespace' }),
+        calculateFQN(
+          parentSymbol,
+          { defaultNamespace: 'MyNamespace' },
+          getParent,
+        ),
       ).toBe('MyNamespace.ParentClass');
       expect(
-        calculateFQN(childSymbol, { defaultNamespace: 'MyNamespace' }),
+        calculateFQN(
+          childSymbol,
+          { defaultNamespace: 'MyNamespace' },
+          getParent,
+        ),
       ).toBe('ParentClass.ChildMethod');
       expect(childSymbol.namespace).toBe('MyNamespace');
     });

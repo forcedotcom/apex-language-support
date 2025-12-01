@@ -173,8 +173,7 @@ describe('SymbolFactory with Namespace Support', () => {
       );
 
       expect(symbol.parentId).toBe(parentId);
-      expect(symbol.parentKey).toBeDefined();
-      expect(symbol.parentKey?.unifiedId).toBe(parentId);
+      // parentKey removed - use parentId for parent resolution
       expect(symbol.namespace).toBe(namespace);
     });
 

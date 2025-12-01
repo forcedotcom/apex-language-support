@@ -20,6 +20,7 @@ import {
   Position,
   Range,
   SymbolResolutionStrategy,
+  TypeSymbol,
 } from '../types/symbol';
 import { UnifiedCache } from '../utils/UnifiedCache';
 import {
@@ -208,18 +209,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       symbol.key.unifiedId = generateUnifiedId(symbol.key, properUri);
     }
 
-    // Attempt to hydrate missing parent linkage before computing FQN (lightweight, cached)
-    if (!symbol.parent && symbol.parentId && symbol.fileUri) {
-      try {
-        const cacheForFile = this.getOrBuildParentCacheForFile(properUri);
-        const parentCandidate = cacheForFile.get(symbol.parentId) || null;
-        if (parentCandidate) {
-          symbol.parent = parentCandidate;
-        }
-      } catch (_e) {
-        // best-effort; ignore hydration failure here
-      }
-    }
+    // Parent property removed - FQN calculation uses getParent function parameter
+    // No need to hydrate parent property
 
     if (!symbol.fqn) {
       symbol.fqn = calculateFQN(symbol, { normalizeCase: true }, (parentId) =>
@@ -289,9 +280,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Get symbol by ID
+   * Delegates to ApexSymbolGraph for O(1) lookup via symbolIdIndex
    */
   getSymbol(symbolId: string): ApexSymbol | null {
-    return this.unifiedCache.get<ApexSymbol>(symbolId) || null;
+    // First check cache for performance
+    const cached = this.unifiedCache.get<ApexSymbol>(symbolId);
+    if (cached) {
+      return cached;
+    }
+
+    // Fallback to graph lookup (uses symbolIdIndex for O(1) or SymbolTable fallback)
+    const symbol = this.symbolGraph.getSymbol(symbolId);
+    if (symbol) {
+      // Cache for future lookups
+      this.unifiedCache.set(symbolId, symbol, 'symbol_lookup');
+    }
+    return symbol;
   }
 
   /**
@@ -1809,29 +1813,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return;
       }
 
-      // Only attempt hydration for member-like symbols
-      const isMemberKind =
-        symbol.kind === SymbolKind.Method ||
-        symbol.kind === SymbolKind.Constructor ||
-        symbol.kind === SymbolKind.Field ||
-        symbol.kind === SymbolKind.Property;
-
-      // Best-effort: hydrate missing parent from file by parentId
-      if (isMemberKind && !symbol.parent && symbol.parentId && symbol.fileUri) {
-        try {
-          // Extract the base file URI from the symbol's fileUri
-          // e.g., 'file:///test/TestClass.cls:file.TestClass.InnerClass:innerMethod' -> 'file:///test/TestClass.cls'
-          const baseFileUri = extractFilePathFromUri(symbol.fileUri);
-          const cacheForFile = this.getOrBuildParentCacheForFile(baseFileUri);
-          const parentCandidate = cacheForFile.get(symbol.parentId) || null;
-          if (parentCandidate) {
-            symbol.parent = parentCandidate;
-          }
-        } catch (_e) {
-          // ignore
-        }
-      }
-
       // Compute FQN if missing or too generic
       if (!symbol.fqn || symbol.fqn === symbol.name) {
         symbol.fqn = calculateFQN(symbol, { normalizeCase: true }, (parentId) =>
@@ -3062,10 +3043,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const inheritanceChain: string[] = [];
 
     for (const symbol of symbols) {
-      if (symbol.kind === SymbolKind.Class && symbol._typeData) {
-        // Look for superClass information in typeData
-        if (symbol._typeData.superClass) {
-          inheritanceChain.push(symbol._typeData.superClass);
+      if (symbol.kind === SymbolKind.Class) {
+        const typeSymbol = symbol as TypeSymbol;
+        // Use TypeSymbol.superClass directly
+        if (typeSymbol.superClass) {
+          inheritanceChain.push(typeSymbol.superClass);
         }
       }
     }
@@ -3082,10 +3064,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const implementations: string[] = [];
 
     for (const symbol of symbols) {
-      if (symbol.kind === SymbolKind.Class && symbol._typeData) {
-        // Look for interfaces information in typeData
-        if (symbol._typeData.interfaces) {
-          implementations.push(...symbol._typeData.interfaces);
+      if (symbol.kind === SymbolKind.Class) {
+        const typeSymbol = symbol as TypeSymbol;
+        // Use TypeSymbol.interfaces directly
+        if (typeSymbol.interfaces && typeSymbol.interfaces.length > 0) {
+          implementations.push(...typeSymbol.interfaces);
         }
       }
     }
@@ -3141,7 +3124,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   public getContainingType(symbol: ApexSymbol): ApexSymbol | null {
     // Find the immediate parent that is a type (class, interface, enum)
-    let current = symbol.parent;
+    let current = this.symbolGraph.getParent(symbol);
     while (current) {
       if (
         current.kind === SymbolKind.Class ||
@@ -3150,7 +3133,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       ) {
         return current;
       }
-      current = current.parent;
+      current = this.symbolGraph.getParent(current);
     }
     return null;
   }

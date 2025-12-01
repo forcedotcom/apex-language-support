@@ -93,7 +93,7 @@ export class SymbolFactory {
     location: SymbolLocation,
     fileUri: string,
     parentId: string | null = null,
-    modifierFlags: number = 0,
+    modifiers: SymbolModifiers = this.createDefaultModifiers(),
     scopePath?: string[],
   ): ApexSymbol {
     const id = this.generateId(name, fileUri, scopePath);
@@ -114,20 +114,26 @@ export class SymbolFactory {
       fileUri: fileUri,
       parentId,
       key,
-      parentKey: parentId
-        ? {
-            prefix: kind,
-            name: parentId,
-            path: [fileUri, parentId],
-            unifiedId: parentId,
-            fileUri: fileUri,
-            kind,
-          }
-        : null,
-      _modifierFlags: modifierFlags,
       _isLoaded: false,
-      modifiers: this.flagsToModifiers(modifierFlags),
-      parent: null,
+      modifiers,
+    };
+  }
+
+  /**
+   * Create default modifiers
+   */
+  private static createDefaultModifiers(): SymbolModifiers {
+    return {
+      visibility: SymbolVisibility.Default,
+      isStatic: false,
+      isFinal: false,
+      isAbstract: false,
+      isVirtual: false,
+      isOverride: false,
+      isTransient: false,
+      isTestMethod: false,
+      isWebService: false,
+      isBuiltIn: false,
     };
   }
 
@@ -146,11 +152,10 @@ export class SymbolFactory {
     namespace?: string,
     annotations?: Annotation[],
     identifierLocation?: SymbolLocation,
-    parentSymbol?: ApexSymbol, // NEW: Optional parent symbol for proper parentKey construction
+    parentSymbol?: ApexSymbol, // Optional parent symbol (for future use)
     scopePath?: string[],
   ): ApexSymbol {
     const id = this.generateId(name, fileUri, scopePath);
-    const modifierFlags = this.modifiersToFlags(modifiers);
     const key: SymbolKey = {
       prefix: kind,
       name,
@@ -161,29 +166,6 @@ export class SymbolFactory {
       kind,
     };
 
-    // Construct parentKey properly if parent symbol is provided
-    let parentKey: SymbolKey | null = null;
-    if (parentSymbol) {
-      parentKey = {
-        prefix: parentSymbol.kind,
-        name: parentSymbol.name,
-        path: [fileUri, parentSymbol.name],
-        unifiedId: parentSymbol.id,
-        fileUri: parentSymbol.fileUri,
-        kind: parentSymbol.kind,
-      };
-    } else if (parentId) {
-      // Fallback to the old behavior for backward compatibility
-      parentKey = {
-        prefix: kind,
-        name: parentId,
-        path: [fileUri, parentId],
-        unifiedId: parentId,
-        fileUri,
-        kind,
-      };
-    }
-
     return {
       id,
       name,
@@ -192,16 +174,13 @@ export class SymbolFactory {
       fileUri,
       parentId,
       key,
-      parentKey,
       fqn,
       namespace: namespace || null, // Ensure null instead of undefined
       annotations,
       identifierLocation,
       _typeData: typeData,
-      _modifierFlags: modifierFlags,
       _isLoaded: true,
       modifiers,
-      parent: null,
     };
   }
 
@@ -221,7 +200,6 @@ export class SymbolFactory {
     scopePath?: string[],
   ): ApexSymbol {
     const id = this.generateId(name, fileUri, scopePath);
-    const modifierFlags = this.modifiersToFlags(modifiers);
 
     // Calculate FQN if namespace is provided (case-insensitive for Apex)
     // For top-level symbols, this gives us the full FQN immediately.
@@ -254,75 +232,12 @@ export class SymbolFactory {
       fileUri,
       parentId,
       key,
-      parentKey: parentId
-        ? {
-            prefix: kind,
-            name: parentId,
-            path: [fileUri, parentId],
-            unifiedId: parentId,
-            fileUri,
-            kind,
-          }
-        : null,
       fqn,
       namespace, // Store the Namespace object directly
       annotations,
       _typeData: typeData,
-      _modifierFlags: modifierFlags,
       _isLoaded: true,
       modifiers,
-      parent: null,
-    };
-  }
-
-  /**
-   * Convert modifiers object to bit flags
-   */
-  private static modifiersToFlags(modifiers: SymbolModifiers): number {
-    let flags = 0;
-    if (modifiers.visibility === SymbolVisibility.Public)
-      flags |= ModifierFlags.PUBLIC;
-    if (modifiers.visibility === SymbolVisibility.Private)
-      flags |= ModifierFlags.PRIVATE;
-    if (modifiers.visibility === SymbolVisibility.Protected)
-      flags |= ModifierFlags.PROTECTED;
-    if (modifiers.visibility === SymbolVisibility.Global)
-      flags |= ModifierFlags.GLOBAL;
-    if (modifiers.isStatic) flags |= ModifierFlags.STATIC;
-    if (modifiers.isFinal) flags |= ModifierFlags.FINAL;
-    if (modifiers.isAbstract) flags |= ModifierFlags.ABSTRACT;
-    if (modifiers.isVirtual) flags |= ModifierFlags.VIRTUAL;
-    if (modifiers.isOverride) flags |= ModifierFlags.OVERRIDE;
-    if (modifiers.isTransient) flags |= ModifierFlags.TRANSIENT;
-    if (modifiers.isTestMethod) flags |= ModifierFlags.TEST_METHOD;
-    if (modifiers.isWebService) flags |= ModifierFlags.WEB_SERVICE;
-    return flags;
-  }
-
-  /**
-   * Convert bit flags to modifiers object
-   */
-  private static flagsToModifiers(flags: number): SymbolModifiers {
-    return {
-      visibility:
-        flags & ModifierFlags.PUBLIC
-          ? SymbolVisibility.Public
-          : flags & ModifierFlags.PRIVATE
-            ? SymbolVisibility.Private
-            : flags & ModifierFlags.PROTECTED
-              ? SymbolVisibility.Protected
-              : flags & ModifierFlags.GLOBAL
-                ? SymbolVisibility.Global
-                : SymbolVisibility.Default,
-      isStatic: !!(flags & ModifierFlags.STATIC),
-      isFinal: !!(flags & ModifierFlags.FINAL),
-      isAbstract: !!(flags & ModifierFlags.ABSTRACT),
-      isVirtual: !!(flags & ModifierFlags.VIRTUAL),
-      isOverride: !!(flags & ModifierFlags.OVERRIDE),
-      isTransient: !!(flags & ModifierFlags.TRANSIENT),
-      isTestMethod: !!(flags & ModifierFlags.TEST_METHOD),
-      isWebService: !!(flags & ModifierFlags.WEB_SERVICE),
-      isBuiltIn: !!(flags & ModifierFlags.BUILT_IN),
     };
   }
 
@@ -424,10 +339,7 @@ export interface ApexSymbol {
   location: SymbolLocation;
   fileUri: string;
   parentId: string | null;
-
-  // Legacy compatibility - will be removed in Phase 5
   key: SymbolKey;
-  parentKey: SymbolKey | null;
 
   // Optional properties (lazy loaded)
   fqn?: string;
@@ -437,25 +349,15 @@ export interface ApexSymbol {
 
   // Type-specific data (lazy loaded)
   _typeData?: {
-    superClass?: string;
-    interfaces?: string[];
-    returnType?: TypeInfo;
     parameters?: string[]; // Array of parameter IDs
-    type?: TypeInfo;
-    initialValue?: string;
     values?: string[]; // Array of enum value IDs
   };
-
-  // Modifiers (stored as bit flags internally, exposed as object)
-  _modifierFlags: number;
 
   // Lazy loading support
   _isLoaded: boolean;
   _loadPromise?: Promise<void>;
 
-  // Legacy compatibility - will be removed in Phase 5
   modifiers: SymbolModifiers;
-  parent?: ApexSymbol | null;
 }
 
 /**
@@ -806,13 +708,7 @@ export class SymbolTable {
       symbol.key = createFromSymbol(symbol);
     }
 
-    // Set parent reference if parentKey exists (before adding to symbol map)
-    if (symbol.parentKey) {
-      const parent = this.lookupByKey(symbol.parentKey);
-      if (parent) {
-        symbol.parent = parent;
-      }
-    }
+    // Parent property removed - use parentId for parent resolution via getParent() helper
 
     this.current.addSymbol(symbol);
     const symbolKey = this.keyToString(symbol.key);
@@ -1139,25 +1035,18 @@ export class SymbolTable {
    * Convert the symbol table to a JSON-serializable format
    */
   toJSON() {
-    type CleanedSymbol = Omit<ApexSymbol, 'parent'> & {
-      values?: Array<Omit<VariableSymbol, 'parent'>>;
+    type CleanedSymbol = ApexSymbol & {
+      values?: VariableSymbol[];
     };
 
     const cleanSymbol = (symbol: ApexSymbol): CleanedSymbol => {
-      // Create a new object without the parent reference
-      const { parent, ...rest } = symbol;
-      const cleaned = { ...rest } as CleanedSymbol;
+      const cleaned = { ...symbol } as CleanedSymbol;
 
       // Handle enum values
       if (symbol.kind === SymbolKind.Enum) {
         const enumSymbol = symbol as EnumSymbol;
         if (enumSymbol.values) {
-          // Create a new array of cleaned values
-          cleaned.values = enumSymbol.values.map((value) => {
-            // Create a new object without the parent reference
-            const { parent: valueParent, ...valueRest } = value;
-            return valueRest;
-          });
+          cleaned.values = enumSymbol.values;
         }
       }
 

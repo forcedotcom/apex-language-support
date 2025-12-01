@@ -15,7 +15,6 @@ import {
   ApexSymbolCollectorListener,
   SymbolTable,
   SymbolKind,
-  VariableSymbol,
   EnumSymbol,
   MethodSymbol,
   ApexSymbol,
@@ -213,13 +212,8 @@ export async function compileStubs(
         if (symbol.kind === SymbolKind.Enum) {
           const enumSymbol = symbol as EnumSymbol;
           if (enumSymbol.values) {
-            // Create a clean copy of values without parent references
-            const cleanValues = enumSymbol.values.map(
-              (value: VariableSymbol) => {
-                const { parent, ...rest } = value;
-                return rest;
-              },
-            );
+            // Parent property removed - no need to clean it
+            const cleanValues = enumSymbol.values;
             // Store the clean values
             enumSymbol.values = cleanValues;
           }

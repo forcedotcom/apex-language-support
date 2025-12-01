@@ -287,18 +287,9 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    */
   private getQualifiedMethodName(methodSymbol: ApexSymbol): string | null {
     try {
-      // Get the parent class symbol
-      const parentSymbol = methodSymbol.parent;
-
-      if (parentSymbol && isClassSymbol(parentSymbol)) {
-        return `${parentSymbol.name}.${methodSymbol.name}`;
-      }
-
-      // Fallback: try to get parent by ID
+      // Get the parent class symbol using parentId (O(1) lookup via symbolIdIndex)
       if (methodSymbol.parentId) {
-        const parent = (this.symbolManager as any).getSymbol?.(
-          methodSymbol.parentId,
-        );
+        const parent = this.symbolManager.getSymbol(methodSymbol.parentId);
         if (parent && isClassSymbol(parent)) {
           return `${parent.name}.${methodSymbol.name}`;
         }

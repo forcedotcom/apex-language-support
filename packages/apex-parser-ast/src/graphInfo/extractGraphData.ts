@@ -321,10 +321,9 @@ export function getGraphDataForFile(fileUri: string): FileGraphData {
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
 
-  // Reuse the cleaning pattern
+  // Parent property removed - no need to clean it
   const cleanSymbol = (symbol: ApexSymbol): GraphNode => {
-    const { parent, ...rest } = symbol;
-    const cleaned = { ...rest } as any;
+    const cleaned = { ...symbol } as any;
 
     const vertex = symbolToVertex.get(symbol.id);
     if (vertex?.value) {
@@ -401,10 +400,9 @@ export function getGraphDataByType(symbolType: string): TypeGraphData {
   const referenceGraph = graph.getReferenceGraph();
   const fileIndex = graph.getFileIndex();
 
-  // Reuse the cleaning pattern
+  // Parent property removed - no need to clean it
   const cleanSymbol = (symbol: ApexSymbol): GraphNode => {
-    const { parent, ...rest } = symbol;
-    const cleaned = { ...rest } as any;
+    const cleaned = { ...symbol } as any;
 
     const vertex = symbolToVertex.get(symbol.id);
     if (vertex?.value) {

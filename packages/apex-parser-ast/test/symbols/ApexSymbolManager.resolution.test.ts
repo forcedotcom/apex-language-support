@@ -2090,10 +2090,12 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         // Variable declaration name resolution is now working!
         expect(result).toBeDefined();
         expect(result?.name).toBe('message');
-        expect(result?.kind).toBe('field');
+        // Line 15 is a local variable inside testMethod(), not a field
+        expect(result?.kind).toBe('variable');
         expect(result?.fileUri).toBe('file:///test/DeclarationTestClass.cls');
+        // ID includes full scope path (testMethod.block1) for uniqueness
         expect(result?.id).toBe(
-          'file:///test/DeclarationTestClass.cls:file.DeclarationTestClass:message',
+          'file:///test/DeclarationTestClass.cls:file.DeclarationTestClass.testMethod.block1:message',
         );
       });
 

@@ -240,6 +240,14 @@ export class ApexSymbolGraph {
   private fqnIndex: CaseInsensitiveHashMap<string> =
     new CaseInsensitiveHashMap();
 
+  /**
+   * Maps symbol IDs to symbol objects for O(1) lookups
+   * Key: Symbol ID (e.g., "file:///path/MyClass.cls:MyClass")
+   * Value: ApexSymbol object
+   * Used by: getParent() helper, optimized parent resolution
+   */
+  private symbolIdIndex: HashMap<string, ApexSymbol> = new HashMap();
+
   // OPTIMIZED: SymbolTable references for delegation
   private fileToSymbolTable: HashMap<string, SymbolTable> = new HashMap();
   private symbolToFiles: HashMap<string, string[]> = new HashMap();
@@ -466,6 +474,9 @@ export class ApexSymbolGraph {
     // OPTIMIZED: Only track existence, don't store full symbol
     this.symbolIds.add(symbolId);
 
+    // Add to symbolIdIndex for O(1) lookups by ID
+    this.symbolIdIndex.set(symbolId, symbol);
+
     // Add to indexes for fast lookups (use normalized URI)
     this.symbolFileMap.set(symbolId, normalizedFileUri);
 
@@ -641,10 +652,16 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Get symbol by delegating to SymbolTable
+   * Get symbol by ID using optimized symbolIdIndex
    */
   getSymbol(symbolId: string): ApexSymbol | null {
-    // Parse URI-based ID
+    // First try symbolIdIndex for O(1) lookup
+    const symbol = this.symbolIdIndex.get(symbolId);
+    if (symbol) {
+      return symbol;
+    }
+
+    // Fallback to SymbolTable delegation for backward compatibility
     const parsed = parseSymbolId(symbolId);
     const symbolName = parsed.name;
     // Normalize URI to ensure consistent lookup (matches how SymbolTables are registered)
@@ -669,13 +686,27 @@ export class ApexSymbolGraph {
           symbolRange: { ...matchingSymbol.location.symbolRange },
           identifierRange: { ...matchingSymbol.location.identifierRange },
         },
-        // Preserve parent relationship for FQN calculation
-        parent: matchingSymbol.parent,
       };
+      // Cache in symbolIdIndex for future lookups
+      this.symbolIdIndex.set(symbolId, symbolCopy);
       return symbolCopy;
     }
 
     return null;
+  }
+
+  /**
+   * Get parent symbol using optimized symbolIdIndex for O(1) lookup
+   * @param symbol The symbol to get the parent for
+   * @returns The parent symbol if found, null otherwise
+   */
+  getParent(symbol: ApexSymbol): ApexSymbol | null {
+    if (!symbol.parentId) {
+      return null;
+    }
+
+    // Use symbolIdIndex for O(1) lookup
+    return this.symbolIdIndex.get(symbol.parentId) || null;
   }
 
   /**
@@ -1507,6 +1538,7 @@ export class ApexSymbolGraph {
     this.nameIndex.clear();
     this.fileIndex.clear();
     this.fqnIndex.clear();
+    this.symbolIdIndex.clear();
     this.deferredReferences.clear();
     this.pendingDeferredReferences.clear();
 
@@ -1554,6 +1586,7 @@ export class ApexSymbolGraph {
       this.fqnIndex.delete(symbolId);
       this.symbolIds.delete(symbolId);
       this.symbolToVertex.delete(symbolId);
+      this.symbolIdIndex.delete(symbolId);
 
       // Update name index
       for (const [name, ids] of this.nameIndex.entries()) {

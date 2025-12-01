@@ -72,11 +72,13 @@ export class NamespaceResolutionService {
     compilationContext: CompilationContext,
     symbolProvider: SymbolProvider,
   ): void {
-    if (!symbol._typeData?.type?.name) {
+    // Use VariableSymbol.type directly instead of _typeData.type
+    const variableSymbol = symbol as import('../types/symbol').VariableSymbol;
+    if (!variableSymbol.type?.name) {
       return;
     }
 
-    const typeInfo = symbol._typeData.type;
+    const typeInfo = variableSymbol.type;
     const nameParts = this.parseTypeName(typeInfo.name);
 
     const resolutionResult = resolveTypeName(
