@@ -16,6 +16,7 @@ import {
   SymbolKind,
   TypeSymbol,
 } from '../../src';
+import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 
 describe('Inheritance Symbol Collection', () => {
   let compilerService: CompilerService;
@@ -47,11 +48,12 @@ describe('Inheritance Symbol Collection', () => {
       const symbolTable = result.result;
       const globalScope = symbolTable?.getCurrentScope();
       const allSymbols = globalScope?.getAllSymbols();
+      const semanticSymbols = allSymbols?.filter((s) => !isBlockSymbol(s)) || [];
 
       // Check class symbol
-      expect(allSymbols?.length).toBe(1);
+      expect(semanticSymbols.length).toBe(1);
 
-      const classSymbol = allSymbols?.[0] as TypeSymbol;
+      const classSymbol = semanticSymbols[0] as TypeSymbol;
       expect(classSymbol?.name).toBe('ChildClass');
       expect(classSymbol?.kind).toBe(SymbolKind.Class);
       expect(classSymbol?.superClass).toBe('ParentClass');
@@ -78,11 +80,12 @@ describe('Inheritance Symbol Collection', () => {
       const symbolTable = result.result;
       const globalScope = symbolTable?.getCurrentScope();
       const allSymbols = globalScope?.getAllSymbols();
+      const semanticSymbols = allSymbols?.filter((s) => !isBlockSymbol(s)) || [];
 
       // Check class symbol
-      expect(allSymbols?.length).toBe(1);
+      expect(semanticSymbols.length).toBe(1);
 
-      const classSymbol = allSymbols?.[0] as TypeSymbol;
+      const classSymbol = semanticSymbols[0] as TypeSymbol;
       expect(classSymbol?.name).toBe('ImplementingClass');
       expect(classSymbol?.kind).toBe(SymbolKind.Class);
       expect(classSymbol?.superClass).toBeUndefined();
@@ -111,11 +114,12 @@ describe('Inheritance Symbol Collection', () => {
       const symbolTable = result.result;
       const globalScope = symbolTable?.getCurrentScope();
       const allSymbols = globalScope?.getAllSymbols();
+      const semanticSymbols = allSymbols?.filter((s) => !isBlockSymbol(s)) || [];
 
       // Check class symbol
-      expect(allSymbols?.length).toBe(1);
+      expect(semanticSymbols.length).toBe(1);
 
-      const classSymbol = allSymbols?.[0] as TypeSymbol;
+      const classSymbol = semanticSymbols[0] as TypeSymbol;
       expect(classSymbol?.name).toBe('ComplexClass');
       expect(classSymbol?.kind).toBe(SymbolKind.Class);
       expect(classSymbol?.superClass).toBe('BaseClass');
@@ -144,11 +148,12 @@ describe('Inheritance Symbol Collection', () => {
       const symbolTable = result.result;
       const globalScope = symbolTable?.getCurrentScope();
       const allSymbols = globalScope?.getAllSymbols();
+      const semanticSymbols = allSymbols?.filter((s) => !isBlockSymbol(s)) || [];
 
       // Check interface symbol
-      expect(allSymbols?.length).toBe(1);
+      expect(semanticSymbols.length).toBe(1);
 
-      const interfaceSymbol = allSymbols?.[0] as TypeSymbol;
+      const interfaceSymbol = semanticSymbols[0] as TypeSymbol;
       expect(interfaceSymbol?.name).toBe('ChildInterface');
       expect(interfaceSymbol?.kind).toBe(SymbolKind.Interface);
       expect(interfaceSymbol?.superClass).toBeUndefined();

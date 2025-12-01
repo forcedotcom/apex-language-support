@@ -40,7 +40,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       };
 
       const unifiedId = generateUnifiedId(key);
-      expect(unifiedId).toBe('file://unknown:file.TestClass:TestClass');
+      expect(unifiedId).toBe('file://unknown:file.TestClass:class:TestClass');
     });
 
     it('should generate unified IDs without FQN', () => {
@@ -53,7 +53,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
       const unifiedId = generateUnifiedId(key);
       expect(unifiedId).toBe(
-        'file://unknown:file.TestClass.testMethod:testMethod',
+        'file://unknown:file.TestClass.testMethod:method:testMethod',
       );
     });
 
@@ -67,7 +67,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       };
 
       const unifiedId = generateUnifiedId(key, 'TestFile.cls');
-      expect(unifiedId).toBe('file://TestFile.cls:file.TestClass:TestClass');
+      expect(unifiedId).toBe('file://TestFile.cls:file.TestClass:class:TestClass');
     });
 
     it('should convert SymbolKey to string for legacy compatibility', () => {
@@ -134,7 +134,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       expect(unifiedKey.fqn).toBe('TestClass');
       expect(unifiedKey.fileUri).toBe('TestFile.cls');
       expect(unifiedKey.unifiedId).toBe(
-        'file://TestFile.cls:file.TestClass:TestClass',
+        'file://TestFile.cls:file.TestClass:class:TestClass',
       );
     });
 
@@ -197,11 +197,11 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       };
 
       const unifiedId = getUnifiedId(key, 'TestFile.cls');
-      expect(unifiedId).toBe('file://TestFile.cls:file.TestClass:TestClass');
+      expect(unifiedId).toBe('file://TestFile.cls:file.TestClass:class:TestClass');
 
       // Should return cached value
       const cachedId = getUnifiedId(key, 'TestFile.cls');
-      expect(cachedId).toBe('file://TestFile.cls:file.TestClass:TestClass');
+      expect(cachedId).toBe('file://TestFile.cls:file.TestClass:class:TestClass');
     });
   });
 
@@ -256,7 +256,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
       // Verify unified ID was generated and cached
       expect(symbol.key.unifiedId).toBe(
-        'file://TestFile.cls:file.TestClass:TestClass',
+        'file://TestFile.cls:file.TestClass:class:TestClass',
       );
     });
 
@@ -364,7 +364,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
       // Verify unified ID was generated without FQN
       expect(symbol.key.unifiedId).toBe(
-        'file://TestFile.cls:file.TestClass.testMethod:testMethod',
+        'file://TestFile.cls:file.TestClass.testMethod:method:testMethod',
       );
     });
   });

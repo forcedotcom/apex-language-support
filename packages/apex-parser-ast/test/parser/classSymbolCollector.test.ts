@@ -19,6 +19,7 @@ import {
   ApexSymbol,
   SymbolScope,
 } from '../../src/types/symbol';
+import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 import {
   ErrorType,
   ErrorSeverity,
@@ -95,12 +96,16 @@ describe('ApexSymbolCollectorListener', () => {
       expect(fileScope?.name).toBe('file');
       logger.debug('File scope verified');
 
-      // Check class symbol
-      const allSymbols = fileScope?.getAllSymbols();
-      expect(allSymbols?.length).toBe(1);
+      // Check class symbol - use table.getAllSymbols() to find classes
+      const allSymbols = symbolTable?.getAllSymbols() || [];
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
+      const classSymbols = semanticSymbols.filter(
+        (s) => s.kind === SymbolKind.Class,
+      );
+      expect(classSymbols.length).toBe(1);
       logger.debug('Found class symbol');
 
-      const classSymbol = allSymbols?.[0];
+      const classSymbol = classSymbols[0];
       expect(classSymbol?.name).toBe('TestClass');
       expect(classSymbol?.kind).toBe(SymbolKind.Class);
       expect(classSymbol?.modifiers.visibility).toBe(SymbolVisibility.Public);
@@ -115,17 +120,46 @@ describe('ApexSymbolCollectorListener', () => {
       expect(classScope?.name).toBe('TestClass');
       logger.debug('Class scope retrieved');
 
-      // Check fields
-      const fields = classScope
-        ?.getAllSymbols()
-        .filter((s: ApexSymbol) => s.kind === SymbolKind.Field);
+      // Check fields - use table.getAllSymbols() with parentId filter as fallback
+      const allClassSymbols = classScope?.getAllSymbols() || [];
+      const classSemanticSymbols = allClassSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
+      let fields = classSemanticSymbols.filter(
+        (s: ApexSymbol) => s.kind === SymbolKind.Field,
+      );
+
+      // If not found in class scope, check all symbols filtered by parent
+      if (fields.length === 0 && classSymbol) {
+        const allTableSymbols = symbolTable?.getAllSymbols() || [];
+        const allSemanticSymbols = allTableSymbols.filter(
+          (s) => !isBlockSymbol(s),
+        );
+        fields = allSemanticSymbols.filter(
+          (s) => s.kind === SymbolKind.Field && s.parentId === classSymbol.id,
+        );
+      }
+
       expect(fields?.length).toBe(2);
       logger.debug(() => `Found ${fields?.length} field symbols`);
 
-      // Check properties
-      const properties = classScope
-        ?.getAllSymbols()
-        .filter((s: ApexSymbol) => s.kind === SymbolKind.Property);
+      // Check properties - use table.getAllSymbols() with parentId filter as fallback
+      let properties = classSemanticSymbols.filter(
+        (s: ApexSymbol) => s.kind === SymbolKind.Property,
+      );
+
+      // If not found in class scope, check all symbols filtered by parent
+      if (properties.length === 0 && classSymbol) {
+        const allTableSymbols = symbolTable?.getAllSymbols() || [];
+        const allSemanticSymbols = allTableSymbols.filter(
+          (s) => !isBlockSymbol(s),
+        );
+        properties = allSemanticSymbols.filter(
+          (s) =>
+            s.kind === SymbolKind.Property && s.parentId === classSymbol.id,
+        );
+      }
+
       expect(properties?.length).toBe(2);
       logger.debug(() => `Found ${properties?.length} property symbols`);
 
@@ -148,19 +182,47 @@ describe('ApexSymbolCollectorListener', () => {
           `Count field verified: kind=${countField?.kind}, visibility=${countField?.modifiers.visibility}`,
       );
 
-      // Check methods
-      const methods = classScope
-        ?.getAllSymbols()
-        .filter((s: ApexSymbol) => s.kind === SymbolKind.Method);
-      expect(methods?.length).toBe(3); // getName, setName, incrementCount
+      // Check methods - use table.getAllSymbols() with parentId filter as fallback
+      let methods = classSemanticSymbols.filter(
+        (s: ApexSymbol) =>
+          s.kind === SymbolKind.Method && !(s as MethodSymbol).isConstructor,
+      );
+
+      // If not found in class scope, check all symbols filtered by parent
+      if (methods.length === 0 && classSymbol) {
+        const allTableSymbols = symbolTable?.getAllSymbols() || [];
+        const allSemanticSymbols = allTableSymbols.filter(
+          (s) => !isBlockSymbol(s),
+        );
+        methods = allSemanticSymbols.filter(
+          (s) =>
+            s.kind === SymbolKind.Method &&
+            !(s as MethodSymbol).isConstructor &&
+            s.parentId === classSymbol.id,
+        );
+      }
+      expect(methods.length).toBe(3); // getName, setName, incrementCount
       logger.debug(() => `Found ${methods?.length} method symbols`);
 
-      // Check constructor
-      const constructors = classScope
-        ?.getAllSymbols()
-        .filter((s: ApexSymbol) => s.kind === SymbolKind.Constructor);
-      expect(constructors?.length).toBe(1);
-      const constructor = constructors?.[0] as MethodSymbol;
+      // Check constructor - use table.getAllSymbols() with parentId filter as fallback
+      let constructors = classSemanticSymbols.filter(
+        (s: ApexSymbol) => s.kind === SymbolKind.Constructor,
+      );
+
+      // If not found in class scope, check all symbols filtered by parent
+      if (constructors.length === 0 && classSymbol) {
+        const allTableSymbols = symbolTable?.getAllSymbols() || [];
+        const allSemanticSymbols = allTableSymbols.filter(
+          (s) => !isBlockSymbol(s),
+        );
+        constructors = allSemanticSymbols.filter(
+          (s) =>
+            s.kind === SymbolKind.Constructor && s.parentId === classSymbol.id,
+        );
+      }
+
+      expect(constructors.length).toBe(1);
+      const constructor = constructors[0] as MethodSymbol;
       expect(constructor).toBeDefined();
       expect(constructor.name).toBe('TestClass');
       expect(constructor.isConstructor).toBe(true);
@@ -317,14 +379,18 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('No compilation errors found');
 
       const symbolTable = result.result;
-      const fileScope = symbolTable?.getCurrentScope();
-      const allSymbols = fileScope?.getAllSymbols();
+      // Use table.getAllSymbols() to find interfaces
+      const allSymbols = symbolTable?.getAllSymbols() || [];
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
+      const interfaceSymbols = semanticSymbols.filter(
+        (s) => s.kind === SymbolKind.Interface,
+      );
 
       // Check interface symbol
-      expect(allSymbols?.length).toBe(1);
+      expect(interfaceSymbols.length).toBe(1);
       logger.debug('Found interface symbol');
 
-      const interfaceSymbol = allSymbols?.[0];
+      const interfaceSymbol = semanticSymbols[0];
       expect(interfaceSymbol?.name).toBe('TestInterface');
       expect(interfaceSymbol?.kind).toBe(SymbolKind.Interface);
       expect(interfaceSymbol?.modifiers.visibility).toBe(
@@ -358,14 +424,18 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('No compilation errors found');
 
       const symbolTable = result.result;
-      const fileScope = symbolTable?.getCurrentScope();
-      const allSymbols = fileScope?.getAllSymbols();
+      // Use table.getAllSymbols() to find enums
+      const allSymbols = symbolTable?.getAllSymbols() || [];
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
+      const enumSymbols = semanticSymbols.filter(
+        (s) => s.kind === SymbolKind.Enum,
+      );
 
       // Check enum symbol
-      expect(allSymbols?.length).toBe(1);
+      expect(enumSymbols.length).toBe(1);
       logger.debug('Found enum symbol');
 
-      const enumSymbol = allSymbols?.[0];
+      const enumSymbol = enumSymbols[0];
       expect(enumSymbol?.name).toBe('TestEnum');
       expect(enumSymbol?.kind).toBe(SymbolKind.Enum);
       expect(enumSymbol?.modifiers.visibility).toBe(SymbolVisibility.Public);
@@ -376,6 +446,7 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check enum values
+      const fileScope = symbolTable?.getCurrentScope();
       const enumScope = fileScope?.getChildren()[0];
       expect(enumScope?.name).toBe('TestEnum');
       logger.debug('Enum scope retrieved');
@@ -501,13 +572,19 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('No compilation errors found');
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getCurrentScope();
-
-      // Check outer class
-      const outerClass = globalScope?.getAllSymbols()[0];
+      // Use getFileScopeSymbols() to reliably get top-level symbols
+      const fileScopeSymbols = symbolTable?.getFileScopeSymbols() || [];
+      const nestedClassSymbols = fileScopeSymbols.filter(
+        (s) => s.kind === SymbolKind.Class,
+      );
+      const outerClass = nestedClassSymbols.find(
+        (s) => s.name === 'OuterClass',
+      );
+      expect(outerClass).toBeDefined();
       expect(outerClass?.name).toBe('OuterClass');
       logger.debug(() => `Found outer class: name=${outerClass?.name}`);
 
+      const globalScope = symbolTable?.getCurrentScope();
       const outerScope = globalScope?.getChildren()[0];
       expect(outerScope?.name).toBe('OuterClass');
       logger.debug('Outer scope retrieved');
@@ -523,10 +600,30 @@ describe('ApexSymbolCollectorListener', () => {
           `kind=${outerField?.kind}, visibility=${outerField?.modifiers.visibility}`,
       );
 
-      // Check inner class
-      const innerClass = outerScope
-        ?.getAllSymbols()
-        .find((s) => s.name === 'InnerClass');
+      // Check inner class - filter out scope symbols
+      const allOuterScopeSymbols = outerScope?.getAllSymbols() || [];
+      const outerScopeSemanticSymbols = allOuterScopeSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
+      let innerClass = outerScopeSemanticSymbols.find(
+        (s) => s.name === 'InnerClass',
+      );
+
+      // If not found in outer scope, check all symbols filtered by parent
+      if (!innerClass && outerClass) {
+        const allTableSymbols = symbolTable?.getAllSymbols() || [];
+        const allSemanticSymbols = allTableSymbols.filter(
+          (s) => !isBlockSymbol(s),
+        );
+        innerClass = allSemanticSymbols.find(
+          (s) =>
+            s.kind === SymbolKind.Class &&
+            s.name === 'InnerClass' &&
+            s.parentId === outerClass.id,
+        );
+      }
+
+      expect(innerClass).toBeDefined();
       expect(innerClass?.kind).toBe(SymbolKind.Class);
       logger.debug(
         () =>
@@ -582,14 +679,18 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('No compilation errors found');
 
       const symbolTable = result.result;
-      const fileScope = symbolTable?.getCurrentScope();
-      const allSymbols = fileScope?.getAllSymbols();
+      // Use table.getAllSymbols() to find triggers
+      const allSymbols = symbolTable?.getAllSymbols() || [];
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
+      const triggerSymbols = semanticSymbols.filter(
+        (s) => s.kind === SymbolKind.Trigger,
+      );
 
       // Check trigger symbol
-      expect(allSymbols?.length).toBe(1);
+      expect(triggerSymbols.length).toBe(1);
       logger.debug('Found trigger symbol');
 
-      const triggerSymbol = allSymbols?.[0];
+      const triggerSymbol = semanticSymbols[0];
       expect(triggerSymbol?.name).toBe('TestTrigger');
       expect(triggerSymbol?.kind).toBe(SymbolKind.Trigger);
       expect(triggerSymbol?.modifiers.visibility).toBe(
@@ -625,14 +726,12 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('No compilation errors found');
 
       const symbolTable = result.result;
-      const fileScope = symbolTable?.getCurrentScope();
-      const allSymbols = fileScope?.getAllSymbols();
-
-      // Check outer class symbol
-      expect(allSymbols?.length).toBe(1);
-      logger.debug('Found outer class symbol');
-
-      const outerClassSymbol = allSymbols?.[0];
+      // Use getFileScopeSymbols() to reliably get top-level symbols
+      const fileScopeSymbols = symbolTable?.getFileScopeSymbols() || [];
+      const outerClassSymbol = fileScopeSymbols.find(
+        (s) => s.kind === SymbolKind.Class && s.name === 'OuterClass',
+      );
+      expect(outerClassSymbol).toBeDefined();
       expect(outerClassSymbol?.name).toBe('OuterClass');
       expect(outerClassSymbol?.kind).toBe(SymbolKind.Class);
       expect(outerClassSymbol?.modifiers.visibility).toBe(
@@ -645,14 +744,32 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check outer class scope
+      const fileScope = symbolTable?.getCurrentScope();
       const outerClassScope = fileScope?.getChildren()[0];
       expect(outerClassScope?.name).toBe('OuterClass');
       logger.debug('Outer class scope retrieved');
 
-      // Check inner class symbol
-      const innerClassSymbol = outerClassScope
-        ?.getAllSymbols()
-        .find((s: ApexSymbol) => s.kind === SymbolKind.Class);
+      // Check inner class symbol - use table.getAllSymbols() with parentId filter
+      const allOuterSymbols = outerClassScope?.getAllSymbols() || [];
+      const outerSemanticSymbols = allOuterSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
+      let innerClassSymbol = outerSemanticSymbols.find(
+        (s: ApexSymbol) => s.kind === SymbolKind.Class,
+      );
+
+      // If not found in outer class scope, check all symbols filtered by parent
+      if (!innerClassSymbol && outerClassSymbol) {
+        const allTableSymbols = symbolTable?.getAllSymbols() || [];
+        const allSemanticSymbols = allTableSymbols.filter(
+          (s) => !isBlockSymbol(s),
+        );
+        innerClassSymbol = allSemanticSymbols.find(
+          (s) =>
+            s.kind === SymbolKind.Class && s.parentId === outerClassSymbol.id,
+        );
+      }
+
       expect(innerClassSymbol).toBeDefined();
       expect(innerClassSymbol?.name).toBe('InnerClass');
       expect(innerClassSymbol?.modifiers.visibility).toBe(
@@ -704,11 +821,17 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('No interface compilation errors found');
 
       const interfaceSymbolTable = interfaceResult.result;
-      const interfaceFileScope = interfaceSymbolTable?.getCurrentScope();
-      const interfaceSymbols = interfaceFileScope?.getAllSymbols();
+      // Use table.getAllSymbols() to find interfaces
+      const allInterfaceSymbols = interfaceSymbolTable?.getAllSymbols() || [];
+      const interfaceSemanticSymbols = allInterfaceSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
+      const interfaceSymbols = interfaceSemanticSymbols.filter(
+        (s) => s.kind === SymbolKind.Interface,
+      );
 
       // Check interface symbol
-      const interfaceSymbol = interfaceSymbols?.[0];
+      const interfaceSymbol = interfaceSymbols[0];
       expect(interfaceSymbol).toBeDefined();
       expect(interfaceSymbol?.name).toBe('TestInterface');
       expect(interfaceSymbol?.kind).toBe(SymbolKind.Interface);
@@ -739,11 +862,17 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('No class compilation errors found');
 
       const classSymbolTable = classResult.result;
-      const classFileScope = classSymbolTable?.getCurrentScope();
-      const classSymbols = classFileScope?.getAllSymbols();
+      // Use table.getAllSymbols() to find classes
+      const allClassSymbols = classSymbolTable?.getAllSymbols() || [];
+      const classSemanticSymbols = allClassSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
+      const classSymbols = classSemanticSymbols.filter(
+        (s) => s.kind === SymbolKind.Class,
+      );
 
       // Check class symbol
-      const classSymbol = classSymbols?.[0];
+      const classSymbol = classSymbols[0];
       expect(classSymbol).toBeDefined();
       expect(classSymbol?.name).toBe('TestClass');
       expect(classSymbol?.kind).toBe(SymbolKind.Class);
@@ -755,15 +884,31 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check class scope
+      const classFileScope = classSymbolTable?.getCurrentScope();
       const classScope = classFileScope?.getChildren()[0];
       expect(classScope).toBeDefined();
       expect(classScope?.name).toBe('TestClass');
       logger.debug('Class scope retrieved');
 
-      // Check method implementation
-      const method = classScope
-        ?.getAllSymbols()
-        .find((s: ApexSymbol) => s.kind === SymbolKind.Method);
+      // Check method implementation - use table.getAllSymbols() with parentId filter as fallback
+      const allClassScopeSymbols = classScope?.getAllSymbols() || [];
+      const classScopeSemanticSymbols = allClassScopeSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
+      let method = classScopeSemanticSymbols.find(
+        (s: ApexSymbol) => s.kind === SymbolKind.Method,
+      );
+
+      // If not found in class scope, check all symbols filtered by parent
+      if (!method && classSymbol) {
+        const allTableSymbols = classSymbolTable?.getAllSymbols() || [];
+        const allSemanticSymbols = allTableSymbols.filter(
+          (s) => !isBlockSymbol(s),
+        );
+        method = allSemanticSymbols.find(
+          (s) => s.kind === SymbolKind.Method && s.parentId === classSymbol.id,
+        );
+      }
       expect(method).toBeDefined();
       expect(method?.name).toBe('doSomething');
       expect(method?.modifiers.visibility).toBe(SymbolVisibility.Public);

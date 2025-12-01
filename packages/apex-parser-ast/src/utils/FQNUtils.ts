@@ -11,6 +11,7 @@
  */
 
 import { ApexSymbol, SymbolKind } from '../types/symbol';
+import { isBlockSymbol } from './symbolNarrowing';
 import { ResourceLoader } from './resourceLoader';
 
 /**
@@ -133,6 +134,12 @@ export function getAncestorChain(
   while (currentParentId && getParent) {
     const current = getParent(currentParentId);
     if (!current) break;
+
+    // Skip scope symbols (they're structural, not semantic)
+    if (isBlockSymbol(current)) {
+      currentParentId = current.parentId;
+      continue;
+    }
 
     // Only add type-level symbols to the chain
     if (
@@ -263,10 +270,9 @@ export function extractNamespace(
  * @returns True if the symbol is a block scope, false otherwise
  */
 export function isBlockScope(symbol: any): boolean {
-  if (!symbol || !symbol.name) return false;
-
-  // Block scopes are named with the pattern "block{number}"
-  return symbol.name.startsWith('block') && /^block\d+$/.test(symbol.name);
+  if (!symbol) return false;
+  // Exclude all block symbols from FQN (they're structural, not semantic)
+  return symbol.kind === SymbolKind.Block;
 }
 
 /**

@@ -68,7 +68,10 @@ import type {
   CommentAssociation,
 } from '../parser/listeners/ApexCommentCollectorListener';
 import { CommentAssociator } from '../utils/CommentAssociator';
-import { isChainedTypeReference } from '../utils/symbolNarrowing';
+import {
+  isChainedTypeReference,
+  isBlockSymbol,
+} from '../utils/symbolNarrowing';
 
 /**
  * Context for chain resolution - discriminated union for type safety
@@ -249,7 +252,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const symbolWasAdded = symbolsAfter > symbolsBefore;
 
     if (symbolWasAdded) {
-      this.memoryStats.totalSymbols++;
+      // Sync totalSymbols from graph to ensure consistency
+      // The graph is the source of truth for symbol counts
+      const graphStats = this.symbolGraph.getStats();
+      this.memoryStats.totalSymbols = graphStats.totalSymbols;
 
       // Update file metadata
       const existing = this.fileMetadata.get(properUri);
@@ -939,14 +945,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const properUri =
       getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
 
-    // Remove from symbol graph
-    this.symbolGraph.removeFile(properUri);
+    // Normalize URI using extractFilePathFromUri to match how symbols are stored
+    // This ensures consistency with addSymbolTable which uses normalized URIs
+    const normalizedUri = extractFilePathFromUri(properUri);
+
+    // Remove from symbol graph (graph will normalize again, but we normalize here for consistency)
+    this.symbolGraph.removeFile(normalizedUri);
 
     // Sync memory stats with the graph's stats to ensure consistency
     const graphStats = this.symbolGraph.getStats();
     this.memoryStats.totalSymbols = graphStats.totalSymbols;
 
-    // Remove from file metadata
+    // Remove from file metadata (use original fileUri for metadata lookup)
     this.fileMetadata.delete(fileUri);
 
     // Clear cache entries for this file
@@ -1557,8 +1567,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
     }
 
+    // Invalidate file-based cache when symbols are added to a file
+    // This ensures that findSymbolsInFile() will see the newly added symbols
+    // Do this BEFORE processing references so references can find the symbols
+    this.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
+
     // Process type references and add them to the symbol graph
+    // This must happen after symbols are added and cache is invalidated
     await this.processTypeReferencesToGraph(symbolTable, normalizedUri);
+
+    // Sync memory stats with the graph's stats to ensure consistency
+    // The graph is the source of truth for symbol counts
+    const graphStats = this.symbolGraph.getStats();
+    this.memoryStats.totalSymbols = graphStats.totalSymbols;
   }
 
   /**
@@ -1756,6 +1777,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Direct symbol lookup by position with intelligent scope filtering
       const symbols = this.findSymbolsInFile(fileUri);
       const containingSymbols = symbols.filter((symbol) => {
+        // Exclude scope symbols from resolution results (they're structural, not semantic)
+        if (isBlockSymbol(symbol)) {
+          return false;
+        }
+
         const { startLine, startColumn, endLine, endColumn } =
           symbol.location.identifierRange;
 
@@ -1859,7 +1885,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // Process batch
         for (const typeRef of batch) {
-          await this.processTypeReferenceToGraph(typeRef, fileUri);
+          await this.processTypeReferenceToGraph(typeRef, fileUri, symbolTable);
         }
 
         // Yield after each batch (except the last) to allow other tasks to run
@@ -1878,10 +1904,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Process a single type reference and add it to the symbol graph
    * @param typeRef The type reference to process
    * @param fileUri The file path where the reference was found
+   * @param symbolTable The symbol table for the current file (to check for same-file symbols)
    */
   private async processTypeReferenceToGraph(
     typeRef: TypeReference,
     fileUri: string,
+    symbolTable: SymbolTable,
   ): Promise<void> {
     try {
       // Find the source symbol (the symbol that contains this reference)
@@ -1893,13 +1921,65 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return;
       }
 
-      // Find the target symbol (the symbol being referenced)
-      const targetSymbol = await this.findTargetSymbolForReference(typeRef);
-      if (!targetSymbol) {
-        // Map ReferenceContext to ReferenceType
-        const referenceType = this.mapReferenceContextToType(typeRef.context);
+      // Check if this is a cross-file reference BEFORE trying to resolve
+      // This prevents recursive cascades when processing standard library classes
+      const qualifierInfo = this.extractQualifierFromChain(typeRef);
+      let isCrossFileReference = false;
 
-        // Add the reference to the deferred references queue
+      if (qualifierInfo && qualifierInfo.isQualified) {
+        // For qualified references (e.g., "System.debug"), check if the qualifier is in the current file
+        // Special case: 'this' qualifier is always same-file
+        if (qualifierInfo.qualifier.toLowerCase() === 'this') {
+          // 'this' is always same-file, so check if the member exists in the file
+          const memberInFile = symbolTable.lookup(qualifierInfo.member);
+          if (!memberInFile) {
+            isCrossFileReference = true;
+          }
+        } else {
+          // Check if the qualifier is in the current file
+          const qualifierInFile = symbolTable.lookup(qualifierInfo.qualifier);
+          if (!qualifierInFile) {
+            // Qualifier not in current file - this is a cross-file reference
+            isCrossFileReference = true;
+          }
+        }
+      } else {
+        // For unqualified references, check if the symbol exists in the current file
+        const symbolInFile = symbolTable.lookup(typeRef.name);
+        if (!symbolInFile) {
+          // Symbol not in current file - this is a cross-file reference
+          isCrossFileReference = true;
+        }
+      }
+
+      // If it's a cross-file reference, defer it immediately without resolving
+      // This prevents triggering resolution of standard library classes or other files
+      if (isCrossFileReference) {
+        const referenceType = this.mapReferenceContextToType(typeRef.context);
+        this.symbolGraph.enqueueDeferredReference(
+          sourceSymbol,
+          typeRef.name,
+          referenceType,
+          typeRef.location,
+          {
+            methodName: typeRef.parentContext,
+            isStatic: await this.isStaticReference(typeRef),
+          },
+        );
+        return;
+      }
+
+      // At this point, we know the reference is to a symbol in the same file
+      // Try to resolve it (this should be fast since it's in the same file)
+      const targetSymbol = await this.findTargetSymbolForReference(
+        typeRef,
+        fileUri,
+        sourceSymbol,
+      );
+      if (!targetSymbol) {
+        // Even though it should be in the file, we couldn't resolve it
+        // Defer it as a fallback
+        const referenceType = this.mapReferenceContextToType(typeRef.context);
         this.symbolGraph.enqueueDeferredReference(
           sourceSymbol,
           typeRef.name, // target symbol name
@@ -1918,13 +1998,47 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return;
       }
 
+      // Ensure source and target symbols are actually in the graph
+      // addReference uses findSymbolByName which requires symbols to be in the graph's name index
+      // Get the symbols from the graph to ensure they match what's stored
+      const sourceSymbolsInGraph = this.symbolGraph.findSymbolByName(
+        sourceSymbol.name,
+      );
+      const targetSymbolsInGraph = this.symbolGraph.findSymbolByName(
+        targetSymbol.name,
+      );
+
+      const sourceInGraph = sourceSymbol.fileUri
+        ? sourceSymbolsInGraph.find((s) => s.fileUri === sourceSymbol.fileUri)
+        : sourceSymbolsInGraph[0];
+
+      const targetInGraph = targetSymbol.fileUri
+        ? targetSymbolsInGraph.find((s) => s.fileUri === targetSymbol.fileUri)
+        : targetSymbolsInGraph[0];
+
+      // If symbols aren't in graph yet, defer the reference
+      if (!sourceInGraph || !targetInGraph) {
+        const referenceType = this.mapReferenceContextToType(typeRef.context);
+        this.symbolGraph.enqueueDeferredReference(
+          sourceSymbol,
+          targetSymbol.name,
+          referenceType,
+          typeRef.location,
+          {
+            methodName: typeRef.parentContext,
+            isStatic: await this.isStaticReference(typeRef),
+          },
+        );
+        return;
+      }
+
       // Map ReferenceContext to ReferenceType
       const referenceType = this.mapReferenceContextToType(typeRef.context);
 
-      // Add the reference to the symbol graph
+      // Add the reference to the symbol graph using symbols from the graph
       this.symbolGraph.addReference(
-        sourceSymbol,
-        targetSymbol,
+        sourceInGraph,
+        targetInGraph,
         referenceType,
         typeRef.location,
         {
@@ -1980,20 +2094,27 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Find the target symbol being referenced
    * @param typeRef The type reference
+   * @param fileUri Optional file URI to prefer symbols from the same file
+   * @param sourceSymbol Optional source symbol containing the reference (for 'this.' resolution)
    * @returns The target symbol or null if not found
    */
   private async findTargetSymbolForReference(
     typeRef: TypeReference,
+    fileUri?: string,
+    sourceSymbol?: ApexSymbol | null,
   ): Promise<ApexSymbol | null> {
     // First, try to extract qualifier information from chainNodes
     const qualifierInfo = this.extractQualifierFromChain(typeRef);
 
     if (qualifierInfo && qualifierInfo.isQualified) {
       // Try to resolve the qualified reference
-      const qualifiedSymbol = this.resolveQualifiedReferenceFromChain(
+      // Pass fileUri and sourceSymbol to help resolve 'this.' expressions to class-scoped members
+      const qualifiedSymbol = await this.resolveQualifiedReferenceFromChain(
         qualifierInfo.qualifier,
         qualifierInfo.member,
         typeRef.context,
+        fileUri,
+        sourceSymbol,
       );
 
       if (qualifiedSymbol) {
@@ -2004,6 +2125,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // Fallback: Try to find the symbol by name (for unqualified references)
     const symbols = this.findSymbolByName(typeRef.name);
     if (symbols.length > 0) {
+      // If fileUri is provided, prefer symbols from the same file
+      if (fileUri) {
+        const normalizedUri = extractFilePathFromUri(
+          getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri),
+        );
+        const sameFileSymbol = symbols.find((s) => s.fileUri === normalizedUri);
+        if (sameFileSymbol) {
+          return sameFileSymbol;
+        }
+      }
       // For now, take the first match. In a more sophisticated implementation,
       // we would use context to disambiguate
       return symbols[0];
@@ -2061,8 +2192,86 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     qualifier: string,
     member: string,
     context: ReferenceContext,
+    fileUri?: string,
+    sourceSymbol?: ApexSymbol | null,
   ): Promise<ApexSymbol | null> {
     try {
+      // Special case: 'this' qualifier means we're accessing an instance member
+      // in the containing class. 'this' can only reference class-scoped members.
+      if (qualifier.toLowerCase() === 'this') {
+        // Find the containing class by traversing up the parent chain from source symbol
+        let containingClass: ApexSymbol | null = null;
+        if (sourceSymbol) {
+          containingClass = this.getContainingType(sourceSymbol);
+        }
+
+        // Look for the member within the containing class scope
+        // 'this' can only reference class-scoped members, so we must look in the containing class
+        if (containingClass && fileUri) {
+          const normalizedUri = extractFilePathFromUri(
+            getProtocolType(fileUri) !== null
+              ? fileUri
+              : createFileUri(fileUri),
+          );
+
+          // Find all symbols with the member name
+          const allSymbolsWithName = this.findSymbolByName(member);
+
+          // Filter to symbols that are members of the containing class
+          // A member is in the class if:
+          // 1. It has the class as parent (parentId matches), OR
+          // 2. It's in the same file and within the class's location range
+          const classMembers = allSymbolsWithName.filter((s) => {
+            // Check if parentId matches (most reliable)
+            if (s.parentId === containingClass?.id) {
+              return true;
+            }
+            // Fallback: Check if symbol is within class location bounds in same file
+            if (
+              s.fileUri === normalizedUri &&
+              containingClass?.location &&
+              s.location
+            ) {
+              const classStart =
+                containingClass?.location.symbolRange.startLine;
+              const classEnd = containingClass?.location.symbolRange.endLine;
+              const symbolStart = s.location.symbolRange.startLine;
+              const symbolEnd = s.location.symbolRange.endLine;
+              // Symbol is within class if it starts after class starts and ends before class ends
+              return symbolStart >= classStart && symbolEnd <= classEnd;
+            }
+            return false;
+          });
+
+          // Return the first matching class member
+          if (classMembers.length > 0) {
+            return classMembers[0];
+          }
+        }
+
+        // Fallback: Look for the member by name (might be in a different file or scope)
+        const symbols = this.findSymbolByName(member);
+        if (symbols.length > 0) {
+          // If fileUri is provided, prefer same-file symbols
+          if (fileUri) {
+            const normalizedUri = extractFilePathFromUri(
+              getProtocolType(fileUri) !== null
+                ? fileUri
+                : createFileUri(fileUri),
+            );
+            const sameFileSymbol = symbols.find(
+              (s) => s.fileUri === normalizedUri,
+            );
+            if (sameFileSymbol) {
+              return sameFileSymbol;
+            }
+          }
+          // Return first match if no same-file symbol found
+          return symbols[0];
+        }
+        return null;
+      }
+
       // Step 1: Find the qualifier symbol
       let qualifierSymbols = this.findSymbolByName(qualifier);
 
@@ -2232,6 +2441,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           qualifierInfo.qualifier,
           qualifierInfo.member,
           typeReference.context,
+          sourceFile,
         );
 
         if (qualifiedSymbol) {
@@ -3399,8 +3609,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     typeRef: TypeReference,
     fileUri: string,
   ): ApexSymbol | null {
+    // Normalize URI to match how symbols are stored in the graph
+    // This ensures consistency with addSymbolTable which uses normalized URIs
+    const properUri =
+      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    const normalizedUri = extractFilePathFromUri(properUri);
+
     // Find symbols in the file and determine which one contains this reference
-    const symbolsInFile = this.findSymbolsInFile(fileUri);
+    const symbolsInFile = this.findSymbolsInFile(normalizedUri);
 
     // Look for the most specific (innermost) containing symbol
     let bestMatch: ApexSymbol | null = null;
@@ -3421,6 +3637,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             bestMatch = symbol;
           }
         }
+      }
+    }
+
+    // Fallback: If no containing symbol found, use the file-level class/interface/enum/trigger
+    // This ensures references are still processed even if position matching fails
+    if (!bestMatch && symbolsInFile.length > 0) {
+      // Find the top-level type symbol (class, interface, enum, trigger)
+      const topLevelSymbol = symbolsInFile.find(
+        (s) =>
+          s.kind === 'class' ||
+          s.kind === 'interface' ||
+          s.kind === 'enum' ||
+          s.kind === 'trigger',
+      );
+      if (topLevelSymbol) {
+        return topLevelSymbol;
       }
     }
 
@@ -3523,6 +3755,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const symbols = this.findSymbolsInFile(fileUri);
 
       const exactMatchSymbols = symbols.filter((symbol) => {
+        // Exclude scope symbols from resolution results (they're structural, not semantic)
+        if (isBlockSymbol(symbol)) {
+          return false;
+        }
+
         const { startLine, startColumn, endLine, endColumn } =
           symbol.location.identifierRange;
 

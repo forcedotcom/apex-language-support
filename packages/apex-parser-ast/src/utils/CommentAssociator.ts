@@ -9,6 +9,7 @@
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { ApexSymbol, SymbolKind } from '../types/symbol';
+import { isBlockSymbol } from './symbolNarrowing';
 import {
   ApexComment,
   CommentAssociation,
@@ -41,11 +42,14 @@ export class CommentAssociator {
   ): CommentAssociation[] {
     const associations: CommentAssociation[] = [];
 
+    // Filter out block symbols - comments should only be associated with semantic symbols
+    const semanticSymbols = symbols.filter((s) => !isBlockSymbol(s));
+
     // Sort comments and symbols by line number for efficient processing
     const sortedComments = [...comments].sort(
       (a, b) => a.range.startLine - b.range.startLine,
     );
-    const sortedSymbols = [...symbols].sort(
+    const sortedSymbols = [...semanticSymbols].sort(
       (a, b) =>
         a.location.symbolRange.startLine - b.location.symbolRange.startLine,
     );

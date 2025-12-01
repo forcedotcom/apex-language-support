@@ -32,7 +32,9 @@ import {
   SymbolTable,
   SymbolVisibility,
   SymbolLocation,
+  SymbolKind,
 } from '../types/symbol';
+import { isBlockSymbol } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
 import { ResourceLoader } from '../utils/resourceLoader';
 import { isStandardApexUri } from '../types/ProtocolHandler';
@@ -521,15 +523,18 @@ export class ApexSymbolGraph {
       symbol.key.fqn = fqnToUse;
     }
 
-    if (fqnToUse) {
+    // Exclude scope symbols from FQN index (they're structural, not semantic)
+    if (fqnToUse && !isBlockSymbol(symbol)) {
       this.fqnIndex.set(fqnToUse, symbolId);
     }
 
-    // Add to name index for symbol resolution
-    const existingNames = this.nameIndex.get(symbol.name) || [];
-    if (!existingNames.includes(symbolId)) {
-      existingNames.push(symbolId);
-      this.nameIndex.set(symbol.name, existingNames);
+    // Exclude scope symbols from name index (users shouldn't search for "block1" or "if_2")
+    if (!isBlockSymbol(symbol)) {
+      const existingNames = this.nameIndex.get(symbol.name) || [];
+      if (!existingNames.includes(symbolId)) {
+        existingNames.push(symbolId);
+        this.nameIndex.set(symbol.name, existingNames);
+      }
     }
 
     // Use normalized URI for fileIndex to ensure consistency
@@ -725,7 +730,8 @@ export class ApexSymbolGraph {
     const symbols: ApexSymbol[] = [];
     for (const symbolId of symbolIds) {
       const symbol = this.getSymbol(symbolId);
-      if (symbol) {
+      // Exclude scope symbols from name-based lookups (they're structural, not semantic)
+      if (symbol && !isBlockSymbol(symbol)) {
         symbols.push(symbol);
       }
     }
@@ -824,6 +830,11 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
+    // Don't create reference edges to/from scope symbols (they're structural, not semantic)
+    if (isBlockSymbol(sourceSymbol) || isBlockSymbol(targetSymbol)) {
+      return;
+    }
+
     // Find the actual symbols in the graph by name and file path
     const sourceSymbols = this.findSymbolByName(sourceSymbol.name);
     const targetSymbols = this.findSymbolByName(targetSymbol.name);
@@ -1269,6 +1280,9 @@ export class ApexSymbolGraph {
 
         if (!symbol || !fileUri || !symbolTable) return null;
 
+        // Exclude scope symbols from lookup results (they're structural, not semantic)
+        if (isBlockSymbol(symbol)) return null;
+
         return {
           symbol,
           fileUri,
@@ -1629,6 +1643,7 @@ export class ApexSymbolGraph {
       theFileUri,
       undefined, // scopePath not available here
       lineNumber,
+      symbol.kind, // Include kind/prefix to ensure uniqueness
     );
   }
 
@@ -1773,6 +1788,11 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
+    // Don't create reference edges to/from scope symbols (they're structural, not semantic)
+    if (isBlockSymbol(sourceSymbol) || isBlockSymbol(targetSymbol)) {
+      return;
+    }
+
     // Find the source symbol in the graph
     const sourceSymbols = this.findSymbolByName(sourceSymbol.name);
     const sourceSymbolInGraph = sourceSymbol.fileUri

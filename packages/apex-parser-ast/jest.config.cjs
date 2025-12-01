@@ -34,6 +34,6 @@ module.exports = {
   collectCoverageFrom: ['src/**/*.ts', '!src/generated/**', '!**/*.d.ts'],
   automock: false,
   resetMocks: false,
-  testTimeout: 120_000, // 2 minuntes default timeout for tests
+  testTimeout:  120_000, // 2 minutes default timeout for tests
   globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
 };

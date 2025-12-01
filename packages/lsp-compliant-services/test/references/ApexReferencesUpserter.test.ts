@@ -10,6 +10,7 @@ import {
   CompilerService,
   SymbolTable,
   ApexSymbolCollectorListener,
+  inTypeSymbolGroup,
 } from '@salesforce/apex-lsp-parser-ast';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -45,7 +46,10 @@ describe('DefaultApexReferencesUpserter', () => {
     const compiler = new CompilerService();
     compiler.compile(text, uri, listener, {});
     const symbolTable = listener.getResult();
-    return symbolTable.getCurrentScope().getAllSymbols();
+    // Filter to only top-level type symbols (Class, Interface, Enum, Trigger)
+    // While getFileScopeSymbols() filters out blocks, we explicitly filter to type symbols
+    // as a safety measure, since only these should exist at file scope in Apex
+    return symbolTable.getFileScopeSymbols().filter(inTypeSymbolGroup);
   };
 
   it('should populate references for new document', async () => {

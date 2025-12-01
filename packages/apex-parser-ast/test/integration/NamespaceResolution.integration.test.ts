@@ -9,6 +9,7 @@
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
 import { SymbolKind } from '../../src/types/symbol';
+import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 
 describe('Namespace Resolution Integration', () => {
   let compilerService: CompilerService;
@@ -179,14 +180,15 @@ describe('Namespace Resolution Integration', () => {
       expect(result.errors).toHaveLength(0);
 
       const symbolTable = listener.getResult();
-      const symbols = symbolTable.getAllSymbols();
+      const allSymbols = symbolTable.getAllSymbols();
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
       // Verify class has correct namespace
-      const classSymbol = symbols.find((s) => s.name === 'BuiltInTypeClass');
+      const classSymbol = semanticSymbols.find((s) => s.name === 'BuiltInTypeClass');
       expect(classSymbol?.namespace?.toString()).toBe('MyNamespace');
 
-      // Verify all symbols inherit namespace
-      symbols.forEach((symbol) => {
+      // Verify all semantic symbols inherit namespace (exclude scope symbols)
+      semanticSymbols.forEach((symbol) => {
         expect(symbol.namespace?.toString()).toBe('MyNamespace');
       });
     });
@@ -523,13 +525,14 @@ describe('Namespace Resolution Integration', () => {
       expect(compilationTime).toBeLessThan(5000);
 
       const symbolTable = listener.getResult();
-      const symbols = symbolTable.getAllSymbols();
+      const allSymbols = symbolTable.getAllSymbols();
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
       // Should have created many symbols
-      expect(symbols.length).toBeGreaterThan(150);
+      expect(semanticSymbols.length).toBeGreaterThan(150);
 
-      // All symbols should have correct namespace
-      symbols.forEach((symbol) => {
+      // All semantic symbols should have correct namespace (exclude scope symbols)
+      semanticSymbols.forEach((symbol) => {
         expect(symbol.namespace?.toString()).toBe('MyNamespace');
       });
     });

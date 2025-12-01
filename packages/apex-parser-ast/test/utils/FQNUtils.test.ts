@@ -12,6 +12,7 @@ import {
   isBuiltInFQN,
   getNamespaceFromFQN,
   isGlobalSymbol,
+  isBlockScope,
 } from '../../src/utils/FQNUtils';
 import {
   SymbolKind,
@@ -273,6 +274,37 @@ describe('FQN Utilities', () => {
     it('should handle null and undefined values', () => {
       expect(isGlobalSymbol(null)).toBe(false);
       expect(isGlobalSymbol(undefined)).toBe(false);
+    });
+  });
+
+  describe('isBlockScope', () => {
+    it('should identify block symbols', () => {
+      const blockSymbol = createTestSymbol('block1', SymbolKind.Block);
+      expect(isBlockScope(blockSymbol)).toBe(true);
+    });
+
+    it('should return false for non-block symbols', () => {
+      const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
+      expect(isBlockScope(classSymbol)).toBe(false);
+
+      const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
+      expect(isBlockScope(methodSymbol)).toBe(false);
+    });
+
+    it('should handle null and undefined values', () => {
+      expect(isBlockScope(null)).toBe(false);
+      expect(isBlockScope(undefined)).toBe(false);
+    });
+
+    it('should exclude block symbols from FQN calculation', () => {
+      const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
+      const blockSymbol = createTestSymbol('block1', SymbolKind.Block, classSymbol);
+      const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method, blockSymbol);
+
+      // FQN should skip the block symbol and go directly from class to method
+      expect(calculateFQN(methodSymbol, undefined, getParent)).toBe(
+        'MyClass.myMethod',
+      );
     });
   });
 });

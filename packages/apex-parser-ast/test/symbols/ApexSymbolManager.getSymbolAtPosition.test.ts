@@ -12,10 +12,42 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
+import {
+  initialize as schedulerInitialize,
+  shutdown as schedulerShutdown,
+  reset as schedulerReset,
+} from '../../src/queue/priority-scheduler-utils';
+import { Effect } from 'effect';
 
 describe('ApexSymbolManager.getSymbolAtPosition', () => {
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
+
+  beforeAll(async () => {
+    // Initialize scheduler before all tests
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
+  });
+
+  afterAll(async () => {
+    // Shutdown the scheduler first to stop the background loop
+    try {
+      await Effect.runPromise(schedulerShutdown());
+    } catch (error) {
+      // Ignore errors - scheduler might not be initialized or already shut down
+    }
+    // Reset scheduler state after shutdown
+    try {
+      await Effect.runPromise(schedulerReset());
+    } catch (error) {
+      // Ignore errors - scheduler might not be initialized
+    }
+  });
 
   beforeEach(() => {
     // Enable console logging with debug level for tests

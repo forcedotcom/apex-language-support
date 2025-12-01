@@ -14,6 +14,7 @@ import {
   MethodSymbol,
   TypeSymbol,
   VariableSymbol,
+  BlockSymbol,
   SymbolKind,
 } from '../types/symbol';
 import type {
@@ -107,6 +108,13 @@ export const isVariableSymbol = (
     symbol.kind === SymbolKind.Variable ||
     symbol.kind === SymbolKind.Parameter ||
     symbol.kind === SymbolKind.EnumValue);
+
+/**
+ * Type predicate to check if a symbol is a BlockSymbol
+ */
+export const isBlockSymbol = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is BlockSymbol => !!symbol && symbol.kind === SymbolKind.Block;
 
 /**
  * Type predicate to check if a compilation result includes comments

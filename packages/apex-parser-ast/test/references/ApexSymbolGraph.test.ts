@@ -15,8 +15,10 @@ import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { SymbolKind, SymbolVisibility } from '../../src/types/symbol';
+import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 import {
   initialize as schedulerInitialize,
+  shutdown as schedulerShutdown,
   reset as schedulerReset,
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
@@ -38,8 +40,18 @@ describe('ApexSymbolGraph', () => {
   });
 
   afterAll(async () => {
-    // Reset scheduler after all tests
-    await Effect.runPromise(schedulerReset());
+    // Shutdown the scheduler first to stop the background loop
+    try {
+      await Effect.runPromise(schedulerShutdown());
+    } catch (error) {
+      // Ignore errors - scheduler might not be initialized or already shut down
+    }
+    // Reset scheduler state after shutdown
+    try {
+      await Effect.runPromise(schedulerReset());
+    } catch (error) {
+      // Ignore errors - scheduler might not be initialized
+    }
   });
 
   beforeEach(() => {
@@ -51,7 +63,26 @@ describe('ApexSymbolGraph', () => {
   });
 
   afterEach(() => {
-    graph.clear();
+    try {
+      if (graph) {
+        graph.clear();
+      }
+    } catch (error) {
+      // Ignore errors during cleanup
+    }
+    try {
+      if (symbolManager) {
+        symbolManager.clear();
+      }
+    } catch (error) {
+      // Ignore errors during cleanup
+    }
+    // Clear the singleton instance to prevent timers from keeping the process alive
+    try {
+      ApexSymbolGraph.setInstance(null as any);
+    } catch (error) {
+      // Ignore errors
+    }
   });
 
   // Helper function to compile Apex code and add to symbol manager
@@ -298,8 +329,10 @@ describe('ApexSymbolGraph', () => {
       expect(inFile[0].location.identifierRange).toBeDefined();
 
       // Position data should be consistent across lookup methods
+      // Filter out scope symbols from inFile results
+      const inFileSemantic = inFile.filter((s) => !isBlockSymbol(s));
       expect(byName[0].location.symbolRange.startLine).toBe(
-        inFile[0].location.symbolRange.startLine,
+        inFileSemantic[0].location.symbolRange.startLine,
       );
     });
 
@@ -984,18 +1017,36 @@ describe('ApexSymbolGraph', () => {
       // Check that the cycle contains both classes
       const cycle = cycles[0];
       // The cycle contains URI-based symbol IDs, so we need to check if they contain the class names
+      // Format: file:///path/to/file.cls:prefix:name or file:///path/to/file.cls:prefix:name:lineNumber
       const cycleSymbolNames = cycle.map((symbolId) => {
-        // Extract the class name from the URI-based symbol ID (e.g., "file://ClassA.cls:ClassA" -> "ClassA")
-        if (symbolId.startsWith('file://')) {
-          const parts = symbolId.split(':');
-          return parts[2]; // Take the third part (the symbol name) after file:// and fileUri
-        } else if (symbolId.startsWith('apexlib://')) {
-          const parts = symbolId.split(':');
-          return parts[parts.length - 2]; // Take the second-to-last part (the symbol name)
+        // Extract the symbol name from the URI-based symbol ID
+        // Format examples:
+        // - "file:///test/ClassA.cls:class:ClassA" -> "ClassA"
+        // - "file:///test/ClassA.cls:class:ClassA:5" -> "ClassA"
+        // - "apexlib://ClassA:class:ClassA" -> "ClassA"
+        const parts = symbolId.split(':');
+        if (
+          symbolId.startsWith('file://') ||
+          symbolId.startsWith('apexlib://')
+        ) {
+          // For file:// or apexlib://, the name is the last part (or second-to-last if there's a line number)
+          // Format: protocol://path:prefix:name or protocol://path:prefix:name:lineNumber
+          // After splitting by ':', we have: [protocol, //path, prefix, name]
+          // or [protocol, //path, prefix, name, lineNumber]
+          // So the name is either parts[parts.length - 1]
+          // (if no line number) or parts[parts.length - 2] (if line number)
+          // But we need to check if the last part is a number (line number)
+          const lastPart = parts[parts.length - 1];
+          if (!isNaN(Number(lastPart))) {
+            // Last part is a line number, so name is second-to-last
+            return parts[parts.length - 2];
+          } else {
+            // Last part is the name
+            return lastPart;
+          }
         } else {
-          // Fallback for old format
-          const parts = symbolId.split(':');
-          return parts[1]; // Take the second part (the symbol name)
+          // Fallback for old format: name:kind:path
+          return parts[0]; // Take the first part (the symbol name)
         }
       });
       expect(cycleSymbolNames).toContain('ClassA');

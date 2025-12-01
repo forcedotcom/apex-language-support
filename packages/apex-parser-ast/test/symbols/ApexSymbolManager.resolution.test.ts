@@ -17,11 +17,43 @@ import {
   getLogger,
   setLogLevel,
 } from '@salesforce/apex-lsp-shared';
+import {
+  initialize as schedulerInitialize,
+  shutdown as schedulerShutdown,
+  reset as schedulerReset,
+} from '../../src/queue/priority-scheduler-utils';
+import { Effect } from 'effect';
 
 describe('ApexSymbolManager - Enhanced Resolution', () => {
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
   let listener: ApexSymbolCollectorListener;
+
+  beforeAll(async () => {
+    // Initialize scheduler before all tests
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
+  });
+
+  afterAll(async () => {
+    // Shutdown the scheduler first to stop the background loop
+    try {
+      await Effect.runPromise(schedulerShutdown());
+    } catch (error) {
+      // Ignore errors - scheduler might not be initialized or already shut down
+    }
+    // Reset scheduler state after shutdown
+    try {
+      await Effect.runPromise(schedulerReset());
+    } catch (error) {
+      // Ignore errors - scheduler might not be initialized
+    }
+  });
 
   beforeEach(() => {
     symbolManager = new ApexSymbolManager();
@@ -2095,7 +2127,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         expect(result?.fileUri).toBe('file:///test/DeclarationTestClass.cls');
         // ID includes full scope path (testMethod.block1) for uniqueness
         expect(result?.id).toBe(
-          'file:///test/DeclarationTestClass.cls:file.DeclarationTestClass.testMethod.block1:message',
+          'file:///test/DeclarationTestClass.cls:file.DeclarationTestClass.testMethod.block1:variable:message',
         );
       });
 
@@ -2598,7 +2630,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         expect(result?.kind).toBe('property');
         expect(result?.fileUri).toBe('file:///test/DeclarationTestClass.cls');
         expect(result?.id).toBe(
-          'file:///test/DeclarationTestClass.cls:file.DeclarationTestClass:Name',
+          'file:///test/DeclarationTestClass.cls:file.DeclarationTestClass:property:Name',
         );
       });
 

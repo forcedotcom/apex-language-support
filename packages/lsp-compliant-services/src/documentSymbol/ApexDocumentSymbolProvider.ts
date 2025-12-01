@@ -22,6 +22,8 @@ import {
   TypeInfo,
   inTypeSymbolGroup,
   isMethodSymbol,
+  isBlockSymbol,
+  SymbolKind as ApexSymbolKind,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
@@ -392,13 +394,31 @@ export class DefaultApexDocumentSymbolProvider
     const self = this;
     return Effect.gen(function* () {
       const children: DocumentSymbol[] = [];
-      const childSymbols = scope.getAllSymbols();
+      const allChildSymbols = scope.getAllSymbols();
       const logger = getLogger();
       const batchSize = 50;
 
+      // Filter to only include semantic symbols for document outline
+      // Exclude: block symbols, variable symbols (type references), and parameter symbols
+      const childSymbols = allChildSymbols.filter((symbol: ApexSymbol) => {
+        // Exclude block symbols
+        if (isBlockSymbol(symbol)) {
+          return false;
+        }
+        // Exclude variable and parameter symbols (these are type references, not declarations)
+        // Only include actual field/property declarations
+        if (
+          symbol.kind === ApexSymbolKind.Variable ||
+          symbol.kind === ApexSymbolKind.Parameter
+        ) {
+          return false;
+        }
+        return true;
+      });
+
       logger.debug(
         () =>
-          `Collecting children for ${parentKind} '${scope.name}': ${childSymbols.length} symbols found`,
+          `Collecting children for ${parentKind} '${scope.name}': ${childSymbols.length} semantic symbols found (filtered from ${allChildSymbols.length} total)`,
       );
 
       for (let i = 0; i < childSymbols.length; i++) {

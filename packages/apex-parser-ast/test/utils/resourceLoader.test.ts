@@ -8,6 +8,7 @@
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { CaseInsensitivePathMap } from '../../src/utils/CaseInsensitiveMap';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
+import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -938,7 +939,9 @@ describe('ResourceLoader Compilation Quality Analysis', () => {
         if (!result?.result) continue;
 
         const symbolTable = result.result;
-        const symbols = symbolTable.getAllSymbols();
+        const allSymbols = symbolTable.getAllSymbols();
+        // Filter out scope symbols - they don't have FQN and shouldn't be counted
+        const symbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
         // Debug: Check FQN format after fix
         // Removed console.log calls - FQN format now correct: ApexPages.Action

@@ -12,6 +12,7 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import {
   initialize as schedulerInitialize,
+  shutdown as schedulerShutdown,
   reset as schedulerReset,
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
@@ -32,8 +33,18 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
   });
 
   afterAll(async () => {
-    // Reset scheduler after all tests
-    await Effect.runPromise(schedulerReset());
+    // Shutdown the scheduler first to stop the background loop
+    try {
+      await Effect.runPromise(schedulerShutdown());
+    } catch (error) {
+      // Ignore errors - scheduler might not be initialized or already shut down
+    }
+    // Reset scheduler state after shutdown
+    try {
+      await Effect.runPromise(schedulerReset());
+    } catch (error) {
+      // Ignore errors - scheduler might not be initialized
+    }
   });
 
   beforeEach(() => {

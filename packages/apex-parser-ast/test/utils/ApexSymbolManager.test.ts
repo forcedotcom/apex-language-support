@@ -24,11 +24,43 @@ import {
   getLogger,
   setLogLevel,
 } from '@salesforce/apex-lsp-shared';
+import {
+  initialize as schedulerInitialize,
+  shutdown as schedulerShutdown,
+  reset as schedulerReset,
+} from '../../src/queue/priority-scheduler-utils';
+import { Effect } from 'effect';
 
 describe('ApexSymbolManager', () => {
   let manager: ApexSymbolManager;
   let compilerService: CompilerService;
   const logger = getLogger();
+
+  beforeAll(async () => {
+    // Initialize scheduler before all tests
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
+  });
+
+  afterAll(async () => {
+    // Shutdown the scheduler first to stop the background loop
+    try {
+      await Effect.runPromise(schedulerShutdown());
+    } catch (error) {
+      // Ignore errors - scheduler might not be initialized or already shut down
+    }
+    // Reset scheduler state after shutdown
+    try {
+      await Effect.runPromise(schedulerReset());
+    } catch (error) {
+      // Ignore errors - scheduler might not be initialized
+    }
+  });
 
   beforeEach(() => {
     manager = new ApexSymbolManager();
@@ -39,6 +71,9 @@ describe('ApexSymbolManager', () => {
 
   afterEach(() => {
     // Clean up if needed
+    if (manager) {
+      manager.clear();
+    }
   });
 
   // Helper function to compile Apex code and get symbols

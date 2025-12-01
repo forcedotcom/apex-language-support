@@ -14,6 +14,8 @@ import {
   EnumSymbol,
   MethodSymbol,
   VariableSymbol,
+  BlockSymbol,
+  SymbolLocation,
 } from '../../src/types/symbol';
 import {
   inTypeSymbolGroup,
@@ -759,5 +761,163 @@ describe('SymbolTable', () => {
 
     const found = table.lookupByKey(symbol.key);
     expect(found).toBe(symbol);
+  });
+
+  it('should create scope symbols when location is provided', () => {
+    table.setFileUri('test://file.cls');
+    const location: SymbolLocation = {
+      symbolRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+    };
+
+    const blockSymbol: BlockSymbol | null = table.enterScope(
+      'MyClass',
+      'class',
+      location,
+    );
+    expect(blockSymbol).not.toBeNull();
+    expect(blockSymbol?.kind).toBe(SymbolKind.Block);
+    expect(blockSymbol?.scopeType).toBe('class');
+    expect(blockSymbol?.name).toBe('MyClass');
+    expect(blockSymbol?.location.symbolRange).toEqual(location.symbolRange);
+    expect(blockSymbol?.location.identifierRange).toEqual(location.symbolRange); // Should be same for blocks
+
+    const currentScope = table.getCurrentScope();
+    expect(currentScope.getBlockSymbol()).toBe(blockSymbol);
+  });
+
+  it('should not create block symbols when location is not provided', () => {
+    const blockSymbol = table.enterScope('MyClass', 'class');
+    expect(blockSymbol).toBeNull();
+
+    const currentScope = table.getCurrentScope();
+    expect(currentScope.getBlockSymbol()).toBeNull();
+  });
+
+  it('should include block symbols in getAllSymbols()', () => {
+    table.setFileUri('test://file.cls');
+    const location: SymbolLocation = {
+      symbolRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+    };
+
+    table.enterScope('MyClass', 'class', location);
+    const allSymbols = table.getAllSymbols();
+    const blockSymbols = allSymbols.filter((s) => s.kind === SymbolKind.Block);
+    expect(blockSymbols.length).toBeGreaterThan(0);
+    // The file block is created first, then MyClass block
+    const myClassBlock = blockSymbols.find((s) => s.name === 'MyClass');
+    expect(myClassBlock).toBeDefined();
+    expect(myClassBlock?.name).toBe('MyClass');
+  });
+
+  it('should find block symbols using findBlockSymbol()', () => {
+    table.setFileUri('test://file.cls');
+    const location: SymbolLocation = {
+      symbolRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+    };
+
+    table.enterScope('MyClass', 'class', location);
+    const found = table.findBlockSymbol('MyClass');
+    expect(found).toBeDefined();
+    expect(found?.kind).toBe(SymbolKind.Block);
+    expect(found?.name).toBe('MyClass');
+  });
+
+  it('should get current block symbol using getCurrentBlockSymbol()', () => {
+    table.setFileUri('test://file.cls');
+    const location: SymbolLocation = {
+      symbolRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+    };
+
+    table.enterScope('MyClass', 'class', location);
+    const currentBlockSymbol = table.getCurrentBlockSymbol();
+    expect(currentBlockSymbol).toBeDefined();
+    expect(currentBlockSymbol?.name).toBe('MyClass');
+    expect(currentBlockSymbol?.kind).toBe(SymbolKind.Block);
+  });
+
+  it('should restore parent scope symbol after exitScope()', () => {
+    table.setFileUri('test://file.cls');
+    const classLocation: SymbolLocation = {
+      symbolRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 20,
+        endColumn: 0,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 20,
+        endColumn: 0,
+      },
+    };
+    const methodLocation: SymbolLocation = {
+      symbolRange: {
+        startLine: 5,
+        startColumn: 0,
+        endLine: 15,
+        endColumn: 0,
+      },
+      identifierRange: {
+        startLine: 5,
+        startColumn: 0,
+        endLine: 15,
+        endColumn: 0,
+      },
+    };
+
+    table.enterScope('MyClass', 'class', classLocation);
+    const classBlockSymbol = table.getCurrentBlockSymbol();
+    table.enterScope('myMethod', 'method', methodLocation);
+    expect(table.getCurrentBlockSymbol()?.name).toBe('myMethod');
+
+    table.exitScope();
+    const restoredBlockSymbol = table.getCurrentBlockSymbol();
+    expect(restoredBlockSymbol).toBe(classBlockSymbol);
+    expect(restoredBlockSymbol?.name).toBe('MyClass');
   });
 });
