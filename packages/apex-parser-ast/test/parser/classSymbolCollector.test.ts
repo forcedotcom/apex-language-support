@@ -17,7 +17,7 @@ import {
   SymbolVisibility,
   MethodSymbol,
   ApexSymbol,
-  SymbolScope,
+  ScopeSymbol,
 } from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 import {
@@ -90,8 +90,11 @@ describe('ApexSymbolCollectorListener', () => {
       expect(symbolTable).toBeDefined();
       logger.debug('Symbol table created successfully');
 
-      // Get the file scope
-      const fileScope = symbolTable?.getCurrentScope();
+      // Get the file scope - getCurrentScope() returns the innermost scope, not file scope
+      // File scope is the root scope, so we need to find it differently
+      const fileScope = symbolTable?.getAllSymbols().find(
+        (s) => s.kind === SymbolKind.Block && (s as ScopeSymbol).scopeType === 'file',
+      ) as ScopeSymbol | undefined;
       expect(fileScope).toBeDefined();
       expect(fileScope?.name).toBe('file');
       logger.debug('File scope verified');
@@ -116,12 +119,21 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Get class scope
-      const classScope = fileScope?.getChildren()[0];
+      const classScope = symbolTable
+        ?.getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'class' &&
+            s.name === 'TestClass',
+        ) as ScopeSymbol | undefined;
       expect(classScope?.name).toBe('TestClass');
       logger.debug('Class scope retrieved');
 
-      // Check fields - use table.getAllSymbols() with parentId filter as fallback
-      const allClassSymbols = classScope?.getAllSymbols() || [];
+      // Check fields - use table.getSymbolsInScope() with class scope id
+      const allClassSymbols = classScope
+        ? symbolTable.getSymbolsInScope(classScope.id)
+        : [];
       const classSemanticSymbols = allClassSymbols.filter(
         (s) => !isBlockSymbol(s),
       );
@@ -267,22 +279,32 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check method scope for parameters
-      const methodScopes = classScope?.getChildren();
-      expect(methodScopes?.length).toBe(4); // One for each method
+      // Method scopes' parentId points to the method symbol, not the class scope
+      // So we need to find all method scopes by searching all symbols
+      const methodScopes = symbolTable
+        ?.getAllSymbols()
+        .filter(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'method',
+        ) as ScopeSymbol[];
+      expect(methodScopes.length).toBe(4); // One for each method
       logger.debug(
-        () => `Method scopes verified: count=${methodScopes?.length}`,
+        () => `Method scopes verified: count=${methodScopes.length}`,
       );
 
       // Check setName method parameters
-      const setNameScope = methodScopes?.find(
-        (s: SymbolScope) => s.name === 'setName',
-      );
+      const setNameScope = methodScopes.find(
+        (s: ScopeSymbol) => s.name === 'setName',
+      ) as ScopeSymbol | undefined;
       expect(setNameScope).toBeDefined();
       logger.debug('setName scope found');
 
       const setNameParams = setNameScope
-        ?.getAllSymbols()
-        .filter((s: ApexSymbol) => s.kind === SymbolKind.Parameter);
+        ? symbolTable
+            .getSymbolsInScope(setNameScope.id)
+            .filter((s: ApexSymbol) => s.kind === SymbolKind.Parameter)
+        : [];
       expect(setNameParams?.length).toBe(1);
       logger.debug(
         () => `setName parameters found: count=${setNameParams?.length}`,
@@ -323,25 +345,52 @@ describe('ApexSymbolCollectorListener', () => {
 
       expect(result.errors.length).toBe(0);
 
-      const fileScope = result.result!.getCurrentScope();
-      const outerClassSymbol = fileScope.getSymbol('OuterClass');
+      const symbolTable = result.result!;
+      // getCurrentScope() returns the innermost scope, not file scope
+      // Find file scope differently
+      const fileScope = symbolTable
+        .getAllSymbols()
+        .find(
+          (s) => s.kind === SymbolKind.Block && (s as ScopeSymbol).scopeType === 'file',
+        ) as ScopeSymbol | undefined;
+      expect(fileScope).toBeDefined();
+      const outerClassSymbol = symbolTable.findSymbolInScope(
+        fileScope!.id,
+        'OuterClass',
+      );
       expect(outerClassSymbol).toBeDefined();
 
-      const outerClassScope = fileScope
-        .getChildren()
-        .find((s) => s.name === 'OuterClass');
+      const outerClassScope = symbolTable
+        .getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'class' &&
+            s.name === 'OuterClass',
+        ) as ScopeSymbol | undefined;
       expect(outerClassScope).toBeDefined();
 
-      const innerClassSymbol = outerClassScope!.getSymbol('InnerClass');
+      const innerClassSymbol = symbolTable.findSymbolInScope(
+        outerClassScope!.id,
+        'InnerClass',
+      );
       expect(innerClassSymbol).toBeDefined();
 
-      const innerClassScope = outerClassScope!
-        .getChildren()
-        .find((s) => s.name === 'InnerClass');
+      const innerClassScope = symbolTable
+        .getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'class' &&
+            s.name === 'InnerClass' &&
+            s.parentId === outerClassScope!.id,
+        ) as ScopeSymbol | undefined;
       expect(innerClassScope).toBeDefined();
 
       // Debug: Check what symbols are in the inner class scope
-      const innerClassSymbols = innerClassScope!.getAllSymbols();
+      const innerClassSymbols = innerClassScope
+        ? symbolTable.getSymbolsInScope(innerClassScope.id)
+        : [];
       console.log(
         'Inner class symbols:',
         innerClassSymbols.map((s) => ({
@@ -351,9 +400,12 @@ describe('ApexSymbolCollectorListener', () => {
         })),
       );
 
-      const constructorSymbol = innerClassScope!.getSymbol(
-        'InnerClass',
-      ) as MethodSymbol;
+      const constructorSymbol = innerClassScope
+        ? (symbolTable.findSymbolInScope(
+            innerClassScope.id,
+            'InnerClass',
+          ) as MethodSymbol)
+        : undefined;
       expect(constructorSymbol).toBeDefined();
       expect(constructorSymbol.isConstructor).toBe(true);
       expect(constructorSymbol.location.symbolRange.startLine).toBe(4);
@@ -447,13 +499,22 @@ describe('ApexSymbolCollectorListener', () => {
 
       // Check enum values
       const fileScope = symbolTable?.getCurrentScope();
-      const enumScope = fileScope?.getChildren()[0];
+      const enumScope = symbolTable
+        ?.getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'class' &&
+            s.name === 'TestEnum',
+        ) as ScopeSymbol | undefined;
       expect(enumScope?.name).toBe('TestEnum');
       logger.debug('Enum scope retrieved');
 
       const values = enumScope
-        ?.getAllSymbols()
-        .filter((s: ApexSymbol) => s.kind === SymbolKind.EnumValue);
+        ? symbolTable
+            .getSymbolsInScope(enumScope.id)
+            .filter((s: ApexSymbol) => s.kind === SymbolKind.EnumValue)
+        : [];
       expect(values?.length).toBe(3);
       logger.debug(() => `Found ${values?.length} enum values`);
 
@@ -515,25 +576,61 @@ describe('ApexSymbolCollectorListener', () => {
       const globalScope = symbolTable?.getCurrentScope();
 
       // Navigate to method scope
-      const classScope = globalScope?.getChildren()[0];
-      const methodScope = classScope?.getChildren()[0];
+      const classScope = symbolTable
+        ?.getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'class' &&
+            s.name === 'BlocksTest',
+        ) as ScopeSymbol | undefined;
+      // Method scope's parentId points to the method symbol, not the class scope
+      // So we need to find the method symbol first, then find method scopes with that parentId
+      const methodSymbol = symbolTable
+        ?.getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Method &&
+            s.name === 'm1' &&
+            !isBlockSymbol(s),
+        );
+      const methodScope = methodSymbol
+        ? symbolTable
+            ?.getAllSymbols()
+            .find(
+              (s) =>
+                s.kind === SymbolKind.Block &&
+                s.scopeType === 'method' &&
+                s.name === 'm1' &&
+                s.parentId === methodSymbol.id,
+            ) as ScopeSymbol | undefined
+        : undefined;
       expect(methodScope?.name).toBe('m1');
       logger.debug('Method scope retrieved');
 
       // Helper to recursively collect all variables from all block scopes
-      function getAllVariablesFromScopes(scope: SymbolScope): ApexSymbol[] {
-        let vars = scope
-          .getAllSymbols()
+      function getAllVariablesFromScopes(
+        scope: ScopeSymbol,
+        table: SymbolTable,
+      ): ApexSymbol[] {
+        let vars = table
+          .getSymbolsInScope(scope.id)
           .filter((s: ApexSymbol) => s.kind === SymbolKind.Variable);
-        for (const child of scope.getChildren()) {
-          vars = vars.concat(getAllVariablesFromScopes(child));
+        const children = table
+          .getSymbolsInScope(scope.id)
+          .filter(
+            (s) =>
+              s.parentId === scope.id && s.kind === SymbolKind.Block,
+          ) as ScopeSymbol[];
+        for (const child of children) {
+          vars = vars.concat(getAllVariablesFromScopes(child, table));
         }
         return vars;
       }
 
-      const allBlockVariables = getAllVariablesFromScopes(
-        methodScope as SymbolScope,
-      );
+      const allBlockVariables = methodScope
+        ? getAllVariablesFromScopes(methodScope, symbolTable!)
+        : [];
       const varNames = allBlockVariables.map((v: ApexSymbol) => v.name);
       expect(varNames).toContain('outerVar');
       expect(varNames).toContain('innerVar');
@@ -585,14 +682,23 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug(() => `Found outer class: name=${outerClass?.name}`);
 
       const globalScope = symbolTable?.getCurrentScope();
-      const outerScope = globalScope?.getChildren()[0];
+      const outerScope = symbolTable
+        ?.getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'class' &&
+            s.name === 'OuterClass',
+        ) as ScopeSymbol | undefined;
       expect(outerScope?.name).toBe('OuterClass');
       logger.debug('Outer scope retrieved');
 
       // Check outer class field
       const outerField = outerScope
-        ?.getAllSymbols()
-        .find((s) => s.name === 'outerField');
+        ? symbolTable
+            .getSymbolsInScope(outerScope.id)
+            .find((s) => s.name === 'outerField')
+        : undefined;
       expect(outerField).toBeDefined();
       logger.debug(
         () =>
@@ -601,7 +707,9 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check inner class - filter out scope symbols
-      const allOuterScopeSymbols = outerScope?.getAllSymbols() || [];
+      const allOuterScopeSymbols = outerScope
+        ? symbolTable.getSymbolsInScope(outerScope.id)
+        : [];
       const outerScopeSemanticSymbols = allOuterScopeSymbols.filter(
         (s) => !isBlockSymbol(s),
       );
@@ -631,15 +739,21 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check inner class scope
-      const innerScope = outerScope
-        ?.getChildren()
-        .find((s) => s.name === 'InnerClass');
+      const innerScope = symbolTable
+        ?.getAllSymbols()
+        .filter(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.parentId === outerScope?.id &&
+            s.name === 'InnerClass',
+        )
+        .find((s) => s.name === 'InnerClass') as ScopeSymbol | undefined;
 
       if (innerScope) {
         logger.debug('Inner scope found');
         // If inner class scoping is implemented, check inner field and method
-        const innerField = innerScope
-          .getAllSymbols()
+        const innerField = symbolTable
+          ?.getSymbolsInScope(innerScope.id)
           .find((s) => s.name === 'innerField');
         expect(innerField).toBeDefined();
         logger.debug(
@@ -648,8 +762,8 @@ describe('ApexSymbolCollectorListener', () => {
             `kind=${innerField?.kind}, visibility=${innerField?.modifiers.visibility}`,
         );
 
-        const innerMethod = innerScope
-          .getAllSymbols()
+        const innerMethod = symbolTable
+          ?.getSymbolsInScope(innerScope.id)
           .find((s) => s.name === 'innerMethod');
         expect(innerMethod).toBeDefined();
         logger.debug(
@@ -745,12 +859,21 @@ describe('ApexSymbolCollectorListener', () => {
 
       // Check outer class scope
       const fileScope = symbolTable?.getCurrentScope();
-      const outerClassScope = fileScope?.getChildren()[0];
+      const outerClassScope = symbolTable
+        ?.getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'class' &&
+            s.name === 'OuterClass',
+        ) as ScopeSymbol | undefined;
       expect(outerClassScope?.name).toBe('OuterClass');
       logger.debug('Outer class scope retrieved');
 
-      // Check inner class symbol - use table.getAllSymbols() with parentId filter
-      const allOuterSymbols = outerClassScope?.getAllSymbols() || [];
+      // Check inner class symbol - use table.getSymbolsInScope() with class scope id
+      const allOuterSymbols = outerClassScope
+        ? symbolTable.getSymbolsInScope(outerClassScope.id)
+        : [];
       const outerSemanticSymbols = allOuterSymbols.filter(
         (s) => !isBlockSymbol(s),
       );
@@ -782,14 +905,25 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check inner class scope
-      const innerClassScope = outerClassScope?.getChildren()[0];
+      const innerClassScope = outerClassScope
+        ? (symbolTable
+            .getSymbolsInScope(outerClassScope.id)
+            .find(
+              (s) =>
+                s.kind === SymbolKind.Block &&
+                s.scopeType === 'class' &&
+                s.name === 'InnerClass',
+            ) as ScopeSymbol | undefined)
+        : undefined;
       expect(innerClassScope?.name).toBe('InnerClass');
       logger.debug('Inner class scope retrieved');
 
       // Check inner class method
       const innerMethod = innerClassScope
-        ?.getAllSymbols()
-        .find((s: ApexSymbol) => s.kind === SymbolKind.Method);
+        ? symbolTable
+            .getSymbolsInScope(innerClassScope.id)
+            .find((s: ApexSymbol) => s.kind === SymbolKind.Method)
+        : undefined;
       expect(innerMethod).toBeDefined();
       expect(innerMethod?.name).toBe('innerMethod');
       expect(innerMethod?.modifiers.visibility).toBe(SymbolVisibility.Public);
@@ -885,13 +1019,22 @@ describe('ApexSymbolCollectorListener', () => {
 
       // Check class scope
       const classFileScope = classSymbolTable?.getCurrentScope();
-      const classScope = classFileScope?.getChildren()[0];
+      const classScope = classSymbolTable
+        ?.getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'class' &&
+            s.name === 'TestClass',
+        ) as ScopeSymbol | undefined;
       expect(classScope).toBeDefined();
       expect(classScope?.name).toBe('TestClass');
       logger.debug('Class scope retrieved');
 
-      // Check method implementation - use table.getAllSymbols() with parentId filter as fallback
-      const allClassScopeSymbols = classScope?.getAllSymbols() || [];
+      // Check method implementation - use table.getSymbolsInScope() with parentId filter as fallback
+      const allClassScopeSymbols = classScope
+        ? symbolTable.getSymbolsInScope(classScope.id)
+        : [];
       const classScopeSemanticSymbols = allClassScopeSymbols.filter(
         (s) => !isBlockSymbol(s),
       );

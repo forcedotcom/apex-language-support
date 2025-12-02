@@ -8,7 +8,12 @@
 
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { ApexSymbol, SymbolKind, SymbolTable } from '../../src/types/symbol';
+import {
+  ApexSymbol,
+  SymbolKind,
+  SymbolTable,
+  ScopeSymbol,
+} from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
@@ -52,12 +57,26 @@ describe('ApexSymbolCollectorListener lenient collection on validation errors', 
     const systemSymbol = semanticSymbols.find((s) => s.name === 'System');
     expect(systemSymbol?.kind).toBe(SymbolKind.Class);
     
-    const fileScope = table.getCurrentScope();
+    // getCurrentScope() returns innermost scope, not file scope - find file scope differently
+    const fileScope = table
+      .getAllSymbols()
+      .find(
+        (s) => s.kind === SymbolKind.Block && (s as ScopeSymbol).scopeType === 'file',
+      ) as ScopeSymbol | undefined;
 
-    const classScope = fileScope.getChildren().find((s) => s.name === 'System');
+    const classScope = table
+      .getAllSymbols()
+      .find(
+        (s) =>
+          s.kind === SymbolKind.Block &&
+          s.scopeType === 'class' &&
+          s.name === 'System',
+      ) as ScopeSymbol | undefined;
     expect(classScope).toBeDefined();
 
-    const allClassSymbols = classScope!.getAllSymbols();
+    const allClassSymbols = classScope
+      ? table.getSymbolsInScope(classScope.id)
+      : [];
     const classSemanticSymbols = allClassSymbols.filter((s) => !isBlockSymbol(s));
     const methodFoo = classSemanticSymbols.find(
       (s: ApexSymbol) => s.kind === SymbolKind.Method && s.name === 'foo',
@@ -97,12 +116,26 @@ describe('ApexSymbolCollectorListener lenient collection on validation errors', 
     const ifaceSymbol = semanticSymbols.find((s) => s.name === 'page');
     expect(ifaceSymbol?.kind).toBe(SymbolKind.Interface);
     
-    const fileScope = table.getCurrentScope();
+    // getCurrentScope() returns innermost scope, not file scope - find file scope differently
+    const fileScope = table
+      .getAllSymbols()
+      .find(
+        (s) => s.kind === SymbolKind.Block && (s as ScopeSymbol).scopeType === 'file',
+      ) as ScopeSymbol | undefined;
 
-    const ifaceScope = fileScope.getChildren().find((s) => s.name === 'page');
+    const ifaceScope = table
+      .getAllSymbols()
+      .find(
+        (s) =>
+          s.kind === SymbolKind.Block &&
+          s.scopeType === 'class' &&
+          s.name === 'page',
+      ) as ScopeSymbol | undefined;
     expect(ifaceScope).toBeDefined();
 
-    const allIfaceSymbols = ifaceScope!.getAllSymbols();
+    const allIfaceSymbols = ifaceScope
+      ? table.getSymbolsInScope(ifaceScope.id)
+      : [];
     const ifaceSemanticSymbols = allIfaceSymbols.filter((s) => !isBlockSymbol(s));
     const methodM = ifaceSemanticSymbols.find(
       (s: ApexSymbol) => s.kind === SymbolKind.Method && s.name === 'm',

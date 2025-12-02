@@ -11,7 +11,12 @@ import {
   CompilationResult,
 } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { SymbolTable, SymbolKind, MethodSymbol } from '../../src/types/symbol';
+import {
+  SymbolTable,
+  SymbolKind,
+  MethodSymbol,
+  ScopeSymbol,
+} from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 
 describe('ApexSymbolCollectorListener Additional Tests', () => {
@@ -56,9 +61,23 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
       expect(classSymbol?.annotations?.[0].name).toBe('isTest');
 
       // Methods might be in the class scope or in the table - check both
-      const globalScope = symbolTable?.getCurrentScope();
-      const classScope = globalScope?.getChildren()[0];
-      const allClassSymbols = classScope?.getAllSymbols() || [];
+      // getCurrentScope() returns innermost scope, not file scope - find file scope differently
+      const fileScope = symbolTable
+        ?.getAllSymbols()
+        .find(
+          (s) => s.kind === SymbolKind.Block && (s as ScopeSymbol).scopeType === 'file',
+        ) as ScopeSymbol | undefined;
+      const classScope = symbolTable
+        ?.getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'class' &&
+            s.name === 'TestClass',
+        ) as ScopeSymbol | undefined;
+      const allClassSymbols = classScope
+        ? symbolTable.getSymbolsInScope(classScope.id)
+        : [];
       const classSemanticSymbols = allClassSymbols.filter((s) => !isBlockSymbol(s));
       let m1 = classSemanticSymbols.find((s) => s.name === 'm1') as MethodSymbol;
       
@@ -112,8 +131,17 @@ public class TestClass {
 
       // Methods might be in the class scope or in the table - check both
       const globalScope = symbolTable?.getCurrentScope();
-      const classScope = globalScope?.getChildren()[0];
-      const allClassSymbols = classScope?.getAllSymbols() || [];
+      const classScope = symbolTable
+        ?.getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'class' &&
+            s.name === 'TestClass',
+        ) as ScopeSymbol | undefined;
+      const allClassSymbols = classScope
+        ? symbolTable.getSymbolsInScope(classScope.id)
+        : [];
       const classSemanticSymbols = allClassSymbols.filter((s) => !isBlockSymbol(s));
       let normalMethod = classSemanticSymbols.find(
         (s) => s.name === 'normalMethod',
@@ -248,41 +276,95 @@ public class TestClass {
 
       expect(result.errors.length).toBe(0);
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getCurrentScope();
-      const classScope = globalScope?.getChildren()[0];
-      const methodScope = classScope?.getChildren()[0];
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+      const classScope = symbolTable
+        .getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'class' &&
+            s.name === 'TestClass',
+        ) as ScopeSymbol | undefined;
+      const methodScope = classScope
+        ? symbolTable
+            .getSymbolsInScope(classScope.id)
+            .find(
+              (s) =>
+                s.kind === SymbolKind.Block &&
+                s.scopeType === 'method' &&
+                s.name === 'testMethod',
+            )
+        : undefined;
 
       // Get all block scopes
-      const blockScopes = methodScope?.getChildren();
+      const blockScopes = methodScope
+        ? symbolTable
+            .getSymbolsInScope(methodScope.id)
+            .filter(
+              (s) =>
+                s.parentId === methodScope.id &&
+                s.kind === SymbolKind.Block &&
+                s.scopeType !== 'method',
+            ) as ScopeSymbol[]
+        : [];
       expect(blockScopes?.length).toBe(1); // One nested block directly under method
 
       // Check variables in the first block scope (outer block)
-      const firstBlockVars = blockScopes?.[0]
-        .getAllSymbols()
-        .filter((s) => s.kind === SymbolKind.Variable);
-      expect(firstBlockVars?.length).toBe(1); // Only x in the outer block
-      expect(firstBlockVars?.[0].name).toBe('x');
+      const firstBlock = blockScopes?.[0];
+      const firstBlockVars = firstBlock
+        ? symbolTable
+            .getSymbolsInScope(firstBlock.id)
+            .filter((s) => s.kind === SymbolKind.Variable)
+        : [];
+      expect(firstBlockVars.length).toBe(1); // Only x in the outer block
+      expect(firstBlockVars[0]?.name).toBe('x');
 
       // Check nested block scope
-      const nestedBlockScopes = blockScopes?.[0].getChildren();
-      expect(nestedBlockScopes?.length).toBe(1); // One nested block inside the first block
+      const nestedBlockScopes = firstBlock
+        ? symbolTable
+            .getSymbolsInScope(firstBlock.id)
+            .filter(
+              (s) =>
+                s.parentId === firstBlock.id &&
+                s.kind === SymbolKind.Block &&
+                s.scopeType !== 'method',
+            ) as ScopeSymbol[]
+        : [];
+      expect(nestedBlockScopes.length).toBe(1); // One nested block inside the first block
 
       // Check variables in the middle block scope
-      const middleBlockVars = nestedBlockScopes?.[0]
-        .getAllSymbols()
-        .filter((s) => s.kind === SymbolKind.Variable);
-      expect(middleBlockVars?.length).toBe(1); // Only y in the middle block
-      expect(middleBlockVars?.[0].name).toBe('y');
+      const middleBlock = nestedBlockScopes?.[0];
+      const middleBlockVars = middleBlock
+        ? symbolTable
+            .getSymbolsInScope(middleBlock.id)
+            .filter((s) => s.kind === SymbolKind.Variable)
+        : [];
+      expect(middleBlockVars.length).toBe(1); // Only y in the middle block
+      expect(middleBlockVars[0]?.name).toBe('y');
 
       // Check innermost block scope
-      const innerBlockScopes = nestedBlockScopes?.[0].getChildren();
-      expect(innerBlockScopes?.length).toBe(1); // One nested block inside the middle block
+      const innerBlockScopes = middleBlock
+        ? symbolTable
+            .getSymbolsInScope(middleBlock.id)
+            .filter(
+              (s) =>
+                s.parentId === middleBlock.id &&
+                s.kind === SymbolKind.Block &&
+                s.scopeType !== 'method',
+            ) as ScopeSymbol[]
+        : [];
+      expect(innerBlockScopes.length).toBe(1); // One nested block inside the middle block
 
       // Check variables in the innermost block scope
-      const innerBlockVars = innerBlockScopes?.[0]
-        .getAllSymbols()
-        .filter((s) => s.kind === SymbolKind.Variable);
-      expect(innerBlockVars?.length).toBe(1); // Only z in the innermost block
+      const innerBlock = innerBlockScopes?.[0];
+      const innerBlockVars = innerBlock
+        ? symbolTable
+            .getSymbolsInScope(innerBlock.id)
+            .filter((s) => s.kind === SymbolKind.Variable)
+        : [];
+      expect(innerBlockVars.length).toBe(1); // Only z in the innermost block
       expect(innerBlockVars?.[0].name).toBe('z');
     });
   });
@@ -357,8 +439,17 @@ public class TestClass {
       const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
       const outerClass = semanticSymbols.find((s) => s.name === 'OuterClass');
       const globalScope = symbolTable?.getCurrentScope();
-      const outerScope = globalScope?.getChildren()[0];
-      const allOuterSymbols = outerScope?.getAllSymbols() || [];
+      const outerScope = symbolTable
+        ?.getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            s.scopeType === 'class' &&
+            s.name === 'OuterClass',
+        ) as ScopeSymbol | undefined;
+      const allOuterSymbols = outerScope
+        ? symbolTable.getSymbolsInScope(outerScope.id)
+        : [];
       const outerSemanticSymbols = allOuterSymbols.filter((s) => !isBlockSymbol(s));
       let innerClass = outerSemanticSymbols.find((s) => s.name === 'InnerClass');
       

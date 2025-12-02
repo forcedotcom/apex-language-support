@@ -32,7 +32,6 @@ import {
   SymbolTable,
   SymbolVisibility,
   SymbolLocation,
-  SymbolKind,
 } from '../types/symbol';
 import { isBlockSymbol } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';

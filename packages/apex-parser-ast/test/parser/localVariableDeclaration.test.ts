@@ -16,7 +16,7 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import {
   SymbolTable,
   SymbolKind,
-  SymbolScope,
+  ScopeSymbol,
   ApexSymbol,
 } from '../../src/types/symbol';
 import { TestLogger } from '../utils/testLogger';
@@ -432,28 +432,45 @@ public class ParentChildTest {
   function getAllSymbolsFromAllScopes(symbolTable: SymbolTable): ApexSymbol[] {
     const symbols: ApexSymbol[] = [];
 
-    function collectFromScope(scope: SymbolScope) {
-      symbols.push(...scope.getAllSymbols());
-      scope.getChildren().forEach(collectFromScope);
+    function collectFromScope(scope: ScopeSymbol) {
+      symbols.push(...symbolTable.getSymbolsInScope(scope.id));
+      const children = symbolTable
+        .getSymbolsInScope(scope.id)
+        .filter(
+          (s) =>
+            s.parentId === scope.id && s.kind === SymbolKind.Block,
+        ) as ScopeSymbol[];
+      children.forEach(collectFromScope);
     }
 
-    collectFromScope(symbolTable.getCurrentScope());
+    // Start from file scope (root), not current scope
+    const fileScope = symbolTable
+      .getAllSymbols()
+      .find(
+        (s) => s.kind === SymbolKind.Block && (s as ScopeSymbol).scopeType === 'file',
+      ) as ScopeSymbol | undefined;
+    if (fileScope) {
+      collectFromScope(fileScope);
+    }
     return symbols;
   }
 
   // Helper function to get scope name for debugging
   function getScopeName(symbolTable: SymbolTable, symbol: ApexSymbol): string {
     function findScopeName(
-      scope: SymbolScope,
+      scope: ScopeSymbol,
       targetId: string,
     ): string | null {
-      const scopeKey = scope.getKey();
-      const scopeId =
-        scopeKey.unifiedId || `${scopeKey.prefix}:${scopeKey.path.join('.')}`;
-      if (scopeId === targetId) {
+      if (scope.id === targetId) {
         return scope.name;
       }
-      for (const child of scope.getChildren()) {
+      const children = symbolTable
+        .getSymbolsInScope(scope.id)
+        .filter(
+          (s) =>
+            s.parentId === scope.id && s.kind === SymbolKind.Block,
+        ) as ScopeSymbol[];
+      for (const child of children) {
         const result = findScopeName(child, targetId);
         if (result) return result;
       }

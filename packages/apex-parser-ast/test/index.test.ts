@@ -20,7 +20,7 @@ describe('apex-parser-ast exports', () => {
     expect(apexParserAst.SymbolVisibility).toBeDefined();
     expect(apexParserAst.QName).toBeDefined();
     expect(apexParserAst.SymbolTable).toBeDefined();
-    expect(apexParserAst.SymbolScope).toBeDefined();
+    expect(apexParserAst.ScopeSymbol).toBeDefined();
     expect(apexParserAst.createPrimitiveType).toBeDefined();
     expect(apexParserAst.createCollectionType).toBeDefined();
     expect(apexParserAst.createArrayType).toBeDefined();

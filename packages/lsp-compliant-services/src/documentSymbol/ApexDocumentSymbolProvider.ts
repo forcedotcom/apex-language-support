@@ -24,6 +24,7 @@ import {
   isMethodSymbol,
   isBlockSymbol,
   SymbolKind as ApexSymbolKind,
+  ScopeSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
@@ -347,10 +348,17 @@ export class DefaultApexDocumentSymbolProvider
         const documentSymbol = self.createDocumentSymbol(symbol);
 
         // Recursively collect children for top-level symbol types (classes, interfaces, etc.)
-        const childScopes = symbolTable.getCurrentScope().getChildren();
+        // Get child scopes by finding symbols with parentId === current scope id
+        const currentScope = symbolTable.getCurrentScope();
+        const childScopes = symbolTable
+          .getAllSymbols()
+          .filter(
+            (s) =>
+              s.parentId === currentScope.id && s.kind === ApexSymbolKind.Block,
+          ) as ScopeSymbol[];
 
         const typeScope = childScopes.find(
-          (scope: any) => scope.name === symbol.name,
+          (scope) => scope.name === symbol.name,
         );
 
         if (typeScope) {

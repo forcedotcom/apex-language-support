@@ -12,6 +12,7 @@ import {
   SymbolKind,
   SymbolTable,
   SymbolFactory,
+  ScopeSymbol,
 } from '../../src/types/symbol';
 import { ReferenceType } from '../../src/symbols/ApexSymbolGraph';
 import {
@@ -105,20 +106,38 @@ describe('ApexSymbolManager', () => {
     // Get all symbols from the symbol table
     const symbols: ApexSymbol[] = [];
     const collectSymbols = (scope: any) => {
-      const scopeSymbols = scope.getAllSymbols();
+      const scopeSymbols = symbolTable.getSymbolsInScope(scope.id);
       symbols.push(...scopeSymbols);
 
       // Recursively collect from child scopes
-      const children = scope.getChildren();
+      const children = symbolTable
+        .getSymbolsInScope(scope.id)
+        .filter(
+          (s) => s.parentId === scope.id && s.kind === SymbolKind.Block,
+        ) as ScopeSymbol[];
       children.forEach((child: any) => collectSymbols(child));
     };
 
     // Start from the root scope and collect all symbols
-    let currentScope = symbolTable.getCurrentScope();
-    while (currentScope.parent) {
-      currentScope = currentScope.parent;
+    // Find root scope (file scope has no parentId)
+    const rootScope = symbolTable
+      .getAllSymbols()
+      .find(
+        (s) => s.kind === SymbolKind.Block && s.scopeType === 'file',
+      ) as ScopeSymbol;
+    if (rootScope) {
+      collectSymbols(rootScope);
+    } else {
+      // Fallback: use file scope (root)
+      const fileScope = symbolTable
+        .getAllSymbols()
+        .find(
+          (s) => s.kind === SymbolKind.Block && (s as ScopeSymbol).scopeType === 'file',
+        ) as ScopeSymbol | undefined;
+      if (fileScope) {
+        collectSymbols(fileScope);
+      }
     }
-    collectSymbols(currentScope);
 
     return { symbols, result };
   };

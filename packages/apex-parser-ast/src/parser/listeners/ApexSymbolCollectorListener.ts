@@ -35,7 +35,6 @@ import {
   AssignExpressionContext,
   ArrayExpressionContext,
   CastExpressionContext,
-  CatchClauseContext,
   // Use dedicated method call contexts for precise capture
   MethodCallContext,
   DotMethodCallContext,
@@ -53,6 +52,15 @@ import {
   IfStatementContext,
   WhileStatementContext,
   ForStatementContext,
+  TryStatementContext,
+  CatchClauseContext,
+  FinallyBlockContext,
+  SwitchStatementContext,
+  WhenControlContext,
+  DoWhileStatementContext,
+  RunAsStatementContext,
+  GetterContext,
+  SetterContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -82,8 +90,7 @@ import {
   AnnotationParameter,
   SymbolFactory,
   ApexSymbol,
-  SymbolScope,
-  BlockSymbol,
+  ScopeSymbol,
   Range,
 } from '../../types/symbol';
 import {
@@ -126,16 +133,6 @@ interface ChainScope {
 }
 
 /**
- * Represents scope ownership in the symbol hierarchy.
- * Used for stack-based tracking of current scope context.
- */
-interface ScopeOwnership {
-  type: 'type' | 'method' | 'block';
-  symbol: TypeSymbol | MethodSymbol | BlockSymbol;
-  blockSymbol: BlockSymbol | null;
-}
-
-/**
  * A listener that collects symbols from Apex code and organizes them into symbol tables.
  * This listener builds a hierarchy of symbol scopes and tracks symbols defined in each scope.
  */
@@ -145,11 +142,10 @@ export class ApexSymbolCollectorListener
 {
   private readonly logger;
   private symbolTable: SymbolTable;
-  private scopeStack: Stack<ScopeOwnership> = new Stack<ScopeOwnership>();
+  private scopeStack: Stack<ApexSymbol> = new Stack<ApexSymbol>();
   private currentNamespace: Namespace | null = null; // NEW: Track current namespace
   protected projectNamespace: string | undefined = undefined; // NEW: Store project namespace
-  private blockDepth: number = 0;
-  private blockCounter: number = 0; // Separate counter for unique block names
+  private blockCounter: number = 0; // Counter for unique block names
   private currentModifiers: SymbolModifiers = this.createDefaultModifiers();
   private currentAnnotations: Annotation[] = [];
   private currentFilePath: string = '';
@@ -203,28 +199,11 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Push a scope ownership onto the stack
+   * Get the current scope symbol without removing it
+   * @returns The current scope symbol (ScopeSymbol), or null if stack is empty
    */
-  private pushScope(ownership: ScopeOwnership): void {
-    this.scopeStack.push(ownership);
-  }
-
-  /**
-   * Pop a scope ownership from the stack
-   * @returns The popped scope ownership, or null if stack is empty
-   */
-  private popScope(): ScopeOwnership | null {
-    const popped = this.scopeStack.pop();
-    return popped ?? null;
-  }
-
-  /**
-   * Get the current scope ownership without removing it
-   * @returns The current scope ownership, or null if stack is empty
-   */
-  private getCurrentScope(): ScopeOwnership | null {
-    const current = this.scopeStack.peek();
-    return current ?? null;
+  private getCurrentScope(): ApexSymbol | null {
+    return this.scopeStack.peek() ?? null;
   }
 
   /**
@@ -232,15 +211,24 @@ export class ApexSymbolCollectorListener
    * @returns The current type symbol, or null if not in a type scope
    */
   private getCurrentType(): TypeSymbol | null {
-    const current = this.getCurrentScope();
-    if (current && current.type === 'type') {
-      return current.symbol as TypeSymbol;
-    }
-    // Search down the stack for the most recent type
     const stackArray = this.scopeStack.toArray();
-    for (const ownership of stackArray) {
-      if (ownership.type === 'type') {
-        return ownership.symbol as TypeSymbol;
+    for (const owner of stackArray) {
+      if (owner.kind === SymbolKind.Block) {
+        const block = owner as ScopeSymbol;
+        if (block.scopeType === 'class') {
+          // Block's parentId points to the class/interface/enum/trigger symbol
+          const typeSymbol = this.symbolTable
+            .getAllSymbols()
+            .find(
+              (s) =>
+                s.id === block.parentId &&
+                (s.kind === SymbolKind.Class ||
+                  s.kind === SymbolKind.Interface ||
+                  s.kind === SymbolKind.Enum ||
+                  s.kind === SymbolKind.Trigger),
+            );
+          if (typeSymbol) return typeSymbol as TypeSymbol;
+        }
       }
     }
     return null;
@@ -251,15 +239,22 @@ export class ApexSymbolCollectorListener
    * @returns The current method symbol, or null if not in a method scope
    */
   private getCurrentMethod(): MethodSymbol | null {
-    const current = this.getCurrentScope();
-    if (current && current.type === 'method') {
-      return current.symbol as MethodSymbol;
-    }
-    // Search down the stack for the most recent method
     const stackArray = this.scopeStack.toArray();
-    for (const ownership of stackArray) {
-      if (ownership.type === 'method') {
-        return ownership.symbol as MethodSymbol;
+    for (const owner of stackArray) {
+      if (owner.kind === SymbolKind.Block) {
+        const block = owner as ScopeSymbol;
+        if (block.scopeType === 'method') {
+          // Block's parentId points to the method/constructor symbol
+          const methodSymbol = this.symbolTable
+            .getAllSymbols()
+            .find(
+              (s) =>
+                s.id === block.parentId &&
+                (s.kind === SymbolKind.Method ||
+                  s.kind === SymbolKind.Constructor),
+            );
+          if (methodSymbol) return methodSymbol as MethodSymbol;
+        }
       }
     }
     return null;
@@ -269,27 +264,10 @@ export class ApexSymbolCollectorListener
    * Get the current block symbol from the stack
    * @returns The current block symbol, or null if not in a block scope
    */
-  private getCurrentBlock(): BlockSymbol | null {
-    const current = this.getCurrentScope();
-    if (current) {
-      return current.blockSymbol;
-    }
-    return null;
-  }
-
-  /**
-   * Find a scope by type in the stack (searches from top to bottom)
-   * @param type The type of scope to find
-   * @returns The scope ownership if found, or null
-   */
-  private findScopeByType(
-    type: 'type' | 'method' | 'block',
-  ): ScopeOwnership | null {
-    const stackArray = this.scopeStack.toArray();
-    for (const ownership of stackArray) {
-      if (ownership.type === type) {
-        return ownership;
-      }
+  private getCurrentBlock(): ScopeSymbol | null {
+    const owner = this.scopeStack.peek();
+    if (owner && owner.kind === SymbolKind.Block) {
+      return owner as ScopeSymbol;
     }
     return null;
   }
@@ -302,7 +280,7 @@ export class ApexSymbolCollectorListener
    * the type's block scope, so getCurrentScope() should return the correct scope.
    * @returns The type's block scope where methods are stored
    */
-  private getTypeScope(): SymbolScope {
+  private getTypeScope(): ScopeSymbol {
     // When checking for duplicates, we should be in the type's block scope
     // The user confirmed that getCurrentScope() returns the type's block scope
     // which contains the first method, so we can use it directly
@@ -517,12 +495,10 @@ export class ApexSymbolCollectorListener
       const location = this.getLocation(ctx);
       const blockSymbol = this.symbolTable.enterScope(name, 'class', location);
 
-      // Push type ownership onto stack
-      this.pushScope({
-        type: 'type',
-        symbol: classSymbol,
-        blockSymbol: blockSymbol,
-      });
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -538,12 +514,15 @@ export class ApexSymbolCollectorListener
   exitClassDeclaration(): void {
     this.symbolTable.exitScope();
 
-    // Pop from stack and validate it's a type
-    const popped = this.popScope();
-    if (popped && popped.type !== 'type') {
-      this.logger.warn(
-        `Expected type scope on exitClassDeclaration, but got ${popped.type}`,
-      );
+    // Pop from stack and validate it's a class scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'class') {
+        this.logger.warn(
+          `Expected class scope on exitClassDeclaration, but got ${block.scopeType}`,
+        );
+      }
     }
   }
 
@@ -622,12 +601,10 @@ export class ApexSymbolCollectorListener
       const location = this.getLocation(ctx);
       const blockSymbol = this.symbolTable.enterScope(name, 'class', location);
 
-      // Push type ownership onto stack
-      this.pushScope({
-        type: 'type',
-        symbol: interfaceSymbol,
-        blockSymbol: blockSymbol,
-      });
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -643,12 +620,15 @@ export class ApexSymbolCollectorListener
   exitInterfaceDeclaration(): void {
     this.symbolTable.exitScope();
 
-    // Pop from stack and validate it's a type
-    const popped = this.popScope();
-    if (popped && popped.type !== 'type') {
-      this.logger.warn(
-        `Expected type scope on exitInterfaceDeclaration, but got ${popped.type}`,
-      );
+    // Pop from stack and validate it's a class scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'class') {
+        this.logger.warn(
+          `Expected class scope on exitInterfaceDeclaration, but got ${block.scopeType}`,
+        );
+      }
     }
   }
 
@@ -722,8 +702,10 @@ export class ApexSymbolCollectorListener
       if (currentType) {
         // Use the type's scope (not current scope) to find methods
         const typeScope = this.getTypeScope();
-        // Use getSymbolsByName to find methods with the same name (more efficient)
-        const existingMethods = typeScope.getSymbolsByName(name);
+        // Use getSymbolsInScope to find methods with the same name (more efficient)
+        const existingMethods = this.symbolTable
+          .getSymbolsInScope(typeScope.id)
+          .filter((s) => s.name === name);
 
         // Get the parameter types for the current method being checked
         const currentParamTypes =
@@ -735,7 +717,7 @@ export class ApexSymbolCollectorListener
             .join(',') || '';
 
         // Check for duplicate by name and parameter signature
-        const duplicateMethod = existingMethods.find((s) => {
+        const duplicateMethod = existingMethods.find((s: ApexSymbol) => {
           if (!isMethodSymbol(s)) {
             return false;
           }
@@ -773,12 +755,10 @@ export class ApexSymbolCollectorListener
       const location = this.getLocation(ctx);
       const blockSymbol = this.symbolTable.enterScope(name, 'method', location);
 
-      // Push method ownership onto stack
-      this.pushScope({
-        type: 'method',
-        symbol: methodSymbol,
-        blockSymbol: blockSymbol,
-      });
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in method declaration: ${errorMessage}`, ctx);
@@ -793,12 +773,15 @@ export class ApexSymbolCollectorListener
     // Exit method scope
     this.symbolTable.exitScope();
 
-    // Pop from stack and validate it's a method
-    const popped = this.popScope();
-    if (popped && popped.type !== 'method') {
-      this.logger.warn(
-        `Expected method scope on exitMethodDeclaration, but got ${popped.type}`,
-      );
+    // Pop from stack and validate it's a method scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'method') {
+        this.logger.warn(
+          `Expected method scope on exitMethodDeclaration, but got ${block.scopeType}`,
+        );
+      }
     }
 
     // Reset modifiers and annotations for the next symbol
@@ -857,8 +840,10 @@ export class ApexSymbolCollectorListener
       if (currentType) {
         // Use the type's scope (not current scope) to find constructors
         const typeScope = this.getTypeScope();
-        // Use getSymbolsByName to find constructors with the same name (more efficient)
-        const existingConstructors = typeScope.getSymbolsByName(name);
+        // Use getSymbolsInScope to find constructors with the same name (more efficient)
+        const existingConstructors = this.symbolTable
+          .getSymbolsInScope(typeScope.id)
+          .filter((s) => s.name === name);
 
         // Get the parameter types for the current constructor
         const currentParamTypes =
@@ -869,16 +854,18 @@ export class ApexSymbolCollectorListener
             ?.map((param) => this.getTextFromContext(param.typeRef()))
             .join(',') || '';
 
-        const duplicateConstructor = existingConstructors.find((s) => {
-          if (!isConstructorSymbol(s)) {
-            return false;
-          }
-          const existingParamTypes =
-            s.parameters
-              ?.map((param) => param.type.originalTypeString)
-              .join(',') || '';
-          return existingParamTypes === currentParamTypes;
-        });
+        const duplicateConstructor = existingConstructors.find(
+          (s: ApexSymbol) => {
+            if (!isConstructorSymbol(s)) {
+              return false;
+            }
+            const existingParamTypes =
+              s.parameters
+                ?.map((param) => param.type.originalTypeString)
+                .join(',') || '';
+            return existingParamTypes === currentParamTypes;
+          },
+        );
 
         if (duplicateConstructor) {
           this.addError(`Duplicate constructor declaration: ${name}`, ctx);
@@ -901,12 +888,10 @@ export class ApexSymbolCollectorListener
       const location = this.getLocation(ctx);
       const blockSymbol = this.symbolTable.enterScope(name, 'method', location);
 
-      // Push method ownership onto stack
-      this.pushScope({
-        type: 'method',
-        symbol: constructorSymbol,
-        blockSymbol: blockSymbol,
-      });
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in constructor: ${errorMessage}`, ctx);
@@ -921,12 +906,15 @@ export class ApexSymbolCollectorListener
     // Exit constructor scope
     this.symbolTable.exitScope();
 
-    // Pop from stack and validate it's a method
-    const popped = this.popScope();
-    if (popped && popped.type !== 'method') {
-      this.logger.warn(
-        `Expected method scope on exitConstructorDeclaration, but got ${popped.type}`,
-      );
+    // Pop from stack and validate it's a method scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'method') {
+        this.logger.warn(
+          `Expected method scope on exitConstructorDeclaration, but got ${block.scopeType}`,
+        );
+      }
     }
   }
 
@@ -951,11 +939,13 @@ export class ApexSymbolCollectorListener
       if (currentType) {
         // Use the type's scope (not current scope) to find interface methods
         const typeScope = this.getTypeScope();
-        // Use getSymbolsByName to find methods with the same name (more efficient)
-        const existingMethods = typeScope.getSymbolsByName(name);
+        // Use getSymbolsInScope to find methods with the same name (more efficient)
+        const existingMethods = this.symbolTable
+          .getSymbolsInScope(typeScope.id)
+          .filter((s) => s.name === name);
         // Filter to only method symbols (exclude block symbols)
         const duplicateMethod = existingMethods.find(
-          (s) => isMethodSymbol(s) && s.name === name,
+          (s: ApexSymbol) => isMethodSymbol(s) && s.name === name,
         );
 
         if (duplicateMethod) {
@@ -1001,12 +991,10 @@ export class ApexSymbolCollectorListener
       const location = this.getLocation(ctx);
       const blockSymbol = this.symbolTable.enterScope(name, 'method', location);
 
-      // Push method ownership onto stack
-      this.pushScope({
-        type: 'method',
-        symbol: methodSymbol,
-        blockSymbol: blockSymbol,
-      });
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -1027,12 +1015,15 @@ export class ApexSymbolCollectorListener
     // Exit method scope
     this.symbolTable.exitScope();
 
-    // Pop from stack and validate it's a method
-    const popped = this.popScope();
-    if (popped && popped.type !== 'method') {
-      this.logger.warn(
-        `Expected method scope on exitInterfaceMethodDeclaration, but got ${popped.type}`,
-      );
+    // Pop from stack and validate it's a method scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'method') {
+        this.logger.warn(
+          `Expected method scope on exitInterfaceMethodDeclaration, but got ${block.scopeType}`,
+        );
+      }
     }
   }
 
@@ -1229,12 +1220,10 @@ export class ApexSymbolCollectorListener
       const location = this.getLocation(ctx);
       const blockSymbol = this.symbolTable.enterScope(name, 'class', location);
 
-      // Push type ownership onto stack
-      this.pushScope({
-        type: 'type',
-        symbol: enumSymbol,
-        blockSymbol: blockSymbol,
-      });
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in enum: ${errorMessage}`, ctx);
@@ -1284,38 +1273,34 @@ export class ApexSymbolCollectorListener
     // Exit enum scope
     this.symbolTable.exitScope();
 
-    // Pop from stack and validate it's a type
-    const popped = this.popScope();
-    if (popped && popped.type !== 'type') {
-      this.logger.warn(
-        `Expected type scope on exitEnumDeclaration, but got ${popped.type}`,
-      );
+    // Pop from stack and validate it's a class scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'class') {
+        this.logger.warn(
+          `Expected class scope on exitEnumDeclaration, but got ${block.scopeType}`,
+        );
+      }
     }
   }
 
   /**
    * Called when entering a block
+   * Always creates a block scope - the stack order determines the parent scope
    */
   enterBlock(ctx: BlockContext): void {
     try {
-      this.blockDepth++;
-      this.blockCounter++; // Increment the unique block counter
-      const name = `block${this.blockCounter}`; // Use blockCounter for unique names
-
-      // Create scope with location for block management
+      this.blockCounter++;
+      const name = `block${this.blockCounter}`;
       const location = this.getLocation(ctx);
       const blockSymbol = this.symbolTable.enterScope(name, 'block', location);
 
-      // Push block ownership onto stack (blockSymbol should never be null from enterScope)
       if (!blockSymbol) {
         this.addError('Failed to create block symbol', ctx);
         return;
       }
-      this.pushScope({
-        type: 'block',
-        symbol: blockSymbol,
-        blockSymbol: blockSymbol,
-      });
+      this.scopeStack.push(blockSymbol);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in block: ${errorMessage}`, ctx);
@@ -1324,18 +1309,18 @@ export class ApexSymbolCollectorListener
 
   /**
    * Called when exiting a block
+   * Always exits the block scope - the stack order determines what gets popped
    */
   exitBlock(): void {
-    // Exit block scope
     this.symbolTable.exitScope();
-    this.blockDepth--;
-
-    // Pop from stack and validate it's a block
-    const popped = this.popScope();
-    if (popped && popped.type !== 'block') {
-      this.logger.warn(
-        `Expected block scope on exitBlock, but got ${popped.type}`,
-      );
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'block') {
+        this.logger.warn(
+          `Expected block scope on exitBlock, but got ${block.scopeType}`,
+        );
+      }
     }
   }
 
@@ -1349,18 +1334,15 @@ export class ApexSymbolCollectorListener
 
       // Create scope with location for if statement block
       const location = this.getLocation(ctx);
-      const blockSymbol = this.symbolTable.enterScope(name, 'block', location);
+      const blockSymbol = this.symbolTable.enterScope(name, 'if', location);
 
-      // Push block ownership onto stack (blockSymbol should never be null from enterScope)
+      // Push block symbol onto stack (blockSymbol should never be null from enterScope)
       if (!blockSymbol) {
         this.addError('Failed to create block symbol', ctx);
         return;
       }
-      this.pushScope({
-        type: 'block',
-        symbol: blockSymbol,
-        blockSymbol: blockSymbol,
-      });
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in if statement: ${errorMessage}`, ctx);
@@ -1374,12 +1356,15 @@ export class ApexSymbolCollectorListener
     // Exit if statement scope
     this.symbolTable.exitScope();
 
-    // Pop from stack and validate it's a block
-    const popped = this.popScope();
-    if (popped && popped.type !== 'block') {
-      this.logger.warn(
-        `Expected block scope on exitIfStatement, but got ${popped.type}`,
-      );
+    // Pop from stack and validate it's a block scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'if') {
+        this.logger.warn(
+          `Expected if scope on exitIfStatement, but got ${block.scopeType}`,
+        );
+      }
     }
   }
 
@@ -1393,18 +1378,15 @@ export class ApexSymbolCollectorListener
 
       // Create scope with location for while statement block
       const location = this.getLocation(ctx);
-      const blockSymbol = this.symbolTable.enterScope(name, 'block', location);
+      const blockSymbol = this.symbolTable.enterScope(name, 'while', location);
 
       // Push block ownership onto stack (blockSymbol should never be null from enterScope)
       if (!blockSymbol) {
         this.addError('Failed to create block symbol', ctx);
         return;
       }
-      this.pushScope({
-        type: 'block',
-        symbol: blockSymbol,
-        blockSymbol: blockSymbol,
-      });
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in while statement: ${errorMessage}`, ctx);
@@ -1418,12 +1400,15 @@ export class ApexSymbolCollectorListener
     // Exit while statement scope
     this.symbolTable.exitScope();
 
-    // Pop from stack and validate it's a block
-    const popped = this.popScope();
-    if (popped && popped.type !== 'block') {
-      this.logger.warn(
-        `Expected block scope on exitWhileStatement, but got ${popped.type}`,
-      );
+    // Pop from stack and validate it's a block scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'while') {
+        this.logger.warn(
+          `Expected while scope on exitWhileStatement, but got ${block.scopeType}`,
+        );
+      }
     }
   }
 
@@ -1437,18 +1422,15 @@ export class ApexSymbolCollectorListener
 
       // Create scope with location for for statement block
       const location = this.getLocation(ctx);
-      const blockSymbol = this.symbolTable.enterScope(name, 'block', location);
+      const blockSymbol = this.symbolTable.enterScope(name, 'for', location);
 
       // Push block ownership onto stack (blockSymbol should never be null from enterScope)
       if (!blockSymbol) {
         this.addError('Failed to create block symbol', ctx);
         return;
       }
-      this.pushScope({
-        type: 'block',
-        symbol: blockSymbol,
-        blockSymbol: blockSymbol,
-      });
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in for statement: ${errorMessage}`, ctx);
@@ -1462,12 +1444,59 @@ export class ApexSymbolCollectorListener
     // Exit for statement scope
     this.symbolTable.exitScope();
 
-    // Pop from stack and validate it's a block
-    const popped = this.popScope();
-    if (popped && popped.type !== 'block') {
-      this.logger.warn(
-        `Expected block scope on exitForStatement, but got ${popped.type}`,
-      );
+    // Pop from stack and validate it's a block scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'for') {
+        this.logger.warn(
+          `Expected for scope on exitForStatement, but got ${block.scopeType}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Called when entering a try statement
+   */
+  enterTryStatement(ctx: TryStatementContext): void {
+    try {
+      this.blockCounter++; // Increment the unique block counter
+      const name = `try_${this.blockCounter}`; // Use blockCounter for unique names
+
+      // Create scope with location for try statement block
+      const location = this.getLocation(ctx);
+      const blockSymbol = this.symbolTable.enterScope(name, 'try', location);
+
+      // Push block symbol onto stack (blockSymbol should never be null from enterScope)
+      if (!blockSymbol) {
+        this.addError('Failed to create block symbol', ctx);
+        return;
+      }
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in try statement: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a try statement
+   */
+  exitTryStatement(): void {
+    // Exit try statement scope
+    this.symbolTable.exitScope();
+
+    // Pop from stack and validate it's a try scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'try') {
+        this.logger.warn(
+          `Expected try scope on exitTryStatement, but got ${block.scopeType}`,
+        );
+      }
     }
   }
 
@@ -1496,12 +1525,10 @@ export class ApexSymbolCollectorListener
       const location = this.getLocation(ctx);
       const blockSymbol = this.symbolTable.enterScope(name, 'class', location);
 
-      // Push type ownership onto stack
-      this.pushScope({
-        type: 'type',
-        symbol: triggerSymbol,
-        blockSymbol: blockSymbol,
-      });
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -1518,12 +1545,15 @@ export class ApexSymbolCollectorListener
     // Exit trigger scope
     this.symbolTable.exitScope();
 
-    // Pop from stack and validate it's a type
-    const popped = this.popScope();
-    if (popped && popped.type !== 'type') {
-      this.logger.warn(
-        `Expected type scope on exitTriggerMemberDeclaration, but got ${popped.type}`,
-      );
+    // Pop from stack and validate it's a class scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'class') {
+        this.logger.warn(
+          `Expected class scope on exitTriggerMemberDeclaration, but got ${block.scopeType}`,
+        );
+      }
     }
   }
 
@@ -1551,12 +1581,10 @@ export class ApexSymbolCollectorListener
       const location = this.getLocation(ctx);
       const blockSymbol = this.symbolTable.enterScope(name, 'class', location);
 
-      // Push type ownership onto stack
-      this.pushScope({
-        type: 'type',
-        symbol: triggerSymbol,
-        blockSymbol: blockSymbol,
-      });
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -1573,12 +1601,333 @@ export class ApexSymbolCollectorListener
     // Exit trigger scope
     this.symbolTable.exitScope();
 
-    // Pop from stack and validate it's a type
-    const popped = this.popScope();
-    if (popped && popped.type !== 'type') {
-      this.logger.warn(
-        `Expected type scope on exitTriggerUnit, but got ${popped.type}`,
+    // Pop from stack and validate it's a class scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'class') {
+        this.logger.warn(
+          `Expected class scope on exitTriggerUnit, but got ${block.scopeType}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Called when entering a finally block
+   */
+  enterFinallyBlock(ctx: FinallyBlockContext): void {
+    try {
+      this.blockCounter++; // Increment the unique block counter
+      const name = `finally_${this.blockCounter}`; // Use blockCounter for unique names
+
+      // Create scope with location for finally block
+      const location = this.getLocation(ctx);
+      const blockSymbol = this.symbolTable.enterScope(
+        name,
+        'finally',
+        location,
       );
+
+      // Push block symbol onto stack (blockSymbol should never be null from enterScope)
+      if (!blockSymbol) {
+        this.addError('Failed to create block symbol', ctx);
+        return;
+      }
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in finally block: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a finally block
+   */
+  exitFinallyBlock(): void {
+    // Exit finally block scope
+    this.symbolTable.exitScope();
+
+    // Pop from stack and validate it's a finally scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'finally') {
+        this.logger.warn(
+          `Expected finally scope on exitFinallyBlock, but got ${block.scopeType}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Called when entering a switch statement
+   */
+  enterSwitchStatement(ctx: SwitchStatementContext): void {
+    try {
+      this.blockCounter++; // Increment the unique block counter
+      const name = `switch_${this.blockCounter}`; // Use blockCounter for unique names
+
+      // Create scope with location for switch statement (container for when blocks)
+      const location = this.getLocation(ctx);
+      const blockSymbol = this.symbolTable.enterScope(name, 'switch', location);
+
+      // Push block symbol onto stack (blockSymbol should never be null from enterScope)
+      if (!blockSymbol) {
+        this.addError('Failed to create block symbol', ctx);
+        return;
+      }
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in switch statement: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a switch statement
+   */
+  exitSwitchStatement(): void {
+    // Exit switch statement scope
+    this.symbolTable.exitScope();
+
+    // Pop from stack and validate it's a switch scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'switch') {
+        this.logger.warn(
+          `Expected switch scope on exitSwitchStatement, but got ${block.scopeType}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Called when entering a when control (switch when clause)
+   */
+  enterWhenControl(ctx: WhenControlContext): void {
+    try {
+      this.blockCounter++; // Increment the unique block counter
+      const name = `when_${this.blockCounter}`; // Use blockCounter for unique names
+
+      // Create scope with location for when clause block
+      const location = this.getLocation(ctx);
+      const blockSymbol = this.symbolTable.enterScope(name, 'when', location);
+
+      // Push block symbol onto stack (blockSymbol should never be null from enterScope)
+      if (!blockSymbol) {
+        this.addError('Failed to create block symbol', ctx);
+        return;
+      }
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in when control: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a when control
+   */
+  exitWhenControl(): void {
+    // Exit when control scope
+    this.symbolTable.exitScope();
+
+    // Pop from stack and validate it's a when scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'when') {
+        this.logger.warn(
+          `Expected when scope on exitWhenControl, but got ${block.scopeType}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Called when entering a do-while statement
+   */
+  enterDoWhileStatement(ctx: DoWhileStatementContext): void {
+    try {
+      this.blockCounter++; // Increment the unique block counter
+      const name = `doWhile_${this.blockCounter}`; // Use blockCounter for unique names
+
+      // Create scope with location for do-while statement block
+      const location = this.getLocation(ctx);
+      const blockSymbol = this.symbolTable.enterScope(
+        name,
+        'doWhile',
+        location,
+      );
+
+      // Push block symbol onto stack (blockSymbol should never be null from enterScope)
+      if (!blockSymbol) {
+        this.addError('Failed to create block symbol', ctx);
+        return;
+      }
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in do-while statement: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a do-while statement
+   */
+  exitDoWhileStatement(): void {
+    // Exit do-while statement scope
+    this.symbolTable.exitScope();
+
+    // Pop from stack and validate it's a doWhile scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'doWhile') {
+        this.logger.warn(
+          `Expected doWhile scope on exitDoWhileStatement, but got ${block.scopeType}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Called when entering a runAs statement
+   */
+  enterRunAsStatement(ctx: RunAsStatementContext): void {
+    try {
+      this.blockCounter++; // Increment the unique block counter
+      const name = `runAs_${this.blockCounter}`; // Use blockCounter for unique names
+
+      // Create scope with location for runAs statement block
+      const location = this.getLocation(ctx);
+      const blockSymbol = this.symbolTable.enterScope(name, 'runAs', location);
+
+      // Push block symbol onto stack (blockSymbol should never be null from enterScope)
+      if (!blockSymbol) {
+        this.addError('Failed to create block symbol', ctx);
+        return;
+      }
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in runAs statement: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a runAs statement
+   */
+  exitRunAsStatement(): void {
+    // Exit runAs statement scope
+    this.symbolTable.exitScope();
+
+    // Pop from stack and validate it's a runAs scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'runAs') {
+        this.logger.warn(
+          `Expected runAs scope on exitRunAsStatement, but got ${block.scopeType}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Called when entering a getter (property getter block)
+   */
+  enterGetter(ctx: GetterContext): void {
+    try {
+      // Always create scope (even for auto-properties with SEMI)
+      this.blockCounter++; // Increment the unique block counter
+      const name = `getter_${this.blockCounter}`; // Use blockCounter for unique names
+
+      // Create scope with location for getter block
+      const location = this.getLocation(ctx);
+      const blockSymbol = this.symbolTable.enterScope(name, 'getter', location);
+
+      // Push block symbol onto stack (blockSymbol should never be null from enterScope)
+      if (!blockSymbol) {
+        this.addError('Failed to create block symbol', ctx);
+        return;
+      }
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in getter: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a getter
+   */
+  exitGetter(): void {
+    // Always exit getter scope
+    this.symbolTable.exitScope();
+
+    // Pop from stack and validate it's a getter scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'getter') {
+        this.logger.warn(
+          `Expected getter scope on exitGetter, but got ${block.scopeType}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Called when entering a setter (property setter block)
+   */
+  enterSetter(ctx: SetterContext): void {
+    try {
+      // Always create scope (even for auto-properties with SEMI)
+      this.blockCounter++; // Increment the unique block counter
+      const name = `setter_${this.blockCounter}`; // Use blockCounter for unique names
+
+      // Create scope with location for setter block
+      const location = this.getLocation(ctx);
+      const blockSymbol = this.symbolTable.enterScope(name, 'setter', location);
+
+      // Push block symbol onto stack (blockSymbol should never be null from enterScope)
+      if (!blockSymbol) {
+        this.addError('Failed to create block symbol', ctx);
+        return;
+      }
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in setter: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a setter
+   */
+  exitSetter(): void {
+    // Always exit setter scope
+    this.symbolTable.exitScope();
+
+    // Pop from stack and validate it's a setter scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'setter') {
+        this.logger.warn(
+          `Expected setter scope on exitSetter, but got ${block.scopeType}`,
+        );
+      }
     }
   }
 
@@ -2119,22 +2468,61 @@ export class ApexSymbolCollectorListener
 
   /**
    * Capture exception type in catch clauses: catch (QualifiedName e)
+   * Also creates scope for the catch block
    */
   enterCatchClause(ctx: CatchClauseContext): void {
     try {
+      // Capture exception type reference
       const qn: QualifiedNameContext | undefined = ctx.qualifiedName?.();
-      if (!qn) return;
-      const typeName = this.getTextFromContext(qn);
-      const location = this.getLocation(qn as unknown as ParserRuleContext);
-      const parentContext = this.getCurrentMethodName();
-      const classRef = TypeReferenceFactory.createClassReference(
-        typeName,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(classRef);
+      if (qn) {
+        const typeName = this.getTextFromContext(qn);
+        const location = this.getLocation(qn as unknown as ParserRuleContext);
+        const parentContext = this.getCurrentMethodName();
+        const classRef = TypeReferenceFactory.createClassReference(
+          typeName,
+          location,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(classRef);
+      }
+
+      // Create scope for catch block
+      this.blockCounter++; // Increment the unique block counter
+      const name = `catch_${this.blockCounter}`; // Use blockCounter for unique names
+
+      // Create scope with location for catch block
+      const location = this.getLocation(ctx);
+      const blockSymbol = this.symbolTable.enterScope(name, 'catch', location);
+
+      // Push block symbol onto stack (blockSymbol should never be null from enterScope)
+      if (!blockSymbol) {
+        this.addError('Failed to create block symbol', ctx);
+        return;
+      }
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
     } catch (e) {
-      this.logger.warn(() => `Error capturing catch clause type: ${e}`);
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in catch clause: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a catch clause
+   */
+  exitCatchClause(): void {
+    // Exit catch clause scope
+    this.symbolTable.exitScope();
+
+    // Pop from stack and validate it's a catch scope
+    const popped = this.scopeStack.pop();
+    if (popped && popped.kind === SymbolKind.Block) {
+      const block = popped as ScopeSymbol;
+      if (block.scopeType !== 'catch') {
+        this.logger.warn(
+          `Expected catch scope on exitCatchClause, but got ${block.scopeType}`,
+        );
+      }
     }
   }
 
@@ -2940,7 +3328,7 @@ export class ApexSymbolCollectorListener
    */
   private getCurrentMethodName(): string | undefined {
     // Traverse the scope hierarchy to find the parent method
-    let currentScope: SymbolScope | null = this.symbolTable.getCurrentScope();
+    let currentScope: ScopeSymbol | null = this.symbolTable.getCurrentScope();
 
     while (currentScope) {
       // Skip file, global, and block scopes
@@ -2952,8 +3340,18 @@ export class ApexSymbolCollectorListener
         // This is likely a method scope
         return currentScope.name;
       }
-      // Move up to parent scope
-      currentScope = currentScope.parent || null;
+      // Move up to parent scope using parentId
+      if (currentScope.parentId) {
+        const parent = this.symbolTable
+          .getAllSymbols()
+          .find(
+            (s) =>
+              s.id === currentScope!.parentId && s.kind === SymbolKind.Block,
+          );
+        currentScope = (parent as ScopeSymbol) || null;
+      } else {
+        currentScope = null;
+      }
     }
 
     return undefined;
@@ -3255,9 +3653,12 @@ export class ApexSymbolCollectorListener
    */
   private isVariableInScope(variableName: string): boolean {
     // Check if the variable exists in the current symbol table scope
+    const currentScope = this.symbolTable.getCurrentScope();
+    if (!currentScope) {
+      return false;
+    }
     return this.symbolTable
-      .getCurrentScope()
-      ?.getAllSymbols()
+      .getSymbolsInScope(currentScope.id)
       .some((symbol: ApexSymbol) => symbol.name === variableName);
   }
 
@@ -3445,23 +3846,23 @@ export class ApexSymbolCollectorListener
     type: TypeInfo,
   ): VariableSymbol {
     const location = this.getLocation(ctx);
-    // Peek the stack to get current owner (block > method > type hierarchy)
-    const currentScope = this.getCurrentScope();
-    const parent = currentScope?.symbol || null;
+    // Peek the stack to get current owner (ScopeSymbol)
+    const parent = this.scopeStack.peek() || null;
 
     // Inherit namespace from containing type or method (blocks don't have namespaces)
-    // If parent is a block, search down the stack for type/method
     let namespace: Namespace | null = null;
     if (parent) {
-      if (currentScope?.type === 'block') {
+      if (parent.kind === SymbolKind.Block) {
         // Block doesn't have namespace, search down stack for type or method
         const typeOrMethod = this.getCurrentType() || this.getCurrentMethod();
         const parentNamespace = typeOrMethod?.namespace;
-        namespace = parentNamespace instanceof Namespace ? parentNamespace : null;
+        namespace =
+          parentNamespace instanceof Namespace ? parentNamespace : null;
       } else {
-        // Type or method has namespace directly
+        // Type or method has namespace directly (future expansion)
         const parentNamespace = (parent as TypeSymbol | MethodSymbol).namespace;
-        namespace = parentNamespace instanceof Namespace ? parentNamespace : null;
+        namespace =
+          parentNamespace instanceof Namespace ? parentNamespace : null;
       }
     }
 
