@@ -96,8 +96,13 @@ describe('LSPConfigurationManager', () => {
     mockCapabilitiesManager = {
       setMode: jest.fn(),
       getMode: jest.fn().mockReturnValue('production'),
+      setPlatform: jest.fn(),
+      getPlatform: jest.fn().mockReturnValue('desktop'),
       getCapabilities: jest.fn().mockReturnValue(mockCapabilities),
+      getRawCapabilities: jest.fn().mockReturnValue(mockCapabilities),
       getCapabilitiesForMode: jest.fn().mockReturnValue(mockCapabilities),
+      getCapabilitiesForModeAndPlatform: jest.fn().mockReturnValue(mockCapabilities),
+      getRawCapabilitiesForMode: jest.fn().mockReturnValue(mockCapabilities),
       getAllCapabilities: jest.fn(),
       isCapabilityEnabled: jest.fn(),
       isCapabilityEnabledForMode: jest.fn(),

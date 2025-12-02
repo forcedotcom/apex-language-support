@@ -44,26 +44,28 @@ describe('ApexCapabilitiesManager', () => {
   });
 
   describe('Capabilities Retrieval', () => {
-    it('should return production capabilities by default', () => {
-      const capabilities = manager.getCapabilities();
+    it('should return production capabilities by default (raw)', () => {
+      // Use raw capabilities when comparing against the raw constants
+      const capabilities = manager.getRawCapabilities();
       expect(capabilities).toEqual(PRODUCTION_CAPABILITIES);
     });
 
-    it('should return correct capabilities for each mode', () => {
-      // Test production mode
+    it('should return correct raw capabilities for each mode', () => {
+      // Test production mode - use raw capabilities for comparing against constants
       manager.setMode('production');
-      expect(manager.getCapabilities()).toEqual(PRODUCTION_CAPABILITIES);
+      expect(manager.getRawCapabilities()).toEqual(PRODUCTION_CAPABILITIES);
 
       // Test development mode
       manager.setMode('development');
-      expect(manager.getCapabilities()).toEqual(DEVELOPMENT_CAPABILITIES);
+      expect(manager.getRawCapabilities()).toEqual(DEVELOPMENT_CAPABILITIES);
     });
 
-    it('should return capabilities for specific modes', () => {
-      expect(manager.getCapabilitiesForMode('production')).toEqual(
+    it('should return raw capabilities for specific modes', () => {
+      // Use raw methods when comparing against the raw constants
+      expect(manager.getRawCapabilitiesForMode('production')).toEqual(
         PRODUCTION_CAPABILITIES,
       );
-      expect(manager.getCapabilitiesForMode('development')).toEqual(
+      expect(manager.getRawCapabilitiesForMode('development')).toEqual(
         DEVELOPMENT_CAPABILITIES,
       );
     });
@@ -201,20 +203,60 @@ describe('ApexCapabilitiesManager', () => {
 
   describe('Mode Transitions', () => {
     it('should maintain capabilities consistency when switching modes', () => {
-      // Start in production
+      // Start in production - use raw capabilities for comparing against constants
       manager.setMode('production');
-      const productionCapabilities = manager.getCapabilities();
+      const productionCapabilities = manager.getRawCapabilities();
       expect(productionCapabilities).toEqual(PRODUCTION_CAPABILITIES);
 
       // Switch to development
       manager.setMode('development');
-      const developmentCapabilities = manager.getCapabilities();
+      const developmentCapabilities = manager.getRawCapabilities();
       expect(developmentCapabilities).toEqual(DEVELOPMENT_CAPABILITIES);
 
       // Switch back to production
       manager.setMode('production');
-      const productionCapabilitiesAgain = manager.getCapabilities();
+      const productionCapabilitiesAgain = manager.getRawCapabilities();
       expect(productionCapabilitiesAgain).toEqual(PRODUCTION_CAPABILITIES);
+    });
+  });
+
+  describe('Platform Filtering', () => {
+    it('should filter web-disabled capabilities on web platform', () => {
+      manager.setMode('production');
+      manager.setPlatform('web');
+
+      const capabilities = manager.getCapabilities();
+      // profilingProvider has disabledForWeb: true, so it should be undefined on web
+      expect(capabilities.experimental?.profilingProvider).toBeUndefined();
+    });
+
+    it('should unwrap platform-constrained capabilities on desktop', () => {
+      manager.setMode('production');
+      manager.setPlatform('desktop');
+
+      const capabilities = manager.getCapabilities();
+      // profilingProvider should be unwrapped to just the value on desktop
+      expect(capabilities.experimental?.profilingProvider).toEqual({
+        enabled: false,
+      });
+    });
+
+    it('should filter capabilities by mode and platform combination', () => {
+      const webDevCapabilities = manager.getCapabilitiesForModeAndPlatform(
+        'development',
+        'web',
+      );
+      const desktopDevCapabilities = manager.getCapabilitiesForModeAndPlatform(
+        'development',
+        'desktop',
+      );
+
+      // profilingProvider should be undefined on web
+      expect(webDevCapabilities.experimental?.profilingProvider).toBeUndefined();
+      // profilingProvider should be unwrapped on desktop
+      expect(desktopDevCapabilities.experimental?.profilingProvider).toEqual({
+        enabled: true,
+      });
     });
   });
 });

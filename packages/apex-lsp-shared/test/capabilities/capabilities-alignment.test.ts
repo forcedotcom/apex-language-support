@@ -85,25 +85,25 @@ describe('Capabilities Alignment Tests', () => {
 
     it('should return production capabilities in production mode', () => {
       capabilitiesManager.setMode('production');
-      const capabilities = capabilitiesManager.getCapabilities();
+      const capabilities = capabilitiesManager.getRawCapabilities();
       expect(capabilities).toMatchSnapshot('capabilities-manager-production');
     });
 
     it('should return development capabilities in development mode', () => {
       capabilitiesManager.setMode('development');
-      const capabilities = capabilitiesManager.getCapabilities();
+      const capabilities = capabilitiesManager.getRawCapabilities();
       expect(capabilities).toMatchSnapshot('capabilities-manager-development');
     });
 
     it('should have consistent mode switching', () => {
-      // Test production mode
+      // Test production mode (use getRawCapabilities to compare with raw definitions)
       capabilitiesManager.setMode('production');
-      const productionCaps = capabilitiesManager.getCapabilities();
+      const productionCaps = capabilitiesManager.getRawCapabilities();
       expect(productionCaps).toBe(PRODUCTION_CAPABILITIES);
 
       // Test development mode
       capabilitiesManager.setMode('development');
-      const developmentCaps = capabilitiesManager.getCapabilities();
+      const developmentCaps = capabilitiesManager.getRawCapabilities();
       expect(developmentCaps).toBe(DEVELOPMENT_CAPABILITIES);
 
       // Verify they're different
@@ -341,7 +341,8 @@ describe('Capabilities Alignment Tests', () => {
       modeTests.forEach(({ mode, expectedServer, expectedClient }) => {
         const capabilitiesManager = new ApexCapabilitiesManager();
         capabilitiesManager.setMode(mode);
-        const serverCaps = capabilitiesManager.getCapabilities();
+        // Use getRawCapabilities to compare with raw capability definitions
+        const serverCaps = capabilitiesManager.getRawCapabilities();
         const clientCaps = getClientCapabilitiesForMode(mode);
 
         expect(serverCaps).toBe(expectedServer);
