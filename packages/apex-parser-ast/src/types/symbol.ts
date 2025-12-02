@@ -528,8 +528,13 @@ export const generateUnifiedId = (key: SymbolKey, fileUri?: string): string => {
  * @param key The symbol key
  * @returns String representation
  */
-export const keyToString = (key: SymbolKey): string =>
-  `${key.prefix}:${key.path.join('.')}`;
+export const keyToString = (key: SymbolKey): string => {
+  // Use unifiedId if available (includes full scope path), otherwise fall back to path
+  if (key.unifiedId) {
+    return key.unifiedId;
+  }
+  return `${key.prefix}:${key.path.join('.')}`;
+};
 
 /**
  * Create a SymbolKey from an ApexSymbol with unified ID
@@ -901,8 +906,34 @@ export class SymbolTable {
     if (location) {
       const effectiveFileUri = fileUri || this.fileUri;
       const currentScopePath = this.getCurrentScopePath();
-      const parentBlockSymbol = this.current.getBlockSymbol();
-      const parentId = parentBlockSymbol ? parentBlockSymbol.id : null;
+
+      // Determine parentId based on scopeType
+      let parentId: string | null = null;
+      if (scopeType === 'class') {
+        // For class blocks, parent should be the class symbol (not a block symbol)
+        // The class symbol was just added to the current scope before enterScope is called
+        const classSymbols = this.current
+          .getSymbolsByName(name)
+          .filter(
+            (s) =>
+              s.kind === 'class' || s.kind === 'interface' || s.kind === 'enum',
+          );
+        if (classSymbols.length > 0) {
+          parentId = classSymbols[0].id;
+        }
+      } else if (scopeType === 'method') {
+        // For method blocks, parent should be the method symbol
+        const methodSymbols = this.current
+          .getSymbolsByName(name)
+          .filter((s) => s.kind === 'method' || s.kind === 'constructor');
+        if (methodSymbols.length > 0) {
+          parentId = methodSymbols[0].id;
+        }
+      } else {
+        // For regular blocks, parent is the current scope's block symbol
+        const parentBlockSymbol = this.current.getBlockSymbol();
+        parentId = parentBlockSymbol ? parentBlockSymbol.id : null;
+      }
 
       // Create block symbol
       blockSymbol = SymbolFactory.createBlockSymbol(

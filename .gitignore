@@ -88,3 +88,4 @@ e2e-tests/.playwright/
 test-results/
 playwright-report/
 /packages/apex-parser-ast/resources
+/.graph

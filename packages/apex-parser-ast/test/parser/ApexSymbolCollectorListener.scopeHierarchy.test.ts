@@ -472,6 +472,279 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     });
   });
 
+  describe('Block Symbol ParentId Relationships', () => {
+    it('should set class block parentId to class symbol', () => {
+      const apexCode = `
+        public class TestClass {
+          private String field;
+        }
+      `;
+
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
+      const result = compilerService.compile(
+        apexCode,
+        'TestClass.cls',
+        listener,
+      );
+
+      const symbolTable = result.result;
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+
+      const allSymbols = symbolTable.getAllSymbols();
+      const classSymbol = allSymbols.find(
+        (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
+      );
+      const classBlockSymbol = allSymbols.find(
+        (s): s is BlockSymbol =>
+          isBlockSymbol(s) && s.scopeType === 'class' && s.name === 'TestClass',
+      );
+
+      expect(classSymbol).toBeDefined();
+      expect(classBlockSymbol).toBeDefined();
+      if (classSymbol && classBlockSymbol) {
+        // Class block should have parentId pointing to class symbol, not a block symbol
+        expect(classBlockSymbol.parentId).toBe(classSymbol.id);
+        expect(classBlockSymbol.parentId).toContain('class:TestClass');
+        expect(classBlockSymbol.parentId).not.toContain('block:');
+      }
+    });
+
+    it('should set method block parentId to method symbol', () => {
+      const apexCode = `
+        public class TestClass {
+          public void testMethod() {
+            String x = 'test';
+          }
+        }
+      `;
+
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
+      const result = compilerService.compile(
+        apexCode,
+        'TestClass.cls',
+        listener,
+      );
+
+      const symbolTable = result.result;
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+
+      const allSymbols = symbolTable.getAllSymbols();
+      const methodSymbol = allSymbols.find(
+        (s) => s.name === 'testMethod' && s.kind === SymbolKind.Method,
+      );
+      const methodBlockSymbol = allSymbols.find(
+        (s): s is BlockSymbol =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'method' &&
+          s.name === 'testMethod',
+      );
+
+      expect(methodSymbol).toBeDefined();
+      expect(methodBlockSymbol).toBeDefined();
+      if (methodSymbol && methodBlockSymbol) {
+        // Method block should have parentId pointing to method symbol, not a block symbol
+        expect(methodBlockSymbol.parentId).toBe(methodSymbol.id);
+        expect(methodBlockSymbol.parentId).toContain('method:testMethod');
+        expect(methodBlockSymbol.parentId).not.toContain('block:');
+      }
+    });
+
+    it('should set constructor block parentId to constructor symbol', () => {
+      const apexCode = `
+        public class TestClass {
+          public TestClass() {
+            String x = 'test';
+          }
+        }
+      `;
+
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
+      const result = compilerService.compile(
+        apexCode,
+        'TestClass.cls',
+        listener,
+      );
+
+      const symbolTable = result.result;
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+
+      const allSymbols = symbolTable.getAllSymbols();
+      const constructorSymbol = allSymbols.find(
+        (s) => s.name === 'TestClass' && s.kind === SymbolKind.Constructor,
+      );
+      const constructorBlockSymbol = allSymbols.find(
+        (s): s is BlockSymbol =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'method' &&
+          s.name === 'TestClass',
+      );
+
+      expect(constructorSymbol).toBeDefined();
+      expect(constructorBlockSymbol).toBeDefined();
+      if (constructorSymbol && constructorBlockSymbol) {
+        // Constructor block should have parentId pointing to constructor symbol
+        expect(constructorBlockSymbol.parentId).toBe(constructorSymbol.id);
+        expect(constructorBlockSymbol.parentId).toContain(
+          'constructor:TestClass',
+        );
+        expect(constructorBlockSymbol.parentId).not.toContain('block:');
+      }
+    });
+
+    it('should set regular block parentId to parent block symbol', () => {
+      const apexCode = `
+        public class TestClass {
+          public void testMethod() {
+            if (true) {
+              String x = 'test';
+            }
+          }
+        }
+      `;
+
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
+      const result = compilerService.compile(
+        apexCode,
+        'TestClass.cls',
+        listener,
+      );
+
+      const symbolTable = result.result;
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+
+      const allSymbols = symbolTable.getAllSymbols();
+      const methodBlockSymbol = allSymbols.find(
+        (s): s is BlockSymbol =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'method' &&
+          s.name === 'testMethod',
+      );
+      // Find the method body block (block1) - the immediate parent of the if block
+      const methodBodyBlock = allSymbols.find(
+        (s): s is BlockSymbol =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'block' &&
+          s.name.startsWith('block') &&
+          s.parentId === methodBlockSymbol?.id,
+      );
+      const ifBlockSymbol = allSymbols.find(
+        (s): s is BlockSymbol =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'block' &&
+          s.name.startsWith('if_'),
+      );
+
+      expect(methodBlockSymbol).toBeDefined();
+      expect(methodBodyBlock).toBeDefined();
+      expect(ifBlockSymbol).toBeDefined();
+      if (methodBlockSymbol && methodBodyBlock && ifBlockSymbol) {
+        // Method body block should be child of method block symbol
+        expect(methodBodyBlock.parentId).toBe(methodBlockSymbol.id);
+        // Regular block (if statement) should have parentId pointing to method body block
+        expect(ifBlockSymbol.parentId).toBe(methodBodyBlock.id);
+        expect(ifBlockSymbol.parentId).toContain('block:');
+      }
+    });
+
+    it('should handle nested blocks with correct parentId chain', () => {
+      const apexCode = `
+        public class TestClass {
+          public void testMethod() {
+            if (true) {
+              while (false) {
+                String x = 'test';
+              }
+            }
+          }
+        }
+      `;
+
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
+      const result = compilerService.compile(
+        apexCode,
+        'TestClass.cls',
+        listener,
+      );
+
+      const symbolTable = result.result;
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+
+      const allSymbols = symbolTable.getAllSymbols();
+      const methodBlockSymbol = allSymbols.find(
+        (s): s is BlockSymbol =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'method' &&
+          s.name === 'testMethod',
+      );
+      // Find the method body block (block1) - the immediate parent of the if block
+      const methodBodyBlock = allSymbols.find(
+        (s): s is BlockSymbol =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'block' &&
+          s.name.startsWith('block') &&
+          s.parentId === methodBlockSymbol?.id,
+      );
+      const ifBlockSymbol = allSymbols.find(
+        (s): s is BlockSymbol =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'block' &&
+          s.name.startsWith('if_'),
+      );
+      const whileBlockSymbol = allSymbols.find(
+        (s): s is BlockSymbol =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'block' &&
+          s.name.startsWith('while_'),
+      );
+
+      // Find the if body block (block3) - the immediate parent of the while block
+      const ifBodyBlock = allSymbols.find(
+        (s): s is BlockSymbol =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'block' &&
+          s.name.startsWith('block') &&
+          s.parentId === ifBlockSymbol?.id,
+      );
+
+      expect(methodBlockSymbol).toBeDefined();
+      expect(methodBodyBlock).toBeDefined();
+      expect(ifBlockSymbol).toBeDefined();
+      expect(ifBodyBlock).toBeDefined();
+      expect(whileBlockSymbol).toBeDefined();
+      if (
+        methodBlockSymbol &&
+        methodBodyBlock &&
+        ifBlockSymbol &&
+        ifBodyBlock &&
+        whileBlockSymbol
+      ) {
+        // Method body block should be child of method block symbol
+        expect(methodBodyBlock.parentId).toBe(methodBlockSymbol.id);
+        // if block should be child of method body block
+        expect(ifBlockSymbol.parentId).toBe(methodBodyBlock.id);
+        // if body block should be child of if block
+        expect(ifBodyBlock.parentId).toBe(ifBlockSymbol.id);
+        // while block should be child of if body block
+        expect(whileBlockSymbol.parentId).toBe(ifBodyBlock.id);
+      }
+    });
+  });
+
   describe('Scope Symbols for Control Structures', () => {
     it('should create scope symbols for if statements', () => {
       const apexCode = `

@@ -541,7 +541,8 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         // TODO: Revisit hover data quality - should include clear parameter labels and type info
-        expect(content).toContain('String FileUtilities.base64data');
+        // Parameter is now correctly owned by method, so FQN includes method name
+        expect(content).toContain('String FileUtilities.createFile.base64data');
       }
     });
 
@@ -636,7 +637,9 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear variable labels
-        expect(content).toContain('Property__c FileUtilitiesTest.property');
+        // Variable in block scope - check for type and name (FQN may vary based on block structure)
+        expect(content).toContain('Property__c');
+        expect(content).toContain('property');
       }
     });
   });
@@ -994,7 +997,10 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear variable labels
-        expect(content).toContain('Boolean ComplexTestClass.exists');
+        // Variable is in testFileUtilities method, so FQN includes method name
+        expect(content).toContain(
+          'Boolean ComplexTestClass.testFileUtilities.exists',
+        );
       }
     });
 

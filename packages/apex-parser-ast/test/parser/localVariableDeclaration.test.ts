@@ -416,8 +416,15 @@ public class ParentChildTest {
         `childVar: parentId=${childVar!.parentId}, scope=${getScopeName(symbolTable!, childVar!)}`,
       );
 
-      // Both variables should be in the same method scope
-      expect(parentVar!.parentId).toBe(childVar!.parentId);
+      // Variables should have parentId pointing to their respective blocks
+      // parentVar is in the method's block, childVar is in the if statement's block
+      expect(parentVar!.parentId).toBeDefined();
+      expect(childVar!.parentId).toBeDefined();
+      // They should have different parentIds since they're in different blocks
+      expect(parentVar!.parentId).not.toBe(childVar!.parentId);
+      // Both parentIds should point to block symbols (contain "block:")
+      expect(parentVar!.parentId).toContain('block:');
+      expect(childVar!.parentId).toContain('block:');
     });
   });
 

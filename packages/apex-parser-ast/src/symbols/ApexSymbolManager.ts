@@ -1975,6 +1975,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         typeRef,
         fileUri,
         sourceSymbol,
+        symbolTable,
       );
       if (!targetSymbol) {
         // Even though it should be in the file, we couldn't resolve it
@@ -2102,6 +2103,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     typeRef: TypeReference,
     fileUri?: string,
     sourceSymbol?: ApexSymbol | null,
+    symbolTable?: SymbolTable,
   ): Promise<ApexSymbol | null> {
     // First, try to extract qualifier information from chainNodes
     const qualifierInfo = this.extractQualifierFromChain(typeRef);
@@ -2122,6 +2124,66 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
     }
 
+    // For unqualified references, use scope-based resolution if symbolTable is available
+    if (symbolTable && fileUri) {
+      // Phase 1: Same-file resolution using SymbolTable scope hierarchy
+      // Use the reference location to find the scope hierarchy
+      const position = {
+        line: typeRef.location.identifierRange.startLine,
+        character: typeRef.location.identifierRange.startColumn,
+      };
+      const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+
+      // Primary approach: Explicit scope hierarchy search using getAllSymbols()
+      // Get all symbols from SymbolTable (they're all from the same file)
+      const allFileSymbols = symbolTable.getAllSymbols();
+
+      // Search for symbols with the target name, starting from the innermost scope
+      // Reverse the hierarchy to search from innermost (most specific) to outermost
+      const innermostToOutermost = [...scopeHierarchy].reverse();
+      for (const blockSymbol of innermostToOutermost) {
+        // Find symbols in this block scope (children of the block)
+        const symbolsInScope = allFileSymbols.filter(
+          (symbol) =>
+            symbol.name === typeRef.name && symbol.parentId === blockSymbol.id,
+        );
+        if (symbolsInScope.length > 0) {
+          // Found a symbol in this scope - return it (prefer variables/parameters over fields)
+          return this.selectMostSpecificSymbol(symbolsInScope, fileUri);
+        }
+      }
+
+      // If not found in any block scope, search for symbols in parent scopes
+      // This includes class fields, method parameters, etc.
+      // Search from outermost to innermost to find the most specific parent symbol
+      for (const blockSymbol of scopeHierarchy) {
+        // Find all symbols with the target name
+        const sameNameSymbols = allFileSymbols.filter(
+          (s) => s.name === typeRef.name,
+        );
+
+        // Check if any symbol is a parent or ancestor of this block
+        for (const symbol of sameNameSymbols) {
+          // Check if this symbol is a direct parent of the block (e.g., class field, method parameter)
+          if (blockSymbol.parentId === symbol.id) {
+            return symbol;
+          }
+          // Check if symbol is an ancestor by following parentId chain up from the block
+          let currentBlockId: string | null = blockSymbol.parentId;
+          while (currentBlockId) {
+            if (currentBlockId === symbol.id) {
+              return symbol;
+            }
+            // Find parent block to continue chain
+            const parentBlock = allFileSymbols.find(
+              (s) => s.id === currentBlockId && s.kind === SymbolKind.Block,
+            );
+            currentBlockId = parentBlock?.parentId || null;
+          }
+        }
+      }
+    }
+
     // Fallback: Try to find the symbol by name (for unqualified references)
     const symbols = this.findSymbolByName(typeRef.name);
     if (symbols.length > 0) {
@@ -2130,9 +2192,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const normalizedUri = extractFilePathFromUri(
           getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri),
         );
-        const sameFileSymbol = symbols.find((s) => s.fileUri === normalizedUri);
-        if (sameFileSymbol) {
-          return sameFileSymbol;
+        const sameFileSymbols = symbols.filter(
+          (s) => s.fileUri === normalizedUri,
+        );
+        if (sameFileSymbols.length > 0) {
+          return this.selectMostSpecificSymbol(sameFileSymbols, fileUri);
         }
       }
       // For now, take the first match. In a more sophisticated implementation,
