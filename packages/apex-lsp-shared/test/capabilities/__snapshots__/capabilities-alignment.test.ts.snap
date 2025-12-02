@@ -38,6 +38,12 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
       ],
       "timeoutMsHint": 2000,
     },
+    "profilingProvider": {
+      "disabledForWeb": true,
+      "value": {
+        "enabled": true,
+      },
+    },
   },
   "foldingRangeProvider": true,
   "hoverProvider": true,
@@ -104,6 +110,12 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
         "background",
       ],
       "timeoutMsHint": 1500,
+    },
+    "profilingProvider": {
+      "disabledForWeb": true,
+      "value": {
+        "enabled": false,
+      },
     },
   },
   "foldingRangeProvider": false,
@@ -1380,6 +1392,12 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
           ],
           "timeoutMsHint": 1500,
         },
+        "profilingProvider": {
+          "disabledForWeb": true,
+          "value": {
+            "enabled": false,
+          },
+        },
       },
       "foldingRangeProvider": false,
       "hoverProvider": undefined,
@@ -1644,6 +1662,12 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
             "background",
           ],
           "timeoutMsHint": 2000,
+        },
+        "profilingProvider": {
+          "disabledForWeb": true,
+          "value": {
+            "enabled": true,
+          },
         },
       },
       "foldingRangeProvider": true,
@@ -2383,6 +2407,12 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
             ],
             "timeoutMsHint": 2000,
           },
+          "profilingProvider": {
+            "disabledForWeb": true,
+            "value": {
+              "enabled": true,
+            },
+          },
         },
         "foldingRangeProvider": true,
         "hoverProvider": true,
@@ -2446,6 +2476,12 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
               "background",
             ],
             "timeoutMsHint": 1500,
+          },
+          "profilingProvider": {
+            "disabledForWeb": true,
+            "value": {
+              "enabled": false,
+            },
           },
         },
         "foldingRangeProvider": false,
@@ -2519,6 +2555,12 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
           ],
           "timeoutMsHint": 2000,
         },
+        "profilingProvider": {
+          "disabledForWeb": true,
+          "value": {
+            "enabled": true,
+          },
+        },
       },
       "foldingRangeProvider": true,
       "hoverProvider": true,
@@ -2582,6 +2624,12 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
             "background",
           ],
           "timeoutMsHint": 1500,
+        },
+        "profilingProvider": {
+          "disabledForWeb": true,
+          "value": {
+            "enabled": false,
+          },
         },
       },
       "foldingRangeProvider": false,
@@ -2710,6 +2758,12 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
         ],
         "timeoutMsHint": 2000,
       },
+      "profilingProvider": {
+        "disabledForWeb": true,
+        "value": {
+          "enabled": true,
+        },
+      },
     },
     "foldingRangeProvider": true,
     "hoverProvider": true,
@@ -2773,6 +2827,12 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
           "background",
         ],
         "timeoutMsHint": 1500,
+      },
+      "profilingProvider": {
+        "disabledForWeb": true,
+        "value": {
+          "enabled": false,
+        },
       },
     },
     "foldingRangeProvider": false,
@@ -2847,6 +2907,12 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
       ],
       "timeoutMsHint": 2000,
     },
+    "profilingProvider": {
+      "disabledForWeb": true,
+      "value": {
+        "enabled": true,
+      },
+    },
   },
   "foldingRangeProvider": true,
   "hoverProvider": true,
@@ -2913,6 +2979,12 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
         "background",
       ],
       "timeoutMsHint": 1500,
+    },
+    "profilingProvider": {
+      "disabledForWeb": true,
+      "value": {
+        "enabled": false,
+      },
     },
   },
   "foldingRangeProvider": false,

@@ -106,6 +106,11 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
     // Create mock configuration manager
     mockConfigManager = {
       getCapabilities: jest.fn(),
+      getExtendedServerCapabilities: jest.fn().mockReturnValue({
+        experimental: {
+          profilingProvider: { enabled: false },
+        },
+      }),
       setInitialSettings: jest.fn(),
       getSettingsManager: jest.fn().mockReturnValue(mockSettingsManager),
       getCapabilitiesManager: jest

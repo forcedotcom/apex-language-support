@@ -81,6 +81,9 @@ export class LSPConfigurationManager {
     this.runtimePlatform = this.detectEnvironment();
     this.autoDetectEnvironment = options.autoDetectEnvironment ?? true;
 
+    // Set platform on capabilities manager for platform-aware capability filtering
+    this.capabilitiesManager.setPlatform(this.runtimePlatform);
+
     // Initialize settings manager
     this.settingsManager = ApexSettingsManager.getInstance(
       undefined,
@@ -623,6 +626,9 @@ export class LSPConfigurationManager {
    */
   public setEnvironment(runtimePlatform: RuntimePlatform): void {
     this.runtimePlatform = runtimePlatform;
+
+    // Update platform on capabilities manager for platform-aware capability filtering
+    this.capabilitiesManager.setPlatform(runtimePlatform);
 
     // Update settings manager with new environment
     const currentSettings = this.settingsManager.getSettings();

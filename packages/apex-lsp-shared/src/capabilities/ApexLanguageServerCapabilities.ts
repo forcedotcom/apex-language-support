@@ -14,6 +14,62 @@ import {
 export type ExtendedServerCapabilities = ServerCapabilities &
   ImplicitCapabilties & { experimental?: ExperimentalCapabilities };
 
+// ============================================================================
+// Platform Constraint Types
+// ============================================================================
+
+/**
+ * Wrapper for capabilities that may have platform constraints.
+ * If a capability is just a value (boolean, object), it's available on all platforms.
+ * Use this wrapper to add platform-specific disable flags.
+ *
+ * @example
+ * // Desktop-only capability (disabled for web)
+ * profilingProvider: {
+ *   value: { enabled: true },
+ *   disabledForWeb: true,
+ * }
+ *
+ * @example
+ * // Web-only capability (disabled for desktop)
+ * webOnlyFeature: {
+ *   value: true,
+ *   disabledForDesktop: true,
+ * }
+ */
+export interface PlatformConstrainedCapability<T> {
+  /** The actual capability value */
+  value: T;
+  /** If true, this capability is disabled in web environments */
+  disabledForWeb?: boolean;
+  /** If true, this capability is disabled in desktop environments */
+  disabledForDesktop?: boolean;
+}
+
+/**
+ * Infers the value type from a PlatformConstrainedCapability.
+ * If T has a `value` property, extracts its type; otherwise returns never.
+ */
+type InferConstrainedValue<T> = T extends { value: infer V } ? V : never;
+
+/**
+ * Type guard to check if a capability has platform constraints.
+ * Returns true if the capability is wrapped with platform constraint flags.
+ *
+ * @param capability - The capability value to check
+ * @returns True if the capability has platform constraint flags
+ */
+export function isPlatformConstrained<T>(
+  capability: T,
+): capability is T & PlatformConstrainedCapability<InferConstrainedValue<T>> {
+  return (
+    typeof capability === 'object' &&
+    capability !== null &&
+    'value' in capability &&
+    ('disabledForWeb' in capability || 'disabledForDesktop' in capability)
+  );
+}
+
 /**
  * Configuration for different server modes
  */
@@ -40,9 +96,23 @@ export interface FindMissingArtifactCapability {
   timeoutMsHint?: number;
 }
 
+/**
+ * Profiling capability configuration.
+ * Profiling is only available in desktop environments (requires Node.js inspector API).
+ */
+export interface ProfilingCapability {
+  /** Whether profiling handlers should be registered */
+  enabled: boolean;
+}
+
 export interface ExperimentalCapabilities {
   /** Missing artifact resolution capability */
   findMissingArtifactProvider?: FindMissingArtifactCapability;
+  /**
+   * Profiling capability - desktop only.
+   * Wrapped with PlatformConstrainedCapability with disabledForWeb: true.
+   */
+  profilingProvider?: PlatformConstrainedCapability<ProfilingCapability>;
 }
 
 /**
@@ -124,6 +194,11 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
       maxCandidatesToOpen: 3,
       timeoutMsHint: 1500,
     },
+    // Profiling is desktop-only (requires Node.js inspector API)
+    profilingProvider: {
+      value: { enabled: false }, // Disabled by default in production
+      disabledForWeb: true,
+    },
   },
 };
 
@@ -156,6 +231,11 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
       supportedModes: ['blocking', 'background'],
       maxCandidatesToOpen: 3,
       timeoutMsHint: 2000,
+    },
+    // Profiling is desktop-only (requires Node.js inspector API)
+    profilingProvider: {
+      value: { enabled: true }, // Enabled by default in development
+      disabledForWeb: true,
     },
   },
 };
