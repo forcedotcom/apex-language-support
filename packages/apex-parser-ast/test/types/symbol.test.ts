@@ -690,9 +690,10 @@ describe('SymbolTable', () => {
   });
 
   it('should initialize with a root scope', () => {
-    const scope = table.getCurrentScope();
-    expect(scope.name).toBe('file');
-    expect(scope.parentId).toBeNull();
+    const scope = table.findScopeByName('file');
+    expect(scope).toBeDefined();
+    expect(scope?.name).toBe('file');
+    expect(scope?.parentId).toBeNull();
   });
 
   it('should allow entering and exiting scopes', () => {
@@ -700,30 +701,40 @@ describe('SymbolTable', () => {
       symbolRange: { startLine: 1, startColumn: 0, endLine: 10, endColumn: 0 },
       identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 10 },
     };
-    const fileScope = table.getCurrentScope();
-    table.enterScope('MyClass', 'class', classLocation);
-    const classScope = table.getCurrentScope();
-    expect(classScope.name).toBe('MyClass');
-    expect(classScope.parentId).toBe(fileScope.id); // Should point to file scope
+    const fileScope = table.findScopeByName('file');
+    expect(fileScope).toBeDefined();
+    const classScope = table.enterScope('MyClass', 'class', classLocation, undefined, fileScope ?? null);
+    expect(classScope).toBeDefined();
+    expect(classScope?.name).toBe('MyClass');
+    expect(classScope?.parentId).toBe(fileScope?.id); // Should point to file scope
 
     const methodLocation: SymbolLocation = {
       symbolRange: { startLine: 2, startColumn: 0, endLine: 5, endColumn: 0 },
       identifierRange: { startLine: 2, startColumn: 0, endLine: 2, endColumn: 10 },
     };
-    table.enterScope('myMethod', 'method', methodLocation);
-    const methodScope = table.getCurrentScope();
-    expect(methodScope.name).toBe('myMethod');
-    expect(methodScope.parentId).toBe(classScope.id); // Should point to class scope
+    const methodScope = table.enterScope('myMethod', 'method', methodLocation, undefined, classScope ?? null);
+    expect(methodScope).toBeDefined();
+    expect(methodScope?.name).toBe('myMethod');
+    expect(methodScope?.parentId).toBe(classScope?.id); // Should point to class scope
 
+    // exitScope is now a no-op - stack handles scope exit
     table.exitScope();
-    expect(table.getCurrentScope().name).toBe('MyClass');
+    // Verify scopes still exist after exitScope (which is now a no-op)
+    const foundClassScope = table.findScopeByName('MyClass');
+    expect(foundClassScope).toBeDefined();
+    expect(foundClassScope?.name).toBe('MyClass');
 
+    // exitScope is now a no-op - stack handles scope exit
     table.exitScope();
-    expect(table.getCurrentScope().name).toBe('file');
+    const foundFileScope = table.findScopeByName('file');
+    expect(foundFileScope).toBeDefined();
+    expect(foundFileScope?.name).toBe('file');
 
-    // Should not exit beyond the root scope
+    // Should not exit beyond the root scope (exitScope is now a no-op)
     table.exitScope();
-    expect(table.getCurrentScope().name).toBe('file');
+    const foundFileScope2 = table.findScopeByName('file');
+    expect(foundFileScope2).toBeDefined();
+    expect(foundFileScope2?.name).toBe('file');
   });
 
   it('should add and find a symbol in the current scope', () => {
@@ -807,17 +818,20 @@ describe('SymbolTable', () => {
     expect(blockSymbol?.location.symbolRange).toEqual(location.symbolRange);
     expect(blockSymbol?.location.identifierRange).toEqual(location.symbolRange); // Should be same for blocks
 
-    const currentScope = table.getCurrentScope();
-    expect(currentScope).toBe(blockSymbol); // Scope IS the block symbol
+    // Verify the block scope was created and can be found
+    const foundScope = table.findScopeByName('testBlock');
+    expect(foundScope).toBeDefined();
+    expect(foundScope).toBe(blockSymbol); // Scope IS the block symbol
   });
 
   it('should not create block symbols when location is not provided', () => {
     const blockSymbol = table.enterScope('MyClass', 'class');
     expect(blockSymbol).toBeNull();
 
-    const currentScope = table.getCurrentScope();
-    // When location is not provided, enterScope returns null and current scope doesn't change
-    // So currentScope should still be the root file scope
+    // When location is not provided, enterScope returns null
+    // Verify file scope still exists
+    const fileScope = table.findScopeByName('file');
+    expect(fileScope).toBeDefined();
     expect(currentScope).toBeDefined();
   });
 

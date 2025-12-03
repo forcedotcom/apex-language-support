@@ -181,10 +181,8 @@ export async function compileStubs(
 
       // Store symbols directly without RuntimeSymbol wrapper
       const symbolTable = result.result;
-      const currentScope = symbolTable.getCurrentScope();
-      const symbols = Array.from(
-        symbolTable.getSymbolsInScope(currentScope.id),
-      );
+      // Get all symbols from the symbol table (file-level symbols are in roots array)
+      const symbols = Array.from(symbolTable.getAllSymbols());
       const symbolMap: SymbolMap = {};
       const classMethods: { [key: string]: MethodSymbol[] } = {};
 

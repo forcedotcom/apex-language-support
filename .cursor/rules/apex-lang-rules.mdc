@@ -1,6 +1,6 @@
 ---
 description: Apex Language
-globs: packages/apex-parser-ast/**/*.ts, packages/lsp-compliant-services/**/*.ts, **/*.md
+globs: packages/apex-parser-ast/**/*.ts, packages/lsp-compliant-services/**/*.ts, packages/apex-parser-ast/**/*.md, packages/lsp-compliant-services/**/*.md
 alwaysApply: true
 ---
 

@@ -163,7 +163,9 @@ export const generateSymbolId = (
   const prefixPart = prefix ? `${prefix}:` : '';
 
   if (scopePath && scopePath.length > 0) {
-    const scopeStr = scopePath.join('.');
+    // Use colons to join scopePath for consistency across all symbol IDs
+    // Format: fileUri:scopePath:prefix:name where scopePath uses colons
+    const scopeStr = scopePath.join(':');
     const baseId = `${uri}:${scopeStr}:${prefixPart}${name}`;
     return lineNumber !== undefined ? `${baseId}:${lineNumber}` : baseId;
   }
