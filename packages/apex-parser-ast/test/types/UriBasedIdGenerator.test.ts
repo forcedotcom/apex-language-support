@@ -42,13 +42,28 @@ describe('UriBasedIdGenerator', () => {
       expect(id).toBe(`${createApexLibUri('System/System.cls')}:System`);
     });
 
-    it('should include scope path when provided', () => {
+    it('should include scope path when provided (using colons)', () => {
       const id = generateSymbolId('myMethod', '/path/to/MyClass.cls', [
         'MyClass',
         'myMethod',
       ]);
+      // Scope path should use colons, not dots
       expect(id).toBe(
-        `${createFileUri('/path/to/MyClass.cls')}:MyClass.myMethod:myMethod`,
+        `${createFileUri('/path/to/MyClass.cls')}:MyClass:myMethod:myMethod`,
+      );
+    });
+
+    it('should include root prefix in scope path for nested symbols', () => {
+      // Test the new format where root prefix is included: class:MyClass:block1:method:myMethod
+      const id = generateSymbolId(
+        'myMethod',
+        '/path/to/MyClass.cls',
+        ['class', 'MyClass', 'block1'],
+        undefined,
+        'method',
+      );
+      expect(id).toBe(
+        `${createFileUri('/path/to/MyClass.cls')}:class:MyClass:block1:method:myMethod`,
       );
     });
 
@@ -59,19 +74,21 @@ describe('UriBasedIdGenerator', () => {
         ['MyClass', 'myMethod'],
         42,
       );
+      // Scope path should use colons
       expect(id).toBe(
-        `${createFileUri('/path/to/MyClass.cls')}:MyClass.myMethod:myVariable:42`,
+        `${createFileUri('/path/to/MyClass.cls')}:MyClass:myMethod:myVariable:42`,
       );
     });
 
-    it('should handle complex scope paths', () => {
+    it('should handle complex scope paths (using colons)', () => {
       const id = generateSymbolId('innerMethod', '/path/to/MyClass.cls', [
         'MyClass',
         'InnerClass',
         'innerMethod',
       ]);
+      // Scope path should use colons
       expect(id).toBe(
-        `${createFileUri('/path/to/MyClass.cls')}:MyClass.InnerClass.innerMethod:innerMethod`,
+        `${createFileUri('/path/to/MyClass.cls')}:MyClass:InnerClass:innerMethod:innerMethod`,
       );
     });
   });

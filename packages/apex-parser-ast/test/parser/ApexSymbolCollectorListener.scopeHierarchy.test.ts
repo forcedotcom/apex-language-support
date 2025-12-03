@@ -2185,4 +2185,238 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       });
     });
   });
+
+  describe('Symbol ID Format Consistency', () => {
+    it('should include root prefix in class symbol ID', () => {
+      const apexCode = `
+        public class MyClass {
+          private String field;
+        }
+      `;
+
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
+      const result = compilerService.compile(
+        apexCode,
+        'file:///test/MyClass.cls',
+        listener,
+      );
+
+      const symbolTable = result.result;
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+
+      const allSymbols = symbolTable.getAllSymbols();
+      const classSymbol = allSymbols.find(
+        (s) => s.name === 'MyClass' && s.kind === SymbolKind.Class,
+      );
+
+      expect(classSymbol).toBeDefined();
+      if (classSymbol) {
+        // Class ID should be: fileUri:class:MyClass
+        expect(classSymbol.id).toMatch(/^file:\/\/\/test\/MyClass\.cls:class:MyClass$/);
+        expect(classSymbol.parentId).toBeNull();
+      }
+    });
+
+    it('should include root prefix in method symbol ID', () => {
+      const apexCode = `
+        public class MyClass {
+          public void myMethod() {
+            String x = 'test';
+          }
+        }
+      `;
+
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
+      const result = compilerService.compile(
+        apexCode,
+        'file:///test/MyClass.cls',
+        listener,
+      );
+
+      const symbolTable = result.result;
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+
+      const allSymbols = symbolTable.getAllSymbols();
+      const classSymbol = allSymbols.find(
+        (s) => s.name === 'MyClass' && s.kind === SymbolKind.Class,
+      );
+      const methodSymbol = allSymbols.find(
+        (s) => s.name === 'myMethod' && s.kind === SymbolKind.Method,
+      );
+
+      expect(classSymbol).toBeDefined();
+      expect(methodSymbol).toBeDefined();
+      if (classSymbol && methodSymbol) {
+        // Method ID should include class prefix: fileUri:class:MyClass:block1:method:myMethod
+        expect(methodSymbol.id).toContain('class:MyClass');
+        expect(methodSymbol.id).toContain('method:myMethod');
+        // Verify the class portion matches the class ID
+        const classIdPortion = classSymbol.id.split(':').slice(1).join(':'); // 'class:MyClass'
+        expect(methodSymbol.id).toContain(classIdPortion);
+      }
+    });
+
+    it('should include root prefix in all nested symbol IDs', () => {
+      const apexCode = `
+        public class MyClass {
+          public void myMethod() {
+            if (true) {
+              String localVar = 'test';
+            }
+          }
+        }
+      `;
+
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
+      const result = compilerService.compile(
+        apexCode,
+        'file:///test/MyClass.cls',
+        listener,
+      );
+
+      const symbolTable = result.result;
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+
+      const allSymbols = symbolTable.getAllSymbols();
+      const classSymbol = allSymbols.find(
+        (s) => s.name === 'MyClass' && s.kind === SymbolKind.Class,
+      );
+      const methodSymbol = allSymbols.find(
+        (s) => s.name === 'myMethod' && s.kind === SymbolKind.Method,
+      );
+      const methodBlock = allSymbols.find(
+        (s): s is ScopeSymbol =>
+          isBlockSymbol(s) && s.scopeType === 'method',
+      );
+      const variableSymbol = allSymbols.find(
+        (s) => s.name === 'localVar' && s.kind === SymbolKind.Variable,
+      );
+
+      expect(classSymbol).toBeDefined();
+      expect(methodSymbol).toBeDefined();
+      expect(methodBlock).toBeDefined();
+      expect(variableSymbol).toBeDefined();
+
+      if (classSymbol && methodSymbol && methodBlock && variableSymbol) {
+        const classIdPortion = classSymbol.id.split(':').slice(1).join(':'); // 'class:MyClass'
+
+        // Method ID should include class prefix
+        expect(methodSymbol.id).toContain(classIdPortion);
+
+        // Method block ID should include class prefix
+        expect(methodBlock.id).toContain(classIdPortion);
+
+        // Variable ID should include class prefix in its scopePath
+        // Variable IDs may not directly contain the class prefix if they're deeply nested
+        // but the parent chain should include it
+        const variableParent = allSymbols.find(
+          (s) => s.id === variableSymbol.parentId,
+        );
+        if (variableParent) {
+          // Check that the parent chain eventually includes the class prefix
+          let current: ApexSymbol | null = variableParent;
+          let foundClassPrefix = false;
+          while (current && !foundClassPrefix) {
+            if (current.id.includes(classIdPortion)) {
+              foundClassPrefix = true;
+            }
+            if (current.parentId) {
+              current = allSymbols.find((s) => s.id === current!.parentId) || null;
+            } else {
+              break;
+            }
+          }
+          expect(foundClassPrefix).toBe(true);
+        }
+      }
+    });
+
+    it('should maintain consistent hierarchy structure', () => {
+      const apexCode = `
+        public class MyClass {
+          public void myMethod() {
+            if (true) {
+              String localVar = 'test';
+            }
+          }
+        }
+      `;
+
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
+      const result = compilerService.compile(
+        apexCode,
+        'file:///test/MyClass.cls',
+        listener,
+      );
+
+      const symbolTable = result.result;
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+
+      const allSymbols = symbolTable.getAllSymbols();
+
+      const classSymbol = allSymbols.find(
+        (s) => s.name === 'MyClass' && s.kind === SymbolKind.Class,
+      );
+      const classBlock = allSymbols.find(
+        (s): s is ScopeSymbol =>
+          isBlockSymbol(s) && s.scopeType === 'class',
+      );
+      const methodSymbol = allSymbols.find(
+        (s) => s.name === 'myMethod' && s.kind === SymbolKind.Method,
+      );
+      const methodBlock = allSymbols.find(
+        (s): s is ScopeSymbol =>
+          isBlockSymbol(s) && s.scopeType === 'method',
+      );
+      const variableSymbol = allSymbols.find(
+        (s) => s.name === 'localVar' && s.kind === SymbolKind.Variable,
+      );
+
+      expect(classSymbol).toBeDefined();
+      expect(classBlock).toBeDefined();
+      expect(methodSymbol).toBeDefined();
+      expect(methodBlock).toBeDefined();
+      expect(variableSymbol).toBeDefined();
+
+      if (
+        classSymbol &&
+        classBlock &&
+        methodSymbol &&
+        methodBlock &&
+        variableSymbol
+      ) {
+        // Class symbol should be root (parentId === null)
+        expect(classSymbol.parentId).toBeNull();
+
+        // Class block should point to class symbol
+        expect(classBlock.parentId).toBe(classSymbol.id);
+
+        // Method symbol should point to class block
+        expect(methodSymbol.parentId).toBe(classBlock.id);
+
+        // Method block should point to method symbol
+        expect(methodBlock.parentId).toBe(methodSymbol.id);
+
+        // Variable should point to a block (method block or nested block)
+        expect(variableSymbol.parentId).toBeDefined();
+        const variableParent = allSymbols.find(
+          (s) => s.id === variableSymbol.parentId,
+        );
+        expect(variableParent).toBeDefined();
+        expect(variableParent?.kind).toBe(SymbolKind.Block);
+      }
+    });
+  });
 });

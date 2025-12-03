@@ -712,6 +712,42 @@ describe('FQN Utilities', () => {
         }
       });
     });
+
+    it('should calculate FQN for variable in deeply nested structure', () => {
+      const apexCode = `
+        public class MyClass {
+          public void myMethod() {
+            if (true) {
+              String localVar = 'test';
+            }
+          }
+        }
+      `;
+
+      const { symbolTable, getParent } = compileAndGetSymbols(apexCode);
+      const allSymbols = symbolTable.getAllSymbols();
+
+      const variableSymbol = allSymbols.find(
+        (s: ApexSymbol) =>
+          s.name === 'localVar' && s.kind === SymbolKind.Variable,
+      );
+
+      expect(variableSymbol).toBeDefined();
+      if (variableSymbol) {
+        const fqn = calculateFQN(
+          variableSymbol,
+          { normalizeCase: true },
+          getParent,
+        );
+        const expectedFQN = getExpectedFQN(variableSymbol, getParent, true);
+        expect(fqn).toBe(expectedFQN);
+
+        // Verify the FQN includes all parent symbols in the hierarchy
+        expect(fqn).toContain('myclass');
+        expect(fqn).toContain('mymethod');
+        expect(fqn).toContain('localvar');
+      }
+    });
   });
 
   describe('extractNamespace', () => {
