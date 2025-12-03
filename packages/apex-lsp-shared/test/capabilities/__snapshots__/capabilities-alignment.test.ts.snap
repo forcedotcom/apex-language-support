@@ -2,32 +2,22 @@
 
 exports[`Capabilities Alignment Tests Capabilities Manager Integration should return development capabilities in development mode: capabilities-manager-development 1`] = `
 {
-  "callHierarchyProvider": undefined,
-  "codeActionProvider": undefined,
   "codeLensProvider": {
     "resolveProvider": false,
   },
-  "colorProvider": undefined,
   "completionProvider": {
     "resolveProvider": false,
     "triggerCharacters": [
       ".",
     ],
   },
-  "declarationProvider": undefined,
   "definitionProvider": true,
   "diagnosticProvider": {
     "identifier": "apex-ls-ts",
     "interFileDependencies": true,
     "workspaceDiagnostics": false,
   },
-  "documentFormattingProvider": undefined,
-  "documentHighlightProvider": undefined,
-  "documentLinkProvider": undefined,
-  "documentOnTypeFormattingProvider": undefined,
-  "documentRangeFormattingProvider": undefined,
   "documentSymbolProvider": true,
-  "executeCommandProvider": undefined,
   "experimental": {
     "findMissingArtifactProvider": {
       "enabled": true,
@@ -39,26 +29,13 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
       "timeoutMsHint": 2000,
     },
     "profilingProvider": {
-      "disabledForWeb": true,
-      "value": {
-        "enabled": true,
-      },
+      "enabled": true,
     },
   },
   "foldingRangeProvider": true,
   "hoverProvider": true,
-  "implementationProvider": undefined,
-  "inlayHintProvider": undefined,
-  "inlineCompletionProvider": undefined,
-  "inlineValueProvider": undefined,
-  "linkedEditingRangeProvider": undefined,
-  "monikerProvider": undefined,
   "publishDiagnostics": true,
   "referencesProvider": true,
-  "renameProvider": undefined,
-  "selectionRangeProvider": undefined,
-  "semanticTokensProvider": undefined,
-  "signatureHelpProvider": undefined,
   "textDocumentSync": {
     "change": 1,
     "openClose": true,
@@ -66,41 +43,26 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
     "willSave": false,
     "willSaveWaitUntil": false,
   },
-  "typeDefinitionProvider": undefined,
-  "typeHierarchyProvider": undefined,
   "workspace": {
     "workspaceFolders": {
       "changeNotifications": true,
       "supported": true,
     },
   },
-  "workspaceSymbolProvider": undefined,
 }
 `;
 
 exports[`Capabilities Alignment Tests Capabilities Manager Integration should return production capabilities in production mode: capabilities-manager-production 1`] = `
 {
-  "callHierarchyProvider": undefined,
-  "codeActionProvider": undefined,
   "codeLensProvider": {
     "resolveProvider": false,
   },
-  "colorProvider": undefined,
-  "completionProvider": undefined,
-  "declarationProvider": undefined,
-  "definitionProvider": undefined,
   "diagnosticProvider": {
     "identifier": "apex-ls-ts",
     "interFileDependencies": false,
     "workspaceDiagnostics": false,
   },
-  "documentFormattingProvider": undefined,
-  "documentHighlightProvider": undefined,
-  "documentLinkProvider": undefined,
-  "documentOnTypeFormattingProvider": undefined,
-  "documentRangeFormattingProvider": undefined,
   "documentSymbolProvider": true,
-  "executeCommandProvider": undefined,
   "experimental": {
     "findMissingArtifactProvider": {
       "enabled": false,
@@ -112,26 +74,12 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
       "timeoutMsHint": 1500,
     },
     "profilingProvider": {
-      "disabledForWeb": true,
-      "value": {
-        "enabled": false,
-      },
+      "enabled": false,
     },
   },
   "foldingRangeProvider": false,
-  "hoverProvider": undefined,
-  "implementationProvider": undefined,
-  "inlayHintProvider": undefined,
-  "inlineCompletionProvider": undefined,
-  "inlineValueProvider": undefined,
-  "linkedEditingRangeProvider": undefined,
-  "monikerProvider": undefined,
   "publishDiagnostics": false,
   "referencesProvider": true,
-  "renameProvider": undefined,
-  "selectionRangeProvider": undefined,
-  "semanticTokensProvider": undefined,
-  "signatureHelpProvider": undefined,
   "textDocumentSync": {
     "change": 1,
     "openClose": true,
@@ -139,15 +87,12 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
     "willSave": false,
     "willSaveWaitUntil": false,
   },
-  "typeDefinitionProvider": undefined,
-  "typeHierarchyProvider": undefined,
   "workspace": {
     "workspaceFolders": {
       "changeNotifications": true,
       "supported": true,
     },
   },
-  "workspaceSymbolProvider": undefined,
 }
 `;
 
@@ -1393,10 +1338,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
           "timeoutMsHint": 1500,
         },
         "profilingProvider": {
-          "disabledForWeb": true,
-          "value": {
-            "enabled": false,
-          },
+          "enabled": false,
         },
       },
       "foldingRangeProvider": false,
@@ -1664,10 +1606,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
           "timeoutMsHint": 2000,
         },
         "profilingProvider": {
-          "disabledForWeb": true,
-          "value": {
-            "enabled": true,
-          },
+          "enabled": true,
         },
       },
       "foldingRangeProvider": true,
@@ -2408,10 +2347,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
             "timeoutMsHint": 2000,
           },
           "profilingProvider": {
-            "disabledForWeb": true,
-            "value": {
-              "enabled": true,
-            },
+            "enabled": true,
           },
         },
         "foldingRangeProvider": true,
@@ -2478,10 +2414,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
             "timeoutMsHint": 1500,
           },
           "profilingProvider": {
-            "disabledForWeb": true,
-            "value": {
-              "enabled": false,
-            },
+            "enabled": false,
           },
         },
         "foldingRangeProvider": false,
@@ -2556,10 +2489,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
           "timeoutMsHint": 2000,
         },
         "profilingProvider": {
-          "disabledForWeb": true,
-          "value": {
-            "enabled": true,
-          },
+          "enabled": true,
         },
       },
       "foldingRangeProvider": true,
@@ -2626,10 +2556,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
           "timeoutMsHint": 1500,
         },
         "profilingProvider": {
-          "disabledForWeb": true,
-          "value": {
-            "enabled": false,
-          },
+          "enabled": false,
         },
       },
       "foldingRangeProvider": false,
@@ -2759,10 +2686,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
         "timeoutMsHint": 2000,
       },
       "profilingProvider": {
-        "disabledForWeb": true,
-        "value": {
-          "enabled": true,
-        },
+        "enabled": true,
       },
     },
     "foldingRangeProvider": true,
@@ -2829,10 +2753,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
         "timeoutMsHint": 1500,
       },
       "profilingProvider": {
-        "disabledForWeb": true,
-        "value": {
-          "enabled": false,
-        },
+        "enabled": false,
       },
     },
     "foldingRangeProvider": false,
@@ -2908,10 +2829,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
       "timeoutMsHint": 2000,
     },
     "profilingProvider": {
-      "disabledForWeb": true,
-      "value": {
-        "enabled": true,
-      },
+      "enabled": true,
     },
   },
   "foldingRangeProvider": true,
@@ -2981,10 +2899,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
       "timeoutMsHint": 1500,
     },
     "profilingProvider": {
-      "disabledForWeb": true,
-      "value": {
-        "enabled": false,
-      },
+      "enabled": false,
     },
   },
   "foldingRangeProvider": false,

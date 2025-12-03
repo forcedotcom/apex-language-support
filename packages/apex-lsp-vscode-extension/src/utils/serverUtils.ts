@@ -10,9 +10,22 @@ import * as vscode from 'vscode';
 import { logToOutputChannel } from '../logging';
 
 /**
- * Server mode type
+ * Valid server modes - single source of truth
  */
-export type ServerMode = 'production' | 'development';
+const VALID_SERVER_MODES = ['production', 'development'] as const;
+
+/**
+ * Server mode type derived from valid modes
+ */
+export type ServerMode = (typeof VALID_SERVER_MODES)[number];
+
+/**
+ * Validates if a string is a valid server mode
+ * @param mode - The mode string to validate
+ * @returns True if the mode is valid
+ */
+const isValidServerMode = (mode: string): mode is ServerMode =>
+  VALID_SERVER_MODES.includes(mode as ServerMode);
 
 /**
  * Determines the server mode based on environment and context.
@@ -33,13 +46,12 @@ export const determineServerMode = (
 
   // Validate and use APEX_LS_MODE if set
   if (processEnv.APEX_LS_MODE) {
-    const validModes: ServerMode[] = ['production', 'development'];
-    if (validModes.includes(processEnv.APEX_LS_MODE as ServerMode)) {
+    if (isValidServerMode(processEnv.APEX_LS_MODE)) {
       logToOutputChannel(
         `Using server mode from environment variable: ${processEnv.APEX_LS_MODE}`,
         'info',
       );
-      return processEnv.APEX_LS_MODE as ServerMode;
+      return processEnv.APEX_LS_MODE;
     }
 
     logToOutputChannel(
@@ -52,13 +64,12 @@ export const determineServerMode = (
   const config = vscode.workspace.getConfiguration('apex');
   const settingsServerMode = config.get<string>('environment.serverMode');
   if (settingsServerMode) {
-    const validModes: ServerMode[] = ['production', 'development'];
-    if (validModes.includes(settingsServerMode as ServerMode)) {
+    if (isValidServerMode(settingsServerMode)) {
       logToOutputChannel(
         `Using server mode from workspace settings: ${settingsServerMode}`,
         'info',
       );
-      return settingsServerMode as ServerMode;
+      return settingsServerMode;
     }
 
     logToOutputChannel(

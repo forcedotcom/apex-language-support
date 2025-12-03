@@ -226,16 +226,16 @@ describe('ApexCapabilitiesManager', () => {
       manager.setPlatform('web');
 
       const capabilities = manager.getCapabilities();
-      // profilingProvider has disabledForWeb: true, so it should be undefined on web
+      // profilingProvider is listed in WEB_DISABLED_CAPABILITIES, so it should be undefined on web
       expect(capabilities.experimental?.profilingProvider).toBeUndefined();
     });
 
-    it('should unwrap platform-constrained capabilities on desktop', () => {
+    it('should include all capabilities on desktop platform', () => {
       manager.setMode('production');
       manager.setPlatform('desktop');
 
       const capabilities = manager.getCapabilities();
-      // profilingProvider should be unwrapped to just the value on desktop
+      // profilingProvider should be available on desktop (plain value, not wrapped)
       expect(capabilities.experimental?.profilingProvider).toEqual({
         enabled: false,
       });
@@ -251,9 +251,9 @@ describe('ApexCapabilitiesManager', () => {
         'desktop',
       );
 
-      // profilingProvider should be undefined on web
+      // profilingProvider should be undefined on web (listed in WEB_DISABLED_CAPABILITIES)
       expect(webDevCapabilities.experimental?.profilingProvider).toBeUndefined();
-      // profilingProvider should be unwrapped on desktop
+      // profilingProvider should be available on desktop (plain value)
       expect(desktopDevCapabilities.experimental?.profilingProvider).toEqual({
         enabled: true,
       });
