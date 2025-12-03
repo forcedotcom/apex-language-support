@@ -136,6 +136,15 @@
           "default": 6009,
           "description": "%configuration.apex-ls-ts.debugPort.description%"
         },
+        "apex.environment.serverMode": {
+          "type": "string",
+          "enum": [
+            "production",
+            "development"
+          ],
+          "default": "production",
+          "description": "%configuration.apex-ls-ts.environment.serverMode.description%"
+        },
         "apex.commentCollection.enableCommentCollection": {
           "type": "boolean",
           "default": true,
