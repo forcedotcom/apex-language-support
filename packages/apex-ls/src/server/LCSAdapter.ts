@@ -606,26 +606,49 @@ export class LCSAdapter {
   }
 
   /**
-   * Register profiling request handlers (only in desktop environment)
+   * Check if interactive profiling is enabled based on capability and settings.
+   * Platform constraint is enforced via WEB_DISABLED_CAPABILITIES filtering -
+   * the profilingProvider capability will be undefined on web platforms.
+   *
+   * @returns Object with enabled status and optional reason if disabled
    */
-  private registerProfilingHandlers(): void {
+  private isInteractiveProfilingEnabled(): {
+    enabled: boolean;
+    reason?: string;
+  } {
     // Check if profiling capability is enabled (platform filtering already applied)
     const capabilities =
       LSPConfigurationManager.getInstance().getExtendedServerCapabilities();
     const profilingCapability = capabilities.experimental?.profilingProvider;
 
     if (!profilingCapability || !profilingCapability.enabled) {
-      this.logger.debug(
-        '⚠️ Profiling handlers not registered (profilingProvider capability disabled or unavailable on this platform)',
-      );
-      return;
+      return {
+        enabled: false,
+        reason:
+          'profilingProvider capability disabled or unavailable on this platform',
+      };
     }
 
-    // Only register if interactive profiling is enabled in settings
+    // Check if interactive profiling is enabled in settings
     const settings = LSPConfigurationManager.getInstance().getSettings();
     if (settings.apex.environment.profilingMode !== 'interactive') {
+      return {
+        enabled: false,
+        reason: `profiling mode is '${settings.apex.environment.profilingMode}', not 'interactive'`,
+      };
+    }
+
+    return { enabled: true };
+  }
+
+  /**
+   * Register profiling request handlers (only in desktop environment)
+   */
+  private registerProfilingHandlers(): void {
+    const profilingStatus = this.isInteractiveProfilingEnabled();
+    if (!profilingStatus.enabled) {
       this.logger.debug(
-        '⚠️ Profiling handlers not registered (interactive profiling not enabled)',
+        `⚠️ Profiling handlers not registered (${profilingStatus.reason})`,
       );
       return;
     }
@@ -786,22 +809,10 @@ export class LCSAdapter {
   /**
    * Auto-start interactive profiling if enabled
    * This ensures profiling captures server initialization
-   * Platform constraint is enforced via the profilingProvider capability's
-   * disabledForWeb flag - the capability will be undefined on web platforms.
    */
   private async autoStartInteractiveProfiling(): Promise<void> {
-    // Check if profiling capability is enabled (platform filtering already applied)
-    const capabilities =
-      LSPConfigurationManager.getInstance().getExtendedServerCapabilities();
-    const profilingCapability = capabilities.experimental?.profilingProvider;
-
-    if (!profilingCapability || !profilingCapability.enabled) {
-      return;
-    }
-
-    // Check if interactive profiling is enabled in settings
-    const settings = LSPConfigurationManager.getInstance().getSettings();
-    if (settings.apex.environment.profilingMode !== 'interactive') {
+    const profilingStatus = this.isInteractiveProfilingEnabled();
+    if (!profilingStatus.enabled) {
       return;
     }
 
@@ -833,6 +844,7 @@ export class LCSAdapter {
       }
 
       // Get profiling type from settings
+      const settings = LSPConfigurationManager.getInstance().getSettings();
       const profilingType = settings.apex.environment.profilingType ?? 'cpu';
 
       // Start profiling

@@ -14,8 +14,10 @@ import {
   CapabilitiesConfiguration,
   ExtendedServerCapabilities,
   CAPABILITIES_CONFIGURATION,
-  isPlatformConstrained,
+  WEB_DISABLED_CAPABILITIES,
+  DESKTOP_DISABLED_CAPABILITIES,
 } from './ApexLanguageServerCapabilities';
+import { getLogger } from '../index';
 
 /**
  * Capabilities manager for the Apex Language Server
@@ -24,18 +26,27 @@ import {
  * The manager is implemented as a singleton to ensure consistent
  * capabilities across the application.
  *
- * Capabilities can be filtered by platform using disable flags:
- * - `disabledForWeb: true` - capability is not available in web environments
- * - `disabledForDesktop: true` - capability is not available in desktop environments
+ * Capabilities are filtered by platform using predefined disabled sets:
+ * - WEB_DISABLED_CAPABILITIES - capabilities not available in web environments
+ * - DESKTOP_DISABLED_CAPABILITIES - capabilities not available in desktop environments
  */
 export class ApexCapabilitiesManager {
   private static instance: ApexCapabilitiesManager;
   private currentMode: ServerMode = 'production';
   private currentPlatform: RuntimePlatform = 'desktop';
   private capabilities: CapabilitiesConfiguration;
+  private readonly logger = getLogger();
 
   private constructor() {
-    this.capabilities = CAPABILITIES_CONFIGURATION;
+    // Deep copy the capabilities configuration to avoid mutating the exported constants
+    this.capabilities = {
+      production: JSON.parse(
+        JSON.stringify(CAPABILITIES_CONFIGURATION.production),
+      ),
+      development: JSON.parse(
+        JSON.stringify(CAPABILITIES_CONFIGURATION.development),
+      ),
+    };
   }
 
   /**
@@ -84,8 +95,11 @@ export class ApexCapabilitiesManager {
    * or set to undefined based on the current platform.
    */
   public getCapabilities(): ExtendedServerCapabilities {
-    const modeCapabilities = this.capabilities[this.currentMode];
-    return this.filterByPlatform(modeCapabilities, this.currentPlatform);
+    const result = this.getCapabilitiesForModeAndPlatform(
+      this.currentMode,
+      this.currentPlatform,
+    );
+    return result;
   }
 
   /**
@@ -101,7 +115,7 @@ export class ApexCapabilitiesManager {
    * @param mode - The server mode to get capabilities for
    */
   public getCapabilitiesForMode(mode: ServerMode): ExtendedServerCapabilities {
-    return this.filterByPlatform(this.capabilities[mode], this.currentPlatform);
+    return this.getCapabilitiesForModeAndPlatform(mode, this.currentPlatform);
   }
 
   /**
@@ -121,7 +135,9 @@ export class ApexCapabilitiesManager {
    * Useful for inspecting the full capability configuration.
    * @param mode - The server mode to get capabilities for
    */
-  public getRawCapabilitiesForMode(mode: ServerMode): ExtendedServerCapabilities {
+  public getRawCapabilitiesForMode(
+    mode: ServerMode,
+  ): ExtendedServerCapabilities {
     return this.capabilities[mode];
   }
 
@@ -190,47 +206,56 @@ export class ApexCapabilitiesManager {
   }
 
   /**
-   * Filter capabilities based on platform constraints.
-   * - If capability has disabledForWeb: true and platform is 'web', exclude it
-   * - If capability has disabledForDesktop: true and platform is 'desktop', exclude it
-   * - Otherwise, unwrap the value from PlatformConstrainedCapability
+   * Filter capabilities based on platform using predefined disabled capability sets.
+   * Capabilities are filtered by checking against WEB_DISABLED_CAPABILITIES or
+   * DESKTOP_DISABLED_CAPABILITIES depending on the current platform.
    *
    * @param capabilities - The capabilities object to filter
    * @param platform - The runtime platform to filter by
-   * @returns Filtered capabilities with platform-constrained values unwrapped
+   * @param pathPrefix - Internal parameter for tracking nested capability paths
+   * @returns Filtered capabilities with disabled capabilities removed
    */
   private filterByPlatform<T extends object>(
     capabilities: T,
     platform: RuntimePlatform,
+    pathPrefix = '',
   ): T {
     const result: Record<string, unknown> = {};
 
+    // Select the appropriate disabled set based on platform
+    const disabledSet =
+      platform === 'web'
+        ? WEB_DISABLED_CAPABILITIES
+        : DESKTOP_DISABLED_CAPABILITIES;
+
     for (const [key, capability] of Object.entries(capabilities)) {
+      // Construct the full capability path (e.g., 'experimental.profilingProvider')
+      const capabilityPath = pathPrefix ? `${pathPrefix}.${key}` : key;
+
+      // Check if this capability is disabled for the current platform
+      if (disabledSet.has(capabilityPath as any)) {
+        result[key] = undefined; // Disabled for this platform
+        continue;
+      }
+
       if (capability === undefined || capability === null) {
         result[key] = capability;
         continue;
       }
 
-      if (isPlatformConstrained(capability)) {
-        // Check if disabled for current platform
-        if (platform === 'web' && capability.disabledForWeb) {
-          result[key] = undefined; // Disabled for web
-        } else if (platform === 'desktop' && capability.disabledForDesktop) {
-          result[key] = undefined; // Disabled for desktop
-        } else {
-          result[key] = capability.value; // Unwrap the value
-        }
-      } else if (
+      // Recursively filter nested objects (e.g., experimental, workspace)
+      if (
         typeof capability === 'object' &&
-        !Array.isArray(capability)
+        !Array.isArray(capability) &&
+        Object.keys(capability).length > 0
       ) {
-        // Recursively filter nested objects (e.g., experimental)
         result[key] = this.filterByPlatform(
           capability as Record<string, unknown>,
           platform,
+          capabilityPath,
         );
       } else {
-        // Plain value (boolean, string, number, array), no platform constraint
+        // Plain value (boolean, string, number, array), pass through
         result[key] = capability;
       }
     }

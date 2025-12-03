@@ -96,15 +96,15 @@ describe('Capabilities Alignment Tests', () => {
     });
 
     it('should have consistent mode switching', () => {
-      // Test production mode (use getRawCapabilities to compare with raw definitions)
+      // Test production mode (capabilities are deep copied, so use toEqual instead of toBe)
       capabilitiesManager.setMode('production');
       const productionCaps = capabilitiesManager.getRawCapabilities();
-      expect(productionCaps).toBe(PRODUCTION_CAPABILITIES);
+      expect(productionCaps).toEqual(PRODUCTION_CAPABILITIES);
 
       // Test development mode
       capabilitiesManager.setMode('development');
       const developmentCaps = capabilitiesManager.getRawCapabilities();
-      expect(developmentCaps).toBe(DEVELOPMENT_CAPABILITIES);
+      expect(developmentCaps).toEqual(DEVELOPMENT_CAPABILITIES);
 
       // Verify they're different
       expect(productionCaps).not.toBe(developmentCaps);
@@ -339,13 +339,15 @@ describe('Capabilities Alignment Tests', () => {
       ];
 
       modeTests.forEach(({ mode, expectedServer, expectedClient }) => {
-        const capabilitiesManager = new ApexCapabilitiesManager();
+        // Reset singleton to get fresh instance
+        (ApexCapabilitiesManager as any).instance = undefined;
+        const capabilitiesManager = ApexCapabilitiesManager.getInstance();
         capabilitiesManager.setMode(mode);
-        // Use getRawCapabilities to compare with raw capability definitions
+        // Capabilities are deep copied, so use toEqual instead of toBe
         const serverCaps = capabilitiesManager.getRawCapabilities();
         const clientCaps = getClientCapabilitiesForMode(mode);
 
-        expect(serverCaps).toBe(expectedServer);
+        expect(serverCaps).toEqual(expectedServer);
         expect(clientCaps).toBe(expectedClient);
       });
 

@@ -15,60 +15,49 @@ export type ExtendedServerCapabilities = ServerCapabilities &
   ImplicitCapabilties & { experimental?: ExperimentalCapabilities };
 
 // ============================================================================
-// Platform Constraint Types
+// Platform Filtering - Disabled Capability Sets
 // ============================================================================
 
 /**
- * Wrapper for capabilities that may have platform constraints.
- * If a capability is just a value (boolean, object), it's available on all platforms.
- * Use this wrapper to add platform-specific disable flags.
- *
- * @example
- * // Desktop-only capability (disabled for web)
- * profilingProvider: {
- *   value: { enabled: true },
- *   disabledForWeb: true,
- * }
- *
- * @example
- * // Web-only capability (disabled for desktop)
- * webOnlyFeature: {
- *   value: true,
- *   disabledForDesktop: true,
- * }
+ * Capability keys that reference experimental capabilities.
+ * Used to construct full paths like 'experimental.profilingProvider'.
  */
-export interface PlatformConstrainedCapability<T> {
-  /** The actual capability value */
-  value: T;
-  /** If true, this capability is disabled in web environments */
-  disabledForWeb?: boolean;
-  /** If true, this capability is disabled in desktop environments */
-  disabledForDesktop?: boolean;
-}
+type ExperimentalCapabilityKey = keyof ExperimentalCapabilities;
 
 /**
- * Infers the value type from a PlatformConstrainedCapability.
- * If T has a `value` property, extracts its type; otherwise returns never.
+ * Standard LSP capability keys.
  */
-type InferConstrainedValue<T> = T extends { value: infer V } ? V : never;
+type StandardCapabilityKey = keyof ServerCapabilities;
 
 /**
- * Type guard to check if a capability has platform constraints.
- * Returns true if the capability is wrapped with platform constraint flags.
- *
- * @param capability - The capability value to check
- * @returns True if the capability has platform constraint flags
+ * All possible capability paths including nested experimental capabilities.
+ * Format: 'experimental.<capability>' for experimental capabilities,
+ * or standard capability name for top-level capabilities.
  */
-export function isPlatformConstrained<T>(
-  capability: T,
-): capability is T & PlatformConstrainedCapability<InferConstrainedValue<T>> {
-  return (
-    typeof capability === 'object' &&
-    capability !== null &&
-    'value' in capability &&
-    ('disabledForWeb' in capability || 'disabledForDesktop' in capability)
-  );
-}
+type CapabilityPath =
+  | StandardCapabilityKey
+  | `experimental.${ExperimentalCapabilityKey}`;
+
+/**
+ * Set of capabilities that are disabled in web environments.
+ * These capabilities require Node.js APIs or desktop-only features.
+ *
+ * Capabilities listed here will be filtered out when the server runs in a web context.
+ */
+export const WEB_DISABLED_CAPABILITIES: ReadonlySet<CapabilityPath> = new Set([
+  'experimental.profilingProvider', // Requires Node.js inspector API
+]);
+
+/**
+ * Set of capabilities that are disabled in desktop environments.
+ * Currently empty, but can be extended for web-only features.
+ *
+ * Capabilities listed here will be filtered out when the server runs in a desktop context.
+ */
+export const DESKTOP_DISABLED_CAPABILITIES: ReadonlySet<CapabilityPath> =
+  new Set([
+    // No desktop-disabled capabilities at this time
+  ]);
 
 /**
  * Configuration for different server modes
@@ -110,9 +99,9 @@ export interface ExperimentalCapabilities {
   findMissingArtifactProvider?: FindMissingArtifactCapability;
   /**
    * Profiling capability - desktop only.
-   * Wrapped with PlatformConstrainedCapability with disabledForWeb: true.
+   * Disabled for web platforms (see WEB_DISABLED_CAPABILITIES).
    */
-  profilingProvider?: PlatformConstrainedCapability<ProfilingCapability>;
+  profilingProvider?: ProfilingCapability;
 }
 
 /**
@@ -195,9 +184,9 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
       timeoutMsHint: 1500,
     },
     // Profiling is desktop-only (requires Node.js inspector API)
+    // Filtered out for web via WEB_DISABLED_CAPABILITIES
     profilingProvider: {
-      value: { enabled: false }, // Disabled by default in production
-      disabledForWeb: true,
+      enabled: false, // Disabled by default in production
     },
   },
 };
@@ -233,9 +222,9 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
       timeoutMsHint: 2000,
     },
     // Profiling is desktop-only (requires Node.js inspector API)
+    // Filtered out for web via WEB_DISABLED_CAPABILITIES
     profilingProvider: {
-      value: { enabled: true }, // Enabled by default in development
-      disabledForWeb: true,
+      enabled: true, // Enabled by default in development
     },
   },
 };
