@@ -326,6 +326,206 @@ export class SymbolFactory {
     // Include prefix to ensure uniqueness between semantic symbols and their block scopes
     return generateSymbolId(name, fileUri, scopePath, undefined, prefix);
   }
+
+  /**
+   * Create a scope symbol of the appropriate subclass based on scopeType
+   * Uses a registry pattern to avoid large switch statements
+   * @param name The block name
+   * @param scopeType The type of block
+   * @param location The location of the block
+   * @param fileUri The file URI
+   * @param parentId The parent block symbol ID, if any
+   * @param key The symbol key
+   * @param modifiers The symbol modifiers
+   * @returns A ScopeSymbol instance of the appropriate subclass
+   */
+  static createScopeSymbolByType(
+    name: string,
+    scopeType: ScopeType,
+    location: SymbolLocation,
+    fileUri: string,
+    parentId: string | null,
+    key: SymbolKey,
+    modifiers: SymbolModifiers,
+  ): ScopeSymbol {
+    // For block symbols, symbolRange and identifierRange should be the same
+    const blockLocation: SymbolLocation = {
+      symbolRange: location.symbolRange,
+      identifierRange: location.symbolRange, // Same as symbolRange for blocks
+    };
+
+    // Use file location for file scope, block location for others
+    const effectiveLocation =
+      scopeType === 'file' ? location : blockLocation;
+
+    // Ensure unifiedId is set - generate it if missing
+    const id = key.unifiedId || generateUnifiedId(key, fileUri);
+
+    // Registry pattern for scope symbol constructors
+    switch (scopeType) {
+      case 'file':
+        return new FileScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'class':
+        return new ClassScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'method':
+        return new MethodScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'if':
+        return new IfScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'while':
+        return new WhileScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'for':
+        return new ForScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'doWhile':
+        return new DoWhileScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'try':
+        return new TryScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'catch':
+        return new CatchScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'finally':
+        return new FinallyScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'switch':
+        return new SwitchScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'when':
+        return new WhenScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'runAs':
+        return new RunAsScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'getter':
+        return new GetterScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'setter':
+        return new SetterScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+      case 'block':
+      default:
+        return new GenericBlockScopeSymbol(
+          id,
+          name,
+          effectiveLocation,
+          fileUri,
+          parentId,
+          key,
+          modifiers,
+        );
+    }
+  }
 }
 
 /**
@@ -1221,6 +1421,7 @@ export class SymbolTable {
 
   /**
    * Create a scope symbol of the appropriate subclass based on scopeType
+   * Delegates to SymbolFactory to avoid code duplication
    * @private
    */
   private createScopeSymbol(
@@ -1253,175 +1454,16 @@ export class SymbolTable {
       isBuiltIn: false,
     };
 
-    // For block symbols, symbolRange and identifierRange should be the same
-    const blockLocation: SymbolLocation = {
-      symbolRange: location.symbolRange,
-      identifierRange: location.symbolRange, // Same as symbolRange for blocks
-    };
-
-    switch (scopeType) {
-      case 'file':
-        return new FileScopeSymbol(
-          id,
-          name,
-          location,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'class':
-        return new ClassScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'method':
-        return new MethodScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'if':
-        return new IfScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'while':
-        return new WhileScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'for':
-        return new ForScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'doWhile':
-        return new DoWhileScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'try':
-        return new TryScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'catch':
-        return new CatchScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'finally':
-        return new FinallyScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'switch':
-        return new SwitchScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'when':
-        return new WhenScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'runAs':
-        return new RunAsScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'getter':
-        return new GetterScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'setter':
-        return new SetterScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'block':
-      default:
-        return new GenericBlockScopeSymbol(
-          id,
-          name,
-          blockLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-    }
+    // Delegate to SymbolFactory to create the appropriate scope symbol subclass
+    return SymbolFactory.createScopeSymbolByType(
+      name,
+      scopeType,
+      location,
+      fileUri,
+      parentId,
+      key,
+      modifiers,
+    );
   }
 
   /**

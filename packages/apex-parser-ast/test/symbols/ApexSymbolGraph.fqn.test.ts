@@ -141,7 +141,8 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       expect(methodSymbol).toBeDefined();
       // FQN is normalized to lowercase for Apex case-insensitive convention
       // FQN now includes blocks: class -> class block -> method
-      expect(methodSymbol?.fqn).toMatch(/^testclass\.block\d+\.mymethod$/);
+      // Block naming uses pattern: class_1, class_2, etc.
+      expect(methodSymbol?.fqn).toMatch(/^testclass\.class_\d+\.mymethod$/);
 
       // Verify FQN can be looked up using the actual FQN (case-insensitive)
       const actualFQN = methodSymbol?.fqn;
@@ -196,10 +197,11 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       expect(methodSymbol).toBeDefined();
       // FQN is normalized to lowercase for Apex case-insensitive convention
       // Inner class FQN: outerclass.innerclass (inner class parentId points to outer class symbol, not block)
-      // Method FQN includes blocks: outerclass.innerclass.blockN.innermethod
+      // Method FQN includes blocks: outerclass.innerclass.class_N.innermethod
+      // Block naming uses pattern: class_1, class_2, etc.
       expect(innerClass?.fqn).toBe('outerclass.innerclass');
       expect(methodSymbol?.fqn).toMatch(
-        /^outerclass\.innerclass\.block\d+\.innermethod$/,
+        /^outerclass\.innerclass\.class_\d+\.innermethod$/,
       );
 
       // Verify FQNs can be looked up using the actual FQNs (case-insensitive)
