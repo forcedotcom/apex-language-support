@@ -748,7 +748,16 @@ export class ApexSymbolCollectorListener
         methodSymbol.annotations = annotations;
       }
 
+      // CRITICAL: Ensure method's parentId points to the class (semantic parent), not the class block
+      // The method symbol's parentId should be set to the class symbol's id
+      // This ensures FQN calculation follows the correct semantic hierarchy
+      // Set it explicitly to override any default that might be set
+      if (currentType) {
+        methodSymbol.parentId = currentType.id;
+      }
+
       // Add method symbol to current scope
+      // Note: addSymbol will NOT override parentId if it's already set to a non-null value
       this.symbolTable.addSymbol(methodSymbol);
 
       // Enter method scope with location
@@ -3812,13 +3821,32 @@ export class ApexSymbolCollectorListener
       modifiers = { ...modifiers, isTestMethod: true };
     }
 
+    // CRITICAL: Method's parentId should point to the class (semantic parent), not the class block
+    // If getCurrentType() returns null, we need to find the class another way
+    // The method is always inside a class, so we should be able to find it
+    let methodParentId: string | null = parent?.id || null;
+    if (!methodParentId && this.scopeStack.size() > 0) {
+      // Try to find the class by looking at the scope stack
+      const stackArray = this.scopeStack.toArray();
+      for (const owner of stackArray) {
+        if (owner.kind === SymbolKind.Block) {
+          const block = owner as ScopeSymbol;
+          if (block.scopeType === 'class') {
+            // Block's parentId points to the class symbol
+            methodParentId = block.parentId;
+            break;
+          }
+        }
+      }
+    }
+
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       SymbolKind.Method,
       location,
       this.currentFilePath,
       modifiers,
-      parent?.id || null,
+      methodParentId,
       { returnType, parameters: [] },
       namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),

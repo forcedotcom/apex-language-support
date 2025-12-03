@@ -19,7 +19,7 @@ import {
   ScopeSymbol,
 } from '../../src/types/symbol';
 import { TestLogger } from '../utils/testLogger';
-import { isBlockSymbol, isMethodSymbol } from '../../src/utils/symbolNarrowing';
+import { isBlockSymbol, isMethodSymbol, isConstructorSymbol } from '../../src/utils/symbolNarrowing';
 
 describe('Constructor Validation Tests', () => {
   let compilerService: CompilerService;
@@ -217,7 +217,7 @@ describe('Constructor Validation Tests', () => {
         : [];
       const innerSemanticSymbols = allInnerSymbols.filter((s) => !isBlockSymbol(s));
       let constructor = innerSemanticSymbols.find(
-        (s) => isMethodSymbol(s) && s.isConstructor,
+        (s) => (isMethodSymbol(s) && s.isConstructor) || isConstructorSymbol(s),
       ) as MethodSymbol;
       
       // If not found in inner class scope, check all symbols filtered by parent
@@ -225,7 +225,7 @@ describe('Constructor Validation Tests', () => {
         const allTableSymbols = symbolTable?.getAllSymbols() || [];
         const allSemanticSymbols = allTableSymbols.filter((s) => !isBlockSymbol(s));
         constructor = allSemanticSymbols.find(
-          (s) => isMethodSymbol(s) && s.isConstructor && s.parentId === innerClass.id,
+          (s) => ((isMethodSymbol(s) && s.isConstructor) || isConstructorSymbol(s)) && s.parentId === innerClass.id,
         ) as MethodSymbol;
       }
 

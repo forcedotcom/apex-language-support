@@ -48,25 +48,37 @@ export function calculateFQN(
   options?: FQNOptions,
   getParent?: (parentId: string) => ApexSymbol | null,
 ): string {
-  // Collect all meaningful parent names (excluding block scopes)
+  // Collect all meaningful parent names (excluding block scopes and methods)
   const parts: string[] = [symbol.name];
 
   // First try to use parentId with getParent function (preferred for lazy loading)
   if (symbol.parentId && getParent) {
     let currentParentId: string | null = symbol.parentId;
     let depth = 0;
+    const visitedIds = new Set<string>(); // Track visited IDs to prevent cycles
+    visitedIds.add(symbol.id); // Don't include the symbol itself in the path
 
     while (currentParentId && depth < 10) {
-      // Prevent infinite loops
+      // Prevent infinite loops and self-references
+      if (visitedIds.has(currentParentId) || currentParentId === symbol.id) {
+        break; // Cycle detected or self-reference
+      }
+      visitedIds.add(currentParentId);
+
       const parent = getParent(currentParentId);
       if (!parent) {
         break;
       }
 
-      // Only include parent if it's not a block scope
-      if (!isBlockScope(parent)) {
-        parts.unshift(parent.name);
+      // Don't include the symbol itself in the path
+      if (parent.id === symbol.id) {
+        break;
       }
+
+      // Include all parents in FQN - FQN should reflect the actual parent hierarchy
+      // This includes blocks, types, methods, constructors, etc.
+      // The parentId relationships tell us the true containment structure
+      parts.unshift(parent.name);
 
       currentParentId = parent.parentId ?? null;
       depth++;
