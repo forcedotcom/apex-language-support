@@ -19,7 +19,8 @@ export type ServerMode = 'production' | 'development';
  *
  * Priority order:
  * 1. APEX_LS_MODE environment variable (if valid)
- * 2. Extension mode (development/test vs production)
+ * 2. Workspace settings (apex.environment.serverMode)
+ * 3. Extension mode (development/test vs production)
  *
  * @param context - VS Code extension context
  * @returns The determined server mode
@@ -43,6 +44,25 @@ export const determineServerMode = (
 
     logToOutputChannel(
       `Invalid APEX_LS_MODE value: ${processEnv.APEX_LS_MODE}. Using extension mode.`,
+      'warning',
+    );
+  }
+
+  // Check workspace settings for server mode
+  const config = vscode.workspace.getConfiguration('apex');
+  const settingsServerMode = config.get<string>('environment.serverMode');
+  if (settingsServerMode) {
+    const validModes: ServerMode[] = ['production', 'development'];
+    if (validModes.includes(settingsServerMode as ServerMode)) {
+      logToOutputChannel(
+        `Using server mode from workspace settings: ${settingsServerMode}`,
+        'info',
+      );
+      return settingsServerMode as ServerMode;
+    }
+
+    logToOutputChannel(
+      `Invalid apex.environment.serverMode value: ${settingsServerMode}. Using extension mode.`,
       'warning',
     );
   }
