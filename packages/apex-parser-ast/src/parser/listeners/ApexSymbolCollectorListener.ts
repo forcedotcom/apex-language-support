@@ -882,8 +882,9 @@ export class ApexSymbolCollectorListener
           );
         }
 
-        // Check for nested inner class by checking if currentType has a parent
-        if (currentType && currentType.parentId) {
+        // Check for nested inner class by checking if currentType is nested within another inner class
+        // Use the helper method that traverses the parent chain to find nested inner classes
+        if (this.isNestedInInnerClass(currentType)) {
           this.addError(
             `Inner class '${name}' cannot be defined within another inner class. ` +
               'Apex does not support nested inner classes.',
@@ -3945,31 +3946,37 @@ export class ApexSymbolCollectorListener
 
   /**
    * Get the name of the current method being processed
-   * Traverses the scope stack to find the parent method scope
+   * Traverses the scope hierarchy to find the parent method symbol
    */
   private getCurrentMethodName(): string | undefined {
-    // Traverse the scope hierarchy to find the parent method
+    // First, try to get the current method symbol directly
+    const currentMethod = this.getCurrentMethod();
+    if (currentMethod) {
+      return currentMethod.name;
+    }
+
+    // Fallback: traverse the scope hierarchy to find a method symbol
     let currentScope: ScopeSymbol | null = this.getCurrentScopeSymbol();
 
     while (currentScope) {
-      // Skip file, global, and block scopes
-      if (
-        currentScope.name !== 'file' &&
-        currentScope.name !== 'global' &&
-        !currentScope.name.startsWith('block')
-      ) {
-        // This is likely a method scope
-        return currentScope.name;
-      }
-      // Move up to parent scope using parentId
+      // Check if this scope's parentId points to a method symbol
       if (currentScope.parentId) {
         const parent = this.symbolTable
           .getAllSymbols()
-          .find(
-            (s) =>
-              s.id === currentScope!.parentId && s.kind === SymbolKind.Block,
-          );
-        currentScope = (parent as ScopeSymbol) || null;
+          .find((s) => s.id === currentScope!.parentId);
+        if (
+          parent &&
+          (parent.kind === SymbolKind.Method ||
+            parent.kind === SymbolKind.Constructor)
+        ) {
+          return parent.name;
+        }
+        // If parent is a block, continue traversing
+        if (parent && parent.kind === SymbolKind.Block) {
+          currentScope = parent as ScopeSymbol;
+        } else {
+          currentScope = null;
+        }
       } else {
         currentScope = null;
       }

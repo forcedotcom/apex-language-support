@@ -1780,11 +1780,11 @@ export class SymbolTable {
     }
 
     // If not found in starting scope or parents, search file level (roots)
-    if (startScope) {
-      const rootSymbol = this.findSymbolInScope(null, name);
-      if (rootSymbol) {
-        return rootSymbol;
-      }
+    // Always search roots (when startScope is null, we're already at file level)
+    // When startScope is provided but not found, also search roots as fallback
+    const rootSymbol = this.findSymbolInScope(null, name);
+    if (rootSymbol) {
+      return rootSymbol;
     }
 
     // If not found in starting scope or parents, search all child scopes

@@ -105,7 +105,6 @@ describe('FQN Utilities', () => {
     if (normalizeCase) {
       fqn = fqn.toLowerCase();
     }
-    console.log('fqn', fqn);
     return fqn;
   };
 
@@ -146,9 +145,11 @@ describe('FQN Utilities', () => {
 
       expect(methodSymbol).toBeDefined();
       // FQN is normalized to lowercase for Apex case-insensitive convention
+      // FQN now includes blocks: class -> class block -> method
+      const expectedFQN = getExpectedFQN(methodSymbol!, getParent, true);
       expect(
         calculateFQN(methodSymbol!, { normalizeCase: true }, getParent),
-      ).toBe('parentclass.childmethod');
+      ).toBe(expectedFQN);
     });
 
     it('should calculate FQN for a symbol with multiple parents', () => {
@@ -169,19 +170,14 @@ describe('FQN Utilities', () => {
       );
 
       expect(methodSymbol).toBeDefined();
-      // FQN should include all parent types in the hierarchy
-      // Note: Currently the method's parentId may point to outer class instead of inner class
-      // This is a known issue that needs to be fixed separately
+      // FQN should include all parent types and blocks in the hierarchy
+      const expectedFQN = getExpectedFQN(methodSymbol!, getParent, true);
       const fqn = calculateFQN(
         methodSymbol!,
         { normalizeCase: true },
         getParent,
       );
-      // For now, accept either format until the parentId issue is fixed
-      expect(
-        fqn === 'grandparentclass.parentclass.childmethod' ||
-          fqn === 'grandparentclass.childmethod',
-      ).toBe(true);
+      expect(fqn).toBe(expectedFQN);
     });
 
     it('should handle namespace in FQN', () => {
@@ -222,19 +218,14 @@ describe('FQN Utilities', () => {
       );
 
       expect(methodSymbol).toBeDefined();
-      // FQN should include outer class, inner class, and method
-      // Note: Currently the method's parentId may point to outer class instead of inner class
-      // This is a known issue that needs to be fixed separately
+      // FQN should include outer class, inner class, blocks, and method
+      const expectedFQN = getExpectedFQN(methodSymbol!, getParent, true);
       const fqn = calculateFQN(
         methodSymbol!,
         { normalizeCase: true },
         getParent,
       );
-      // For now, accept either format until the parentId issue is fixed
-      expect(
-        fqn === 'outerclass.innerclass.mymethod' ||
-          fqn === 'outerclass.mymethod',
-      ).toBe(true);
+      expect(fqn).toBe(expectedFQN);
     });
 
     it.skip('should not apply namespace if already inherited from parent', () => {

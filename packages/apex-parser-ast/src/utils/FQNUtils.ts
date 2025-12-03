@@ -63,7 +63,7 @@ export function calculateFQN(
     const visitedIds = new Set<string>(); // Track visited IDs to prevent cycles
     visitedIds.add(symbol.id); // Don't include the symbol itself in the path
 
-    while (currentParentId && depth < 10) {
+    while (currentParentId && depth < 20) {
       // Prevent infinite loops and self-references
       if (visitedIds.has(currentParentId) || currentParentId === symbol.id) {
         break; // Cycle detected or self-reference

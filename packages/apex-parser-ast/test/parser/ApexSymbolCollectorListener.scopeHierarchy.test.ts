@@ -23,6 +23,46 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
   let compilerService: CompilerService;
   let logger: TestLogger;
 
+  // Helper function to find a scope by name or type
+  const findScope = (
+    symbolTable: SymbolTable,
+    name?: string,
+    scopeType?: string,
+  ): ScopeSymbol | undefined => {
+    const allScopes = symbolTable
+      .getAllSymbols()
+      .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+    
+    if (name && scopeType === 'class') {
+      // For class scopes, find by class symbol name (class blocks have block counter names)
+      const classSymbol = symbolTable.getAllSymbols().find(
+        (s) => s.name === name && inTypeSymbolGroup(s),
+      );
+      if (classSymbol) {
+        return allScopes.find(
+          (s) => s.scopeType === 'class' && s.parentId === classSymbol.id,
+        );
+      }
+      return undefined;
+    } else if (name && scopeType) {
+      return allScopes.find(
+        (s) => s.name === name && s.scopeType === scopeType,
+      );
+    } else if (name) {
+      return allScopes.find((s) => s.name === name);
+    } else if (scopeType) {
+      return allScopes.find((s) => s.scopeType === scopeType);
+    }
+    return undefined;
+  };
+
+  // Helper function to find file scope
+  const findFileScope = (symbolTable: SymbolTable): ScopeSymbol | undefined => {
+    // File scope may not exist as a block symbol anymore
+    // Return undefined if not found - tests should handle this
+    return symbolTable.findScopeByName('file') || undefined;
+  };
+
   beforeEach(() => {
     logger = TestLogger.getInstance();
     logger.debug('Setting up test environment');
@@ -72,58 +112,29 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         throw new Error('Symbol table is null');
       }
 
-      // Check the current scope - after parsing, current scope is the innermost scope
-      // With the new structure, it could be a block scope (class body) or the class scope itself
-      const currentScope = symbolTable.getCurrentScope();
-      expect(currentScope).toBeDefined();
-      logger.debug(`Current scope name: ${currentScope.name}`);
-
-      // Find the class scope - it might be the current scope, or we need to search for it
-      let classScope: ScopeSymbol | undefined;
-      if (currentScope.scopeType === 'class' && currentScope.name === 'CommunitiesLandingController') {
-        classScope = currentScope;
-      } else if (currentScope.scopeType === 'block') {
-        // Current scope is a block - find its parent class scope
-        const allScopes = symbolTable
-          .getAllSymbols()
-          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
-        // Find class scope by traversing up from current block scope
-        let parentId = currentScope.parentId;
-        while (parentId) {
-          const parent = allScopes.find((s) => s.id === parentId);
-          if (parent && parent.scopeType === 'class' && parent.name === 'CommunitiesLandingController') {
-            classScope = parent;
-            break;
-          }
-          // If parent is a class symbol (not a scope), find the class scope
-          const parentSymbol = symbolTable.getAllSymbols().find((s) => s.id === parentId);
-          if (parentSymbol && inTypeSymbolGroup(parentSymbol) && parentSymbol.name === 'CommunitiesLandingController') {
-            // Find the class scope that has this class symbol as parent
-            classScope = allScopes.find(
-              (s) => s.scopeType === 'class' && s.parentId === parentSymbol.id,
-            );
-            break;
-          }
-          parentId = parent?.parentId || null;
-        }
-        // Fallback: search all scopes
-        if (!classScope) {
+      // After parsing, find the class scope by searching all block symbols
+      // With stack-only tracking, there's no "current scope" - we need to find it
+      const allScopes = symbolTable
+        .getAllSymbols()
+        .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+      
+      // Find the class scope for CommunitiesLandingController
+      let classScope: ScopeSymbol | undefined = allScopes.find(
+        (scope) =>
+          scope.scopeType === 'class' &&
+          scope.name === 'CommunitiesLandingController',
+      );
+      
+      // If not found by name, try finding by class symbol
+      if (!classScope) {
+        const classSymbol = symbolTable.getAllSymbols().find(
+          (s) => s.name === 'CommunitiesLandingController' && inTypeSymbolGroup(s),
+        );
+        if (classSymbol) {
           classScope = allScopes.find(
-            (scope) =>
-              scope.scopeType === 'class' &&
-              scope.name === 'CommunitiesLandingController',
+            (s) => s.scopeType === 'class' && s.parentId === classSymbol.id,
           );
         }
-      } else {
-        // Search all scopes for the class scope
-        const allScopes = symbolTable
-          .getAllSymbols()
-          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
-        classScope = allScopes.find(
-          (scope) =>
-            scope.scopeType === 'class' &&
-            scope.name === 'CommunitiesLandingController',
-        );
       }
       expect(classScope).toBeDefined();
       if (classScope) {
@@ -233,28 +244,33 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         throw new Error('Symbol table is null');
       }
 
-      // Check the current scope - after parsing, current scope is the class scope, not file
-      const currentScope = symbolTable.getCurrentScope();
-      // After parsing, the current scope will be the innermost scope (class body)
-      expect(currentScope).toBeDefined();
-      logger.debug(`Current scope name: ${currentScope.name}`);
-
-      // Find the class scope - it should be the current scope if we're in the class,
-      // or we need to search for it by name
-      // The class scope's parentId points to the class symbol, so we need to find it differently
-      let classScope: ScopeSymbol | undefined;
-      if (currentScope.scopeType === 'class' && currentScope.name === 'CommunitiesLandingController') {
-        classScope = currentScope;
-      } else {
-        // Search all scopes for the class scope
-        const allScopes = symbolTable
-          .getAllSymbols()
-          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
-        classScope = allScopes.find(
-          (scope) =>
-            scope.scopeType === 'class' &&
-            scope.name === 'CommunitiesLandingController',
+      // After parsing, find the class scope by searching all block symbols
+      const allScopes = symbolTable
+        .getAllSymbols()
+        .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+      
+      // Find the class scope for CommunitiesLandingController
+      let classScope: ScopeSymbol | undefined = allScopes.find(
+        (scope) =>
+          scope.scopeType === 'class' &&
+          scope.name === 'CommunitiesLandingController',
+      );
+      
+      // If not found by name, try finding by class symbol
+      if (!classScope) {
+        const classSymbol = symbolTable.getAllSymbols().find(
+          (s) => s.name === 'CommunitiesLandingController' && inTypeSymbolGroup(s),
         );
+        if (classSymbol) {
+          classScope = allScopes.find(
+            (s) => s.scopeType === 'class' && s.parentId === classSymbol.id,
+          );
+        }
+      }
+      
+      expect(classScope).toBeDefined();
+      if (classScope) {
+        logger.debug(`Class scope name: ${classScope.name}`);
       }
       expect(classScope).toBeDefined();
 
@@ -334,23 +350,8 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         throw new Error('Symbol table is null');
       }
 
-      const currentScope = symbolTable.getCurrentScope();
-      
-      // Find the class scope - it should be the current scope if we're in the class,
-      // or we need to search for it by name
-      let classScope: ScopeSymbol | undefined;
-      if (currentScope.scopeType === 'class' && currentScope.name === 'EmptyClass') {
-        classScope = currentScope;
-      } else {
-        // Search all scopes for the class scope
-        const allScopes = symbolTable
-          .getAllSymbols()
-          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
-        classScope = allScopes.find(
-          (scope) =>
-            scope.scopeType === 'class' && scope.name === 'EmptyClass',
-        );
-      }
+      // Find the class scope
+      const classScope = findScope(symbolTable, 'EmptyClass', 'class');
       expect(classScope).toBeDefined();
 
       if (!classScope) {
@@ -367,30 +368,15 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       expect(nonBlockSymbols.length).toBe(0);
 
       // Verify the class symbol exists in the symbol table
-      // The class symbol should be in the file scope
+      // With the new structure, top-level classes are roots (parentId === null)
       const allSymbols = symbolTable.getAllSymbols();
       const classSymbol = allSymbols.find(
         (s) => s.name === 'EmptyClass' && s.kind === SymbolKind.Class,
       );
       expect(classSymbol).toBeDefined();
       expect(classSymbol?.kind).toBe(SymbolKind.Class);
-
-      // Verify it's in the file scope (filter out scope symbols)
-      const fileSymbols = symbolTable.getSymbolsInScope(currentScope.id);
-      const classSymbolInFile = fileSymbols.find(
-        (s) =>
-          s.name === 'EmptyClass' &&
-          s.kind === SymbolKind.Class &&
-          !isBlockSymbol(s),
-      );
-      // Class symbol should be in file scope, but if not found, it's still valid
-      // as long as it exists in the symbol table
-      if (!classSymbolInFile) {
-        // Fallback: check if class symbol exists at all
-        expect(classSymbol).toBeDefined();
-      } else {
-        expect(classSymbolInFile).toBeDefined();
-      }
+      // Top-level class should be a root (parentId === null)
+      expect(classSymbol?.parentId).toBeNull();
     });
 
     it('should handle class with only fields', () => {
@@ -414,23 +400,8 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         throw new Error('Symbol table is null');
       }
 
-      const currentScope = symbolTable.getCurrentScope();
-      
-      // Find the class scope - it should be the current scope if we're in the class,
-      // or we need to search for it by name
-      let classScope: ScopeSymbol | undefined;
-      if (currentScope.scopeType === 'class' && currentScope.name === 'FieldOnlyClass') {
-        classScope = currentScope;
-      } else {
-        // Search all scopes for the class scope
-        const allScopes = symbolTable
-          .getAllSymbols()
-          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
-        classScope = allScopes.find(
-          (scope) =>
-            scope.scopeType === 'class' && scope.name === 'FieldOnlyClass',
-        );
-      }
+      // Find the class scope
+      const classScope = findScope(symbolTable, 'FieldOnlyClass', 'class');
       expect(classScope).toBeDefined();
 
       if (!classScope) {
@@ -455,22 +426,8 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       expect(classSymbol).toBeDefined();
       expect(classSymbol?.kind).toBe(SymbolKind.Class);
 
-      // Verify it's in the file scope (filter out scope symbols)
-      const fileSymbols = symbolTable.getSymbolsInScope(currentScope.id);
-      const classSymbolInFile = fileSymbols.find(
-        (s) =>
-          s.name === 'FieldOnlyClass' &&
-          s.kind === SymbolKind.Class &&
-          !isBlockSymbol(s),
-      );
-      // Class symbol should be in file scope, but if not found, it's still valid
-      // as long as it exists in the symbol table
-      if (!classSymbolInFile) {
-        // Fallback: check if class symbol exists at all
-        expect(classSymbol).toBeDefined();
-      } else {
-        expect(classSymbolInFile).toBeDefined();
-      }
+      // With the new structure, top-level classes are roots (parentId === null)
+      expect(classSymbol?.parentId).toBeNull();
     });
 
     it('should handle nested classes correctly', () => {
@@ -497,37 +454,30 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         throw new Error('Symbol table is null');
       }
 
-      const currentScope = symbolTable.getCurrentScope();
-      
-      // Find the outer class scope - it should be the current scope if we're in the class,
-      // or we need to search for it by name
-      let outerClassScope: ScopeSymbol | undefined;
-      if (currentScope.scopeType === 'class' && currentScope.name === 'OuterClass') {
-        outerClassScope = currentScope;
-      } else {
-        // Search all scopes for the outer class scope
-        const allScopes = symbolTable
-          .getAllSymbols()
-          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
-        outerClassScope = allScopes.find(
-          (scope) =>
-            scope.scopeType === 'class' && scope.name === 'OuterClass',
-        );
-      }
+      // Find the outer class scope
+      const outerClassScope = findScope(symbolTable, 'OuterClass', 'class');
       expect(outerClassScope).toBeDefined();
 
       if (!outerClassScope) {
         throw new Error('Outer class scope is null');
       }
 
-      // Find inner class scope - it might be nested in a block scope
+      // Find inner class scope - inner class blocks use block counter names, not class name
+      // Find by finding the inner class symbol first, then finding its block
+      const allSymbols = symbolTable.getAllSymbols();
+      const innerClassSymbol = allSymbols.find(
+        (s) => s.name === 'InnerClass' && inTypeSymbolGroup(s),
+      );
       const allScopes = symbolTable
         .getAllSymbols()
         .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
-      const innerClassScope = allScopes.find(
-        (scope) =>
-          scope.scopeType === 'class' && scope.name === 'InnerClass',
-      );
+      const innerClassScope = innerClassSymbol
+        ? allScopes.find(
+            (scope) =>
+              scope.scopeType === 'class' &&
+              scope.parentId === innerClassSymbol.id,
+          )
+        : undefined;
       expect(innerClassScope).toBeDefined();
 
       if (!innerClassScope) {
@@ -606,9 +556,13 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       const classSymbol = allSymbols.find(
         (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
       );
+      // Class blocks now use block counter names (e.g., block1), not the class name
+      // Find by scopeType and parentId pointing to the class symbol
       const classBlockSymbol = allSymbols.find(
         (s): s is ScopeSymbol =>
-          isBlockSymbol(s) && s.scopeType === 'class' && s.name === 'TestClass',
+          isBlockSymbol(s) &&
+          s.scopeType === 'class' &&
+          s.parentId === classSymbol?.id,
       );
 
       expect(classSymbol).toBeDefined();
@@ -647,11 +601,13 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       const methodSymbol = allSymbols.find(
         (s) => s.name === 'testMethod' && s.kind === SymbolKind.Method,
       );
+      // Method blocks now use block counter names (e.g., block2), not the method name
+      // Find by scopeType and parentId pointing to the method symbol
       const methodBlockSymbol = allSymbols.find(
         (s): s is ScopeSymbol =>
           isBlockSymbol(s) &&
           s.scopeType === 'method' &&
-          s.name === 'testMethod',
+          s.parentId === methodSymbol?.id,
       );
 
       expect(methodSymbol).toBeDefined();
@@ -734,11 +690,17 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       }
 
       const allSymbols = symbolTable.getAllSymbols();
+      // Find method symbol first
+      const methodSymbol = allSymbols.find(
+        (s) => s.name === 'testMethod' && s.kind === SymbolKind.Method,
+      );
+      // Method blocks now use block counter names (e.g., block2), not the method name
+      // Find by scopeType and parentId pointing to the method symbol
       const methodBlockSymbol = allSymbols.find(
         (s): s is ScopeSymbol =>
           isBlockSymbol(s) &&
           s.scopeType === 'method' &&
-          s.name === 'testMethod',
+          s.parentId === methodSymbol?.id,
       );
       const ifBlockSymbol = allSymbols.find(
         (s): s is ScopeSymbol =>
@@ -794,11 +756,17 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       }
 
       const allSymbols = symbolTable.getAllSymbols();
+      // Find method symbol first
+      const methodSymbol = allSymbols.find(
+        (s) => s.name === 'testMethod' && s.kind === SymbolKind.Method,
+      );
+      // Method blocks now use block counter names (e.g., block2), not the method name
+      // Find by scopeType and parentId pointing to the method symbol
       const methodBlockSymbol = allSymbols.find(
         (s): s is ScopeSymbol =>
           isBlockSymbol(s) &&
           s.scopeType === 'method' &&
-          s.name === 'testMethod',
+          s.parentId === methodSymbol?.id,
       );
       const ifBlockSymbol = allSymbols.find(
         (s): s is ScopeSymbol =>
@@ -1603,9 +1571,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         // Method scope should still be created even if brace is missing
         expect(methodScope).toBeDefined();
 
-        // Scope stack should not be corrupted - current scope should be valid
-        const currentScope = symbolTable.getCurrentScope();
-        expect(currentScope).toBeDefined();
+        // Symbol table should have valid scopes (not corrupted)
+        const allScopes = symbolTable
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+        expect(allScopes.length).toBeGreaterThan(0);
       });
 
       it('should handle missing closing brace in if statement', () => {
@@ -1640,9 +1610,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         // If scope should still be created
         expect(ifScope).toBeDefined();
 
-        // Current scope should be valid (not corrupted)
-        const currentScope = symbolTable.getCurrentScope();
-        expect(currentScope).toBeDefined();
+        // Symbol table should have valid scopes (not corrupted)
+        const allScopes = symbolTable
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+        expect(allScopes.length).toBeGreaterThan(0);
       });
 
       it('should handle missing closing brace in try block', () => {
@@ -1683,9 +1655,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         expect(tryScope).toBeDefined();
         expect(catchScope).toBeDefined();
 
-        // Scope stack should remain valid
-        const currentScope = symbolTable.getCurrentScope();
-        expect(currentScope).toBeDefined();
+        // Symbol table should have valid scopes (not corrupted)
+        const allScopes = symbolTable
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+        expect(allScopes.length).toBeGreaterThan(0);
       });
 
       it('should handle missing closing brace in getter block', () => {
@@ -1721,9 +1695,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         // Getter scope should still be created
         expect(getterScope).toBeDefined();
 
-        // Current scope should be valid
-        const currentScope = symbolTable.getCurrentScope();
-        expect(currentScope).toBeDefined();
+        // Symbol table should have valid scopes (not corrupted)
+        const allScopes = symbolTable
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+        expect(allScopes.length).toBeGreaterThan(0);
       });
 
       it('should handle missing closing brace in nested structures', () => {
@@ -1811,8 +1787,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         );
 
         expect(whileScope).toBeDefined();
-        const currentScope = symbolTable.getCurrentScope();
-        expect(currentScope).toBeDefined();
+        // Symbol table should have valid scopes (not corrupted)
+        const allScopes = symbolTable
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+        expect(allScopes.length).toBeGreaterThan(0);
       });
 
       it('should handle unclosed for loop block', () => {
@@ -1845,8 +1824,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         );
 
         expect(forScope).toBeDefined();
-        const currentScope = symbolTable.getCurrentScope();
-        expect(currentScope).toBeDefined();
+        // Symbol table should have valid scopes (not corrupted)
+        const allScopes = symbolTable
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+        expect(allScopes.length).toBeGreaterThan(0);
       });
 
       it('should handle unclosed doWhile block', () => {
@@ -1879,8 +1861,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         );
 
         expect(doWhileScope).toBeDefined();
-        const currentScope = symbolTable.getCurrentScope();
-        expect(currentScope).toBeDefined();
+        // Symbol table should have valid scopes (not corrupted)
+        const allScopes = symbolTable
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+        expect(allScopes.length).toBeGreaterThan(0);
       });
 
       it('should handle unclosed setter block', () => {
@@ -1913,8 +1898,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         );
 
         expect(setterScope).toBeDefined();
-        const currentScope = symbolTable.getCurrentScope();
-        expect(currentScope).toBeDefined();
+        // Symbol table should have valid scopes (not corrupted)
+        const allScopes = symbolTable
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+        expect(allScopes.length).toBeGreaterThan(0);
       });
     });
 
@@ -1969,9 +1957,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
           expect(forScope.parentId).toBeDefined();
         }
 
-        // Current scope should still be valid
-        const currentScope = symbolTable.getCurrentScope();
-        expect(currentScope).toBeDefined();
+        // Symbol table should have valid scopes (not corrupted)
+        const allScopes = symbolTable
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+        expect(allScopes.length).toBeGreaterThan(0);
       });
 
       it('should handle try-catch-finally with missing braces', () => {
@@ -2058,9 +2048,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
           throw new Error('Symbol table is null');
         }
 
-        // Scope stack should still be valid
-        const currentScope = symbolTable.getCurrentScope();
-        expect(currentScope).toBeDefined();
+        // Symbol table should have valid scopes (not corrupted)
+        const allScopes = symbolTable
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+        expect(allScopes.length).toBeGreaterThan(0);
 
         // Should be able to get scope hierarchy without errors
         const hierarchy = symbolTable.getScopeHierarchy({
@@ -2097,8 +2089,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         );
 
         expect(classScope).toBeDefined();
-        const currentScope = symbolTable.getCurrentScope();
-        expect(currentScope).toBeDefined();
+        // Symbol table should have valid scopes (not corrupted)
+        const allScopes = symbolTable
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+        expect(allScopes.length).toBeGreaterThan(0);
       });
 
       it('should handle class with only syntax errors', () => {
@@ -2135,9 +2130,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         expect(classScope).toBeDefined();
         expect(methodScope).toBeDefined();
 
-        // Scope stack should remain valid
-        const currentScope = symbolTable.getCurrentScope();
-        expect(currentScope).toBeDefined();
+        // Symbol table should have valid scopes (not corrupted)
+        const allScopes = symbolTable
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
+        expect(allScopes.length).toBeGreaterThan(0);
       });
 
       it('should handle switch statement with missing braces', () => {

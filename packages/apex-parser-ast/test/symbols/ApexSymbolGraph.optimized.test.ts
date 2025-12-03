@@ -10,11 +10,15 @@ import {
   ApexSymbolGraph,
   ReferenceType,
 } from '../../src/symbols/ApexSymbolGraph';
-import { SymbolTable, SymbolFactory, SymbolKind } from '../../src/types/symbol';
+import {
+  SymbolTable,
+  SymbolFactory,
+  SymbolKind,
+  ApexSymbol,
+} from '../../src/types/symbol';
 import {
   initialize as schedulerInitialize,
   shutdown as schedulerShutdown,
-  reset as schedulerReset,
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 
@@ -34,8 +38,8 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
   });
 
   afterAll(async () => {
-    // Reset scheduler after all tests
-    await Effect.runPromise(schedulerReset());
+    // Shutdown scheduler after all tests to prevent hanging
+    await Effect.runPromise(schedulerShutdown());
   });
 
   beforeEach(() => {
@@ -90,7 +94,8 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       expect(foundSymbol!.location).toEqual(originalLocation);
 
       // Verify symbol is actually stored in SymbolTable with same position data
-      const symbolTableSymbol = symbolTable.lookup('TestClass');
+      // Lookup from file level (null scope) - symbols added without scope are at root level
+      const symbolTableSymbol = symbolTable.lookup('TestClass', null);
       expect(symbolTableSymbol).toBeDefined();
       expect(symbolTableSymbol?.name).toBe('TestClass');
       expect(symbolTableSymbol!.location).toEqual(originalLocation);
@@ -298,7 +303,8 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       expect(foundSymbol?.name).toBe('TestClass');
 
       // Verify symbol is actually stored in SymbolTable
-      const symbolTableSymbol = symbolTable.lookup('TestClass');
+      // Lookup from file level (null scope) - symbols added without scope are at root level
+      const symbolTableSymbol = symbolTable.lookup('TestClass', null);
       expect(symbolTableSymbol).toBeDefined();
       expect(symbolTableSymbol?.name).toBe('TestClass');
     });
@@ -523,7 +529,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
 
     it('should provide memory optimization benefits', () => {
       // Create multiple symbols
-      const symbols = [];
+      const symbols: ApexSymbol[] = [];
       for (let i = 0; i < 100; i++) {
         const symbol = SymbolFactory.createMinimalSymbol(
           `Symbol${i}`,

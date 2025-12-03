@@ -430,25 +430,9 @@ public class ParentChildTest {
 
   // Helper function to get all symbols from all scopes recursively
   function getAllSymbolsFromAllScopes(symbolTable: SymbolTable): ApexSymbol[] {
-    const symbols: ApexSymbol[] = [];
-
-    function collectFromScope(scope: ScopeSymbol) {
-      symbols.push(...symbolTable.getSymbolsInScope(scope.id));
-      const children = symbolTable
-        .getSymbolsInScope(scope.id)
-        .filter(
-          (s) =>
-            s.parentId === scope.id && s.kind === SymbolKind.Block,
-        ) as ScopeSymbol[];
-      children.forEach(collectFromScope);
-    }
-
-    // Start from file scope (root), not current scope
-    const fileScope = symbolTable
-      .getAllSymbols()
-      .find(
-        (s) => s.kind === SymbolKind.Block && (s as ScopeSymbol).scopeType === 'file',
-      ) as ScopeSymbol | undefined;
+    // Simply return all symbols from the symbol table
+    // The symbol table already contains all symbols with their parentId relationships
+    return symbolTable.getAllSymbols();
     if (fileScope) {
       collectFromScope(fileScope);
     }
@@ -457,29 +441,31 @@ public class ParentChildTest {
 
   // Helper function to get scope name for debugging
   function getScopeName(symbolTable: SymbolTable, symbol: ApexSymbol): string {
-    function findScopeName(
-      scope: ScopeSymbol,
-      targetId: string,
-    ): string | null {
-      if (scope.id === targetId) {
-        return scope.name;
+    // Find scope by parentId - the parentId points to the scope containing this symbol
+    if (symbol.parentId) {
+      const parentScope = symbolTable.getAllSymbols().find(
+        (s) => s.id === symbol.parentId && s.kind === SymbolKind.Block,
+      ) as ScopeSymbol | undefined;
+      if (parentScope) {
+        return parentScope.name;
       }
-      const children = symbolTable
-        .getSymbolsInScope(scope.id)
-        .filter(
+      // If parent is not a block, it might be a class/method symbol
+      // In that case, find the corresponding block scope
+      const parentSymbol = symbolTable.getAllSymbols().find(
+        (s) => s.id === symbol.parentId,
+      );
+      if (parentSymbol) {
+        // Find block scope that has this symbol as parent
+        const blockScope = symbolTable.getAllSymbols().find(
           (s) =>
-            s.parentId === scope.id && s.kind === SymbolKind.Block,
-        ) as ScopeSymbol[];
-      for (const child of children) {
-        const result = findScopeName(child, targetId);
-        if (result) return result;
+            s.kind === SymbolKind.Block &&
+            (s as ScopeSymbol).parentId === parentSymbol.id,
+        ) as ScopeSymbol | undefined;
+        if (blockScope) {
+          return blockScope.name;
+        }
       }
-      return null;
     }
-
-    return (
-      findScopeName(symbolTable.getCurrentScope(), symbol.parentId || '') ||
-      'unknown'
-    );
+    return 'unknown';
   }
 });

@@ -62,7 +62,6 @@ describe('CompilerService Multiple Files Compilation', () => {
       // Check symbols from first file
       const firstResult = results[0];
       const firstSymbolTable = firstResult.result as SymbolTable;
-      const firstGlobalScope = firstSymbolTable.getCurrentScope();
       const firstClass = firstSymbolTable
         .getAllSymbols()
         .find((s) => !isBlockSymbol(s) && s.name === 'FirstClass');
@@ -72,7 +71,6 @@ describe('CompilerService Multiple Files Compilation', () => {
       // Check symbols from second file
       const secondResult = results[1];
       const secondSymbolTable = secondResult.result as SymbolTable;
-      const secondGlobalScope = secondSymbolTable.getCurrentScope();
       const secondClass = secondSymbolTable
         .getAllSymbols()
         .find((s) => !isBlockSymbol(s) && s.name === 'SecondClass');
