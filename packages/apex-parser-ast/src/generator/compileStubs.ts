@@ -200,9 +200,9 @@ export async function compileStubs(
 
       // Second pass: collect methods from class scopes
       for (const [className, scope] of classScopes) {
-        const methods = (Array.from(
-          symbolTable.getSymbolsInScope(scope.id),
-        ) as ApexSymbol[])
+        const methods = (
+          Array.from(symbolTable.getSymbolsInScope(scope.id)) as ApexSymbol[]
+        )
           .filter((s) => s.kind === SymbolKind.Method)
           .map((s) => s as MethodSymbol);
         if (methods.length > 0) {

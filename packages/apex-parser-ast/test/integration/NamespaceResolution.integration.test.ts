@@ -184,7 +184,9 @@ describe('Namespace Resolution Integration', () => {
       const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
       // Verify class has correct namespace
-      const classSymbol = semanticSymbols.find((s) => s.name === 'BuiltInTypeClass');
+      const classSymbol = semanticSymbols.find(
+        (s) => s.name === 'BuiltInTypeClass',
+      );
       expect(classSymbol?.namespace?.toString()).toBe('MyNamespace');
 
       // Verify all semantic symbols inherit namespace (exclude scope symbols)

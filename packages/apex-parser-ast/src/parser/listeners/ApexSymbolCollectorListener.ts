@@ -236,10 +236,14 @@ export class ApexSymbolCollectorListener
   /**
    * Get the current type symbol from the stack
    * @returns The current type symbol, or null if not in a type scope
+   * Returns the innermost (most recent) type when nested classes are present
    */
   private getCurrentType(): TypeSymbol | null {
+    // Iterate from the top of the stack (innermost scope) to find the most recent class
     const stackArray = this.scopeStack.toArray();
-    for (const owner of stackArray) {
+    // Reverse to iterate from top (innermost) to bottom (outermost)
+    for (let i = stackArray.length - 1; i >= 0; i--) {
+      const owner = stackArray[i];
       if (isBlockSymbol(owner)) {
         if (owner.scopeType === 'class') {
           // Block's parentId points to the class/interface/enum/trigger symbol
@@ -3800,7 +3804,28 @@ export class ApexSymbolCollectorListener
       return false;
     }
     const parent = this.getParent(symbol);
-    return parent !== null && parent !== undefined && isClassSymbol(parent);
+    if (!parent) {
+      return false; // No parent, not an inner class
+    }
+
+    // If parent is a block, find the class symbol it belongs to
+    if (isBlockSymbol(parent) && parent.scopeType === 'class') {
+      // Block's parentId points to the class symbol
+      const classSymbol = this.symbolTable
+        .getAllSymbols()
+        .find(
+          (s) =>
+            s.id === parent.parentId &&
+            (s.kind === SymbolKind.Class ||
+              s.kind === SymbolKind.Interface ||
+              s.kind === SymbolKind.Enum ||
+              s.kind === SymbolKind.Trigger),
+        );
+      return classSymbol !== null && classSymbol !== undefined;
+    }
+
+    // If parent is directly a class symbol
+    return isClassSymbol(parent);
   }
 
   /**
@@ -3817,24 +3842,9 @@ export class ApexSymbolCollectorListener
       return false;
     }
 
-    // Start with the parent
-    let current = this.getParent(symbolToCheck);
-    let classCount = 0;
-
-    // Traverse up the parent chain
-    while (current) {
-      if (isClassSymbol(current)) {
-        classCount++;
-        // If we find more than one class in the parent chain,
-        // this means we have a nested inner class
-        if (classCount > 1) {
-          return true;
-        }
-      }
-      current = this.getParent(current);
-    }
-
-    return false;
+    // Check if the symbol is an inner class (has a class parent)
+    // If it is, then any class defined within it is nested within an inner class
+    return this.hasClassParent(symbolToCheck);
   }
 
   /**

@@ -14,12 +14,11 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import {
   SymbolTable,
   SymbolKind,
-  ApexSymbol,
   MethodSymbol,
   ScopeSymbol,
 } from '../../src/types/symbol';
 import { TestLogger } from '../utils/testLogger';
-import { isBlockSymbol, isMethodSymbol, isConstructorSymbol } from '../../src/utils/symbolNarrowing';
+import { isBlockSymbol, isMethodSymbol } from '../../src/utils/symbolNarrowing';
 
 describe('Constructor Validation Tests', () => {
   let compilerService: CompilerService;
@@ -104,31 +103,47 @@ describe('Constructor Validation Tests', () => {
       // Use table.getAllSymbols() to get all symbols including those in file scope
       const allSymbols = symbolTable?.getAllSymbols() || [];
       const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
-      const testClass = semanticSymbols.find((s) => s.name === 'TestClass');
+      const testClass = semanticSymbols.find(
+        (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
+      );
       expect(testClass).toBeDefined();
 
-      const testClassScope = symbolTable
-        ?.getAllSymbols()
-        .find(
-          (s) =>
-            s.kind === SymbolKind.Block &&
-            s.scopeType === 'class' &&
-            s.name === 'TestClass',
-        ) as ScopeSymbol | undefined;
-      const allClassSymbols = testClassScope
-        ? symbolTable.getSymbolsInScope(testClassScope.id)
-        : [];
-      const classSemanticSymbols = allClassSymbols.filter((s) => !isBlockSymbol(s));
+      // Find the class block by parentId pointing to class symbol
+      const testClassScope = testClass
+        ? (allSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.parentId === testClass.id,
+          ) as ScopeSymbol | undefined)
+        : undefined;
+      expect(testClassScope).toBeDefined();
+
+      // Constructor's parentId points to the class block, not the class symbol
+      const allClassSymbols =
+        testClassScope && symbolTable
+          ? symbolTable.getSymbolsInScope(testClassScope.id)
+          : [];
+      const classSemanticSymbols = allClassSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
       let constructor = classSemanticSymbols.find(
-        (s) => isMethodSymbol(s) && s.isConstructor,
+        (s) =>
+          (isMethodSymbol(s) && s.isConstructor) ||
+          s.kind === SymbolKind.Constructor,
       ) as MethodSymbol;
-      
-      // If not found in class scope, check all symbols filtered by parent
-      if (!constructor && testClass) {
+
+      // If not found in class scope, check all symbols filtered by parent (class block)
+      if (!constructor && testClassScope) {
         const allTableSymbols = symbolTable?.getAllSymbols() || [];
-        const allSemanticSymbols = allTableSymbols.filter((s) => !isBlockSymbol(s));
+        const allSemanticSymbols = allTableSymbols.filter(
+          (s) => !isBlockSymbol(s),
+        );
         constructor = allSemanticSymbols.find(
-          (s) => isMethodSymbol(s) && s.isConstructor && s.parentId === testClass.id,
+          (s) =>
+            ((isMethodSymbol(s) && s.isConstructor) ||
+              s.kind === SymbolKind.Constructor) &&
+            s.parentId === testClassScope.id,
         ) as MethodSymbol;
       }
 
@@ -170,62 +185,91 @@ describe('Constructor Validation Tests', () => {
       const symbolTable = result.result;
       // Use table.getAllSymbols() to get all symbols including those in file scope
       const allTableSymbols = symbolTable?.getAllSymbols() || [];
-      const tableSemanticSymbols = allTableSymbols.filter((s) => !isBlockSymbol(s));
-      const outerClass = tableSemanticSymbols.find((s) => s.name === 'OuterClass');
+      const tableSemanticSymbols = allTableSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
+      const outerClass = tableSemanticSymbols.find(
+        (s) => s.name === 'OuterClass',
+      );
       expect(outerClass).toBeDefined();
 
-      const outerClassScope = symbolTable
-        ?.getAllSymbols()
-        .find(
-          (s) =>
-            s.kind === SymbolKind.Block &&
-            s.scopeType === 'class' &&
-            s.name === 'OuterClass',
-        ) as ScopeSymbol | undefined;
-      const allOuterSymbols = outerClassScope
-        ? symbolTable.getSymbolsInScope(outerClassScope.id)
-        : [];
-      const outerSemanticSymbols = allOuterSymbols.filter((s) => !isBlockSymbol(s));
-      let innerClass = outerSemanticSymbols.find((s) => s.name === 'InnerClass');
-      
+      // Find outer class symbol first
+      const outerClassSymbol = tableSemanticSymbols.find(
+        (s) => s.name === 'OuterClass' && s.kind === SymbolKind.Class,
+      );
+      // Find outer class block by parentId pointing to outer class symbol
+      const outerClassScope = outerClassSymbol
+        ? (allTableSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.parentId === outerClassSymbol.id,
+          ) as ScopeSymbol | undefined)
+        : undefined;
+      const allOuterSymbols =
+        outerClassScope && symbolTable
+          ? symbolTable.getSymbolsInScope(outerClassScope.id)
+          : [];
+      const outerSemanticSymbols = allOuterSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
+      let innerClass = outerSemanticSymbols.find(
+        (s) => s.name === 'InnerClass',
+      );
+
       // If not found in outer class scope, check all symbols filtered by parent
       if (!innerClass && outerClass) {
         const allTableSymbols = symbolTable?.getAllSymbols() || [];
-        const allSemanticSymbols = allTableSymbols.filter((s) => !isBlockSymbol(s));
+        const allSemanticSymbols = allTableSymbols.filter(
+          (s) => !isBlockSymbol(s),
+        );
         innerClass = allSemanticSymbols.find(
           (s) => s.name === 'InnerClass' && s.parentId === outerClass.id,
         );
       }
-      
+
       expect(innerClass).toBeDefined();
 
       // Inner class scope's parentId points to the inner class symbol, not the outer class scope
       // So find it by searching all scopes
-      const innerClassScope = innerClass
-        ? (symbolTable
-            ?.getAllSymbols()
-            .find(
-              (s) =>
-                s.kind === SymbolKind.Block &&
-                s.scopeType === 'class' &&
-                s.name === 'InnerClass' &&
-                s.parentId === innerClass.id,
-            ) as ScopeSymbol | undefined)
-        : undefined;
-      const allInnerSymbols = innerClassScope
-        ? symbolTable.getSymbolsInScope(innerClassScope.id)
-        : [];
-      const innerSemanticSymbols = allInnerSymbols.filter((s) => !isBlockSymbol(s));
+      const innerClassScope =
+        innerClass && symbolTable
+          ? (symbolTable
+              .getAllSymbols()
+              .find(
+                (s) =>
+                  isBlockSymbol(s) &&
+                  s.scopeType === 'class' &&
+                  innerClass &&
+                  s.parentId === innerClass.id,
+              ) as ScopeSymbol | undefined)
+          : undefined;
+      expect(innerClassScope).toBeDefined();
+      const allInnerSymbols =
+        innerClassScope && symbolTable
+          ? symbolTable.getSymbolsInScope(innerClassScope.id)
+          : [];
+      const innerSemanticSymbols = allInnerSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
       let constructor = innerSemanticSymbols.find(
-        (s) => (isMethodSymbol(s) && s.isConstructor) || isConstructorSymbol(s),
+        (s) =>
+          (isMethodSymbol(s) && s.isConstructor) ||
+          s.kind === SymbolKind.Constructor,
       ) as MethodSymbol;
-      
-      // If not found in inner class scope, check all symbols filtered by parent
-      if (!constructor && innerClass) {
+
+      // Constructor's parentId points to the inner class block, not the inner class symbol
+      // If not found in inner class scope, check all symbols filtered by parent (inner class block)
+      if (!constructor && innerClassScope) {
         const allTableSymbols = symbolTable?.getAllSymbols() || [];
-        const allSemanticSymbols = allTableSymbols.filter((s) => !isBlockSymbol(s));
+        const allSemanticSymbols = allTableSymbols.filter(
+          (s) => !isBlockSymbol(s),
+        );
         constructor = allSemanticSymbols.find(
-          (s) => ((isMethodSymbol(s) && s.isConstructor) || isConstructorSymbol(s)) && s.parentId === innerClass.id,
+          (s) =>
+            ((isMethodSymbol(s) && s.isConstructor) ||
+              s.kind === SymbolKind.Constructor) &&
+            s.parentId === innerClassScope.id,
         ) as MethodSymbol;
       }
 
@@ -303,31 +347,47 @@ describe('Constructor Validation Tests', () => {
       // Use table.getAllSymbols() to get all symbols including those in file scope
       const allSymbols = symbolTable?.getAllSymbols() || [];
       const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
-      const testClass = semanticSymbols.find((s) => s.name === 'TestClass');
+      const testClass = semanticSymbols.find(
+        (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
+      );
       expect(testClass).toBeDefined();
 
-      const testClassScope = symbolTable
-        ?.getAllSymbols()
-        .find(
-          (s) =>
-            s.kind === SymbolKind.Block &&
-            s.scopeType === 'class' &&
-            s.name === 'TestClass',
-        ) as ScopeSymbol | undefined;
-      const allClassSymbols = testClassScope
-        ? symbolTable.getSymbolsInScope(testClassScope.id)
-        : [];
-      const classSemanticSymbols = allClassSymbols.filter((s) => !isBlockSymbol(s));
+      // Find the class block by parentId pointing to class symbol
+      const testClassScope = testClass
+        ? (allSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.parentId === testClass.id,
+          ) as ScopeSymbol | undefined)
+        : undefined;
+      expect(testClassScope).toBeDefined();
+
+      // Constructor's parentId points to the class block, not the class symbol
+      const allClassSymbols =
+        testClassScope && symbolTable
+          ? symbolTable.getSymbolsInScope(testClassScope.id)
+          : [];
+      const classSemanticSymbols = allClassSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
       let constructor = classSemanticSymbols.find(
-        (s) => isMethodSymbol(s) && s.isConstructor,
+        (s) =>
+          (isMethodSymbol(s) && s.isConstructor) ||
+          s.kind === SymbolKind.Constructor,
       ) as MethodSymbol;
-      
-      // If not found in class scope, check all symbols filtered by parent
-      if (!constructor && testClass) {
+
+      // If not found in class scope, check all symbols filtered by parent (class block)
+      if (!constructor && testClassScope) {
         const allTableSymbols = symbolTable?.getAllSymbols() || [];
-        const allSemanticSymbols = allTableSymbols.filter((s) => !isBlockSymbol(s));
+        const allSemanticSymbols = allTableSymbols.filter(
+          (s) => !isBlockSymbol(s),
+        );
         constructor = allSemanticSymbols.find(
-          (s) => isMethodSymbol(s) && s.isConstructor && s.parentId === testClass.id,
+          (s) =>
+            ((isMethodSymbol(s) && s.isConstructor) ||
+              s.kind === SymbolKind.Constructor) &&
+            s.parentId === testClassScope.id,
         ) as MethodSymbol;
       }
 
@@ -337,10 +397,3 @@ describe('Constructor Validation Tests', () => {
     });
   });
 });
-
-// Helper function to check if symbol is a method symbol
-function isMethodSymbol(symbol: ApexSymbol): symbol is MethodSymbol {
-  return (
-    symbol.kind === SymbolKind.Method || symbol.kind === SymbolKind.Constructor
-  );
-}

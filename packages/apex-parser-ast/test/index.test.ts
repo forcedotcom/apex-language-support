@@ -56,7 +56,12 @@ describe('apex-parser-ast exports', () => {
     // Create the file scope (it's not created automatically)
     const fileLocation = {
       symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
-      identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
     };
     const fileScope = symbolTable.enterScope('file', 'file', fileLocation);
     expect(fileScope).toBeDefined();

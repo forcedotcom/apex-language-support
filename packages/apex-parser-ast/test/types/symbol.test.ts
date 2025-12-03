@@ -694,13 +694,18 @@ describe('SymbolTable', () => {
     // For now, create it explicitly for this test
     const fileLocation: SymbolLocation = {
       symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
-      identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
     };
     const fileScope = table.enterScope('file', 'file', fileLocation);
     expect(fileScope).toBeDefined();
     expect(fileScope?.name).toBe('file');
     expect(fileScope?.parentId).toBeNull();
-    
+
     // Verify it can be found
     const foundScope = table.findScopeByName('file');
     expect(foundScope).toBeDefined();
@@ -711,25 +716,52 @@ describe('SymbolTable', () => {
     // Create file scope first
     const fileLocation: SymbolLocation = {
       symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
-      identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
     };
     const fileScope = table.enterScope('file', 'file', fileLocation);
     expect(fileScope).toBeDefined();
-    
+
     const classLocation: SymbolLocation = {
       symbolRange: { startLine: 1, startColumn: 0, endLine: 10, endColumn: 0 },
-      identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 10 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 10,
+      },
     };
-    const classScope = table.enterScope('MyClass', 'class', classLocation, undefined, fileScope ?? null);
+    const classScope = table.enterScope(
+      'MyClass',
+      'class',
+      classLocation,
+      undefined,
+      fileScope ?? null,
+    );
     expect(classScope).toBeDefined();
     expect(classScope?.name).toBe('MyClass');
     expect(classScope?.parentId).toBe(fileScope?.id); // Should point to file scope
 
     const methodLocation: SymbolLocation = {
       symbolRange: { startLine: 2, startColumn: 0, endLine: 5, endColumn: 0 },
-      identifierRange: { startLine: 2, startColumn: 0, endLine: 2, endColumn: 10 },
+      identifierRange: {
+        startLine: 2,
+        startColumn: 0,
+        endLine: 2,
+        endColumn: 10,
+      },
     };
-    const methodScope = table.enterScope('myMethod', 'method', methodLocation, undefined, classScope ?? null);
+    const methodScope = table.enterScope(
+      'myMethod',
+      'method',
+      methodLocation,
+      undefined,
+      classScope ?? null,
+    );
     expect(methodScope).toBeDefined();
     expect(methodScope?.name).toBe('myMethod');
     expect(methodScope?.parentId).toBe(classScope?.id); // Should point to class scope
@@ -758,11 +790,16 @@ describe('SymbolTable', () => {
     // Create file scope first
     const fileLocation: SymbolLocation = {
       symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
-      identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
     };
     const fileScope = table.enterScope('file', 'file', fileLocation);
     expect(fileScope).toBeDefined();
-    
+
     const symbol: ApexSymbol = {
       name: 'myVar',
       kind: SymbolKind.Variable,
@@ -779,10 +816,15 @@ describe('SymbolTable', () => {
     // Create file scope first
     const fileLocation: SymbolLocation = {
       symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
-      identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
     };
     const fileScope = table.enterScope('file', 'file', fileLocation);
-    
+
     const parentSymbol: ApexSymbol = {
       name: 'parentVar',
       kind: SymbolKind.Variable,
@@ -793,9 +835,20 @@ describe('SymbolTable', () => {
 
     const childLocation: SymbolLocation = {
       symbolRange: { startLine: 1, startColumn: 0, endLine: 5, endColumn: 0 },
-      identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 10 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 10,
+      },
     };
-    const childScope = table.enterScope('childScope', 'block', childLocation, undefined, fileScope ?? null);
+    const childScope = table.enterScope(
+      'childScope',
+      'block',
+      childLocation,
+      undefined,
+      fileScope ?? null,
+    );
     const childSymbol: ApexSymbol = {
       name: 'childVar',
       kind: SymbolKind.Variable,
@@ -827,10 +880,15 @@ describe('SymbolTable', () => {
     // Create file scope first
     const fileLocation: SymbolLocation = {
       symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
-      identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
     };
     const fileScope = table.enterScope('file', 'file', fileLocation);
-    
+
     const location: SymbolLocation = {
       symbolRange: {
         startLine: 1,
@@ -871,11 +929,22 @@ describe('SymbolTable', () => {
     // Create file scope first
     const fileLocation: SymbolLocation = {
       symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
-      identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
     };
     const fileScope = table.enterScope('file', 'file', fileLocation);
-    
-    const blockSymbol = table.enterScope('MyClass', 'class', undefined, undefined, fileScope ?? null);
+
+    const blockSymbol = table.enterScope(
+      'MyClass',
+      'class',
+      undefined,
+      undefined,
+      fileScope ?? null,
+    );
     expect(blockSymbol).toBeNull();
 
     // When location is not provided, enterScope returns null
@@ -940,10 +1009,15 @@ describe('SymbolTable', () => {
     // Create file scope first
     const fileLocation: SymbolLocation = {
       symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
-      identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
     };
     const fileScope = table.enterScope('file', 'file', fileLocation);
-    
+
     const location: SymbolLocation = {
       symbolRange: {
         startLine: 1,
@@ -959,8 +1033,16 @@ describe('SymbolTable', () => {
       },
     };
 
-    const classBlockSymbol = table.enterScope('MyClass', 'class', location, undefined, fileScope ?? null);
-    const currentBlockSymbol = table.getCurrentBlockSymbol(classBlockSymbol ?? null);
+    const classBlockSymbol = table.enterScope(
+      'MyClass',
+      'class',
+      location,
+      undefined,
+      fileScope ?? null,
+    );
+    const currentBlockSymbol = table.getCurrentBlockSymbol(
+      classBlockSymbol ?? null,
+    );
     expect(currentBlockSymbol).toBeDefined();
     // When enterScope is called directly (not via listener), it uses the name provided
     expect(currentBlockSymbol?.name).toBe('MyClass');
@@ -972,10 +1054,15 @@ describe('SymbolTable', () => {
     // Create file scope first
     const fileLocation: SymbolLocation = {
       symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
-      identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
     };
     const fileScope = table.enterScope('file', 'file', fileLocation);
-    
+
     const classLocation: SymbolLocation = {
       symbolRange: {
         startLine: 1,
@@ -1005,8 +1092,20 @@ describe('SymbolTable', () => {
       },
     };
 
-    const classBlockSymbol = table.enterScope('MyClass', 'class', classLocation, undefined, fileScope ?? null);
-    const methodBlockSymbol = table.enterScope('myMethod', 'method', methodLocation, undefined, classBlockSymbol ?? null);
+    const classBlockSymbol = table.enterScope(
+      'MyClass',
+      'class',
+      classLocation,
+      undefined,
+      fileScope ?? null,
+    );
+    const methodBlockSymbol = table.enterScope(
+      'myMethod',
+      'method',
+      methodLocation,
+      undefined,
+      classBlockSymbol ?? null,
+    );
     // When enterScope is called directly (not via listener), it uses the name provided
     expect(methodBlockSymbol?.name).toBe('myMethod');
 

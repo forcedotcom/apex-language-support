@@ -59,7 +59,9 @@ describe('Interface Symbol Collection and Validation', () => {
       const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
       // Check interface symbol - there may be more semantic symbols (methods, etc.)
-      const interfaceSymbols = semanticSymbols.filter((s) => s.kind === SymbolKind.Interface);
+      const interfaceSymbols = semanticSymbols.filter(
+        (s) => s.kind === SymbolKind.Interface,
+      );
       expect(interfaceSymbols.length).toBe(1);
 
       const interfaceSymbol = semanticSymbols[0];
@@ -70,17 +72,15 @@ describe('Interface Symbol Collection and Validation', () => {
       );
 
       // Check interface methods
-      // Interface scope's parentId points to the interface symbol
+      // Interface block's parentId points to the interface symbol
+      // Interface blocks use scopeType 'class' and have block counter names
       const interfaceScope = interfaceSymbol
-        ? symbolTable
-            .getAllSymbols()
-            .find(
-              (s) =>
-                s.kind === SymbolKind.Block &&
-                s.scopeType === 'interface' &&
-                s.name === 'TestInterface' &&
-                s.parentId === interfaceSymbol.id,
-            ) as ScopeSymbol | undefined
+        ? (allSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.parentId === interfaceSymbol.id,
+          ) as ScopeSymbol | undefined)
         : undefined;
       expect(interfaceScope).toBeDefined();
 
@@ -90,15 +90,14 @@ describe('Interface Symbol Collection and Validation', () => {
             .getSymbolsInScope(interfaceScope.id)
             .filter((s: ApexSymbol) => s.kind === SymbolKind.Method)
         : [];
-      
+
       // If not found in scope, check all symbols with parentId pointing to interface symbol
       if (methods.length === 0 && interfaceSymbol) {
         methods = symbolTable
           .getAllSymbols()
           .filter(
             (s) =>
-              s.kind === SymbolKind.Method &&
-              s.parentId === interfaceSymbol.id,
+              s.kind === SymbolKind.Method && s.parentId === interfaceSymbol.id,
           );
       }
       expect(methods?.length).toBe(2);
@@ -327,22 +326,34 @@ describe('Interface Symbol Collection and Validation', () => {
       if (!symbolTable) {
         throw new Error('Symbol table is null');
       }
-      // Interface methods are added to the interface scope before entering method scope
-      // So they should be in the interface scope's getSymbolsInScope()
-      const interfaceScope = symbolTable
-        .getAllSymbols()
-        .find(
-          (s) =>
-            s.kind === SymbolKind.Block &&
-            s.scopeType === 'class' &&
-            s.name === 'ParameterizedInterface',
-        ) as ScopeSymbol | undefined;
+      // Find interface symbol first
+      const allSymbols = symbolTable.getAllSymbols();
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
+      const interfaceSymbol = semanticSymbols.find(
+        (s) =>
+          s.name === 'ParameterizedInterface' &&
+          s.kind === SymbolKind.Interface,
+      );
+      expect(interfaceSymbol).toBeDefined();
+
+      // Interface block's parentId points to the interface symbol
+      // Interface blocks use scopeType 'class' and have block counter names
+      const interfaceScope = interfaceSymbol
+        ? (allSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.parentId === interfaceSymbol.id,
+          ) as ScopeSymbol | undefined)
+        : undefined;
       expect(interfaceScope).toBeDefined();
 
       const allInterfaceSymbols = interfaceScope
         ? symbolTable.getSymbolsInScope(interfaceScope.id)
         : [];
-      const interfaceSemanticSymbols = allInterfaceSymbols.filter((s) => !isBlockSymbol(s));
+      const interfaceSemanticSymbols = allInterfaceSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
       const methods = interfaceSemanticSymbols.filter(
         (s: ApexSymbol) => s.kind === SymbolKind.Method,
       );
@@ -351,7 +362,7 @@ describe('Interface Symbol Collection and Validation', () => {
       let process = methods?.find(
         (m: ApexSymbol) => m.name === 'process',
       ) as MethodSymbol;
-      
+
       if (!process) {
         // Fallback: check all symbols in the table
         const allSymbols = symbolTable.getAllSymbols();
@@ -436,7 +447,9 @@ describe('Interface Symbol Collection and Validation', () => {
       // Use table.getAllSymbols() to get all symbols
       const allSymbols = symbolTable?.getAllSymbols() || [];
       const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
-      const interfaceSymbol = semanticSymbols.find((s) => s.kind === SymbolKind.Interface);
+      const interfaceSymbol = semanticSymbols.find(
+        (s) => s.kind === SymbolKind.Interface,
+      );
       expect(interfaceSymbol?.kind).toBe(SymbolKind.Interface);
     });
   });

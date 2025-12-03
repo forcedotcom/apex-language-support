@@ -56,28 +56,25 @@ describe('ApexSymbolCollectorListener lenient collection on validation errors', 
     const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
     const systemSymbol = semanticSymbols.find((s) => s.name === 'System');
     expect(systemSymbol?.kind).toBe(SymbolKind.Class);
-    
-    // getCurrentScope() returns innermost scope, not file scope - find file scope differently
-    const fileScope = table
-      .getAllSymbols()
-      .find(
-        (s) => s.kind === SymbolKind.Block && (s as ScopeSymbol).scopeType === 'file',
-      ) as ScopeSymbol | undefined;
 
-    const classScope = table
-      .getAllSymbols()
-      .find(
-        (s) =>
-          s.kind === SymbolKind.Block &&
-          s.scopeType === 'class' &&
-          s.name === 'System',
-      ) as ScopeSymbol | undefined;
+    // Find class block by parentId pointing to class symbol
+    // Class blocks use counter-based names (block1, block2, etc.), not semantic names
+    const classScope = systemSymbol
+      ? (allSymbols.find(
+          (s) =>
+            isBlockSymbol(s) &&
+            s.scopeType === 'class' &&
+            s.parentId === systemSymbol.id,
+        ) as ScopeSymbol | undefined)
+      : undefined;
     expect(classScope).toBeDefined();
 
     const allClassSymbols = classScope
       ? table.getSymbolsInScope(classScope.id)
       : [];
-    const classSemanticSymbols = allClassSymbols.filter((s) => !isBlockSymbol(s));
+    const classSemanticSymbols = allClassSymbols.filter(
+      (s) => !isBlockSymbol(s),
+    );
     const methodFoo = classSemanticSymbols.find(
       (s: ApexSymbol) => s.kind === SymbolKind.Method && s.name === 'foo',
     );
@@ -115,28 +112,25 @@ describe('ApexSymbolCollectorListener lenient collection on validation errors', 
     const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
     const ifaceSymbol = semanticSymbols.find((s) => s.name === 'page');
     expect(ifaceSymbol?.kind).toBe(SymbolKind.Interface);
-    
-    // getCurrentScope() returns innermost scope, not file scope - find file scope differently
-    const fileScope = table
-      .getAllSymbols()
-      .find(
-        (s) => s.kind === SymbolKind.Block && (s as ScopeSymbol).scopeType === 'file',
-      ) as ScopeSymbol | undefined;
 
-    const ifaceScope = table
-      .getAllSymbols()
-      .find(
-        (s) =>
-          s.kind === SymbolKind.Block &&
-          s.scopeType === 'class' &&
-          s.name === 'page',
-      ) as ScopeSymbol | undefined;
+    // Find interface block by parentId pointing to interface symbol
+    // Interface blocks use counter-based names (block1, block2, etc.), not semantic names
+    const ifaceScope = ifaceSymbol
+      ? (allSymbols.find(
+          (s) =>
+            isBlockSymbol(s) &&
+            s.scopeType === 'class' &&
+            s.parentId === ifaceSymbol.id,
+        ) as ScopeSymbol | undefined)
+      : undefined;
     expect(ifaceScope).toBeDefined();
 
     const allIfaceSymbols = ifaceScope
       ? table.getSymbolsInScope(ifaceScope.id)
       : [];
-    const ifaceSemanticSymbols = allIfaceSymbols.filter((s) => !isBlockSymbol(s));
+    const ifaceSemanticSymbols = allIfaceSymbols.filter(
+      (s) => !isBlockSymbol(s),
+    );
     const methodM = ifaceSemanticSymbols.find(
       (s: ApexSymbol) => s.kind === SymbolKind.Method && s.name === 'm',
     );

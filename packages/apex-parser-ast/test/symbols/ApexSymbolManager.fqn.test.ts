@@ -147,7 +147,9 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         expect(innerClassSymbol).toBeDefined();
         if (innerClassSymbol && innerClassSymbol.fqn) {
           // Verify the symbol can be found by its actual FQN
-          const foundInnerClass = symbolManager.findSymbolByFQN(innerClassSymbol.fqn);
+          const foundInnerClass = symbolManager.findSymbolByFQN(
+            innerClassSymbol.fqn,
+          );
           expect(foundInnerClass).toBeTruthy();
           expect(foundInnerClass?.name).toBe('InnerClass');
           expect(foundInnerClass?.kind).toBe(SymbolKind.Class);
@@ -164,7 +166,9 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         expect(innerMethodSymbol).toBeDefined();
         if (innerMethodSymbol && innerMethodSymbol.fqn) {
           // Verify the symbol can be found by its actual FQN
-          const foundMethod = symbolManager.findSymbolByFQN(innerMethodSymbol.fqn);
+          const foundMethod = symbolManager.findSymbolByFQN(
+            innerMethodSymbol.fqn,
+          );
           expect(foundMethod).toBeTruthy();
           expect(foundMethod?.name).toBe('innerMethod');
           expect(foundMethod?.kind).toBe(SymbolKind.Method);
@@ -243,7 +247,7 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       const symbolTable = testClassResult.result;
       if (symbolTable) {
         const allSymbols = symbolTable.getAllSymbols();
-        
+
         // Find class symbol and verify it can be found by FQN
         const classSymbol = allSymbols.find(
           (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
@@ -274,7 +278,9 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
         );
         expect(interfaceSymbol).toBeDefined();
         if (interfaceSymbol && interfaceSymbol.fqn) {
-          const foundInterface = symbolManager.findSymbolByFQN(interfaceSymbol.fqn);
+          const foundInterface = symbolManager.findSymbolByFQN(
+            interfaceSymbol.fqn,
+          );
           expect(foundInterface).toBeTruthy();
           expect(foundInterface?.name).toBe('TestInterface');
           expect(foundInterface?.kind).toBe(SymbolKind.Interface);

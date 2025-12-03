@@ -360,7 +360,6 @@ describe('ApexSymbolCollectorListener', () => {
       const symbolTable = result.result!;
       // With the new structure, there may not be a file scope
       // Top-level symbols are roots (parentId === null)
-      const fileScope = symbolTable.findScopeByName('file');
       // File scope is optional - don't require it
       // Find outer class symbol - it's a root (parentId === null)
       const outerClassSymbol = symbolTable
@@ -539,7 +538,6 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check enum values
-      const fileScope = symbolTable?.findScopeByName('file');
       // Enum blocks now use block counter names, not enum name
       // Find by scopeType and parentId pointing to the enum symbol
       const enumScope = symbolTable
@@ -616,18 +614,6 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('No compilation errors found');
 
       const symbolTable = result.result;
-      // Find file scope (previously called "globalScope")
-      const globalScope = symbolTable?.findScopeByName('file');
-
-      // Navigate to method scope
-      const classScope = symbolTable
-        ?.getAllSymbols()
-        .find(
-          (s) =>
-            s.kind === SymbolKind.Block &&
-            s.scopeType === 'class' &&
-            s.name === 'BlocksTest',
-        ) as ScopeSymbol | undefined;
       // Method scope's parentId points to the method symbol, not the class scope
       // So we need to find the method symbol first, then find method scopes with that parentId
       const methodSymbol = symbolTable

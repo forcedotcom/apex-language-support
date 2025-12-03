@@ -1572,8 +1572,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // Do this BEFORE processing references so references can find the symbols
     this.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
 
+    // Also invalidate name-based cache to ensure findSymbolByName works correctly
+    for (const symbolName of symbolNamesAdded) {
+      const normalizedName = symbolName.toLowerCase();
+      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
+    }
+
     // Process type references and add them to the symbol graph
     // This must happen after symbols are added and cache is invalidated
+    // Use the normalized URI for consistency with how symbols are stored
     await this.processTypeReferencesToGraph(symbolTable, normalizedUri);
 
     // Sync memory stats with the graph's stats to ensure consistency
@@ -1913,12 +1920,32 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): Promise<void> {
     try {
       // Find the source symbol (the symbol that contains this reference)
-      const sourceSymbol = this.findContainingSymbolForReference(
+      // Use the normalized URI to match how symbols are stored in the graph
+      const properUri =
+        getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+      const normalizedUri = extractFilePathFromUri(properUri);
+      let sourceSymbol = this.findContainingSymbolForReference(
         typeRef,
-        fileUri,
+        normalizedUri,
       );
       if (!sourceSymbol) {
-        return;
+        // Fallback: Try to find the class symbol in the file as a last resort
+        // This ensures references are still processed even if position matching fails
+        const symbolsInFile = this.findSymbolsInFile(normalizedUri);
+        const classSymbol = symbolsInFile.find(
+          (s) =>
+            s.kind === SymbolKind.Class ||
+            s.kind === SymbolKind.Interface ||
+            s.kind === SymbolKind.Enum ||
+            s.kind === SymbolKind.Trigger,
+        );
+        if (classSymbol) {
+          sourceSymbol = classSymbol;
+        } else {
+          // If we still can't find a containing symbol, skip this reference
+          // This can happen if the reference is in a location that doesn't match any symbol
+          return;
+        }
       }
 
       // Check if this is a cross-file reference BEFORE trying to resolve
@@ -1931,13 +1958,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // Special case: 'this' qualifier is always same-file
         if (qualifierInfo.qualifier.toLowerCase() === 'this') {
           // 'this' is always same-file, so check if the member exists in the file
-          const memberInFile = symbolTable.lookup(qualifierInfo.member);
+          // Use getAllSymbols().find() for more reliable same-file lookup
+          const allSymbols = symbolTable.getAllSymbols();
+          const memberInFile = allSymbols.find(
+            (s) => s.name === qualifierInfo.member,
+          );
           if (!memberInFile) {
             isCrossFileReference = true;
           }
         } else {
           // Check if the qualifier is in the current file
-          const qualifierInFile = symbolTable.lookup(qualifierInfo.qualifier);
+          // Use getAllSymbols().find() for more reliable same-file lookup
+          const allSymbols = symbolTable.getAllSymbols();
+          const qualifierInFile = allSymbols.find(
+            (s) => s.name === qualifierInfo.qualifier,
+          );
           if (!qualifierInFile) {
             // Qualifier not in current file - this is a cross-file reference
             isCrossFileReference = true;
@@ -1945,7 +1980,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
       } else {
         // For unqualified references, check if the symbol exists in the current file
-        const symbolInFile = symbolTable.lookup(typeRef.name);
+        // Use getAllSymbols().find() for more reliable same-file lookup
+        const allSymbols = symbolTable.getAllSymbols();
+        const symbolInFile = allSymbols.find((s) => s.name === typeRef.name);
         if (!symbolInFile) {
           // Symbol not in current file - this is a cross-file reference
           isCrossFileReference = true;
@@ -2142,14 +2179,43 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Reverse the hierarchy to search from innermost (most specific) to outermost
       const innermostToOutermost = [...scopeHierarchy].reverse();
       for (const blockSymbol of innermostToOutermost) {
-        // Find symbols in this block scope (children of the block)
-        const symbolsInScope = allFileSymbols.filter(
+        // Find symbols in this block scope (children of the block or nested blocks)
+        // First, find direct children
+        const directChildren = allFileSymbols.filter(
           (symbol) =>
             symbol.name === typeRef.name && symbol.parentId === blockSymbol.id,
         );
+
+        // Also search nested blocks (descendants of this block)
+        const nestedBlocks = allFileSymbols.filter(
+          (s) => s.kind === SymbolKind.Block && s.parentId === blockSymbol.id,
+        );
+        const symbolsInNestedBlocks: ApexSymbol[] = [];
+        for (const nestedBlock of nestedBlocks) {
+          const nestedSymbols = allFileSymbols.filter(
+            (symbol) =>
+              symbol.name === typeRef.name &&
+              symbol.parentId === nestedBlock.id,
+          );
+          symbolsInNestedBlocks.push(...nestedSymbols);
+        }
+
+        // Combine direct children and nested symbols
+        const symbolsInScope = [...directChildren, ...symbolsInNestedBlocks];
+
         if (symbolsInScope.length > 0) {
-          // Found a symbol in this scope - return it (prefer variables/parameters over fields)
-          return this.selectMostSpecificSymbol(symbolsInScope, fileUri);
+          // Found a symbol in this scope - prioritize variables/parameters over fields
+          // Sort by kind priority: variable/parameter > field
+          const prioritized = symbolsInScope.sort((a, b) => {
+            const aIsVar =
+              a.kind === SymbolKind.Variable || a.kind === SymbolKind.Parameter;
+            const bIsVar =
+              b.kind === SymbolKind.Variable || b.kind === SymbolKind.Parameter;
+            if (aIsVar && !bIsVar) return -1;
+            if (!aIsVar && bIsVar) return 1;
+            return 0;
+          });
+          return prioritized[0];
         }
       }
 
@@ -3679,6 +3745,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
     const normalizedUri = extractFilePathFromUri(properUri);
 
+    // Invalidate cache to ensure we get fresh symbols (they were just added)
+    this.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
+
     // Find symbols in the file and determine which one contains this reference
     const symbolsInFile = this.findSymbolsInFile(normalizedUri);
 
@@ -3710,10 +3779,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Find the top-level type symbol (class, interface, enum, trigger)
       const topLevelSymbol = symbolsInFile.find(
         (s) =>
-          s.kind === 'class' ||
-          s.kind === 'interface' ||
-          s.kind === 'enum' ||
-          s.kind === 'trigger',
+          s.kind === SymbolKind.Class ||
+          s.kind === SymbolKind.Interface ||
+          s.kind === SymbolKind.Enum ||
+          s.kind === SymbolKind.Trigger,
       );
       if (topLevelSymbol) {
         return topLevelSymbol;

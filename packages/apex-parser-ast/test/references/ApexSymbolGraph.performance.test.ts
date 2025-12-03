@@ -41,13 +41,13 @@ describe('ApexSymbolGraph - Performance Tests', () => {
     // Shutdown the scheduler first to stop the background loop
     try {
       await Effect.runPromise(schedulerShutdown());
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors - scheduler might not be initialized or already shut down
     }
     // Reset scheduler state after shutdown
     try {
       await Effect.runPromise(schedulerReset());
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors - scheduler might not be initialized
     }
     await Effect.runPromise(schedulerReset());
@@ -83,9 +83,7 @@ describe('ApexSymbolGraph - Performance Tests', () => {
         fqn: fqn || name,
         kind,
       },
-      parentKey: null,
       fqn: fqn || name,
-      _modifierFlags: 1, // PUBLIC flag
       _isLoaded: true,
       modifiers: {
         visibility: SymbolVisibility.Public,

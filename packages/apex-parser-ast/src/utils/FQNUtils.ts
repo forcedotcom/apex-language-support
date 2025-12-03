@@ -10,13 +10,8 @@
  * Utilities for working with Fully Qualified Names (FQNs) in Apex
  */
 
-import { ApexSymbol, SymbolKind, ScopeSymbol } from '../types/symbol';
-import {
-  isBlockSymbol,
-  inTypeSymbolGroup,
-  isMethodSymbol,
-  isConstructorSymbol,
-} from './symbolNarrowing';
+import { ApexSymbol, SymbolKind } from '../types/symbol';
+import { isBlockSymbol } from './symbolNarrowing';
 import { ResourceLoader } from './resourceLoader';
 
 /**

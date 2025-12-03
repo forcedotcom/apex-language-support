@@ -43,13 +43,13 @@ describe('ApexSymbolGraph', () => {
     // Shutdown the scheduler first to stop the background loop
     try {
       await Effect.runPromise(schedulerShutdown());
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors - scheduler might not be initialized or already shut down
     }
     // Reset scheduler state after shutdown
     try {
       await Effect.runPromise(schedulerReset());
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors - scheduler might not be initialized
     }
   });
@@ -67,20 +67,20 @@ describe('ApexSymbolGraph', () => {
       if (graph) {
         graph.clear();
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors during cleanup
     }
     try {
       if (symbolManager) {
         symbolManager.clear();
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors during cleanup
     }
     // Clear the singleton instance to prevent timers from keeping the process alive
     try {
       ApexSymbolGraph.setInstance(null as any);
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors
     }
   });

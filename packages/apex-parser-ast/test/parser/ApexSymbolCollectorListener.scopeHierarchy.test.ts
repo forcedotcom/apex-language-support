@@ -32,12 +32,12 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     const allScopes = symbolTable
       .getAllSymbols()
       .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
-    
+
     if (name && scopeType === 'class') {
       // For class scopes, find by class symbol name (class blocks have block counter names)
-      const classSymbol = symbolTable.getAllSymbols().find(
-        (s) => s.name === name && inTypeSymbolGroup(s),
-      );
+      const classSymbol = symbolTable
+        .getAllSymbols()
+        .find((s) => s.name === name && inTypeSymbolGroup(s));
       if (classSymbol) {
         return allScopes.find(
           (s) => s.scopeType === 'class' && s.parentId === classSymbol.id,
@@ -56,13 +56,11 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     return undefined;
   };
 
-  // Helper function to find file scope
-  const findFileScope = (symbolTable: SymbolTable): ScopeSymbol | undefined => {
-    // File scope may not exist as a block symbol anymore
-    // Return undefined if not found - tests should handle this
-    return symbolTable.findScopeByName('file') || undefined;
-  };
-
+  // Helper function to find file scope (unused but kept for potential future use)
+  // const findFileScope = (symbolTable: SymbolTable): ScopeSymbol | undefined =>
+  //   // File scope may not exist as a block symbol anymore
+  //   // Return undefined if not found - tests should handle this
+  //   symbolTable.findScopeByName('file') || undefined;
   beforeEach(() => {
     logger = TestLogger.getInstance();
     logger.debug('Setting up test environment');
@@ -117,19 +115,22 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       const allScopes = symbolTable
         .getAllSymbols()
         .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
-      
+
       // Find the class scope for CommunitiesLandingController
       let classScope: ScopeSymbol | undefined = allScopes.find(
         (scope) =>
           scope.scopeType === 'class' &&
           scope.name === 'CommunitiesLandingController',
       );
-      
+
       // If not found by name, try finding by class symbol
       if (!classScope) {
-        const classSymbol = symbolTable.getAllSymbols().find(
-          (s) => s.name === 'CommunitiesLandingController' && inTypeSymbolGroup(s),
-        );
+        const classSymbol = symbolTable
+          .getAllSymbols()
+          .find(
+            (s) =>
+              s.name === 'CommunitiesLandingController' && inTypeSymbolGroup(s),
+          );
         if (classSymbol) {
           classScope = allScopes.find(
             (s) => s.scopeType === 'class' && s.parentId === classSymbol.id,
@@ -248,26 +249,29 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       const allScopes = symbolTable
         .getAllSymbols()
         .filter((s) => s.kind === SymbolKind.Block) as ScopeSymbol[];
-      
+
       // Find the class scope for CommunitiesLandingController
       let classScope: ScopeSymbol | undefined = allScopes.find(
         (scope) =>
           scope.scopeType === 'class' &&
           scope.name === 'CommunitiesLandingController',
       );
-      
+
       // If not found by name, try finding by class symbol
       if (!classScope) {
-        const classSymbol = symbolTable.getAllSymbols().find(
-          (s) => s.name === 'CommunitiesLandingController' && inTypeSymbolGroup(s),
-        );
+        const classSymbol = symbolTable
+          .getAllSymbols()
+          .find(
+            (s) =>
+              s.name === 'CommunitiesLandingController' && inTypeSymbolGroup(s),
+          );
         if (classSymbol) {
           classScope = allScopes.find(
             (s) => s.scopeType === 'class' && s.parentId === classSymbol.id,
           );
         }
       }
-      
+
       expect(classScope).toBeDefined();
       if (classScope) {
         logger.debug(`Class scope name: ${classScope.name}`);
@@ -487,10 +491,9 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       // With the new hierarchy: inner class -> inner class-scope -> block scope -> method -> method-scope
       // Methods are in the block scope (child of inner class scope)
       const innerClassBlockScope = allScopes.find(
-        (s) =>
-          s.scopeType === 'block' && s.parentId === innerClassScope.id,
+        (s) => s.scopeType === 'block' && s.parentId === innerClassScope.id,
       );
-      
+
       // Methods might be in the inner class scope or in the block scope
       // Check both locations
       const innerClassSymbols = symbolTable.getSymbolsInScope(
@@ -499,7 +502,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       let innerMethods = innerClassSymbols.filter(
         (s) => s.kind === SymbolKind.Method && !isBlockSymbol(s),
       );
-      
+
       // If not found in class scope, check block scope
       if (innerMethods.length === 0 && innerClassBlockScope) {
         const blockSymbols = symbolTable.getSymbolsInScope(
@@ -509,7 +512,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
           (s) => s.kind === SymbolKind.Method && !isBlockSymbol(s),
         );
       }
-      
+
       // If still not found, check all symbols - methods are added to the current scope
       // which could be the class scope or block scope depending on when they're added
       if (innerMethods.length === 0) {
@@ -704,9 +707,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       );
       const ifBlockSymbol = allSymbols.find(
         (s): s is ScopeSymbol =>
-          isBlockSymbol(s) &&
-          s.scopeType === 'if' &&
-          s.name.startsWith('if_'),
+          isBlockSymbol(s) && s.scopeType === 'if' && s.name.startsWith('if_'),
       );
 
       // Find the method body block (generic block scope created for method body)
@@ -770,9 +771,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       );
       const ifBlockSymbol = allSymbols.find(
         (s): s is ScopeSymbol =>
-          isBlockSymbol(s) &&
-          s.scopeType === 'if' &&
-          s.name.startsWith('if_'),
+          isBlockSymbol(s) && s.scopeType === 'if' && s.name.startsWith('if_'),
       );
       const whileBlockSymbol = allSymbols.find(
         (s): s is ScopeSymbol =>
@@ -851,7 +850,8 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         (s) => s.kind === SymbolKind.Block,
       );
       const ifBlockSymbols = scopeSymbols.filter(
-        (s) => isBlockSymbol(s) && s.scopeType === 'if' && s.name.startsWith('if_'),
+        (s) =>
+          isBlockSymbol(s) && s.scopeType === 'if' && s.name.startsWith('if_'),
       );
       expect(ifBlockSymbols.length).toBeGreaterThan(0);
     });
@@ -885,7 +885,10 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         (s) => s.kind === SymbolKind.Block,
       );
       const whileBlockSymbols = scopeSymbols.filter(
-        (s) => isBlockSymbol(s) && s.scopeType === 'while' && s.name.startsWith('while_'),
+        (s) =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'while' &&
+          s.name.startsWith('while_'),
       );
       expect(whileBlockSymbols.length).toBeGreaterThan(0);
     });
@@ -919,7 +922,10 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         (s) => s.kind === SymbolKind.Block,
       );
       const forBlockSymbols = scopeSymbols.filter(
-        (s) => isBlockSymbol(s) && s.scopeType === 'for' && s.name.startsWith('for_'),
+        (s) =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'for' &&
+          s.name.startsWith('for_'),
       );
       expect(forBlockSymbols.length).toBeGreaterThan(0);
     });
@@ -994,11 +1000,9 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       ) as ScopeSymbol[];
 
       // Should have: file, class, getter, and block (block is child of getter)
-      const getterScopes = scopeSymbols.filter(
-        (s) => s.scopeType === 'getter',
-      );
+      const getterScopes = scopeSymbols.filter((s) => s.scopeType === 'getter');
       expect(getterScopes.length).toBe(1);
-      
+
       // Block scope should exist as child of getter scope
       const getterScope = getterScopes[0];
       const blockScopes = scopeSymbols.filter(
@@ -1034,9 +1038,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         (s) => s.kind === SymbolKind.Block,
       ) as ScopeSymbol[];
 
-      const getterScopes = scopeSymbols.filter(
-        (s) => s.scopeType === 'getter',
-      );
+      const getterScopes = scopeSymbols.filter((s) => s.scopeType === 'getter');
       expect(getterScopes.length).toBe(1);
     });
 
@@ -1069,11 +1071,9 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         (s) => s.kind === SymbolKind.Block,
       ) as ScopeSymbol[];
 
-      const setterScopes = scopeSymbols.filter(
-        (s) => s.scopeType === 'setter',
-      );
+      const setterScopes = scopeSymbols.filter((s) => s.scopeType === 'setter');
       expect(setterScopes.length).toBe(1);
-      
+
       // Block scope should exist as child of setter scope
       const setterScope = setterScopes[0];
       const blockScopes = scopeSymbols.filter(
@@ -1168,7 +1168,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       const catchScopes = scopeSymbols.filter((s) => s.scopeType === 'catch');
       expect(tryScopes.length).toBe(1);
       expect(catchScopes.length).toBe(1);
-      
+
       // Block scopes should exist as children of try and catch scopes
       const tryScope = tryScopes[0];
       const catchScope = catchScopes[0];
@@ -1214,7 +1214,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
 
       const catchScopes = scopeSymbols.filter((s) => s.scopeType === 'catch');
       expect(catchScopes.length).toBe(1);
-      
+
       // Block scope should exist as child of catch scope
       const catchScope = catchScopes[0];
       const blockScopes = scopeSymbols.filter(
@@ -1257,7 +1257,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         (s) => s.scopeType === 'finally',
       );
       expect(finallyScopes.length).toBe(1);
-      
+
       // Block scope should exist as child of finally scope
       const finallyScope = finallyScopes[0];
       const blockScopes = scopeSymbols.filter(
@@ -1322,7 +1322,9 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
           expect(finallyScope.parentId).toBeDefined();
           // The parents should be either the method scope or a block scope within the method
           const tryParent = allSymbols.find((s) => s.id === tryScope.parentId);
-          const catchParent = allSymbols.find((s) => s.id === catchScope.parentId);
+          const catchParent = allSymbols.find(
+            (s) => s.id === catchScope.parentId,
+          );
           const finallyParent = allSymbols.find(
             (s) => s.id === finallyScope.parentId,
           );
@@ -1375,7 +1377,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         (s) => s.scopeType === 'doWhile',
       );
       expect(doWhileScopes.length).toBe(1);
-      
+
       // Block scope should exist as child of doWhile scope
       const doWhileScope = doWhileScopes[0];
       const blockScopes = scopeSymbols.filter(
@@ -1413,11 +1415,9 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         (s) => s.kind === SymbolKind.Block,
       ) as ScopeSymbol[];
 
-      const runAsScopes = scopeSymbols.filter(
-        (s) => s.scopeType === 'runAs',
-      );
+      const runAsScopes = scopeSymbols.filter((s) => s.scopeType === 'runAs');
       expect(runAsScopes.length).toBe(1);
-      
+
       // Block scope should exist as child of runAs scope
       const runAsScope = runAsScopes[0];
       const blockScopes = scopeSymbols.filter(
@@ -2212,7 +2212,9 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       expect(classSymbol).toBeDefined();
       if (classSymbol) {
         // Class ID should be: fileUri:class:MyClass
-        expect(classSymbol.id).toMatch(/^file:\/\/\/test\/MyClass\.cls:class:MyClass$/);
+        expect(classSymbol.id).toMatch(
+          /^file:\/\/\/test\/MyClass\.cls:class:MyClass$/,
+        );
         expect(classSymbol.parentId).toBeNull();
       }
     });
@@ -2291,8 +2293,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         (s) => s.name === 'myMethod' && s.kind === SymbolKind.Method,
       );
       const methodBlock = allSymbols.find(
-        (s): s is ScopeSymbol =>
-          isBlockSymbol(s) && s.scopeType === 'method',
+        (s): s is ScopeSymbol => isBlockSymbol(s) && s.scopeType === 'method',
       );
       const variableSymbol = allSymbols.find(
         (s) => s.name === 'localVar' && s.kind === SymbolKind.Variable,
@@ -2327,7 +2328,8 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
               foundClassPrefix = true;
             }
             if (current.parentId) {
-              current = allSymbols.find((s) => s.id === current!.parentId) || null;
+              current =
+                allSymbols.find((s) => s.id === current!.parentId) || null;
             } else {
               break;
             }
@@ -2367,15 +2369,13 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         (s) => s.name === 'MyClass' && s.kind === SymbolKind.Class,
       );
       const classBlock = allSymbols.find(
-        (s): s is ScopeSymbol =>
-          isBlockSymbol(s) && s.scopeType === 'class',
+        (s): s is ScopeSymbol => isBlockSymbol(s) && s.scopeType === 'class',
       );
       const methodSymbol = allSymbols.find(
         (s) => s.name === 'myMethod' && s.kind === SymbolKind.Method,
       );
       const methodBlock = allSymbols.find(
-        (s): s is ScopeSymbol =>
-          isBlockSymbol(s) && s.scopeType === 'method',
+        (s): s is ScopeSymbol => isBlockSymbol(s) && s.scopeType === 'method',
       );
       const variableSymbol = allSymbols.find(
         (s) => s.name === 'localVar' && s.kind === SymbolKind.Variable,

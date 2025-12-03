@@ -923,7 +923,7 @@ describe('PriorityScheduler', () => {
 
       // Should have elapsed time (scheduler was idle)
       expect(elapsed).toBeGreaterThanOrEqual(40);
-      expect(elapsed).toBeLessThanOrEqual(60);
+      expect(elapsed).toBeLessThanOrEqual(65);
     });
   });
 

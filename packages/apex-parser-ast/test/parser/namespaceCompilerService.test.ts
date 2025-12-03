@@ -85,16 +85,17 @@ describe('CompilerService Namespace Integration', () => {
       }
 
       // Check method symbols as well
-      // Find the class block by looking for a block with scopeType === 'class' and parentId pointing to the class symbol
+      // Find the class block by looking for a block with scopeType === 'class'
+      // and parentId pointing to the class symbol
       const scopeForClass = classSymbol
-        ? symbolTable
+        ? (symbolTable
             .getAllSymbols()
             .find(
               (s) =>
                 s.kind === SymbolKind.Block &&
                 s.scopeType === 'class' &&
                 s.parentId === classSymbol.id,
-            ) as ScopeSymbol | undefined
+            ) as ScopeSymbol | undefined)
         : undefined;
       const methodSymbol = scopeForClass
         ? symbolTable
@@ -320,7 +321,11 @@ describe('CompilerService Namespace Integration', () => {
       // Get root symbols (top-level symbols with parentId === null)
       const rootSymbols = symbolTable.getRoots();
       logger.info(`Global Scope Symbols: ${JSON.stringify(
-        rootSymbols.map((s) => ({ name: s.name, kind: s.kind, namespace: s.namespace })),
+        rootSymbols.map((s) => ({
+          name: s.name,
+          kind: s.kind,
+          namespace: s.namespace,
+        })),
       )}
 `);
 
@@ -330,14 +335,14 @@ describe('CompilerService Namespace Integration', () => {
         .getAllSymbols()
         .find((s) => !isBlockSymbol(s) && s.name === 'IdeaStandardController');
       const classScope = classSymbol
-        ? symbolTable
+        ? (symbolTable
             .getAllSymbols()
             .find(
               (s) =>
                 s.kind === SymbolKind.Block &&
                 s.scopeType === 'class' &&
                 s.parentId === classSymbol.id,
-            ) as ScopeSymbol | undefined
+            ) as ScopeSymbol | undefined)
         : undefined;
 
       if (classScope) {
@@ -452,16 +457,17 @@ describe('CompilerService Namespace Integration', () => {
       expect(classSymbol).toBeDefined();
 
       // Get the class scope and verify methods
-      // Find the class block by looking for a block with scopeType === 'class' and parentId pointing to the class symbol
+      // Find the class block by looking for a block with scopeType === 'class'
+      // and parentId pointing to the class symbol
       const classScope = classSymbol
-        ? symbolTable
+        ? (symbolTable
             .getAllSymbols()
             .find(
               (s) =>
                 s.kind === SymbolKind.Block &&
                 s.scopeType === 'class' &&
                 s.parentId === classSymbol.id,
-            ) as ScopeSymbol | undefined
+            ) as ScopeSymbol | undefined)
         : undefined;
 
       // Verify we have the expected method

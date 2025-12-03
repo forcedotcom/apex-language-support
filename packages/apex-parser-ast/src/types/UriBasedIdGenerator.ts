@@ -108,7 +108,7 @@ const parseSymbolPart = (
     // The second-to-last part might be a prefix (if it's a single word) or part of scope
     cleanName = partsWithoutLine[partsWithoutLine.length - 1];
     const secondToLast = partsWithoutLine[partsWithoutLine.length - 2];
-    
+
     // If second-to-last doesn't contain dots, it's likely a prefix (new format)
     // Otherwise, it's part of the scope path (old format)
     if (!secondToLast.includes('.')) {

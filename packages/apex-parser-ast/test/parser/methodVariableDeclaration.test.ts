@@ -44,7 +44,9 @@ describe('Method Variable Declaration', () => {
         .getSymbolsInScope(scope.id)
         .filter(
           (s) =>
-            s.parentId === scope.id && s.kind === SymbolKind.Block,
+            s.parentId === scope.id &&
+            isBlockSymbol(s) &&
+            s.kind === SymbolKind.Block,
         ) as ScopeSymbol[];
       const childVariables = getAllVariablesFromScopes(children, symbolTable);
       return [...variables, ...childVariables];
@@ -81,75 +83,90 @@ describe('Method Variable Declaration', () => {
       if (!symbolTable) {
         throw new Error('Symbol table is null');
       }
-      const globalScope = symbolTable.getCurrentScope();
-      const classScope = symbolTable
-        .getAllSymbols()
-        .find(
-          (s) =>
-            s.kind === SymbolKind.Block &&
-            s.scopeType === 'class' &&
-            s.name === 'TestClass',
-        ) as ScopeSymbol | undefined;
-      // Method scope's parentId points to the method symbol, not the class scope
-      const methodSymbol = symbolTable
-        .getAllSymbols()
-        .find(
-          (s) =>
-            s.kind === SymbolKind.Method &&
-            s.name === 'm1' &&
-            !isBlockSymbol(s),
-        );
+      // Find class symbol first
+      const allSymbols = symbolTable.getAllSymbols();
+      const classSymbol = allSymbols.find(
+        (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
+      );
+      // Find class block by parentId pointing to class symbol
+      const classScope = classSymbol
+        ? (allSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.parentId === classSymbol.id,
+          ) as ScopeSymbol | undefined)
+        : undefined;
+      // Method symbol's parentId points to the class block
+      // Find method symbol first
+      const methodSymbol = classScope
+        ? allSymbols.find(
+            (s) =>
+              s.kind === SymbolKind.Method &&
+              s.name === 'm1' &&
+              s.parentId === classScope.id,
+          )
+        : allSymbols.find(
+            (s) =>
+              s.kind === SymbolKind.Method &&
+              s.name === 'm1' &&
+              !isBlockSymbol(s),
+          );
+      // Method block's parentId points to the method symbol
       const methodScope = methodSymbol
-        ? symbolTable
-            .getAllSymbols()
-            .find(
-              (s) =>
-                s.kind === SymbolKind.Block &&
-                s.scopeType === 'method' &&
-                s.name === 'm1' &&
-                s.parentId === methodSymbol.id,
-            ) as ScopeSymbol | undefined
+        ? (allSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'method' &&
+              s.parentId === methodSymbol.id,
+          ) as ScopeSymbol | undefined)
         : undefined;
 
-      expect(methodScope?.name).toBe('m1');
+      expect(methodScope).toBeDefined();
 
       // Variables in method body are now in block scopes (children of method scope)
-      // Get the method's block scope first
+      // Get the method's block scope first (the generic block that contains method body)
       const methodBlockScope = methodScope
-        ? symbolTable
+        ? (symbolTable
             .getSymbolsInScope(methodScope.id)
             .find(
               (s) =>
-                s.kind === SymbolKind.Block &&
+                isBlockSymbol(s) &&
                 s.scopeType === 'block' &&
                 s.parentId === methodScope.id,
-            ) as ScopeSymbol | undefined
+            ) as ScopeSymbol | undefined)
         : undefined;
-      
+
       // Get variables from the method block scope
       const methodVariables = methodBlockScope
         ? symbolTable
             .getSymbolsInScope(methodBlockScope.id)
             .filter((s) => s.kind === SymbolKind.Variable)
         : [];
-      
+
       // Get all block scopes (if any) - nested blocks like if, for, etc.
       const blockScopes = methodScope
-        ? symbolTable
+        ? (symbolTable
             .getSymbolsInScope(methodScope.id)
             .filter(
               (s) =>
                 s.parentId === methodScope.id &&
-                s.kind === SymbolKind.Block &&
+                isBlockSymbol(s) &&
                 s.scopeType !== 'method',
-            ) as ScopeSymbol[]
+            ) as ScopeSymbol[])
         : [];
-      
+
       // Get all variables from all block scopes, including nested ones
-      const blockVariables = getAllVariablesFromScopes(blockScopes, symbolTable);
-      
+      const blockVariables = getAllVariablesFromScopes(
+        blockScopes,
+        symbolTable,
+      );
+
       // Combine method variables and block variables
-      const variables = [...methodVariables, ...blockVariables] as VariableSymbol[];
+      const variables = [
+        ...methodVariables,
+        ...blockVariables,
+      ] as VariableSymbol[];
 
       expect(variables?.length).toBeGreaterThanOrEqual(6); // count, name, isActive, price, x, y, z
 
@@ -213,59 +230,82 @@ describe('Method Variable Declaration', () => {
       if (!symbolTable) {
         throw new Error('Symbol table is null');
       }
-      const globalScope = symbolTable.getCurrentScope();
-      const classScope = symbolTable
-        .getAllSymbols()
-        .find(
-          (s) =>
-            s.kind === SymbolKind.Block &&
-            s.scopeType === 'class' &&
-            s.name === 'BlocksTest',
-        ) as ScopeSymbol | undefined;
-      // Method scope's parentId points to the method symbol, not the class scope
-      const methodSymbol = symbolTable
-        .getAllSymbols()
-        .find(
-          (s) =>
-            s.kind === SymbolKind.Method &&
-            s.name === 'm1' &&
-            !isBlockSymbol(s),
-        );
+      // Find class symbol first
+      const allSymbols = symbolTable.getAllSymbols();
+      const classSymbol = allSymbols.find(
+        (s) => s.name === 'BlocksTest' && s.kind === SymbolKind.Class,
+      );
+      // Find class block by parentId pointing to class symbol
+      const classScope = classSymbol
+        ? (allSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.parentId === classSymbol.id,
+          ) as ScopeSymbol | undefined)
+        : undefined;
+      // Method symbol's parentId points to the class block
+      // Find method symbol first
+      const methodSymbol = classScope
+        ? allSymbols.find(
+            (s) =>
+              s.kind === SymbolKind.Method &&
+              s.name === 'm1' &&
+              s.parentId === classScope.id,
+          )
+        : allSymbols.find(
+            (s) =>
+              s.kind === SymbolKind.Method &&
+              s.name === 'm1' &&
+              !isBlockSymbol(s),
+          );
+      // Method block's parentId points to the method symbol
       const methodScope = methodSymbol
-        ? symbolTable
-            .getAllSymbols()
-            .find(
-              (s) =>
-                s.kind === SymbolKind.Block &&
-                s.scopeType === 'method' &&
-                s.name === 'm1' &&
-                s.parentId === methodSymbol.id,
-            ) as ScopeSymbol | undefined
+        ? (allSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'method' &&
+              s.parentId === methodSymbol.id,
+          ) as ScopeSymbol | undefined)
         : undefined;
 
       // Get all block scopes (if, for, while, etc.) - they are children of method scope
       const blockScopes = methodScope
-        ? symbolTable
+        ? (symbolTable
             .getSymbolsInScope(methodScope.id)
             .filter(
               (s) =>
                 s.parentId === methodScope.id &&
-                s.kind === SymbolKind.Block &&
+                isBlockSymbol(s) &&
                 s.scopeType !== 'method',
-            ) as ScopeSymbol[]
+            ) as ScopeSymbol[])
         : [];
       expect(blockScopes.length).toBeGreaterThan(0);
 
       // Get all variables from all block scopes, including nested ones
-      const blockVariables = getAllVariablesFromScopes(blockScopes, symbolTable);
-      
-      // Also get variables from method scope (outerVar is in method scope, not in a block)
-      const methodVariables = methodScope
-        ? symbolTable
+      const blockVariables = getAllVariablesFromScopes(
+        blockScopes,
+        symbolTable,
+      );
+
+      // Also get variables from method block scope (outerVar is in method body block)
+      // Find the method body block (generic block that's a direct child of method scope)
+      const methodBodyBlock = methodScope
+        ? (symbolTable
             .getSymbolsInScope(methodScope.id)
-            .filter((s) => s.kind === SymbolKind.Variable) as VariableSymbol[]
+            .find(
+              (s) =>
+                isBlockSymbol(s) &&
+                s.scopeType === 'block' &&
+                s.parentId === methodScope.id,
+            ) as ScopeSymbol | undefined)
+        : undefined;
+      const methodVariables = methodBodyBlock
+        ? (symbolTable
+            .getSymbolsInScope(methodBodyBlock.id)
+            .filter((s) => s.kind === SymbolKind.Variable) as VariableSymbol[])
         : [];
-      
+
       // Combine method variables and block variables
       const allVariables = [...methodVariables, ...blockVariables];
 

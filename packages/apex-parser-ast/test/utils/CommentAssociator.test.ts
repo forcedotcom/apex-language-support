@@ -496,7 +496,9 @@ public class TestClass {
       // Use the custom associator to process the associations
       const customAssociations = customAssociator.associateComments(
         result.comments || [],
-        (result?.result?.getAllSymbols() || []).filter((s) => !isBlockSymbol(s)),
+        (result?.result?.getAllSymbols() || []).filter(
+          (s) => !isBlockSymbol(s),
+        ),
       );
 
       // Should not associate because distance > maxPrecedingDistance

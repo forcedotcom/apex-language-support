@@ -53,13 +53,13 @@ describe('ApexSymbolIndexingService', () => {
     // Shutdown the scheduler first to stop the background loop
     try {
       await Effect.runPromise(schedulerShutdown());
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors - scheduler might not be initialized or already shut down
     }
     // Reset scheduler state after shutdown
     try {
       await Effect.runPromise(schedulerReset());
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors - scheduler might not be initialized
     }
   });

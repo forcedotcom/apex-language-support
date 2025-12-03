@@ -443,24 +443,28 @@ public class ParentChildTest {
   function getScopeName(symbolTable: SymbolTable, symbol: ApexSymbol): string {
     // Find scope by parentId - the parentId points to the scope containing this symbol
     if (symbol.parentId) {
-      const parentScope = symbolTable.getAllSymbols().find(
-        (s) => s.id === symbol.parentId && s.kind === SymbolKind.Block,
-      ) as ScopeSymbol | undefined;
+      const parentScope = symbolTable
+        .getAllSymbols()
+        .find(
+          (s) => s.id === symbol.parentId && s.kind === SymbolKind.Block,
+        ) as ScopeSymbol | undefined;
       if (parentScope) {
         return parentScope.name;
       }
       // If parent is not a block, it might be a class/method symbol
       // In that case, find the corresponding block scope
-      const parentSymbol = symbolTable.getAllSymbols().find(
-        (s) => s.id === symbol.parentId,
-      );
+      const parentSymbol = symbolTable
+        .getAllSymbols()
+        .find((s) => s.id === symbol.parentId);
       if (parentSymbol) {
         // Find block scope that has this symbol as parent
-        const blockScope = symbolTable.getAllSymbols().find(
-          (s) =>
-            s.kind === SymbolKind.Block &&
-            (s as ScopeSymbol).parentId === parentSymbol.id,
-        ) as ScopeSymbol | undefined;
+        const blockScope = symbolTable
+          .getAllSymbols()
+          .find(
+            (s) =>
+              s.kind === SymbolKind.Block &&
+              (s as ScopeSymbol).parentId === parentSymbol.id,
+          ) as ScopeSymbol | undefined;
         if (blockScope) {
           return blockScope.name;
         }
