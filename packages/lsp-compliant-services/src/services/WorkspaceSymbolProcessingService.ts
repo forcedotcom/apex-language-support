@@ -20,6 +20,7 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 import { transformParserToLspPosition } from '../utils/positionUtils';
+import { toDisplayFQN } from '../utils/displayFQNUtils';
 
 /**
  * Interface for workspace symbol processing functionality
@@ -251,7 +252,7 @@ export class WorkspaceSymbolProcessingService
         name: symbol.name,
         kind,
         location,
-        containerName: symbol.fqn || undefined,
+        containerName: symbol.fqn ? toDisplayFQN(symbol.fqn) : undefined,
       };
     } catch (error) {
       this.logger.debug(() => `Error creating symbol information: ${error}`);

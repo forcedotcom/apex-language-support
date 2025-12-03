@@ -26,6 +26,11 @@ export interface FQNOptions {
   memberDelimiter?: string;
   /** Whether to normalize case (lowercase) for comparison purposes */
   normalizeCase?: boolean;
+  /** Whether to exclude block symbols from FQN (default: false)
+   * When true, block symbols like "class_1", "method_2" are excluded for cleaner user-facing FQNs
+   * When false, all parent symbols including blocks are included (for internal/technical FQNs)
+   */
+  excludeBlockSymbols?: boolean;
 }
 
 // TODO: Remove this once we dig into FQN resolution

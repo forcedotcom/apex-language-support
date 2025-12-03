@@ -33,6 +33,7 @@ import {
   inTypeSymbolGroup,
 } from '@salesforce/apex-lsp-parser-ast';
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
+import { calculateDisplayFQN } from '../utils/displayFQNUtils';
 
 import {
   transformLspToParserPosition,
@@ -161,10 +162,10 @@ export class HoverProcessingService implements IHoverProcessor {
   private async createHoverInformation(symbol: ApexSymbol): Promise<Hover> {
     const content: string[] = [];
 
-    // Construct FQN for display with original casing preserved
+    // Construct display FQN (semantic hierarchy without block symbols) with original casing preserved
     // Always construct a new FQN with normalizeCase: false for display purposes,
     // even if symbol.fqn exists (which may be normalized to lowercase)
-    const fqn = this.symbolManager.constructFQN(symbol, {
+    const fqn = calculateDisplayFQN(symbol, this.symbolManager, {
       normalizeCase: false,
     });
 

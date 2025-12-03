@@ -178,18 +178,7 @@ export class DefaultApexDocumentSymbolProvider
         }
       }
 
-      const currentScope = symbolTable.getCurrentScope();
-
-      // Debug: Check what's in the symbol table
-      logger.debug(() => `Symbol table current scope: ${currentScope.name}`);
-      logger.debug(
-        () =>
-          `Symbol table current scope path: ${JSON.stringify(
-            symbolTable.getCurrentScopePath(),
-          )}`,
-      );
-
-      // Get all symbols from the entire symbol table (not just current scope)
+      // Get all symbols from the entire symbol table
       const allSymbols = symbolTable.getAllSymbols();
       // Filter for only top-level symbols (classes, interfaces, enums, triggers)
       const topLevelSymbols = allSymbols.filter((symbol) =>
@@ -204,8 +193,16 @@ export class DefaultApexDocumentSymbolProvider
       logger.debug(() => `Returning ${symbolsResult.length} document symbols`);
       return symbolsResult;
     } catch (error) {
-      const errorMessage = JSON.stringify(error);
-      logger.error(() => `Error providing document symbols: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : JSON.stringify(error, Object.getOwnPropertyNames(error));
+      logger.error(
+        () =>
+          `Error providing document symbols: ${errorMessage}. Error type: ${typeof error}. Stack: ${
+            error instanceof Error ? error.stack : 'N/A'
+          }`,
+      );
       return null;
     }
   }
@@ -348,17 +345,19 @@ export class DefaultApexDocumentSymbolProvider
         const documentSymbol = self.createDocumentSymbol(symbol);
 
         // Recursively collect children for top-level symbol types (classes, interfaces, etc.)
-        // Get child scopes by finding symbols with parentId === current scope id
-        const currentScope = symbolTable.getCurrentScope();
+        // Get child scopes by finding block symbols with parentId === symbol.id
         const childScopes = symbolTable
           .getAllSymbols()
           .filter(
             (s) =>
-              s.parentId === currentScope.id && s.kind === ApexSymbolKind.Block,
+              s.parentId === symbol.id && s.kind === ApexSymbolKind.Block,
           ) as ScopeSymbol[];
 
+        // Find the scope symbol for this type (class/interface/enum body)
+        // Look for a class block with scopeType === 'class' and parentId === symbol.id
         const typeScope = childScopes.find(
-          (scope) => scope.name === symbol.name,
+          (scope) =>
+            scope.scopeType === 'class' && scope.parentId === symbol.id,
         );
 
         if (typeScope) {
@@ -366,8 +365,10 @@ export class DefaultApexDocumentSymbolProvider
             () => `Collecting children for ${symbol.kind} '${symbol.name}'`,
           );
           documentSymbol.children = yield* self.collectChildrenEffect(
-            typeScope,
+            typeScope.id,
             symbol.kind,
+            symbolTable,
+            symbol.id, // Pass the type symbol ID for finding inner types
           );
         }
 
@@ -383,32 +384,47 @@ export class DefaultApexDocumentSymbolProvider
     });
   }
 
-  /**
-   * Recursively collects children symbols for a given scope and kind
-   * This builds the hierarchical structure of the document outline
-   */
-  private collectChildren(scope: any, parentKind: string): DocumentSymbol[] {
-    return Effect.runSync(this.collectChildrenEffect(scope, parentKind));
-  }
 
   /**
-   * Recursively collects children symbols for a given scope and kind (Effect-based with yielding)
+   * Recursively collects children symbols for a given scope ID and kind (Effect-based with yielding)
    * This builds the hierarchical structure of the document outline
+   * @param scopeId The ID of the scope block (class block, method block, etc.)
+   * @param parentKind The kind of the parent type (class, interface, enum)
+   * @param symbolTable The symbol table to search
+   * @param parentTypeId The ID of the parent type symbol (for finding inner types)
    */
   private collectChildrenEffect(
-    scope: any,
+    scopeId: string,
     parentKind: string,
+    symbolTable: SymbolTable,
+    parentTypeId?: string,
   ): Effect.Effect<DocumentSymbol[], never, never> {
     const self = this;
     return Effect.gen(function* () {
       const children: DocumentSymbol[] = [];
-      const allChildSymbols = scope.getAllSymbols();
+      const allSymbols = symbolTable.getAllSymbols();
       const logger = getLogger();
       const batchSize = 50;
 
+      // Find all symbols that are children of this scope
+      // Children can be:
+      // 1. Direct children of the scope block (methods, fields, etc.) - parentId === scopeId
+      // 2. Inner types (classes, interfaces, enums) - parentId === parentTypeId
       // Filter to only include semantic symbols for document outline
       // Exclude: block symbols, variable symbols (type references), and parameter symbols
-      const childSymbols = allChildSymbols.filter((symbol: ApexSymbol) => {
+      const childSymbols = allSymbols.filter((symbol: ApexSymbol) => {
+        // Include symbols that are direct children of the scope block
+        const isChildOfScope = symbol.parentId === scopeId;
+        // Include inner types that are children of the parent type (if parentTypeId provided)
+        const isInnerType =
+          parentTypeId &&
+          inTypeSymbolGroup(symbol) &&
+          symbol.parentId === parentTypeId;
+
+        if (!isChildOfScope && !isInnerType) {
+          return false;
+        }
+
         // Exclude block symbols
         if (isBlockSymbol(symbol)) {
           return false;
@@ -426,7 +442,7 @@ export class DefaultApexDocumentSymbolProvider
 
       logger.debug(
         () =>
-          `Collecting children for ${parentKind} '${scope.name}': ${childSymbols.length} semantic symbols found (filtered from ${allChildSymbols.length} total)`,
+          `Collecting children for ${parentKind} (scopeId: ${scopeId}): ${childSymbols.length} semantic symbols found`,
       );
 
       for (let i = 0; i < childSymbols.length; i++) {
@@ -447,18 +463,24 @@ export class DefaultApexDocumentSymbolProvider
 
         // Recursively collect children for top-level symbol types
         if (inTypeSymbolGroup(childSymbol)) {
-          const childScope = scope
-            .getChildren()
-            .find((s: any) => s.name === childSymbol.name);
+          // Find the class block for this nested type
+          const childClassBlocks = allSymbols.filter(
+            (s) =>
+              s.parentId === childSymbol.id &&
+              s.kind === ApexSymbolKind.Block &&
+              (s as ScopeSymbol).scopeType === 'class',
+          ) as ScopeSymbol[];
 
-          if (childScope) {
+          if (childClassBlocks.length > 0) {
+            const childScope = childClassBlocks[0];
             logger.debug(
               () =>
                 `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}'`,
             );
             childDocumentSymbol.children = yield* self.collectChildrenEffect(
-              childScope,
+              childScope.id,
               childSymbol.kind,
+              symbolTable,
             );
           }
         }
@@ -473,7 +495,7 @@ export class DefaultApexDocumentSymbolProvider
 
       logger.debug(
         () =>
-          `Collected ${children.length} children for ${parentKind} '${scope.name}'`,
+          `Collected ${children.length} children for ${parentKind} (scopeId: ${scopeId})`,
       );
       return children;
     });

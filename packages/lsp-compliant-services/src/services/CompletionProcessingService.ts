@@ -21,6 +21,7 @@ import {
   ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
+import { toDisplayFQN } from '../utils/displayFQNUtils';
 
 /**
  * Interface for completion processing functionality
@@ -430,7 +431,7 @@ export class CompletionProcessingService implements ICompletionProcessor {
     ];
 
     if (symbol.fqn) {
-      content.push(`**FQN:** ${symbol.fqn}`);
+      content.push(`**FQN:** ${toDisplayFQN(symbol.fqn)}`);
     }
 
     if (symbol.modifiers) {
