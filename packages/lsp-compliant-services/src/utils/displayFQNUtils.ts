@@ -17,7 +17,8 @@ import {
  * These patterns match block symbols like "class_1", "method_2", "block_3", "if_4", etc.
  * Format: {scopeType}_{counter} where scopeType is one of the block types
  */
-const BLOCK_SYMBOL_PATTERN = /^(class|method|block|if|while|for|try|catch|finally|switch|when|dowhile|runas|getter|setter)_\d+$/i;
+const BLOCK_SYMBOL_PATTERN =
+  /^(class|method|block|if|while|for|try|catch|finally|switch|when|dowhile|runas|getter|setter)_\d+$/i;
 
 /**
  * Transforms a full FQN (including block symbols) to a display FQN (semantic hierarchy only)
@@ -39,10 +40,11 @@ export function toDisplayFQN(fqn: string): string {
 
   // Split FQN by dots and filter out block symbol patterns
   const parts = fqn.split('.');
-  const displayParts = parts.filter((part) => {
-    // Remove block symbol patterns (e.g., "class_1", "method_2", "block_3")
-    return !BLOCK_SYMBOL_PATTERN.test(part);
-  });
+  const displayParts = parts.filter(
+    (part) =>
+      // Remove block symbol patterns (e.g., "class_1", "method_2", "block_3")
+      !BLOCK_SYMBOL_PATTERN.test(part),
+  );
 
   return displayParts.join('.');
 }
@@ -76,4 +78,3 @@ export function calculateDisplayFQN(
   // Transform to display FQN by removing block symbols
   return toDisplayFQN(fullFQN);
 }
-

@@ -355,8 +355,7 @@ export class SymbolFactory {
     };
 
     // Use file location for file scope, block location for others
-    const effectiveLocation =
-      scopeType === 'file' ? location : blockLocation;
+    const effectiveLocation = scopeType === 'file' ? location : blockLocation;
 
     // Ensure unifiedId is set - generate it if missing
     const id = key.unifiedId || generateUnifiedId(key, fileUri);

@@ -657,21 +657,21 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       // Should only have one root-level symbol (ScopeExample)
       expect(result).toHaveLength(1);
       expect(result![0].name).toContain('ScopeExample');
-      
+
       // InnerClass should be a child of ScopeExample, not a root-level symbol
       const scopeExampleSymbol = result![0] as DocumentSymbol;
       expect(scopeExampleSymbol.children).toBeDefined();
-      
+
       // Find InnerClass in children
-      const innerClassSymbol = (scopeExampleSymbol.children as DocumentSymbol[]).find(
-        (child) => child.name.includes('InnerClass'),
-      );
+      const innerClassSymbol = (
+        scopeExampleSymbol.children as DocumentSymbol[]
+      ).find((child) => child.name.includes('InnerClass'));
       expect(innerClassSymbol).toBeDefined();
       expect(innerClassSymbol!.kind).toBe(5); // SymbolKind.Class
-      
+
       // Verify InnerClass is NOT in the root-level results
-      const rootLevelInnerClass = result!.find(
-        (symbol) => symbol.name.includes('InnerClass'),
+      const rootLevelInnerClass = result!.find((symbol) =>
+        symbol.name.includes('InnerClass'),
       );
       expect(rootLevelInnerClass).toBeUndefined();
     });

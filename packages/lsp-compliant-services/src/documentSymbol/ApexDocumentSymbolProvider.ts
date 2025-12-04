@@ -350,8 +350,7 @@ export class DefaultApexDocumentSymbolProvider
         const childScopes = symbolTable
           .getAllSymbols()
           .filter(
-            (s) =>
-              s.parentId === symbol.id && s.kind === ApexSymbolKind.Block,
+            (s) => s.parentId === symbol.id && s.kind === ApexSymbolKind.Block,
           ) as ScopeSymbol[];
 
         // Find the scope symbol for this type (class/interface/enum body)
@@ -384,7 +383,6 @@ export class DefaultApexDocumentSymbolProvider
       return symbols;
     });
   }
-
 
   /**
    * Recursively collects children symbols for a given scope ID and kind (Effect-based with yielding)

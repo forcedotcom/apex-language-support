@@ -94,21 +94,6 @@ import {
   Range,
   ScopeType,
   SymbolKey,
-  ClassScopeSymbol,
-  MethodScopeSymbol,
-  GenericBlockScopeSymbol,
-  IfScopeSymbol,
-  WhileScopeSymbol,
-  ForScopeSymbol,
-  DoWhileScopeSymbol,
-  TryScopeSymbol,
-  CatchScopeSymbol,
-  FinallyScopeSymbol,
-  SwitchScopeSymbol,
-  WhenScopeSymbol,
-  RunAsScopeSymbol,
-  GetterScopeSymbol,
-  SetterScopeSymbol,
 } from '../../types/symbol';
 import {
   ClassModifierValidator,
@@ -436,10 +421,7 @@ export class ApexSymbolCollectorListener
     // Method symbol ID format: fileUri:scopePath:prefix:name
     // e.g., 'file:///test/TestClass.cls:class:MyClass:block_1:method:myMethod'
     const methodIdStr = methodSymbol.id;
-    const fileUriEnd = methodIdStr.indexOf(
-      ':',
-      methodIdStr.indexOf('://') + 3,
-    );
+    const fileUriEnd = methodIdStr.indexOf(':', methodIdStr.indexOf('://') + 3);
     // Extract method path from method symbol's ID
     const methodPath = methodIdStr.substring(fileUriEnd + 1);
     // methodPath is now: 'class:MyClass:block_1:method:myMethod' (already uses colons)
