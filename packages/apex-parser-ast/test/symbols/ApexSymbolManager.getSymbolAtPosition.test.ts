@@ -231,30 +231,15 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
 
   describe('scope-based resolution for shadowed variables', () => {
     it('should resolve to local variable when shadowing class field in method1', async () => {
-      const apexCode = `public with sharing class ScopeExample {
-    String a;
-
-    public ScopeExample() {
-    }
-
-    public void method1() {
-        String a;
-        String b = a;
-    }
-
-    public void method2() {
-        String a;
-        String b = a;
-    }
-
-    public void method3() {
-        String b = a;
-    }
-}`;
+      // Read Apex source from fixture file
+      const apexSource = fs.readFileSync(
+        path.join(__dirname, '../fixtures/position/ScopeExample.cls'),
+        'utf8',
+      );
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
-        apexCode,
+        apexSource,
         'file:///ScopeExample.cls',
         listener,
       );
@@ -287,30 +272,15 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
     });
 
     it('should resolve to local variable when shadowing class field in method2', async () => {
-      const apexCode = `public with sharing class ScopeExample {
-    String a;
-
-    public ScopeExample() {
-    }
-
-    public void method1() {
-        String a;
-        String b = a;
-    }
-
-    public void method2() {
-        String a;
-        String b = a;
-    }
-
-    public void method3() {
-        String b = a;
-    }
-}`;
+      // Read Apex source from fixture file
+      const apexSource = fs.readFileSync(
+        path.join(__dirname, '../fixtures/position/ScopeExample.cls'),
+        'utf8',
+      );
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
-        apexCode,
+        apexSource,
         'file:///ScopeExample.cls',
         listener,
       );
@@ -345,30 +315,15 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
     });
 
     it('should resolve to class field when no local variable shadows it in method3', async () => {
-      const apexCode = `public with sharing class ScopeExample {
-    String a;
-
-    public ScopeExample() {
-    }
-
-    public void method1() {
-        String a;
-        String b = a;
-    }
-
-    public void method2() {
-        String a;
-        String b = a;
-    }
-
-    public void method3() {
-        String b = a;
-    }
-}`;
+      // Read Apex source from fixture file
+      const apexSource = fs.readFileSync(
+        path.join(__dirname, '../fixtures/position/ScopeExample.cls'),
+        'utf8',
+      );
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
-        apexCode,
+        apexSource,
         'file:///ScopeExample.cls',
         listener,
       );
@@ -377,10 +332,10 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls');
       }
 
-      // Find the class field 'a' in method3 (line 18, character 15)
+      // Find the class field 'a' in method3 (line 18, character 19)
       const foundSymbol = await symbolManager.getSymbolAtPosition(
         'file:///ScopeExample.cls',
-        { line: 18, character: 15 }, // Position on 'a' in "String b = a;"
+        { line: 18, character: 19 }, // Position on 'a' in "String b = a;"
         'precise',
       );
 
@@ -402,27 +357,15 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
     });
 
     it('should resolve to correct variable when multiple methods have same variable name', async () => {
-      const apexCode = `public with sharing class ScopeExample {
-    String a;
-
-    public void method1() {
-        String a;
-        String b = a;
-    }
-
-    public void method2() {
-        String a;
-        String b = a;
-    }
-
-    public void method3() {
-        String b = a;
-    }
-}`;
+      // Read Apex source from fixture file
+      const apexSource = fs.readFileSync(
+        path.join(__dirname, '../fixtures/position/ScopeExample.cls'),
+        'utf8',
+      );
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
-        apexCode,
+        apexSource,
         'file:///ScopeExample.cls',
         listener,
       );
@@ -434,9 +377,10 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       const allSymbols = result.result?.getAllSymbols() || [];
 
       // Test method1 - should resolve to method1's local variable
+      // Position on 'a' in "String b = a;" at line 9, column 19-20
       const method1Symbol = await symbolManager.getSymbolAtPosition(
         'file:///ScopeExample.cls',
-        { line: 6, character: 15 }, // Position on 'a' in method1
+        { line: 9, character: 19 }, // Position on 'a' in method1
         'precise',
       );
       expect(method1Symbol).toBeDefined();
@@ -446,14 +390,15 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         (s) =>
           s.name === 'a' &&
           s.kind === 'variable' &&
-          s.location.symbolRange.startLine === 5,
+          s.location.symbolRange.startLine === 8,
       );
       expect(method1Symbol?.id).toBe(method1Local?.id);
 
       // Test method2 - should resolve to method2's local variable
+      // Position on 'a' in "String b = a;" at line 14, column 19-20
       const method2Symbol = await symbolManager.getSymbolAtPosition(
         'file:///ScopeExample.cls',
-        { line: 11, character: 15 }, // Position on 'a' in method2
+        { line: 14, character: 19 }, // Position on 'a' in method2
         'precise',
       );
       expect(method2Symbol).toBeDefined();
@@ -463,16 +408,17 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         (s) =>
           s.name === 'a' &&
           s.kind === 'variable' &&
-          s.location.symbolRange.startLine === 10,
+          s.location.symbolRange.startLine === 13,
       );
       expect(method2Symbol?.id).toBe(method2Local?.id);
       // Verify it's different from method1's variable
       expect(method2Symbol?.id).not.toBe(method1Symbol?.id);
 
       // Test method3 - should resolve to class field
+      // Position on 'a' in "String b = a;" at line 18, column 19-20
       const method3Symbol = await symbolManager.getSymbolAtPosition(
         'file:///ScopeExample.cls',
-        { line: 15, character: 15 }, // Position on 'a' in method3
+        { line: 18, character: 19 }, // Position on 'a' in method3
         'precise',
       );
       expect(method3Symbol).toBeDefined();

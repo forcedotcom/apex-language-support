@@ -2599,37 +2599,64 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             const innermostToOutermost = [...scopeHierarchy].reverse();
             for (const blockSymbol of innermostToOutermost) {
               // Find symbols in this block scope (direct children only)
-              // For local variable search, we want variables/parameters in the current scope
+              // For local symbol search, we want variables/parameters/methods in the current scope
+              // The scope hierarchy already ensures we only search relevant blocks
+              // But don't search for variables in class-level blocks - those are fields, not variables
+              const isClassOrFileLevel =
+                isBlockSymbol(blockSymbol) &&
+                (blockSymbol.scopeType === 'class' ||
+                  blockSymbol.scopeType === 'file');
               const directChildren = allFileSymbols.filter(
                 (symbol) =>
                   symbol.name === typeReference.name &&
                   symbol.parentId === blockSymbol.id &&
-                  // Only look for variables/parameters in the current scope, not fields
-                  (symbol.kind === SymbolKind.Variable ||
-                    symbol.kind === SymbolKind.Parameter),
+                  // Look for variables, parameters, and methods in the current scope
+                  // But skip variables in class/file level blocks (those are fields, searched later)
+                  (((symbol.kind === SymbolKind.Variable ||
+                    symbol.kind === SymbolKind.Parameter) &&
+                    !isClassOrFileLevel) ||
+                    symbol.kind === SymbolKind.Method),
               );
 
               // Also search nested blocks, but only if they're in the scope hierarchy
-              // (i.e., blocks that are ancestors of the current position)
+              // (i.e., blocks that are ancestors/descendants of the current position)
               // This prevents searching unrelated sibling blocks (like method1 when we're in method3)
-              const nestedBlocks = allFileSymbols.filter(
-                (s) =>
-                  s.kind === SymbolKind.Block &&
-                  s.parentId === blockSymbol.id &&
-                  // Only search nested blocks that are in the scope hierarchy (contain the position)
-                  scopeHierarchy.some(
-                    (hierarchyBlock) => hierarchyBlock.id === s.id,
-                  ),
-              );
+              // Only search for blocks that are actually in the scope hierarchy (already filtered by getScopeHierarchy)
+              // AND are descendants of the current block
+              // (not just children - we need to ensure they're in the hierarchy chain)
+              const nestedBlocks = allFileSymbols.filter((s) => {
+                if (
+                  s.kind !== SymbolKind.Block ||
+                  s.parentId !== blockSymbol.id
+                ) {
+                  return false;
+                }
+                // Only include blocks that are in the scope hierarchy
+                // This ensures we don't search sibling blocks (e.g., method1 when we're in method3)
+                return scopeHierarchy.some(
+                  (hierarchyBlock) => hierarchyBlock.id === s.id,
+                );
+              });
               const symbolsInNestedBlocks: ApexSymbol[] = [];
               for (const nestedBlock of nestedBlocks) {
+                // Only search for variables/parameters/methods in blocks that are actually nested
+                // within the current block AND in the scope hierarchy
+                // The scope hierarchy already ensures we only search relevant blocks
+                // Double-check that the nested block is actually in the hierarchy
+                const isInHierarchy = scopeHierarchy.some(
+                  (hierarchyBlock) => hierarchyBlock.id === nestedBlock.id,
+                );
+                if (!isInHierarchy) {
+                  continue;
+                }
                 const nestedSymbols = allFileSymbols.filter(
                   (symbol) =>
                     symbol.name === typeReference.name &&
                     symbol.parentId === nestedBlock.id &&
-                    // Only look for variables/parameters in nested blocks
+                    // Look for variables, parameters, and methods in nested blocks
                     (symbol.kind === SymbolKind.Variable ||
-                      symbol.kind === SymbolKind.Parameter),
+                      symbol.kind === SymbolKind.Parameter ||
+                      symbol.kind === SymbolKind.Method),
                 );
                 symbolsInNestedBlocks.push(...nestedSymbols);
               }
@@ -2641,19 +2668,46 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               ];
 
               if (symbolsInScope.length > 0) {
-                // Found a symbol in this scope - prioritize variables/parameters over fields
-                const prioritized = symbolsInScope.sort((a, b) => {
-                  const aIsVar =
-                    a.kind === SymbolKind.Variable ||
-                    a.kind === SymbolKind.Parameter;
-                  const bIsVar =
-                    b.kind === SymbolKind.Variable ||
-                    b.kind === SymbolKind.Parameter;
-                  if (aIsVar && !bIsVar) return -1;
-                  if (!aIsVar && bIsVar) return 1;
-                  return 0;
+                // Found a symbol in this scope - prioritize variables/parameters over methods/fields
+                // But verify that variables/parameters are in blocks that actually contain the position
+                const validSymbols = symbolsInScope.filter((symbol) => {
+                  // For variables and parameters, verify they're in a block that contains the position
+                  if (
+                    symbol.kind === SymbolKind.Variable ||
+                    symbol.kind === SymbolKind.Parameter
+                  ) {
+                    // Find the block that contains this symbol
+                    const symbolBlock = allFileSymbols.find(
+                      (s) =>
+                        s.kind === SymbolKind.Block && s.id === symbol.parentId,
+                    );
+                    if (symbolBlock && isBlockSymbol(symbolBlock)) {
+                      // Verify this block is in the scope hierarchy (contains the position)
+                      return scopeHierarchy.some(
+                        (hierarchyBlock) =>
+                          hierarchyBlock.id === symbolBlock.id,
+                      );
+                    }
+                    return false;
+                  }
+                  // Methods are always valid if found in scope
+                  return true;
                 });
-                return prioritized[0];
+
+                if (validSymbols.length > 0) {
+                  const prioritized = validSymbols.sort((a, b) => {
+                    const aIsVar =
+                      a.kind === SymbolKind.Variable ||
+                      a.kind === SymbolKind.Parameter;
+                    const bIsVar =
+                      b.kind === SymbolKind.Variable ||
+                      b.kind === SymbolKind.Parameter;
+                    if (aIsVar && !bIsVar) return -1;
+                    if (!aIsVar && bIsVar) return 1;
+                    return 0;
+                  });
+                  return prioritized[0];
+                }
               }
             }
 
@@ -2675,8 +2729,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 blockSymbol.scopeType === 'file';
               const isMethodLevel = blockSymbol.scopeType === 'method';
 
-              // At class/file level, look for fields
+              // At class/file level, look for fields and methods
               if (isClassOrFileLevel) {
+                // First try fields
                 const classFields = allFileSymbols.filter(
                   (s) =>
                     s.name === typeReference.name &&
@@ -2685,6 +2740,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 );
                 if (classFields.length > 0) {
                   return classFields[0];
+                }
+                // Then try methods
+                const classMethods = allFileSymbols.filter(
+                  (s) =>
+                    s.name === typeReference.name &&
+                    s.parentId === blockSymbol.id &&
+                    s.kind === SymbolKind.Method,
+                );
+                if (classMethods.length > 0) {
+                  return classMethods[0];
                 }
               }
 
@@ -2733,6 +2798,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     );
                     if (classFields.length > 0) {
                       return classFields[0];
+                    }
+                    // Also look for methods in the class block
+                    const classMethods = allFileSymbols.filter(
+                      (s) =>
+                        s.name === typeReference.name &&
+                        s.parentId === classBlock.id &&
+                        s.kind === SymbolKind.Method,
+                    );
+                    if (classMethods.length > 0) {
+                      return classMethods[0];
                     }
                   }
                 }
