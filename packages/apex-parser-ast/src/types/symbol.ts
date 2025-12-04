@@ -745,25 +745,6 @@ export abstract class ScopeSymbol implements ApexSymbol {
   protected constructor() {
     // Empty - each subclass initializes its own properties
   }
-
-  /**
-   * Get the hierarchical path to this scope
-   * @param getParent Function to resolve parent by id
-   * @returns Array of scope names from root to current
-   */
-  getPath(getParent: (id: string) => ScopeSymbol | null): string[] {
-    const path: string[] = [];
-    let current: ScopeSymbol | null = this;
-    while (current) {
-      path.unshift(current.name);
-      if (current.parentId) {
-        current = getParent(current.parentId);
-      } else {
-        current = null;
-      }
-    }
-    return path;
-  }
 }
 
 // Specific Scope Symbol Subclasses (one per ScopeType)
