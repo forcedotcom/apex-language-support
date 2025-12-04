@@ -256,8 +256,8 @@ export class SymbolFactory {
    */
   /**
    * Create a block symbol
-   * @deprecated Use ScopeSymbol subclasses directly instead
-   * This method is kept for backward compatibility but creates a generic scope
+   * @deprecated Use createScopeSymbolByType instead
+   * This method is kept for backward compatibility
    */
   static createBlockSymbol(
     name: string,
@@ -283,9 +283,6 @@ export class SymbolFactory {
       kind: SymbolKind.Block,
     };
 
-    // Return a generic scope symbol instance
-    // Note: This creates a GenericBlockScopeSymbol
-    // For scopes, use ScopeSymbol subclasses directly
     const modifiers: SymbolModifiers = {
       visibility: SymbolVisibility.Default,
       isStatic: false,
@@ -298,7 +295,7 @@ export class SymbolFactory {
       isWebService: false,
       isBuiltIn: false,
     };
-    return new GenericBlockScopeSymbol(
+    return new ScopeSymbol(
       id,
       name,
       blockLocation,
@@ -306,6 +303,7 @@ export class SymbolFactory {
       parentId,
       key,
       modifiers,
+      scopeType,
     );
   }
 
@@ -360,170 +358,17 @@ export class SymbolFactory {
     // Ensure unifiedId is set - generate it if missing
     const id = key.unifiedId || generateUnifiedId(key, fileUri);
 
-    // Registry pattern for scope symbol constructors
-    switch (scopeType) {
-      case 'file':
-        return new FileScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'class':
-        return new ClassScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'method':
-        return new MethodScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'if':
-        return new IfScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'while':
-        return new WhileScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'for':
-        return new ForScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'doWhile':
-        return new DoWhileScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'try':
-        return new TryScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'catch':
-        return new CatchScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'finally':
-        return new FinallyScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'switch':
-        return new SwitchScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'when':
-        return new WhenScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'runAs':
-        return new RunAsScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'getter':
-        return new GetterScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'setter':
-        return new SetterScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-      case 'block':
-      default:
-        return new GenericBlockScopeSymbol(
-          id,
-          name,
-          effectiveLocation,
-          fileUri,
-          parentId,
-          key,
-          modifiers,
-        );
-    }
+    // Create a single ScopeSymbol instance with the specified scopeType
+    return new ScopeSymbol(
+      id,
+      name,
+      effectiveLocation,
+      fileUri,
+      parentId,
+      key,
+      modifiers,
+      scopeType,
+    );
   }
 }
 
@@ -712,20 +557,19 @@ export type ScopeType =
   | 'setter'; // Property setter block
 
 /**
- * Base class for scope symbols that can contain other symbols
- * All blocks are scopes - this is the base class for all block/scope symbols
+ * Represents a scope symbol that can contain other symbols
+ * All blocks are scopes - this class represents all block/scope symbols
  * Containment is determined by parentId - symbols with parentId === this.id belong to this scope
  */
-export abstract class ScopeSymbol implements ApexSymbol {
+export class ScopeSymbol implements ApexSymbol {
   // ApexSymbol properties
-  // Properties are initialized by subclasses - using definite assignment assertions
-  id!: string;
-  name!: string;
-  kind!: SymbolKind.Block;
-  location!: SymbolLocation;
-  fileUri!: string;
-  parentId!: string | null;
-  key!: SymbolKey;
+  id: string;
+  name: string;
+  kind: SymbolKind.Block;
+  location: SymbolLocation;
+  fileUri: string;
+  parentId: string | null;
+  key: SymbolKey;
   fqn?: string;
   namespace?: string | Namespace | null;
   annotations?: Annotation[];
@@ -734,23 +578,13 @@ export abstract class ScopeSymbol implements ApexSymbol {
     parameters?: string[];
     values?: string[];
   };
-  _isLoaded!: boolean;
+  _isLoaded: boolean;
   _loadPromise?: Promise<void>;
-  modifiers!: SymbolModifiers;
+  modifiers: SymbolModifiers;
 
   // ScopeSymbol-specific properties
-  readonly scopeType!: ScopeType;
+  readonly scopeType: ScopeType;
 
-  // Protected constructor - subclasses must implement their own constructors
-  protected constructor() {
-    // Empty - each subclass initializes its own properties
-  }
-}
-
-// Specific Scope Symbol Subclasses (one per ScopeType)
-
-export class FileScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'file' = 'file';
   constructor(
     id: string,
     name: string,
@@ -759,392 +593,17 @@ export class FileScopeSymbol extends ScopeSymbol {
     parentId: string | null,
     key: SymbolKey,
     modifiers: SymbolModifiers,
+    scopeType: ScopeType,
   ) {
-    super();
     this.id = id;
     this.name = name;
     this.kind = SymbolKind.Block;
-    this.scopeType = 'file';
     this.location = location;
     this.fileUri = fileUri;
     this.parentId = parentId;
     this.key = key;
     this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class ClassScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'class' = 'class';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'class';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class MethodScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'method' = 'method';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'method';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class GenericBlockScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'block' = 'block';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'block';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class IfScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'if' = 'if';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'if';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class WhileScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'while' = 'while';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'while';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class ForScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'for' = 'for';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'for';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class DoWhileScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'doWhile' = 'doWhile';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'doWhile';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class TryScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'try' = 'try';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'try';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class CatchScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'catch' = 'catch';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'catch';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class FinallyScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'finally' = 'finally';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'finally';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class SwitchScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'switch' = 'switch';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'switch';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class WhenScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'when' = 'when';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'when';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class RunAsScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'runAs' = 'runAs';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'runAs';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class GetterScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'getter' = 'getter';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'getter';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
-    this._isLoaded = true;
-  }
-}
-
-export class SetterScopeSymbol extends ScopeSymbol {
-  readonly scopeType: 'setter' = 'setter';
-  constructor(
-    id: string,
-    name: string,
-    location: SymbolLocation,
-    fileUri: string,
-    parentId: string | null,
-    key: SymbolKey,
-    modifiers: SymbolModifiers,
-  ) {
-    super();
-    this.id = id;
-    this.name = name;
-    this.kind = SymbolKind.Block;
-    this.scopeType = 'setter';
-    this.location = location;
-    this.fileUri = fileUri;
-    this.parentId = parentId;
-    this.key = key;
-    this.modifiers = modifiers;
+    this.scopeType = scopeType;
     this._isLoaded = true;
   }
 }

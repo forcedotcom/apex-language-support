@@ -42,19 +42,19 @@ The scope symbol system uses a **stack-based approach** for tracking scopes duri
 
 #### 1. Scope Symbol Hierarchy
 
-Every lexical scope in Apex code is represented by a `ScopeSymbol` instance. The system defines 15 distinct scope types, each with its own specialized subclass:
+Every lexical scope in Apex code is represented by a `ScopeSymbol` instance. The system defines 15 distinct scope types, differentiated by the `scopeType` property:
 
-- **`FileScopeSymbol`**: Root scope representing the entire file
-- **`ClassScopeSymbol`**: Body scope for classes, interfaces, enums, and triggers
-- **`MethodScopeSymbol`**: Body scope for methods and constructors
-- **`GenericBlockScopeSymbol`**: Generic anonymous blocks (fallback)
-- **Control Flow Scopes**: `IfScopeSymbol`, `WhileScopeSymbol`, `ForScopeSymbol`, `DoWhileScopeSymbol`
-- **Exception Handling Scopes**: `TryScopeSymbol`, `CatchScopeSymbol`, `FinallyScopeSymbol`
-- **Switch Scopes**: `SwitchScopeSymbol`, `WhenScopeSymbol`
-- **Property Scopes**: `GetterScopeSymbol`, `SetterScopeSymbol`
-- **Special Scopes**: `RunAsScopeSymbol`
+- **`'file'`**: Root scope representing the entire file
+- **`'class'`**: Body scope for classes, interfaces, enums, and triggers
+- **`'method'`**: Body scope for methods and constructors
+- **`'block'`**: Generic anonymous blocks (fallback)
+- **Control Flow Scopes**: `'if'`, `'while'`, `'for'`, `'doWhile'`
+- **Exception Handling Scopes**: `'try'`, `'catch'`, `'finally'`
+- **Switch Scopes**: `'switch'`, `'when'`
+- **Property Scopes**: `'getter'`, `'setter'`
+- **Special Scopes**: `'runAs'`
 
-All scope symbols extend the abstract `ScopeSymbol` base class, which implements `ApexSymbol` with `kind: SymbolKind.Block`.
+All scope symbols are instances of the `ScopeSymbol` class, which implements `ApexSymbol` with `kind: SymbolKind.Block`. The `scopeType` property distinguishes between different scope types.
 
 #### 2. Stack-Based Scope Tracking
 
@@ -116,7 +116,7 @@ File (implicit root)
 The system distinguishes between **semantic symbols** (the actual code entities) and **block symbols** (their scope containers):
 
 - **Semantic Symbols**: `ClassSymbol`, `MethodSymbol`, `VariableSymbol`, etc. - represent the actual declarations
-- **Block Symbols**: `ClassScopeSymbol`, `MethodScopeSymbol`, etc. - represent the lexical scopes that contain symbols
+- **Block Symbols**: `ScopeSymbol` instances with different `scopeType` values - represent the lexical scopes that contain symbols
 
 **Relationship Pattern:**
 
