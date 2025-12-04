@@ -2547,6 +2547,248 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
+   * Resolve an unqualified type reference using scope-based resolution
+   * @param typeReference The TypeReference to resolve
+   * @param sourceFile The file containing the reference
+   * @param position The position in the file (1-based line, 0-based column)
+   * @returns The resolved symbol or null if not found
+   */
+  private resolveUnqualifiedReferenceByScope(
+    typeReference: TypeReference,
+    sourceFile: string,
+    position: { line: number; character: number },
+  ): ApexSymbol | null {
+    try {
+      const symbolTable = this.symbolGraph.getSymbolTableForFile(sourceFile);
+      if (!symbolTable) {
+        return null;
+      }
+
+      // Use scope-based resolution to find the correct symbol in scope
+      const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+      const allFileSymbols = symbolTable.getAllSymbols();
+
+      // Search from innermost (most specific) to outermost scope
+      const innermostToOutermost = [...scopeHierarchy].reverse();
+      for (const blockSymbol of innermostToOutermost) {
+        // Find symbols in this block scope (direct children only)
+        // For local symbol search, we want variables/parameters/methods in the current scope
+        // The scope hierarchy already ensures we only search relevant blocks
+        // But don't search for variables in class-level blocks - those are fields, not variables
+        const isClassOrFileLevel =
+          isBlockSymbol(blockSymbol) &&
+          (blockSymbol.scopeType === 'class' ||
+            blockSymbol.scopeType === 'file');
+        const directChildren = allFileSymbols.filter(
+          (symbol) =>
+            symbol.name === typeReference.name &&
+            symbol.parentId === blockSymbol.id &&
+            // Look for variables, parameters, and methods in the current scope
+            // But skip variables in class/file level blocks (those are fields, searched later)
+            (((symbol.kind === SymbolKind.Variable ||
+              symbol.kind === SymbolKind.Parameter) &&
+              !isClassOrFileLevel) ||
+              symbol.kind === SymbolKind.Method),
+        );
+
+        // Also search nested blocks, but only if they're in the scope hierarchy
+        // (i.e., blocks that are ancestors/descendants of the current position)
+        // This prevents searching unrelated sibling blocks (like method1 when we're in method3)
+        // Only search for blocks that are actually in the scope hierarchy (already filtered by getScopeHierarchy)
+        // AND are descendants of the current block
+        // (not just children - we need to ensure they're in the hierarchy chain)
+        const nestedBlocks = allFileSymbols.filter((s) => {
+          if (s.kind !== SymbolKind.Block || s.parentId !== blockSymbol.id) {
+            return false;
+          }
+          // Only include blocks that are in the scope hierarchy
+          // This ensures we don't search sibling blocks (e.g., method1 when we're in method3)
+          return scopeHierarchy.some(
+            (hierarchyBlock) => hierarchyBlock.id === s.id,
+          );
+        });
+        const symbolsInNestedBlocks: ApexSymbol[] = [];
+        for (const nestedBlock of nestedBlocks) {
+          // Only search for variables/parameters/methods in blocks that are actually nested
+          // within the current block AND in the scope hierarchy
+          // The scope hierarchy already ensures we only search relevant blocks
+          // Double-check that the nested block is actually in the hierarchy
+          const isInHierarchy = scopeHierarchy.some(
+            (hierarchyBlock) => hierarchyBlock.id === nestedBlock.id,
+          );
+          if (!isInHierarchy) {
+            continue;
+          }
+          const nestedSymbols = allFileSymbols.filter(
+            (symbol) =>
+              symbol.name === typeReference.name &&
+              symbol.parentId === nestedBlock.id &&
+              // Look for variables, parameters, and methods in nested blocks
+              (symbol.kind === SymbolKind.Variable ||
+                symbol.kind === SymbolKind.Parameter ||
+                symbol.kind === SymbolKind.Method),
+          );
+          symbolsInNestedBlocks.push(...nestedSymbols);
+        }
+
+        // Combine direct children and nested symbols
+        const symbolsInScope = [...directChildren, ...symbolsInNestedBlocks];
+
+        if (symbolsInScope.length > 0) {
+          // Found a symbol in this scope - prioritize variables/parameters over methods/fields
+          // But verify that variables/parameters are in blocks that actually contain the position
+          const validSymbols = symbolsInScope.filter((symbol) => {
+            // For variables and parameters, verify they're in a block that contains the position
+            if (
+              symbol.kind === SymbolKind.Variable ||
+              symbol.kind === SymbolKind.Parameter
+            ) {
+              // Find the block that contains this symbol
+              const symbolBlock = allFileSymbols.find(
+                (s) => s.kind === SymbolKind.Block && s.id === symbol.parentId,
+              );
+              if (symbolBlock && isBlockSymbol(symbolBlock)) {
+                // Verify this block is in the scope hierarchy (contains the position)
+                return scopeHierarchy.some(
+                  (hierarchyBlock) => hierarchyBlock.id === symbolBlock.id,
+                );
+              }
+              return false;
+            }
+            // Methods are always valid if found in scope
+            return true;
+          });
+
+          if (validSymbols.length > 0) {
+            const prioritized = validSymbols.sort((a, b) => {
+              const aIsVar =
+                a.kind === SymbolKind.Variable ||
+                a.kind === SymbolKind.Parameter;
+              const bIsVar =
+                b.kind === SymbolKind.Variable ||
+                b.kind === SymbolKind.Parameter;
+              if (aIsVar && !bIsVar) return -1;
+              if (!aIsVar && bIsVar) return 1;
+              return 0;
+            });
+            return prioritized[0];
+          }
+        }
+      }
+
+      // If not found in any block scope, search for symbols in parent scopes
+      // This includes class fields, method parameters, etc.
+      // Search from innermost to outermost to find the closest parent symbol
+      // Reverse the hierarchy to go from innermost (method) to outermost (class/file)
+      const parentScopeSearchOrder = [...scopeHierarchy].reverse();
+      for (const blockSymbol of parentScopeSearchOrder) {
+        // Ensure blockSymbol is actually a block symbol with scopeType
+        if (!isBlockSymbol(blockSymbol)) {
+          continue;
+        }
+
+        // Skip method blocks when searching for class-level fields
+        // We only want to search class/file level blocks for fields
+        const isClassOrFileLevel =
+          blockSymbol.scopeType === 'class' || blockSymbol.scopeType === 'file';
+        const isMethodLevel = blockSymbol.scopeType === 'method';
+
+        // At class/file level, look for fields and methods
+        if (isClassOrFileLevel) {
+          // First try fields
+          const classFields = allFileSymbols.filter(
+            (s) =>
+              s.name === typeReference.name &&
+              s.parentId === blockSymbol.id &&
+              s.kind === SymbolKind.Field,
+          );
+          if (classFields.length > 0) {
+            return classFields[0];
+          }
+          // Then try methods
+          const classMethods = allFileSymbols.filter(
+            (s) =>
+              s.name === typeReference.name &&
+              s.parentId === blockSymbol.id &&
+              s.kind === SymbolKind.Method,
+          );
+          if (classMethods.length > 0) {
+            return classMethods[0];
+          }
+        }
+
+        // At method level, look for parameters (not local variables - those were already searched)
+        if (isMethodLevel) {
+          const parameters = allFileSymbols.filter(
+            (s) =>
+              s.name === typeReference.name &&
+              s.parentId === blockSymbol.id &&
+              s.kind === SymbolKind.Parameter,
+          );
+          if (parameters.length > 0) {
+            return parameters[0];
+          }
+        }
+      }
+
+      // If class block wasn't in the hierarchy (because getScopeHierarchy only follows blocks),
+      // we need to find it by traversing up through method symbols
+      // Method blocks -> method symbols -> class block (method symbol's parentId points to class block)
+      for (const blockSymbol of parentScopeSearchOrder) {
+        if (!isBlockSymbol(blockSymbol)) {
+          continue;
+        }
+        // If this is a method block, find its parent method symbol, then use that to find the class block
+        if (blockSymbol.scopeType === 'method' && blockSymbol.parentId) {
+          const methodSymbol = allFileSymbols.find(
+            (s) => s.id === blockSymbol.parentId,
+          );
+          if (methodSymbol && methodSymbol.parentId) {
+            // Method symbol's parentId points to the class block
+            // Check if it's actually a class block
+            const classBlock = allFileSymbols.find(
+              (s) =>
+                isBlockSymbol(s) &&
+                s.scopeType === 'class' &&
+                s.id === methodSymbol.parentId,
+            );
+            if (classBlock) {
+              // Look for fields in the class block
+              const classFields = allFileSymbols.filter(
+                (s) =>
+                  s.name === typeReference.name &&
+                  s.parentId === classBlock.id &&
+                  s.kind === SymbolKind.Field,
+              );
+              if (classFields.length > 0) {
+                return classFields[0];
+              }
+              // Also look for methods in the class block
+              const classMethods = allFileSymbols.filter(
+                (s) =>
+                  s.name === typeReference.name &&
+                  s.parentId === classBlock.id &&
+                  s.kind === SymbolKind.Method,
+              );
+              if (classMethods.length > 0) {
+                return classMethods[0];
+              }
+            }
+          }
+        }
+      }
+      // If we've searched all scopes (both local variables and parent scopes) and didn't find anything,
+      // return null to prevent falling through to name-based resolution which would incorrectly
+      // pick the first symbol with that name (e.g., method1's variable instead of class field)
+      // This ensures that scope-based resolution is authoritative for same-file symbol resolution
+      return null;
+    } catch (_error) {
+      // If scope-based resolution fails, return null to allow fallback
+      return null;
+    }
+  }
+
+  /**
    * Resolve a TypeReference to its target symbol
    * @param typeReference The TypeReference to resolve
    * @param sourceFile The file containing the reference
@@ -2587,240 +2829,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Step 3: For unqualified references with position, use scope-based resolution
       if (position) {
-        try {
-          const symbolTable =
-            this.symbolGraph.getSymbolTableForFile(sourceFile);
-          if (symbolTable) {
-            // Use scope-based resolution to find the correct symbol in scope
-            const scopeHierarchy = symbolTable.getScopeHierarchy(position);
-            const allFileSymbols = symbolTable.getAllSymbols();
-
-            // Search from innermost (most specific) to outermost scope
-            const innermostToOutermost = [...scopeHierarchy].reverse();
-            for (const blockSymbol of innermostToOutermost) {
-              // Find symbols in this block scope (direct children only)
-              // For local symbol search, we want variables/parameters/methods in the current scope
-              // The scope hierarchy already ensures we only search relevant blocks
-              // But don't search for variables in class-level blocks - those are fields, not variables
-              const isClassOrFileLevel =
-                isBlockSymbol(blockSymbol) &&
-                (blockSymbol.scopeType === 'class' ||
-                  blockSymbol.scopeType === 'file');
-              const directChildren = allFileSymbols.filter(
-                (symbol) =>
-                  symbol.name === typeReference.name &&
-                  symbol.parentId === blockSymbol.id &&
-                  // Look for variables, parameters, and methods in the current scope
-                  // But skip variables in class/file level blocks (those are fields, searched later)
-                  (((symbol.kind === SymbolKind.Variable ||
-                    symbol.kind === SymbolKind.Parameter) &&
-                    !isClassOrFileLevel) ||
-                    symbol.kind === SymbolKind.Method),
-              );
-
-              // Also search nested blocks, but only if they're in the scope hierarchy
-              // (i.e., blocks that are ancestors/descendants of the current position)
-              // This prevents searching unrelated sibling blocks (like method1 when we're in method3)
-              // Only search for blocks that are actually in the scope hierarchy (already filtered by getScopeHierarchy)
-              // AND are descendants of the current block
-              // (not just children - we need to ensure they're in the hierarchy chain)
-              const nestedBlocks = allFileSymbols.filter((s) => {
-                if (
-                  s.kind !== SymbolKind.Block ||
-                  s.parentId !== blockSymbol.id
-                ) {
-                  return false;
-                }
-                // Only include blocks that are in the scope hierarchy
-                // This ensures we don't search sibling blocks (e.g., method1 when we're in method3)
-                return scopeHierarchy.some(
-                  (hierarchyBlock) => hierarchyBlock.id === s.id,
-                );
-              });
-              const symbolsInNestedBlocks: ApexSymbol[] = [];
-              for (const nestedBlock of nestedBlocks) {
-                // Only search for variables/parameters/methods in blocks that are actually nested
-                // within the current block AND in the scope hierarchy
-                // The scope hierarchy already ensures we only search relevant blocks
-                // Double-check that the nested block is actually in the hierarchy
-                const isInHierarchy = scopeHierarchy.some(
-                  (hierarchyBlock) => hierarchyBlock.id === nestedBlock.id,
-                );
-                if (!isInHierarchy) {
-                  continue;
-                }
-                const nestedSymbols = allFileSymbols.filter(
-                  (symbol) =>
-                    symbol.name === typeReference.name &&
-                    symbol.parentId === nestedBlock.id &&
-                    // Look for variables, parameters, and methods in nested blocks
-                    (symbol.kind === SymbolKind.Variable ||
-                      symbol.kind === SymbolKind.Parameter ||
-                      symbol.kind === SymbolKind.Method),
-                );
-                symbolsInNestedBlocks.push(...nestedSymbols);
-              }
-
-              // Combine direct children and nested symbols
-              const symbolsInScope = [
-                ...directChildren,
-                ...symbolsInNestedBlocks,
-              ];
-
-              if (symbolsInScope.length > 0) {
-                // Found a symbol in this scope - prioritize variables/parameters over methods/fields
-                // But verify that variables/parameters are in blocks that actually contain the position
-                const validSymbols = symbolsInScope.filter((symbol) => {
-                  // For variables and parameters, verify they're in a block that contains the position
-                  if (
-                    symbol.kind === SymbolKind.Variable ||
-                    symbol.kind === SymbolKind.Parameter
-                  ) {
-                    // Find the block that contains this symbol
-                    const symbolBlock = allFileSymbols.find(
-                      (s) =>
-                        s.kind === SymbolKind.Block && s.id === symbol.parentId,
-                    );
-                    if (symbolBlock && isBlockSymbol(symbolBlock)) {
-                      // Verify this block is in the scope hierarchy (contains the position)
-                      return scopeHierarchy.some(
-                        (hierarchyBlock) =>
-                          hierarchyBlock.id === symbolBlock.id,
-                      );
-                    }
-                    return false;
-                  }
-                  // Methods are always valid if found in scope
-                  return true;
-                });
-
-                if (validSymbols.length > 0) {
-                  const prioritized = validSymbols.sort((a, b) => {
-                    const aIsVar =
-                      a.kind === SymbolKind.Variable ||
-                      a.kind === SymbolKind.Parameter;
-                    const bIsVar =
-                      b.kind === SymbolKind.Variable ||
-                      b.kind === SymbolKind.Parameter;
-                    if (aIsVar && !bIsVar) return -1;
-                    if (!aIsVar && bIsVar) return 1;
-                    return 0;
-                  });
-                  return prioritized[0];
-                }
-              }
-            }
-
-            // If not found in any block scope, search for symbols in parent scopes
-            // This includes class fields, method parameters, etc.
-            // Search from innermost to outermost to find the closest parent symbol
-            // Reverse the hierarchy to go from innermost (method) to outermost (class/file)
-            const parentScopeSearchOrder = [...scopeHierarchy].reverse();
-            for (const blockSymbol of parentScopeSearchOrder) {
-              // Ensure blockSymbol is actually a block symbol with scopeType
-              if (!isBlockSymbol(blockSymbol)) {
-                continue;
-              }
-
-              // Skip method blocks when searching for class-level fields
-              // We only want to search class/file level blocks for fields
-              const isClassOrFileLevel =
-                blockSymbol.scopeType === 'class' ||
-                blockSymbol.scopeType === 'file';
-              const isMethodLevel = blockSymbol.scopeType === 'method';
-
-              // At class/file level, look for fields and methods
-              if (isClassOrFileLevel) {
-                // First try fields
-                const classFields = allFileSymbols.filter(
-                  (s) =>
-                    s.name === typeReference.name &&
-                    s.parentId === blockSymbol.id &&
-                    s.kind === SymbolKind.Field,
-                );
-                if (classFields.length > 0) {
-                  return classFields[0];
-                }
-                // Then try methods
-                const classMethods = allFileSymbols.filter(
-                  (s) =>
-                    s.name === typeReference.name &&
-                    s.parentId === blockSymbol.id &&
-                    s.kind === SymbolKind.Method,
-                );
-                if (classMethods.length > 0) {
-                  return classMethods[0];
-                }
-              }
-
-              // At method level, look for parameters (not local variables - those were already searched)
-              if (isMethodLevel) {
-                const parameters = allFileSymbols.filter(
-                  (s) =>
-                    s.name === typeReference.name &&
-                    s.parentId === blockSymbol.id &&
-                    s.kind === SymbolKind.Parameter,
-                );
-                if (parameters.length > 0) {
-                  return parameters[0];
-                }
-              }
-            }
-
-            // If class block wasn't in the hierarchy (because getScopeHierarchy only follows blocks),
-            // we need to find it by traversing up through method symbols
-            // Method blocks -> method symbols -> class block (method symbol's parentId points to class block)
-            for (const blockSymbol of parentScopeSearchOrder) {
-              if (!isBlockSymbol(blockSymbol)) {
-                continue;
-              }
-              // If this is a method block, find its parent method symbol, then use that to find the class block
-              if (blockSymbol.scopeType === 'method' && blockSymbol.parentId) {
-                const methodSymbol = allFileSymbols.find(
-                  (s) => s.id === blockSymbol.parentId,
-                );
-                if (methodSymbol && methodSymbol.parentId) {
-                  // Method symbol's parentId points to the class block
-                  // Check if it's actually a class block
-                  const classBlock = allFileSymbols.find(
-                    (s) =>
-                      isBlockSymbol(s) &&
-                      s.scopeType === 'class' &&
-                      s.id === methodSymbol.parentId,
-                  );
-                  if (classBlock) {
-                    // Look for fields in the class block
-                    const classFields = allFileSymbols.filter(
-                      (s) =>
-                        s.name === typeReference.name &&
-                        s.parentId === classBlock.id &&
-                        s.kind === SymbolKind.Field,
-                    );
-                    if (classFields.length > 0) {
-                      return classFields[0];
-                    }
-                    // Also look for methods in the class block
-                    const classMethods = allFileSymbols.filter(
-                      (s) =>
-                        s.name === typeReference.name &&
-                        s.parentId === classBlock.id &&
-                        s.kind === SymbolKind.Method,
-                    );
-                    if (classMethods.length > 0) {
-                      return classMethods[0];
-                    }
-                  }
-                }
-              }
-            }
-            // If we've searched all scopes (both local variables and parent scopes) and didn't find anything,
-            // return null to prevent falling through to name-based resolution which would incorrectly
-            // pick the first symbol with that name (e.g., method1's variable instead of class field)
-            // This ensures that scope-based resolution is authoritative for same-file symbol resolution
-            return null;
-          }
-        } catch (_error) {
-          // If scope-based resolution fails, fall through to name-based resolution
+        const scopeResolvedSymbol = this.resolveUnqualifiedReferenceByScope(
+          typeReference,
+          sourceFile,
+          position,
+        );
+        if (scopeResolvedSymbol !== null) {
+          return scopeResolvedSymbol;
         }
       }
 
