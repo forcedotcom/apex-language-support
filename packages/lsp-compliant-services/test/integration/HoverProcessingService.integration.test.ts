@@ -1472,4 +1472,182 @@ describe('HoverProcessingService Integration Tests', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('Scope-based resolution for shadowed variables', () => {
+    const scopeExampleCode = `public with sharing class ScopeExample {
+    String a;
+
+    public ScopeExample() {
+    }
+
+    public void method1() {
+        String a;
+        String b = a;
+    }
+
+    public void method2() {
+        String a;
+        String b = a;
+    }
+
+    public void method3() {
+        String b = a;
+    }
+}`;
+
+    let scopeExampleDocument: TextDocument;
+
+    beforeAll(() => {
+      scopeExampleDocument = TextDocument.create(
+        'file:///ScopeExample.cls',
+        'apex',
+        1,
+        scopeExampleCode,
+      );
+    });
+
+    beforeEach(async () => {
+      // Compile ScopeExample and add it to the symbol manager
+      const compilerService = new CompilerService();
+      const scopeExampleTable = new SymbolTable();
+      const scopeExampleListener = new ApexSymbolCollectorListener(
+        scopeExampleTable,
+      );
+      const _scopeExampleResult = compilerService.compile(
+        scopeExampleCode,
+        'file:///ScopeExample.cls',
+        scopeExampleListener,
+        {},
+      );
+      symbolManager.addSymbolTable(
+        scopeExampleTable,
+        'file:///ScopeExample.cls',
+      );
+    });
+
+    it('should resolve to local variable when hovering over shadowed variable in method1', async () => {
+      mockStorage.getDocument.mockResolvedValue(scopeExampleDocument);
+
+      // Find position of 'a' in "String b = a;" in method1
+      const lines = scopeExampleCode.split('\n');
+      const lineIndex = lines.findIndex(
+        (line, idx) => line.includes('String b = a') && idx > 5 && idx < 10,
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf(
+        'a',
+        lines[lineIndex].indexOf('='),
+      );
+      expect(charIndex).toBeGreaterThanOrEqual(0);
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///ScopeExample.cls' },
+        position: { line: lineIndex, character: charIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        // Should show the local variable in method1, not the class field
+        expect(content).toContain('```apex');
+        expect(content).toContain('String');
+        // Verify it's method1's local variable (FQN includes method1)
+        expect(content).toContain('method1.a');
+        // Should NOT be the class field (which would be just ScopeExample.a)
+        expect(content).not.toContain('ScopeExample.a');
+        expect(content).not.toContain('method2.a');
+      }
+    });
+
+    it('should resolve to local variable when hovering over shadowed variable in method2', async () => {
+      mockStorage.getDocument.mockResolvedValue(scopeExampleDocument);
+
+      // Find position of 'a' in "String b = a;" in method2
+      const lines = scopeExampleCode.split('\n');
+      const lineIndex = lines.findIndex(
+        (line, idx) => line.includes('String b = a') && idx > 10 && idx < 15,
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf(
+        'a',
+        lines[lineIndex].indexOf('='),
+      );
+      expect(charIndex).toBeGreaterThanOrEqual(0);
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///ScopeExample.cls' },
+        position: { line: lineIndex, character: charIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        // Should show the local variable in method2, not method1's or the class field
+        expect(content).toContain('```apex');
+        expect(content).toContain('String');
+        // Verify it's method2's local variable (FQN includes method2)
+        expect(content).toContain('method2.a');
+        // Should NOT be method1's variable or the class field
+        expect(content).not.toContain('method1.a');
+        expect(content).not.toContain('ScopeExample.a');
+      }
+    });
+
+    it('should resolve to class field when hovering over variable with no local shadow in method3', async () => {
+      mockStorage.getDocument.mockResolvedValue(scopeExampleDocument);
+
+      // Find position of 'a' in "String b = a;" in method3
+      const lines = scopeExampleCode.split('\n');
+      const lineIndex = lines.findIndex(
+        (line, idx) => line.includes('String b = a') && idx > 15,
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf(
+        'a',
+        lines[lineIndex].indexOf('='),
+      );
+      expect(charIndex).toBeGreaterThanOrEqual(0);
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///ScopeExample.cls' },
+        position: { line: lineIndex, character: charIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        // Should show the class field since there's no local variable shadowing it
+        expect(content).toContain('```apex');
+        expect(content).toContain('String');
+        // Verify it's the class field, not a local variable
+        // The class field FQN should be ScopeExample.a (without method name)
+        // Should NOT be any method's local variable
+        expect(content).not.toContain('method1.a');
+        expect(content).not.toContain('method2.a');
+        expect(content).not.toContain('method3.a');
+        // Should be the class field (either ScopeExample.a or just 'a' depending on FQN calculation)
+        // The key is that it should NOT contain a method name
+        const hasMethodName =
+          content.includes('method1') ||
+          content.includes('method2') ||
+          content.includes('method3');
+        expect(hasMethodName).toBe(false);
+      }
+    });
+  });
 });

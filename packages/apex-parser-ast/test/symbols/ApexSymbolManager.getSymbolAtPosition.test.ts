@@ -228,4 +228,263 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       expect(foundSymbol?.name).toBe('myMethod');
     });
   });
+
+  describe('scope-based resolution for shadowed variables', () => {
+    it('should resolve to local variable when shadowing class field in method1', async () => {
+      const apexCode = `public with sharing class ScopeExample {
+    String a;
+
+    public ScopeExample() {
+    }
+
+    public void method1() {
+        String a;
+        String b = a;
+    }
+
+    public void method2() {
+        String a;
+        String b = a;
+    }
+
+    public void method3() {
+        String b = a;
+    }
+}`;
+
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        apexCode,
+        'file:///ScopeExample.cls',
+        listener,
+      );
+
+      if (result.result) {
+        symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls');
+      }
+
+      // Find the local variable 'a' in method1 (line 8, character 15)
+      // Position is 1-based line, 0-based column (parser format)
+      const foundSymbol = await symbolManager.getSymbolAtPosition(
+        'file:///ScopeExample.cls',
+        { line: 8, character: 15 }, // Position on 'a' in "String b = a;"
+        'precise',
+      );
+
+      expect(foundSymbol).toBeDefined();
+      expect(foundSymbol?.kind).toBe('variable');
+      expect(foundSymbol?.name).toBe('a');
+      // Verify it's the local variable, not the class field
+      // The local variable should be in method1's scope
+      expect(foundSymbol?.parentId).toBeDefined();
+      // Check that it's not the class field by verifying parentId doesn't point to class block
+      const allSymbols = result.result?.getAllSymbols() || [];
+      const classField = allSymbols.find(
+        (s) => s.name === 'a' && s.kind === 'field',
+      );
+      expect(classField).toBeDefined();
+      expect(foundSymbol?.id).not.toBe(classField?.id);
+    });
+
+    it('should resolve to local variable when shadowing class field in method2', async () => {
+      const apexCode = `public with sharing class ScopeExample {
+    String a;
+
+    public ScopeExample() {
+    }
+
+    public void method1() {
+        String a;
+        String b = a;
+    }
+
+    public void method2() {
+        String a;
+        String b = a;
+    }
+
+    public void method3() {
+        String b = a;
+    }
+}`;
+
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        apexCode,
+        'file:///ScopeExample.cls',
+        listener,
+      );
+
+      if (result.result) {
+        symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls');
+      }
+
+      // Find the local variable 'a' in method2 (line 13, character 15)
+      const foundSymbol = await symbolManager.getSymbolAtPosition(
+        'file:///ScopeExample.cls',
+        { line: 13, character: 15 }, // Position on 'a' in "String b = a;"
+        'precise',
+      );
+
+      expect(foundSymbol).toBeDefined();
+      expect(foundSymbol?.kind).toBe('variable');
+      expect(foundSymbol?.name).toBe('a');
+      // Verify it's the local variable in method2, not method1's or the class field
+      const allSymbols = result.result?.getAllSymbols() || [];
+      const classField = allSymbols.find(
+        (s) => s.name === 'a' && s.kind === 'field',
+      );
+      const method1Local = allSymbols.find(
+        (s) =>
+          s.name === 'a' &&
+          s.kind === 'variable' &&
+          s.location.symbolRange.startLine === 8,
+      );
+      expect(foundSymbol?.id).not.toBe(classField?.id);
+      expect(foundSymbol?.id).not.toBe(method1Local?.id);
+    });
+
+    it('should resolve to class field when no local variable shadows it in method3', async () => {
+      const apexCode = `public with sharing class ScopeExample {
+    String a;
+
+    public ScopeExample() {
+    }
+
+    public void method1() {
+        String a;
+        String b = a;
+    }
+
+    public void method2() {
+        String a;
+        String b = a;
+    }
+
+    public void method3() {
+        String b = a;
+    }
+}`;
+
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        apexCode,
+        'file:///ScopeExample.cls',
+        listener,
+      );
+
+      if (result.result) {
+        symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls');
+      }
+
+      // Find the class field 'a' in method3 (line 18, character 15)
+      const foundSymbol = await symbolManager.getSymbolAtPosition(
+        'file:///ScopeExample.cls',
+        { line: 18, character: 15 }, // Position on 'a' in "String b = a;"
+        'precise',
+      );
+
+      expect(foundSymbol).toBeDefined();
+      expect(foundSymbol?.kind).toBe('field');
+      expect(foundSymbol?.name).toBe('a');
+      // Verify it's the class field, not a local variable
+      const allSymbols = result.result?.getAllSymbols() || [];
+      const localVariables = allSymbols.filter(
+        (s) => s.name === 'a' && s.kind === 'variable',
+      );
+      // Should have 2 local variables (in method1 and method2), but not in method3
+      expect(localVariables.length).toBe(2);
+      // The found symbol should be the class field
+      const classField = allSymbols.find(
+        (s) => s.name === 'a' && s.kind === 'field',
+      );
+      expect(foundSymbol?.id).toBe(classField?.id);
+    });
+
+    it('should resolve to correct variable when multiple methods have same variable name', async () => {
+      const apexCode = `public with sharing class ScopeExample {
+    String a;
+
+    public void method1() {
+        String a;
+        String b = a;
+    }
+
+    public void method2() {
+        String a;
+        String b = a;
+    }
+
+    public void method3() {
+        String b = a;
+    }
+}`;
+
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        apexCode,
+        'file:///ScopeExample.cls',
+        listener,
+      );
+
+      if (result.result) {
+        symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls');
+      }
+
+      const allSymbols = result.result?.getAllSymbols() || [];
+
+      // Test method1 - should resolve to method1's local variable
+      const method1Symbol = await symbolManager.getSymbolAtPosition(
+        'file:///ScopeExample.cls',
+        { line: 6, character: 15 }, // Position on 'a' in method1
+        'precise',
+      );
+      expect(method1Symbol).toBeDefined();
+      expect(method1Symbol?.kind).toBe('variable');
+      expect(method1Symbol?.name).toBe('a');
+      const method1Local = allSymbols.find(
+        (s) =>
+          s.name === 'a' &&
+          s.kind === 'variable' &&
+          s.location.symbolRange.startLine === 5,
+      );
+      expect(method1Symbol?.id).toBe(method1Local?.id);
+
+      // Test method2 - should resolve to method2's local variable
+      const method2Symbol = await symbolManager.getSymbolAtPosition(
+        'file:///ScopeExample.cls',
+        { line: 11, character: 15 }, // Position on 'a' in method2
+        'precise',
+      );
+      expect(method2Symbol).toBeDefined();
+      expect(method2Symbol?.kind).toBe('variable');
+      expect(method2Symbol?.name).toBe('a');
+      const method2Local = allSymbols.find(
+        (s) =>
+          s.name === 'a' &&
+          s.kind === 'variable' &&
+          s.location.symbolRange.startLine === 10,
+      );
+      expect(method2Symbol?.id).toBe(method2Local?.id);
+      // Verify it's different from method1's variable
+      expect(method2Symbol?.id).not.toBe(method1Symbol?.id);
+
+      // Test method3 - should resolve to class field
+      const method3Symbol = await symbolManager.getSymbolAtPosition(
+        'file:///ScopeExample.cls',
+        { line: 15, character: 15 }, // Position on 'a' in method3
+        'precise',
+      );
+      expect(method3Symbol).toBeDefined();
+      expect(method3Symbol?.kind).toBe('field');
+      expect(method3Symbol?.name).toBe('a');
+      const classField = allSymbols.find(
+        (s) => s.name === 'a' && s.kind === 'field',
+      );
+      expect(method3Symbol?.id).toBe(classField?.id);
+      // Verify it's different from both local variables
+      expect(method3Symbol?.id).not.toBe(method1Symbol?.id);
+      expect(method3Symbol?.id).not.toBe(method2Symbol?.id);
+    });
+  });
 });
