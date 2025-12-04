@@ -4898,7 +4898,41 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
 
         if (symbolTable) {
-          // Look for members with the given name in the same file
+          // If the context symbol is a class, find its class block and look for members there
+          // This ensures we only find members that actually belong to the class
+          if (
+            contextSymbol.kind === SymbolKind.Class ||
+            contextSymbol.kind === SymbolKind.Interface ||
+            contextSymbol.kind === SymbolKind.Enum
+          ) {
+            // Find the class block (scope symbol with scopeType === 'class' and parentId === classSymbol.id)
+            const allSymbols = symbolTable.getAllSymbols();
+            const classBlock = allSymbols.find(
+              (s) =>
+                isBlockSymbol(s) &&
+                s.scopeType === 'class' &&
+                s.parentId === contextSymbol.id,
+            );
+
+            if (classBlock) {
+              // Get all symbols in the class block scope
+              const classMembers = symbolTable.getSymbolsInScope(classBlock.id);
+              // Filter by name and kind, excluding block symbols
+              const matchingMembers = classMembers.filter(
+                (s) =>
+                  !isBlockSymbol(s) &&
+                  s.name === memberName &&
+                  s.kind === memberType,
+              );
+
+              if (matchingMembers.length > 0) {
+                return matchingMembers[0];
+              }
+            }
+          }
+
+          // Fallback: Look for members with the given name in the same file
+          // (for non-class contexts or if class block lookup failed)
           const allSymbols = symbolTable.getAllSymbols();
 
           const contextMembers = allSymbols.filter(

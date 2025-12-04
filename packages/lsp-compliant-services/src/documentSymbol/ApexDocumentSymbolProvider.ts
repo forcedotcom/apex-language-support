@@ -181,8 +181,9 @@ export class DefaultApexDocumentSymbolProvider
       // Get all symbols from the entire symbol table
       const allSymbols = symbolTable.getAllSymbols();
       // Filter for only top-level symbols (classes, interfaces, enums, triggers)
-      const topLevelSymbols = allSymbols.filter((symbol) =>
-        inTypeSymbolGroup(symbol),
+      // Top-level symbols have parentId === null, while inner classes have parentId pointing to their containing class
+      const topLevelSymbols = allSymbols.filter(
+        (symbol) => inTypeSymbolGroup(symbol) && symbol.parentId === null,
       );
 
       // Process each top-level symbol and convert to LSP DocumentSymbol format (with yielding)

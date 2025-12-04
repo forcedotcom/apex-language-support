@@ -1650,4 +1650,119 @@ describe('HoverProcessingService Integration Tests', () => {
       }
     });
   });
+
+  describe('Inner class to outer class references', () => {
+    const innerClassCode = `public with sharing class ScopeExample {
+
+    String a;
+
+    static String b;
+
+    public ScopeExample() {
+
+    }
+
+    public void method1() {
+
+        String a;
+
+        String b = a;
+
+    }
+
+    public void method2() {
+
+        String a;
+
+        String b = a;
+
+    }
+
+    public void method3() {
+
+        String b = a;
+
+        String c = ScopeExample.method4();
+
+    }
+
+    public static String method4() {
+
+        return ScopeExample.b;
+
+    }
+
+    public class InnerClass {
+
+        public void method5() {
+
+            String c = ScopeExample.method4();
+
+        }
+
+    }
+
+}`;
+
+    let innerClassDocument: TextDocument;
+
+    beforeAll(() => {
+      innerClassDocument = TextDocument.create(
+        'file:///ScopeExample.cls',
+        'apex',
+        1,
+        innerClassCode,
+      );
+    });
+
+    beforeEach(async () => {
+      // Compile ScopeExample and add it to the symbol manager
+      const compilerService = new CompilerService();
+      const innerClassTable = new SymbolTable();
+      const innerClassListener = new ApexSymbolCollectorListener(
+        innerClassTable,
+      );
+      const _innerClassResult = compilerService.compile(
+        innerClassCode,
+        'file:///ScopeExample.cls',
+        innerClassListener,
+        {},
+      );
+      symbolManager.addSymbolTable(innerClassTable, 'file:///ScopeExample.cls');
+    });
+
+    it('should resolve outer class static method when hovering over method4() in inner class', async () => {
+      mockStorage.getDocument.mockResolvedValue(innerClassDocument);
+
+      // Find position of 'method4' in "String c = ScopeExample.method4();" in InnerClass.method5
+      const lines = innerClassCode.split('\n');
+      const lineIndex = lines.findIndex((line) =>
+        line.includes('ScopeExample.method4()'),
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf('method4');
+      expect(charIndex).toBeGreaterThanOrEqual(0);
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///ScopeExample.cls' },
+        position: { line: lineIndex, character: charIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        // Should show the static method method4 from the outer class
+        expect(content).toContain('```apex');
+        expect(content).toContain('String');
+        expect(content).toContain('method4');
+        // Should be the static method from ScopeExample, not from InnerClass
+        expect(content).toContain('ScopeExample');
+      }
+    });
+  });
 });
