@@ -39,14 +39,7 @@ export class ApexCapabilitiesManager {
 
   private constructor() {
     // Deep copy the capabilities configuration to avoid mutating the exported constants
-    this.capabilities = {
-      production: JSON.parse(
-        JSON.stringify(CAPABILITIES_CONFIGURATION.production),
-      ),
-      development: JSON.parse(
-        JSON.stringify(CAPABILITIES_CONFIGURATION.development),
-      ),
-    };
+    this.capabilities = structuredClone(CAPABILITIES_CONFIGURATION);
   }
 
   /**
