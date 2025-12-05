@@ -252,7 +252,9 @@ describe('ApexCapabilitiesManager', () => {
       );
 
       // profilingProvider should be undefined on web (listed in WEB_DISABLED_CAPABILITIES)
-      expect(webDevCapabilities.experimental?.profilingProvider).toBeUndefined();
+      expect(
+        webDevCapabilities.experimental?.profilingProvider,
+      ).toBeUndefined();
       // profilingProvider should be available on desktop (plain value)
       expect(desktopDevCapabilities.experimental?.profilingProvider).toEqual({
         enabled: true,
