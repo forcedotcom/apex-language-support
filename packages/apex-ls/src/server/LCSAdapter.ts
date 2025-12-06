@@ -101,8 +101,9 @@ export class LCSAdapter {
 
     this.diagnosticProcessor = new DiagnosticProcessingService(this.logger);
 
-    // Detect development mode early and set server mode accordingly
-    this.detectAndSetDevelopmentMode();
+    // Log environment info for debugging
+    // Note: Actual mode detection happens via initializationOptions in handleInitialize
+    this.logEnvironmentInfo();
 
     this.setupEventHandlers();
     this.setupUtilityHandlers();
@@ -879,8 +880,28 @@ export class LCSAdapter {
     this.hasWorkspaceFolderCapability =
       !!params.capabilities.workspace?.workspaceFolders;
 
+    // Process initialization options - THIS IS THE AUTHORITATIVE SOURCE FOR MODE
     const configManager = LSPConfigurationManager.getInstance();
+    const serverModeBefore = configManager.getCapabilitiesManager().getMode();
+
+    // Set initial settings from client (includes serverMode from initializationOptions)
     configManager.setInitialSettings(params.initializationOptions);
+
+    const serverModeAfter = configManager.getCapabilitiesManager().getMode();
+
+    // Log mode determination for transparency
+    this.logger.info(
+      () =>
+        `🔧 Server mode determined: ${serverModeAfter} ` +
+        '(from initializationOptions.apex.environment.serverMode)',
+    );
+
+    if (serverModeBefore !== serverModeAfter) {
+      this.logger.debug(
+        () =>
+          `Mode changed from ${serverModeBefore} to ${serverModeAfter} during initialization`,
+      );
+    }
 
     // Set the LSP connection for missing artifact resolution
     configManager.setConnection(this.connection);
@@ -890,6 +911,16 @@ export class LCSAdapter {
 
     // Get all capabilities from manager based on mode
     const allCapabilities = configManager.getCapabilities();
+
+    // Register mode-specific handlers
+    if (serverModeAfter === 'development') {
+      this.logger.debug('🔧 Registering development-mode handlers');
+      this.registerHoverHandler();
+    } else {
+      this.logger.debug(
+        '🔧 Production mode - hover handler will not be registered',
+      );
+    }
 
     // Build static capabilities: baseline + non-dynamic capabilities
     const staticCapabilities: ServerCapabilities = {
@@ -1240,9 +1271,29 @@ export class LCSAdapter {
 
   /**
    * Update server mode from settings
+   *
+   * NOTE: This respects the priority order:
+   * 1. APEX_LS_MODE environment variable (if set, NEVER override)
+   * 2. Workspace settings (only applied if APEX_LS_MODE not set)
+   * 3. Extension mode (default)
    */
   private updateServerModeFromSettings(settings: any): void {
     try {
+      // Check if APEX_LS_MODE environment variable is set
+      // If it is, it takes precedence and should NOT be overridden by workspace settings
+      const apexLsMode = process?.env?.APEX_LS_MODE;
+      if (
+        apexLsMode &&
+        (apexLsMode === 'development' || apexLsMode === 'production')
+      ) {
+        this.logger.debug(
+          () =>
+            `🔒 APEX_LS_MODE environment variable is set to '${apexLsMode}'. ` +
+            'Ignoring workspace settings for server mode.',
+        );
+        return; // Don't update mode - env var takes precedence
+      }
+
       // Get the server mode from the client settings
       const clientServerMode = settings.environment?.serverMode;
       if (!clientServerMode) {
@@ -1256,8 +1307,8 @@ export class LCSAdapter {
       if (currentMode !== clientServerMode) {
         this.logger.debug(
           () =>
-            `🔄 Client server mode is '${clientServerMode}',` +
-            ` updating server from '${currentMode}' to '${clientServerMode}'`,
+            `🔄 Client server mode is '${clientServerMode}', ` +
+            `updating server from '${currentMode}' to '${clientServerMode}'`,
         );
         configManager.updateServerMode(clientServerMode);
 
@@ -1463,11 +1514,11 @@ export class LCSAdapter {
   }
 
   /**
-   * Detect development mode early and set server mode accordingly
+   * Log environment variables for debugging purposes
+   * Note: Mode detection is done via initializationOptions, not environment variables
    */
-  private detectAndSetDevelopmentMode(): void {
+  private logEnvironmentInfo(): void {
     try {
-      // Check for development mode indicators
       const apexLsMode = process?.env?.APEX_LS_MODE;
       const nodeEnv = process?.env?.NODE_ENV;
 
@@ -1476,31 +1527,11 @@ export class LCSAdapter {
           `🔍 Environment variables: APEX_LS_MODE=${apexLsMode}, NODE_ENV=${nodeEnv}`,
       );
 
-      const isDevelopment =
-        apexLsMode === 'development' || nodeEnv === 'development';
-
-      if (isDevelopment) {
-        this.logger.debug(
-          () =>
-            '🔧 Development mode detected via environment variables, initializing server in development mode',
-        );
-
-        // Initialize LSPConfigurationManager (will auto-detect development mode)
-        const configManager = LSPConfigurationManager.getInstance();
-
-        // Verify the mode was set correctly
-        const currentMode = configManager.getCapabilitiesManager().getMode();
-        this.logger.debug(() => `✅ Server mode set to: ${currentMode}`);
-
-        // Register hover handler immediately for development mode
-        this.registerHoverHandler();
-      } else {
-        this.logger.debug(
-          '🔧 Production mode detected, server will use production capabilities',
-        );
-      }
+      this.logger.debug(
+        '⏳ Server mode will be determined from initialization options during initialize request',
+      );
     } catch (error) {
-      this.logger.error(`Error detecting development mode: ${error}`);
+      this.logger.error(`Error logging environment info: ${error}`);
     }
   }
 

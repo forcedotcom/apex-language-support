@@ -207,6 +207,7 @@ export const createServerOptions = (
       transport: TransportKind.ipc,
       options: {
         env: {
+          ...process.env, // Inherit parent environment (includes launch.json env vars)
           NODE_OPTIONS: '--enable-source-maps',
           APEX_LS_MODE: serverMode,
         },
@@ -220,6 +221,7 @@ export const createServerOptions = (
       transport: TransportKind.ipc,
       options: {
         env: {
+          ...process.env, // Inherit parent environment (includes launch.json env vars)
           NODE_OPTIONS: '--enable-source-maps',
           APEX_LS_MODE: serverMode,
         },
