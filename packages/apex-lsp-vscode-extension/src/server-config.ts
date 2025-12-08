@@ -134,9 +134,7 @@ const MAX_HEAP_SIZE_GB = 32;
  * @param runtimePlatform The runtime platform (desktop or web)
  * @returns Array with heap size flag or empty array if not set or invalid
  */
-const getHeapSizeFlag = (
-  runtimePlatform: 'desktop' | 'web',
-): string[] => {
+const getHeapSizeFlag = (runtimePlatform: 'desktop' | 'web'): string[] => {
   // Heap size setting is only applicable on desktop
   if (runtimePlatform !== 'desktop') {
     return [];
@@ -150,7 +148,8 @@ const getHeapSizeFlag = (
     // Enforce upper bound
     if (jsHeapSizeGB > MAX_HEAP_SIZE_GB) {
       logServerMessage(
-        `JavaScript heap size ${jsHeapSizeGB} GB exceeds maximum of ${MAX_HEAP_SIZE_GB} GB. Using ${MAX_HEAP_SIZE_GB} GB instead.`,
+        `JavaScript heap size ${jsHeapSizeGB} GB exceeds maximum of ` +
+          `${MAX_HEAP_SIZE_GB} GB. Using ${MAX_HEAP_SIZE_GB} GB instead.`,
         'warning',
       );
       // Use the maximum allowed value

@@ -13,7 +13,11 @@ import {
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
+import {
+  enableConsoleLogging,
+  setLogLevel,
+  Priority,
+} from '@salesforce/apex-lsp-shared';
 import { SymbolKind, SymbolVisibility } from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 import {
@@ -23,7 +27,6 @@ import {
   metrics as schedulerMetrics,
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
-import { Priority } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolGraph', () => {
   let graph: ApexSymbolGraph;
@@ -2538,7 +2541,7 @@ describe('ApexSymbolGraph', () => {
       // Check queue metrics - queue should eventually drain
       const metrics = await Effect.runPromise(schedulerMetrics());
       const lowQueueUtilization = metrics.queueUtilization?.[Priority.Low] || 0;
-      
+
       // Queue should be below 100% (test assumes normal operation)
       // The two-tier check ensures retries wait for queue to drain below 75%
       expect(lowQueueUtilization).toBeLessThan(100);
@@ -2636,11 +2639,11 @@ describe('ApexSymbolGraph', () => {
       // from being scheduled for the same symbol. This is verified implicitly
       // by the fact that the system doesn't crash with heap out-of-memory errors
       // when queue is at capacity.
-      
+
       // Check queue metrics to ensure system is stable
       const metrics = await Effect.runPromise(schedulerMetrics());
       expect(metrics.queueUtilization).toBeDefined();
-      
+
       // Note: We can't directly test the internal pendingRetrySymbols Set,
       // but we verify the behavior by ensuring the system remains stable
       // and doesn't create exponential retry timer growth

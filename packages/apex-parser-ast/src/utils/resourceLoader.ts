@@ -893,7 +893,8 @@ export class ResourceLoader {
       if (cachedArtifact) {
         // Only log cached artifact access occasionally to avoid log spam
         // Log at most once per 1000 accesses per class
-        const accessCount = (this.artifactAccessCounts.get(normalizedPath) || 0) + 1;
+        const accessCount =
+          (this.artifactAccessCounts.get(normalizedPath) || 0) + 1;
         this.artifactAccessCounts.set(normalizedPath, accessCount);
         if (accessCount % 1000 === 0) {
           this.logger.debug(

@@ -411,7 +411,7 @@ export class ApexSymbolGraph {
       this.logger.debug(
         () =>
           `Skipping duplicate retry for ${task.symbolName} (retry ${task.retryCount + 1}) - ` +
-          `pending retry already scheduled`,
+          'pending retry already scheduled',
       );
       return;
     }
@@ -475,10 +475,11 @@ export class ApexSymbolGraph {
             );
             return;
           }
-        } catch (error) {
+        } catch (_error) {
           // If we can't check metrics, assume circuit breaker should remain active
           self.logger.debug(
-            () => `Skipping retry due to active circuit breaker (metrics unavailable)`,
+            () =>
+              'Skipping retry due to active circuit breaker (metrics unavailable)',
           );
           return;
         }
@@ -501,7 +502,8 @@ export class ApexSymbolGraph {
             self.logger.warn(
               () =>
                 `Skipping retry for ${task.symbolName}: Low queue at ${lowQueueUtilization.toFixed(1)}% ` +
-                `capacity (${lowQueueSize}/${queueCapacity}). Will retry when queue drains below ${self.QUEUE_DRAIN_THRESHOLD}%. ` +
+                `capacity (${lowQueueSize}/${queueCapacity}). Will retry when ` +
+                `queue drains below ${self.QUEUE_DRAIN_THRESHOLD}%. ` +
                 `(retry attempt ${capturedRetryTask.retryCount}/${self.MAX_RETRY_ATTEMPTS})`,
             );
           }
@@ -553,7 +555,7 @@ export class ApexSymbolGraph {
           if (self.circuitBreakerActive) {
             self.circuitBreakerActive = false;
             self.logger.info(
-              () => `Circuit breaker deactivated: Re-queue succeeded`,
+              () => 'Circuit breaker deactivated: Re-queue succeeded',
             );
           }
         }
