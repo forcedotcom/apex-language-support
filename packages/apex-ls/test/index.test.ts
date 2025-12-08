@@ -539,6 +539,31 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           willSaveWaitUntil: false,
         },
       }),
+      getExtendedServerCapabilities: jest.fn().mockReturnValue({
+        documentSymbolProvider: { resolveProvider: false },
+        hoverProvider: true,
+        foldingRangeProvider: { rangeLimit: 5000, lineFoldingOnly: true },
+        diagnosticProvider: {
+          identifier: 'apex-ls-ts',
+          interFileDependencies: true,
+          workspaceDiagnostics: false,
+        },
+        completionProvider: {
+          triggerCharacters: ['.'],
+          resolveProvider: false,
+        },
+        publishDiagnostics: true,
+        textDocumentSync: {
+          openClose: true,
+          change: 1,
+          save: true,
+          willSave: false,
+          willSaveWaitUntil: false,
+        },
+        experimental: {
+          profilingProvider: { enabled: false },
+        },
+      }),
       setInitialSettings: jest.fn(),
       setConnection: jest.fn(),
       syncCapabilitiesWithSettings: jest.fn(),

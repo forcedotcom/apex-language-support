@@ -241,6 +241,72 @@ describe('Server Config Module', () => {
 
       expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('development');
     });
+
+    it('should use workspace settings when APEX_LS_MODE is not set', () => {
+      // Save original environment
+      const originalEnv = process.env.APEX_LS_MODE;
+
+      try {
+        // Clear environment variable
+        delete process.env.APEX_LS_MODE;
+
+        // Mock production extension mode
+        const prodContext = {
+          ...mockContext,
+          extensionMode: vscode.ExtensionMode.Production,
+        } as vscode.ExtensionContext;
+
+        // Mock workspace configuration to return development mode
+        jest.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
+          get: jest.fn((key: string) => {
+            if (key === 'environment.serverMode') {
+              return 'development';
+            }
+            return 'off';
+          }),
+        } as unknown as vscode.WorkspaceConfiguration);
+
+        const serverOptions = createServerOptions(prodContext) as any;
+
+        // Should use workspace settings (development) over extension mode (production)
+        expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('development');
+        expect(serverOptions.debug.options.env.APEX_LS_MODE).toBe(
+          'development',
+        );
+      } finally {
+        // Restore original environment
+        process.env.APEX_LS_MODE = originalEnv;
+      }
+    });
+
+    it('should prioritize APEX_LS_MODE over workspace settings', () => {
+      // Save original environment
+      const originalEnv = process.env.APEX_LS_MODE;
+
+      try {
+        // Set environment variable to production
+        process.env.APEX_LS_MODE = 'production';
+
+        // Mock workspace configuration to return development mode
+        jest.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
+          get: jest.fn((key: string) => {
+            if (key === 'environment.serverMode') {
+              return 'development';
+            }
+            return 'off';
+          }),
+        } as unknown as vscode.WorkspaceConfiguration);
+
+        const serverOptions = createServerOptions(mockContext) as any;
+
+        // Should use environment variable (production) over workspace settings (development)
+        expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('production');
+        expect(serverOptions.debug.options.env.APEX_LS_MODE).toBe('production');
+      } finally {
+        // Restore original environment
+        process.env.APEX_LS_MODE = originalEnv;
+      }
+    });
   });
 
   describe('createClientOptions', () => {

@@ -85,26 +85,26 @@ describe('Capabilities Alignment Tests', () => {
 
     it('should return production capabilities in production mode', () => {
       capabilitiesManager.setMode('production');
-      const capabilities = capabilitiesManager.getCapabilities();
+      const capabilities = capabilitiesManager.getRawCapabilities();
       expect(capabilities).toMatchSnapshot('capabilities-manager-production');
     });
 
     it('should return development capabilities in development mode', () => {
       capabilitiesManager.setMode('development');
-      const capabilities = capabilitiesManager.getCapabilities();
+      const capabilities = capabilitiesManager.getRawCapabilities();
       expect(capabilities).toMatchSnapshot('capabilities-manager-development');
     });
 
     it('should have consistent mode switching', () => {
-      // Test production mode
+      // Test production mode (capabilities are deep copied, so use toEqual instead of toBe)
       capabilitiesManager.setMode('production');
-      const productionCaps = capabilitiesManager.getCapabilities();
-      expect(productionCaps).toBe(PRODUCTION_CAPABILITIES);
+      const productionCaps = capabilitiesManager.getRawCapabilities();
+      expect(productionCaps).toEqual(PRODUCTION_CAPABILITIES);
 
       // Test development mode
       capabilitiesManager.setMode('development');
-      const developmentCaps = capabilitiesManager.getCapabilities();
-      expect(developmentCaps).toBe(DEVELOPMENT_CAPABILITIES);
+      const developmentCaps = capabilitiesManager.getRawCapabilities();
+      expect(developmentCaps).toEqual(DEVELOPMENT_CAPABILITIES);
 
       // Verify they're different
       expect(productionCaps).not.toBe(developmentCaps);
@@ -339,12 +339,15 @@ describe('Capabilities Alignment Tests', () => {
       ];
 
       modeTests.forEach(({ mode, expectedServer, expectedClient }) => {
-        const capabilitiesManager = new ApexCapabilitiesManager();
+        // Reset singleton to get fresh instance
+        (ApexCapabilitiesManager as any).instance = undefined;
+        const capabilitiesManager = ApexCapabilitiesManager.getInstance();
         capabilitiesManager.setMode(mode);
-        const serverCaps = capabilitiesManager.getCapabilities();
+        // Capabilities are deep copied, so use toEqual instead of toBe
+        const serverCaps = capabilitiesManager.getRawCapabilities();
         const clientCaps = getClientCapabilitiesForMode(mode);
 
-        expect(serverCaps).toBe(expectedServer);
+        expect(serverCaps).toEqual(expectedServer);
         expect(clientCaps).toBe(expectedClient);
       });
 

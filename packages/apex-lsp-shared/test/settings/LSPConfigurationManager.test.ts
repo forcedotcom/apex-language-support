@@ -6,11 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  LSPConfigurationManager,
-  ApexLanguageServerSettings,
-  ExtendedServerCapabilities,
-} from '../../src/settings/LSPConfigurationManager';
+import { LSPConfigurationManager } from '../../src/settings/LSPConfigurationManager';
+import type { ApexLanguageServerSettings } from '../../src/server/ApexLanguageServerSettings';
+import type { ExtendedServerCapabilities } from '../../src/capabilities/ApexLanguageServerCapabilities';
 import { ApexCapabilitiesManager } from '../../src/capabilities/ApexCapabilitiesManager';
 import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
 
@@ -80,6 +78,22 @@ describe('LSPConfigurationManager', () => {
         indexingBarrierPollMs: 100,
         enablePerfMarks: false,
       },
+      loadWorkspace: {
+        enabled: true,
+        maxConcurrency: 10,
+        yieldInterval: 50,
+        yieldDelayMs: 10,
+      },
+      queueProcessing: {
+        maxConcurrency: { high: 5, normal: 3, low: 1 },
+        yieldInterval: 25,
+        yieldDelayMs: 5,
+      },
+      scheduler: {
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      },
       worker: {
         logLevel: 'info',
       },
@@ -96,8 +110,15 @@ describe('LSPConfigurationManager', () => {
     mockCapabilitiesManager = {
       setMode: jest.fn(),
       getMode: jest.fn().mockReturnValue('production'),
+      setPlatform: jest.fn(),
+      getPlatform: jest.fn().mockReturnValue('desktop'),
       getCapabilities: jest.fn().mockReturnValue(mockCapabilities),
+      getRawCapabilities: jest.fn().mockReturnValue(mockCapabilities),
       getCapabilitiesForMode: jest.fn().mockReturnValue(mockCapabilities),
+      getCapabilitiesForModeAndPlatform: jest
+        .fn()
+        .mockReturnValue(mockCapabilities),
+      getRawCapabilitiesForMode: jest.fn().mockReturnValue(mockCapabilities),
       getAllCapabilities: jest.fn(),
       isCapabilityEnabled: jest.fn(),
       isCapabilityEnabledForMode: jest.fn(),

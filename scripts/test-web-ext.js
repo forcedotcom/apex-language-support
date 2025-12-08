@@ -639,6 +639,7 @@ async function runWebExtensionTests() {
       const vscodeSettings = {
         'apex.logLevel': 'debug',
         'apex.worker.logLevel': 'debug',
+        'apex.environment.serverMode': 'development',
       };
 
       fs.writeFileSync(
