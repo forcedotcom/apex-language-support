@@ -140,6 +140,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     string,
     CommentAssociation[]
   > = new HashMap();
+  // Track files currently being loaded to prevent recursive loops
+  private loadingSymbolTables: Set<string> = new Set();
 
   constructor() {
     this.symbolGraph = new ApexSymbolGraph();
@@ -3950,13 +3952,23 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Use async loading to prevent hanging
+      // Prevent recursive loops - if we're already loading this file, skip
+      const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${classPath}`;
+      if (this.loadingSymbolTables.has(fileUri)) {
+        this.logger.debug(
+          () =>
+            `Skipping recursive load attempt for ${fileUri} - already loading`,
+        );
+        return null;
+      }
+
       try {
+        // Mark as loading to prevent recursive calls
+        this.loadingSymbolTables.add(fileUri);
+
         const artifact =
           await this.resourceLoader.loadAndCompileClass(classPath);
         if (artifact?.compilationResult?.result) {
-          // Convert classPath to proper URI scheme for standard Apex library classes
-          const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${classPath}`;
-
           // Add the symbol table to the symbol manager to get all symbols including methods
           await this.addSymbolTable(artifact.compilationResult.result, fileUri);
 
@@ -3973,6 +3985,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return null;
       } catch (_error) {
         return null;
+      } finally {
+        // Always remove from loading set, even on error
+        this.loadingSymbolTables.delete(fileUri);
       }
     } catch (error) {
       this.logger.warn(
@@ -4966,25 +4981,100 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (contextFile) {
         let symbolTable = this.symbolGraph.getSymbolTableForFile(contextFile);
 
-        // If this is a standard Apex class and we don't have a symbol table, try to load it
+        // If symbol table not found, try alternative URI formats before loading
+        if (!symbolTable) {
+          // Try with proper URI format if contextFile is not already a URI
+          const properUri =
+            getProtocolType(contextFile) !== null
+              ? contextFile
+              : createFileUri(contextFile);
+          if (properUri !== contextFile) {
+            symbolTable = this.symbolGraph.getSymbolTableForFile(properUri);
+          }
+        }
+
+        // If this is a standard Apex class and we still don't have a symbol table, try to load it
+        // BUT: Only if the symbol doesn't already exist in the graph (to prevent loops)
+        // If the symbol exists, the symbol table should exist too - skip reload to prevent loops
         if (
           !symbolTable &&
           isStandardApexUri(contextFile) &&
           this.resourceLoader
         ) {
-          try {
-            // Extract the class path from the file path
-            const classPath = extractApexLibPath(contextFile);
+          // Check if symbol already exists in graph - if so, don't reload (prevents loops)
+          const existingSymbols = this.symbolGraph.findSymbolByName(
+            contextSymbol.name,
+          );
+          const symbolExists = existingSymbols.some(
+            (s) => s.id === contextSymbol.id,
+          );
 
-            const artifact =
-              await this.resourceLoader.loadAndCompileClass(classPath);
-            if (artifact && artifact.compilationResult.result) {
-              symbolTable = artifact.compilationResult.result;
-
-              // Add the symbol table to our graph for future use
-              await this.addSymbolTable(symbolTable, contextFile);
+          if (symbolExists) {
+            // Symbol already exists in graph - symbol table should exist too
+            // This might be a URI format mismatch, but we shouldn't reload
+            // Try one more time with normalized URI
+            const normalizedUri = extractFilePathFromUri(
+              getProtocolType(contextFile) !== null
+                ? contextFile
+                : createFileUri(contextFile),
+            );
+            symbolTable = this.symbolGraph.getSymbolTableForFile(normalizedUri);
+            if (!symbolTable) {
+              // Symbol exists but symbol table doesn't - this is unusual but don't reload
+              this.logger.debug(
+                () =>
+                  `Symbol ${contextSymbol.name} exists in graph but symbol table not ` +
+                  `found for ${contextFile} - skipping reload to prevent loop`,
+              );
+              return null;
             }
-          } catch (_error) {}
+          } else {
+            // Symbol doesn't exist - safe to load
+            // Prevent recursive loops - if we're already loading this file, skip
+            // Use normalized URI for the check to match what addSymbolTable uses
+            const normalizedUri = extractFilePathFromUri(
+              getProtocolType(contextFile) !== null
+                ? contextFile
+                : createFileUri(contextFile),
+            );
+            if (this.loadingSymbolTables.has(normalizedUri)) {
+              this.logger.debug(
+                () =>
+                  `Skipping recursive load attempt for ${contextFile} (normalized: ${normalizedUri}) - already loading`,
+              );
+              // Re-check symbol table after a brief moment in case it was just added
+              symbolTable = this.symbolGraph.getSymbolTableForFile(contextFile);
+              if (!symbolTable) {
+                return null;
+              }
+            } else {
+              try {
+                // Mark as loading to prevent recursive calls (use normalized URI)
+                this.loadingSymbolTables.add(normalizedUri);
+
+                // Extract the class path from the file path
+                const classPath = extractApexLibPath(contextFile);
+
+                const artifact =
+                  await this.resourceLoader.loadAndCompileClass(classPath);
+                if (artifact && artifact.compilationResult.result) {
+                  symbolTable = artifact.compilationResult.result;
+
+                  // Add the symbol table to our graph for future use
+                  await this.addSymbolTable(symbolTable, contextFile);
+
+                  // Re-fetch symbol table to ensure it's registered
+                  symbolTable =
+                    this.symbolGraph.getSymbolTableForFile(contextFile);
+                }
+              } catch (_error) {
+                // Error loading, continue
+              } finally {
+                // Always remove from loading set, even on error
+                this.loadingSymbolTables.delete(normalizedUri);
+              }
+            }
+          }
         }
 
         if (symbolTable) {

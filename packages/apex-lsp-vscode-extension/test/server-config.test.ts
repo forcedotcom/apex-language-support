@@ -87,6 +87,16 @@ describe('Server Config Module', () => {
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
+    // Reset workspace settings mock to default
+    const { getWorkspaceSettings } = require('../src/configuration');
+    getWorkspaceSettings.mockReturnValue({
+      apex: {
+        test: 'settings',
+        ls: {
+          logLevel: 'error',
+        },
+      },
+    });
 
     // Create mock context
     mockContext = {
@@ -240,6 +250,179 @@ describe('Server Config Module', () => {
       const serverOptions = createServerOptions(testContext) as any;
 
       expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('development');
+    });
+
+    it('should add heap size flag when jsHeapSizeGB is set', () => {
+      const { getWorkspaceSettings } = require('../src/configuration');
+      getWorkspaceSettings.mockReturnValue({
+        apex: {
+          environment: {
+            jsHeapSizeGB: 4,
+          },
+        },
+      });
+
+      const serverOptions = createServerOptions(mockContext) as any;
+
+      expect(serverOptions.run.options.execArgv).toContain(
+        '--max-old-space-size=4096',
+      );
+      expect(serverOptions.debug.options.execArgv).toContain(
+        '--max-old-space-size=4096',
+      );
+    });
+
+    it('should not add heap size flag when jsHeapSizeGB is not set', () => {
+      const { getWorkspaceSettings } = require('../src/configuration');
+      getWorkspaceSettings.mockReturnValue({
+        apex: {
+          environment: {},
+        },
+      });
+
+      const serverOptions = createServerOptions(mockContext) as any;
+
+      if (serverOptions.run.options.execArgv) {
+        expect(serverOptions.run.options.execArgv).not.toContain(
+          '--max-old-space-size',
+        );
+      }
+      if (serverOptions.debug.options.execArgv) {
+        expect(serverOptions.debug.options.execArgv).not.toContain(
+          '--max-old-space-size',
+        );
+      }
+    });
+
+    it('should not add heap size flag when jsHeapSizeGB is 0', () => {
+      const { getWorkspaceSettings } = require('../src/configuration');
+      getWorkspaceSettings.mockReturnValue({
+        apex: {
+          environment: {
+            jsHeapSizeGB: 0,
+          },
+        },
+      });
+
+      const serverOptions = createServerOptions(mockContext) as any;
+
+      if (serverOptions.run.options.execArgv) {
+        expect(serverOptions.run.options.execArgv).not.toContain(
+          '--max-old-space-size',
+        );
+      }
+    });
+
+    it('should not add heap size flag when jsHeapSizeGB is negative', () => {
+      const { getWorkspaceSettings } = require('../src/configuration');
+      getWorkspaceSettings.mockReturnValue({
+        apex: {
+          environment: {
+            jsHeapSizeGB: -1,
+          },
+        },
+      });
+
+      const serverOptions = createServerOptions(mockContext) as any;
+
+      if (serverOptions.run.options.execArgv) {
+        expect(serverOptions.run.options.execArgv).not.toContain(
+          '--max-old-space-size',
+        );
+      }
+    });
+
+    it('should convert GB to MB correctly (rounding)', () => {
+      const { getWorkspaceSettings } = require('../src/configuration');
+      getWorkspaceSettings.mockReturnValue({
+        apex: {
+          environment: {
+            jsHeapSizeGB: 2.5, // 2.5 GB = 2560 MB
+          },
+        },
+      });
+
+      const serverOptions = createServerOptions(mockContext) as any;
+
+      expect(serverOptions.run.options.execArgv).toContain(
+        '--max-old-space-size=2560',
+      );
+    });
+
+    it('should not add heap size flag in web environment', () => {
+      // Mock web environment
+      Object.defineProperty(vscode.env, 'uiKind', {
+        value: 2, // UIKind.Web
+        writable: true,
+      });
+
+      const { getWorkspaceSettings } = require('../src/configuration');
+      getWorkspaceSettings.mockReturnValue({
+        apex: {
+          environment: {
+            jsHeapSizeGB: 4,
+          },
+        },
+      });
+
+      const serverOptions = createServerOptions(mockContext) as any;
+
+      if (serverOptions.run.options.execArgv) {
+        expect(serverOptions.run.options.execArgv).not.toContain(
+          '--max-old-space-size',
+        );
+      }
+
+      // Restore desktop environment
+      Object.defineProperty(vscode.env, 'uiKind', {
+        value: 1, // UIKind.Desktop
+        writable: true,
+      });
+    });
+
+    it('should enforce maximum heap size of 32GB', () => {
+      const { getWorkspaceSettings } = require('../src/configuration');
+      getWorkspaceSettings.mockReturnValue({
+        apex: {
+          environment: {
+            jsHeapSizeGB: 64, // Exceeds maximum of 32GB
+          },
+        },
+      });
+
+      const { logServerMessage } = require('../src/logging');
+      const serverOptions = createServerOptions(mockContext) as any;
+
+      // Should use 32GB (32768 MB) instead of 64GB
+      expect(serverOptions.run.options.execArgv).toContain(
+        '--max-old-space-size=32768',
+      );
+      expect(serverOptions.debug.options.execArgv).toContain(
+        '--max-old-space-size=32768',
+      );
+
+      // Should log a warning
+      expect(logServerMessage).toHaveBeenCalledWith(
+        expect.stringContaining('exceeds maximum of 32 GB'),
+        'warning',
+      );
+    });
+
+    it('should accept maximum heap size of 32GB', () => {
+      const { getWorkspaceSettings } = require('../src/configuration');
+      getWorkspaceSettings.mockReturnValue({
+        apex: {
+          environment: {
+            jsHeapSizeGB: 32, // Exactly at maximum
+          },
+        },
+      });
+
+      const serverOptions = createServerOptions(mockContext) as any;
+
+      expect(serverOptions.run.options.execArgv).toContain(
+        '--max-old-space-size=32768',
+      );
     });
   });
 

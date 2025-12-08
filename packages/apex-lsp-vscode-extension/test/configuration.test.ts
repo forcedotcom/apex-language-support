@@ -151,7 +151,7 @@ describe('Configuration Module', () => {
             standardApexLibraryPath: undefined,
           },
           scheduler: {
-            queueCapacity: 100,
+            queueCapacity: 200,
             maxHighPriorityStreak: 50,
             idleSleepMs: 1,
           },

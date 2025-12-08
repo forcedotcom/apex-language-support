@@ -83,6 +83,9 @@ export interface EnvironmentSettings {
 
   /** Log level for comment collection (default: 'info') */
   commentCollectionLogLevel: 'debug' | 'info' | 'warn' | 'error';
+
+  /** JavaScript heap size in GB for the language server process. If not specified, Node.js default heap size is used. */
+  jsHeapSizeGB?: number;
 }
 
 /**

@@ -166,6 +166,35 @@ describe('ApexLanguageServerSettings Validation', () => {
       expect(result.isValid).toBe(true);
       expect(result.details).toHaveLength(0);
     });
+
+    it('should accept jsHeapSizeGB in environment settings', () => {
+      const configWithHeapSize = {
+        environment: {
+          profilingMode: 'none',
+          profilingType: 'cpu',
+          jsHeapSizeGB: 4,
+        },
+      };
+
+      const result = validateApexSettings(configWithHeapSize);
+
+      expect(result.isValid).toBe(true);
+      expect(result.details).toHaveLength(0);
+    });
+
+    it('should accept jsHeapSizeGB as optional property', () => {
+      const configWithoutHeapSize = {
+        environment: {
+          profilingMode: 'none',
+          profilingType: 'cpu',
+        },
+      };
+
+      const result = validateApexSettings(configWithoutHeapSize);
+
+      expect(result.isValid).toBe(true);
+      expect(result.details).toHaveLength(0);
+    });
   });
 
   describe('isValidApexSettings', () => {
@@ -301,6 +330,46 @@ describe('ApexLanguageServerSettings Validation', () => {
       expect(result.apex.performance.commentCollectionMaxFileSize).toBe(75000); // Updated
       expect(result.apex.performance.useAsyncCommentProcessing).toBe(false); // Preserved from existing
       expect(result.apex.resources.loadMode).toBe('lazy'); // Preserved from existing
+    });
+
+    it('should preserve jsHeapSizeGB when merging settings', () => {
+      const existingSettings = mergeWithDefaults(
+        {
+          apex: {
+            environment: {
+              jsHeapSizeGB: 4,
+            },
+          },
+        } as Partial<ApexLanguageServerSettings>,
+        'desktop',
+      );
+
+      const partialUpdate = {
+        apex: {
+          logLevel: 'debug',
+        },
+      } as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithExisting(existingSettings, partialUpdate);
+
+      expect(result.apex.logLevel).toBe('debug'); // Updated
+      expect(result.apex.environment.jsHeapSizeGB).toBe(4); // Preserved from existing
+    });
+
+    it('should update jsHeapSizeGB when provided in partial update', () => {
+      const existingSettings = mergeWithDefaults({}, 'desktop');
+
+      const partialUpdate = {
+        apex: {
+          environment: {
+            jsHeapSizeGB: 8,
+          },
+        },
+      } as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithExisting(existingSettings, partialUpdate);
+
+      expect(result.apex.environment.jsHeapSizeGB).toBe(8); // Updated
     });
   });
 
