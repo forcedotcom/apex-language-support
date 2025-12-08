@@ -81,6 +81,9 @@ export class LSPConfigurationManager {
     this.runtimePlatform = this.detectEnvironment();
     this.autoDetectEnvironment = options.autoDetectEnvironment ?? true;
 
+    // Set platform on capabilities manager for platform-aware capability filtering
+    this.capabilitiesManager.setPlatform(this.runtimePlatform);
+
     // Initialize settings manager
     this.settingsManager = ApexSettingsManager.getInstance(
       undefined,
@@ -624,6 +627,9 @@ export class LSPConfigurationManager {
   public setEnvironment(runtimePlatform: RuntimePlatform): void {
     this.runtimePlatform = runtimePlatform;
 
+    // Update platform on capabilities manager for platform-aware capability filtering
+    this.capabilitiesManager.setPlatform(runtimePlatform);
+
     // Update settings manager with new environment
     const currentSettings = this.settingsManager.getSettings();
     const newSettings = mergeWithDefaults(
@@ -730,25 +736,29 @@ export class LSPConfigurationManager {
    * @returns The detected environment
    */
   private detectEnvironment(): RuntimePlatform {
-    // Check for browser environment
+    // Check for browser main thread environment (has window object)
     if (typeof globalThis !== 'undefined' && 'window' in globalThis) {
       return 'web';
     }
-    // TODO: check if we need to support web worker
-    // // Check for web worker environment (both classic and ES module workers)
-    // if (
-    //   typeof globalThis !== 'undefined' &&
-    //   'self' in globalThis &&
-    //   // Check for worker-specific properties that exist in both classic and ES module workers
-    //   ('DedicatedWorkerGlobalScope' in globalThis ||
-    //     'SharedWorkerGlobalScope' in globalThis ||
-    //     'ServiceWorkerGlobalScope' in globalThis ||
-    //     // For ES module workers, check if we're in a worker context
-    //     (typeof self !== 'undefined' && 'postMessage' in self))
-    // ) {
-    //   return 'desktop';
-    // }
-    // Default to node environment
+
+    // Check for web worker environment (both classic and ES module workers)
+    // Web workers are part of the web platform but don't have window
+    if (
+      typeof globalThis !== 'undefined' &&
+      'self' in globalThis &&
+      // Check for worker-specific properties that exist in both classic and ES module workers
+      ('DedicatedWorkerGlobalScope' in globalThis ||
+        'SharedWorkerGlobalScope' in globalThis ||
+        'ServiceWorkerGlobalScope' in globalThis ||
+        // For ES module workers, check if we're in a worker context
+        (typeof self !== 'undefined' &&
+          'postMessage' in self &&
+          'importScripts' in self))
+    ) {
+      return 'web'; // Web workers are part of the web platform
+    }
+
+    // Default to Node.js/desktop environment
     return 'desktop';
   }
 

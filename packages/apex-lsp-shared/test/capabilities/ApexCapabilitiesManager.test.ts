@@ -21,6 +21,20 @@ describe('ApexCapabilitiesManager', () => {
     manager = ApexCapabilitiesManager.getInstance();
   });
 
+  describe('Platform Management', () => {
+    it('should default to desktop platform', () => {
+      expect(manager.getPlatform()).toBe('desktop');
+    });
+
+    it('should set and get platform correctly', () => {
+      manager.setPlatform('web');
+      expect(manager.getPlatform()).toBe('web');
+
+      manager.setPlatform('desktop');
+      expect(manager.getPlatform()).toBe('desktop');
+    });
+  });
+
   describe('Singleton Pattern', () => {
     it('should return the same instance on multiple calls', () => {
       const instance1 = ApexCapabilitiesManager.getInstance();
@@ -44,26 +58,27 @@ describe('ApexCapabilitiesManager', () => {
   });
 
   describe('Capabilities Retrieval', () => {
-    it('should return production capabilities by default', () => {
-      const capabilities = manager.getCapabilities();
+    it('should return raw production capabilities by default', () => {
+      // getRawCapabilities returns unfiltered capabilities for comparison with definitions
+      const capabilities = manager.getRawCapabilities();
       expect(capabilities).toEqual(PRODUCTION_CAPABILITIES);
     });
 
-    it('should return correct capabilities for each mode', () => {
+    it('should return correct raw capabilities for each mode', () => {
       // Test production mode
       manager.setMode('production');
-      expect(manager.getCapabilities()).toEqual(PRODUCTION_CAPABILITIES);
+      expect(manager.getRawCapabilities()).toEqual(PRODUCTION_CAPABILITIES);
 
       // Test development mode
       manager.setMode('development');
-      expect(manager.getCapabilities()).toEqual(DEVELOPMENT_CAPABILITIES);
+      expect(manager.getRawCapabilities()).toEqual(DEVELOPMENT_CAPABILITIES);
     });
 
-    it('should return capabilities for specific modes', () => {
-      expect(manager.getCapabilitiesForMode('production')).toEqual(
+    it('should return raw capabilities for specific modes', () => {
+      expect(manager.getRawCapabilitiesForMode('production')).toEqual(
         PRODUCTION_CAPABILITIES,
       );
-      expect(manager.getCapabilitiesForMode('development')).toEqual(
+      expect(manager.getRawCapabilitiesForMode('development')).toEqual(
         DEVELOPMENT_CAPABILITIES,
       );
     });
@@ -74,6 +89,33 @@ describe('ApexCapabilitiesManager', () => {
       expect(allCapabilities).toHaveProperty('development');
       expect(allCapabilities.production).toEqual(PRODUCTION_CAPABILITIES);
       expect(allCapabilities.development).toEqual(DEVELOPMENT_CAPABILITIES);
+    });
+
+    it('should return capabilities for desktop platform without filtering', () => {
+      manager.setMode('development');
+      manager.setPlatform('desktop');
+
+      // getCapabilities returns capabilities filtered by platform
+      const capabilities = manager.getCapabilities();
+
+      // profilingProvider should be available on desktop
+      const profilingProvider = capabilities.experimental?.profilingProvider;
+      expect(profilingProvider).toBeDefined();
+      // The value should be a plain ProfilingCapability object (no wrapper)
+      expect((profilingProvider as any).enabled).toBe(true);
+      // No platform constraint fields should exist
+      expect((profilingProvider as any).disabledForWeb).toBeUndefined();
+      expect((profilingProvider as any).value).toBeUndefined();
+    });
+
+    it('should filter out capabilities disabled for web platform', () => {
+      manager.setMode('development');
+      manager.setPlatform('web');
+
+      const capabilities = manager.getCapabilities();
+
+      // profilingProvider should be undefined on web (listed in WEB_DISABLED_CAPABILITIES)
+      expect(capabilities.experimental?.profilingProvider).toBeUndefined();
     });
   });
 
@@ -203,18 +245,31 @@ describe('ApexCapabilitiesManager', () => {
     it('should maintain capabilities consistency when switching modes', () => {
       // Start in production
       manager.setMode('production');
-      const productionCapabilities = manager.getCapabilities();
+      const productionCapabilities = manager.getRawCapabilities();
       expect(productionCapabilities).toEqual(PRODUCTION_CAPABILITIES);
 
       // Switch to development
       manager.setMode('development');
-      const developmentCapabilities = manager.getCapabilities();
+      const developmentCapabilities = manager.getRawCapabilities();
       expect(developmentCapabilities).toEqual(DEVELOPMENT_CAPABILITIES);
 
       // Switch back to production
       manager.setMode('production');
-      const productionCapabilitiesAgain = manager.getCapabilities();
+      const productionCapabilitiesAgain = manager.getRawCapabilities();
       expect(productionCapabilitiesAgain).toEqual(PRODUCTION_CAPABILITIES);
+    });
+
+    it('should maintain platform consistency when switching modes', () => {
+      // Set platform to web
+      manager.setPlatform('web');
+      expect(manager.getPlatform()).toBe('web');
+
+      // Switch modes - platform should remain
+      manager.setMode('development');
+      expect(manager.getPlatform()).toBe('web');
+
+      manager.setMode('production');
+      expect(manager.getPlatform()).toBe('web');
     });
   });
 });

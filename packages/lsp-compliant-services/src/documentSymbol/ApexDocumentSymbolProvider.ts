@@ -121,9 +121,6 @@ export class DefaultApexDocumentSymbolProvider
         () =>
           `Document found in storage. Content length: ${documentText.length}`,
       );
-      logger.debug(
-        () => `Document content preview: ${documentText.substring(0, 100)}...`,
-      );
 
       // Check parse result cache first
       // NOTE: Safe to use cached SymbolTable even with different compilation options

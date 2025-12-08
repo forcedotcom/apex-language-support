@@ -14,6 +14,51 @@ import {
 export type ExtendedServerCapabilities = ServerCapabilities &
   ImplicitCapabilties & { experimental?: ExperimentalCapabilities };
 
+// ============================================================================
+// Platform Filtering - Disabled Capability Sets
+// ============================================================================
+
+/**
+ * Capability keys that reference experimental capabilities.
+ * Used to construct full paths like 'experimental.profilingProvider'.
+ */
+type ExperimentalCapabilityKey = keyof ExperimentalCapabilities;
+
+/**
+ * Standard LSP capability keys.
+ */
+type StandardCapabilityKey = keyof ServerCapabilities;
+
+/**
+ * All possible capability paths including nested experimental capabilities.
+ * Format: 'experimental.<capability>' for experimental capabilities,
+ * or standard capability name for top-level capabilities.
+ */
+type CapabilityPath =
+  | StandardCapabilityKey
+  | `experimental.${ExperimentalCapabilityKey}`;
+
+/**
+ * Set of capabilities that are disabled in web environments.
+ * These capabilities require Node.js APIs or desktop-only features.
+ *
+ * Capabilities listed here will be filtered out when the server runs in a web context.
+ */
+export const WEB_DISABLED_CAPABILITIES: ReadonlySet<CapabilityPath> = new Set([
+  'experimental.profilingProvider', // Requires Node.js inspector API
+]);
+
+/**
+ * Set of capabilities that are disabled in desktop environments.
+ * Currently empty, but can be extended for web-only features.
+ *
+ * Capabilities listed here will be filtered out when the server runs in a desktop context.
+ */
+export const DESKTOP_DISABLED_CAPABILITIES: ReadonlySet<CapabilityPath> =
+  new Set([
+    // No desktop-disabled capabilities at this time
+  ]);
+
 /**
  * Configuration for different server modes
  */
@@ -40,9 +85,23 @@ export interface FindMissingArtifactCapability {
   timeoutMsHint?: number;
 }
 
+/**
+ * Profiling capability configuration.
+ * Profiling is only available in desktop environments (requires Node.js inspector API).
+ */
+export interface ProfilingCapability {
+  /** Whether profiling handlers should be registered */
+  enabled: boolean;
+}
+
 export interface ExperimentalCapabilities {
   /** Missing artifact resolution capability */
   findMissingArtifactProvider?: FindMissingArtifactCapability;
+  /**
+   * Profiling capability - desktop only.
+   * Disabled for web platforms (see WEB_DISABLED_CAPABILITIES).
+   */
+  profilingProvider?: ProfilingCapability;
 }
 
 /**
@@ -124,6 +183,11 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
       maxCandidatesToOpen: 3,
       timeoutMsHint: 1500,
     },
+    // Profiling is desktop-only (requires Node.js inspector API)
+    // Filtered out for web via WEB_DISABLED_CAPABILITIES
+    profilingProvider: {
+      enabled: false, // Disabled by default in production
+    },
   },
 };
 
@@ -156,6 +220,11 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
       supportedModes: ['blocking', 'background'],
       maxCandidatesToOpen: 3,
       timeoutMsHint: 2000,
+    },
+    // Profiling is desktop-only (requires Node.js inspector API)
+    // Filtered out for web via WEB_DISABLED_CAPABILITIES
+    profilingProvider: {
+      enabled: true, // Enabled by default in development
     },
   },
 };

@@ -1,46 +1,89 @@
 # Server Mode Override
 
-The Apex Language Server supports overriding the server mode using the `APEX_LS_MODE` environment variable. This allows you to force the server to run in a specific mode regardless of the VS Code extension's mode.
+The Apex Language Server supports multiple ways to configure the server mode. This allows you to control which features are enabled and the server's behavior.
 
-## Usage
+## Configuration Methods
+
+You can configure the server mode using any of the following methods:
+
+### 1. Environment Variable
 
 Set the `APEX_LS_MODE` environment variable to one of the following values:
 
 - `production` - Forces production mode
 - `development` - Forces development mode
 
+### 2. Workspace Settings
+
+Add the following to your `.vscode/settings.json` or workspace settings:
+
+```json
+{
+  "apex.environment.serverMode": "development"
+}
+```
+
+### 3. Extension Mode
+
+The server will automatically detect the VS Code extension mode (Development/Test → 'development', Production → 'production')
+
 ## Priority Order
 
 The server determines its mode using the following priority order:
 
 1. **APEX_LS_MODE environment variable** (highest priority)
-2. **Extension mode** (Development/Test → 'development', Production → 'production')
-3. **NODE_ENV environment variable** (lowest priority)
+2. **Workspace settings** (`apex.environment.serverMode`)
+3. **Extension mode** (Development/Test → 'development', Production → 'production')
 
 ## Examples
 
-### Force Production Mode
+### Using Environment Variable
+
+Force production mode:
 
 ```bash
 export APEX_LS_MODE=production
 ```
 
-### Force Development Mode
+Force development mode:
 
 ```bash
 export APEX_LS_MODE=development
 ```
 
+### Using Workspace Settings
+
+Add to `.vscode/settings.json`:
+
+```json
+{
+  "apex.environment.serverMode": "development",
+  "apex.logLevel": "debug"
+}
+```
+
+This is the recommended approach for:
+
+- Project-specific configuration
+- Shared team settings (via committed `.vscode/settings.json`)
+- Enabling development features without changing VS Code launch configuration
+
 ## Use Cases
 
 - **Testing**: Force production mode during development to test production behavior
 - **Debugging**: Force development mode in production environments for enhanced logging
+- **Team Development**: Share development mode configuration via workspace settings
+- **Feature Testing**: Enable development-only features (hover, completion, etc.) without rebuilding the extension
 - **CI/CD**: Set specific modes in automated environments
 - **Troubleshooting**: Override mode to isolate issues
 
 ## Implementation Details
 
-The environment variable is passed from the VS Code extension to the language server process and is checked during server initialization. The server logs which mode source is being used for transparency.
+The server mode is determined on the **extension side** using the priority order above. The determined mode is then passed to the language server via initialization options (`initializationOptions.apex.environment.serverMode`). 
+
+The language server trusts the mode provided by the extension and does not perform its own environment variable checks. This ensures a single, predictable source of truth for mode determination.
+
+The server logs which mode is being used during the initialize request for transparency.
 
 **Extension Mode Mapping:**
 
