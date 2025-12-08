@@ -33,6 +33,7 @@ import {
   SymbolVisibility,
   SymbolLocation,
 } from '../types/symbol';
+import { isBlockSymbol } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
 import { ResourceLoader } from '../utils/resourceLoader';
 import { isStandardApexUri } from '../types/ProtocolHandler';
@@ -301,8 +302,20 @@ export class ApexSymbolGraph {
   private readonly DEFERRED_BATCH_SIZE = 50;
   private readonly MAX_RETRY_ATTEMPTS = 10;
   private readonly RETRY_DELAY_MS = 100;
+  private readonly MAX_RETRY_DELAY_MS = 5000; // Cap exponential backoff at 5 seconds
+  private readonly QUEUE_CAPACITY_THRESHOLD = 90; // Don't retry if queue > 90% full
+  private readonly QUEUE_DRAIN_THRESHOLD = 75; // Only retry when queue < 75% full
+  private readonly QUEUE_FULL_RETRY_DELAY_MS = 10000; // 10 second delay when queue is full
+  private readonly MAX_QUEUE_FULL_RETRY_DELAY_MS = 30000; // Cap queue-full retry delay at 30 seconds
+  private readonly CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5; // Activate after 5 consecutive failures
+  private readonly CIRCUIT_BREAKER_RESET_THRESHOLD = 50; // Reset when queue < 50% full
   private failedReferences: Map<string, DeferredProcessingTask> = new Map();
   private activeRetryTimers: Set<NodeJS.Timeout> = new Set();
+  // Track symbols with pending retries to prevent duplicate retry scheduling
+  private pendingRetrySymbols: Set<string> = new Set();
+  // Circuit breaker state tracking
+  private consecutiveRequeueFailures = 0;
+  private circuitBreakerActive = false;
 
   private resourceLoader: ResourceLoader;
 
@@ -380,6 +393,8 @@ export class ApexSymbolGraph {
     if (task.retryCount >= this.MAX_RETRY_ATTEMPTS) {
       // Move to dead letter tracking
       this.failedReferences.set(`${task.taskType}:${task.symbolName}`, task);
+      // Clear pending retry tracking
+      this.pendingRetrySymbols.delete(task.symbolName);
       this.logger.warn(
         () =>
           `Deferred reference task exceeded max retries: ${task.symbolName} ` +
@@ -388,6 +403,22 @@ export class ApexSymbolGraph {
       return;
     }
 
+    // Prevent duplicate retry scheduling for the same symbol
+    // This avoids exponential explosion when queue is at capacity
+    const retryKey = `${task.taskType}:${task.symbolName}`;
+    if (this.pendingRetrySymbols.has(retryKey)) {
+      // Already have a pending retry for this symbol, skip to avoid duplicate timers
+      this.logger.debug(
+        () =>
+          `Skipping duplicate retry for ${task.symbolName} (retry ${task.retryCount + 1}) - ` +
+          'pending retry already scheduled',
+      );
+      return;
+    }
+
+    // Mark this symbol as having a pending retry
+    this.pendingRetrySymbols.add(retryKey);
+
     // Re-queue with incremented retry count and lower priority for retries
     const retryTask: DeferredProcessingTask = {
       ...task,
@@ -395,26 +426,139 @@ export class ApexSymbolGraph {
       priority: Priority.Low, // Retries use lower priority
     };
 
+    // Calculate exponential backoff delay with queue awareness
+    // Use longer delay for queue-full scenarios to allow queue to drain
+    const baseDelay =
+      reason === 'queue_full'
+        ? this.QUEUE_FULL_RETRY_DELAY_MS
+        : this.RETRY_DELAY_MS;
+    const exponentialDelay = baseDelay * Math.pow(2, task.retryCount);
+    // Use different cap for queue-full scenarios to allow longer delays
+    const maxDelay =
+      reason === 'queue_full'
+        ? this.MAX_QUEUE_FULL_RETRY_DELAY_MS
+        : this.MAX_RETRY_DELAY_MS;
+    const cappedDelay = Math.min(exponentialDelay, maxDelay);
+
     // Use setTimeout for retry delay to avoid async Effect issues
     // This schedules the re-queue after the delay without blocking
     // Track the timer so it can be cleared on shutdown
     // Use .unref() to prevent the timer from keeping the process alive
     const self = this;
-    const timer = setTimeout(() => {
+    // Capture retryTask and retryKey in closure for use in setTimeout callback
+    const capturedRetryTask = retryTask;
+    const capturedRetryKey = retryKey;
+    const timer = setTimeout(async () => {
       self.activeRetryTimers.delete(timer);
+      // Clear pending retry tracking when timer fires
+      self.pendingRetrySymbols.delete(capturedRetryKey);
+
+      // Check circuit breaker state
+      if (self.circuitBreakerActive) {
+        // Check if we should reset circuit breaker by checking queue capacity
+        try {
+          const currentMetrics = await Effect.runPromise(metrics());
+          const lowQueueUtilization =
+            currentMetrics.queueUtilization?.[Priority.Low] || 0;
+          if (lowQueueUtilization < self.CIRCUIT_BREAKER_RESET_THRESHOLD) {
+            self.circuitBreakerActive = false;
+            self.consecutiveRequeueFailures = 0;
+            self.logger.info(
+              () =>
+                `Circuit breaker reset: Low queue utilization dropped to ${lowQueueUtilization.toFixed(1)}%`,
+            );
+          } else {
+            // Circuit breaker still active, skip this retry
+            self.logger.debug(
+              () =>
+                `Skipping retry due to active circuit breaker (queue utilization: ${lowQueueUtilization.toFixed(1)}%)`,
+            );
+            return;
+          }
+        } catch (_error) {
+          // If we can't check metrics, assume circuit breaker should remain active
+          self.logger.debug(
+            () =>
+              'Skipping retry due to active circuit breaker (metrics unavailable)',
+          );
+          return;
+        }
+      }
+
+      // Check queue capacity before attempting to re-queue
       try {
+        const currentMetrics = await Effect.runPromise(metrics());
+        const lowQueueUtilization =
+          currentMetrics.queueUtilization?.[Priority.Low] || 0;
+        const lowQueueSize = currentMetrics.queueSizes[Priority.Low] || 0;
+        const queueCapacity = currentMetrics.queueCapacity;
+
+        // If queue is at or near capacity, wait for it to drain before retrying
+        // This prevents infinite retry loops when queue is stuck at capacity
+        if (lowQueueUtilization >= self.QUEUE_CAPACITY_THRESHOLD) {
+          // Queue is too full, skip this retry and try again later
+          // Only log periodically to avoid log spam (every 10th retry)
+          if (capturedRetryTask.retryCount % 10 === 0) {
+            self.logger.warn(
+              () =>
+                `Skipping retry for ${task.symbolName}: Low queue at ${lowQueueUtilization.toFixed(1)}% ` +
+                `capacity (${lowQueueSize}/${queueCapacity}). Will retry when ` +
+                `queue drains below ${self.QUEUE_DRAIN_THRESHOLD}%. ` +
+                `(retry attempt ${capturedRetryTask.retryCount}/${self.MAX_RETRY_ATTEMPTS})`,
+            );
+          }
+          // Re-schedule with queue-full delay (retry count already incremented in requeueTask)
+          self.requeueTask(capturedRetryTask, 'queue_full');
+          return;
+        }
+
+        // Additional check: if queue hasn't drained enough, wait longer
+        // This ensures we don't retry too aggressively when queue is still high
+        if (lowQueueUtilization >= self.QUEUE_DRAIN_THRESHOLD) {
+          // Queue is still above drain threshold, wait a bit more
+          // Only log periodically to avoid log spam
+          if (capturedRetryTask.retryCount % 5 === 0) {
+            self.logger.debug(
+              () =>
+                `Queue still at ${lowQueueUtilization.toFixed(1)}% for ${task.symbolName}, ` +
+                `waiting for drain below ${self.QUEUE_DRAIN_THRESHOLD}% before retry`,
+            );
+          }
+          // Re-schedule with queue-full delay
+          self.requeueTask(capturedRetryTask, 'queue_full');
+          return;
+        }
+
         // Create QueuedItem and schedule with priority scheduler
         const queuedItemEffect = createQueuedItem(
-          self.processDeferredTask(retryTask),
-          retryTask.taskType === 'processDeferred'
+          self.processDeferredTask(capturedRetryTask),
+          capturedRetryTask.taskType === 'processDeferred'
             ? 'deferred-reference-process'
             : 'deferred-reference-retry',
         );
         const scheduledTaskEffect = Effect.gen(function* () {
           const queuedItem = yield* queuedItemEffect;
-          return yield* offer(retryTask.priority, queuedItem);
+          return yield* offer(capturedRetryTask.priority, queuedItem);
         });
-        Effect.runSync(scheduledTaskEffect);
+
+        // Use runPromise instead of runSync to handle async operations properly
+        await Effect.runPromise(scheduledTaskEffect);
+
+        // Successfully re-queued - clear pending retry flag since task is now in queue
+        // The pending retry flag was already cleared when timer fired, but clear it again
+        // to be safe (in case of race conditions)
+        self.pendingRetrySymbols.delete(capturedRetryKey);
+
+        // Reset failure counter
+        if (self.consecutiveRequeueFailures > 0) {
+          self.consecutiveRequeueFailures = 0;
+          if (self.circuitBreakerActive) {
+            self.circuitBreakerActive = false;
+            self.logger.info(
+              () => 'Circuit breaker deactivated: Re-queue succeeded',
+            );
+          }
+        }
       } catch (error) {
         // Scheduler might not be initialized or other errors
         const errorMessage =
@@ -423,13 +567,43 @@ export class ApexSymbolGraph {
           !errorMessage.includes('not initialized') &&
           !errorMessage.includes('shutdown')
         ) {
-          self.logger.error(
-            () =>
-              `Failed to re-queue deferred task for ${task.symbolName}: ${errorMessage}`,
-          );
+          // Increment consecutive failure counter
+          self.consecutiveRequeueFailures++;
+          const isQueueFullError =
+            errorMessage.includes('cannot be resolved synchronously') ||
+            errorMessage.includes('queue');
+
+          // Log as warning for queue-full scenarios, error for other issues
+          if (isQueueFullError) {
+            self.logger.warn(
+              () =>
+                `Failed to re-queue deferred task for ${task.symbolName}: ${errorMessage} ` +
+                `(consecutive failures: ${self.consecutiveRequeueFailures})`,
+            );
+          } else {
+            self.logger.error(
+              () =>
+                `Failed to re-queue deferred task for ${task.symbolName}: ${errorMessage} ` +
+                `(consecutive failures: ${self.consecutiveRequeueFailures})`,
+            );
+          }
+
+          // Activate circuit breaker if threshold exceeded
+          if (
+            self.consecutiveRequeueFailures >=
+            self.CIRCUIT_BREAKER_FAILURE_THRESHOLD
+          ) {
+            if (!self.circuitBreakerActive) {
+              self.circuitBreakerActive = true;
+              self.logger.warn(
+                () =>
+                  `Circuit breaker activated: ${self.consecutiveRequeueFailures} consecutive re-queue failures`,
+              );
+            }
+          }
         }
       }
-    }, this.RETRY_DELAY_MS);
+    }, cappedDelay);
     // Use .unref() to prevent timer from keeping Node.js process alive
     if (typeof timer.unref === 'function') {
       timer.unref();
@@ -521,15 +695,18 @@ export class ApexSymbolGraph {
       symbol.key.fqn = fqnToUse;
     }
 
-    if (fqnToUse) {
+    // Exclude scope symbols from FQN index (they're structural, not semantic)
+    if (fqnToUse && !isBlockSymbol(symbol)) {
       this.fqnIndex.set(fqnToUse, symbolId);
     }
 
-    // Add to name index for symbol resolution
-    const existingNames = this.nameIndex.get(symbol.name) || [];
-    if (!existingNames.includes(symbolId)) {
-      existingNames.push(symbolId);
-      this.nameIndex.set(symbol.name, existingNames);
+    // Exclude scope symbols from name index (users shouldn't search for "block1" or "if_2")
+    if (!isBlockSymbol(symbol)) {
+      const existingNames = this.nameIndex.get(symbol.name) || [];
+      if (!existingNames.includes(symbolId)) {
+        existingNames.push(symbolId);
+        this.nameIndex.set(symbol.name, existingNames);
+      }
     }
 
     // Use normalized URI for fileIndex to ensure consistency
@@ -725,7 +902,8 @@ export class ApexSymbolGraph {
     const symbols: ApexSymbol[] = [];
     for (const symbolId of symbolIds) {
       const symbol = this.getSymbol(symbolId);
-      if (symbol) {
+      // Exclude scope symbols from name-based lookups (they're structural, not semantic)
+      if (symbol && !isBlockSymbol(symbol)) {
         symbols.push(symbol);
       }
     }
@@ -824,6 +1002,11 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
+    // Don't create reference edges to/from scope symbols (they're structural, not semantic)
+    if (isBlockSymbol(sourceSymbol) || isBlockSymbol(targetSymbol)) {
+      return;
+    }
+
     // Find the actual symbols in the graph by name and file path
     const sourceSymbols = this.findSymbolByName(sourceSymbol.name);
     const targetSymbols = this.findSymbolByName(targetSymbol.name);
@@ -1232,6 +1415,7 @@ export class ApexSymbolGraph {
         clearTimeout(timer);
       }
       this.activeRetryTimers.clear();
+      this.pendingRetrySymbols.clear();
 
       this.logger.debug(
         () => 'Deferred reference processing shutdown complete',
@@ -1268,6 +1452,9 @@ export class ApexSymbolGraph {
           : undefined;
 
         if (!symbol || !fileUri || !symbolTable) return null;
+
+        // Exclude scope symbols from lookup results (they're structural, not semantic)
+        if (isBlockSymbol(symbol)) return null;
 
         return {
           symbol,
@@ -1629,6 +1816,7 @@ export class ApexSymbolGraph {
       theFileUri,
       undefined, // scopePath not available here
       lineNumber,
+      symbol.kind, // Include kind/prefix to ensure uniqueness
     );
   }
 
@@ -1773,6 +1961,11 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
+    // Don't create reference edges to/from scope symbols (they're structural, not semantic)
+    if (isBlockSymbol(sourceSymbol) || isBlockSymbol(targetSymbol)) {
+      return;
+    }
+
     // Find the source symbol in the graph
     const sourceSymbols = this.findSymbolByName(sourceSymbol.name);
     const sourceSymbolInGraph = sourceSymbol.fileUri

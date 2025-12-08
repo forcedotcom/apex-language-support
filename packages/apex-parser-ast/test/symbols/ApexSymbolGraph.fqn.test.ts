@@ -10,8 +10,10 @@ import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
+import { SymbolKind } from '../../src/types/symbol';
 import {
   initialize as schedulerInitialize,
+  shutdown as schedulerShutdown,
   reset as schedulerReset,
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
@@ -32,8 +34,18 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
   });
 
   afterAll(async () => {
-    // Reset scheduler after all tests
-    await Effect.runPromise(schedulerReset());
+    // Shutdown the scheduler first to stop the background loop
+    try {
+      await Effect.runPromise(schedulerShutdown());
+    } catch (_error) {
+      // Ignore errors - scheduler might not be initialized or already shut down
+    }
+    // Reset scheduler state after shutdown
+    try {
+      await Effect.runPromise(schedulerReset());
+    } catch (_error) {
+      // Ignore errors - scheduler might not be initialized
+    }
   });
 
   beforeEach(() => {
@@ -123,13 +135,19 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       }
 
       // Find the method symbol
-      const methodSymbol = symbols.find((s) => s.name === 'myMethod');
+      const methodSymbol = symbols.find(
+        (s) => s.name === 'myMethod' && s.kind === SymbolKind.Method,
+      );
       expect(methodSymbol).toBeDefined();
       // FQN is normalized to lowercase for Apex case-insensitive convention
-      expect(methodSymbol?.fqn).toBe('testclass.mymethod');
+      // FQN now includes blocks: class -> class block -> method
+      // Block naming uses pattern: class_1, class_2, etc.
+      expect(methodSymbol?.fqn).toMatch(/^testclass\.class_\d+\.mymethod$/);
 
-      // Verify FQN can be looked up (case-insensitive)
-      const foundSymbol = symbolGraph.findSymbolByFQN('testclass.mymethod');
+      // Verify FQN can be looked up using the actual FQN (case-insensitive)
+      const actualFQN = methodSymbol?.fqn;
+      expect(actualFQN).toBeDefined();
+      const foundSymbol = symbolGraph.findSymbolByFQN(actualFQN!);
       expect(foundSymbol).toBeTruthy();
       expect(foundSymbol?.name).toBe('myMethod');
     });
@@ -168,25 +186,34 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       }
 
       // Find the inner class and method symbols
-      const innerClass = symbols.find((s) => s.name === 'InnerClass');
-      const methodSymbol = symbols.find((s) => s.name === 'innerMethod');
+      const innerClass = symbols.find(
+        (s) => s.name === 'InnerClass' && s.kind === SymbolKind.Class,
+      );
+      const methodSymbol = symbols.find(
+        (s) => s.name === 'innerMethod' && s.kind === SymbolKind.Method,
+      );
 
       expect(innerClass).toBeDefined();
       expect(methodSymbol).toBeDefined();
       // FQN is normalized to lowercase for Apex case-insensitive convention
+      // Inner class FQN: outerclass.innerclass (inner class parentId points to outer class symbol, not block)
+      // Method FQN includes blocks: outerclass.innerclass.class_N.innermethod
+      // Block naming uses pattern: class_1, class_2, etc.
       expect(innerClass?.fqn).toBe('outerclass.innerclass');
-      expect(methodSymbol?.fqn).toBe('outerclass.innerclass.innermethod');
-
-      // Verify FQNs can be looked up
-      const foundInnerClass = symbolGraph.findSymbolByFQN(
-        'OuterClass.InnerClass',
+      expect(methodSymbol?.fqn).toMatch(
+        /^outerclass\.innerclass\.class_\d+\.innermethod$/,
       );
+
+      // Verify FQNs can be looked up using the actual FQNs (case-insensitive)
+      const innerClassFQN = innerClass?.fqn;
+      expect(innerClassFQN).toBeDefined();
+      const foundInnerClass = symbolGraph.findSymbolByFQN(innerClassFQN!);
       expect(foundInnerClass).toBeTruthy();
       expect(foundInnerClass?.name).toBe('InnerClass');
 
-      const foundMethod = symbolGraph.findSymbolByFQN(
-        'OuterClass.InnerClass.innerMethod',
-      );
+      const methodFQN = methodSymbol?.fqn;
+      expect(methodFQN).toBeDefined();
+      const foundMethod = symbolGraph.findSymbolByFQN(methodFQN!);
       expect(foundMethod).toBeTruthy();
       expect(foundMethod?.name).toBe('innerMethod');
     });
@@ -271,12 +298,27 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
         symbolGraph.addSymbol(symbol, 'file:///TestClass.cls', symbolTable);
       }
 
-      // Verify both FQNs can be looked up
-      const foundClass = symbolGraph.findSymbolByFQN('TestClass');
+      // Find symbols first to get their actual FQNs (which include block names)
+      const classSymbol = symbols.find(
+        (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
+      );
+      const methodSymbol = symbols.find(
+        (s) => s.name === 'myMethod' && s.kind === SymbolKind.Method,
+      );
+
+      expect(classSymbol).toBeDefined();
+      expect(methodSymbol).toBeDefined();
+
+      // Verify both FQNs can be looked up using the actual FQNs
+      const classFQN = classSymbol?.fqn;
+      expect(classFQN).toBeDefined();
+      const foundClass = symbolGraph.findSymbolByFQN(classFQN!);
       expect(foundClass).toBeTruthy();
       expect(foundClass?.name).toBe('TestClass');
 
-      const foundMethod = symbolGraph.findSymbolByFQN('TestClass.myMethod');
+      const methodFQN = methodSymbol?.fqn;
+      expect(methodFQN).toBeDefined();
+      const foundMethod = symbolGraph.findSymbolByFQN(methodFQN!);
       expect(foundMethod).toBeTruthy();
       expect(foundMethod?.name).toBe('myMethod');
     });

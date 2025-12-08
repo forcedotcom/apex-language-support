@@ -12,6 +12,7 @@ import {
   SymbolKind,
   SymbolTable,
   SymbolFactory,
+  ScopeSymbol,
 } from '../../src/types/symbol';
 import { ReferenceType } from '../../src/symbols/ApexSymbolGraph';
 import {
@@ -24,11 +25,43 @@ import {
   getLogger,
   setLogLevel,
 } from '@salesforce/apex-lsp-shared';
+import {
+  initialize as schedulerInitialize,
+  shutdown as schedulerShutdown,
+  reset as schedulerReset,
+} from '../../src/queue/priority-scheduler-utils';
+import { Effect } from 'effect';
 
 describe('ApexSymbolManager', () => {
   let manager: ApexSymbolManager;
   let compilerService: CompilerService;
   const logger = getLogger();
+
+  beforeAll(async () => {
+    // Initialize scheduler before all tests
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
+  });
+
+  afterAll(async () => {
+    // Shutdown the scheduler first to stop the background loop
+    try {
+      await Effect.runPromise(schedulerShutdown());
+    } catch (_error) {
+      // Ignore errors - scheduler might not be initialized or already shut down
+    }
+    // Reset scheduler state after shutdown
+    try {
+      await Effect.runPromise(schedulerReset());
+    } catch (_error) {
+      // Ignore errors - scheduler might not be initialized
+    }
+  });
 
   beforeEach(() => {
     manager = new ApexSymbolManager();
@@ -39,6 +72,9 @@ describe('ApexSymbolManager', () => {
 
   afterEach(() => {
     // Clean up if needed
+    if (manager) {
+      manager.clear();
+    }
   });
 
   // Helper function to compile Apex code and get symbols
@@ -70,20 +106,40 @@ describe('ApexSymbolManager', () => {
     // Get all symbols from the symbol table
     const symbols: ApexSymbol[] = [];
     const collectSymbols = (scope: any) => {
-      const scopeSymbols = scope.getAllSymbols();
+      const scopeSymbols = symbolTable.getSymbolsInScope(scope.id);
       symbols.push(...scopeSymbols);
 
       // Recursively collect from child scopes
-      const children = scope.getChildren();
+      const children = symbolTable
+        .getSymbolsInScope(scope.id)
+        .filter(
+          (s) => s.parentId === scope.id && s.kind === SymbolKind.Block,
+        ) as ScopeSymbol[];
       children.forEach((child: any) => collectSymbols(child));
     };
 
     // Start from the root scope and collect all symbols
-    let currentScope = symbolTable.getCurrentScope();
-    while (currentScope.parent) {
-      currentScope = currentScope.parent;
+    // Find root scope (file scope has no parentId)
+    const rootScope = symbolTable
+      .getAllSymbols()
+      .find(
+        (s) => s.kind === SymbolKind.Block && s.scopeType === 'file',
+      ) as ScopeSymbol;
+    if (rootScope) {
+      collectSymbols(rootScope);
+    } else {
+      // Fallback: use file scope (root)
+      const fileScope = symbolTable
+        .getAllSymbols()
+        .find(
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            (s as ScopeSymbol).scopeType === 'file',
+        ) as ScopeSymbol | undefined;
+      if (fileScope) {
+        collectSymbols(fileScope);
+      }
     }
-    collectSymbols(currentScope);
 
     return { symbols, result };
   };

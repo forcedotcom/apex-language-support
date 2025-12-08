@@ -220,6 +220,12 @@
           "default": "",
           "description": "%configuration.apex-ls-ts.environment.profilingTag.description%"
         },
+        "apex.environment.jsHeapSizeGB": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 32,
+          "description": "%configuration.apex-ls-ts.environment.jsHeapSizeGB.description%"
+        },
         "apex.resources.loadMode": {
           "type": "string",
           "enum": [

@@ -7,9 +7,10 @@ This package is the foundational component of the Apex Language Server responsib
 The package is built around a few core concepts that work together to turn raw source code into a meaningful data model.
 
 - **`CompilerService`**: The main entry point and orchestrator for the parsing process. It manages the entire pipeline, from receiving the source code to returning a final compilation result.
-- **`SymbolTable`**: The primary data structure produced by this package. It's a hierarchical tree of `SymbolScope` objects that mirrors the lexical scoping of the source code (file > class > method > block). It contains every `ApexSymbol` found in the file and allows for efficient lookup.
-- **`ApexSymbol`**: A generic data structure representing a single named entity in the code, such as a class, interface, method, property, or variable. Specialized versions (`TypeSymbol`, `MethodSymbol`, `VariableSymbol`) extend this base structure to hold relevant metadata.
-- **Parser Listeners**: Classes that subscribe to events emitted by the ANTLR parser as it traverses the parse tree. The key listener is the `ApexSymbolCollectorListener`, which is responsible for building the `SymbolTable`.
+- **`SymbolTable`**: The primary data structure produced by this package. It's a hierarchical collection of `ApexSymbol` objects organized by `parentId` relationships that mirrors the lexical scoping of the source code (file > class > method > block). It contains every symbol found in the file and allows for efficient lookup and scope-aware queries.
+- **`ApexSymbol`**: A generic data structure representing a single named entity in the code, such as a class, interface, method, property, or variable. Specialized versions (`TypeSymbol`, `MethodSymbol`, `VariableSymbol`, `ScopeSymbol`) extend this base structure to hold relevant metadata.
+- **`ScopeSymbol`**: A specialized `ApexSymbol` representing a lexical scope (class body, method body, block, control structure, etc.). The system defines 15 distinct scope types, each with its own subclass. Scope symbols use `parentId` relationships to establish containment hierarchies.
+- **Parser Listeners**: Classes that subscribe to events emitted by the ANTLR parser as it traverses the parse tree. The key listener is the `ApexSymbolCollectorListener`, which uses a stack-based approach to track scopes during parsing and builds the `SymbolTable` with proper parent-child relationships.
 - **`ResourceLoader`**: A singleton service that manages the Standard Apex Library using an in-memory file system (memfs). It provides access to compiled symbol tables and source code for standard Apex classes like `System`, `Database`, `Schema`, etc.
 
 ## Architecture and Workflow
@@ -22,8 +23,249 @@ The package uses a classic compiler front-end architecture based on the ANTLR pa
     - The tokens are passed to an `ApexParser`, which builds a concrete Parse Tree based on the Apex grammar.
 3.  **Tree Traversal**: A `ParseTreeWalker` traverses the generated parse tree node by node.
 4.  **Event-Driven Analysis**: As the walker visits each node (e.g., a class declaration), it triggers the corresponding method on the provided listener (e.g., `enterClassDeclaration`).
-5.  **Symbol Table Construction**: The `ApexSymbolCollectorListener` responds to these events. When it enters a new scope (like a class), it tells the `SymbolTable` to `enterScope()`. When it finds a symbol (like a method), it creates an `ApexSymbol` and adds it to the current scope. When it leaves a scope, it calls `exitScope()`.
+5.  **Symbol Table Construction**: The `ApexSymbolCollectorListener` responds to these events using a stack-based scope tracking system:
+    - When entering a scope (like a class), it creates both the semantic symbol (e.g., `ClassSymbol`) and a block symbol (e.g., `ClassScopeSymbol`), then pushes the block symbol onto a scope stack
+    - When finding a symbol (like a method), it creates the symbol and adds it to the `SymbolTable` with the current scope from the stack, establishing parent-child relationships via `parentId`
+    - When leaving a scope, it pops the block symbol from the stack
+    - All symbols are stored in the `SymbolTable` with containment determined by `parentId` relationships, not explicit scope containers
 6.  **Result**: Once the traversal is complete, the listener's `getResult()` method returns the fully constructed `SymbolTable`, which is then packaged into a `CompilationResult` object and returned to the consumer.
+
+## Scope Symbol System Architecture
+
+The scope symbol system is a fundamental architectural component that provides a hierarchical representation of lexical scoping in Apex code. This system enables accurate symbol resolution, scope-aware lookups, and proper containment relationships between symbols.
+
+### Design Philosophy
+
+The scope symbol system uses a **stack-based approach** for tracking scopes during parsing, combined with a **parentId-based containment model** for symbol relationships. This design separates scope tracking (temporary, during parsing) from symbol storage (permanent, in the SymbolTable).
+
+### Core Components
+
+#### 1. Scope Symbol Hierarchy
+
+Every lexical scope in Apex code is represented by a `ScopeSymbol` instance. The system defines 15 distinct scope types, differentiated by the `scopeType` property:
+
+- **`'file'`**: Root scope representing the entire file
+- **`'class'`**: Body scope for classes, interfaces, enums, and triggers
+- **`'method'`**: Body scope for methods and constructors
+- **`'block'`**: Generic anonymous blocks (fallback)
+- **Control Flow Scopes**: `'if'`, `'while'`, `'for'`, `'doWhile'`
+- **Exception Handling Scopes**: `'try'`, `'catch'`, `'finally'`
+- **Switch Scopes**: `'switch'`, `'when'`
+- **Property Scopes**: `'getter'`, `'setter'`
+- **Special Scopes**: `'runAs'`
+
+All scope symbols are instances of the `ScopeSymbol` class, which implements `ApexSymbol` with `kind: SymbolKind.Block`. The `scopeType` property distinguishes between different scope types.
+
+#### 2. Stack-Based Scope Tracking
+
+During parsing, `ApexSymbolCollectorListener` maintains a `scopeStack: Stack<ApexSymbol>` to track the current scope:
+
+```typescript
+// When entering a class declaration
+enterClassDeclaration(ctx: ClassDeclarationContext): void {
+  // 1. Create the class symbol (semantic symbol)
+  const classSymbol = this.createTypeSymbol(...);
+  this.symbolTable.addSymbol(classSymbol, this.getCurrentScopeSymbol());
+
+  // 2. Create the class block symbol (scope container)
+  const blockSymbol = this.createBlockSymbol('block1', 'class', location, parentScope, className);
+
+  // 3. Push block symbol onto stack
+  this.scopeStack.push(blockSymbol);
+}
+
+// When exiting a class declaration
+exitClassDeclaration(): void {
+  // Pop the class block from stack
+  const popped = this.scopeStack.pop();
+  // Validation ensures it's the expected scope type
+}
+```
+
+**Key Characteristics:**
+
+- The stack reflects the current parsing context (innermost scope at the top)
+- Block symbols are pushed when entering scopes and popped when exiting
+- The stack is used only for tracking during parsing, not for permanent storage
+- No explicit `enterScope()`/`exitScope()` calls to SymbolTable - scope management is handled via the stack
+
+#### 3. Parent-Child Relationships via parentId
+
+Containment relationships are established through the `parentId` property, not through explicit scope containers:
+
+```typescript
+// Symbol containment is determined by parentId
+classSymbol.parentId = null; // Top-level symbol
+methodSymbol.parentId = classBlock.id; // Method belongs to class block
+variableSymbol.parentId = methodBlock.id; // Variable belongs to method block
+```
+
+**Hierarchical Structure Example:**
+
+```
+File (implicit root)
+└── ClassSymbol (parentId: null)
+    └── ClassBlockSymbol (parentId: ClassSymbol.id)
+        └── MethodSymbol (parentId: ClassBlockSymbol.id)
+            └── MethodBlockSymbol (parentId: MethodSymbol.id)
+                └── VariableSymbol (parentId: MethodBlockSymbol.id)
+```
+
+#### 4. Semantic Symbols vs. Block Symbols
+
+The system distinguishes between **semantic symbols** (the actual code entities) and **block symbols** (their scope containers):
+
+- **Semantic Symbols**: `ClassSymbol`, `MethodSymbol`, `VariableSymbol`, etc. - represent the actual declarations
+- **Block Symbols**: `ScopeSymbol` instances with different `scopeType` values - represent the lexical scopes that contain symbols
+
+**Relationship Pattern:**
+
+- Class/Interface/Enum/Trigger: `ClassSymbol` → `ClassBlockSymbol` (block's `parentId` points to semantic symbol)
+- Method/Constructor: `MethodSymbol` → `MethodBlockSymbol` (block's `parentId` points to method symbol)
+- Control structures: Only block symbols exist (no semantic symbol)
+
+**Example:**
+
+```typescript
+// Class declaration creates two symbols:
+// 1. ClassSymbol: id = "file:///MyClass.cls:class:MyClass"
+// 2. ClassBlockSymbol: id = "file:///MyClass.cls:class:MyClass:block1", parentId = ClassSymbol.id
+
+// Method declaration creates two symbols:
+// 1. MethodSymbol: id = "file:///MyClass.cls:class:MyClass:block1:method:myMethod", parentId = ClassBlockSymbol.id
+// 2. MethodBlockSymbol: id = "file:///MyClass.cls:class:MyClass:block1:method:myMethod:block2", parentId = MethodSymbol.id
+```
+
+#### 5. Symbol ID Generation
+
+Symbol IDs use a URI-based format that includes scope path information:
+
+**Format:** `fileUri:scopePath:prefix:name`
+
+**Components:**
+
+- `fileUri`: The file containing the symbol (e.g., `file:///path/MyClass.cls`)
+- `scopePath`: Colon-separated path from root to current scope (e.g., `class:MyClass:block1`)
+- `prefix`: Symbol kind or scope type (e.g., `class`, `method`, `block`)
+- `name`: Symbol name (e.g., `myMethod`)
+
+**Examples:**
+
+```
+Class:        file:///MyClass.cls:class:MyClass
+Class Block: file:///MyClass.cls:class:MyClass:block1
+Method:      file:///MyClass.cls:class:MyClass:block1:method:myMethod
+Method Block: file:///MyClass.cls:class:MyClass:block1:method:myMethod:block2
+Variable:    file:///MyClass.cls:class:MyClass:block1:method:myMethod:block2:variable:x
+```
+
+**Scope Path Construction:**
+
+- Includes root symbol's prefix and name (e.g., `class:MyClass`)
+- Includes intermediate block names (e.g., `block1`, `block2`)
+- Uses colons as separators for consistency
+- Method blocks append directly to method symbol's path
+
+#### 6. SymbolTable Integration
+
+The `SymbolTable` class manages all symbols using a parentId-based containment model:
+
+**Key Methods:**
+
+- `addSymbol(symbol, currentScope)`: Adds a symbol and sets `parentId` based on `currentScope`
+- `getSymbolsInScope(scopeId)`: Returns all symbols where `parentId === scopeId`
+- `getCurrentScopePath(parentScope)`: Builds the scope path for ID generation
+- `findSymbolInScope(scopeId, name)`: Finds a symbol by name within a specific scope
+
+**Containment Resolution:**
+
+```typescript
+// Symbols are contained by their parentId, not by explicit scope containers
+const classBlock = symbolTable.findSymbolById(classBlockId);
+const methods = symbolTable
+  .getAllSymbols()
+  .filter((s) => s.parentId === classBlock.id && s.kind === SymbolKind.Method);
+```
+
+#### 7. Block Counter System
+
+Anonymous blocks (like generic blocks, if statements, loops) use a counter-based naming scheme:
+
+```typescript
+this.blockCounter++; // Increment for each new block
+const blockName = `block${this.blockCounter}`; // e.g., "block1", "block2"
+```
+
+Control flow blocks use descriptive prefixes:
+
+- `if_1`, `if_2`, etc. for if statements
+- `while_1`, `while_2`, etc. for while loops
+- `for_1`, `for_2`, etc. for for loops
+- Similar patterns for try/catch/finally, switch/when, etc.
+
+### Scope Lifecycle
+
+The complete lifecycle of a scope during parsing:
+
+1. **Enter Scope**: Parser enters a scope (e.g., class body)
+   - Create semantic symbol (if applicable)
+   - Create block symbol with appropriate `scopeType`
+   - Set `parentId` relationships
+   - Push block symbol onto `scopeStack`
+   - Add both symbols to `SymbolTable`
+
+2. **Within Scope**: Parser processes symbols within the scope
+   - Symbols are added with `currentScope` from stack
+   - `parentId` is automatically set to current scope's ID
+
+3. **Exit Scope**: Parser exits the scope
+   - Pop block symbol from `scopeStack`
+   - Validate scope type matches expected type
+   - Stack now reflects the parent scope
+
+### Benefits of This Design
+
+1. **Separation of Concerns**: Scope tracking (stack) is separate from symbol storage (SymbolTable)
+2. **Efficient Lookups**: ParentId-based containment enables O(1) parent resolution and efficient scope queries
+3. **Type Safety**: Each scope type has its own subclass, enabling type-safe operations
+4. **Accurate Scoping**: Mirrors the actual lexical scoping of Apex code
+5. **Flexible Hierarchy**: Supports arbitrary nesting of scopes (classes, methods, blocks, control structures)
+6. **Unique Identification**: URI-based IDs ensure global uniqueness while remaining human-readable
+
+### Usage Examples
+
+**Finding symbols in a scope:**
+
+```typescript
+const classBlock = symbolTable.findSymbolById(classBlockId);
+const methods = symbolTable
+  .getSymbolsInScope(classBlock.id)
+  .filter((s) => s.kind === SymbolKind.Method);
+```
+
+**Traversing the scope hierarchy:**
+
+```typescript
+let currentScope: ScopeSymbol | null = methodBlock;
+const path: string[] = [];
+while (currentScope) {
+  path.unshift(currentScope.name);
+  currentScope = currentScope.parentId
+    ? (symbolTable.findSymbolById(currentScope.parentId) as ScopeSymbol)
+    : null;
+}
+// path: ['file', 'MyClass', 'block1', 'myMethod', 'block2']
+```
+
+**Resolving a symbol's scope:**
+
+```typescript
+const variable = symbolTable.findSymbolByName('x');
+const parentScope = variable.parentId
+  ? (symbolTable.findSymbolById(variable.parentId) as ScopeSymbol)
+  : null;
+// parentScope is the method block containing the variable
+```
 
 ## Directory Structure
 

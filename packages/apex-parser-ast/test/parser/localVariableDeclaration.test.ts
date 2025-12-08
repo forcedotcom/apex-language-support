@@ -16,7 +16,7 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import {
   SymbolTable,
   SymbolKind,
-  SymbolScope,
+  ScopeSymbol,
   ApexSymbol,
 } from '../../src/types/symbol';
 import { TestLogger } from '../utils/testLogger';
@@ -416,46 +416,60 @@ public class ParentChildTest {
         `childVar: parentId=${childVar!.parentId}, scope=${getScopeName(symbolTable!, childVar!)}`,
       );
 
-      // Both variables should be in the same method scope
-      expect(parentVar!.parentId).toBe(childVar!.parentId);
+      // Variables should have parentId pointing to their respective blocks
+      // parentVar is in the method's block, childVar is in the if statement's block
+      expect(parentVar!.parentId).toBeDefined();
+      expect(childVar!.parentId).toBeDefined();
+      // They should have different parentIds since they're in different blocks
+      expect(parentVar!.parentId).not.toBe(childVar!.parentId);
+      // Both parentIds should point to block symbols (contain "block:")
+      expect(parentVar!.parentId).toContain('block:');
+      expect(childVar!.parentId).toContain('block:');
     });
   });
 
   // Helper function to get all symbols from all scopes recursively
   function getAllSymbolsFromAllScopes(symbolTable: SymbolTable): ApexSymbol[] {
-    const symbols: ApexSymbol[] = [];
-
-    function collectFromScope(scope: SymbolScope) {
-      symbols.push(...scope.getAllSymbols());
-      scope.getChildren().forEach(collectFromScope);
+    // Simply return all symbols from the symbol table
+    // The symbol table already contains all symbols with their parentId relationships
+    return symbolTable.getAllSymbols();
+    if (fileScope) {
+      collectFromScope(fileScope);
     }
-
-    collectFromScope(symbolTable.getCurrentScope());
     return symbols;
   }
 
   // Helper function to get scope name for debugging
   function getScopeName(symbolTable: SymbolTable, symbol: ApexSymbol): string {
-    function findScopeName(
-      scope: SymbolScope,
-      targetId: string,
-    ): string | null {
-      const scopeKey = scope.getKey();
-      const scopeId =
-        scopeKey.unifiedId || `${scopeKey.prefix}:${scopeKey.path.join('.')}`;
-      if (scopeId === targetId) {
-        return scope.name;
+    // Find scope by parentId - the parentId points to the scope containing this symbol
+    if (symbol.parentId) {
+      const parentScope = symbolTable
+        .getAllSymbols()
+        .find(
+          (s) => s.id === symbol.parentId && s.kind === SymbolKind.Block,
+        ) as ScopeSymbol | undefined;
+      if (parentScope) {
+        return parentScope.name;
       }
-      for (const child of scope.getChildren()) {
-        const result = findScopeName(child, targetId);
-        if (result) return result;
+      // If parent is not a block, it might be a class/method symbol
+      // In that case, find the corresponding block scope
+      const parentSymbol = symbolTable
+        .getAllSymbols()
+        .find((s) => s.id === symbol.parentId);
+      if (parentSymbol) {
+        // Find block scope that has this symbol as parent
+        const blockScope = symbolTable
+          .getAllSymbols()
+          .find(
+            (s) =>
+              s.kind === SymbolKind.Block &&
+              (s as ScopeSymbol).parentId === parentSymbol.id,
+          ) as ScopeSymbol | undefined;
+        if (blockScope) {
+          return blockScope.name;
+        }
       }
-      return null;
     }
-
-    return (
-      findScopeName(symbolTable.getCurrentScope(), symbol.parentId || '') ||
-      'unknown'
-    );
+    return 'unknown';
   }
 });

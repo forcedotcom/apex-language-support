@@ -35,7 +35,6 @@ import {
   AssignExpressionContext,
   ArrayExpressionContext,
   CastExpressionContext,
-  CatchClauseContext,
   // Use dedicated method call contexts for precise capture
   MethodCallContext,
   DotMethodCallContext,
@@ -49,9 +48,23 @@ import {
   InstanceOfExpressionContext,
   ExpressionListContext,
   TypeArgumentsContext,
+  // Add contexts for control structures
+  IfStatementContext,
+  WhileStatementContext,
+  ForStatementContext,
+  TryStatementContext,
+  CatchClauseContext,
+  FinallyBlockContext,
+  SwitchStatementContext,
+  WhenControlContext,
+  DoWhileStatementContext,
+  RunAsStatementContext,
+  GetterContext,
+  SetterContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { Stack } from 'data-structure-typed';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
@@ -77,8 +90,10 @@ import {
   AnnotationParameter,
   SymbolFactory,
   ApexSymbol,
-  SymbolScope,
+  ScopeSymbol,
   Range,
+  ScopeType,
+  SymbolKey,
 } from '../../types/symbol';
 import {
   ClassModifierValidator,
@@ -95,6 +110,7 @@ import {
   isMethodSymbol,
   isClassSymbol,
   isInterfaceSymbol,
+  isBlockSymbol,
 } from '../../utils/symbolNarrowing';
 import { isContextType } from '../../utils/contextTypeGuards';
 import { ResourceLoader } from '../../utils/resourceLoader';
@@ -129,12 +145,10 @@ export class ApexSymbolCollectorListener
 {
   private readonly logger;
   private symbolTable: SymbolTable;
-  private currentTypeSymbol: TypeSymbol | null = null;
-  private currentMethodSymbol: MethodSymbol | null = null;
+  private scopeStack: Stack<ApexSymbol> = new Stack<ApexSymbol>();
   private currentNamespace: Namespace | null = null; // NEW: Track current namespace
   protected projectNamespace: string | undefined = undefined; // NEW: Store project namespace
-  private blockDepth: number = 0;
-  private blockCounter: number = 0; // Separate counter for unique block names
+  private blockCounter: number = 0; // Counter for unique block names
   private currentModifiers: SymbolModifiers = this.createDefaultModifiers();
   private currentAnnotations: Annotation[] = [];
   private currentFilePath: string = '';
@@ -176,6 +190,7 @@ export class ApexSymbolCollectorListener
    */
   setCurrentFileUri(fileUri: string): void {
     this.currentFilePath = fileUri;
+    this.symbolTable.setFileUri(fileUri);
     this.logger.debug(() => `Set current file path to: ${fileUri}`);
   }
 
@@ -187,6 +202,347 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Get the current scope symbol without removing it
+   * @returns The current scope symbol (ScopeSymbol), or null if stack is empty
+   */
+  private getCurrentScope(): ApexSymbol | null {
+    return this.scopeStack.peek() ?? null;
+  }
+
+  /**
+   * Get the current scope as a ScopeSymbol using type guard
+   * @returns The current scope symbol as ScopeSymbol, or null if stack is empty or not a block symbol
+   */
+  private getCurrentScopeSymbol(): ScopeSymbol | null {
+    const peeked = this.scopeStack.peek();
+    return isBlockSymbol(peeked) ? peeked : null;
+  }
+
+  /**
+   * Get the current type symbol from the stack
+   * @returns The current type symbol, or null if not in a type scope
+   * Returns the innermost (most recent) type when nested classes are present
+   */
+  private getCurrentType(): TypeSymbol | null {
+    // Iterate from the top of the stack (innermost scope) to find the most recent class
+    const stackArray = this.scopeStack.toArray();
+    // Reverse to iterate from top (innermost) to bottom (outermost)
+    for (let i = stackArray.length - 1; i >= 0; i--) {
+      const owner = stackArray[i];
+      if (isBlockSymbol(owner)) {
+        if (owner.scopeType === 'class') {
+          // Block's parentId points to the class/interface/enum/trigger symbol
+          const typeSymbol = this.symbolTable
+            .getAllSymbols()
+            .find(
+              (s) =>
+                s.id === owner.parentId &&
+                (s.kind === SymbolKind.Class ||
+                  s.kind === SymbolKind.Interface ||
+                  s.kind === SymbolKind.Enum ||
+                  s.kind === SymbolKind.Trigger),
+            );
+          if (typeSymbol) return typeSymbol as TypeSymbol;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get the current method symbol from the stack
+   * @returns The current method symbol, or null if not in a method scope
+   */
+  private getCurrentMethod(): MethodSymbol | null {
+    const stackArray = this.scopeStack.toArray();
+    for (const owner of stackArray) {
+      if (isBlockSymbol(owner)) {
+        if (owner.scopeType === 'method') {
+          // Block's parentId points to the method/constructor symbol
+          const methodSymbol = this.symbolTable
+            .getAllSymbols()
+            .find(
+              (s) =>
+                s.id === owner.parentId &&
+                (s.kind === SymbolKind.Method ||
+                  s.kind === SymbolKind.Constructor),
+            );
+          if (methodSymbol) return methodSymbol as MethodSymbol;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get the current block symbol from the stack
+   * @returns The current block symbol, or null if not in a block scope
+   */
+  private getCurrentBlock(): ScopeSymbol | null {
+    const owner = this.scopeStack.peek();
+    return isBlockSymbol(owner) ? owner : null;
+  }
+
+  /**
+   * Get the type's scope for duplicate detection
+   * When checking for duplicates, the current scope should be the type's block scope
+   * where methods are stored. Methods are added to the current scope (type's block scope)
+   * before entering the method scope. After exiting the first method, we're back in
+   * the type's block scope, so getCurrentScope() should return the correct scope.
+   * @returns The type's block scope where methods are stored
+   */
+  private getTypeScope(): ScopeSymbol | null {
+    // Use stack to get current scope - should be the type's block scope
+    const currentScope = this.scopeStack.peek();
+    return isBlockSymbol(currentScope) ? currentScope : null;
+  }
+
+  /**
+   * Generate a consistent block name using the pattern: ${scopeType}_${counter}
+   * @param scopeType The type of scope
+   * @returns A unique block name
+   */
+  private generateBlockName(scopeType: ScopeType): string {
+    this.blockCounter++;
+    return `${scopeType}_${this.blockCounter}`;
+  }
+
+  /**
+   * Map ANTLR parser context types to ScopeType
+   * @param ctx The parser context
+   * @returns The corresponding ScopeType, or null if not a scope-creating context
+   */
+  private getScopeTypeFromContext(ctx: ParserRuleContext): ScopeType | null {
+    if (isContextType(ctx, IfStatementContext)) return 'if';
+    if (isContextType(ctx, WhileStatementContext)) return 'while';
+    if (isContextType(ctx, ForStatementContext)) return 'for';
+    if (isContextType(ctx, DoWhileStatementContext)) return 'doWhile';
+    if (isContextType(ctx, TryStatementContext)) return 'try';
+    if (isContextType(ctx, CatchClauseContext)) return 'catch';
+    if (isContextType(ctx, FinallyBlockContext)) return 'finally';
+    if (isContextType(ctx, SwitchStatementContext)) return 'switch';
+    if (isContextType(ctx, WhenControlContext)) return 'when';
+    if (isContextType(ctx, RunAsStatementContext)) return 'runAs';
+    if (isContextType(ctx, GetterContext)) return 'getter';
+    if (isContextType(ctx, SetterContext)) return 'setter';
+    if (isContextType(ctx, BlockContext)) return 'block';
+    return null;
+  }
+
+  /**
+   * Find the semantic symbol (class/method) that a block should reference
+   * @param scopeType The type of block
+   * @param searchName The name to search for
+   * @param parentScope The parent scope
+   * @returns Object with the found symbol and the parentId to use
+   */
+  private findSemanticSymbolForBlock(
+    scopeType: ScopeType,
+    searchName: string,
+    parentScope: ScopeSymbol | null,
+  ): { symbol?: ApexSymbol; parentId: string | null } {
+    let parentId: string | null = parentScope ? parentScope.id : null;
+
+    if (scopeType === 'class') {
+      // For class blocks, find the class/interface/enum/trigger symbol
+      const currentScopeId = parentScope ? parentScope.id : null;
+      let semanticSymbol = this.symbolTable.findSymbolInScope(
+        currentScopeId,
+        searchName,
+      );
+      if (semanticSymbol) {
+        // Verify it's the right kind
+        if (
+          !(
+            semanticSymbol.kind === SymbolKind.Class ||
+            semanticSymbol.kind === SymbolKind.Interface ||
+            semanticSymbol.kind === SymbolKind.Enum ||
+            semanticSymbol.kind === SymbolKind.Trigger
+          )
+        ) {
+          semanticSymbol = undefined;
+        }
+      }
+
+      // If not found in current scope, search all symbols
+      if (!semanticSymbol) {
+        const allSymbols = this.symbolTable.getAllSymbols();
+        for (let i = allSymbols.length - 1; i >= 0; i--) {
+          const s = allSymbols[i];
+          if (
+            s.name === searchName &&
+            s.kind !== SymbolKind.Block &&
+            (s.kind === SymbolKind.Class ||
+              s.kind === SymbolKind.Interface ||
+              s.kind === SymbolKind.Enum ||
+              s.kind === SymbolKind.Trigger)
+          ) {
+            semanticSymbol = s;
+            break;
+          }
+        }
+      }
+
+      if (semanticSymbol) {
+        parentId = semanticSymbol.id;
+        return { symbol: semanticSymbol, parentId };
+      }
+    } else if (scopeType === 'method') {
+      // For method blocks, find the method/constructor symbol
+      const allSymbols = this.symbolTable.getAllSymbols();
+      for (let i = allSymbols.length - 1; i >= 0; i--) {
+        const s = allSymbols[i];
+        if (
+          s.name === searchName &&
+          s.kind !== SymbolKind.Block &&
+          (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor)
+        ) {
+          return { symbol: s, parentId: s.id };
+        }
+      }
+      // Fallback: if we can't find the method symbol, point to parent scope
+      return { parentId };
+    }
+
+    return { parentId };
+  }
+
+  /**
+   * Calculate scope path for method blocks
+   * @param methodSymbol The method symbol
+   * @param parentScope The parent scope
+   * @returns The scope path array
+   */
+  private calculateMethodBlockScopePath(
+    methodSymbol: ApexSymbol,
+    parentScope: ScopeSymbol | null,
+  ): string[] {
+    // Extract method path from method symbol's ID
+    // Method symbol ID format: fileUri:scopePath:prefix:name
+    // e.g., 'file:///test/TestClass.cls:class:MyClass:block_1:method:myMethod'
+    const methodIdStr = methodSymbol.id;
+    const fileUriEnd = methodIdStr.indexOf(':', methodIdStr.indexOf('://') + 3);
+    // Extract method path from method symbol's ID
+    const methodPath = methodIdStr.substring(fileUriEnd + 1);
+    // methodPath is now: 'class:MyClass:block_1:method:myMethod' (already uses colons)
+    return [methodPath];
+  }
+
+  /**
+   * Calculate scope path for class blocks
+   * @param rootSymbol The root symbol (class/interface/enum/trigger)
+   * @param basePath The base path from parent scope
+   * @returns The scope path array
+   */
+  private calculateClassBlockScopePath(
+    rootSymbol: ApexSymbol | null,
+    basePath: string[],
+  ): string[] {
+    if (rootSymbol) {
+      const rootPrefix = rootSymbol.kind; // e.g., 'class', 'interface', 'enum', 'trigger'
+      return [rootPrefix, rootSymbol.name, ...basePath];
+    }
+    return basePath;
+  }
+
+  /**
+   * Calculate the scope path for a block symbol
+   * @param scopeType The type of block
+   * @param parentScope The parent scope
+   * @param semanticName Optional semantic symbol name to search for
+   * @returns The scope path array
+   */
+  private calculateScopePath(
+    scopeType: ScopeType,
+    parentScope: ScopeSymbol | null,
+    semanticName?: string,
+  ): string[] {
+    if (scopeType === 'method') {
+      // Build scopePath by following parentId chain, including semantic symbols
+      const blockPath = this.symbolTable.getCurrentScopePath(
+        parentScope ?? null,
+      );
+      // Find the method symbol that this block will point to
+      const searchName = semanticName || '';
+      const allSymbols = this.symbolTable.getAllSymbols();
+      let methodSymbol: ApexSymbol | undefined;
+      for (let i = allSymbols.length - 1; i >= 0; i--) {
+        const s = allSymbols[i];
+        if (
+          s.name === searchName &&
+          s.kind !== SymbolKind.Block &&
+          (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor)
+        ) {
+          methodSymbol = s;
+          break;
+        }
+      }
+      if (methodSymbol) {
+        return this.calculateMethodBlockScopePath(methodSymbol, parentScope);
+      } else {
+        // Prepend root symbol's prefix and name to block path
+        const rootSymbol = this.findRootSymbol(parentScope);
+        return this.calculateClassBlockScopePath(rootSymbol, blockPath);
+      }
+    } else {
+      const basePath = this.symbolTable.getCurrentScopePath(
+        parentScope ?? null,
+      );
+      const rootSymbol = this.findRootSymbol(parentScope);
+      return this.calculateClassBlockScopePath(rootSymbol, basePath);
+    }
+  }
+
+  /**
+   * Generic method to enter a scope for control structures
+   * @param scopeType The type of scope to enter
+   * @param ctx The parser context
+   * @param semanticName Optional semantic symbol name for class/method blocks
+   */
+  private enterScope(
+    scopeType: ScopeType,
+    ctx: ParserRuleContext,
+    semanticName?: string,
+  ): void {
+    try {
+      const name = this.generateBlockName(scopeType);
+      const location = this.getLocation(ctx);
+      const parentScope = this.getCurrentScopeSymbol();
+      const blockSymbol = this.createBlockSymbol(
+        name,
+        scopeType,
+        location,
+        parentScope,
+        semanticName,
+      );
+
+      if (!blockSymbol) {
+        this.addError('Failed to create block symbol', ctx);
+        return;
+      }
+      this.scopeStack.push(blockSymbol);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in ${scopeType} statement: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Generic method to exit a scope with validation
+   * @param expectedScopeType The expected scope type (for validation)
+   */
+  private exitScope(expectedScopeType: ScopeType): void {
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== expectedScopeType) {
+        this.logger.warn(
+          `Expected ${expectedScopeType} scope on exit, but got ${popped.scopeType}`,
+        );
+      }
+    }
+  }
+
+  /**
    * Creates a new instance of this listener for processing multiple files.
    * @returns A new instance of ApexSymbolCollectorListener with a fresh symbol table.
    */
@@ -195,6 +551,147 @@ export class ApexSymbolCollectorListener
     // Note: SymbolTable constructor already creates a 'file' scope as root
     // No need to call enterScope('file') again
     return new ApexSymbolCollectorListener(newTable);
+  }
+
+  /**
+   * Find the root symbol (class/interface/enum/trigger) for a given scope
+   * Traverses up the parentId chain to find the top-level type
+   * @param startingScope The scope to start from (can be null for file level)
+   * @returns The root type symbol, or null if not found
+   */
+  private findRootSymbol(startingScope: ScopeSymbol | null): ApexSymbol | null {
+    if (!startingScope) {
+      // At file level, find the most recent root symbol
+      const roots = this.symbolTable.getRoots();
+      // Return the most recently added root (last in array)
+      return roots.length > 0 ? roots[roots.length - 1] : null;
+    }
+
+    // Traverse up the parentId chain to find the root
+    let current: ApexSymbol | null = startingScope;
+    const visited = new Set<string>();
+
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
+
+      // If this symbol is a root (parentId === null) and is a type, return it
+      if (
+        current.parentId === null &&
+        (current.kind === SymbolKind.Class ||
+          current.kind === SymbolKind.Interface ||
+          current.kind === SymbolKind.Enum ||
+          current.kind === SymbolKind.Trigger)
+      ) {
+        return current;
+      }
+
+      // Move to parent
+      if (current.parentId) {
+        const allSymbols = this.symbolTable.getAllSymbols();
+        current = allSymbols.find((s) => s.id === current!.parentId) || null;
+      } else {
+        current = null;
+      }
+    }
+
+    // Fallback: if we didn't find a root by traversing, check roots array
+    const roots = this.symbolTable.getRoots();
+    return roots.length > 0 ? roots[roots.length - 1] : null;
+  }
+
+  /**
+   * Create a block symbol directly and add it to the symbol table.
+   * This replaces enterScope() to use stack-only scope tracking.
+   * @param name The block name (e.g., "block_1" for generic blocks, or semantic name for class/method blocks)
+   * @param scopeType The type of block
+   * @param location The location of the block
+   * @param parentScope The parent scope from the stack (null for file level)
+   * @param semanticName Optional semantic symbol name to search for
+   *                     (for class/method blocks, use the class/method name, not the block name)
+   * @returns The created block symbol
+   */
+  private createBlockSymbol(
+    name: string,
+    scopeType: ScopeType,
+    location: SymbolLocation,
+    parentScope: ScopeSymbol | null,
+    semanticName?: string,
+  ): ScopeSymbol {
+    const fileUri = this.symbolTable.getFileUri();
+
+    // Calculate scope path using helper method
+    const scopePath = this.calculateScopePath(
+      scopeType,
+      parentScope,
+      semanticName,
+    );
+
+    // Find semantic symbol and determine parentId using helper method
+    const searchName = semanticName || name;
+    const { parentId } = this.findSemanticSymbolForBlock(
+      scopeType,
+      searchName,
+      parentScope,
+    );
+
+    // Create the block symbol ID
+    // For method blocks, we want the ID to append directly to the method symbol's ID
+    let id: string;
+    if (
+      scopeType === 'method' &&
+      scopePath.length === 1 &&
+      scopePath[0].includes(':')
+    ) {
+      // This is a method block - append the block name directly to the method symbol's path
+      id = `${fileUri}:${scopePath[0]}:${name}`;
+    } else {
+      // Use standard ID generation for other block types
+      id = SymbolFactory.generateId(name, fileUri, scopePath, 'block');
+    }
+
+    const key: SymbolKey = {
+      prefix: scopeType,
+      name,
+      path: scopePath ? [fileUri, ...scopePath, name] : [fileUri, name],
+      unifiedId: id,
+      fileUri,
+      kind: SymbolKind.Block,
+    };
+
+    const modifiers: SymbolModifiers = {
+      visibility: SymbolVisibility.Default,
+      isStatic: false,
+      isFinal: false,
+      isAbstract: false,
+      isVirtual: false,
+      isOverride: false,
+      isTransient: false,
+      isTestMethod: false,
+      isWebService: false,
+      isBuiltIn: false,
+    };
+
+    // For block symbols, symbolRange and identifierRange should be the same
+    const blockLocation: SymbolLocation = {
+      symbolRange: location.symbolRange,
+      identifierRange: location.symbolRange, // Same as symbolRange for blocks
+    };
+
+    // Use SymbolFactory to create the appropriate ScopeSymbol subclass
+    const blockSymbol = SymbolFactory.createScopeSymbolByType(
+      name,
+      scopeType,
+      blockLocation,
+      fileUri,
+      parentId,
+      key,
+      modifiers,
+    );
+
+    // Add block symbol to symbol table
+    this.symbolTable.addSymbol(blockSymbol, parentScope ?? null);
+
+    return blockSymbol;
   }
 
   /**
@@ -261,10 +758,12 @@ export class ApexSymbolCollectorListener
       const modifier = ctx.text.toLowerCase();
 
       // Check for modifiers in interface methods
+      const currentType = this.getCurrentType();
+      const currentMethod = this.getCurrentMethod();
       if (
-        this.currentTypeSymbol &&
-        isInterfaceSymbol(this.currentTypeSymbol) &&
-        this.currentMethodSymbol &&
+        currentType &&
+        isInterfaceSymbol(currentType) &&
+        currentMethod &&
         modifier
       ) {
         this.addError('Modifiers are not allowed on interface methods', ctx);
@@ -291,7 +790,7 @@ export class ApexSymbolCollectorListener
       const validationResult = IdentifierValidator.validateIdentifier(
         name,
         SymbolKind.Class,
-        !this.currentTypeSymbol, // isTopLevel
+        !this.getCurrentType(), // isTopLevel
         this.createValidationScope(),
       );
 
@@ -303,16 +802,18 @@ export class ApexSymbolCollectorListener
       }
 
       // Check for duplicate class name in the same scope
-      if (this.currentTypeSymbol) {
-        if (name === this.currentTypeSymbol.name) {
+      const currentType = this.getCurrentType();
+      if (currentType) {
+        if (name === currentType.name) {
           this.addError(
-            `Inner class '${name}' cannot have the same name as its outer class '${this.currentTypeSymbol.name}'.`,
+            `Inner class '${name}' cannot have the same name as its outer class '${currentType.name}'.`,
             ctx,
           );
         }
 
-        // Check for nested inner class by checking if currentTypeSymbol has a parent
-        if (this.currentTypeSymbol && this.currentTypeSymbol.parentId) {
+        // Check for nested inner class by checking if currentType is nested within another inner class
+        // Use the helper method that traverses the parent chain to find nested inner classes
+        if (this.isNestedInInnerClass(currentType)) {
           this.addError(
             `Inner class '${name}' cannot be defined within another inner class. ` +
               'Apex does not support nested inner classes.',
@@ -325,7 +826,7 @@ export class ApexSymbolCollectorListener
       InterfaceBodyValidator.validateClassInInterface(
         name,
         ctx,
-        this.currentTypeSymbol,
+        currentType,
         this,
       );
 
@@ -338,8 +839,8 @@ export class ApexSymbolCollectorListener
         name,
         modifiers,
         ctx,
-        !!this.currentTypeSymbol, // isInnerClass
-        this.currentTypeSymbol,
+        !!currentType, // isInnerClass
+        currentType,
         annotations,
         this,
       );
@@ -353,12 +854,23 @@ export class ApexSymbolCollectorListener
           .map((t) => t.text) || [];
 
       // Create a new class symbol
+      // For top-level classes, ensure parentId is null regardless of stack state
+      // Check if this is a top-level class - stack should be empty for top-level classes
+      const isTopLevel = this.scopeStack.isEmpty();
+      // Create the symbol - createTypeSymbol will use getCurrentType() which may return null
+      // For top-level classes, we need to ensure parentId is null so they're added to root scope
       const classSymbol = this.createTypeSymbol(
         ctx,
         name,
         SymbolKind.Class,
         modifiers,
       );
+      // CRITICAL: Explicitly set parentId to null for top-level classes BEFORE adding to symbol table
+      // This ensures they are added to root scope correctly in addSymbol()
+      // Use stack.isEmpty() as the definitive check for top-level classes
+      if (isTopLevel) {
+        classSymbol.parentId = null;
+      }
 
       // Set superclass and interfaces
       if (superclass) {
@@ -371,16 +883,27 @@ export class ApexSymbolCollectorListener
         classSymbol.annotations = annotations;
       }
 
-      // Store the current class symbol
-      this.currentTypeSymbol = classSymbol;
-
-      // Add symbol to current scope
-      this.symbolTable.addSymbol(classSymbol);
+      // Add symbol to current scope (null when stack is empty = file level)
+      this.symbolTable.addSymbol(classSymbol, this.getCurrentScopeSymbol());
 
       // Parent property removed - parentId is set during symbol creation
 
-      // Enter class scope
-      this.symbolTable.enterScope(name);
+      // Create class block symbol directly (stack-only scope tracking)
+      const location = this.getLocation(ctx);
+      const parentScope = this.getCurrentScopeSymbol();
+      const blockName = this.generateBlockName('class');
+      const blockSymbol = this.createBlockSymbol(
+        blockName,
+        'class',
+        location,
+        parentScope,
+        name, // Pass the class name so createBlockSymbol can find the class symbol
+      );
+
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -394,24 +917,16 @@ export class ApexSymbolCollectorListener
    * Called when exiting a class declaration
    */
   exitClassDeclaration(): void {
-    this.symbolTable.exitScope();
+    // No-op - stack handles scope exit
+    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
 
-    // Clear current type symbol
-    this.currentTypeSymbol = null;
-
-    // Try to restore parent type symbol from the current scope
-    const scopePath = this.symbolTable.getCurrentScopePath();
-    if (scopePath.length > 1) {
-      // We're still in a nested scope, try to find the parent type symbol
-      const parentScopeName = scopePath[scopePath.length - 1];
-      const parentTypeSymbol = this.symbolTable.lookup(parentScopeName);
-      if (
-        parentTypeSymbol &&
-        (parentTypeSymbol.kind === SymbolKind.Class ||
-          parentTypeSymbol.kind === SymbolKind.Interface ||
-          parentTypeSymbol.kind === SymbolKind.Enum)
-      ) {
-        this.currentTypeSymbol = parentTypeSymbol as TypeSymbol;
+    // Pop from stack and validate it's a class scope
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== 'class') {
+        this.logger.warn(
+          `Expected class scope on exitClassDeclaration, but got ${popped.scopeType}`,
+        );
       }
     }
   }
@@ -427,7 +942,7 @@ export class ApexSymbolCollectorListener
       const validationResult = IdentifierValidator.validateIdentifier(
         name,
         SymbolKind.Interface,
-        !this.currentTypeSymbol, // isTopLevel
+        !this.getCurrentType(), // isTopLevel
         this.createValidationScope(),
       );
 
@@ -439,10 +954,11 @@ export class ApexSymbolCollectorListener
       }
 
       // Validate interface in interface
+      const currentType = this.getCurrentType();
       InterfaceBodyValidator.validateInterfaceInInterface(
         name,
         ctx,
-        this.currentTypeSymbol,
+        currentType,
         this,
       );
 
@@ -455,8 +971,8 @@ export class ApexSymbolCollectorListener
         name,
         modifiers,
         ctx,
-        !!this.currentTypeSymbol, // isInnerInterface
-        this.currentTypeSymbol,
+        !!currentType, // isInnerInterface
+        currentType,
         this,
       );
 
@@ -483,14 +999,25 @@ export class ApexSymbolCollectorListener
         interfaceSymbol.annotations = annotations;
       }
 
-      // Store the current interface symbol
-      this.currentTypeSymbol = interfaceSymbol;
+      // Add symbol to current scope (null when stack is empty = file level)
+      this.symbolTable.addSymbol(interfaceSymbol, this.getCurrentScopeSymbol());
 
-      // Add symbol to current scope
-      this.symbolTable.addSymbol(interfaceSymbol);
+      // Create interface block symbol directly (stack-only scope tracking)
+      const location = this.getLocation(ctx);
+      const parentScope = this.getCurrentScopeSymbol();
+      const blockName = this.generateBlockName('class');
+      const blockSymbol = this.createBlockSymbol(
+        blockName,
+        'class',
+        location,
+        parentScope,
+        name, // Pass the interface name so createBlockSymbol can find the interface symbol
+      );
 
-      // Enter interface scope
-      this.symbolTable.enterScope(name);
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -504,22 +1031,16 @@ export class ApexSymbolCollectorListener
    * Called when exiting an interface declaration
    */
   exitInterfaceDeclaration(): void {
-    this.symbolTable.exitScope();
-    this.currentTypeSymbol = null;
+    // No-op - stack handles scope exit
+    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
 
-    // Try to restore parent type symbol from the current scope
-    const scopePath = this.symbolTable.getCurrentScopePath();
-    if (scopePath.length > 1) {
-      // We're still in a nested scope, try to find the parent type symbol
-      const parentScopeName = scopePath[scopePath.length - 1];
-      const parentTypeSymbol = this.symbolTable.lookup(parentScopeName);
-      if (
-        parentTypeSymbol &&
-        (parentTypeSymbol.kind === SymbolKind.Class ||
-          parentTypeSymbol.kind === SymbolKind.Interface ||
-          parentTypeSymbol.kind === SymbolKind.Enum)
-      ) {
-        this.currentTypeSymbol = parentTypeSymbol as TypeSymbol;
+    // Pop from stack and validate it's a class scope
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== 'class') {
+        this.logger.warn(
+          `Expected class scope on exitInterfaceDeclaration, but got ${popped.scopeType}`,
+        );
       }
     }
   }
@@ -579,10 +1100,9 @@ export class ApexSymbolCollectorListener
       const returnType = this.getReturnType(ctx);
 
       // Check for method override
+      const currentType = this.getCurrentType();
       if (modifiers.isOverride) {
-        const parentClass = this.currentTypeSymbol
-          ? this.getParent(this.currentTypeSymbol)
-          : null;
+        const parentClass = currentType ? this.getParent(currentType) : null;
         if (!parentClass) {
           this.addWarning(
             `Override method ${name} must ensure a parent class has a compatible method`,
@@ -592,11 +1112,18 @@ export class ApexSymbolCollectorListener
       }
 
       // Check for duplicate method in the same scope
-      if (this.currentTypeSymbol) {
-        const currentScope = this.symbolTable.getCurrentScope();
-        const existingSymbols = currentScope.getAllSymbols();
+      if (currentType) {
+        // Use the type's scope (not current scope) to find methods
+        const typeScope = this.getTypeScope();
+        if (!typeScope) {
+          return;
+        }
+        // Use getSymbolsInScope to find methods with the same name (more efficient)
+        const existingMethods = this.symbolTable
+          .getSymbolsInScope(typeScope.id)
+          .filter((s) => s.name === name);
 
-        // Get the parameter types for the current method
+        // Get the parameter types for the current method being checked
         const currentParamTypes =
           ctx
             .formalParameters()
@@ -605,10 +1132,12 @@ export class ApexSymbolCollectorListener
             ?.map((param) => this.getTextFromContext(param.typeRef()))
             .join(',') || '';
 
-        const duplicateMethod = existingSymbols.find((s) => {
-          if (!isMethodSymbol(s) || s.name !== name) {
+        // Check for duplicate by name and parameter signature
+        const duplicateMethod = existingMethods.find((s: ApexSymbol) => {
+          if (!isMethodSymbol(s)) {
             return false;
           }
+          // Compare parameter types - both should have same parameter signature
           const existingParamTypes =
             s.parameters
               ?.map((param) => param.type.originalTypeString)
@@ -635,14 +1164,36 @@ export class ApexSymbolCollectorListener
         methodSymbol.annotations = annotations;
       }
 
-      // Store the current method symbol
-      this.currentMethodSymbol = methodSymbol;
+      // CRITICAL: Ensure method's parentId points to the class block (for uniform FQN hierarchy)
+      // The method symbol's parentId should be set to the class block's id
+      // This ensures FQN calculation follows: class -> class block -> method block -> ...
+      // Find the class block from the stack
+      const classBlock = this.getCurrentScopeSymbol();
+      if (classBlock && classBlock.scopeType === 'class') {
+        methodSymbol.parentId = classBlock.id;
+      } else if (currentType) {
+        // Fallback: if we can't find the class block, use the class symbol
+        methodSymbol.parentId = currentType.id;
+      }
 
-      // Add method symbol to current scope
-      this.symbolTable.addSymbol(methodSymbol);
+      // Add method symbol to current scope (null when stack is empty = file level)
+      // Note: addSymbol will NOT override parentId if it's already set to a non-null value
+      this.symbolTable.addSymbol(methodSymbol, this.getCurrentScopeSymbol());
 
-      // Enter method scope
-      this.symbolTable.enterScope(name);
+      // Create method block symbol directly (stack-only scope tracking)
+      const location = this.getLocation(ctx);
+      const parentScope = this.getCurrentScopeSymbol();
+      const blockName = this.generateBlockName('method');
+      const blockSymbol = this.createBlockSymbol(
+        blockName,
+        'method',
+        location,
+        parentScope,
+        name, // Pass the method name so createBlockSymbol can find the method symbol
+      );
+
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in method declaration: ${errorMessage}`, ctx);
@@ -654,11 +1205,18 @@ export class ApexSymbolCollectorListener
    * Cleans up the method scope and resets the current method symbol.
    */
   exitMethodDeclaration(): void {
-    // Exit method scope
-    this.symbolTable.exitScope();
+    // No-op - stack handles scope exit
+    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
 
-    // Clear current method symbol
-    this.currentMethodSymbol = null;
+    // Pop from stack and validate it's a method scope
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== 'method') {
+        this.logger.warn(
+          `Expected method scope on exitMethodDeclaration, but got ${popped.scopeType}`,
+        );
+      }
+    }
 
     // Reset modifiers and annotations for the next symbol
     this.resetModifiers();
@@ -686,18 +1244,19 @@ export class ApexSymbolCollectorListener
       }
 
       // Extract the constructor name (should be a single identifier)
+      const currentType = this.getCurrentType();
       const name =
         ids && ids.length > 0
           ? ids[0].text
-          : (this.currentTypeSymbol?.name ?? 'unknownConstructor');
+          : (currentType?.name ?? 'unknownConstructor');
 
       // Validate that constructor name matches the enclosing class name
-      if (this.currentTypeSymbol && name !== this.currentTypeSymbol.name) {
+      if (currentType && name !== currentType.name) {
         const errorMessage =
           "Invalid constructor declaration: Constructor name '" +
           name +
           "' must match the enclosing class name '" +
-          this.currentTypeSymbol.name +
+          currentType.name +
           "'";
         this.addError(errorMessage, ctx);
         return;
@@ -707,14 +1266,21 @@ export class ApexSymbolCollectorListener
       InterfaceBodyValidator.validateConstructorInInterface(
         name,
         ctx,
-        this.currentTypeSymbol,
+        currentType,
         this,
       );
 
       // Check for duplicate constructor
-      if (this.currentTypeSymbol) {
-        const currentScope = this.symbolTable.getCurrentScope();
-        const existingSymbols = currentScope.getAllSymbols();
+      if (currentType) {
+        // Use the type's scope (not current scope) to find constructors
+        const typeScope = this.getTypeScope();
+        if (!typeScope) {
+          return;
+        }
+        // Use getSymbolsInScope to find constructors with the same name (more efficient)
+        const existingConstructors = this.symbolTable
+          .getSymbolsInScope(typeScope.id)
+          .filter((s) => s.name === name);
 
         // Get the parameter types for the current constructor
         const currentParamTypes =
@@ -725,16 +1291,18 @@ export class ApexSymbolCollectorListener
             ?.map((param) => this.getTextFromContext(param.typeRef()))
             .join(',') || '';
 
-        const duplicateConstructor = existingSymbols.find((s) => {
-          if (!isConstructorSymbol(s) || s.name !== name) {
-            return false;
-          }
-          const existingParamTypes =
-            s.parameters
-              ?.map((param) => param.type.originalTypeString)
-              .join(',') || '';
-          return existingParamTypes === currentParamTypes;
-        });
+        const duplicateConstructor = existingConstructors.find(
+          (s: ApexSymbol) => {
+            if (!isConstructorSymbol(s)) {
+              return false;
+            }
+            const existingParamTypes =
+              s.parameters
+                ?.map((param) => param.type.originalTypeString)
+                .join(',') || '';
+            return existingParamTypes === currentParamTypes;
+          },
+        );
 
         if (duplicateConstructor) {
           this.addError(`Duplicate constructor declaration: ${name}`, ctx);
@@ -753,9 +1321,30 @@ export class ApexSymbolCollectorListener
         modifiers,
       );
 
-      this.currentMethodSymbol = constructorSymbol;
-      this.symbolTable.addSymbol(constructorSymbol);
-      this.symbolTable.enterScope(name);
+      // CRITICAL: Ensure constructor's parentId points to the class block (for uniform FQN hierarchy)
+      // Find the class block from the stack
+      const classBlock = this.getCurrentScopeSymbol();
+      if (classBlock && classBlock.scopeType === 'class') {
+        constructorSymbol.parentId = classBlock.id;
+      }
+
+      this.symbolTable.addSymbol(
+        constructorSymbol,
+        this.getCurrentScopeSymbol(),
+      );
+      const location = this.getLocation(ctx);
+      const parentScope = this.getCurrentScopeSymbol();
+      const blockSymbol = this.createBlockSymbol(
+        name,
+        'method',
+        location,
+        parentScope,
+      );
+
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in constructor: ${errorMessage}`, ctx);
@@ -767,9 +1356,18 @@ export class ApexSymbolCollectorListener
    * Cleans up the constructor scope and resets the current method symbol.
    */
   exitConstructorDeclaration(): void {
-    // Exit constructor scope
-    this.symbolTable.exitScope();
-    this.currentMethodSymbol = null;
+    // No-op - stack handles scope exit
+    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
+
+    // Pop from stack and validate it's a method scope
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== 'method') {
+        this.logger.warn(
+          `Expected method scope on exitConstructorDeclaration, but got ${popped.scopeType}`,
+        );
+      }
+    }
   }
 
   /**
@@ -789,11 +1387,20 @@ export class ApexSymbolCollectorListener
       const annotations = this.getCurrentAnnotations();
 
       // Check for duplicate method in the same scope
-      if (this.currentTypeSymbol) {
-        const currentScope = this.symbolTable.getCurrentScope();
-        const existingSymbols = currentScope.getAllSymbols();
-        const duplicateMethod = existingSymbols.find(
-          (s) => isMethodSymbol(s) && s.name === name,
+      const currentType = this.getCurrentType();
+      if (currentType) {
+        // Use the type's scope (not current scope) to find interface methods
+        const typeScope = this.getTypeScope();
+        if (!typeScope) {
+          return;
+        }
+        // Use getSymbolsInScope to find methods with the same name (more efficient)
+        const existingMethods = this.symbolTable
+          .getSymbolsInScope(typeScope.id)
+          .filter((s) => s.name === name);
+        // Filter to only method symbols (exclude block symbols)
+        const duplicateMethod = existingMethods.find(
+          (s: ApexSymbol) => isMethodSymbol(s) && s.name === name,
         );
 
         if (duplicateMethod) {
@@ -832,14 +1439,23 @@ export class ApexSymbolCollectorListener
         methodSymbol.annotations = annotations;
       }
 
-      // Store the current method symbol
-      this.currentMethodSymbol = methodSymbol;
+      // Add method symbol to current scope (null when stack is empty = file level)
+      this.symbolTable.addSymbol(methodSymbol, this.getCurrentScopeSymbol());
 
-      // Add method symbol to current scope
-      this.symbolTable.addSymbol(methodSymbol);
+      // Create method block symbol directly (stack-only scope tracking)
+      const location = this.getLocation(ctx);
+      const parentScope = this.getCurrentScopeSymbol();
+      const blockSymbol = this.createBlockSymbol(
+        name,
+        'method',
+        location,
+        parentScope,
+      );
 
-      // Enter method scope
-      this.symbolTable.enterScope(name);
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -857,9 +1473,18 @@ export class ApexSymbolCollectorListener
    * Cleans up the method scope and resets the current method symbol.
    */
   exitInterfaceMethodDeclaration(): void {
-    // Exit method scope
-    this.symbolTable.exitScope();
-    this.currentMethodSymbol = null;
+    // No-op - stack handles scope exit
+    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
+
+    // Pop from stack and validate it's a method scope
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== 'method') {
+        this.logger.warn(
+          `Expected method scope on exitInterfaceMethodDeclaration, but got ${popped.scopeType}`,
+        );
+      }
+    }
   }
 
   /**
@@ -880,10 +1505,11 @@ export class ApexSymbolCollectorListener
         type,
       );
 
-      if (this.currentMethodSymbol) {
-        this.currentMethodSymbol.parameters.push(paramSymbol);
+      const currentMethod = this.getCurrentMethod();
+      if (currentMethod) {
+        currentMethod.parameters.push(paramSymbol);
       }
-      this.symbolTable.addSymbol(paramSymbol);
+      this.symbolTable.addSymbol(paramSymbol, this.getCurrentScopeSymbol());
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in parameter: ${errorMessage}`, ctx);
@@ -902,18 +1528,19 @@ export class ApexSymbolCollectorListener
       const modifiers = this.getCurrentModifiers();
 
       // Validate property declaration in interface
-      if (this.currentTypeSymbol) {
+      const currentType = this.getCurrentType();
+      if (currentType) {
         InterfaceBodyValidator.validatePropertyInInterface(
           modifiers,
           ctx,
-          this.currentTypeSymbol,
+          currentType,
           this,
         );
         // Additional field/property modifier validations
         PropertyModifierValidator.validatePropertyVisibilityModifiers(
           modifiers,
           ctx,
-          this.currentTypeSymbol,
+          currentType,
           this,
         );
       }
@@ -926,7 +1553,7 @@ export class ApexSymbolCollectorListener
         SymbolKind.Property,
         type,
       );
-      this.symbolTable.addSymbol(propertySymbol);
+      this.symbolTable.addSymbol(propertySymbol, this.getCurrentScopeSymbol());
 
       // Capture the property name as a type reference
       const propertyNameNode = ctx.id?.();
@@ -961,11 +1588,12 @@ export class ApexSymbolCollectorListener
       const modifiers = this.getCurrentModifiers();
 
       // Validate field declaration in interface
-      if (this.currentTypeSymbol) {
+      const currentType = this.getCurrentType();
+      if (currentType) {
         InterfaceBodyValidator.validateFieldInInterface(
           modifiers,
           ctx,
-          this.currentTypeSymbol,
+          currentType,
           this,
         );
 
@@ -973,7 +1601,7 @@ export class ApexSymbolCollectorListener
         FieldModifierValidator.validateFieldVisibilityModifiers(
           modifiers,
           ctx,
-          this.currentTypeSymbol,
+          currentType,
           this,
         );
       }
@@ -1030,10 +1658,11 @@ export class ApexSymbolCollectorListener
       const name = ctx.id()?.text ?? 'unknownEnum';
 
       // Validate enum in interface
+      const currentType = this.getCurrentType();
       InterfaceBodyValidator.validateEnumInInterface(
         name,
         ctx,
-        this.currentTypeSymbol,
+        currentType,
         this,
       );
 
@@ -1047,9 +1676,22 @@ export class ApexSymbolCollectorListener
         modifiers,
       );
 
-      this.currentTypeSymbol = enumSymbol;
-      this.symbolTable.addSymbol(enumSymbol);
-      this.symbolTable.enterScope(name);
+      this.symbolTable.addSymbol(enumSymbol, this.getCurrentScopeSymbol());
+      const location = this.getLocation(ctx);
+      const parentScope = this.getCurrentScopeSymbol();
+      const blockName = this.generateBlockName('class');
+      const blockSymbol = this.createBlockSymbol(
+        blockName,
+        'class',
+        location,
+        parentScope,
+        name, // Pass the enum name so createBlockSymbol can find the enum symbol
+      );
+
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in enum: ${errorMessage}`, ctx);
@@ -1061,15 +1703,14 @@ export class ApexSymbolCollectorListener
    */
   enterEnumConstants(ctx: EnumConstantsContext): void {
     try {
-      if (!isEnumSymbol(this.currentTypeSymbol)) {
+      const currentType = this.getCurrentType();
+      if (!isEnumSymbol(currentType)) {
         this.addError('Enum constants found outside of enum declaration', ctx);
         return;
       }
 
-      const enumType = this.createTypeInfo(
-        this.currentTypeSymbol?.name ?? 'Object',
-      );
-      const enumSymbol = this.currentTypeSymbol;
+      const enumType = this.createTypeInfo(currentType?.name ?? 'Object');
+      const enumSymbol = currentType;
 
       for (const id of ctx.id()) {
         const name = id.text;
@@ -1085,7 +1726,7 @@ export class ApexSymbolCollectorListener
         );
 
         enumSymbol.values.push(valueSymbol);
-        this.symbolTable.addSymbol(valueSymbol);
+        this.symbolTable.addSymbol(valueSymbol, this.getCurrentScopeSymbol());
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -1097,25 +1738,41 @@ export class ApexSymbolCollectorListener
    * Called when exiting an enum declaration
    */
   exitEnumDeclaration(): void {
-    // Exit enum scope
-    this.symbolTable.exitScope();
+    // No-op - stack handles scope exit
+    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
+
+    // Pop from stack and validate it's a class scope
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== 'class') {
+        this.logger.warn(
+          `Expected class scope on exitEnumDeclaration, but got ${popped.scopeType}`,
+        );
+      }
+    }
   }
 
   /**
    * Called when entering a block
+   * Always creates a block scope - the stack order determines the parent scope
    */
   enterBlock(ctx: BlockContext): void {
     try {
-      this.blockDepth++;
-      this.blockCounter++; // Increment the unique block counter
-      const name = `block${this.blockCounter}`; // Use blockCounter for unique names
+      const name = this.generateBlockName('block');
+      const location = this.getLocation(ctx);
+      const parentScope = this.getCurrentScopeSymbol();
+      const blockSymbol = this.createBlockSymbol(
+        name,
+        'block',
+        location,
+        parentScope,
+      );
 
-      // Only create scope for block management, don't register as a symbol
-      // Blocks are only needed for local scope management within a file
-      this.symbolTable.enterScope(name, 'block');
-
-      // Note: We don't add block symbols to the symbol table since they're
-      // only needed for scope management, not as trackable symbols
+      if (!blockSymbol) {
+        this.addError('Failed to create block symbol', ctx);
+        return;
+      }
+      this.scopeStack.push(blockSymbol);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in block: ${errorMessage}`, ctx);
@@ -1124,12 +1781,68 @@ export class ApexSymbolCollectorListener
 
   /**
    * Called when exiting a block
+   * Always exits the block scope - the stack order determines what gets popped
    */
   exitBlock(): void {
-    // Exit block scope
-    this.symbolTable.exitScope();
-    this.blockDepth--;
+    this.exitScope('block');
   }
+
+  /**
+   * Called when entering an if statement
+   */
+  enterIfStatement(ctx: IfStatementContext): void {
+    this.enterScope('if', ctx);
+  }
+
+  /**
+   * Called when exiting an if statement
+   */
+  exitIfStatement(): void {
+    this.exitScope('if');
+  }
+
+  /**
+   * Called when entering a while statement
+   */
+  enterWhileStatement(ctx: WhileStatementContext): void {
+    this.enterScope('while', ctx);
+  }
+
+  /**
+   * Called when exiting a while statement
+   */
+  exitWhileStatement(): void {
+    this.exitScope('while');
+  }
+
+  /**
+   * Called when entering a for statement
+   */
+  enterForStatement(ctx: ForStatementContext): void {
+    this.enterScope('for', ctx);
+  }
+
+  /**
+   * Called when exiting a for statement
+   */
+  exitForStatement(): void {
+    this.exitScope('for');
+  }
+
+  /**
+   * Called when entering a try statement
+   */
+  enterTryStatement(ctx: TryStatementContext): void {
+    this.enterScope('try', ctx);
+  }
+
+  /**
+   * Called when exiting a try statement
+   */
+  exitTryStatement(): void {
+    this.exitScope('try');
+  }
+
   /**
    * Called when entering a trigger declaration
    */
@@ -1148,14 +1861,24 @@ export class ApexSymbolCollectorListener
         modifiers,
       );
 
-      // Store the current type symbol
-      this.currentTypeSymbol = triggerSymbol;
+      // Add symbol to current scope (null when stack is empty = file level)
+      this.symbolTable.addSymbol(triggerSymbol, this.getCurrentScopeSymbol());
 
-      // Add symbol to current scope
-      this.symbolTable.addSymbol(triggerSymbol);
+      // Create trigger block symbol directly (stack-only scope tracking)
+      const location = this.getLocation(ctx);
+      const blockName = this.generateBlockName('class');
+      const blockSymbol = this.createBlockSymbol(
+        blockName,
+        'class',
+        location,
+        this.getCurrentScopeSymbol(),
+        name, // Pass the trigger name so createBlockSymbol can find the trigger symbol
+      );
 
-      // Enter trigger scope
-      this.symbolTable.enterScope(name);
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -1169,9 +1892,18 @@ export class ApexSymbolCollectorListener
    * Called when exiting a trigger declaration
    */
   exitTriggerMemberDeclaration(): void {
-    // Exit trigger scope
-    this.symbolTable.exitScope();
-    this.currentTypeSymbol = null;
+    // No-op - stack handles scope exit
+    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
+
+    // Pop from stack and validate it's a class scope
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== 'class') {
+        this.logger.warn(
+          `Expected class scope on exitTriggerMemberDeclaration, but got ${popped.scopeType}`,
+        );
+      }
+    }
   }
 
   /**
@@ -1191,14 +1923,24 @@ export class ApexSymbolCollectorListener
         modifiers,
       );
 
-      // Store the current type symbol
-      this.currentTypeSymbol = triggerSymbol;
+      // Add symbol to current scope (null when stack is empty = file level)
+      this.symbolTable.addSymbol(triggerSymbol, this.getCurrentScopeSymbol());
 
-      // Add symbol to current scope
-      this.symbolTable.addSymbol(triggerSymbol);
+      // Create trigger block symbol directly (stack-only scope tracking)
+      const location = this.getLocation(ctx);
+      const blockName = this.generateBlockName('class');
+      const blockSymbol = this.createBlockSymbol(
+        blockName,
+        'class',
+        location,
+        this.getCurrentScopeSymbol(),
+        name, // Pass the trigger name so createBlockSymbol can find the trigger symbol
+      );
 
-      // Enter trigger scope
-      this.symbolTable.enterScope(name);
+      // Push block symbol onto stack
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -1212,9 +1954,116 @@ export class ApexSymbolCollectorListener
    * Called when exiting a trigger unit
    */
   exitTriggerUnit(): void {
-    // Exit trigger scope
-    this.symbolTable.exitScope();
-    this.currentTypeSymbol = null;
+    // No-op - stack handles scope exit
+    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
+
+    // Pop from stack and validate it's a class scope
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== 'class') {
+        this.logger.warn(
+          `Expected class scope on exitTriggerUnit, but got ${popped.scopeType}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Called when entering a finally block
+   */
+  enterFinallyBlock(ctx: FinallyBlockContext): void {
+    this.enterScope('finally', ctx);
+  }
+
+  /**
+   * Called when exiting a finally block
+   */
+  exitFinallyBlock(): void {
+    this.exitScope('finally');
+  }
+
+  /**
+   * Called when entering a switch statement
+   */
+  enterSwitchStatement(ctx: SwitchStatementContext): void {
+    this.enterScope('switch', ctx);
+  }
+
+  /**
+   * Called when exiting a switch statement
+   */
+  exitSwitchStatement(): void {
+    this.exitScope('switch');
+  }
+
+  /**
+   * Called when entering a when control (switch when clause)
+   */
+  enterWhenControl(ctx: WhenControlContext): void {
+    this.enterScope('when', ctx);
+  }
+
+  /**
+   * Called when exiting a when control
+   */
+  exitWhenControl(): void {
+    this.exitScope('when');
+  }
+
+  /**
+   * Called when entering a do-while statement
+   */
+  enterDoWhileStatement(ctx: DoWhileStatementContext): void {
+    this.enterScope('doWhile', ctx);
+  }
+
+  /**
+   * Called when exiting a do-while statement
+   */
+  exitDoWhileStatement(): void {
+    this.exitScope('doWhile');
+  }
+
+  /**
+   * Called when entering a runAs statement
+   */
+  enterRunAsStatement(ctx: RunAsStatementContext): void {
+    this.enterScope('runAs', ctx);
+  }
+
+  /**
+   * Called when exiting a runAs statement
+   */
+  exitRunAsStatement(): void {
+    this.exitScope('runAs');
+  }
+
+  /**
+   * Called when entering a getter (property getter block)
+   */
+  enterGetter(ctx: GetterContext): void {
+    this.enterScope('getter', ctx);
+  }
+
+  /**
+   * Called when exiting a getter
+   */
+  exitGetter(): void {
+    this.exitScope('getter');
+  }
+
+  /**
+   * Called when entering a setter (property setter block)
+   */
+  enterSetter(ctx: SetterContext): void {
+    this.enterScope('setter', ctx);
+  }
+
+  /**
+   * Called when exiting a setter
+   */
+  exitSetter(): void {
+    this.exitScope('setter');
   }
 
   // NEW: Type Reference Capture Methods - Using Specific ANTLR Contexts
@@ -1754,22 +2603,63 @@ export class ApexSymbolCollectorListener
 
   /**
    * Capture exception type in catch clauses: catch (QualifiedName e)
+   * Also creates scope for the catch block
    */
   enterCatchClause(ctx: CatchClauseContext): void {
     try {
+      // Capture exception type reference
       const qn: QualifiedNameContext | undefined = ctx.qualifiedName?.();
-      if (!qn) return;
-      const typeName = this.getTextFromContext(qn);
-      const location = this.getLocation(qn as unknown as ParserRuleContext);
-      const parentContext = this.getCurrentMethodName();
-      const classRef = TypeReferenceFactory.createClassReference(
-        typeName,
+      if (qn) {
+        const typeName = this.getTextFromContext(qn);
+        const location = this.getLocation(qn as unknown as ParserRuleContext);
+        const parentContext = this.getCurrentMethodName();
+        const classRef = TypeReferenceFactory.createClassReference(
+          typeName,
+          location,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(classRef);
+      }
+
+      // Create scope for catch block
+      const name = this.generateBlockName('catch');
+      const location = this.getLocation(ctx);
+      const parentScope = this.getCurrentScopeSymbol();
+      const blockSymbol = this.createBlockSymbol(
+        name,
+        'catch',
         location,
-        parentContext,
+        parentScope,
       );
-      this.symbolTable.addTypeReference(classRef);
+
+      // Push block symbol onto stack (blockSymbol should never be null from enterScope)
+      if (!blockSymbol) {
+        this.addError('Failed to create block symbol', ctx);
+        return;
+      }
+      // Push block symbol onto stack
+      this.scopeStack.push(blockSymbol);
     } catch (e) {
-      this.logger.warn(() => `Error capturing catch clause type: ${e}`);
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in catch clause: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a catch clause
+   */
+  exitCatchClause(): void {
+    // No-op - stack handles scope exit
+    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
+
+    // Pop from stack and validate it's a catch scope
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== 'catch') {
+        this.logger.warn(
+          `Expected catch scope on exitCatchClause, but got ${popped.scopeType}`,
+        );
+      }
     }
   }
 
@@ -1996,22 +2886,6 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Called when entering a for statement
-   * TODO: will probably need this when we have a for loop
-   */
-  enterForStatement(ctx: any): void {
-    try {
-      this.logger.debug(
-        () =>
-          `enterForStatement: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
-      );
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(`Error in for statement: ${errorMessage}`, ctx);
-    }
-  }
-
-  /**
    * Add an error to the error list TODO: may not be needed
    */
   addError(message: string, ctx: ParserRuleContext): void {
@@ -2174,8 +3048,10 @@ export class ApexSymbolCollectorListener
           statementVariableNames.add(name);
 
           // Check for duplicate variable declaration in the current scope (from previous statements)
-          const existingSymbol =
-            this.symbolTable.findSymbolInCurrentScope(name);
+          const existingSymbol = this.symbolTable.findSymbolInCurrentScope(
+            name,
+            this.getCurrentScopeSymbol(),
+          );
           if (existingSymbol) {
             this.addError(
               `Duplicate variable declaration: '${name}' is already declared in this scope`,
@@ -2236,7 +3112,7 @@ export class ApexSymbolCollectorListener
         type,
       );
 
-      this.symbolTable.addSymbol(variableSymbol);
+      this.symbolTable.addSymbol(variableSymbol, this.getCurrentScopeSymbol());
 
       // Emit a declaration reference for the variable identifier itself to enable precise hover
       try {
@@ -2441,7 +3317,28 @@ export class ApexSymbolCollectorListener
       return false;
     }
     const parent = this.getParent(symbol);
-    return parent !== null && parent !== undefined && isClassSymbol(parent);
+    if (!parent) {
+      return false; // No parent, not an inner class
+    }
+
+    // If parent is a block, find the class symbol it belongs to
+    if (isBlockSymbol(parent) && parent.scopeType === 'class') {
+      // Block's parentId points to the class symbol
+      const classSymbol = this.symbolTable
+        .getAllSymbols()
+        .find(
+          (s) =>
+            s.id === parent.parentId &&
+            (s.kind === SymbolKind.Class ||
+              s.kind === SymbolKind.Interface ||
+              s.kind === SymbolKind.Enum ||
+              s.kind === SymbolKind.Trigger),
+        );
+      return classSymbol !== null && classSymbol !== undefined;
+    }
+
+    // If parent is directly a class symbol
+    return isClassSymbol(parent);
   }
 
   /**
@@ -2451,31 +3348,16 @@ export class ApexSymbolCollectorListener
    */
   private isNestedInInnerClass(symbol?: TypeSymbol | null): boolean {
     // Use the provided symbol or fall back to current type symbol
-    const symbolToCheck = symbol || this.currentTypeSymbol;
+    const symbolToCheck = symbol || this.getCurrentType();
 
     // If no symbol to check, return false
     if (!symbolToCheck) {
       return false;
     }
 
-    // Start with the parent
-    let current = this.getParent(symbolToCheck);
-    let classCount = 0;
-
-    // Traverse up the parent chain
-    while (current) {
-      if (isClassSymbol(current)) {
-        classCount++;
-        // If we find more than one class in the parent chain,
-        // this means we have a nested inner class
-        if (classCount > 1) {
-          return true;
-        }
-      }
-      current = this.getParent(current);
-    }
-
-    return false;
+    // Check if the symbol is an inner class (has a class parent)
+    // If it is, then any class defined within it is nested within an inner class
+    return this.hasClassParent(symbolToCheck);
   }
 
   /**
@@ -2587,24 +3469,40 @@ export class ApexSymbolCollectorListener
 
   /**
    * Get the name of the current method being processed
-   * Traverses the scope stack to find the parent method scope
+   * Traverses the scope hierarchy to find the parent method symbol
    */
   private getCurrentMethodName(): string | undefined {
-    // Traverse the scope hierarchy to find the parent method
-    let currentScope: SymbolScope | null = this.symbolTable.getCurrentScope();
+    // First, try to get the current method symbol directly
+    const currentMethod = this.getCurrentMethod();
+    if (currentMethod) {
+      return currentMethod.name;
+    }
+
+    // Fallback: traverse the scope hierarchy to find a method symbol
+    let currentScope: ScopeSymbol | null = this.getCurrentScopeSymbol();
 
     while (currentScope) {
-      // Skip file, global, and block scopes
-      if (
-        currentScope.name !== 'file' &&
-        currentScope.name !== 'global' &&
-        !currentScope.name.startsWith('block')
-      ) {
-        // This is likely a method scope
-        return currentScope.name;
+      // Check if this scope's parentId points to a method symbol
+      if (currentScope.parentId) {
+        const parent = this.symbolTable
+          .getAllSymbols()
+          .find((s) => s.id === currentScope!.parentId);
+        if (
+          parent &&
+          (parent.kind === SymbolKind.Method ||
+            parent.kind === SymbolKind.Constructor)
+        ) {
+          return parent.name;
+        }
+        // If parent is a block, continue traversing
+        if (parent && parent.kind === SymbolKind.Block) {
+          currentScope = parent as ScopeSymbol;
+        } else {
+          currentScope = null;
+        }
+      } else {
+        currentScope = null;
       }
-      // Move up to parent scope
-      currentScope = currentScope.parent || null;
     }
 
     return undefined;
@@ -2781,7 +3679,7 @@ export class ApexSymbolCollectorListener
         isContextType(current, FieldDeclarationContext) ||
         isContextType(current, PropertyDeclarationContext)
       ) {
-        return this.currentTypeSymbol?.name;
+        return this.getCurrentType()?.name;
       }
 
       // Move up to parent
@@ -2789,7 +3687,7 @@ export class ApexSymbolCollectorListener
     }
 
     // Fallback to current method or type context
-    return this.getCurrentMethodName() || this.currentTypeSymbol?.name;
+    return this.getCurrentMethodName() || this.getCurrentType()?.name;
   }
 
   /**
@@ -2906,9 +3804,12 @@ export class ApexSymbolCollectorListener
    */
   private isVariableInScope(variableName: string): boolean {
     // Check if the variable exists in the current symbol table scope
+    const currentScope = this.scopeStack.peek() ?? null;
+    if (!currentScope) {
+      return false;
+    }
     return this.symbolTable
-      .getCurrentScope()
-      ?.getAllSymbols()
+      .getSymbolsInScope(currentScope.id)
       .some((symbol: ApexSymbol) => symbol.name === variableName);
   }
 
@@ -2967,7 +3868,7 @@ export class ApexSymbolCollectorListener
     modifiers: SymbolModifiers,
   ): TypeSymbol | EnumSymbol {
     const location = this.getLocation(ctx);
-    const parent = this.currentTypeSymbol;
+    const parent = this.getCurrentType();
 
     // Determine namespace based on context
     const namespace = this.determineNamespaceForType(name, kind);
@@ -2979,7 +3880,20 @@ export class ApexSymbolCollectorListener
     }
 
     // Get current scope path for unique symbol ID
-    const scopePath = this.symbolTable.getCurrentScopePath();
+    // Include root symbol's prefix and name in scopePath to match class ID format
+    // Class ID: fileUri:class:MyClass
+    // Child symbols should include: class:MyClass in their scopePath
+    const baseScopePath = this.symbolTable.getCurrentScopePath(
+      this.getCurrentScopeSymbol(),
+    );
+    const rootSymbol = this.findRootSymbol(this.getCurrentScopeSymbol());
+    let scopePath: string[] = baseScopePath;
+    if (rootSymbol) {
+      // Include the root symbol's prefix (kind) and name to match the class ID format
+      // e.g., ['class', 'MyClass', 'block1'] instead of ['MyClass', 'block1']
+      const rootPrefix = rootSymbol.kind; // e.g., 'class', 'interface', 'enum', 'trigger'
+      scopePath = [rootPrefix, rootSymbol.name, ...baseScopePath];
+    }
     const typeSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       kind,
@@ -3026,12 +3940,13 @@ export class ApexSymbolCollectorListener
     }
 
     // Top-level types get project namespace
-    if (!this.currentTypeSymbol) {
+    const currentType = this.getCurrentType();
+    if (!currentType) {
       return this.currentNamespace;
     }
 
     // Inner types inherit from outer type
-    const parentNamespace = this.currentTypeSymbol.namespace;
+    const parentNamespace = currentType.namespace;
     if (parentNamespace instanceof Namespace) {
       return parentNamespace;
     }
@@ -3045,7 +3960,7 @@ export class ApexSymbolCollectorListener
     returnType: TypeInfo,
   ): MethodSymbol {
     const location = this.getLocation(ctx);
-    const parent = this.currentTypeSymbol;
+    const parent = this.getCurrentType();
 
     // Inherit namespace from containing type
     const parentNamespace = parent?.namespace;
@@ -3053,12 +3968,37 @@ export class ApexSymbolCollectorListener
       parentNamespace instanceof Namespace ? parentNamespace : null;
 
     // Get current scope path for unique symbol ID
-    const scopePath = this.symbolTable.getCurrentScopePath();
+    // Include root symbol's prefix and name in scopePath to match class ID format
+    // Class ID: fileUri:class:MyClass
+    // Method ID should be: fileUri:class:MyClass:block1:method:myMethod
+    const baseScopePath = this.symbolTable.getCurrentScopePath(
+      this.getCurrentScopeSymbol(),
+    );
+    const rootSymbol = this.findRootSymbol(this.getCurrentScopeSymbol());
+    let scopePath: string[] = baseScopePath;
+    if (rootSymbol) {
+      // Include the root symbol's prefix (kind) and name to match the class ID format
+      // e.g., ['class', 'MyClass', 'block1'] instead of ['MyClass', 'block1']
+      const rootPrefix = rootSymbol.kind; // e.g., 'class', 'interface', 'enum', 'trigger'
+      scopePath = [rootPrefix, rootSymbol.name, ...baseScopePath];
+    }
 
     // Convert @isTest annotation to isTestMethod modifier
     const annotations = this.getCurrentAnnotations();
     if (annotations.some((ann) => ann.name.toLowerCase() === 'istest')) {
       modifiers = { ...modifiers, isTestMethod: true };
+    }
+
+    // CRITICAL: Method's parentId should point to the class block (for uniform FQN hierarchy)
+    // This ensures FQN follows: class -> class block -> method block -> ...
+    // Find the class block from the stack
+    let methodParentId: string | null = null;
+    const classBlock = this.getCurrentScopeSymbol();
+    if (classBlock && classBlock.scopeType === 'class') {
+      methodParentId = classBlock.id;
+    } else if (parent) {
+      // Fallback: if we can't find the class block, use the class symbol
+      methodParentId = parent.id;
     }
 
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
@@ -3067,7 +4007,7 @@ export class ApexSymbolCollectorListener
       location,
       this.currentFilePath,
       modifiers,
-      parent?.id || null,
+      methodParentId,
       { returnType, parameters: [] },
       namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
@@ -3095,15 +4035,30 @@ export class ApexSymbolCollectorListener
     type: TypeInfo,
   ): VariableSymbol {
     const location = this.getLocation(ctx);
-    const parent = this.currentTypeSymbol || this.currentMethodSymbol;
+    // Peek the stack to get current owner (ScopeSymbol)
+    const parent = this.scopeStack.peek() || null;
 
-    // Inherit namespace from containing type or method
-    const parentNamespace = parent?.namespace;
-    const namespace =
-      parentNamespace instanceof Namespace ? parentNamespace : null;
+    // Inherit namespace from containing type or method (blocks don't have namespaces)
+    let namespace: Namespace | null = null;
+    if (parent) {
+      if (parent.kind === SymbolKind.Block) {
+        // Block doesn't have namespace, search down stack for type or method
+        const typeOrMethod = this.getCurrentType() || this.getCurrentMethod();
+        const parentNamespace = typeOrMethod?.namespace;
+        namespace =
+          parentNamespace instanceof Namespace ? parentNamespace : null;
+      } else {
+        // Type or method has namespace directly (future expansion)
+        const parentNamespace = (parent as TypeSymbol | MethodSymbol).namespace;
+        namespace =
+          parentNamespace instanceof Namespace ? parentNamespace : null;
+      }
+    }
 
     // Get current scope path for unique symbol ID
-    const scopePath = this.symbolTable.getCurrentScopePath();
+    const scopePath = this.symbolTable.getCurrentScopePath(
+      this.getCurrentScopeSymbol(),
+    );
 
     const variableSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
@@ -3126,7 +4081,7 @@ export class ApexSymbolCollectorListener
 
   private getCurrentPath(): string[] {
     const path: string[] = [];
-    let current = this.currentTypeSymbol;
+    let current = this.getCurrentType();
     while (current) {
       path.unshift(current.name);
       current = current ? (this.getParent(current) as TypeSymbol | null) : null;
@@ -3226,7 +4181,7 @@ export class ApexSymbolCollectorListener
     modifiers: SymbolModifiers,
   ): MethodSymbol {
     const location = this.getLocation(ctx);
-    const parent = this.currentTypeSymbol;
+    const parent = this.getCurrentType();
 
     // Inherit namespace from containing type
     const parentNamespace = parent?.namespace;
@@ -3234,7 +4189,9 @@ export class ApexSymbolCollectorListener
       parentNamespace instanceof Namespace ? parentNamespace : null;
 
     // Get current scope path for unique symbol ID
-    const scopePath = this.symbolTable.getCurrentScopePath();
+    const scopePath = this.symbolTable.getCurrentScopePath(
+      this.getCurrentScopeSymbol(),
+    );
 
     const constructorSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
@@ -3276,7 +4233,7 @@ export class ApexSymbolCollectorListener
       location: correctedLocation,
       context,
       isResolved: false,
-      parentContext: this.currentMethodSymbol?.name,
+      parentContext: this.getCurrentMethod()?.name,
       isStatic: false,
     };
   }
@@ -3294,7 +4251,7 @@ export class ApexSymbolCollectorListener
       location: baseLocation, // Use base location as the main location
       context: ReferenceContext.CHAINED_TYPE,
       isResolved: false,
-      parentContext: this.currentMethodSymbol?.name,
+      parentContext: this.getCurrentMethod()?.name,
       isStatic: false,
     };
   }

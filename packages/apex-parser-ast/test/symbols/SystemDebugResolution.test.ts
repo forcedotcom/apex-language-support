@@ -6,28 +6,67 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
+import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
 import {
   initializeResourceLoaderForTests,
   resetResourceLoader,
 } from '../helpers/testHelpers';
+import {
+  initialize as schedulerInitialize,
+  shutdown as schedulerShutdown,
+  reset as schedulerReset,
+} from '../../src/queue/priority-scheduler-utils';
+import { Effect } from 'effect';
 
 describe('System.debug Resolution Bug Fix', () => {
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
 
-  beforeAll(async () => {
-    // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
+  beforeEach(async () => {
+    // Initialize scheduler before each test
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
     await initializeResourceLoaderForTests({ loadMode: 'lazy' });
-  });
 
-  beforeEach(() => {
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
   });
 
-  afterAll(() => {
+  afterEach(async () => {
+    try {
+      if (symbolManager) {
+        symbolManager.clear();
+      }
+    } catch (_error) {
+      // Ignore errors during cleanup
+    }
+    // Clear the singleton instance to prevent timers from keeping the process alive
+    try {
+      ApexSymbolGraph.setInstance(null as any);
+    } catch (_error) {
+      // Ignore errors
+    }
+    // Shutdown the scheduler after each test
+    try {
+      await Effect.runPromise(schedulerShutdown());
+    } catch (_error) {
+      // Ignore errors - scheduler might not be initialized or already shut down
+    }
+    // Reset scheduler state after shutdown
+    try {
+      await Effect.runPromise(schedulerReset());
+    } catch (_error) {
+      // Ignore errors - scheduler might not be initialized
+    }
+    // Final delay to ensure all cleanup completes
+    await new Promise((resolve) => setTimeout(resolve, 100));
     resetResourceLoader();
   });
 
@@ -70,11 +109,17 @@ public class StdApex {
     // May find additional debug symbols from standard library due to case-insensitive lookup
     expect(debugSymbols.length).toBeGreaterThanOrEqual(2);
 
+    // Wait for any deferred references to complete
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     const result = await symbolManager.getSymbolAtPosition(
       'file:///test/StdApex.cls',
       { line: 9, character: 8 }, // Position on "debug" in "System.debug(message)"
       'precise',
     );
+
+    // Wait for any async operations to complete
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // This should resolve to the System.debug method, not the local debug method
     expect(result).toBeDefined();
@@ -106,6 +151,9 @@ public class StdApex2 {
     // May find additional debug symbols from standard library due to case-insensitive lookup
     expect(debugSymbols.length).toBeGreaterThanOrEqual(2);
 
+    // Wait for any deferred references to complete
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     // Test hovering over unqualified debug call - should resolve to instance method
     // The instance method call is at line 11 (0-based), so position should be around line 11
     const result = await symbolManager.getSymbolAtPosition(
@@ -113,6 +161,9 @@ public class StdApex2 {
       { line: 7, character: 8 }, // Position on "debug" in "debug('test')"
       'precise',
     );
+
+    // Wait for any async operations to complete
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // This should resolve to the instance debug method
     expect(result).toBeDefined();

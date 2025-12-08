@@ -11,6 +11,7 @@
  */
 
 import { ApexSymbol, SymbolKind } from '../types/symbol';
+import { isBlockSymbol } from './symbolNarrowing';
 import { ResourceLoader } from './resourceLoader';
 
 /**
@@ -25,6 +26,11 @@ export interface FQNOptions {
   memberDelimiter?: string;
   /** Whether to normalize case (lowercase) for comparison purposes */
   normalizeCase?: boolean;
+  /** Whether to exclude block symbols from FQN (default: false)
+   * When true, block symbols like "class_1", "method_2" are excluded for cleaner user-facing FQNs
+   * When false, all parent symbols including blocks are included (for internal/technical FQNs)
+   */
+  excludeBlockSymbols?: boolean;
 }
 
 // TODO: Remove this once we dig into FQN resolution
@@ -47,25 +53,37 @@ export function calculateFQN(
   options?: FQNOptions,
   getParent?: (parentId: string) => ApexSymbol | null,
 ): string {
-  // Collect all meaningful parent names (excluding block scopes)
+  // Collect all meaningful parent names (excluding block scopes and methods)
   const parts: string[] = [symbol.name];
 
   // First try to use parentId with getParent function (preferred for lazy loading)
   if (symbol.parentId && getParent) {
     let currentParentId: string | null = symbol.parentId;
     let depth = 0;
+    const visitedIds = new Set<string>(); // Track visited IDs to prevent cycles
+    visitedIds.add(symbol.id); // Don't include the symbol itself in the path
 
-    while (currentParentId && depth < 10) {
-      // Prevent infinite loops
+    while (currentParentId && depth < 20) {
+      // Prevent infinite loops and self-references
+      if (visitedIds.has(currentParentId) || currentParentId === symbol.id) {
+        break; // Cycle detected or self-reference
+      }
+      visitedIds.add(currentParentId);
+
       const parent = getParent(currentParentId);
       if (!parent) {
         break;
       }
 
-      // Only include parent if it's not a block scope
-      if (!isBlockScope(parent)) {
-        parts.unshift(parent.name);
+      // Don't include the symbol itself in the path
+      if (parent.id === symbol.id) {
+        break;
       }
+
+      // Include all parents in FQN - FQN should reflect the actual parent hierarchy
+      // This includes blocks, types, methods, constructors, etc.
+      // The parentId relationships tell us the true containment structure
+      parts.unshift(parent.name);
 
       currentParentId = parent.parentId ?? null;
       depth++;
@@ -133,6 +151,12 @@ export function getAncestorChain(
   while (currentParentId && getParent) {
     const current = getParent(currentParentId);
     if (!current) break;
+
+    // Skip scope symbols (they're structural, not semantic)
+    if (isBlockSymbol(current)) {
+      currentParentId = current.parentId;
+      continue;
+    }
 
     // Only add type-level symbols to the chain
     if (
@@ -263,10 +287,9 @@ export function extractNamespace(
  * @returns True if the symbol is a block scope, false otherwise
  */
 export function isBlockScope(symbol: any): boolean {
-  if (!symbol || !symbol.name) return false;
-
-  // Block scopes are named with the pattern "block{number}"
-  return symbol.name.startsWith('block') && /^block\d+$/.test(symbol.name);
+  if (!symbol) return false;
+  // Exclude all block symbols from FQN (they're structural, not semantic)
+  return symbol.kind === SymbolKind.Block;
 }
 
 /**

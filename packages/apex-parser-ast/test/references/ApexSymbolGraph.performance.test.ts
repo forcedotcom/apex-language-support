@@ -18,6 +18,7 @@ import {
 } from '../../src/types/symbol';
 import {
   initialize as schedulerInitialize,
+  shutdown as schedulerShutdown,
   reset as schedulerReset,
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
@@ -37,7 +38,18 @@ describe('ApexSymbolGraph - Performance Tests', () => {
   });
 
   afterAll(async () => {
-    // Reset scheduler after all tests
+    // Shutdown the scheduler first to stop the background loop
+    try {
+      await Effect.runPromise(schedulerShutdown());
+    } catch (_error) {
+      // Ignore errors - scheduler might not be initialized or already shut down
+    }
+    // Reset scheduler state after shutdown
+    try {
+      await Effect.runPromise(schedulerReset());
+    } catch (_error) {
+      // Ignore errors - scheduler might not be initialized
+    }
     await Effect.runPromise(schedulerReset());
   });
 
@@ -71,9 +83,7 @@ describe('ApexSymbolGraph - Performance Tests', () => {
         fqn: fqn || name,
         kind,
       },
-      parentKey: null,
       fqn: fqn || name,
-      _modifierFlags: 1, // PUBLIC flag
       _isLoaded: true,
       modifiers: {
         visibility: SymbolVisibility.Public,

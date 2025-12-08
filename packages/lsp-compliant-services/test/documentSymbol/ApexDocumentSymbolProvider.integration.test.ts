@@ -591,6 +591,91 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       expect(enumSymbol.children![1].kind).toBe(22); // SymbolKind.EnumMember
     });
 
+    it('should not duplicate inner classes as root-level classes', async () => {
+      const docUri = 'file:///ScopeExample.cls';
+      const content = `public with sharing class ScopeExample {
+
+    String a;
+
+    static String b;
+
+    public ScopeExample() {
+
+    }
+
+    public void method1() {
+
+        String a;
+
+        String b = a;
+
+    }
+
+    public void method2() {
+
+        String a;
+
+        String b = a;
+
+    }
+
+    public void method3() {
+
+        String b = a;
+
+        String c = ScopeExample.method4();
+
+    }
+
+    public static String method4() {
+
+        return ScopeExample.b;
+
+    }
+
+    public class InnerClass {
+
+        public void method5() {
+
+            String c = ScopeExample.method4();
+
+            String d = ScopeExample.b;
+
+        }
+
+    }
+
+}`;
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).not.toBeNull();
+      // Should only have one root-level symbol (ScopeExample)
+      expect(result).toHaveLength(1);
+      expect(result![0].name).toContain('ScopeExample');
+
+      // InnerClass should be a child of ScopeExample, not a root-level symbol
+      const scopeExampleSymbol = result![0] as DocumentSymbol;
+      expect(scopeExampleSymbol.children).toBeDefined();
+
+      // Find InnerClass in children
+      const innerClassSymbol = (
+        scopeExampleSymbol.children as DocumentSymbol[]
+      ).find((child) => child.name.includes('InnerClass'));
+      expect(innerClassSymbol).toBeDefined();
+      expect(innerClassSymbol!.kind).toBe(5); // SymbolKind.Class
+
+      // Verify InnerClass is NOT in the root-level results
+      const rootLevelInnerClass = result!.find((symbol) =>
+        symbol.name.includes('InnerClass'),
+      );
+      expect(rootLevelInnerClass).toBeUndefined();
+    });
+
     it('handles trigger symbols correctly', async () => {
       const docUri = 'file:///TestTrigger.trigger';
       const content = [

@@ -276,9 +276,9 @@ describe('Inner Class Validation', () => {
 
     // Verify that the parser successfully created the symbol table
     expect(result.result).toBeDefined();
-    expect(
-      result.result?.getCurrentScope().getAllSymbols().length,
-    ).toBeGreaterThan(0);
+    const symbolTable = result.result;
+    expect(symbolTable).toBeDefined();
+    expect(symbolTable?.getAllSymbols().length).toBeGreaterThan(0);
   });
   it('should parse ClassWithVirtualInnerClass with complex inner class hierarchy w/errors', () => {
     const fileContent = `

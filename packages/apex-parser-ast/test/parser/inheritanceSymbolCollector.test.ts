@@ -16,6 +16,7 @@ import {
   SymbolKind,
   TypeSymbol,
 } from '../../src';
+import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 
 describe('Inheritance Symbol Collection', () => {
   let compilerService: CompilerService;
@@ -45,13 +46,19 @@ describe('Inheritance Symbol Collection', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getCurrentScope();
-      const allSymbols = globalScope?.getAllSymbols();
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+      const allSymbols = symbolTable.getAllSymbols();
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
-      // Check class symbol
-      expect(allSymbols?.length).toBe(1);
+      // Check class symbol (should have class and method symbols)
+      expect(semanticSymbols.length).toBeGreaterThanOrEqual(1);
 
-      const classSymbol = allSymbols?.[0] as TypeSymbol;
+      const classSymbol = semanticSymbols.find(
+        (s) => s.kind === SymbolKind.Class,
+      ) as TypeSymbol | undefined;
+      expect(classSymbol).toBeDefined();
       expect(classSymbol?.name).toBe('ChildClass');
       expect(classSymbol?.kind).toBe(SymbolKind.Class);
       expect(classSymbol?.superClass).toBe('ParentClass');
@@ -76,13 +83,18 @@ describe('Inheritance Symbol Collection', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getCurrentScope();
-      const allSymbols = globalScope?.getAllSymbols();
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+      const allSymbols = symbolTable.getAllSymbols();
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
-      // Check class symbol
-      expect(allSymbols?.length).toBe(1);
+      // Check class symbol (should have class and method symbols)
+      expect(semanticSymbols.length).toBeGreaterThanOrEqual(1);
 
-      const classSymbol = allSymbols?.[0] as TypeSymbol;
+      const classSymbol = semanticSymbols.find(
+        (s) => s.kind === SymbolKind.Class,
+      ) as TypeSymbol | undefined;
       expect(classSymbol?.name).toBe('ImplementingClass');
       expect(classSymbol?.kind).toBe(SymbolKind.Class);
       expect(classSymbol?.superClass).toBeUndefined();
@@ -109,13 +121,18 @@ describe('Inheritance Symbol Collection', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getCurrentScope();
-      const allSymbols = globalScope?.getAllSymbols();
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+      const allSymbols = symbolTable.getAllSymbols();
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
-      // Check class symbol
-      expect(allSymbols?.length).toBe(1);
+      // Check class symbol (should have class and method symbols)
+      expect(semanticSymbols.length).toBeGreaterThanOrEqual(1);
 
-      const classSymbol = allSymbols?.[0] as TypeSymbol;
+      const classSymbol = semanticSymbols.find(
+        (s) => s.kind === SymbolKind.Class,
+      ) as TypeSymbol | undefined;
       expect(classSymbol?.name).toBe('ComplexClass');
       expect(classSymbol?.kind).toBe(SymbolKind.Class);
       expect(classSymbol?.superClass).toBe('BaseClass');
@@ -142,13 +159,19 @@ describe('Inheritance Symbol Collection', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getCurrentScope();
-      const allSymbols = globalScope?.getAllSymbols();
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+      const allSymbols = symbolTable.getAllSymbols();
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
-      // Check interface symbol
-      expect(allSymbols?.length).toBe(1);
+      // Check interface symbol (should have interface and method symbols)
+      expect(semanticSymbols.length).toBeGreaterThanOrEqual(1);
 
-      const interfaceSymbol = allSymbols?.[0] as TypeSymbol;
+      const interfaceSymbol = semanticSymbols.find(
+        (s) => s.kind === SymbolKind.Interface,
+      ) as TypeSymbol | undefined;
+      expect(interfaceSymbol).toBeDefined();
       expect(interfaceSymbol?.name).toBe('ChildInterface');
       expect(interfaceSymbol?.kind).toBe(SymbolKind.Interface);
       expect(interfaceSymbol?.superClass).toBeUndefined();

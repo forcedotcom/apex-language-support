@@ -83,6 +83,8 @@ export class ResourceLoader {
     new CaseInsensitivePathMap(); // Reverse index: className -> namespace
   private totalSize: number = 0; // Total size of all files
   private accessCount: number = 0; // Simple access counter for statistics
+  private artifactAccessCounts: CaseInsensitivePathMap<number> =
+    new CaseInsensitivePathMap(); // Track access counts per artifact to reduce log spam
   private zipBuffer?: Uint8Array; // Will be initialized via setZipBuffer
   private zipFiles: CaseInsensitivePathMap<Uint8Array> | null = null; // Will be initialized in extractZipFiles
 
@@ -889,7 +891,17 @@ export class ResourceLoader {
     if (this.compiledArtifacts.has(normalizedPath)) {
       const cachedArtifact = this.compiledArtifacts.get(normalizedPath);
       if (cachedArtifact) {
-        this.logger.debug(() => `Returning cached artifact for ${className}`);
+        // Only log cached artifact access occasionally to avoid log spam
+        // Log at most once per 1000 accesses per class
+        const accessCount =
+          (this.artifactAccessCounts.get(normalizedPath) || 0) + 1;
+        this.artifactAccessCounts.set(normalizedPath, accessCount);
+        if (accessCount % 1000 === 0) {
+          this.logger.debug(
+            () =>
+              `Returning cached artifact for ${className} (access ${accessCount})`,
+          );
+        }
         return cachedArtifact;
       }
     }

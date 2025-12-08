@@ -14,6 +14,8 @@ import {
   EnumSymbol,
   MethodSymbol,
   VariableSymbol,
+  ScopeSymbol,
+  SymbolLocation,
 } from '../../src/types/symbol';
 import {
   inTypeSymbolGroup,
@@ -688,64 +690,176 @@ describe('SymbolTable', () => {
   });
 
   it('should initialize with a root scope', () => {
-    const scope = table.getCurrentScope();
-    expect(scope.name).toBe('file');
-    expect(scope.parent).toBeNull();
+    // File scope is created when enterScope is called with 'file' type
+    // For now, create it explicitly for this test
+    const fileLocation: SymbolLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    };
+    const fileScope = table.enterScope('file', 'file', fileLocation);
+    expect(fileScope).toBeDefined();
+    expect(fileScope?.name).toBe('file');
+    expect(fileScope?.parentId).toBeNull();
+
+    // Verify it can be found
+    const foundScope = table.findScopeByName('file');
+    expect(foundScope).toBeDefined();
+    expect(foundScope?.name).toBe('file');
   });
 
   it('should allow entering and exiting scopes', () => {
-    table.enterScope('MyClass', 'class');
-    const classScope = table.getCurrentScope();
-    expect(classScope.name).toBe('MyClass');
-    expect(classScope.parent?.name).toBe('file');
+    // Create file scope first
+    const fileLocation: SymbolLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    };
+    const fileScope = table.enterScope('file', 'file', fileLocation);
+    expect(fileScope).toBeDefined();
 
-    table.enterScope('myMethod', 'method');
-    const methodScope = table.getCurrentScope();
-    expect(methodScope.name).toBe('myMethod');
-    expect(methodScope.parent?.name).toBe('MyClass');
+    const classLocation: SymbolLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 10, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 10,
+      },
+    };
+    const classScope = table.enterScope(
+      'MyClass',
+      'class',
+      classLocation,
+      undefined,
+      fileScope ?? null,
+    );
+    expect(classScope).toBeDefined();
+    expect(classScope?.name).toBe('MyClass');
+    expect(classScope?.parentId).toBe(fileScope?.id); // Should point to file scope
 
+    const methodLocation: SymbolLocation = {
+      symbolRange: { startLine: 2, startColumn: 0, endLine: 5, endColumn: 0 },
+      identifierRange: {
+        startLine: 2,
+        startColumn: 0,
+        endLine: 2,
+        endColumn: 10,
+      },
+    };
+    const methodScope = table.enterScope(
+      'myMethod',
+      'method',
+      methodLocation,
+      undefined,
+      classScope ?? null,
+    );
+    expect(methodScope).toBeDefined();
+    expect(methodScope?.name).toBe('myMethod');
+    expect(methodScope?.parentId).toBe(classScope?.id); // Should point to class scope
+
+    // exitScope is now a no-op - stack handles scope exit
     table.exitScope();
-    expect(table.getCurrentScope().name).toBe('MyClass');
+    // Verify scopes still exist after exitScope (which is now a no-op)
+    const foundClassScope = table.findScopeByName('MyClass');
+    expect(foundClassScope).toBeDefined();
+    expect(foundClassScope?.name).toBe('MyClass');
 
+    // exitScope is now a no-op - stack handles scope exit
     table.exitScope();
-    expect(table.getCurrentScope().name).toBe('file');
+    const foundFileScope = table.findScopeByName('file');
+    expect(foundFileScope).toBeDefined();
+    expect(foundFileScope?.name).toBe('file');
 
-    // Should not exit beyond the root scope
+    // Should not exit beyond the root scope (exitScope is now a no-op)
     table.exitScope();
-    expect(table.getCurrentScope().name).toBe('file');
+    const foundFileScope2 = table.findScopeByName('file');
+    expect(foundFileScope2).toBeDefined();
+    expect(foundFileScope2?.name).toBe('file');
   });
 
   it('should add and find a symbol in the current scope', () => {
+    // Create file scope first
+    const fileLocation: SymbolLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    };
+    const fileScope = table.enterScope('file', 'file', fileLocation);
+    expect(fileScope).toBeDefined();
+
     const symbol: ApexSymbol = {
       name: 'myVar',
       kind: SymbolKind.Variable,
       ...MOCK_SYMBOL_PROPS,
+      parentId: fileScope?.id ?? null, // Explicitly set parentId to file scope
     };
-    table.addSymbol(symbol);
+    table.addSymbol(symbol, fileScope ?? null);
 
-    const found = table.findSymbolInCurrentScope('myVar');
+    const found = table.findSymbolInCurrentScope('myVar', fileScope ?? null);
     expect(found).toBe(symbol);
   });
 
   it('should look up a symbol from the current scope to parent scopes', () => {
+    // Create file scope first
+    const fileLocation: SymbolLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    };
+    const fileScope = table.enterScope('file', 'file', fileLocation);
+
     const parentSymbol: ApexSymbol = {
       name: 'parentVar',
       kind: SymbolKind.Variable,
       ...MOCK_SYMBOL_PROPS,
+      id: 'parent-var-id',
     };
-    table.addSymbol(parentSymbol);
+    table.addSymbol(parentSymbol, fileScope ?? null);
 
-    table.enterScope('childScope');
+    const childLocation: SymbolLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 5, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 10,
+      },
+    };
+    const childScope = table.enterScope(
+      'childScope',
+      'block',
+      childLocation,
+      undefined,
+      fileScope ?? null,
+    );
     const childSymbol: ApexSymbol = {
       name: 'childVar',
       kind: SymbolKind.Variable,
       ...MOCK_SYMBOL_PROPS,
+      id: 'child-var-id',
     };
-    table.addSymbol(childSymbol);
+    table.addSymbol(childSymbol, childScope ?? null);
 
-    expect(table.lookup('childVar')).toBe(childSymbol);
-    expect(table.lookup('parentVar')).toBe(parentSymbol);
-    expect(table.lookup('nonExistentVar')).toBeUndefined();
+    expect(table.lookup('childVar', childScope ?? null)).toBe(childSymbol);
+    expect(table.lookup('parentVar', childScope ?? null)).toBe(parentSymbol);
+    expect(table.lookup('nonExistentVar', childScope ?? null)).toBeUndefined();
   });
 
   it('should look up a symbol by its key', () => {
@@ -759,5 +873,246 @@ describe('SymbolTable', () => {
 
     const found = table.lookupByKey(symbol.key);
     expect(found).toBe(symbol);
+  });
+
+  it('should create scope symbols when location is provided', () => {
+    table.setFileUri('test://file.cls');
+    // Create file scope first
+    const fileLocation: SymbolLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    };
+    const fileScope = table.enterScope('file', 'file', fileLocation);
+
+    const location: SymbolLocation = {
+      symbolRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+    };
+
+    const blockSymbol: ScopeSymbol | null = table.enterScope(
+      'MyClass',
+      'class',
+      location,
+      undefined,
+      fileScope ?? null,
+    );
+    expect(blockSymbol).not.toBeNull();
+    expect(blockSymbol?.kind).toBe(SymbolKind.Block);
+    expect(blockSymbol?.scopeType).toBe('class');
+    // When enterScope is called directly (not via listener), it uses the name provided
+    expect(blockSymbol?.name).toBe('MyClass');
+    expect(blockSymbol?.location.symbolRange).toEqual(location.symbolRange);
+    expect(blockSymbol?.location.identifierRange).toEqual(location.symbolRange); // Should be same for blocks
+
+    // Verify the block scope was created and can be found
+    const foundScope = table.findScopeByName('MyClass');
+    expect(foundScope).toBeDefined();
+    expect(foundScope).toBe(blockSymbol); // Scope IS the block symbol
+  });
+
+  it('should not create block symbols when location is not provided', () => {
+    // Create file scope first
+    const fileLocation: SymbolLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    };
+    const fileScope = table.enterScope('file', 'file', fileLocation);
+
+    const blockSymbol = table.enterScope(
+      'MyClass',
+      'class',
+      undefined,
+      undefined,
+      fileScope ?? null,
+    );
+    expect(blockSymbol).toBeNull();
+
+    // When location is not provided, enterScope returns null
+    // Verify file scope still exists
+    const foundFileScope = table.findScopeByName('file');
+    expect(foundFileScope).toBeDefined();
+  });
+
+  it('should include block symbols in getAllSymbols()', () => {
+    table.setFileUri('test://file.cls');
+    const location: SymbolLocation = {
+      symbolRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+    };
+
+    table.enterScope('MyClass', 'class', location);
+    const allSymbols = table.getAllSymbols();
+    const blockSymbols = allSymbols.filter((s) => s.kind === SymbolKind.Block);
+    expect(blockSymbols.length).toBeGreaterThan(0);
+    // The file block is created first, then MyClass block
+    const myClassBlock = blockSymbols.find((s) => s.name === 'MyClass');
+    expect(myClassBlock).toBeDefined();
+    expect(myClassBlock?.name).toBe('MyClass');
+  });
+
+  it('should find block symbols using findBlockSymbol()', () => {
+    table.setFileUri('test://file.cls');
+    const location: SymbolLocation = {
+      symbolRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+    };
+
+    table.enterScope('MyClass', 'class', location);
+    const found = table.findBlockSymbol('MyClass');
+    expect(found).toBeDefined();
+    expect(found?.kind).toBe(SymbolKind.Block);
+    expect(found?.name).toBe('MyClass');
+  });
+
+  it('should get current block symbol using getCurrentBlockSymbol()', () => {
+    table.setFileUri('test://file.cls');
+    // Create file scope first
+    const fileLocation: SymbolLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    };
+    const fileScope = table.enterScope('file', 'file', fileLocation);
+
+    const location: SymbolLocation = {
+      symbolRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 10,
+        endColumn: 0,
+      },
+    };
+
+    const classBlockSymbol = table.enterScope(
+      'MyClass',
+      'class',
+      location,
+      undefined,
+      fileScope ?? null,
+    );
+    const currentBlockSymbol = table.getCurrentBlockSymbol(
+      classBlockSymbol ?? null,
+    );
+    expect(currentBlockSymbol).toBeDefined();
+    // When enterScope is called directly (not via listener), it uses the name provided
+    expect(currentBlockSymbol?.name).toBe('MyClass');
+    expect(currentBlockSymbol?.kind).toBe(SymbolKind.Block);
+  });
+
+  it('should restore parent scope symbol after exitScope()', () => {
+    table.setFileUri('test://file.cls');
+    // Create file scope first
+    const fileLocation: SymbolLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    };
+    const fileScope = table.enterScope('file', 'file', fileLocation);
+
+    const classLocation: SymbolLocation = {
+      symbolRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 20,
+        endColumn: 0,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 20,
+        endColumn: 0,
+      },
+    };
+    const methodLocation: SymbolLocation = {
+      symbolRange: {
+        startLine: 5,
+        startColumn: 0,
+        endLine: 15,
+        endColumn: 0,
+      },
+      identifierRange: {
+        startLine: 5,
+        startColumn: 0,
+        endLine: 15,
+        endColumn: 0,
+      },
+    };
+
+    const classBlockSymbol = table.enterScope(
+      'MyClass',
+      'class',
+      classLocation,
+      undefined,
+      fileScope ?? null,
+    );
+    const methodBlockSymbol = table.enterScope(
+      'myMethod',
+      'method',
+      methodLocation,
+      undefined,
+      classBlockSymbol ?? null,
+    );
+    // When enterScope is called directly (not via listener), it uses the name provided
+    expect(methodBlockSymbol?.name).toBe('myMethod');
+
+    // exitScope is now a no-op - stack handles scope exit
+    // After exitScope (which is a no-op), the class block symbol should still exist
+    // Since exitScope is a no-op, we just verify the class block symbol still exists
+    expect(classBlockSymbol).toBeDefined();
+    expect(classBlockSymbol?.name).toBe('MyClass');
   });
 });

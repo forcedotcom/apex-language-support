@@ -21,6 +21,7 @@ import {
   ApexSymbolProcessingManager,
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
+import { toDisplayFQN } from '../utils/displayFQNUtils';
 
 /**
  * Interface for code action processing functionality
@@ -250,8 +251,9 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       for (const symbol of symbols) {
         // Add import statement action
         if (symbol.fqn && !symbol.fqn.startsWith('default.')) {
+          const displayFQN = toDisplayFQN(symbol.fqn);
           const importAction: CodeAction = {
-            title: `Add import for '${symbol.fqn}'`,
+            title: `Add import for '${displayFQN}'`,
             kind: CodeActionKind.QuickFix,
             edit: {
               changes: {
@@ -261,7 +263,7 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
                       start: { line: 0, character: 0 },
                       end: { line: 0, character: 0 },
                     },
-                    newText: `import ${symbol.fqn};\n`,
+                    newText: `import ${displayFQN};\n`,
                   },
                 ],
               },

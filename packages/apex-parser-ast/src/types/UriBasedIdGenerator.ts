@@ -63,7 +63,9 @@ const parseSymbolPart = (
   name: string;
   lineNumber?: number;
 } => {
-  // Split the symbol part by colons to get scope, name, and line number
+  // Split the symbol part by colons to get scope, prefix, name, and line number
+  // New format: scope:prefix:name or prefix:name (with optional :lineNumber)
+  // Old format (backward compatibility): scope:name or name (with optional :lineNumber)
   const symbolParts = symbolPart.split(':');
 
   // The last part might be a line number if it's just a number
@@ -71,35 +73,50 @@ const parseSymbolPart = (
   let cleanName: string;
   let scopeParts: string[];
 
-  if (symbolParts.length === 1) {
-    // Only one part: just the name
-    cleanName = symbolParts[0];
+  // Check if last part is a line number
+  const lastPart = symbolParts[symbolParts.length - 1];
+  const hasLineNumber = /^\d+$/.test(lastPart);
+  const partsWithoutLine = hasLineNumber
+    ? symbolParts.slice(0, -1)
+    : symbolParts;
+
+  if (hasLineNumber) {
+    lineNumber = parseInt(lastPart, 10);
+  }
+
+  if (partsWithoutLine.length === 1) {
+    // Only one part: just the name (old format, no prefix)
+    cleanName = partsWithoutLine[0];
     scopeParts = [];
-  } else if (symbolParts.length === 2) {
-    // Two parts: could be name:line or scope:name
-    const lastPart = symbolParts[1];
-    if (/^\d+$/.test(lastPart)) {
-      // Last part is a line number: scope:name:line
-      cleanName = symbolParts[0];
-      lineNumber = parseInt(lastPart, 10);
+  } else if (partsWithoutLine.length === 2) {
+    // Two parts: could be prefix:name (new format) or scope:name (old format)
+    // Try to detect: if first part looks like a prefix (single word, no dots), it's prefix:name
+    // Otherwise, it's scope:name (old format)
+    const firstPart = partsWithoutLine[0];
+    if (!firstPart.includes('.')) {
+      // Likely prefix:name format (new format)
+      cleanName = partsWithoutLine[1];
       scopeParts = [];
     } else {
-      // Last part is the name: scope:name
-      cleanName = symbolParts[1];
-      scopeParts = [symbolParts[0]];
+      // Likely scope:name format (old format, backward compatibility)
+      cleanName = partsWithoutLine[1];
+      scopeParts = [partsWithoutLine[0]];
     }
   } else {
-    // Three or more parts: scope:name:line
-    const lastPart = symbolParts[symbolParts.length - 1];
-    if (/^\d+$/.test(lastPart)) {
-      // Last part is a line number
-      cleanName = symbolParts[symbolParts.length - 2];
-      lineNumber = parseInt(lastPart, 10);
-      scopeParts = symbolParts.slice(0, -2);
+    // Three or more parts: scope:prefix:name (new format) or scope:scope:name (old format)
+    // The last part is always the name
+    // The second-to-last part might be a prefix (if it's a single word) or part of scope
+    cleanName = partsWithoutLine[partsWithoutLine.length - 1];
+    const secondToLast = partsWithoutLine[partsWithoutLine.length - 2];
+
+    // If second-to-last doesn't contain dots, it's likely a prefix (new format)
+    // Otherwise, it's part of the scope path (old format)
+    if (!secondToLast.includes('.')) {
+      // New format: scope:prefix:name - exclude the prefix from scope
+      scopeParts = partsWithoutLine.slice(0, -2);
     } else {
-      // Last part is the name
-      cleanName = symbolParts[symbolParts.length - 1];
-      scopeParts = symbolParts.slice(0, -1);
+      // Old format: scope:scope:name - include everything except name
+      scopeParts = partsWithoutLine.slice(0, -1);
     }
   }
 
@@ -130,6 +147,7 @@ const parseSymbolPart = (
  * @param fileUri The file URI
  * @param scopePath Optional scope path for uniqueness (e.g., ["TestClass", "method1", "block1"])
  * @param lineNumber Optional line number for additional uniqueness
+ * @param prefix Optional symbol prefix/kind for uniqueness (e.g., "class", "block", "method")
  * @returns URI-based symbol ID
  */
 export const generateSymbolId = (
@@ -137,16 +155,22 @@ export const generateSymbolId = (
   fileUri: string,
   scopePath?: string[],
   lineNumber?: number,
+  prefix?: string,
 ): string => {
   const uri = convertToUri(fileUri);
 
+  // Include prefix in ID to ensure uniqueness between semantic symbols and their block scopes
+  const prefixPart = prefix ? `${prefix}:` : '';
+
   if (scopePath && scopePath.length > 0) {
-    const scopeStr = scopePath.join('.');
-    const baseId = `${uri}:${scopeStr}:${name}`;
+    // Use colons to join scopePath for consistency across all symbol IDs
+    // Format: fileUri:scopePath:prefix:name where scopePath uses colons
+    const scopeStr = scopePath.join(':');
+    const baseId = `${uri}:${scopeStr}:${prefixPart}${name}`;
     return lineNumber !== undefined ? `${baseId}:${lineNumber}` : baseId;
   }
 
-  const baseId = `${uri}:${name}`;
+  const baseId = `${uri}:${prefixPart}${name}`;
   return lineNumber !== undefined ? `${baseId}:${lineNumber}` : baseId;
 };
 

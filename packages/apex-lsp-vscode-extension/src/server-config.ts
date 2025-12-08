@@ -121,6 +121,55 @@ const getProfilingFlags = (
 };
 
 /**
+ * Maximum allowed JavaScript heap size in GB
+ * This is a practical upper bound to prevent excessive memory allocation
+ * that could cause system performance issues. Node.js itself doesn't have
+ * a hard limit, but very large heap sizes (>32GB) can cause performance
+ * degradation and system instability if system memory is insufficient.
+ */
+const MAX_HEAP_SIZE_GB = 32;
+
+/**
+ * Gets heap size flag based on settings
+ * @param runtimePlatform The runtime platform (desktop or web)
+ * @returns Array with heap size flag or empty array if not set or invalid
+ */
+const getHeapSizeFlag = (runtimePlatform: 'desktop' | 'web'): string[] => {
+  // Heap size setting is only applicable on desktop
+  if (runtimePlatform !== 'desktop') {
+    return [];
+  }
+
+  const settings = getWorkspaceSettings();
+  const jsHeapSizeGB = settings?.apex?.environment?.jsHeapSizeGB;
+
+  // Only add flag if explicitly set and valid (> 0)
+  if (jsHeapSizeGB !== undefined && jsHeapSizeGB > 0) {
+    // Enforce upper bound
+    if (jsHeapSizeGB > MAX_HEAP_SIZE_GB) {
+      logServerMessage(
+        `JavaScript heap size ${jsHeapSizeGB} GB exceeds maximum of ` +
+          `${MAX_HEAP_SIZE_GB} GB. Using ${MAX_HEAP_SIZE_GB} GB instead.`,
+        'warning',
+      );
+      // Use the maximum allowed value
+      const heapSizeMB = Math.round(MAX_HEAP_SIZE_GB * 1024);
+      return [`--max-old-space-size=${heapSizeMB}`];
+    }
+
+    // Convert GB to MB (Node.js expects MB)
+    const heapSizeMB = Math.round(jsHeapSizeGB * 1024);
+    logServerMessage(
+      `Setting JavaScript heap size to ${jsHeapSizeGB} GB (${heapSizeMB} MB)`,
+      'info',
+    );
+    return [`--max-old-space-size=${heapSizeMB}`];
+  }
+
+  return [];
+};
+
+/**
  * Creates server options for the language server
  * @param context The extension context
  * @returns Server options configuration
@@ -186,6 +235,9 @@ export const createServerOptions = (
   // Get profiling flags
   const profilingFlags = getProfilingFlags(runtimePlatform, context);
 
+  // Get heap size flag
+  const heapSizeFlag = getHeapSizeFlag(runtimePlatform);
+
   // Combine debug options and profiling flags
   const runExecArgv: string[] = [];
   const debugExecArgv: string[] = [];
@@ -194,6 +246,12 @@ export const createServerOptions = (
   if (profilingFlags.length > 0) {
     runExecArgv.push(...profilingFlags);
     debugExecArgv.push(...profilingFlags);
+  }
+
+  // Add heap size flag to both run and debug
+  if (heapSizeFlag.length > 0) {
+    runExecArgv.push(...heapSizeFlag);
+    debugExecArgv.push(...heapSizeFlag);
   }
 
   // Add debug flags only to debug

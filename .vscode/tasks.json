@@ -34,6 +34,14 @@
       "problemMatcher": ["$tsc"],
       "label": "npm: compile",
       "detail": "Compile all packages for development"
+    },
+    {
+      "type": "npm",
+      "script": "bundle",
+      "group": "build",
+      "problemMatcher": [],
+      "label": "npm: bundle",
+      "detail": "Bundle all packages for development"
     }
   ]
 }

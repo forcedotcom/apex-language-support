@@ -18,12 +18,26 @@ import {
   initializeResourceLoaderForTests,
   resetResourceLoader,
 } from '../helpers/testHelpers';
+import {
+  initialize as schedulerInitialize,
+  shutdown as schedulerShutdown,
+  reset as schedulerReset,
+} from '../../src/queue/priority-scheduler-utils';
+import { Effect } from 'effect';
 
 describe('ApexSymbolManager Cross-File Resolution', () => {
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
 
   beforeAll(async () => {
+    // Initialize scheduler before all tests
+    await Effect.runPromise(
+      schedulerInitialize({
+        queueCapacity: 100,
+        maxHighPriorityStreak: 50,
+        idleSleepMs: 1,
+      }),
+    );
     // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
     await initializeResourceLoaderForTests({ loadMode: 'lazy' });
   });
@@ -39,7 +53,19 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
     symbolManager.clear();
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    // Shutdown the scheduler first to stop the background loop
+    try {
+      await Effect.runPromise(schedulerShutdown());
+    } catch (_error) {
+      // Ignore errors - scheduler might not be initialized or already shut down
+    }
+    // Reset scheduler state after shutdown
+    try {
+      await Effect.runPromise(schedulerReset());
+    } catch (_error) {
+      // Ignore errors - scheduler might not be initialized
+    }
     resetResourceLoader();
   });
 

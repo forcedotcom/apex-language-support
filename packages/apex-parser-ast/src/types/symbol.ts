@@ -31,6 +31,7 @@ export enum SymbolKind {
   Parameter = 'parameter',
   Enum = 'enum',
   EnumValue = 'enumValue',
+  Block = 'block',
 }
 
 /**
@@ -78,6 +79,7 @@ export const SymbolKindValues = {
   [SymbolKind.Parameter]: 8,
   [SymbolKind.Enum]: 9,
   [SymbolKind.EnumValue]: 10,
+  [SymbolKind.Block]: 11,
 } as const;
 
 /**
@@ -96,7 +98,7 @@ export class SymbolFactory {
     modifiers: SymbolModifiers = this.createDefaultModifiers(),
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, fileUri, scopePath);
+    const id = this.generateId(name, fileUri, scopePath, kind);
     const key: SymbolKey = {
       prefix: kind,
       name,
@@ -155,7 +157,7 @@ export class SymbolFactory {
     parentSymbol?: ApexSymbol, // Optional parent symbol (for future use)
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, fileUri, scopePath);
+    const id = this.generateId(name, fileUri, scopePath, kind);
     const key: SymbolKey = {
       prefix: kind,
       name,
@@ -199,7 +201,7 @@ export class SymbolFactory {
     annotations?: Annotation[],
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, fileUri, scopePath);
+    const id = this.generateId(name, fileUri, scopePath, kind);
 
     // Calculate FQN if namespace is provided (case-insensitive for Apex)
     // For top-level symbols, this gives us the full FQN immediately.
@@ -242,19 +244,131 @@ export class SymbolFactory {
   }
 
   /**
+   * Create a block symbol
+   * @param name The block name
+   * @param scopeType The type of block (file, class, method, block, if, while, for,
+   *   doWhile, try, catch, finally, switch, when, runAs, getter, setter)
+   * @param location The location of the block (both symbolRange and identifierRange are set to the same value)
+   * @param fileUri The file URI
+   * @param parentId The parent block symbol ID, if any
+   * @param scopePath Optional scope path for uniqueness
+   * @returns A ScopeSymbol instance
+   */
+  /**
+   * Create a block symbol
+   * @deprecated Use createScopeSymbolByType instead
+   * This method is kept for backward compatibility
+   */
+  static createBlockSymbol(
+    name: string,
+    scopeType: ScopeType,
+    location: SymbolLocation,
+    fileUri: string,
+    parentId: string | null = null,
+    scopePath?: string[],
+  ): ScopeSymbol {
+    // For block symbols, symbolRange and identifierRange should be the same
+    const blockLocation: SymbolLocation = {
+      symbolRange: location.symbolRange,
+      identifierRange: location.symbolRange, // Same as symbolRange for blocks
+    };
+
+    const id = this.generateId(name, fileUri, scopePath, 'block');
+    const key: SymbolKey = {
+      prefix: 'block',
+      name,
+      path: [fileUri, name],
+      unifiedId: id,
+      fileUri,
+      kind: SymbolKind.Block,
+    };
+
+    const modifiers: SymbolModifiers = {
+      visibility: SymbolVisibility.Default,
+      isStatic: false,
+      isFinal: false,
+      isAbstract: false,
+      isVirtual: false,
+      isOverride: false,
+      isTransient: false,
+      isTestMethod: false,
+      isWebService: false,
+      isBuiltIn: false,
+    };
+    return new ScopeSymbol(
+      id,
+      name,
+      blockLocation,
+      fileUri,
+      parentId,
+      key,
+      modifiers,
+      scopeType,
+    );
+  }
+
+  /**
    * Generate a unique ID for a symbol using URI-based format
    * @param name The symbol name
    * @param fileUri The file path
    * @param scopePath Optional scope path for uniqueness (e.g., ["TestClass", "method1", "block1"])
    * @returns URI-based symbol ID
    */
-  private static generateId(
+  static generateId(
     name: string,
     fileUri: string,
     scopePath?: string[],
+    prefix?: string,
   ): string {
     // Use the new unified URI-based ID generator
-    return generateSymbolId(name, fileUri, scopePath);
+    // Include prefix to ensure uniqueness between semantic symbols and their block scopes
+    return generateSymbolId(name, fileUri, scopePath, undefined, prefix);
+  }
+
+  /**
+   * Create a scope symbol of the appropriate subclass based on scopeType
+   * Uses a registry pattern to avoid large switch statements
+   * @param name The block name
+   * @param scopeType The type of block
+   * @param location The location of the block
+   * @param fileUri The file URI
+   * @param parentId The parent block symbol ID, if any
+   * @param key The symbol key
+   * @param modifiers The symbol modifiers
+   * @returns A ScopeSymbol instance of the appropriate subclass
+   */
+  static createScopeSymbolByType(
+    name: string,
+    scopeType: ScopeType,
+    location: SymbolLocation,
+    fileUri: string,
+    parentId: string | null,
+    key: SymbolKey,
+    modifiers: SymbolModifiers,
+  ): ScopeSymbol {
+    // For block symbols, symbolRange and identifierRange should be the same
+    const blockLocation: SymbolLocation = {
+      symbolRange: location.symbolRange,
+      identifierRange: location.symbolRange, // Same as symbolRange for blocks
+    };
+
+    // Use file location for file scope, block location for others
+    const effectiveLocation = scopeType === 'file' ? location : blockLocation;
+
+    // Ensure unifiedId is set - generate it if missing
+    const id = key.unifiedId || generateUnifiedId(key, fileUri);
+
+    // Create a single ScopeSymbol instance with the specified scopeType
+    return new ScopeSymbol(
+      id,
+      name,
+      effectiveLocation,
+      fileUri,
+      parentId,
+      key,
+      modifiers,
+      scopeType,
+    );
   }
 }
 
@@ -422,6 +536,79 @@ export interface EnumSymbol extends TypeSymbol {
 }
 
 /**
+ * Scope type for block symbols
+ */
+export type ScopeType =
+  | 'file' // File scope (root)
+  | 'class' // Class/interface/enum/trigger body
+  | 'method' // Method/constructor body
+  | 'block' // Generic block (fallback for anonymous blocks)
+  | 'if' // If statement block
+  | 'while' // While loop block
+  | 'for' // For loop block
+  | 'doWhile' // Do-while loop block
+  | 'try' // Try block
+  | 'catch' // Catch block
+  | 'finally' // Finally block
+  | 'switch' // Switch statement container
+  | 'when' // Switch when clause block
+  | 'runAs' // RunAs block
+  | 'getter' // Property getter block
+  | 'setter'; // Property setter block
+
+/**
+ * Represents a scope symbol that can contain other symbols
+ * All blocks are scopes - this class represents all block/scope symbols
+ * Containment is determined by parentId - symbols with parentId === this.id belong to this scope
+ */
+export class ScopeSymbol implements ApexSymbol {
+  // ApexSymbol properties
+  id: string;
+  name: string;
+  kind: SymbolKind.Block;
+  location: SymbolLocation;
+  fileUri: string;
+  parentId: string | null;
+  key: SymbolKey;
+  fqn?: string;
+  namespace?: string | Namespace | null;
+  annotations?: Annotation[];
+  identifierLocation?: SymbolLocation;
+  _typeData?: {
+    parameters?: string[];
+    values?: string[];
+  };
+  _isLoaded: boolean;
+  _loadPromise?: Promise<void>;
+  modifiers: SymbolModifiers;
+
+  // ScopeSymbol-specific properties
+  readonly scopeType: ScopeType;
+
+  constructor(
+    id: string,
+    name: string,
+    location: SymbolLocation,
+    fileUri: string,
+    parentId: string | null,
+    key: SymbolKey,
+    modifiers: SymbolModifiers,
+    scopeType: ScopeType,
+  ) {
+    this.id = id;
+    this.name = name;
+    this.kind = SymbolKind.Block;
+    this.location = location;
+    this.fileUri = fileUri;
+    this.parentId = parentId;
+    this.key = key;
+    this.modifiers = modifiers;
+    this.scopeType = scopeType;
+    this._isLoaded = true;
+  }
+}
+
+/**
  * Represents a unique key for a symbol or scope in the symbol table
  * Enhanced for Phase 6.5.2: Symbol Key System Unification
  */
@@ -452,11 +639,14 @@ export interface SymbolKey {
  */
 export const generateUnifiedId = (key: SymbolKey, fileUri?: string): string => {
   // Use the new unified URI-based ID generator
+  // Include prefix/kind to ensure uniqueness between semantic symbols and their block scopes
   const validFileUri = fileUri || key.fileUri || 'unknown';
   return generateSymbolId(
     key.name,
     validFileUri,
     key.path.length > 0 ? key.path : undefined,
+    undefined, // lineNumber
+    key.prefix, // Include prefix to make IDs unique
   );
 };
 
@@ -465,8 +655,13 @@ export const generateUnifiedId = (key: SymbolKey, fileUri?: string): string => {
  * @param key The symbol key
  * @returns String representation
  */
-export const keyToString = (key: SymbolKey): string =>
-  `${key.prefix}:${key.path.join('.')}`;
+export const keyToString = (key: SymbolKey): string => {
+  // Use unifiedId if available (includes full scope path), otherwise fall back to path
+  if (key.unifiedId) {
+    return key.unifiedId;
+  }
+  return `${key.prefix}:${key.path.join('.')}`;
+};
 
 /**
  * Create a SymbolKey from an ApexSymbol with unified ID
@@ -480,7 +675,8 @@ export const createFromSymbol = (
 ): SymbolKey => {
   const key: SymbolKey = {
     prefix: symbol.key.prefix || symbol.kind,
-    name: symbol.key.name || symbol.name,
+    // Prefer symbol.name over key.name - symbol.name is the source of truth
+    name: symbol.name || symbol.key.name || '',
     path: symbol.key.path || [symbol.fileUri, symbol.name],
     kind: symbol.kind,
     fqn: symbol.fqn,
@@ -541,152 +737,42 @@ export const getUnifiedId = (key: SymbolKey, fileUri?: string): string => {
 };
 
 /**
- * Represents a scope in which symbols are defined within a source file.
- * Maintains a hierarchy of scopes and provides symbol lookup functionality.
- */
-export class SymbolScope {
-  private symbols: HashMap<string, ApexSymbol> = new HashMap();
-  private nameToSymbol: HashMap<string, ApexSymbol[]> = new HashMap(); // For name-based lookups
-  private children: SymbolScope[] = [];
-  private readonly key: SymbolKey;
-
-  /**
-   * Creates a new symbol scope.
-   * @param name The name of the scope
-   * @param parent The parent scope, if any
-   * @param scopeType The type of scope (file, class, method, block)
-   */
-  constructor(
-    public readonly name: string,
-    public readonly parent: SymbolScope | null = null,
-    private readonly scopeType: string = 'file',
-  ) {
-    this.key = this.generateKey();
-    if (parent) {
-      parent.children.push(this);
-    }
-  }
-
-  /**
-   * Get the unique key for this scope
-   */
-  getKey(): SymbolKey {
-    return this.key;
-  }
-
-  /**
-   * Generate a unique key for this scope
-   */
-  private generateKey(): SymbolKey {
-    const path = this.getPath();
-    return {
-      prefix: this.scopeType,
-      name: this.name,
-      path: path,
-    };
-  }
-
-  /**
-   * Get the hierarchical path to this scope
-   */
-  getPath(): string[] {
-    const path: string[] = [];
-    let current: SymbolScope | null = this;
-    while (current) {
-      path.unshift(current.name);
-      current = current.parent;
-    }
-    return path;
-  }
-
-  /**
-   * Add a symbol to this scope.
-   * @param symbol The symbol to add
-   */
-  addSymbol(symbol: ApexSymbol): void {
-    // Use the symbol's unique key to prevent overwriting symbols with the same name
-    const key = symbol.key.unifiedId || keyToString(symbol.key);
-    this.symbols.set(key, symbol);
-
-    // Also maintain name-based mapping for backward compatibility
-    const existingSymbols = this.nameToSymbol.get(symbol.name) || [];
-    existingSymbols.push(symbol);
-    this.nameToSymbol.set(symbol.name, existingSymbols);
-  }
-
-  /**
-   * Get a symbol by name from this scope.
-   * @param name The name of the symbol to find
-   * @returns The symbol if found, undefined otherwise
-   */
-  getSymbol(name: string): ApexSymbol | undefined {
-    const symbols = this.nameToSymbol.get(name);
-    return symbols && symbols.length > 0 ? symbols[0] : undefined;
-  }
-
-  /**
-   * Get all symbols with a given name from this scope.
-   * @param name The name of the symbols to find
-   * @returns Array of symbols with the given name, empty array if none found
-   */
-  getSymbolsByName(name: string): ApexSymbol[] {
-    return this.nameToSymbol.get(name) || [];
-  }
-
-  /**
-   * Get all symbols in this scope.
-   * @returns Array of all symbols in this scope
-   */
-  getAllSymbols(): ApexSymbol[] {
-    return Array.from(this.symbols.values());
-  }
-
-  /**
-   * Get child scopes of this scope.
-   * @returns Array of child scopes
-   */
-  getChildren(): SymbolScope[] {
-    return [...this.children];
-  }
-
-  /**
-   * Convert the scope to a JSON-serializable format
-   */
-  toJSON() {
-    return {
-      key: this.key,
-      symbols: Array.from(this.symbols.entries()).map(([name, symbol]) => ({
-        name,
-        key: (symbol as any).key,
-      })),
-      children: this.children.map((child: SymbolScope) => child.key),
-    };
-  }
-}
-
-/**
  * Symbol table representing all symbols in a source file.
  * Maintains a hierarchy of scopes and provides symbol lookup functionality.
  */
 export class SymbolTable {
-  private root: SymbolScope;
-  private current: SymbolScope;
+  private roots: ApexSymbol[] = []; // Track all symbols with parentId === null (top-level symbols)
   private symbolMap: HashMap<string, ApexSymbol> = new HashMap();
-  private scopeMap: HashMap<string, SymbolScope> = new HashMap();
+  private idIndex: HashMap<string, ApexSymbol> = new HashMap(); // O(1) lookup by id
   private references: TypeReference[] = []; // Store type references
   private hierarchicalReferences: HierarchicalReference[] = []; // NEW: Store hierarchical references
   // Array maintained incrementally to avoid expensive HashMap iterator in getAllSymbols()
   private symbolArray: ApexSymbol[] = [];
+  private fileUri: string = 'unknown';
 
   /**
    * Creates a new symbol table.
-   * Initializes with a root scope named 'file'.
+   * The SymbolTable instance IS the file container.
    */
   constructor() {
-    // Create root scope for the file
-    this.root = new SymbolScope('file', null, 'file');
-    this.current = this.root;
-    this.scopeMap.set(this.keyToString(this.root.getKey()), this.root);
+    // No root node needed - SymbolTable instance is the file container
+    // Top-level symbols (parentId === null) are tracked in roots array
+  }
+
+  /**
+   * Set the file URI for this symbol table
+   * @param fileUri The file URI
+   */
+  setFileUri(fileUri: string): void {
+    this.fileUri = fileUri;
+  }
+
+  /**
+   * Get the file URI for this symbol table
+   * @returns The file URI
+   */
+  getFileUri(): string {
+    return this.fileUri;
   }
 
   /**
@@ -700,9 +786,10 @@ export class SymbolTable {
   /**
    * Add a symbol to the current scope.
    * @param symbol The symbol to add
+   * @param currentScope The current scope (null when at file level)
    * Updated for Phase 6.5.2: Symbol Key System Unification
    */
-  addSymbol(symbol: ApexSymbol): void {
+  addSymbol(symbol: ApexSymbol, currentScope?: ScopeSymbol | null): void {
     // Ensure symbol key has unified ID for graph operations
     if (!symbol.key.unifiedId) {
       symbol.key = createFromSymbol(symbol);
@@ -710,9 +797,27 @@ export class SymbolTable {
 
     // Parent property removed - use parentId for parent resolution via getParent() helper
 
-    this.current.addSymbol(symbol);
+    // Set parentId if not already set - symbols added to current scope should have current scope as parent
+    // When currentScope is null or undefined (stack empty), symbol is top-level (parentId === null)
+    if (symbol.parentId === undefined) {
+      if (currentScope === null || currentScope === undefined) {
+        // At file level - symbol is top-level
+        symbol.parentId = null;
+      } else {
+        // In a scope - set parentId to current scope
+        symbol.parentId = currentScope.id;
+      }
+    }
+    // If parentId is already set (including explicitly null), use it as-is
+
+    // Containment is determined by parentId - no need to call scope.addSymbol()
+    // The symbol's parentId already establishes the containment relationship
     const symbolKey = this.keyToString(symbol.key);
     const existingSymbol = this.symbolMap.get(symbolKey);
+
+    // Track previous parentId for roots array maintenance
+    const previousParentId = existingSymbol?.parentId;
+
     this.symbolMap.set(symbolKey, symbol);
 
     // Maintain array incrementally to avoid expensive HashMap iterator
@@ -728,73 +833,383 @@ export class SymbolTable {
         // Fallback: symbol not found in array, just push (shouldn't happen)
         this.symbolArray.push(symbol);
       }
+      // Update idIndex
+      this.idIndex.set(symbol.id, symbol);
     } else {
-      // New symbol, add to array
+      // New symbol, add to array and idIndex
       this.symbolArray.push(symbol);
+      this.idIndex.set(symbol.id, symbol);
     }
+
+    // Maintain roots array: track symbols with parentId === null
+    // If parentId changed from null to non-null, remove from roots
+    if (previousParentId === null && symbol.parentId !== null) {
+      const rootsIndex = this.roots.findIndex((s) => s.id === symbol.id);
+      if (rootsIndex !== -1) {
+        this.roots.splice(rootsIndex, 1);
+      }
+    }
+    // If parentId is null (top-level), add to roots array
+    if (symbol.parentId === null) {
+      const rootsIndex = this.roots.findIndex((s) => s.id === symbol.id);
+      if (rootsIndex === -1) {
+        this.roots.push(symbol);
+      }
+    }
+  }
+
+  /**
+   * Create a scope symbol of the appropriate subclass based on scopeType
+   * Delegates to SymbolFactory to avoid code duplication
+   * @private
+   */
+  private createScopeSymbol(
+    name: string,
+    scopeType: ScopeType,
+    location: SymbolLocation,
+    fileUri: string,
+    parentId: string | null,
+    scopePath?: string[],
+  ): ScopeSymbol {
+    const id = SymbolFactory.generateId(name, fileUri, scopePath, 'block');
+    const key: SymbolKey = {
+      prefix: scopeType,
+      name,
+      path: scopePath ? [fileUri, ...scopePath, name] : [fileUri, name],
+      unifiedId: id,
+      fileUri,
+      kind: SymbolKind.Block,
+    };
+    const modifiers: SymbolModifiers = {
+      visibility: SymbolVisibility.Default,
+      isStatic: false,
+      isFinal: false,
+      isAbstract: false,
+      isVirtual: false,
+      isOverride: false,
+      isTransient: false,
+      isTestMethod: false,
+      isWebService: false,
+      isBuiltIn: false,
+    };
+
+    // Delegate to SymbolFactory to create the appropriate scope symbol subclass
+    return SymbolFactory.createScopeSymbolByType(
+      name,
+      scopeType,
+      location,
+      fileUri,
+      parentId,
+      key,
+      modifiers,
+    );
   }
 
   /**
    * Enter a new scope.
    * Creates a new scope as a child of the current scope.
    * @param name The name of the new scope
-   * @param scopeType The type of scope (file, class, method, block)
+   * @param scopeType The type of scope (file, class, method, block, if, while, for,
+   *   doWhile, try, catch, finally, switch, when, runAs, getter, setter)
+   * @param location Optional location for the scope (if provided, creates a scope symbol)
+   * @param fileUri Optional file URI (defaults to this.fileUri)
+   * @returns The created scope symbol if location was provided, null otherwise
    */
-  enterScope(name: string, scopeType: string = 'block'): void {
-    const newScope = new SymbolScope(name, this.current, scopeType);
-    this.current = newScope;
-    this.scopeMap.set(this.keyToString(newScope.getKey()), newScope);
+  enterScope(
+    name: string,
+    scopeType: ScopeType = 'block',
+    location?: SymbolLocation,
+    fileUri?: string,
+    parentScope?: ScopeSymbol | null,
+  ): ScopeSymbol | null {
+    if (!location) {
+      return null;
+    }
+
+    const effectiveFileUri = fileUri || this.fileUri;
+    const currentScopePath = this.getCurrentScopePath(parentScope ?? null);
+
+    // Determine parentId
+    // For class/method/constructor scopes, parentId should point to the semantic symbol
+    // For other scopes, parentId points to the parent scope
+    let parentId: string | null = parentScope ? parentScope.id : null;
+
+    if (scopeType === 'class' || scopeType === 'method') {
+      // Find the semantic symbol (class/method) that was just added
+      // Search in the current scope (where it was just added) and also check all symbols
+      // to find the most recently added one with matching name and kind
+      const currentScopeId = parentScope ? parentScope.id : null;
+
+      // For method scope, prioritize constructor over class (constructors have same name as class)
+      // Search all symbols to find the most recently added one with matching name and kind
+      let semanticSymbol: ApexSymbol | undefined;
+
+      if (scopeType === 'method') {
+        // For method scope, look for Method or Constructor symbols
+        // Search in reverse order to get the most recently added (last one)
+        for (let i = this.symbolArray.length - 1; i >= 0; i--) {
+          const s = this.symbolArray[i];
+          if (
+            s.name === name &&
+            s.kind !== SymbolKind.Block &&
+            (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor)
+          ) {
+            semanticSymbol = s;
+            break; // Found the most recent one
+          }
+        }
+      } else if (scopeType === 'class') {
+        // For class scope, look for Class, Interface, Enum, or Trigger symbols
+        semanticSymbol = this.findSymbolInScope(currentScopeId, name);
+        if (semanticSymbol) {
+          // Verify it's the right kind
+          if (
+            !(
+              semanticSymbol.kind === SymbolKind.Class ||
+              semanticSymbol.kind === SymbolKind.Interface ||
+              semanticSymbol.kind === SymbolKind.Enum ||
+              semanticSymbol.kind === SymbolKind.Trigger
+            )
+          ) {
+            semanticSymbol = undefined;
+          }
+        }
+
+        // If not found in current scope, search all symbols
+        if (!semanticSymbol) {
+          for (let i = this.symbolArray.length - 1; i >= 0; i--) {
+            const s = this.symbolArray[i];
+            if (
+              s.name === name &&
+              s.kind !== SymbolKind.Block &&
+              (s.kind === SymbolKind.Class ||
+                s.kind === SymbolKind.Interface ||
+                s.kind === SymbolKind.Enum ||
+                s.kind === SymbolKind.Trigger)
+            ) {
+              semanticSymbol = s;
+              break;
+            }
+          }
+        }
+      }
+
+      if (semanticSymbol) {
+        parentId = semanticSymbol.id;
+      }
+    }
+
+    // Create scope symbol (which IS the block symbol)
+    const scopeSymbol = this.createScopeSymbol(
+      name,
+      scopeType,
+      location,
+      effectiveFileUri,
+      parentId,
+      currentScopePath,
+    );
+
+    // Add scope symbol to symbol table (via addSymbol which updates symbolArray and idIndex)
+    this.addSymbol(scopeSymbol, parentScope ?? null);
+
+    return scopeSymbol;
   }
 
   /**
-   * Exit the current scope and return to the parent scope.
-   * Does nothing if already at the root scope.
+   * Get the current scope's block symbol
+   * @param currentScope The current scope (null when at file level)
+   * @returns The current scope symbol (scope IS the block symbol)
+   */
+  getCurrentBlockSymbol(currentScope: ScopeSymbol | null): ScopeSymbol | null {
+    return currentScope;
+  }
+
+  /**
+   * Find a block symbol by scope name
+   * @param scopeName The name of the scope to find
+   * @returns The scope symbol if found, undefined otherwise
+   */
+  findBlockSymbol(scopeName: string): ScopeSymbol | undefined {
+    return this.findScopeByName(scopeName);
+  }
+
+  /**
+   * Find the block symbol containing a given position
+   * @param position The position to search for (1-based line, 0-based column)
+   * @returns The most specific block symbol containing the position, or null if not found
+   */
+  findContainingBlockSymbol(position: Position): ScopeSymbol | null {
+    const blockSymbols = this.symbolArray.filter(
+      (s) => s.kind === SymbolKind.Block,
+    ) as ScopeSymbol[];
+
+    // Find all block symbols that contain this position
+    const containingBlocks = blockSymbols.filter((blockSymbol) => {
+      const { startLine, startColumn, endLine, endColumn } =
+        blockSymbol.location.symbolRange;
+
+      return (
+        (position.line > startLine ||
+          (position.line === startLine && position.character >= startColumn)) &&
+        (position.line < endLine ||
+          (position.line === endLine && position.character <= endColumn))
+      );
+    });
+
+    if (containingBlocks.length === 0) {
+      return null;
+    }
+
+    // Return the most specific (smallest) block symbol
+    return containingBlocks.reduce((smallest, current) => {
+      const smallestSize =
+        (smallest.location.symbolRange.endLine -
+          smallest.location.symbolRange.startLine) *
+          1000 +
+        (smallest.location.symbolRange.endColumn -
+          smallest.location.symbolRange.startColumn);
+      const currentSize =
+        (current.location.symbolRange.endLine -
+          current.location.symbolRange.startLine) *
+          1000 +
+        (current.location.symbolRange.endColumn -
+          current.location.symbolRange.startColumn);
+      return currentSize < smallestSize ? current : smallest;
+    });
+  }
+
+  /**
+   * Get the scope hierarchy chain from root to the scope containing a position
+   * @param position The position to search for (1-based line, 0-based column)
+   * @returns Array of scope symbols from root (file) to most specific containing scope
+   */
+  getScopeHierarchy(position: Position): ScopeSymbol[] {
+    const hierarchy: ScopeSymbol[] = [];
+    const containingBlock = this.findContainingBlockSymbol(position);
+
+    if (!containingBlock) {
+      return hierarchy;
+    }
+
+    // Build hierarchy by following parentId chain using idIndex for O(1) lookup
+    let current: ScopeSymbol | null = containingBlock as ScopeSymbol;
+    while (current) {
+      hierarchy.unshift(current);
+      if (current.parentId) {
+        const parent = this.idIndex.get(current.parentId);
+        if (parent && parent.kind === SymbolKind.Block) {
+          current = parent as ScopeSymbol;
+        } else {
+          current = null;
+        }
+      } else {
+        current = null;
+      }
+    }
+
+    return hierarchy;
+  }
+
+  /**
+   * Exit the current scope, moving to the parent scope.
+   * This is now a no-op - the stack handles scope exit.
    */
   exitScope(): void {
-    if (this.current.parent) {
-      this.current = this.current.parent;
-    }
+    // No-op - stack handles scope exit via pop()
   }
 
   /**
-   * Get the current scope.
-   * @returns The current scope
+   * Get all top-level symbols (symbols with parentId === null).
+   * @returns Array of all root symbols
    */
-  getCurrentScope(): SymbolScope {
-    return this.current;
+  getRoots(): ApexSymbol[] {
+    return this.roots;
   }
 
   /**
    * Get the hierarchical path to the current scope.
+   * @param currentScope The current scope (null when at file level)
    * @returns Array of scope names from root to current scope
    */
-  getCurrentScopePath(): string[] {
-    const path = this.current.getPath();
-
-    // Filter out the 'file' scope when it's the only scope
-    // The 'file' scope is just a placeholder and doesn't add meaningful uniqueness
-    if (path.length === 1 && path[0] === 'file') {
+  getCurrentScopePath(currentScope: ScopeSymbol | null): string[] {
+    if (!currentScope) {
       return [];
+    }
+
+    const path: string[] = [];
+    let current: ScopeSymbol | null = currentScope;
+    while (current) {
+      path.unshift(current.name);
+      if (current.parentId) {
+        const parent = this.idIndex.get(current.parentId);
+        if (parent && parent.kind === SymbolKind.Block) {
+          current = parent as ScopeSymbol;
+        } else {
+          current = null;
+        }
+      } else {
+        current = null;
+      }
     }
 
     return path;
   }
 
   /**
-   * Get the parent scope of the current scope.
-   * @returns The parent scope, or null if at root
+   * Get the parent scope of a given scope.
+   * @param scope The scope to get the parent of
+   * @returns The parent scope, or null if at file level
    */
-  getParentScope(): SymbolScope | null {
-    return this.current.parent;
+  getParentScope(scope: ScopeSymbol): ScopeSymbol | null {
+    if (scope.parentId) {
+      const parent = this.idIndex.get(scope.parentId);
+      if (parent && parent.kind === SymbolKind.Block) {
+        return parent as ScopeSymbol;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get all symbols in a specific scope by scope ID.
+   * @param scopeId The ID of the scope (null for file level)
+   * @returns Array of all symbols in the scope
+   */
+  getSymbolsInScope(scopeId: string | null): ApexSymbol[] {
+    // For file level, use roots array for efficient lookup
+    if (scopeId === null) {
+      return this.roots;
+    }
+    // For other scopes, symbols with parentId === scopeId belong here
+    return this.symbolArray.filter((s) => s.parentId === scopeId);
+  }
+
+  /**
+   * Find a symbol by name in a specific scope.
+   * @param scopeId The ID of the scope (null for root/file scope)
+   * @param name The name of the symbol to find
+   * @returns The symbol if found, undefined otherwise
+   */
+  findSymbolInScope(
+    scopeId: string | null,
+    name: string,
+  ): ApexSymbol | undefined {
+    return this.getSymbolsInScope(scopeId).find((s) => s.name === name);
   }
 
   /**
    * Find a symbol in the current scope only.
    * @param name The name of the symbol to find
+   * @param currentScope The current scope (null when at file level)
    * @returns The symbol if found in current scope, undefined otherwise
    */
-  findSymbolInCurrentScope(name: string): ApexSymbol | undefined {
-    return this.current.getSymbol(name);
+  findSymbolInCurrentScope(
+    name: string,
+    currentScope: ScopeSymbol | null,
+  ): ApexSymbol | undefined {
+    // For file level, use null as scopeId
+    const scopeId = currentScope ? currentScope.id : null;
+    return this.findSymbolInScope(scopeId, name);
   }
 
   /**
@@ -802,58 +1217,84 @@ export class SymbolTable {
    * @param name The name of the scope to find
    * @returns The scope if found, undefined otherwise
    */
-  findScopeByName(name: string): SymbolScope | undefined {
-    const search = (scope: SymbolScope): SymbolScope | undefined => {
-      if (scope.name === name) {
-        return scope;
-      }
-      for (const child of scope.getChildren()) {
-        const found = search(child);
-        if (found) {
-          return found;
-        }
-      }
-      return undefined;
-    };
-    return search(this.root);
+  findScopeByName(name: string): ScopeSymbol | undefined {
+    // Search symbolArray for ScopeSymbol with matching name
+    return this.symbolArray.find(
+      (s) => s.kind === SymbolKind.Block && s.name === name,
+    ) as ScopeSymbol | undefined;
   }
 
   /**
    * Lookup a symbol by name, searching through nested scopes.
-   * Searches from current scope up through parent scopes, and also down through child scopes.
+   * Searches from starting scope up through parent scopes, and also down through child scopes.
    * @param name The name of the symbol to find
+   * @param startingScope The starting scope (null when at file level)
    * @returns The symbol if found, undefined otherwise
    */
-  lookup(name: string): ApexSymbol | undefined {
-    // First, search from current scope up through parent scopes
-    let scope: SymbolScope | null = this.current;
+  lookup(
+    name: string,
+    startingScope?: ScopeSymbol | null,
+  ): ApexSymbol | undefined {
+    // Default to file level if no starting scope provided
+    const startScope = startingScope ?? null;
+
+    // First, search from starting scope up through parent scopes
+    let scope: ScopeSymbol | null = startScope;
     while (scope) {
-      const symbol = scope.getSymbol(name);
+      // For file level, use null as scopeId
+      const scopeId = scope.id;
+      const symbol = this.findSymbolInScope(scopeId, name);
       if (symbol) {
         return symbol;
       }
-      scope = scope.parent;
+      // Navigate to parent using idIndex
+      if (scope.parentId) {
+        const parent = this.idIndex.get(scope.parentId);
+        if (parent && parent.kind === SymbolKind.Block) {
+          scope = parent as ScopeSymbol;
+        } else {
+          scope = null;
+        }
+      } else {
+        scope = null;
+      }
     }
 
-    // If not found in current scope or parents, search all child scopes
-    const searchChildren = (
-      currentScope: SymbolScope,
-    ): ApexSymbol | undefined => {
-      for (const child of currentScope.getChildren()) {
-        const symbol = child.getSymbol(name);
-        if (symbol) {
-          return symbol;
-        }
-        // Recursively search children of children
-        const foundInChild = searchChildren(child);
-        if (foundInChild) {
-          return foundInChild;
-        }
-      }
-      return undefined;
-    };
+    // If not found in starting scope or parents, search file level (roots)
+    // Always search roots (when startScope is null, we're already at file level)
+    // When startScope is provided but not found, also search roots as fallback
+    const rootSymbol = this.findSymbolInScope(null, name);
+    if (rootSymbol) {
+      return rootSymbol;
+    }
 
-    return searchChildren(this.current);
+    // If not found in starting scope or parents, search all child scopes
+    if (startScope) {
+      const searchChildren = (
+        currentScope: ScopeSymbol,
+      ): ApexSymbol | undefined => {
+        // Find children by searching symbolArray for symbols with parentId === currentScope.id
+        const children = this.symbolArray.filter(
+          (s) => s.parentId === currentScope.id && s.kind === SymbolKind.Block,
+        ) as ScopeSymbol[];
+        for (const child of children) {
+          const symbol = this.findSymbolInScope(child.id, name);
+          if (symbol) {
+            return symbol;
+          }
+          // Recursively search children of children
+          const foundInChild = searchChildren(child);
+          if (foundInChild) {
+            return foundInChild;
+          }
+        }
+        return undefined;
+      };
+
+      return searchChildren(startScope);
+    }
+
+    return undefined;
   }
 
   /**
@@ -871,6 +1312,19 @@ export class SymbolTable {
    */
   getAllSymbols(): ApexSymbol[] {
     return this.symbolArray;
+  }
+
+  /**
+   * Get all non-block symbols from the file scope
+   * This provides a reliable way to get top-level symbols (classes, interfaces, enums, triggers)
+   * without manually filtering block symbols
+   * @returns Array of all semantic symbols in the file scope
+   */
+  getFileScopeSymbols(): ApexSymbol[] {
+    // Root scope has parentId === null
+    const allSymbols = this.getSymbolsInScope(null);
+    // Filter out block symbols to return only semantic symbols
+    return allSymbols.filter((s) => s.kind !== SymbolKind.Block);
   }
 
   findSymbolWith(
@@ -1055,7 +1509,6 @@ export class SymbolTable {
 
     // Convert HashMap entries to plain arrays
     const symbolEntries = Array.from(this.symbolMap.entries());
-    const scopeEntries = Array.from(this.scopeMap.entries());
 
     // Create a new object with cleaned symbols
     const cleanedSymbols = symbolEntries.map(([key, symbol]) => ({
@@ -1063,19 +1516,25 @@ export class SymbolTable {
       symbol: symbol ? cleanSymbol(symbol) : undefined,
     }));
 
+    // Get all scope symbols (ScopeSymbols) for scopes array
+    const scopeSymbols = this.symbolArray.filter(
+      (s) => s.kind === SymbolKind.Block,
+    ) as ScopeSymbol[];
+
     // Create a new object with cleaned scopes
-    const cleanedScopes = scopeEntries.map(([key, scope]) => ({
-      key,
-      scope: scope
-        ? {
-            key: scope.getKey(),
-            symbols: Array.from(scope.getAllSymbols()).map((symbol) => ({
-              name: symbol.name,
-              key: symbol.key,
-            })),
-            children: scope.getChildren().map((child) => child.getKey()),
-          }
-        : undefined,
+    const cleanedScopes = scopeSymbols.map((scope) => ({
+      key: this.keyToString(scope.key),
+      scope: {
+        key: scope.key,
+        symbols: this.getSymbolsInScope(scope.id).map((symbol: ApexSymbol) => ({
+          name: symbol.name,
+          key: symbol.key,
+        })),
+        // Children are found by parentId, not stored directly
+        children: this.symbolArray
+          .filter((s) => s.parentId === scope.id && s.kind === SymbolKind.Block)
+          .map((child) => child.key),
+      },
     }));
 
     return {

@@ -1,0 +1,785 @@
+{
+  "nodes": [
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:block:file",
+      "name": "file",
+      "kind": "block",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "file",
+      "location": {
+        "symbolRange": {
+          "startLine": 1,
+          "startColumn": 0,
+          "endLine": 1,
+          "endColumn": 0
+        },
+        "identifierRange": {
+          "startLine": 1,
+          "startColumn": 0,
+          "endLine": 1,
+          "endColumn": 0
+        }
+      },
+      "modifiers": {
+        "visibility": "default",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": null,
+      "namespace": null,
+      "nodeId": 1,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "name": "ScopeExample",
+      "kind": "class",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "scopeexample",
+      "location": {
+        "symbolRange": {
+          "startLine": 1,
+          "startColumn": 20,
+          "endLine": 19,
+          "endColumn": 1
+        },
+        "identifierRange": {
+          "startLine": 1,
+          "startColumn": 26,
+          "endLine": 1,
+          "endColumn": 38
+        }
+      },
+      "modifiers": {
+        "visibility": "public",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": null,
+      "namespace": null,
+      "annotations": [],
+      "nodeId": 2,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:ScopeExample",
+      "name": "ScopeExample",
+      "kind": "block",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "scopeexample",
+      "location": {
+        "symbolRange": {
+          "startLine": 3,
+          "startColumn": 11,
+          "endLine": 5,
+          "endColumn": 5
+        },
+        "identifierRange": {
+          "startLine": 3,
+          "startColumn": 11,
+          "endLine": 5,
+          "endColumn": 5
+        }
+      },
+      "modifiers": {
+        "visibility": "default",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:block:ScopeExample",
+      "namespace": null,
+      "nodeId": 3,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:field:a",
+      "name": "a",
+      "kind": "field",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "scopeexample.a",
+      "location": {
+        "symbolRange": {
+          "startLine": 2,
+          "startColumn": 11,
+          "endLine": 2,
+          "endColumn": 12
+        },
+        "identifierRange": {
+          "startLine": 2,
+          "startColumn": 11,
+          "endLine": 2,
+          "endColumn": 12
+        }
+      },
+      "modifiers": {
+        "visibility": "public",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "namespace": null,
+      "annotations": [],
+      "nodeId": 4,
+      "referenceCount": 1
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:constructor:ScopeExample",
+      "name": "ScopeExample",
+      "kind": "constructor",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "scopeexample.scopeexample",
+      "location": {
+        "symbolRange": {
+          "startLine": 3,
+          "startColumn": 11,
+          "endLine": 5,
+          "endColumn": 5
+        },
+        "identifierRange": {
+          "startLine": 3,
+          "startColumn": 11,
+          "endLine": 3,
+          "endColumn": 23
+        }
+      },
+      "modifiers": {
+        "visibility": "public",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "namespace": null,
+      "annotations": [],
+      "nodeId": 5,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.ScopeExample:block:block1",
+      "name": "block1",
+      "kind": "block",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "block1",
+      "location": {
+        "symbolRange": {
+          "startLine": 3,
+          "startColumn": 26,
+          "endLine": 5,
+          "endColumn": 5
+        },
+        "identifierRange": {
+          "startLine": 3,
+          "startColumn": 26,
+          "endLine": 5,
+          "endColumn": 5
+        }
+      },
+      "modifiers": {
+        "visibility": "default",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:ScopeExample",
+      "namespace": null,
+      "nodeId": 6,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:method:method1",
+      "name": "method1",
+      "kind": "method",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "scopeexample.method1",
+      "location": {
+        "symbolRange": {
+          "startLine": 6,
+          "startColumn": 11,
+          "endLine": 9,
+          "endColumn": 5
+        },
+        "identifierRange": {
+          "startLine": 6,
+          "startColumn": 16,
+          "endLine": 6,
+          "endColumn": 23
+        }
+      },
+      "modifiers": {
+        "visibility": "public",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "namespace": null,
+      "annotations": [],
+      "nodeId": 7,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:method1",
+      "name": "method1",
+      "kind": "block",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "method1",
+      "location": {
+        "symbolRange": {
+          "startLine": 6,
+          "startColumn": 11,
+          "endLine": 9,
+          "endColumn": 5
+        },
+        "identifierRange": {
+          "startLine": 6,
+          "startColumn": 11,
+          "endLine": 9,
+          "endColumn": 5
+        }
+      },
+      "modifiers": {
+        "visibility": "default",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:block:ScopeExample",
+      "namespace": null,
+      "nodeId": 8,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method1:block:block2",
+      "name": "block2",
+      "kind": "block",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "block2",
+      "location": {
+        "symbolRange": {
+          "startLine": 6,
+          "startColumn": 26,
+          "endLine": 9,
+          "endColumn": 5
+        },
+        "identifierRange": {
+          "startLine": 6,
+          "startColumn": 26,
+          "endLine": 9,
+          "endColumn": 5
+        }
+      },
+      "modifiers": {
+        "visibility": "default",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:method1",
+      "namespace": null,
+      "nodeId": 9,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method2.block3:variable:a",
+      "name": "a",
+      "kind": "variable",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "scopeexample.a",
+      "location": {
+        "symbolRange": {
+          "startLine": 12,
+          "startColumn": 15,
+          "endLine": 12,
+          "endColumn": 16
+        },
+        "identifierRange": {
+          "startLine": 12,
+          "startColumn": 15,
+          "endLine": 12,
+          "endColumn": 16
+        }
+      },
+      "modifiers": {
+        "visibility": "public",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "namespace": null,
+      "annotations": [],
+      "nodeId": 10,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method3.block4:variable:b",
+      "name": "b",
+      "kind": "variable",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "scopeexample.b",
+      "location": {
+        "symbolRange": {
+          "startLine": 17,
+          "startColumn": 15,
+          "endLine": 17,
+          "endColumn": 20
+        },
+        "identifierRange": {
+          "startLine": 17,
+          "startColumn": 15,
+          "endLine": 17,
+          "endColumn": 16
+        }
+      },
+      "modifiers": {
+        "visibility": "public",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "namespace": null,
+      "annotations": [],
+      "nodeId": 11,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:method:method2",
+      "name": "method2",
+      "kind": "method",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "scopeexample.method2",
+      "location": {
+        "symbolRange": {
+          "startLine": 11,
+          "startColumn": 11,
+          "endLine": 14,
+          "endColumn": 5
+        },
+        "identifierRange": {
+          "startLine": 11,
+          "startColumn": 16,
+          "endLine": 11,
+          "endColumn": 23
+        }
+      },
+      "modifiers": {
+        "visibility": "public",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "namespace": null,
+      "annotations": [],
+      "nodeId": 12,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:method2",
+      "name": "method2",
+      "kind": "block",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "method2",
+      "location": {
+        "symbolRange": {
+          "startLine": 11,
+          "startColumn": 11,
+          "endLine": 14,
+          "endColumn": 5
+        },
+        "identifierRange": {
+          "startLine": 11,
+          "startColumn": 11,
+          "endLine": 14,
+          "endColumn": 5
+        }
+      },
+      "modifiers": {
+        "visibility": "default",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:block:ScopeExample",
+      "namespace": null,
+      "nodeId": 13,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method2:block:block3",
+      "name": "block3",
+      "kind": "block",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "block3",
+      "location": {
+        "symbolRange": {
+          "startLine": 11,
+          "startColumn": 26,
+          "endLine": 14,
+          "endColumn": 5
+        },
+        "identifierRange": {
+          "startLine": 11,
+          "startColumn": 26,
+          "endLine": 14,
+          "endColumn": 5
+        }
+      },
+      "modifiers": {
+        "visibility": "default",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:method2",
+      "namespace": null,
+      "nodeId": 14,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:method:method3",
+      "name": "method3",
+      "kind": "method",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "scopeexample.method3",
+      "location": {
+        "symbolRange": {
+          "startLine": 16,
+          "startColumn": 11,
+          "endLine": 18,
+          "endColumn": 5
+        },
+        "identifierRange": {
+          "startLine": 16,
+          "startColumn": 16,
+          "endLine": 16,
+          "endColumn": 23
+        }
+      },
+      "modifiers": {
+        "visibility": "public",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "namespace": null,
+      "annotations": [],
+      "nodeId": 15,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:method3",
+      "name": "method3",
+      "kind": "block",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "method3",
+      "location": {
+        "symbolRange": {
+          "startLine": 16,
+          "startColumn": 11,
+          "endLine": 18,
+          "endColumn": 5
+        },
+        "identifierRange": {
+          "startLine": 16,
+          "startColumn": 11,
+          "endLine": 18,
+          "endColumn": 5
+        }
+      },
+      "modifiers": {
+        "visibility": "default",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:block:ScopeExample",
+      "namespace": null,
+      "nodeId": 16,
+      "referenceCount": 0
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method3:block:block4",
+      "name": "block4",
+      "kind": "block",
+      "fileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "fqn": "block4",
+      "location": {
+        "symbolRange": {
+          "startLine": 16,
+          "startColumn": 26,
+          "endLine": 18,
+          "endColumn": 5
+        },
+        "identifierRange": {
+          "startLine": 16,
+          "startColumn": 26,
+          "endLine": 18,
+          "endColumn": 5
+        }
+      },
+      "modifiers": {
+        "visibility": "default",
+        "isStatic": false,
+        "isFinal": false,
+        "isAbstract": false,
+        "isVirtual": false,
+        "isOverride": false,
+        "isTransient": false,
+        "isTestMethod": false,
+        "isWebService": false,
+        "isBuiltIn": false
+      },
+      "parentId": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:method3",
+      "namespace": null,
+      "nodeId": 17,
+      "referenceCount": 0
+    }
+  ],
+  "edges": [
+    {
+      "id": "contains-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:field:a",
+      "source": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "target": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:field:a",
+      "type": 9,
+      "sourceFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "targetFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "context": {
+        "isStatic": false
+      }
+    },
+    {
+      "id": "contains-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:constructor:ScopeExample",
+      "source": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "target": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:constructor:ScopeExample",
+      "type": 9,
+      "sourceFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "targetFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "context": {
+        "isStatic": false
+      }
+    },
+    {
+      "id": "contains-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:ScopeExample-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.ScopeExample:block:block1",
+      "source": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:ScopeExample",
+      "target": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.ScopeExample:block:block1",
+      "type": 9,
+      "sourceFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "targetFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "context": {
+        "isStatic": false
+      }
+    },
+    {
+      "id": "contains-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:method:method1",
+      "source": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "target": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:method:method1",
+      "type": 9,
+      "sourceFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "targetFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "context": {
+        "methodName": "method1",
+        "isStatic": false
+      }
+    },
+    {
+      "id": "contains-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:method1-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method1:block:block2",
+      "source": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:method1",
+      "target": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method1:block:block2",
+      "type": 9,
+      "sourceFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "targetFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "context": {
+        "isStatic": false
+      }
+    },
+    {
+      "id": "contains-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method2.block3:variable:a",
+      "source": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "target": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method2.block3:variable:a",
+      "type": 9,
+      "sourceFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "targetFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "context": {
+        "isStatic": false
+      }
+    },
+    {
+      "id": "contains-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method3.block4:variable:b",
+      "source": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "target": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method3.block4:variable:b",
+      "type": 9,
+      "sourceFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "targetFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "context": {
+        "isStatic": false
+      }
+    },
+    {
+      "id": "contains-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:method:method2",
+      "source": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "target": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:method:method2",
+      "type": 9,
+      "sourceFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "targetFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "context": {
+        "methodName": "method2",
+        "isStatic": false
+      }
+    },
+    {
+      "id": "contains-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:method2-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method2:block:block3",
+      "source": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:method2",
+      "target": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method2:block:block3",
+      "type": 9,
+      "sourceFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "targetFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "context": {
+        "isStatic": false
+      }
+    },
+    {
+      "id": "contains-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:method:method3",
+      "source": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:class:ScopeExample",
+      "target": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:method:method3",
+      "type": 9,
+      "sourceFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "targetFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "context": {
+        "methodName": "method3",
+        "isStatic": false
+      }
+    },
+    {
+      "id": "contains-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:method3-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method3:block:block4",
+      "source": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:block:method3",
+      "target": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method3:block:block4",
+      "type": 9,
+      "sourceFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "targetFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "context": {
+        "isStatic": false
+      }
+    },
+    {
+      "id": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method3.block4:variable:b-file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:field:a",
+      "source": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample.method3.block4:variable:b",
+      "target": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls:file.ScopeExample:field:a",
+      "type": 2,
+      "sourceFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "targetFileUri": "file:///Users/peter.hale/git/scopeExample/force-app/main/default/classes/ScopeExample.cls",
+      "context": {
+        "methodName": "method3",
+        "isStatic": false
+      }
+    }
+  ],
+  "metadata": {
+    "totalNodes": 17,
+    "totalEdges": 12,
+    "totalFiles": 1,
+    "lastUpdated": 1764606669574
+  }
+}

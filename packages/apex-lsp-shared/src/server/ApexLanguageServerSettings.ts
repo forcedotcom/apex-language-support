@@ -83,6 +83,13 @@ export interface EnvironmentSettings {
 
   /** Log level for comment collection (default: 'info') */
   commentCollectionLogLevel: 'debug' | 'info' | 'warn' | 'error';
+
+  /** JavaScript heap size in GB for the language server process.
+   *  If not specified, Node.js default heap size is used.
+   *  Maximum allowed value is 32 GB.
+   *  Values above 16 GB may cause performance issues if system memory is insufficient.
+   */
+  jsHeapSizeGB?: number;
 }
 
 /**

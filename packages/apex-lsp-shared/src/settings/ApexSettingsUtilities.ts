@@ -66,7 +66,7 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       yieldDelayMs: 25,
     },
     scheduler: {
-      queueCapacity: 100, // Increased from 64 to handle shared load between packages
+      queueCapacity: 200,
       maxHighPriorityStreak: 50,
       idleSleepMs: 1,
     },

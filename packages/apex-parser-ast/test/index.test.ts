@@ -20,7 +20,7 @@ describe('apex-parser-ast exports', () => {
     expect(apexParserAst.SymbolVisibility).toBeDefined();
     expect(apexParserAst.QName).toBeDefined();
     expect(apexParserAst.SymbolTable).toBeDefined();
-    expect(apexParserAst.SymbolScope).toBeDefined();
+    expect(apexParserAst.ScopeSymbol).toBeDefined();
     expect(apexParserAst.createPrimitiveType).toBeDefined();
     expect(apexParserAst.createCollectionType).toBeDefined();
     expect(apexParserAst.createArrayType).toBeDefined();
@@ -53,7 +53,18 @@ describe('apex-parser-ast exports', () => {
 
     // Check that symbol table can be instantiated
     const symbolTable = new apexParserAst.SymbolTable();
-    expect(symbolTable.getCurrentScope()).toBeDefined();
-    expect(symbolTable.getCurrentScope().name).toBe('file');
+    // Create the file scope (it's not created automatically)
+    const fileLocation = {
+      symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 0 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    };
+    const fileScope = symbolTable.enterScope('file', 'file', fileLocation);
+    expect(fileScope).toBeDefined();
+    expect(fileScope?.name).toBe('file');
   });
 });

@@ -18,6 +18,7 @@ import {
   EnumSymbol,
   MethodSymbol,
   ApexSymbol,
+  ScopeSymbol,
 } from '../index';
 
 interface CompilationResult {
@@ -180,12 +181,13 @@ export async function compileStubs(
 
       // Store symbols directly without RuntimeSymbol wrapper
       const symbolTable = result.result;
-      const symbols = Array.from(symbolTable.getCurrentScope().getAllSymbols());
+      // Get all symbols from the symbol table (file-level symbols are in roots array)
+      const symbols = Array.from(symbolTable.getAllSymbols());
       const symbolMap: SymbolMap = {};
       const classMethods: { [key: string]: MethodSymbol[] } = {};
 
       // First pass: collect all class symbols and their scopes
-      const classScopes = new Map<string, any>();
+      const classScopes = new Map<string, ScopeSymbol>();
       for (const symbol of symbols) {
         if (symbol.kind === SymbolKind.Class) {
           // Find the scope for this class
@@ -198,7 +200,9 @@ export async function compileStubs(
 
       // Second pass: collect methods from class scopes
       for (const [className, scope] of classScopes) {
-        const methods = (Array.from(scope.getAllSymbols()) as ApexSymbol[])
+        const methods = (
+          Array.from(symbolTable.getSymbolsInScope(scope.id)) as ApexSymbol[]
+        )
           .filter((s) => s.kind === SymbolKind.Method)
           .map((s) => s as MethodSymbol);
         if (methods.length > 0) {

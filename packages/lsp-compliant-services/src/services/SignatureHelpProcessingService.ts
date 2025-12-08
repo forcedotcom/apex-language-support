@@ -24,6 +24,7 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { toDisplayFQN } from '../utils/displayFQNUtils';
 
 /**
  * Interface for signature help processing functionality
@@ -450,7 +451,7 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
     }
 
     if (symbol.fqn) {
-      content.push(`**FQN:** ${symbol.fqn}`);
+      content.push(`**FQN:** ${toDisplayFQN(symbol.fqn)}`);
     }
 
     return {

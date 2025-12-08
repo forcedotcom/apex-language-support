@@ -8,7 +8,13 @@
 
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { ApexSymbol, SymbolKind, SymbolTable } from '../../src/types/symbol';
+import {
+  ApexSymbol,
+  SymbolKind,
+  SymbolTable,
+  ScopeSymbol,
+} from '../../src/types/symbol';
+import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolCollectorListener lenient collection on validation errors', () => {
@@ -45,20 +51,34 @@ describe('ApexSymbolCollectorListener lenient collection on validation errors', 
 
     // Symbols should still be collected
     const table = result.result as SymbolTable;
-    const fileScope = table.getCurrentScope();
-    const systemSymbol = fileScope
-      .getAllSymbols()
-      .find((s) => s.name === 'System');
+    // Use table.getAllSymbols() to get all symbols including those in file scope
+    const allSymbols = table.getAllSymbols();
+    const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
+    const systemSymbol = semanticSymbols.find((s) => s.name === 'System');
     expect(systemSymbol?.kind).toBe(SymbolKind.Class);
 
-    const classScope = fileScope.getChildren().find((s) => s.name === 'System');
+    // Find class block by parentId pointing to class symbol
+    // Class blocks use counter-based names (block1, block2, etc.), not semantic names
+    const classScope = systemSymbol
+      ? (allSymbols.find(
+          (s) =>
+            isBlockSymbol(s) &&
+            s.scopeType === 'class' &&
+            s.parentId === systemSymbol.id,
+        ) as ScopeSymbol | undefined)
+      : undefined;
     expect(classScope).toBeDefined();
 
-    const classSymbols = classScope!.getAllSymbols();
-    const methodFoo = classSymbols.find(
+    const allClassSymbols = classScope
+      ? table.getSymbolsInScope(classScope.id)
+      : [];
+    const classSemanticSymbols = allClassSymbols.filter(
+      (s) => !isBlockSymbol(s),
+    );
+    const methodFoo = classSemanticSymbols.find(
       (s: ApexSymbol) => s.kind === SymbolKind.Method && s.name === 'foo',
     );
-    const fieldX = classSymbols.find(
+    const fieldX = classSemanticSymbols.find(
       (s: ApexSymbol) => s.kind === SymbolKind.Field && s.name === 'x',
     );
     expect(methodFoo).toBeDefined();
@@ -87,17 +107,31 @@ describe('ApexSymbolCollectorListener lenient collection on validation errors', 
 
     // Symbols should still be collected
     const table = result.result as SymbolTable;
-    const fileScope = table.getCurrentScope();
-    const ifaceSymbol = fileScope
-      .getAllSymbols()
-      .find((s) => s.name === 'page');
+    // Use table.getAllSymbols() to get all symbols including those in file scope
+    const allSymbols = table.getAllSymbols();
+    const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
+    const ifaceSymbol = semanticSymbols.find((s) => s.name === 'page');
     expect(ifaceSymbol?.kind).toBe(SymbolKind.Interface);
 
-    const ifaceScope = fileScope.getChildren().find((s) => s.name === 'page');
+    // Find interface block by parentId pointing to interface symbol
+    // Interface blocks use counter-based names (block1, block2, etc.), not semantic names
+    const ifaceScope = ifaceSymbol
+      ? (allSymbols.find(
+          (s) =>
+            isBlockSymbol(s) &&
+            s.scopeType === 'class' &&
+            s.parentId === ifaceSymbol.id,
+        ) as ScopeSymbol | undefined)
+      : undefined;
     expect(ifaceScope).toBeDefined();
 
-    const ifaceSymbols = ifaceScope!.getAllSymbols();
-    const methodM = ifaceSymbols.find(
+    const allIfaceSymbols = ifaceScope
+      ? table.getSymbolsInScope(ifaceScope.id)
+      : [];
+    const ifaceSemanticSymbols = allIfaceSymbols.filter(
+      (s) => !isBlockSymbol(s),
+    );
+    const methodM = ifaceSemanticSymbols.find(
       (s: ApexSymbol) => s.kind === SymbolKind.Method && s.name === 'm',
     );
     expect(methodM).toBeDefined();

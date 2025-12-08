@@ -15,6 +15,7 @@ import {
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolTable } from '../../src/types/symbol';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
+import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 
 describe('CommentAssociator', () => {
   let associator: CommentAssociator;
@@ -495,7 +496,9 @@ public class TestClass {
       // Use the custom associator to process the associations
       const customAssociations = customAssociator.associateComments(
         result.comments || [],
-        result?.result?.getAllSymbols() || [],
+        (result?.result?.getAllSymbols() || []).filter(
+          (s) => !isBlockSymbol(s),
+        ),
       );
 
       // Should not associate because distance > maxPrecedingDistance

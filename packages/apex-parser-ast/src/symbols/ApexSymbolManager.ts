@@ -68,7 +68,10 @@ import type {
   CommentAssociation,
 } from '../parser/listeners/ApexCommentCollectorListener';
 import { CommentAssociator } from '../utils/CommentAssociator';
-import { isChainedTypeReference } from '../utils/symbolNarrowing';
+import {
+  isChainedTypeReference,
+  isBlockSymbol,
+} from '../utils/symbolNarrowing';
 
 /**
  * Context for chain resolution - discriminated union for type safety
@@ -137,6 +140,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     string,
     CommentAssociation[]
   > = new HashMap();
+  // Track files currently being loaded to prevent recursive loops
+  private loadingSymbolTables: Set<string> = new Set();
 
   constructor() {
     this.symbolGraph = new ApexSymbolGraph();
@@ -249,7 +254,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const symbolWasAdded = symbolsAfter > symbolsBefore;
 
     if (symbolWasAdded) {
-      this.memoryStats.totalSymbols++;
+      // Sync totalSymbols from graph to ensure consistency
+      // The graph is the source of truth for symbol counts
+      const graphStats = this.symbolGraph.getStats();
+      this.memoryStats.totalSymbols = graphStats.totalSymbols;
 
       // Update file metadata
       const existing = this.fileMetadata.get(properUri);
@@ -939,14 +947,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const properUri =
       getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
 
-    // Remove from symbol graph
-    this.symbolGraph.removeFile(properUri);
+    // Normalize URI using extractFilePathFromUri to match how symbols are stored
+    // This ensures consistency with addSymbolTable which uses normalized URIs
+    const normalizedUri = extractFilePathFromUri(properUri);
+
+    // Remove from symbol graph (graph will normalize again, but we normalize here for consistency)
+    this.symbolGraph.removeFile(normalizedUri);
 
     // Sync memory stats with the graph's stats to ensure consistency
     const graphStats = this.symbolGraph.getStats();
     this.memoryStats.totalSymbols = graphStats.totalSymbols;
 
-    // Remove from file metadata
+    // Remove from file metadata (use original fileUri for metadata lookup)
     this.fileMetadata.delete(fileUri);
 
     // Clear cache entries for this file
@@ -1557,8 +1569,26 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
     }
 
+    // Invalidate file-based cache when symbols are added to a file
+    // This ensures that findSymbolsInFile() will see the newly added symbols
+    // Do this BEFORE processing references so references can find the symbols
+    this.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
+
+    // Also invalidate name-based cache to ensure findSymbolByName works correctly
+    for (const symbolName of symbolNamesAdded) {
+      const normalizedName = symbolName.toLowerCase();
+      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
+    }
+
     // Process type references and add them to the symbol graph
+    // This must happen after symbols are added and cache is invalidated
+    // Use the normalized URI for consistency with how symbols are stored
     await this.processTypeReferencesToGraph(symbolTable, normalizedUri);
+
+    // Sync memory stats with the graph's stats to ensure consistency
+    // The graph is the source of truth for symbol counts
+    const graphStats = this.symbolGraph.getStats();
+    this.memoryStats.totalSymbols = graphStats.totalSymbols;
   }
 
   /**
@@ -1756,6 +1786,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Direct symbol lookup by position with intelligent scope filtering
       const symbols = this.findSymbolsInFile(fileUri);
       const containingSymbols = symbols.filter((symbol) => {
+        // Exclude scope symbols from resolution results (they're structural, not semantic)
+        if (isBlockSymbol(symbol)) {
+          return false;
+        }
+
         const { startLine, startColumn, endLine, endColumn } =
           symbol.location.identifierRange;
 
@@ -1859,7 +1894,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // Process batch
         for (const typeRef of batch) {
-          await this.processTypeReferenceToGraph(typeRef, fileUri);
+          await this.processTypeReferenceToGraph(typeRef, fileUri, symbolTable);
         }
 
         // Yield after each batch (except the last) to allow other tasks to run
@@ -1878,28 +1913,113 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Process a single type reference and add it to the symbol graph
    * @param typeRef The type reference to process
    * @param fileUri The file path where the reference was found
+   * @param symbolTable The symbol table for the current file (to check for same-file symbols)
    */
   private async processTypeReferenceToGraph(
     typeRef: TypeReference,
     fileUri: string,
+    symbolTable: SymbolTable,
   ): Promise<void> {
     try {
       // Find the source symbol (the symbol that contains this reference)
-      const sourceSymbol = this.findContainingSymbolForReference(
+      // Use the normalized URI to match how symbols are stored in the graph
+      const properUri =
+        getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+      const normalizedUri = extractFilePathFromUri(properUri);
+      let sourceSymbol = this.findContainingSymbolForReference(
         typeRef,
-        fileUri,
+        normalizedUri,
       );
       if (!sourceSymbol) {
+        // Fallback: Try to find the class symbol in the file as a last resort
+        // This ensures references are still processed even if position matching fails
+        const symbolsInFile = this.findSymbolsInFile(normalizedUri);
+        const classSymbol = symbolsInFile.find(
+          (s) =>
+            s.kind === SymbolKind.Class ||
+            s.kind === SymbolKind.Interface ||
+            s.kind === SymbolKind.Enum ||
+            s.kind === SymbolKind.Trigger,
+        );
+        if (classSymbol) {
+          sourceSymbol = classSymbol;
+        } else {
+          // If we still can't find a containing symbol, skip this reference
+          // This can happen if the reference is in a location that doesn't match any symbol
+          return;
+        }
+      }
+
+      // Check if this is a cross-file reference BEFORE trying to resolve
+      // This prevents recursive cascades when processing standard library classes
+      const qualifierInfo = this.extractQualifierFromChain(typeRef);
+      let isCrossFileReference = false;
+
+      if (qualifierInfo && qualifierInfo.isQualified) {
+        // For qualified references (e.g., "System.debug"), check if the qualifier is in the current file
+        // Special case: 'this' qualifier is always same-file
+        if (qualifierInfo.qualifier.toLowerCase() === 'this') {
+          // 'this' is always same-file, so check if the member exists in the file
+          // Use getAllSymbols().find() for more reliable same-file lookup
+          const allSymbols = symbolTable.getAllSymbols();
+          const memberInFile = allSymbols.find(
+            (s) => s.name === qualifierInfo.member,
+          );
+          if (!memberInFile) {
+            isCrossFileReference = true;
+          }
+        } else {
+          // Check if the qualifier is in the current file
+          // Use getAllSymbols().find() for more reliable same-file lookup
+          const allSymbols = symbolTable.getAllSymbols();
+          const qualifierInFile = allSymbols.find(
+            (s) => s.name === qualifierInfo.qualifier,
+          );
+          if (!qualifierInFile) {
+            // Qualifier not in current file - this is a cross-file reference
+            isCrossFileReference = true;
+          }
+        }
+      } else {
+        // For unqualified references, check if the symbol exists in the current file
+        // Use getAllSymbols().find() for more reliable same-file lookup
+        const allSymbols = symbolTable.getAllSymbols();
+        const symbolInFile = allSymbols.find((s) => s.name === typeRef.name);
+        if (!symbolInFile) {
+          // Symbol not in current file - this is a cross-file reference
+          isCrossFileReference = true;
+        }
+      }
+
+      // If it's a cross-file reference, defer it immediately without resolving
+      // This prevents triggering resolution of standard library classes or other files
+      if (isCrossFileReference) {
+        const referenceType = this.mapReferenceContextToType(typeRef.context);
+        this.symbolGraph.enqueueDeferredReference(
+          sourceSymbol,
+          typeRef.name,
+          referenceType,
+          typeRef.location,
+          {
+            methodName: typeRef.parentContext,
+            isStatic: await this.isStaticReference(typeRef),
+          },
+        );
         return;
       }
 
-      // Find the target symbol (the symbol being referenced)
-      const targetSymbol = await this.findTargetSymbolForReference(typeRef);
+      // At this point, we know the reference is to a symbol in the same file
+      // Try to resolve it (this should be fast since it's in the same file)
+      const targetSymbol = await this.findTargetSymbolForReference(
+        typeRef,
+        fileUri,
+        sourceSymbol,
+        symbolTable,
+      );
       if (!targetSymbol) {
-        // Map ReferenceContext to ReferenceType
+        // Even though it should be in the file, we couldn't resolve it
+        // Defer it as a fallback
         const referenceType = this.mapReferenceContextToType(typeRef.context);
-
-        // Add the reference to the deferred references queue
         this.symbolGraph.enqueueDeferredReference(
           sourceSymbol,
           typeRef.name, // target symbol name
@@ -1918,13 +2038,47 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return;
       }
 
+      // Ensure source and target symbols are actually in the graph
+      // addReference uses findSymbolByName which requires symbols to be in the graph's name index
+      // Get the symbols from the graph to ensure they match what's stored
+      const sourceSymbolsInGraph = this.symbolGraph.findSymbolByName(
+        sourceSymbol.name,
+      );
+      const targetSymbolsInGraph = this.symbolGraph.findSymbolByName(
+        targetSymbol.name,
+      );
+
+      const sourceInGraph = sourceSymbol?.fileUri
+        ? sourceSymbolsInGraph.find((s) => s.fileUri === sourceSymbol?.fileUri)
+        : sourceSymbolsInGraph[0];
+
+      const targetInGraph = targetSymbol.fileUri
+        ? targetSymbolsInGraph.find((s) => s.fileUri === targetSymbol.fileUri)
+        : targetSymbolsInGraph[0];
+
+      // If symbols aren't in graph yet, defer the reference
+      if (!sourceInGraph || !targetInGraph) {
+        const referenceType = this.mapReferenceContextToType(typeRef.context);
+        this.symbolGraph.enqueueDeferredReference(
+          sourceSymbol,
+          targetSymbol.name,
+          referenceType,
+          typeRef.location,
+          {
+            methodName: typeRef.parentContext,
+            isStatic: await this.isStaticReference(typeRef),
+          },
+        );
+        return;
+      }
+
       // Map ReferenceContext to ReferenceType
       const referenceType = this.mapReferenceContextToType(typeRef.context);
 
-      // Add the reference to the symbol graph
+      // Add the reference to the symbol graph using symbols from the graph
       this.symbolGraph.addReference(
-        sourceSymbol,
-        targetSymbol,
+        sourceInGraph,
+        targetInGraph,
         referenceType,
         typeRef.location,
         {
@@ -1980,20 +2134,28 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Find the target symbol being referenced
    * @param typeRef The type reference
+   * @param fileUri Optional file URI to prefer symbols from the same file
+   * @param sourceSymbol Optional source symbol containing the reference (for 'this.' resolution)
    * @returns The target symbol or null if not found
    */
   private async findTargetSymbolForReference(
     typeRef: TypeReference,
+    fileUri?: string,
+    sourceSymbol?: ApexSymbol | null,
+    symbolTable?: SymbolTable,
   ): Promise<ApexSymbol | null> {
     // First, try to extract qualifier information from chainNodes
     const qualifierInfo = this.extractQualifierFromChain(typeRef);
 
     if (qualifierInfo && qualifierInfo.isQualified) {
       // Try to resolve the qualified reference
-      const qualifiedSymbol = this.resolveQualifiedReferenceFromChain(
+      // Pass fileUri and sourceSymbol to help resolve 'this.' expressions to class-scoped members
+      const qualifiedSymbol = await this.resolveQualifiedReferenceFromChain(
         qualifierInfo.qualifier,
         qualifierInfo.member,
         typeRef.context,
+        fileUri,
+        sourceSymbol,
       );
 
       if (qualifiedSymbol) {
@@ -2001,9 +2163,110 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
     }
 
+    // For unqualified references, use scope-based resolution if symbolTable is available
+    if (symbolTable && fileUri) {
+      // Phase 1: Same-file resolution using SymbolTable scope hierarchy
+      // Use the reference location to find the scope hierarchy
+      const position = {
+        line: typeRef.location.identifierRange.startLine,
+        character: typeRef.location.identifierRange.startColumn,
+      };
+      const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+
+      // Primary approach: Explicit scope hierarchy search using getAllSymbols()
+      // Get all symbols from SymbolTable (they're all from the same file)
+      const allFileSymbols = symbolTable.getAllSymbols();
+
+      // Search for symbols with the target name, starting from the innermost scope
+      // Reverse the hierarchy to search from innermost (most specific) to outermost
+      const innermostToOutermost = [...scopeHierarchy].reverse();
+      for (const blockSymbol of innermostToOutermost) {
+        // Find symbols in this block scope (children of the block or nested blocks)
+        // First, find direct children
+        const directChildren = allFileSymbols.filter(
+          (symbol) =>
+            symbol.name === typeRef.name && symbol.parentId === blockSymbol.id,
+        );
+
+        // Also search nested blocks (descendants of this block)
+        const nestedBlocks = allFileSymbols.filter(
+          (s) => s.kind === SymbolKind.Block && s.parentId === blockSymbol.id,
+        );
+        const symbolsInNestedBlocks: ApexSymbol[] = [];
+        for (const nestedBlock of nestedBlocks) {
+          const nestedSymbols = allFileSymbols.filter(
+            (symbol) =>
+              symbol.name === typeRef.name &&
+              symbol.parentId === nestedBlock.id,
+          );
+          symbolsInNestedBlocks.push(...nestedSymbols);
+        }
+
+        // Combine direct children and nested symbols
+        const symbolsInScope = [...directChildren, ...symbolsInNestedBlocks];
+
+        if (symbolsInScope.length > 0) {
+          // Found a symbol in this scope - prioritize variables/parameters over fields
+          // Sort by kind priority: variable/parameter > field
+          const prioritized = symbolsInScope.sort((a, b) => {
+            const aIsVar =
+              a.kind === SymbolKind.Variable || a.kind === SymbolKind.Parameter;
+            const bIsVar =
+              b.kind === SymbolKind.Variable || b.kind === SymbolKind.Parameter;
+            if (aIsVar && !bIsVar) return -1;
+            if (!aIsVar && bIsVar) return 1;
+            return 0;
+          });
+          return prioritized[0];
+        }
+      }
+
+      // If not found in any block scope, search for symbols in parent scopes
+      // This includes class fields, method parameters, etc.
+      // Search from outermost to innermost to find the most specific parent symbol
+      for (const blockSymbol of scopeHierarchy) {
+        // Find all symbols with the target name
+        const sameNameSymbols = allFileSymbols.filter(
+          (s) => s.name === typeRef.name,
+        );
+
+        // Check if any symbol is a parent or ancestor of this block
+        for (const symbol of sameNameSymbols) {
+          // Check if this symbol is a direct parent of the block (e.g., class field, method parameter)
+          if (blockSymbol.parentId === symbol.id) {
+            return symbol;
+          }
+          // Check if symbol is an ancestor by following parentId chain up from the block
+          let currentBlockId: string | null = blockSymbol.parentId;
+          while (currentBlockId) {
+            if (currentBlockId === symbol.id) {
+              return symbol;
+            }
+            // Find parent block to continue chain
+            const parentBlock = allFileSymbols.find(
+              (s) => s.id === currentBlockId && s.kind === SymbolKind.Block,
+            );
+            currentBlockId = parentBlock?.parentId || null;
+          }
+        }
+      }
+    }
+
     // Fallback: Try to find the symbol by name (for unqualified references)
     const symbols = this.findSymbolByName(typeRef.name);
     if (symbols.length > 0) {
+      // If fileUri is provided, prefer symbols from the same file
+      if (fileUri) {
+        const normalizedUri = extractFilePathFromUri(
+          getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri),
+        );
+        const sameFileSymbols = symbols.filter(
+          (s) => s.fileUri === normalizedUri,
+        );
+        if (sameFileSymbols.length > 0) {
+          return this.selectMostSpecificSymbol(sameFileSymbols, fileUri);
+        }
+      }
       // For now, take the first match. In a more sophisticated implementation,
       // we would use context to disambiguate
       return symbols[0];
@@ -2061,8 +2324,86 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     qualifier: string,
     member: string,
     context: ReferenceContext,
+    fileUri?: string,
+    sourceSymbol?: ApexSymbol | null,
   ): Promise<ApexSymbol | null> {
     try {
+      // Special case: 'this' qualifier means we're accessing an instance member
+      // in the containing class. 'this' can only reference class-scoped members.
+      if (qualifier.toLowerCase() === 'this') {
+        // Find the containing class by traversing up the parent chain from source symbol
+        let containingClass: ApexSymbol | null = null;
+        if (sourceSymbol) {
+          containingClass = this.getContainingType(sourceSymbol);
+        }
+
+        // Look for the member within the containing class scope
+        // 'this' can only reference class-scoped members, so we must look in the containing class
+        if (containingClass && fileUri) {
+          const normalizedUri = extractFilePathFromUri(
+            getProtocolType(fileUri) !== null
+              ? fileUri
+              : createFileUri(fileUri),
+          );
+
+          // Find all symbols with the member name
+          const allSymbolsWithName = this.findSymbolByName(member);
+
+          // Filter to symbols that are members of the containing class
+          // A member is in the class if:
+          // 1. It has the class as parent (parentId matches), OR
+          // 2. It's in the same file and within the class's location range
+          const classMembers = allSymbolsWithName.filter((s) => {
+            // Check if parentId matches (most reliable)
+            if (s.parentId === containingClass?.id) {
+              return true;
+            }
+            // Fallback: Check if symbol is within class location bounds in same file
+            if (
+              s.fileUri === normalizedUri &&
+              containingClass?.location &&
+              s.location
+            ) {
+              const classStart =
+                containingClass?.location.symbolRange.startLine;
+              const classEnd = containingClass?.location.symbolRange.endLine;
+              const symbolStart = s.location.symbolRange.startLine;
+              const symbolEnd = s.location.symbolRange.endLine;
+              // Symbol is within class if it starts after class starts and ends before class ends
+              return symbolStart >= classStart && symbolEnd <= classEnd;
+            }
+            return false;
+          });
+
+          // Return the first matching class member
+          if (classMembers.length > 0) {
+            return classMembers[0];
+          }
+        }
+
+        // Fallback: Look for the member by name (might be in a different file or scope)
+        const symbols = this.findSymbolByName(member);
+        if (symbols.length > 0) {
+          // If fileUri is provided, prefer same-file symbols
+          if (fileUri) {
+            const normalizedUri = extractFilePathFromUri(
+              getProtocolType(fileUri) !== null
+                ? fileUri
+                : createFileUri(fileUri),
+            );
+            const sameFileSymbol = symbols.find(
+              (s) => s.fileUri === normalizedUri,
+            );
+            if (sameFileSymbol) {
+              return sameFileSymbol;
+            }
+          }
+          // Return first match if no same-file symbol found
+          return symbols[0];
+        }
+        return null;
+      }
+
       // Step 1: Find the qualifier symbol
       let qualifierSymbols = this.findSymbolByName(qualifier);
 
@@ -2208,6 +2549,248 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
+   * Resolve an unqualified type reference using scope-based resolution
+   * @param typeReference The TypeReference to resolve
+   * @param sourceFile The file containing the reference
+   * @param position The position in the file (1-based line, 0-based column)
+   * @returns The resolved symbol or null if not found
+   */
+  private resolveUnqualifiedReferenceByScope(
+    typeReference: TypeReference,
+    sourceFile: string,
+    position: { line: number; character: number },
+  ): ApexSymbol | null {
+    try {
+      const symbolTable = this.symbolGraph.getSymbolTableForFile(sourceFile);
+      if (!symbolTable) {
+        return null;
+      }
+
+      // Use scope-based resolution to find the correct symbol in scope
+      const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+      const allFileSymbols = symbolTable.getAllSymbols();
+
+      // Search from innermost (most specific) to outermost scope
+      const innermostToOutermost = [...scopeHierarchy].reverse();
+      for (const blockSymbol of innermostToOutermost) {
+        // Find symbols in this block scope (direct children only)
+        // For local symbol search, we want variables/parameters/methods in the current scope
+        // The scope hierarchy already ensures we only search relevant blocks
+        // But don't search for variables in class-level blocks - those are fields, not variables
+        const isClassOrFileLevel =
+          isBlockSymbol(blockSymbol) &&
+          (blockSymbol.scopeType === 'class' ||
+            blockSymbol.scopeType === 'file');
+        const directChildren = allFileSymbols.filter(
+          (symbol) =>
+            symbol.name === typeReference.name &&
+            symbol.parentId === blockSymbol.id &&
+            // Look for variables, parameters, and methods in the current scope
+            // But skip variables in class/file level blocks (those are fields, searched later)
+            (((symbol.kind === SymbolKind.Variable ||
+              symbol.kind === SymbolKind.Parameter) &&
+              !isClassOrFileLevel) ||
+              symbol.kind === SymbolKind.Method),
+        );
+
+        // Also search nested blocks, but only if they're in the scope hierarchy
+        // (i.e., blocks that are ancestors/descendants of the current position)
+        // This prevents searching unrelated sibling blocks (like method1 when we're in method3)
+        // Only search for blocks that are actually in the scope hierarchy (already filtered by getScopeHierarchy)
+        // AND are descendants of the current block
+        // (not just children - we need to ensure they're in the hierarchy chain)
+        const nestedBlocks = allFileSymbols.filter((s) => {
+          if (s.kind !== SymbolKind.Block || s.parentId !== blockSymbol.id) {
+            return false;
+          }
+          // Only include blocks that are in the scope hierarchy
+          // This ensures we don't search sibling blocks (e.g., method1 when we're in method3)
+          return scopeHierarchy.some(
+            (hierarchyBlock) => hierarchyBlock.id === s.id,
+          );
+        });
+        const symbolsInNestedBlocks: ApexSymbol[] = [];
+        for (const nestedBlock of nestedBlocks) {
+          // Only search for variables/parameters/methods in blocks that are actually nested
+          // within the current block AND in the scope hierarchy
+          // The scope hierarchy already ensures we only search relevant blocks
+          // Double-check that the nested block is actually in the hierarchy
+          const isInHierarchy = scopeHierarchy.some(
+            (hierarchyBlock) => hierarchyBlock.id === nestedBlock.id,
+          );
+          if (!isInHierarchy) {
+            continue;
+          }
+          const nestedSymbols = allFileSymbols.filter(
+            (symbol) =>
+              symbol.name === typeReference.name &&
+              symbol.parentId === nestedBlock.id &&
+              // Look for variables, parameters, and methods in nested blocks
+              (symbol.kind === SymbolKind.Variable ||
+                symbol.kind === SymbolKind.Parameter ||
+                symbol.kind === SymbolKind.Method),
+          );
+          symbolsInNestedBlocks.push(...nestedSymbols);
+        }
+
+        // Combine direct children and nested symbols
+        const symbolsInScope = [...directChildren, ...symbolsInNestedBlocks];
+
+        if (symbolsInScope.length > 0) {
+          // Found a symbol in this scope - prioritize variables/parameters over methods/fields
+          // But verify that variables/parameters are in blocks that actually contain the position
+          const validSymbols = symbolsInScope.filter((symbol) => {
+            // For variables and parameters, verify they're in a block that contains the position
+            if (
+              symbol.kind === SymbolKind.Variable ||
+              symbol.kind === SymbolKind.Parameter
+            ) {
+              // Find the block that contains this symbol
+              const symbolBlock = allFileSymbols.find(
+                (s) => s.kind === SymbolKind.Block && s.id === symbol.parentId,
+              );
+              if (symbolBlock && isBlockSymbol(symbolBlock)) {
+                // Verify this block is in the scope hierarchy (contains the position)
+                return scopeHierarchy.some(
+                  (hierarchyBlock) => hierarchyBlock.id === symbolBlock.id,
+                );
+              }
+              return false;
+            }
+            // Methods are always valid if found in scope
+            return true;
+          });
+
+          if (validSymbols.length > 0) {
+            const prioritized = validSymbols.sort((a, b) => {
+              const aIsVar =
+                a.kind === SymbolKind.Variable ||
+                a.kind === SymbolKind.Parameter;
+              const bIsVar =
+                b.kind === SymbolKind.Variable ||
+                b.kind === SymbolKind.Parameter;
+              if (aIsVar && !bIsVar) return -1;
+              if (!aIsVar && bIsVar) return 1;
+              return 0;
+            });
+            return prioritized[0];
+          }
+        }
+      }
+
+      // If not found in any block scope, search for symbols in parent scopes
+      // This includes class fields, method parameters, etc.
+      // Search from innermost to outermost to find the closest parent symbol
+      // Reverse the hierarchy to go from innermost (method) to outermost (class/file)
+      const parentScopeSearchOrder = [...scopeHierarchy].reverse();
+      for (const blockSymbol of parentScopeSearchOrder) {
+        // Ensure blockSymbol is actually a block symbol with scopeType
+        if (!isBlockSymbol(blockSymbol)) {
+          continue;
+        }
+
+        // Skip method blocks when searching for class-level fields
+        // We only want to search class/file level blocks for fields
+        const isClassOrFileLevel =
+          blockSymbol.scopeType === 'class' || blockSymbol.scopeType === 'file';
+        const isMethodLevel = blockSymbol.scopeType === 'method';
+
+        // At class/file level, look for fields and methods
+        if (isClassOrFileLevel) {
+          // First try fields
+          const classFields = allFileSymbols.filter(
+            (s) =>
+              s.name === typeReference.name &&
+              s.parentId === blockSymbol.id &&
+              s.kind === SymbolKind.Field,
+          );
+          if (classFields.length > 0) {
+            return classFields[0];
+          }
+          // Then try methods
+          const classMethods = allFileSymbols.filter(
+            (s) =>
+              s.name === typeReference.name &&
+              s.parentId === blockSymbol.id &&
+              s.kind === SymbolKind.Method,
+          );
+          if (classMethods.length > 0) {
+            return classMethods[0];
+          }
+        }
+
+        // At method level, look for parameters (not local variables - those were already searched)
+        if (isMethodLevel) {
+          const parameters = allFileSymbols.filter(
+            (s) =>
+              s.name === typeReference.name &&
+              s.parentId === blockSymbol.id &&
+              s.kind === SymbolKind.Parameter,
+          );
+          if (parameters.length > 0) {
+            return parameters[0];
+          }
+        }
+      }
+
+      // If class block wasn't in the hierarchy (because getScopeHierarchy only follows blocks),
+      // we need to find it by traversing up through method symbols
+      // Method blocks -> method symbols -> class block (method symbol's parentId points to class block)
+      for (const blockSymbol of parentScopeSearchOrder) {
+        if (!isBlockSymbol(blockSymbol)) {
+          continue;
+        }
+        // If this is a method block, find its parent method symbol, then use that to find the class block
+        if (blockSymbol.scopeType === 'method' && blockSymbol.parentId) {
+          const methodSymbol = allFileSymbols.find(
+            (s) => s.id === blockSymbol.parentId,
+          );
+          if (methodSymbol && methodSymbol.parentId) {
+            // Method symbol's parentId points to the class block
+            // Check if it's actually a class block
+            const classBlock = allFileSymbols.find(
+              (s) =>
+                isBlockSymbol(s) &&
+                s.scopeType === 'class' &&
+                s.id === methodSymbol.parentId,
+            );
+            if (classBlock) {
+              // Look for fields in the class block
+              const classFields = allFileSymbols.filter(
+                (s) =>
+                  s.name === typeReference.name &&
+                  s.parentId === classBlock.id &&
+                  s.kind === SymbolKind.Field,
+              );
+              if (classFields.length > 0) {
+                return classFields[0];
+              }
+              // Also look for methods in the class block
+              const classMethods = allFileSymbols.filter(
+                (s) =>
+                  s.name === typeReference.name &&
+                  s.parentId === classBlock.id &&
+                  s.kind === SymbolKind.Method,
+              );
+              if (classMethods.length > 0) {
+                return classMethods[0];
+              }
+            }
+          }
+        }
+      }
+      // If we've searched all scopes (both local variables and parent scopes) and didn't find anything,
+      // return null to prevent falling through to name-based resolution which would incorrectly
+      // pick the first symbol with that name (e.g., method1's variable instead of class field)
+      // This ensures that scope-based resolution is authoritative for same-file symbol resolution
+      return null;
+    } catch (_error) {
+      // If scope-based resolution fails, return null to allow fallback
+      return null;
+    }
+  }
+
+  /**
    * Resolve a TypeReference to its target symbol
    * @param typeReference The TypeReference to resolve
    * @param sourceFile The file containing the reference
@@ -2232,6 +2815,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           qualifierInfo.qualifier,
           qualifierInfo.member,
           typeReference.context,
+          sourceFile,
         );
 
         if (qualifiedSymbol) {
@@ -2245,14 +2829,26 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return builtInSymbol;
       }
 
-      // Step 3: Try to find symbols by name
+      // Step 3: For unqualified references with position, use scope-based resolution
+      if (position) {
+        const scopeResolvedSymbol = this.resolveUnqualifiedReferenceByScope(
+          typeReference,
+          sourceFile,
+          position,
+        );
+        if (scopeResolvedSymbol !== null) {
+          return scopeResolvedSymbol;
+        }
+      }
+
+      // Step 4: Try to find symbols by name (fallback when no position or scope resolution fails)
       const candidates = this.findSymbolByName(typeReference.name);
 
       if (candidates.length === 0) {
         return null;
       }
 
-      // Step 4: For unqualified references, try same-file resolution first
+      // Step 5: For unqualified references, try same-file resolution first
       const sameFileCandidates = candidates.filter(
         (symbol) => symbol.key.path[0] === sourceFile,
       );
@@ -2261,7 +2857,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return this.selectMostSpecificSymbol(sameFileCandidates, sourceFile);
       }
 
-      // Step 5: Fallback to any accessible symbol
+      // Step 6: Fallback to any accessible symbol
       const accessibleCandidates = candidates.filter((symbol) =>
         this.isSymbolAccessibleFromFile(symbol, sourceFile),
       );
@@ -2270,7 +2866,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return this.selectMostSpecificSymbol(accessibleCandidates, sourceFile);
       }
 
-      // Step 6: Last resort - return the first candidate
+      // Step 7: Last resort - return the first candidate
       return candidates[0];
     } catch (_error) {
       return null;
@@ -3356,13 +3952,23 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Use async loading to prevent hanging
+      // Prevent recursive loops - if we're already loading this file, skip
+      const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${classPath}`;
+      if (this.loadingSymbolTables.has(fileUri)) {
+        this.logger.debug(
+          () =>
+            `Skipping recursive load attempt for ${fileUri} - already loading`,
+        );
+        return null;
+      }
+
       try {
+        // Mark as loading to prevent recursive calls
+        this.loadingSymbolTables.add(fileUri);
+
         const artifact =
           await this.resourceLoader.loadAndCompileClass(classPath);
         if (artifact?.compilationResult?.result) {
-          // Convert classPath to proper URI scheme for standard Apex library classes
-          const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${classPath}`;
-
           // Add the symbol table to the symbol manager to get all symbols including methods
           await this.addSymbolTable(artifact.compilationResult.result, fileUri);
 
@@ -3379,6 +3985,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return null;
       } catch (_error) {
         return null;
+      } finally {
+        // Always remove from loading set, even on error
+        this.loadingSymbolTables.delete(fileUri);
       }
     } catch (error) {
       this.logger.warn(
@@ -3399,8 +4008,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     typeRef: TypeReference,
     fileUri: string,
   ): ApexSymbol | null {
+    // Normalize URI to match how symbols are stored in the graph
+    // This ensures consistency with addSymbolTable which uses normalized URIs
+    const properUri =
+      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    const normalizedUri = extractFilePathFromUri(properUri);
+
+    // Invalidate cache to ensure we get fresh symbols (they were just added)
+    this.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
+
     // Find symbols in the file and determine which one contains this reference
-    const symbolsInFile = this.findSymbolsInFile(fileUri);
+    const symbolsInFile = this.findSymbolsInFile(normalizedUri);
 
     // Look for the most specific (innermost) containing symbol
     let bestMatch: ApexSymbol | null = null;
@@ -3421,6 +4039,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             bestMatch = symbol;
           }
         }
+      }
+    }
+
+    // Fallback: If no containing symbol found, use the file-level class/interface/enum/trigger
+    // This ensures references are still processed even if position matching fails
+    if (!bestMatch && symbolsInFile.length > 0) {
+      // Find the top-level type symbol (class, interface, enum, trigger)
+      const topLevelSymbol = symbolsInFile.find(
+        (s) =>
+          s.kind === SymbolKind.Class ||
+          s.kind === SymbolKind.Interface ||
+          s.kind === SymbolKind.Enum ||
+          s.kind === SymbolKind.Trigger,
+      );
+      if (topLevelSymbol) {
+        return topLevelSymbol;
       }
     }
 
@@ -3523,6 +4157,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const symbols = this.findSymbolsInFile(fileUri);
 
       const exactMatchSymbols = symbols.filter((symbol) => {
+        // Exclude scope symbols from resolution results (they're structural, not semantic)
+        if (isBlockSymbol(symbol)) {
+          return false;
+        }
+
         const { startLine, startColumn, endLine, endColumn } =
           symbol.location.identifierRange;
 
@@ -4342,29 +4981,138 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (contextFile) {
         let symbolTable = this.symbolGraph.getSymbolTableForFile(contextFile);
 
-        // If this is a standard Apex class and we don't have a symbol table, try to load it
+        // If symbol table not found, try alternative URI formats before loading
+        if (!symbolTable) {
+          // Try with proper URI format if contextFile is not already a URI
+          const properUri =
+            getProtocolType(contextFile) !== null
+              ? contextFile
+              : createFileUri(contextFile);
+          if (properUri !== contextFile) {
+            symbolTable = this.symbolGraph.getSymbolTableForFile(properUri);
+          }
+        }
+
+        // If this is a standard Apex class and we still don't have a symbol table, try to load it
+        // BUT: Only if the symbol doesn't already exist in the graph (to prevent loops)
+        // If the symbol exists, the symbol table should exist too - skip reload to prevent loops
         if (
           !symbolTable &&
           isStandardApexUri(contextFile) &&
           this.resourceLoader
         ) {
-          try {
-            // Extract the class path from the file path
-            const classPath = extractApexLibPath(contextFile);
+          // Check if symbol already exists in graph - if so, don't reload (prevents loops)
+          const existingSymbols = this.symbolGraph.findSymbolByName(
+            contextSymbol.name,
+          );
+          const symbolExists = existingSymbols.some(
+            (s) => s.id === contextSymbol.id,
+          );
 
-            const artifact =
-              await this.resourceLoader.loadAndCompileClass(classPath);
-            if (artifact && artifact.compilationResult.result) {
-              symbolTable = artifact.compilationResult.result;
-
-              // Add the symbol table to our graph for future use
-              await this.addSymbolTable(symbolTable, contextFile);
+          if (symbolExists) {
+            // Symbol already exists in graph - symbol table should exist too
+            // This might be a URI format mismatch, but we shouldn't reload
+            // Try one more time with normalized URI
+            const normalizedUri = extractFilePathFromUri(
+              getProtocolType(contextFile) !== null
+                ? contextFile
+                : createFileUri(contextFile),
+            );
+            symbolTable = this.symbolGraph.getSymbolTableForFile(normalizedUri);
+            if (!symbolTable) {
+              // Symbol exists but symbol table doesn't - this is unusual but don't reload
+              this.logger.debug(
+                () =>
+                  `Symbol ${contextSymbol.name} exists in graph but symbol table not ` +
+                  `found for ${contextFile} - skipping reload to prevent loop`,
+              );
+              return null;
             }
-          } catch (_error) {}
+          } else {
+            // Symbol doesn't exist - safe to load
+            // Prevent recursive loops - if we're already loading this file, skip
+            // Use normalized URI for the check to match what addSymbolTable uses
+            const normalizedUri = extractFilePathFromUri(
+              getProtocolType(contextFile) !== null
+                ? contextFile
+                : createFileUri(contextFile),
+            );
+            if (this.loadingSymbolTables.has(normalizedUri)) {
+              this.logger.debug(
+                () =>
+                  `Skipping recursive load attempt for ${contextFile} (normalized: ${normalizedUri}) - already loading`,
+              );
+              // Re-check symbol table after a brief moment in case it was just added
+              symbolTable = this.symbolGraph.getSymbolTableForFile(contextFile);
+              if (!symbolTable) {
+                return null;
+              }
+            } else {
+              try {
+                // Mark as loading to prevent recursive calls (use normalized URI)
+                this.loadingSymbolTables.add(normalizedUri);
+
+                // Extract the class path from the file path
+                const classPath = extractApexLibPath(contextFile);
+
+                const artifact =
+                  await this.resourceLoader.loadAndCompileClass(classPath);
+                if (artifact && artifact.compilationResult.result) {
+                  symbolTable = artifact.compilationResult.result;
+
+                  // Add the symbol table to our graph for future use
+                  await this.addSymbolTable(symbolTable, contextFile);
+
+                  // Re-fetch symbol table to ensure it's registered
+                  symbolTable =
+                    this.symbolGraph.getSymbolTableForFile(contextFile);
+                }
+              } catch (_error) {
+                // Error loading, continue
+              } finally {
+                // Always remove from loading set, even on error
+                this.loadingSymbolTables.delete(normalizedUri);
+              }
+            }
+          }
         }
 
         if (symbolTable) {
-          // Look for members with the given name in the same file
+          // If the context symbol is a class, find its class block and look for members there
+          // This ensures we only find members that actually belong to the class
+          if (
+            contextSymbol.kind === SymbolKind.Class ||
+            contextSymbol.kind === SymbolKind.Interface ||
+            contextSymbol.kind === SymbolKind.Enum
+          ) {
+            // Find the class block (scope symbol with scopeType === 'class' and parentId === classSymbol.id)
+            const allSymbols = symbolTable.getAllSymbols();
+            const classBlock = allSymbols.find(
+              (s) =>
+                isBlockSymbol(s) &&
+                s.scopeType === 'class' &&
+                s.parentId === contextSymbol.id,
+            );
+
+            if (classBlock) {
+              // Get all symbols in the class block scope
+              const classMembers = symbolTable.getSymbolsInScope(classBlock.id);
+              // Filter by name and kind, excluding block symbols
+              const matchingMembers = classMembers.filter(
+                (s) =>
+                  !isBlockSymbol(s) &&
+                  s.name === memberName &&
+                  s.kind === memberType,
+              );
+
+              if (matchingMembers.length > 0) {
+                return matchingMembers[0];
+              }
+            }
+          }
+
+          // Fallback: Look for members with the given name in the same file
+          // (for non-class contexts or if class block lookup failed)
           const allSymbols = symbolTable.getAllSymbols();
 
           const contextMembers = allSymbols.filter(

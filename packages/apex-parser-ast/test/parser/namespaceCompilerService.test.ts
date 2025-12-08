@@ -9,8 +9,14 @@
 import { Effect } from 'effect/index';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { SymbolTable, SymbolKind, MethodSymbol } from '../../src/types/symbol';
+import {
+  SymbolTable,
+  SymbolKind,
+  MethodSymbol,
+  ScopeSymbol,
+} from '../../src/types/symbol';
 import { TestLogger } from '../utils/testLogger';
+import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 
 describe('CompilerService Namespace Integration', () => {
   // Set up debug logging for all tests in this suite
@@ -35,10 +41,10 @@ describe('CompilerService Namespace Integration', () => {
 
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
-      const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope
-        .getAllSymbols()
-        .find((s) => s.name === 'MyClass');
+      // Use table.getAllSymbols() to get all symbols including those in file scope
+      const allSymbols = symbolTable.getAllSymbols();
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
+      const classSymbol = semanticSymbols.find((s) => s.name === 'MyClass');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();
@@ -64,10 +70,10 @@ describe('CompilerService Namespace Integration', () => {
 
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
-      const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope
-        .getAllSymbols()
-        .find((s) => s.name === 'MyClass');
+      // Use table.getAllSymbols() to get all symbols including those in file scope
+      const allSymbols = symbolTable.getAllSymbols();
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
+      const classSymbol = semanticSymbols.find((s) => s.name === 'MyClass');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();
@@ -79,12 +85,23 @@ describe('CompilerService Namespace Integration', () => {
       }
 
       // Check method symbols as well
-      const scopeForClass = globalScope
-        .getChildren()
-        .find((s) => s.name === 'MyClass');
+      // Find the class block by looking for a block with scopeType === 'class'
+      // and parentId pointing to the class symbol
+      const scopeForClass = classSymbol
+        ? (symbolTable
+            .getAllSymbols()
+            .find(
+              (s) =>
+                s.kind === SymbolKind.Block &&
+                s.scopeType === 'class' &&
+                s.parentId === classSymbol.id,
+            ) as ScopeSymbol | undefined)
+        : undefined;
       const methodSymbol = scopeForClass
-        ?.getAllSymbols()
-        .find((s) => s.kind === SymbolKind.Method);
+        ? symbolTable
+            .getSymbolsInScope(scopeForClass.id)
+            .find((s) => s.kind === SymbolKind.Method)
+        : undefined;
 
       expect(methodSymbol).toBeDefined();
 
@@ -117,10 +134,10 @@ describe('CompilerService Namespace Integration', () => {
 
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
-      const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope
-        .getAllSymbols()
-        .find((s) => s.name === 'MyClass');
+      // Use table.getAllSymbols() to get all symbols including those in file scope
+      const allSymbols = symbolTable.getAllSymbols();
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
+      const classSymbol = semanticSymbols.find((s) => s.name === 'MyClass');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();
@@ -167,10 +184,14 @@ describe('CompilerService Namespace Integration', () => {
       // Check symbols from first file
       const firstResult = results[0];
       const firstSymbolTable = firstResult.result as SymbolTable;
-      const firstGlobalScope = firstSymbolTable.getCurrentScope();
-      const firstClass = firstGlobalScope
-        .getAllSymbols()
-        .find((s) => s.name === 'FirstClass');
+      // Use table.getAllSymbols() to get all symbols including those in file scope
+      const allFirstSymbols = firstSymbolTable.getAllSymbols();
+      const firstSemanticSymbols = allFirstSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
+      const firstClass = firstSemanticSymbols.find(
+        (s) => s.name === 'FirstClass',
+      );
 
       expect(firstClass).toBeDefined();
 
@@ -183,10 +204,14 @@ describe('CompilerService Namespace Integration', () => {
       // Check symbols from second file
       const secondResult = results[1];
       const secondSymbolTable = secondResult.result as SymbolTable;
-      const secondGlobalScope = secondSymbolTable.getCurrentScope();
-      const secondClass = secondGlobalScope
-        .getAllSymbols()
-        .find((s) => s.name === 'SecondClass');
+      // Use table.getAllSymbols() to get all symbols including those in file scope
+      const allSecondSymbols = secondSymbolTable.getAllSymbols();
+      const secondSemanticSymbols = allSecondSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
+      const secondClass = secondSemanticSymbols.find(
+        (s) => s.name === 'SecondClass',
+      );
 
       expect(secondClass).toBeDefined();
 
@@ -227,10 +252,10 @@ describe('CompilerService Namespace Integration', () => {
 
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
-      const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope
-        .getAllSymbols()
-        .find((s) => s.name === 'MyClass');
+      // Use table.getAllSymbols() to get all symbols including those in file scope
+      const allSymbols = symbolTable.getAllSymbols();
+      const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
+      const classSymbol = semanticSymbols.find((s) => s.name === 'MyClass');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();
@@ -293,24 +318,40 @@ describe('CompilerService Namespace Integration', () => {
       // Log symbol table information
       const symbolTable = result.result as SymbolTable;
       logger.info('\nSymbol Table:');
+      // Get root symbols (top-level symbols with parentId === null)
+      const rootSymbols = symbolTable.getRoots();
       logger.info(`Global Scope Symbols: ${JSON.stringify(
-        symbolTable
-          .getCurrentScope()
-          .getAllSymbols()
-          .map((s) => ({ name: s.name, kind: s.kind, namespace: s.namespace })),
+        rootSymbols.map((s) => ({
+          name: s.name,
+          kind: s.kind,
+          namespace: s.namespace,
+        })),
       )}
 `);
 
       // Get the class scope and verify methods
-      const classScope = symbolTable
-        .getCurrentScope()
-        .getChildren()
-        .find((s) => s.name === 'IdeaStandardController');
+      // Find the class symbol first, then find its block scope
+      const classSymbol = symbolTable
+        .getAllSymbols()
+        .find((s) => !isBlockSymbol(s) && s.name === 'IdeaStandardController');
+      const classScope = classSymbol
+        ? (symbolTable
+            .getAllSymbols()
+            .find(
+              (s) =>
+                s.kind === SymbolKind.Block &&
+                s.scopeType === 'class' &&
+                s.parentId === classSymbol.id,
+            ) as ScopeSymbol | undefined)
+        : undefined;
 
       if (classScope) {
         logger.info('\nClass Methods:');
-        classScope
-          .getAllSymbols()
+        const allClassSymbols = classScope.getAllSymbols();
+        const classSemanticSymbols = allClassSymbols.filter(
+          (s) => !isBlockSymbol(s),
+        );
+        classSemanticSymbols
           .filter((s) => s.kind === SymbolKind.Method)
           .forEach((method) => {
             const methodSymbol = method as MethodSymbol;
@@ -328,19 +369,18 @@ describe('CompilerService Namespace Integration', () => {
       // Verify compilation succeeds
       expect(result.errors.length).toBe(0);
 
-      // Get the symbol table and find our class
-      const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope
-        .getAllSymbols()
-        .find((s) => s.name === 'IdeaStandardController');
-
-      // Check that symbol exists
+      // Check that symbol exists (classSymbol was already found above)
       expect(classSymbol).toBeDefined();
 
-      const methods =
-        classScope
-          ?.getAllSymbols()
-          .filter((s) => s.kind === SymbolKind.Method) ?? [];
+      const allClassSymbols = classScope
+        ? symbolTable.getSymbolsInScope(classScope.id)
+        : [];
+      const classSemanticSymbols = allClassSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
+      const methods = classSemanticSymbols.filter(
+        (s) => s.kind === SymbolKind.Method,
+      );
 
       // Verify we have the expected methods
       expect(methods.length).toBe(11);
@@ -409,24 +449,37 @@ describe('CompilerService Namespace Integration', () => {
 
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
-      const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope
+      const classSymbol = symbolTable
         .getAllSymbols()
-        .find((s) => s.name === 'MixedCaseClass');
+        .find((s) => !isBlockSymbol(s) && s.name === 'MixedCaseClass');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();
 
       // Get the class scope and verify methods
-      const classScope = globalScope
-        .getChildren()
-        .find((s) => s.name === 'MixedCaseClass');
+      // Find the class block by looking for a block with scopeType === 'class'
+      // and parentId pointing to the class symbol
+      const classScope = classSymbol
+        ? (symbolTable
+            .getAllSymbols()
+            .find(
+              (s) =>
+                s.kind === SymbolKind.Block &&
+                s.scopeType === 'class' &&
+                s.parentId === classSymbol.id,
+            ) as ScopeSymbol | undefined)
+        : undefined;
 
       // Verify we have the expected method
-      const methods =
-        classScope
-          ?.getAllSymbols()
-          .filter((s) => s.kind === SymbolKind.Method) ?? [];
+      const allClassSymbols = classScope
+        ? symbolTable.getSymbolsInScope(classScope.id)
+        : [];
+      const classSemanticSymbols = allClassSymbols.filter(
+        (s) => !isBlockSymbol(s),
+      );
+      const methods = classSemanticSymbols.filter(
+        (s) => s.kind === SymbolKind.Method,
+      );
 
       expect(methods.length).toBe(1);
       expect(methods[0].name).toBe('myMethod');
@@ -462,10 +515,9 @@ describe('CompilerService Namespace Integration', () => {
 
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
-      const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope
+      const classSymbol = symbolTable
         .getAllSymbols()
-        .find((s) => s.name === 'SOQLCaseTest');
+        .find((s) => !isBlockSymbol(s) && s.name === 'SOQLCaseTest');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();

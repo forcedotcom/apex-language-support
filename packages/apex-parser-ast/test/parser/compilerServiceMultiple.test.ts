@@ -17,6 +17,7 @@ import {
   FoldingRange,
 } from '../../src/parser/listeners/ApexFoldingRangeListener';
 import { SymbolTable } from '../../src/types/symbol';
+import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 import { TestLogger } from '../utils/testLogger';
 import { Effect } from 'effect/index';
 
@@ -61,20 +62,18 @@ describe('CompilerService Multiple Files Compilation', () => {
       // Check symbols from first file
       const firstResult = results[0];
       const firstSymbolTable = firstResult.result as SymbolTable;
-      const firstGlobalScope = firstSymbolTable.getCurrentScope();
-      const firstClass = firstGlobalScope
+      const firstClass = firstSymbolTable
         .getAllSymbols()
-        .find((s) => s.name === 'FirstClass');
+        .find((s) => !isBlockSymbol(s) && s.name === 'FirstClass');
 
       expect(firstClass).toBeDefined();
 
       // Check symbols from second file
       const secondResult = results[1];
       const secondSymbolTable = secondResult.result as SymbolTable;
-      const secondGlobalScope = secondSymbolTable.getCurrentScope();
-      const secondClass = secondGlobalScope
+      const secondClass = secondSymbolTable
         .getAllSymbols()
-        .find((s) => s.name === 'SecondClass');
+        .find((s) => !isBlockSymbol(s) && s.name === 'SecondClass');
 
       expect(secondClass).toBeDefined();
     });
@@ -107,9 +106,8 @@ describe('CompilerService Multiple Files Compilation', () => {
 
       const symbolTable = symbolResults[0].result as SymbolTable;
       const symbolClass = symbolTable
-        .getCurrentScope()
         .getAllSymbols()
-        .find((s) => s.name === 'SymbolClass');
+        .find((s) => !isBlockSymbol(s) && s.name === 'SymbolClass');
 
       expect(symbolClass).toBeDefined();
       expect('comments' in symbolResults[0]).toBe(true);
