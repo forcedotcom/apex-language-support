@@ -3929,12 +3929,22 @@ export class ApexSymbolCollectorListener
     // For standard Apex classes, extract namespace from file path
     if (this.currentFilePath && this.currentFilePath.startsWith('apexlib://')) {
       // Extract namespace from path like 'apexlib://resources/StandardApexLibrary/System/Assert.cls'
-      // The namespace is the directory after StandardApexLibrary (e.g., "System")
-      const pathMatch = this.currentFilePath.match(
+      // or 'apexlib://resources/builtins/System/String.cls'
+      // The namespace is the directory after StandardApexLibrary or builtins (e.g., "System")
+      const standardMatch = this.currentFilePath.match(
         /apexlib:\/\/resources\/StandardApexLibrary\/([^\/]+)\//,
       );
-      if (pathMatch) {
-        const namespaceName = pathMatch[1];
+      if (standardMatch) {
+        const namespaceName = standardMatch[1];
+        return Namespaces.create(namespaceName);
+      }
+
+      // Try builtins path
+      const builtinMatch = this.currentFilePath.match(
+        /apexlib:\/\/resources\/builtins\/([^\/]+)\//,
+      );
+      if (builtinMatch) {
+        const namespaceName = builtinMatch[1];
         return Namespaces.create(namespaceName);
       }
     }

@@ -38,9 +38,25 @@ async function generateZip() {
     await mkdir(path.join('out', 'resources'), { recursive: true });
 
     // Get all files from the StandardApexLibrary directory
-    const files = await getAllFiles(
+    // Use project root as baseDir to preserve the full path structure including src/resources/
+    const standardLibraryFiles = await getAllFiles(
       path.join('src', 'resources', 'StandardApexLibrary'),
+      process.cwd(),
     );
+
+    // Get all files from the builtins directory
+    // Use project root as baseDir to preserve the full path structure including src/resources/
+    const builtinsFiles = await getAllFiles(
+      path.join('src', 'resources', 'builtins'),
+      process.cwd(),
+    );
+
+    // Combine both sets of files, preserving folder structure
+    // Paths will be like: resources/StandardApexLibrary/System/String.cls and resources/builtins/System/String.cls
+    const files = {
+      ...standardLibraryFiles,
+      ...builtinsFiles,
+    };
 
     // Create a zip file
     const zipData = zipSync(files);

@@ -161,9 +161,16 @@ export class ResourceLoader {
       this.zipFiles.set(originalPath, data);
 
       // Also preserve the relative path mapping for later use
-      const relativePath = originalPath
-        .replace(/^src\/resources\/StandardApexLibrary\//, '')
-        .replace(/\\/g, '/');
+      // Handle both StandardApexLibrary and builtins paths
+      let relativePath = originalPath.replace(/\\/g, '/');
+      if (relativePath.startsWith('src/resources/StandardApexLibrary/')) {
+        relativePath = relativePath.replace(
+          /^src\/resources\/StandardApexLibrary\//,
+          '',
+        );
+      } else if (relativePath.startsWith('src/resources/builtins/')) {
+        relativePath = relativePath.replace(/^src\/resources\/builtins\//, '');
+      }
       this.originalPaths.set(relativePath, relativePath);
 
       // Build normalized path to ZIP path mapping for O(1) lookups
@@ -857,9 +864,19 @@ export class ResourceLoader {
         this.zipFiles.set(originalPath, data);
 
         // Also preserve the relative path mapping for later use
-        const relativePath = originalPath
-          .replace(/^src\/resources\/StandardApexLibrary\//, '')
-          .replace(/\\/g, '/');
+        // Handle both StandardApexLibrary and builtins paths
+        let relativePath = originalPath.replace(/\\/g, '/');
+        if (relativePath.startsWith('src/resources/StandardApexLibrary/')) {
+          relativePath = relativePath.replace(
+            /^src\/resources\/StandardApexLibrary\//,
+            '',
+          );
+        } else if (relativePath.startsWith('src/resources/builtins/')) {
+          relativePath = relativePath.replace(
+            /^src\/resources\/builtins\//,
+            '',
+          );
+        }
         this.originalPaths.set(relativePath, relativePath);
 
         // Rebuild normalized path to ZIP path mapping
@@ -1144,5 +1161,30 @@ export class ResourceLoader {
     // Fallback: try with normalized path if it looks like a path
     const normalizedPath = this.normalizePath(className);
     return this.classNameToNamespace.get(normalizedPath) || null;
+  }
+
+  /**
+   * Check if a path represents a built-in type file.
+   * @param path The path to check
+   * @returns true if the path is a built-in type path, false otherwise
+   */
+  public isBuiltinPath(path: string): boolean {
+    const normalizedPath = this.normalizePath(path);
+    // Check if path starts with builtins/ or System/ (for built-in types)
+    return (
+      normalizedPath.startsWith('builtins/') ||
+      normalizedPath.startsWith('system/')
+    );
+  }
+
+  /**
+   * Check if a class path is from the builtins folder based on the original ZIP path
+   * @param classPath The class path (e.g., "System/String.cls")
+   * @returns true if the class is from builtins, false if from StandardApexLibrary
+   */
+  public isBuiltinClass(classPath: string): boolean {
+    const normalizedPath = this.normalizePath(classPath);
+    const originalZipPath = this.normalizedToZipPath.get(normalizedPath);
+    return originalZipPath?.startsWith('src/resources/builtins/') ?? false;
   }
 }

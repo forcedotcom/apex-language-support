@@ -2975,20 +2975,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   private async resolveBuiltInType(name: string): Promise<ApexSymbol | null> {
     try {
-      // Step 1: Check built-in types first (String, Integer, Boolean, etc.)
-      const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
-      if (builtInType) {
-        // Only return built-in types for primitive types, not for standard Apex classes
-        const isStandardApexClass =
-          this.resourceLoader?.isStdApexNamespace(name);
-        if (!isStandardApexClass) {
-          return {
-            ...builtInType,
-            modifiers: {
-              ...builtInType.modifiers,
-              isBuiltIn: true,
-            },
-          };
+      // Step 1: Try to resolve as a built-in type via ResourceLoader first
+      // Built-in types (wrapper types and collection types) are in builtins/System/
+      // and are treated exactly like StandardApexLibrary classes
+      if (this.resourceLoader) {
+        // Try to resolve as System.{TypeName} (ResourceLoader will check both
+        // builtins/System/ and StandardApexLibrary/System/)
+        const fqn = `System.${name}`;
+        const standardClass = await this.resolveStandardApexClass(fqn);
+
+        if (standardClass) {
+          return standardClass;
         }
       }
 
@@ -3018,11 +3015,24 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
       }
 
+      // Step 3: Check other built-in types (scalar, collection, etc.)
+      const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
+      if (builtInType) {
+        return {
+          ...builtInType,
+          modifiers: {
+            ...builtInType.modifiers,
+            isBuiltIn: true,
+          },
+        };
+      }
+
       return null;
     } catch (_error) {
       return null;
     }
   }
+
 
   /**
    * Check if a name represents a valid namespace
@@ -3951,9 +3961,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return null;
       }
 
+      // Determine the correct URI based on whether the class is from builtins or StandardApexLibrary
+      // Check if the class is from builtins using ResourceLoader's method
+      const isBuiltin = this.resourceLoader.isBuiltinClass(classPath);
+
+      // Use the appropriate URI prefix based on the source
+      const uriPrefix = isBuiltin
+        ? 'apexlib://resources/builtins'
+        : STANDARD_APEX_LIBRARY_URI;
+
       // Use async loading to prevent hanging
       // Prevent recursive loops - if we're already loading this file, skip
-      const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${classPath}`;
+      const fileUri = `${uriPrefix}/${classPath}`;
       if (this.loadingSymbolTables.has(fileUri)) {
         this.logger.debug(
           () =>

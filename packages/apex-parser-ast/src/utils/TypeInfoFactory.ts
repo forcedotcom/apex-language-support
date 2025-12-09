@@ -79,7 +79,20 @@ const createQualifiedTypeInfo = (typeString: string): TypeInfo => {
 const createSimpleTypeInfo = (typeName: string): TypeInfo => {
   logger.debug(() => `Processing simple type: ${typeName}`);
 
-  // Check if it's a built-in type that we can resolve immediately
+  // Check if it's a primitive/wrapper type first (these are now in ResourceLoader, not BuiltInTypeTables)
+  if (isPrimitiveType(typeName)) {
+    logger.debug(() => `Found primitive type: ${typeName}`);
+    return {
+      name: typeName,
+      isArray: false,
+      isCollection: false,
+      isPrimitive: true,
+      originalTypeString: typeName,
+      getNamespace: () => null, // Primitive types don't have namespaces
+    };
+  }
+
+  // Check if it's a built-in type in BuiltInTypeTables (scalar types like void, null, or SObjects)
   const builtInSymbol = builtInTypes.findType(typeName.toLowerCase());
   if (builtInSymbol) {
     logger.debug(() => `Found built-in type: ${typeName}`);
@@ -87,7 +100,7 @@ const createSimpleTypeInfo = (typeName: string): TypeInfo => {
       name: typeName,
       isArray: false,
       isCollection: false,
-      isPrimitive: isPrimitiveType(typeName),
+      isPrimitive: isPrimitiveType(typeName), // void and null are primitives
       originalTypeString: typeName,
       getNamespace: () => null, // Built-in types don't have namespaces
     };

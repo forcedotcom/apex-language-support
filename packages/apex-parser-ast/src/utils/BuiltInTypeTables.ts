@@ -19,20 +19,15 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
   private static instance: BuiltInTypeTablesImpl;
   private readonly logger = getLogger();
 
-  // Type tables
-  readonly wrapperTypes: Map<string, ApexSymbol>;
+  // Type tables - only for types that aren't real classes
+  // Wrapper types (String, Integer, etc.) and collection types (List, Set, Map)
+  // are now in builtins/System/ and resolved via ResourceLoader
+  // System and Schema types are in StandardApexLibrary and resolved via ResourceLoader
   readonly scalarTypes: Map<string, ApexSymbol>;
-  readonly collectionTypes: Map<string, ApexSymbol>;
-  readonly systemTypes: Map<string, ApexSymbol>;
-  readonly schemaTypes: Map<string, ApexSymbol>;
   readonly sObjectTypes: Map<string, ApexSymbol>;
 
   private constructor() {
-    this.wrapperTypes = this.createWrapperTypes();
     this.scalarTypes = this.createScalarTypes();
-    this.collectionTypes = this.createCollectionTypes();
-    this.systemTypes = this.createSystemTypes();
-    this.schemaTypes = this.createSchemaTypes();
     this.sObjectTypes = this.createSObjectTypes();
   }
 
@@ -47,42 +42,8 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
   }
 
   /**
-   * Create wrapper type symbols
-   * Maps to Java WRAPPER_TYPES
-   */
-  private createWrapperTypes(): Map<string, ApexSymbol> {
-    const types = new Map<string, ApexSymbol>();
-
-    const wrapperTypeNames = [
-      'String',
-      'Integer',
-      'Long',
-      'Double',
-      'Decimal',
-      'Boolean',
-      'Date',
-      'DateTime',
-      'Time',
-      'Blob',
-      'Id', // Consistent with Salesforce Apex documentation
-      'Object',
-    ];
-
-    wrapperTypeNames.forEach((name) => {
-      const symbol = this.createBuiltInSymbol(
-        name,
-        SymbolKind.Class,
-        'BUILT_IN',
-      );
-      types.set(name.toLowerCase(), symbol);
-    });
-
-    return types;
-  }
-
-  /**
-   * Create scalar type symbols
-   * Maps to Java scalar type handling
+   * Create scalar type symbols (void, null)
+   * These aren't real classes, so they need synthetic symbols
    */
   private createScalarTypes(): Map<string, ApexSymbol> {
     const types = new Map<string, ApexSymbol>();
@@ -102,71 +63,8 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
   }
 
   /**
-   * Create collection type symbols
-   * Maps to Java collection type handling
-   */
-  private createCollectionTypes(): Map<string, ApexSymbol> {
-    const types = new Map<string, ApexSymbol>();
-
-    const collectionTypeNames = ['List', 'Set', 'Map'];
-
-    collectionTypeNames.forEach((name) => {
-      const symbol = this.createBuiltInSymbol(
-        name,
-        SymbolKind.Class,
-        'BUILT_IN',
-      );
-      types.set(name.toLowerCase(), symbol);
-    });
-
-    return types;
-  }
-
-  /**
-   * Create System namespace types
-   * Maps to Java System namespace types
-   */
-  private createSystemTypes(): Map<string, ApexSymbol> {
-    const types = new Map<string, ApexSymbol>();
-
-    const systemTypeNames = ['System', 'SystemException'];
-
-    systemTypeNames.forEach((name) => {
-      const symbol = this.createBuiltInSymbol(name, SymbolKind.Class, 'System');
-      types.set(name.toLowerCase(), symbol);
-    });
-
-    return types;
-  }
-
-  /**
-   * Create Schema namespace types
-   * Maps to Java Schema namespace types
-   */
-  private createSchemaTypes(): Map<string, ApexSymbol> {
-    const types = new Map<string, ApexSymbol>();
-
-    const schemaTypeNames = [
-      'Schema',
-      'SObjectType',
-      'SObjectField',
-      'DescribeSObjectResult',
-      'DescribeFieldResult',
-      'PicklistEntry',
-      'RecordTypeInfo',
-    ];
-
-    schemaTypeNames.forEach((name) => {
-      const symbol = this.createBuiltInSymbol(name, SymbolKind.Class, 'Schema');
-      types.set(name.toLowerCase(), symbol);
-    });
-
-    return types;
-  }
-
-  /**
    * Create SObject type symbols
-   * Maps to Java SObject type handling
+   * These are dynamic types, not real classes, so they need synthetic symbols
    */
   private createSObjectTypes(): Map<string, ApexSymbol> {
     const types = new Map<string, ApexSymbol>();
@@ -241,27 +139,14 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
 
   /**
    * Find a type in all built-in tables
+   * Note: Wrapper types, collection types (List, Set, Map), System types, and
+   * Schema types are now resolved via ResourceLoader
+   * This only returns types that aren't real classes (scalar, sObject)
    */
   findType(lowerCaseName: string): ApexSymbol | null {
-    // Check wrapper types first (highest priority)
-    const wrapperType = this.wrapperTypes.get(lowerCaseName);
-    if (wrapperType) return wrapperType;
-
     // Check scalar types
     const scalarType = this.scalarTypes.get(lowerCaseName);
     if (scalarType) return scalarType;
-
-    // Check collection types
-    const collectionType = this.collectionTypes.get(lowerCaseName);
-    if (collectionType) return collectionType;
-
-    // Check system types
-    const systemType = this.systemTypes.get(lowerCaseName);
-    if (systemType) return systemType;
-
-    // Check schema types
-    const schemaType = this.schemaTypes.get(lowerCaseName);
-    if (schemaType) return schemaType;
 
     // Check SObject types
     const sObjectType = this.sObjectTypes.get(lowerCaseName);
@@ -272,15 +157,13 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
 
   /**
    * Get all built-in types
+   * Note: Wrapper types, collection types (List, Set, Map), System types, and
+   * Schema types are now resolved via ResourceLoader
    */
   getAllTypes(): ApexSymbol[] {
     const allTypes: ApexSymbol[] = [];
 
-    this.wrapperTypes.forEach((type) => allTypes.push(type));
     this.scalarTypes.forEach((type) => allTypes.push(type));
-    this.collectionTypes.forEach((type) => allTypes.push(type));
-    this.systemTypes.forEach((type) => allTypes.push(type));
-    this.schemaTypes.forEach((type) => allTypes.push(type));
     this.sObjectTypes.forEach((type) => allTypes.push(type));
 
     return allTypes;
@@ -288,23 +171,17 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
 
   /**
    * Get statistics about built-in types
+   * Note: Wrapper types, collection types (List, Set, Map), System types, and
+   * Schema types are now resolved via ResourceLoader
    */
   getStats(): {
     totalTypes: number;
-    wrapperTypes: number;
     scalarTypes: number;
-    collectionTypes: number;
-    systemTypes: number;
-    schemaTypes: number;
     sObjectTypes: number;
   } {
     return {
       totalTypes: this.getAllTypes().length,
-      wrapperTypes: this.wrapperTypes.size,
       scalarTypes: this.scalarTypes.size,
-      collectionTypes: this.collectionTypes.size,
-      systemTypes: this.systemTypes.size,
-      schemaTypes: this.schemaTypes.size,
       sObjectTypes: this.sObjectTypes.size,
     };
   }
@@ -319,27 +196,13 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
 
   /**
    * Get built-in type by category
+   * Note: Wrapper types, collection types (List, Set, Map), System types, and
+   * Schema types are now resolved via ResourceLoader
    */
-  getTypesByCategory(
-    category:
-      | 'wrapper'
-      | 'scalar'
-      | 'collection'
-      | 'system'
-      | 'schema'
-      | 'sobject',
-  ): ApexSymbol[] {
+  getTypesByCategory(category: 'scalar' | 'sobject'): ApexSymbol[] {
     switch (category) {
-      case 'wrapper':
-        return Array.from(this.wrapperTypes.values());
       case 'scalar':
         return Array.from(this.scalarTypes.values());
-      case 'collection':
-        return Array.from(this.collectionTypes.values());
-      case 'system':
-        return Array.from(this.systemTypes.values());
-      case 'schema':
-        return Array.from(this.schemaTypes.values());
       case 'sobject':
         return Array.from(this.sObjectTypes.values());
       default:

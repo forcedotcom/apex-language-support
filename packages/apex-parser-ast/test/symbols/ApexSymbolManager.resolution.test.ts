@@ -23,6 +23,10 @@ import {
   reset as schedulerReset,
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
+import {
+  initializeResourceLoaderForTests,
+  resetResourceLoader,
+} from '../helpers/testHelpers';
 
 describe('ApexSymbolManager - Enhanced Resolution', () => {
   let symbolManager: ApexSymbolManager;
@@ -30,6 +34,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
   let listener: ApexSymbolCollectorListener;
 
   beforeAll(async () => {
+    // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
+    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+
     // Initialize scheduler before all tests
     await Effect.runPromise(
       schedulerInitialize({
@@ -53,6 +60,8 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     } catch (_error) {
       // Ignore errors - scheduler might not be initialized
     }
+    // Reset ResourceLoader
+    resetResourceLoader();
   });
 
   beforeEach(() => {
@@ -2098,7 +2107,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         expect(result).toBeDefined();
         expect(result?.name).toBe('String');
         expect(result?.kind).toBe('class');
-        expect(result?.fileUri).toBe('built-in://apex');
+        // Built-in types now have proper URIs from ResourceLoader
+        expect(result?.fileUri).toBe(
+          'apexlib://resources/builtins/System/String.cls',
+        );
       });
 
       it('should resolve String type declaration when position is on variable name', async () => {
