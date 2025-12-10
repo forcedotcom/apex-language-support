@@ -558,7 +558,7 @@ The Standard Apex Library is located in `src/resources/StandardApexLibrary/` and
 
 **⚠️ CRITICAL WARNING: DO NOT REMOVE BUILTIN CLASSES**
 
-The following classes in `StandardApexLibrary/System/` are **essential builtin classes** that were merged from the `builtins/` folder. These classes are fundamental to Apex type resolution and **MUST NOT BE REMOVED**:
+The following 15 classes are **essential builtin classes** stored in `src/resources/builtins/` and merged into `StandardApexLibrary/System/` during ZIP creation. These classes are fundamental to Apex type resolution and **MUST NOT BE REMOVED**:
 
 - `Blob.cls` - Blob primitive type wrapper
 - `Boolean.cls` - Boolean primitive type wrapper
@@ -590,13 +590,49 @@ The following classes in `StandardApexLibrary/System/` are **essential builtin c
 3. **Removing classes**: Only remove classes that are confirmed deprecated by Salesforce and have been removed from the platform
 4. **Never remove the builtin classes listed above** - they are required for the language server to function correctly
 5. **ZIP generation**: After making changes, run `npm run build` to regenerate the ZIP file using `scripts/generate-zip.mjs`
+   - The build script automatically merges `builtins/` into `StandardApexLibrary/System/` in the ZIP
+   - Builtin classes should only be edited in `builtins/`, not in `StandardApexLibrary/System/`
 
-**File Structure:**
+**Source File Structure:**
+
+```
+src/resources/
+├── builtins/
+│   ├── Blob.cls
+│   ├── Boolean.cls
+│   ├── Date.cls
+│   ├── DateTime.cls
+│   ├── Decimal.cls
+│   ├── Double.cls
+│   ├── Id.cls
+│   ├── Integer.cls
+│   ├── List.cls
+│   ├── Long.cls
+│   ├── Map.cls
+│   ├── Object.cls
+│   ├── Set.cls
+│   ├── String.cls
+│   └── Time.cls
+└── StandardApexLibrary/
+    ├── System/
+    │   ├── Assert.cls
+    │   ├── Database.cls
+    │   └── [other System namespace classes, NO builtin classes]
+    ├── Database/
+    │   └── [Database namespace classes]
+    ├── Schema/
+    │   └── [Schema namespace classes]
+    └── [other namespaces...]
+```
+
+**ZIP File Structure (after build):**
+
+The ZIP file contains a merged structure where builtin classes appear in `StandardApexLibrary/System/`:
 
 ```
 src/resources/StandardApexLibrary/
 ├── System/
-│   ├── [builtin classes listed above - DO NOT REMOVE]
+│   ├── [builtin classes from builtins/ merged here]
 │   ├── Assert.cls
 │   ├── Database.cls
 │   └── [other System namespace classes]
