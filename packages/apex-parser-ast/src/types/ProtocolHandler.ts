@@ -87,9 +87,8 @@ export const createFileUri = (fileUri: string): string => {
  * @param resourcePath The resource path within the standard library
  * @returns The apexlib URI
  */
-export const createApexLibUri = (resourcePath: string): string => {
-  return `${APEXLIB_RESOURCE_PREFIX}${resourcePath}`;
-};
+export const createApexLibUri = (resourcePath: string): string =>
+  `${APEXLIB_RESOURCE_PREFIX}${resourcePath}`;
 /**
  * Create a builtin URI
  * @param typeName The built-in type name
@@ -119,9 +118,7 @@ export const extractApexLibPath = (uri: string): string => {
   if (!hasProtocol(uri, 'apexlib')) {
     throw new Error(`Expected apexlib URI, got: ${uri}`);
   }
-  const match = uri.match(
-    /apexlib:\/\/resources\/StandardApexLibrary\/(.+)/,
-  );
+  const match = uri.match(/apexlib:\/\/resources\/StandardApexLibrary\/(.+)/);
   if (match) {
     return match[1];
   }

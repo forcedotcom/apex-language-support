@@ -58,7 +58,8 @@ export const createTypeInfo = (typeString: string): TypeInfo => {
 /**
  * Create TypeInfo for qualified type names (e.g., System.String, MyNamespace.MyClass)
  * @param typeString The full type string (may include generics)
- * @param baseTypeName The base type name without generics (e.g., "System.Url" from "System.Url" or "System.Url" from "List<System.Url>")
+ * @param baseTypeName The base type name without generics
+ * (e.g., "System.Url" from "System.Url" or "System.Url" from "List<System.Url>")
  */
 const createQualifiedTypeInfo = (
   typeString: string,
@@ -113,7 +114,9 @@ const createSimpleTypeInfo = (
   typeString: string,
   baseTypeName: string,
 ): TypeInfo => {
-  logger.debug(() => `Processing simple type: ${baseTypeName} (full: ${typeString})`);
+  logger.debug(
+    () => `Processing simple type: ${baseTypeName} (full: ${typeString})`,
+  );
 
   // Check if it's a primitive/wrapper type first (these are now in ResourceLoader, not BuiltInTypeTables)
   if (isPrimitiveType(baseTypeName)) {

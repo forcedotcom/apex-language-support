@@ -235,7 +235,8 @@ export interface NamespaceResolutionResult {
 /**
  * Built-in type tables
  * Maps to Java TypeInfoTables
- * Note: Wrapper types, collection types (List, Set, Map), System types, and Schema types are now resolved via ResourceLoader
+ * Note: Wrapper types, collection types (List, Set, Map), System types,
+ * and Schema types are now resolved via ResourceLoader
  * This interface only includes types that aren't real classes (scalar, sObject)
  */
 export interface BuiltInTypeTables {

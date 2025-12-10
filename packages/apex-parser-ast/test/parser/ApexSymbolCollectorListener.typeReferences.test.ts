@@ -13,8 +13,6 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import { CompilerService } from '../../src/parser/compilerService';
 import { ReferenceContext } from '../../src/types/typeReference';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
-import * as fs from 'fs';
-import * as path from 'path';
 
 describe('ApexSymbolCollectorListener with Type References', () => {
   let compilerService: CompilerService;
