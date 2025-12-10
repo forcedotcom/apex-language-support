@@ -20,8 +20,6 @@ const PROTOCOL_PREFIXES = {
 export const APEXLIB_RESOURCE_PREFIX =
   'apexlib://resources/StandardApexLibrary/';
 
-export const BUILTIN_RESOURCE_PREFIX = 'apexlib://resources/builtins/';
-
 /**
  * Determine the protocol type from a URI string
  * Recognizes known protocols (file://, apexlib://, builtin://) and also
@@ -87,16 +85,9 @@ export const createFileUri = (fileUri: string): string => {
 /**
  * Create an apexlib URI
  * @param resourcePath The resource path within the standard library
- * @param isBuiltin Whether this is a built-in type (default: false)
  * @returns The apexlib URI
  */
-export const createApexLibUri = (
-  resourcePath: string,
-  isBuiltin: boolean = false,
-): string => {
-  if (isBuiltin) {
-    return `${BUILTIN_RESOURCE_PREFIX}${resourcePath}`;
-  }
+export const createApexLibUri = (resourcePath: string): string => {
   return `${APEXLIB_RESOURCE_PREFIX}${resourcePath}`;
 };
 /**
@@ -128,17 +119,11 @@ export const extractApexLibPath = (uri: string): string => {
   if (!hasProtocol(uri, 'apexlib')) {
     throw new Error(`Expected apexlib URI, got: ${uri}`);
   }
-  // Try StandardApexLibrary first
-  const standardMatch = uri.match(
+  const match = uri.match(
     /apexlib:\/\/resources\/StandardApexLibrary\/(.+)/,
   );
-  if (standardMatch) {
-    return standardMatch[1];
-  }
-  // Try builtins
-  const builtinMatch = uri.match(/apexlib:\/\/resources\/builtins\/(.+)/);
-  if (builtinMatch) {
-    return builtinMatch[1];
+  if (match) {
+    return match[1];
   }
   return '';
 };

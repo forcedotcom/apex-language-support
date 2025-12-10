@@ -69,7 +69,11 @@ import { Stack } from 'data-structure-typed';
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
-import { createTypeInfo } from '../../utils/TypeInfoFactory';
+import {
+  createTypeInfo,
+  createCollectionTypeInfo,
+  createMapTypeInfo,
+} from '../../utils/TypeInfoFactory';
 import {
   TypeReferenceFactory,
   ReferenceContext,
@@ -635,7 +639,8 @@ export class ApexSymbolCollectorListener
     );
 
     // Create the block symbol ID
-    // For method blocks, we want the ID to append directly to the method symbol's ID
+    // Ensure fileUri is normalized (has file:// prefix) for consistent ID format
+    // For method blocks, we want the ID to append directly to the method symbol's path
     let id: string;
     if (
       scopeType === 'method' &&
@@ -643,9 +648,13 @@ export class ApexSymbolCollectorListener
       scopePath[0].includes(':')
     ) {
       // This is a method block - append the block name directly to the method symbol's path
-      id = `${fileUri}:${scopePath[0]}:${name}`;
+      // Normalize fileUri by generating a temp ID and extracting the URI portion
+      // SymbolFactory.generateId calls convertToUri internally to normalize
+      const tempId = SymbolFactory.generateId('temp', fileUri);
+      const normalizedFileUri = tempId.split(':temp')[0];
+      id = `${normalizedFileUri}:${scopePath[0]}:block:${name}`;
     } else {
-      // Use standard ID generation for other block types
+      // Use standard ID generation for other block types (already normalizes URI via generateSymbolId)
       id = SymbolFactory.generateId(name, fileUri, scopePath, 'block');
     }
 
@@ -1493,7 +1502,10 @@ export class ApexSymbolCollectorListener
   enterFormalParameter(ctx: FormalParameterContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownParameter';
-      const type = this.createTypeInfo(ctx.typeRef()?.text ?? 'Object');
+      const typeRef = ctx.typeRef();
+      const type = typeRef
+        ? this.createTypeInfoFromTypeRef(typeRef)
+        : createTypeInfo('Object');
       const modifiers = this.getCurrentModifiers();
 
       // Create parameter symbol using createVariableSymbol method
@@ -1521,7 +1533,12 @@ export class ApexSymbolCollectorListener
    */
   enterPropertyDeclaration(ctx: PropertyDeclarationContext): void {
     try {
-      const type = this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
+      const typeRef = ctx.typeRef();
+      if (!typeRef) {
+        this.addError('Property declaration missing type reference', ctx);
+        return;
+      }
+      const type = this.createTypeInfoFromTypeRef(typeRef);
       const name = ctx.id?.()?.text ?? 'unknownProperty';
 
       // Get current modifiers
@@ -1582,7 +1599,12 @@ export class ApexSymbolCollectorListener
    */
   enterFieldDeclaration(ctx: FieldDeclarationContext): void {
     try {
-      const type = this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
+      const typeRef = ctx.typeRef();
+      if (!typeRef) {
+        this.addError('Field declaration missing type reference', ctx);
+        return;
+      }
+      const type = this.createTypeInfoFromTypeRef(typeRef);
 
       // Get current modifiers
       const modifiers = this.getCurrentModifiers();
@@ -2700,8 +2722,59 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Extract type name and location from a TypeRefContext
+   * Handles LIST/SET/MAP tokens, qualified names, and regular identifiers
+   * Same logic as used in enterTypeRef() for consistent processing
+   */
+  private extractTypeNameFromTypeRef(
+    typeRef: TypeRefContext,
+  ): { fullTypeName: string; baseLocation: SymbolLocation } | null {
+    const typeNames = typeRef.typeName();
+    if (!typeNames || typeNames.length === 0) return null;
+
+    // For qualified type names (e.g., System.Url), we need to combine all type names
+    let fullTypeName: string;
+    let baseLocation: SymbolLocation | undefined;
+
+    if (typeNames.length > 1) {
+      // This is a qualified type name like System.Url
+      const typeNameParts = typeNames.map((tn) => {
+        const id = tn.id();
+        if (id) {
+          return id.text;
+        } else {
+          // Handle collection types (LIST/SET/MAP tokens)
+          return `${tn.LIST() || tn.SET() || tn.MAP()}`;
+        }
+      });
+      fullTypeName = typeNameParts.join('.');
+      baseLocation = this.getLocationForReference(typeNames[0]);
+    } else {
+      // Single type name
+      const typeName = typeNames[0];
+      if (!typeName) return null;
+
+      const baseTypeId = typeName.id();
+      if (baseTypeId) {
+        // Regular identifier case: id typeArguments?
+        fullTypeName = baseTypeId.text;
+        baseLocation = this.getLocationForReference(baseTypeId);
+      } else {
+        // Collection type case: LIST/SET/MAP typeArguments?
+        fullTypeName = `${typeName.LIST() || typeName.SET() || typeName.MAP()}`;
+        baseLocation = this.getLocationForReference(typeName);
+      }
+    }
+
+    if (!fullTypeName || !baseLocation) return null;
+
+    return { fullTypeName, baseLocation };
+  }
+
+  /**
    * Handle generic type arguments (e.g., <String, List<System.Url>>)
    * This method is called when entering a typeArguments context
+   * Generic arguments are processed the same way as typeName.id (Java-style generics)
    */
   enterTypeArguments(ctx: TypeArgumentsContext): void {
     try {
@@ -2712,53 +2785,35 @@ export class ApexSymbolCollectorListener
 
         // Process each type reference as a generic parameter
         for (const typeRef of typeRefs) {
-          const typeName = typeRef.text;
-          const location = this.getLocationForReference(typeRef);
-          const parentContext = this.determineTypeReferenceContext(typeRef);
+          // Extract type name using the same logic as enterTypeRef()
+          // This handles LIST/SET/MAP tokens, qualified names, and regular identifiers
+          const extracted = this.extractTypeNameFromTypeRef(typeRef);
+          if (!extracted) continue;
 
-          // Check if this generic argument is in a return type context
-          const isReturnTypeContext = this.isMethodReturnTypeContext(typeRef);
+          const { fullTypeName, baseLocation } = extracted;
+          const parentContext = this.determineTypeReferenceContext(typeRef);
 
           // Check if we already have a reference for this generic type at the same location
           if (
             this.hasExistingTypeReferenceAtLocation(
-              typeName,
-              location,
+              fullTypeName,
+              baseLocation,
               parentContext,
+              ReferenceContext.GENERIC_PARAMETER_TYPE,
             )
           ) {
             continue;
           }
 
           // Create GENERIC_PARAMETER_TYPE reference for generic type arguments
+          // Generic type arguments should only use GENERIC_PARAMETER_TYPE, not PARAMETER_TYPE or RETURN_TYPE
           const genericReference =
             TypeReferenceFactory.createGenericParameterTypeReference(
-              typeName,
-              location,
+              fullTypeName,
+              baseLocation,
               parentContext,
             );
           this.symbolTable.addTypeReference(genericReference);
-
-          // Create appropriate reference based on context
-          if (isReturnTypeContext) {
-            // For return type contexts, create RETURN_TYPE reference
-            const returnReference =
-              TypeReferenceFactory.createReturnTypeReference(
-                typeName,
-                location,
-                parentContext,
-              );
-            this.symbolTable.addTypeReference(returnReference);
-          } else {
-            // For parameter contexts, create PARAMETER_TYPE reference
-            const paramReference =
-              TypeReferenceFactory.createParameterTypeReference(
-                typeName,
-                location,
-                parentContext,
-              );
-            this.symbolTable.addTypeReference(paramReference);
-          }
         }
       }
     } catch (e) {
@@ -2773,6 +2828,107 @@ export class ApexSymbolCollectorListener
    * TODO: may not be needed
    */
   exitTypeArguments(ctx: TypeArgumentsContext): void {}
+
+  /**
+   * Handle typeList contexts
+   * typeList appears in multiple places:
+   * 1. typeArguments (LT typeList GT) - handled by enterTypeArguments, skip here
+   * 2. idCreatedNamePair (anyId (LT typeList GT)?) - constructor calls, use GENERIC_PARAMETER_TYPE
+   * 3. IMPLEMENTS/EXTENDS - interface declarations, use TYPE_DECLARATION
+   */
+  enterTypeList(ctx: TypeListContext): void {
+    try {
+      // Check if we're inside typeArguments - if so, let enterTypeArguments handle it
+      let current: any = ctx.parent;
+      while (current) {
+        if (isContextType(current, TypeArgumentsContext)) {
+          // enterTypeArguments will handle this, skip here
+          return;
+        }
+        // Check if we're in a constructor call (idCreatedNamePair)
+        // idCreatedNamePair is used in createdName, which is used in creator, which is used in newExpression
+        if (isContextType(current, NewExpressionContext)) {
+          // This is a constructor call - create GENERIC_PARAMETER_TYPE references
+          this.processTypeListForConstructorCall(ctx);
+          return;
+        }
+        // Check for IMPLEMENTS/EXTENDS contexts
+        if (
+          isContextType(current, ClassDeclarationContext) ||
+          isContextType(current, InterfaceDeclarationContext)
+        ) {
+          // Handle interface implementations/extensions
+          this.processTypeListForInterfaceDeclaration(ctx);
+          return;
+        }
+        current = current.parent;
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in type list: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Process typeList for constructor calls - creates GENERIC_PARAMETER_TYPE references
+   * These are generic type arguments (e.g., String in new List<String>()), not formal parameters
+   */
+  private processTypeListForConstructorCall(ctx: TypeListContext): void {
+    const typeRefs = ctx.typeRef();
+    const parentContext = this.getCurrentMethodName();
+
+    for (const typeRef of typeRefs) {
+      const extracted = this.extractTypeNameFromTypeRef(typeRef);
+      if (!extracted) continue;
+
+      const { fullTypeName, baseLocation } = extracted;
+
+      // Check if we already have a reference for this type at the same location
+      if (
+        this.hasExistingTypeReferenceAtLocation(
+          fullTypeName,
+          baseLocation,
+          parentContext,
+          ReferenceContext.GENERIC_PARAMETER_TYPE,
+        )
+      ) {
+        continue;
+      }
+
+      // For constructor calls, use GENERIC_PARAMETER_TYPE (not PARAMETER_TYPE)
+      // These are generic type arguments, not formal method/constructor parameters
+      const genericRef =
+        TypeReferenceFactory.createGenericParameterTypeReference(
+          fullTypeName,
+          baseLocation,
+          parentContext,
+        );
+      this.symbolTable.addTypeReference(genericRef);
+    }
+  }
+
+  /**
+   * Process typeList for interface declarations (IMPLEMENTS/EXTENDS)
+   */
+  private processTypeListForInterfaceDeclaration(ctx: TypeListContext): void {
+    const typeRefs = ctx.typeRef();
+    const parentContext = this.getCurrentType()?.name;
+
+    for (const typeRef of typeRefs) {
+      const extracted = this.extractTypeNameFromTypeRef(typeRef);
+      if (!extracted) continue;
+
+      const { fullTypeName, baseLocation } = extracted;
+
+      // For interface declarations, use TYPE_DECLARATION
+      const typeRefObj = TypeReferenceFactory.createTypeDeclarationReference(
+        fullTypeName,
+        baseLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(typeRefObj);
+    }
+  }
 
   /**
    * Handle type name contexts (LIST, SET, MAP, or id with optional typeArguments)
@@ -3020,11 +3176,10 @@ export class ApexSymbolCollectorListener
         }
       }
 
-      // Get the type
-      const varTypeText = typeRefChild
-        ? this.getTextFromContext(typeRefChild)
-        : 'Object';
-      const varType = this.createTypeInfo(varTypeText);
+      // Get the type using parser structure for accurate generic type extraction
+      const varType = typeRefChild
+        ? this.createTypeInfoFromTypeRef(typeRefChild as TypeRefContext)
+        : createTypeInfo('Object');
 
       // Process each variable declared
       if (variableDeclaratorsChild) {
@@ -3199,7 +3354,54 @@ export class ApexSymbolCollectorListener
       }
     }
 
-    // Strategy 2: Check for qualifiedName context (e.g., constructor names)
+    // Strategy 2: Check for LIST/SET/MAP tokens in TypeNameContext
+    // These are reserved keywords that need special handling
+    // TypeNameContext has LIST(), SET(), MAP() methods that return TerminalNode
+    if (isContextType(ctx, TypeNameContext)) {
+      const typeNameCtx = ctx as TypeNameContext;
+      const listToken = typeNameCtx.LIST?.();
+      if (listToken) {
+        // TerminalNode has symbol property which is a Token
+        const token = (listToken as any).symbol || listToken;
+        const text = token?.text || listToken?.text || 'List';
+        const startCol =
+          token?.charPositionInLine ?? ctx.start.charPositionInLine;
+        return {
+          startLine: token?.line ?? ctx.start.line,
+          startColumn: startCol,
+          endLine: token?.line ?? ctx.start.line,
+          endColumn: startCol + text.length,
+        };
+      }
+      const setToken = typeNameCtx.SET?.();
+      if (setToken) {
+        const token = (setToken as any).symbol || setToken;
+        const text = token?.text || setToken?.text || 'Set';
+        const startCol =
+          token?.charPositionInLine ?? ctx.start.charPositionInLine;
+        return {
+          startLine: token?.line ?? ctx.start.line,
+          startColumn: startCol,
+          endLine: token?.line ?? ctx.start.line,
+          endColumn: startCol + text.length,
+        };
+      }
+      const mapToken = typeNameCtx.MAP?.();
+      if (mapToken) {
+        const token = (mapToken as any).symbol || mapToken;
+        const text = token?.text || mapToken?.text || 'Map';
+        const startCol =
+          token?.charPositionInLine ?? ctx.start.charPositionInLine;
+        return {
+          startLine: token?.line ?? ctx.start.line,
+          startColumn: startCol,
+          endLine: token?.line ?? ctx.start.line,
+          endColumn: startCol + text.length,
+        };
+      }
+    }
+
+    // Strategy 3: Check for qualifiedName context (e.g., constructor names)
     if ('qualifiedName' in ctx && typeof ctx.qualifiedName === 'function') {
       const qn = ctx.qualifiedName();
       if (qn?.id && qn.id().length > 0) {
@@ -3216,7 +3418,7 @@ export class ApexSymbolCollectorListener
       }
     }
 
-    // Strategy 3: Check for anyId context (e.g., field access)
+    // Strategy 4: Check for anyId context (e.g., field access)
     if ('anyId' in ctx && typeof ctx.anyId === 'function') {
       const anyId = ctx.anyId();
       if (anyId?.start && anyId?.stop) {
@@ -3292,8 +3494,9 @@ export class ApexSymbolCollectorListener
   private getReturnType(
     ctx: MethodDeclarationContext | InterfaceMethodDeclarationContext,
   ): TypeInfo {
-    if (ctx.typeRef()) {
-      return this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
+    const typeRef = ctx.typeRef();
+    if (typeRef) {
+      return this.createTypeInfoFromTypeRef(typeRef);
     }
     // Handle VOID case
     return createPrimitiveType('void');
@@ -3305,6 +3508,111 @@ export class ApexSymbolCollectorListener
    */
   private createTypeInfo(typeString: string): TypeInfo {
     return createTypeInfo(typeString);
+  }
+
+  /**
+   * Extract TypeInfo from TypeRefContext using parser structure
+   * This provides more accurate type information than string parsing
+   * @param typeRef The TypeRefContext to extract type info from
+   * @returns TypeInfo object with proper structure including typeParameters
+   */
+  private createTypeInfoFromTypeRef(typeRef: TypeRefContext): TypeInfo {
+    const typeNames = typeRef.typeName();
+    if (!typeNames || typeNames.length === 0) {
+      return createTypeInfo('Object');
+    }
+
+    // Get the first typeName (base type)
+    const baseTypeName = typeNames[0];
+    if (!baseTypeName) {
+      return createTypeInfo('Object');
+    }
+
+    // Check for collection types (LIST, SET, MAP)
+    const listToken = baseTypeName.LIST();
+    const setToken = baseTypeName.SET();
+    const mapToken = baseTypeName.MAP();
+
+    // Check for generic type arguments
+    const typeArguments = baseTypeName.typeArguments();
+    const typeList = typeArguments?.typeList();
+    const genericTypeRefs = typeList?.typeRef() || [];
+
+    // Extract base type name
+    let baseTypeNameStr: string;
+    if (listToken) {
+      baseTypeNameStr = 'List';
+    } else if (setToken) {
+      baseTypeNameStr = 'Set';
+    } else if (mapToken) {
+      baseTypeNameStr = 'Map';
+    } else {
+      const id = baseTypeName.id();
+      if (!id) {
+        return createTypeInfo('Object');
+      }
+      baseTypeNameStr = id.text;
+    }
+
+    // Handle qualified type names (e.g., System.Url)
+    if (typeNames.length > 1) {
+      // For qualified types, we need to build the full qualified name
+      const qualifiedParts = typeNames.map((tn) => {
+        const tnId = tn.id();
+        if (tnId) {
+          return tnId.text;
+        }
+        return `${tn.LIST() || tn.SET() || tn.MAP()}`;
+      });
+      const qualifiedName = qualifiedParts.join('.');
+      // For qualified types with generics, we still use createTypeInfo
+      // but it will now extract the base name correctly
+      return createTypeInfo(
+        typeArguments
+          ? `${qualifiedName}<${genericTypeRefs.map((tr) => this.getTextFromContext(tr)).join(', ')}>`
+          : qualifiedName,
+      );
+    }
+
+    // Handle generic type parameters
+    if (genericTypeRefs.length > 0) {
+      // Recursively extract type parameters
+      const typeParameters = genericTypeRefs.map((tr) =>
+        this.createTypeInfoFromTypeRef(tr),
+      );
+
+      // Handle Map specially (has keyType and valueType)
+      if (mapToken && typeParameters.length >= 2) {
+        return createMapTypeInfo(typeParameters[0], typeParameters[1]);
+      }
+
+      // Handle List and Set
+      if (listToken || setToken) {
+        return createCollectionTypeInfo(baseTypeNameStr, typeParameters);
+      }
+
+      // For regular types with generics, create base type with typeParameters
+      // Note: This is a simplified approach - full support would require
+      // a more sophisticated TypeInfo structure
+      const baseTypeInfo = createTypeInfo(baseTypeNameStr);
+      return {
+        ...baseTypeInfo,
+        typeParameters,
+        originalTypeString: `${baseTypeNameStr}<${typeParameters.map((tp) => tp.originalTypeString).join(', ')}>`,
+      };
+    }
+
+    // Check for array subscripts (arrays are handled at typeRef level)
+    const arraySubscripts = typeRef.arraySubscripts();
+    if (arraySubscripts) {
+      // This is an array type - use createTypeInfo which handles arrays via string parsing
+      // Arrays are complex because they can be nested: String[][]
+      // For now, fall back to string-based parsing for arrays
+      return createTypeInfo(this.getTextFromContext(typeRef));
+    }
+
+    // No generics - just create the base type
+    return createTypeInfo(baseTypeNameStr);
   }
 
   /**
@@ -3391,12 +3699,137 @@ export class ApexSymbolCollectorListener
       const createdName = creator.createdName();
       if (!createdName) return;
 
-      // Get the base type name from the createdName
+      // Handle collection types (List, Set, Map) which are tokens, not identifiers
+      // For constructor calls like "new List<Integer>", the parser structure is:
+      // createdName -> idCreatedNamePair[0] -> typeName() -> LIST/SET/MAP token
+      // OR createdName -> typeName() -> LIST/SET/MAP token (direct)
+      let listToken: any = null;
+      let setToken: any = null;
+      let mapToken: any = null;
+
+      // First, try to get typeName directly from createdName
+      const createdNameTypeName = (createdName as any).typeName?.();
+      if (createdNameTypeName) {
+        listToken = createdNameTypeName.LIST?.() || null;
+        setToken = createdNameTypeName.SET?.() || null;
+        mapToken = createdNameTypeName.MAP?.() || null;
+      }
+
+      // If not found, check idCreatedNamePair structure
+      if (!listToken && !setToken && !mapToken) {
+        const idCreatedNamePairs = createdName.idCreatedNamePair();
+        if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
+          const firstPair = idCreatedNamePairs[0];
+          const pairTypeName = (firstPair as any).typeName?.();
+          if (pairTypeName) {
+            listToken = pairTypeName.LIST?.() || null;
+            setToken = pairTypeName.SET?.() || null;
+            mapToken = pairTypeName.MAP?.() || null;
+          }
+        }
+      }
+
+      if (listToken || setToken || mapToken) {
+        const collectionType = listToken ? 'List' : setToken ? 'Set' : 'Map';
+        const token = listToken || setToken || mapToken;
+
+        // Extract location directly from token (TerminalNode)
+        // Tokens have symbol property which is a Token with line/charPositionInLine
+        const tokenSymbol = (token as any).symbol || token;
+        const tokenText = tokenSymbol?.text || token?.text || collectionType;
+        const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
+        const tokenStartCol =
+          tokenSymbol?.charPositionInLine ??
+          (token as any).charPositionInLine ??
+          0;
+
+        const location: SymbolLocation = {
+          symbolRange: {
+            startLine: tokenLine,
+            startColumn: tokenStartCol,
+            endLine: tokenLine,
+            endColumn: tokenStartCol + tokenText.length,
+          },
+          identifierRange: {
+            startLine: tokenLine,
+            startColumn: tokenStartCol,
+            endLine: tokenLine,
+            endColumn: tokenStartCol + tokenText.length,
+          },
+        };
+
+        const parentContext = this.getCurrentMethodName();
+
+        // Emit constructor call for the collection type
+        const ctorRef = TypeReferenceFactory.createConstructorCallReference(
+          collectionType,
+          location,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(ctorRef);
+
+        // typeList handling is now done by enterTypeList, skip here
+        return;
+      }
+
+      // Get the base type name from the createdName (for non-collection types)
       const idCreatedNamePairs = createdName.idCreatedNamePair();
       if (!idCreatedNamePairs || idCreatedNamePairs.length === 0) return;
 
       // Get the first idCreatedNamePair (the base type)
       const firstPair = idCreatedNamePairs[0];
+
+      // Check if this is a collection type via typeName in the pair
+      const pairTypeName = (firstPair as any).typeName?.();
+      if (pairTypeName) {
+        const listToken = pairTypeName.LIST?.();
+        const setToken = pairTypeName.SET?.();
+        const mapToken = pairTypeName.MAP?.();
+
+        if (listToken || setToken || mapToken) {
+          const collectionType = listToken ? 'List' : setToken ? 'Set' : 'Map';
+          const token = listToken || setToken || mapToken;
+
+          // Extract location directly from token (TerminalNode)
+          // Tokens have symbol property which is a Token with line/charPositionInLine
+          const tokenSymbol = (token as any).symbol || token;
+          const tokenText = tokenSymbol?.text || token?.text || collectionType;
+          const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
+          const tokenStartCol =
+            tokenSymbol?.charPositionInLine ??
+            (token as any).charPositionInLine ??
+            0;
+
+          const location: SymbolLocation = {
+            symbolRange: {
+              startLine: tokenLine,
+              startColumn: tokenStartCol,
+              endLine: tokenLine,
+              endColumn: tokenStartCol + tokenText.length,
+            },
+            identifierRange: {
+              startLine: tokenLine,
+              startColumn: tokenStartCol,
+              endLine: tokenLine,
+              endColumn: tokenStartCol + tokenText.length,
+            },
+          };
+
+          const parentContext = this.getCurrentMethodName();
+
+          // Emit constructor call for the collection type
+          const ctorRef = TypeReferenceFactory.createConstructorCallReference(
+            collectionType,
+            location,
+            parentContext,
+          );
+          this.symbolTable.addTypeReference(ctorRef);
+
+          // typeList handling is now done by enterTypeList, skip here
+          return;
+        }
+      }
+
       const anyId = firstPair.anyId();
       if (!anyId) return;
 
@@ -3412,32 +3845,7 @@ export class ApexSymbolCollectorListener
       );
       this.symbolTable.addTypeReference(ctorRef);
 
-      // Handle generic type arguments if present
-      const typeArgs = firstPair.typeList();
-      if (typeArgs) {
-        for (const typeRef of typeArgs.typeRef()) {
-          const genericTypeName = typeRef.text;
-          const genericLocation = this.getLocationForReference(typeRef);
-
-          // Check if we already have a reference for this constructor generic type at the same location
-          if (
-            this.hasExistingTypeReferenceAtLocation(
-              genericTypeName,
-              genericLocation,
-              parentContext,
-            )
-          ) {
-            continue;
-          }
-
-          const paramRef = TypeReferenceFactory.createParameterTypeReference(
-            genericTypeName,
-            genericLocation,
-            parentContext,
-          );
-          this.symbolTable.addTypeReference(paramRef);
-        }
-      }
+      // typeList handling is now done by enterTypeList, skip here
 
       // Handle dotted names (e.g., Namespace.Type)
       if (idCreatedNamePairs.length > 1) {
@@ -3624,6 +4032,7 @@ export class ApexSymbolCollectorListener
     typeName: string,
     location: SymbolLocation,
     context: string | undefined,
+    expectedContextType?: ReferenceContext,
   ): boolean {
     if (!context) return false;
 
@@ -3633,8 +4042,8 @@ export class ApexSymbolCollectorListener
     return allReferences.some(
       (ref) =>
         ref.name === typeName &&
-        (ref.context === 5 || ref.context === 6 || ref.context === 8) &&
-        // TYPE_DECLARATION=5, PARAMETER_TYPE=6, GENERIC_PARAMETER_TYPE=8
+        (expectedContextType === undefined ||
+          ref.context === expectedContextType) &&
         ref.parentContext === context &&
         ref.location.identifierRange.startLine ===
           location.identifierRange.startLine &&
@@ -3929,22 +4338,12 @@ export class ApexSymbolCollectorListener
     // For standard Apex classes, extract namespace from file path
     if (this.currentFilePath && this.currentFilePath.startsWith('apexlib://')) {
       // Extract namespace from path like 'apexlib://resources/StandardApexLibrary/System/Assert.cls'
-      // or 'apexlib://resources/builtins/System/String.cls'
-      // The namespace is the directory after StandardApexLibrary or builtins (e.g., "System")
-      const standardMatch = this.currentFilePath.match(
+      // The namespace is the directory after StandardApexLibrary (e.g., "System")
+      const match = this.currentFilePath.match(
         /apexlib:\/\/resources\/StandardApexLibrary\/([^\/]+)\//,
       );
-      if (standardMatch) {
-        const namespaceName = standardMatch[1];
-        return Namespaces.create(namespaceName);
-      }
-
-      // Try builtins path
-      const builtinMatch = this.currentFilePath.match(
-        /apexlib:\/\/resources\/builtins\/([^\/]+)\//,
-      );
-      if (builtinMatch) {
-        const namespaceName = builtinMatch[1];
+      if (match) {
+        const namespaceName = match[1];
         return Namespaces.create(namespaceName);
       }
     }

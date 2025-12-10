@@ -212,6 +212,25 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         symbol.key.kind = symbol.kind;
       }
       symbol.key.unifiedId = generateUnifiedId(symbol.key, properUri);
+      // Synchronize id with key.unifiedId to avoid duplication
+      symbol.id = symbol.key.unifiedId;
+      // Ensure key.fileUri is set and synchronized
+      if (!symbol.key.fileUri) {
+        symbol.key.fileUri = properUri;
+      }
+      if (symbol.fileUri !== symbol.key.fileUri) {
+        symbol.fileUri = symbol.key.fileUri;
+      }
+    } else {
+      // If unifiedId exists but id is different, synchronize them
+      // unifiedId is the source of truth
+      if (symbol.id !== symbol.key.unifiedId) {
+        symbol.id = symbol.key.unifiedId;
+      }
+      // Synchronize fileUri with key.fileUri (key.fileUri is source of truth)
+      if (symbol.key.fileUri && symbol.fileUri !== symbol.key.fileUri) {
+        symbol.fileUri = symbol.key.fileUri;
+      }
     }
 
     // Parent property removed - FQN calculation uses getParent function parameter
@@ -2826,7 +2845,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Step 2: Try built-in type resolution for the name itself
       const builtInSymbol = await this.resolveBuiltInType(typeReference.name);
       if (builtInSymbol) {
+        this.logger.debug(
+          () =>
+            `Resolved built-in type "${typeReference.name}" to symbol: ${builtInSymbol.name}`,
+        );
         return builtInSymbol;
+      } else {
+        // Diagnostic: Log when built-in type resolution fails
+        this.logger.debug(
+          () =>
+            `Built-in type resolution failed for "${typeReference.name}" in ${sourceFile}`,
+        );
       }
 
       // Step 3: For unqualified references with position, use scope-based resolution
@@ -2976,16 +3005,25 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private async resolveBuiltInType(name: string): Promise<ApexSymbol | null> {
     try {
       // Step 1: Try to resolve as a built-in type via ResourceLoader first
-      // Built-in types (wrapper types and collection types) are in builtins/System/
-      // and are treated exactly like StandardApexLibrary classes
+      // Built-in types (wrapper types and collection types) are in StandardApexLibrary/System/
+      // and are treated exactly like other StandardApexLibrary classes
       if (this.resourceLoader) {
-        // Try to resolve as System.{TypeName} (ResourceLoader will check both
-        // builtins/System/ and StandardApexLibrary/System/)
+        // Try to resolve as System.{TypeName} (ResourceLoader will check StandardApexLibrary/System/)
         const fqn = `System.${name}`;
         const standardClass = await this.resolveStandardApexClass(fqn);
 
         if (standardClass) {
+          this.logger.debug(
+            () =>
+              `Resolved "${name}" via ResourceLoader as System.${name}: ${standardClass.name}`,
+          );
           return standardClass;
+        } else {
+          // Diagnostic: Log when ResourceLoader resolution fails
+          this.logger.debug(
+            () =>
+              `ResourceLoader resolution failed for "${name}" (tried System.${name})`,
+          );
         }
       }
 
@@ -3032,7 +3070,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return null;
     }
   }
-
 
   /**
    * Check if a name represents a valid namespace
@@ -3951,28 +3988,34 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           if (cleanClassName.toLowerCase() === target) {
             classPath = `${namespace}/${cleanClassName}.cls`;
+            this.logger.debug(
+              () =>
+                `Found class in namespace structure: ${classPath} (searched for ${name})`,
+            );
             break;
           }
         }
+      } else {
+        // Diagnostic: Log when namespace not found
+        this.logger.debug(
+          () =>
+            `Namespace "${namespace}" not found in ResourceLoader namespace structure`,
+        );
       }
 
       // Verify the class exists with the correct case
       if (!this.resourceLoader.hasClass(classPath)) {
+        // Diagnostic: Log when class path not found
+        this.logger.debug(
+          () =>
+            `Class not found in ResourceLoader: ${classPath} (searched for ${name})`,
+        );
         return null;
       }
 
-      // Determine the correct URI based on whether the class is from builtins or StandardApexLibrary
-      // Check if the class is from builtins using ResourceLoader's method
-      const isBuiltin = this.resourceLoader.isBuiltinClass(classPath);
-
-      // Use the appropriate URI prefix based on the source
-      const uriPrefix = isBuiltin
-        ? 'apexlib://resources/builtins'
-        : STANDARD_APEX_LIBRARY_URI;
-
       // Use async loading to prevent hanging
       // Prevent recursive loops - if we're already loading this file, skip
-      const fileUri = `${uriPrefix}/${classPath}`;
+      const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${classPath}`;
       if (this.loadingSymbolTables.has(fileUri)) {
         this.logger.debug(
           () =>
@@ -3993,11 +4036,28 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           // Find the class symbol from the loaded symbol table
           const symbols = artifact.compilationResult.result.getAllSymbols();
-          const classSymbol = symbols.find((s) => s.name === className);
+          // Try to find by name first
+          let classSymbol = symbols.find(
+            (s) => s.name === className && s.kind === 'class',
+          );
+
+          // If not found by name, try to find the first class symbol (for cases where name might be empty)
+          // This can happen with generic types like List<T> where the parser might not extract the name correctly
+          if (!classSymbol) {
+            classSymbol = symbols.find((s) => s.kind === 'class');
+            // If we found a class symbol but it has an empty name, set it from the className we're looking for
+            if (classSymbol && !classSymbol.name) {
+              classSymbol.name = className;
+            }
+          }
 
           if (classSymbol) {
             // Update the class symbol's fileUri to use the new URI scheme
             classSymbol.fileUri = fileUri;
+            // Ensure the name is set correctly
+            if (!classSymbol.name || classSymbol.name === '') {
+              classSymbol.name = className;
+            }
             return classSymbol;
           }
         }
@@ -4170,6 +4230,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         if (resolvedSymbol) {
           return resolvedSymbol;
         }
+        // Diagnostic: Log when type reference exists but resolution fails
+        this.logger.debug(
+          () =>
+            `TypeReference found for "${typeReferences[0].name}" at ` +
+            `${fileUri}:${position.line}:${position.character} ` +
+            'but resolution returned null',
+        );
+      } else {
+        // Diagnostic: Log when no type references found
+        this.logger.debug(
+          () =>
+            `No TypeReferences found at ${fileUri}:${position.line}:${position.character}`,
+        );
       }
 
       // Step 2: Look for symbols that start exactly at this position

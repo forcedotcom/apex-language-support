@@ -17,7 +17,7 @@ import { CompilerService, CompilationOptions } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
-import { UriUtils } from './ResourceUtils';
+import { STANDARD_APEX_LIBRARY_URI } from './ResourceUtils';
 
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
@@ -161,15 +161,13 @@ export class ResourceLoader {
       this.zipFiles.set(originalPath, data);
 
       // Also preserve the relative path mapping for later use
-      // Handle both StandardApexLibrary and builtins paths
+      // Handle StandardApexLibrary paths
       let relativePath = originalPath.replace(/\\/g, '/');
       if (relativePath.startsWith('src/resources/StandardApexLibrary/')) {
         relativePath = relativePath.replace(
           /^src\/resources\/StandardApexLibrary\//,
           '',
         );
-      } else if (relativePath.startsWith('src/resources/builtins/')) {
-        relativePath = relativePath.replace(/^src\/resources\/builtins\//, '');
       }
       this.originalPaths.set(relativePath, relativePath);
 
@@ -864,16 +862,11 @@ export class ResourceLoader {
         this.zipFiles.set(originalPath, data);
 
         // Also preserve the relative path mapping for later use
-        // Handle both StandardApexLibrary and builtins paths
+        // Handle StandardApexLibrary paths
         let relativePath = originalPath.replace(/\\/g, '/');
         if (relativePath.startsWith('src/resources/StandardApexLibrary/')) {
           relativePath = relativePath.replace(
             /^src\/resources\/StandardApexLibrary\//,
-            '',
-          );
-        } else if (relativePath.startsWith('src/resources/builtins/')) {
-          relativePath = relativePath.replace(
-            /^src\/resources\/builtins\//,
             '',
           );
         }
@@ -955,8 +948,8 @@ export class ResourceLoader {
       const symbolTable = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(symbolTable);
 
-      // Convert className to proper URI scheme for standard Apex library classes
-      const fileUri = UriUtils.createResourceUri(className);
+      // Convert className to proper URI scheme
+      const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${className}`;
 
       const result = this.compilerService.compile(
         content,
@@ -1161,30 +1154,5 @@ export class ResourceLoader {
     // Fallback: try with normalized path if it looks like a path
     const normalizedPath = this.normalizePath(className);
     return this.classNameToNamespace.get(normalizedPath) || null;
-  }
-
-  /**
-   * Check if a path represents a built-in type file.
-   * @param path The path to check
-   * @returns true if the path is a built-in type path, false otherwise
-   */
-  public isBuiltinPath(path: string): boolean {
-    const normalizedPath = this.normalizePath(path);
-    // Check if path starts with builtins/ or System/ (for built-in types)
-    return (
-      normalizedPath.startsWith('builtins/') ||
-      normalizedPath.startsWith('system/')
-    );
-  }
-
-  /**
-   * Check if a class path is from the builtins folder based on the original ZIP path
-   * @param classPath The class path (e.g., "System/String.cls")
-   * @returns true if the class is from builtins, false if from StandardApexLibrary
-   */
-  public isBuiltinClass(classPath: string): boolean {
-    const normalizedPath = this.normalizePath(classPath);
-    const originalZipPath = this.normalizedToZipPath.get(normalizedPath);
-    return originalZipPath?.startsWith('src/resources/builtins/') ?? false;
   }
 }

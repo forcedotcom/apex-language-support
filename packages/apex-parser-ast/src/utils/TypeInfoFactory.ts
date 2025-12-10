@@ -16,8 +16,25 @@ const logger = getLogger();
 const builtInTypes = BuiltInTypeTablesImpl.getInstance();
 
 /**
+ * Extract the base type name from a type string, removing generic type arguments
+ * @param typeString The full type string (e.g., "List<Integer>", "Map<String, Object>")
+ * @returns The base type name (e.g., "List", "Map")
+ */
+const extractBaseTypeName = (typeString: string): string => {
+  // Find the first '<' which indicates the start of generic type arguments
+  const genericStart = typeString.indexOf('<');
+  if (genericStart === -1) {
+    // No generics, return the full string
+    return typeString;
+  }
+
+  // Extract everything before the first '<'
+  return typeString.substring(0, genericStart).trim();
+};
+
+/**
  * Create a TypeInfo object from a type string with comprehensive namespace resolution
- * @param typeString The type string to parse
+ * @param typeString The type string to parse (may include generics like "List<Integer>")
  * @returns TypeInfo object with appropriate namespace information
  */
 export const createTypeInfo = (typeString: string): TypeInfo => {
@@ -25,20 +42,33 @@ export const createTypeInfo = (typeString: string): TypeInfo => {
     () => `TypeInfoFactory.createTypeInfo called with: ${typeString}`,
   );
 
+  // Extract base type name (without generics) for the name field
+  const baseTypeName = extractBaseTypeName(typeString);
+
   // Handle qualified type names (e.g., System.PageReference, MyNamespace.MyClass)
-  if (typeString.includes('.')) {
-    return createQualifiedTypeInfo(typeString);
+  // Check the base type name (before generics) for qualified names
+  if (baseTypeName.includes('.')) {
+    return createQualifiedTypeInfo(typeString, baseTypeName);
   }
 
   // Handle simple type names
-  return createSimpleTypeInfo(typeString);
+  return createSimpleTypeInfo(typeString, baseTypeName);
 };
 
 /**
  * Create TypeInfo for qualified type names (e.g., System.String, MyNamespace.MyClass)
+ * @param typeString The full type string (may include generics)
+ * @param baseTypeName The base type name without generics (e.g., "System.Url" from "System.Url" or "System.Url" from "List<System.Url>")
  */
-const createQualifiedTypeInfo = (typeString: string): TypeInfo => {
-  const [namespace, typeName] = typeString.split('.');
+const createQualifiedTypeInfo = (
+  typeString: string,
+  baseTypeName: string,
+): TypeInfo => {
+  // Split the base type name (without generics) to get namespace and type
+  const parts = baseTypeName.split('.');
+  const namespace = parts[0];
+  const typeName = parts.slice(1).join('.'); // Handle multi-part namespaces
+
   logger.debug(
     () =>
       `Processing qualified type - namespace: ${namespace}, typeName: ${typeName}`,
@@ -49,12 +79,13 @@ const createQualifiedTypeInfo = (typeString: string): TypeInfo => {
   if (builtInNamespace) {
     logger.debug(() => `Using built-in namespace: ${namespace}`);
     return {
-      name: typeName,
+      name: typeName, // Just the type name, not the full qualified name
       isArray: false,
       isCollection: false,
       isPrimitive: false,
+      isBuiltIn: true, // Types from built-in namespaces (System, Schema, etc.) are built-in
       namespace: builtInNamespace,
-      originalTypeString: typeString,
+      originalTypeString: typeString, // Keep full string with generics if present
       getNamespace: () => builtInNamespace,
     };
   }
@@ -63,57 +94,64 @@ const createQualifiedTypeInfo = (typeString: string): TypeInfo => {
   logger.debug(() => `Creating custom namespace: ${namespace}`);
   const customNamespace = new Namespace(namespace, '');
   return {
-    name: typeName,
+    name: typeName, // Just the type name, not the full qualified name
     isArray: false,
     isCollection: false,
     isPrimitive: false,
     namespace: customNamespace,
-    originalTypeString: typeString,
+    originalTypeString: typeString, // Keep full string with generics if present
     getNamespace: () => customNamespace,
   };
 };
 
 /**
  * Create TypeInfo for simple type names (e.g., String, Account, MyClass)
+ * @param typeString The full type string (may include generics like "List<Integer>")
+ * @param baseTypeName The base type name without generics (e.g., "List" from "List<Integer>")
  */
-const createSimpleTypeInfo = (typeName: string): TypeInfo => {
-  logger.debug(() => `Processing simple type: ${typeName}`);
+const createSimpleTypeInfo = (
+  typeString: string,
+  baseTypeName: string,
+): TypeInfo => {
+  logger.debug(() => `Processing simple type: ${baseTypeName} (full: ${typeString})`);
 
   // Check if it's a primitive/wrapper type first (these are now in ResourceLoader, not BuiltInTypeTables)
-  if (isPrimitiveType(typeName)) {
-    logger.debug(() => `Found primitive type: ${typeName}`);
+  if (isPrimitiveType(baseTypeName)) {
+    logger.debug(() => `Found primitive type: ${baseTypeName}`);
     return {
-      name: typeName,
+      name: baseTypeName, // Just the base name, not the full generic string
       isArray: false,
       isCollection: false,
       isPrimitive: true,
-      originalTypeString: typeName,
+      isBuiltIn: true, // Primitive types are built-in
+      originalTypeString: typeString, // Keep full string with generics if present
       getNamespace: () => null, // Primitive types don't have namespaces
     };
   }
 
   // Check if it's a built-in type in BuiltInTypeTables (scalar types like void, null, or SObjects)
-  const builtInSymbol = builtInTypes.findType(typeName.toLowerCase());
+  const builtInSymbol = builtInTypes.findType(baseTypeName.toLowerCase());
   if (builtInSymbol) {
-    logger.debug(() => `Found built-in type: ${typeName}`);
+    logger.debug(() => `Found built-in type: ${baseTypeName}`);
     return {
-      name: typeName,
+      name: baseTypeName, // Just the base name, not the full generic string
       isArray: false,
       isCollection: false,
-      isPrimitive: isPrimitiveType(typeName), // void and null are primitives
-      originalTypeString: typeName,
+      isPrimitive: isPrimitiveType(baseTypeName), // void and null are primitives
+      isBuiltIn: true, // Types from BuiltInTypeTables are built-in
+      originalTypeString: typeString, // Keep full string with generics if present
       getNamespace: () => null, // Built-in types don't have namespaces
     };
   }
 
   // For user-defined types, we need namespace resolution
-  logger.debug(() => `User-defined type requiring resolution: ${typeName}`);
+  logger.debug(() => `User-defined type requiring resolution: ${baseTypeName}`);
   return {
-    name: typeName,
+    name: baseTypeName, // Just the base name, not the full generic string
     isArray: false,
     isCollection: false,
     isPrimitive: false,
-    originalTypeString: typeName,
+    originalTypeString: typeString, // Keep full string with generics if present
     needsNamespaceResolution: true, // Mark for later resolution
     getNamespace: () => null, // Will be resolved later
   };
@@ -170,6 +208,7 @@ export const createArrayTypeInfo = (elementType: TypeInfo): TypeInfo => ({
   isArray: true,
   isCollection: false,
   isPrimitive: false,
+  isBuiltIn: elementType.isBuiltIn, // Arrays of built-in types are also built-in
   typeParameters: [elementType],
   originalTypeString: `${elementType.originalTypeString}[]`,
   namespace: elementType.namespace,
@@ -188,6 +227,7 @@ export const createCollectionTypeInfo = (
   isArray: false,
   isCollection: true,
   isPrimitive: false,
+  isBuiltIn: true, // List, Set, Map are built-in types
   typeParameters,
   originalTypeString: buildCollectionTypeString(collectionName, typeParameters),
   getNamespace: () => null, // Collections are built-in types
@@ -204,6 +244,7 @@ export const createMapTypeInfo = (
   isArray: false,
   isCollection: true,
   isPrimitive: false,
+  isBuiltIn: true, // Map is a built-in type
   keyType,
   typeParameters: [valueType],
   originalTypeString: `Map<${keyType.originalTypeString}, ${valueType.originalTypeString}>`,

@@ -13,6 +13,8 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import { CompilerService } from '../../src/parser/compilerService';
 import { ReferenceContext } from '../../src/types/typeReference';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
+import * as fs from 'fs';
+import * as path from 'path';
 
 describe('ApexSymbolCollectorListener with Type References', () => {
   let compilerService: CompilerService;
@@ -312,11 +314,16 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       expect(ctorRefs.some((r) => r.name === 'Map')).toBe(true);
       expect(ctorRefs.some((r) => r.name === 'List')).toBe(true);
 
-      const paramTypeRefs = references.filter(
-        (r) => r.context === ReferenceContext.PARAMETER_TYPE,
+      // Generic type arguments in constructor calls should use GENERIC_PARAMETER_TYPE
+      const genericParamRefs = references.filter(
+        (r) => r.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
       );
-      expect(paramTypeRefs.some((r) => r.name.includes('String'))).toBe(true);
-      expect(paramTypeRefs.some((r) => r.name.includes('Integer'))).toBe(true);
+      expect(genericParamRefs.some((r) => r.name.includes('String'))).toBe(
+        true,
+      );
+      expect(genericParamRefs.some((r) => r.name.includes('Integer'))).toBe(
+        true,
+      );
     });
   });
 
@@ -536,17 +543,17 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       );
 
       // Should capture: String, Property__c, List, String (from List<String>), Map, String, Property__c (from Map<String, Property__c>)
-      // Note: We now create both GENERIC_PARAMETER_TYPE and PARAMETER_TYPE references for generic arguments
-      expect(paramTypeRefs).toHaveLength(10);
+      // Generic type arguments now only create GENERIC_PARAMETER_TYPE references (not PARAMETER_TYPE)
+      expect(paramTypeRefs).toHaveLength(7);
 
       // Check for simple types
       const stringRefs = paramTypeRefs.filter((ref) => ref.name === 'String');
-      expect(stringRefs).toHaveLength(5); // param1, and from List<String> (both GENERIC_PARAMETER_TYPE and PARAMETER_TYPE), Map<String, Property__c> (both types)
+      expect(stringRefs).toHaveLength(3); // param1, and from List<String> (GENERIC_PARAMETER_TYPE), Map<String, Property__c> (GENERIC_PARAMETER_TYPE)
 
       const propertyRefs = paramTypeRefs.filter(
         (ref) => ref.name === 'Property__c',
       );
-      expect(propertyRefs).toHaveLength(3); // param2, and from Map<String, Property__c> (both GENERIC_PARAMETER_TYPE and PARAMETER_TYPE)
+      expect(propertyRefs).toHaveLength(2); // param2, and from Map<String, Property__c> (GENERIC_PARAMETER_TYPE)
 
       // Check for generic base types
       const listRef = paramTypeRefs.find((ref) => ref.name === 'List');
@@ -774,6 +781,59 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       // Simple type declaration - no chainNodes
       const mapTypeRefTyped = mapTypeRef as any;
       expect(mapTypeRefTyped?.chainNodes).toBeUndefined();
+    });
+
+    it('should find List/Map type references at correct positions', () => {
+      const sourceCode = `
+        public class TypeDeclarationTest {
+          public void testMethod() {
+            List<Integer> numbers = new List<Integer>{1, 2, 3};
+            Map<String, Object> dataMap = new Map<String, Object>();
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TypeDeclarationTest.cls', listener);
+
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+
+      // Find List type declaration reference
+      const listTypeRef = references.find(
+        (ref) =>
+          ref.name === 'List' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+
+      expect(listTypeRef).toBeDefined();
+      if (listTypeRef) {
+        // Verify we can find it at its location
+        const listPosRefs = symbolTable.getReferencesAtPosition({
+          line: listTypeRef.location.identifierRange.startLine,
+          character: listTypeRef.location.identifierRange.startColumn,
+        });
+        expect(listPosRefs.length).toBeGreaterThan(0);
+        expect(listPosRefs.some((r) => r.name === 'List')).toBe(true);
+      }
+
+      // Find Map type declaration reference
+      const mapTypeRef = references.find(
+        (ref) =>
+          ref.name === 'Map' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+
+      expect(mapTypeRef).toBeDefined();
+      if (mapTypeRef) {
+        // Verify we can find it at its location
+        const mapPosRefs = symbolTable.getReferencesAtPosition({
+          line: mapTypeRef.location.identifierRange.startLine,
+          character: mapTypeRef.location.identifierRange.startColumn,
+        });
+        expect(mapPosRefs.length).toBeGreaterThan(0);
+        expect(mapPosRefs.some((r) => r.name === 'Map')).toBe(true);
+      }
     });
 
     it('should populate variable usage references with enhanced properties', () => {

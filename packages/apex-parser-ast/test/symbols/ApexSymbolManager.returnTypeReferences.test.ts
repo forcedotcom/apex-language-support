@@ -89,15 +89,24 @@ describe('ApexSymbolManager - Return Type References', () => {
       const testClassUri = addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have return type references for List and String
+      // Should have return type reference for List (the return type itself)
+      // Generic type arguments (String) should only have GENERIC_PARAMETER_TYPE, not RETURN_TYPE
       const returnTypeRefs = references.filter(
         (ref) => ref.context === ReferenceContext.RETURN_TYPE,
       );
-      expect(returnTypeRefs).toHaveLength(2);
+      expect(returnTypeRefs).toHaveLength(1);
 
       const typeNames = returnTypeRefs.map((ref) => ref.name);
       expect(typeNames).toContain('List');
-      expect(typeNames).toContain('String');
+
+      // Check for generic parameter type reference for String
+      // Should have 2: one from return type List<String> and one from constructor new List<String>()
+      const genericParamRefs = references.filter(
+        (ref) =>
+          ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE &&
+          ref.name === 'String',
+      );
+      expect(genericParamRefs.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should capture dotted generic return type references', () => {
@@ -121,14 +130,14 @@ describe('ApexSymbolManager - Return Type References', () => {
       const typeNames = returnTypeRefs.map((ref) => ref.name);
       expect(typeNames).toContain('List');
 
-      // Should also have chained type references for System.Url (return type and generic parameter)
-      const chainedTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      // Should have generic parameter type references for System.Url
+      const genericParamRefs = references.filter(
+        (ref) => ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
       );
-      expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
+      expect(genericParamRefs.length).toBeGreaterThanOrEqual(1);
 
       // Should have at least one System.Url reference
-      const systemUrlRefs = chainedTypeRefs.filter(
+      const systemUrlRefs = genericParamRefs.filter(
         (ref) => ref.name === 'System.Url',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);

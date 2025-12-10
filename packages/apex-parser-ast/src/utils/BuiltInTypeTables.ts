@@ -21,8 +21,8 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
 
   // Type tables - only for types that aren't real classes
   // Wrapper types (String, Integer, etc.) and collection types (List, Set, Map)
-  // are now in builtins/System/ and resolved via ResourceLoader
-  // System and Schema types are in StandardApexLibrary and resolved via ResourceLoader
+  // are now in StandardApexLibrary/System/ and resolved via ResourceLoader
+  // System and Schema types are also in StandardApexLibrary and resolved via ResourceLoader
   readonly scalarTypes: Map<string, ApexSymbol>;
   readonly sObjectTypes: Map<string, ApexSymbol>;
 

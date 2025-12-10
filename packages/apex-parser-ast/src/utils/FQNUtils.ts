@@ -191,7 +191,7 @@ export function isBuiltInType(symbol: any): boolean {
 
   // Check if this is a type from a built-in namespace (System namespace)
   // This includes wrapper types (String, Integer, etc.) and collection types (List, Set, Map)
-  // which are now in builtins/System/ and resolved via ResourceLoader
+  // which are now in StandardApexLibrary/System/ and resolved via ResourceLoader
   const namespace = symbol.namespace || extractNamespace(symbol.name);
   const resourceLoader = ResourceLoader.getInstance({
     preloadStdClasses: true,

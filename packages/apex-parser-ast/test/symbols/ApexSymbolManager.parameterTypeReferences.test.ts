@@ -89,15 +89,23 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       const testClassUri = addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have parameter type references for List and String
+      // Should have parameter type reference for List (the parameter type itself)
+      // Generic type arguments (String) should only have GENERIC_PARAMETER_TYPE, not PARAMETER_TYPE
       const paramTypeRefs = references.filter(
         (ref) => ref.context === ReferenceContext.PARAMETER_TYPE,
       );
-      expect(paramTypeRefs).toHaveLength(2);
+      expect(paramTypeRefs).toHaveLength(1);
 
       const typeNames = paramTypeRefs.map((ref) => ref.name);
       expect(typeNames).toContain('List');
-      expect(typeNames).toContain('String');
+
+      // Check for generic parameter type reference for String
+      const genericParamRefs = references.filter(
+        (ref) =>
+          ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE &&
+          ref.name === 'String',
+      );
+      expect(genericParamRefs).toHaveLength(1);
     });
 
     it('should capture dotted generic parameter type references', () => {
@@ -121,12 +129,14 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       const typeNames = paramTypeRefs.map((ref) => ref.name);
       expect(typeNames).toContain('List');
 
-      // Should also have a chained type reference for System.Url (dotted generic parameter)
-      const chainedTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      // Should also have a generic parameter type reference for System.Url (dotted generic parameter)
+      // Dotted type names in generic arguments are captured as GENERIC_PARAMETER_TYPE
+      const genericParamRefs = references.filter(
+        (ref) =>
+          ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE &&
+          ref.name === 'System.Url',
       );
-      expect(chainedTypeRefs).toHaveLength(1);
-      expect(chainedTypeRefs[0].name).toBe('System.Url');
+      expect(genericParamRefs).toHaveLength(1);
     });
 
     it('should distinguish between return types and parameter types', () => {
