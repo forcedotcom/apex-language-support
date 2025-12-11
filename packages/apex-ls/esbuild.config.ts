@@ -7,13 +7,13 @@
  */
 
 import type { BuildOptions } from 'esbuild';
+import { copyFileSync, existsSync } from 'fs';
 import {
   browserBaseConfig,
   configureWebWorkerPolyfills,
   nodeBaseConfig,
-} from '../../build-config/esbuild.shared';
-import { copyFileSync, existsSync } from 'fs';
-import { runBuilds } from '../../build-config/esbuild.presets';
+  runBuilds,
+} from '@salesforce/esbuild-presets';
 
 const APEX_LS_EXTERNAL = [
   'vscode-languageserver/node',
@@ -132,8 +132,9 @@ async function run(watch = false): Promise<void> {
     onError: (error) => {
       console.error('❌ Rebuild failed', error);
     },
+    label: 'apex-ls',
+    logWatchStart: true,
   });
-  console.log('✅ esbuild build complete for apex-ls');
 }
 
 run(process.argv.includes('--watch')).catch((error) => {

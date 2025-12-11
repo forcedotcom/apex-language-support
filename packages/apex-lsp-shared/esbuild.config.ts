@@ -7,8 +7,7 @@
  */
 
 import type { BuildOptions } from 'esbuild';
-import { nodeBaseConfig } from '../../build-config/esbuild.shared';
-import { runBuilds } from '../../build-config/esbuild.presets';
+import { nodeBaseConfig, runBuilds } from '@salesforce/esbuild-presets';
 
 const builds: BuildOptions[] = [
   {
@@ -30,9 +29,8 @@ const builds: BuildOptions[] = [
 async function run(watch = false): Promise<void> {
   await runBuilds(builds, {
     watch,
-    afterBuild: () => {
-      console.log('✅ esbuild build complete for apex-lsp-shared');
-    },
+    label: 'apex-lsp-shared',
+    logWatchStart: true,
   });
 }
 

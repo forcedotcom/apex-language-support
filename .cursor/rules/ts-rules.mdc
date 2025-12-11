@@ -140,7 +140,7 @@ The application we are working on uses the following tech stack:
 ## Module Loading and Bundling
 
 - Web extensions do not support ES module imports, `require()` for external modules, or `importScripts()`. The ONLY exception is `require('vscode')`, which works via a special shim.
-- All web extension code MUST be bundled into a single file before deployment. Configure build tools (webpack, esbuild, tsup) to produce a single-file output.
+- All web extension code MUST be bundled into a single file before deployment. Use esbuild (preferred) or webpack to produce a single-file output.
 - Never attempt to dynamically load additional extension files or node modules at runtime in web extensions.
 
 ## Node.js APIs and Globals

@@ -9,14 +9,14 @@
 import type { BuildOptions } from 'esbuild';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   browserBaseConfig,
   nodeBaseConfig,
   NODE_POLYFILLS,
-} from '../../build-config/esbuild.shared';
-import * as fs from 'fs';
-import * as path from 'path';
-import { runBuilds } from '../../build-config/esbuild.presets';
+  runBuilds,
+} from '@salesforce/esbuild-presets';
 
 /**
  * Copy standard library resources for web extension
@@ -252,8 +252,9 @@ async function run(watch = false): Promise<void> {
     onError: (error) => {
       console.error('❌ Rebuild failed', error);
     },
+    label: 'apex-lsp-vscode-extension',
+    logWatchStart: true,
   });
-  console.log('✅ esbuild build complete for apex-lsp-vscode-extension');
 }
 
 run(process.argv.includes('--watch')).catch((error) => {

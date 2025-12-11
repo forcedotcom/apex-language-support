@@ -16,8 +16,7 @@ import {
   writeFileSync,
 } from 'fs';
 import { join } from 'path';
-import { nodeBaseConfig } from '../../build-config/esbuild.shared';
-import { runBuilds } from '../../build-config/esbuild.presets';
+import { nodeBaseConfig, runBuilds } from '@salesforce/esbuild-presets';
 
 const builds: BuildOptions[] = [
   {
@@ -164,8 +163,9 @@ async function run(watch = false): Promise<void> {
     onError: (error) => {
       console.error('❌ Rebuild failed', error);
     },
+    label: 'apex-parser-ast',
+    logWatchStart: true,
   });
-  console.log('✅ esbuild build complete for apex-parser-ast');
 }
 
 run(process.argv.includes('--watch')).catch((error) => {

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { BuildOptions } from 'esbuild';
+import { build, context, type BuildOptions } from 'esbuild';
 
 /**
  * Common external dependencies across all packages
@@ -63,12 +63,8 @@ export const browserBaseConfig: BuildOptions = {
 
 /**
  * Comprehensive Node.js polyfills for browser/web worker environments
- *
- * These aliases ensure Node.js modules are replaced with browser-compatible
- * implementations during the build process.
  */
 export const NODE_POLYFILLS = {
-  // Core Node.js modules
   path: 'path-browserify',
   crypto: 'crypto-browserify',
   stream: 'stream-browserify',
@@ -78,12 +74,8 @@ export const NODE_POLYFILLS = {
   events: 'events',
   assert: 'assert',
   util: 'util',
-
-  // Buffer and process - essential globals
   buffer: 'buffer',
   process: 'process/browser',
-
-  // VSCode specific mappings
   'vscode-languageclient/node': 'vscode-languageclient/browser',
   'vscode-languageserver/node': 'vscode-languageserver/browser',
   'vscode-jsonrpc/node': 'vscode-jsonrpc/browser',
@@ -91,15 +83,9 @@ export const NODE_POLYFILLS = {
 
 /**
  * Global definitions for web worker environments
- *
- * These definitions ensure essential globals are available and properly
- * configured for browser/worker contexts.
  */
 export const WEB_WORKER_GLOBALS = {
-  // Environment configuration
   'process.env.NODE_ENV': '"production"',
-
-  // Global aliases
   global: 'globalThis',
 } as const;
 
@@ -113,4 +99,72 @@ export function configureWebWorkerPolyfills(options: BuildOptions): void {
   options.define = { ...(options.define ?? {}), ...WEB_WORKER_GLOBALS };
   options.treeShaking = true;
   options.platform = 'browser';
+}
+
+export interface RunBuildsOptions {
+  watch?: boolean;
+  afterBuild?: () => void | Promise<void>;
+  onError?: (error: unknown) => void;
+  label?: string;
+  logAfterBuild?: boolean;
+  logWatchStart?: boolean;
+}
+
+/**
+ * Run a set of esbuild configurations either once or in watch mode.
+ */
+export async function runBuilds(
+  builds: BuildOptions[],
+  {
+    watch = false,
+    afterBuild,
+    onError,
+    label,
+    logAfterBuild = true,
+    logWatchStart = true,
+  }: RunBuildsOptions = {},
+): Promise<void> {
+  if (watch) {
+    const contexts = await Promise.all(
+      builds.map((options) => context(options)),
+    );
+    await Promise.all(contexts.map((ctx) => ctx.rebuild()));
+    if (afterBuild) {
+      await afterBuild();
+    }
+    if (logAfterBuild && label) {
+      console.log(`✅ esbuild build complete for ${label}`);
+    }
+    if (logWatchStart && label) {
+      console.log(`🟢 esbuild watch started for ${label}`);
+    }
+
+    await Promise.all(
+      contexts.map((ctx) =>
+        ctx.watch({
+          async onRebuild(error: unknown) {
+            if (error) {
+              onError?.(error);
+              return;
+            }
+            if (afterBuild) {
+              await afterBuild();
+            }
+            if (logAfterBuild && label) {
+              console.log(`✅ esbuild build complete for ${label}`);
+            }
+          },
+        }),
+      ),
+    );
+    return;
+  }
+
+  await Promise.all(builds.map((options) => build(options)));
+  if (afterBuild) {
+    await afterBuild();
+  }
+  if (logAfterBuild && label) {
+    console.log(`✅ esbuild build complete for ${label}`);
+  }
 }

@@ -27,5 +27,7 @@
     "lint:fix": "eslint src --fix"
   },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "@salesforce/esbuild-presets": "^0.1.0"
+  }
 }

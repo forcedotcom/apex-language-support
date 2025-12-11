@@ -1,41 +1,34 @@
 # Build Configuration
 
-This directory contains shared build configuration for the Apex Language Server monorepo.
+Shared esbuild presets now live in the publishable package `@salesforce/esbuild-presets` under `packages/esbuild-presets/`.
 
-## Files
+## Usage (inside this repo)
 
-### `esbuild.shared.ts`
-
-Shared configuration base for all packages using esbuild bundling:
-
-- **`COMMON_EXTERNAL`**: Dependencies that should always be external (vscode, language server packages, etc.)
-- **`INTERNAL_PACKAGES`**: Internal Salesforce packages that are typically external
-- **`nodeBaseConfig`**: Base configuration for Node.js builds
-- **`browserBaseConfig`**: Base configuration for browser/web builds
-- **`NODE_POLYFILLS`**: Standard polyfill aliases for browser/worker builds
-
-## Usage
-
-Import shared configuration in your package's `esbuild.config.ts`:
+Import from the workspace package:
 
 ```typescript
-import { build } from 'esbuild';
 import {
   nodeBaseConfig,
   browserBaseConfig,
-} from '../../build-config/esbuild.shared';
-
-await build({
-  ...nodeBaseConfig,
-  entryPoints: ['src/index.ts'],
-  outdir: 'dist',
-});
+  configureWebWorkerPolyfills,
+  runBuilds,
+} from '@salesforce/esbuild-presets';
 ```
 
-## Benefits
+## Usage (published)
 
-- **Consistency**: All packages use the same base configuration
-- **Maintainability**: Update external dependencies in one place
-- **Clarity**: Shared helpers keep browser/worker polyfills aligned
-- **Reduced Duplication**: No more copying external arrays between configs
-- **Easier Debugging**: A single shared file defines the defaults
+Install and import in another project:
+
+```bash
+npm install @salesforce/esbuild-presets esbuild
+```
+
+```typescript
+import { nodeBaseConfig, runBuilds } from '@salesforce/esbuild-presets';
+```
+
+## What’s included
+
+- `nodeBaseConfig` / `browserBaseConfig`
+- `NODE_POLYFILLS` and `configureWebWorkerPolyfills`
+- `runBuilds` helper for one-off or watch mode builds with hooks/logging
