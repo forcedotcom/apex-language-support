@@ -4,48 +4,38 @@ This directory contains shared build configuration for the Apex Language Server 
 
 ## Files
 
-### `tsup.shared.ts`
+### `esbuild.shared.ts`
 
-Shared configuration base for all packages using tsup bundling:
+Shared configuration base for all packages using esbuild bundling:
 
 - **`COMMON_EXTERNAL`**: Dependencies that should always be external (vscode, language server packages, etc.)
 - **`INTERNAL_PACKAGES`**: Internal Salesforce packages that are typically external
 - **`nodeBaseConfig`**: Base configuration for Node.js builds
-- **`browserBaseConfig`**: Base configuration for browser/web builds  
-- **`BROWSER_ALIASES`**: Standard polyfill aliases for browser builds
+- **`browserBaseConfig`**: Base configuration for browser/web builds
+- **`NODE_POLYFILLS`**: Standard polyfill aliases for browser/worker builds
 
 ## Usage
 
-Import shared configuration in your package's `tsup.config.ts`:
+Import shared configuration in your package's `esbuild.config.ts`:
 
 ```typescript
-import { defineConfig } from 'tsup';
-import { nodeBaseConfig, browserBaseConfig, BROWSER_ALIASES } from '../../build-config/tsup.shared';
+import { build } from 'esbuild';
+import {
+  nodeBaseConfig,
+  browserBaseConfig,
+} from '../../build-config/esbuild.shared';
 
-export default defineConfig([
-  {
-    name: 'my-package',
-    ...nodeBaseConfig,
-    entry: ['src/index.ts'],
-    // package-specific overrides
-  }
-]);
+await build({
+  ...nodeBaseConfig,
+  entryPoints: ['src/index.ts'],
+  outdir: 'dist',
+});
 ```
 
 ## Benefits
 
 - **Consistency**: All packages use the same base configuration
 - **Maintainability**: Update external dependencies in one place
-- **Clarity**: Named builds show clearly in logs (e.g., `[DESKTOP]`, `[WEB]`)
+- **Clarity**: Shared helpers keep browser/worker polyfills aligned
 - **Reduced Duplication**: No more copying external arrays between configs
-- **Easier Debugging**: Named builds make it clear which target is building
-
-## Named Builds
-
-All builds now have descriptive names that appear in the build output:
-
-- Extension: `[DESKTOP]`, `[WEB]`
-- Apex-LS: `[NODE]`, `[BROWSER]`, `[WORKER]`  
-- Libraries: `[SHARED]`, `[PARSER-AST]`, `[CUSTOM-SERVICES]`, etc.
-
-This makes it much easier to understand build logs and debug issues.
+- **Easier Debugging**: A single shared file defines the defaults

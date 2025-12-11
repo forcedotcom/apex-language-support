@@ -46,7 +46,7 @@
     "compile:browser": "tsc --build tsconfig.browser.json",
     "compile:worker": "tsc --build tsconfig.worker.json",
     "compile:node": "tsc --build tsconfig.node.json",
-    "bundle": "tsup",
+    "bundle": "tsx esbuild.config.ts",
     "test": "jest",
     "test:web": "jest --config jest.config.browser.cjs",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",

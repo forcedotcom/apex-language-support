@@ -29,9 +29,8 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
     it('should be a valid ZIP file', () => {
       if (fs.existsSync(standardLibZipSrc)) {
         const content = fs.readFileSync(standardLibZipSrc);
-        // Check for ZIP file signature (PK\x03\x04)
-        expect(content[0]).toBe(0x50); // 'P'
-        expect(content[1]).toBe(0x4b); // 'K'
+        expect(content[0]).toBe(0x50);
+        expect(content[1]).toBe(0x4b);
         expect(content[2]).toBe(0x03);
         expect(content[3]).toBe(0x04);
       }
@@ -40,30 +39,26 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
     it('should be appropriately sized (around 1.6MB)', () => {
       if (fs.existsSync(standardLibZipSrc)) {
         const stats = fs.statSync(standardLibZipSrc);
-        // StandardApexLibrary.zip should be around 1.6MB
-        expect(stats.size).toBeGreaterThan(1000000); // > 1MB
-        expect(stats.size).toBeLessThan(5000000); // < 5MB
+        expect(stats.size).toBeGreaterThan(1000000);
+        expect(stats.size).toBeLessThan(5000000);
       }
     });
   });
 
   describe('Destination ZIP File (after build)', () => {
     it('should have dist directory after build', () => {
-      // This test will only pass after running npm run bundle
       if (fs.existsSync(distDir)) {
         expect(fs.statSync(distDir).isDirectory()).toBe(true);
       }
     });
 
     it('should have resources directory in dist after build', () => {
-      // This test will only pass after running npm run bundle
       if (fs.existsSync(resourcesDir)) {
         expect(fs.statSync(resourcesDir).isDirectory()).toBe(true);
       }
     });
 
     it('should have copied StandardApexLibrary.zip to dist/resources after build', () => {
-      // This test will only pass after running npm run bundle
       if (fs.existsSync(standardLibZipDest)) {
         expect(fs.existsSync(standardLibZipDest)).toBe(true);
         expect(fs.statSync(standardLibZipDest).isFile()).toBe(true);
@@ -71,11 +66,6 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
     });
 
     it.skip('should have identical content to source ZIP after copy', () => {
-      // This test requires a clean build to pass (npm run bundle)
-      // Skipped because the dist directory may contain stale build artifacts
-      // TODO: Re-enable after ensuring clean build environment
-      //
-      // Original test: Verify that the copied ZIP is byte-for-byte identical to source
       if (
         !fs.existsSync(standardLibZipSrc) ||
         !fs.existsSync(standardLibZipDest)
@@ -93,22 +83,22 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
   });
 
   describe('Build Configuration', () => {
-    it('should have tsup.config.ts with copyStandardLibraryResources function', () => {
-      const tsupConfigPath = path.join(extensionRoot, 'tsup.config.ts');
-      expect(fs.existsSync(tsupConfigPath)).toBe(true);
+    it('should have esbuild.config.ts with copyStandardLibraryResources function', () => {
+      const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
+      expect(fs.existsSync(esbuildConfigPath)).toBe(true);
 
-      if (fs.existsSync(tsupConfigPath)) {
-        const configContent = fs.readFileSync(tsupConfigPath, 'utf8');
+      if (fs.existsSync(esbuildConfigPath)) {
+        const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         expect(configContent).toContain('copyStandardLibraryResources');
         expect(configContent).toContain('StandardApexLibrary.zip');
       }
     });
 
     it('should have correct source path in copy function', () => {
-      const tsupConfigPath = path.join(extensionRoot, 'tsup.config.ts');
+      const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
-      if (fs.existsSync(tsupConfigPath)) {
-        const configContent = fs.readFileSync(tsupConfigPath, 'utf8');
+      if (fs.existsSync(esbuildConfigPath)) {
+        const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         expect(configContent).toContain(
           'apex-parser-ast/resources/StandardApexLibrary.zip',
         );
@@ -116,20 +106,19 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
     });
 
     it('should have correct destination path in copy function', () => {
-      const tsupConfigPath = path.join(extensionRoot, 'tsup.config.ts');
+      const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
-      if (fs.existsSync(tsupConfigPath)) {
-        const configContent = fs.readFileSync(tsupConfigPath, 'utf8');
+      if (fs.existsSync(esbuildConfigPath)) {
+        const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         expect(configContent).toContain('dist/resources');
       }
     });
 
     it('should call copyStandardLibraryResources in build process', () => {
-      const tsupConfigPath = path.join(extensionRoot, 'tsup.config.ts');
+      const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
-      if (fs.existsSync(tsupConfigPath)) {
-        const configContent = fs.readFileSync(tsupConfigPath, 'utf8');
-        // Verify the function is called in executePostBuildTasks
+      if (fs.existsSync(esbuildConfigPath)) {
+        const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         expect(configContent).toContain('executePostBuildTasks');
         expect(configContent).toContain('copyStandardLibraryResources()');
       }
@@ -138,23 +127,20 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
 
   describe('Error Handling', () => {
     it('should handle missing source ZIP gracefully in copy function', () => {
-      // This verifies that the copy function has proper error handling
-      const tsupConfigPath = path.join(extensionRoot, 'tsup.config.ts');
+      const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
-      if (fs.existsSync(tsupConfigPath)) {
-        const configContent = fs.readFileSync(tsupConfigPath, 'utf8');
-        // Check for try-catch block around copy operation
+      if (fs.existsSync(esbuildConfigPath)) {
+        const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         expect(configContent).toContain('try {');
         expect(configContent).toContain('catch');
       }
     });
 
     it('should log appropriate messages on copy success/failure', () => {
-      const tsupConfigPath = path.join(extensionRoot, 'tsup.config.ts');
+      const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
-      if (fs.existsSync(tsupConfigPath)) {
-        const configContent = fs.readFileSync(tsupConfigPath, 'utf8');
-        // Check for logging
+      if (fs.existsSync(esbuildConfigPath)) {
+        const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         expect(configContent).toMatch(/console\.(log|warn)/);
         expect(configContent).toContain('StandardApexLibrary.zip');
       }
@@ -163,21 +149,20 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
 
   describe('File System Operations', () => {
     it('should create resources directory if it does not exist', () => {
-      const tsupConfigPath = path.join(extensionRoot, 'tsup.config.ts');
+      const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
-      if (fs.existsSync(tsupConfigPath)) {
-        const configContent = fs.readFileSync(tsupConfigPath, 'utf8');
-        // Check that the function creates the directory
+      if (fs.existsSync(esbuildConfigPath)) {
+        const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         expect(configContent).toContain('mkdirSync');
         expect(configContent).toContain('recursive: true');
       }
     });
 
     it('should use fs.copyFileSync for atomic copy operation', () => {
-      const tsupConfigPath = path.join(extensionRoot, 'tsup.config.ts');
+      const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
-      if (fs.existsSync(tsupConfigPath)) {
-        const configContent = fs.readFileSync(tsupConfigPath, 'utf8');
+      if (fs.existsSync(esbuildConfigPath)) {
+        const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         expect(configContent).toContain('copyFileSync');
       }
     });
@@ -185,21 +170,20 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
 
   describe('Path Resolution', () => {
     it('should use path.resolve for absolute paths', () => {
-      const tsupConfigPath = path.join(extensionRoot, 'tsup.config.ts');
+      const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
-      if (fs.existsSync(tsupConfigPath)) {
-        const configContent = fs.readFileSync(tsupConfigPath, 'utf8');
+      if (fs.existsSync(esbuildConfigPath)) {
+        const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         expect(configContent).toContain('path.resolve');
         expect(configContent).toContain('__dirname');
       }
     });
 
-    it('should handle relative paths from tsup.config.ts location', () => {
-      const tsupConfigPath = path.join(extensionRoot, 'tsup.config.ts');
+    it('should handle relative paths from esbuild.config.ts location', () => {
+      const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
-      if (fs.existsSync(tsupConfigPath)) {
-        const configContent = fs.readFileSync(tsupConfigPath, 'utf8');
-        // Verify it uses __dirname to get correct base path
+      if (fs.existsSync(esbuildConfigPath)) {
+        const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         expect(configContent).toContain('__dirname');
         expect(configContent).toContain('../apex-parser-ast');
       }
@@ -215,18 +199,16 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
           fs.readFileSync(packageJsonPath, 'utf8'),
         );
 
-        // Verify bundle script exists
         expect(packageJson.scripts).toHaveProperty('bundle');
-        expect(packageJson.scripts.bundle).toContain('tsup');
+        expect(packageJson.scripts.bundle).toContain('esbuild');
       }
     });
 
     it('should run after TypeScript compilation', () => {
-      const tsupConfigPath = path.join(extensionRoot, 'tsup.config.ts');
+      const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
-      if (fs.existsSync(tsupConfigPath)) {
-        const configContent = fs.readFileSync(tsupConfigPath, 'utf8');
-        // Verify it's in onSuccess callback or similar
+      if (fs.existsSync(esbuildConfigPath)) {
+        const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         expect(configContent).toContain('executePostBuildTasks');
       }
     });

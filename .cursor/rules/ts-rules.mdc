@@ -2,6 +2,7 @@
 description: Complete Effect-TS Documentation
 alwaysApply: false
 ---
+
 ---
 
 description: "Expert guidelines for TypeScript and Node.js development, including tech stack (Lodash, Zod), shortcuts for pair programming and prompt improvement, core principles, coding standards (naming, functions, types), code review checklist, documentation standards (Google Style Guide, TypeDoc), and Git commit rules."
@@ -25,7 +26,7 @@ The application we are working on uses the following tech stack:
 
 - TypeScript
 - Node.js
-- tsup v2+ for bundling/rollup
+- esbuild for bundling/rollup
 - turbo for managing package target dependencies
 
 ## NPM Targets

@@ -422,7 +422,7 @@
     "precompile": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars . && shx mkdir -p out && shx cp package.nls*.json language-configuration.json out/",
     "compile": "tsc --build",
     "postcompile": "shx mkdir -p out/resources && shx cp ../apex-parser-ast/out/resources/StandardApexLibrary.zip out/resources/",
-    "bundle": "tsup",
+    "bundle": "tsx esbuild.config.ts",
     "copy-worker-files": "node scripts/postbundle.js",
     "build": "npm run precompile && npm run compile && npm run postcompile && npm run bundle && npm run copy-worker-files",
     "rebuild": "npm run clean && npm run build",

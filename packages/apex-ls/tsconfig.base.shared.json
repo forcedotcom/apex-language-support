@@ -16,7 +16,7 @@
     "node_modules",
     "out",
     "dist",
-    "tsup.config.ts",
+    "esbuild.config.ts",
     "test/**/*",
     "**/*.test.ts",
     "**/*.spec.ts"

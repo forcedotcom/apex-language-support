@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { Options } from 'tsup';
+import type { BuildOptions } from 'esbuild';
 
 /**
  * Common external dependencies across all packages
@@ -36,30 +36,28 @@ export const INTERNAL_PACKAGES = [
 /**
  * Base configuration for Node.js builds
  */
-export const nodeBaseConfig: Partial<Options> = {
+export const nodeBaseConfig: BuildOptions = {
   platform: 'node',
   target: 'es2022',
-  format: ['cjs'],
+  format: 'cjs',
+  bundle: true,
   sourcemap: true,
-  clean: true,
   minify: false,
-  dts: false,
-  splitting: false,
+  treeShaking: true,
   external: [...COMMON_EXTERNAL, 'crypto', 'fs', 'path', 'url', 'os', 'stream'],
 };
 
 /**
  * Base configuration for browser/web builds
  */
-export const browserBaseConfig: Partial<Options> = {
+export const browserBaseConfig: BuildOptions = {
   platform: 'browser',
   target: 'es2022',
-  format: ['esm'],
+  format: 'esm',
+  bundle: true,
   sourcemap: true,
-  clean: true,
   minify: false,
-  dts: false,
-  splitting: false,
+  treeShaking: true,
   external: ['vscode'],
 };
 
@@ -106,30 +104,13 @@ export const WEB_WORKER_GLOBALS = {
 } as const;
 
 /**
- * Inline code to inject essential globals into the worker environment.
- * This sets up Node.js polyfills as global variables before the main IIFE runs.
- * The bundler will resolve the module paths through the alias configuration.
+ * Apply browser/worker polyfills to an esbuild options object.
  */
-// No banner injection needed - polyfills are bundled directly
-export const GLOBAL_INJECTION_CODE = '';
-
-/**
- * Configures esbuild options for web worker builds with comprehensive polyfills
- *
- * @param options - esbuild options object to configure
- */
-export function configureWebWorkerPolyfills(options: any): void {
-  // Set browser/worker resolution conditions
+export function configureWebWorkerPolyfills(options: BuildOptions): void {
   options.conditions = ['browser', 'worker', 'import', 'module', 'default'];
   options.mainFields = ['browser', 'module', 'main'];
-
-  // Apply Node.js polyfills
-  options.alias = { ...options.alias, ...NODE_POLYFILLS };
-
-  // Set global definitions
-  options.define = { ...options.define, ...WEB_WORKER_GLOBALS };
-
-  // Optimize for web worker environment
+  options.alias = { ...(options.alias ?? {}), ...NODE_POLYFILLS };
+  options.define = { ...(options.define ?? {}), ...WEB_WORKER_GLOBALS };
   options.treeShaking = true;
   options.platform = 'browser';
 }

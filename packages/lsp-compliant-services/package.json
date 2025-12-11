@@ -18,7 +18,7 @@
   },
   "scripts": {
     "compile": "tsc --build",
-    "bundle": "tsup",
+    "bundle": "tsx esbuild.config.ts",
     "test": "jest",
     "test:one": "jest --testPathPattern=HoverProcessingService.integration.test --testNamePattern=\"should provide hover for method declaration testFileUtilities\"",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",

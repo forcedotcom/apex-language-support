@@ -5,48 +5,62 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { defineConfig } from 'tsup';
-import { nodeBaseConfig } from '../../build-config/tsup.shared';
+
+import type { BuildOptions } from 'esbuild';
 import {
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
   copyFileSync,
   existsSync,
+  mkdirSync,
+  readFileSync,
   readdirSync,
+  writeFileSync,
 } from 'fs';
 import { join } from 'path';
+import { nodeBaseConfig } from '../../build-config/esbuild.shared';
+import { runBuilds } from '../../build-config/esbuild.presets';
+
+const builds: BuildOptions[] = [
+  {
+    ...nodeBaseConfig,
+    entryPoints: ['src/index.ts'],
+    outdir: 'dist',
+    format: 'cjs',
+    sourcemap: true,
+    outExtension: { '.js': '.js' },
+    external: [],
+  },
+  {
+    ...nodeBaseConfig,
+    entryPoints: ['src/index.ts'],
+    outdir: 'dist',
+    format: 'esm',
+    sourcemap: true,
+    outExtension: { '.js': '.mjs' },
+    external: [],
+  },
+];
 
 /**
  * Post-build hook for consistent resource structure and bundled package.json
  * Both compile and bundle use the same 'out/resources/' directory
  */
-function postBuild() {
-  console.log(`✅ Using consistent resource directory: out/resources/`);
-
-  // Copy resources to dist folder
+function postBuild(): void {
+  console.log('✅ Using consistent resource directory: out/resources/');
   copyResourcesToDist();
-
-  // Copy type definitions to dist folder
   copyTypesToDist();
-
-  // Create a package.json for the bundled artifacts
   createBundledPackageJson();
 }
 
 /**
  * Copies resources from out/resources/ to dist/resources/ for bundled package
  */
-function copyResourcesToDist() {
+function copyResourcesToDist(): void {
   try {
     const sourceResourcesDir = 'out/resources';
     const distResourcesDir = 'dist/resources';
 
     if (existsSync(sourceResourcesDir)) {
-      // Ensure dist/resources directory exists
       mkdirSync(distResourcesDir, { recursive: true });
-
-      // Copy all files from out/resources to dist/resources
       const files = readdirSync(sourceResourcesDir);
 
       for (const file of files) {
@@ -69,18 +83,16 @@ function copyResourcesToDist() {
 /**
  * Copies type definitions from out/ to dist/ for bundled package
  */
-function copyTypesToDist() {
+function copyTypesToDist(): void {
   try {
     const sourceTypesDir = 'out';
     const distTypesDir = 'dist';
 
     if (existsSync(join(sourceTypesDir, 'index.d.ts'))) {
-      // Copy main type definition file
       const sourceTypeFile = join(sourceTypesDir, 'index.d.ts');
       const destTypeFile = join(distTypesDir, 'index.d.ts');
       copyFileSync(sourceTypeFile, destTypeFile);
 
-      // Copy type definition map if it exists
       const sourceTypeMapFile = join(sourceTypesDir, 'index.d.ts.map');
       if (existsSync(sourceTypeMapFile)) {
         const destTypeMapFile = join(distTypesDir, 'index.d.ts.map');
@@ -101,14 +113,12 @@ function copyTypesToDist() {
 /**
  * Creates a package.json for the bundled artifacts that points to dist/ instead of out/
  */
-function createBundledPackageJson() {
+function createBundledPackageJson(): void {
   try {
-    // Read the original package.json
     const originalPackageJson = JSON.parse(
       readFileSync('package.json', 'utf-8'),
     );
 
-    // Create bundled package.json with updated paths
     const bundledPackageJson = {
       ...originalPackageJson,
       name: originalPackageJson.name,
@@ -116,21 +126,19 @@ function createBundledPackageJson() {
       description: originalPackageJson.description,
       main: 'index.js',
       module: 'index.mjs',
-      types: 'index.d.ts', // Use bundled types from dist/ (relative to dist/)
+      types: 'index.d.ts',
       exports: {
         '.': {
           import: './index.mjs',
           require: './index.js',
-          types: './index.d.ts', // Use bundled types from dist/ (relative to dist/)
+          types: './index.d.ts',
         },
       },
-      files: ['.', 'README.md'], // All files relative to dist/ directory (includes resources/ subdirectory)
-      // Remove scripts and dev dependencies for production bundle
+      files: ['.', 'README.md'],
       scripts: {
         test: originalPackageJson.scripts?.test || 'echo "No test script"',
       },
       devDependencies: {},
-      // Keep only essential metadata
       license: originalPackageJson.license,
       repository: originalPackageJson.repository,
       keywords: originalPackageJson.keywords || [],
@@ -138,7 +146,6 @@ function createBundledPackageJson() {
       sideEffects: originalPackageJson.sideEffects,
     };
 
-    // Write the bundled package.json
     writeFileSync(
       join('dist', 'package.json'),
       JSON.stringify(bundledPackageJson, null, 2) + '\n',
@@ -150,20 +157,18 @@ function createBundledPackageJson() {
   }
 }
 
-export default defineConfig({
-  ...nodeBaseConfig,
-  name: 'parser-ast',
-  entry: ['src/index.ts'],
-  format: ['cjs', 'esm'],
-  outDir: 'dist',
-  outExtension({ format }) {
-    return {
-      js: format === 'esm' ? '.mjs' : '.js',
-    };
-  },
-  sourcemap: true,
-  dts: false, // Disable DTS generation - will copy from out/
-  noExternal: [],
-  external: [],
-  onSuccess: postBuild,
+async function run(watch = false): Promise<void> {
+  await runBuilds(builds, {
+    watch,
+    afterBuild: postBuild,
+    onError: (error) => {
+      console.error('❌ Rebuild failed', error);
+    },
+  });
+  console.log('✅ esbuild build complete for apex-parser-ast');
+}
+
+run(process.argv.includes('--watch')).catch((error) => {
+  console.error(error);
+  process.exit(1);
 });

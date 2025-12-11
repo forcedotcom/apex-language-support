@@ -18,8 +18,8 @@
   },
   "scripts": {
     "compile": "tsc --build",
-    "bundle": "tsup",
-    "dev": "tsup --watch",
+    "bundle": "tsx esbuild.config.ts",
+    "dev": "tsx esbuild.config.ts --watch",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
