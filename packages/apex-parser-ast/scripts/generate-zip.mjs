@@ -37,10 +37,61 @@ async function generateZip() {
     // Create resources directory for distribution
     await mkdir(path.join('out', 'resources'), { recursive: true });
 
+    // List of builtin classes that should be excluded from StandardApexLibrary/System/
+    // These will be merged from builtins/ folder instead
+    const builtinClasses = new Set([
+      'Blob.cls',
+      'Boolean.cls',
+      'Date.cls',
+      'DateTime.cls',
+      'Decimal.cls',
+      'Double.cls',
+      'Id.cls',
+      'Integer.cls',
+      'List.cls',
+      'Long.cls',
+      'Map.cls',
+      'Object.cls',
+      'Set.cls',
+      'String.cls',
+      'Time.cls',
+    ]);
+
     // Get all files from the StandardApexLibrary directory
-    const files = await getAllFiles(
+    // Use project root as baseDir to preserve the full path structure including src/resources/
+    const standardLibraryFiles = await getAllFiles(
       path.join('src', 'resources', 'StandardApexLibrary'),
+      process.cwd(),
     );
+
+    // Filter out builtin classes from StandardApexLibrary/System/
+    const files = {};
+    for (const [filePath, data] of Object.entries(standardLibraryFiles)) {
+      // Check if this is a builtin class in System/ folder
+      const isBuiltinInSystem = filePath.includes('StandardApexLibrary/System/') &&
+        builtinClasses.has(path.basename(filePath));
+      
+      if (!isBuiltinInSystem) {
+        files[filePath] = data;
+      }
+    }
+
+    // Get all files from builtins/ directory and map them to StandardApexLibrary/System/
+    const builtinsDir = path.join('src', 'resources', 'builtins');
+    try {
+      const builtinsFiles = await getAllFiles(builtinsDir, process.cwd());
+      
+      // Map builtins files to StandardApexLibrary/System/ paths in ZIP
+      for (const [filePath, data] of Object.entries(builtinsFiles)) {
+        // Convert builtins/Blob.cls -> src/resources/StandardApexLibrary/System/Blob.cls
+        const fileName = path.basename(filePath);
+        const zipPath = `src/resources/StandardApexLibrary/System/${fileName}`;
+        files[zipPath] = data;
+      }
+    } catch (error) {
+      // If builtins directory doesn't exist, that's okay - we'll just use StandardApexLibrary
+      console.warn('Warning: builtins directory not found, skipping builtin class merge:', error.message);
+    }
 
     // Create a zip file
     const zipData = zipSync(files);

@@ -24,6 +24,9 @@ export interface TypeInfo {
   /** If this is a primitive type (Integer, String, Boolean, etc.) */
   isPrimitive: boolean;
 
+  /** If this is a built-in Apex type (List, Set, Map, String, Integer, System.*, etc.) */
+  isBuiltIn?: boolean;
+
   /** The namespace if applicable */
   namespace?: Namespace;
 
@@ -84,6 +87,7 @@ export function createPrimitiveType(name: string): TypeInfo {
     isArray: false,
     isCollection: false,
     isPrimitive: true,
+    isBuiltIn: true, // Primitive types are built-in
     originalTypeString: name,
     getNamespace: () => null,
   };
@@ -101,6 +105,7 @@ export function createCollectionType(
     isArray: false,
     isCollection: true,
     isPrimitive: false,
+    isBuiltIn: true, // List, Set, Map are built-in types
     typeParameters,
     originalTypeString: buildTypeString(name, typeParameters),
     getNamespace: () => null,
@@ -116,6 +121,7 @@ export function createArrayType(elementType: TypeInfo): TypeInfo {
     isArray: true,
     isCollection: false,
     isPrimitive: false,
+    isBuiltIn: elementType.isBuiltIn, // Arrays of built-in types are also built-in
     typeParameters: [elementType],
     originalTypeString: `${elementType.originalTypeString}[]`,
     getNamespace: () => elementType.getNamespace(),
@@ -134,6 +140,7 @@ export function createMapType(
     isArray: false,
     isCollection: true,
     isPrimitive: false,
+    isBuiltIn: true, // Map is a built-in type
     keyType,
     typeParameters: [valueType],
     originalTypeString: `Map<${keyType.originalTypeString}, ${valueType.originalTypeString}>`,

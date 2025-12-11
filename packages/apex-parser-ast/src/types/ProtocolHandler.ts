@@ -119,7 +119,10 @@ export const extractApexLibPath = (uri: string): string => {
     throw new Error(`Expected apexlib URI, got: ${uri}`);
   }
   const match = uri.match(/apexlib:\/\/resources\/StandardApexLibrary\/(.+)/);
-  return match ? match[1] : '';
+  if (match) {
+    return match[1];
+  }
+  return '';
 };
 
 /**

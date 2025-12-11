@@ -17,7 +17,7 @@ import { CompilerService, CompilationOptions } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
-import { UriUtils } from './ResourceUtils';
+import { STANDARD_APEX_LIBRARY_URI } from './ResourceUtils';
 
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
@@ -161,9 +161,14 @@ export class ResourceLoader {
       this.zipFiles.set(originalPath, data);
 
       // Also preserve the relative path mapping for later use
-      const relativePath = originalPath
-        .replace(/^src\/resources\/StandardApexLibrary\//, '')
-        .replace(/\\/g, '/');
+      // Handle StandardApexLibrary paths
+      let relativePath = originalPath.replace(/\\/g, '/');
+      if (relativePath.startsWith('src/resources/StandardApexLibrary/')) {
+        relativePath = relativePath.replace(
+          /^src\/resources\/StandardApexLibrary\//,
+          '',
+        );
+      }
       this.originalPaths.set(relativePath, relativePath);
 
       // Build normalized path to ZIP path mapping for O(1) lookups
@@ -857,9 +862,14 @@ export class ResourceLoader {
         this.zipFiles.set(originalPath, data);
 
         // Also preserve the relative path mapping for later use
-        const relativePath = originalPath
-          .replace(/^src\/resources\/StandardApexLibrary\//, '')
-          .replace(/\\/g, '/');
+        // Handle StandardApexLibrary paths
+        let relativePath = originalPath.replace(/\\/g, '/');
+        if (relativePath.startsWith('src/resources/StandardApexLibrary/')) {
+          relativePath = relativePath.replace(
+            /^src\/resources\/StandardApexLibrary\//,
+            '',
+          );
+        }
         this.originalPaths.set(relativePath, relativePath);
 
         // Rebuild normalized path to ZIP path mapping
@@ -938,8 +948,8 @@ export class ResourceLoader {
       const symbolTable = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(symbolTable);
 
-      // Convert className to proper URI scheme for standard Apex library classes
-      const fileUri = UriUtils.createResourceUri(className);
+      // Convert className to proper URI scheme
+      const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${className}`;
 
       const result = this.compilerService.compile(
         content,

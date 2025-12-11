@@ -793,6 +793,25 @@ export class SymbolTable {
     // Ensure symbol key has unified ID for graph operations
     if (!symbol.key.unifiedId) {
       symbol.key = createFromSymbol(symbol);
+      // Synchronize id with key.unifiedId to avoid duplication
+      // unifiedId is guaranteed to be set after createFromSymbol
+      if (symbol.key.unifiedId) {
+        symbol.id = symbol.key.unifiedId;
+      }
+      // Synchronize fileUri with key.fileUri (key.fileUri is source of truth)
+      if (symbol.key.fileUri && symbol.fileUri !== symbol.key.fileUri) {
+        symbol.fileUri = symbol.key.fileUri;
+      }
+    } else {
+      // If unifiedId exists but id is different, synchronize them
+      // unifiedId is the source of truth
+      if (symbol.id !== symbol.key.unifiedId) {
+        symbol.id = symbol.key.unifiedId;
+      }
+      // Synchronize fileUri with key.fileUri (key.fileUri is source of truth)
+      if (symbol.key.fileUri && symbol.fileUri !== symbol.key.fileUri) {
+        symbol.fileUri = symbol.key.fileUri;
+      }
     }
 
     // Parent property removed - use parentId for parent resolution via getParent() helper
@@ -1139,7 +1158,14 @@ export class SymbolTable {
     const path: string[] = [];
     let current: ScopeSymbol | null = currentScope;
     while (current) {
-      path.unshift(current.name);
+      // Include 'block:' prefix for block scopes to match ID hierarchy format
+      // Block ID format: fileUri:...:block:blockName
+      // This ensures method IDs include: fileUri:...:block:blockName:method:methodName
+      if (current.kind === SymbolKind.Block && current.scopeType) {
+        path.unshift('block', current.name);
+      } else {
+        path.unshift(current.name);
+      }
       if (current.parentId) {
         const parent = this.idIndex.get(current.parentId);
         if (parent && parent.kind === SymbolKind.Block) {

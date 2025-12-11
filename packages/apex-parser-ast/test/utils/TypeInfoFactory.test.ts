@@ -133,6 +133,28 @@ describe('TypeInfoFactory', () => {
         expect(typeInfo.isPrimitive).toBe(false);
         expect(typeInfo.needsNamespaceResolution).toBe(true);
       });
+
+      it('should extract base type name from generic types', () => {
+        // List with generic parameter
+        const listType = createTypeInfo('List<Integer>');
+        expect(listType.name).toBe('List');
+        expect(listType.originalTypeString).toBe('List<Integer>');
+
+        // Map with multiple generic parameters
+        const mapType = createTypeInfo('Map<String, Object>');
+        expect(mapType.name).toBe('Map');
+        expect(mapType.originalTypeString).toBe('Map<String, Object>');
+
+        // Nested generics
+        const nestedType = createTypeInfo('List<List<String>>');
+        expect(nestedType.name).toBe('List');
+        expect(nestedType.originalTypeString).toBe('List<List<String>>');
+
+        // Qualified type with generics
+        const qualifiedGeneric = createTypeInfo('List<System.Url>');
+        expect(qualifiedGeneric.name).toBe('List');
+        expect(qualifiedGeneric.originalTypeString).toBe('List<System.Url>');
+      });
     });
   });
 

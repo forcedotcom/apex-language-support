@@ -235,12 +235,12 @@ export interface NamespaceResolutionResult {
 /**
  * Built-in type tables
  * Maps to Java TypeInfoTables
+ * Note: Wrapper types, collection types (List, Set, Map), System types,
+ * and Schema types are now resolved via ResourceLoader
+ * This interface only includes types that aren't real classes (scalar, sObject)
  */
 export interface BuiltInTypeTables {
-  readonly wrapperTypes: Map<string, ApexSymbol>;
   readonly scalarTypes: Map<string, ApexSymbol>;
-  readonly systemTypes: Map<string, ApexSymbol>;
-  readonly schemaTypes: Map<string, ApexSymbol>;
   readonly sObjectTypes: Map<string, ApexSymbol>;
 }
 

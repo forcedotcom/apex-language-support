@@ -180,24 +180,7 @@ export function getAncestorChain(
 export function isBuiltInType(symbol: any): boolean {
   if (!symbol || !symbol.name) return false;
 
-  // Simple primitive types
-  const primitives = [
-    'Boolean',
-    'Decimal',
-    'Double',
-    'Integer',
-    'Long',
-    'String',
-    'Id', // Consistent with Salesforce Apex documentation
-    'Date',
-    'Datetime',
-    'Time',
-    'Blob',
-    'Object',
-  ];
-  if (primitives.includes(symbol.name)) return true;
-
-  // Check for List, Set, Map types
+  // Check for List, Set, Map types (generic collection types)
   if (
     symbol.name.startsWith('List<') ||
     symbol.name.startsWith('Set<') ||
@@ -206,7 +189,9 @@ export function isBuiltInType(symbol: any): boolean {
     return true;
   }
 
-  // Check if this is a type from a built-in namespace
+  // Check if this is a type from a built-in namespace (System namespace)
+  // This includes wrapper types (String, Integer, etc.) and collection types (List, Set, Map)
+  // which are now in StandardApexLibrary/System/ and resolved via ResourceLoader
   const namespace = symbol.namespace || extractNamespace(symbol.name);
   const resourceLoader = ResourceLoader.getInstance({
     preloadStdClasses: true,
