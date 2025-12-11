@@ -117,6 +117,9 @@
     "@salesforce/apex-ls#rebuild": {
       "dependsOn": ["clean", "precompile", "^precompile", "compile", "bundle"],
       "cache": false
+    },
+    "@salesforce/esbuild-presets#compile": {
+      "outputs": ["dist/**", "tsconfig.tsbuildinfo"]
     }
   }
 }
