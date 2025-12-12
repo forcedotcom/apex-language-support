@@ -616,10 +616,12 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       expect(methodSymbol).toBeDefined();
       expect(methodBlockSymbol).toBeDefined();
       if (methodSymbol && methodBlockSymbol) {
-        // Method block should have parentId pointing to method symbol, not a block symbol
+        // Method block should have parentId pointing to method symbol
+        // Method ID now correctly includes block: prefix in hierarchy: file://...:block:class_1:method:testMethod
         expect(methodBlockSymbol.parentId).toBe(methodSymbol.id);
         expect(methodBlockSymbol.parentId).toContain('method:testMethod');
-        expect(methodBlockSymbol.parentId).not.toContain('block:');
+        // Method ID should contain block: prefix as part of the correct hierarchy
+        expect(methodBlockSymbol.parentId).toContain('block:');
       }
     });
 
@@ -660,11 +662,13 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       expect(constructorBlockSymbol).toBeDefined();
       if (constructorSymbol && constructorBlockSymbol) {
         // Constructor block should have parentId pointing to constructor symbol
+        // Constructor ID now correctly includes block: prefix in hierarchy
         expect(constructorBlockSymbol.parentId).toBe(constructorSymbol.id);
         expect(constructorBlockSymbol.parentId).toContain(
           'constructor:TestClass',
         );
-        expect(constructorBlockSymbol.parentId).not.toContain('block:');
+        // Constructor ID should contain block: prefix as part of the correct hierarchy
+        expect(constructorBlockSymbol.parentId).toContain('block:');
       }
     });
 

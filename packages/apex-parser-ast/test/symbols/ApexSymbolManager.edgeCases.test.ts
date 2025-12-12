@@ -54,23 +54,22 @@ describe('ApexSymbolManager - Edge Cases', () => {
       const testClassUri = addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have parameter type references for System.Url in nested generics
+      // Should have generic parameter type references for System.Url in nested generics
       const systemUrlRefs = references.filter(
         (ref) =>
-          (ref.context === ReferenceContext.PARAMETER_TYPE ||
-            ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE) &&
+          ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE &&
           ref.name === 'System.Url',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1); // At least one System.Url reference
 
-      // Should have parameter type references for Map and List
-      const paramTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.PARAMETER_TYPE,
+      // Should have generic parameter type references for String in generics
+      const genericTypeRefs = references.filter(
+        (ref) => ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
       );
-      expect(paramTypeRefs.length).toBeGreaterThanOrEqual(1);
+      expect(genericTypeRefs.length).toBeGreaterThanOrEqual(1);
 
-      const typeNames = paramTypeRefs.map((ref) => ref.name);
-      expect(typeNames).toContain('String'); // String should be captured
+      const typeNames = genericTypeRefs.map((ref) => ref.name);
+      expect(typeNames).toContain('String'); // String should be captured as GENERIC_PARAMETER_TYPE
     });
 
     it('should handle triple nested generic types', () => {
@@ -94,14 +93,20 @@ describe('ApexSymbolManager - Edge Cases', () => {
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
 
-      // Should have return type references for String (since it's in a return type context)
+      // Should have return type references for List (the return type itself)
+      // Generic type arguments (String) should only have GENERIC_PARAMETER_TYPE, not RETURN_TYPE
       const returnTypeRefs = references.filter(
         (ref) => ref.context === ReferenceContext.RETURN_TYPE,
       );
       expect(returnTypeRefs.length).toBeGreaterThanOrEqual(1);
 
-      const typeNames = returnTypeRefs.map((ref) => ref.name);
-      expect(typeNames).toContain('String');
+      // Check for generic parameter type references for String
+      const genericParamRefs = references.filter(
+        (ref) =>
+          ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE &&
+          ref.name === 'String',
+      );
+      expect(genericParamRefs.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should handle mixed simple and dotted types in generics', () => {
@@ -116,22 +121,21 @@ describe('ApexSymbolManager - Edge Cases', () => {
       const testClassUri = addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have parameter type references for System.Url
+      // Should have generic parameter type references for System.Url
       const systemUrlRefs = references.filter(
         (ref) =>
-          (ref.context === ReferenceContext.PARAMETER_TYPE ||
-            ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE) &&
+          ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE &&
           ref.name === 'System.Url',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
 
-      // Should have parameter type references for String
-      const paramTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.PARAMETER_TYPE,
+      // Should have generic parameter type references for String
+      const genericTypeRefs = references.filter(
+        (ref) => ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
       );
-      expect(paramTypeRefs.length).toBeGreaterThanOrEqual(1);
+      expect(genericTypeRefs.length).toBeGreaterThanOrEqual(1);
 
-      const typeNames = paramTypeRefs.map((ref) => ref.name);
+      const typeNames = genericTypeRefs.map((ref) => ref.name);
       expect(typeNames).toContain('String');
     });
   });
@@ -311,13 +315,13 @@ describe('ApexSymbolManager - Edge Cases', () => {
       const testClassUri = addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have parameter type references for List and String
-      const paramTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.PARAMETER_TYPE,
+      // Should have generic parameter type references for String
+      const genericTypeRefs = references.filter(
+        (ref) => ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
       );
-      expect(paramTypeRefs.length).toBeGreaterThanOrEqual(1);
+      expect(genericTypeRefs.length).toBeGreaterThanOrEqual(1);
 
-      const typeNames = paramTypeRefs.map((ref) => ref.name);
+      const typeNames = genericTypeRefs.map((ref) => ref.name);
       expect(typeNames).toContain('String');
     });
 

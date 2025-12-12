@@ -1029,7 +1029,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         // New hover format: code block header with FQN
         expect(content).toContain('```apex');
-        expect(content).toContain('BUILT_IN.String');
+        expect(content).toContain('System.String');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*public/);
       }
     });
@@ -1063,7 +1063,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         // Note: Hover resolves to String class when hovering the method name; header is now a code block
         expect(content).toContain('```apex');
-        expect(content).toContain('BUILT_IN.String');
+        expect(content).toContain('System.String');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*public/);
       }
     });
@@ -1436,7 +1436,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('class BUILT_IN.List');
+        expect(content).toContain('class System.List');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*public/);
       }
     });

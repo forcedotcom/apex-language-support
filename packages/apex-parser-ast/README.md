@@ -552,6 +552,97 @@ The package includes a `ResourceLoader` that provides access to the Standard Ape
 - **Namespace Organization**: Properly organized by namespace (System, Database, Schema, etc.)
 - **Statistics and Monitoring**: Comprehensive statistics about loaded resources
 
+#### Maintaining the Standard Apex Library
+
+The Standard Apex Library is located in `src/resources/StandardApexLibrary/` and contains all standard Apex classes organized by namespace. The library is packaged into a ZIP file during the build process for efficient distribution.
+
+**⚠️ CRITICAL WARNING: DO NOT REMOVE BUILTIN CLASSES**
+
+The following 15 classes are **essential builtin classes** stored in `src/resources/builtins/` and merged into `StandardApexLibrary/System/` during ZIP creation. These classes are fundamental to Apex type resolution and **MUST NOT BE REMOVED**:
+
+- `Blob.cls` - Blob primitive type wrapper
+- `Boolean.cls` - Boolean primitive type wrapper
+- `Date.cls` - Date primitive type wrapper (contains instance methods)
+- `DateTime.cls` - DateTime primitive type wrapper
+- `Decimal.cls` - Decimal primitive type wrapper
+- `Double.cls` - Double primitive type wrapper
+- `Id.cls` - Id primitive type wrapper
+- `Integer.cls` - Integer primitive type wrapper
+- `List.cls` - List collection type
+- `Long.cls` - Long primitive type wrapper
+- `Map.cls` - Map collection type
+- `Object.cls` - Object base type
+- `Set.cls` - Set collection type
+- `String.cls` - String primitive type wrapper
+- `Time.cls` - Time primitive type wrapper (contains instance methods)
+
+**Why these classes are critical:**
+
+- These classes provide the foundation for type resolution in the Apex language server
+- They enable proper symbol resolution for primitive types and collections
+- Removing them will break type checking, code completion, and symbol resolution
+- The `Date.cls` and `Time.cls` files contain important instance methods that differ from the static-only versions
+
+**Maintenance Guidelines:**
+
+1. **Adding new classes**: Add new standard Apex classes to the appropriate namespace folder in `StandardApexLibrary/`
+2. **Updating existing classes**: Update class stubs as needed, but preserve the structure and essential methods
+3. **Removing classes**: Only remove classes that are confirmed deprecated by Salesforce and have been removed from the platform
+4. **Never remove the builtin classes listed above** - they are required for the language server to function correctly
+5. **ZIP generation**: After making changes, run `npm run build` to regenerate the ZIP file using `scripts/generate-zip.mjs`
+   - The build script automatically merges `builtins/` into `StandardApexLibrary/System/` in the ZIP
+   - Builtin classes should only be edited in `builtins/`, not in `StandardApexLibrary/System/`
+
+**Source File Structure:**
+
+```
+src/resources/
+├── builtins/
+│   ├── Blob.cls
+│   ├── Boolean.cls
+│   ├── Date.cls
+│   ├── DateTime.cls
+│   ├── Decimal.cls
+│   ├── Double.cls
+│   ├── Id.cls
+│   ├── Integer.cls
+│   ├── List.cls
+│   ├── Long.cls
+│   ├── Map.cls
+│   ├── Object.cls
+│   ├── Set.cls
+│   ├── String.cls
+│   └── Time.cls
+└── StandardApexLibrary/
+    ├── System/
+    │   ├── Assert.cls
+    │   ├── Database.cls
+    │   └── [other System namespace classes, NO builtin classes]
+    ├── Database/
+    │   └── [Database namespace classes]
+    ├── Schema/
+    │   └── [Schema namespace classes]
+    └── [other namespaces...]
+```
+
+**ZIP File Structure (after build):**
+
+The ZIP file contains a merged structure where builtin classes appear in `StandardApexLibrary/System/`:
+
+```
+src/resources/StandardApexLibrary/
+├── System/
+│   ├── [builtin classes from builtins/ merged here]
+│   ├── Assert.cls
+│   ├── Database.cls
+│   └── [other System namespace classes]
+├── Database/
+│   └── [Database namespace classes]
+├── Schema/
+│   └── [Schema namespace classes]
+└── [other namespaces...]
+```
+
 #### Usage
 
 ```typescript
