@@ -9,13 +9,16 @@
 import type { BuildOptions } from 'esbuild';
 import { copyFileSync, existsSync } from 'fs';
 import {
-  browserBaseConfig,
   configureWebWorkerPolyfills,
   nodeBaseConfig,
   runBuilds,
 } from '@salesforce/esbuild-presets';
 
-const APEX_LS_EXTERNAL = [
+/**
+ * External dependencies for Node.js server build.
+ * These are resolved at runtime from node_modules.
+ */
+const NODE_SERVER_EXTERNAL = [
   'vscode-languageserver/node',
   'vscode-jsonrpc/node',
   '@apexdevtools/apex-parser',
@@ -28,72 +31,36 @@ const APEX_LS_EXTERNAL = [
   'path',
 ];
 
-const WORKER_EXTERNAL = [
-  '@apexdevtools/apex-parser',
-  'antlr4ts',
-  '@salesforce/apex-lsp-parser-ast',
-  '@salesforce/apex-lsp-custom-services',
-  'data-structure-typed',
-  'effect',
-  'node-dir',
+/**
+ * External dependencies for Web Worker build.
+ * In a browser worker context, there's no require() function, so most
+ * dependencies must be bundled. Only keep truly external deps here.
+ *
+ * Note: Internal Salesforce packages (@salesforce/apex-lsp-*) are NOT external -
+ * they get bundled into the worker. Only deps that are loaded separately
+ * (like the ANTLR parser which is too large) should be external.
+ */
+const WORKER_EXTERNAL: string[] = [
+  // The ANTLR parser is loaded separately due to its size
+  // '@apexdevtools/apex-parser',
+  // 'antlr4ts',
 ];
 
 const builds: BuildOptions[] = [
-  // Node.js library build (CJS)
-  {
-    ...nodeBaseConfig,
-    entryPoints: ['src/index.ts'],
-    outdir: 'dist',
-    format: 'cjs',
-    outExtension: { '.js': '.js' },
-    external: APEX_LS_EXTERNAL,
-    keepNames: true,
-  },
-  // Node.js library build (ESM)
-  {
-    ...nodeBaseConfig,
-    entryPoints: ['src/index.ts'],
-    outdir: 'dist',
-    format: 'esm',
-    outExtension: { '.js': '.mjs' },
-    external: APEX_LS_EXTERNAL,
-    keepNames: true,
-  },
-  // Node.js server build
+  // Node.js server build - used by desktop VSCode extension
   {
     ...nodeBaseConfig,
     entryPoints: { 'server.node': 'src/server.node.ts' },
     outdir: 'dist',
     format: 'cjs',
     sourcemap: true,
-    external: APEX_LS_EXTERNAL,
+    external: NODE_SERVER_EXTERNAL,
     keepNames: true,
   },
-  // Browser library build (CJS)
+  // Worker build - used by web VSCode extension
+  // Produces worker.global.js as an IIFE bundle for Web Worker context
   {
-    ...browserBaseConfig,
-    entryPoints: ['src/index.browser.ts'],
-    outdir: 'dist',
-    format: 'cjs',
-    outExtension: { '.js': '.js' },
-    external: APEX_LS_EXTERNAL,
-    conditions: ['browser', 'import', 'module', 'default'],
-    mainFields: ['browser', 'module', 'main'],
-  },
-  // Browser library build (ESM)
-  {
-    ...browserBaseConfig,
-    entryPoints: ['src/index.browser.ts'],
-    outdir: 'dist',
-    format: 'esm',
-    outExtension: { '.js': '.mjs' },
-    external: APEX_LS_EXTERNAL,
-    conditions: ['browser', 'import', 'module', 'default'],
-    mainFields: ['browser', 'module', 'main'],
-  },
-  // Worker build
-  {
-    entryPoints: ['src/server.ts'],
+    entryPoints: { worker: 'src/server.ts' },
     outdir: 'dist',
     platform: 'browser',
     format: 'iife',

@@ -1,32 +1,11 @@
 {
   "name": "@salesforce/apex-ls",
   "version": "1.0.0",
-  "description": "Apex Language Server for browser, Node.js, and web worker environments - consolidates apex-ls-node and apex-ls-browser functionality",
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "description": "Apex Language Server - provides server.node.js for desktop and worker.global.js for web environments",
   "exports": {
-    ".": {
-      "node": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.mjs",
-        "require": "./dist/index.js"
-      },
-      "browser": {
-        "types": "./dist/browser.d.ts",
-        "import": "./dist/browser.mjs",
-        "require": "./dist/browser.js"
-      },
-      "default": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.mjs",
-        "require": "./dist/index.js"
-      }
-    },
-    "./browser": {
-      "types": "./dist/browser.d.ts",
-      "import": "./dist/browser.mjs",
-      "require": "./dist/browser.js"
+    "./server.node": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/server.node.js"
     },
     "./worker": {
       "types": "./dist/worker.d.ts",
