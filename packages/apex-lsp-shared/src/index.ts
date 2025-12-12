@@ -74,6 +74,9 @@ export * from './client/ApexClientCapabilities';
 // Export priority types
 export * from './types/priority';
 
+// Export document selector utilities
+export * from './document/DocumentSelectorUtils';
+
 // Experimental protocol: Missing Artifact Resolution
 export type RequestKind =
   | 'definition'
@@ -197,6 +200,35 @@ export type FindMissingArtifactResult =
   | { opened: string[] }
   | { notFound: true }
   | { accepted: true };
+
+/**
+ * Result type for findApexTests command
+ */
+export interface FindApexTestsResult {
+  testClasses: Array<{
+    class: {
+      name: string;
+      fileUri: string;
+      location: {
+        uri: string;
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+      };
+    };
+    methods: Array<{
+      name: string;
+      location: {
+        uri: string;
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+      };
+    }>;
+  }>;
+}
 
 export type ProgressToken = number | string;
 

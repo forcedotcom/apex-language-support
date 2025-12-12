@@ -265,6 +265,15 @@ export class LSPQueueManager {
   }
 
   /**
+   * Submit an execute command request
+   */
+  async submitExecuteCommandRequest(params: any): Promise<any> {
+    return this.submitRequest('executeCommand', params, {
+      priority: Priority.Normal,
+    });
+  }
+
+  /**
    * Submit a notification (fire-and-forget, doesn't wait for completion)
    * @param type The notification type
    * @param params The notification parameters

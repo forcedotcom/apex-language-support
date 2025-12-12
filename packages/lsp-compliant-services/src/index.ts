@@ -19,6 +19,7 @@ import {
   CodeLensParams,
   CodeLens,
   DeleteFilesParams,
+  ExecuteCommandParams,
 } from 'vscode-languageserver';
 import type {
   FindMissingArtifactParams,
@@ -67,6 +68,7 @@ export * from './handlers/MissingArtifactHandler';
 export * from './handlers/CodeLensHandler';
 export * from './handlers/QueueStateHandler';
 export * from './handlers/GraphDataHandler';
+export * from './handlers/ExecuteCommandHandler';
 
 // Export services
 export * from './services/DocumentProcessingService';
@@ -90,6 +92,9 @@ export * from './services/SymbolManagerExtensions';
 export * from './services/CodeLensProcessingService';
 export * from './services/QueueStateProcessingService';
 export * from './services/GraphDataProcessingService';
+export * from './services/ExecuteCommandProcessingService';
+export * from './services/commands/CommandHandler';
+export * from './services/commands/FindApexTestsCommandHandler';
 
 // Export factories
 export * from './factories/HandlerFactory';
@@ -316,4 +321,16 @@ export { dispatchProcessOnQueueState } from './utils/handlerUtil';
 export const dispatchProcessOnGraphData = async (params: any): Promise<any> => {
   const handler = HandlerFactory.createGraphDataHandler();
   return await handler.handleGraphData(params);
+};
+
+/**
+ * Dispatch function for execute command requests
+ * @param params The execute command parameters
+ * @returns Promise resolving to command execution result
+ */
+export const dispatchProcessOnExecuteCommand = async (
+  params: ExecuteCommandParams,
+): Promise<any> => {
+  const handler = HandlerFactory.createExecuteCommandHandler();
+  return await handler.handleExecuteCommand(params);
 };

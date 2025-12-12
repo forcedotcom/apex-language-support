@@ -27,7 +27,11 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
   "documentOnTypeFormattingProvider": undefined,
   "documentRangeFormattingProvider": undefined,
   "documentSymbolProvider": true,
-  "executeCommandProvider": undefined,
+  "executeCommandProvider": {
+    "commands": [
+      "apex.findApexTests",
+    ],
+  },
   "experimental": {
     "findMissingArtifactProvider": {
       "enabled": true,
@@ -1643,7 +1647,11 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
       "documentOnTypeFormattingProvider": undefined,
       "documentRangeFormattingProvider": undefined,
       "documentSymbolProvider": true,
-      "executeCommandProvider": undefined,
+      "executeCommandProvider": {
+        "commands": [
+          "apex.findApexTests",
+        ],
+      },
       "experimental": {
         "findMissingArtifactProvider": {
           "enabled": true,
@@ -2384,7 +2392,11 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
         "documentOnTypeFormattingProvider": undefined,
         "documentRangeFormattingProvider": undefined,
         "documentSymbolProvider": true,
-        "executeCommandProvider": undefined,
+        "executeCommandProvider": {
+          "commands": [
+            "apex.findApexTests",
+          ],
+        },
         "experimental": {
           "findMissingArtifactProvider": {
             "enabled": true,
@@ -2526,7 +2538,11 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       "documentOnTypeFormattingProvider": undefined,
       "documentRangeFormattingProvider": undefined,
       "documentSymbolProvider": true,
-      "executeCommandProvider": undefined,
+      "executeCommandProvider": {
+        "commands": [
+          "apex.findApexTests",
+        ],
+      },
       "experimental": {
         "findMissingArtifactProvider": {
           "enabled": true,
@@ -2723,7 +2739,11 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
     "documentOnTypeFormattingProvider": undefined,
     "documentRangeFormattingProvider": undefined,
     "documentSymbolProvider": true,
-    "executeCommandProvider": undefined,
+    "executeCommandProvider": {
+      "commands": [
+        "apex.findApexTests",
+      ],
+    },
     "experimental": {
       "findMissingArtifactProvider": {
         "enabled": true,
@@ -2866,7 +2886,11 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
   "documentOnTypeFormattingProvider": undefined,
   "documentRangeFormattingProvider": undefined,
   "documentSymbolProvider": true,
-  "executeCommandProvider": undefined,
+  "executeCommandProvider": {
+    "commands": [
+      "apex.findApexTests",
+    ],
+  },
   "experimental": {
     "findMissingArtifactProvider": {
       "enabled": true,

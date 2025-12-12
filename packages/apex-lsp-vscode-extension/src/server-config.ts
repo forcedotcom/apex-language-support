@@ -10,11 +10,11 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import {
   LanguageClientOptions,
-  ServerOptions,
-  TransportKind,
   CloseAction,
   ErrorAction,
-} from 'vscode-languageclient/node';
+  ServerOptions,
+  TransportKind,
+} from 'vscode-languageclient/lib/node/main';
 import { getDebugConfig, getWorkspaceSettings } from './configuration';
 import {
   logServerMessage,
@@ -23,6 +23,7 @@ import {
 } from './logging';
 import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
 import { determineServerMode } from './utils/serverUtils';
+import { getDocumentSelectorsFromSettings } from '@salesforce/apex-lsp-shared';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -212,7 +213,8 @@ export const createServerOptions = (
       'debug',
     );
   } else {
-    serverModule = context.asAbsolutePath('dist/server.node.js');
+    // In production, files are packaged at the root (package command runs from dist/)
+    serverModule = context.asAbsolutePath('server.node.js');
     logServerMessage(`Using production files: ${serverModule}`, 'debug');
   }
 
@@ -299,11 +301,10 @@ export const createServerOptions = (
 export const createClientOptions = (
   initializationOptions: any,
 ): LanguageClientOptions => ({
-  documentSelector: [
-    { scheme: 'file', language: 'apex' },
-    { scheme: 'apexlib', language: 'apex' },
-    { scheme: 'file', language: 'apex-anon' },
-  ],
+  documentSelector: getDocumentSelectorsFromSettings(
+    'all',
+    initializationOptions,
+  ),
   synchronize: {
     fileEvents: vscode.workspace.createFileSystemWatcher(
       '**/*.{cls,trigger,apex}',

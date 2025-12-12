@@ -77,26 +77,27 @@
     "clean:all": {
       "cache": false
     },
-    "apex-lsp-vscode-extension#precompile": {
+    "apex-language-server-extension#precompile": {
       "dependsOn": [
         "^precompile",
         "@salesforce/apex-lsp-parser-ast#precompile"
       ],
       "outputs": ["grammars/**"]
     },
-    "apex-lsp-vscode-extension#bundle": {
+    "apex-language-server-extension#bundle": {
       "dependsOn": [
         "postcompile",
+        "@salesforce/apex-lsp-compliant-services#compile",
         "@salesforce/apex-ls#compile",
-        "@salesforce/apex-lsp-compliant-services#compile"
+        "@salesforce/apex-ls#bundle"
       ],
       "outputs": ["extension/**", "dist/**", "server-bundle/**"]
     },
-    "apex-lsp-vscode-extension#copy-worker-files": {
+    "apex-language-server-extension#copy-worker-files": {
       "dependsOn": ["bundle", "@salesforce/apex-ls#bundle"],
       "outputs": ["dist/**"]
     },
-    "apex-lsp-vscode-extension#compile": {
+    "apex-language-server-extension#compile": {
       "dependsOn": [
         "precompile",
         "^precompile",
@@ -106,13 +107,17 @@
       ],
       "outputs": ["out/**", "*.tsbuildinfo"]
     },
-    "apex-lsp-vscode-extension#postcompile": {
+    "apex-language-server-extension#postcompile": {
       "dependsOn": ["compile", "@salesforce/apex-lsp-parser-ast#compile"],
       "outputs": ["out/**"]
     },
-    "apex-lsp-vscode-extension#package": {
+    "apex-language-server-extension#package": {
       "dependsOn": ["copy-worker-files", "^package"],
       "outputs": ["*.vsix"]
+    },
+    "@salesforce/apex-ls#bundle": {
+      "dependsOn": ["compile", "^compile", "^bundle"],
+      "outputs": ["dist/**"]
     },
     "@salesforce/apex-ls#rebuild": {
       "dependsOn": ["clean", "precompile", "^precompile", "compile", "bundle"],

@@ -28,6 +28,25 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
     Low: 4,
     Background: 5,
   },
+  getDocumentSelectorsFromSettings: jest.fn((capability: string) => {
+    // Return default selectors based on capability
+    if (capability === 'codeLens') {
+      return [
+        { scheme: 'file', language: 'apex' },
+        { scheme: 'file', language: 'apex-anon' },
+        { scheme: 'vscode-test-web', language: 'apex' },
+        { scheme: 'vscode-test-web', language: 'apex-anon' },
+      ];
+    }
+    // For all other capabilities
+    return [
+      { scheme: 'file', language: 'apex' },
+      { scheme: 'file', language: 'apex-anon' },
+      { scheme: 'vscode-test-web', language: 'apex' },
+      { scheme: 'apexlib', language: 'apex' },
+      { scheme: 'vscode-test-web', language: 'apex-anon' },
+    ];
+  }),
 }));
 
 // Mock the connection
@@ -64,6 +83,13 @@ describe('LCSAdapter Capabilities Alignment', () => {
     mockConfigManager = {
       getCapabilities: jest.fn(),
       setInitialSettings: jest.fn(),
+      getSettings: jest.fn().mockReturnValue({
+        apex: {
+          environment: {
+            additionalDocumentSchemes: undefined,
+          },
+        },
+      }),
     } as any;
 
     // Mock the getInstance method
@@ -332,25 +358,31 @@ describe('LCSAdapter Capabilities Alignment', () => {
   });
 
   describe('Document Selector Consistency', () => {
-    it('should maintain consistent document selectors across all dynamic registrations', () => {
-      const expectedDocumentSelectors = [
+    it('should use capability-aware document selectors', () => {
+      // Most capabilities should include file, apexlib, and vscode-test-web
+      const expectedSelectorsForMost = [
         { scheme: 'file', language: 'apex' },
+        { scheme: 'file', language: 'apex-anon' },
         { scheme: 'vscode-test-web', language: 'apex' },
+        { scheme: 'apexlib', language: 'apex' },
+        { scheme: 'vscode-test-web', language: 'apex-anon' },
       ];
 
-      // This test ensures that all dynamic registrations use the same document selectors
-      // that match the client-side configuration
-      expect(expectedDocumentSelectors).toMatchSnapshot(
-        'consistent-document-selectors',
+      // CodeLens should exclude apexlib
+      const expectedSelectorsForCodeLens = [
+        { scheme: 'file', language: 'apex' },
+        { scheme: 'file', language: 'apex-anon' },
+        { scheme: 'vscode-test-web', language: 'apex' },
+        { scheme: 'vscode-test-web', language: 'apex-anon' },
+      ];
+
+      // This test ensures that document selectors are capability-aware
+      expect(expectedSelectorsForMost).toMatchSnapshot(
+        'document-selectors-for-most-capabilities',
       );
-
-      // Verify the selectors match what's used in the VSCode extension
-      const clientDocumentSelectors = [
-        { scheme: 'file', language: 'apex' },
-        { scheme: 'vscode-test-web', language: 'apex' },
-      ];
-
-      expect(expectedDocumentSelectors).toEqual(clientDocumentSelectors);
+      expect(expectedSelectorsForCodeLens).toMatchSnapshot(
+        'document-selectors-for-codelens',
+      );
     });
   });
 });

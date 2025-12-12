@@ -13,119 +13,197 @@ import {
   configureWebWorkerPolyfills,
 } from '../../build-config/tsup.shared';
 import { copyFileSync, existsSync } from 'fs';
+import { Plugin } from 'esbuild';
 
-// External dependencies for Node.js builds
-// These are kept external to leverage the existing Node.js runtime modules
-const APEX_LS_EXTERNAL = [
-  // VSCode Language Server Protocol (Node.js specific)
-  'vscode-languageserver/node',
-  'vscode-jsonrpc/node',
-
-  // Parser engine - large Salesforce Apex grammar parser (~2MB)
-  '@apexdevtools/apex-parser',
-  // ANTLR4 TypeScript runtime - grammar processing engine
-  'antlr4ts',
-
-  // AST and symbol processing - complex analysis engine
+// -----------------------------
+// Configuration: adjust as needed
+// -----------------------------
+const MONOREPO_LOCAL_PACKAGES = [
   '@salesforce/apex-lsp-parser-ast',
-  // Custom services - specialized language features
   '@salesforce/apex-lsp-custom-services',
-
-  // Node.js built-in and utility modules
-  'node-dir', // Directory scanning utilities
-  'crypto', // Cryptographic functions
-  'fs', // File system operations
-  'path', // Path manipulation utilities
-];
-
-// Worker-specific externals for web worker builds
-const WORKER_EXTERNAL = [
-  // Parser engine - large Salesforce Apex grammar parser (~2MB)
-  '@apexdevtools/apex-parser',
-  // ANTLR4 TypeScript runtime - grammar processing engine
-  'antlr4ts',
-
-  // AST and symbol processing - complex analysis engine
-  '@salesforce/apex-lsp-parser-ast',
-  // Custom services - specialized language features
-  '@salesforce/apex-lsp-custom-services',
-
-  // Heavy utility libraries that can be kept external
-  'data-structure-typed', // Advanced data structures and algorithms
-  'effect', // Functional programming utilities and effects
-
-  // Node.js modules - not available in web worker context
-  'node-dir', // Directory scanning utilities
-];
-
-// Always bundle these essential dependencies
-// Core functionality needed for all language server operations
-const APEX_LS_BUNDLE = [
-  // Shared utilities - lightweight, essential for all language server operations
   '@salesforce/apex-lsp-shared',
-
-  // Core LSP services - always needed since lazy loading was removed
   '@salesforce/apex-lsp-compliant-services',
-
-  // VSCode LSP Protocol libraries - essential for LSP communication
-  'vscode-languageserver-textdocument', // Document lifecycle management
-  'vscode-languageserver-protocol', // LSP message types and interfaces
-  'vscode-jsonrpc', // JSON-RPC communication protocol
+  '@apexdevtools/apex-parser',
 ];
 
-// Copy type definitions helper
+const FORCE_RESOLVE_MODULES = [
+  // hoisted third-party deps
+  'antlr4ts',
+
+  // local monorepo packages (ensure resolved from repo root)
+  ...MONOREPO_LOCAL_PACKAGES,
+
+  // lsp runtime entrypoints (v9)
+  'vscode-languageserver',
+  'vscode-languageserver/lib/node/main',
+  'vscode-languageclient',
+  'vscode-languageclient/lib/node/main',
+];
+
+// Node builtin modules that should remain external (not bundled)
+const NODE_BUILTINS_EXTERNAL = ['fs', 'path', 'crypto'];
+
+// Packages that must be bundled into the Node server (noExternal)
+const NODE_NO_EXTERNAL = [
+  // monorepo
+  ...MONOREPO_LOCAL_PACKAGES,
+
+  // third-party required at runtime
+  '@apexdevtools/apex-parser',
+  'antlr4ts',
+  'vscode-languageserver-textdocument',
+  'vscode-languageserver-protocol',
+  'vscode-jsonrpc',
+
+  // IMPORTANT v9 nodes
+  'vscode-languageserver',
+  'vscode-languageserver/lib/node/main',
+  'vscode-languageclient',
+  'vscode-languageclient/lib/node/main',
+  'node-dir',
+];
+
+// Worker/browser externals (things too large or Node-only for worker)
+const WORKER_EXTERNAL = [
+  '@apexdevtools/apex-parser',
+  'antlr4ts',
+  '@salesforce/apex-lsp-parser-ast',
+  '@salesforce/apex-lsp-custom-services',
+  'data-structure-typed',
+  'effect',
+  'node-dir',
+];
+
+// Helper: copy d.ts produced by other pipeline steps into dist
 const copyDtsFiles = async (): Promise<void> => {
   const files = ['index.d.ts', 'browser.d.ts', 'worker.d.ts'];
-  files.forEach((file) => {
+  for (const file of files) {
     if (existsSync(`out/${file}`)) {
       copyFileSync(`out/${file}`, `dist/${file}`);
-      console.log(`✅ Copied ${file}`);
+      console.log(`Copied ${file}`);
     }
-  });
+  }
 };
 
+// -----------------------------
+// Esbuild plugin: force-local resolution for hoisted/monorepo deps
+// -----------------------------
+function forceLocalResolvePlugin(modulesToForce: string[]): Plugin {
+  return {
+    name: 'force-local-resolve',
+    setup(build) {
+      const filter = new RegExp(
+        `^(${modulesToForce.map((m) => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(/.*)?$`,
+      );
+
+      build.onResolve({ filter }, (args: any) => {
+        // Attempt to resolve from the current package root (process.cwd()),
+        // which for CI/local builds should be the monorepo package directory.
+        // Using require.resolve with paths ensures we pick up hoisted modules at repo root.
+        try {
+          const spec = args.path;
+          // If the import includes a subpath like "pkg/lib/x", require.resolve that exact path
+          // otherwise resolve package entrypoint.
+          const resolved = require.resolve(spec, { paths: [process.cwd()] });
+          return { path: resolved };
+        } catch (_err) {
+          // Fallback to default resolution: let esbuild continue if we couldn't resolve here.
+          return null;
+        }
+      });
+    },
+  };
+}
+
+// -----------------------------
+// Final tsup config
+// -----------------------------
 export default defineConfig([
-  // Node.js library build
+  // -------------------------
+  // Node library (index)
+  // -------------------------
   {
-    name: 'node',
+    name: 'node-lib',
     ...nodeBaseConfig,
     entry: { index: 'src/index.ts' },
-    format: ['cjs', 'esm'], // Keep both for compatibility
+    format: ['cjs', 'esm'],
     outDir: 'dist',
-    external: APEX_LS_EXTERNAL,
-    noExternal: APEX_LS_BUNDLE,
+    // Leave true Node builtins external; bundle everything else including monorepo packages
+    external: NODE_BUILTINS_EXTERNAL,
+    noExternal: NODE_NO_EXTERNAL,
     onSuccess: copyDtsFiles,
+    esbuildOptions(options) {
+      options.plugins = [
+        ...(options.plugins ?? []),
+        forceLocalResolvePlugin(FORCE_RESOLVE_MODULES),
+      ];
+      // Ensure standard resolution strategy favors package.json "module" then "main"
+      options.mainFields = ['module', 'main'];
+      options.conditions = ['import', 'module', 'default'];
+    },
   },
 
-  // Node.js server build (no polyfills)
+  // -------------------------
+  // Node LSP server (server.node.js) — what VSCode uses at runtime
+  // Must produce a self-contained CJS bundle that VSCode can load directly.
+  // -------------------------
   {
     name: 'node-server',
     ...nodeBaseConfig,
     entry: { 'server.node': 'src/server.node.ts' },
     format: ['cjs'],
     outDir: 'dist',
-    external: APEX_LS_EXTERNAL,
-    noExternal: APEX_LS_BUNDLE,
     sourcemap: true,
+    // Externalize only builtins — bundle everything else (monorepo packages, antlr4ts, LSP runtime)
+    external: NODE_BUILTINS_EXTERNAL,
+    noExternal: NODE_NO_EXTERNAL,
+    esbuildOptions(options) {
+      options.plugins = [
+        ...(options.plugins ?? []),
+        forceLocalResolvePlugin(FORCE_RESOLVE_MODULES),
+      ];
+
+      // Ensure TS/ESM semantics that prefer module fields
+      options.mainFields = ['module', 'main'];
+      options.conditions = ['import', 'module', 'default'];
+
+      // Keep Node-targeted builds targeting the right Node version (adjust if you need older)
+      options.target = 'node18';
+    },
   },
 
-  // Browser library build
+  // -------------------------
+  // Browser build (library)
+  // -------------------------
   {
     name: 'browser',
     ...browserBaseConfig,
     entry: { browser: 'src/index.browser.ts' },
     format: ['cjs', 'esm'],
     outDir: 'dist',
-    external: APEX_LS_EXTERNAL,
-    noExternal: APEX_LS_BUNDLE,
+    // Browser build: externalize heavy/Node-only modules (WORKER_EXTERNAL),
+    // but still bundle shared monorepo code that is browser-safe.
+    external: WORKER_EXTERNAL,
+    // Do NOT include Node-only LSP runtimes in browser noExternal
+    noExternal: [
+      // Keep browser noExternal to include shared monorepo packages that are browser safe
+      '@salesforce/apex-lsp-shared',
+      '@salesforce/apex-lsp-compliant-services',
+      // include other small runtime libs if required by the browser bundle
+    ],
     esbuildOptions(options) {
+      options.plugins = [
+        ...(options.plugins ?? []),
+        forceLocalResolvePlugin(FORCE_RESOLVE_MODULES),
+      ];
       options.conditions = ['browser', 'import', 'module', 'default'];
       options.mainFields = ['browser', 'module', 'main'];
-      // Simplified - let tsup handle most polyfills automatically
     },
   },
 
-  // Full Web Worker build with direct LCS integration
+  // -------------------------
+  // Worker build (web worker server)
+  // -------------------------
   {
     name: 'worker',
     entry: { worker: 'src/server.ts' },
@@ -134,28 +212,33 @@ export default defineConfig([
     format: ['iife'],
     target: 'es2022',
     sourcemap: true,
-    minify: false, // Disable minification for better debugging
+    minify: false,
     metafile: true,
+    // Keep very large / node-only libs external for worker; worker loader will fetch them or use a different strategy
     external: WORKER_EXTERNAL,
-    noExternal: APEX_LS_BUNDLE,
+    // The worker still needs some shared small pieces - include only what is safe
+    noExternal: [
+      '@salesforce/apex-lsp-shared',
+      // other small shared modules if needed
+    ],
     splitting: false,
     esbuildOptions(options) {
-      // Apply comprehensive web worker polyfill configuration
       configureWebWorkerPolyfills(options);
+      options.plugins = [
+        ...(options.plugins ?? []),
+        forceLocalResolvePlugin(FORCE_RESOLVE_MODULES),
+      ];
 
-      // Add plugin to handle dynamic requires at build time
-      options.plugins = [...(options.plugins ?? [])];
+      // plugin to rewrite some Node shims where necessary (you already had one; keep it)
       options.plugins.push({
         name: 'dynamic-require-resolver',
         setup(build: any) {
-          // Intercept dynamic require() calls for Node.js modules
           build.onResolve(
             {
               filter:
                 /^(buffer|process|util|path|fs|crypto|stream|events|assert|os|url)$/,
             },
             (args: any) => {
-              // Map to the polyfill versions from NODE_POLYFILLS
               const polyfillMap: Record<string, string> = {
                 buffer: 'buffer',
                 process: 'process/browser',
@@ -170,13 +253,16 @@ export default defineConfig([
                 url: 'url-browserify',
               };
               return {
-                path: polyfillMap[args.path] || args.path,
-                external: false, // Force bundling
+                path: polyfillMap[args.path] ?? args.path,
+                external: false,
               };
             },
           );
         },
       });
+
+      options.mainFields = ['browser', 'module', 'main'];
+      options.conditions = ['browser', 'import', 'module', 'default'];
     },
   },
 ]);

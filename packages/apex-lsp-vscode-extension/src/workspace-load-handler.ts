@@ -12,6 +12,7 @@ import type {
   LoadWorkspaceResult,
   ProgressToken,
 } from '@salesforce/apex-lsp-shared';
+import { getDefaultDocumentSelectors } from '@salesforce/apex-lsp-shared';
 import { loadWorkspaceForServer } from './workspace-loader';
 
 // WorkspaceState service
@@ -76,11 +77,9 @@ const setWorkspaceFailed = (flag: boolean) =>
     Effect.flatMap((s) => Ref.set(s.hasFailed, flag)),
   );
 
-const validateDocumentSelector = Effect.succeed([
-  { scheme: 'file', language: 'apex' },
-  { scheme: 'vscode-test-web', language: 'apex' },
-  { scheme: 'apexlib', language: 'apex' },
-]);
+const validateDocumentSelector = Effect.succeed(
+  getDefaultDocumentSelectors('all'),
+);
 
 // Loader
 const launchWorkspaceLoaderEffect = (

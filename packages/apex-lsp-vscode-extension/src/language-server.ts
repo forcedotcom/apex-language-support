@@ -13,8 +13,12 @@ import type {
   RuntimePlatform,
   LogMessageType,
 } from '@salesforce/apex-lsp-shared';
-import { getClientCapabilitiesForMode } from '@salesforce/apex-lsp-shared';
+import {
+  getClientCapabilitiesForMode,
+  getDocumentSelectorsFromSettings,
+} from '@salesforce/apex-lsp-shared';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
+import type { BaseLanguageClient } from 'vscode-languageclient';
 import {
   logToOutputChannel,
   getWorkerServerOutputChannel,
@@ -48,6 +52,12 @@ import {
  * Global language client instance
  */
 let Client: ClientInterface | undefined;
+
+/**
+ * Raw LanguageClient instance (for extension API export)
+ * Note: This can be either browser or node LanguageClient, both extend BaseLanguageClient
+ */
+let LanguageClientInstance: BaseLanguageClient | undefined;
 
 /**
  * Shared workspace load layer - created once and reused across all requests
@@ -314,17 +324,17 @@ async function createWebLanguageClient(
 
   let languageClient: any;
   try {
+    // Get document selectors from settings (using 'all' capability to get all schemes)
+    const documentSelector = getDocumentSelectorsFromSettings(
+      'all',
+      initOptions,
+    );
+
     languageClient = new LanguageClient(
       'apex-language-server',
       'Apex Language Server Extension (Worker/Server)',
       {
-        documentSelector: [
-          { scheme: 'file', language: 'apex' },
-          { scheme: 'file', language: 'apex-anon' },
-          { scheme: 'vscode-test-web', language: 'apex' },
-          { scheme: 'apexlib', language: 'apex' },
-          { scheme: 'vscode-test-web', language: 'apex-anon' },
-        ],
+        documentSelector,
         synchronize: {
           configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
         },
@@ -484,6 +494,9 @@ async function createWebLanguageClient(
       'info',
     );
   });
+
+  // Store raw LanguageClient instance for extension API
+  LanguageClientInstance = languageClient;
 
   // Store client for disposal with ClientInterface wrapper
   logToOutputChannel('Setting global Client to web client', 'debug');
@@ -795,11 +808,11 @@ async function createDesktopLanguageClient(
   );
 
   // Import server configuration and language client in parallel
-  const [{ createServerOptions, createClientOptions }, { LanguageClient }] =
-    await Promise.all([
-      import('./server-config'),
-      import('vscode-languageclient/node'),
-    ]);
+  const serverConfig = await import('./server-config');
+  const clientModule = await import('vscode-languageclient/lib/node/main');
+
+  const { createServerOptions, createClientOptions } = serverConfig;
+  const { LanguageClient } = clientModule;
 
   // Create server and client options
   const serverOptions = createServerOptions(context);
@@ -826,6 +839,9 @@ async function createDesktopLanguageClient(
 
   // Start the client and language server
   await nodeClient.start();
+
+  // Store raw LanguageClient instance for extension API
+  LanguageClientInstance = nodeClient;
 
   // Wrap in ClientInterface to match our global Client type
   logToOutputChannel('Setting global Client to desktop client', 'debug');
@@ -1092,6 +1108,7 @@ export async function stopLanguageServer(): Promise<void> {
     try {
       Client.dispose();
       Client = undefined;
+      LanguageClientInstance = undefined;
       logToOutputChannel('✅ Language server stopped', 'info');
     } catch (error) {
       logToOutputChannel(
@@ -1109,4 +1126,11 @@ export async function stopLanguageServer(): Promise<void> {
  */
 export function getClient(): ClientInterface | undefined {
   return Client;
+}
+
+/**
+ * Gets the raw LanguageClient instance for extension API export
+ */
+export function getLanguageClient(): BaseLanguageClient | undefined {
+  return LanguageClientInstance;
 }
