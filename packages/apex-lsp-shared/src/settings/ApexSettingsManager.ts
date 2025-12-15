@@ -26,6 +26,7 @@ import {
   mergeWithExisting,
   validateApexSettings,
 } from './ApexSettingsUtilities';
+import { validateAdditionalDocumentSchemes } from '../document/DocumentSelectorUtils';
 
 /**
  * Event listener for settings changes
@@ -313,6 +314,20 @@ export class ApexSettingsManager {
       const logLevel = newSettings.apex.logLevel;
       this.logger.debug(() => `Log level set to: ${logLevel ?? ''}`);
       setLogLevel(logLevel);
+    }
+
+    // Validate additional document schemes if provided
+    if (newSettings?.apex?.environment?.additionalDocumentSchemes) {
+      const validation = validateAdditionalDocumentSchemes(
+        newSettings.apex.environment.additionalDocumentSchemes,
+        this.logger,
+      );
+      if (!validation.isValid && validation.warnings.length > 0) {
+        this.logger.warn(
+          () =>
+            `Document scheme validation warnings: ${validation.warnings.join('; ')}`,
+        );
+      }
     }
 
     const previousSettings = { ...this.currentSettings };

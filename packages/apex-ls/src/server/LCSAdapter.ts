@@ -26,6 +26,7 @@ import {
   ClientCapabilities,
   Registration,
   ServerCapabilities,
+  ExecuteCommandParams,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -40,6 +41,7 @@ import {
   LoadWorkspaceResult,
   PingResponse,
   formattedError,
+  getDocumentSelectorsFromSettings,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -63,6 +65,7 @@ import {
   initializeLSPQueueManager,
   dispatchProcessOnQueueState,
   dispatchProcessOnGraphData,
+  dispatchProcessOnExecuteCommand,
 } from '@salesforce/apex-lsp-compliant-services';
 
 import {
@@ -514,6 +517,31 @@ export class LCSAdapter {
       },
     );
     this.logger.debug('✅ apexlib/resolve handler registered');
+
+    // Register workspace/executeCommand handler
+    if (capabilities.executeCommandProvider) {
+      this.connection.onExecuteCommand(
+        async (params: ExecuteCommandParams): Promise<any> => {
+          this.logger.debug(
+            () =>
+              `🔍 workspace/executeCommand request received: ${params.command}`,
+          );
+          try {
+            return await dispatchProcessOnExecuteCommand(params);
+          } catch (error) {
+            this.logger.error(
+              () => `Error processing executeCommand: ${formattedError(error)}`,
+            );
+            throw error;
+          }
+        },
+      );
+      this.logger.debug('✅ workspace/executeCommand handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ workspace/executeCommand handler not registered (capability disabled)',
+      );
+    }
 
     // Register custom apex/loadWorkspace handler
     this.connection.onRequest(
@@ -1331,6 +1359,7 @@ export class LCSAdapter {
   private async registerDynamicCapabilities(): Promise<void> {
     const capabilities =
       LSPConfigurationManager.getInstance().getCapabilities();
+    const settings = LSPConfigurationManager.getInstance().getSettings();
     const registrations: Registration[] = [];
 
     this.logger.debug('🔧 Starting dynamic capability registration...');
@@ -1353,13 +1382,10 @@ export class LCSAdapter {
         id: 'apex-document-symbol',
         method: 'textDocument/documentSymbol',
         registerOptions: {
-          documentSelector: [
-            { scheme: 'file', language: 'apex' },
-            { scheme: 'file', language: 'apex-anon' },
-            { scheme: 'vscode-test-web', language: 'apex' },
-            { scheme: 'apexlib', language: 'apex' },
-            { scheme: 'vscode-test-web', language: 'apex-anon' },
-          ],
+          documentSelector: getDocumentSelectorsFromSettings(
+            'documentSymbol',
+            settings,
+          ),
         },
       });
     }
@@ -1372,13 +1398,7 @@ export class LCSAdapter {
         id: 'apex-hover',
         method: 'textDocument/hover',
         registerOptions: {
-          documentSelector: [
-            { scheme: 'file', language: 'apex' },
-            { scheme: 'file', language: 'apex-anon' },
-            { scheme: 'vscode-test-web', language: 'apex' },
-            { scheme: 'apexlib', language: 'apex' },
-            { scheme: 'vscode-test-web', language: 'apex-anon' },
-          ],
+          documentSelector: getDocumentSelectorsFromSettings('hover', settings),
         },
       });
     }
@@ -1391,13 +1411,10 @@ export class LCSAdapter {
         id: 'apex-folding-range',
         method: 'textDocument/foldingRange',
         registerOptions: {
-          documentSelector: [
-            { scheme: 'file', language: 'apex' },
-            { scheme: 'file', language: 'apex-anon' },
-            { scheme: 'vscode-test-web', language: 'apex' },
-            { scheme: 'apexlib', language: 'apex' },
-            { scheme: 'vscode-test-web', language: 'apex-anon' },
-          ],
+          documentSelector: getDocumentSelectorsFromSettings(
+            'foldingRange',
+            settings,
+          ),
         },
       });
     }
@@ -1410,13 +1427,10 @@ export class LCSAdapter {
         id: 'apex-diagnostic',
         method: 'textDocument/diagnostic',
         registerOptions: {
-          documentSelector: [
-            { scheme: 'file', language: 'apex' },
-            { scheme: 'file', language: 'apex-anon' },
-            { scheme: 'vscode-test-web', language: 'apex' },
-            { scheme: 'apexlib', language: 'apex' },
-            { scheme: 'vscode-test-web', language: 'apex-anon' },
-          ],
+          documentSelector: getDocumentSelectorsFromSettings(
+            'diagnostic',
+            settings,
+          ),
           identifier: 'apex-ls-ts',
           interFileDependencies:
             capabilities.diagnosticProvider.interFileDependencies,
@@ -1434,13 +1448,10 @@ export class LCSAdapter {
         id: 'apex-completion',
         method: 'textDocument/completion',
         registerOptions: {
-          documentSelector: [
-            { scheme: 'file', language: 'apex' },
-            { scheme: 'file', language: 'apex-anon' },
-            { scheme: 'vscode-test-web', language: 'apex' },
-            { scheme: 'apexlib', language: 'apex' },
-            { scheme: 'vscode-test-web', language: 'apex-anon' },
-          ],
+          documentSelector: getDocumentSelectorsFromSettings(
+            'completion',
+            settings,
+          ),
           triggerCharacters: capabilities.completionProvider.triggerCharacters,
           resolveProvider: capabilities.completionProvider.resolveProvider,
         },
@@ -1455,13 +1466,10 @@ export class LCSAdapter {
         id: 'apex-definition',
         method: 'textDocument/definition',
         registerOptions: {
-          documentSelector: [
-            { scheme: 'file', language: 'apex' },
-            { scheme: 'file', language: 'apex-anon' },
-            { scheme: 'vscode-test-web', language: 'apex' },
-            { scheme: 'apexlib', language: 'apex' },
-            { scheme: 'vscode-test-web', language: 'apex-anon' },
-          ],
+          documentSelector: getDocumentSelectorsFromSettings(
+            'definition',
+            settings,
+          ),
         },
       });
     }
@@ -1475,12 +1483,10 @@ export class LCSAdapter {
         id: 'apex-codeLens',
         method: 'textDocument/codeLens',
         registerOptions: {
-          documentSelector: [
-            { scheme: 'file', language: 'apex' },
-            { scheme: 'file', language: 'apex-anon' },
-            { scheme: 'vscode-test-web', language: 'apex' },
-            { scheme: 'vscode-test-web', language: 'apex-anon' },
-          ],
+          documentSelector: getDocumentSelectorsFromSettings(
+            'codeLens',
+            settings,
+          ),
           resolveProvider: capabilities.codeLensProvider.resolveProvider,
         },
       });

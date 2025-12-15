@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { createConnection, ProposedFeatures } from 'vscode-languageserver/node';
+import {
+  createConnection,
+  ProposedFeatures,
+} from 'vscode-languageserver/lib/node/main';
 
 import {
   setLoggerFactory,
