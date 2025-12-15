@@ -9,13 +9,25 @@
 import type { BuildOptions } from 'esbuild';
 import { nodeBaseConfig, runBuilds } from '@salesforce/esbuild-presets';
 
+/**
+ * External dependencies for lsp-compliant-services.
+ *
+ * These are kept external because:
+ * 1. They're peer dependencies that should be provided by the consuming package
+ * 2. The consuming package (apex-ls) will handle bundling them for the final VSIX
+ *
+ * Include all path variants (base, /node, /browser) to ensure consistent resolution.
+ */
 const external = [
   'vscode-languageserver',
   'vscode-languageserver/node',
   'vscode-languageserver/browser',
   'vscode-languageserver-protocol',
+  'vscode-languageserver-protocol/node',
+  'vscode-languageserver-protocol/browser',
   'vscode-jsonrpc',
   'vscode-jsonrpc/node',
+  'vscode-jsonrpc/browser',
 ];
 
 const builds: BuildOptions[] = [

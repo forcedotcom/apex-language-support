@@ -16,19 +16,36 @@ import {
 
 /**
  * External dependencies for Node.js server build.
- * These are resolved at runtime from node_modules.
+ *
+ * IMPORTANT: vscode-languageserver/node and vscode-jsonrpc/node should NOT be
+ * external because the server.node.js is spawned as a separate Node.js process
+ * by VS Code and won't have access to node_modules in the packaged VSIX.
+ * These must be bundled into server.node.js for the extension to work.
+ *
+ * Similarly, all @salesforce/apex-lsp-* workspace packages must be bundled
+ * since the VSIX doesn't include node_modules.
+ *
+ * Node built-ins (crypto, fs, path) are resolved from Node.js itself.
  */
 const NODE_SERVER_EXTERNAL = [
-  'vscode-languageserver/node',
-  'vscode-jsonrpc/node',
-  '@apexdevtools/apex-parser',
-  'antlr4ts',
-  '@salesforce/apex-lsp-parser-ast',
-  '@salesforce/apex-lsp-custom-services',
-  'node-dir',
+  // Node.js built-ins - always available in Node runtime
   'crypto',
   'fs',
   'path',
+  'os',
+  'url',
+  'stream',
+  'util',
+  'events',
+  'assert',
+  'node:util', // Used by vscode-languageserver/node internally
+  'node:fs',
+  'node:path',
+  'node:os',
+  'node:stream',
+  'node:events',
+  // node-dir uses fs/path internally, safe to bundle
+  // Anything else used at runtime needs to be bundled or use Node built-ins
 ];
 
 /**
@@ -48,6 +65,7 @@ const WORKER_EXTERNAL: string[] = [
 
 const builds: BuildOptions[] = [
   // Node.js server build - used by desktop VSCode extension
+  // This bundle is spawned as a separate Node.js process by VS Code
   {
     ...nodeBaseConfig,
     entryPoints: { 'server.node': 'src/server.node.ts' },
@@ -56,6 +74,18 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     external: NODE_SERVER_EXTERNAL,
     keepNames: true,
+    // Redirect browser imports to node versions for Node.js builds
+    // This is needed because LCSAdapter imports from vscode-languageserver/browser
+    // Also ensure all vscode-languageserver-protocol paths resolve to the node version
+    alias: {
+      'vscode-languageserver/browser': 'vscode-languageserver/node',
+      'vscode-jsonrpc/browser': 'vscode-jsonrpc/node',
+      'vscode-languageserver-protocol/browser':
+        'vscode-languageserver-protocol/node',
+    },
+    // Ensure Node.js resolution for vscode-languageserver packages
+    conditions: ['node', 'require', 'default'],
+    mainFields: ['main', 'module'],
   },
   // Worker build - used by web VSCode extension
   // Produces worker.global.js as an IIFE bundle for Web Worker context
