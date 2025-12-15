@@ -90,6 +90,26 @@ export interface EnvironmentSettings {
    *  Values above 16 GB may cause performance issues if system memory is insufficient.
    */
   jsHeapSizeGB?: number;
+
+  /**
+   * Additional document schemes to include in document selectors.
+   * Default schemes per capability are immutable and cannot be removed.
+   * Additional schemes apply to all capabilities by default.
+   * Use excludeCapabilities to exclude specific capabilities from a scheme.
+   *
+   * Default schemes:
+   * - Most capabilities (documentSymbol, hover, foldingRange, diagnostic, completion, definition):
+   *   include 'file', 'apexlib', 'vscode-test-web' for both 'apex' and 'apex-anon'
+   * - CodeLens: includes 'file', 'vscode-test-web' only (excludes 'apexlib')
+   *
+   * Languages ('apex', 'apex-anon') are immutable and not configurable.
+   */
+  additionalDocumentSchemes?: Array<{
+    /** The scheme name to add */
+    scheme: string;
+    /** Optional array of capability names to exclude this scheme from */
+    excludeCapabilities?: string[];
+  }>;
 }
 
 /**

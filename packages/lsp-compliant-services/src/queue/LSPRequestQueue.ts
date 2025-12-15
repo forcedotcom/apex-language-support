@@ -27,7 +27,8 @@ export type LSPRequestType =
   | 'documentSave'
   | 'documentChange'
   | 'documentClose'
-  | 'findMissingArtifact';
+  | 'findMissingArtifact'
+  | 'executeCommand';
 
 /**
  * LSP request task interface
