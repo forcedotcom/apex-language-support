@@ -122,14 +122,47 @@ exports[`LCSAdapter Capabilities Alignment Capability Registration Logic should 
 }
 `;
 
-exports[`LCSAdapter Capabilities Alignment Document Selector Consistency should maintain consistent document selectors across all dynamic registrations: consistent-document-selectors 1`] = `
+exports[`LCSAdapter Capabilities Alignment Document Selector Consistency should use capability-aware document selectors: document-selectors-for-codelens 1`] = `
 [
   {
     "language": "apex",
     "scheme": "file",
   },
   {
+    "language": "apex-anon",
+    "scheme": "file",
+  },
+  {
     "language": "apex",
+    "scheme": "vscode-test-web",
+  },
+  {
+    "language": "apex-anon",
+    "scheme": "vscode-test-web",
+  },
+]
+`;
+
+exports[`LCSAdapter Capabilities Alignment Document Selector Consistency should use capability-aware document selectors: document-selectors-for-most-capabilities 1`] = `
+[
+  {
+    "language": "apex",
+    "scheme": "file",
+  },
+  {
+    "language": "apex-anon",
+    "scheme": "file",
+  },
+  {
+    "language": "apex",
+    "scheme": "vscode-test-web",
+  },
+  {
+    "language": "apex",
+    "scheme": "apexlib",
+  },
+  {
+    "language": "apex-anon",
     "scheme": "vscode-test-web",
   },
 ]

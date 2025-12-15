@@ -87,12 +87,13 @@ Optimize language server performance:
 
 ### Environment Settings
 
-Control logging and debugging:
+Control logging, debugging, and document scheme configuration:
 
 ```json
 {
   "apex-ls-ts.environment.profilingMode": "none",
-  "apex-ls-ts.environment.profilingType": "cpu"
+  "apex-ls-ts.environment.profilingType": "cpu",
+  "apex-ls-ts.environment.additionalDocumentSchemes": []
 }
 ```
 
@@ -107,6 +108,66 @@ Control logging and debugging:
   - Type of profiling to perform when profiling is enabled (desktop only).
   - Options: `"cpu"` for CPU profiling, `"heap"` for heap profiling, or `"both"` for both.
   - Shared between both profiling modes.
+
+- **`additionalDocumentSchemes`** (array, default: `[]`)
+  - Additional URI schemes to include for Apex language services.
+  - Allows you to extend language server support to custom document URI schemes beyond the default ones.
+  - Each entry is an object with:
+    - **`scheme`** (string, required): The URI scheme name (e.g., `"my-custom-scheme"`).
+    - **`excludeCapabilities`** (array of strings, optional): List of LSP capabilities to exclude this scheme from. Valid values: `"documentSymbol"`, `"hover"`, `"foldingRange"`, `"diagnostic"`, `"completion"`, `"definition"`, `"codeLens"`, `"executeCommand"`.
+  
+  **Important Constraints:**
+  - **Immutable Schemes**: The default schemes (`"file"`, `"apexlib"`, `"vscode-test-web"`) are always included and cannot be added or excluded. Attempts to configure these schemes will result in warnings.
+  - **Immutable Languages**: The languages (`"apex"`, `"apex-anon"`) are always included and cannot be modified.
+  - **Default Behavior**: Additional schemes apply to all capabilities by default unless explicitly excluded via `excludeCapabilities`.
+  - **Capability-Specific Defaults**: 
+    - Most capabilities (documentSymbol, hover, foldingRange, diagnostic, completion, definition) include: `"file"`, `"apexlib"`, `"vscode-test-web"`.
+    - CodeLens excludes `"apexlib"` by default and only includes: `"file"`, `"vscode-test-web"`.
+
+  **Examples:**
+  
+  Add a custom scheme for all capabilities:
+  ```json
+  {
+    "apex-ls-ts.environment.additionalDocumentSchemes": [
+      { "scheme": "orgtest" }
+    ]
+  }
+  ```
+  
+  Add a custom scheme only for CodeLens (exclude all other capabilities):
+  ```json
+  {
+    "apex-ls-ts.environment.additionalDocumentSchemes": [
+      {
+        "scheme": "orgtest",
+        "excludeCapabilities": [
+          "documentSymbol",
+          "hover",
+          "foldingRange",
+          "diagnostic",
+          "completion",
+          "definition"
+        ]
+      }
+    ]
+  }
+  ```
+  
+  Add multiple schemes with different capability exclusions:
+  ```json
+  {
+    "apex-ls-ts.environment.additionalDocumentSchemes": [
+      { "scheme": "custom-scheme-1" },
+      {
+        "scheme": "custom-scheme-2",
+        "excludeCapabilities": ["codeLens", "hover"]
+      }
+    ]
+  }
+  ```
+  
+  **Note**: If you attempt to add or exclude immutable schemes (like `"file"`), the server will log warnings but continue to operate with the default behavior. Check the Output panel (View → Output → "Apex Language Server Extension (Worker/Server)") for validation warnings.
 
 ### Debug Settings
 

@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.2.0",
+  "version": "0.5.0",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -226,6 +226,40 @@
           "maximum": 32,
           "description": "%configuration.apex-ls-ts.environment.jsHeapSizeGB.description%"
         },
+        "apex.environment.additionalDocumentSchemes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "scheme": {
+                "type": "string",
+                "description": "%configuration.apex-ls-ts.environment.additionalDocumentSchemes.scheme.description%"
+              },
+              "excludeCapabilities": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "documentSymbol",
+                    "hover",
+                    "foldingRange",
+                    "diagnostic",
+                    "completion",
+                    "definition",
+                    "codeLens",
+                    "executeCommand"
+                  ]
+                },
+                "description": "%configuration.apex-ls-ts.environment.additionalDocumentSchemes.excludeCapabilities.description%"
+              }
+            },
+            "required": [
+              "scheme"
+            ]
+          },
+          "default": [],
+          "description": "%configuration.apex-ls-ts.environment.additionalDocumentSchemes.description%"
+        },
         "apex.resources.loadMode": {
           "type": "string",
           "enum": [
@@ -424,10 +458,9 @@
     "postcompile": "shx mkdir -p out/resources && shx cp ../apex-parser-ast/out/resources/StandardApexLibrary.zip out/resources/",
     "bundle": "tsup",
     "copy-worker-files": "node scripts/postbundle.js",
-    "build": "npm run precompile && npm run compile && npm run postcompile && npm run bundle && npm run copy-worker-files",
+    "package": "cd dist && vsce package --out ../ --no-dependencies",
     "rebuild": "npm run clean && npm run build",
     "copy:files": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
-    "package": "cd dist && vsce package --out ../ --no-dependencies",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
     "clean": "rimraf out dist extension .turbo coverage grammars tsconfig.tsbuildinfo server-bundle",

@@ -64,7 +64,7 @@ jest.mock('../src/logging', () => ({
 }));
 
 // Mock vscode-languageclient types
-jest.mock('vscode-languageclient/node', () => ({
+jest.mock('vscode-languageclient/lib/node/main', () => ({
   LanguageClientOptions: jest.fn(),
   ServerOptions: jest.fn(),
   TransportKind: {
@@ -185,10 +185,10 @@ describe('Server Config Module', () => {
       const serverOptions = createServerOptions(productionContext) as any;
 
       expect(productionContext.asAbsolutePath).toHaveBeenCalledWith(
-        'dist/server.node.js',
+        'server.node.js',
       );
-      expect(serverOptions.run.module).toBe('/mock/path/dist/server.node.js');
-      expect(serverOptions.debug.module).toBe('/mock/path/dist/server.node.js');
+      expect(serverOptions.run.module).toBe('/mock/path/server.node.js');
+      expect(serverOptions.debug.module).toBe('/mock/path/server.node.js');
     });
 
     it('should include debug options when debug is enabled', () => {
@@ -500,11 +500,16 @@ describe('Server Config Module', () => {
       };
       const clientOptions = createClientOptions(initializationOptions);
 
-      expect(clientOptions.documentSelector).toEqual([
-        { scheme: 'file', language: 'apex' },
-        { scheme: 'apexlib', language: 'apex' },
-        { scheme: 'file', language: 'apex-anon' },
-      ]);
+      // Should include all default schemes for 'all' capability
+      expect(clientOptions.documentSelector).toEqual(
+        expect.arrayContaining([
+          { scheme: 'file', language: 'apex' },
+          { scheme: 'apexlib', language: 'apex' },
+          { scheme: 'file', language: 'apex-anon' },
+          { scheme: 'vscode-test-web', language: 'apex' },
+          { scheme: 'vscode-test-web', language: 'apex-anon' },
+        ]),
+      );
     });
 
     it('should include apexlib scheme in document selector for standard library support', () => {
@@ -531,12 +536,13 @@ describe('Server Config Module', () => {
         { scheme: 'file', language: 'apex' },
         { scheme: 'apexlib', language: 'apex' },
         { scheme: 'file', language: 'apex-anon' },
+        { scheme: 'vscode-test-web', language: 'apex' },
+        { scheme: 'vscode-test-web', language: 'apex-anon' },
       ];
 
       expect(clientOptions.documentSelector).toEqual(
         expect.arrayContaining(expectedSchemes),
       );
-      expect(clientOptions.documentSelector).toHaveLength(3);
     });
 
     it('should include error and close action handlers', () => {

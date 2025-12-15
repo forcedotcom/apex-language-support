@@ -25,6 +25,7 @@ import { DocumentProcessingService } from '../services/DocumentProcessingService
 import { WorkspaceSymbolProcessingService } from '../services/WorkspaceSymbolProcessingService';
 
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
+import { ExecuteCommandProcessingService } from '../services/ExecuteCommandProcessingService';
 
 /**
  * Service dependencies interface
@@ -152,5 +153,15 @@ export class ServiceFactory {
    */
   createDocumentProcessingService(): DocumentProcessingService {
     return new DocumentProcessingService(this.dependencies.logger);
+  }
+
+  /**
+   * Create execute command processing service
+   */
+  createExecuteCommandService(): ExecuteCommandProcessingService {
+    return new ExecuteCommandProcessingService(
+      this.dependencies.logger,
+      this.dependencies.symbolManager,
+    );
   }
 }
