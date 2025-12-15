@@ -161,6 +161,7 @@ describe('IdentifierValidator', () => {
   });
 
   describe('Keywords', () => {
+    // Test a sample of keywords (now using centralized keyword set)
     const keywords = [
       'trigger',
       'insert',
@@ -172,6 +173,11 @@ describe('IdentifierValidator', () => {
       'new',
       'for',
       'select',
+      'if',
+      'class',
+      'while',
+      'try',
+      'catch',
     ];
 
     it.each(keywords)('should reject keyword: %s', (keyword) => {

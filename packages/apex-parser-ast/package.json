@@ -25,7 +25,7 @@
   ],
   "scripts": {
     "bundle": "tsup",
-    "precompile": "node scripts/generate-zip.mjs",
+    "precompile": "node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs",
     "compile": "tsc --build",
     "test": "jest",
     "test:one": "jest --testPathPattern=resourceLoader",

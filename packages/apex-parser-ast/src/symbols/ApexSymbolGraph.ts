@@ -36,6 +36,7 @@ import {
 import { isBlockSymbol } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
 import { ResourceLoader } from '../utils/resourceLoader';
+import { isApexKeyword } from '../utils/ApexKeywords';
 import { isStandardApexUri } from '../types/ProtocolHandler';
 import {
   getAllNodes as extractGetAllNodes,
@@ -890,6 +891,11 @@ export class ApexSymbolGraph {
    * OPTIMIZED: Find symbols by name by delegating to SymbolTable
    */
   findSymbolByName(name: string): ApexSymbol[] {
+    // Short-circuit: Keywords are language constructs, not symbols
+    if (isApexKeyword(name)) {
+      return [];
+    }
+
     // TEMPORARY: Disable symbolCache - always bypass cache
     // Check cache first
     // const cached = this.symbolCache.get(name);
@@ -1435,6 +1441,11 @@ export class ApexSymbolGraph {
     symbolName: string,
     context?: ResolutionContext,
   ): SymbolLookupResult | null {
+    // Short-circuit: Keywords are language constructs, not symbols
+    if (isApexKeyword(symbolName)) {
+      return null;
+    }
+
     // CaseInsensitiveHashMap handles case-insensitive lookup automatically
     const symbolIds = this.nameIndex.get(symbolName) || [];
 

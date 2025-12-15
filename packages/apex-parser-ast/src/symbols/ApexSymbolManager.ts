@@ -63,6 +63,7 @@ import { extractFilePathFromUri } from '../types/UriBasedIdGenerator';
 
 import { ResourceLoader } from '../utils/resourceLoader';
 import { STANDARD_APEX_LIBRARY_URI } from '../utils/ResourceUtils';
+import { isApexKeyword } from '../utils/ApexKeywords';
 import type {
   ApexComment,
   CommentAssociation,
@@ -329,6 +330,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Find all symbols with a given name
    */
   findSymbolByName(name: string): ApexSymbol[] {
+    // Short-circuit: Keywords are language constructs, not symbols
+    if (isApexKeyword(name)) {
+      return [];
+    }
+
     // Normalize cache key to lowercase for consistency (nameIndex is now case-insensitive)
     const cacheKey = `symbol_name_${name.toLowerCase()}`;
     const cached = this.unifiedCache.get<ApexSymbol[]>(cacheKey);
@@ -2824,6 +2830,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       // Step 0: Handle chained expression references
       if (this.isChainedTypeReference(typeReference)) {
+        const chainNodes = (typeReference as ChainedTypeReference).chainNodes;
+        if (chainNodes) {
+          // For chained references, check keywords after trying built-in resolution
+          // First try to resolve the root as a built-in type
+          const rootName = chainNodes[0]?.name;
+          if (rootName) {
+            const builtInSymbol = await this.resolveBuiltInType(rootName);
+            if (builtInSymbol) {
+              return builtInSymbol;
+            }
+            // If not a built-in type and it's a keyword, short-circuit
+            if (isApexKeyword(rootName)) {
+              return null;
+            }
+          }
+        }
         return this.resolveChainedTypeReference(typeReference, position);
       }
 
@@ -2843,6 +2865,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Step 2: Try built-in type resolution for the name itself
+      // This must happen BEFORE keyword short-circuit because some keywords
+      // (List, Map, Set, System) are also valid built-in types
       const builtInSymbol = await this.resolveBuiltInType(typeReference.name);
       if (builtInSymbol) {
         this.logger.debug(
@@ -2856,6 +2880,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           () =>
             `Built-in type resolution failed for "${typeReference.name}" in ${sourceFile}`,
         );
+      }
+
+      // Step 3: Short-circuit keywords AFTER built-in type resolution
+      // Keywords that are NOT built-in types should be short-circuited
+      if (isApexKeyword(typeReference.name)) {
+        return null;
       }
 
       // Step 3: For unqualified references with position, use scope-based resolution
@@ -4222,6 +4252,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       if (typeReferences.length > 0) {
         // Step 2: Try to resolve the most specific reference
+        // Keyword check happens inside resolveTypeReferenceToSymbol
+        // after built-in type resolution (some keywords are built-in types)
         const resolvedSymbol = await this.resolveTypeReferenceToSymbol(
           typeReferences[0],
           fileUri,
