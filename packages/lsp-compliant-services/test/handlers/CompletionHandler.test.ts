@@ -69,7 +69,7 @@ describe('CompletionHandler', () => {
 
       const mockCompletionItems: CompletionItem[] = [
         {
-          label: 'testMethod',
+          label: 'doSomething',
           kind: CompletionItemKind.Method,
         },
       ];

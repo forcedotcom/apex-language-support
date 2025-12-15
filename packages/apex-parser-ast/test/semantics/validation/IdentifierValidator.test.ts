@@ -206,6 +206,129 @@ describe('IdentifierValidator', () => {
     });
   });
 
+  describe('Contextual Keywords', () => {
+    // Contextual keywords that can be used as identifiers (class names, etc.)
+    // These are keywords in specific contexts (like SOQL/SOSL queries) but valid as identifiers elsewhere
+    const contextualKeywords = ['metadata', 'reference', 'name', 'count'];
+
+    it.each(contextualKeywords)(
+      'should allow contextual keyword as class name: %s',
+      (keyword) => {
+        const result = IdentifierValidator.validateIdentifier(
+          keyword,
+          SymbolKind.Class,
+          true,
+          createMockScope(),
+        );
+
+        expect(result.isValid).toBe(true);
+        expect(result.errors.length).toBe(0);
+      },
+    );
+
+    it.each(contextualKeywords)(
+      'should allow contextual keyword as variable name: %s',
+      (keyword) => {
+        const result = IdentifierValidator.validateIdentifier(
+          keyword,
+          SymbolKind.Variable,
+          false,
+          createMockScope(),
+        );
+
+        expect(result.isValid).toBe(true);
+        expect(result.errors.length).toBe(0);
+      },
+    );
+
+    it('should allow metadata as interface name', () => {
+      const result = IdentifierValidator.validateIdentifier(
+        'metadata',
+        SymbolKind.Interface,
+        true,
+        createMockScope(),
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors.length).toBe(0);
+    });
+
+    it('should allow Metadata as inner class name', () => {
+      const result = IdentifierValidator.validateIdentifier(
+        'Metadata',
+        SymbolKind.Class,
+        false, // isTopLevel = false for inner class
+        createMockScope(),
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors.length).toBe(0);
+    });
+
+    it('should allow reference as field name', () => {
+      const result = IdentifierValidator.validateIdentifier(
+        'reference',
+        SymbolKind.Field,
+        false,
+        createMockScope(),
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors.length).toBe(0);
+    });
+
+    it('should allow name as field name', () => {
+      const result = IdentifierValidator.validateIdentifier(
+        'name',
+        SymbolKind.Field,
+        false,
+        createMockScope(),
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors.length).toBe(0);
+    });
+
+    it('should allow count as variable name', () => {
+      const result = IdentifierValidator.validateIdentifier(
+        'count',
+        SymbolKind.Variable,
+        false,
+        createMockScope(),
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors.length).toBe(0);
+    });
+
+    it('should reject select as class name', () => {
+      // 'select' should remain a keyword and not be allowed as an identifier
+      const result = IdentifierValidator.validateIdentifier(
+        'select',
+        SymbolKind.Class,
+        true,
+        createMockScope(),
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Identifier cannot be a keyword: select');
+    });
+
+    it('should allow SelectOption as class name', () => {
+      // Test that 'select' part doesn't cause issues in compound names
+      // Compound names are validated as whole identifiers, not word-by-word
+      const result = IdentifierValidator.validateIdentifier(
+        'SelectOption',
+        SymbolKind.Class,
+        true,
+        createMockScope(),
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors.length).toBe(0);
+    });
+  });
+
   describe('Character Validation', () => {
     it('should reject identifiers starting with non-letter', () => {
       const invalidStarters = ['123abc', '_test', '@name', '#var'];

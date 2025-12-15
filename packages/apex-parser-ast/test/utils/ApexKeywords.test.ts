@@ -11,6 +11,8 @@ import {
   APEX_KEYWORDS_ARRAY,
   BUILTIN_TYPE_NAMES,
   BUILTIN_TYPE_NAMES_ARRAY,
+  CONTEXTUAL_KEYWORDS,
+  CONTEXTUAL_KEYWORDS_ARRAY,
   isApexKeyword,
 } from '../../src/utils/ApexKeywords';
 
@@ -102,6 +104,9 @@ describe('ApexKeywords', () => {
         expect(isApexKeyword('select')).toBe(true);
         expect(isApexKeyword('SELECT')).toBe(true);
         expect(isApexKeyword('Select')).toBe(true);
+        expect(isApexKeyword('from')).toBe(true);
+        expect(isApexKeyword('FROM')).toBe(true);
+        expect(isApexKeyword('From')).toBe(true);
       });
     });
 
@@ -161,6 +166,31 @@ describe('ApexKeywords', () => {
         expect(isApexKeyword('if')).toBe(true);
         expect(isApexKeyword('for')).toBe(true);
         expect(isApexKeyword('class')).toBe(true);
+      });
+
+      it('should NOT treat contextual keywords as keywords', () => {
+        // Contextual keywords that can be used as identifiers should NOT be treated as keywords
+        // They are keywords in specific contexts (like SOQL/SOSL queries) but valid as identifiers elsewhere
+        const contextualKeywords = ['metadata', 'reference', 'name', 'count'];
+        contextualKeywords.forEach((keyword) => {
+          expect(isApexKeyword(keyword)).toBe(false);
+          expect(isApexKeyword(keyword.toUpperCase())).toBe(false);
+          expect(
+            isApexKeyword(keyword.charAt(0).toUpperCase() + keyword.slice(1)),
+          ).toBe(false);
+        });
+      });
+
+      it('should still treat SOQL keywords as keywords', () => {
+        // SOQL keywords should still be treated as keywords
+        expect(isApexKeyword('select')).toBe(true);
+        expect(isApexKeyword('from')).toBe(true);
+        expect(isApexKeyword('where')).toBe(true);
+        expect(isApexKeyword('group')).toBe(true);
+        expect(isApexKeyword('order')).toBe(true);
+        expect(isApexKeyword('having')).toBe(true);
+        expect(isApexKeyword('limit')).toBe(true);
+        expect(isApexKeyword('offset')).toBe(true);
       });
     });
 
@@ -248,6 +278,32 @@ describe('ApexKeywords', () => {
       expect(BUILTIN_TYPE_NAMES_ARRAY.length).toBeGreaterThanOrEqual(10);
       // Expect less than 50 builtin types (sanity check)
       expect(BUILTIN_TYPE_NAMES_ARRAY.length).toBeLessThan(50);
+    });
+  });
+
+  describe('CONTEXTUAL_KEYWORDS', () => {
+    it('should contain all contextual keywords from CONTEXTUAL_KEYWORDS_ARRAY', () => {
+      for (const keyword of CONTEXTUAL_KEYWORDS_ARRAY) {
+        expect(CONTEXTUAL_KEYWORDS.has(keyword)).toBe(true);
+      }
+    });
+
+    it('should have same size as array', () => {
+      expect(CONTEXTUAL_KEYWORDS.size).toBe(CONTEXTUAL_KEYWORDS_ARRAY.length);
+    });
+
+    it('should contain expected contextual keywords', () => {
+      const expectedKeywords = ['metadata', 'reference', 'name', 'count'];
+      expectedKeywords.forEach((keyword) => {
+        expect(CONTEXTUAL_KEYWORDS.has(keyword)).toBe(true);
+      });
+    });
+
+    it('should have reasonable number of contextual keywords', () => {
+      // We have 4 confirmed cases (metadata, reference, name, count)
+      expect(CONTEXTUAL_KEYWORDS_ARRAY.length).toBeGreaterThanOrEqual(4);
+      // Expect less than 20 contextual keywords (sanity check)
+      expect(CONTEXTUAL_KEYWORDS_ARRAY.length).toBeLessThan(20);
     });
   });
 

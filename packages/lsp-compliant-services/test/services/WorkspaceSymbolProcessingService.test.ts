@@ -32,7 +32,7 @@ describe('WorkspaceSymbolProcessingService', () => {
     it('should return workspace symbols for valid request', async () => {
       // Arrange
       const params: WorkspaceSymbolParams = {
-        query: 'testMethod',
+        query: 'doSomething',
       };
 
       // Act
@@ -60,7 +60,7 @@ describe('WorkspaceSymbolProcessingService', () => {
     it('should handle errors gracefully', async () => {
       // Arrange
       const params: WorkspaceSymbolParams = {
-        query: 'testMethod',
+        query: 'doSomething',
       };
 
       // Mock ApexSymbolManager to throw error
@@ -80,7 +80,7 @@ describe('WorkspaceSymbolProcessingService', () => {
   describe('context analysis', () => {
     it('should extract include patterns correctly', () => {
       // Arrange
-      const query = 'testMethod +public -private kind:method rel:inheritance';
+      const query = 'doSomething +public -private kind:method rel:inheritance';
 
       // Act
       const patterns = (service as any).extractIncludePatterns(query);
@@ -92,7 +92,7 @@ describe('WorkspaceSymbolProcessingService', () => {
 
     it('should extract exclude patterns correctly', () => {
       // Arrange
-      const query = 'testMethod +public -private kind:method rel:inheritance';
+      const query = 'doSomething +public -private kind:method rel:inheritance';
 
       // Act
       const patterns = (service as any).extractExcludePatterns(query);
@@ -104,7 +104,7 @@ describe('WorkspaceSymbolProcessingService', () => {
 
     it('should extract symbol kinds correctly', () => {
       // Arrange
-      const query = 'testMethod +public -private kind:method rel:inheritance';
+      const query = 'doSomething +public -private kind:method rel:inheritance';
 
       // Act
       const kinds = (service as any).extractSymbolKinds(query);
@@ -116,7 +116,7 @@ describe('WorkspaceSymbolProcessingService', () => {
 
     it('should extract relationship types correctly', () => {
       // Arrange
-      const query = 'testMethod +public -private kind:method rel:inheritance';
+      const query = 'doSomething +public -private kind:method rel:inheritance';
 
       // Act
       const types = (service as any).extractRelationshipTypes(query);
@@ -151,8 +151,8 @@ describe('WorkspaceSymbolProcessingService', () => {
   describe('symbol matching', () => {
     it('should match name patterns correctly', () => {
       // Arrange
-      const name = 'testMethod';
-      const pattern = 'test';
+      const name = 'doSomething';
+      const pattern = 'do';
 
       // Act
       const matches = (service as any).matchesNamePattern(name, pattern);
@@ -163,8 +163,8 @@ describe('WorkspaceSymbolProcessingService', () => {
 
     it('should handle exact name matches', () => {
       // Arrange
-      const name = 'testMethod';
-      const pattern = 'testMethod';
+      const name = 'doSomething';
+      const pattern = 'doSomething';
 
       // Act
       const matches = (service as any).matchesNamePattern(name, pattern);
@@ -175,8 +175,8 @@ describe('WorkspaceSymbolProcessingService', () => {
 
     it('should handle wildcard patterns', () => {
       // Arrange
-      const name = 'testMethod';
-      const pattern = 'test*';
+      const name = 'doSomething';
+      const pattern = 'do*';
 
       // Act
       const matches = (service as any).matchesNamePattern(name, pattern);
@@ -199,7 +199,7 @@ describe('WorkspaceSymbolProcessingService', () => {
 
     it('should match patterns correctly', () => {
       // Arrange
-      const name = 'testMethod';
+      const name = 'testAction';
       const pattern = 'test*';
 
       // Act
@@ -272,13 +272,13 @@ describe('WorkspaceSymbolProcessingService', () => {
     it('should calculate relevance for exact matches', () => {
       // Arrange
       const symbol = {
-        name: 'testMethod',
+        name: 'doSomething',
         kind: 6, // Method
         containerName: 'TestClass',
       };
 
       const context = {
-        query: 'testMethod',
+        query: 'doSomething',
       };
 
       // Act
@@ -295,13 +295,13 @@ describe('WorkspaceSymbolProcessingService', () => {
     it('should calculate relevance for partial matches', () => {
       // Arrange
       const symbol = {
-        name: 'testMethod',
+        name: 'doSomething',
         kind: 6, // Method
         containerName: 'TestClass',
       };
 
       const context = {
-        query: 'test',
+        query: 'do',
       };
 
       // Act
@@ -318,7 +318,7 @@ describe('WorkspaceSymbolProcessingService', () => {
     it('should boost relevance for container name matches', () => {
       // Arrange
       const symbol = {
-        name: 'testMethod',
+        name: 'doSomething',
         kind: 6, // Method
         containerName: 'TestClass',
       };
@@ -343,7 +343,7 @@ describe('WorkspaceSymbolProcessingService', () => {
     it('should handle requests efficiently', async () => {
       // Arrange
       const params: WorkspaceSymbolParams = {
-        query: 'testMethod',
+        query: 'doSomething',
       };
 
       const startTime = Date.now();

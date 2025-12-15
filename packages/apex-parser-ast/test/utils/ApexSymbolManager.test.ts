@@ -31,6 +31,7 @@ import {
   reset as schedulerReset,
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
+import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 
 describe('ApexSymbolManager', () => {
   let manager: ApexSymbolManager;
@@ -122,20 +123,18 @@ describe('ApexSymbolManager', () => {
     // Find root scope (file scope has no parentId)
     const rootScope = symbolTable
       .getAllSymbols()
-      .find(
-        (s) => s.kind === SymbolKind.Block && s.scopeType === 'file',
-      ) as ScopeSymbol;
+      .find((s) => isBlockSymbol(s) && s.scopeType === 'file') as
+      | ScopeSymbol
+      | undefined;
     if (rootScope) {
       collectSymbols(rootScope);
     } else {
       // Fallback: use file scope (root)
       const fileScope = symbolTable
         .getAllSymbols()
-        .find(
-          (s) =>
-            s.kind === SymbolKind.Block &&
-            (s as ScopeSymbol).scopeType === 'file',
-        ) as ScopeSymbol | undefined;
+        .find((s) => isBlockSymbol(s) && s.scopeType === 'file') as
+        | ScopeSymbol
+        | undefined;
       if (fileScope) {
         collectSymbols(fileScope);
       }
@@ -790,7 +789,7 @@ describe('ApexSymbolManager', () => {
     it('should preserve method symbol position data with exact ranges', async () => {
       const apexCode = `
         public class TestClass {
-          public void testMethod() {
+          public void myTestMethod() {
             System.debug('test');
           }
         }
@@ -803,7 +802,7 @@ describe('ApexSymbolManager', () => {
       }
 
       // Find the method symbol
-      const methodSymbols = manager.findSymbolByName('testMethod');
+      const methodSymbols = manager.findSymbolByName('myTestMethod');
       const methodSymbol = methodSymbols.find(
         (s) => s.kind === SymbolKind.Method,
       );
@@ -818,7 +817,7 @@ describe('ApexSymbolManager', () => {
         };
 
         // Find the symbol again to verify data hasn't changed
-        const foundAgain = manager.findSymbolByName('testMethod');
+        const foundAgain = manager.findSymbolByName('myTestMethod');
         const foundMethod = foundAgain.find(
           (s) => s.kind === SymbolKind.Method,
         );

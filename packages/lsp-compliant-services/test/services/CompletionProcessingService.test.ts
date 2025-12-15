@@ -96,7 +96,7 @@ describe('CompletionProcessingService', () => {
       uri: 'file:///test/TestClass.cls',
       getText: jest.fn().mockReturnValue(`
         public class TestClass {
-          public void testMethod() {
+          public void doSomething() {
             String testVar = 'test';
             // Cursor position here
           }
@@ -123,12 +123,12 @@ describe('CompletionProcessingService', () => {
 
       const mockSymbols = [
         {
-          name: 'testMethod',
+          name: 'doSomething',
           kind: 'method',
-          fqn: 'TestClass.testMethod',
+          fqn: 'TestClass.doSomething',
           modifiers: { visibility: 'public', isStatic: false },
           location: { startLine: 2, startColumn: 1, endLine: 2, endColumn: 10 },
-          key: { prefix: 'method', name: 'testMethod', path: ['TestClass'] },
+          key: { prefix: 'method', name: 'doSomething', path: ['TestClass'] },
           parentKey: { prefix: 'class', name: 'TestClass', path: [] },
         },
         {
@@ -422,9 +422,9 @@ describe('CompletionProcessingService', () => {
 
       const mockSymbols = [
         {
-          name: 'testMethod',
+          name: 'doSomething',
           kind: 'method',
-          fqn: 'TestClass.testMethod',
+          fqn: 'TestClass.doSomething',
           modifiers: { visibility: 'public', isStatic: false },
           parameters: [
             { name: 'param1', type: { name: 'String' } },
@@ -518,9 +518,9 @@ describe('CompletionProcessingService', () => {
 
       const mockSymbols = [
         {
-          name: 'testMethod',
+          name: 'doSomething',
           kind: 'method',
-          fqn: 'TestClass.testMethod',
+          fqn: 'TestClass.doSomething',
           modifiers: { visibility: 'public', isStatic: false },
           parameters: [],
         },

@@ -46,7 +46,7 @@ describe('SignatureHelpHandler', () => {
       const mockSignatureHelp: SignatureHelp = {
         signatures: [
           {
-            label: 'testMethod(String param1, Integer param2)',
+            label: 'doSomething(String param1, Integer param2)',
             documentation: 'Test method documentation',
             parameters: [
               {
@@ -189,7 +189,7 @@ describe('SignatureHelpHandler', () => {
       const mockSignatureHelp: SignatureHelp = {
         signatures: [
           {
-            label: 'testMethod()',
+            label: 'doSomething()',
             documentation: 'Test method',
             parameters: [],
           },

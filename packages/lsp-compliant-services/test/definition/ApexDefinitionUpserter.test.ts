@@ -95,7 +95,7 @@ describe('DefaultApexDefinitionPopulator', () => {
     const event: TextDocumentChangeEvent<TextDocument> = {
       document: {
         uri: 'file:///test.cls',
-        getText: () => 'class TestClass { void testMethod() { } }',
+        getText: () => 'class TestClass { void doSomething() { } }',
         version: 1,
         languageId: 'apex',
         positionAt: () => ({ line: 0, character: 0 }),

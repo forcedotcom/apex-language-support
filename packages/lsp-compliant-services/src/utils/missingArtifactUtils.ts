@@ -345,6 +345,7 @@ export class MissingArtifactUtils {
       if (references && references.length > 0) {
         // Use the first reference found at the position
         const reference = references[0];
+
         this.logger.debug(
           () =>
             `Found reference at position: ${reference.name} (context: ${reference.context})`,
