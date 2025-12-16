@@ -18,8 +18,8 @@
   },
   "scripts": {
     "compile": "tsc --build",
-    "bundle": "tsup",
-    "dev": "tsup --watch",
+    "bundle": "tsx esbuild.config.ts",
+    "dev": "tsx esbuild.config.ts --watch",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
@@ -32,5 +32,7 @@
     "vscode-languageserver": "^9.0.1",
     "zod": "^3.22.4"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@salesforce/esbuild-presets": "^0.1.0"
+  }
 }

@@ -1,51 +1,34 @@
 # Build Configuration
 
-This directory contains shared build configuration for the Apex Language Server monorepo.
+Shared esbuild presets now live in the publishable package `@salesforce/esbuild-presets` under `packages/esbuild-presets/`.
 
-## Files
+## Usage (inside this repo)
 
-### `tsup.shared.ts`
-
-Shared configuration base for all packages using tsup bundling:
-
-- **`COMMON_EXTERNAL`**: Dependencies that should always be external (vscode, language server packages, etc.)
-- **`INTERNAL_PACKAGES`**: Internal Salesforce packages that are typically external
-- **`nodeBaseConfig`**: Base configuration for Node.js builds
-- **`browserBaseConfig`**: Base configuration for browser/web builds  
-- **`BROWSER_ALIASES`**: Standard polyfill aliases for browser builds
-
-## Usage
-
-Import shared configuration in your package's `tsup.config.ts`:
+Import from the workspace package:
 
 ```typescript
-import { defineConfig } from 'tsup';
-import { nodeBaseConfig, browserBaseConfig, BROWSER_ALIASES } from '../../build-config/tsup.shared';
-
-export default defineConfig([
-  {
-    name: 'my-package',
-    ...nodeBaseConfig,
-    entry: ['src/index.ts'],
-    // package-specific overrides
-  }
-]);
+import {
+  nodeBaseConfig,
+  browserBaseConfig,
+  configureWebWorkerPolyfills,
+  runBuilds,
+} from '@salesforce/esbuild-presets';
 ```
 
-## Benefits
+## Usage (published)
 
-- **Consistency**: All packages use the same base configuration
-- **Maintainability**: Update external dependencies in one place
-- **Clarity**: Named builds show clearly in logs (e.g., `[DESKTOP]`, `[WEB]`)
-- **Reduced Duplication**: No more copying external arrays between configs
-- **Easier Debugging**: Named builds make it clear which target is building
+Install and import in another project:
 
-## Named Builds
+```bash
+npm install @salesforce/esbuild-presets esbuild
+```
 
-All builds now have descriptive names that appear in the build output:
+```typescript
+import { nodeBaseConfig, runBuilds } from '@salesforce/esbuild-presets';
+```
 
-- Extension: `[DESKTOP]`, `[WEB]`
-- Apex-LS: `[NODE]`, `[BROWSER]`, `[WORKER]`  
-- Libraries: `[SHARED]`, `[PARSER-AST]`, `[CUSTOM-SERVICES]`, etc.
+## What’s included
 
-This makes it much easier to understand build logs and debug issues.
+- `nodeBaseConfig` / `browserBaseConfig`
+- `NODE_POLYFILLS` and `configureWebWorkerPolyfills`
+- `runBuilds` helper for one-off or watch mode builds with hooks/logging

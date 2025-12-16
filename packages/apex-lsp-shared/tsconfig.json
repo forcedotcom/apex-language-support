@@ -6,6 +6,6 @@
     "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "out", "dist", "tsup.config.ts"],
+  "exclude": ["node_modules", "out", "dist", "esbuild.config.ts"],
   "references": []
 }

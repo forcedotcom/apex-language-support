@@ -24,8 +24,8 @@
     "README.md"
   ],
   "scripts": {
-    "bundle": "tsup",
     "precompile": "node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs",
+    "bundle": "tsx esbuild.config.ts",
     "compile": "tsc --build",
     "test": "jest",
     "test:one": "jest --testPathPattern=resourceLoader",
@@ -45,6 +45,6 @@
   },
   "devDependencies": {
     "@jest/test-sequencer": "^30.2.0",
-    "tsup": "^8.0.2"
+    "@salesforce/esbuild-presets": "^0.1.0"
   }
 }

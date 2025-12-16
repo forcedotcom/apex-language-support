@@ -16,7 +16,12 @@
       "outputs": ["out/**"]
     },
     "bundle": {
-      "dependsOn": ["compile", "^compile", "^bundle"],
+      "dependsOn": [
+        "compile",
+        "^compile",
+        "^bundle",
+        "@salesforce/esbuild-presets#compile"
+      ],
       "outputs": ["dist/**", "out/**"]
     },
     "package": {
@@ -89,7 +94,8 @@
         "postcompile",
         "@salesforce/apex-lsp-compliant-services#compile",
         "@salesforce/apex-ls#compile",
-        "@salesforce/apex-ls#bundle"
+        "@salesforce/apex-ls#bundle",
+        "@salesforce/esbuild-presets#compile"
       ],
       "outputs": ["extension/**", "dist/**", "server-bundle/**"]
     },
@@ -115,13 +121,27 @@
       "dependsOn": ["copy-worker-files", "^package"],
       "outputs": ["*.vsix"]
     },
-    "@salesforce/apex-ls#bundle": {
-      "dependsOn": ["compile", "^compile", "^bundle"],
-      "outputs": ["dist/**"]
-    },
     "@salesforce/apex-ls#rebuild": {
       "dependsOn": ["clean", "precompile", "^precompile", "compile", "bundle"],
       "cache": false
+    },
+    "@salesforce/apex-ls#bundle": {
+      "dependsOn": [
+        "compile",
+        "^compile",
+        "@salesforce/esbuild-presets#compile",
+        "@salesforce/apex-lsp-compliant-services#compile",
+        "@salesforce/apex-lsp-parser-ast#compile"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "@salesforce/esbuild-presets#compile": {
+      "dependsOn": [],
+      "outputs": ["dist/**", "tsconfig.tsbuildinfo"]
+    },
+    "@salesforce/apex-lsp-compliant-services#bundle": {
+      "dependsOn": ["compile", "@salesforce/esbuild-presets#compile"],
+      "outputs": ["dist/**"]
     }
   }
 }

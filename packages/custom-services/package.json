@@ -18,7 +18,7 @@
   },
   "scripts": {
     "compile": "tsc --build",
-    "bundle": "tsup",
+    "bundle": "tsx esbuild.config.ts",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
     "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
@@ -27,5 +27,7 @@
     "lint:fix": "eslint src --fix"
   },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "@salesforce/esbuild-presets": "^0.1.0"
+  }
 }
