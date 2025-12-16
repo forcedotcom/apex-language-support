@@ -214,8 +214,11 @@ const builds: BuildOptions[] = [
     format: 'cjs',
     outExtension: { '.js': '.js' },
     sourcemap: true,
+    // For VSIX packaging, only 'vscode' should be external (provided by VS Code at runtime).
+    // All other dependencies (vscode-languageclient, vscode-languageserver-protocol, etc.)
+    // must be bundled since node_modules won't exist in the installed extension.
     external: [
-      ...(nodeBaseConfig.external ?? []),
+      'vscode',
       'vm',
       'net',
       'worker_threads',
