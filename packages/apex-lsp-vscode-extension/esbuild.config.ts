@@ -81,6 +81,19 @@ function copyManifestFiles() {
       console.warn(`Failed to copy ${dir}/:`, (error as Error).message);
     }
   });
+
+  // Create an empty .vscodeignore in dist to include everything
+  // This ensures worker.global.js, server.node.js, and their .map files are included
+  // Note: When packaging from dist/, vsce uses this .vscodeignore file
+  const vscodeignoreContent = `# Include all files - no exclusions
+`;
+  const vscodeignorePath = path.join(distDir, '.vscodeignore');
+  try {
+    fs.writeFileSync(vscodeignorePath, vscodeignoreContent);
+    console.log('✅ Created .vscodeignore in dist');
+  } catch (error) {
+    console.warn('Failed to create .vscodeignore:', (error as Error).message);
+  }
 }
 
 /**
@@ -181,6 +194,10 @@ function copyWebviewScripts() {
   }
 }
 
+/**
+ * Execute immediate post-build tasks (non-dependent on other packages)
+ * Worker file copying is done in a separate postbundle script that Turbo can track
+ */
 function executePostBuildTasks(): void {
   copyManifestFiles();
   copyOutResources();

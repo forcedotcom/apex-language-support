@@ -92,9 +92,9 @@
     "apex-language-server-extension#bundle": {
       "dependsOn": [
         "postcompile",
+        "@salesforce/apex-lsp-compliant-services#compile",
         "@salesforce/apex-ls#compile",
         "@salesforce/apex-ls#bundle",
-        "@salesforce/apex-lsp-compliant-services#compile",
         "@salesforce/esbuild-presets#compile"
       ],
       "outputs": ["extension/**", "dist/**", "server-bundle/**"]

@@ -73,9 +73,29 @@ function copyWorkerFiles() {
   console.log('✅ All worker/server files copied successfully');
 }
 
+/**
+ * Create a minimal .vscodeignore in dist that ensures worker and server files are included
+ * Using an empty file to include everything by default
+ */
+function createVscodeIgnore() {
+  const distDir = path.resolve(__dirname, '../dist');
+  const vscodeignorePath = path.join(distDir, '.vscodeignore');
+  // Empty .vscodeignore means include everything in the dist directory
+  const vscodeignoreContent = `# Include all files - no exclusions
+`;
+
+  try {
+    fs.writeFileSync(vscodeignorePath, vscodeignoreContent);
+    console.log('✅ Created .vscodeignore in dist');
+  } catch (error) {
+    console.warn('⚠️ Failed to create .vscodeignore:', error.message);
+  }
+}
+
 // Run the copy operation
 try {
   copyWorkerFiles();
+  createVscodeIgnore();
 } catch (error) {
   console.error('❌ Copy-worker-files script failed:', error);
   process.exit(1);

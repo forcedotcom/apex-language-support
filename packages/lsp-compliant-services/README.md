@@ -426,7 +426,8 @@ The server looks for configuration in these sections (in order of precedence):
     "environment": {
       "profilingMode": "none",
       "profilingType": "cpu",
-      "commentCollectionLogLevel": "info"
+      "commentCollectionLogLevel": "info",
+      "additionalDocumentSchemes": []
     }
   }
 }
@@ -447,6 +448,61 @@ The server looks for configuration in these sections (in order of precedence):
 - **`commentCollectionLogLevel`** (string, default: `"info"`)
   - Log level for comment collection operations.
   - Options: `"debug"`, `"info"`, `"warn"`, `"error"`
+
+- **`additionalDocumentSchemes`** (array, default: `[]`)
+  - Additional URI schemes to include for Apex language services.
+  - Allows you to extend language server support to custom document URI schemes beyond the default ones.
+  - Each entry is an object with:
+    - **`scheme`** (string, required): The URI scheme name (e.g., `"my-custom-scheme"`).
+    - **`excludeCapabilities`** (array of strings, optional): List of LSP capabilities to exclude this scheme from. Valid values: `"documentSymbol"`, `"hover"`, `"foldingRange"`, `"diagnostic"`, `"completion"`, `"definition"`, `"codeLens"`, `"executeCommand"`.
+  
+  **Important Constraints:**
+  - **Immutable Schemes**: The default schemes (`"file"`, `"apexlib"`, `"vscode-test-web"`) are always included and cannot be added or excluded. Attempts to configure these schemes will result in warnings in the server logs.
+  - **Immutable Languages**: The languages (`"apex"`, `"apex-anon"`) are always included and cannot be modified.
+  - **Default Behavior**: Additional schemes apply to all capabilities by default unless explicitly excluded via `excludeCapabilities`.
+  - **Capability-Specific Defaults**: 
+    - Most capabilities (documentSymbol, hover, foldingRange, diagnostic, completion, definition) include: `"file"`, `"apexlib"`, `"vscode-test-web"`.
+    - CodeLens excludes `"apexlib"` by default and only includes: `"file"`, `"vscode-test-web"`.
+
+  **Examples:**
+  
+  Add a custom scheme for all capabilities:
+  ```json
+  {
+    "apex": {
+      "environment": {
+        "additionalDocumentSchemes": [
+          { "scheme": "orgtest" }
+        ]
+      }
+    }
+  }
+  ```
+  
+  Add a custom scheme only for CodeLens (exclude all other capabilities):
+  ```json
+  {
+    "apex": {
+      "environment": {
+        "additionalDocumentSchemes": [
+          {
+            "scheme": "orgtest",
+            "excludeCapabilities": [
+              "documentSymbol",
+              "hover",
+              "foldingRange",
+              "diagnostic",
+              "completion",
+              "definition"
+            ]
+          }
+        ]
+      }
+    }
+  }
+  ```
+  
+  **Note**: If you attempt to add or exclude immutable schemes (like `"file"`), the server will log warnings but continue to operate with the default behavior. Check the server logs for validation warnings.
 
 #### Resource Settings
 

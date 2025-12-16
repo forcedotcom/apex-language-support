@@ -205,7 +205,7 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
   foldingRangeProvider: true,
   hoverProvider: true,
   definitionProvider: true,
-  referencesProvider: true, // ENABLED: References implementation
+  referencesProvider: true,
   codeLensProvider: {
     resolveProvider: false,
   },
@@ -213,6 +213,9 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
     identifier: 'apex-ls-ts',
     interFileDependencies: true,
     workspaceDiagnostics: false,
+  },
+  executeCommandProvider: {
+    commands: ['apex.findApexTests'],
   },
   experimental: {
     findMissingArtifactProvider: {
