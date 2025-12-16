@@ -11,15 +11,15 @@
  * Handles polling, data rendering, and user interactions
  */
 
-// Global variables for the webview
-declare const acquireVsCodeApi: () => any;
-declare const initialData: any;
-
-// Extend Window interface to include our custom properties
+// Global variables for the webview (provided by webview HTML)
 interface WindowWithVSCode extends Window {
   vscode?: any;
   initialData?: any;
 }
+
+// Type-only declarations for webview globals (avoid redeclaration conflicts)
+declare function acquireVsCodeApi(): any;
+declare const initialData: any;
 
 interface QueueStateData {
   metrics: {

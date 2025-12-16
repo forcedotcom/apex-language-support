@@ -19,6 +19,7 @@ import {
   type EnumValue,
   Uint16,
   toUint16,
+  type DeferredReferenceProcessingSettings,
 } from '@salesforce/apex-lsp-shared';
 import {
   generateSymbolId,
@@ -32,6 +33,7 @@ import {
   SymbolTable,
   SymbolVisibility,
   SymbolLocation,
+  SymbolKind,
 } from '../types/symbol';
 import { isBlockSymbol } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
@@ -298,17 +300,17 @@ export class ApexSymbolGraph {
     estimatedMemorySavings: 0,
   };
 
-  // Deferred reference processing configuration
-  private readonly DEFERRED_BATCH_SIZE = 50;
-  private readonly MAX_RETRY_ATTEMPTS = 10;
-  private readonly RETRY_DELAY_MS = 100;
-  private readonly MAX_RETRY_DELAY_MS = 5000; // Cap exponential backoff at 5 seconds
-  private readonly QUEUE_CAPACITY_THRESHOLD = 90; // Don't retry if queue > 90% full
-  private readonly QUEUE_DRAIN_THRESHOLD = 75; // Only retry when queue < 75% full
-  private readonly QUEUE_FULL_RETRY_DELAY_MS = 10000; // 10 second delay when queue is full
-  private readonly MAX_QUEUE_FULL_RETRY_DELAY_MS = 30000; // Cap queue-full retry delay at 30 seconds
-  private readonly CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5; // Activate after 5 consecutive failures
-  private readonly CIRCUIT_BREAKER_RESET_THRESHOLD = 50; // Reset when queue < 50% full
+  // Deferred reference processing configuration (configurable via settings)
+  private DEFERRED_BATCH_SIZE = 50;
+  private MAX_RETRY_ATTEMPTS = 10;
+  private RETRY_DELAY_MS = 100;
+  private MAX_RETRY_DELAY_MS = 5000; // Cap exponential backoff at 5 seconds
+  private QUEUE_CAPACITY_THRESHOLD = 90; // Don't retry if queue > 90% full
+  private QUEUE_DRAIN_THRESHOLD = 75; // Only retry when queue < 75% full
+  private QUEUE_FULL_RETRY_DELAY_MS = 10000; // 10 second delay when queue is full
+  private MAX_QUEUE_FULL_RETRY_DELAY_MS = 30000; // Cap queue-full retry delay at 30 seconds
+  private CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5; // Activate after 5 consecutive failures
+  private CIRCUIT_BREAKER_RESET_THRESHOLD = 50; // Reset when queue < 50% full
   private failedReferences: Map<string, DeferredProcessingTask> = new Map();
   private activeRetryTimers: Set<NodeJS.Timeout> = new Set();
   // Track symbols with pending retries to prevent duplicate retry scheduling
@@ -319,11 +321,67 @@ export class ApexSymbolGraph {
 
   private resourceLoader: ResourceLoader;
 
-  constructor() {
+  constructor(
+    deferredReferenceSettings?: Partial<DeferredReferenceProcessingSettings>,
+  ) {
     this.resourceLoader = ResourceLoader.getInstance({
       preloadStdClasses: false,
     });
     // Note: Deferred reference processing now uses shared priority scheduler
+    // Apply settings if provided
+    if (deferredReferenceSettings) {
+      this.updateDeferredReferenceSettings(deferredReferenceSettings);
+    }
+  }
+
+  /**
+   * Update deferred reference processing settings
+   * @param settings Partial settings to update (only provided values will be updated)
+   */
+  updateDeferredReferenceSettings(
+    settings: Partial<DeferredReferenceProcessingSettings>,
+  ): void {
+    if (settings.deferredBatchSize !== undefined) {
+      this.DEFERRED_BATCH_SIZE = settings.deferredBatchSize;
+    }
+    if (settings.maxRetryAttempts !== undefined) {
+      const oldValue = this.MAX_RETRY_ATTEMPTS;
+      this.MAX_RETRY_ATTEMPTS = settings.maxRetryAttempts;
+      this.logger.info(
+        () =>
+          `MAX_RETRY_ATTEMPTS updated from ${oldValue} to ${this.MAX_RETRY_ATTEMPTS}`,
+      );
+    }
+    if (settings.retryDelayMs !== undefined) {
+      this.RETRY_DELAY_MS = settings.retryDelayMs;
+    }
+    if (settings.maxRetryDelayMs !== undefined) {
+      this.MAX_RETRY_DELAY_MS = settings.maxRetryDelayMs;
+    }
+    if (settings.queueCapacityThreshold !== undefined) {
+      this.QUEUE_CAPACITY_THRESHOLD = settings.queueCapacityThreshold;
+    }
+    if (settings.queueDrainThreshold !== undefined) {
+      this.QUEUE_DRAIN_THRESHOLD = settings.queueDrainThreshold;
+    }
+    if (settings.queueFullRetryDelayMs !== undefined) {
+      this.QUEUE_FULL_RETRY_DELAY_MS = settings.queueFullRetryDelayMs;
+    }
+    if (settings.maxQueueFullRetryDelayMs !== undefined) {
+      this.MAX_QUEUE_FULL_RETRY_DELAY_MS = settings.maxQueueFullRetryDelayMs;
+    }
+    if (settings.circuitBreakerFailureThreshold !== undefined) {
+      this.CIRCUIT_BREAKER_FAILURE_THRESHOLD =
+        settings.circuitBreakerFailureThreshold;
+    }
+    if (settings.circuitBreakerResetThreshold !== undefined) {
+      this.CIRCUIT_BREAKER_RESET_THRESHOLD =
+        settings.circuitBreakerResetThreshold;
+    }
+    this.logger.info(
+      () =>
+        `Deferred reference processing settings updated: ${JSON.stringify(settings)}`,
+    );
   }
 
   /**
@@ -390,6 +448,20 @@ export class ApexSymbolGraph {
    * Re-queue a failed task with incremented retry count, or move to dead letters if max retries exceeded
    */
   private requeueTask(task: DeferredProcessingTask, reason: string): void {
+    // If MAX_RETRY_ATTEMPTS is 0, disable all retries
+    if (this.MAX_RETRY_ATTEMPTS === 0) {
+      // Don't requeue - retries are disabled
+      this.failedReferences.set(`${task.taskType}:${task.symbolName}`, task);
+      this.pendingRetrySymbols.delete(`${task.taskType}:${task.symbolName}`);
+      this.logger.info(
+        () =>
+          'Deferred reference task retries disabled (maxRetryAttempts=0): ' +
+          `${task.symbolName} (retryCount=${task.retryCount}, ` +
+          `MAX_RETRY_ATTEMPTS=${this.MAX_RETRY_ATTEMPTS})`,
+      );
+      return;
+    }
+
     if (task.retryCount >= this.MAX_RETRY_ATTEMPTS) {
       // Move to dead letter tracking
       this.failedReferences.set(`${task.taskType}:${task.symbolName}`, task);
@@ -783,7 +855,11 @@ export class ApexSymbolGraph {
     }
 
     // Queue retry of pending deferred references that were waiting for this source symbol
-    if (this.pendingDeferredReferences.has(symbol.name)) {
+    // Skip if retries are disabled (MAX_RETRY_ATTEMPTS === 0)
+    if (
+      this.pendingDeferredReferences.has(symbol.name) &&
+      this.MAX_RETRY_ATTEMPTS > 0
+    ) {
       const task: DeferredProcessingTask = {
         _tag: 'DeferredProcessingTask',
         symbolName: symbol.name,
@@ -811,6 +887,16 @@ export class ApexSymbolGraph {
             `Failed to enqueue pending retry task for ${symbol.name}: ${errorMessage}`,
         );
       }
+    } else if (
+      this.pendingDeferredReferences.has(symbol.name) &&
+      this.MAX_RETRY_ATTEMPTS === 0
+    ) {
+      // Retries are disabled, clear pending references
+      this.pendingDeferredReferences.delete(symbol.name);
+      this.logger.debug(
+        () =>
+          `Skipping retryPending task for ${symbol.name} (retries disabled, maxRetryAttempts=0)`,
+      );
     }
 
     // If this is a standard Apex class, ensure it's properly registered
@@ -988,6 +1074,62 @@ export class ApexSymbolGraph {
   }
 
   /**
+   * Find the containing method or class symbol for a block symbol
+   * Traverses up the parentId chain to find a non-block symbol
+   */
+  private findContainingSymbolForBlock(
+    blockSymbol: ApexSymbol,
+    fileUri: string,
+  ): ApexSymbol | null {
+    if (!isBlockSymbol(blockSymbol) || !blockSymbol.parentId) {
+      return null;
+    }
+
+    // Get the symbol table for this file
+    const normalizedFileUri = extractFilePathFromUri(fileUri);
+    const symbolTable = this.fileToSymbolTable.get(normalizedFileUri);
+    if (!symbolTable) {
+      return null;
+    }
+
+    // Traverse up the parentId chain to find a method or class symbol
+    let currentId: string | undefined = blockSymbol.parentId;
+    const visited = new Set<string>(); // Prevent infinite loops
+
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+
+      // Find the symbol by ID in the symbol table
+      const allSymbols = symbolTable.getAllSymbols();
+      const parentSymbol = allSymbols.find((s) => s.id === currentId);
+
+      if (!parentSymbol) {
+        break;
+      }
+
+      // If we found a method or class symbol, use it
+      if (
+        parentSymbol.kind === SymbolKind.Method ||
+        parentSymbol.kind === SymbolKind.Class ||
+        parentSymbol.kind === SymbolKind.Interface ||
+        parentSymbol.kind === SymbolKind.Enum ||
+        parentSymbol.kind === SymbolKind.Trigger
+      ) {
+        return parentSymbol;
+      }
+
+      // If it's another block, continue traversing up
+      if (isBlockSymbol(parentSymbol) && parentSymbol.parentId) {
+        currentId = parentSymbol.parentId;
+      } else {
+        break;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * OPTIMIZED: Add reference between symbols using IDs only
    */
   addReference(
@@ -1023,9 +1165,35 @@ export class ApexSymbolGraph {
 
     if (!sourceSymbolInGraph || !targetSymbolInGraph) {
       // If symbols don't exist yet, add deferred reference
+      // But first, if sourceSymbol is a block, find the containing method/class
+      let actualSourceSymbol = sourceSymbol;
+      if (isBlockSymbol(sourceSymbol) && sourceSymbol.fileUri) {
+        const containingSymbol = this.findContainingSymbolForBlock(
+          sourceSymbol,
+          sourceSymbol.fileUri,
+        );
+        if (containingSymbol) {
+          actualSourceSymbol = containingSymbol;
+          this.logger.debug(
+            () =>
+              `Replacing block symbol ${sourceSymbol.name} with containing symbol ` +
+              `${containingSymbol.name} (kind=${containingSymbol.kind}) for deferred reference`,
+          );
+        } else {
+          // If we can't find a containing symbol, skip this reference
+          // Block symbols shouldn't be used as source symbols
+          this.logger.debug(
+            () =>
+              `Skipping deferred reference with block symbol source ${sourceSymbol.name} ` +
+              '(no containing method/class found)',
+          );
+          return;
+        }
+      }
+
       // Use symbol name as key since we don't know the exact fileUri
       this.addDeferredReference(
-        sourceSymbol,
+        actualSourceSymbol,
         targetSymbol.name,
         referenceType,
         location,
@@ -1852,6 +2020,17 @@ export class ApexSymbolGraph {
       context,
     });
     this.deferredReferences.set(targetSymbolName, existing);
+
+    // Log when references are deferred for debugging
+    this.logger.debug(
+      () =>
+        'Deferred reference added: ' +
+        `source=${sourceSymbol.name} (kind=${sourceSymbol.kind}, ` +
+        `fileUri=${sourceSymbol.fileUri || 'none'}), ` +
+        `target=${targetSymbolName}, ` +
+        `refType=${String(referenceType)}` +
+        (context?.methodName ? `, method=${context.methodName}` : ''),
+    );
   }
 
   /**
@@ -2030,8 +2209,34 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
+    // If sourceSymbol is a block, find the containing method/class
+    let actualSourceSymbol = sourceSymbol;
+    if (isBlockSymbol(sourceSymbol) && sourceSymbol.fileUri) {
+      const containingSymbol = this.findContainingSymbolForBlock(
+        sourceSymbol,
+        sourceSymbol.fileUri,
+      );
+      if (containingSymbol) {
+        actualSourceSymbol = containingSymbol;
+        this.logger.debug(
+          () =>
+            `Replacing block symbol ${sourceSymbol.name} with containing symbol ` +
+            `${containingSymbol.name} (kind=${containingSymbol.kind}) for deferred reference`,
+        );
+      } else {
+        // If we can't find a containing symbol, skip this reference
+        // Block symbols shouldn't be used as source symbols
+        this.logger.debug(
+          () =>
+            `Skipping deferred reference with block symbol source ${sourceSymbol.name} ` +
+            '(no containing method/class found)',
+        );
+        return;
+      }
+    }
+
     this.addDeferredReference(
-      sourceSymbol,
+      actualSourceSymbol,
       targetSymbolName,
       referenceType,
       location,
@@ -2104,10 +2309,17 @@ export class ApexSymbolGraph {
           });
           self.pendingDeferredReferences.set(ref.sourceSymbol.name, pending);
 
-          self.logger.debug(
+          self.logger.info(
             () =>
-              `Source symbol not found for deferred reference: ${ref.sourceSymbol.name}, ` +
-              'will retry when source symbol is added',
+              'Source symbol not found for deferred reference: ' +
+              `source=${ref.sourceSymbol.name} (kind=${ref.sourceSymbol.kind}, ` +
+              `fileUri=${ref.sourceSymbol.fileUri || 'none'}), ` +
+              `target=${symbolName}, ` +
+              `refType=${String(ref.referenceType)}` +
+              (ref.context?.methodName
+                ? `, method=${ref.context.methodName}`
+                : '') +
+              ', will retry when source symbol is added',
           );
           processed.push(ref);
           hasFailures = true;
@@ -2251,10 +2463,17 @@ export class ApexSymbolGraph {
         });
         this.pendingDeferredReferences.set(ref.sourceSymbol.name, pending);
 
-        this.logger.debug(
+        this.logger.info(
           () =>
-            `Source symbol not found for deferred reference: ${ref.sourceSymbol.name}, ` +
-            'will retry when source symbol is added',
+            'Source symbol not found for deferred reference: ' +
+            `source=${ref.sourceSymbol.name} (kind=${ref.sourceSymbol.kind}, ` +
+            `fileUri=${ref.sourceSymbol.fileUri || 'none'}), ` +
+            `target=${symbolName}, ` +
+            `refType=${String(ref.referenceType)}` +
+            (ref.context?.methodName
+              ? `, method=${ref.context.methodName}`
+              : '') +
+            ', will retry when source symbol is added',
         );
         processed.push(ref);
         hasFailures = true;

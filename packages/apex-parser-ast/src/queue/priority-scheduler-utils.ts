@@ -237,19 +237,39 @@ function controllerLoop(
           }
           lastQueueSizes.set(p, queueSize);
 
-          // Check threshold alerts
-          const utilization = (queueSize / state.queueCapacity) * 100;
+          // Check threshold alerts - get capacity for this priority
+          const capacityMap = typeof state.queueCapacity === 'number'
+            ? {
+                CRITICAL: state.queueCapacity,
+                IMMEDIATE: state.queueCapacity,
+                HIGH: state.queueCapacity,
+                NORMAL: state.queueCapacity,
+                LOW: state.queueCapacity,
+                BACKGROUND: state.queueCapacity,
+              }
+            : state.queueCapacity;
+          const priorityToName: Record<number, string> = {
+            0: 'CRITICAL',
+            1: 'IMMEDIATE',
+            2: 'HIGH',
+            3: 'NORMAL',
+            4: 'LOW',
+            5: 'BACKGROUND',
+          };
+          const priorityName = priorityToName[p] || 'NORMAL';
+          const capacity = capacityMap[priorityName] || capacityMap.NORMAL || 200;
+          const utilization = (queueSize / capacity) * 100;
           if (utilization >= 90) {
             logger.warn(
               () =>
                 `[QUEUE] CRITICAL: ${getPriorityName(p)} queue at ${utilization.toFixed(1)}% ` +
-                `capacity (${queueSize}/${state.queueCapacity})`,
+                `capacity (${queueSize}/${capacity})`,
             );
           } else if (utilization >= 75) {
             logger.warn(
               () =>
                 `[QUEUE] WARNING: ${getPriorityName(p)} queue at ${utilization.toFixed(1)}% ` +
-                `capacity (${queueSize}/${state.queueCapacity})`,
+                `capacity (${queueSize}/${capacity})`,
             );
           }
 
@@ -394,18 +414,42 @@ function getCurrentMetrics(
     const requestTypeBreakdown: any = {};
 
     // Only include public priorities in metrics (exclude Critical for API stability)
+    // Get capacity map (handle both legacy single number and per-priority Record)
+    const capacityMap = typeof state.queueCapacity === 'number'
+      ? {
+          CRITICAL: state.queueCapacity,
+          IMMEDIATE: state.queueCapacity,
+          HIGH: state.queueCapacity,
+          NORMAL: state.queueCapacity,
+          LOW: state.queueCapacity,
+          BACKGROUND: state.queueCapacity,
+        }
+      : state.queueCapacity;
+    const priorityNameMap: Record<number, string> = {
+      0: 'CRITICAL',
+      1: 'IMMEDIATE',
+      2: 'HIGH',
+      3: 'NORMAL',
+      4: 'LOW',
+      5: 'BACKGROUND',
+    };
+    
     for (const p of AllPriorities) {
       const queueSize = yield* Queue.size(state.queues.get(p)!);
       ms[p] = queueSize;
-      utilization[p] = (queueSize / state.queueCapacity) * 100;
+      const priorityName = priorityNameMap[p] || 'NORMAL';
+      const capacity = capacityMap[priorityName] || capacityMap.NORMAL || 200;
+      utilization[p] = (queueSize / capacity) * 100;
 
       // Get active task count
       const activeCounts = yield* Ref.get(state.activeTaskCounts);
-      activeTasks[p] = activeCounts.get(p) || 0;
+      const activeCountsValue = activeCounts as Map<number, number>;
+      activeTasks[p] = activeCountsValue.get(p) || 0;
 
       // Get requestType breakdown
       const requestTypeCounts = yield* Ref.get(state.requestTypeCounts);
-      const priorityCounts = requestTypeCounts.get(p) || new Map();
+      const requestTypeCountsValue = requestTypeCounts as Map<number, Map<string, number>>;
+      const priorityCounts = requestTypeCountsValue.get(p) || new Map();
       const breakdown: Record<string, number> = {};
       for (const [requestType, count] of priorityCounts.entries()) {
         breakdown[requestType] = count;
@@ -413,15 +457,20 @@ function getCurrentMetrics(
       requestTypeBreakdown[p] = breakdown;
     }
 
+    // For metrics API, return a representative capacity (use NORMAL priority for backward compatibility)
+    const representativeCapacity = typeof state.queueCapacity === 'number'
+      ? state.queueCapacity
+      : state.queueCapacity.NORMAL || 200;
+
     return {
       queueSizes: ms,
-      tasksStarted: yield* Ref.get(state.tasksStarted),
-      tasksCompleted: yield* Ref.get(state.tasksCompleted),
-      tasksDropped: yield* Ref.get(state.tasksDropped),
+      tasksStarted: (yield* Ref.get(state.tasksStarted)) as number,
+      tasksCompleted: (yield* Ref.get(state.tasksCompleted)) as number,
+      tasksDropped: (yield* Ref.get(state.tasksDropped)) as number,
       requestTypeBreakdown,
       queueUtilization: utilization,
       activeTasks,
-      queueCapacity: state.queueCapacity,
+      queueCapacity: representativeCapacity,
     } satisfies SchedulerMetrics;
   });
 }
@@ -519,7 +568,14 @@ const taskIdCounterRef = Ref.unsafeMake<number>(0);
 
 // Default config values (matching DEFAULT_APEX_SETTINGS.scheduler in apex-lsp-shared)
 const DEFAULT_CONFIG = {
-  queueCapacity: 64,
+  queueCapacity: {
+    CRITICAL: 200,
+    IMMEDIATE: 200,
+    HIGH: 200,
+    NORMAL: 200,
+    LOW: 200,
+    BACKGROUND: 200,
+  },
   maxHighPriorityStreak: 50,
   idleSleepMs: 1,
 };
@@ -535,7 +591,7 @@ const DEFAULT_CONFIG = {
  */
 export function initialize(
   config?: {
-    queueCapacity: number;
+    queueCapacity: number | Record<string, number>;
     maxHighPriorityStreak: number;
     idleSleepMs: number;
   },
@@ -554,6 +610,22 @@ export function initialize(
 
     const finalConfig = config ?? DEFAULT_CONFIG;
 
+    // Handle backward compatibility: convert single number to per-priority Record
+    let queueCapacityMap: Record<string, number>;
+    if (typeof finalConfig.queueCapacity === 'number') {
+      // Single capacity value - apply to all priorities
+      queueCapacityMap = {
+        CRITICAL: finalConfig.queueCapacity,
+        IMMEDIATE: finalConfig.queueCapacity,
+        HIGH: finalConfig.queueCapacity,
+        NORMAL: finalConfig.queueCapacity,
+        LOW: finalConfig.queueCapacity,
+        BACKGROUND: finalConfig.queueCapacity,
+      };
+    } else {
+      queueCapacityMap = finalConfig.queueCapacity;
+    }
+
     // Create a persistent scope that will keep the scheduler alive
     // This scope is reused across all calls to maintain singleton behavior
     const scope = yield* Scope.make();
@@ -564,12 +636,25 @@ export function initialize(
       number,
       Queue.Queue<QueuedItem<unknown, unknown, unknown>>
     >();
+    
+    // Priority mapping: CRITICAL=0, IMMEDIATE=1, HIGH=2, NORMAL=3, LOW=4, BACKGROUND=5
+    const priorityToName: Record<number, string> = {
+      0: 'CRITICAL',
+      1: 'IMMEDIATE',
+      2: 'HIGH',
+      3: 'NORMAL',
+      4: 'LOW',
+      5: 'BACKGROUND',
+    };
+    
     for (const p of AllPrioritiesWithCritical) {
+      // Get priority name from numeric value
+      const priorityName = priorityToName[p] || 'NORMAL';
+      const capacity = queueCapacityMap[priorityName] || queueCapacityMap.NORMAL || 200;
+      
       queues.set(
         p,
-        yield* Queue.bounded<QueuedItem<unknown, unknown, unknown>>(
-          finalConfig.queueCapacity,
-        ),
+        yield* Queue.bounded<QueuedItem<unknown, unknown, unknown>>(capacity),
       );
     }
 
@@ -598,7 +683,7 @@ export function initialize(
       shutdownSignal: yield* Deferred.make<void, void>(),
       requestTypeCounts: yield* Ref.make(requestTypeCountsMap),
       activeTaskCounts: yield* Ref.make(activeTaskCountsMap),
-      queueCapacity: finalConfig.queueCapacity,
+      queueCapacity: queueCapacityMap,
     };
 
     // Start the controller loop in the background within our scope
@@ -636,10 +721,32 @@ export function initialize(
 
           // Log enqueue event
           const queueSize = yield* Queue.size(q);
+          const priorityNameDisplay = getPriorityName(priority);
+          // Map priority to uppercase key for capacity map
+          const priorityToKey: Record<string, string> = {
+            'Critical': 'CRITICAL',
+            'Immediate': 'IMMEDIATE',
+            'High': 'HIGH',
+            'Normal': 'NORMAL',
+            'Low': 'LOW',
+            'Background': 'BACKGROUND',
+          };
+          const priorityKey = priorityToKey[priorityNameDisplay] || 'NORMAL';
+          const capacityMap = typeof schedulerState.queueCapacity === 'number'
+            ? {
+                CRITICAL: schedulerState.queueCapacity,
+                IMMEDIATE: schedulerState.queueCapacity,
+                HIGH: schedulerState.queueCapacity,
+                NORMAL: schedulerState.queueCapacity,
+                LOW: schedulerState.queueCapacity,
+                BACKGROUND: schedulerState.queueCapacity,
+              }
+            : schedulerState.queueCapacity;
+          const capacity = capacityMap[priorityKey] || capacityMap.NORMAL || 200;
           logger.debug(
             () =>
-              `[QUEUE] Enqueued ${requestType} (id: ${queuedItem.id}) with priority ${getPriorityName(priority)}, ` +
-              `queue size: ${queueSize}/${schedulerState.queueCapacity}`,
+              `[QUEUE] Enqueued ${requestType} (id: ${queuedItem.id}) with priority ${priorityNameDisplay}, ` +
+              `queue size: ${queueSize}/${capacity}`,
           );
 
           return {
@@ -655,10 +762,32 @@ export function initialize(
         const requestTypeBreakdown: any = {};
 
         // Only include public priorities in metrics (exclude Critical for API stability)
+        // Get capacity map (handle both legacy single number and per-priority Record)
+        const capacityMap = typeof schedulerState.queueCapacity === 'number'
+          ? {
+              CRITICAL: schedulerState.queueCapacity,
+              IMMEDIATE: schedulerState.queueCapacity,
+              HIGH: schedulerState.queueCapacity,
+              NORMAL: schedulerState.queueCapacity,
+              LOW: schedulerState.queueCapacity,
+              BACKGROUND: schedulerState.queueCapacity,
+            }
+          : schedulerState.queueCapacity;
+        const priorityNameMap: Record<number, string> = {
+          0: 'CRITICAL',
+          1: 'IMMEDIATE',
+          2: 'HIGH',
+          3: 'NORMAL',
+          4: 'LOW',
+          5: 'BACKGROUND',
+        };
+        
         for (const p of AllPriorities) {
           const queueSize = yield* Queue.size(schedulerState.queues.get(p)!);
           ms[p] = queueSize;
-          utilization[p] = (queueSize / schedulerState.queueCapacity) * 100;
+          const priorityName = priorityNameMap[p] || 'NORMAL';
+          const capacity = capacityMap[priorityName] || capacityMap.NORMAL || 200;
+          utilization[p] = (queueSize / capacity) * 100;
 
           // Get active task count
           const activeCounts = yield* Ref.get(schedulerState.activeTaskCounts);
@@ -684,7 +813,9 @@ export function initialize(
           requestTypeBreakdown,
           queueUtilization: utilization,
           activeTasks,
-          queueCapacity: schedulerState.queueCapacity,
+          queueCapacity: typeof schedulerState.queueCapacity === 'number'
+            ? schedulerState.queueCapacity
+            : schedulerState.queueCapacity.NORMAL || 200,
         } satisfies SchedulerMetrics;
       }),
       shutdown: Deferred.succeed(schedulerState.shutdownSignal, undefined).pipe(

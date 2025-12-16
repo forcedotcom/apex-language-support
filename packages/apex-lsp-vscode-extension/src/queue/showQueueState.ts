@@ -159,3 +159,22 @@ export async function showQueueState(
     console.log('Queue state panel disposed');
   });
 }
+
+/**
+ * Register webview panel serializer for queue state
+ * This handles webview restoration when VSCode restarts
+ */
+export function registerQueueStateSerializer(
+  context: vscode.ExtensionContext,
+): void {
+  vscode.window.registerWebviewPanelSerializer('queueState', {
+    async deserializeWebviewPanel(
+      webviewPanel: vscode.WebviewPanel,
+      _state: any,
+    ) {
+      // Close the restored panel since queue state is dynamic and requires a live connection
+      // User can reopen it via command if needed
+      webviewPanel.dispose();
+    },
+  });
+}

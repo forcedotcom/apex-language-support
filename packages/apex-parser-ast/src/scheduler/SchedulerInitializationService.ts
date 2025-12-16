@@ -92,10 +92,20 @@ export class SchedulerInitializationService {
           `Initializing scheduler with config: ${JSON.stringify(schedulerConfig)}`,
       );
 
+      // Handle backward compatibility: queueCapacity can be number or per-priority Record
+      let queueCapacity: number | Record<string, number>;
+      if (typeof schedulerConfig.queueCapacity === 'number') {
+        // Legacy single number - scheduler will convert to per-priority internally
+        queueCapacity = schedulerConfig.queueCapacity;
+      } else {
+        // Per-priority configuration - pass through to scheduler
+        queueCapacity = schedulerConfig.queueCapacity;
+      }
+
       // Initialize the scheduler with settings
       await Effect.runPromise(
         schedulerInitialize({
-          queueCapacity: schedulerConfig.queueCapacity,
+          queueCapacity,
           maxHighPriorityStreak: schedulerConfig.maxHighPriorityStreak,
           idleSleepMs: schedulerConfig.idleSleepMs,
         }),

@@ -124,6 +124,18 @@ describe('Configuration Module', () => {
             enableForDocumentSymbols: false,
             enableForFoldingRanges: false,
           },
+          deferredReferenceProcessing: {
+            deferredBatchSize: 50,
+            maxRetryAttempts: 10,
+            retryDelayMs: 100,
+            maxRetryDelayMs: 5000,
+            queueCapacityThreshold: 90,
+            queueDrainThreshold: 75,
+            queueFullRetryDelayMs: 10000,
+            maxQueueFullRetryDelayMs: 30000,
+            circuitBreakerFailureThreshold: 5,
+            circuitBreakerResetThreshold: 50,
+          },
           performance: {
             commentCollectionMaxFileSize: 102400,
             useAsyncCommentProcessing: true,
@@ -131,10 +143,12 @@ describe('Configuration Module', () => {
           },
           queueProcessing: {
             maxConcurrency: {
+              CRITICAL: 100,
               HIGH: 50,
               IMMEDIATE: 50,
               LOW: 10,
               NORMAL: 25,
+              BACKGROUND: 5,
             },
             yieldDelayMs: 25,
             yieldInterval: 50,
@@ -151,7 +165,14 @@ describe('Configuration Module', () => {
             standardApexLibraryPath: undefined,
           },
           scheduler: {
-            queueCapacity: 200,
+            queueCapacity: {
+              CRITICAL: 200,
+              IMMEDIATE: 200,
+              HIGH: 200,
+              NORMAL: 200,
+              LOW: 200,
+              BACKGROUND: 200,
+            },
             maxHighPriorityStreak: 50,
             idleSleepMs: 1,
           },

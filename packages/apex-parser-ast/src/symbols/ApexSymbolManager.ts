@@ -8,7 +8,12 @@
 
 import { HashMap, Stack } from 'data-structure-typed';
 import { Effect } from 'effect';
-import { getLogger, type EnumValue } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  type EnumValue,
+  ApexSettingsManager,
+  DEFAULT_APEX_SETTINGS,
+} from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbol,
   SymbolKind,
@@ -144,8 +149,70 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private loadingSymbolTables: Set<string> = new Set();
 
   constructor() {
-    this.symbolGraph = new ApexSymbolGraph();
+    // Get settings from ApexSettingsManager (with fallback for test environments)
+    let deferredReferenceSettings;
+    let settingsManager: ApexSettingsManager | undefined;
+
+    try {
+      // Try to get settings manager instance
+      if (ApexSettingsManager && typeof ApexSettingsManager.getInstance === 'function') {
+        settingsManager = ApexSettingsManager.getInstance();
+        if (settingsManager) {
+          const settings = settingsManager.getSettings();
+          deferredReferenceSettings = settings.apex.deferredReferenceProcessing;
+        }
+      }
+    } catch (error) {
+      // Fallback: use default settings if ApexSettingsManager is not available
+      // This can happen in test environments where the module is mocked
+      this.logger.debug(
+        () =>
+          'ApexSettingsManager not available, using default deferred reference processing settings',
+      );
+    }
+
+    // Use default settings if not available
+    if (!deferredReferenceSettings) {
+      // Fallback to inline defaults if DEFAULT_APEX_SETTINGS is not available (e.g., in mocked test environments)
+      try {
+        deferredReferenceSettings =
+          DEFAULT_APEX_SETTINGS?.apex?.deferredReferenceProcessing;
+      } catch {
+        // Ignore errors accessing DEFAULT_APEX_SETTINGS
+      }
+      
+      // Final fallback: use hardcoded defaults
+      if (!deferredReferenceSettings) {
+        deferredReferenceSettings = {
+          deferredBatchSize: 50,
+          maxRetryAttempts: 10,
+          retryDelayMs: 100,
+          maxRetryDelayMs: 5000,
+          queueCapacityThreshold: 90,
+          queueDrainThreshold: 75,
+          queueFullRetryDelayMs: 10000,
+          maxQueueFullRetryDelayMs: 30000,
+          circuitBreakerFailureThreshold: 5,
+          circuitBreakerResetThreshold: 50,
+        };
+      }
+    }
+
+    // Initialize ApexSymbolGraph with deferred reference processing settings
+    this.symbolGraph = new ApexSymbolGraph(deferredReferenceSettings);
     ApexSymbolGraph.setInstance(this.symbolGraph);
+
+    // Register settings change listener if settings manager is available
+    if (settingsManager && typeof settingsManager.onSettingsChange === 'function') {
+      settingsManager.onSettingsChange((newSettings) => {
+        if (newSettings.apex.deferredReferenceProcessing) {
+          this.symbolGraph.updateDeferredReferenceSettings(
+            newSettings.apex.deferredReferenceProcessing,
+          );
+        }
+      });
+    }
+
     this.fileMetadata = new HashMap();
     this.unifiedCache = new UnifiedCache(
       this.MAX_CACHE_SIZE,
@@ -1940,35 +2007,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable: SymbolTable,
   ): Promise<void> {
     try {
-      // Find the source symbol (the symbol that contains this reference)
-      // Use the normalized URI to match how symbols are stored in the graph
-      const properUri =
-        getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
-      const normalizedUri = extractFilePathFromUri(properUri);
-      let sourceSymbol = this.findContainingSymbolForReference(
-        typeRef,
-        normalizedUri,
-      );
-      if (!sourceSymbol) {
-        // Fallback: Try to find the class symbol in the file as a last resort
-        // This ensures references are still processed even if position matching fails
-        const symbolsInFile = this.findSymbolsInFile(normalizedUri);
-        const classSymbol = symbolsInFile.find(
-          (s) =>
-            s.kind === SymbolKind.Class ||
-            s.kind === SymbolKind.Interface ||
-            s.kind === SymbolKind.Enum ||
-            s.kind === SymbolKind.Trigger,
-        );
-        if (classSymbol) {
-          sourceSymbol = classSymbol;
-        } else {
-          // If we still can't find a containing symbol, skip this reference
-          // This can happen if the reference is in a location that doesn't match any symbol
-          return;
-        }
-      }
-
       // Check if this is a cross-file reference BEFORE trying to resolve
       // This prevents recursive cascades when processing standard library classes
       const qualifierInfo = this.extractQualifierFromChain(typeRef);
@@ -2013,22 +2051,63 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // If it's a cross-file reference, defer it immediately without resolving
       // This prevents triggering resolution of standard library classes or other files
       if (isCrossFileReference) {
-        const referenceType = this.mapReferenceContextToType(typeRef.context);
-        this.symbolGraph.enqueueDeferredReference(
-          sourceSymbol,
-          typeRef.name,
-          referenceType,
-          typeRef.location,
-          {
-            methodName: typeRef.parentContext,
-            isStatic: await this.isStaticReference(typeRef),
-          },
+        // For cross-file references, we still need a source symbol for deferral
+        // Use the graph-based lookup as fallback since SymbolTable won't have cross-file symbols
+        const properUri =
+          getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+        const normalizedUri = extractFilePathFromUri(properUri);
+        let sourceSymbol = this.findContainingSymbolForReference(
+          typeRef,
+          normalizedUri,
+        );
+        if (!sourceSymbol) {
+          // Fallback: Try to find the class symbol in the file
+          const symbolsInFile = this.findSymbolsInFile(normalizedUri);
+          sourceSymbol =
+            symbolsInFile.find(
+              (s) =>
+                s.kind === SymbolKind.Class ||
+                s.kind === SymbolKind.Interface ||
+                s.kind === SymbolKind.Enum ||
+                s.kind === SymbolKind.Trigger,
+            ) || null;
+        }
+
+        if (sourceSymbol) {
+          const referenceType = this.mapReferenceContextToType(typeRef.context);
+          this.symbolGraph.enqueueDeferredReference(
+            sourceSymbol,
+            typeRef.name,
+            referenceType,
+            typeRef.location,
+            {
+              methodName: typeRef.parentContext,
+              isStatic: await this.isStaticReference(typeRef),
+            },
+          );
+        }
+        return;
+      }
+
+      // At this point, we know the reference is to a symbol in the same file (Set A)
+      // Optimize: Resolve both source and target from SymbolTable directly
+      // This is deterministic since symbol collection is complete
+
+      // 1. Resolve source symbol from SymbolTable (handles blocks by finding containing method/class)
+      const sourceSymbol = this.findContainingSymbolFromSymbolTable(
+        typeRef,
+        symbolTable,
+      );
+      if (!sourceSymbol) {
+        // Can't resolve source symbol - skip this reference
+        this.logger.debug(
+          () =>
+            `Skipping type reference ${typeRef.name}: could not resolve source symbol from SymbolTable`,
         );
         return;
       }
 
-      // At this point, we know the reference is to a symbol in the same file
-      // Try to resolve it (this should be fast since it's in the same file)
+      // 2. Resolve target symbol from SymbolTable (already optimized)
       const targetSymbol = await this.findTargetSymbolForReference(
         typeRef,
         fileUri,
@@ -2057,9 +2136,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return;
       }
 
-      // Ensure source and target symbols are actually in the graph
-      // addReference uses findSymbolByName which requires symbols to be in the graph's name index
-      // Get the symbols from the graph to ensure they match what's stored
+      // 3. Add to graph directly (symbols are already in graph from addSymbolTable)
+      // Get symbols from graph to ensure we use the exact instances stored there
       const sourceSymbolsInGraph = this.symbolGraph.findSymbolByName(
         sourceSymbol.name,
       );
@@ -2067,15 +2145,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         targetSymbol.name,
       );
 
-      const sourceInGraph = sourceSymbol?.fileUri
-        ? sourceSymbolsInGraph.find((s) => s.fileUri === sourceSymbol?.fileUri)
+      const sourceInGraph = sourceSymbol.fileUri
+        ? sourceSymbolsInGraph.find((s) => s.fileUri === sourceSymbol.fileUri)
         : sourceSymbolsInGraph[0];
 
       const targetInGraph = targetSymbol.fileUri
         ? targetSymbolsInGraph.find((s) => s.fileUri === targetSymbol.fileUri)
         : targetSymbolsInGraph[0];
 
-      // If symbols aren't in graph yet, defer the reference
+      // Symbols should be in graph since addSymbolTable runs before processTypeReferencesToGraph
+      // If they're not, queue for when they are added (rare edge case)
       if (!sourceInGraph || !targetInGraph) {
         const referenceType = this.mapReferenceContextToType(typeRef.context);
         this.symbolGraph.enqueueDeferredReference(
@@ -2095,6 +2174,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const referenceType = this.mapReferenceContextToType(typeRef.context);
 
       // Add the reference to the symbol graph using symbols from the graph
+      // This is deterministic for same-file references since both symbols are resolved from SymbolTable
       this.symbolGraph.addReference(
         sourceInGraph,
         targetInGraph,
@@ -2148,6 +2228,95 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     return null;
+  }
+
+  /**
+   * Find the containing symbol for a type reference using SymbolTable directly.
+   * Optimized for same-file references (Set A) - resolves from SymbolTable without graph lookup.
+   * Handles block symbols by traversing up to find containing method/class/interface/enum/trigger.
+   * @param typeRef The type reference
+   * @param symbolTable The symbol table for the file
+   * @returns The containing semantic symbol (method, class, interface, enum, or trigger) or null
+   */
+  private findContainingSymbolFromSymbolTable(
+    typeRef: TypeReference,
+    symbolTable: SymbolTable,
+  ): ApexSymbol | null {
+    const position = {
+      line: typeRef.location.identifierRange.startLine,
+      character: typeRef.location.identifierRange.startColumn,
+    };
+
+    // Get scope hierarchy from SymbolTable (innermost to outermost blocks)
+    const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+    const allSymbols = symbolTable.getAllSymbols();
+
+    // Traverse from innermost to outermost to find the containing semantic symbol
+    // Reverse to start from innermost (most specific)
+    for (const blockSymbol of [...scopeHierarchy].reverse()) {
+      // If this block has a parent, check if the parent is a semantic symbol
+      if (blockSymbol.parentId) {
+        const parent = allSymbols.find((s) => s.id === blockSymbol.parentId);
+        if (parent) {
+          // Check if parent is a semantic symbol (method, class, interface, enum, trigger)
+          if (
+            parent.kind === SymbolKind.Method ||
+            parent.kind === SymbolKind.Class ||
+            parent.kind === SymbolKind.Interface ||
+            parent.kind === SymbolKind.Enum ||
+            parent.kind === SymbolKind.Trigger
+          ) {
+            return parent;
+          }
+
+          // If parent is also a block, continue traversing up
+          // This handles nested blocks (e.g., if inside for inside method)
+          if (isBlockSymbol(parent) && parent.parentId) {
+            let currentId: string | undefined = parent.parentId;
+            const visited = new Set<string>();
+            visited.add(parent.id);
+
+            while (currentId && !visited.has(currentId)) {
+              visited.add(currentId);
+              const ancestor = allSymbols.find((s) => s.id === currentId);
+              if (!ancestor) {
+                break;
+              }
+
+              // Found a semantic symbol
+              if (
+                ancestor.kind === SymbolKind.Method ||
+                ancestor.kind === SymbolKind.Class ||
+                ancestor.kind === SymbolKind.Interface ||
+                ancestor.kind === SymbolKind.Enum ||
+                ancestor.kind === SymbolKind.Trigger
+              ) {
+                return ancestor;
+              }
+
+              // Continue up the chain if it's another block
+              if (isBlockSymbol(ancestor) && ancestor.parentId) {
+                currentId = ancestor.parentId;
+              } else {
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback: If no containing semantic symbol found in scope hierarchy,
+    // find the top-level type symbol (class, interface, enum, trigger)
+    const topLevelSymbol = allSymbols.find(
+      (s) =>
+        s.kind === SymbolKind.Class ||
+        s.kind === SymbolKind.Interface ||
+        s.kind === SymbolKind.Enum ||
+        s.kind === SymbolKind.Trigger,
+    );
+
+    return topLevelSymbol || null;
   }
 
   /**

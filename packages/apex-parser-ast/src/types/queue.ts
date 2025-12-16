@@ -64,7 +64,8 @@ export interface PriorityScheduler {
 }
 
 export interface PrioritySchedulerConfigShape {
-  queueCapacity: number;
+  /** Queue capacity - can be a single number (applied to all) or per-priority Record */
+  queueCapacity: number | Record<string, number>;
   maxHighPriorityStreak: number;
   idleSleepMs: number;
 }
@@ -93,8 +94,8 @@ export interface SchedulerInternalState {
   readonly requestTypeCounts: Ref.Ref<Map<number, Map<string, number>>>;
   /** Active tasks per priority (currently executing) */
   readonly activeTaskCounts: Ref.Ref<Map<number, number>>;
-  /** Queue capacity per priority */
-  readonly queueCapacity: number;
+  /** Queue capacity per priority - can be single number (legacy) or per-priority Record */
+  readonly queueCapacity: number | Record<string, number>;
 }
 
 // Internal state types for scheduler utils

@@ -11,6 +11,7 @@ import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel, updateLogLevel } from './logging';
 import { showGraph } from './graph/showGraph';
 import { showQueueState } from './queue/showQueueState';
+import { showPerformanceSettings } from './settings/showPerformanceSettings';
 import {
   updateProfilingToggleItem,
   getProfilingTag,
@@ -194,6 +195,23 @@ export const registerQueueStateCommand = (
     },
   );
   context.subscriptions.push(queueStateCommand);
+};
+
+/**
+ * Registers the command to show performance settings webview
+ * @param context The extension context
+ */
+export const registerPerformanceSettingsCommand = (
+  context: vscode.ExtensionContext,
+): void => {
+  const performanceSettingsCommand = vscode.commands.registerCommand(
+    'apex-ls-ts.showPerformanceSettings',
+    () => {
+      console.log('Performance settings command executed');
+      showPerformanceSettings(context);
+    },
+  );
+  context.subscriptions.push(performanceSettingsCommand);
 };
 
 /**
