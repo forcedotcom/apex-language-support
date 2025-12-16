@@ -1,32 +1,11 @@
 {
   "name": "@salesforce/apex-ls",
   "version": "1.0.0",
-  "description": "Apex Language Server for browser, Node.js, and web worker environments - consolidates apex-ls-node and apex-ls-browser functionality",
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "description": "Apex Language Server - provides server.node.js for desktop and worker.global.js for web environments",
   "exports": {
-    ".": {
-      "node": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.mjs",
-        "require": "./dist/index.js"
-      },
-      "browser": {
-        "types": "./dist/browser.d.ts",
-        "import": "./dist/browser.mjs",
-        "require": "./dist/browser.js"
-      },
-      "default": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.mjs",
-        "require": "./dist/index.js"
-      }
-    },
-    "./browser": {
-      "types": "./dist/browser.d.ts",
-      "import": "./dist/browser.mjs",
-      "require": "./dist/browser.js"
+    "./server.node": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/server.node.js"
     },
     "./worker": {
       "types": "./dist/worker.d.ts",
@@ -46,7 +25,7 @@
     "compile:browser": "tsc --build tsconfig.browser.json",
     "compile:worker": "tsc --build tsconfig.worker.json",
     "compile:node": "tsc --build tsconfig.node.json",
-    "bundle": "tsup",
+    "bundle": "tsx esbuild.config.ts",
     "test": "jest",
     "test:web": "jest --config jest.config.browser.cjs",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
@@ -65,6 +44,7 @@
     "web-worker": "^1.5.0"
   },
   "devDependencies": {
+    "@salesforce/esbuild-presets": "^0.1.0",
     "@types/node": "^20.19.4",
     "@types/vscode": "^1.90.0",
     "assert": "^2.1.0",

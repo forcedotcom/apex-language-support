@@ -6,30 +6,17 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { defineConfig } from 'tsup';
+import type { BuildOptions } from 'esbuild';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
-import {
-  nodeBaseConfig,
-  browserBaseConfig,
-  NODE_POLYFILLS,
-} from '../../build-config/tsup.shared';
 import * as fs from 'fs';
 import * as path from 'path';
-
-// Extension-specific packages to bundle
-const EXTENSION_NO_EXTERNAL = [
-  '@salesforce/apex-ls',
-  '@salesforce/apex-lsp-compliant-services',
-  '@salesforce/apex-lsp-custom-services',
-  '@salesforce/apex-lsp-parser-ast',
-  '@salesforce/apex-lsp-shared',
-  'vscode-languageserver-textdocument',
-  'vscode-languageserver',
-  'vscode-languageserver-protocol',
-  'vscode-jsonrpc',
-  'util',
-];
+import {
+  browserBaseConfig,
+  nodeBaseConfig,
+  NODE_POLYFILLS,
+  runBuilds,
+} from '@salesforce/esbuild-presets';
 
 /**
  * Copy standard library resources for web extension
@@ -38,10 +25,8 @@ function copyStandardLibraryResources() {
   const distDir = path.resolve(__dirname, 'dist');
   const resourcesDir = path.join(distDir, 'resources');
 
-  // Ensure resources directory exists
   fs.mkdirSync(resourcesDir, { recursive: true });
 
-  // Copy StandardApexLibrary.zip from apex-parser-ast package
   const standardLibZipSrc = path.resolve(
     __dirname,
     '../apex-parser-ast/resources/StandardApexLibrary.zip',
@@ -77,7 +62,6 @@ function copyManifestFiles() {
 
   const dirsToCopy = ['grammars', 'snippets', 'resources'];
 
-  // Copy files
   filesToCopy.forEach((file) => {
     const srcFile = path.join(__dirname, file);
     const destFile = path.join(distDir, file);
@@ -88,7 +72,6 @@ function copyManifestFiles() {
     }
   });
 
-  // Copy directories recursively
   dirsToCopy.forEach((dir) => {
     const srcDirPath = path.join(__dirname, dir);
     const destDirPath = path.join(distDir, dir);
@@ -122,7 +105,6 @@ function fixPackagePaths() {
     const content = fs.readFileSync(packagePath, 'utf8');
     const packageJson = JSON.parse(content);
 
-    // Fix main and browser paths
     if (packageJson.main?.includes('./out/')) {
       packageJson.main = packageJson.main.replace('./out/', './');
     }
@@ -136,8 +118,6 @@ function fixPackagePaths() {
         packageJson.contributes.standardApexLibrary.replace('./out/', './');
     }
 
-    // Remove bundled dependencies from package.json
-    // These are bundled into the extension and not needed as separate dependencies
     const bundledDependencies = [
       '@salesforce/apex-lsp-shared',
       'vscode-languageclient',
@@ -148,7 +128,6 @@ function fixPackagePaths() {
       bundledDependencies.forEach((dep) => {
         delete packageJson.dependencies[dep];
       });
-      // Remove dependencies if empty
       if (Object.keys(packageJson.dependencies).length === 0) {
         delete packageJson.dependencies;
       }
@@ -169,10 +148,8 @@ function copyOutResources() {
   const distResourcesDir = path.join(distDir, 'resources');
 
   try {
-    // Ensure dist/resources directory exists
     fs.mkdirSync(distResourcesDir, { recursive: true });
 
-    // Copy all files from out/resources to dist/resources
     const files = fs.readdirSync(outResourcesDir);
     files.forEach((file) => {
       const srcFile = path.join(outResourcesDir, file);
@@ -198,14 +175,11 @@ function copyWebviewScripts() {
   const distWebviewDir = path.join(distDir, 'webview');
 
   try {
-    // Ensure dist/webview directory exists
     fs.mkdirSync(distWebviewDir, { recursive: true });
 
-    // Copy webview script files (only .js files, not .d.ts or .map files)
     if (fs.existsSync(outWebviewsDir)) {
       const files = fs.readdirSync(outWebviewsDir);
       files.forEach((file) => {
-        // Only copy .js files (skip .d.ts, .js.map, etc.)
         if (file.endsWith('.js') && !file.endsWith('.d.ts')) {
           const srcFile = path.join(outWebviewsDir, file);
           const destFile = path.join(distWebviewDir, file);
@@ -224,7 +198,7 @@ function copyWebviewScripts() {
  * Execute immediate post-build tasks (non-dependent on other packages)
  * Worker file copying is done in a separate postbundle script that Turbo can track
  */
-async function executePostBuildTasks(): Promise<void> {
+function executePostBuildTasks(): void {
   copyManifestFiles();
   copyOutResources();
   copyWebviewScripts();
@@ -232,82 +206,78 @@ async function executePostBuildTasks(): Promise<void> {
   fixPackagePaths();
 }
 
-export default defineConfig([
-  // Desktop Node.js Build - Simple and clean
+const builds: BuildOptions[] = [
   {
-    name: 'desktop',
     ...nodeBaseConfig,
-    entry: ['out/extension.js'],
-    outDir: 'dist',
-    outExtension: () => ({ js: '.js' }),
+    entryPoints: ['out/extension.js'],
+    outdir: 'dist',
+    format: 'cjs',
+    outExtension: { '.js': '.js' },
     sourcemap: true,
+    // For VSIX packaging, only 'vscode' should be external (provided by VS Code at runtime).
+    // All other dependencies (vscode-languageclient, vscode-languageserver-protocol, etc.)
+    // must be bundled since node_modules won't exist in the installed extension.
     external: [
-      ...nodeBaseConfig.external!,
+      'vscode',
       'vm',
       'net',
       'worker_threads',
       'web-worker',
     ],
-    noExternal: [
-      ...EXTENSION_NO_EXTERNAL,
-      'vscode-languageclient/node',
-      'vscode-languageclient/lib/node/main',
-    ],
-    onSuccess: executePostBuildTasks,
+    banner: undefined,
+    footer: undefined,
+    keepNames: true,
   },
-
-  // Web Browser Build - Focused on polyfills only where needed
   {
-    name: 'web',
     ...browserBaseConfig,
-    entry: ['out/extension.js'],
-    outDir: 'dist',
-    format: ['cjs'],
-    outExtension: () => ({ js: '.web.js' }),
+    entryPoints: ['out/extension.js'],
+    outdir: 'dist',
+    format: 'cjs',
+    outExtension: { '.js': '.web.js' },
     sourcemap: true,
-    noExternal: [
-      ...EXTENSION_NO_EXTERNAL,
-      'vscode-languageclient',
-      'web-worker',
+    external: browserBaseConfig.external,
+    conditions: ['browser', 'import', 'module', 'default'],
+    mainFields: ['browser', 'module', 'main'],
+    plugins: [
+      NodeGlobalsPolyfillPlugin({ process: true, buffer: true }),
+      NodeModulesPolyfillPlugin(),
     ],
-    onSuccess: executePostBuildTasks,
-    esbuildOptions(options) {
-      // Essential browser setup
-      options.platform = 'browser';
-      options.conditions = ['browser', 'import', 'module', 'default'];
-      options.mainFields = ['browser', 'module', 'main'];
-
-      // Polyfills - only what we need
-      options.plugins = [
-        ...(options.plugins || []),
-        NodeGlobalsPolyfillPlugin({ process: true, buffer: true }),
-        NodeModulesPolyfillPlugin(),
-      ];
-
-      options.define = { global: 'globalThis' };
-      options.alias = NODE_POLYFILLS;
-    },
+    define: { global: 'globalThis' },
+    alias: NODE_POLYFILLS,
+    keepNames: true,
   },
-
-  // Webview Graph Script Bundle - Browser-compatible IIFE bundle
   {
-    name: 'webview-graph',
-    entry: ['src/webviews/graphScript.ts'],
-    outDir: 'dist/webview',
-    format: ['iife'],
+    entryPoints: ['src/webviews/graphScript.ts'],
+    outdir: 'dist/webview',
+    format: 'iife',
     platform: 'browser',
     target: 'es2020',
-    outExtension: () => ({ js: '.bundle.js' }),
+    outExtension: { '.js': '.bundle.js' },
     sourcemap: true,
     splitting: false,
-    // No external dependencies - bundle everything
     external: [],
-    // Don't use globalName - let the IIFE execute immediately
-    esbuildOptions(options) {
-      options.platform = 'browser';
-      options.define = {
-        'process.env.NODE_ENV': '"production"',
-      };
+    bundle: true,
+    treeShaking: true,
+    keepNames: true,
+    define: {
+      'process.env.NODE_ENV': '"production"',
     },
   },
-]);
+];
+
+async function run(watch = false): Promise<void> {
+  await runBuilds(builds, {
+    watch,
+    afterBuild: executePostBuildTasks,
+    onError: (error) => {
+      console.error('❌ Rebuild failed', error);
+    },
+    label: 'apex-lsp-vscode-extension',
+    logWatchStart: true,
+  });
+}
+
+run(process.argv.includes('--watch')).catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

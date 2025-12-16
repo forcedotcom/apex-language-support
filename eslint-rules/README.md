@@ -16,7 +16,7 @@ The rule detects when package.json scripts directly call tools that correspond t
 
 - `"compile": "tsc --build"` → Should be `"compile": "turbo run compile"`
 - `"test": "jest"` → Should be `"test": "turbo run test"`
-- `"bundle": "tsup"` → Should be `"bundle": "turbo run bundle"`
+- `"bundle": "esbuild ..."` → Should be `"bundle": "turbo run bundle"`
 - `"lint": "eslint src/**/*.ts"` → Should be `"lint": "turbo run lint"`
 
 ### Configuration
@@ -48,7 +48,7 @@ The rule accepts the following options:
     "compile": "tsc --build",
     "test": "jest",
     "test:coverage": "jest --coverage",
-    "bundle": "tsup",
+    "bundle": "esbuild",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "clean": "rimraf dist",

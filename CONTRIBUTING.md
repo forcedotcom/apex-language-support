@@ -80,8 +80,7 @@ packages/
 
 #### Build & Bundling
 
-- **`tsup.config.ts`**: TypeScript bundling configuration
-- **`esbuild.config.js`**: Alternative bundling configuration
+- **`esbuild.config.ts`**: TypeScript bundling configuration
 - **`scripts/build-and-package.js`**: Packaging script for extensions
 - **`scripts/merge-coverage.js`**: Test coverage aggregation
 
@@ -97,7 +96,7 @@ packages/
 
 1. **Turbo**: Monorepo build system with intelligent caching and parallel execution
 2. **TypeScript**: Primary language with strict type checking
-3. **tsup**: Fast TypeScript bundler built on esbuild
+3. **esbuild**: Fast TypeScript bundler used across the monorepo
 4. **Jest**: Testing framework with coverage reporting
 5. **ESLint + Prettier**: Code quality and formatting
 
@@ -161,7 +160,7 @@ Each package supports these build targets:
 
 - **`precompile`**: Generate resources, copy files, prepare for compilation
 - **`compile`**: TypeScript compilation to JavaScript + declaration files
-- **`bundle`**: Create optimized bundles using tsup
+- **`bundle`**: Create optimized bundles using esbuild
 - **`package`**: Create distributable packages (extensions only)
 - **`test`**: Run unit tests
 - **`test:coverage`**: Run tests with coverage reporting
