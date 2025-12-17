@@ -2515,21 +2515,25 @@ export class ApexSymbolCollectorListener
           const fieldName = this.getTextFromContext(anyId);
           const objectExpr = dotExpr.expression();
           if (objectExpr) {
-            const objectName = this.getTextFromContext(objectExpr);
+            // Extract identifiers from object expression (handles obj.field[0] cases)
+            const objectIdentifiers =
+              this.extractIdentifiersFromExpression(objectExpr);
             const objLocation = lhsLoc;
-            // qualifier read
-            const objRef = TypeReferenceFactory.createVariableUsageReference(
-              objectName,
-              objLocation,
-              parentContext,
-              'read',
-            );
-            this.symbolTable.addTypeReference(objRef);
+            // Create read references for each identifier in the object expression
+            for (const objectName of objectIdentifiers) {
+              const objRef = TypeReferenceFactory.createVariableUsageReference(
+                objectName,
+                objLocation,
+                parentContext,
+                'read',
+              );
+              this.symbolTable.addTypeReference(objRef);
+            }
             // field write/readwrite
             const fieldRef = TypeReferenceFactory.createFieldAccessReference(
               fieldName,
               lhsLoc,
-              objectName,
+              objectIdentifiers[0] || 'unknown',
               parentContext,
               lhsAccess,
             );
@@ -2538,7 +2542,16 @@ export class ApexSymbolCollectorListener
           }
         }
       }
-      // For complex LHS (e.g., arr[i]), we avoid emitting flattened refs; let child listeners capture reads
+
+      // If it's an array expression: arr[i] or obj.field[0]
+      // Let child listeners (enterArrayExpression) capture the reads
+      // They will use extractIdentifiersFromExpression to properly extract identifiers
+      if (isContextType(leftExpression, ArrayExpressionContext)) {
+        // Child listener will handle this correctly
+        return;
+      }
+
+      // For other complex LHS, we avoid emitting flattened refs; let child listeners capture reads
     }
   }
 
@@ -2551,38 +2564,137 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Recursively extract identifiers from an expression context
+   * Handles all expression types: IdPrimary, DotExpression, ArrayExpression, MethodCall, CastExpression
+   * @param expression The expression context (can be any ParserRuleContext that represents an expression)
+   * @returns Array of identifier names extracted from the expression
+   */
+  private extractIdentifiersFromExpression(
+    expression: ParserRuleContext | null | undefined,
+  ): string[] {
+    if (!expression) return [];
+
+    // Handle IdPrimaryContext (simple identifier)
+    if (isContextType(expression, IdPrimaryContext)) {
+      const idPrimary = expression;
+      const idNode = idPrimary.id();
+      if (idNode) {
+        return [idNode.text];
+      }
+      return [];
+    }
+
+    // Handle DotExpressionContext (obj.field or obj.method())
+    if (isContextType(expression, DotExpressionContext)) {
+      const dotExpression = expression;
+      const baseExpression = dotExpression.expression();
+      const baseIds = this.extractIdentifiersFromExpression(baseExpression);
+
+      // Extract field/method name from anyId or dotMethodCall
+      const anyId = dotExpression.anyId?.();
+      if (anyId) {
+        return [...baseIds, anyId.text];
+      }
+
+      const dotMethodCall = dotExpression.dotMethodCall?.();
+      if (dotMethodCall) {
+        const methodId = dotMethodCall.anyId?.();
+        if (methodId) {
+          return [...baseIds, methodId.text];
+        }
+      }
+
+      return baseIds;
+    }
+
+    // Handle ArrayExpressionContext (recursively extract from base expression)
+    if (isContextType(expression, ArrayExpressionContext)) {
+      const arrayExpression = expression;
+      const baseExpression = arrayExpression.expression(0);
+      // Recursively extract from base, ignoring the index
+      return this.extractIdentifiersFromExpression(baseExpression);
+    }
+
+    // Handle MethodCallExpressionContext
+    if (isContextType(expression, MethodCallExpressionContext)) {
+      const methodCall = expression;
+      const methodCallCtx = methodCall.methodCall?.();
+      if (methodCallCtx) {
+        const idNode = methodCallCtx.id();
+        if (idNode) {
+          return [idNode.text];
+        }
+      }
+      return [];
+    }
+
+    // Handle CastExpressionContext
+    if (isContextType(expression, CastExpressionContext)) {
+      const castExpression = expression;
+      const expr = castExpression.expression();
+      return this.extractIdentifiersFromExpression(expr);
+    }
+
+    // Handle PrimaryExpressionContext - check its child
+    if (isContextType(expression, PrimaryExpressionContext)) {
+      const primaryExpr = expression;
+      // PrimaryExpressionContext contains a primary() method that returns the actual primary
+      const primary = primaryExpr.primary?.();
+      if (primary && isContextType(primary, IdPrimaryContext)) {
+        return this.extractIdentifiersFromExpression(primary);
+      }
+      // Could also contain other primary types, but we only care about identifiers
+      return [];
+    }
+
+    // For other expression types (literals, etc.), return empty array
+    return [];
+  }
+
+  /**
    * Capture array expression references
    * This captures array access like "myArray[index]"
    */
   enterArrayExpression(ctx: ArrayExpressionContext): void {
-    // Capture the array variable name
+    // Extract identifiers from the array base expression
     const arrayExpression = ctx.expression(0);
     if (arrayExpression) {
-      const arrayName = this.getTextFromContext(arrayExpression);
-      const location = this.getLocation(arrayExpression);
-      const parentContext = this.getCurrentMethodName();
+      const identifiers =
+        this.extractIdentifiersFromExpression(arrayExpression);
 
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        arrayName,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
+      // Create individual VARIABLE_USAGE references for each identifier
+      // (NOT ChainedTypeReference - array access uses individual references)
+      for (const identifier of identifiers) {
+        const location = this.getLocation(arrayExpression);
+        const parentContext = this.getCurrentMethodName();
+
+        const reference = TypeReferenceFactory.createVariableUsageReference(
+          identifier,
+          location,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(reference);
+      }
     }
 
-    // Capture the index expression
+    // Extract identifiers from the index expression if it contains variables
     const indexExpression = ctx.expression(1);
     if (indexExpression) {
-      const indexText = this.getTextFromContext(indexExpression);
-      const location = this.getLocation(indexExpression);
-      const parentContext = this.getCurrentMethodName();
+      const indexIdentifiers =
+        this.extractIdentifiersFromExpression(indexExpression);
 
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        indexText,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
+      // Create VARIABLE_USAGE references for index variables (e.g., arr[i])
+      for (const identifier of indexIdentifiers) {
+        const location = this.getLocation(indexExpression);
+        const parentContext = this.getCurrentMethodName();
+
+        const reference = TypeReferenceFactory.createVariableUsageReference(
+          identifier,
+          location,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(reference);
+      }
     }
   }
 
@@ -2610,16 +2722,21 @@ export class ApexSymbolCollectorListener
     // Capture the expression being cast
     const expression = ctx.expression();
     if (expression) {
-      const exprText = this.getTextFromContext(expression);
-      const location = this.getLocation(expression);
-      const parentContext = this.getCurrentMethodName();
+      // Extract identifiers from the expression (handles all complexity)
+      const identifiers = this.extractIdentifiersFromExpression(expression);
 
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        exprText,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
+      // Create VARIABLE_USAGE references for each identifier found
+      for (const identifier of identifiers) {
+        const location = this.getLocation(expression);
+        const parentContext = this.getCurrentMethodName();
+
+        const reference = TypeReferenceFactory.createVariableUsageReference(
+          identifier,
+          location,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(reference);
+      }
     }
   }
 

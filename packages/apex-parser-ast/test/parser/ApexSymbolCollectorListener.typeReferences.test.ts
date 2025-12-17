@@ -984,4 +984,166 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       expect(urlRefTyped?.chainNodes?.length).toBeGreaterThan(1);
     });
   });
+
+  describe('Array Expression Identifier Extraction', () => {
+    it('should extract only "contacts" from contacts[0]', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<Contact> contacts = new List<Contact>();
+            Contact c = contacts[0];
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      // Should have VARIABLE_USAGE reference for "contacts" only, not "contacts[0]"
+      const contactsRefs = references.filter(
+        (r) => r.name === 'contacts' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+      expect(contactsRefs.length).toBeGreaterThanOrEqual(1);
+
+      // Should NOT have any reference with name "contacts[0]"
+      const invalidRefs = references.filter((r) => r.name.includes('['));
+      expect(invalidRefs.length).toBe(0);
+    });
+
+    it('should extract "obj" and "field" from obj.field[0]', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<Contact> obj = new List<Contact>();
+            Contact c = obj.field[0];
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      // Should have VARIABLE_USAGE references for "obj" and "field" separately
+      const objRefs = references.filter(
+        (r) => r.name === 'obj' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+      const fieldRefs = references.filter(
+        (r) => r.name === 'field' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+
+      expect(objRefs.length).toBeGreaterThanOrEqual(1);
+      expect(fieldRefs.length).toBeGreaterThanOrEqual(1);
+
+      // Should NOT have any reference with name containing "["
+      const invalidRefs = references.filter((r) => r.name.includes('['));
+      expect(invalidRefs.length).toBe(0);
+    });
+
+    it('should extract "arr" and "i" from arr[i]', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<Integer> arr = new List<Integer>();
+            Integer i = 0;
+            Integer x = arr[i];
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      // Should have VARIABLE_USAGE references for both "arr" and "i"
+      const arrRefs = references.filter(
+        (r) => r.name === 'arr' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+      const iRefs = references.filter(
+        (r) => r.name === 'i' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+
+      expect(arrRefs.length).toBeGreaterThanOrEqual(1);
+      expect(iRefs.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should extract identifiers from nested arrays arr[0][1]', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<List<Integer>> arr = new List<List<Integer>>();
+            Integer x = arr[0][1];
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      // Should have VARIABLE_USAGE reference for "arr" only
+      const arrRefs = references.filter(
+        (r) => r.name === 'arr' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+      expect(arrRefs.length).toBeGreaterThanOrEqual(1);
+
+      // Should NOT have any reference with name containing "["
+      const invalidRefs = references.filter((r) => r.name.includes('['));
+      expect(invalidRefs.length).toBe(0);
+    });
+  });
+
+  describe('ChainedTypeReference vs Array Access', () => {
+    it('should use ChainedTypeReference for contacts.Id', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            Contact contacts = new Contact();
+            String id = contacts.Id;
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      // Should have ChainedTypeReference for contacts.Id
+      const chainedRefs = references.filter(
+        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+      expect(chainedRefs.length).toBeGreaterThanOrEqual(1);
+      expect(chainedRefs.some((r) => r.name === 'contacts.Id')).toBe(true);
+    });
+
+    it('should use VARIABLE_USAGE for contacts[0], not ChainedTypeReference', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<Contact> contacts = new List<Contact>();
+            Contact c = contacts[0];
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      // Should have VARIABLE_USAGE for contacts
+      const contactsRefs = references.filter(
+        (r) => r.name === 'contacts' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+      expect(contactsRefs.length).toBeGreaterThanOrEqual(1);
+
+      // Should NOT have ChainedTypeReference for contacts[0]
+      const chainedRefs = references.filter(
+        (ref) =>
+          ref.context === ReferenceContext.CHAINED_TYPE &&
+          ref.name.includes('contacts'),
+      );
+      expect(chainedRefs.length).toBe(0);
+    });
+  });
 });

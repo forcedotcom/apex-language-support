@@ -3171,7 +3171,38 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @param name The name of the type to resolve
    * @returns The resolved symbol or null if not found
    */
+  /**
+   * Validate that a type reference name is valid for resolution
+   * Rejects invalid identifiers that should not trigger ResourceLoader lookups:
+   * - Array accesses (e.g., "contacts[0]")
+   * - Method chains (more than 2 dots suggests method call chain)
+   * - Trailing dots (incomplete identifiers - valid for completion but not resolution)
+   */
+  private isValidTypeReferenceName(name: string): boolean {
+    // Reject array accesses (should be caught at capture time, but defense in depth)
+    if (name.includes('[') && name.includes(']')) {
+      return false;
+    }
+
+    // Reject method chains (more than 2 dots suggests method call chain)
+    const dotCount = (name.match(/\./g) || []).length;
+    if (dotCount > 2) {
+      return false;
+    }
+
+    // Reject trailing dots (incomplete identifiers - valid for completion, not resolution)
+    if (name.endsWith('.')) {
+      return false;
+    }
+
+    return true;
+  }
+
   private async resolveBuiltInType(name: string): Promise<ApexSymbol | null> {
+    // Early validation to prevent ResourceLoader calls for invalid identifiers
+    if (!this.isValidTypeReferenceName(name)) {
+      return null;
+    }
     try {
       // Step 1: Try to resolve as a built-in type via ResourceLoader first
       // Built-in types (wrapper types and collection types) are in StandardApexLibrary/System/

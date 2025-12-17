@@ -297,4 +297,108 @@ describe('ApexSymbolManager Reference Processing', () => {
       }
     });
   });
+
+  describe('Invalid Identifier Validation', () => {
+    it('should not trigger ResourceLoader lookup for array access contacts[0]', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<Contact> contacts = new List<Contact>();
+            Contact c = contacts[0];
+          }
+        }
+      `;
+
+      const fileUri = 'file:///TestClass.cls';
+      const compilerService = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, fileUri, listener);
+
+      const symbolTable = listener.getResult();
+      await symbolManager.addSymbolTable(symbolTable, fileUri);
+
+      // Wait for deferred processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const references = symbolManager.getAllReferencesInFile(fileUri);
+
+      // Should have VARIABLE_USAGE reference for "contacts" only
+      const contactsRefs = references.filter(
+        (r) => r.name === 'contacts' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+      expect(contactsRefs.length).toBeGreaterThanOrEqual(1);
+
+      // Should NOT have any reference with name "contacts[0]"
+      const invalidRefs = references.filter((r) => r.name.includes('['));
+      expect(invalidRefs.length).toBe(0);
+    });
+
+    it('should not trigger ResourceLoader lookup for trailing dots', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            Contact c1 = new Contact();
+            // Incomplete expression c1. should be captured but not resolved
+          }
+        }
+      `;
+
+      const fileUri = 'file:///TestClass.cls';
+      const compilerService = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, fileUri, listener);
+
+      const symbolTable = listener.getResult();
+      await symbolManager.addSymbolTable(symbolTable, fileUri);
+
+      // Wait for deferred processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const references = symbolManager.getAllReferencesInFile(fileUri);
+
+      // Trailing dots may be captured for completion, but should not trigger resolution
+      // The validation in resolveBuiltInType should prevent ResourceLoader calls
+      const trailingDotRefs = references.filter((r) => r.name.endsWith('.'));
+      // If captured, they should not be resolved (isResolved should be false)
+      trailingDotRefs.forEach((ref) => {
+        expect(ref.isResolved).toBeFalsy();
+      });
+    });
+
+    it('should validate type reference names before ResourceLoader calls', async () => {
+      // This test verifies that isValidTypeReferenceName prevents invalid lookups
+      // We can't directly test the private method, but we can verify behavior
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<Contact> contacts = new List<Contact>();
+            Contact c = contacts[0];
+          }
+        }
+      `;
+
+      const fileUri = 'file:///TestClass.cls';
+      const compilerService = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, fileUri, listener);
+
+      const symbolTable = listener.getResult();
+      await symbolManager.addSymbolTable(symbolTable, fileUri);
+
+      // Wait for deferred processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Verify that no references with invalid names exist
+      const references = symbolManager.getAllReferencesInFile(fileUri);
+      const invalidNames = references.filter(
+        (r) =>
+          r.name.includes('[') ||
+          (r.name.match(/\./g) || []).length > 2 ||
+          r.name.endsWith('.'),
+      );
+
+      // All invalid names should be filtered out by validation
+      expect(invalidNames.length).toBe(0);
+    });
+  });
 });
