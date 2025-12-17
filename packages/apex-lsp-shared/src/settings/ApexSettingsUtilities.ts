@@ -62,9 +62,12 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
         IMMEDIATE: 50,
         HIGH: 50,
         NORMAL: 25,
-        LOW: 10,
+        LOW: 5, // Reduced from 10 to improve responsiveness
         BACKGROUND: 5,
       },
+      // Default: sum of per-priority limits * 1.2 (20% buffer)
+      // Desktop: (100+50+50+25+10+5) * 1.2 = 288
+      maxTotalConcurrency: undefined, // Will be calculated as sum * 1.2 if not set
       yieldInterval: 50,
       yieldDelayMs: 25,
     },
@@ -81,7 +84,7 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       idleSleepMs: 1,
     },
     deferredReferenceProcessing: {
-      deferredBatchSize: 50,
+      deferredBatchSize: 25, // Reduced from 50 to improve responsiveness
       maxRetryAttempts: 10,
       retryDelayMs: 100,
       maxRetryDelayMs: 5000,
@@ -91,6 +94,7 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       maxQueueFullRetryDelayMs: 30000,
       circuitBreakerFailureThreshold: 5,
       circuitBreakerResetThreshold: 50,
+      maxDeferredTasksPerSecond: 10,
     },
     worker: {
       logLevel: 'info',
@@ -99,6 +103,17 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     logLevel: 'info',
   },
 };
+
+/**
+ * Calculate default maxTotalConcurrency from per-priority maxConcurrency
+ * Returns sum of per-priority limits * 1.2 (20% buffer)
+ */
+function calculateDefaultMaxTotalConcurrency(
+  maxConcurrency: Record<string, number>,
+): number {
+  const sum = Object.values(maxConcurrency).reduce((a, b) => a + b, 0);
+  return Math.ceil(sum * 1.2); // 20% buffer
+}
 
 /**
  * Browser-optimized default settings
@@ -178,6 +193,7 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       maxQueueFullRetryDelayMs: 30000,
       circuitBreakerFailureThreshold: 5,
       circuitBreakerResetThreshold: 50,
+      maxDeferredTasksPerSecond: 10,
     },
     worker: {
       ...DEFAULT_APEX_SETTINGS.apex.worker,
@@ -310,6 +326,14 @@ export function mergeWithDefaults(
           ...baseDefaults.apex.queueProcessing.maxConcurrency,
           ...userSettings.apex?.queueProcessing?.maxConcurrency,
         },
+        // Calculate maxTotalConcurrency if not provided
+        maxTotalConcurrency:
+          userSettings.apex?.queueProcessing?.maxTotalConcurrency ??
+          baseDefaults.apex.queueProcessing.maxTotalConcurrency ??
+          calculateDefaultMaxTotalConcurrency({
+            ...baseDefaults.apex.queueProcessing.maxConcurrency,
+            ...userSettings.apex?.queueProcessing?.maxConcurrency,
+          }),
       },
       scheduler: {
         ...baseDefaults.apex.scheduler,

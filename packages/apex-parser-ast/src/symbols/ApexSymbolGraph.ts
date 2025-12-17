@@ -7,7 +7,7 @@
  */
 
 import { HashMap, DirectedGraph, DirectedVertex } from 'data-structure-typed';
-import { Effect } from 'effect';
+import { Effect, Fiber, Duration } from 'effect';
 import { Priority } from '@salesforce/apex-lsp-shared';
 import {
   offer,
@@ -300,6 +300,19 @@ export class ApexSymbolGraph {
     estimatedMemorySavings: 0,
   };
 
+  // Deferred reference processing metrics
+  private deferredProcessingMetrics = {
+    totalBatchesProcessed: 0,
+    totalItemsProcessed: 0,
+    totalSuccessCount: 0,
+    totalFailureCount: 0,
+    totalBatchDuration: 0, // milliseconds
+    lastBatchTime: 0,
+    activeTaskCount: 0,
+    queueDepthHistory: [] as Array<{ timestamp: number; depth: number }>,
+    lastMetricsLogTime: Date.now(),
+  };
+
   // Deferred reference processing configuration (configurable via settings)
   private DEFERRED_BATCH_SIZE = 50;
   private MAX_RETRY_ATTEMPTS = 10;
@@ -312,12 +325,18 @@ export class ApexSymbolGraph {
   private CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5; // Activate after 5 consecutive failures
   private CIRCUIT_BREAKER_RESET_THRESHOLD = 50; // Reset when queue < 50% full
   private failedReferences: Map<string, DeferredProcessingTask> = new Map();
-  private activeRetryTimers: Set<NodeJS.Timeout> = new Set();
+  private activeRetryFibers: Set<Fiber.RuntimeFiber<void, Error>> = new Set();
   // Track symbols with pending retries to prevent duplicate retry scheduling
   private pendingRetrySymbols: Set<string> = new Set();
   // Circuit breaker state tracking
   private consecutiveRequeueFailures = 0;
   private circuitBreakerActive = false;
+  // Rate limiter for deferred task enqueueing
+  private deferredTaskRateLimiter = {
+    lastEnqueueTime: Date.now(),
+    enqueuedCount: 0,
+    maxPerSecond: 10,
+  };
 
   private resourceLoader: ResourceLoader;
 
@@ -327,6 +346,11 @@ export class ApexSymbolGraph {
     this.resourceLoader = ResourceLoader.getInstance({
       preloadStdClasses: false,
     });
+    // Initialize rate limiter from settings
+    if (deferredReferenceSettings?.maxDeferredTasksPerSecond !== undefined) {
+      this.deferredTaskRateLimiter.maxPerSecond =
+        deferredReferenceSettings.maxDeferredTasksPerSecond;
+    }
     // Note: Deferred reference processing now uses shared priority scheduler
     // Apply settings if provided
     if (deferredReferenceSettings) {
@@ -378,10 +402,39 @@ export class ApexSymbolGraph {
       this.CIRCUIT_BREAKER_RESET_THRESHOLD =
         settings.circuitBreakerResetThreshold;
     }
+    if (settings.maxDeferredTasksPerSecond !== undefined) {
+      this.deferredTaskRateLimiter.maxPerSecond =
+        settings.maxDeferredTasksPerSecond;
+    }
     this.logger.info(
       () =>
         `Deferred reference processing settings updated: ${JSON.stringify(settings)}`,
     );
+  }
+
+  /**
+   * Check if a deferred task can be enqueued based on rate limiting
+   * @returns true if task can be enqueued, false if rate limit exceeded
+   */
+  private canEnqueueDeferredTask(): boolean {
+    const now = Date.now();
+    const elapsed = now - this.deferredTaskRateLimiter.lastEnqueueTime;
+
+    if (elapsed >= 1000) {
+      // Reset counter every second
+      this.deferredTaskRateLimiter.enqueuedCount = 0;
+      this.deferredTaskRateLimiter.lastEnqueueTime = now;
+    }
+
+    if (
+      this.deferredTaskRateLimiter.enqueuedCount >=
+      this.deferredTaskRateLimiter.maxPerSecond
+    ) {
+      return false; // Rate limit exceeded - will be retried later via requeueTask
+    }
+
+    this.deferredTaskRateLimiter.enqueuedCount++;
+    return true;
   }
 
   /**
@@ -412,6 +465,28 @@ export class ApexSymbolGraph {
   ): Effect.Effect<void, Error, never> {
     const self = this;
     return Effect.gen(function* () {
+      const taskStartTime = Date.now();
+      const priorityName =
+        task.priority === Priority.Low
+          ? 'Low'
+          : task.priority === Priority.Normal
+            ? 'Normal'
+            : task.priority === Priority.High
+              ? 'High'
+              : task.priority === Priority.Immediate
+                ? 'Immediate'
+                : task.priority === Priority.Background
+                  ? 'Background'
+                  : 'Unknown';
+
+      // Log task start
+      self.logger.info(
+        () =>
+          `[DEFERRED] Starting deferred task: symbol=${task.symbolName}, ` +
+          `type=${task.taskType}, priority=${priorityName}, ` +
+          `retryCount=${task.retryCount}`,
+      );
+
       try {
         // Yield before starting batch processing
         yield* Effect.yieldNow();
@@ -431,10 +506,24 @@ export class ApexSymbolGraph {
             self.requeueTask(task, result.reason);
           }
         }
+
+        const taskDuration = Date.now() - taskStartTime;
+        // Log task completion
+        self.logger.info(
+          () =>
+            `[DEFERRED] Completed deferred task: symbol=${task.symbolName}, ` +
+            `type=${task.taskType}, duration=${taskDuration}ms`,
+        );
       } catch (error) {
+        const taskDuration = Date.now() - taskStartTime;
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         self.logger.error(
           () =>
-            `Error processing deferred task for ${task.symbolName}: ${error}`,
+            `[DEFERRED] Error processing deferred task: symbol=${task.symbolName}, ` +
+            `type=${task.taskType}, priority=${priorityName}, ` +
+            `retryCount=${task.retryCount}, duration=${taskDuration}ms, ` +
+            `error=${errorMessage}`,
         );
         self.requeueTask(task, 'processing_error');
         return yield* Effect.fail(
@@ -479,7 +568,7 @@ export class ApexSymbolGraph {
     // This avoids exponential explosion when queue is at capacity
     const retryKey = `${task.taskType}:${task.symbolName}`;
     if (this.pendingRetrySymbols.has(retryKey)) {
-      // Already have a pending retry for this symbol, skip to avoid duplicate timers
+      // Already have a pending retry for this symbol, skip to avoid duplicate retries
       this.logger.debug(
         () =>
           `Skipping duplicate retry for ${task.symbolName} (retry ${task.retryCount + 1}) - ` +
@@ -512,175 +601,169 @@ export class ApexSymbolGraph {
         : this.MAX_RETRY_DELAY_MS;
     const cappedDelay = Math.min(exponentialDelay, maxDelay);
 
-    // Use setTimeout for retry delay to avoid async Effect issues
-    // This schedules the re-queue after the delay without blocking
-    // Track the timer so it can be cleared on shutdown
-    // Use .unref() to prevent the timer from keeping the process alive
+    // Create Effect-based retry that sleeps then re-queues
     const self = this;
-    // Capture retryTask and retryKey in closure for use in setTimeout callback
     const capturedRetryTask = retryTask;
     const capturedRetryKey = retryKey;
-    const timer = setTimeout(async () => {
-      self.activeRetryTimers.delete(timer);
-      // Clear pending retry tracking when timer fires
+
+    const retryEffect = Effect.gen(function* () {
+      // Sleep for the calculated delay
+      yield* Effect.sleep(Duration.millis(cappedDelay));
+
+      // Clear pending retry tracking when fiber starts
       self.pendingRetrySymbols.delete(capturedRetryKey);
 
       // Check circuit breaker state
       if (self.circuitBreakerActive) {
-        // Check if we should reset circuit breaker by checking queue capacity
-        try {
-          const currentMetrics = await Effect.runPromise(metrics());
-          const lowQueueUtilization =
-            currentMetrics.queueUtilization?.[Priority.Low] || 0;
-          if (lowQueueUtilization < self.CIRCUIT_BREAKER_RESET_THRESHOLD) {
-            self.circuitBreakerActive = false;
-            self.consecutiveRequeueFailures = 0;
-            self.logger.info(
-              () =>
-                `Circuit breaker reset: Low queue utilization dropped to ${lowQueueUtilization.toFixed(1)}%`,
-            );
-          } else {
-            // Circuit breaker still active, skip this retry
-            self.logger.debug(
-              () =>
-                `Skipping retry due to active circuit breaker (queue utilization: ${lowQueueUtilization.toFixed(1)}%)`,
-            );
-            return;
-          }
-        } catch (_error) {
-          // If we can't check metrics, assume circuit breaker should remain active
+        const currentMetrics = yield* metrics();
+        const lowQueueUtilization =
+          currentMetrics.queueUtilization?.[Priority.Low] || 0;
+        if (lowQueueUtilization < self.CIRCUIT_BREAKER_RESET_THRESHOLD) {
+          self.circuitBreakerActive = false;
+          self.consecutiveRequeueFailures = 0;
+          self.logger.info(
+            () =>
+              `Circuit breaker reset: Low queue utilization dropped to ${lowQueueUtilization.toFixed(1)}%`,
+          );
+        } else {
           self.logger.debug(
             () =>
-              'Skipping retry due to active circuit breaker (metrics unavailable)',
+              `Skipping retry due to active circuit breaker (queue utilization: ${lowQueueUtilization.toFixed(1)}%)`,
           );
           return;
         }
       }
 
       // Check queue capacity before attempting to re-queue
-      try {
-        const currentMetrics = await Effect.runPromise(metrics());
-        const lowQueueUtilization =
-          currentMetrics.queueUtilization?.[Priority.Low] || 0;
-        const lowQueueSize = currentMetrics.queueSizes[Priority.Low] || 0;
-        const queueCapacity = currentMetrics.queueCapacity;
+      const currentMetrics = yield* metrics();
+      const lowQueueUtilization =
+        currentMetrics.queueUtilization?.[Priority.Low] || 0;
+      const lowQueueSize = currentMetrics.queueSizes[Priority.Low] || 0;
+      const queueCapacity = currentMetrics.queueCapacity;
 
-        // If queue is at or near capacity, wait for it to drain before retrying
-        // This prevents infinite retry loops when queue is stuck at capacity
-        if (lowQueueUtilization >= self.QUEUE_CAPACITY_THRESHOLD) {
-          // Queue is too full, skip this retry and try again later
-          // Only log periodically to avoid log spam (every 10th retry)
-          if (capturedRetryTask.retryCount % 10 === 0) {
-            self.logger.warn(
-              () =>
-                `Skipping retry for ${task.symbolName}: Low queue at ${lowQueueUtilization.toFixed(1)}% ` +
-                `capacity (${lowQueueSize}/${queueCapacity}). Will retry when ` +
-                `queue drains below ${self.QUEUE_DRAIN_THRESHOLD}%. ` +
-                `(retry attempt ${capturedRetryTask.retryCount}/${self.MAX_RETRY_ATTEMPTS})`,
-            );
-          }
-          // Re-schedule with queue-full delay (retry count already incremented in requeueTask)
-          self.requeueTask(capturedRetryTask, 'queue_full');
-          return;
+      if (lowQueueUtilization >= self.QUEUE_CAPACITY_THRESHOLD) {
+        // Queue too full, re-schedule with queue-full delay
+        if (capturedRetryTask.retryCount % 10 === 0) {
+          self.logger.warn(
+            () =>
+              `Skipping retry for ${capturedRetryTask.symbolName}: Low queue at ${lowQueueUtilization.toFixed(1)}% ` +
+              `capacity (${lowQueueSize}/${queueCapacity}). Will retry when ` +
+              `queue drains below ${self.QUEUE_DRAIN_THRESHOLD}%. ` +
+              `(retry attempt ${capturedRetryTask.retryCount}/${self.MAX_RETRY_ATTEMPTS})`,
+          );
         }
+        self.requeueTask(capturedRetryTask, 'queue_full');
+        return;
+      }
 
-        // Additional check: if queue hasn't drained enough, wait longer
-        // This ensures we don't retry too aggressively when queue is still high
-        if (lowQueueUtilization >= self.QUEUE_DRAIN_THRESHOLD) {
-          // Queue is still above drain threshold, wait a bit more
-          // Only log periodically to avoid log spam
-          if (capturedRetryTask.retryCount % 5 === 0) {
-            self.logger.debug(
-              () =>
-                `Queue still at ${lowQueueUtilization.toFixed(1)}% for ${task.symbolName}, ` +
-                `waiting for drain below ${self.QUEUE_DRAIN_THRESHOLD}% before retry`,
-            );
-          }
-          // Re-schedule with queue-full delay
-          self.requeueTask(capturedRetryTask, 'queue_full');
-          return;
+      if (lowQueueUtilization >= self.QUEUE_DRAIN_THRESHOLD) {
+        // Queue still above drain threshold, wait longer
+        if (capturedRetryTask.retryCount % 5 === 0) {
+          self.logger.debug(
+            () =>
+              `Queue still at ${lowQueueUtilization.toFixed(1)}% for ${capturedRetryTask.symbolName}, ` +
+              `waiting for drain below ${self.QUEUE_DRAIN_THRESHOLD}% before retry`,
+          );
         }
+        self.requeueTask(capturedRetryTask, 'queue_full');
+        return;
+      }
 
-        // Create QueuedItem and schedule with priority scheduler
-        const queuedItemEffect = createQueuedItem(
-          self.processDeferredTask(capturedRetryTask),
-          capturedRetryTask.taskType === 'processDeferred'
-            ? 'deferred-reference-process'
-            : 'deferred-reference-retry',
-        );
-        const scheduledTaskEffect = Effect.gen(function* () {
-          const queuedItem = yield* queuedItemEffect;
-          return yield* offer(capturedRetryTask.priority, queuedItem);
-        });
+      // Create QueuedItem and schedule with priority scheduler
+      const queuedItemEffect = createQueuedItem(
+        self.processDeferredTask(capturedRetryTask),
+        capturedRetryTask.taskType === 'processDeferred'
+          ? 'deferred-reference-process'
+          : 'deferred-reference-retry',
+      );
+      const scheduledTaskEffect = Effect.gen(function* () {
+        const queuedItem = yield* queuedItemEffect;
+        return yield* offer(capturedRetryTask.priority, queuedItem);
+      });
 
-        // Use runPromise instead of runSync to handle async operations properly
-        await Effect.runPromise(scheduledTaskEffect);
+      // Re-queue through scheduler (this will respect concurrency limits)
+      yield* scheduledTaskEffect;
 
-        // Successfully re-queued - clear pending retry flag since task is now in queue
-        // The pending retry flag was already cleared when timer fired, but clear it again
-        // to be safe (in case of race conditions)
-        self.pendingRetrySymbols.delete(capturedRetryKey);
+      // Successfully re-queued - clear pending retry flag
+      self.pendingRetrySymbols.delete(capturedRetryKey);
 
-        // Reset failure counter
-        if (self.consecutiveRequeueFailures > 0) {
-          self.consecutiveRequeueFailures = 0;
-          if (self.circuitBreakerActive) {
-            self.circuitBreakerActive = false;
-            self.logger.info(
-              () => 'Circuit breaker deactivated: Re-queue succeeded',
-            );
-          }
+      // Reset failure counter
+      if (self.consecutiveRequeueFailures > 0) {
+        self.consecutiveRequeueFailures = 0;
+        if (self.circuitBreakerActive) {
+          self.circuitBreakerActive = false;
+          self.logger.info(
+            () => 'Circuit breaker deactivated: Re-queue succeeded',
+          );
         }
-      } catch (error) {
-        // Scheduler might not be initialized or other errors
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        if (
-          !errorMessage.includes('not initialized') &&
-          !errorMessage.includes('shutdown')
-        ) {
-          // Increment consecutive failure counter
-          self.consecutiveRequeueFailures++;
-          const isQueueFullError =
-            errorMessage.includes('cannot be resolved synchronously') ||
-            errorMessage.includes('queue');
-
-          // Log as warning for queue-full scenarios, error for other issues
-          if (isQueueFullError) {
-            self.logger.warn(
-              () =>
-                `Failed to re-queue deferred task for ${task.symbolName}: ${errorMessage} ` +
-                `(consecutive failures: ${self.consecutiveRequeueFailures})`,
-            );
-          } else {
-            self.logger.error(
-              () =>
-                `Failed to re-queue deferred task for ${task.symbolName}: ${errorMessage} ` +
-                `(consecutive failures: ${self.consecutiveRequeueFailures})`,
-            );
-          }
-
-          // Activate circuit breaker if threshold exceeded
+      }
+    }).pipe(
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           if (
-            self.consecutiveRequeueFailures >=
-            self.CIRCUIT_BREAKER_FAILURE_THRESHOLD
+            !errorMessage.includes('not initialized') &&
+            !errorMessage.includes('shutdown')
           ) {
-            if (!self.circuitBreakerActive) {
+            self.consecutiveRequeueFailures++;
+            const isQueueFullError =
+              errorMessage.includes('cannot be resolved synchronously') ||
+              errorMessage.includes('queue');
+
+            if (isQueueFullError) {
+              self.logger.warn(
+                () =>
+                  `Failed to re-queue deferred task for ${capturedRetryTask.symbolName}: ${errorMessage} ` +
+                  `(consecutive failures: ${self.consecutiveRequeueFailures})`,
+              );
+            } else {
+              self.logger.error(
+                () =>
+                  `Failed to re-queue deferred task for ${capturedRetryTask.symbolName}: ${errorMessage} ` +
+                  `(consecutive failures: ${self.consecutiveRequeueFailures})`,
+              );
+            }
+
+            // Activate circuit breaker if threshold reached
+            if (
+              self.consecutiveRequeueFailures >=
+              self.CIRCUIT_BREAKER_FAILURE_THRESHOLD
+            ) {
               self.circuitBreakerActive = true;
               self.logger.warn(
                 () =>
-                  `Circuit breaker activated: ${self.consecutiveRequeueFailures} consecutive re-queue failures`,
+                  `Circuit breaker activated after ${self.consecutiveRequeueFailures} consecutive failures`,
               );
             }
+
+            // Re-schedule retry with queue-full delay
+            self.requeueTask(capturedRetryTask, 'queue_full');
           }
-        }
-      }
-    }, cappedDelay);
-    // Use .unref() to prevent timer from keeping Node.js process alive
-    if (typeof timer.unref === 'function') {
-      timer.unref();
-    }
-    this.activeRetryTimers.add(timer);
+          return yield* Effect.void;
+        }),
+      ),
+      Effect.asVoid,
+    );
+
+    // Fork as daemon fiber so it runs independently
+    // Note: forkDaemon returns Effect<Fiber>, so we need to run it to get the fiber
+    // Since requeueTask is synchronous, we use Effect.runPromise to run the forkDaemon Effect
+    // The fiber itself runs asynchronously, but we get the fiber handle from the promise
+    const retryFiberEffect = Effect.forkDaemon(retryEffect);
+    Effect.runPromise(retryFiberEffect)
+      .then((retryFiber) => {
+        this.activeRetryFibers.add(
+          retryFiber as Fiber.RuntimeFiber<void, Error>,
+        );
+      })
+      .catch((error) => {
+        // Log error but don't throw - retry will be handled by the fiber's error handling
+        this.logger.error(
+          () =>
+            `Failed to fork retry fiber for ${retryTask.symbolName}: ${error}`,
+        );
+      });
   }
 
   /**
@@ -825,33 +908,46 @@ export class ApexSymbolGraph {
     // Queue deferred reference processing instead of executing synchronously
     // This prevents event loop blocking when many symbols are added
     if (this.deferredReferences.has(symbol.name)) {
-      const task: DeferredProcessingTask = {
-        _tag: 'DeferredProcessingTask',
-        symbolName: symbol.name,
-        taskType: 'processDeferred',
-        priority: Priority.Normal, // Standard processing uses Normal priority
-        retryCount: 0,
-        firstAttemptTime: Date.now(),
-      };
-      try {
-        const queuedItemEffect = createQueuedItem(
-          this.processDeferredTask(task),
-          'deferred-reference-process',
-        );
-        const scheduledTaskEffect = Effect.gen(function* () {
-          const queuedItem = yield* queuedItemEffect;
-          return yield* offer(task.priority, queuedItem);
-        });
-        Effect.runSync(scheduledTaskEffect);
-      } catch (error) {
-        // If scheduling fails, log and continue - deferred processing will retry later
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        this.logger.debug(
-          () =>
-            `Failed to enqueue deferred processing task for ${symbol.name}: ${errorMessage}`,
-        );
+      // Check rate limit before enqueueing
+      if (this.canEnqueueDeferredTask()) {
+        const task: DeferredProcessingTask = {
+          _tag: 'DeferredProcessingTask',
+          symbolName: symbol.name,
+          taskType: 'processDeferred',
+          priority: Priority.Low, // Use Low priority to avoid competing with client requests
+          retryCount: 0,
+          firstAttemptTime: Date.now(),
+        };
+        try {
+          const queuedItemEffect = createQueuedItem(
+            this.processDeferredTask(task),
+            'deferred-reference-process',
+          );
+          const scheduledTaskEffect = Effect.gen(function* () {
+            const queuedItem = yield* queuedItemEffect;
+            return yield* offer(task.priority, queuedItem);
+          });
+          // Use async enqueueing to avoid blocking when queue is full
+          Effect.runPromise(scheduledTaskEffect).catch((error) => {
+            // If scheduling fails, log and continue - deferred processing will retry later
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            this.logger.debug(
+              () =>
+                `Failed to enqueue deferred processing task for ${symbol.name}: ${errorMessage}`,
+            );
+          });
+        } catch (error) {
+          // If scheduling fails, log and continue - deferred processing will retry later
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          this.logger.debug(
+            () =>
+              `Failed to create deferred processing task for ${symbol.name}: ${errorMessage}`,
+          );
+        }
       }
+      // If rate limit exceeded, skip enqueueing - task will be retried later when symbol is processed again
     }
 
     // Queue retry of pending deferred references that were waiting for this source symbol
@@ -877,14 +973,23 @@ export class ApexSymbolGraph {
           const queuedItem = yield* queuedItemEffect;
           return yield* offer(task.priority, queuedItem);
         });
-        Effect.runSync(scheduledTaskEffect);
+        // Use async enqueueing to avoid blocking when queue is full
+        Effect.runPromise(scheduledTaskEffect).catch((error) => {
+          // If scheduling fails, log and continue - retry will happen later
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          this.logger.debug(
+            () =>
+              `Failed to enqueue pending retry task for ${symbol.name}: ${errorMessage}`,
+          );
+        });
       } catch (error) {
         // If scheduling fails, log and continue - retry will happen later
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         this.logger.debug(
           () =>
-            `Failed to enqueue pending retry task for ${symbol.name}: ${errorMessage}`,
+            `Failed to create pending retry task for ${symbol.name}: ${errorMessage}`,
         );
       }
     } else if (
@@ -1579,10 +1684,13 @@ export class ApexSymbolGraph {
   private shutdownDeferredWorker(): void {
     try {
       // Clear all active retry timers
-      for (const timer of this.activeRetryTimers) {
-        clearTimeout(timer);
+      // Interrupt all active retry fibers
+      for (const fiber of this.activeRetryFibers) {
+        // Interrupt the fiber - this is async but we run it synchronously
+        // The interrupt will cancel the fiber's execution
+        Effect.runSync(Fiber.interrupt(fiber).pipe(Effect.asVoid));
       }
-      this.activeRetryTimers.clear();
+      this.activeRetryFibers.clear();
       this.pendingRetrySymbols.clear();
 
       this.logger.debug(
@@ -2272,8 +2380,20 @@ export class ApexSymbolGraph {
 
       // Process in batches to avoid blocking
       const batchSize = Math.min(self.DEFERRED_BATCH_SIZE, deferred.length);
+      const totalDeferred = deferred.length;
+      const batchStartTime = Date.now();
+
+      // Log batch start
+      self.logger.info(
+        () =>
+          `[DEFERRED] Starting batch processing for symbol: ${symbolName}, ` +
+          `total deferred: ${totalDeferred}, batch size: ${batchSize}`,
+      );
+
       const processed: typeof deferred = [];
       let hasFailures = false;
+      let successCount = 0;
+      let failureCount = 0;
 
       for (let i = 0; i < batchSize; i++) {
         const ref = deferred[i];
@@ -2323,6 +2443,7 @@ export class ApexSymbolGraph {
           );
           processed.push(ref);
           hasFailures = true;
+          failureCount++;
           continue;
         }
 
@@ -2362,6 +2483,7 @@ export class ApexSymbolGraph {
           );
           processed.push(ref);
           hasFailures = true;
+          failureCount++;
           continue;
         }
 
@@ -2373,15 +2495,65 @@ export class ApexSymbolGraph {
 
         self.memoryStats.totalEdges++;
         processed.push(ref);
+        successCount++;
 
-        // Yield every 10 items to allow other tasks to run
-        if ((i + 1) % 10 === 0) {
+        // Yield every 3 items to allow other tasks to run
+        if ((i + 1) % 3 === 0) {
           yield* Effect.yieldNow();
         }
       }
 
       // Remove processed references
       const remaining = deferred.slice(batchSize);
+      const batchDuration = Date.now() - batchStartTime;
+
+      // Update metrics
+      self.deferredProcessingMetrics.totalBatchesProcessed++;
+      self.deferredProcessingMetrics.totalItemsProcessed += processed.length;
+      self.deferredProcessingMetrics.totalSuccessCount += successCount;
+      self.deferredProcessingMetrics.totalFailureCount += failureCount;
+      self.deferredProcessingMetrics.totalBatchDuration += batchDuration;
+      self.deferredProcessingMetrics.lastBatchTime = batchDuration;
+
+      // Track queue depth periodically and log summaries
+      const now = Date.now();
+      const currentMetrics = yield* metrics().pipe(
+        Effect.catchAll(() => Effect.succeed(null)),
+      );
+      if (currentMetrics) {
+        const lowQueueSize = currentMetrics.queueSizes[Priority.Low] || 0;
+        self.deferredProcessingMetrics.queueDepthHistory.push({
+          timestamp: now,
+          depth: lowQueueSize,
+        });
+        // Keep only last 100 entries
+        if (self.deferredProcessingMetrics.queueDepthHistory.length > 100) {
+          self.deferredProcessingMetrics.queueDepthHistory.shift();
+        }
+      }
+
+      // Log periodic summary every 50 batches or every 5 seconds
+      const timeSinceLastLog =
+        now - self.deferredProcessingMetrics.lastMetricsLogTime;
+      if (
+        self.deferredProcessingMetrics.totalBatchesProcessed % 50 === 0 ||
+        timeSinceLastLog >= 5000
+      ) {
+        yield* self
+          .logDeferredProcessingSummary()
+          .pipe(Effect.catchAll(() => Effect.void));
+        self.deferredProcessingMetrics.lastMetricsLogTime = now;
+      }
+
+      // Log batch completion
+      self.logger.info(
+        () =>
+          `[DEFERRED] Completed batch processing for symbol: ${symbolName}, ` +
+          `processed: ${processed.length}/${batchSize}, ` +
+          `success: ${successCount}, failures: ${failureCount}, ` +
+          `remaining: ${remaining.length}, duration: ${batchDuration}ms`,
+      );
+
       if (remaining.length > 0) {
         self.deferredReferences.set(symbolName, remaining);
         return {
@@ -2590,8 +2762,20 @@ export class ApexSymbolGraph {
 
       // Process in batches to avoid blocking
       const batchSize = Math.min(self.DEFERRED_BATCH_SIZE, pending.length);
+      const totalPending = pending.length;
+      const batchStartTime = Date.now();
+
+      // Log batch start
+      self.logger.info(
+        () =>
+          `[DEFERRED] Starting retry batch processing for symbol: ${symbolName}, ` +
+          `total pending: ${totalPending}, batch size: ${batchSize}`,
+      );
+
       const processed: typeof pending = [];
       let hasFailures = false;
+      let successCount = 0;
+      let failureCount = 0;
 
       for (let i = 0; i < batchSize; i++) {
         const ref = pending[i];
@@ -2608,6 +2792,7 @@ export class ApexSymbolGraph {
           );
           processed.push(ref);
           hasFailures = true;
+          failureCount++;
           continue;
         }
 
@@ -2645,6 +2830,7 @@ export class ApexSymbolGraph {
           );
           processed.push(ref);
           hasFailures = true;
+          failureCount++;
           continue;
         }
 
@@ -2656,6 +2842,7 @@ export class ApexSymbolGraph {
 
         self.memoryStats.totalEdges++;
         processed.push(ref);
+        successCount++;
 
         // Yield every 10 items to allow other tasks to run
         if ((i + 1) % 10 === 0) {
@@ -2665,6 +2852,25 @@ export class ApexSymbolGraph {
 
       // Remove processed references
       const remaining = pending.filter((ref) => !processed.includes(ref));
+      const batchDuration = Date.now() - batchStartTime;
+
+      // Update metrics
+      self.deferredProcessingMetrics.totalBatchesProcessed++;
+      self.deferredProcessingMetrics.totalItemsProcessed += processed.length;
+      self.deferredProcessingMetrics.totalSuccessCount += successCount;
+      self.deferredProcessingMetrics.totalFailureCount += failureCount;
+      self.deferredProcessingMetrics.totalBatchDuration += batchDuration;
+      self.deferredProcessingMetrics.lastBatchTime = batchDuration;
+
+      // Log batch completion
+      self.logger.info(
+        () =>
+          `[DEFERRED] Completed retry batch processing for symbol: ${symbolName}, ` +
+          `processed: ${processed.length}/${batchSize}, ` +
+          `success: ${successCount}, failures: ${failureCount}, ` +
+          `remaining: ${remaining.length}, duration: ${batchDuration}ms`,
+      );
+
       if (remaining.length === 0) {
         self.pendingDeferredReferences.delete(symbolName);
         return { needsRetry: false, reason: 'success' };
@@ -2920,5 +3126,61 @@ export class ApexSymbolGraph {
 
   public getLoggerInstance() {
     return this.logger;
+  }
+
+  /**
+   * Log periodic summary of deferred processing metrics
+   */
+  private logDeferredProcessingSummary(): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const deferredMetrics = self.deferredProcessingMetrics;
+      const avgBatchDuration =
+        deferredMetrics.totalBatchesProcessed > 0
+          ? deferredMetrics.totalBatchDuration /
+            deferredMetrics.totalBatchesProcessed
+          : 0;
+      const itemsPerSecond =
+        deferredMetrics.totalBatchDuration > 0
+          ? (deferredMetrics.totalItemsProcessed /
+              deferredMetrics.totalBatchDuration) *
+            1000
+          : 0;
+      const successRate =
+        deferredMetrics.totalItemsProcessed > 0
+          ? (deferredMetrics.totalSuccessCount /
+              deferredMetrics.totalItemsProcessed) *
+            100
+          : 0;
+
+      // Get current queue metrics
+      let currentQueueSize = 0;
+      let currentQueueUtilization = 0;
+      let activeTasks = 0;
+      try {
+        const queueMetrics = yield* metrics();
+        currentQueueSize = queueMetrics.queueSizes[Priority.Low] || 0;
+        currentQueueUtilization =
+          queueMetrics.queueUtilization?.[Priority.Low] || 0;
+        activeTasks = queueMetrics.activeTasks?.[Priority.Low] || 0;
+      } catch (_error) {
+        // Metrics not available, use defaults
+      }
+
+      self.logger.info(
+        () =>
+          '[DEFERRED] Processing Summary: ' +
+          `batches=${deferredMetrics.totalBatchesProcessed}, ` +
+          `items=${deferredMetrics.totalItemsProcessed}, ` +
+          `success=${deferredMetrics.totalSuccessCount}, ` +
+          `failures=${deferredMetrics.totalFailureCount}, ` +
+          `avgBatchDuration=${avgBatchDuration.toFixed(1)}ms, ` +
+          `itemsPerSecond=${itemsPerSecond.toFixed(1)}, ` +
+          `successRate=${successRate.toFixed(1)}%, ` +
+          `queueSize=${currentQueueSize}, ` +
+          `queueUtilization=${currentQueueUtilization.toFixed(1)}%, ` +
+          `activeTasks=${activeTasks}`,
+      );
+    }).pipe(Effect.catchAll(() => Effect.void));
   }
 }

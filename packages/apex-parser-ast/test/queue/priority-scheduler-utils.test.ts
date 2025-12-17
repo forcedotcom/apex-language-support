@@ -55,6 +55,15 @@ describe('PriorityScheduler', () => {
     queueCapacity: 64,
     maxHighPriorityStreak: 50,
     idleSleepMs: 1,
+    maxConcurrency: {
+      CRITICAL: Infinity,
+      IMMEDIATE: Infinity,
+      HIGH: Infinity,
+      NORMAL: Infinity,
+      LOW: Infinity,
+      BACKGROUND: Infinity,
+    },
+    maxTotalConcurrency: Infinity,
   };
 
   beforeEach(async () => {
@@ -342,6 +351,15 @@ describe('PriorityScheduler', () => {
           queueCapacity: 64,
           maxHighPriorityStreak: 3, // Low threshold for testing
           idleSleepMs: 1,
+          maxConcurrency: {
+            CRITICAL: Infinity,
+            IMMEDIATE: Infinity,
+            HIGH: Infinity,
+            NORMAL: Infinity,
+            LOW: Infinity,
+            BACKGROUND: Infinity,
+          },
+          maxTotalConcurrency: Infinity,
         }),
       );
 
@@ -440,6 +458,15 @@ describe('PriorityScheduler', () => {
           queueCapacity: 64,
           maxHighPriorityStreak: 2,
           idleSleepMs: 1,
+          maxConcurrency: {
+            CRITICAL: Infinity,
+            IMMEDIATE: Infinity,
+            HIGH: Infinity,
+            NORMAL: Infinity,
+            LOW: Infinity,
+            BACKGROUND: Infinity,
+          },
+          maxTotalConcurrency: Infinity,
         }),
       );
 
@@ -672,6 +699,15 @@ describe('PriorityScheduler', () => {
           queueCapacity: 2, // Small capacity for testing
           maxHighPriorityStreak: 50,
           idleSleepMs: 1,
+          maxConcurrency: {
+            CRITICAL: Infinity,
+            IMMEDIATE: Infinity,
+            HIGH: Infinity,
+            NORMAL: Infinity,
+            LOW: Infinity,
+            BACKGROUND: Infinity,
+          },
+          maxTotalConcurrency: Infinity,
         }),
       );
 
@@ -715,6 +751,15 @@ describe('PriorityScheduler', () => {
           queueCapacity: 1,
           maxHighPriorityStreak: 50,
           idleSleepMs: 1,
+          maxConcurrency: {
+            CRITICAL: Infinity,
+            IMMEDIATE: Infinity,
+            HIGH: Infinity,
+            NORMAL: Infinity,
+            LOW: Infinity,
+            BACKGROUND: Infinity,
+          },
+          maxTotalConcurrency: Infinity,
         }),
       );
 
@@ -904,6 +949,15 @@ describe('PriorityScheduler', () => {
           queueCapacity: 64,
           maxHighPriorityStreak: 50,
           idleSleepMs: 10,
+          maxConcurrency: {
+            CRITICAL: Infinity,
+            IMMEDIATE: Infinity,
+            HIGH: Infinity,
+            NORMAL: Infinity,
+            LOW: Infinity,
+            BACKGROUND: Infinity,
+          },
+          maxTotalConcurrency: Infinity,
         }),
       );
 

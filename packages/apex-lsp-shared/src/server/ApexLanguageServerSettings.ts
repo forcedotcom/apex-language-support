@@ -196,6 +196,9 @@ export interface DeferredReferenceProcessingSettings {
 
   /** Queue capacity percentage threshold to reset circuit breaker (default: 50) */
   circuitBreakerResetThreshold: number;
+
+  /** Rate limit for enqueueing deferred tasks per second (default: 10) */
+  maxDeferredTasksPerSecond?: number;
 }
 
 /**
@@ -206,6 +209,14 @@ export interface QueueProcessingSettings {
    * Supports: CRITICAL (0), IMMEDIATE (1), HIGH (2), NORMAL (3), LOW (4), BACKGROUND (5)
    */
   maxConcurrency: Record<string, number>;
+
+  /** Optional overall maximum concurrent tasks across all priorities
+   * When set, provides a safety net to prevent system overload
+   * Default: sum of per-priority limits * 1.2 (20% buffer)
+   * When overall limit is exceeded, only lower priorities (Normal/Low/Background) are blocked
+   * Critical/Immediate/High priorities are always allowed through to prevent priority inversion
+   */
+  maxTotalConcurrency?: number;
 
   /** Number of tasks processed before yielding control to prevent blocking */
   yieldInterval: number;

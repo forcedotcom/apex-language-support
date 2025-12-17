@@ -434,6 +434,10 @@
                 }
               }
             },
+            "maxTotalConcurrency": {
+              "type": "number",
+              "description": "%configuration.apex-ls-ts.queueProcessing.maxTotalConcurrency.description%"
+            },
             "yieldInterval": {
               "type": "number",
               "default": 50,
@@ -551,6 +555,11 @@
               "type": "number",
               "default": 50,
               "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.circuitBreakerResetThreshold.description%"
+            },
+            "maxDeferredTasksPerSecond": {
+              "type": "number",
+              "default": 10,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.maxDeferredTasksPerSecond.description%"
             }
           }
         }

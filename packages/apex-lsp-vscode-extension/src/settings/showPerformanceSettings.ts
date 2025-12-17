@@ -26,18 +26,40 @@ async function saveSettingsToConfig(
 
   // Update deferred reference processing settings
   if (settings.deferredReferenceProcessing) {
+    // Handle maxDeferredTasksPerSecond: if undefined/empty, remove it from config
+    const deferredSettings = { ...settings.deferredReferenceProcessing };
+    if (deferredSettings.maxDeferredTasksPerSecond === undefined || deferredSettings.maxDeferredTasksPerSecond === null) {
+      // Remove the setting to use default
+      await apexConfig.update(
+        'deferredReferenceProcessing.maxDeferredTasksPerSecond',
+        undefined,
+        configTarget,
+      );
+      delete deferredSettings.maxDeferredTasksPerSecond;
+    }
     await apexConfig.update(
       'deferredReferenceProcessing',
-      settings.deferredReferenceProcessing,
+      deferredSettings,
       configTarget,
     );
   }
 
   // Update queue processing settings
   if (settings.queueProcessing) {
+    // Handle maxTotalConcurrency: if undefined/empty, remove it from config
+    const queueProcessingSettings = { ...settings.queueProcessing };
+    if (queueProcessingSettings.maxTotalConcurrency === undefined || queueProcessingSettings.maxTotalConcurrency === null) {
+      // Remove the setting to use default (calculated from sum * 1.2)
+      await apexConfig.update(
+        'queueProcessing.maxTotalConcurrency',
+        undefined,
+        configTarget,
+      );
+      delete queueProcessingSettings.maxTotalConcurrency;
+    }
     await apexConfig.update(
       'queueProcessing',
-      settings.queueProcessing,
+      queueProcessingSettings,
       configTarget,
     );
   }

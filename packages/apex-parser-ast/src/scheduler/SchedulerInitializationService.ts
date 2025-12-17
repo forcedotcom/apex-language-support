@@ -108,6 +108,8 @@ export class SchedulerInitializationService {
           queueCapacity,
           maxHighPriorityStreak: schedulerConfig.maxHighPriorityStreak,
           idleSleepMs: schedulerConfig.idleSleepMs,
+          maxConcurrency: settings.apex.queueProcessing.maxConcurrency,
+          maxTotalConcurrency: settings.apex.queueProcessing.maxTotalConcurrency,
         }),
       );
     } catch (error) {

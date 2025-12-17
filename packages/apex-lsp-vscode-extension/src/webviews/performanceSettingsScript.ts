@@ -33,9 +33,11 @@ interface PerformanceSettings {
     maxQueueFullRetryDelayMs: number;
     circuitBreakerFailureThreshold: number;
     circuitBreakerResetThreshold: number;
+    maxDeferredTasksPerSecond?: number;
   };
   queueProcessing?: {
     maxConcurrency: Record<string, number>;
+    maxTotalConcurrency?: number;
     yieldInterval: number;
     yieldDelayMs: number;
   };
@@ -224,6 +226,7 @@ class PerformanceSettingsUI {
       maxQueueFullRetryDelayMs: 30000,
       circuitBreakerFailureThreshold: 5,
       circuitBreakerResetThreshold: 50,
+      maxDeferredTasksPerSecond: 10,
     };
 
     const deferredSettings = [
@@ -307,6 +310,14 @@ class PerformanceSettingsUI {
         max: 100,
         tooltip: 'Queue capacity percentage to reset circuit breaker (default: 50)',
       },
+      {
+        key: 'maxDeferredTasksPerSecond',
+        label: 'Max Deferred Tasks Per Second',
+        value: def.maxDeferredTasksPerSecond ?? 10,
+        min: 1,
+        max: 1000,
+        tooltip: 'Rate limit for enqueueing deferred tasks per second (default: 10)',
+      },
     ];
 
     return `
@@ -363,6 +374,7 @@ class PerformanceSettingsUI {
         LOW: 10,
         BACKGROUND: 5,
       },
+      maxTotalConcurrency: undefined,
       yieldInterval: 50,
       yieldDelayMs: 25,
     };
@@ -436,6 +448,15 @@ class PerformanceSettingsUI {
           </div>
           <div class="setting-group">
             <div class="setting-group-title">Queue Processing Settings</div>
+            <div class="setting-item">
+              <label class="setting-label">
+                <span class="setting-label-text">Max Total Concurrency</span>
+              </label>
+              <input type="number" class="setting-input" 
+                     data-path="queueProcessing.maxTotalConcurrency"
+                     value="${queueDef.maxTotalConcurrency || ''}" min="1" placeholder="Auto (sum * 1.2)">
+              <div class="setting-help">Optional overall maximum concurrent tasks across all priorities. When set, provides a safety net to prevent system overload. Default: sum of per-priority limits * 1.2 (20% buffer). When overall limit is exceeded, only lower priorities (Normal/Low/Background) are blocked. Critical/Immediate/High priorities are always allowed through to prevent priority inversion.</div>
+            </div>
             <div class="setting-item">
               <label class="setting-label">
                 <span class="setting-label-text">Yield Interval</span>
@@ -798,9 +819,16 @@ class PerformanceSettingsUI {
       if (input.type === 'checkbox') {
         current[lastPart] = input.checked;
       } else {
-        const value = parseInt(input.value, 10);
-        if (!isNaN(value)) {
-          current[lastPart] = value;
+        const value = input.value.trim();
+        // Handle empty values for optional fields (like maxTotalConcurrency)
+        // For optional fields, empty means use default (undefined)
+        if (value === '' && (lastPart === 'maxTotalConcurrency' || lastPart === 'maxDeferredTasksPerSecond')) {
+          // Don't set the field - will use default from settings merge
+          return;
+        }
+        const numValue = parseInt(value, 10);
+        if (!isNaN(numValue)) {
+          current[lastPart] = numValue;
         }
       }
     });

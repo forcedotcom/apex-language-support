@@ -125,7 +125,7 @@ describe('Configuration Module', () => {
             enableForFoldingRanges: false,
           },
           deferredReferenceProcessing: {
-            deferredBatchSize: 50,
+            deferredBatchSize: 25, // Reduced from 50 to improve responsiveness
             maxRetryAttempts: 10,
             retryDelayMs: 100,
             maxRetryDelayMs: 5000,
@@ -135,6 +135,7 @@ describe('Configuration Module', () => {
             maxQueueFullRetryDelayMs: 30000,
             circuitBreakerFailureThreshold: 5,
             circuitBreakerResetThreshold: 50,
+            maxDeferredTasksPerSecond: 10,
           },
           performance: {
             commentCollectionMaxFileSize: 102400,
@@ -146,10 +147,13 @@ describe('Configuration Module', () => {
               CRITICAL: 100,
               HIGH: 50,
               IMMEDIATE: 50,
-              LOW: 10,
+              LOW: 5, // Reduced from 10 to improve responsiveness
               NORMAL: 25,
               BACKGROUND: 5,
             },
+            // maxTotalConcurrency is calculated as sum * 1.2 if not provided
+            // (100+50+50+25+5+5) * 1.2 = 282
+            maxTotalConcurrency: 282,
             yieldDelayMs: 25,
             yieldInterval: 50,
           },
