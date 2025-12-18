@@ -15,7 +15,6 @@ import {
   ConstructorDeclarationContext,
   InterfaceMethodDeclarationContext,
   FormalParameterContext,
-  LocalVariableDeclarationContext,
   EnumDeclarationContext,
   BlockContext,
   ModifierContext,
@@ -61,6 +60,7 @@ import {
   RunAsStatementContext,
   GetterContext,
   SetterContext,
+  // Add contexts for keyword detection
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -116,7 +116,17 @@ import {
   isInterfaceSymbol,
   isBlockSymbol,
 } from '../../utils/symbolNarrowing';
-import { isContextType } from '../../utils/contextTypeGuards';
+import {
+  isContextType,
+  isMethodRelatedContext,
+  isFieldOrPropertyContext,
+  isTypeDeclarationContext,
+  isDotExpressionContext,
+  isTypeReferenceContext,
+  isVariableOrFieldDeclarationContext,
+  isMethodDeclarationContext,
+  isMethodCallContext,
+} from '../../utils/contextTypeGuards';
 import { ResourceLoader } from '../../utils/resourceLoader';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../constants/constants';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
@@ -2338,12 +2348,13 @@ export class ApexSymbolCollectorListener
    */
   enterAnyId(ctx: AnyIdContext): void {
     try {
+      const fieldName = ctx.text;
+
       // Check if this is part of a dot expression
       const parent = ctx.parent;
 
       if (parent && isContextType(parent, DotExpressionContext)) {
         const dotContext = parent;
-        const fieldName = ctx.text;
 
         // Check if we're in an assignment LHS context to avoid duplication
         if (this.isInAssignmentLHS(ctx)) {
@@ -2428,23 +2439,21 @@ export class ApexSymbolCollectorListener
       return;
     }
 
+    const variableName = this.getTextFromContext(ctx);
+
     // Skip emitting a VARIABLE_USAGE when this identifier participates in a dotted
     // expression (e.g., EncodingUtil.urlEncode or obj.field), UNLESS it's a method call parameter.
     // Method call parameters need to be captured even inside dot expressions.
     if (!this.isMethodCallParameter(ctx)) {
       let parent: ParserRuleContext | undefined = ctx.parent;
       while (parent) {
-        if (
-          isContextType(parent, DotExpressionContext) ||
-          isContextType(parent, DotMethodCallContext)
-        ) {
+        if (isDotExpressionContext(parent)) {
           return;
         }
         parent = parent.parent;
       }
     }
 
-    const variableName = this.getTextFromContext(ctx);
     const location = this.getLocation(ctx);
     const parentContext = this.getCurrentMethodName();
 
@@ -2853,10 +2862,7 @@ export class ApexSymbolCollectorListener
           return;
         }
         // Check for IMPLEMENTS/EXTENDS contexts
-        if (
-          isContextType(current, ClassDeclarationContext) ||
-          isContextType(current, InterfaceDeclarationContext)
-        ) {
+        if (isTypeDeclarationContext(current)) {
           // Handle interface implementations/extensions
           this.processTypeListForInterfaceDeclaration(ctx);
           return;
@@ -3677,10 +3683,7 @@ export class ApexSymbolCollectorListener
     while (current) {
       if (isContextType(current, TypeListContext)) return true;
       // Stop if we climb past the TypeRef owner (another TypeRef or TypeName)
-      if (
-        isContextType(current, TypeRefContext) ||
-        isContextType(current, TypeNameContext)
-      ) {
+      if (isTypeReferenceContext(current)) {
         // keep climbing; generic arguments are nested under TypeList within TypeName
       }
       current = current.parent;
@@ -3965,12 +3968,7 @@ export class ApexSymbolCollectorListener
 
     while (current) {
       // Check for variable/field declaration contexts
-      if (
-        isContextType(current, FieldDeclarationContext) ||
-        isContextType(current, PropertyDeclarationContext) ||
-        isContextType(current, LocalVariableDeclarationContext) ||
-        isContextType(current, VariableDeclaratorContext)
-      ) {
+      if (isVariableOrFieldDeclarationContext(current)) {
         return true;
       }
 
@@ -4069,25 +4067,12 @@ export class ApexSymbolCollectorListener
 
     while (current) {
       // Check for method-related contexts
-      if (
-        isContextType(current, FormalParameterContext) ||
-        isContextType(current, MethodDeclarationContext) ||
-        isContextType(current, InterfaceMethodDeclarationContext) ||
-        isContextType(current, LocalVariableDeclarationContext) ||
-        isContextType(current, NewExpressionContext) ||
-        isContextType(current, CastExpressionContext) ||
-        isContextType(current, InstanceOfExpressionContext) ||
-        isContextType(current, EnhancedForControlContext) ||
-        isContextType(current, TypeRefPrimaryContext)
-      ) {
+      if (isMethodRelatedContext(current)) {
         return this.getCurrentMethodName();
       }
 
       // Check for field/property contexts
-      if (
-        isContextType(current, FieldDeclarationContext) ||
-        isContextType(current, PropertyDeclarationContext)
-      ) {
+      if (isFieldOrPropertyContext(current)) {
         return this.getCurrentType()?.name;
       }
 
@@ -4110,10 +4095,7 @@ export class ApexSymbolCollectorListener
 
     while (current) {
       // Check for method declaration contexts
-      if (
-        isContextType(current, MethodDeclarationContext) ||
-        isContextType(current, InterfaceMethodDeclarationContext)
-      ) {
+      if (isMethodDeclarationContext(current)) {
         // We're in a method declaration, but we need to check if this TypeRef
         // is specifically the return type (not a parameter type or local variable type)
 
@@ -4141,12 +4123,7 @@ export class ApexSymbolCollectorListener
 
       // Check if this TypeRef is in a local variable declaration context
       // If it is, it's not a method return type
-      if (
-        isContextType(current, LocalVariableDeclarationContext) ||
-        isContextType(current, FieldDeclarationContext) ||
-        isContextType(current, PropertyDeclarationContext) ||
-        isContextType(current, VariableDeclaratorContext)
-      ) {
+      if (isVariableOrFieldDeclarationContext(current)) {
         return false;
       }
 
@@ -4232,11 +4209,7 @@ export class ApexSymbolCollectorListener
 
     while (current) {
       // If we find an expression list, this is likely a method call parameter
-      if (
-        isContextType(current, ExpressionListContext) ||
-        isContextType(current, MethodCallContext) ||
-        isContextType(current, DotMethodCallContext)
-      ) {
+      if (isMethodCallContext(current)) {
         return true;
       }
 

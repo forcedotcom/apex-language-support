@@ -49,7 +49,7 @@ describe('SignatureHelpProcessingService', () => {
       uri: 'file:///test/TestClass.cls',
       getText: jest.fn().mockReturnValue(`
         public class TestClass {
-          public void testMethod(String param1, Integer param2) {
+          public void doSomething(String param1, Integer param2) {
             // Method body
           }
           
@@ -144,7 +144,7 @@ describe('SignatureHelpProcessingService', () => {
       // Arrange
       const text = `
         public class TestClass {
-          public void testMethod(String param1, Integer param2) {
+          public void doSomething(String param1, Integer param2) {
             // Method body
           }
         }
@@ -161,7 +161,7 @@ describe('SignatureHelpProcessingService', () => {
     it('should get current parameter index correctly', () => {
       // Arrange
       const text = `
-        testMethod(param1, param2, param3)
+        doSomething(param1, param2, param3)
       `;
 
       // Act
@@ -175,7 +175,7 @@ describe('SignatureHelpProcessingService', () => {
     it('should extract argument types correctly', () => {
       // Arrange
       const text = `
-        testMethod("string", 123, true)
+        doSomething("string", 123, true)
       `;
 
       // Act

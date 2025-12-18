@@ -97,6 +97,13 @@ export class HoverProcessingService implements IHoverProcessor {
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
 
+      // Get TypeReferences at position first
+      // This tells us if there's a parsed identifier at this position
+      const references = this.symbolManager.getReferencesAtPosition(
+        params.textDocument.uri,
+        parserPosition,
+      );
+
       // Check if file has symbols indexed before lookup
       const fileSymbols = this.symbolManager.findSymbolsInFile(
         params.textDocument.uri,
@@ -107,16 +114,40 @@ export class HoverProcessingService implements IHoverProcessor {
           `${fileSymbols.map((s) => s.name).join(', ')}`,
       );
 
-      let symbol = await this.symbolManager.getSymbolAtPosition(
+      // Use precise symbol resolution only for hover
+      const symbol = await this.symbolManager.getSymbolAtPosition(
         params.textDocument.uri,
         parserPosition,
         'precise',
       );
 
-      if (!symbol) {
+      if (symbol) {
+        // Symbol found - return hover information
+        this.logger.debug(
+          () =>
+            `Found symbol: ${symbol.name} (${symbol.kind}) at position ` +
+            `${parserPosition.line}:${parserPosition.character}`,
+        );
+
+        const hover = await this.createHoverInformation(symbol);
+
+        this.logger.debug(
+          () => `Hover creation result: ${hover ? 'success' : 'null'}`,
+        );
+
+        return hover;
+      }
+
+      // No symbol found - check if TypeReference exists
+      if (references && references.length > 0) {
+        // TypeReference exists but no symbol = unresolved identifier
+        // This indicates a missing artifact that should be resolved
         this.logger.debug(() => {
           const parserPos = formatPosition(parserPosition, 'parser');
-          return `No symbol found at parser position ${parserPos} (file has ${fileSymbols.length} symbols indexed)`;
+          return (
+            `No symbol found but TypeReference exists at parser position ${parserPos} ` +
+            '- triggering missing artifact resolution'
+          );
         });
 
         // Check if missing artifact resolution is enabled
@@ -137,19 +168,13 @@ export class HoverProcessingService implements IHoverProcessor {
         return null;
       }
 
-      this.logger.debug(
-        () =>
-          `Found symbol: ${symbol?.name} (${symbol?.kind}) at position ` +
-          `${parserPosition.line}:${parserPosition.character}`,
-      );
+      // No symbol AND no TypeReference = nothing of interest (keyword, whitespace, etc.)
+      this.logger.debug(() => {
+        const parserPos = formatPosition(parserPosition, 'parser');
+        return `No symbol and no TypeReference at parser position ${parserPos} - nothing of interest`;
+      });
 
-      const hover = await this.createHoverInformation(symbol);
-
-      this.logger.debug(
-        () => `Hover creation result: ${hover ? 'success' : 'null'}`,
-      );
-
-      return hover;
+      return null;
     } catch (error) {
       this.logger.error(() => `Error processing hover: ${error}`);
       return null;

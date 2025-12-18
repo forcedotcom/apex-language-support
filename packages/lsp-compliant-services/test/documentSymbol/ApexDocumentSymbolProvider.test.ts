@@ -139,7 +139,7 @@ describe('DefaultApexDocumentSymbolProvider - Unit Tests', () => {
     it('should format method names with parameters and return type', () => {
       const provider = symbolProvider as any;
       const methodSymbol = {
-        name: 'testMethod',
+        name: 'doSomething',
         kind: 'method',
         parameters: [
           { type: { originalTypeString: 'String' } },
@@ -149,20 +149,20 @@ describe('DefaultApexDocumentSymbolProvider - Unit Tests', () => {
       };
 
       const result = provider.formatSymbolName(methodSymbol);
-      expect(result).toBe('testMethod(String, Integer) : Boolean');
+      expect(result).toBe('doSomething(String, Integer) : Boolean');
     });
 
     it('should handle methods without parameters', () => {
       const provider = symbolProvider as any;
       const methodSymbol = {
-        name: 'testMethod',
+        name: 'doSomething',
         kind: 'method',
         parameters: [],
         returnType: { originalTypeString: 'void' },
       };
 
       const result = provider.formatSymbolName(methodSymbol);
-      expect(result).toBe('testMethod() : void');
+      expect(result).toBe('doSomething() : void');
     });
 
     it('should handle non-method symbols', () => {
@@ -179,14 +179,14 @@ describe('DefaultApexDocumentSymbolProvider - Unit Tests', () => {
     it('should handle method symbols with missing type information', () => {
       const provider = symbolProvider as any;
       const methodSymbol = {
-        name: 'testMethod',
+        name: 'doSomething',
         kind: 'method',
         parameters: [{ type: null }],
         returnType: null,
       };
 
       const result = provider.formatSymbolName(methodSymbol);
-      expect(result).toBe('testMethod(unknown) : void');
+      expect(result).toBe('doSomething(unknown) : void');
     });
 
     it('should format field symbols with type information', () => {

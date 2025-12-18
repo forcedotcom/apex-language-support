@@ -53,7 +53,7 @@ describe('CodeActionProcessingService', () => {
       uri: 'file:///test/TestClass.cls',
       getText: jest.fn().mockReturnValue(`
         public class TestClass {
-          public void testMethod() {
+          public void doSomething() {
             String testVar = 'test';
             // Cursor position here
           }
@@ -288,7 +288,7 @@ describe('CodeActionProcessingService', () => {
           end: { line: 5, character: 15 },
         },
         diagnostics: [],
-        symbolName: 'testMethod',
+        symbolName: 'doSomething',
         symbolKind: 'method',
         currentScope: 'method-scope',
         isStatic: false,
@@ -311,7 +311,7 @@ describe('CodeActionProcessingService', () => {
           end: { line: 5, character: 15 },
         },
         diagnostics: [],
-        symbolName: 'testMethod',
+        symbolName: 'doSomething',
         symbolKind: 'method',
         currentScope: 'method-scope',
         isStatic: false,
@@ -345,7 +345,7 @@ describe('CodeActionProcessingService', () => {
             source: 'apex-symbol-manager',
           },
         ],
-        symbolName: 'testMethod',
+        symbolName: 'doSomething',
         symbolKind: 'method',
         currentScope: 'method-scope',
         isStatic: false,
@@ -369,7 +369,7 @@ describe('CodeActionProcessingService', () => {
           end: { line: 5, character: 15 },
         },
         diagnostics: [],
-        symbolName: 'testMethod',
+        symbolName: 'doSomething',
         symbolKind: 'method',
         currentScope: 'method-scope',
         isStatic: false,

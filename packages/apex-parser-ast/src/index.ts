@@ -54,6 +54,7 @@ export * from './utils/PlatformUtils';
 export * from './utils/AnnotationUtils';
 export * from './utils/symbolNarrowing';
 export * from './utils/FQNUtils';
+export * from './utils/ApexKeywords';
 
 // Export cross-file symbol management
 export * from './symbols/ApexSymbolManager';

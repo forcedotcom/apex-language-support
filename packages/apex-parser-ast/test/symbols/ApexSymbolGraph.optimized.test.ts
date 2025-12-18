@@ -332,7 +332,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       );
 
       const methodSymbol = SymbolFactory.createMinimalSymbol(
-        'testMethod',
+        'myMethod',
         SymbolKind.Method,
         {
           symbolRange: {
@@ -360,9 +360,9 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       symbolGraph.addSymbol(methodSymbol, 'file:///test/file.cls', symbolTable);
 
       // Test findSymbolByName delegation
-      const symbolsByName = symbolGraph.findSymbolByName('testMethod');
+      const symbolsByName = symbolGraph.findSymbolByName('myMethod');
       expect(symbolsByName).toHaveLength(1);
-      expect(symbolsByName[0].name).toBe('testMethod');
+      expect(symbolsByName[0].name).toBe('myMethod');
 
       // Test getSymbolsInFile delegation
       const symbolsInFile = symbolGraph.getSymbolsInFile(
@@ -370,7 +370,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       );
       expect(symbolsInFile).toHaveLength(2);
       expect(symbolsInFile.map((s) => s.name)).toContain('TestClass');
-      expect(symbolsInFile.map((s) => s.name)).toContain('testMethod');
+      expect(symbolsInFile.map((s) => s.name)).toContain('myMethod');
     });
 
     it('should maintain cross-file reference tracking', () => {
@@ -488,7 +488,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       );
 
       const methodSymbol = SymbolFactory.createMinimalSymbol(
-        'testMethod',
+        'myMethod',
         SymbolKind.Method,
         {
           symbolRange: {
@@ -518,13 +518,13 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       symbolGraph.addSymbol(methodSymbol, 'file:///test/file.cls', symbolTable);
 
       // Test context-based lookup
-      const lookupResult = symbolGraph.lookupSymbolWithContext('testMethod', {
+      const lookupResult = symbolGraph.lookupSymbolWithContext('myMethod', {
         fileUri: 'file:///test/file.cls',
         currentScope: 'TestClass',
       });
 
       expect(lookupResult).toBeDefined();
-      expect(lookupResult?.symbol.name).toBe('testMethod');
+      expect(lookupResult?.symbol.name).toBe('myMethod');
     });
 
     it('should provide memory optimization benefits', () => {

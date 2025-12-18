@@ -99,6 +99,22 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
           `to parser ${parserPosition.line}:${parserPosition.character}`,
       );
 
+      // Get TypeReferences at position first
+      // This tells us if there's a parsed identifier at this position
+      const references = this.symbolManager.getReferencesAtPosition(
+        params.textDocument.uri,
+        parserPosition,
+      );
+
+      // If no TypeReference exists, there's nothing of interest (keyword, whitespace, etc.)
+      if (!references || references.length === 0) {
+        this.logger.debug(() => {
+          const parserPos = `${parserPosition.line}:${parserPosition.character}`;
+          return `No TypeReference at parser position ${parserPos} - nothing of interest`;
+        });
+        return [];
+      }
+
       // Use precise symbol resolution for goto definition
       let symbol = await this.symbolManager.getSymbolAtPosition(
         params.textDocument.uri,
@@ -113,6 +129,16 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
           () =>
             `No symbol found at parser position ${parserPosition.line}:${parserPosition.character}`,
         );
+
+        // TypeReference exists but no symbol = unresolved identifier
+        // This indicates a missing artifact that should be resolved
+        this.logger.debug(() => {
+          const parserPos = `${parserPosition.line}:${parserPosition.character}`;
+          return (
+            `No symbol found but TypeReference exists at parser position ${parserPos} ` +
+            '- triggering missing artifact resolution'
+          );
+        });
 
         // For goto definition, use blocking resolution for missing artifacts
         // This provides immediate response as the user expects a new tab to be opened
@@ -136,13 +162,16 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
           wasResolvedFromMissingArtifact = true;
         }
 
-        // If still no symbol found, return empty results
+        // If still no symbol found after resolution attempt, return empty results
         if (!symbol) {
           return [];
         }
       }
 
-      this.logger.debug(() => `Found symbol: ${symbol.name} (${symbol.kind})`);
+      this.logger.debug(
+        () =>
+          `Found symbol: ${symbol?.name ?? 'null'} (${symbol?.kind ?? 'null'})`,
+      );
       this.logger.debug(
         () => `Symbol structure: ${JSON.stringify(symbol, null, 2)}`,
       );
@@ -160,7 +189,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
       this.logger.debug(
         () =>
-          `Returning ${locations.length} definition locations for: ${symbol.name}`,
+          `Returning ${locations.length} definition locations for: ${symbol?.name ?? 'null'}`,
       );
 
       // Return the locations array

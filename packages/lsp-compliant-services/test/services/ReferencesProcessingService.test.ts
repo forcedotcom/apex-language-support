@@ -142,7 +142,7 @@ describe('ReferencesProcessingService', () => {
         params.textDocument.uri,
         'apex',
         1,
-        'public class TestClass {\n  public void testMethod() {\n  }\n}',
+        'public class TestClass {\n  public void doSomething() {\n  }\n}',
       );
 
       mockStorage.getDocument.mockResolvedValue(document);
@@ -170,7 +170,7 @@ describe('ReferencesProcessingService', () => {
         params.textDocument.uri,
         'apex',
         1,
-        'public class TestClass {\n  public void testMethod() {\n  }\n}',
+        'public class TestClass {\n  public void doSomething() {\n  }\n}',
       );
 
       mockStorage.getDocument.mockResolvedValue(document);
@@ -208,15 +208,15 @@ describe('ReferencesProcessingService', () => {
         params.textDocument.uri,
         'apex',
         1,
-        'public class TestClass {\n  public void testMethod() {\n  }\n}',
+        'public class TestClass {\n  public void doSomething() {\n  }\n}',
       );
 
       mockStorage.getDocument.mockResolvedValue(document);
 
       mockSymbolManager.resolveSymbol.mockReturnValue({
         symbol: {
-          id: 'test-method-id',
-          name: 'testMethod',
+          id: 'do-something-id',
+          name: 'doSomething',
         },
       });
 
@@ -247,6 +247,37 @@ describe('ReferencesProcessingService', () => {
       expect(mockSymbolManager.resolveSymbol).not.toHaveBeenCalled();
     });
 
+    it('should return empty array when position is on keyword', async () => {
+      // Arrange
+      const params: ReferenceParams = {
+        textDocument: { uri: 'file:///test/TestClass.cls' },
+        position: { line: 2, character: 4 }, // Position on "if" keyword
+      };
+
+      const document = TextDocument.create(
+        params.textDocument.uri,
+        'apex',
+        1,
+        'public class TestClass {\n  if (true) {\n  }\n}',
+      );
+
+      mockStorage.getDocument.mockResolvedValue(document);
+
+      // Mock getWordRangeAtPosition to return range for "if"
+      jest.spyOn(service as any, 'getWordRangeAtPosition').mockReturnValue({
+        start: { line: 2, character: 2 },
+        end: { line: 2, character: 4 },
+      });
+
+      // Act
+      const result = await service.processReferences(params);
+
+      // Assert
+      expect(result).toEqual([]);
+      // Verify resolveSymbol was NOT called (short-circuited)
+      expect(mockSymbolManager.resolveSymbol).not.toHaveBeenCalled();
+    });
+
     it('should handle missing symbol gracefully', async () => {
       // Arrange
       const params: ReferenceParams = {
@@ -258,7 +289,7 @@ describe('ReferencesProcessingService', () => {
         params.textDocument.uri,
         'apex',
         1,
-        'public class TestClass {\n  public void testMethod() {\n  }\n}',
+        'public class TestClass {\n  public void doSomething() {\n  }\n}',
       );
 
       mockStorage.getDocument.mockResolvedValue(document);
@@ -289,7 +320,7 @@ describe('ReferencesProcessingService', () => {
         params.textDocument.uri,
         'apex',
         1,
-        'public class TestClass {\n  public void testMethod() {\n  }\n}',
+        'public class TestClass {\n  public void doSomething() {\n  }\n}',
       );
 
       mockStorage.getDocument.mockResolvedValue(document);
@@ -316,15 +347,15 @@ describe('ReferencesProcessingService', () => {
         params.textDocument.uri,
         'apex',
         1,
-        'public class TestClass {\n  public void testMethod() {\n  }\n}',
+        'public class TestClass {\n  public void doSomething() {\n  }\n}',
       );
 
       mockStorage.getDocument.mockResolvedValue(document);
 
       mockSymbolManager.resolveSymbol.mockReturnValue({
         symbol: {
-          id: 'test-method-id',
-          name: 'testMethod',
+          id: 'do-something-id',
+          name: 'doSomething',
         },
       });
 

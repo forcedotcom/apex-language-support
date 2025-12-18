@@ -24,8 +24,8 @@
     "README.md"
   ],
   "scripts": {
+    "precompile": "node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs",
     "bundle": "tsx esbuild.config.ts",
-    "precompile": "node scripts/generate-zip.mjs",
     "compile": "tsc --build",
     "test": "jest",
     "test:one": "jest --testPathPattern=resourceLoader",
