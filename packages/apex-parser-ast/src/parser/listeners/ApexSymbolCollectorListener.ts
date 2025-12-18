@@ -2393,23 +2393,30 @@ export class ApexSymbolCollectorListener
             : (expressions ?? null);
 
         if (leftExpression) {
-          const objectName = leftExpression.text;
+          // Extract identifiers from the left expression (handles array expressions correctly)
+          // For array expressions like "insertedcontacts[0]", this extracts just "insertedcontacts"
+          const objectIdentifiers =
+            this.extractIdentifiersFromExpression(leftExpression);
 
-          // Create FIELD_ACCESS reference
-          const location = this.getLocationForReference(ctx);
-          const parentContext = this.getCurrentMethodName();
-          const _qualifierLocation = this.getLocation(
-            leftExpression as unknown as ParserRuleContext,
-          );
+          if (objectIdentifiers.length > 0) {
+            const objectName = objectIdentifiers[0]; // Use the base identifier, not the full expression
 
-          const fieldRef = TypeReferenceFactory.createFieldAccessReference(
-            fieldName,
-            location,
-            objectName,
-            parentContext,
-          );
+            // Create FIELD_ACCESS reference
+            const location = this.getLocationForReference(ctx);
+            const parentContext = this.getCurrentMethodName();
+            const _qualifierLocation = this.getLocation(
+              leftExpression as unknown as ParserRuleContext,
+            );
 
-          this.symbolTable.addTypeReference(fieldRef);
+            const fieldRef = TypeReferenceFactory.createFieldAccessReference(
+              fieldName,
+              location,
+              objectName,
+              parentContext,
+            );
+
+            this.symbolTable.addTypeReference(fieldRef);
+          }
         }
       }
     } catch (error) {
@@ -2489,7 +2496,6 @@ export class ApexSymbolCollectorListener
     if (leftExpression) {
       const lhsLoc = this.getLocation(leftExpression);
       const parentContext = this.getCurrentMethodName();
-      const lhsText = this.getTextFromContext(leftExpression);
 
       // Suppress child captures within LHS range
       this.suppressAssignmentLHS = true;
@@ -2497,13 +2503,20 @@ export class ApexSymbolCollectorListener
 
       // If it's a simple identifier, mark as write/readwrite
       if (isContextType(leftExpression, PrimaryExpressionContext)) {
-        const varRef = TypeReferenceFactory.createVariableUsageReference(
-          lhsText,
-          lhsLoc,
-          parentContext,
-          lhsAccess,
-        );
-        this.symbolTable.addTypeReference(varRef);
+        // Extract identifiers to handle array expressions correctly
+        // For array expressions like "arr[0]", extractIdentifiersFromExpression returns ["arr"]
+        const identifiers =
+          this.extractIdentifiersFromExpression(leftExpression);
+        if (identifiers.length > 0) {
+          // Use the first identifier (for array expressions, this is the base variable)
+          const varRef = TypeReferenceFactory.createVariableUsageReference(
+            identifiers[0],
+            lhsLoc,
+            parentContext,
+            lhsAccess,
+          );
+          this.symbolTable.addTypeReference(varRef);
+        }
         return;
       }
 
@@ -2823,15 +2836,19 @@ export class ApexSymbolCollectorListener
 
       const expr = ctx.expression?.();
       if (expr) {
-        const exprText = this.getTextFromContext(expr);
-        const location = this.getLocation(expr);
-        const parentContext = this.getCurrentMethodName();
-        const usageRef = TypeReferenceFactory.createVariableUsageReference(
-          exprText,
-          location,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(usageRef);
+        // Extract identifiers to handle array expressions correctly
+        // For array expressions like "arr[0]", extractIdentifiersFromExpression returns ["arr"]
+        const identifiers = this.extractIdentifiersFromExpression(expr);
+        for (const identifier of identifiers) {
+          const location = this.getLocation(expr);
+          const parentContext = this.getCurrentMethodName();
+          const usageRef = TypeReferenceFactory.createVariableUsageReference(
+            identifier,
+            location,
+            parentContext,
+          );
+          this.symbolTable.addTypeReference(usageRef);
+        }
       }
     } catch (e) {
       this.logger.warn(() => `Error capturing enhanced for control: ${e}`);

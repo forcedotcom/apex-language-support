@@ -2344,6 +2344,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         typeRef.context,
         fileUri,
         sourceSymbol,
+        typeRef,
       );
 
       if (qualifiedSymbol) {
@@ -2461,7 +2462,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Try to resolve as built-in type
-    const builtInSymbol = await this.resolveBuiltInType(typeRef.name);
+    const builtInSymbol = await this.resolveBuiltInType(typeRef);
     if (builtInSymbol) {
       return builtInSymbol;
     }
@@ -2514,6 +2515,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     context: ReferenceContext,
     fileUri?: string,
     sourceSymbol?: ApexSymbol | null,
+    originalTypeRef?: TypeReference,
   ): Promise<ApexSymbol | null> {
     try {
       // Special case: 'this' qualifier means we're accessing an instance member
@@ -2597,7 +2599,28 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // If no user-defined qualifier found, try built-in types
       if (qualifierSymbols.length === 0) {
-        const builtInQualifier = await this.resolveBuiltInType(qualifier);
+        // Extract qualifier node from chain if available
+        let qualifierRef: TypeReference;
+        if (
+          originalTypeRef &&
+          isChainedTypeReference(originalTypeRef) &&
+          originalTypeRef.chainNodes.length >= 2
+        ) {
+          // Use the qualifier node from the chain
+          qualifierRef = originalTypeRef.chainNodes[0];
+        } else {
+          // Create a minimal TypeReference for the qualifier string
+          qualifierRef = {
+            name: qualifier,
+            context: ReferenceContext.NAMESPACE,
+            location: originalTypeRef?.location || {
+              symbolRange: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
+              identifierRange: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
+            },
+            isResolved: false,
+          };
+        }
+        const builtInQualifier = await this.resolveBuiltInType(qualifierRef);
         if (builtInQualifier) {
           qualifierSymbols = [builtInQualifier];
         }
@@ -2652,9 +2675,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     isQualified: boolean;
   } | null {
     // Check if this is a chained expression reference
-    if (this.isChainedTypeReference(typeRef)) {
-      const chainedRef = typeRef as any;
-      const chainNodes = chainedRef.chainNodes;
+    if (isChainedTypeReference(typeRef)) {
+      const chainNodes = typeRef.chainNodes;
 
       if (chainNodes && chainNodes.length >= 2) {
         // For qualified references like "System.debug", chainNodes[0] is the qualifier
@@ -2705,9 +2727,24 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Also check if it's a built-in type (which are typically static)
-      const builtInQualifier = await this.resolveBuiltInType(
-        qualifierInfo.qualifier,
-      );
+      // Extract qualifier node from chain if available
+      let qualifierRef: TypeReference;
+      if (
+        isChainedTypeReference(typeRef) &&
+        typeRef.chainNodes.length >= 2
+      ) {
+        // Use the qualifier node from the chain
+        qualifierRef = typeRef.chainNodes[0];
+      } else {
+        // Create a minimal TypeReference for the qualifier string
+        qualifierRef = {
+          name: qualifierInfo.qualifier,
+          context: ReferenceContext.NAMESPACE,
+          location: typeRef.location,
+          isResolved: false,
+        };
+      }
+      const builtInQualifier = await this.resolveBuiltInType(qualifierRef);
       if (builtInQualifier) {
         return true;
       }
@@ -2992,7 +3029,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): Promise<ApexSymbol | null> {
     try {
       // Step 0: Handle chained expression references
-      if (this.isChainedTypeReference(typeReference)) {
+      if (isChainedTypeReference(typeReference)) {
         return this.resolveChainedTypeReference(typeReference, position);
       }
 
@@ -3004,6 +3041,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           qualifierInfo.member,
           typeReference.context,
           sourceFile,
+          undefined,
+          typeReference,
         );
 
         if (qualifiedSymbol) {
@@ -3012,7 +3051,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Step 2: Try built-in type resolution for the name itself
-      const builtInSymbol = await this.resolveBuiltInType(typeReference.name);
+      const builtInSymbol = await this.resolveBuiltInType(typeReference);
       if (builtInSymbol) {
         this.logger.debug(
           () =>
@@ -3198,12 +3237,43 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return true;
   }
 
-  private async resolveBuiltInType(name: string): Promise<ApexSymbol | null> {
+  private async resolveBuiltInType(typeRef: TypeReference): Promise<ApexSymbol | null> {
+    const name = typeRef.name;
+
     // Early validation to prevent ResourceLoader calls for invalid identifiers
     if (!this.isValidTypeReferenceName(name)) {
       return null;
     }
+
     try {
+      // Check if this is a ChainedTypeReference with chain nodes
+      if (isChainedTypeReference(typeRef)) {
+        const chainNodes = typeRef.chainNodes;
+
+        // For qualified names like "System.Url" (2 nodes)
+        if (chainNodes.length === 2) {
+          const qualifierNode = chainNodes[0]; // System
+          const memberNode = chainNodes[1]; // Url
+
+          // Resolve qualifier as built-in type (recursive call with qualifier node)
+          const qualifierSymbol = await this.resolveBuiltInType(qualifierNode);
+          if (qualifierSymbol) {
+            // Resolve member within qualifier namespace/class
+            const fqn = `${qualifierNode.name}.${memberNode.name}`;
+            const memberSymbol = await this.resolveStandardApexClass(fqn);
+            if (memberSymbol) {
+              this.logger.debug(
+                () =>
+                  `Resolved "${name}" via chain nodes as ${fqn}: ${memberSymbol.name}`,
+              );
+              return memberSymbol;
+            }
+          }
+          // If chain resolution fails, fall through to string-based resolution
+        }
+        // For chains with more than 2 nodes, fall through to string-based resolution
+      }
+
       // Step 1: Try to resolve as a built-in type via ResourceLoader first
       // Built-in types (wrapper types and collection types) are in StandardApexLibrary/System/
       // and are treated exactly like other StandardApexLibrary classes
@@ -4693,7 +4763,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Strategy 4: Try built-in type resolution
-    const builtInSymbol = await this.resolveBuiltInType(stepName);
+    const builtInSymbol = await this.resolveBuiltInType(step);
     if (builtInSymbol) {
       resolutions.push({ type: 'symbol', symbol: builtInSymbol });
     }
@@ -5443,7 +5513,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // For built-in types, try to resolve them
     if (memberType === 'class') {
-      const builtInSymbol = await this.resolveBuiltInType(memberName);
+      // Create a minimal TypeReference for the member name
+      const memberRef: TypeReference = {
+        name: memberName,
+        context: ReferenceContext.CLASS_REFERENCE,
+        location: {
+          symbolRange: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
+          identifierRange: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
+        },
+        isResolved: false,
+      };
+      const builtInSymbol = await this.resolveBuiltInType(memberRef);
       if (builtInSymbol) {
         return builtInSymbol;
       }
