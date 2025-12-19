@@ -49,6 +49,7 @@ import {
   TypeReference,
   ReferenceContext,
   ChainedTypeReference,
+  EnhancedTypeReference,
 } from '../types/typeReference';
 import {
   ApexSymbolGraph,
@@ -156,14 +157,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     try {
       // Try to get settings manager instance
-      if (ApexSettingsManager && typeof ApexSettingsManager.getInstance === 'function') {
+      if (
+        ApexSettingsManager &&
+        typeof ApexSettingsManager.getInstance === 'function'
+      ) {
         settingsManager = ApexSettingsManager.getInstance();
         if (settingsManager) {
           const settings = settingsManager.getSettings();
           deferredReferenceSettings = settings.apex.deferredReferenceProcessing;
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // Fallback: use default settings if ApexSettingsManager is not available
       // This can happen in test environments where the module is mocked
       this.logger.debug(
@@ -181,7 +185,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       } catch {
         // Ignore errors accessing DEFAULT_APEX_SETTINGS
       }
-      
+
       // Final fallback: use hardcoded defaults
       if (!deferredReferenceSettings) {
         deferredReferenceSettings = {
@@ -204,7 +208,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     ApexSymbolGraph.setInstance(this.symbolGraph);
 
     // Register settings change listener if settings manager is available
-    if (settingsManager && typeof settingsManager.onSettingsChange === 'function') {
+    if (
+      settingsManager &&
+      typeof settingsManager.onSettingsChange === 'function'
+    ) {
       settingsManager.onSettingsChange((newSettings) => {
         if (newSettings.apex.deferredReferenceProcessing) {
           this.symbolGraph.updateDeferredReferenceSettings(
@@ -2719,8 +2726,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             name: qualifier,
             context: ReferenceContext.NAMESPACE,
             location: originalTypeRef?.location || {
-              symbolRange: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
-              identifierRange: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
+              symbolRange: {
+                startLine: 0,
+                startColumn: 0,
+                endLine: 0,
+                endColumn: 0,
+              },
+              identifierRange: {
+                startLine: 0,
+                startColumn: 0,
+                endLine: 0,
+                endColumn: 0,
+              },
             },
             isResolved: false,
           };
@@ -2834,10 +2851,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Also check if it's a built-in type (which are typically static)
       // Extract qualifier node from chain if available
       let qualifierRef: TypeReference;
-      if (
-        isChainedTypeReference(typeRef) &&
-        typeRef.chainNodes.length >= 2
-      ) {
+      if (isChainedTypeReference(typeRef) && typeRef.chainNodes.length >= 2) {
         // Use the qualifier node from the chain
         qualifierRef = typeRef.chainNodes[0];
       } else {
@@ -3372,7 +3386,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return true;
   }
 
-  private async resolveBuiltInType(typeRef: TypeReference): Promise<ApexSymbol | null> {
+  private async resolveBuiltInType(
+    typeRef: TypeReference,
+  ): Promise<ApexSymbol | null> {
     const name = typeRef.name;
 
     // Early validation to prevent ResourceLoader calls for invalid identifiers
@@ -5586,7 +5602,24 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Try built-in type resolution
-    const builtInSymbol = await this.resolveBuiltInType(firstNodeName);
+    // Create a minimal TypeReference from the string name
+    // Since resolveBuiltInType only uses typeRef.name, we can use dummy ranges
+    const dummyLocation: SymbolLocation = {
+      symbolRange: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
+      identifierRange: {
+        startLine: 0,
+        startColumn: 0,
+        endLine: 0,
+        endColumn: 0,
+      },
+    };
+    const typeRef: TypeReference = new EnhancedTypeReference(
+      firstNodeName,
+      dummyLocation,
+      ReferenceContext.CLASS_REFERENCE,
+      false,
+    );
+    const builtInSymbol = await this.resolveBuiltInType(typeRef);
     if (builtInSymbol) {
       this.logger.debug(
         () =>
@@ -6021,8 +6054,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         name: memberName,
         context: ReferenceContext.CLASS_REFERENCE,
         location: {
-          symbolRange: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
-          identifierRange: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
+          symbolRange: {
+            startLine: 0,
+            startColumn: 0,
+            endLine: 0,
+            endColumn: 0,
+          },
+          identifierRange: {
+            startLine: 0,
+            startColumn: 0,
+            endLine: 0,
+            endColumn: 0,
+          },
         },
         isResolved: false,
       };
