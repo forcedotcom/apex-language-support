@@ -1384,7 +1384,7 @@ export class SymbolTable {
     line: number;
     character: number;
   }): SymbolReference[] {
-    return this.references.filter((ref) => {
+    const matched = this.references.filter((ref) => {
       if (this.positionInRange(position, ref.location)) {
         return true;
       }
@@ -1408,6 +1408,59 @@ export class SymbolTable {
       }
       return false;
     });
+
+    // Debug logging - always log for debugging
+    console.log(
+      `[SymbolTable.getReferencesAtPosition] Position ${position.line}:${position.character} - ` +
+        `Total references in table: ${this.references.length}, ` +
+        `Matched: ${matched.length}`,
+    );
+    if (matched.length > 0) {
+      console.log(
+        `[SymbolTable.getReferencesAtPosition] Position ${position.line}:${position.character} found ${matched.length} references:`,
+      );
+      for (let idx = 0; idx < matched.length; idx++) {
+        const r = matched[idx];
+        try {
+          const context = (r as any).context ?? 'unknown';
+          const contextName =
+            typeof context === 'number'
+              ? `context_${context}`
+              : String(context);
+          const loc = r.location?.identifierRange;
+          const chainNodes = (r as any).chainNodes;
+          const refName = r.name ?? 'unnamed';
+          console.log(
+            `  [${idx}] ${refName} - context: ${contextName} (${context}), ` +
+              `location: ${loc ? `${loc.startLine}:${loc.startColumn}-${loc.endColumn}` : 'no location'}, ` +
+              `isChained: ${!!chainNodes}, ` +
+              `chainNodes: ${chainNodes ? chainNodes.length : 0}`,
+          );
+          if (chainNodes && Array.isArray(chainNodes) && chainNodes.length > 0) {
+            chainNodes.forEach((node: any, nodeIdx: number) => {
+              const nodeLoc = node?.location?.identifierRange;
+              if (nodeLoc) {
+                console.log(
+                  `    chainNode[${nodeIdx}]: ${node.name ?? 'unnamed'} - ` +
+                    `location: ${nodeLoc.startLine}:${nodeLoc.startColumn}-${nodeLoc.endColumn}`,
+                );
+              }
+            });
+          }
+        } catch (error) {
+          console.error(
+            `  [${idx}] Error logging reference: ${error}`,
+            r,
+          );
+        }
+      }
+    } else {
+      console.log(
+        `[SymbolTable.getReferencesAtPosition] Position ${position.line}:${position.character} found 0 references. Total references in table: ${this.references.length}`,
+      );
+    }
+
+    return matched;
   }
 
   /**

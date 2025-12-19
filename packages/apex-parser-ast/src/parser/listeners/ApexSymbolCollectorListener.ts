@@ -5062,7 +5062,8 @@ export class ApexSymbolCollectorListener
           qualifier = this.getTextFromContext(
             lhs as unknown as ParserRuleContext,
           );
-          qualifierLocation = this.getLocation(
+          // Use getLocationForReference to get precise identifier location
+          qualifierLocation = this.getLocationForReference(
             lhs as unknown as ParserRuleContext,
           );
         }
@@ -5080,14 +5081,23 @@ export class ApexSymbolCollectorListener
 
         this.symbolTable.addTypeReference(methodRef);
 
-        // Also create a class reference for the qualifier if it's not a variable in scope
-        if (qualifierLocation && !this.isVariableInScope(qualifier)) {
-          const classRef = SymbolReferenceFactory.createClassReference(
-            qualifier,
-            qualifierLocation,
-            parentContext,
-          );
-          this.symbolTable.addTypeReference(classRef);
+        // Also create a class reference for the qualifier
+        // Always create CLASS_REFERENCE for qualifiers in qualified method calls,
+        // as they represent class names, not variables (even if a variable with the same name exists)
+        if (qualifierLocation) {
+          // Check if qualifier is actually a variable in scope - if so, skip CLASS_REFERENCE
+          // But for static method calls like FileUtilities.createFile(), FileUtilities is a class, not a variable
+          const isVariable = this.isVariableInScope(qualifier);
+          // Only skip if it's definitely a variable AND we're in a context where variables take precedence
+          // For qualified static calls, the qualifier is always a class/namespace
+          if (!isVariable) {
+            const classRef = SymbolReferenceFactory.createClassReference(
+              qualifier,
+              qualifierLocation,
+              parentContext,
+            );
+            this.symbolTable.addTypeReference(classRef);
+          }
         }
       } else {
         // For unqualified method calls

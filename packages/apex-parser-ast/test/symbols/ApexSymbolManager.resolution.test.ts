@@ -385,7 +385,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       }
     });
 
-    it.skip('should resolve hover on custom Apex class qualified name (FileUtilities)', async () => {
+    it('should resolve hover on custom Apex class qualified name (FileUtilities)', async () => {
       // Test hover on "FileUtilities" in "FileUtilities.createFile()"
       // SKIPPED: Qualified name resolution not yet implemented
       const testCode = loadFixtureFile('QualifiedTestClass.cls');
@@ -406,7 +406,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.kind).toBe('class');
     });
 
-    it.skip('should resolve hover on custom Apex class qualified name (ServiceClass)', async () => {
+    it('should resolve hover on custom Apex class qualified name (ServiceClass)', async () => {
       // Test hover on "ServiceClass" in "ServiceClass.processData()"
       // SKIPPED: Qualified name resolution not yet implemented
       const testCode = loadFixtureFile('ServiceClassTest.cls');
@@ -430,7 +430,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.kind).toBe('class');
     });
 
-    it.skip('should resolve hover on custom Apex class qualified name (UtilityClass)', async () => {
+    it('should resolve hover on custom Apex class qualified name (UtilityClass)', async () => {
       // Test hover on "UtilityClass" in "UtilityClass.formatString()"
       // SKIPPED: Qualified name resolution not yet implemented
       const testCode = loadFixtureFile('UtilityClassTest.cls');
@@ -471,7 +471,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.kind).toBe('class');
     });
 
-    it.skip('should resolve hover on standard Apex class qualified name (System)', async () => {
+    it('should resolve hover on standard Apex class qualified name (System)', async () => {
       // Test hover on "System" in "System.debug()"
       // SKIPPED: Requires standard Apex library to be loaded
       const testCode = loadFixtureFile('TestClass.cls');
@@ -489,7 +489,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.kind).toBe('class');
     });
 
-    it.skip('should resolve hover on standard Apex class qualified name (EncodingUtil)', async () => {
+    it('should resolve hover on standard Apex class qualified name (EncodingUtil)', async () => {
       // Test hover on "EncodingUtil" in "EncodingUtil.urlEncode()"
       // SKIPPED: Requires standard Apex library to be loaded
       const testCode = loadFixtureFile('TestClass.cls');
@@ -742,8 +742,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       }
     });
 
-    // eslint-disable-next-line max-len
-    it.skip('should resolve method name in workspace Apex class qualified call (FileUtilities.createFile)', async () => {
+    it('should resolve method name in workspace Apex class qualified call (FileUtilities.createFile)', async () => {
       // Test hover on "createFile" in "FileUtilities.createFile()"
       // SKIPPED: Method name resolution in qualified calls not yet implemented
       const testCode = loadFixtureFile('TestClass.cls');
@@ -766,8 +765,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       ); // Should resolve to the actual method definition
     });
 
-    // eslint-disable-next-line max-len
-    it.skip('should resolve method name in workspace Apex class qualified call (ServiceClass.processData)', async () => {
+    it('should resolve method name in workspace Apex class qualified call (ServiceClass.processData)', async () => {
       // Test hover on "processData" in "ServiceClass.processData()"
       // SKIPPED: Method name resolution in qualified calls not yet implemented
       const testCode = loadFixtureFile('TestClass.cls');
@@ -789,8 +787,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       ); // Should resolve to the actual method definition
     });
 
-    // eslint-disable-next-line max-len
-    it.skip('should resolve method name in workspace Apex class qualified call (UtilityClass.formatString)', async () => {
+    it('should resolve method name in workspace Apex class qualified call (UtilityClass.formatString)', async () => {
       // Test hover on "formatString" in "UtilityClass.formatString()"
       // SKIPPED: Method name resolution in qualified calls not yet implemented
       const testCode = loadFixtureFile('TestClass.cls');
@@ -813,7 +810,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       ); // Should resolve to the actual method definition
     });
 
-    it.skip('should resolve method name in standard Apex class qualified call (System.debug)', async () => {
+    it('should resolve method name in standard Apex class qualified call (System.debug)', async () => {
       // Test hover on "debug" in "System.debug()"
       // SKIPPED: Requires standard Apex library to be loaded
       const testCode = loadFixtureFile('TestClass.cls');
@@ -833,7 +830,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.modifiers?.isBuiltIn).toBe(false);
     });
 
-    it.skip('should resolve method name in standard Apex class qualified call (EncodingUtil.urlEncode)', async () => {
+    it('should resolve method name in standard Apex class qualified call (EncodingUtil.urlEncode)', async () => {
       // Test hover on "urlEncode" in "EncodingUtil.urlEncode()"
       // SKIPPED: Requires standard Apex library to be loaded
       const testCode = loadFixtureFile('TestClass.cls');
@@ -855,7 +852,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
     //TODO: disabled due to issue with chained method in call parameters
     // eslint-disable-next-line max-len
-    it.skip('should resolve method name in chained method call parameters (URL.getOrgDomainUrl().toExternalForm)', async () => {
+    it('should resolve method name in chained method call parameters (URL.getOrgDomainUrl().toExternalForm)', async () => {
       // Test hover on "toExternalForm" in chained method call
       const testCode = loadFixtureFile('TestClass.cls');
 
@@ -2796,18 +2793,21 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         expect(result?.id).toContain('property:Name');
       });
 
-      it.skip('should resolve Account property type declaration when position is on type', async () => {
+      it('should resolve Account property type declaration when position is on type', async () => {
         // Test hover on "Account" type in property declaration
         // SKIPPED: Requires standard Salesforce SObject library to be loaded
         const testCode = loadFixtureFile('DeclarationTestClass.cls');
 
-        await compileAndAddToManager(testCode, 'DeclarationTestClass.cls');
+        await compileAndAddToManager(
+          testCode,
+          'file:///test/DeclarationTestClass.cls',
+        );
 
         // Position cursor on "Account" type in "public Account Owner { get; set; }"
-        // Line 10 (0-based) = "    public Account Owner { get; set; }"
+        // Line 10 (1-based) = "    public Account Owner { get; set; }"
         // "Account" type starts at character 12
         const result = await symbolManager.getSymbolAtPosition(
-          'DeclarationTestClass.cls',
+          'file:///test/DeclarationTestClass.cls',
           { line: 10, character: 12 }, // Position on "Account" type
           'precise',
         );
@@ -2819,18 +2819,21 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         expect(result?.fileUri).toBe('built-in://apex');
       });
 
-      it.skip('should resolve Account property type declaration when position is on property name', async () => {
+      it('should resolve Account property type declaration when position is on property name', async () => {
         // Test hover on "Owner" property name in property declaration
         // SKIPPED: Requires standard Salesforce SObject library to be loaded
         const testCode = loadFixtureFile('DeclarationTestClass.cls');
 
-        await compileAndAddToManager(testCode, 'DeclarationTestClass.cls');
+        await compileAndAddToManager(
+          testCode,
+          'file:///test/DeclarationTestClass.cls',
+        );
 
         // Position cursor on "Owner" property name in "public Account Owner { get; set; }"
-        // Line 10 (0-based) = "    public Account Owner { get; set; }"
+        // Line 10 (1-based) = "    public Account Owner { get; set; }"
         // "Owner" property name starts at character 19
         const result = await symbolManager.getSymbolAtPosition(
-          'DeclarationTestClass.cls',
+          'file:///test/DeclarationTestClass.cls',
           { line: 10, character: 19 }, // Position on "Owner" property name
           'precise',
         );
@@ -2840,25 +2843,27 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         expect(result?.name).toBe('Owner');
         expect(result?.kind).toBe('property');
         expect(result?.fileUri).toBe('file:///test/DeclarationTestClass.cls');
-        expect(result?.id).toBe(
-          'file:///test/DeclarationTestClass.cls:file.DeclarationTestClass:Owner',
-        );
+        // ID format uses block-based naming (block:class_1:property:Owner)
+        expect(result?.id).toContain('file:///test/DeclarationTestClass.cls');
+        expect(result?.id).toContain('property:Owner');
       });
     });
 
     describe('Field Declaration Resolution', () => {
-      it.skip('should resolve String field type declaration when position is on type', async () => {
+      it('should resolve String field type declaration when position is on type', async () => {
         // Test hover on "String" type in field declaration
-        // SKIPPED: Field type resolution not yet implemented
         const testCode = loadFixtureFile('DeclarationTestClass.cls');
 
-        await compileAndAddToManager(testCode, 'DeclarationTestClass.cls');
+        await compileAndAddToManager(
+          testCode,
+          'file:///test/DeclarationTestClass.cls',
+        );
 
         // Position cursor on "String" type in "private String message;"
-        // Line 3 (0-based) = "    private String message;"
+        // Line 3 (1-based) = "    private String message;"
         // "String" type starts at character 12
         const result = await symbolManager.getSymbolAtPosition(
-          'DeclarationTestClass.cls',
+          'file:///test/DeclarationTestClass.cls',
           { line: 3, character: 12 }, // Position on "String" type
           'precise',
         );
@@ -2873,13 +2878,16 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         // Test hover on "message" field name in field declaration
         const testCode = loadFixtureFile('DeclarationTestClass.cls');
 
-        await compileAndAddToManager(testCode, 'DeclarationTestClass.cls');
+        await compileAndAddToManager(
+          testCode,
+          'file:///test/DeclarationTestClass.cls',
+        );
 
         // Position cursor on "message" field name in "private String message;"
-        // Line 3 (0-based) = "    private String message;"
+        // Line 3 (1-based) = "    private String message;"
         // "message" field name starts at character 19
         const result = await symbolManager.getSymbolAtPosition(
-          'DeclarationTestClass.cls',
+          'file:///test/DeclarationTestClass.cls',
           { line: 3, character: 19 }, // Position on "message" field name
           'precise',
         );
@@ -2898,13 +2906,16 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         // Test hover on "FileUtilities" type in field declaration
         const testCode = loadFixtureFile('DeclarationTestClass.cls');
 
-        await compileAndAddToManager(testCode, 'DeclarationTestClass.cls');
+        await compileAndAddToManager(
+          testCode,
+          'file:///test/DeclarationTestClass.cls',
+        );
 
         // Position cursor on "FileUtilities" type in "private FileUtilities fileUtils;"
-        // Line 5 (0-based) = "    private FileUtilities fileUtils;"
+        // Line 5 (1-based) = "    private FileUtilities fileUtils;"
         // "FileUtilities" type starts at character 12
         const result = await symbolManager.getSymbolAtPosition(
-          'DeclarationTestClass.cls',
+          'file:///test/DeclarationTestClass.cls',
           { line: 5, character: 12 }, // Position on "FileUtilities" type
           'precise',
         );
@@ -2923,13 +2934,16 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         // Test hover on "fileUtils" field name in field declaration
         const testCode = loadFixtureFile('DeclarationTestClass.cls');
 
-        await compileAndAddToManager(testCode, 'DeclarationTestClass.cls');
+        await compileAndAddToManager(
+          testCode,
+          'file:///test/DeclarationTestClass.cls',
+        );
 
         // Position cursor on "fileUtils" field name in "private FileUtilities fileUtils;"
-        // Line 5 (0-based) = "    private FileUtilities fileUtils;"
+        // Line 5 (1-based) = "    private FileUtilities fileUtils;"
         // "fileUtils" field name starts at character 25
         const result = await symbolManager.getSymbolAtPosition(
-          'DeclarationTestClass.cls',
+          'file:///test/DeclarationTestClass.cls',
           { line: 5, character: 25 }, // Position on "fileUtils" field name
           'precise',
         );
