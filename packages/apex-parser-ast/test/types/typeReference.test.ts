@@ -7,13 +7,13 @@
  */
 
 import {
-  TypeReference,
+  SymbolReference,
   ReferenceContext,
-  TypeReferenceFactory,
-} from '../../src/types/typeReference';
+  SymbolReferenceFactory,
+} from '../../src/types/symbolReference';
 import { SymbolLocation } from '../../src/types/symbol';
 
-describe('TypeReference Data Structures', () => {
+describe('SymbolReference Data Structures', () => {
   const mockLocation: SymbolLocation = {
     symbolRange: {
       startLine: 10,
@@ -72,13 +72,12 @@ describe('TypeReference Data Structures', () => {
     });
   });
 
-  describe('TypeReference interface', () => {
+  describe('SymbolReference interface', () => {
     it('should have correct structure', () => {
-      const reference: TypeReference = {
+      const reference: SymbolReference = {
         name: 'testMethod',
         location: mockLocation,
         context: ReferenceContext.METHOD_CALL,
-        qualifier: 'TestClass',
         parentContext: 'testMethod',
         isResolved: false,
       };
@@ -86,28 +85,26 @@ describe('TypeReference Data Structures', () => {
       expect(reference.name).toBe('testMethod');
       expect(reference.location).toBe(mockLocation);
       expect(reference.context).toBe(ReferenceContext.METHOD_CALL);
-      expect(reference.qualifier).toBe('TestClass');
       expect(reference.parentContext).toBe('testMethod');
       expect(reference.isResolved).toBe(false);
     });
 
     it('should allow optional properties', () => {
-      const reference: TypeReference = {
+      const reference: SymbolReference = {
         name: 'testMethod',
         location: mockLocation,
         context: ReferenceContext.METHOD_CALL,
         isResolved: false,
       };
 
-      expect(reference.qualifier).toBeUndefined();
       expect(reference.parentContext).toBeUndefined();
     });
   });
 
-  describe('TypeReferenceFactory', () => {
+  describe('SymbolReferenceFactory', () => {
     describe('createMethodCallReference', () => {
       it('should create method call reference with all properties', () => {
-        const reference = TypeReferenceFactory.createMethodCallReference(
+        const reference = SymbolReferenceFactory.createMethodCallReference(
           'createFile',
           mockLocation,
           'testMethod',
@@ -121,14 +118,13 @@ describe('TypeReference Data Structures', () => {
       });
 
       it('should create method call reference without optional properties', () => {
-        const reference = TypeReferenceFactory.createMethodCallReference(
+        const reference = SymbolReferenceFactory.createMethodCallReference(
           'createFile',
           mockLocation,
         );
 
         expect(reference.name).toBe('createFile');
         expect(reference.context).toBe(ReferenceContext.METHOD_CALL);
-        expect(reference.qualifier).toBeUndefined();
         expect(reference.parentContext).toBeUndefined();
         expect(reference.isResolved).toBe(false);
       });
@@ -136,7 +132,7 @@ describe('TypeReference Data Structures', () => {
 
     describe('createTypeDeclarationReference', () => {
       it('should create type declaration reference', () => {
-        const reference = TypeReferenceFactory.createTypeDeclarationReference(
+        const reference = SymbolReferenceFactory.createTypeDeclarationReference(
           'Property__c',
           mockLocation,
           'testMethod',
@@ -152,7 +148,7 @@ describe('TypeReference Data Structures', () => {
 
     describe('createFieldAccessReference', () => {
       it('should create field access reference', () => {
-        const reference = TypeReferenceFactory.createFieldAccessReference(
+        const reference = SymbolReferenceFactory.createFieldAccessReference(
           'Id',
           mockLocation,
           'property',
@@ -169,7 +165,7 @@ describe('TypeReference Data Structures', () => {
 
     describe('createConstructorCallReference', () => {
       it('should create constructor call reference', () => {
-        const reference = TypeReferenceFactory.createConstructorCallReference(
+        const reference = SymbolReferenceFactory.createConstructorCallReference(
           'Property__c',
           mockLocation,
           'testMethod',
@@ -185,7 +181,7 @@ describe('TypeReference Data Structures', () => {
 
     describe('createVariableUsageReference', () => {
       it('should create variable usage reference', () => {
-        const reference = TypeReferenceFactory.createVariableUsageReference(
+        const reference = SymbolReferenceFactory.createVariableUsageReference(
           'base64Data',
           mockLocation,
           'testMethod',
@@ -201,7 +197,7 @@ describe('TypeReference Data Structures', () => {
 
     describe('createParameterTypeReference', () => {
       it('should create parameter type reference', () => {
-        const reference = TypeReferenceFactory.createParameterTypeReference(
+        const reference = SymbolReferenceFactory.createParameterTypeReference(
           'String',
           mockLocation,
           'testMethod',
@@ -217,7 +213,7 @@ describe('TypeReference Data Structures', () => {
 
     describe('createInstanceOfTypeReference', () => {
       it('should create instanceof type reference', () => {
-        const reference = TypeReferenceFactory.createInstanceOfTypeReference(
+        const reference = SymbolReferenceFactory.createInstanceOfTypeReference(
           'String',
           mockLocation,
           'testMethod',
@@ -236,7 +232,7 @@ describe('TypeReference Data Structures', () => {
     describe('createGenericParameterTypeReference', () => {
       it('should create generic parameter type reference', () => {
         const reference =
-          TypeReferenceFactory.createGenericParameterTypeReference(
+          SymbolReferenceFactory.createGenericParameterTypeReference(
             'T',
             mockLocation,
             'testMethod',
@@ -252,7 +248,7 @@ describe('TypeReference Data Structures', () => {
 
     describe('createCastTypeReference', () => {
       it('should create cast type reference', () => {
-        const reference = TypeReferenceFactory.createCastTypeReference(
+        const reference = SymbolReferenceFactory.createCastTypeReference(
           'Integer',
           mockLocation,
           'testMethod',

@@ -9,7 +9,7 @@
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { ReferenceContext } from '../../src/types/typeReference';
+import { ReferenceContext } from '../../src/types/symbolReference';
 
 describe('ApexSymbolCollectorListener - Assignment Reference Capture', () => {
   let compilerService: CompilerService;

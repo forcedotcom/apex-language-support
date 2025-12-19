@@ -9,7 +9,7 @@
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { TypeReferenceFactory } from '../../src/types/typeReference';
+import { SymbolReferenceFactory } from '../../src/types/symbolReference';
 
 describe.skip('ApexSymbolManager - Performance Optimization', () => {
   let symbolManager: ApexSymbolManager;
@@ -19,12 +19,12 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
     // Clear caches before each test
-    TypeReferenceFactory.clearCaches();
+    SymbolReferenceFactory.clearCaches();
   });
 
   afterEach(() => {
     symbolManager.clear();
-    TypeReferenceFactory.clearCaches();
+    SymbolReferenceFactory.clearCaches();
   });
 
   const addTestClass = (sourceCode: string, className: string) => {
@@ -55,7 +55,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       addTestClass(testClass, 'TestClass');
 
       // Get cache stats after processing
-      const cacheStats = TypeReferenceFactory.getCacheStats();
+      const cacheStats = SymbolReferenceFactory.getCacheStats();
 
       // Should have cached the parsed type name "System.Url"
       expect(cacheStats.typeNameCacheSize).toBeGreaterThan(0);
@@ -76,7 +76,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       addTestClass(testClass, 'TestClass');
 
       // Get cache stats after processing
-      const cacheStats = TypeReferenceFactory.getCacheStats();
+      const cacheStats = SymbolReferenceFactory.getCacheStats();
 
       // Should have cached multiple different type names
       expect(cacheStats.typeNameCacheSize).toBeGreaterThan(1);
@@ -92,14 +92,14 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       addTestClass(testClass, 'TestClass');
 
       // Verify cache has entries
-      let cacheStats = TypeReferenceFactory.getCacheStats();
+      let cacheStats = SymbolReferenceFactory.getCacheStats();
       expect(cacheStats.typeNameCacheSize).toBeGreaterThan(0);
 
       // Clear caches
-      TypeReferenceFactory.clearCaches();
+      SymbolReferenceFactory.clearCaches();
 
       // Verify caches are empty
-      cacheStats = TypeReferenceFactory.getCacheStats();
+      cacheStats = SymbolReferenceFactory.getCacheStats();
       expect(cacheStats.typeNameCacheSize).toBe(0);
       expect(cacheStats.chainedTypeCacheSize).toBe(0);
     });
@@ -133,7 +133,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       expect(endTime - startTime).toBeLessThan(5000);
 
       // Cache should be efficient (only one entry for "System.Url")
-      const cacheStats = TypeReferenceFactory.getCacheStats();
+      const cacheStats = SymbolReferenceFactory.getCacheStats();
       expect(cacheStats.typeNameCacheSize).toBe(1);
     });
 
@@ -156,7 +156,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       expect(endTime - startTime).toBeLessThan(2000);
 
       // Should have cached the parsed type names
-      const cacheStats = TypeReferenceFactory.getCacheStats();
+      const cacheStats = SymbolReferenceFactory.getCacheStats();
       expect(cacheStats.typeNameCacheSize).toBeGreaterThan(0);
     });
   });
@@ -175,7 +175,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       }
 
       // Cache should have reasonable size
-      const cacheStats = TypeReferenceFactory.getCacheStats();
+      const cacheStats = SymbolReferenceFactory.getCacheStats();
       expect(cacheStats.typeNameCacheSize).toBeLessThan(10); // Should not accumulate too many entries
     });
 
@@ -189,12 +189,12 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       addTestClass(testClass, 'TestClass');
 
       // Clear caches multiple times
-      TypeReferenceFactory.clearCaches();
-      TypeReferenceFactory.clearCaches();
-      TypeReferenceFactory.clearCaches();
+      SymbolReferenceFactory.clearCaches();
+      SymbolReferenceFactory.clearCaches();
+      SymbolReferenceFactory.clearCaches();
 
       // Should not throw errors and caches should remain empty
-      const cacheStats = TypeReferenceFactory.getCacheStats();
+      const cacheStats = SymbolReferenceFactory.getCacheStats();
       expect(cacheStats.typeNameCacheSize).toBe(0);
       expect(cacheStats.chainedTypeCacheSize).toBe(0);
     });

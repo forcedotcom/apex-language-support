@@ -75,11 +75,11 @@ import {
   createMapTypeInfo,
 } from '../../utils/TypeInfoFactory';
 import {
-  TypeReferenceFactory,
+  SymbolReferenceFactory,
   ReferenceContext,
-  EnhancedTypeReference,
-} from '../../types/typeReference';
-import type { TypeReference } from '../../types/typeReference';
+  EnhancedSymbolReference,
+} from '../../types/symbolReference';
+import type { SymbolReference } from '../../types/symbolReference';
 import {
   EnumSymbol,
   MethodSymbol,
@@ -143,7 +143,7 @@ interface SemanticError {
 interface ChainScope {
   isActive: boolean;
   baseExpression: string;
-  chainNodes: TypeReference[];
+  chainNodes: SymbolReference[];
   startLocation: SymbolLocation;
   depth: number;
   parentScope?: ChainScope;
@@ -172,9 +172,16 @@ export class ApexSymbolCollectorListener
   private suppressAssignmentLHS: boolean = false;
   private suppressedLHSRange: SymbolLocation | null = null;
 
-  // NEW: Method call parameter tracking
-  private inMethodCallParameters: boolean = false;
-  private methodCallParameterChains: ChainScope[] = [];
+  // Stack-based method/constructor call tracking (separate from scopeStack)
+  // Tracks the current method/constructor call being processed and its parameters
+  // This stack operates independently from scopeStack:
+  // - scopeStack: Tracks lexical scopes (class, method, block) for symbol resolution
+  // - methodCallStack: Tracks method/constructor call hierarchy for parameter tracking
+  // The stacks track different concerns and can be active simultaneously
+  private methodCallStack: Stack<{
+    callRef: SymbolReference; // METHOD_CALL or CONSTRUCTOR_CALL
+    parameterRefs: SymbolReference[];
+  }> = new Stack();
 
   private hierarchicalResolver = new HierarchicalReferenceResolver();
 
@@ -1588,7 +1595,7 @@ export class ApexSymbolCollectorListener
         const propertyLocation = this.getLocation(
           propertyNameNode as unknown as ParserRuleContext,
         );
-        const propertyReference = TypeReferenceFactory.createPropertyReference(
+        const propertyReference = SymbolReferenceFactory.createPropertyReference(
           name,
           propertyLocation,
         );
@@ -2121,19 +2128,35 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Exit new expression - pop constructor call from stack if it was tracked
+   */
+  exitNewExpression(ctx: NewExpressionContext): void {
+    try {
+      // Check if there's a constructor call on the stack that matches this context
+      const stackEntry = this.methodCallStack.peek();
+      if (stackEntry && stackEntry.callRef.context === ReferenceContext.CONSTRUCTOR_CALL) {
+        // Verify this is the constructor call we're exiting by checking location
+        // If the top of stack is a constructor call, pop it
+        const popped = this.methodCallStack.pop();
+        if (popped) {
+          // If there's a parent method call on the stack, add this constructor as a parameter
+          const parentEntry = this.methodCallStack.peek();
+          if (parentEntry) {
+            parentEntry.parameterRefs.push(popped.callRef);
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.warn(() => `Error exiting NewExpression: ${error}`);
+    }
+  }
+
+  /**
    * Capture field access references (e.g., "property.Id")
    */
   enterDotExpression(ctx: DotExpressionContext): void {
     // Suppress during LHS of assignment to avoid duplicate captures
     if (this.shouldSuppress(ctx)) {
-      return;
-    }
-
-    // Handle nested expressions in method call parameters
-    if (this.inMethodCallParameters) {
-      // Create a new chain scope for this parameter expression
-      const parameterChain = this.createNewChainScope(ctx);
-      this.methodCallParameterChains.push(parameterChain);
       return;
     }
 
@@ -2150,12 +2173,6 @@ export class ApexSymbolCollectorListener
    * Exit dot expression to finalize chain processing
    */
   exitDotExpression(ctx: DotExpressionContext): void {
-    // Handle nested expressions in method call parameters
-    if (this.inMethodCallParameters) {
-      // The parameter chain will be finalized in exitExpressionList
-      return;
-    }
-
     if (this.chainExpressionScope) {
       if (this.chainExpressionScope.depth === 0) {
         // Exiting the root chain expression scope
@@ -2172,6 +2189,10 @@ export class ApexSymbolCollectorListener
 
   /**
    * Capture unqualified method calls using dedicated MethodCallContext
+   * 
+   * Pushes the method call onto methodCallStack for parameter tracking.
+   * The stack entry will collect parameter references as expressions are processed
+   * within the ExpressionListContext that follows.
    */
   enterMethodCall(ctx: MethodCallContext): void {
     try {
@@ -2182,14 +2203,47 @@ export class ApexSymbolCollectorListener
         : this.getLocation(ctx);
       const parentContext = this.getCurrentMethodName();
 
-      const reference = TypeReferenceFactory.createMethodCallReference(
+      const reference = SymbolReferenceFactory.createMethodCallReference(
         methodName,
         location,
         parentContext,
       );
+
+      // Push onto method call stack for parameter tracking
+      // This happens BEFORE ExpressionListContext is entered, so parameters
+      // can be collected via addToCurrentMethodParameters()
+      this.methodCallStack.push({
+        callRef: reference,
+        parameterRefs: [],
+      });
+
+      // Also add to symbol table for general tracking
       this.symbolTable.addTypeReference(reference);
     } catch (error) {
       this.logger.warn(() => `Error capturing MethodCall: ${error}`);
+    }
+  }
+
+  /**
+   * Exit method call - pop from stack and add as parameter if nested
+   * 
+   * If this method call was itself a parameter of another method call (indicated by
+   * a parent entry on the stack), it's added to the parent's parameterRefs array.
+   * This enables hierarchical tracking of nested method calls like a.b(c.d(e)).
+   */
+  exitMethodCall(ctx: MethodCallContext): void {
+    try {
+      const stackEntry = this.methodCallStack.pop();
+      if (stackEntry) {
+        // If there's a parent method call on the stack, add this as a parameter
+        const parentEntry = this.methodCallStack.peek();
+        if (parentEntry) {
+          parentEntry.parameterRefs.push(stackEntry.callRef);
+        }
+        // The reference was already added to symbol table in enterMethodCall
+      }
+    } catch (error) {
+      this.logger.warn(() => `Error exiting MethodCall: ${error}`);
     }
   }
 
@@ -2203,26 +2257,25 @@ export class ApexSymbolCollectorListener
       const methodLocation = anyIdNode
         ? this.getLocation(anyIdNode as unknown as ParserRuleContext)
         : this.getLocation(ctx);
+      const parentContext = this.getCurrentMethodName();
 
+      // Create method call reference
+      const reference = SymbolReferenceFactory.createMethodCallReference(
+        methodName,
+        methodLocation,
+        parentContext,
+      );
+
+      // Push onto method call stack for parameter tracking
+      this.methodCallStack.push({
+        callRef: reference,
+        parameterRefs: [],
+      });
+
+      // Also handle chain scope tracking (existing logic)
       if (this.chainExpressionScope?.isActive) {
         // Add this method call to the current chain scope
         this.chainExpressionScope.chainNodes.push(
-          this.createExpressionNode(
-            methodName,
-            methodLocation,
-            ReferenceContext.METHOD_CALL,
-          ),
-        );
-      } else if (
-        this.inMethodCallParameters &&
-        this.methodCallParameterChains.length > 0
-      ) {
-        // Add to the most recent parameter chain
-        const currentParamChain =
-          this.methodCallParameterChains[
-            this.methodCallParameterChains.length - 1
-          ];
-        currentParamChain.chainNodes.push(
           this.createExpressionNode(
             methodName,
             methodLocation,
@@ -2233,8 +2286,30 @@ export class ApexSymbolCollectorListener
         // Not in chain scope - process as standalone method call
         this.processStandaloneMethodCall(ctx, methodName, methodLocation);
       }
+
+      // Add to symbol table
+      this.symbolTable.addTypeReference(reference);
     } catch (error) {
       this.logger.warn(() => `Error capturing DotMethodCall: ${error}`);
+    }
+  }
+
+  /**
+   * Exit dot method call - pop from stack and add as parameter if nested
+   */
+  exitDotMethodCall(ctx: DotMethodCallContext): void {
+    try {
+      const stackEntry = this.methodCallStack.pop();
+      if (stackEntry) {
+        // If there's a parent method call on the stack, add this as a parameter
+        const parentEntry = this.methodCallStack.peek();
+        if (parentEntry) {
+          parentEntry.parameterRefs.push(stackEntry.callRef);
+        }
+        // The reference was already added to symbol table in enterDotMethodCall
+      }
+    } catch (error) {
+      this.logger.warn(() => `Error exiting DotMethodCall: ${error}`);
     }
   }
 
@@ -2300,21 +2375,21 @@ export class ApexSymbolCollectorListener
             : undefined;
 
         // Create the appropriate type reference based on context
-        let baseReference: TypeReference;
+        let baseReference: SymbolReference;
 
         if (isGenericArg) {
           // Skip creating references for generic arguments here - they are handled by enterTypeArguments
           return;
         } else if (isMethodReturnType) {
           // Use the new createReturnTypeReference method for method return types
-          baseReference = TypeReferenceFactory.createReturnTypeReference(
+          baseReference = SymbolReferenceFactory.createReturnTypeReference(
             fullTypeName,
             baseLocation,
             parentContext,
             preciseLocations,
           );
         } else if (isTypeDeclaration) {
-          baseReference = TypeReferenceFactory.createTypeDeclarationReference(
+          baseReference = SymbolReferenceFactory.createTypeDeclarationReference(
             fullTypeName,
             baseLocation,
             parentContext,
@@ -2322,7 +2397,7 @@ export class ApexSymbolCollectorListener
           );
         } else {
           // For other cases, use PARAMETER_TYPE
-          baseReference = TypeReferenceFactory.createParameterTypeReference(
+          baseReference = SymbolReferenceFactory.createParameterTypeReference(
             fullTypeName,
             baseLocation,
             parentContext,
@@ -2374,24 +2449,6 @@ export class ApexSymbolCollectorListener
           // Skip creating individual field access reference when in chain scope
           // The HEAD reference will handle the entire chain
           return;
-        } else if (
-          this.inMethodCallParameters &&
-          this.methodCallParameterChains.length > 0
-        ) {
-          // Add to the most recent parameter chain
-          const currentParamChain =
-            this.methodCallParameterChains[
-              this.methodCallParameterChains.length - 1
-            ];
-          currentParamChain.chainNodes.push(
-            this.createExpressionNode(
-              fieldName,
-              this.getLocation(ctx),
-              ReferenceContext.FIELD_ACCESS,
-            ),
-          );
-
-          return;
         }
 
         // Get the left expression (the object)
@@ -2419,7 +2476,7 @@ export class ApexSymbolCollectorListener
               leftExpression as unknown as ParserRuleContext,
             );
 
-            const fieldRef = TypeReferenceFactory.createFieldAccessReference(
+            const fieldRef = SymbolReferenceFactory.createFieldAccessReference(
               fieldName,
               location,
               objectName,
@@ -2427,6 +2484,9 @@ export class ApexSymbolCollectorListener
             );
 
             this.symbolTable.addTypeReference(fieldRef);
+
+            // If we're collecting method call parameters, add this field access as a parameter
+            this.addToCurrentMethodParameters(fieldRef);
           }
         }
       }
@@ -2464,12 +2524,15 @@ export class ApexSymbolCollectorListener
     const location = this.getLocation(ctx);
     const parentContext = this.getCurrentMethodName();
 
-    const reference = TypeReferenceFactory.createVariableUsageReference(
+    const reference = SymbolReferenceFactory.createVariableUsageReference(
       variableName,
       location,
       parentContext,
     );
     this.symbolTable.addTypeReference(reference);
+
+    // If we're collecting method call parameters, add this variable usage as a parameter
+    this.addToCurrentMethodParameters(reference);
   }
 
   /**
@@ -2518,7 +2581,7 @@ export class ApexSymbolCollectorListener
           this.extractIdentifiersFromExpression(leftExpression);
         if (identifiers.length > 0) {
           // Use the first identifier (for array expressions, this is the base variable)
-          const varRef = TypeReferenceFactory.createVariableUsageReference(
+          const varRef = SymbolReferenceFactory.createVariableUsageReference(
             identifiers[0],
             lhsLoc,
             parentContext,
@@ -2543,7 +2606,7 @@ export class ApexSymbolCollectorListener
             const objLocation = lhsLoc;
             // Create read references for each identifier in the object expression
             for (const objectName of objectIdentifiers) {
-              const objRef = TypeReferenceFactory.createVariableUsageReference(
+              const objRef = SymbolReferenceFactory.createVariableUsageReference(
                 objectName,
                 objLocation,
                 parentContext,
@@ -2552,7 +2615,7 @@ export class ApexSymbolCollectorListener
               this.symbolTable.addTypeReference(objRef);
             }
             // field write/readwrite
-            const fieldRef = TypeReferenceFactory.createFieldAccessReference(
+            const fieldRef = SymbolReferenceFactory.createFieldAccessReference(
               fieldName,
               lhsLoc,
               objectIdentifiers[0] || 'unknown',
@@ -2685,12 +2748,12 @@ export class ApexSymbolCollectorListener
         this.extractIdentifiersFromExpression(arrayExpression);
 
       // Create individual VARIABLE_USAGE references for each identifier
-      // (NOT ChainedTypeReference - array access uses individual references)
+      // (NOT ChainedSymbolReference - array access uses individual references)
       for (const identifier of identifiers) {
         const location = this.getLocation(arrayExpression);
         const parentContext = this.getCurrentMethodName();
 
-        const reference = TypeReferenceFactory.createVariableUsageReference(
+        const reference = SymbolReferenceFactory.createVariableUsageReference(
           identifier,
           location,
           parentContext,
@@ -2710,7 +2773,7 @@ export class ApexSymbolCollectorListener
         const location = this.getLocation(indexExpression);
         const parentContext = this.getCurrentMethodName();
 
-        const reference = TypeReferenceFactory.createVariableUsageReference(
+        const reference = SymbolReferenceFactory.createVariableUsageReference(
           identifier,
           location,
           parentContext,
@@ -2733,7 +2796,7 @@ export class ApexSymbolCollectorListener
       const parentContext = this.getCurrentMethodName();
 
       // Use the new CAST_TYPE_REFERENCE context for cast types
-      const reference = TypeReferenceFactory.createCastTypeReference(
+      const reference = SymbolReferenceFactory.createCastTypeReference(
         typeName,
         location,
         parentContext,
@@ -2752,7 +2815,7 @@ export class ApexSymbolCollectorListener
         const location = this.getLocation(expression);
         const parentContext = this.getCurrentMethodName();
 
-        const reference = TypeReferenceFactory.createVariableUsageReference(
+        const reference = SymbolReferenceFactory.createVariableUsageReference(
           identifier,
           location,
           parentContext,
@@ -2774,7 +2837,7 @@ export class ApexSymbolCollectorListener
         const typeName = this.getTextFromContext(qn);
         const location = this.getLocation(qn as unknown as ParserRuleContext);
         const parentContext = this.getCurrentMethodName();
-        const classRef = TypeReferenceFactory.createClassReference(
+        const classRef = SymbolReferenceFactory.createClassReference(
           typeName,
           location,
           parentContext,
@@ -2835,7 +2898,7 @@ export class ApexSymbolCollectorListener
         const typeName = this.getTextFromContext(typeRef);
         const location = this.getLocation(typeRef);
         const parentContext = this.getCurrentMethodName();
-        const paramRef = TypeReferenceFactory.createParameterTypeReference(
+        const paramRef = SymbolReferenceFactory.createParameterTypeReference(
           typeName,
           location,
           parentContext,
@@ -2851,7 +2914,7 @@ export class ApexSymbolCollectorListener
         for (const identifier of identifiers) {
           const location = this.getLocation(expr);
           const parentContext = this.getCurrentMethodName();
-          const usageRef = TypeReferenceFactory.createVariableUsageReference(
+          const usageRef = SymbolReferenceFactory.createVariableUsageReference(
             identifier,
             location,
             parentContext,
@@ -2951,7 +3014,7 @@ export class ApexSymbolCollectorListener
           // Create GENERIC_PARAMETER_TYPE reference for generic type arguments
           // Generic type arguments should only use GENERIC_PARAMETER_TYPE, not PARAMETER_TYPE or RETURN_TYPE
           const genericReference =
-            TypeReferenceFactory.createGenericParameterTypeReference(
+            SymbolReferenceFactory.createGenericParameterTypeReference(
               fullTypeName,
               baseLocation,
               parentContext,
@@ -3038,7 +3101,7 @@ export class ApexSymbolCollectorListener
       // For constructor calls, use GENERIC_PARAMETER_TYPE (not PARAMETER_TYPE)
       // These are generic type arguments, not formal method/constructor parameters
       const genericRef =
-        TypeReferenceFactory.createGenericParameterTypeReference(
+        SymbolReferenceFactory.createGenericParameterTypeReference(
           fullTypeName,
           baseLocation,
           parentContext,
@@ -3061,7 +3124,7 @@ export class ApexSymbolCollectorListener
       const { fullTypeName, baseLocation } = extracted;
 
       // For interface declarations, use TYPE_DECLARATION
-      const typeRefObj = TypeReferenceFactory.createTypeDeclarationReference(
+      const typeRefObj = SymbolReferenceFactory.createTypeDeclarationReference(
         fullTypeName,
         baseLocation,
         parentContext,
@@ -3100,7 +3163,7 @@ export class ApexSymbolCollectorListener
       const parentContext = this.getCurrentMethodName();
 
       // Use CLASS_REFERENCE for type literals like TypeName.class
-      const classRef = TypeReferenceFactory.createClassReference(
+      const classRef = SymbolReferenceFactory.createClassReference(
         typeName,
         location,
         parentContext,
@@ -3124,7 +3187,7 @@ export class ApexSymbolCollectorListener
       const parentContext = this.getCurrentMethodName();
 
       // Use the new INSTANCEOF_TYPE_REFERENCE context for instanceof types
-      const typeRef = TypeReferenceFactory.createInstanceOfTypeReference(
+      const typeRef = SymbolReferenceFactory.createInstanceOfTypeReference(
         typeName,
         location,
         parentContext,
@@ -3136,29 +3199,117 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Called when entering an expression list (method parameters)
+   * Add a reference to the current method call's parameter list if we're collecting parameters
+   * This is called when creating references that could be method call parameters.
+   * Only adds if we're actually in an ExpressionListContext (method/constructor parameters).
+   */
+  private addToCurrentMethodParameters(ref: SymbolReference): void {
+    // Only add if there's a method call on the stack (we're collecting parameters)
+    if (this.methodCallStack.size > 0) {
+      const currentEntry = this.methodCallStack.peek();
+      if (currentEntry) {
+        currentEntry.parameterRefs.push(ref);
+      }
+    }
+  }
+
+  /**
+   * Check if ExpressionListContext is within a method or constructor call
+   * ExpressionList can appear in multiple contexts:
+   * - Method calls: MethodCallContext, DotMethodCallContext (track parameters)
+   * - Constructor calls: NewExpressionContext → creator → classCreatorRest → arguments (track arguments)
+   * - For loops: ForStatementContext → forControl → forInit/forUpdate (do NOT track as method parameters)
+   * - RunAs statement: RunAsStatementContext (do NOT track as method parameters)
+   */
+  private isInMethodOrConstructorCall(
+    ctx: ExpressionListContext,
+  ): boolean {
+    const parent = ctx.parent;
+    if (!parent) return false;
+
+    // First check: exclude cases where ExpressionList is NOT in a method/constructor call
+    // ExpressionList can be a direct child of ForStatementContext (via forInit/forUpdate)
+    // or RunAsStatementContext
+    if (
+      isContextType(parent, ForStatementContext) ||
+      isContextType(parent, RunAsStatementContext)
+    ) {
+      return false;
+    }
+
+    // Second check: direct parent is MethodCallContext or DotMethodCallContext
+    if (
+      isContextType(parent, MethodCallContext) ||
+      isContextType(parent, DotMethodCallContext)
+    ) {
+      return true;
+    }
+
+    // Third check: walk up parent chain to find constructor call
+    // ExpressionList → arguments → classCreatorRest → creator → NewExpressionContext
+    let current: ParserRuleContext | undefined = parent;
+    while (current) {
+      // If we hit ForStatementContext or RunAsStatementContext, we're not in a method/constructor call
+      if (
+        isContextType(current, ForStatementContext) ||
+        isContextType(current, RunAsStatementContext)
+      ) {
+        return false;
+      }
+
+      // Check if we're in a constructor call
+      if (isContextType(current, NewExpressionContext)) {
+        const newExpr = current as unknown as NewExpressionContext;
+        const creator = (newExpr as any).creator?.();
+        if (creator) {
+          const classCreatorRest = (creator as any).classCreatorRest?.();
+          if (classCreatorRest) {
+            // This is a constructor call with arguments
+            return true;
+          }
+        }
+        // Found NewExpressionContext but no classCreatorRest, so not a constructor call with arguments
+        return false;
+      }
+
+      current = current.parent as ParserRuleContext | undefined;
+    }
+
+    return false;
+  }
+
+  /**
+   * Called when entering an expression list (method parameters, constructor arguments, etc.)
    * This handles nested expressions in method calls like a.b.c(x.y.z())
+   * 
+   * The methodCallStack should already have the current method/constructor call on top
+   * when this is called for method/constructor parameters. This is because:
+   * - enterMethodCall/enterDotMethodCall push onto methodCallStack before ExpressionListContext
+   * - enterNewExpression (for constructors) pushes onto methodCallStack before ExpressionListContext
+   * 
+   * Parameter references are collected via addToCurrentMethodParameters() when individual
+   * expressions (field access, variable usage, nested method calls) are processed.
+   * 
+   * Note: This method does NOT activate for for loops or runAs statements - those use
+   * ExpressionListContext but are not method/constructor calls.
    */
   enterExpressionList(ctx: ExpressionListContext): void {
-    // Track that we're in method call parameters
-    this.inMethodCallParameters = true;
-
-    // Each expression in the list can be a dot expression
-    // which will create its own chain scope
+    // No action needed here - method call tracking is handled by enterMethodCall/enterDotMethodCall
+    // and enterNewExpression, which push onto methodCallStack before the ExpressionListContext
+    // is entered. Parameter references are collected via addToCurrentMethodParameters().
   }
 
   /**
    * Called when exiting an expression list
+   * 
+   * Parameter references are already associated with method calls via the stack.
+   * No cleanup needed - the method call will be popped when exitMethodCall/exitDotMethodCall
+   * or exitNewExpression is called.
    */
   exitExpressionList(ctx: ExpressionListContext): void {
-    // Process any method call parameter chains that were created
-    for (const chainScope of this.methodCallParameterChains) {
-      this.finalizeChainScope(chainScope);
-    }
-
-    // Clear the parameter chains
-    this.methodCallParameterChains = [];
-    this.inMethodCallParameters = false;
+    // Parameter references are already associated with method calls via the stack
+    // No cleanup needed - the method call will be popped when exitMethodCall/exitDotMethodCall
+    // or exitNewExpression is called
   }
 
   /**
@@ -3415,7 +3566,7 @@ export class ApexSymbolCollectorListener
           ctx as unknown as ParserRuleContext,
         );
         const parentContext = this.getCurrentMethodName();
-        const declRef = TypeReferenceFactory.createVariableDeclarationReference(
+        const declRef = SymbolReferenceFactory.createVariableDeclarationReference(
           name,
           identifierLocation,
           parentContext,
@@ -3898,12 +4049,23 @@ export class ApexSymbolCollectorListener
         const parentContext = this.getCurrentMethodName();
 
         // Emit constructor call for the collection type
-        const ctorRef = TypeReferenceFactory.createConstructorCallReference(
+        const ctorRef = SymbolReferenceFactory.createConstructorCallReference(
           collectionType,
           location,
           parentContext,
         );
         this.symbolTable.addTypeReference(ctorRef);
+
+        // Check if this constructor call has arguments (classCreatorRest)
+        // If so, push onto methodCallStack for parameter tracking
+        const classCreatorRest = (creator as any).classCreatorRest?.();
+        if (classCreatorRest) {
+          // This constructor call has arguments, track it on the stack
+          this.methodCallStack.push({
+            callRef: ctorRef,
+            parameterRefs: [],
+          });
+        }
 
         // typeList handling is now done by enterTypeList, skip here
         return;
@@ -3955,12 +4117,23 @@ export class ApexSymbolCollectorListener
           const parentContext = this.getCurrentMethodName();
 
           // Emit constructor call for the collection type
-          const ctorRef = TypeReferenceFactory.createConstructorCallReference(
+          const ctorRef = SymbolReferenceFactory.createConstructorCallReference(
             collectionType,
             location,
             parentContext,
           );
           this.symbolTable.addTypeReference(ctorRef);
+
+          // Check if this constructor call has arguments (classCreatorRest)
+          // If so, push onto methodCallStack for parameter tracking
+          const classCreatorRest = (creator as any).classCreatorRest?.();
+          if (classCreatorRest) {
+            // This constructor call has arguments, track it on the stack
+            this.methodCallStack.push({
+              callRef: ctorRef,
+              parameterRefs: [],
+            });
+          }
 
           // typeList handling is now done by enterTypeList, skip here
           return;
@@ -3975,12 +4148,23 @@ export class ApexSymbolCollectorListener
       const parentContext = this.getCurrentMethodName();
 
       // Emit constructor call for the base type
-      const ctorRef = TypeReferenceFactory.createConstructorCallReference(
+      const ctorRef = SymbolReferenceFactory.createConstructorCallReference(
         typeName,
         location,
         parentContext,
       );
       this.symbolTable.addTypeReference(ctorRef);
+
+      // Check if this constructor call has arguments (classCreatorRest)
+      // If so, push onto methodCallStack for parameter tracking
+      const classCreatorRest = (creator as any).classCreatorRest?.();
+      if (classCreatorRest) {
+        // This constructor call has arguments, track it on the stack
+        this.methodCallStack.push({
+          callRef: ctorRef,
+          parameterRefs: [],
+        });
+      }
 
       // typeList handling is now done by enterTypeList, skip here
 
@@ -3996,7 +4180,7 @@ export class ApexSymbolCollectorListener
             );
 
             const dottedParamRef =
-              TypeReferenceFactory.createParameterTypeReference(
+              SymbolReferenceFactory.createParameterTypeReference(
                 dottedTypeName,
                 dottedLocation,
                 parentContext,
@@ -4139,7 +4323,7 @@ export class ApexSymbolCollectorListener
     // This keeps one occurrence for cases like List<String> and Map<String, T> that legitimately
     // need multiple distinct String references at different locations.
     let count = 0;
-    for (const ref of allReferences as TypeReference[]) {
+    for (const ref of allReferences as SymbolReference[]) {
       if (
         ref.name === typeName &&
         (ref.context === 5 || ref.context === 6) &&
@@ -4737,7 +4921,7 @@ export class ApexSymbolCollectorListener
     value: string,
     location: SymbolLocation,
     context: ReferenceContext,
-  ): TypeReference {
+  ): SymbolReference {
     // For individual identifiers in a chain, ensure identifierRange matches symbolRange
     const correctedLocation: SymbolLocation = {
       symbolRange: location.symbolRange,
@@ -4745,7 +4929,7 @@ export class ApexSymbolCollectorListener
     };
 
     return {
-      name: value, // TypeReference.name
+      name: value, // SymbolReference.name
       location: correctedLocation,
       context,
       isResolved: false,
@@ -4755,15 +4939,15 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Create a TypeReference that represents a chained expression
+   * Create a SymbolReference that represents a chained expression
    */
   private createChainedExpression(
     fullExpression: string,
     baseLocation: SymbolLocation,
     finalLocation: SymbolLocation,
-  ): TypeReference {
+  ): SymbolReference {
     return {
-      name: fullExpression, // TypeReference.name contains the full expression
+      name: fullExpression, // SymbolReference.name contains the full expression
       location: baseLocation, // Use base location as the main location
       context: ReferenceContext.CHAINED_TYPE,
       isResolved: false,
@@ -4809,7 +4993,7 @@ export class ApexSymbolCollectorListener
 
       // Create method call reference
       if (qualifier) {
-        const methodRef = TypeReferenceFactory.createMethodCallReference(
+        const methodRef = SymbolReferenceFactory.createMethodCallReference(
           methodName,
           methodLocation,
           parentContext,
@@ -4819,7 +5003,7 @@ export class ApexSymbolCollectorListener
 
         // Also create a class reference for the qualifier if it's not a variable in scope
         if (qualifierLocation && !this.isVariableInScope(qualifier)) {
-          const classRef = TypeReferenceFactory.createClassReference(
+          const classRef = SymbolReferenceFactory.createClassReference(
             qualifier,
             qualifierLocation,
             parentContext,
@@ -4828,7 +5012,7 @@ export class ApexSymbolCollectorListener
         }
       } else {
         // For unqualified method calls
-        const reference = TypeReferenceFactory.createMethodCallReference(
+        const reference = SymbolReferenceFactory.createMethodCallReference(
           methodName,
           methodLocation,
           parentContext,
@@ -4877,7 +5061,7 @@ export class ApexSymbolCollectorListener
           }
 
           // Create a simple reference for the member access
-          const memberRef = new EnhancedTypeReference(
+          const memberRef = new EnhancedSymbolReference(
             memberName,
             memberLocation,
             context,
@@ -4931,7 +5115,7 @@ export class ApexSymbolCollectorListener
       );
 
       // Create root reference with analyzed nodes
-      const rootRef = TypeReferenceFactory.createChainedExpressionReference(
+      const rootRef = SymbolReferenceFactory.createChainedExpressionReference(
         analyzedChainNodes,
         chainedExpression,
         this.getCurrentMethodName(),
@@ -4949,7 +5133,7 @@ export class ApexSymbolCollectorListener
   private chainExpressionScope: {
     isActive: boolean;
     baseExpression: string;
-    chainNodes: TypeReference[];
+    chainNodes: SymbolReference[];
     startLocation: SymbolLocation;
     depth: number;
   } | null = null;
@@ -5006,11 +5190,11 @@ export class ApexSymbolCollectorListener
    * to progressively narrow the context of each node
    */
   private analyzeChainWithRightToLeftNarrowing(
-    chainNodes: TypeReference[],
+    chainNodes: SymbolReference[],
     baseExpression: string,
     startLocation: SymbolLocation,
-  ): TypeReference[] {
-    const analyzedNodes: TypeReference[] = [];
+  ): SymbolReference[] {
+    const analyzedNodes: SymbolReference[] = [];
 
     // Start from the rightmost node (method call) and work leftward
     for (let i = chainNodes.length - 1; i >= 0; i--) {
@@ -5025,7 +5209,7 @@ export class ApexSymbolCollectorListener
       );
 
       // Create new node with narrowed context
-      const narrowedNode: TypeReference = {
+      const narrowedNode: SymbolReference = {
         ...currentNode,
         context: narrowedContext,
       };
@@ -5040,8 +5224,8 @@ export class ApexSymbolCollectorListener
    * Narrow the context of a node based on what follows it in the chain
    */
   private narrowContextBasedOnNextNode(
-    currentNode: TypeReference,
-    nextNode: TypeReference | null,
+    currentNode: SymbolReference,
+    nextNode: SymbolReference | null,
     isBaseNode: boolean,
   ): ReferenceContext {
     // If this is the rightmost node (method call), it's already well-defined
@@ -5163,7 +5347,7 @@ export class ApexSymbolCollectorListener
       );
 
       // Create root reference
-      const rootRef = TypeReferenceFactory.createChainedExpressionReference(
+      const rootRef = SymbolReferenceFactory.createChainedExpressionReference(
         analyzedChainNodes,
         chainedExpression,
         this.getCurrentMethodName(),
@@ -5173,7 +5357,7 @@ export class ApexSymbolCollectorListener
 
       // Also capture the base expression as a TypeReference for hover resolution
       // This is needed for qualified references like System.debug where the base (System) needs to be resolvable
-      const baseRef = TypeReferenceFactory.createVariableUsageReference(
+      const baseRef = SymbolReferenceFactory.createVariableUsageReference(
         baseExpression,
         baseExpressionLocation,
         this.getCurrentMethodName(),
@@ -5185,19 +5369,20 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Extract base expression from parser structure instead of text
+   * Extract base expression from parser structure using identifier extraction
+   * This ensures we only get identifiers, not method calls or full expressions
    */
   private extractBaseExpressionFromParser(ctx: DotExpressionContext): string {
     try {
       // Get the left-hand expression to find the base qualifier
       const lhs = (ctx as any).expression?.(0) || (ctx as any).expression?.();
       if (lhs) {
-        const text = this.getTextFromContext(
+        // Use extractIdentifiersFromExpression to get only identifiers, not method calls
+        const identifiers = this.extractIdentifiersFromExpression(
           lhs as unknown as ParserRuleContext,
         );
-        // Extract the first part before any dots
-        const baseMatch = text.match(/^([^.]+)/);
-        return baseMatch ? baseMatch[1] : text;
+        // Return the first identifier (base expression)
+        return identifiers.length > 0 ? identifiers[0] : 'unknown';
       }
       return 'unknown';
     } catch (error) {
@@ -5211,7 +5396,7 @@ export class ApexSymbolCollectorListener
   /**
    * Handle 'this' chain expressions by creating individual references
    */
-  private handleThisChain(chainNodes: TypeReference[]): void {
+  private handleThisChain(chainNodes: SymbolReference[]): void {
     const parentContext = this.getCurrentMethodName();
 
     chainNodes.forEach((chainNode, index) => {
@@ -5225,7 +5410,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Create member access reference
-      const memberRef = new EnhancedTypeReference(
+      const memberRef = new EnhancedSymbolReference(
         memberName,
         memberLocation,
         context,

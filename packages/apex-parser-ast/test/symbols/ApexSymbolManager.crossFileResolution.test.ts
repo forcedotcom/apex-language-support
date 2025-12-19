@@ -13,7 +13,7 @@ import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolKind } from '../../src/types/symbol';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
-import { isChainedTypeReference } from '../../src/utils/symbolNarrowing';
+import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
 import {
   initializeResourceLoaderForTests,
   resetResourceLoader,
@@ -547,7 +547,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       // For chained references, we need to get the position of the specific part we want
       // The target is the entire "acc.Name" reference, but we want the "Name" part specifically
       let found;
-      if (target && isChainedTypeReference(target)) {
+      if (target && isChainedSymbolReference(target)) {
         const nameNode = target.chainNodes.find(
           (node: any) => node.name === 'Name',
         );

@@ -13,7 +13,7 @@ import {
   ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 import { SymbolKind, ApexSymbol, ScopeSymbol } from '../../src/types/symbol';
-import { ReferenceContext } from '../../src/types/typeReference';
+import { ReferenceContext } from '../../src/types/symbolReference';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';

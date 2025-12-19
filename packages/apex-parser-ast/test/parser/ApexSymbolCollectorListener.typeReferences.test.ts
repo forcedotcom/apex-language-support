@@ -11,7 +11,7 @@
 
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
-import { ReferenceContext } from '../../src/types/typeReference';
+import { ReferenceContext } from '../../src/types/symbolReference';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolCollectorListener with Type References', () => {
@@ -1094,8 +1094,8 @@ describe('ApexSymbolCollectorListener with Type References', () => {
     });
   });
 
-  describe('ChainedTypeReference vs Array Access', () => {
-    it('should use ChainedTypeReference for contacts.Id', () => {
+  describe('ChainedSymbolReference vs Array Access', () => {
+    it('should use ChainedSymbolReference for contacts.Id', () => {
       const sourceCode = `
         public class TestClass {
           public void testMethod() {
@@ -1109,7 +1109,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       compilerService.compile(sourceCode, 'TestClass.cls', listener);
       const references = listener.getResult().getAllReferences();
 
-      // Should have ChainedTypeReference for contacts.Id
+      // Should have ChainedSymbolReference for contacts.Id
       const chainedRefs = references.filter(
         (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
       );
@@ -1117,7 +1117,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       expect(chainedRefs.some((r) => r.name === 'contacts.Id')).toBe(true);
     });
 
-    it('should use VARIABLE_USAGE for contacts[0], not ChainedTypeReference', () => {
+    it('should use VARIABLE_USAGE for contacts[0], not ChainedSymbolReference', () => {
       const sourceCode = `
         public class TestClass {
           public void testMethod() {
@@ -1137,7 +1137,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       );
       expect(contactsRefs.length).toBeGreaterThanOrEqual(1);
 
-      // Should NOT have ChainedTypeReference for contacts[0]
+      // Should NOT have ChainedSymbolReference for contacts[0]
       const chainedRefs = references.filter(
         (ref) =>
           ref.context === ReferenceContext.CHAINED_TYPE &&

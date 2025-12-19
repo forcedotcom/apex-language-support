@@ -7,7 +7,7 @@
  */
 
 import { SymbolLocation } from './symbol';
-import { ReferenceContext } from './typeReference';
+import { ReferenceContext } from './symbolReference';
 
 /**
  * Context for lazy binding of cross-file references
@@ -77,8 +77,8 @@ export interface ReferenceVertex {
  */
 export class ReferenceVertexFactory {
   /**
-   * Create a ReferenceVertex from a TypeReference
-   * @param typeReference The TypeReference to convert
+   * Create a ReferenceVertex from a SymbolReference
+   * @param typeReference The SymbolReference to convert
    * @param sourceFile The file containing the reference
    * @returns A new ReferenceVertex instance
    */
@@ -92,7 +92,7 @@ export class ReferenceVertexFactory {
       id,
       name: typeReference.name,
       context: typeReference.context,
-      qualifier: undefined, // qualifier property was removed from TypeReference interface
+      qualifier: undefined, // qualifier property was removed from SymbolReference interface
       parentContext: typeReference.parentContext,
       isResolved: false,
       bindingContext: {

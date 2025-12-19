@@ -7,7 +7,7 @@
  */
 
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
-import { ReferenceContext } from '../../src/types/typeReference';
+import { ReferenceContext } from '../../src/types/symbolReference';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
@@ -402,7 +402,7 @@ describe('ApexSymbolManager Reference Processing', () => {
     });
   });
 
-  describe('ChainedTypeReference Built-in Type Resolution', () => {
+  describe('ChainedSymbolReference Built-in Type Resolution', () => {
     it('should resolve System.Url using chain nodes when passed to resolveBuiltInType', async () => {
       const sourceCode = `
         public class TestClass {
@@ -423,7 +423,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       const references = symbolManager.getAllReferencesInFile(fileUri);
 
-      // Find the ChainedTypeReference for System.Url
+      // Find the ChainedSymbolReference for System.Url
       const systemUrlRefs = references.filter(
         (ref) =>
           ref.context === ReferenceContext.CHAINED_TYPE &&

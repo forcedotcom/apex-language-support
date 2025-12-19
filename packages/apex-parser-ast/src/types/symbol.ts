@@ -12,7 +12,7 @@ import {
   Namespace,
   createTypeWithNamespace,
 } from '../namespace/NamespaceUtils';
-import { TypeReference, ReferenceContext } from './typeReference';
+import { SymbolReference, ReferenceContext } from './symbolReference';
 import { generateSymbolId } from './UriBasedIdGenerator';
 import { HierarchicalReference } from './hierarchicalReference';
 
@@ -419,7 +419,7 @@ export type Position = {
  * Strategy for resolving symbols at a given position
  */
 export type SymbolResolutionStrategy =
-  | 'scope' // Multi-step with TypeReference + fallback
+  | 'scope' // Multi-step with SymbolReference + fallback
   | 'precise'; // No fallback to containing symbols
 
 export type Range = {
@@ -744,7 +744,7 @@ export class SymbolTable {
   private roots: ApexSymbol[] = []; // Track all symbols with parentId === null (top-level symbols)
   private symbolMap: HashMap<string, ApexSymbol> = new HashMap();
   private idIndex: HashMap<string, ApexSymbol> = new HashMap(); // O(1) lookup by id
-  private references: TypeReference[] = []; // Store type references
+  private references: SymbolReference[] = []; // Store symbol references
   private hierarchicalReferences: HierarchicalReference[] = []; // NEW: Store hierarchical references
   // Array maintained incrementally to avoid expensive HashMap iterator in getAllSymbols()
   private symbolArray: ApexSymbol[] = [];
@@ -1363,7 +1363,7 @@ export class SymbolTable {
    * Add a type reference to the symbol table
    * @param ref The type reference to add
    */
-  addTypeReference(ref: TypeReference): void {
+  addTypeReference(ref: SymbolReference): void {
     this.references.push(ref);
   }
 
@@ -1371,7 +1371,7 @@ export class SymbolTable {
    * Get all type references in the symbol table
    * @returns Array of all type references
    */
-  getAllReferences(): TypeReference[] {
+  getAllReferences(): SymbolReference[] {
     return [...this.references]; // Return a copy to prevent external modification
   }
 
@@ -1383,7 +1383,7 @@ export class SymbolTable {
   getReferencesAtPosition(position: {
     line: number;
     character: number;
-  }): TypeReference[] {
+  }): SymbolReference[] {
     return this.references.filter((ref) => {
       if (this.positionInRange(position, ref.location)) {
         return true;
@@ -1415,7 +1415,7 @@ export class SymbolTable {
    * @param context The reference context to filter by
    * @returns Array of type references with the specified context
    */
-  getReferencesByContext(context: ReferenceContext): TypeReference[] {
+  getReferencesByContext(context: ReferenceContext): SymbolReference[] {
     return this.references.filter((ref) => ref.context === context);
   }
 

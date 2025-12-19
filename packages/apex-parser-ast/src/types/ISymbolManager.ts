@@ -14,7 +14,7 @@ import {
 } from '../symbols/ApexSymbolGraph';
 import { type EnumValue } from '@salesforce/apex-lsp-shared';
 import { FQNOptions } from '../utils/FQNUtils';
-import { TypeReference } from '../types/typeReference';
+import { SymbolReference } from '../types/symbolReference';
 import type {
   ApexComment,
   CommentAssociation,
@@ -104,7 +104,7 @@ export interface ISymbolManager {
    * @param fileUri The file path to get references for
    * @returns Array of all TypeReference objects in the file
    */
-  getAllReferencesInFile(fileUri: string): TypeReference[];
+  getAllReferencesInFile(fileUri: string): SymbolReference[];
 
   /**
    * Get all symbols for completion purposes
@@ -222,7 +222,7 @@ export interface ISymbolManager {
   getReferencesAtPosition(
     fileUri: string,
     position: { line: number; character: number },
-  ): TypeReference[];
+  ): SymbolReference[];
 
   /**
    * Get the most specific symbol at a given position using explicit resolution strategy

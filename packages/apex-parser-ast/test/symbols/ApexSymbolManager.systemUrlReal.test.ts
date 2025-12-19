@@ -121,7 +121,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
     expect(target).toBeDefined();
 
     // Test resolution of the chained expression
-    const symbol = await symbolManager.resolveChainedTypeReference(target!);
+    const symbol = await symbolManager.resolveChainedSymbolReference(target!);
 
     expect(symbol).toBeDefined();
     expect(symbol?.kind).toBe(SymbolKind.Method);
@@ -143,7 +143,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
     expect(target).toBeDefined();
     expect(target?.context).toBe(11); // CHAINED_TYPE context
 
-    const urlSymbol = await symbolManager.resolveChainedTypeReference(target!);
+    const urlSymbol = await symbolManager.resolveChainedSymbolReference(target!);
     expect(urlSymbol).toBeDefined();
     expect(urlSymbol?.kind).toBe(SymbolKind.Class);
     expect(urlSymbol?.name).toBe('Url');
