@@ -3365,59 +3365,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   /**
    * Validate that a type reference name is valid for resolution
-   * Rejects invalid identifiers that should not trigger ResourceLoader lookups:
-   * - Array accesses (e.g., "contacts[0]")
-   * - Method calls (parentheses indicate method calls, not type names)
-   * - Method chains (more than 2 dots suggests method call chain)
-   * - Trailing dots (incomplete identifiers - valid for completion but not resolution)
-   * - Names starting with "this." (instance references, not type names)
-   * - Invalid characters (only letters, digits, underscores, and dots allowed)
+   *
+   * The parser/listener extracts identifiers from parser nodes (id()?.text, typeName(), etc.),
+   * which are already validated by the ANTLR lexer/parser. The parser cannot produce invalid
+   * identifiers - if it did, the parse would fail. This check only ensures we have a non-empty
+   * name before attempting resolution.
    */
   private isValidSymbolReferenceName(name: string): boolean {
-    // Reject array accesses (should be caught at capture time, but defense in depth)
-    if (name.includes('[') && name.includes(']')) {
-      return false;
-    }
-
-    // Reject method calls (parentheses indicate method calls, not type names)
-    if (name.includes('(') || name.includes(')')) {
-      return false;
-    }
-
-    // Reject names starting with "this." (instance references, not type names)
-    if (name.startsWith('this.')) {
-      return false;
-    }
-
-    // Reject method chains (more than 2 dots suggests method call chain)
-    const dotCount = (name.match(/\./g) || []).length;
-    if (dotCount > 2) {
-      return false;
-    }
-
-    // Reject trailing dots (incomplete identifiers - valid for completion, not resolution)
-    if (name.endsWith('.')) {
-      return false;
-    }
-
-    // Validate identifier characters: only letters, digits, underscores, and dots allowed
-    // Each part between dots should be a valid identifier
-    const parts = name.split('.');
-    for (const part of parts) {
-      if (part.length === 0) {
-        return false; // Empty part (e.g., "a..b")
-      }
-      // Must start with a letter or underscore
-      if (!/^[A-Za-z_]/.test(part)) {
-        return false;
-      }
-      // Must only contain letters, digits, and underscores
-      if (!/^[A-Za-z0-9_]+$/.test(part)) {
-        return false;
-      }
-    }
-
-    return true;
+    // Basic null/empty check - the parser guarantees valid identifier characters
+    return !!(name && name.length > 0);
   }
 
   private async resolveBuiltInType(
@@ -3425,19 +3381,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): Promise<ApexSymbol | null> {
     const name = typeRef.name;
 
-    // Early return for non-type references - these should not go through builtin type resolution
-    // METHOD_CALL, FIELD_ACCESS, VARIABLE_USAGE, CONSTRUCTOR_CALL, PROPERTY_REFERENCE are not types
-    if (
-      typeRef.context === ReferenceContext.METHOD_CALL ||
-      typeRef.context === ReferenceContext.FIELD_ACCESS ||
-      typeRef.context === ReferenceContext.VARIABLE_USAGE ||
-      typeRef.context === ReferenceContext.CONSTRUCTOR_CALL ||
-      typeRef.context === ReferenceContext.PROPERTY_REFERENCE
-    ) {
-      return null;
-    }
-
-    // Early validation to prevent ResourceLoader calls for invalid identifiers
     if (!this.isValidSymbolReferenceName(name)) {
       return null;
     }

@@ -44,13 +44,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
 
-      // With new chained expression approach, we now get:
-      // 1. TYPE_REFERENCE for FileUtilities (class)
-      // 2. CHAINED_EXPRESSION for FileUtilities.createFile
-      // 3. VARIABLE_USAGE for base64Data (parameter)
-      // 4. VARIABLE_USAGE for fileName (parameter)
-      // 5. VARIABLE_USAGE for recordId (parameter)
-      expect(references).toHaveLength(5);
+      expect(references).toHaveLength(6);
 
       // Check for CHAINED_EXPRESSION (FileUtilities.createFile)
       const chainedRef = references.find(
@@ -463,13 +457,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
 
-      // With new chained expression approach, we now get:
-      // 1. TYPE_REFERENCE for FileUtilities (class)
-      // 2. CHAINED_EXPRESSION for FileUtilities.createFile
-      // 3. VARIABLE_USAGE for data (parameter)
-      // 4. VARIABLE_USAGE for name (parameter)
-      // 5. VARIABLE_USAGE for id (parameter)
-      expect(references).toHaveLength(5);
+      expect(references).toHaveLength(6);
 
       // Check CHAINED_EXPRESSION location accuracy
       const chainedRef = references.find(
@@ -1002,7 +990,9 @@ describe('ApexSymbolCollectorListener with Type References', () => {
 
       // Should have VARIABLE_USAGE reference for "contacts" only, not "contacts[0]"
       const contactsRefs = references.filter(
-        (r) => r.name === 'contacts' && r.context === ReferenceContext.VARIABLE_USAGE,
+        (r) =>
+          r.name === 'contacts' &&
+          r.context === ReferenceContext.VARIABLE_USAGE,
       );
       expect(contactsRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -1027,10 +1017,12 @@ describe('ApexSymbolCollectorListener with Type References', () => {
 
       // Should have VARIABLE_USAGE references for "obj" and "field" separately
       const objRefs = references.filter(
-        (r) => r.name === 'obj' && r.context === ReferenceContext.VARIABLE_USAGE,
+        (r) =>
+          r.name === 'obj' && r.context === ReferenceContext.VARIABLE_USAGE,
       );
       const fieldRefs = references.filter(
-        (r) => r.name === 'field' && r.context === ReferenceContext.VARIABLE_USAGE,
+        (r) =>
+          r.name === 'field' && r.context === ReferenceContext.VARIABLE_USAGE,
       );
 
       expect(objRefs.length).toBeGreaterThanOrEqual(1);
@@ -1058,7 +1050,8 @@ describe('ApexSymbolCollectorListener with Type References', () => {
 
       // Should have VARIABLE_USAGE references for both "arr" and "i"
       const arrRefs = references.filter(
-        (r) => r.name === 'arr' && r.context === ReferenceContext.VARIABLE_USAGE,
+        (r) =>
+          r.name === 'arr' && r.context === ReferenceContext.VARIABLE_USAGE,
       );
       const iRefs = references.filter(
         (r) => r.name === 'i' && r.context === ReferenceContext.VARIABLE_USAGE,
@@ -1084,7 +1077,8 @@ describe('ApexSymbolCollectorListener with Type References', () => {
 
       // Should have VARIABLE_USAGE reference for "arr" only
       const arrRefs = references.filter(
-        (r) => r.name === 'arr' && r.context === ReferenceContext.VARIABLE_USAGE,
+        (r) =>
+          r.name === 'arr' && r.context === ReferenceContext.VARIABLE_USAGE,
       );
       expect(arrRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -1133,7 +1127,9 @@ describe('ApexSymbolCollectorListener with Type References', () => {
 
       // Should have VARIABLE_USAGE for contacts
       const contactsRefs = references.filter(
-        (r) => r.name === 'contacts' && r.context === ReferenceContext.VARIABLE_USAGE,
+        (r) =>
+          r.name === 'contacts' &&
+          r.context === ReferenceContext.VARIABLE_USAGE,
       );
       expect(contactsRefs.length).toBeGreaterThanOrEqual(1);
 

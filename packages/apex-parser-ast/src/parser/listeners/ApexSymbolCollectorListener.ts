@@ -2360,8 +2360,29 @@ export class ApexSymbolCollectorListener
           baseLocation = this.getLocationForReference(baseTypeId);
         } else {
           // Collection type case: LIST/SET/MAP typeArguments?
-          fullTypeName = `${typeName.LIST() || typeName.SET() || typeName.MAP()}`;
-          baseLocation = this.getLocationForReference(typeName);
+          const listToken = typeName.LIST?.();
+          const setToken = typeName.SET?.();
+          const mapToken = typeName.MAP?.();
+          const token = listToken || setToken || mapToken;
+          
+          if (token) {
+            fullTypeName = token.text || `${listToken ? 'List' : setToken ? 'Set' : 'Map'}`;
+            // Get precise location of the token itself, not the entire typeName context
+            const identifierRange = this.getIdentifierRange(typeName);
+            if (identifierRange) {
+              baseLocation = {
+                symbolRange: identifierRange,
+                identifierRange: identifierRange,
+              };
+            } else {
+              // Fallback to typeName location if identifier range not available
+              baseLocation = this.getLocationForReference(typeName);
+            }
+          } else {
+            // Fallback if no token found
+            fullTypeName = 'Object';
+            baseLocation = this.getLocationForReference(typeName);
+          }
         }
       }
 
@@ -2725,8 +2746,17 @@ export class ApexSymbolCollectorListener
       const primaryExpr = expression;
       // PrimaryExpressionContext contains a primary() method that returns the actual primary
       const primary = primaryExpr.primary?.();
-      if (primary && isContextType(primary, IdPrimaryContext)) {
-        return this.extractIdentifiersFromExpression(primary);
+      if (primary) {
+        // Check for THIS keyword
+        const thisToken = (primary as any).THIS?.();
+        if (thisToken) {
+          return ['this'];
+        }
+        
+        // Check for IdPrimaryContext
+        if (isContextType(primary, IdPrimaryContext)) {
+          return this.extractIdentifiersFromExpression(primary);
+        }
       }
       // Could also contain other primary types, but we only care about identifiers
       return [];
@@ -3996,7 +4026,8 @@ export class ApexSymbolCollectorListener
       let mapToken: any = null;
 
       // First, try to get typeName directly from createdName
-      const createdNameTypeName = (createdName as any).typeName?.();
+      let createdNameTypeName = (createdName as any).typeName?.();
+      let pairTypeName: any = null;
       if (createdNameTypeName) {
         listToken = createdNameTypeName.LIST?.() || null;
         setToken = createdNameTypeName.SET?.() || null;
@@ -4008,7 +4039,7 @@ export class ApexSymbolCollectorListener
         const idCreatedNamePairs = createdName.idCreatedNamePair();
         if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
           const firstPair = idCreatedNamePairs[0];
-          const pairTypeName = (firstPair as any).typeName?.();
+          pairTypeName = (firstPair as any).typeName?.();
           if (pairTypeName) {
             listToken = pairTypeName.LIST?.() || null;
             setToken = pairTypeName.SET?.() || null;
@@ -4021,30 +4052,67 @@ export class ApexSymbolCollectorListener
         const collectionType = listToken ? 'List' : setToken ? 'Set' : 'Map';
         const token = listToken || setToken || mapToken;
 
-        // Extract location directly from token (TerminalNode)
-        // Tokens have symbol property which is a Token with line/charPositionInLine
-        const tokenSymbol = (token as any).symbol || token;
-        const tokenText = tokenSymbol?.text || token?.text || collectionType;
-        const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
-        const tokenStartCol =
-          tokenSymbol?.charPositionInLine ??
-          (token as any).charPositionInLine ??
-          0;
+        // Get the typeName context that contains the token for precise location extraction
+        // Use the one where we actually found the token
+        const typeNameCtx = createdNameTypeName || pairTypeName;
 
-        const location: SymbolLocation = {
-          symbolRange: {
-            startLine: tokenLine,
-            startColumn: tokenStartCol,
-            endLine: tokenLine,
-            endColumn: tokenStartCol + tokenText.length,
-          },
-          identifierRange: {
-            startLine: tokenLine,
-            startColumn: tokenStartCol,
-            endLine: tokenLine,
-            endColumn: tokenStartCol + tokenText.length,
-          },
-        };
+        // Use getIdentifierRange to get precise location, similar to enterTypeRef
+        let location: SymbolLocation;
+        if (typeNameCtx) {
+          const identifierRange = this.getIdentifierRange(typeNameCtx);
+          if (identifierRange) {
+            location = {
+              symbolRange: identifierRange,
+              identifierRange: identifierRange,
+            };
+          } else {
+            // Fallback to token-based location
+            const tokenSymbol = (token as any).symbol || token;
+            const tokenText = tokenSymbol?.text || token?.text || collectionType;
+            const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
+            const tokenStartCol =
+              tokenSymbol?.charPositionInLine ??
+              (token as any).charPositionInLine ??
+              0;
+            location = {
+              symbolRange: {
+                startLine: tokenLine,
+                startColumn: tokenStartCol,
+                endLine: tokenLine,
+                endColumn: tokenStartCol + tokenText.length,
+              },
+              identifierRange: {
+                startLine: tokenLine,
+                startColumn: tokenStartCol,
+                endLine: tokenLine,
+                endColumn: tokenStartCol + tokenText.length,
+              },
+            };
+          }
+        } else {
+          // Fallback to token-based location if typeNameCtx not available
+          const tokenSymbol = (token as any).symbol || token;
+          const tokenText = tokenSymbol?.text || token?.text || collectionType;
+          const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
+          const tokenStartCol =
+            tokenSymbol?.charPositionInLine ??
+            (token as any).charPositionInLine ??
+            0;
+          location = {
+            symbolRange: {
+              startLine: tokenLine,
+              startColumn: tokenStartCol,
+              endLine: tokenLine,
+              endColumn: tokenStartCol + tokenText.length,
+            },
+            identifierRange: {
+              startLine: tokenLine,
+              startColumn: tokenStartCol,
+              endLine: tokenLine,
+              endColumn: tokenStartCol + tokenText.length,
+            },
+          };
+        }
 
         const parentContext = this.getCurrentMethodName();
 
@@ -4055,6 +4123,16 @@ export class ApexSymbolCollectorListener
           parentContext,
         );
         this.symbolTable.addTypeReference(ctorRef);
+
+        // Also create a TYPE_DECLARATION reference for the type name itself
+        // This allows hover resolution to work on the type name in constructor calls
+        // (e.g., hovering on "List" in "new List<Integer>()" should resolve to the List class)
+        const typeRef = SymbolReferenceFactory.createTypeDeclarationReference(
+          collectionType,
+          location,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(typeRef);
 
         // Check if this constructor call has arguments (classCreatorRest)
         // If so, push onto methodCallStack for parameter tracking
@@ -4079,11 +4157,12 @@ export class ApexSymbolCollectorListener
       const firstPair = idCreatedNamePairs[0];
 
       // Check if this is a collection type via typeName in the pair
-      const pairTypeName = (firstPair as any).typeName?.();
-      if (pairTypeName) {
-        const listToken = pairTypeName.LIST?.();
-        const setToken = pairTypeName.SET?.();
-        const mapToken = pairTypeName.MAP?.();
+      // Note: pairTypeName was already declared above for collection types
+      const nonCollectionPairTypeName = (firstPair as any).typeName?.();
+      if (nonCollectionPairTypeName) {
+        const listToken = nonCollectionPairTypeName.LIST?.();
+        const setToken = nonCollectionPairTypeName.SET?.();
+        const mapToken = nonCollectionPairTypeName.MAP?.();
 
         if (listToken || setToken || mapToken) {
           const collectionType = listToken ? 'List' : setToken ? 'Set' : 'Map';
@@ -5377,6 +5456,26 @@ export class ApexSymbolCollectorListener
       // Get the left-hand expression to find the base qualifier
       const lhs = (ctx as any).expression?.(0) || (ctx as any).expression?.();
       if (lhs) {
+        // Check for THIS keyword explicitly first
+        // THIS keyword can appear in PrimaryExpressionContext
+        if (isContextType(lhs, PrimaryExpressionContext)) {
+          const primaryExpr = lhs as PrimaryExpressionContext;
+          const primary = primaryExpr.primary?.();
+          if (primary) {
+            // Check if primary contains THIS token
+            const thisToken = (primary as any).THIS?.();
+            if (thisToken) {
+              return 'this';
+            }
+          }
+        }
+        
+        // Also check directly on the expression context for THIS token
+        const thisTokenDirect = (lhs as any).THIS?.();
+        if (thisTokenDirect) {
+          return 'this';
+        }
+        
         // Use extractIdentifiersFromExpression to get only identifiers, not method calls
         const identifiers = this.extractIdentifiersFromExpression(
           lhs as unknown as ParserRuleContext,
