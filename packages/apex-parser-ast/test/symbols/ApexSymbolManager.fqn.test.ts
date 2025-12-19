@@ -100,14 +100,14 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       if (symbolTable) {
         const allSymbols = symbolTable.getAllSymbols();
         const methodSymbol = allSymbols.find(
-          (s) => s.name === 'testMethod' && s.kind === SymbolKind.Method,
+          (s) => s.name === 'myTestMethod' && s.kind === SymbolKind.Method,
         );
         expect(methodSymbol).toBeDefined();
         if (methodSymbol && methodSymbol.fqn) {
           // Verify the symbol can be found by its actual FQN
           const foundSymbol = symbolManager.findSymbolByFQN(methodSymbol.fqn);
           expect(foundSymbol).toBeTruthy();
-          expect(foundSymbol?.name).toBe('testMethod');
+          expect(foundSymbol?.name).toBe('myTestMethod');
           expect(foundSymbol?.kind).toBe(SymbolKind.Method);
         }
       }
@@ -262,13 +262,13 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
 
         // Find method symbol and verify it can be found by FQN
         const methodSymbol = allSymbols.find(
-          (s) => s.name === 'testMethod' && s.kind === SymbolKind.Method,
+          (s) => s.name === 'myTestMethod' && s.kind === SymbolKind.Method,
         );
         expect(methodSymbol).toBeDefined();
         if (methodSymbol && methodSymbol.fqn) {
           const foundMethod = symbolManager.findSymbolByFQN(methodSymbol.fqn);
           expect(foundMethod).toBeTruthy();
-          expect(foundMethod?.name).toBe('testMethod');
+          expect(foundMethod?.name).toBe('myTestMethod');
           expect(foundMethod?.kind).toBe(SymbolKind.Method);
         }
 
@@ -342,11 +342,11 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
 
       // Resolve by name (should work)
       const nameResult = symbolManager.resolveSymbol(
-        'testMethod',
+        'myTestMethod',
         resolutionContext,
       );
       expect(nameResult.symbol).toBeTruthy();
-      expect(nameResult.symbol?.name).toBe('testMethod');
+      expect(nameResult.symbol?.name).toBe('myTestMethod');
 
       // Verify FQN lookup works separately
       // FQN now includes blocks, so we need to find the symbol first and check its FQN
@@ -354,13 +354,13 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       if (symbolTable) {
         const allSymbols = symbolTable.getAllSymbols();
         const methodSymbol = allSymbols.find(
-          (s) => s.name === 'testMethod' && s.kind === SymbolKind.Method,
+          (s) => s.name === 'myTestMethod' && s.kind === SymbolKind.Method,
         );
         expect(methodSymbol).toBeDefined();
         if (methodSymbol && methodSymbol.fqn) {
           const fqnResult = symbolManager.findSymbolByFQN(methodSymbol.fqn);
           expect(fqnResult).toBeTruthy();
-          expect(fqnResult?.name).toBe('testMethod');
+          expect(fqnResult?.name).toBe('myTestMethod');
         }
       }
     });

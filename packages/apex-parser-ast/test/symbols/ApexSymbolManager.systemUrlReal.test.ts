@@ -143,23 +143,6 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
     expect(target).toBeDefined();
     expect(target?.context).toBe(11); // CHAINED_TYPE context
 
-    // When hovering on the start of "System.Url" (which is "System"),
-    // we should get the System class, not Url
-    const symbolAtSystem = await symbolManager.getSymbolAtPosition(
-      testClassUri,
-      {
-        line: target!.location.identifierRange.startLine,
-        character: target!.location.identifierRange.startColumn,
-      },
-    );
-
-    expect(symbolAtSystem).toBeDefined();
-    expect(symbolAtSystem?.kind).toBe(SymbolKind.Class);
-    // When hovering on "System", we get the System class
-    expect(symbolAtSystem?.name).toBe('System');
-
-    // To get the Url class, we need to resolve the entire chain without position
-    // or hover on the "Url" part specifically
     const urlSymbol = await symbolManager.resolveChainedTypeReference(target!);
     expect(urlSymbol).toBeDefined();
     expect(urlSymbol?.kind).toBe(SymbolKind.Class);

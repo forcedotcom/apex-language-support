@@ -1397,6 +1397,15 @@ export class SymbolTable {
       if (mLoc && this.positionInRange(position, mLoc)) {
         return true;
       }
+      // For chained references, also check if position is within any chain node
+      const chainNodes = (ref as any).chainNodes;
+      if (chainNodes && Array.isArray(chainNodes)) {
+        for (const node of chainNodes) {
+          if (node?.location && this.positionInRange(position, node.location)) {
+            return true;
+          }
+        }
+      }
       return false;
     });
   }

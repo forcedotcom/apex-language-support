@@ -22,4 +22,13 @@ global class TestClass extends BaseClass implements MyInterface {
   public static void testIntegration() {
     String result = getValue(); // Should resolve to static String method
   }
+  
+  public void testKeywordDetection() {
+    if (true) {
+      // Test if keyword detection
+    }
+    for (Integer i = 0; i < 10; i++) {
+      // Test for keyword detection
+    }
+  }
 }

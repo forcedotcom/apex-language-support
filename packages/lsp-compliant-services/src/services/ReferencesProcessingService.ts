@@ -28,9 +28,13 @@ import {
   createQueuedItem,
   offer,
   SchedulerInitializationService,
+  isApexKeyword,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
-import { transformParserToLspPosition } from '../utils/positionUtils';
+import {
+  transformParserToLspPosition,
+  transformLspToParserPosition,
+} from '../utils/positionUtils';
 import { ensureWorkspaceLoaded } from './WorkspaceLoadCoordinator';
 
 /**
@@ -161,13 +165,34 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       return [];
     }
 
-    // Extract symbol name at position
-    const symbolName = this.extractSymbolNameAtPosition(
-      document,
-      params.position,
+    // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
+    const parserPosition = transformLspToParserPosition(params.position);
+
+    // Check if there's a TypeReference at the position
+    // If no TypeReference exists, the position is on a keyword, whitespace, or nothing of interest
+    const references = this.symbolManager.getReferencesAtPosition(
+      params.textDocument.uri,
+      parserPosition,
     );
-    if (!symbolName) {
-      this.logger.debug(() => 'No symbol found at position');
+
+    if (!references || references.length === 0) {
+      this.logger.debug(
+        () =>
+          'No TypeReference found at position - likely keyword, whitespace, or nothing of interest',
+      );
+      return [];
+    }
+
+    // Extract symbol name from the first TypeReference
+    const symbolName = references[0].name;
+
+    // Early keyword check: if the TypeReference name is a keyword, return empty array
+    // This prevents find references from processing keywords
+    if (isApexKeyword(symbolName)) {
+      this.logger.debug(
+        () =>
+          `Position is on keyword "${symbolName}", skipping references lookup`,
+      );
       return [];
     }
 
@@ -205,7 +230,19 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     // Simple word extraction (in practice would use AST analysis)
     const wordRange = this.getWordRangeAtPosition(document, position);
     if (wordRange) {
-      return document.getText(wordRange);
+      const symbolName = document.getText(wordRange);
+
+      // Early keyword check: if extracted name is a keyword, return null
+      // This prevents find references from processing keywords
+      if (isApexKeyword(symbolName)) {
+        this.logger.debug(
+          () =>
+            `Position is on keyword "${symbolName}", skipping references lookup`,
+        );
+        return null;
+      }
+
+      return symbolName;
     }
 
     return null;

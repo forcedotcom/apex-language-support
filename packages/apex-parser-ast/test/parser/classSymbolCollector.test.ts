@@ -1154,11 +1154,12 @@ describe('ApexSymbolCollectorListener', () => {
         'Starting test: capture semantic errors for duplicate variable declarations',
       );
       // Apex code with duplicate variable declaration
+      // Note: Using "counter" instead of "count" to avoid SOQL keyword conflict
       const fileContent = `
         public class DuplicateVarClass {
           private void method() {
-            Integer count = 0;
-            String count = 'test'; // Duplicate variable name in same scope
+            Integer counter = 0;
+            String counter = 'test'; // Duplicate variable name in same scope
           }
         }
       `;

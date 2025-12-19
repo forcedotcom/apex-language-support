@@ -8,6 +8,7 @@
 
 import { SymbolKind } from '../../types/symbol';
 import { ValidationResult, ValidationScope } from './ValidationResult';
+import { isApexKeyword } from '../../utils/ApexKeywords';
 
 /**
  * Validates Apex identifiers according to semantic rules
@@ -70,19 +71,8 @@ export class IdentifierValidator {
   // Reserved type names (all lowercase for case-insensitive comparison)
   private static readonly RESERVED_TYPE_NAMES = new Set(['apexpages', 'page']);
 
-  // Keywords (all lowercase for case-insensitive comparison)
-  private static readonly KEYWORDS = new Set([
-    'trigger',
-    'insert',
-    'update',
-    'upsert',
-    'delete',
-    'undelete',
-    'merge',
-    'new',
-    'for',
-    'select',
-  ]);
+  // Keywords are now centralized in ApexKeywords.ts (extracted from lexer at build time)
+  // Use isApexKeyword() function for keyword checking
 
   /**
    * Validate an identifier according to Apex semantic rules
@@ -112,7 +102,8 @@ export class IdentifierValidator {
     }
 
     // Check 3: Keywords (methods can use keywords)
-    if (type !== SymbolKind.Method && this.KEYWORDS.has(name.toLowerCase())) {
+    // Use centralized keyword set from ApexKeywords.ts
+    if (type !== SymbolKind.Method && isApexKeyword(name)) {
       errors.push(`Identifier cannot be a keyword: ${name}`);
       return { isValid: false, errors, warnings };
     }

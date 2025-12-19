@@ -35,10 +35,26 @@ describe('DefinitionProcessingService', () => {
         position: { line: 5, character: 10 },
       };
 
+      // Mock TypeReference at position
+      const mockTypeReference = {
+        name: 'doSomething',
+        location: {
+          identifierRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 20,
+          },
+        },
+      };
+      jest
+        .spyOn(service['symbolManager'], 'getReferencesAtPosition')
+        .mockReturnValue([mockTypeReference] as any);
+
       // Mock symbol manager to return a symbol
       const mockSymbol = {
-        id: 'test-method-id',
-        name: 'testMethod',
+        id: 'do-something-id',
+        name: 'doSomething',
         kind: 'method',
         location: {
           symbolRange: {
@@ -58,9 +74,9 @@ describe('DefinitionProcessingService', () => {
         parentId: null,
         key: {
           prefix: 'method',
-          name: 'testMethod',
-          path: ['file:///test/TestClass.cls', 'testMethod'],
-          unifiedId: 'test-method-id',
+          name: 'doSomething',
+          path: ['file:///test/TestClass.cls', 'doSomething'],
+          unifiedId: 'do-something-id',
           fileUri: 'file:///test/TestClass.cls',
           kind: 'method',
         },
@@ -84,7 +100,7 @@ describe('DefinitionProcessingService', () => {
       };
       jest
         .spyOn(service['symbolManager'], 'getSymbolAtPosition')
-        .mockReturnValue(mockSymbol as unknown as ApexSymbol);
+        .mockResolvedValue(mockSymbol as unknown as ApexSymbol);
 
       // Act
       const result = await service.processDefinition(params);
@@ -108,10 +124,26 @@ describe('DefinitionProcessingService', () => {
         position: { line: 5, character: 10 },
       };
 
+      // Mock TypeReference at position
+      const mockTypeReference = {
+        name: 'unresolvedSymbol',
+        location: {
+          identifierRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 25,
+          },
+        },
+      };
+      jest
+        .spyOn(service['symbolManager'], 'getReferencesAtPosition')
+        .mockReturnValue([mockTypeReference] as any);
+
       // Mock symbol manager to return no symbol
       jest
         .spyOn(service['symbolManager'], 'getSymbolAtPosition')
-        .mockReturnValue(null);
+        .mockResolvedValue(null);
 
       // Mock missing artifact utils to return not-found
       jest
@@ -135,6 +167,22 @@ describe('DefinitionProcessingService', () => {
         position: { line: 5, character: 10 },
       };
 
+      // Mock TypeReference at position
+      const mockTypeReference = {
+        name: 'doSomething',
+        location: {
+          identifierRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 20,
+          },
+        },
+      };
+      jest
+        .spyOn(service['symbolManager'], 'getReferencesAtPosition')
+        .mockReturnValue([mockTypeReference] as any);
+
       // Mock symbol manager to throw an error
       jest
         .spyOn(service['symbolManager'], 'getSymbolAtPosition')
@@ -148,6 +196,46 @@ describe('DefinitionProcessingService', () => {
       // Assert
       expect(result).toBeNull();
     });
+
+    it('should return empty array when position is on keyword', async () => {
+      // Arrange
+      const params: DefinitionParams = {
+        textDocument: { uri: 'file:///test/TestClass.cls' },
+        position: { line: 2, character: 4 }, // Position on "if" keyword
+      };
+
+      // Keywords don't have TypeReferences - getReferencesAtPosition returns empty array
+      jest
+        .spyOn(service['symbolManager'], 'getReferencesAtPosition')
+        .mockReturnValue([]);
+
+      // Spy on getSymbolAtPosition to verify it's not called
+      jest
+        .spyOn(service['symbolManager'], 'getSymbolAtPosition')
+        .mockResolvedValue(null);
+
+      // Spy on tryResolveMissingArtifactBlocking to verify it's not called
+      jest
+        .spyOn(
+          service['missingArtifactUtils'],
+          'tryResolveMissingArtifactBlocking',
+        )
+        .mockResolvedValue('not-found');
+
+      // Act
+      const result = await service.processDefinition(params);
+
+      // Assert
+      expect(result).toEqual([]);
+      // Verify getSymbolAtPosition was NOT called (short-circuited when no TypeReference)
+      expect(
+        service['symbolManager'].getSymbolAtPosition,
+      ).not.toHaveBeenCalled();
+      // Verify missing artifact resolution was NOT triggered
+      expect(
+        service['missingArtifactUtils'].tryResolveMissingArtifactBlocking,
+      ).not.toHaveBeenCalled();
+    });
   });
 
   describe('performance', () => {
@@ -158,10 +246,26 @@ describe('DefinitionProcessingService', () => {
         position: { line: 5, character: 10 },
       };
 
+      // Mock TypeReference at position
+      const mockTypeReference = {
+        name: 'doSomething',
+        location: {
+          identifierRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 20,
+          },
+        },
+      };
+      jest
+        .spyOn(service['symbolManager'], 'getReferencesAtPosition')
+        .mockReturnValue([mockTypeReference] as any);
+
       // Mock symbol manager to return a symbol quickly
       const mockSymbol = {
-        id: 'test-method-id',
-        name: 'testMethod',
+        id: 'do-something-id',
+        name: 'doSomething',
         kind: 'method',
         location: {
           symbolRange: {
@@ -181,9 +285,9 @@ describe('DefinitionProcessingService', () => {
         parentId: null,
         key: {
           prefix: 'method',
-          name: 'testMethod',
-          path: ['file:///test/TestClass.cls', 'testMethod'],
-          unifiedId: 'test-method-id',
+          name: 'doSomething',
+          path: ['file:///test/TestClass.cls', 'doSomething'],
+          unifiedId: 'do-something-id',
           fileUri: 'file:///test/TestClass.cls',
           kind: 'method',
         },
@@ -207,7 +311,7 @@ describe('DefinitionProcessingService', () => {
       };
       jest
         .spyOn(service['symbolManager'], 'getSymbolAtPosition')
-        .mockReturnValue(mockSymbol as unknown as ApexSymbol);
+        .mockResolvedValue(mockSymbol as unknown as ApexSymbol);
 
       const startTime = Date.now();
 

@@ -99,7 +99,8 @@ describe('DefaultApexReferencesUpserter', () => {
     const event: TextDocumentChangeEvent<TextDocument> = {
       document: {
         uri: 'file:///test.cls',
-        getText: () => 'class TestClass { void testMethod() { TestClass t; } }',
+        getText: () =>
+          'class TestClass { void doSomething() { TestClass t; } }',
         version: 1,
         languageId: 'apex',
         positionAt: () => ({ line: 0, character: 0 }),

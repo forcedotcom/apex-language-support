@@ -1075,7 +1075,12 @@ describe('HoverProcessingService Integration Tests', () => {
       const lines = text.split('\n');
       const lineIndex = lines.findIndex((l) => l.includes('System.debug'));
       expect(lineIndex).toBeGreaterThanOrEqual(0);
-      const charIndex = lines[lineIndex].indexOf('System.debug');
+      // Position on "System" in "System.debug" - find the start of "System"
+      const systemDebugIndex = lines[lineIndex].indexOf('System.debug');
+      const charIndex =
+        systemDebugIndex >= 0
+          ? systemDebugIndex
+          : lines[lineIndex].indexOf('System');
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///ComplexTestClass.cls' },
@@ -1763,6 +1768,95 @@ describe('HoverProcessingService Integration Tests', () => {
         // Should be the static method from ScopeExample, not from InnerClass
         expect(content).toContain('ScopeExample');
       }
+    });
+  });
+
+  describe('Keyword Detection', () => {
+    it('should return null when hovering on keyword', async () => {
+      mockStorage.getDocument.mockResolvedValue(testClassDocument);
+
+      const text = testClassDocument.getText();
+      const lines = text.split('\n');
+      // Find the line with "if (true)" - should be in testKeywordDetection method
+      const lineIndex = lines.findIndex((l) =>
+        l.trim().startsWith('if (true)'),
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      // Find the exact position of "if" on that line (after leading whitespace)
+      const line = lines[lineIndex];
+      const charIndex = line.indexOf('if');
+      expect(charIndex).toBeGreaterThanOrEqual(0);
+
+      // Position on "if" keyword in the test class
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///TestClass.cls' },
+        position: { line: lineIndex, character: charIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      // Assert: Should return null for keywords
+      expect(result).toBeNull();
+    });
+
+    it('should return null when hovering on "for" keyword', async () => {
+      mockStorage.getDocument.mockResolvedValue(testClassDocument);
+
+      const text = testClassDocument.getText();
+      const lines = text.split('\n');
+      // Find the line with "for (Integer i" - should be in testKeywordDetection method
+      const lineIndex = lines.findIndex((l) =>
+        l.trim().startsWith('for (Integer i'),
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      // Find the exact position of "for" on that line (after leading whitespace)
+      const line = lines[lineIndex];
+      const charIndex = line.indexOf('for');
+      expect(charIndex).toBeGreaterThanOrEqual(0);
+
+      // Position on "for" keyword
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///TestClass.cls' },
+        position: { line: lineIndex, character: charIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      // Assert: Should return null for keywords
+      expect(result).toBeNull();
+    });
+
+    it('should NOT trigger missing artifact resolution for keywords', async () => {
+      mockStorage.getDocument.mockResolvedValue(testClassDocument);
+
+      const text = testClassDocument.getText();
+      const lines = text.split('\n');
+      // Find the line with "if (true)" - should be in testKeywordDetection method
+      const lineIndex = lines.findIndex((l) =>
+        l.trim().startsWith('if (true)'),
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      // Find the exact position of "if" on that line (after leading whitespace)
+      const line = lines[lineIndex];
+      const charIndex = line.indexOf('if');
+      expect(charIndex).toBeGreaterThanOrEqual(0);
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///TestClass.cls' },
+        position: { line: lineIndex, character: charIndex },
+      };
+
+      // Mock missing artifact utils
+      const tryResolveSpy = jest.spyOn(
+        hoverService['missingArtifactUtils'],
+        'tryResolveMissingArtifactBackground',
+      );
+
+      const result = await hoverService.processHover(params);
+
+      // Assert: Should return null and NOT trigger missing artifact resolution
+      expect(result).toBeNull();
+      expect(tryResolveSpy).not.toHaveBeenCalled();
     });
   });
 });

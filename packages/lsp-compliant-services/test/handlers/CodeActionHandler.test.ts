@@ -50,13 +50,13 @@ describe('CodeActionHandler', () => {
 
       const mockCodeActions: CodeAction[] = [
         {
-          title: "Rename method 'testMethod'",
+          title: "Rename method 'doSomething'",
           kind: 'refactor',
           command: {
             title: 'Rename method',
             command: 'apex.renameSymbol',
             arguments: [
-              'testMethod',
+              'doSomething',
               'file:///test/TestClass.cls',
               params.range,
             ],

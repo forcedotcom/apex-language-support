@@ -1,7 +1,7 @@
 public class TestClass {
   public String testField;
   
-  public void testMethod() {
+  public void myTestMethod() {
     String localVar = 'test';
   }
   
