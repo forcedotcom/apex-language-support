@@ -16,7 +16,11 @@ import {
   VariableSymbol,
   ScopeSymbol,
   SymbolLocation,
+  SymbolFactory,
+  SymbolVisibility,
 } from '../../src/types/symbol';
+import { ReferenceContext } from '../../src/types/typeReference';
+import { HierarchicalReference } from '../../src/types/hierarchicalReference';
 import {
   inTypeSymbolGroup,
   hasIdMethod,
@@ -1114,5 +1118,570 @@ describe('SymbolTable', () => {
     // Since exitScope is a no-op, we just verify the class block symbol still exists
     expect(classBlockSymbol).toBeDefined();
     expect(classBlockSymbol?.name).toBe('MyClass');
+  });
+});
+
+describe('SymbolTable.toJSON and fromJSON', () => {
+  describe('round-trip serialization', () => {
+    it('should preserve ClassSymbol properties through toJSON/fromJSON', () => {
+      const table = new SymbolTable();
+      table.setFileUri('file:///test/MyClass.cls');
+
+      const classSymbol = SymbolFactory.createFullSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 100,
+            endColumn: 1,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 14,
+            endLine: 1,
+            endColumn: 21,
+          },
+        },
+        'file:///test/MyClass.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: true,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        null,
+        undefined,
+        'MyClass',
+        'MyNamespace',
+      );
+      // Add class-specific properties
+      (classSymbol as TypeSymbol).superClass = 'BaseClass';
+      (classSymbol as TypeSymbol).interfaces = ['ISerializable', 'IComparable'];
+
+      table.addSymbol(classSymbol);
+
+      const json = table.toJSON();
+      const reconstructed = SymbolTable.fromJSON(json);
+
+      const symbols = reconstructed.getAllSymbols();
+      expect(symbols).toHaveLength(1);
+
+      const reconClass = symbols[0] as TypeSymbol;
+      expect(reconClass.name).toBe('MyClass');
+      expect(reconClass.kind).toBe(SymbolKind.Class);
+      expect(reconClass.superClass).toBe('BaseClass');
+      expect(reconClass.interfaces).toEqual(['ISerializable', 'IComparable']);
+      expect(reconClass.modifiers.isVirtual).toBe(true);
+      expect(reconClass.modifiers.visibility).toBe(SymbolVisibility.Public);
+      expect(reconClass.fileUri).toBe('file:///test/MyClass.cls');
+      expect(reconClass.key.fileUri).toBe('file:///test/MyClass.cls');
+    });
+
+    it('should preserve MethodSymbol properties through toJSON/fromJSON', () => {
+      const table = new SymbolTable();
+      table.setFileUri('file:///test/MyClass.cls');
+
+      const methodSymbol = SymbolFactory.createFullSymbol(
+        'myMethod',
+        SymbolKind.Method,
+        {
+          symbolRange: {
+            startLine: 10,
+            startColumn: 4,
+            endLine: 20,
+            endColumn: 5,
+          },
+          identifierRange: {
+            startLine: 10,
+            startColumn: 20,
+            endLine: 10,
+            endColumn: 28,
+          },
+        },
+        'file:///test/MyClass.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: true,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      );
+      // Add method-specific properties
+      (methodSymbol as MethodSymbol).returnType = { name: 'String' };
+      (methodSymbol as MethodSymbol).parameters = [
+        { name: 'param1', type: { name: 'Integer' } },
+        { name: 'param2', type: { name: 'Boolean' } },
+      ] as VariableSymbol[];
+
+      table.addSymbol(methodSymbol);
+
+      const json = table.toJSON();
+      const reconstructed = SymbolTable.fromJSON(json);
+
+      const symbols = reconstructed.getAllSymbols();
+      const reconMethod = symbols[0] as MethodSymbol;
+
+      expect(reconMethod.name).toBe('myMethod');
+      expect(reconMethod.returnType?.name).toBe('String');
+      expect(reconMethod.parameters).toHaveLength(2);
+      expect(reconMethod.parameters?.[0].name).toBe('param1');
+      expect(reconMethod.modifiers.isStatic).toBe(true);
+    });
+
+    it('should preserve VariableSymbol properties through toJSON/fromJSON', () => {
+      const table = new SymbolTable();
+      table.setFileUri('file:///test/MyClass.cls');
+
+      const varSymbol = SymbolFactory.createFullSymbol(
+        'myVar',
+        SymbolKind.Variable,
+        {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 4,
+            endLine: 5,
+            endColumn: 30,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 15,
+            endLine: 5,
+            endColumn: 20,
+          },
+        },
+        'file:///test/MyClass.cls',
+        {
+          visibility: SymbolVisibility.Private,
+          isStatic: false,
+          isFinal: true,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      );
+      (varSymbol as VariableSymbol).type = { name: 'String' };
+
+      table.addSymbol(varSymbol);
+
+      const json = table.toJSON();
+      const reconstructed = SymbolTable.fromJSON(json);
+
+      const reconVar = reconstructed.getAllSymbols()[0] as VariableSymbol;
+      expect(reconVar.type?.name).toBe('String');
+      expect(reconVar.modifiers.isFinal).toBe(true);
+    });
+
+    it('should preserve EnumSymbol with values through toJSON/fromJSON', () => {
+      const table = new SymbolTable();
+      table.setFileUri('file:///test/MyEnum.cls');
+
+      const enumSymbol = SymbolFactory.createFullSymbol(
+        'Status',
+        SymbolKind.Enum,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 10,
+            endColumn: 1,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 14,
+            endLine: 1,
+            endColumn: 20,
+          },
+        },
+        'file:///test/MyEnum.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+      );
+      (enumSymbol as EnumSymbol).values = [
+        {
+          name: 'ACTIVE',
+          kind: SymbolKind.EnumValue,
+          id: 'active-id',
+          location: {
+            symbolRange: {
+              startLine: 2,
+              startColumn: 4,
+              endLine: 2,
+              endColumn: 10,
+            },
+            identifierRange: {
+              startLine: 2,
+              startColumn: 4,
+              endLine: 2,
+              endColumn: 10,
+            },
+          },
+          fileUri: 'file:///test/MyEnum.cls',
+          parentId: enumSymbol.id,
+          key: {
+            prefix: SymbolKind.EnumValue,
+            name: 'ACTIVE',
+            path: ['file:///test/MyEnum.cls', 'Status', 'ACTIVE'],
+            unifiedId: 'active-id',
+            fileUri: 'file:///test/MyEnum.cls',
+            kind: SymbolKind.EnumValue,
+          },
+          _isLoaded: true,
+          modifiers: {
+            visibility: SymbolVisibility.Default,
+            isStatic: false,
+            isFinal: false,
+            isAbstract: false,
+            isVirtual: false,
+            isOverride: false,
+            isTransient: false,
+            isTestMethod: false,
+            isWebService: false,
+            isBuiltIn: false,
+          },
+          type: { name: 'Status' },
+        },
+        {
+          name: 'INACTIVE',
+          kind: SymbolKind.EnumValue,
+          id: 'inactive-id',
+          location: {
+            symbolRange: {
+              startLine: 3,
+              startColumn: 4,
+              endLine: 3,
+              endColumn: 12,
+            },
+            identifierRange: {
+              startLine: 3,
+              startColumn: 4,
+              endLine: 3,
+              endColumn: 12,
+            },
+          },
+          fileUri: 'file:///test/MyEnum.cls',
+          parentId: enumSymbol.id,
+          key: {
+            prefix: SymbolKind.EnumValue,
+            name: 'INACTIVE',
+            path: ['file:///test/MyEnum.cls', 'Status', 'INACTIVE'],
+            unifiedId: 'inactive-id',
+            fileUri: 'file:///test/MyEnum.cls',
+            kind: SymbolKind.EnumValue,
+          },
+          _isLoaded: true,
+          modifiers: {
+            visibility: SymbolVisibility.Default,
+            isStatic: false,
+            isFinal: false,
+            isAbstract: false,
+            isVirtual: false,
+            isOverride: false,
+            isTransient: false,
+            isTestMethod: false,
+            isWebService: false,
+            isBuiltIn: false,
+          },
+          type: { name: 'Status' },
+        },
+      ] as VariableSymbol[];
+
+      table.addSymbol(enumSymbol);
+
+      const json = table.toJSON();
+      const reconstructed = SymbolTable.fromJSON(json);
+
+      const reconEnum = reconstructed.getAllSymbols()[0] as EnumSymbol;
+      expect(reconEnum.values).toHaveLength(2);
+      expect(reconEnum.values?.[0].name).toBe('ACTIVE');
+    });
+
+    it('should preserve TypeReferences through toJSON/fromJSON', () => {
+      const table = new SymbolTable();
+      table.setFileUri('file:///test/MyClass.cls');
+      table.references = [
+        {
+          name: 'String',
+          location: {
+            symbolRange: {
+              startLine: 5,
+              startColumn: 10,
+              endLine: 5,
+              endColumn: 16,
+            },
+            identifierRange: {
+              startLine: 5,
+              startColumn: 10,
+              endLine: 5,
+              endColumn: 16,
+            },
+          },
+          context: ReferenceContext.TYPE_DECLARATION,
+          isResolved: false,
+        },
+      ];
+
+      const json = table.toJSON();
+      const reconstructed = SymbolTable.fromJSON(json);
+
+      expect(reconstructed.references).toHaveLength(1);
+      expect(reconstructed.references[0].name).toBe('String');
+      expect(reconstructed.references[0].context).toBe(
+        ReferenceContext.TYPE_DECLARATION,
+      );
+    });
+
+    it('should preserve HierarchicalReferences through toJSON/fromJSON', () => {
+      const table = new SymbolTable();
+      table.setFileUri('file:///test/MyClass.cls');
+      table.hierarchicalReferences = [
+        {
+          name: 'System.debug',
+          fullPath: ['System', 'debug'],
+          location: {
+            symbolRange: {
+              startLine: 10,
+              startColumn: 0,
+              endLine: 10,
+              endColumn: 12,
+            },
+            identifierRange: {
+              startLine: 10,
+              startColumn: 0,
+              endLine: 10,
+              endColumn: 12,
+            },
+          },
+          context: ReferenceContext.METHOD_CALL,
+          children: [],
+        },
+      ];
+
+      const json = table.toJSON();
+      const reconstructed = SymbolTable.fromJSON(json);
+
+      expect(reconstructed.hierarchicalReferences).toHaveLength(1);
+      expect(reconstructed.hierarchicalReferences[0].name).toBe('System.debug');
+      expect(reconstructed.hierarchicalReferences[0].fullPath).toEqual([
+        'System',
+        'debug',
+      ]);
+    });
+  });
+
+  describe('error handling', () => {
+    it('should return empty SymbolTable for null input', () => {
+      const result = SymbolTable.fromJSON(null);
+      expect(result).toBeInstanceOf(SymbolTable);
+      expect(result.getAllSymbols()).toHaveLength(0);
+    });
+
+    it('should return empty SymbolTable for undefined input', () => {
+      const result = SymbolTable.fromJSON(undefined);
+      expect(result).toBeInstanceOf(SymbolTable);
+      expect(result.getAllSymbols()).toHaveLength(0);
+    });
+
+    it('should return empty SymbolTable for non-object input', () => {
+      expect(SymbolTable.fromJSON('string' as any).getAllSymbols()).toHaveLength(
+        0,
+      );
+      expect(SymbolTable.fromJSON(123 as any).getAllSymbols()).toHaveLength(0);
+      expect(SymbolTable.fromJSON([] as any).getAllSymbols()).toHaveLength(0);
+    });
+
+    it('should skip malformed symbols without crashing', () => {
+      const json = {
+        fileUri: 'file:///test.cls',
+        symbols: [
+          {
+            symbol: {
+              name: 'Valid',
+              kind: 'class',
+              id: '1',
+              location: {
+                identifierRange: {
+                  startLine: 1,
+                  startColumn: 0,
+                  endLine: 1,
+                  endColumn: 5,
+                },
+              },
+              modifiers: {
+                visibility: 'public',
+                isStatic: false,
+                isFinal: false,
+                isAbstract: false,
+                isVirtual: false,
+                isOverride: false,
+                isTransient: false,
+                isTestMethod: false,
+                isWebService: false,
+                isBuiltIn: false,
+              },
+            },
+          },
+          { symbol: null },
+          { symbol: { name: 'MissingKind' } },
+          { symbol: { kind: 'class' } }, // Missing name
+          {
+            symbol: { name: 'MissingId', kind: 'class' },
+          }, // Missing id
+          {
+            symbol: { name: 'MissingLocation', kind: 'class', id: '2' },
+          }, // Missing location
+        ],
+        references: [],
+      };
+
+      const result = SymbolTable.fromJSON(json);
+      // Only 'Valid' should be loaded
+      expect(result.getAllSymbols().length).toBe(1);
+      expect(result.getAllSymbols()[0].name).toBe('Valid');
+    });
+
+    it('should skip malformed references without crashing', () => {
+      const json = {
+        fileUri: 'file:///test.cls',
+        symbols: [],
+        references: [
+          {
+            name: 'Valid',
+            location: {
+              identifierRange: {
+                startLine: 1,
+                startColumn: 0,
+                endLine: 1,
+                endColumn: 5,
+              },
+            },
+          },
+          null,
+          {
+            location: {
+              identifierRange: { startLine: 1 },
+            },
+          }, // Missing name
+          { name: 'MissingLocation' }, // Missing location
+        ],
+      };
+
+      const result = SymbolTable.fromJSON(json);
+      expect(result.references.length).toBe(1);
+      expect(result.references[0].name).toBe('Valid');
+    });
+  });
+
+  describe('location reconstruction', () => {
+    it('should handle both old (range) and new (symbolRange/identifierRange) formats', () => {
+      const oldFormatJson = {
+        fileUri: 'file:///test.cls',
+        symbols: [
+          {
+            symbol: {
+              name: 'OldFormat',
+              kind: 'class',
+              id: '1',
+              location: {
+                range: {
+                  startLine: 1,
+                  startColumn: 0,
+                  endLine: 10,
+                  endColumn: 1,
+                },
+              },
+              modifiers: {
+                visibility: 'public',
+                isStatic: false,
+                isFinal: false,
+                isAbstract: false,
+                isVirtual: false,
+                isOverride: false,
+                isTransient: false,
+                isTestMethod: false,
+                isWebService: false,
+                isBuiltIn: false,
+              },
+            },
+          },
+        ],
+      };
+
+      const newFormatJson = {
+        fileUri: 'file:///test.cls',
+        symbols: [
+          {
+            symbol: {
+              name: 'NewFormat',
+              kind: 'class',
+              id: '2',
+              location: {
+                symbolRange: {
+                  startLine: 1,
+                  startColumn: 0,
+                  endLine: 10,
+                  endColumn: 1,
+                },
+                identifierRange: {
+                  startLine: 1,
+                  startColumn: 6,
+                  endLine: 1,
+                  endColumn: 15,
+                },
+              },
+              modifiers: {
+                visibility: 'public',
+                isStatic: false,
+                isFinal: false,
+                isAbstract: false,
+                isVirtual: false,
+                isOverride: false,
+                isTransient: false,
+                isTestMethod: false,
+                isWebService: false,
+                isBuiltIn: false,
+              },
+            },
+          },
+        ],
+      };
+
+      const oldResult = SymbolTable.fromJSON(oldFormatJson);
+      const newResult = SymbolTable.fromJSON(newFormatJson);
+
+      expect(oldResult.getAllSymbols()).toHaveLength(1);
+      expect(newResult.getAllSymbols()).toHaveLength(1);
+
+      // Both should have valid locations
+      expect(oldResult.getAllSymbols()[0].location.identifierRange).toBeDefined();
+      expect(newResult.getAllSymbols()[0].location.identifierRange).toBeDefined();
+    });
   });
 });

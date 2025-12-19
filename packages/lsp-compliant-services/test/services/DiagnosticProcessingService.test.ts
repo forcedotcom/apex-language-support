@@ -152,10 +152,18 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   getLogger: jest.fn(),
 }));
 jest.mock('../../src/utils/handlerUtil');
+jest.mock('../../src/services/DocumentProcessingService', () => ({
+  DocumentProcessingService: {
+    getInstance: jest.fn(),
+  },
+}));
+
+import { DocumentProcessingService } from '../../src/services/DocumentProcessingService';
 
 describe('DiagnosticProcessingService', () => {
   let mockLogger: jest.Mocked<LoggerInterface>;
   let mockStorage: any;
+  let mockDocumentProcessingService: any;
   let service: DiagnosticProcessingService;
 
   beforeEach(() => {
@@ -184,6 +192,14 @@ describe('DiagnosticProcessingService', () => {
     // Reset the getDiagnosticsFromErrors mock
     const { getDiagnosticsFromErrors } = require('../../src/utils/handlerUtil');
     getDiagnosticsFromErrors.mockReset();
+
+    // Mock DocumentProcessingService
+    mockDocumentProcessingService = {
+      ensureFullAnalysis: jest.fn().mockResolvedValue([]),
+    };
+    (DocumentProcessingService.getInstance as jest.Mock).mockReturnValue(
+      mockDocumentProcessingService,
+    );
 
     // Clear the document state cache to avoid test interference
     const {
@@ -222,29 +238,8 @@ describe('DiagnosticProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      // Mock the compilation result with errors
-      const mockCompileResult = {
-        errors: [
-          {
-            type: 'syntax',
-            severity: 'error',
-            message: 'Test error',
-            line: 1,
-            column: 1,
-            filePath: 'file:///test.cls',
-          },
-        ],
-      };
-
-      // Mock the CompilerService
-      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
-      const mockCompile = jest.fn().mockReturnValue(mockCompileResult);
-      CompilerService.mockImplementation(() => ({
-        compile: mockCompile,
-      }));
-
-      // Mock the getDiagnosticsFromErrors function
-      const mockGetDiagnosticsFromErrors = jest.fn().mockReturnValue([
+      // Mock ensureFullAnalysis to return diagnostics
+      const mockDiagnostics = [
         {
           range: {
             start: { line: 0, character: 0 },
@@ -253,12 +248,10 @@ describe('DiagnosticProcessingService', () => {
           message: 'Test error',
           severity: 1,
         },
-      ]);
-
-      const {
-        getDiagnosticsFromErrors,
-      } = require('../../src/utils/handlerUtil');
-      getDiagnosticsFromErrors.mockImplementation(mockGetDiagnosticsFromErrors);
+      ];
+      mockDocumentProcessingService.ensureFullAnalysis.mockResolvedValue(
+        mockDiagnostics,
+      );
 
       const result = await service.processDiagnostic(params);
 
@@ -280,29 +273,15 @@ describe('DiagnosticProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      // Mock the compilation result with no errors
-      const mockCompileResult = {
-        errors: [],
-      };
-
-      // Mock the CompilerService
-      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
-      CompilerService.mockImplementation(() => ({
-        compile: jest.fn().mockReturnValue(mockCompileResult),
-      }));
-
-      // Mock the getDiagnosticsFromErrors function to return empty array
-      const {
-        getDiagnosticsFromErrors,
-      } = require('../../src/utils/handlerUtil');
-      getDiagnosticsFromErrors.mockReturnValue([]);
+      // Mock ensureFullAnalysis to return empty diagnostics
+      mockDocumentProcessingService.ensureFullAnalysis.mockResolvedValue([]);
 
       const result = await service.processDiagnostic(params);
 
       expect(result).toEqual([]);
     });
 
-    it('should handle compilation errors gracefully', async () => {
+    it('should handle analysis errors gracefully', async () => {
       const params: DocumentSymbolParams = {
         textDocument: { uri: 'file:///test.cls' },
       };
@@ -315,13 +294,10 @@ describe('DiagnosticProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      // Mock the CompilerService to throw an error
-      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
-      CompilerService.mockImplementation(() => ({
-        compile: jest.fn().mockImplementation(() => {
-          throw new Error('Compilation failed');
-        }),
-      }));
+      // Mock ensureFullAnalysis to throw an error
+      mockDocumentProcessingService.ensureFullAnalysis.mockRejectedValue(
+        new Error('Analysis failed'),
+      );
 
       const result = await service.processDiagnostic(params);
 
@@ -373,34 +349,14 @@ describe('DiagnosticProcessingService', () => {
 
       const mockDocument = {
         uri: 'file:///Users/test/MyClass.cls',
+        version: 1,
         getText: () => 'public class MyClass { }',
       } as TextDocument;
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      // Mock the compilation result with errors
-      const mockCompileResult = {
-        errors: [
-          {
-            type: 'syntax',
-            severity: 'error',
-            message: 'Test error',
-            line: 1,
-            column: 1,
-            filePath: 'file:///Users/test/MyClass.cls',
-          },
-        ],
-      };
-
-      // Mock the CompilerService
-      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
-      const mockCompile = jest.fn().mockReturnValue(mockCompileResult);
-      CompilerService.mockImplementation(() => ({
-        compile: mockCompile,
-      }));
-
-      // Mock the getDiagnosticsFromErrors function
-      const mockGetDiagnosticsFromErrors = jest.fn().mockReturnValue([
+      // Mock ensureFullAnalysis to return diagnostics
+      const mockDiagnostics = [
         {
           range: {
             start: { line: 0, character: 0 },
@@ -409,12 +365,10 @@ describe('DiagnosticProcessingService', () => {
           message: 'Test error',
           severity: 1,
         },
-      ]);
-
-      const {
-        getDiagnosticsFromErrors,
-      } = require('../../src/utils/handlerUtil');
-      getDiagnosticsFromErrors.mockImplementation(mockGetDiagnosticsFromErrors);
+      ];
+      mockDocumentProcessingService.ensureFullAnalysis.mockResolvedValue(
+        mockDiagnostics,
+      );
 
       const result = await service.processDiagnostic(params);
 

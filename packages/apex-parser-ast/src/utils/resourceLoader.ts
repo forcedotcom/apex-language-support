@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { unzipSync } from 'fflate';
+import { gunzipSync, unzipSync } from 'fflate';
 import { Effect, Fiber } from 'effect';
 import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
@@ -23,6 +23,7 @@ export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
   preloadStdClasses?: boolean;
   zipBuffer?: Uint8Array; // Direct ZIP buffer to use
+  artifactsBuffer?: Uint8Array; // Pre-processed artifacts JSON buffer
 }
 
 interface CompiledArtifact {
@@ -105,24 +106,47 @@ export class ResourceLoader {
     // Initialize empty structure initially
     this.initializeEmptyStructure();
 
-    // If a ZIP buffer is provided directly, use it immediately
+    let artifactsLoaded = false;
+    let zipLoaded = false;
+
+    // If artifacts buffer is provided, try to load it
+    if (options?.artifactsBuffer) {
+      this.logger.debug(() => '📦 Using provided artifacts buffer directly');
+      artifactsLoaded = this.loadArtifactsFromBuffer(options.artifactsBuffer);
+      if (artifactsLoaded) {
+        this.initialized = true;
+      } else {
+        this.logger.warn(() => '⚠️ Artifacts buffer loading failed, will try ZIP fallback');
+      }
+    }
+
+    // If a ZIP buffer is provided, load it (even if artifacts loaded, for fallback data)
     if (options?.zipBuffer) {
       this.logger.debug(() => '📦 Using provided ZIP buffer directly');
       this.zipBuffer = options.zipBuffer;
       this.extractZipFiles();
-      this.initialized = true;
+      zipLoaded = true;
+      // Only set initialized from ZIP if artifacts didn't work
+      if (!artifactsLoaded) {
+        this.initialized = true;
 
-      // Start compilation if loadMode is 'full'
-      if (this.loadMode === 'full') {
-        this.logger.debug(() => '🚀 Starting full compilation mode...');
-        this.compilationPromise = this.compileAllArtifacts();
+        // Start compilation if loadMode is 'full'
+        if (this.loadMode === 'full') {
+          this.logger.debug(() => '🚀 Starting full compilation mode...');
+          this.compilationPromise = this.compileAllArtifacts();
+        }
       }
-    } else {
+    } else if (!artifactsLoaded) {
       // Wait for setZipBuffer() to be called
       this.logger.debug(
         () => '📦 Waiting for ZIP buffer to be provided via setZipBuffer()',
       );
       this.initialized = true;
+    }
+
+    // If neither succeeded, log a warning
+    if (!artifactsLoaded && !zipLoaded && (options?.artifactsBuffer || options?.zipBuffer)) {
+      this.logger.warn(() => '⚠️ ResourceLoader initialized without any standard library data');
     }
   }
 
@@ -406,15 +430,186 @@ export class ResourceLoader {
         `✅ ZIP buffer loaded: ${this.fileIndex.size} classes, ${this.namespaces.size} namespaces`,
     );
 
-    // Start compilation if loadMode is 'full'
-    if (this.loadMode === 'full') {
+    // Start compilation if loadMode is 'full' and we don't already have artifacts
+    if (this.loadMode === 'full' && this.compiledArtifacts.size === 0) {
       this.logger.debug(() => '🚀 Starting full compilation mode...');
       this.compilationPromise = this.compileAllArtifacts();
     } else {
       this.logger.debug(
         () =>
-          `⏭️ Skipping full compilation (loadMode is '${this.loadMode}', not 'full')`,
+          `⏭️ Skipping full compilation (loadMode is '${this.loadMode}', or artifacts already loaded)`,
       );
+    }
+  }
+
+  /**
+   * Set the pre-processed artifacts JSON buffer
+   * @param buffer The artifacts JSON buffer
+   * @returns true if loading succeeded, false otherwise
+   */
+  public setArtifactsBuffer(buffer: Uint8Array): boolean {
+    this.logger.debug(
+      () => `📦 Setting artifacts buffer directly (${buffer.length} bytes)`,
+    );
+    const success = this.loadArtifactsFromBuffer(buffer);
+    if (success) {
+      this.initialized = true;
+    }
+    return success;
+  }
+
+  /**
+   * Get the number of compiled artifacts currently loaded
+   * @returns The count of compiled artifacts
+   */
+  public getCompiledArtifactCount(): number {
+    return this.compiledArtifacts.size;
+  }
+
+  /**
+   * Load artifacts from a JSON buffer
+   * @param buffer The JSON buffer (optionally gzip compressed)
+   * @returns true if loading succeeded, false otherwise
+   * @private
+   */
+  private loadArtifactsFromBuffer(buffer: Uint8Array): boolean {
+    const startTime = Date.now();
+
+    // Prepare temporary maps for atomic swap
+    const tempCompiledArtifacts = new CaseInsensitivePathMap<CompiledArtifact>();
+    const tempFileIndex = new CaseInsensitivePathMap<boolean>();
+    const tempOriginalPaths = new CaseInsensitivePathMap<string>();
+    const tempNamespaces = new Map<string, CIS[]>();
+    const tempNamespaceIndex = new CaseInsensitivePathMap<string>();
+    const tempClassNameToNamespace = new CaseInsensitivePathMap<string>();
+
+    try {
+      let artifactsBuffer = buffer;
+
+      // Check if buffer is GZIP compressed (magic bytes: 0x1f 0x8b)
+      if (buffer.length >= 2 && buffer[0] === 0x1f && buffer[1] === 0x8b) {
+        this.logger.debug(() => '🤐 Decompressing GZIP artifacts...');
+        artifactsBuffer = gunzipSync(buffer);
+      }
+
+      const content = new TextDecoder().decode(artifactsBuffer);
+      const data = JSON.parse(content);
+
+      if (!data.artifacts || typeof data.artifacts !== 'object') {
+        this.logger.error(() => 'Invalid artifacts JSON: missing or invalid "artifacts" property');
+        return false;
+      }
+
+      const artifactEntries = Object.entries(data.artifacts);
+      this.logger.debug(() => `📂 Loading ${artifactEntries.length} artifacts...`);
+
+      let loadedCount = 0;
+      let failedCount = 0;
+
+      for (const [key, artifactData] of artifactEntries) {
+        try {
+          const artifact = artifactData as any;
+          if (!artifact.compilationResult?.result) {
+            failedCount++;
+            continue;
+          }
+
+          // Reconstruct SymbolTable from JSON
+          const symbolTable = SymbolTable.fromJSON(
+            artifact.compilationResult.result,
+          );
+
+          // Validate reconstruction succeeded
+          if (!symbolTable || symbolTable.getAllSymbols().length === 0) {
+            this.logger.debug(() => `⚠️ Empty symbol table for ${key}, skipping`);
+            failedCount++;
+            continue;
+          }
+
+          const storedPath = artifact.path;
+          const normalizedKey = this.normalizePath(storedPath);
+
+          tempCompiledArtifacts.set(normalizedKey, {
+            path: storedPath,
+            compilationResult: {
+              fileName: artifact.compilationResult.fileName ?? storedPath,
+              result: symbolTable,
+              errors: artifact.compilationResult.errors ?? [],
+              warnings: artifact.compilationResult.warnings ?? [],
+              comments: artifact.compilationResult.comments ?? [],
+              commentAssociations: artifact.compilationResult.commentAssociations ?? [],
+            },
+          });
+
+          tempFileIndex.set(normalizedKey, true);
+          tempOriginalPaths.set(normalizedKey, storedPath);
+
+          // Populate namespace structure from path
+          const pathParts = storedPath.split(/[\/\\]/);
+          if (pathParts.length > 1) {
+            const namespace = pathParts[0];
+            const fileName = pathParts[pathParts.length - 1];
+            const namespaceLower = namespace.toLowerCase();
+
+            let existingNamespaceKey = namespace;
+            if (tempNamespaceIndex.has(namespaceLower)) {
+              existingNamespaceKey = tempNamespaceIndex.get(namespaceLower)!;
+            } else {
+              tempNamespaceIndex.set(namespaceLower, namespace);
+            }
+
+            if (!tempNamespaces.has(existingNamespaceKey)) {
+              tempNamespaces.set(existingNamespaceKey, []);
+            }
+            tempNamespaces.get(existingNamespaceKey)!.push(CIS.from(fileName));
+
+            tempClassNameToNamespace.set(normalizedKey, existingNamespaceKey);
+            const classNameOnly = fileName.replace(/\.cls$/i, '');
+            if (classNameOnly) {
+              tempClassNameToNamespace.set(classNameOnly, existingNamespaceKey);
+            }
+          }
+
+          loadedCount++;
+        } catch (artifactError) {
+          this.logger.debug(() => `⚠️ Failed to load artifact ${key}: ${artifactError}`);
+          failedCount++;
+          // Continue with next artifact
+        }
+      }
+
+      // Check if we loaded enough artifacts to consider it successful
+      const successThreshold = 0.9; // 90% success rate required
+      const successRate = loadedCount / artifactEntries.length;
+
+      if (successRate < successThreshold && artifactEntries.length > 10) {
+        this.logger.error(
+          () =>
+            `❌ Artifact loading failed: only ${loadedCount}/${artifactEntries.length} ` +
+            `artifacts loaded (${(successRate * 100).toFixed(1)}% success rate)`,
+        );
+        return false;
+      }
+
+      // ATOMIC SWAP: Only update instance maps after all artifacts are processed
+      this.compiledArtifacts = tempCompiledArtifacts;
+      this.fileIndex = tempFileIndex;
+      this.originalPaths = tempOriginalPaths;
+      this.namespaces = tempNamespaces;
+      this.namespaceIndex = tempNamespaceIndex;
+      this.classNameToNamespace = tempClassNameToNamespace;
+
+      const duration = Date.now() - startTime;
+      this.logger.debug(
+        () =>
+          `✅ Loaded ${loadedCount} artifacts from buffer in ${duration}ms ` +
+          `(${failedCount} failed)`,
+      );
+
+      return true;
+    } catch (error) {
+      this.logger.error(() => `❌ Failed to load artifacts from buffer: ${error}`);
+      return false;
     }
   }
 
@@ -848,6 +1043,7 @@ export class ResourceLoader {
     this.classNameToNamespace.clear();
     this.namespaces.clear();
     this.compiledArtifacts.clear();
+    this.accessCount = 0;
     this.initialized = false;
     this.compilationPromise = null;
 

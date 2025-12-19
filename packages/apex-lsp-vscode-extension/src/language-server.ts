@@ -711,16 +711,16 @@ async function createWebLanguageClient(
       // Read file using virtual file system API
       const zipBuffer = await vscode.workspace.fs.readFile(zipUri);
 
-      // Convert to base64 for transmission
-      const base64Data = Buffer.from(zipBuffer).toString('base64');
-
       logToOutputChannel(
         `✅ Standard library ZIP loaded: ${zipBuffer.length} bytes`,
         'info',
       );
 
+      // Convert to base64 for JSON-RPC transfer (Uint8Array doesn't serialize properly)
+      const base64Data = Buffer.from(zipBuffer).toString('base64');
+
       return {
-        zipData: base64Data,
+        zipDataBase64: base64Data,
         size: zipBuffer.length,
       };
     } catch (error) {
@@ -985,16 +985,16 @@ async function createDesktopLanguageClient(
       // Read file using virtual file system API
       const zipBuffer = await vscode.workspace.fs.readFile(zipUri);
 
-      // Convert to base64 for transmission
-      const base64Data = Buffer.from(zipBuffer).toString('base64');
-
       logToOutputChannel(
         `✅ Standard library ZIP loaded: ${zipBuffer.length} bytes`,
         'info',
       );
 
+      // Convert to base64 for JSON-RPC transfer (Uint8Array doesn't serialize properly)
+      const base64Data = Buffer.from(zipBuffer).toString('base64');
+
       return {
-        zipData: base64Data,
+        zipDataBase64: base64Data,
         size: zipBuffer.length,
       };
     } catch (error) {

@@ -6,13 +6,143 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { BuildOptions } from 'esbuild';
-import { copyFileSync, existsSync } from 'fs';
+import type { BuildOptions, Plugin } from 'esbuild';
+import { copyFileSync, existsSync, readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import {
   configureWebWorkerPolyfills,
   nodeBaseConfig,
   runBuilds,
 } from '@salesforce/esbuild-presets';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Plugin to inject pre-processed standard library artifacts for web worker builds.
+ * This replaces the stub std-lib-artifacts.ts with actual binary data.
+ */
+const injectStdLibArtifactsPlugin: Plugin = {
+  name: 'inject-std-lib-artifacts',
+  setup(build) {
+    // Intercept resolution of std-lib-artifacts.ts from custom-services
+    build.onResolve({ filter: /std-lib-artifacts(\.ts)?$/ }, (args) => {
+      if (args.importer.includes('custom-services')) {
+        const artifactsPath = resolve(
+          __dirname,
+          '../apex-parser-ast/resources/StandardApexLibrary.ast.json.gz',
+        );
+
+        // Validate file exists at build time
+        if (!existsSync(artifactsPath)) {
+          console.error(
+            `❌ Standard library artifacts not found: ${artifactsPath}`,
+          );
+          console.error('Run "npm run precompile" in apex-parser-ast first.');
+          throw new Error(`Missing required file: ${artifactsPath}`);
+        }
+
+        return {
+          path: artifactsPath,
+          namespace: 'std-lib-binary',
+        };
+      }
+      return null;
+    });
+
+    // Load the binary file and export as Uint8Array using base64 encoding
+    // This is more efficient than a giant array literal (5MB file becomes ~6.7MB base64 vs ~20MB array literal)
+    build.onLoad(
+      { filter: /.*/, namespace: 'std-lib-binary' },
+      async (args) => {
+        const buffer = readFileSync(args.path);
+        const base64 = buffer.toString('base64');
+
+        // Export a function that decodes on first access (lazy)
+        // This is more efficient than a giant array literal
+        return {
+          contents: `
+          let _cached = null;
+          function decode() {
+            if (_cached) return _cached;
+            const base64 = "${base64}";
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            _cached = bytes;
+            return bytes;
+          }
+          export default { get value() { return decode(); } };
+        `,
+          loader: 'js',
+        };
+      },
+    );
+  },
+};
+
+/**
+ * Plugin to inject standard library ZIP data for web worker builds.
+ * This replaces the stub std-lib-data.ts with actual binary data.
+ * Used as a fallback when artifacts aren't available.
+ */
+const injectStdLibDataPlugin: Plugin = {
+  name: 'inject-std-lib-data',
+  setup(build) {
+    // Intercept resolution of std-lib-data.ts from custom-services
+    build.onResolve({ filter: /std-lib-data(\.ts)?$/ }, (args) => {
+      if (args.importer.includes('custom-services')) {
+        const zipPath = resolve(
+          __dirname,
+          '../apex-parser-ast/resources/StandardApexLibrary.zip',
+        );
+
+        // Validate file exists at build time
+        if (!existsSync(zipPath)) {
+          console.error(`❌ Standard library ZIP not found: ${zipPath}`);
+          throw new Error(`Missing required file: ${zipPath}`);
+        }
+
+        return {
+          path: zipPath,
+          namespace: 'std-lib-zip-binary',
+        };
+      }
+      return null;
+    });
+
+    // Load the binary file and export as Uint8Array using base64 encoding
+    build.onLoad(
+      { filter: /.*/, namespace: 'std-lib-zip-binary' },
+      async (args) => {
+        const buffer = readFileSync(args.path);
+        const base64 = buffer.toString('base64');
+
+        // Export a function that decodes on first access (lazy)
+        return {
+          contents: `
+          let _cached = null;
+          function decode() {
+            if (_cached) return _cached;
+            const base64 = "${base64}";
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            _cached = bytes;
+            return bytes;
+          }
+          export default { get value() { return decode(); } };
+        `,
+          loader: 'js',
+        };
+      },
+    );
+  },
+};
 
 /**
  * External dependencies for Node.js server build.
@@ -74,9 +204,6 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     external: NODE_SERVER_EXTERNAL,
     keepNames: true,
-    // Redirect browser imports to node versions for Node.js builds
-    // This is needed because LCSAdapter imports from vscode-languageserver/browser
-    // Also ensure all vscode-languageserver-protocol paths resolve to the node version
     alias: {
       'vscode-languageserver/browser': 'vscode-languageserver/node',
       'vscode-jsonrpc/browser': 'vscode-jsonrpc/node',
@@ -106,6 +233,12 @@ const builds: BuildOptions[] = [
     treeShaking: true,
     conditions: ['browser', 'worker', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],
+    // Worker build embeds pre-processed artifacts for offline use
+    plugins: [injectStdLibArtifactsPlugin, injectStdLibDataPlugin],
+    loader: {
+      '.zip': 'binary',
+      '.gz': 'binary',
+    },
   },
 ];
 

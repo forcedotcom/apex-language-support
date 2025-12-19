@@ -71,6 +71,15 @@ export const ExtensionMode = {
   Test: 3,
 };
 
+export const UIKind = {
+  Desktop: 1,
+  Web: 2,
+};
+
+export const env = {
+  uiKind: UIKind.Desktop,
+};
+
 export class ThemeColor {
   constructor(public readonly id: string) {}
 }
@@ -95,6 +104,8 @@ export const mockVscode = {
   languages,
   StatusBarAlignment,
   ExtensionMode,
+  UIKind,
+  env,
   ThemeColor,
   Disposable,
 };

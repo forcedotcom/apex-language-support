@@ -24,6 +24,7 @@
   "references": [
     { "path": "../apex-lsp-shared" },
     { "path": "../apex-parser-ast" },
-    { "path": "../lsp-compliant-services" }
+    { "path": "../lsp-compliant-services" },
+    { "path": "../custom-services" }
   ]
 }

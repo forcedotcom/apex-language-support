@@ -75,6 +75,10 @@ import {
   SchedulerMetrics,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
+import {
+  getEmbeddedStandardLibraryArtifacts,
+  getEmbeddedStandardLibraryZip,
+} from '@salesforce/apex-lsp-custom-services';
 
 /**
  * Configuration for the LCS Adapter
@@ -82,6 +86,20 @@ import { Effect } from 'effect';
 export interface LCSAdapterConfig {
   connection: Connection;
   logger?: LoggerInterface;
+}
+
+/**
+ * Status of ResourceLoader initialization
+ */
+interface ResourceLoaderStatus {
+  /** Whether initialization completed (true even on partial failure) */
+  initialized: boolean;
+  /** Whether standard library loaded successfully */
+  standardLibraryLoaded: boolean;
+  /** Number of artifacts loaded (0 if failed) */
+  artifactCount: number;
+  /** Error message if loading failed */
+  error?: string;
 }
 
 /**
@@ -97,12 +115,25 @@ export class LCSAdapter {
   private hoverHandlerRegistered = false;
   private clientCapabilities?: ClientCapabilities;
 
+  /**
+   * Promise that resolves when ResourceLoader is initialized.
+   * Document handlers should wait on this before processing.
+   */
+  private resourceLoaderReady: Promise<ResourceLoaderStatus>;
+  private resolveResourceLoaderReady!: (status: ResourceLoaderStatus) => void;
+
   private constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
     this.logger = config.logger ?? this.createDefaultLogger();
     this.documents = new TextDocuments(TextDocument);
 
     this.diagnosticProcessor = new DiagnosticProcessingService(this.logger);
+
+    // Create a promise that resolves when ResourceLoader is ready
+    // Document handlers will await this before processing
+    this.resourceLoaderReady = new Promise((resolve) => {
+      this.resolveResourceLoaderReady = resolve;
+    });
 
     // Log environment info for debugging
     // Note: Actual mode detection happens via initializationOptions in handleInitialize
@@ -183,8 +214,37 @@ export class LCSAdapter {
         preloadStdClasses: true,
       });
 
-      const zipBuffer = await this.requestStandardLibraryZip();
-      resourceLoader.setZipBuffer(zipBuffer);
+      // Check if we have an embedded standard library ZIP (e.g. in web worker)
+      const embeddedZip = getEmbeddedStandardLibraryZip();
+      const embeddedArtifacts = getEmbeddedStandardLibraryArtifacts();
+
+      let artifactsLoaded = false;
+      let artifactCount = 0;
+
+      if (embeddedArtifacts) {
+        this.logger.debug(() => '📦 Using embedded standard library artifacts');
+        artifactsLoaded = resourceLoader.setArtifactsBuffer(embeddedArtifacts);
+        if (artifactsLoaded) {
+          artifactCount = resourceLoader.getCompiledArtifactCount();
+        }
+      }
+
+      let zipBuffer: Uint8Array | undefined;
+
+      if (embeddedZip) {
+        this.logger.debug(() => '📦 Using embedded standard library ZIP');
+        zipBuffer = embeddedZip;
+      } else if (!embeddedArtifacts) {
+        // Only request ZIP from client if we don't have embedded artifacts
+        this.logger.debug(
+          () => '📦 Requesting standard library ZIP from client...',
+        );
+        zipBuffer = await this.requestStandardLibraryZip();
+      }
+
+      if (zipBuffer) {
+        resourceLoader.setZipBuffer(zipBuffer);
+      }
 
       const stats = resourceLoader.getDirectoryStatistics();
       this.logger.debug(
@@ -195,8 +255,27 @@ export class LCSAdapter {
 
       await resourceLoader.initialize();
       this.logger.debug('✅ ResourceLoader initialization complete');
+
+      this.resolveResourceLoaderReady({
+        initialized: true,
+        standardLibraryLoaded: true,
+        artifactCount,
+      });
     } catch (error) {
+      const errorMessage = formattedError(error);
       this.handleResourceLoaderError(error);
+      this.logger.error(
+        () => `❌ ResourceLoader initialization failed: ${errorMessage}`,
+      );
+
+      // Still resolve even on error so document processing can proceed
+      // (with degraded functionality for standard library types)
+      this.resolveResourceLoaderReady({
+        initialized: true,
+        standardLibraryLoaded: false,
+        artifactCount: 0,
+        error: errorMessage,
+      });
     }
   }
 
@@ -212,9 +291,9 @@ export class LCSAdapter {
     const result = (await this.connection.sendRequest(
       'apex/provideStandardLibrary',
       {},
-    )) as { zipData: string; size: number } | undefined;
+    )) as { zipDataBase64: string; size: number } | undefined;
 
-    if (!result || !result.zipData) {
+    if (!result || !result.zipDataBase64) {
       throw new Error('Client did not provide ZIP data');
     }
 
@@ -222,8 +301,8 @@ export class LCSAdapter {
       () => `📦 Received ZIP buffer from client (${result.size} bytes)`,
     );
 
-    const binaryString = Buffer.from(result.zipData, 'base64');
-    return new Uint8Array(binaryString);
+    // Decode base64 to Uint8Array (Node.js environment)
+    return new Uint8Array(Buffer.from(result.zipDataBase64, 'base64'));
   }
 
   /**
@@ -277,6 +356,7 @@ export class LCSAdapter {
     this.documents.onDidOpen((open) => {
       // Fire-and-forget: LSP notification, no response expected
       // Diagnostics will be published asynchronously via the batcher
+      // Note: Don't wait for ResourceLoader here - basic parsing doesn't need it
       this.logger.debug(
         () =>
           `Processing textDocument/didOpen for: ${open.document.uri} ` +
@@ -287,6 +367,7 @@ export class LCSAdapter {
 
     this.documents.onDidChangeContent((change) => {
       // Fire-and-forget: LSP notification, no response expected
+      // Note: Don't wait for ResourceLoader here - basic parsing doesn't need it
       this.logger.debug(() => `Document changed: ${change.document.uri}`);
       dispatchProcessOnChangeDocument(change);
     });
@@ -393,6 +474,8 @@ export class LCSAdapter {
         async (
           params: DocumentDiagnosticParams,
         ): Promise<DocumentDiagnosticReport> => {
+          // Note: Don't wait for ResourceLoader - basic diagnostics work without it
+          // Type resolution for standard library types may be degraded until ZIP loads
           try {
             const diagnostics =
               await this.diagnosticProcessor.processDiagnostic(params);
@@ -1196,12 +1279,15 @@ export class LCSAdapter {
     // Initialize ResourceLoader with standard library
     // Requests ZIP from client via apex/provideStandardLibrary
     // Client uses vscode.workspace.fs to read from virtual file system
-    this.initializeResourceLoader().catch((error) => {
+    // IMPORTANT: Must await to ensure ZIP is loaded before processing documents
+    try {
+      await this.initializeResourceLoader();
+    } catch (error) {
       this.logger.error(
         () =>
-          `❌ Background ResourceLoader initialization failed: ${formattedError(error)}`,
+          `❌ ResourceLoader initialization failed: ${formattedError(error)}`,
       );
-    });
+    }
   }
 
   /**
@@ -1564,6 +1650,16 @@ export class LCSAdapter {
 
     this.connection.onHover(
       async (params: HoverParams): Promise<Hover | null> => {
+        // Wait for ResourceLoader to be ready for standard library type info
+        const status = await this.resourceLoaderReady;
+
+        if (!status.standardLibraryLoaded) {
+          this.logger.debug(
+            () =>
+              `Hover lookup may have limited standard library support: ${status.error ?? 'unknown'}`,
+          );
+        }
+
         this.logger.debug(
           `🔍 [LCSAdapter] Hover request received for ${params.textDocument.uri}` +
             ` at ${params.position.line}:${params.position.character}`,

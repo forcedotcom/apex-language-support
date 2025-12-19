@@ -4190,6 +4190,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           () =>
             `Skipping recursive load attempt for ${fileUri} - already loading`,
         );
+        // Instead of returning null, try to get the symbol directly from the cached artifact
+        // This handles the case where we're recursively resolving during addSymbolTable processing
+        const cachedArtifact =
+          await this.resourceLoader.loadAndCompileClass(classPath);
+        if (cachedArtifact?.compilationResult?.result) {
+          const symbols = cachedArtifact.compilationResult.result.getAllSymbols();
+          const classSymbol = symbols.find(
+            (s) => s.name === className && s.kind === SymbolKind.Class,
+          );
+          if (classSymbol) {
+            classSymbol.fileUri = fileUri;
+            return classSymbol;
+          }
+        }
         return null;
       }
 
@@ -4207,8 +4221,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return null;
         }
         if (artifact?.compilationResult?.result) {
-          // Add the symbol table to the symbol manager to get all symbols including methods
-          await this.addSymbolTable(artifact.compilationResult.result, fileUri);
+          // Check if symbol table is already registered to avoid re-processing
+          const existingSymbolTable =
+            this.symbolGraph.getSymbolTableForFile(fileUri);
+          if (!existingSymbolTable) {
+            // Only add the symbol table if it's not already registered
+            await this.addSymbolTable(
+              artifact.compilationResult.result,
+              fileUri,
+            );
+          }
 
           // Find the class symbol from the loaded symbol table
           const symbols = artifact.compilationResult.result.getAllSymbols();
@@ -5645,7 +5667,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               // Re-check symbol table after a brief moment in case it was just added
               symbolTable = this.symbolGraph.getSymbolTableForFile(contextFile);
               if (!symbolTable) {
-                return null;
+                // Try to get the symbol table from the cached artifact directly
+                const classPath = extractApexLibPath(contextFile);
+                const cachedArtifact =
+                  await this.resourceLoader.loadAndCompileClass(classPath);
+                if (cachedArtifact?.compilationResult?.result) {
+                  symbolTable = cachedArtifact.compilationResult.result;
+                } else {
+                  return null;
+                }
               }
             } else {
               try {
@@ -5660,12 +5690,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 if (artifact && artifact.compilationResult.result) {
                   symbolTable = artifact.compilationResult.result;
 
-                  // Add the symbol table to our graph for future use
-                  await this.addSymbolTable(symbolTable, contextFile);
-
-                  // Re-fetch symbol table to ensure it's registered
-                  symbolTable =
+                  // Check if symbol table is already registered before adding
+                  const existingTable =
                     this.symbolGraph.getSymbolTableForFile(contextFile);
+                  if (!existingTable) {
+                    // Add the symbol table to our graph for future use
+                    await this.addSymbolTable(symbolTable, contextFile);
+
+                    // Re-fetch symbol table to ensure it's registered
+                    symbolTable =
+                      this.symbolGraph.getSymbolTableForFile(contextFile);
+                  } else {
+                    symbolTable = existingTable;
+                  }
                 }
               } catch (_error) {
                 // Error loading, continue

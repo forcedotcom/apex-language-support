@@ -62,7 +62,7 @@ export class DocumentSymbolProcessingService
   ): Promise<SymbolInformation[] | DocumentSymbol[] | null> {
     this.logger.debug(
       () =>
-        `Common Apex Language Server document symbol handler invoked with: ${params}`,
+        `Common Apex Language Server document symbol handler invoked with: ${params.textDocument.uri}`,
     );
 
     try {

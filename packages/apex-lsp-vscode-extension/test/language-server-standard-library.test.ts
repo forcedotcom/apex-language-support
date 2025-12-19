@@ -94,14 +94,14 @@ describe('apex/provideStandardLibrary Request Handler', () => {
 
       const base64Data = Buffer.from(zipBuffer).toString('base64');
       const result = {
-        zipData: base64Data,
+        zipDataBase64: base64Data,
         size: zipBuffer.length,
       };
 
       // Verify result structure
-      expect(result.zipData).toBeDefined();
+      expect(result.zipDataBase64).toBeDefined();
       expect(result.size).toBe(1024);
-      expect(typeof result.zipData).toBe('string');
+      expect(typeof result.zipDataBase64).toBe('string');
       expect(typeof result.size).toBe('number');
     });
 
@@ -184,17 +184,17 @@ describe('apex/provideStandardLibrary Request Handler', () => {
 
       // Client sends response
       const response = {
-        zipData: base64Data,
+        zipDataBase64: base64Data,
         size: zipBuffer.length,
       };
 
       // Verify the complete flow
-      expect(response.zipData).toBeDefined();
+      expect(response.zipDataBase64).toBeDefined();
       expect(response.size).toBe(2048);
-      expect(typeof response.zipData).toBe('string');
+      expect(typeof response.zipDataBase64).toBe('string');
 
       // Verify data round-trip
-      const decodedBuffer = Buffer.from(response.zipData, 'base64');
+      const decodedBuffer = Buffer.from(response.zipDataBase64, 'base64');
       expect(decodedBuffer.length).toBe(response.size);
       expect(new Uint8Array(decodedBuffer)).toEqual(mockZipContent);
     });

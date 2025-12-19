@@ -38,6 +38,7 @@ import { LSPQueueManager, LSPQueueManagerDependencies } from './queue';
 import { ServiceFactory } from './factories/ServiceFactory';
 import { DEFAULT_SERVICE_CONFIG } from './config/ServiceConfiguration';
 import { ApexStorageManager } from './storage/ApexStorageManager';
+import { DocumentProcessingService } from './services/DocumentProcessingService';
 
 // Export storage interfaces and classes
 export * from './storage/ApexStorageBase';
@@ -146,9 +147,15 @@ export function initializeLSPQueueManager(
 export const dispatchProcessOnOpenDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
 ): void => {
-  const queueManager = LSPQueueManager.getInstance();
-  // Error handling is done internally in submitDocumentOpenNotification
-  queueManager.submitDocumentOpenNotification(event);
+  // Use DocumentProcessingService directly for lightweight initial storage
+  // No need to queue a heavy notification task for a simple document open
+  try {
+    const logger = getLogger();
+    const processingService = DocumentProcessingService.getInstance(logger);
+    processingService.processDocumentOpenInternal(event).catch(() => {});
+  } catch (error) {
+    // Logger or service might not be available yet during very early startup
+  }
 };
 
 /**

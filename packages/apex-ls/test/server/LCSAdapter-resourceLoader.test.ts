@@ -30,6 +30,12 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   },
 }));
 
+// Mock custom-services - return undefined for embedded data in tests (simulates dev mode)
+jest.mock('@salesforce/apex-lsp-custom-services', () => ({
+  getEmbeddedStandardLibraryZip: jest.fn(() => undefined),
+  getEmbeddedStandardLibraryArtifacts: jest.fn(() => undefined),
+}));
+
 // Mock the apex-parser-ast package
 jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
   ResourceLoader: {
@@ -146,12 +152,12 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
   describe('initializeResourceLoader', () => {
     it('should successfully request and load standard library ZIP from client', async () => {
-      // Mock successful ZIP data response
-      const mockZipData = Buffer.from('fake zip content').toString('base64');
+      // Mock successful ZIP data response (base64 encoded)
+      const mockZipDataBase64 = Buffer.from('fake zip content').toString('base64');
       const mockZipSize = 1024;
 
       mockConnection.sendRequest.mockResolvedValue({
-        zipData: mockZipData,
+        zipDataBase64: mockZipDataBase64,
         size: mockZipSize,
       });
 
@@ -210,10 +216,10 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
     it('should convert base64 ZIP data to Uint8Array correctly', async () => {
       const testData = 'test zip content';
-      const mockZipData = Buffer.from(testData).toString('base64');
+      const mockZipDataBase64 = Buffer.from(testData).toString('base64');
 
       mockConnection.sendRequest.mockResolvedValue({
-        zipData: mockZipData,
+        zipDataBase64: mockZipDataBase64,
         size: testData.length,
       });
 
@@ -246,10 +252,10 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
     });
 
     it('should call initialize on ResourceLoader after setting ZIP buffer', async () => {
-      const mockZipData = Buffer.from('zip content').toString('base64');
+      const mockZipDataBase64 = Buffer.from('zip content').toString('base64');
 
       mockConnection.sendRequest.mockResolvedValue({
-        zipData: mockZipData,
+        zipDataBase64: mockZipDataBase64,
         size: 1024,
       });
 
@@ -290,10 +296,10 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         logger: mockLogger,
       });
 
-      const mockZipData = Buffer.from('zip content').toString('base64');
+      const mockZipDataBase64 = Buffer.from('zip content').toString('base64');
 
       mockConnection.sendRequest.mockResolvedValue({
-        zipData: mockZipData,
+        zipDataBase64: mockZipDataBase64,
         size: 1024,
       });
 
@@ -362,9 +368,9 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         'initializeResourceLoader',
       );
 
-      const mockZipData = Buffer.from('zip content').toString('base64');
+      const mockZipDataBase64 = Buffer.from('zip content').toString('base64');
       mockConnection.sendRequest.mockResolvedValue({
-        zipData: mockZipData,
+        zipDataBase64: mockZipDataBase64,
         size: 1024,
       });
 

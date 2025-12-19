@@ -11,10 +11,28 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { DefinitionProcessingService } from '../../src/services/DefinitionProcessingService';
 import { ApexSymbol } from '@salesforce/apex-lsp-parser-ast';
+import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
+import { DocumentProcessingService } from '../../src/services/DocumentProcessingService';
+
+// Mock the storage manager
+jest.mock('../../src/storage/ApexStorageManager', () => ({
+  ApexStorageManager: {
+    getInstance: jest.fn(),
+  },
+}));
+
+// Mock the document processing service
+jest.mock('../../src/services/DocumentProcessingService', () => ({
+  DocumentProcessingService: {
+    getInstance: jest.fn(),
+  },
+}));
 
 describe('DefinitionProcessingService', () => {
   let service: DefinitionProcessingService;
   let logger: any;
+  let mockStorage: any;
+  let mockDocumentProcessingService: any;
 
   beforeEach(() => {
     // Reset mocks
@@ -22,6 +40,26 @@ describe('DefinitionProcessingService', () => {
 
     // Setup logger
     logger = getLogger();
+
+    // Setup storage mock
+    mockStorage = {
+      getDocument: jest.fn().mockResolvedValue({
+        uri: 'file:///test/TestClass.cls',
+        version: 1,
+        getText: () => 'public class TestClass { }',
+      }),
+    };
+    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
+      getStorage: jest.fn().mockReturnValue(mockStorage),
+    });
+
+    // Setup document processing service mock
+    mockDocumentProcessingService = {
+      ensureFullAnalysis: jest.fn().mockResolvedValue([]),
+    };
+    (DocumentProcessingService.getInstance as jest.Mock).mockReturnValue(
+      mockDocumentProcessingService,
+    );
 
     // Create service instance
     service = new DefinitionProcessingService(logger);

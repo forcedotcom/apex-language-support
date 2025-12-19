@@ -142,6 +142,27 @@
     "@salesforce/apex-lsp-compliant-services#bundle": {
       "dependsOn": ["compile", "@salesforce/esbuild-presets#compile"],
       "outputs": ["dist/**"]
+    },
+    "@salesforce/apex-lsp-parser-ast#precompile": {
+      "dependsOn": ["@salesforce/apex-lsp-shared#compile"],
+      "outputs": ["src/generated/**", "out/**", "resources/**"]
+    },
+    "@salesforce/apex-lsp-custom-services#compile": {
+      "dependsOn": [
+        "^compile",
+        "@salesforce/apex-lsp-parser-ast#precompile",
+        "@salesforce/apex-lsp-parser-ast#compile"
+      ],
+      "outputs": ["out/**", "*.tsbuildinfo"]
+    },
+    "@salesforce/apex-lsp-testbed#compile": {
+      "dependsOn": [
+        "^compile",
+        "@salesforce/apex-lsp-parser-ast#precompile",
+        "@salesforce/apex-lsp-parser-ast#compile",
+        "@salesforce/apex-lsp-custom-services#compile"
+      ],
+      "outputs": ["out/**", "*.tsbuildinfo"]
     }
   }
 }

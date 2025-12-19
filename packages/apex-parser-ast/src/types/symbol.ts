@@ -1529,7 +1529,15 @@ export class SymbolTable {
     };
 
     const cleanSymbol = (symbol: ApexSymbol): CleanedSymbol => {
-      const cleaned = { ...symbol } as CleanedSymbol;
+      // Create a shallow copy and remove redundant fields
+      const { fileUri, ...rest } = symbol;
+      const cleaned = { ...rest } as CleanedSymbol;
+
+      // Also clean the key
+      if (cleaned.key) {
+        const { fileUri: _, ...keyRest } = cleaned.key;
+        cleaned.key = keyRest as any;
+      }
 
       // Handle enum values
       if (symbol.kind === SymbolKind.Enum) {
@@ -1573,19 +1581,333 @@ export class SymbolTable {
     }));
 
     return {
+      fileUri: this.fileUri,
       symbols: cleanedSymbols,
       scopes: cleanedScopes,
+      references: this.references,
+      hierarchicalReferences: this.hierarchicalReferences,
     };
   }
 
   /**
+   * Reconstruct a SymbolLocation from JSON
+   * @private
+   */
+  private static reconstructLocation(locationData: any): SymbolLocation | null {
+    if (!locationData || typeof locationData !== 'object') {
+      return null;
+    }
+
+    const { symbolRange, identifierRange, range } = locationData;
+
+    // Handle both old format (range) and new format (symbolRange/identifierRange)
+    let finalSymbolRange: Range | undefined;
+    let finalIdentifierRange: Range | undefined;
+
+    if (symbolRange && typeof symbolRange === 'object') {
+      finalSymbolRange = {
+        startLine: symbolRange.startLine ?? 0,
+        startColumn: symbolRange.startColumn ?? 0,
+        endLine: symbolRange.endLine ?? symbolRange.startLine ?? 0,
+        endColumn: symbolRange.endColumn ?? symbolRange.startColumn ?? 0,
+      };
+    } else if (range && typeof range === 'object') {
+      // Fallback to old format
+      finalSymbolRange = {
+        startLine: range.startLine ?? 0,
+        startColumn: range.startColumn ?? 0,
+        endLine: range.endLine ?? range.startLine ?? 0,
+        endColumn: range.endColumn ?? range.startColumn ?? 0,
+      };
+    }
+
+    if (identifierRange && typeof identifierRange === 'object') {
+      finalIdentifierRange = {
+        startLine: identifierRange.startLine ?? 0,
+        startColumn: identifierRange.startColumn ?? 0,
+        endLine: identifierRange.endLine ?? identifierRange.startLine ?? 0,
+        endColumn: identifierRange.endColumn ?? identifierRange.startColumn ?? 0,
+      };
+    } else if (finalSymbolRange) {
+      // Fallback to symbolRange if identifierRange not provided
+      finalIdentifierRange = finalSymbolRange;
+    }
+
+    // At minimum we need identifierRange for position-based lookups
+    if (!finalIdentifierRange) {
+      return null;
+    }
+
+    // Use symbolRange if available, otherwise use identifierRange
+    return {
+      symbolRange: finalSymbolRange ?? finalIdentifierRange,
+      identifierRange: finalIdentifierRange,
+    };
+  }
+
+  /**
+   * Reconstruct a SymbolKey from JSON, restoring fileUri
+   * @private
+   */
+  private static reconstructKey(
+    keyData: any,
+    fileUri: string | undefined,
+    kind: SymbolKind,
+  ): SymbolKey {
+    if (!keyData || typeof keyData !== 'object') {
+      // Fallback: create minimal key
+      return {
+        prefix: kind,
+        name: '',
+        path: fileUri ? [fileUri] : [],
+        unifiedId: '',
+        fileUri: fileUri,
+        kind,
+      };
+    }
+
+    return {
+      prefix: keyData.prefix ?? kind,
+      name: keyData.name ?? '',
+      path: Array.isArray(keyData.path) ? keyData.path : fileUri ? [fileUri] : [],
+      unifiedId: keyData.unifiedId ?? '',
+      fileUri: fileUri ?? keyData.fileUri,
+      fqn: keyData.fqn,
+      kind: keyData.kind ?? kind,
+    };
+  }
+
+  /**
+   * Reconstruct a proper ApexSymbol from JSON data
+   * Ensures all required fields exist and have correct types
+   * @private
+   */
+  private static reconstructSymbol(
+    symbolData: any,
+    fileUri: string | undefined,
+  ): ApexSymbol | null {
+    // Validate required fields
+    if (!symbolData || typeof symbolData !== 'object') {
+      return null;
+    }
+
+    const { id, name, kind, location } = symbolData;
+
+    if (!id || typeof id !== 'string') return null;
+    if (!name || typeof name !== 'string') return null;
+    if (!kind || !Object.values(SymbolKind).includes(kind)) return null;
+    if (!location || typeof location !== 'object') return null;
+
+    // Reconstruct location with proper structure
+    const reconstructedLocation = this.reconstructLocation(location);
+    if (!reconstructedLocation) return null;
+
+    // Reconstruct key with fileUri restored
+    const reconstructedKey = this.reconstructKey(symbolData.key, fileUri, kind);
+
+    // Reconstruct modifiers with defaults
+    const modifiers: SymbolModifiers = symbolData.modifiers
+      ? {
+          visibility:
+            symbolData.modifiers.visibility ?? SymbolVisibility.Default,
+          isStatic: symbolData.modifiers.isStatic ?? false,
+          isFinal: symbolData.modifiers.isFinal ?? false,
+          isAbstract: symbolData.modifiers.isAbstract ?? false,
+          isVirtual: symbolData.modifiers.isVirtual ?? false,
+          isOverride: symbolData.modifiers.isOverride ?? false,
+          isTransient: symbolData.modifiers.isTransient ?? false,
+          isTestMethod: symbolData.modifiers.isTestMethod ?? false,
+          isWebService: symbolData.modifiers.isWebService ?? false,
+          isBuiltIn: symbolData.modifiers.isBuiltIn ?? false,
+        }
+      : {
+          visibility: SymbolVisibility.Default,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        };
+
+    // Build the symbol with all properties
+    const symbol: ApexSymbol = {
+      id,
+      name,
+      kind,
+      location: reconstructedLocation,
+      fileUri: fileUri ?? symbolData.fileUri ?? '',
+      parentId: symbolData.parentId ?? null,
+      key: reconstructedKey,
+      _isLoaded: true,
+      modifiers,
+    };
+
+    // Copy optional fields if present
+    if (symbolData.fqn) symbol.fqn = symbolData.fqn;
+    if (symbolData.namespace !== undefined)
+      symbol.namespace = symbolData.namespace;
+    if (symbolData.annotations) symbol.annotations = symbolData.annotations;
+    if (symbolData.identifierLocation) {
+      const reconIdLoc = this.reconstructLocation(symbolData.identifierLocation);
+      if (reconIdLoc) symbol.identifierLocation = reconIdLoc;
+    }
+    if (symbolData._typeData) symbol._typeData = symbolData._typeData;
+
+    // Handle kind-specific properties
+    // Note: TypeScript type narrowing doesn't work here, so we use type assertions
+    switch (kind) {
+      case SymbolKind.Class:
+        if (symbolData.superClass !== undefined)
+          (symbol as TypeSymbol).superClass = symbolData.superClass;
+        if (symbolData.interfaces !== undefined)
+          (symbol as TypeSymbol).interfaces = Array.isArray(symbolData.interfaces)
+            ? symbolData.interfaces
+            : [];
+        break;
+      case SymbolKind.Interface:
+        if (symbolData.interfaces !== undefined)
+          (symbol as TypeSymbol).interfaces = Array.isArray(symbolData.interfaces)
+            ? symbolData.interfaces
+            : [];
+        break;
+      case SymbolKind.Method:
+      case SymbolKind.Constructor:
+        if (symbolData.returnType !== undefined)
+          (symbol as MethodSymbol).returnType = symbolData.returnType;
+        if (symbolData.parameters !== undefined)
+          (symbol as MethodSymbol).parameters = Array.isArray(
+            symbolData.parameters,
+          )
+            ? symbolData.parameters
+            : [];
+        break;
+      case SymbolKind.Variable:
+      case SymbolKind.Field:
+      case SymbolKind.Property:
+      case SymbolKind.Parameter:
+      case SymbolKind.EnumValue:
+        if (symbolData.type !== undefined)
+          (symbol as VariableSymbol).type = symbolData.type;
+        if (symbolData.initialValue !== undefined)
+          (symbol as VariableSymbol).initialValue = symbolData.initialValue;
+        break;
+      case SymbolKind.Enum:
+        if (symbolData.values !== undefined)
+          (symbol as EnumSymbol).values = Array.isArray(symbolData.values)
+            ? symbolData.values
+            : [];
+        break;
+      case SymbolKind.Trigger:
+        // Triggers are TypeSymbols, handle any trigger-specific properties
+        if (symbolData.objectName !== undefined)
+          (symbol as any).objectName = symbolData.objectName;
+        if (symbolData.events !== undefined)
+          (symbol as any).events = Array.isArray(symbolData.events)
+            ? symbolData.events
+            : [];
+        break;
+    }
+
+    return symbol;
+  }
+
+  /**
    * Create a new symbol table from a JSON representation
-   * @param json The JSON representation of a symbol table
-   * @returns A new symbol table
+   * @param json The JSON representation of a symbol table (from toJSON())
+   * @returns A new symbol table with properly reconstructed symbols
    */
   static fromJSON(json: any): SymbolTable {
     const table = new SymbolTable();
-    // TODO: Implement reconstruction of symbol table from JSON
+
+    if (!json || typeof json !== 'object') {
+      return table;
+    }
+
+    // Set fileUri first - this is needed for symbol reconstruction
+    if (json.fileUri && typeof json.fileUri === 'string') {
+      table.setFileUri(json.fileUri);
+    }
+
+    // Reconstruct symbols
+    if (Array.isArray(json.symbols)) {
+      for (const entry of json.symbols) {
+        if (entry && entry.symbol) {
+          const reconstructed = this.reconstructSymbol(
+            entry.symbol,
+            table.fileUri,
+          );
+          if (reconstructed) {
+            table.addSymbol(reconstructed);
+          }
+        }
+      }
+    }
+
+    // Reconstruct references (TypeReference[])
+    if (Array.isArray(json.references)) {
+      table.references = json.references
+        .map((ref: any) => {
+          // Validate and reconstruct TypeReference structure
+          if (!ref || typeof ref !== 'object') return null;
+          if (!ref.name || typeof ref.name !== 'string') return null;
+          if (!ref.location || typeof ref.location !== 'object') return null;
+
+          const reconstructedLocation = this.reconstructLocation(ref.location);
+          if (!reconstructedLocation) return null;
+
+          return {
+            name: ref.name,
+            location: reconstructedLocation,
+            context:
+              typeof ref.context === 'number'
+                ? ref.context
+                : ReferenceContext.METHOD_CALL,
+            parentContext: ref.parentContext,
+            isResolved: ref.isResolved ?? false,
+            access: ref.access,
+            isStatic: ref.isStatic,
+          } as TypeReference;
+        })
+        .filter((ref: TypeReference | null): ref is TypeReference => ref !== null);
+    }
+
+    // Reconstruct hierarchical references
+    if (Array.isArray(json.hierarchicalReferences)) {
+      table.hierarchicalReferences = json.hierarchicalReferences
+        .map((ref: any) => {
+          if (!ref || typeof ref !== 'object') return null;
+          if (!ref.name || typeof ref.name !== 'string') return null;
+          if (!ref.location || typeof ref.location !== 'object') return null;
+
+          const reconstructedLocation = this.reconstructLocation(ref.location);
+          if (!reconstructedLocation) return null;
+
+          return {
+            name: ref.name,
+            fullPath: Array.isArray(ref.fullPath) ? ref.fullPath : [ref.name],
+            location: reconstructedLocation,
+            context:
+              typeof ref.context === 'number'
+                ? ref.context
+                : ReferenceContext.METHOD_CALL,
+            children: Array.isArray(ref.children) ? ref.children : [],
+            qualifierName: ref.qualifierName,
+            memberName: ref.memberName,
+            qualifierLocation: ref.qualifierLocation
+              ? this.reconstructLocation(ref.qualifierLocation)
+              : undefined,
+            memberLocation: ref.memberLocation
+              ? this.reconstructLocation(ref.memberLocation)
+              : undefined,
+          } as HierarchicalReference;
+        })
+        .filter((ref: HierarchicalReference | null): ref is HierarchicalReference => ref !== null);
+    }
+
     return table;
   }
 }

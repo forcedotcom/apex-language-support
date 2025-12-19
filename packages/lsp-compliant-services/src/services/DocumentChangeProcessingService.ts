@@ -75,7 +75,10 @@ export class DocumentChangeProcessingService
           this.logger,
         );
         // This will schedule a new lazy analysis after debounce
-        await processingService.processDocumentOpenInternal(event);
+        // No need to await here, fire-and-forget
+        processingService.processDocumentOpenInternal(event).catch((e) => {
+          this.logger.error(() => `Error scheduling lazy analysis: ${e}`);
+        });
 
         this.logger.debug(
           () =>
