@@ -14,6 +14,8 @@ import {
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { DefaultApexDocumentSymbolProvider } from '../documentSymbol/ApexDocumentSymbolProvider';
+import { Priority } from '@salesforce/apex-lsp-shared';
+import { DocumentProcessingService } from './DocumentProcessingService';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
   ApexSymbolProcessingManager,
@@ -67,6 +69,23 @@ export class DocumentSymbolProcessingService
       // Get the storage manager instance
       const storageManager = ApexStorageManager.getInstance();
       const storage = storageManager.getStorage();
+
+      // Get the document to check version
+      const document = await storage.getDocument(params.textDocument.uri);
+      if (document) {
+        // Ensure full analysis is performed before symbol lookup
+        const processingService = DocumentProcessingService.getInstance(
+          this.logger,
+        );
+        await processingService.ensureFullAnalysis(
+          params.textDocument.uri,
+          document.version,
+          {
+            priority: Priority.High,
+            reason: 'document symbol request',
+          },
+        );
+      }
 
       // Create the document symbol provider
       const provider = new DefaultApexDocumentSymbolProvider(storage);

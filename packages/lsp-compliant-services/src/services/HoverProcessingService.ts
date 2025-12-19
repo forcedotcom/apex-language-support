@@ -16,8 +16,11 @@ import {
   ApexCapabilitiesManager,
   LoggerInterface,
   ApexSettingsManager,
+  Priority,
 } from '@salesforce/apex-lsp-shared';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { DocumentProcessingService } from './DocumentProcessingService';
+import { getDocumentStateCache } from './DocumentStateCache';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
@@ -94,6 +97,23 @@ export class HoverProcessingService implements IHoverProcessor {
     );
 
     try {
+      // Ensure full analysis is performed before hover lookup
+      const storage = ApexStorageManager.getInstance().getStorage();
+      const document = await storage.getDocument(params.textDocument.uri);
+      if (document) {
+        const processingService = DocumentProcessingService.getInstance(
+          this.logger,
+        );
+        await processingService.ensureFullAnalysis(
+          params.textDocument.uri,
+          document.version,
+          {
+            priority: Priority.Immediate,
+            reason: 'hover request',
+          },
+        );
+      }
+
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
 

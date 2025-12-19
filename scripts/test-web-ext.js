@@ -666,8 +666,12 @@ async function runWebExtensionTests() {
       }
     }
 
-    // Worker files should already be in the dist directory from the extension build
-    // Check if worker files exist in dist directory (using correct filename)
+    // Worker files should be refreshed in the extension dist directory for every run.
+    // In this monorepo, the authoritative worker build comes from apex-ls. If we only
+    // copy when missing, it's easy to end up testing with a stale worker when the
+    // extension dist directory already contains older files.
+    //
+    // Always copy from apex-ls → extension dist to ensure the test uses the latest worker.
     const workerSrc = path.resolve(
       extensionDevelopmentPath,
       'dist/worker.global.js',
@@ -677,41 +681,33 @@ async function runWebExtensionTests() {
       'dist/worker.global.js.map',
     );
 
-    // If worker files don't exist in extension dist, copy them from apex-ls dist
-    if (!fs.existsSync(workerSrc) || !fs.existsSync(workerMapSrc)) {
-      console.log(
-        '⚠️ Worker files not found in extension dist, copying from apex-ls...',
-      );
-      const apexLsWorkerSrc = path.resolve(
-        extensionDevelopmentPath,
-        '../apex-ls/dist/worker.global.js',
-      );
-      const apexLsWorkerMapSrc = path.resolve(
-        extensionDevelopmentPath,
-        '../apex-ls/dist/worker.global.js.map',
-      );
+    console.log('🔄 Refreshing worker files in extension dist from apex-ls...');
+    const apexLsWorkerSrc = path.resolve(
+      extensionDevelopmentPath,
+      '../apex-ls/dist/worker.global.js',
+    );
+    const apexLsWorkerMapSrc = path.resolve(
+      extensionDevelopmentPath,
+      '../apex-ls/dist/worker.global.js.map',
+    );
 
-      const extensionDistDir = path.resolve(extensionDevelopmentPath, 'dist');
-      if (!fs.existsSync(extensionDistDir)) {
-        fs.mkdirSync(extensionDistDir, { recursive: true });
-      }
+    const extensionDistDir = path.resolve(extensionDevelopmentPath, 'dist');
+    if (!fs.existsSync(extensionDistDir)) {
+      fs.mkdirSync(extensionDistDir, { recursive: true });
+    }
 
-      if (fs.existsSync(apexLsWorkerSrc)) {
-        fs.copyFileSync(apexLsWorkerSrc, workerSrc);
-        console.log('✅ Copied worker.global.js from apex-ls');
-      } else {
-        throw new Error(`Worker file not found: ${apexLsWorkerSrc}`);
-      }
-
-      if (fs.existsSync(apexLsWorkerMapSrc)) {
-        fs.copyFileSync(apexLsWorkerMapSrc, workerMapSrc);
-        console.log('✅ Copied worker.global.js.map from apex-ls');
-      } else {
-        console.warn('⚠️ Worker source map not found, continuing without it');
-      }
+    if (fs.existsSync(apexLsWorkerSrc)) {
+      fs.copyFileSync(apexLsWorkerSrc, workerSrc);
+      console.log('✅ Copied worker.global.js from apex-ls (refreshed)');
     } else {
-      console.log('✅ worker.global.js found in dist directory');
-      console.log('✅ worker.global.js.map found in dist directory');
+      throw new Error(`Worker file not found: ${apexLsWorkerSrc}`);
+    }
+
+    if (fs.existsSync(apexLsWorkerMapSrc)) {
+      fs.copyFileSync(apexLsWorkerMapSrc, workerMapSrc);
+      console.log('✅ Copied worker.global.js.map from apex-ls (refreshed)');
+    } else {
+      console.warn('⚠️ Worker source map not found, continuing without it');
     }
 
     console.log('✅ Worker files found in extension dist directory');

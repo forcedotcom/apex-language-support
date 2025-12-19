@@ -52,7 +52,9 @@ export const getWorkspaceSettings = (): ApexLanguageServerSettings => {
 
   // Merge user settings with defaults, ensuring all required properties exist
   const userSettings = { apex: settings };
-  return mergeWithDefaults(userSettings, 'desktop');
+  const runtimePlatform =
+    vscode.env.uiKind === vscode.UIKind.Web ? 'web' : 'desktop';
+  return mergeWithDefaults(userSettings, runtimePlatform);
 };
 
 /**

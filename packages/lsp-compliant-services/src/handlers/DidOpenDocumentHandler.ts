@@ -35,7 +35,8 @@ export class DidOpenDocumentHandler {
   ) {
     this.logger = logger || getLogger();
     this.documentProcessingService =
-      documentProcessingService || new DocumentProcessingService(this.logger);
+      documentProcessingService ||
+      DocumentProcessingService.getInstance(this.logger);
     this.batcher = batcher || null;
   }
 

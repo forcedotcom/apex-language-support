@@ -36,8 +36,9 @@ export interface DocumentState {
   timestamp: number;
   documentLength: number;
 
-  // Symbol indexing state
+  // Analysis state
   symbolsIndexed: boolean;
+  fullAnalysisCompleted: boolean;
 }
 
 /**
@@ -170,11 +171,15 @@ export class DocumentStateCache {
         ...newData,
         // Always update timestamp when merging
         timestamp: Date.now(),
-        // Preserve symbolsIndexed unless explicitly overridden
+        // Preserve symbolsIndexed and fullAnalysisCompleted unless explicitly overridden
         symbolsIndexed:
           newData.symbolsIndexed !== undefined
             ? newData.symbolsIndexed
             : existing.symbolsIndexed,
+        fullAnalysisCompleted:
+          newData.fullAnalysisCompleted !== undefined
+            ? newData.fullAnalysisCompleted
+            : existing.fullAnalysisCompleted,
       };
 
       this.cache.set(uri, merged);
@@ -191,7 +196,8 @@ export class DocumentStateCache {
         documentVersion: newData.documentVersion!,
         timestamp: Date.now(),
         documentLength: newData.documentLength!,
-        symbolsIndexed: newData.symbolsIndexed ?? false, // Default to false for new entries
+        symbolsIndexed: newData.symbolsIndexed ?? false,
+        fullAnalysisCompleted: newData.fullAnalysisCompleted ?? false,
         ...newData,
       };
 

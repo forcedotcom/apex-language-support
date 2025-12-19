@@ -301,7 +301,7 @@ export class ApexSymbolGraph {
 
   // Deferred reference processing configuration
   private readonly DEFERRED_BATCH_SIZE = 50;
-  private readonly MAX_RETRY_ATTEMPTS = 10;
+  private readonly MAX_RETRY_ATTEMPTS = 2;
   private readonly RETRY_DELAY_MS = 100;
   private readonly MAX_RETRY_DELAY_MS = 5000; // Cap exponential backoff at 5 seconds
   private readonly QUEUE_CAPACITY_THRESHOLD = 90; // Don't retry if queue > 90% full

@@ -14,8 +14,9 @@ import {
   MarkupKind,
 } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { Priority, LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { DocumentProcessingService } from './DocumentProcessingService';
 import {
   ISymbolManager,
   ApexSymbolProcessingManager,
@@ -89,6 +90,19 @@ export class CompletionProcessingService implements ICompletionProcessor {
         );
         return [];
       }
+
+      // Ensure full analysis is performed before completion lookup
+      const processingService = DocumentProcessingService.getInstance(
+        this.logger,
+      );
+      await processingService.ensureFullAnalysis(
+        params.textDocument.uri,
+        document.version,
+        {
+          priority: Priority.Immediate,
+          reason: 'completion request',
+        },
+      );
 
       // Analyze completion context
       const context = this.analyzeCompletionContext(document, params);

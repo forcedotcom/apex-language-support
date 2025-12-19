@@ -11,6 +11,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { DocumentProcessingService } from './DocumentProcessingService';
 
 /**
  * Interface for document close processing functionality
@@ -49,6 +50,18 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
 
     // Start async processing but don't return a promise
     (async () => {
+      // Cancel any pending lazy analysis
+      try {
+        const processingService = DocumentProcessingService.getInstance(
+          this.logger,
+        );
+        processingService.handleDocumentClose(event.document.uri);
+      } catch (error) {
+        this.logger.debug(
+          () => `Could not notify DocumentProcessingService of close: ${error}`,
+        );
+      }
+
       // Get the storage manager instance
       let storage;
       try {

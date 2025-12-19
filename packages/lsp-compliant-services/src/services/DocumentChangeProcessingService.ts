@@ -11,6 +11,8 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { DocumentProcessingService } from './DocumentProcessingService';
+import { getDocumentStateCache } from './DocumentStateCache';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
@@ -65,9 +67,19 @@ export class DocumentChangeProcessingService
         // Update the document in storage
         await storage.setDocument(event.document.uri, event.document);
 
+        // Invalidate cache and schedule new lazy analysis
+        const cache = getDocumentStateCache();
+        cache.invalidate(event.document.uri);
+
+        const processingService = DocumentProcessingService.getInstance(
+          this.logger,
+        );
+        // This will schedule a new lazy analysis after debounce
+        await processingService.processDocumentOpenInternal(event);
+
         this.logger.debug(
           () =>
-            `Document change processed: ${event.document.uri} (version: ${event.document.version})`,
+            `Document change processed and lazy analysis scheduled: ${event.document.uri} (version: ${event.document.version})`,
         );
       } catch (error) {
         this.logger.error(

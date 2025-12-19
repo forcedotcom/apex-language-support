@@ -96,7 +96,8 @@ export class HandlerFactory {
    */
   static createDidOpenDocumentHandler(): DidOpenDocumentHandler {
     const logger = getLogger();
-    const documentProcessingService = new DocumentProcessingService(logger);
+    const documentProcessingService =
+      DocumentProcessingService.getInstance(logger);
     return new DidOpenDocumentHandler(logger, documentProcessingService);
   }
 

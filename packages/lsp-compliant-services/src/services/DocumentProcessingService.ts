@@ -29,14 +29,38 @@ import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
  * Service for processing document open events
  */
 export class DocumentProcessingService {
+  private static instance: DocumentProcessingService | null = null;
   private readonly logger: LoggerInterface;
   private readonly storageManager: ApexStorageManager;
   private batcher: DocumentOpenBatcherService | null = null;
   private batcherShutdown: Effect.Effect<void, never> | null = null;
 
-  constructor(logger: LoggerInterface) {
+  // Lazy analysis state
+  private readonly debounceTimers = new Map<string, NodeJS.Timeout>();
+  private readonly ANALYSIS_DEBOUNCE_MS = 5000;
+
+  private constructor(logger: LoggerInterface) {
     this.logger = logger;
     this.storageManager = ApexStorageManager.getInstance();
+  }
+
+  /**
+   * Get the singleton instance
+   */
+  public static getInstance(
+    logger?: LoggerInterface,
+  ): DocumentProcessingService {
+    if (!DocumentProcessingService.instance) {
+      if (!logger) {
+        throw new Error(
+          'Logger must be provided when creating DocumentProcessingService instance',
+        );
+      }
+      DocumentProcessingService.instance = new DocumentProcessingService(
+        logger,
+      );
+    }
+    return DocumentProcessingService.instance;
   }
 
   /**
@@ -77,16 +101,7 @@ export class DocumentProcessingService {
   }
 
   /**
-   * Process a single document open event internally (used by batcher)
-   */
-  public async processDocumentOpenInternal(
-    event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined> {
-    return await this.processDocumentOpenSingle(event);
-  }
-
-  /**
-   * Process multiple document open events in a batch
+   * Process multiple document open events in a batch (Minimal overhead)
    */
   public async processDocumentOpenBatch(
     events: TextDocumentChangeEvent<TextDocument>[],
@@ -96,230 +111,141 @@ export class DocumentProcessingService {
     }
 
     this.logger.debug(
-      () => `Processing batch of ${events.length} document opens`,
+      () =>
+        `Processing batch of ${events.length} document opens (minimal/lazy)`,
     );
 
     const storage = this.storageManager.getStorage();
     const cache = getDocumentStateCache();
-    const compilerService = new CompilerService();
-    const backgroundManager = ApexSymbolProcessingManager.getInstance();
 
-    // Separate cached and uncached documents
-    const uncachedEvents: TextDocumentChangeEvent<TextDocument>[] = [];
-    const cachedResults: (Diagnostic[] | undefined)[] = [];
+    const results: (Diagnostic[] | undefined)[] = [];
 
     for (const event of events) {
-      const cached = cache.getSymbolResult(
-        event.document.uri,
-        event.document.version,
-      );
-      if (cached) {
-        cachedResults.push(cached.diagnostics);
-        // Still update storage
-        await storage.setDocument(event.document.uri, event.document);
+      // 1. Store the document (lightweight)
+      await storage.setDocument(event.document.uri, event.document);
 
-        // Even if cached, ensure symbols are added to the symbol manager
-        // (they might have been cached from a diagnostic request that didn't add symbols)
-        if (cached.symbolTable) {
-          const symbolManager = backgroundManager.getSymbolManager();
-          const existingSymbols = symbolManager.findSymbolsInFile(
-            event.document.uri,
-          );
-          if (existingSymbols.length === 0) {
-            this.logger.debug(
-              () =>
-                `Batch: Cached file ${event.document.uri} has no symbols in manager, adding them now`,
-            );
-            await symbolManager.addSymbolTable(
-              cached.symbolTable,
-              event.document.uri,
-            );
-            this.logger.debug(
-              () =>
-                `Batch: Successfully added cached symbols synchronously for ${event.document.uri}`,
-            );
-          }
-        }
-      } else {
-        uncachedEvents.push(event);
-      }
-    }
-
-    // Process uncached documents in batch
-    const results: (Diagnostic[] | undefined)[] = [...cachedResults];
-
-    if (uncachedEvents.length > 0) {
-      try {
-        // Create listeners for each file
-        // Store listeners and symbol tables so we can access them later
-        const listeners: ApexSymbolCollectorListener[] = [];
-        const compileConfigs = uncachedEvents.map((event) => {
-          const table = new SymbolTable();
-          const listener = new ApexSymbolCollectorListener(table);
-          listeners.push(listener);
-          return {
-            content: event.document.getText(),
-            fileName: event.document.uri,
-            listener,
-            options: {},
-          };
+      // 2. Initialize cache entry (lightweight)
+      const existing = cache.get(event.document.uri, event.document.version);
+      if (!existing) {
+        cache.merge(event.document.uri, {
+          documentVersion: event.document.version,
+          documentLength: event.document.getText().length,
+          symbolsIndexed: false,
+          fullAnalysisCompleted: false,
+          diagnostics: [], // No diagnostics initially
         });
-
-        const compileResults = await Effect.runPromise(
-          compilerService.compileMultipleWithConfigs(compileConfigs),
-        );
-
-        // Process each result
-        for (let i = 0; i < uncachedEvents.length; i++) {
-          const event = uncachedEvents[i];
-          const compileResult = compileResults[i];
-          const listener = listeners[i];
-
-          // Update storage
-          await storage.setDocument(event.document.uri, event.document);
-
-          if (compileResult) {
-            // Extract diagnostics - handle both CompilationResult and CompilationResultWithComments
-            const diagnostics = getDiagnosticsFromErrors(compileResult.errors);
-
-            // Get symbol table from result or listener
-            // compileResult.result should be the SymbolTable, but fallback to listener.getResult()
-            let symbolTable: SymbolTable | undefined;
-            if (compileResult.result instanceof SymbolTable) {
-              symbolTable = compileResult.result;
-            } else if (listener instanceof ApexSymbolCollectorListener) {
-              symbolTable = listener.getResult();
-            }
-
-            this.logger.debug(
-              () =>
-                `Batch processing ${event.document.uri}: symbolTable extracted: ` +
-                `${symbolTable ? 'yes' : 'no'}, from result: ${compileResult.result instanceof SymbolTable}, ` +
-                `from listener: ${listener instanceof ApexSymbolCollectorListener}`,
-            );
-
-            // Cache diagnostics and symbol table
-            cache.merge(event.document.uri, {
-              symbolTable,
-              diagnostics,
-              documentVersion: event.document.version,
-              documentLength: event.document.getText().length,
-              symbolsIndexed: false,
-            });
-
-            // Add symbols synchronously so they're immediately available for hover/goto definition
-            // Then queue background processing for cross-file resolution and references
-            if (symbolTable) {
-              const symbolManager = backgroundManager.getSymbolManager();
-              this.logger.debug(
-                () =>
-                  `Adding symbols synchronously for ${event.document.uri} (batch processing)`,
-              );
-              // Add symbols immediately (synchronous)
-              await symbolManager.addSymbolTable(
-                symbolTable,
-                event.document.uri,
-              );
-              this.logger.debug(
-                () =>
-                  `Successfully added symbols synchronously for ${event.document.uri}`,
-              );
-
-              // Queue additional background processing for cross-file resolution and references
-              backgroundManager.processSymbolTable(
-                symbolTable,
-                event.document.uri,
-                {
-                  priority: Priority.Normal,
-                  enableCrossFileResolution: true,
-                  enableReferenceProcessing: true,
-                },
-                event.document.version,
-              );
-            } else {
-              this.logger.warn(
-                () =>
-                  `No symbol table extracted for ${event.document.uri} in batch processing`,
-              );
-            }
-
-            results.push(diagnostics);
-          } else {
-            results.push(undefined);
-          }
-        }
-      } catch (error) {
-        this.logger.error(
-          () =>
-            `Error processing batch: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        // Return empty diagnostics for failed items
-        for (let i = 0; i < uncachedEvents.length; i++) {
-          results.push([]);
-        }
       }
+
+      // 3. Schedule lazy full analysis
+      this.scheduleLazyAnalysis(event.document.uri, event.document.version);
+
+      results.push([]); // Return empty diagnostics initially
     }
 
     return results;
   }
 
   /**
-   * Process a single document open event
+   * Schedule full analysis after a debounce period
    */
-  private async processDocumentOpenSingle(
-    event: TextDocumentChangeEvent<TextDocument>,
+  private scheduleLazyAnalysis(uri: string, version: number): void {
+    // Clear existing timer if any
+    const existingTimer = this.debounceTimers.get(uri);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // Set new timer
+    const timer = setTimeout(async () => {
+      this.debounceTimers.delete(uri);
+      try {
+        await this.ensureFullAnalysis(uri, version, {
+          priority: Priority.Low,
+          reason: 'debounce',
+        });
+      } catch (error) {
+        this.logger.error(
+          () => `Error in lazy analysis for ${uri} (v${version}): ${error}`,
+        );
+      }
+    }, this.ANALYSIS_DEBOUNCE_MS);
+
+    this.debounceTimers.set(uri, timer);
+  }
+
+  /**
+   * Ensure full analysis has been performed for a document version
+   */
+  public async ensureFullAnalysis(
+    uri: string,
+    version: number,
+    options: {
+      priority: Priority;
+      reason: string;
+      force?: boolean;
+    },
+  ): Promise<Diagnostic[] | undefined> {
+    const cache = getDocumentStateCache();
+    const cached = cache.get(uri, version);
+
+    if (
+      !options.force &&
+      cached?.fullAnalysisCompleted &&
+      cached.diagnostics !== undefined
+    ) {
+      this.logger.debug(
+        () =>
+          `Full analysis already completed for ${uri} (v${version}) [Reason: ${options.reason}]`,
+      );
+      return cached.diagnostics;
+    }
+
+    this.logger.debug(
+      () =>
+        `Performing full analysis for ${uri} (v${version}) [Reason: ${options.reason}]`,
+    );
+
+    // Cancel any pending debounce timer since we're doing it now
+    const timer = this.debounceTimers.get(uri);
+    if (timer) {
+      clearTimeout(timer);
+      this.debounceTimers.delete(uri);
+    }
+
+    return await this.performFullAnalysis(uri, version, options.priority);
+  }
+
+  /**
+   * Perform the expensive full analysis (parsing, symbols, diagnostics)
+   */
+  private async performFullAnalysis(
+    uri: string,
+    version: number,
+    priority: Priority,
   ): Promise<Diagnostic[] | undefined> {
     const storage = this.storageManager.getStorage();
     const cache = getDocumentStateCache();
     const compilerService = new CompilerService();
     const backgroundManager = ApexSymbolProcessingManager.getInstance();
 
-    // Check cache first
-    const cached = cache.getSymbolResult(
-      event.document.uri,
-      event.document.version,
-    );
-    if (cached) {
-      await storage.setDocument(event.document.uri, event.document);
-
-      // Even if cached, we need to ensure symbols are added to the symbol manager
-      // (they might have been cached from a diagnostic request that didn't add symbols)
-      if (cached.symbolTable) {
-        const symbolManager = backgroundManager.getSymbolManager();
-        // Check if symbols already exist for this file
-        const existingSymbols = symbolManager.findSymbolsInFile(
-          event.document.uri,
-        );
-        if (existingSymbols.length === 0) {
-          this.logger.debug(
-            () =>
-              `Cached file ${event.document.uri} has no symbols in manager, adding them now`,
-          );
-          await symbolManager.addSymbolTable(
-            cached.symbolTable,
-            event.document.uri,
-          );
-          this.logger.debug(
-            () =>
-              `Successfully added cached symbols synchronously for ${event.document.uri}`,
-          );
-        }
-      }
-
-      return cached.diagnostics;
+    const document = await storage.getDocument(uri);
+    if (!document || document.version !== version) {
+      this.logger.warn(
+        () =>
+          `Cannot perform full analysis for ${uri}: document not found or version mismatch ` +
+          `(expected v${version}, found ${document ? 'v' + document.version : 'none'})`,
+      );
+      return undefined;
     }
 
     try {
-      // Update storage
-      await storage.setDocument(event.document.uri, event.document);
-
       // Compile - create listener
       const table = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(table);
 
       const compileResult = compilerService.compile(
-        event.document.getText(),
-        event.document.uri,
+        document.getText(),
+        uri,
         listener,
         {},
       );
@@ -336,49 +262,34 @@ export class DocumentProcessingService {
 
         this.logger.debug(
           () =>
-            `Single processing ${event.document.uri}: symbolTable extracted: ${symbolTable ? 'yes' : 'no'}, ` +
-            `type: ${typeof compileResult.result}, instanceof: ${compileResult.result instanceof SymbolTable}`,
+            `Full analysis completed for ${uri}: symbolTable extracted: ${symbolTable ? 'yes' : 'no'}`,
         );
 
-        // Cache diagnostics and symbol table
-        cache.merge(event.document.uri, {
+        // Cache diagnostics and symbol table, mark as completed
+        cache.merge(uri, {
           symbolTable,
           diagnostics,
-          documentVersion: event.document.version,
-          documentLength: event.document.getText().length,
+          documentVersion: version,
+          documentLength: document.getText().length,
           symbolsIndexed: false,
+          fullAnalysisCompleted: true,
         });
 
-        // Add symbols synchronously so they're immediately available for hover/goto definition
-        // Then queue background processing for cross-file resolution and references
+        // Add symbols synchronously so they're immediately available
         if (symbolTable) {
           const symbolManager = backgroundManager.getSymbolManager();
-          this.logger.debug(
-            () =>
-              `Adding symbols synchronously for ${event.document.uri} (single processing)`,
-          );
-          // Add symbols immediately (synchronous)
-          await symbolManager.addSymbolTable(symbolTable, event.document.uri);
-          this.logger.debug(
-            () =>
-              `Successfully added symbols synchronously for ${event.document.uri}`,
-          );
+          await symbolManager.addSymbolTable(symbolTable, uri);
 
           // Queue additional background processing for cross-file resolution and references
           backgroundManager.processSymbolTable(
             symbolTable,
-            event.document.uri,
+            uri,
             {
-              priority: Priority.Normal,
+              priority,
               enableCrossFileResolution: true,
               enableReferenceProcessing: true,
             },
-            event.document.version,
-          );
-        } else {
-          this.logger.warn(
-            () =>
-              `No symbol table extracted for ${event.document.uri} in single processing`,
+            version,
           );
         }
 
@@ -388,11 +299,33 @@ export class DocumentProcessingService {
       return [];
     } catch (error) {
       this.logger.error(
-        () =>
-          `Error processing document open for ${event.document.uri}: ${error}`,
+        () => `Error during full analysis for ${uri}: ${error}`,
       );
       return [];
     }
+  }
+
+  /**
+   * Handle document close - cancel any pending analysis
+   */
+  public handleDocumentClose(uri: string): void {
+    const timer = this.debounceTimers.get(uri);
+    if (timer) {
+      this.logger.debug(
+        () => `Cancelling pending lazy analysis for ${uri} (document closed)`,
+      );
+      clearTimeout(timer);
+      this.debounceTimers.delete(uri);
+    }
+  }
+
+  /**
+   * Process a single document open event internally (used by batcher)
+   */
+  public async processDocumentOpenInternal(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<Diagnostic[] | undefined> {
+    return await this.processDocumentOpenBatch([event]).then((r) => r[0]);
   }
 }
 

@@ -8,6 +8,8 @@
 
 import { Diagnostic, DocumentDiagnosticParams } from 'vscode-languageserver';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { Priority } from '@salesforce/apex-lsp-shared';
+import { DocumentProcessingService } from './DocumentProcessingService';
 import {
   CompilerService,
   SymbolTable,
@@ -206,51 +208,25 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         return [];
       }
 
-      // Check parse result cache first
-      const parseCache = getDocumentStateCache();
-      const cached = parseCache.getSymbolResult(document.uri, document.version);
-
-      if (cached) {
-        this.logger.debug(
-          () =>
-            `Using cached parse result for diagnostics ${document.uri} (version ${document.version})`,
-        );
-        // Convert cached errors to diagnostics and enhance (with yielding)
-        return await Effect.runPromise(
-          this.enhanceDiagnosticsWithGraphAnalysisEffect(
-            cached.diagnostics,
-            params.textDocument.uri,
-            [],
-          ),
-        );
-      }
-
-      // Create a symbol collector listener
-      const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
-
-      // Parse the document using Effect-based compilation (with yielding)
-      const result = await Effect.runPromise(
-        this.compileDocumentEffect(document, listener),
+      // Ensure full analysis is performed (this handles caching and compilation)
+      const processingService = DocumentProcessingService.getInstance(
+        this.logger,
       );
-
-      // Get diagnostics from errors
-      const diagnostics = getDiagnosticsFromErrors(result.errors);
-
-      // Cache the parse result
-      parseCache.merge(document.uri, {
-        symbolTable: table,
-        diagnostics,
-        documentVersion: document.version,
-        documentLength: document.getText().length,
-      });
+      const diagnostics = await processingService.ensureFullAnalysis(
+        params.textDocument.uri,
+        document.version,
+        {
+          priority: Priority.Normal,
+          reason: 'diagnostic request',
+        },
+      );
 
       // Enhance diagnostics with cross-file analysis using ApexSymbolManager (with yielding)
       const enhancedDiagnostics = await Effect.runPromise(
         this.enhanceDiagnosticsWithGraphAnalysisEffect(
-          diagnostics,
+          diagnostics || [],
           params.textDocument.uri,
-          result.errors,
+          [], // We don't have the raw parsing errors here anymore, but enhanceDiagnosticsWithGraphAnalysisEffect doesn't seem to use them for anything other than a signature
         ),
       );
       this.logger.debug(

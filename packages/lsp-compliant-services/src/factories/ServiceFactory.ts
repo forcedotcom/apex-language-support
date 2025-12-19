@@ -152,7 +152,7 @@ export class ServiceFactory {
    * Create document processing service
    */
   createDocumentProcessingService(): DocumentProcessingService {
-    return new DocumentProcessingService(this.dependencies.logger);
+    return DocumentProcessingService.getInstance(this.dependencies.logger);
   }
 
   /**
