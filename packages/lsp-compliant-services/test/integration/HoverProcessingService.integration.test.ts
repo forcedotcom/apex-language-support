@@ -76,11 +76,78 @@ describe('HoverProcessingService Integration Tests', () => {
       zipBuffer: standardLibZip,
     });
     await resourceLoader.initialize();
+
+    // Verify ResourceLoader has the System class in its namespace structure
+    // This ensures it can be resolved via resolveStandardApexClass
+    const namespaces = resourceLoader.getStandardNamespaces();
+    const systemNamespace = namespaces.get('System');
+    if (
+      !systemNamespace ||
+      !systemNamespace.some((cls) => cls.toString() === 'System.cls')
+    ) {
+      // If System class is not in the namespace structure, log a warning
+      // but continue - it might be loaded on-demand
+      console.warn(
+        'Warning: System.cls not found in ResourceLoader namespace structure',
+      );
+    }
   });
 
   beforeEach(async () => {
+    // Ensure ResourceLoader singleton is properly initialized with standard library
+    // ApexSymbolManager constructor will call ResourceLoader.getInstance(), which
+    // should return the singleton instance initialized in beforeAll
+    // Verify the instance exists and is initialized
+    const currentResourceLoader = ResourceLoader.getInstance();
+    if (!currentResourceLoader || currentResourceLoader !== resourceLoader) {
+      // If somehow the instance changed, re-initialize it
+      const standardLibZip = loadStandardLibraryZip();
+      (ResourceLoader as any).instance = null;
+      resourceLoader = ResourceLoader.getInstance({
+        loadMode: 'lazy',
+        preloadStdClasses: true,
+        zipBuffer: standardLibZip,
+      });
+      await resourceLoader.initialize();
+    }
+
     // Create a real symbol manager for integration testing
+    // This will use the ResourceLoader singleton initialized above
+    // The ResourceLoader.getInstance() call in ApexSymbolManager constructor
+    // should return the same singleton instance we initialized in beforeAll
     symbolManager = new ApexSymbolManager();
+
+    // Verify that the symbol manager's ResourceLoader is the same instance
+    // This ensures the standard library is accessible
+    const managerResourceLoader = (symbolManager as any).resourceLoader;
+    if (managerResourceLoader !== resourceLoader) {
+      // If they're different, we have a problem - log it but continue
+      console.warn(
+        'Warning: ApexSymbolManager ResourceLoader instance differs from test ResourceLoader',
+      );
+    }
+
+    // Preload the System class to ensure it's available for resolution
+    // This is needed because lazy loading might not have loaded it yet
+    // Do this AFTER creating the symbol manager so it uses the same ResourceLoader instance
+    try {
+      // Ensure System.System is loaded and compiled via ResourceLoader
+      // This makes it available for resolveStandardApexClass to find
+      const systemArtifact =
+        await resourceLoader.loadAndCompileClass('System/System.cls');
+      if (systemArtifact?.compilationResult?.result) {
+        // Add the System class symbol table to the symbol manager's graph
+        // This ensures it's available for findSymbolByName to find
+        const systemUri = 'apexlib://resources/System/System.cls';
+        await symbolManager.addSymbolTable(
+          systemArtifact.compilationResult.result,
+          systemUri,
+        );
+      }
+    } catch (_error) {
+      // Ignore errors - class might already be loaded or might not exist
+      // The ResourceLoader should handle lazy loading on-demand
+    }
 
     // Read the actual Apex class files from fixtures
     const fixturesDir = join(__dirname, '../fixtures/classes');
@@ -286,9 +353,25 @@ describe('HoverProcessingService Integration Tests', () => {
     jest.clearAllMocks();
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     // Clean up ResourceLoader singleton after all tests
     (ResourceLoader as any).instance = null;
+
+    // Clean up BackgroundProcessingInitializationService first
+    // This shuts down background processing and clears any setTimeout-based monitoring
+    try {
+      const {
+        BackgroundProcessingInitializationService,
+      } = require('../../src/services/BackgroundProcessingInitializationService');
+      if (
+        BackgroundProcessingInitializationService &&
+        typeof BackgroundProcessingInitializationService.reset === 'function'
+      ) {
+        await BackgroundProcessingInitializationService.reset();
+      }
+    } catch (_error) {
+      // Ignore errors - module might not be available
+    }
 
     // Clean up ApexSymbolProcessingManager to stop any running intervals
     try {
@@ -296,6 +379,34 @@ describe('HoverProcessingService Integration Tests', () => {
     } catch (_error) {
       // Ignore errors during cleanup
     }
+
+    // Clean up LSPQueueManager to shut down the scheduler
+    // This is important because MissingArtifactUtils may have initialized it
+    // when creating MissingArtifactResolutionService, which uses LSPQueueManager
+    // The queue manager initializes a scheduler that runs a background loop
+    // which must be explicitly shut down to prevent Jest from hanging
+    try {
+      const { LSPQueueManager } = require('../../src/queue/LSPQueueManager');
+      const queueManager = LSPQueueManager.getInstance();
+      if (queueManager && !queueManager.isShutdownState()) {
+        await queueManager.shutdown();
+      } else {
+        // If already shutdown, just reset the singleton to clear it
+        LSPQueueManager.reset();
+      }
+    } catch (_error) {
+      // Module might not be available or other error - try reset anyway
+      try {
+        const { LSPQueueManager } = require('../../src/queue/LSPQueueManager');
+        LSPQueueManager.reset();
+      } catch (_resetError) {
+        // Ignore reset errors - module might not be loaded
+      }
+    }
+
+    // Give Effect-TS resources time to clean up
+    // This allows fibers to complete their cleanup and queues to fully shutdown
+    await new Promise((resolve) => setTimeout(resolve, 100));
   });
 
   describe('Apex Access Modifier Context Analysis', () => {
@@ -1005,7 +1116,7 @@ describe('HoverProcessingService Integration Tests', () => {
     });
 
     // TODO: Fix String.isNotBlank method call resolution - builtin type representations in memory are incomplete
-    it.skip('should provide hover for String.isNotBlank method calls', async () => {
+    it('should provide hover for String.isNotBlank method calls', async () => {
       mockStorage.getDocument.mockResolvedValue(complexTestClassDocument);
 
       const text = complexTestClassDocument.getText();
@@ -1034,12 +1145,7 @@ describe('HoverProcessingService Integration Tests', () => {
       }
     });
 
-    it.skip('should provide hover for String.isNotBlank method name', async () => {
-      // KNOWN LIMITATION: Built-in method name resolution in qualified calls is not yet implemented
-      // This is a documented product gap - see Method-Signature-Type-Resolution-Patterns.md
-      // Status: Product gap - built-in type representations incomplete
-      // Related: Method Name Resolution in Built-in Type Qualified Calls (4 TODOs - SKIPPED)
-
+    it('should provide hover for String.isNotBlank method name', async () => {
       mockStorage.getDocument.mockResolvedValue(complexTestClassDocument);
 
       const text = complexTestClassDocument.getText();

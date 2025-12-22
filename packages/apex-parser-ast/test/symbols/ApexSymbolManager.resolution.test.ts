@@ -366,7 +366,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
   });
 
   describe('Qualified Name Hover Resolution', () => {
-    beforeAll(async () => {
+    beforeEach(async () => {
       // Initialize services for this describe block
       symbolManager = new ApexSymbolManager();
       compilerService = new CompilerService();
@@ -395,6 +395,12 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         'file:///test/QualifiedTestClass.cls',
       );
 
+      const allSymbols = symbolManager.getAllSymbols();
+      const allReferences = symbolManager.getAllReferencesInFile(
+        'file:///test/QualifiedTestClass.cls',
+      );
+      console.log(allSymbols);
+      console.log(allReferences);
       const result = await symbolManager.getSymbolAtPosition(
         'file:///test/QualifiedTestClass.cls',
         { line: 3, character: 20 }, // Position on "FileUtilities"
@@ -723,7 +729,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
   });
 
   describe('Method Name Resolution in Qualified Calls', () => {
-    beforeAll(async () => {
+    beforeEach(async () => {
       // Initialize services for this describe block
       symbolManager = new ApexSymbolManager();
       compilerService = new CompilerService();

@@ -1447,7 +1447,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   // Fix getAllSymbols to return actual symbols
-  private getAllSymbols(): ApexSymbol[] {
+  public getAllSymbols(): ApexSymbol[] {
     // This is a simplified implementation - in practice, you'd want to track all symbols
     const symbols: ApexSymbol[] = [];
 

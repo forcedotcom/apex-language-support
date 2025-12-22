@@ -66,6 +66,7 @@ export interface CompilationOptions {
   includeComments?: boolean;
   includeSingleLineComments?: boolean;
   associateComments?: boolean;
+  enableReferenceCorrection?: boolean; // New option, defaults to true
 }
 
 export class CompilerService {
@@ -151,6 +152,14 @@ export class CompilerService {
 
       if (commentCollector) {
         commentCollector.setTokenStream(tokenStream);
+      }
+
+      // Set reference correction flag BEFORE walking the tree
+      // This ensures the listener uses the correct setting during parsing
+      if (listener instanceof ApexSymbolCollectorListener) {
+        listener.setEnableReferenceCorrection(
+          options.enableReferenceCorrection !== false,
+        );
       }
 
       const walker = new ParseTreeWalker();

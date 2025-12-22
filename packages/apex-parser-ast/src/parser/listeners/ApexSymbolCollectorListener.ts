@@ -115,6 +115,7 @@ import {
   isClassSymbol,
   isInterfaceSymbol,
   isBlockSymbol,
+  isChainedSymbolReference,
 } from '../../utils/symbolNarrowing';
 import {
   isContextType,
@@ -185,6 +186,8 @@ export class ApexSymbolCollectorListener
 
   private hierarchicalResolver = new HierarchicalReferenceResolver();
 
+  private enableReferenceCorrection: boolean = true; // Default to enabled
+
   /**
    * Creates a new instance of the ApexSymbolCollectorListener.
    * @param symbolTable Optional existing symbol table to use. If not provided, a new one will be created.
@@ -213,6 +216,17 @@ export class ApexSymbolCollectorListener
     this.currentFilePath = fileUri;
     this.symbolTable.setFileUri(fileUri);
     this.logger.debug(() => `Set current file path to: ${fileUri}`);
+  }
+
+  /**
+   * Set whether to enable second-pass reference context correction
+   * @param enabled Whether to enable reference correction (defaults to true)
+   */
+  setEnableReferenceCorrection(enabled: boolean): void {
+    this.enableReferenceCorrection = enabled;
+    this.logger.debug(
+      () => `Reference correction ${enabled ? 'enabled' : 'disabled'}`,
+    );
   }
 
   /**
@@ -1595,10 +1609,11 @@ export class ApexSymbolCollectorListener
         const propertyLocation = this.getLocation(
           propertyNameNode as unknown as ParserRuleContext,
         );
-        const propertyReference = SymbolReferenceFactory.createPropertyReference(
-          name,
-          propertyLocation,
-        );
+        const propertyReference =
+          SymbolReferenceFactory.createPropertyReference(
+            name,
+            propertyLocation,
+          );
         this.symbolTable.addTypeReference(propertyReference);
       }
 
@@ -2005,6 +2020,28 @@ export class ApexSymbolCollectorListener
         );
       }
     }
+
+    // Second pass: Correct reference contexts using symbol table
+    this.correctReferenceContexts();
+  }
+
+  /**
+   * Called when exiting the compilation unit (top-level rule for class files)
+   * This is the perfect place for second-pass reference context correction
+   * since all parsing is complete and we have the full symbol table
+   */
+  exitCompilationUnit(): void {
+    // Second pass: Correct reference contexts using symbol table
+    this.correctReferenceContexts();
+  }
+
+  /**
+   * Called when exiting an anonymous unit (top-level rule for anonymous Apex scripts)
+   * This is the perfect place for second-pass reference context correction
+   */
+  exitAnonymousUnit(): void {
+    // Second pass: Correct reference contexts using symbol table
+    this.correctReferenceContexts();
   }
 
   /**
@@ -2134,7 +2171,10 @@ export class ApexSymbolCollectorListener
     try {
       // Check if there's a constructor call on the stack that matches this context
       const stackEntry = this.methodCallStack.peek();
-      if (stackEntry && stackEntry.callRef.context === ReferenceContext.CONSTRUCTOR_CALL) {
+      if (
+        stackEntry &&
+        stackEntry.callRef.context === ReferenceContext.CONSTRUCTOR_CALL
+      ) {
         // Verify this is the constructor call we're exiting by checking location
         // If the top of stack is a constructor call, pop it
         const popped = this.methodCallStack.pop();
@@ -2189,7 +2229,7 @@ export class ApexSymbolCollectorListener
 
   /**
    * Capture unqualified method calls using dedicated MethodCallContext
-   * 
+   *
    * Pushes the method call onto methodCallStack for parameter tracking.
    * The stack entry will collect parameter references as expressions are processed
    * within the ExpressionListContext that follows.
@@ -2226,7 +2266,7 @@ export class ApexSymbolCollectorListener
 
   /**
    * Exit method call - pop from stack and add as parameter if nested
-   * 
+   *
    * If this method call was itself a parameter of another method call (indicated by
    * a parent entry on the stack), it's added to the parent's parameterRefs array.
    * This enables hierarchical tracking of nested method calls like a.b(c.d(e)).
@@ -2364,9 +2404,10 @@ export class ApexSymbolCollectorListener
           const setToken = typeName.SET?.();
           const mapToken = typeName.MAP?.();
           const token = listToken || setToken || mapToken;
-          
+
           if (token) {
-            fullTypeName = token.text || `${listToken ? 'List' : setToken ? 'Set' : 'Map'}`;
+            fullTypeName =
+              token.text || `${listToken ? 'List' : setToken ? 'Set' : 'Map'}`;
             // Get precise location of the token itself, not the entire typeName context
             const identifierRange = this.getIdentifierRange(typeName);
             if (identifierRange) {
@@ -2627,12 +2668,13 @@ export class ApexSymbolCollectorListener
             const objLocation = lhsLoc;
             // Create read references for each identifier in the object expression
             for (const objectName of objectIdentifiers) {
-              const objRef = SymbolReferenceFactory.createVariableUsageReference(
-                objectName,
-                objLocation,
-                parentContext,
-                'read',
-              );
+              const objRef =
+                SymbolReferenceFactory.createVariableUsageReference(
+                  objectName,
+                  objLocation,
+                  parentContext,
+                  'read',
+                );
               this.symbolTable.addTypeReference(objRef);
             }
             // field write/readwrite
@@ -2752,7 +2794,7 @@ export class ApexSymbolCollectorListener
         if (thisToken) {
           return ['this'];
         }
-        
+
         // Check for IdPrimaryContext
         if (isContextType(primary, IdPrimaryContext)) {
           return this.extractIdentifiersFromExpression(primary);
@@ -3251,9 +3293,7 @@ export class ApexSymbolCollectorListener
    * - For loops: ForStatementContext → forControl → forInit/forUpdate (do NOT track as method parameters)
    * - RunAs statement: RunAsStatementContext (do NOT track as method parameters)
    */
-  private isInMethodOrConstructorCall(
-    ctx: ExpressionListContext,
-  ): boolean {
+  private isInMethodOrConstructorCall(ctx: ExpressionListContext): boolean {
     const parent = ctx.parent;
     if (!parent) return false;
 
@@ -3311,15 +3351,15 @@ export class ApexSymbolCollectorListener
   /**
    * Called when entering an expression list (method parameters, constructor arguments, etc.)
    * This handles nested expressions in method calls like a.b.c(x.y.z())
-   * 
+   *
    * The methodCallStack should already have the current method/constructor call on top
    * when this is called for method/constructor parameters. This is because:
    * - enterMethodCall/enterDotMethodCall push onto methodCallStack before ExpressionListContext
    * - enterNewExpression (for constructors) pushes onto methodCallStack before ExpressionListContext
-   * 
+   *
    * Parameter references are collected via addToCurrentMethodParameters() when individual
    * expressions (field access, variable usage, nested method calls) are processed.
-   * 
+   *
    * Note: This method does NOT activate for for loops or runAs statements - those use
    * ExpressionListContext but are not method/constructor calls.
    */
@@ -3331,7 +3371,7 @@ export class ApexSymbolCollectorListener
 
   /**
    * Called when exiting an expression list
-   * 
+   *
    * Parameter references are already associated with method calls via the stack.
    * No cleanup needed - the method call will be popped when exitMethodCall/exitDotMethodCall
    * or exitNewExpression is called.
@@ -3596,11 +3636,12 @@ export class ApexSymbolCollectorListener
           ctx as unknown as ParserRuleContext,
         );
         const parentContext = this.getCurrentMethodName();
-        const declRef = SymbolReferenceFactory.createVariableDeclarationReference(
-          name,
-          identifierLocation,
-          parentContext,
-        );
+        const declRef =
+          SymbolReferenceFactory.createVariableDeclarationReference(
+            name,
+            identifierLocation,
+            parentContext,
+          );
         this.symbolTable.addTypeReference(declRef);
       } catch (e) {
         this.logger.warn(() => `Error creating declaration reference: ${e}`);
@@ -4068,7 +4109,8 @@ export class ApexSymbolCollectorListener
           } else {
             // Fallback to token-based location
             const tokenSymbol = (token as any).symbol || token;
-            const tokenText = tokenSymbol?.text || token?.text || collectionType;
+            const tokenText =
+              tokenSymbol?.text || token?.text || collectionType;
             const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
             const tokenStartCol =
               tokenSymbol?.charPositionInLine ??
@@ -5081,22 +5123,34 @@ export class ApexSymbolCollectorListener
 
         this.symbolTable.addTypeReference(methodRef);
 
-        // Also create a class reference for the qualifier
-        // Always create CLASS_REFERENCE for qualifiers in qualified method calls,
-        // as they represent class names, not variables (even if a variable with the same name exists)
-        if (qualifierLocation) {
-          // Check if qualifier is actually a variable in scope - if so, skip CLASS_REFERENCE
+        // Also create a reference for the qualifier
+        // When correction is enabled, create CLASS_REFERENCE directly
+        // When correction is disabled, create VARIABLE_USAGE so it can be verified it stays as VARIABLE_USAGE
+        if (qualifier && qualifierLocation) {
+          // Check if qualifier is actually a variable in scope - if so, skip creating a reference
           // But for static method calls like FileUtilities.createFile(), FileUtilities is a class, not a variable
           const isVariable = this.isVariableInScope(qualifier);
-          // Only skip if it's definitely a variable AND we're in a context where variables take precedence
-          // For qualified static calls, the qualifier is always a class/namespace
-          if (!isVariable) {
+          // For qualified static calls, always create a reference for the qualifier
+          // When correction is disabled, create VARIABLE_USAGE (won't be upgraded by second pass)
+          // When correction is enabled, create CLASS_REFERENCE directly
+          // Note: We create the reference even if isVariable is true, because in qualified calls,
+          // the qualifier represents a class/namespace, not a variable usage
+          if (this.enableReferenceCorrection) {
+            // Correction enabled: create CLASS_REFERENCE directly
             const classRef = SymbolReferenceFactory.createClassReference(
               qualifier,
               qualifierLocation,
               parentContext,
             );
             this.symbolTable.addTypeReference(classRef);
+          } else {
+            // Correction disabled: create VARIABLE_USAGE (won't be upgraded by second pass)
+            const varRef = SymbolReferenceFactory.createVariableUsageReference(
+              qualifier,
+              qualifierLocation,
+              parentContext,
+            );
+            this.symbolTable.addTypeReference(varRef);
           }
         }
       } else {
@@ -5479,13 +5533,13 @@ export class ApexSymbolCollectorListener
             }
           }
         }
-        
+
         // Also check directly on the expression context for THIS token
         const thisTokenDirect = (lhs as any).THIS?.();
         if (thisTokenDirect) {
           return 'this';
         }
-        
+
         // Use extractIdentifiersFromExpression to get only identifiers, not method calls
         const identifiers = this.extractIdentifiersFromExpression(
           lhs as unknown as ParserRuleContext,
@@ -5542,5 +5596,156 @@ export class ApexSymbolCollectorListener
 
     // Check if the name could be resolved from the standard library
     return resourceLoader.couldResolveSymbol(name);
+  }
+
+  /**
+   * Second pass: Correct reference contexts using symbol table
+   * This fixes VARIABLE_USAGE references that should be CLASS_REFERENCE
+   * when they are actually class qualifiers in qualified calls or base expressions in chains
+   * Called from exitCompilationUnit, exitTriggerUnit, and exitAnonymousUnit
+   */
+  private correctReferenceContexts(): void {
+    // Early return if correction is disabled
+    if (!this.enableReferenceCorrection) {
+      return;
+    }
+
+    const typeReferences = this.symbolTable.getAllReferences();
+    let correctedCount = 0;
+
+    for (const ref of typeReferences) {
+      // Only process VARIABLE_USAGE references that might be misclassified
+      if (ref.context !== ReferenceContext.VARIABLE_USAGE) {
+        continue;
+      }
+
+      // Check if this reference should be CLASS_REFERENCE instead
+      // We can use the symbol table's own symbols to check if it's a class
+      const shouldBeClassRef = this.shouldBeClassReference(ref);
+
+      if (shouldBeClassRef) {
+        this.logger.debug(
+          () =>
+            `[correctReferenceContexts] Upgrading VARIABLE_USAGE "${ref.name}" ` +
+            `to CLASS_REFERENCE`,
+        );
+        ref.context = ReferenceContext.CLASS_REFERENCE;
+        correctedCount++;
+      }
+    }
+
+    if (correctedCount > 0) {
+      this.logger.debug(
+        () =>
+          `[correctReferenceContexts] Corrected ${correctedCount} reference ` +
+          `context(s)`,
+      );
+    }
+  }
+
+  /**
+   * Determine if a VARIABLE_USAGE reference should be CLASS_REFERENCE
+   * Uses the symbol table's own symbols to check if the name is a class
+   */
+  private shouldBeClassReference(ref: SymbolReference): boolean {
+    // First check if this is a qualifier in a qualified call or base expression in a chain
+    // If it is, it should be CLASS_REFERENCE regardless of whether the class is in this file
+    // This handles cross-file class references like FileUtilities.createFile()
+    const isQualifierOrBase =
+      this.isQualifierInQualifiedCall(ref) || this.isBaseExpressionInChain(ref);
+
+    if (isQualifierOrBase) {
+      // This is a qualifier or base expression - should be CLASS_REFERENCE
+      // Even if the class isn't in this file, it's still a class reference
+      return true;
+    }
+
+    // If not a qualifier/base, check if this name resolves to a class in the current symbol table
+    const allSymbols = this.symbolTable.getAllSymbols();
+    const classCandidates = allSymbols.filter(
+      (s) =>
+        (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface) &&
+        s.name === ref.name,
+    );
+
+    if (classCandidates.length === 0) {
+      // Not a class in this file and not a qualifier/base - keep as VARIABLE_USAGE
+      return false;
+    }
+
+    // Found a class in this file - should be CLASS_REFERENCE
+    return true;
+  }
+
+  /**
+   * Check if a reference is a qualifier in a qualified method call
+   */
+  private isQualifierInQualifiedCall(ref: SymbolReference): boolean {
+    // Check if there's a METHOD_CALL reference on the same line that might use this as qualifier
+    const allRefs = this.symbolTable.getAllReferences();
+    const sameLineRefs = allRefs.filter(
+      (r) =>
+        r.location.identifierRange.startLine ===
+        ref.location.identifierRange.startLine,
+    );
+
+    // Look for METHOD_CALL references that come after this reference on the same line
+    for (const otherRef of sameLineRefs) {
+      if (
+        otherRef.context === ReferenceContext.METHOD_CALL &&
+        otherRef.location.identifierRange.startColumn >
+          ref.location.identifierRange.endColumn
+      ) {
+        // Check if this reference's name matches a qualifier in the method call
+        // For chained references, check chainNodes
+        if (isChainedSymbolReference(otherRef)) {
+          const chainNodes = otherRef.chainNodes;
+          if (
+            chainNodes &&
+            chainNodes.length >= 2 &&
+            chainNodes[0].name === ref.name
+          ) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if a reference is the base expression in a chained expression
+   */
+  private isBaseExpressionInChain(ref: SymbolReference): boolean {
+    // Check if there's a CHAINED_TYPE reference that includes this as the first node
+    const allRefs = this.symbolTable.getAllReferences();
+    const sameLineRefs = allRefs.filter(
+      (r) =>
+        r.location.identifierRange.startLine ===
+        ref.location.identifierRange.startLine,
+    );
+
+    for (const otherRef of sameLineRefs) {
+      if (isChainedSymbolReference(otherRef)) {
+        const chainNodes = otherRef.chainNodes;
+        if (chainNodes && chainNodes.length > 0) {
+          const firstNode = chainNodes[0];
+          // Check if positions match exactly (same line and column range)
+          const refRange = ref.location.identifierRange;
+          const nodeRange = firstNode.location.identifierRange;
+          if (
+            firstNode.name === ref.name &&
+            nodeRange.startLine === refRange.startLine &&
+            nodeRange.startColumn === refRange.startColumn &&
+            nodeRange.endColumn === refRange.endColumn
+          ) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
   }
 }
