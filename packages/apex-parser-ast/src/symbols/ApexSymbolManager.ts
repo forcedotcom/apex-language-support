@@ -2247,8 +2247,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return;
       }
 
+      // Mark this reference as resolved since we successfully found the target symbol
+      // This data point allows for better decisions when resolving symbol references later
+      typeRef.isResolved = true;
+
       // Skip creating edges for declaration references; they are not dependencies
-      if (typeRef.context === ReferenceContext.VARIABLE_DECLARATION) {
+      // Note: VARIABLE_DECLARATION and PROPERTY_REFERENCE references are still marked as resolved above
+      // since we successfully found the target symbol, even though we don't add them to the graph
+      // These are for editor UX (hover, go-to-definition) and don't represent actual dependencies
+      if (
+        typeRef.context === ReferenceContext.VARIABLE_DECLARATION ||
+        typeRef.context === ReferenceContext.PROPERTY_REFERENCE
+      ) {
         return;
       }
 
@@ -2501,7 +2511,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         for (const nestedBlock of nestedBlocks) {
           const nestedSymbols = allFileSymbols.filter(
             (symbol) =>
-              symbol.name === typeRef.name &&
+              symbol.name?.toLowerCase() === typeRef.name.toLowerCase() &&
               symbol.parentId === nestedBlock.id,
           );
           symbolsInNestedBlocks.push(...nestedSymbols);
@@ -2530,29 +2540,45 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // This includes class fields, method parameters, etc.
       // Search from outermost to innermost to find the most specific parent symbol
       for (const blockSymbol of scopeHierarchy) {
-        // Find all symbols with the target name
+        // Find all symbols with the target name (case-insensitive for Apex)
         const sameNameSymbols = allFileSymbols.filter(
-          (s) => s.name === typeRef.name,
+          (s) => s.name?.toLowerCase() === typeRef.name.toLowerCase(),
         );
 
         // Check if any symbol is a parent or ancestor of this block
-        for (const symbol of sameNameSymbols) {
+        // Prioritize variables/parameters over fields when searching parent scopes
+        const parentScopeSymbols = sameNameSymbols.filter((s) => {
           // Check if this symbol is a direct parent of the block (e.g., class field, method parameter)
-          if (blockSymbol.parentId === symbol.id) {
-            return symbol;
+          if (blockSymbol.parentId === s.id) {
+            return true;
           }
           // Check if symbol is an ancestor by following parentId chain up from the block
           let currentBlockId: string | null = blockSymbol.parentId;
           while (currentBlockId) {
-            if (currentBlockId === symbol.id) {
-              return symbol;
+            if (currentBlockId === s.id) {
+              return true;
             }
             // Find parent block to continue chain
             const parentBlock = allFileSymbols.find(
-              (s) => s.id === currentBlockId && s.kind === SymbolKind.Block,
+              (p) => p.id === currentBlockId && p.kind === SymbolKind.Block,
             );
             currentBlockId = parentBlock?.parentId || null;
           }
+          return false;
+        });
+
+        // Prioritize variables/parameters over fields in parent scopes
+        if (parentScopeSymbols.length > 0) {
+          const prioritized = parentScopeSymbols.sort((a, b) => {
+            const aIsVar =
+              a.kind === SymbolKind.Variable || a.kind === SymbolKind.Parameter;
+            const bIsVar =
+              b.kind === SymbolKind.Variable || b.kind === SymbolKind.Parameter;
+            if (aIsVar && !bIsVar) return -1;
+            if (!aIsVar && bIsVar) return 1;
+            return 0;
+          });
+          return prioritized[0];
         }
       }
     }
@@ -2931,7 +2957,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             blockSymbol.scopeType === 'file');
         const directChildren = allFileSymbols.filter(
           (symbol) =>
-            symbol.name === typeReference.name &&
+            symbol.name?.toLowerCase() === typeReference.name.toLowerCase() &&
             symbol.parentId === blockSymbol.id &&
             // Look for variables, parameters, and methods in the current scope
             // But skip variables in class/file level blocks (those are fields, searched later)
@@ -3173,34 +3199,39 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
       }
 
-      // Step 2: Try built-in type resolution for the name itself
-      const builtInSymbol = await this.resolveBuiltInType(typeReference);
-      if (builtInSymbol) {
-        this.logger.debug(
-          () =>
-            `Resolved built-in type "${typeReference.name}" to symbol: ${builtInSymbol.name}`,
-        );
-        return builtInSymbol;
-      } else {
-        // Diagnostic: Log when built-in type resolution fails
-        this.logger.debug(
-          () =>
-            `Built-in type resolution failed for "${typeReference.name}" in ${sourceFile}`,
-        );
-      }
+      // Step 2: For VARIABLE_DECLARATION, skip built-in/standard class resolution
+      // VARIABLE_DECLARATION references should resolve to the declared variable itself,
+      // not to built-in types or standard classes
+      if (typeReference.context !== ReferenceContext.VARIABLE_DECLARATION) {
+        // Try built-in type resolution for the name itself
+        const builtInSymbol = await this.resolveBuiltInType(typeReference);
+        if (builtInSymbol) {
+          this.logger.debug(
+            () =>
+              `Resolved built-in type "${typeReference.name}" to symbol: ${builtInSymbol.name}`,
+          );
+          return builtInSymbol;
+        } else {
+          // Diagnostic: Log when built-in type resolution fails
+          this.logger.debug(
+            () =>
+              `Built-in type resolution failed for "${typeReference.name}" in ${sourceFile}`,
+          );
+        }
 
-      // Step 2b: Try standard Apex class resolution
-      // This must happen BEFORE keyword short-circuit because some keywords
-      // (System, Database) are also valid standard Apex classes
-      const standardClass = await this.resolveStandardApexClass(
-        typeReference.name,
-      );
-      if (standardClass) {
-        this.logger.debug(
-          () =>
-            `Resolved standard Apex class "${typeReference.name}" to symbol: ${standardClass.name}`,
+        // Step 2b: Try standard Apex class resolution
+        // This must happen BEFORE keyword short-circuit because some keywords
+        // (System, Database) are also valid standard Apex classes
+        const standardClass = await this.resolveStandardApexClass(
+          typeReference.name,
         );
-        return standardClass;
+        if (standardClass) {
+          this.logger.debug(
+            () =>
+              `Resolved standard Apex class "${typeReference.name}" to symbol: ${standardClass.name}`,
+          );
+          return standardClass;
+        }
       }
 
       // Step 2c: Check if it's a standard namespace (e.g., System, Database)
@@ -3269,13 +3300,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           );
         }
         if (candidates.length === 0) {
-          console.log(
-            '[ApexSymbolManager] No candidates found - trying resolveBuiltInType',
-          );
           // Try built-in type resolution as fallback
+          // resolveBuiltInType should handle all built-in types including standard classes like System
           const builtInType = await this.resolveBuiltInType(typeReference);
           if (builtInType) {
-            console.log('[ApexSymbolManager] Resolved via resolveBuiltInType');
             return builtInType;
           }
           return null;
@@ -3529,9 +3557,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Step 2: Check if this is a standard Apex class (System, Database, Schema, etc.)
+      // or a standard namespace name (System, Database, Schema, etc.)
       const isStandard = this.isStandardApexClass(name);
+      const isStandardNamespace =
+        this.resourceLoader?.isStdApexNamespace(name) || false;
 
-      if (isStandard) {
+      if (isStandard || isStandardNamespace) {
         if (!this.resourceLoader) {
           return null;
         }
@@ -3542,10 +3573,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           // Direct call for FQN like "System.Assert"
           standardClass = await this.resolveStandardApexClass(name);
         } else {
-          // For namespace-less names like "Assert", find the FQN first
+          // For namespace-less names like "Assert" or namespace names like "System"
+          // First try to find the FQN
           const fqn = this.findFQNForStandardClass(name);
           if (fqn) {
             standardClass = await this.resolveStandardApexClass(fqn);
+          }
+          // If FQN lookup failed but it's a standard namespace, try resolving as namespace.class
+          // For example, "System" -> "System.System"
+          if (!standardClass && isStandardNamespace) {
+            const namespaceClassFqn = `${name}.${name}`;
+            standardClass =
+              await this.resolveStandardApexClass(namespaceClassFqn);
           }
         }
 
@@ -4350,13 +4389,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const namespaceStructure = this.resourceLoader.getStandardNamespaces();
 
         // Check if the class exists in any standard namespace
+        // Use case-insensitive comparison for Apex
+        const targetClassName = className.toLowerCase();
         for (const [namespace, classes] of namespaceStructure.entries()) {
           if (this.resourceLoader?.isStdApexNamespace(namespace)) {
             // Check if any class in this namespace matches the className
             for (const classFile of classes ?? []) {
-              // Remove .cls extension and check if it matches
+              // Remove .cls extension and check if it matches (case-insensitive)
               const cleanClassName = classFile.toString().replace(/\.cls$/, '');
-              if (cleanClassName === className) {
+              if (cleanClassName.toLowerCase() === targetClassName) {
                 return true;
               }
             }
@@ -4544,13 +4585,38 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Use async loading to prevent hanging
-      // Prevent recursive loops - if we're already loading this file, skip
+      // Prevent recursive loops - if we're already loading this file, wait for it to complete
       const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${classPath}`;
       if (this.loadingSymbolTables.has(fileUri)) {
-        this.logger.debug(
-          () =>
-            `Skipping recursive load attempt for ${fileUri} - already loading`,
+        // Instead of returning null, check if the symbol is already in the graph
+        // This handles the case where another call is loading the same file
+        const graphSymbols = this.findSymbolByName(className);
+        const graphClassSymbols = graphSymbols.filter(
+          (s) =>
+            s.kind === SymbolKind.Class &&
+            (s.fileUri === fileUri ||
+              s.fileUri?.includes('StandardApexLibrary') ||
+              s.fileUri?.includes('apexlib://')),
         );
+        if (graphClassSymbols.length > 0) {
+          const fileSymbol = graphClassSymbols.find(
+            (s) => s.fileUri === fileUri,
+          );
+          if (fileSymbol) {
+            return fileSymbol;
+          }
+          // Fallback to any standard Apex library symbol
+          const standardSymbol = graphClassSymbols.find(
+            (s) =>
+              s.fileUri?.includes('apexlib://') ||
+              s.fileUri?.includes('StandardApexLibrary'),
+          );
+          if (standardSymbol) {
+            return standardSymbol;
+          }
+          return graphClassSymbols[0];
+        }
+        // If not found in graph yet, return null (the other call will handle it)
         return null;
       }
 
@@ -4561,10 +4627,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const artifact =
           await this.resourceLoader.loadAndCompileClass(classPath);
         if (!artifact) {
-          this.logger.debug(
-            () =>
-              `Failed to load artifact for ${classPath} (searched for ${name})`,
-          );
           return null;
         }
         if (artifact?.compilationResult?.result) {
@@ -4573,9 +4635,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           // Find the class symbol from the loaded symbol table
           const symbols = artifact.compilationResult.result.getAllSymbols();
-          // Try to find by name first
+          // Try to find by name first (case-insensitive for Apex)
           let classSymbol = symbols.find(
-            (s) => s.name === className && s.kind === SymbolKind.Class,
+            (s) =>
+              s.name?.toLowerCase() === className.toLowerCase() &&
+              s.kind === SymbolKind.Class,
           );
 
           // If not found by name, try to find the first class symbol (for cases where name might be empty)
@@ -6315,7 +6379,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               ? contextFile
               : createFileUri(contextFile),
           );
-          
+
           if (this.loadingSymbolTables.has(normalizedUri)) {
             this.logger.debug(
               () =>
@@ -6474,34 +6538,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return builtInSymbol;
       }
     }
-
-    return null;
-  }
-
-  /**
-   * Get the return type of a method symbol
-   */
-  private getMethodReturnType(methodSymbol: ApexSymbol): string | null {
-    // This is a simplified implementation - in a full system, you'd parse the method signature
-    // For now, we'll try to extract it from the symbol's metadata or use heuristics
-
-    // Check if the method symbol has return type information
-    if ((methodSymbol as any).returnType) {
-      return (methodSymbol as any).returnType;
-    }
-
-    // For built-in methods, we can use known return types
-    const methodName = methodSymbol.name;
-    const className = methodSymbol.parentId
-      ? this.getSymbolById(methodSymbol.parentId)?.name
-      : null;
-
-    // Common return type patterns for built-in methods
-    if (className === 'System' && methodName === 'getOrgDomainUrl') {
-      return 'URL'; // System.getOrgDomainUrl() returns URL
-    }
-
-    // Add more known return types as needed
 
     return null;
   }

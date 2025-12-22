@@ -20,6 +20,7 @@ import {
   SymbolTable,
   ResourceLoader,
   ApexSymbolProcessingManager,
+  STANDARD_APEX_LIBRARY_URI,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   enableConsoleLogging,
@@ -138,15 +139,27 @@ describe('HoverProcessingService Integration Tests', () => {
       if (systemArtifact?.compilationResult?.result) {
         // Add the System class symbol table to the symbol manager's graph
         // This ensures it's available for findSymbolByName to find
-        const systemUri = 'apexlib://resources/System/System.cls';
+        // Use the correct URI format: apexlib://resources/StandardApexLibrary/System/System.cls
+        const systemUri = `${STANDARD_APEX_LIBRARY_URI}/System/System.cls`;
         await symbolManager.addSymbolTable(
           systemArtifact.compilationResult.result,
           systemUri,
         );
+
+        // Verify the System class symbol is now in the graph
+        const systemSymbols = symbolManager.findSymbolByName('System');
+        if (systemSymbols.length === 0) {
+          console.warn(
+            'Warning: System class symbol not found in graph after adding symbol table',
+          );
+        }
       }
-    } catch (_error) {
-      // Ignore errors - class might already be loaded or might not exist
-      // The ResourceLoader should handle lazy loading on-demand
+    } catch (error) {
+      // Log error for debugging
+      console.warn(
+        `Warning: Failed to preload System class: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // Continue - the ResourceLoader should handle lazy loading on-demand
     }
 
     // Read the actual Apex class files from fixtures
