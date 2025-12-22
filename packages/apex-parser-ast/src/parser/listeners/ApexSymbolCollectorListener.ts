@@ -3364,9 +3364,16 @@ export class ApexSymbolCollectorListener
    * ExpressionListContext but are not method/constructor calls.
    */
   enterExpressionList(ctx: ExpressionListContext): void {
-    // No action needed here - method call tracking is handled by enterMethodCall/enterDotMethodCall
-    // and enterNewExpression, which push onto methodCallStack before the ExpressionListContext
-    // is entered. Parameter references are collected via addToCurrentMethodParameters().
+    // If we're entering a method/constructor call's parameter list and there's an active chain scope,
+    // we need to finalize it before processing parameters. This ensures that chains in parameters
+    // (like URL.getOrgDomainUrl().toExternalForm()) start fresh and don't get merged with the
+    // parent method call's chain (like request.setHeader).
+    if (this.isInMethodOrConstructorCall(ctx) && this.chainExpressionScope?.isActive) {
+      // Finalize the current chain scope (e.g., request.setHeader)
+      this.finalizeChainScope(this.chainExpressionScope);
+      // Clear the scope so parameters start with a clean slate
+      this.chainExpressionScope = null;
+    }
   }
 
   /**
@@ -5493,6 +5500,12 @@ export class ApexSymbolCollectorListener
       );
 
       this.symbolTable.addTypeReference(rootRef);
+
+      // If this chained expression is used as a method parameter, add it to the parameter list
+      // This ensures chained expressions in method parameters are properly tracked
+      if (this.methodCallStack.size > 0) {
+        this.addToCurrentMethodParameters(rootRef);
+      }
 
       // Also capture the base expression as a TypeReference for hover resolution
       // This is needed for qualified references like System.debug where the base (System) needs to be resolvable

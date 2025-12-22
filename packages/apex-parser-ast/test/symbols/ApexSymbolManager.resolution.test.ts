@@ -862,7 +862,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
     //TODO: disabled due to issue with chained method in call parameters
     // eslint-disable-next-line max-len
-    it.skip('should resolve method name in chained method call parameters (URL.getOrgDomainUrl().toExternalForm)', async () => {
+    it('should resolve method name in chained method call parameters (URL.getOrgDomainUrl().toExternalForm)', async () => {
       // Test hover on "toExternalForm" in chained method call
       const testCode = loadFixtureFile('TestClass.cls');
 
