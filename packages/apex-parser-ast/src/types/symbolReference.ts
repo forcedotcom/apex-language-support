@@ -57,8 +57,8 @@ export interface SymbolReference {
   context: ReferenceContext;
   /** Parent method/class context */
   parentContext?: string;
-  /** Always false during parsing - used for lazy resolution */
-  isResolved: boolean;
+  /** ID of the resolved symbol (if resolved, undefined otherwise) */
+  resolvedSymbolId?: string;
   /** Optional access semantics for reads/writes (assignments) */
   access?: 'read' | 'write' | 'readwrite';
   /** Optional: indicates static access when known from parsing */
@@ -84,7 +84,7 @@ export class EnhancedSymbolReference implements SymbolReference {
     public name: string,
     public location: SymbolLocation,
     public context: ReferenceContext,
-    public isResolved: boolean = false,
+    public resolvedSymbolId?: string,
     public parentContext?: string,
     public access?: 'read' | 'write' | 'readwrite',
     public isStatic?: boolean,
@@ -96,7 +96,7 @@ export class EnhancedSymbolReference implements SymbolReference {
       name: this.name,
       location: this.location,
       context: this.context,
-      isResolved: this.isResolved,
+      resolvedSymbolId: this.resolvedSymbolId,
       parentContext: this.parentContext,
       access: this.access,
       isStatic: this.isStatic,
@@ -175,7 +175,7 @@ export class SymbolReferenceFactory {
       methodName,
       location,
       ReferenceContext.METHOD_CALL,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       undefined,
       isStatic,
@@ -201,7 +201,7 @@ export class SymbolReferenceFactory {
       methodName,
       methodLocation,
       ReferenceContext.METHOD_CALL,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       undefined,
       isStatic,
@@ -242,7 +242,7 @@ export class SymbolReferenceFactory {
           isLast
             ? ReferenceContext.CLASS_REFERENCE
             : ReferenceContext.NAMESPACE,
-          false,
+          undefined, // resolvedSymbolId - will be set during second-pass resolution
           parentContext,
         );
 
@@ -263,7 +263,7 @@ export class SymbolReferenceFactory {
       typeName,
       location,
       ReferenceContext.TYPE_DECLARATION,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -282,7 +282,7 @@ export class SymbolReferenceFactory {
       fieldName,
       location,
       ReferenceContext.FIELD_ACCESS,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       access,
       undefined,
@@ -308,7 +308,7 @@ export class SymbolReferenceFactory {
       fieldName,
       fieldLocation,
       ReferenceContext.FIELD_ACCESS,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       access,
       undefined,
@@ -332,7 +332,7 @@ export class SymbolReferenceFactory {
       typeName,
       location,
       ReferenceContext.CONSTRUCTOR_CALL,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -349,7 +349,7 @@ export class SymbolReferenceFactory {
       className,
       location,
       ReferenceContext.CLASS_REFERENCE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -367,7 +367,7 @@ export class SymbolReferenceFactory {
       variableName,
       location,
       ReferenceContext.VARIABLE_USAGE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       access,
     );
@@ -385,7 +385,7 @@ export class SymbolReferenceFactory {
       variableName,
       location,
       ReferenceContext.VARIABLE_DECLARATION,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -422,7 +422,7 @@ export class SymbolReferenceFactory {
           isLast
             ? ReferenceContext.CLASS_REFERENCE
             : ReferenceContext.CLASS_REFERENCE,
-          false,
+          undefined, // resolvedSymbolId - will be set during second-pass resolution
           parentContext,
         );
 
@@ -443,7 +443,7 @@ export class SymbolReferenceFactory {
       typeName,
       location,
       ReferenceContext.PARAMETER_TYPE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -460,7 +460,7 @@ export class SymbolReferenceFactory {
       typeName,
       location,
       ReferenceContext.GENERIC_PARAMETER_TYPE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -477,7 +477,7 @@ export class SymbolReferenceFactory {
       typeName,
       location,
       ReferenceContext.CAST_TYPE_REFERENCE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -494,7 +494,7 @@ export class SymbolReferenceFactory {
       typeName,
       location,
       ReferenceContext.INSTANCEOF_TYPE_REFERENCE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -521,7 +521,7 @@ export class SymbolReferenceFactory {
         parts[0],
         locations[0],
         context,
-        false,
+        undefined, // resolvedSymbolId - will be set during second-pass resolution
         parentContext,
         access,
         isStatic,
@@ -533,7 +533,7 @@ export class SymbolReferenceFactory {
       parts[parts.length - 1],
       locations[locations.length - 1],
       context,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       access,
       isStatic,
@@ -579,7 +579,7 @@ export class SymbolReferenceFactory {
         },
       },
       ReferenceContext.CHAINED_TYPE, // New context for chained expressions
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       undefined,
       false, // Not static by default
@@ -630,7 +630,7 @@ export class SymbolReferenceFactory {
         },
       },
       ReferenceContext.CHAINED_TYPE, // Use chained expression context for type chains
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       undefined,
       false, // Not static by default
@@ -675,7 +675,7 @@ export class SymbolReferenceFactory {
           isLast
             ? ReferenceContext.CLASS_REFERENCE
             : ReferenceContext.NAMESPACE,
-          false,
+          undefined, // resolvedSymbolId - will be set during second-pass resolution
           parentContext,
         );
 
@@ -696,7 +696,7 @@ export class SymbolReferenceFactory {
       typeName,
       location,
       ReferenceContext.RETURN_TYPE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -712,7 +712,7 @@ export class SymbolReferenceFactory {
       name: propertyName,
       context: ReferenceContext.PROPERTY_REFERENCE,
       location,
-      isResolved: false,
+      resolvedSymbolId: undefined, // Will be set during second-pass resolution
     };
   }
 }

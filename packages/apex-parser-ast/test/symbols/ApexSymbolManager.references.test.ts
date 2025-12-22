@@ -359,9 +359,9 @@ describe('ApexSymbolManager Reference Processing', () => {
       // Trailing dots may be captured for completion, but should not trigger resolution
       // The validation in resolveBuiltInType should prevent ResourceLoader calls
       const trailingDotRefs = references.filter((r) => r.name.endsWith('.'));
-      // If captured, they should not be resolved (isResolved should be false)
+      // If captured, they should not be resolved (resolvedSymbolId should be undefined)
       trailingDotRefs.forEach((ref) => {
-        expect(ref.isResolved).toBeFalsy();
+        expect(ref.resolvedSymbolId).toBeUndefined();
       });
     });
 

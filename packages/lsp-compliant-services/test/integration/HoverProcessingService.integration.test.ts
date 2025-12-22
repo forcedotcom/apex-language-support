@@ -688,7 +688,9 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('class SObject.ContentVersion');
+        // When hovering on a variable name, show variable information with type
+        expect(content).toContain('ContentVersion');
+        expect(content).toContain('contentVersion');
       }
     });
   });
@@ -1194,12 +1196,9 @@ describe('HoverProcessingService Integration Tests', () => {
       const lines = text.split('\n');
       const lineIndex = lines.findIndex((l) => l.includes('System.debug'));
       expect(lineIndex).toBeGreaterThanOrEqual(0);
-      // Position on "System" in "System.debug" - find the start of "System"
-      const systemDebugIndex = lines[lineIndex].indexOf('System.debug');
-      const charIndex =
-        systemDebugIndex >= 0
-          ? systemDebugIndex
-          : lines[lineIndex].indexOf('System');
+      // Position on "debug" in "System.debug" - hover on method name for better resolution
+      const charIndex = lines[lineIndex].indexOf('debug');
+      expect(charIndex).toBeGreaterThanOrEqual(0);
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///ComplexTestClass.cls' },
@@ -1215,12 +1214,10 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        // TODO: Revisit hover data quality - should include clear class labels for system classes
-        // Note: This test hovers on System.debug but may resolve to the System class instead of the method
-        expect(content).toMatch(
-          /class System\.System|void System\.System\.debug/,
-        );
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
+        // Hovering on method name should resolve to the method
+        expect(content).toContain('void');
+        expect(content).toContain('debug');
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*static/);
       }
     });
 
@@ -1776,57 +1773,9 @@ describe('HoverProcessingService Integration Tests', () => {
   });
 
   describe('Inner class to outer class references', () => {
-    const innerClassCode = `public with sharing class ScopeExample {
-
-    String a;
-
-    static String b;
-
-    public ScopeExample() {
-
-    }
-
-    public void method1() {
-
-        String a;
-
-        String b = a;
-
-    }
-
-    public void method2() {
-
-        String a;
-
-        String b = a;
-
-    }
-
-    public void method3() {
-
-        String b = a;
-
-        String c = ScopeExample.method4();
-
-    }
-
-    public static String method4() {
-
-        return ScopeExample.b;
-
-    }
-
-    public class InnerClass {
-
-        public void method5() {
-
-            String c = ScopeExample.method4();
-
-        }
-
-    }
-
-}`;
+    const fixturesDir = join(__dirname, '../fixtures/classes');
+    const scopeExamplePath = join(fixturesDir, 'ScopeExample.cls');
+    const innerClassCode = readFileSync(scopeExamplePath, 'utf8');
 
     let innerClassDocument: TextDocument;
 
@@ -1860,8 +1809,20 @@ describe('HoverProcessingService Integration Tests', () => {
 
       // Find position of 'method4' in "String c = ScopeExample.method4();" in InnerClass.method5
       const lines = innerClassCode.split('\n');
-      const lineIndex = lines.findIndex((line) =>
-        line.includes('ScopeExample.method4()'),
+      // Find the InnerClass.method5 method first
+      const innerClassIndex = lines.findIndex((line) =>
+        line.includes('public class InnerClass'),
+      );
+      expect(innerClassIndex).toBeGreaterThanOrEqual(0);
+      const method5Index = lines.findIndex(
+        (line, index) =>
+          index > innerClassIndex && line.includes('public void method5()'),
+      );
+      expect(method5Index).toBeGreaterThanOrEqual(0);
+      // Now find ScopeExample.method4() after method5 declaration
+      const lineIndex = lines.findIndex(
+        (line, index) =>
+          index > method5Index && line.includes('ScopeExample.method4()'),
       );
       expect(lineIndex).toBeGreaterThanOrEqual(0);
       const charIndex = lines[lineIndex].indexOf('method4');

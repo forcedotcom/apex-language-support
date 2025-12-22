@@ -79,14 +79,14 @@ describe('SymbolReference Data Structures', () => {
         location: mockLocation,
         context: ReferenceContext.METHOD_CALL,
         parentContext: 'testMethod',
-        isResolved: false,
+        resolvedSymbolId: undefined,
       };
 
       expect(reference.name).toBe('testMethod');
       expect(reference.location).toBe(mockLocation);
       expect(reference.context).toBe(ReferenceContext.METHOD_CALL);
       expect(reference.parentContext).toBe('testMethod');
-      expect(reference.isResolved).toBe(false);
+      expect(reference.resolvedSymbolId).toBeUndefined();
     });
 
     it('should allow optional properties', () => {
@@ -94,7 +94,7 @@ describe('SymbolReference Data Structures', () => {
         name: 'testMethod',
         location: mockLocation,
         context: ReferenceContext.METHOD_CALL,
-        isResolved: false,
+        resolvedSymbolId: undefined,
       };
 
       expect(reference.parentContext).toBeUndefined();
@@ -114,7 +114,7 @@ describe('SymbolReference Data Structures', () => {
         expect(reference.location).toBe(mockLocation);
         expect(reference.context).toBe(ReferenceContext.METHOD_CALL);
         expect(reference.parentContext).toBe('testMethod');
-        expect(reference.isResolved).toBe(false);
+        expect(reference.resolvedSymbolId).toBeUndefined();
       });
 
       it('should create method call reference without optional properties', () => {
@@ -126,7 +126,7 @@ describe('SymbolReference Data Structures', () => {
         expect(reference.name).toBe('createFile');
         expect(reference.context).toBe(ReferenceContext.METHOD_CALL);
         expect(reference.parentContext).toBeUndefined();
-        expect(reference.isResolved).toBe(false);
+        expect(reference.resolvedSymbolId).toBeUndefined();
       });
     });
 
@@ -142,7 +142,7 @@ describe('SymbolReference Data Structures', () => {
         expect(reference.location).toBe(mockLocation);
         expect(reference.context).toBe(ReferenceContext.TYPE_DECLARATION);
         expect(reference.parentContext).toBe('testMethod');
-        expect(reference.isResolved).toBe(false);
+        expect(reference.resolvedSymbolId).toBeUndefined();
       });
     });
 
@@ -159,7 +159,7 @@ describe('SymbolReference Data Structures', () => {
         expect(reference.location).toBe(mockLocation);
         expect(reference.context).toBe(ReferenceContext.FIELD_ACCESS);
         expect(reference.parentContext).toBe('testMethod');
-        expect(reference.isResolved).toBe(false);
+        expect(reference.resolvedSymbolId).toBeUndefined();
       });
     });
 
@@ -175,7 +175,7 @@ describe('SymbolReference Data Structures', () => {
         expect(reference.location).toBe(mockLocation);
         expect(reference.context).toBe(ReferenceContext.CONSTRUCTOR_CALL);
         expect(reference.parentContext).toBe('testMethod');
-        expect(reference.isResolved).toBe(false);
+        expect(reference.resolvedSymbolId).toBeUndefined();
       });
     });
 
@@ -191,7 +191,7 @@ describe('SymbolReference Data Structures', () => {
         expect(reference.location).toBe(mockLocation);
         expect(reference.context).toBe(ReferenceContext.VARIABLE_USAGE);
         expect(reference.parentContext).toBe('testMethod');
-        expect(reference.isResolved).toBe(false);
+        expect(reference.resolvedSymbolId).toBeUndefined();
       });
     });
 
@@ -207,7 +207,7 @@ describe('SymbolReference Data Structures', () => {
         expect(reference.location).toBe(mockLocation);
         expect(reference.context).toBe(ReferenceContext.PARAMETER_TYPE);
         expect(reference.parentContext).toBe('testMethod');
-        expect(reference.isResolved).toBe(false);
+        expect(reference.resolvedSymbolId).toBeUndefined();
       });
     });
 
@@ -225,7 +225,7 @@ describe('SymbolReference Data Structures', () => {
           ReferenceContext.INSTANCEOF_TYPE_REFERENCE,
         );
         expect(reference.parentContext).toBe('testMethod');
-        expect(reference.isResolved).toBe(false);
+        expect(reference.resolvedSymbolId).toBeUndefined();
       });
     });
 
@@ -242,7 +242,7 @@ describe('SymbolReference Data Structures', () => {
         expect(reference.location).toBe(mockLocation);
         expect(reference.context).toBe(ReferenceContext.GENERIC_PARAMETER_TYPE);
         expect(reference.parentContext).toBe('testMethod');
-        expect(reference.isResolved).toBe(false);
+        expect(reference.resolvedSymbolId).toBeUndefined();
       });
     });
 
@@ -258,7 +258,7 @@ describe('SymbolReference Data Structures', () => {
         expect(reference.location).toBe(mockLocation);
         expect(reference.context).toBe(ReferenceContext.CAST_TYPE_REFERENCE);
         expect(reference.parentContext).toBe('testMethod');
-        expect(reference.isResolved).toBe(false);
+        expect(reference.resolvedSymbolId).toBeUndefined();
       });
     });
   });

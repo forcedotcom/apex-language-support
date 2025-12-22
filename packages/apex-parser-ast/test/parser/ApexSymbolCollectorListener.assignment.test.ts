@@ -359,7 +359,7 @@ describe('ApexSymbolCollectorListener - Assignment Reference Capture', () => {
           r.context === ReferenceContext.VARIABLE_USAGE &&
           r.name === 'FileUtilities',
       );
-      
+
       // When correction is disabled, we should have a VARIABLE_USAGE reference
       expect(fileUtilsVarUsages.length).toBeGreaterThan(0);
 
@@ -442,7 +442,11 @@ describe('ApexSymbolCollectorListener - Assignment Reference Capture', () => {
 
       // Test with correction ENABLED (default)
       const listenerEnabled = new ApexSymbolCollectorListener();
-      compilerService.compile(sourceCode, 'TestClassEnabled.cls', listenerEnabled);
+      compilerService.compile(
+        sourceCode,
+        'TestClassEnabled.cls',
+        listenerEnabled,
+      );
 
       const symbolTableEnabled = listenerEnabled.getResult();
       const refsEnabled = symbolTableEnabled.getAllReferences();
@@ -458,18 +462,16 @@ describe('ApexSymbolCollectorListener - Assignment Reference Capture', () => {
           r.name === 'FileUtilities',
       );
 
-      // With correction enabled: The second pass may upgrade VARIABLE_USAGE to CLASS_REFERENCE
-      // However, since FileUtilities is not in the same file, shouldBeClassReference returns false
-      // So VARIABLE_USAGE remains as VARIABLE_USAGE
-      // The key difference is that when disabled, we explicitly create VARIABLE_USAGE in processStandaloneMethodCall
-      // When enabled, we create CLASS_REFERENCE directly in processStandaloneMethodCall (if not in chain)
-      // OR the second pass upgrades VARIABLE_USAGE to CLASS_REFERENCE (if FileUtilities is in same file)
-      
-      // For cross-file classes, both enabled and disabled will have VARIABLE_USAGE
-      // The toggle's effect is more visible when the class is in the same file
-      // But the important thing is that the toggle works - disabled doesn't run second pass
-      expect(fileUtilsVarUsagesEnabled.length).toBeGreaterThan(0);
-      
+      // With correction enabled: The second pass upgrades VARIABLE_USAGE to CLASS_REFERENCE
+      // because FileUtilities is a qualifier in FileUtilities.createFile()
+      // The shouldBeClassReference method checks isQualifierInQualifiedCall, which returns true
+      // So VARIABLE_USAGE gets upgraded to CLASS_REFERENCE even for cross-file classes
+      // The key difference is:
+      // - When disabled: VARIABLE_USAGE remains as VARIABLE_USAGE (second pass doesn't run)
+      // - When enabled: VARIABLE_USAGE gets upgraded to CLASS_REFERENCE (second pass runs)
+      expect(fileUtilsVarUsagesEnabled.length).toBe(0);
+      expect(fileUtilsClassRefsEnabled.length).toBeGreaterThan(0);
+
       // The main point: when disabled, we explicitly have VARIABLE_USAGE and NOT CLASS_REFERENCE
       // This demonstrates that the toggle is working - disabled creates VARIABLE_USAGE and doesn't upgrade it
     });

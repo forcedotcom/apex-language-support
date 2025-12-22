@@ -12,6 +12,7 @@
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ReferenceContext } from '../../src/types/symbolReference';
+import { SymbolKind } from '../../src/types/symbol';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolCollectorListener with Type References', () => {
@@ -55,7 +56,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       expect(chainedRef).toBeDefined();
       expect(chainedRef?.context).toBe(ReferenceContext.CHAINED_TYPE);
       expect(chainedRef?.parentContext).toBe('testMethod');
-      expect(chainedRef?.isResolved).toBe(false);
+      expect(chainedRef?.resolvedSymbolId).toBeUndefined();
       // Check chainNodes structure
       const chainedRefTyped = chainedRef as any;
       expect(chainedRefTyped?.chainNodes).toBeDefined();
@@ -1085,6 +1086,167 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       // Should NOT have any reference with name containing "["
       const invalidRefs = references.filter((r) => r.name.includes('['));
       expect(invalidRefs.length).toBe(0);
+    });
+  });
+
+  describe('Second Pass Resolution for CHAINED_TYPE References', () => {
+    it('should resolve CHAINED_TYPE reference to final member (method) in same-file scenario', () => {
+      const sourceCode = `
+        public class ScopeExample {
+          public static String method4() {
+            return 'test';
+          }
+          
+          public void method3() {
+            String c = ScopeExample.method4();
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'ScopeExample.cls', listener);
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+      const allSymbols = symbolTable.getAllSymbols();
+
+      // Find the CHAINED_TYPE reference for ScopeExample.method4
+      const chainedRef = references.find(
+        (ref) =>
+          ref.name === 'ScopeExample.method4' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+      expect(chainedRef).toBeDefined();
+      
+      // CHAINED_TYPE should be resolved to the method, not the class
+      expect(chainedRef?.resolvedSymbolId).toBeDefined();
+      
+      // Verify it resolves to the method symbol
+      const resolvedSymbol = allSymbols.find(
+        (s) => s.id === chainedRef?.resolvedSymbolId,
+      );
+      expect(resolvedSymbol).toBeDefined();
+      expect(resolvedSymbol?.kind).toBe(SymbolKind.Method);
+      expect(resolvedSymbol?.name).toBe('method4');
+
+      // Verify chain nodes are also resolved
+      const chainedRefTyped = chainedRef as any;
+      expect(chainedRefTyped?.chainNodes).toBeDefined();
+      expect(chainedRefTyped?.chainNodes).toHaveLength(2);
+      
+      // First node (qualifier) should resolve to the class
+      const firstNode = chainedRefTyped.chainNodes[0];
+      expect(firstNode.name).toBe('ScopeExample');
+      expect(firstNode.resolvedSymbolId).toBeDefined();
+      const qualifierSymbol = allSymbols.find(
+        (s) => s.id === firstNode.resolvedSymbolId,
+      );
+      expect(qualifierSymbol).toBeDefined();
+      expect(qualifierSymbol?.kind).toBe(SymbolKind.Class);
+      expect(qualifierSymbol?.name).toBe('ScopeExample');
+
+      // Last node (member) should resolve to the method
+      const lastNode = chainedRefTyped.chainNodes[1];
+      expect(lastNode.name).toBe('method4');
+      expect(lastNode.resolvedSymbolId).toBeDefined();
+      const memberSymbol = allSymbols.find(
+        (s) => s.id === lastNode.resolvedSymbolId,
+      );
+      expect(memberSymbol).toBeDefined();
+      expect(memberSymbol?.kind).toBe(SymbolKind.Method);
+      expect(memberSymbol?.name).toBe('method4');
+    });
+
+    it('should resolve CHAINED_TYPE reference to final member (field) in same-file scenario', () => {
+      const sourceCode = `
+        public class ScopeExample {
+          static String b;
+          
+          public void method3() {
+            String c = ScopeExample.b;
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'ScopeExample.cls', listener);
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+      const allSymbols = symbolTable.getAllSymbols();
+
+      // Find the CHAINED_TYPE reference for ScopeExample.b
+      const chainedRef = references.find(
+        (ref) =>
+          ref.name === 'ScopeExample.b' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+      expect(chainedRef).toBeDefined();
+      
+      // CHAINED_TYPE should be resolved to the field, not the class
+      expect(chainedRef?.resolvedSymbolId).toBeDefined();
+      
+      // Verify it resolves to the field symbol
+      const resolvedSymbol = allSymbols.find(
+        (s) => s.id === chainedRef?.resolvedSymbolId,
+      );
+      expect(resolvedSymbol).toBeDefined();
+      expect(resolvedSymbol?.kind).toBe(SymbolKind.Field);
+      expect(resolvedSymbol?.name).toBe('b');
+
+      // Verify chain nodes are also resolved
+      const chainedRefTyped = chainedRef as any;
+      expect(chainedRefTyped?.chainNodes).toBeDefined();
+      expect(chainedRefTyped?.chainNodes).toHaveLength(2);
+      
+      // First node (qualifier) should resolve to the class
+      const firstNode = chainedRefTyped.chainNodes[0];
+      expect(firstNode.name).toBe('ScopeExample');
+      expect(firstNode.resolvedSymbolId).toBeDefined();
+      
+      // Last node (member) should resolve to the field
+      const lastNode = chainedRefTyped.chainNodes[1];
+      expect(lastNode.name).toBe('b');
+      expect(lastNode.resolvedSymbolId).toBeDefined();
+      const memberSymbol = allSymbols.find(
+        (s) => s.id === lastNode.resolvedSymbolId,
+      );
+      expect(memberSymbol).toBeDefined();
+      expect(memberSymbol?.kind).toBe(SymbolKind.Field);
+      expect(memberSymbol?.name).toBe('b');
+    });
+
+    it('should not resolve CHAINED_TYPE reference for cross-file references', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            FileUtilities.createFile('test.txt', 'content');
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+
+      // Find the CHAINED_TYPE reference for FileUtilities.createFile
+      const chainedRef = references.find(
+        (ref) =>
+          ref.name === 'FileUtilities.createFile' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+      expect(chainedRef).toBeDefined();
+      
+      // CHAINED_TYPE should NOT be resolved for cross-file references
+      // (FileUtilities is not defined in this file)
+      expect(chainedRef?.resolvedSymbolId).toBeUndefined();
+      
+      // Chain nodes should also not be resolved
+      const chainedRefTyped = chainedRef as any;
+      if (chainedRefTyped?.chainNodes) {
+        for (const node of chainedRefTyped.chainNodes) {
+          expect(node.resolvedSymbolId).toBeUndefined();
+        }
+      }
     });
   });
 

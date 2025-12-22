@@ -2223,13 +2223,34 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return;
       }
 
-      // 2. Resolve target symbol from SymbolTable (already optimized)
-      const targetSymbol = await this.findTargetSymbolForReference(
-        typeRef,
-        fileUri,
-        sourceSymbol,
-        symbolTable,
-      );
+      // 2. Resolve target symbol - check if already resolved by listener second-pass first
+      let targetSymbol: ApexSymbol | null = null;
+      if (typeRef.resolvedSymbolId) {
+        // Fast path: use pre-resolved symbol ID from listener second-pass
+        targetSymbol = this.getSymbol(typeRef.resolvedSymbolId);
+        if (targetSymbol) {
+          this.logger.debug(
+            () =>
+              `Using pre-resolved symbol ID "${typeRef.resolvedSymbolId}" ` +
+              `for reference "${typeRef.name}" in graph processing`,
+          );
+        }
+      }
+
+      // Fall back to normal resolution if not already resolved
+      if (!targetSymbol) {
+        targetSymbol = await this.findTargetSymbolForReference(
+          typeRef,
+          fileUri,
+          sourceSymbol,
+          symbolTable,
+        );
+        if (targetSymbol) {
+          // Update resolvedSymbolId if not already set
+          typeRef.resolvedSymbolId = targetSymbol.id;
+        }
+      }
+
       if (!targetSymbol) {
         // Even though it should be in the file, we couldn't resolve it
         // Defer it as a fallback
@@ -2247,9 +2268,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return;
       }
 
-      // Mark this reference as resolved since we successfully found the target symbol
-      // This data point allows for better decisions when resolving symbol references later
-      typeRef.isResolved = true;
+      // At this point, targetSymbol is guaranteed to be non-null
+      const resolvedTargetSymbol = targetSymbol;
 
       // Skip creating edges for declaration references; they are not dependencies
       // Note: VARIABLE_DECLARATION and PROPERTY_REFERENCE references are still marked as resolved above
@@ -2268,15 +2288,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         sourceSymbol.name,
       );
       const targetSymbolsInGraph = this.symbolGraph.findSymbolByName(
-        targetSymbol.name,
+        resolvedTargetSymbol.name,
       );
 
       const sourceInGraph = sourceSymbol.fileUri
         ? sourceSymbolsInGraph.find((s) => s.fileUri === sourceSymbol.fileUri)
         : sourceSymbolsInGraph[0];
 
-      const targetInGraph = targetSymbol.fileUri
-        ? targetSymbolsInGraph.find((s) => s.fileUri === targetSymbol.fileUri)
+      const targetInGraph = resolvedTargetSymbol.fileUri
+        ? targetSymbolsInGraph.find(
+            (s) => s.fileUri === resolvedTargetSymbol.fileUri,
+          )
         : targetSymbolsInGraph[0];
 
       // Symbols should be in graph since addSymbolTable runs before processSymbolReferencesToGraph
@@ -2285,7 +2307,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const referenceType = this.mapReferenceContextToType(typeRef.context);
         this.symbolGraph.enqueueDeferredReference(
           sourceSymbol,
-          targetSymbol.name,
+          resolvedTargetSymbol.name,
           referenceType,
           typeRef.location,
           {
@@ -2458,6 +2480,27 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     sourceSymbol?: ApexSymbol | null,
     symbolTable?: SymbolTable,
   ): Promise<ApexSymbol | null> {
+    // Fast path: if already resolved by listener second-pass, return the symbol directly
+    // This prevents redundant resolution when called from other methods
+    if (typeRef.resolvedSymbolId) {
+      const resolvedSymbol = this.getSymbol(typeRef.resolvedSymbolId);
+      if (resolvedSymbol) {
+        this.logger.debug(
+          () =>
+            `Using pre-resolved symbol ID "${typeRef.resolvedSymbolId}" in findTargetSymbolForReference`,
+        );
+        return resolvedSymbol;
+      }
+      // Fall through if symbol not found (shouldn't happen, but handle gracefully)
+      this.logger.debug(
+        () =>
+          'Pre-resolved symbol ID "' +
+          typeRef.resolvedSymbolId +
+          '" not found ' +
+          'in findTargetSymbolForReference, falling back to normal resolution',
+      );
+    }
+
     // First, try to extract qualifier information from chainNodes
     const qualifierInfo = this.extractQualifierFromChain(typeRef);
 
@@ -2769,7 +2812,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 endColumn: 0,
               },
             },
-            isResolved: false,
+            resolvedSymbolId: undefined,
           };
         }
         const builtInQualifier = await this.resolveBuiltInType(qualifierRef);
@@ -2890,7 +2933,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           name: qualifierInfo.qualifier,
           context: ReferenceContext.NAMESPACE,
           location: typeRef.location,
-          isResolved: false,
+          resolvedSymbolId: undefined,
         };
       }
       const builtInQualifier = await this.resolveBuiltInType(qualifierRef);
@@ -3177,7 +3220,25 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     position?: { line: number; character: number },
   ): Promise<ApexSymbol | null> {
     try {
-      // Step 0: Handle chained expression references
+      // Step 0: Fast path - if already resolved by listener second-pass, use the ID directly
+      // This provides O(1) lookup for same-file refs, avoiding expensive resolution chains
+      if (typeReference.resolvedSymbolId) {
+        const resolvedSymbol = this.getSymbol(typeReference.resolvedSymbolId);
+        if (resolvedSymbol) {
+          this.logger.debug(
+            () =>
+              `Using pre-resolved symbol ID "${typeReference.resolvedSymbolId}" for reference "${typeReference.name}"`,
+          );
+          return resolvedSymbol;
+        }
+        // If symbol not found (rare - might have been removed), fall through to normal resolution
+        this.logger.debug(
+          () =>
+            `Pre-resolved symbol ID "${typeReference.resolvedSymbolId}" not found, falling back to normal resolution`,
+        );
+      }
+
+      // Step 1: Handle chained expression references
       if (isChainedSymbolReference(typeReference)) {
         return this.resolveChainedSymbolReference(typeReference, position);
       }
@@ -3231,6 +3292,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               `Resolved standard Apex class "${typeReference.name}" to symbol: ${standardClass.name}`,
           );
           return standardClass;
+        } else {
+          // Diagnostic: Log when standard class resolution fails
+          this.logger.debug(
+            () =>
+              `Standard Apex class resolution failed for "${typeReference.name}" in ${sourceFile}`,
+          );
         }
       }
 
@@ -3300,12 +3367,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           );
         }
         if (candidates.length === 0) {
-          // Try built-in type resolution as fallback
-          // resolveBuiltInType should handle all built-in types including standard classes like System
-          const builtInType = await this.resolveBuiltInType(typeReference);
-          if (builtInType) {
-            return builtInType;
-          }
           return null;
         }
         // Filter to class symbols only
@@ -5672,7 +5733,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     const stepName = step.name;
     const stepContext = step.context;
-    const contextSymbol = currentContext.symbol;
+    const _contextSymbol = currentContext.symbol;
 
     // Try as method if context suggests it
     if (stepContext === ReferenceContext.METHOD_CALL) {
@@ -5933,6 +5994,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     typeReference: SymbolReference,
     position?: { line: number; character: number },
   ): Promise<ApexSymbol | null> {
+    // Fast path: if already resolved by listener second-pass, use the ID directly
+    if (typeReference.resolvedSymbolId) {
+      const resolvedSymbol = this.getSymbol(typeReference.resolvedSymbolId);
+      if (resolvedSymbol) {
+        this.logger.debug(
+          () =>
+            `Using pre-resolved symbol ID "${typeReference.resolvedSymbolId}" ` +
+            `for chained reference "${typeReference.name}"`,
+        );
+        return resolvedSymbol;
+      }
+      // If symbol not found, fall through to normal resolution
+    }
+
     if (isChainedSymbolReference(typeReference)) {
       let resolvedContext: ChainResolutionContext | null = null;
       try {
@@ -5957,6 +6032,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           // Check if position is on the first node (at start, within, or at chained ref start)
           if (this.isPositionOnFirstNode(typeReference, firstNode, position)) {
+            // Fast path: if first node already has resolvedSymbolId, use it directly
+            if (firstNode.resolvedSymbolId) {
+              const resolvedSymbol = this.getSymbol(firstNode.resolvedSymbolId);
+              if (resolvedSymbol) {
+                this.logger.debug(
+                  () =>
+                    'Using pre-resolved symbol ID ' +
+                    `"${firstNode.resolvedSymbolId}" for first node "${firstNode.name}"`,
+                );
+                return resolvedSymbol;
+              }
+            }
+
             const firstNodeSymbol = await this.resolveFirstNodeAsClass(
               firstNode.name,
               true,
@@ -5976,6 +6064,23 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           if (chainMember) {
             // If position is on the first node, try resolving it as a class
             if (chainMember.index === 0) {
+              // Fast path: if first node already has resolvedSymbolId, use it directly
+              const firstNode = chainNodes[0];
+              if (firstNode.resolvedSymbolId) {
+                const resolvedSymbol = this.getSymbol(
+                  firstNode.resolvedSymbolId,
+                );
+                if (resolvedSymbol) {
+                  this.logger.debug(
+                    () =>
+                      'Using pre-resolved symbol ID ' +
+                      `"${firstNode.resolvedSymbolId}" for first node "${firstNode.name}" ` +
+                      'in chain member resolution',
+                  );
+                  return resolvedSymbol;
+                }
+              }
+
               const firstNodeSymbol = await this.resolveFirstNodeAsClass(
                 chainNodes[0].name,
                 false, // Don't retry here since we already tried above
@@ -6092,7 +6197,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       firstNodeName,
       dummyLocation,
       ReferenceContext.CLASS_REFERENCE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
     );
     const builtInSymbol = await this.resolveBuiltInType(typeRef);
     if (builtInSymbol) {
@@ -6531,7 +6636,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             endColumn: 0,
           },
         },
-        isResolved: false,
+        resolvedSymbolId: undefined,
       };
       const builtInSymbol = await this.resolveBuiltInType(memberRef);
       if (builtInSymbol) {

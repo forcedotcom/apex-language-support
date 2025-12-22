@@ -5053,7 +5053,7 @@ export class ApexSymbolCollectorListener
       name: value, // SymbolReference.name
       location: correctedLocation,
       context,
-      isResolved: false,
+      resolvedSymbolId: undefined,
       parentContext: this.getCurrentMethod()?.name,
       isStatic: false,
     };
@@ -5071,7 +5071,7 @@ export class ApexSymbolCollectorListener
       name: fullExpression, // SymbolReference.name contains the full expression
       location: baseLocation, // Use base location as the main location
       context: ReferenceContext.CHAINED_TYPE,
-      isResolved: false,
+      resolvedSymbolId: undefined,
       parentContext: this.getCurrentMethod()?.name,
       isStatic: false,
     };
@@ -5127,14 +5127,10 @@ export class ApexSymbolCollectorListener
         // When correction is enabled, create CLASS_REFERENCE directly
         // When correction is disabled, create VARIABLE_USAGE so it can be verified it stays as VARIABLE_USAGE
         if (qualifier && qualifierLocation) {
-          // Check if qualifier is actually a variable in scope - if so, skip creating a reference
-          // But for static method calls like FileUtilities.createFile(), FileUtilities is a class, not a variable
-          const isVariable = this.isVariableInScope(qualifier);
           // For qualified static calls, always create a reference for the qualifier
           // When correction is disabled, create VARIABLE_USAGE (won't be upgraded by second pass)
           // When correction is enabled, create CLASS_REFERENCE directly
-          // Note: We create the reference even if isVariable is true, because in qualified calls,
-          // the qualifier represents a class/namespace, not a variable usage
+          // Note: In qualified calls, the qualifier represents a class/namespace, not a variable usage
           if (this.enableReferenceCorrection) {
             // Correction enabled: create CLASS_REFERENCE directly
             const classRef = SymbolReferenceFactory.createClassReference(
@@ -5208,7 +5204,7 @@ export class ApexSymbolCollectorListener
             memberName,
             memberLocation,
             context,
-            false,
+            undefined, // resolvedSymbolId - will be set during second-pass resolution
             parentContext,
           );
 
@@ -5577,7 +5573,7 @@ export class ApexSymbolCollectorListener
         memberName,
         memberLocation,
         context,
-        false,
+        undefined, // resolvedSymbolId - will be set during second-pass resolution
         parentContext,
       );
 
@@ -5599,9 +5595,10 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Second pass: Correct reference contexts using symbol table
-   * This fixes VARIABLE_USAGE references that should be CLASS_REFERENCE
-   * when they are actually class qualifiers in qualified calls or base expressions in chains
+   * Second pass: Correct reference contexts and resolve same-file symbol references
+   * This performs two operations:
+   * 1. Fixes VARIABLE_USAGE references that should be CLASS_REFERENCE
+   * 2. Resolves all same-file references to their symbol definitions
    * Called from exitCompilationUnit, exitTriggerUnit, and exitAnonymousUnit
    */
   private correctReferenceContexts(): void {
@@ -5612,7 +5609,9 @@ export class ApexSymbolCollectorListener
 
     const typeReferences = this.symbolTable.getAllReferences();
     let correctedCount = 0;
+    let resolvedCount = 0;
 
+    // Step 1: Correct reference contexts (existing logic)
     for (const ref of typeReferences) {
       // Only process VARIABLE_USAGE references that might be misclassified
       if (ref.context !== ReferenceContext.VARIABLE_USAGE) {
@@ -5627,10 +5626,71 @@ export class ApexSymbolCollectorListener
         this.logger.debug(
           () =>
             `[correctReferenceContexts] Upgrading VARIABLE_USAGE "${ref.name}" ` +
-            `to CLASS_REFERENCE`,
+            'to CLASS_REFERENCE',
         );
         ref.context = ReferenceContext.CLASS_REFERENCE;
         correctedCount++;
+      }
+    }
+
+    // Step 2: Resolve all same-file references to their symbol definitions
+    for (const ref of typeReferences) {
+      // Skip if already resolved
+      if (ref.resolvedSymbolId) {
+        continue;
+      }
+
+      // Get scope hierarchy for this reference's position
+      const position = {
+        line: ref.location.identifierRange.startLine,
+        character: ref.location.identifierRange.startColumn,
+      };
+      const scopeHierarchy = this.symbolTable.getScopeHierarchy(position);
+      const containingScope =
+        scopeHierarchy.length > 0
+          ? scopeHierarchy[scopeHierarchy.length - 1]
+          : null;
+
+      // Resolve based on context
+      const resolvedSymbol = this.resolveSameFileReference(
+        ref,
+        containingScope,
+        scopeHierarchy,
+      );
+
+      if (resolvedSymbol) {
+        ref.resolvedSymbolId = resolvedSymbol.id;
+        resolvedCount++;
+      }
+
+      // For chained references, ensure chain nodes are also resolved
+      // (they may have been resolved in resolveSameFileReference, but check anyway)
+      if (isChainedSymbolReference(ref) && ref.chainNodes) {
+        for (const chainNode of ref.chainNodes) {
+          if (!chainNode.resolvedSymbolId) {
+            // Try to resolve this chain node individually
+            const nodePosition = {
+              line: chainNode.location.identifierRange.startLine,
+              character: chainNode.location.identifierRange.startColumn,
+            };
+            const nodeScopeHierarchy =
+              this.symbolTable.getScopeHierarchy(nodePosition);
+            const nodeContainingScope =
+              nodeScopeHierarchy.length > 0
+                ? nodeScopeHierarchy[nodeScopeHierarchy.length - 1]
+                : null;
+
+            const nodeResolvedSymbol = this.resolveSameFileReference(
+              chainNode,
+              nodeContainingScope,
+              nodeScopeHierarchy,
+            );
+
+            if (nodeResolvedSymbol) {
+              chainNode.resolvedSymbolId = nodeResolvedSymbol.id;
+            }
+          }
+        }
       }
     }
 
@@ -5638,7 +5698,15 @@ export class ApexSymbolCollectorListener
       this.logger.debug(
         () =>
           `[correctReferenceContexts] Corrected ${correctedCount} reference ` +
-          `context(s)`,
+          'context(s)',
+      );
+    }
+
+    if (resolvedCount > 0) {
+      this.logger.debug(
+        () =>
+          `[correctReferenceContexts] Resolved ${resolvedCount} same-file ` +
+          'reference(s) to their symbol definitions',
       );
     }
   }
@@ -5747,5 +5815,371 @@ export class ApexSymbolCollectorListener
     }
 
     return false;
+  }
+
+  /**
+   * Resolve a same-file symbol reference to its definition
+   * Uses the symbol table's scope hierarchy and lookup methods to find the target symbol
+   * @param ref The symbol reference to resolve
+   * @param containingScope The scope containing the reference
+   * @param scopeHierarchy The full scope hierarchy from root to containing scope
+   * @returns The resolved symbol, or null if not found in same file
+   */
+  private resolveSameFileReference(
+    ref: SymbolReference,
+    containingScope: ScopeSymbol | null,
+    scopeHierarchy: ScopeSymbol[],
+  ): ApexSymbol | null {
+    const allSymbols = this.symbolTable.getAllSymbols();
+
+    switch (ref.context) {
+      case ReferenceContext.VARIABLE_USAGE:
+        // Resolve variable/parameter/field using scope-based lookup
+        // Search from innermost scope outward, prioritizing variables/parameters over fields
+        return this.resolveVariableUsage(
+          ref,
+          containingScope,
+          scopeHierarchy,
+          allSymbols,
+        );
+
+      case ReferenceContext.METHOD_CALL:
+        // Resolve method call - search in containing class/scope
+        return this.resolveMethodCall(ref, containingScope, allSymbols);
+
+      case ReferenceContext.FIELD_ACCESS:
+        // Resolve field/property access
+        return this.resolveFieldAccess(ref, containingScope, allSymbols);
+
+      case ReferenceContext.CONSTRUCTOR_CALL:
+        // Resolve constructor call - find constructor in same file
+        return this.resolveConstructorCall(ref, allSymbols);
+
+      case ReferenceContext.CLASS_REFERENCE:
+      case ReferenceContext.TYPE_DECLARATION:
+      case ReferenceContext.PARAMETER_TYPE:
+      case ReferenceContext.RETURN_TYPE:
+        // Resolve type references - find class/interface in same file
+        return this.resolveTypeReference(ref, allSymbols);
+
+      case ReferenceContext.VARIABLE_DECLARATION:
+      case ReferenceContext.PROPERTY_REFERENCE:
+        // These are declaration references - resolve to the declared symbol itself
+        return this.resolveDeclarationReference(
+          ref,
+          containingScope,
+          scopeHierarchy,
+          allSymbols,
+        );
+
+      case ReferenceContext.CHAINED_TYPE:
+        // For chained references like "ScopeExample.method4", resolve the entire chain
+        // to the final member (method/property), not just the first node
+        if (
+          isChainedSymbolReference(ref) &&
+          ref.chainNodes &&
+          ref.chainNodes.length >= 2
+        ) {
+          const firstNode = ref.chainNodes[0];
+          const lastNode = ref.chainNodes[ref.chainNodes.length - 1];
+
+          // First, resolve the qualifier (first node) to get the containing class
+          const qualifierSymbol = this.resolveTypeReference(
+            firstNode,
+            allSymbols,
+          );
+          if (!qualifierSymbol) {
+            return null;
+          }
+
+          // Resolve the first node (qualifier) to its symbol
+          firstNode.resolvedSymbolId = qualifierSymbol.id;
+
+          // Find the class block associated with the qualifier symbol
+          const classBlock = allSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.parentId === qualifierSymbol.id,
+          ) as ScopeSymbol | undefined;
+
+          if (!classBlock) {
+            return null;
+          }
+
+          // Then, resolve the member (last node) within that class block
+          // Check if the last node is a method call
+          if (lastNode.context === ReferenceContext.METHOD_CALL) {
+            // Find the method in the qualifier class's block
+            const methodSymbol = allSymbols.find(
+              (s) =>
+                s.kind === SymbolKind.Method &&
+                s.name === lastNode.name &&
+                s.parentId === classBlock.id,
+            );
+            if (methodSymbol) {
+              // Resolve the last node to the method
+              lastNode.resolvedSymbolId = methodSymbol.id;
+              return methodSymbol;
+            }
+          } else if (lastNode.context === ReferenceContext.FIELD_ACCESS) {
+            // Find the field/property in the qualifier class's block
+            const fieldSymbol = allSymbols.find(
+              (s) =>
+                (s.kind === SymbolKind.Field ||
+                  s.kind === SymbolKind.Property) &&
+                s.name === lastNode.name &&
+                s.parentId === classBlock.id,
+            );
+            if (fieldSymbol) {
+              // Resolve the last node to the field/property
+              lastNode.resolvedSymbolId = fieldSymbol.id;
+              return fieldSymbol;
+            }
+          }
+
+          // If member not found, fall back to resolving just the first node
+          return qualifierSymbol;
+        } else if (
+          isChainedSymbolReference(ref) &&
+          ref.chainNodes &&
+          ref.chainNodes.length === 1
+        ) {
+          // Single node chain - resolve as type reference
+          const resolved = this.resolveTypeReference(
+            ref.chainNodes[0],
+            allSymbols,
+          );
+          if (resolved) {
+            ref.chainNodes[0].resolvedSymbolId = resolved.id;
+          }
+          return resolved;
+        }
+        return null;
+
+      default:
+        // For other contexts, try generic lookup
+        return this.symbolTable.lookup(ref.name, containingScope) || null;
+    }
+  }
+
+  /**
+   * Resolve a VARIABLE_USAGE reference using scope-based lookup
+   * Prioritizes variables/parameters over fields, respecting lexical scoping
+   */
+  private resolveVariableUsage(
+    ref: SymbolReference,
+    containingScope: ScopeSymbol | null,
+    scopeHierarchy: ScopeSymbol[],
+    allSymbols: ApexSymbol[],
+  ): ApexSymbol | null {
+    // Search from innermost (most specific) to outermost scope
+    const innermostToOutermost = [...scopeHierarchy].reverse();
+
+    for (const scope of innermostToOutermost) {
+      // Find symbols in this scope (direct children)
+      const symbolsInScope = allSymbols.filter(
+        (s) =>
+          s.name?.toLowerCase() === ref.name.toLowerCase() &&
+          s.parentId === scope.id &&
+          (s.kind === SymbolKind.Variable ||
+            s.kind === SymbolKind.Parameter ||
+            s.kind === SymbolKind.Field),
+      );
+
+      if (symbolsInScope.length > 0) {
+        // Prioritize variables/parameters over fields
+        const prioritized = symbolsInScope.sort((a, b) => {
+          const aIsVar =
+            a.kind === SymbolKind.Variable || a.kind === SymbolKind.Parameter;
+          const bIsVar =
+            b.kind === SymbolKind.Variable || b.kind === SymbolKind.Parameter;
+          if (aIsVar && !bIsVar) return -1;
+          if (!aIsVar && bIsVar) return 1;
+          return 0;
+        });
+        return prioritized[0];
+      }
+    }
+
+    // If not found in scopes, try file-level lookup (for fields)
+    return this.symbolTable.lookup(ref.name, null) || null;
+  }
+
+  /**
+   * Resolve a METHOD_CALL reference
+   * Searches for methods in the containing class/scope
+   */
+  private resolveMethodCall(
+    ref: SymbolReference,
+    containingScope: ScopeSymbol | null,
+    allSymbols: ApexSymbol[],
+  ): ApexSymbol | null {
+    // Find the containing class (search up scope hierarchy)
+    let currentScope = containingScope;
+    while (currentScope) {
+      // Check if current scope is a class-level scope
+      if (currentScope.scopeType === 'class') {
+        // Search for method in this class scope
+        const methods = allSymbols.filter(
+          (s) =>
+            s.name === ref.name &&
+            s.parentId === currentScope!.id &&
+            (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor),
+        );
+        if (methods.length > 0) {
+          // If multiple methods (overloading), prefer non-constructor for now
+          // TODO: Improve overload resolution based on parameter types
+          return (
+            methods.find((m) => m.kind === SymbolKind.Method) || methods[0]
+          );
+        }
+      }
+
+      // Move to parent scope
+      if (currentScope.parentId) {
+        const parent = allSymbols.find(
+          (s) => s.id === currentScope!.parentId && s.kind === SymbolKind.Block,
+        ) as ScopeSymbol | undefined;
+        currentScope = parent || null;
+      } else {
+        currentScope = null;
+      }
+    }
+
+    // Fallback: search all methods in file
+    const allMethods = allSymbols.filter(
+      (s) =>
+        s.name === ref.name &&
+        (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor),
+    );
+    return allMethods.length > 0 ? allMethods[0] : null;
+  }
+
+  /**
+   * Resolve a FIELD_ACCESS reference
+   * Searches for fields/properties in the containing class
+   */
+  private resolveFieldAccess(
+    ref: SymbolReference,
+    containingScope: ScopeSymbol | null,
+    allSymbols: ApexSymbol[],
+  ): ApexSymbol | null {
+    // Find the containing class (search up scope hierarchy)
+    let currentScope = containingScope;
+    while (currentScope) {
+      if (currentScope.scopeType === 'class') {
+        // Search for field/property in this class scope
+        const fields = allSymbols.filter(
+          (s) =>
+            s.name === ref.name &&
+            s.parentId === currentScope!.id &&
+            (s.kind === SymbolKind.Field || s.kind === SymbolKind.Property),
+        );
+        if (fields.length > 0) {
+          return fields[0];
+        }
+      }
+
+      if (currentScope.parentId) {
+        const parent = allSymbols.find(
+          (s) => s.id === currentScope!.parentId && s.kind === SymbolKind.Block,
+        ) as ScopeSymbol | undefined;
+        currentScope = parent || null;
+      } else {
+        currentScope = null;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolve a CONSTRUCTOR_CALL reference
+   * Finds constructor in same file
+   */
+  private resolveConstructorCall(
+    ref: SymbolReference,
+    allSymbols: ApexSymbol[],
+  ): ApexSymbol | null {
+    // First, find the class
+    const classSymbol = allSymbols.find(
+      (s) =>
+        s.name === ref.name &&
+        (s.kind === SymbolKind.Class ||
+          s.kind === SymbolKind.Interface ||
+          s.kind === SymbolKind.Enum),
+    );
+
+    if (!classSymbol) {
+      return null;
+    }
+
+    // Find constructor for this class (constructor name matches class name)
+    const constructor = allSymbols.find(
+      (s) =>
+        s.name === ref.name &&
+        s.kind === SymbolKind.Constructor &&
+        s.parentId === classSymbol.id,
+    );
+
+    return constructor || null;
+  }
+
+  /**
+   * Resolve a type reference (CLASS_REFERENCE, TYPE_DECLARATION, etc.)
+   * Finds class/interface in same file
+   */
+  private resolveTypeReference(
+    ref: SymbolReference,
+    allSymbols: ApexSymbol[],
+  ): ApexSymbol | null {
+    return (
+      allSymbols.find(
+        (s) =>
+          s.name === ref.name &&
+          (s.kind === SymbolKind.Class ||
+            s.kind === SymbolKind.Interface ||
+            s.kind === SymbolKind.Enum),
+      ) || null
+    );
+  }
+
+  /**
+   * Resolve a declaration reference (VARIABLE_DECLARATION, PROPERTY_REFERENCE)
+   * Resolves to the declared symbol itself
+   */
+  private resolveDeclarationReference(
+    ref: SymbolReference,
+    containingScope: ScopeSymbol | null,
+    scopeHierarchy: ScopeSymbol[],
+    allSymbols: ApexSymbol[],
+  ): ApexSymbol | null {
+    // For VARIABLE_DECLARATION, find the variable symbol
+    if (ref.context === ReferenceContext.VARIABLE_DECLARATION) {
+      // Search in containing scope for variable with matching name
+      const variables = allSymbols.filter(
+        (s) =>
+          s.name?.toLowerCase() === ref.name.toLowerCase() &&
+          s.parentId === containingScope?.id &&
+          (s.kind === SymbolKind.Variable ||
+            s.kind === SymbolKind.Parameter ||
+            s.kind === SymbolKind.Field),
+      );
+      return variables.length > 0 ? variables[0] : null;
+    }
+
+    // For PROPERTY_REFERENCE, find the property symbol
+    if (ref.context === ReferenceContext.PROPERTY_REFERENCE) {
+      const properties = allSymbols.filter(
+        (s) =>
+          s.name === ref.name &&
+          s.parentId === containingScope?.id &&
+          s.kind === SymbolKind.Property,
+      );
+      return properties.length > 0 ? properties[0] : null;
+    }
+
+    return null;
   }
 }

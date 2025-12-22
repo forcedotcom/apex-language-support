@@ -62,7 +62,7 @@ describe('MissingArtifactUtils', () => {
           },
         },
         context: 1,
-        isResolved: false,
+        resolvedSymbolId: undefined,
       };
 
       mockSymbolManager.getReferencesAtPosition.mockReturnValue([
@@ -107,7 +107,7 @@ describe('MissingArtifactUtils', () => {
           },
         },
         context: 1,
-        isResolved: false,
+        resolvedSymbolId: undefined,
       };
 
       const mockReference2 = {
@@ -121,7 +121,7 @@ describe('MissingArtifactUtils', () => {
           },
         },
         context: 1,
-        isResolved: false,
+        resolvedSymbolId: undefined,
       };
 
       mockSymbolManager.getReferencesAtPosition.mockReturnValue([
