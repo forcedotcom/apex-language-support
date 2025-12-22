@@ -137,10 +137,38 @@ public class String {
 	public Boolean isBlank() { }
 
 	/**
+	 * Returns true if the String is blank (null, empty, or contains only whitespace).
+	 * @param str The String to check
+	 * @return true if the String is blank, false otherwise
+	 */
+	public static Boolean isBlank(String str) { }
+
+	/**
+	 * Returns true if the String is not blank (not null, not empty, and contains at least one non-whitespace character).
+	 * @param str The String to check
+	 * @return true if the String is not blank, false otherwise
+	 */
+	public static Boolean isNotBlank(String str) { }
+
+	/**
 	 * Returns true if the String is empty (length is 0).
 	 * @return true if the String is empty, false otherwise
 	 */
 	public Boolean isEmpty() { }
+
+	/**
+	 * Returns true if the String is empty (length is 0).
+	 * @param str The String to check
+	 * @return true if the String is empty, false otherwise
+	 */
+	public static Boolean isEmpty(String str) { }
+
+	/**
+	 * Returns true if the String is not empty (length is greater than 0).
+	 * @param str The String to check
+	 * @return true if the String is not empty, false otherwise
+	 */
+	public static Boolean isNotEmpty(String str) { }
 
 	/**
 	 * Joins the elements of the provided List into a single String.

@@ -5608,6 +5608,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     const stepName = step.name;
     const stepContext = step.context;
+    const contextSymbol = currentContext.symbol;
 
     // Try as method if context suggests it
     if (stepContext === ReferenceContext.METHOD_CALL) {
@@ -6302,38 +6303,27 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
 
         // If this is a standard Apex class and we still don't have a symbol table, try to load it
-        // BUT: Only if the symbol doesn't already exist in the graph (to prevent loops)
-        // If the symbol exists, the symbol table should exist too - skip reload to prevent loops
+        // We need the symbol table to resolve members (methods, properties) of the class
         if (
           !symbolTable &&
           isStandardApexUri(contextFile) &&
           this.resourceLoader
         ) {
-          // Check if symbol already exists in graph - if so, don't reload (prevents loops)
-          const existingSymbols = this.symbolGraph.findSymbolByName(
-            contextSymbol.name,
+          // Check if we're already loading this file to prevent recursive loops
+          const normalizedUri = extractFilePathFromUri(
+            getProtocolType(contextFile) !== null
+              ? contextFile
+              : createFileUri(contextFile),
           );
-          const symbolExists = existingSymbols.some(
-            (s) => s.id === contextSymbol.id,
-          );
-
-          if (symbolExists) {
-            // Symbol already exists in graph - symbol table should exist too
-            // This might be a URI format mismatch, but we shouldn't reload
-            // Try one more time with normalized URI
-            const normalizedUri = extractFilePathFromUri(
-              getProtocolType(contextFile) !== null
-                ? contextFile
-                : createFileUri(contextFile),
+          
+          if (this.loadingSymbolTables.has(normalizedUri)) {
+            this.logger.debug(
+              () =>
+                `Skipping recursive load attempt for ${contextFile} (normalized: ${normalizedUri}) - already loading`,
             );
-            symbolTable = this.symbolGraph.getSymbolTableForFile(normalizedUri);
+            // Re-check symbol table after a brief moment in case it was just added
+            symbolTable = this.symbolGraph.getSymbolTableForFile(contextFile);
             if (!symbolTable) {
-              // Symbol exists but symbol table doesn't - this is unusual but don't reload
-              this.logger.debug(
-                () =>
-                  `Symbol ${contextSymbol.name} exists in graph but symbol table not ` +
-                  `found for ${contextFile} - skipping reload to prevent loop`,
-              );
               return null;
             }
           } else {

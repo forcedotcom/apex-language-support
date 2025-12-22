@@ -12,6 +12,7 @@ import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import * as fs from 'fs';
 import * as path from 'path';
+import { ReferenceContext } from '../../src/types/symbolReference';
 import {
   enableConsoleLogging,
   getLogger,
@@ -766,9 +767,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.name).toBe('createFile');
       expect(result?.kind).toBe('method');
       expect(result?.fileUri).toBe('file:///test/FileUtilities.cls');
+      // ID format uses block-based structure: fileUri:class:ClassName:block:class_1:method:methodName
       expect(result?.id).toBe(
-        'file:///test/FileUtilities.cls:file.FileUtilities:createFile',
-      ); // Should resolve to the actual method definition
+        'file:///test/FileUtilities.cls:class:FileUtilities:block:class_1:method:createFile',
+      );
     });
 
     it('should resolve method name in workspace Apex class qualified call (ServiceClass.processData)', async () => {
@@ -788,9 +790,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.name).toBe('processData');
       expect(result?.kind).toBe('method');
       expect(result?.fileUri).toBe('file:///test/ServiceClass.cls');
+      // ID format uses block-based structure: fileUri:class:ClassName:block:class_1:method:methodName
       expect(result?.id).toBe(
-        'file:///test/ServiceClass.cls:file.ServiceClass:processData',
-      ); // Should resolve to the actual method definition
+        'file:///test/ServiceClass.cls:class:ServiceClass:block:class_1:method:processData',
+      );
     });
 
     it('should resolve method name in workspace Apex class qualified call (UtilityClass.formatString)', async () => {
@@ -811,9 +814,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.name).toBe('formatString');
       expect(result?.kind).toBe('method');
       expect(result?.fileUri).toBe('file:///test/UtilityClass.cls');
+      // ID format uses block-based structure: fileUri:class:ClassName:block:class_1:method:methodName
       expect(result?.id).toBe(
-        'file:///test/UtilityClass.cls:file.UtilityClass:formatString',
-      ); // Should resolve to the actual method definition
+        'file:///test/UtilityClass.cls:class:UtilityClass:block:class_1:method:formatString',
+      );
     });
 
     it('should resolve method name in standard Apex class qualified call (System.debug)', async () => {
@@ -875,6 +879,162 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.kind).toBe('method');
       // toExternalForm is a standard Apex method
       expect(result?.modifiers?.isBuiltIn).toBe(false);
+    });
+
+    // Tests for resolving standard class names (System, String) via getSymbolAtPosition
+    describe('Standard Class Name Resolution', () => {
+      it('should resolve System class name in System.debug call', async () => {
+        // Test hover on "System" in "System.debug()"
+        // Position should be on the "System" part, not the "debug" method
+        // Using cross-file TestClass which has System.debug calls
+        const testClassPath = path.join(
+          __dirname,
+          '../fixtures/cross-file/TestClass.cls',
+        );
+        const testClassContent = fs.readFileSync(testClassPath, 'utf8');
+
+        const testClassListener = new ApexSymbolCollectorListener();
+        const testClassResult = compilerService.compile(
+          testClassContent,
+          'file:///test/TestClass.cls',
+          testClassListener,
+        );
+
+        if (testClassResult.result) {
+          await symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          );
+        }
+
+        // Find position of "System" in "System.debug(result)" - line 18
+        const lines = testClassContent.split('\n');
+        const lineIndex = 17; // 0-based, line 18 is index 17
+        const line = lines[lineIndex];
+        const systemIndex = line.indexOf('System.debug');
+        expect(systemIndex).toBeGreaterThanOrEqual(0);
+
+        // Position on "System" (parser-ast format: 1-based line, 0-based column)
+        const result = await symbolManager.getSymbolAtPosition(
+          'file:///test/TestClass.cls',
+          { line: lineIndex + 1, character: systemIndex }, // Position on "System"
+          'precise',
+        );
+
+        expect(result).toBeDefined();
+        expect(result?.name).toBe('System');
+        expect(result?.kind).toBe('class');
+        // Should resolve to System class from standard library
+        expect(result?.fileUri).toBe(
+          'apexlib://resources/StandardApexLibrary/System/System.cls',
+        );
+      });
+
+      it('should resolve String class name in String.isNotBlank call', async () => {
+        // Test hover on "String" in "String.isNotBlank()"
+        // Using cross-file TestClass which has String.isNotBlank calls
+        const testClassPath = path.join(
+          __dirname,
+          '../fixtures/cross-file/TestClass.cls',
+        );
+        const testClassContent = fs.readFileSync(testClassPath, 'utf8');
+
+        const testClassListener = new ApexSymbolCollectorListener();
+        const testClassResult = compilerService.compile(
+          testClassContent,
+          'file:///test/TestClass.cls',
+          testClassListener,
+        );
+
+        if (testClassResult.result) {
+          await symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          );
+        }
+
+        // Find position of "String" in "String.isNotBlank(address.street)" - line 110
+        const lines = testClassContent.split('\n');
+        const lineIndex = 109; // 0-based, line 110 is index 109
+        const line = lines[lineIndex];
+        const stringIndex = line.indexOf('String.isNotBlank');
+        expect(stringIndex).toBeGreaterThanOrEqual(0);
+
+        // Position on "String" (parser-ast format: 1-based line, 0-based column)
+        const result = await symbolManager.getSymbolAtPosition(
+          'file:///test/TestClass.cls',
+          { line: lineIndex + 1, character: stringIndex }, // Position on "String"
+          'precise',
+        );
+
+        expect(result).toBeDefined();
+        expect(result?.name).toBe('String');
+        expect(result?.kind).toBe('class');
+        // Should resolve to String class from standard library or built-in types
+        expect(result?.fileUri).toBeDefined();
+      });
+
+      it('should resolve System class through full CLASS_REFERENCE resolution flow', async () => {
+        // Test the full resolution flow:
+        // CLASS_REFERENCE → resolveSymbolReferenceToSymbol → resolveBuiltInType → resolveStandardApexClass
+        // This verifies the entire chain works end-to-end
+        const testClassPath = path.join(
+          __dirname,
+          '../fixtures/cross-file/TestClass.cls',
+        );
+        const testClassContent = fs.readFileSync(testClassPath, 'utf8');
+
+        const testClassListener = new ApexSymbolCollectorListener();
+        const testClassResult = compilerService.compile(
+          testClassContent,
+          'file:///test/TestClass.cls',
+          testClassListener,
+        );
+
+        if (testClassResult.result) {
+          await symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          );
+        }
+
+        // Get TypeReferences at position to verify CLASS_REFERENCE context
+        const lines = testClassContent.split('\n');
+        const lineIndex = 17; // Line 18: System.debug(result)
+        const line = lines[lineIndex];
+        const systemIndex = line.indexOf('System.debug');
+        expect(systemIndex).toBeGreaterThanOrEqual(0);
+
+        // Get references at this position
+        const references = symbolManager.getReferencesAtPosition(
+          'file:///test/TestClass.cls',
+          { line: lineIndex + 1, character: systemIndex },
+        );
+
+        // Should find CLASS_REFERENCE for "System"
+        const systemRef = references.find(
+          (r) =>
+            r.name === 'System' &&
+            r.context === ReferenceContext.CLASS_REFERENCE,
+        );
+        expect(systemRef).toBeDefined();
+
+        // Now test resolution via getSymbolAtPosition (which uses the full flow)
+        const result = await symbolManager.getSymbolAtPosition(
+          'file:///test/TestClass.cls',
+          { line: lineIndex + 1, character: systemIndex },
+          'precise',
+        );
+
+        // Should resolve through:
+        // CLASS_REFERENCE → resolveSymbolReferenceToSymbol → resolveBuiltInType → resolveStandardApexClass
+        expect(result).toBeDefined();
+        expect(result?.name).toBe('System');
+        expect(result?.kind).toBe('class');
+        expect(result?.fileUri).toBe(
+          'apexlib://resources/StandardApexLibrary/System/System.cls',
+        );
+      });
     });
 
     // TODO: Fix method name resolution in built-in type qualified calls

@@ -111,7 +111,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       expect(['class', 'method'].includes(foundSymbol?.kind || '')).toBe(true);
       expect(foundSymbol?.name).toBeDefined();
       // Confirm it points at the std lib path
-      expect(foundSymbol?.fileUri).toContain(
+      expect(foundSymbol?.fileUri).toBe(
         'apexlib://resources/StandardApexLibrary/System/EncodingUtil.cls',
       );
     });
@@ -149,7 +149,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       // With our URI scheme fixes, this should now resolve to the method
       expect(foundSymbol?.kind).toBe(SymbolKind.Method);
       expect(foundSymbol?.name).toBe('urlDecode');
-      expect(foundSymbol?.fileUri).toContain(
+      expect(foundSymbol?.fileUri).toBe(
         'apexlib://resources/StandardApexLibrary/System/EncodingUtil.cls',
       );
     });
@@ -195,7 +195,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       }
     });
 
-    it.skip('should resolve String.isNotBlank reference to see if corruption is pervasive', async () => {
+    it('should resolve String.isNotBlank reference to see if corruption is pervasive', async () => {
       // Read the real TestClass.cls file
       const testClassPath = path.join(
         __dirname,
@@ -246,8 +246,8 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       expect(foundSymbol).toBeDefined();
       expect(foundSymbol?.kind).toBe(SymbolKind.Method);
       expect(foundSymbol?.name).toBe('isNotBlank');
-      expect(foundSymbol?.fileUri).toContain(
-        'apexlib://resources/System/String.cls',
+      expect(foundSymbol?.fileUri).toBe(
+        'apexlib://resources/StandardApexLibrary/System/String.cls',
       );
     });
 
