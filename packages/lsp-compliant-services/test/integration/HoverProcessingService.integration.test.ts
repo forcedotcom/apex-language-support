@@ -86,11 +86,8 @@ describe('HoverProcessingService Integration Tests', () => {
       !systemNamespace ||
       !systemNamespace.some((cls) => cls.toString() === 'System.cls')
     ) {
-      // If System class is not in the namespace structure, log a warning
-      // but continue - it might be loaded on-demand
-      console.warn(
-        'Warning: System.cls not found in ResourceLoader namespace structure',
-      );
+      // If System class is not in the namespace structure, continue
+      // it might be loaded on-demand
     }
   });
 
@@ -122,10 +119,7 @@ describe('HoverProcessingService Integration Tests', () => {
     // This ensures the standard library is accessible
     const managerResourceLoader = (symbolManager as any).resourceLoader;
     if (managerResourceLoader !== resourceLoader) {
-      // If they're different, we have a problem - log it but continue
-      console.warn(
-        'Warning: ApexSymbolManager ResourceLoader instance differs from test ResourceLoader',
-      );
+      // If they're different, we have a problem but continue
     }
 
     // Preload the System class to ensure it's available for resolution
@@ -145,20 +139,8 @@ describe('HoverProcessingService Integration Tests', () => {
           systemArtifact.compilationResult.result,
           systemUri,
         );
-
-        // Verify the System class symbol is now in the graph
-        const systemSymbols = symbolManager.findSymbolByName('System');
-        if (systemSymbols.length === 0) {
-          console.warn(
-            'Warning: System class symbol not found in graph after adding symbol table',
-          );
-        }
       }
-    } catch (error) {
-      // Log error for debugging
-      console.warn(
-        `Warning: Failed to preload System class: ${error instanceof Error ? error.message : String(error)}`,
-      );
+    } catch (_error) {
       // Continue - the ResourceLoader should handle lazy loading on-demand
     }
 

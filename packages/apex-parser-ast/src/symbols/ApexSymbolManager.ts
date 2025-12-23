@@ -2124,6 +2124,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable: SymbolTable,
   ): Promise<void> {
     try {
+      // Skip LITERAL references - they don't represent symbol relationships
+      // They're tracked for semantic analysis but shouldn't create graph edges
+      if (typeRef.context === ReferenceContext.LITERAL) {
+        return;
+      }
+
       // Check if this is a cross-file reference BEFORE trying to resolve
       // This prevents recursive cascades when processing standard library classes
       const qualifierInfo = this.extractQualifierFromChain(typeRef);
@@ -3338,39 +3344,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               (s) =>
                 s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
             );
-            console.log(
-              '[ApexSymbolManager] VARIABLE_USAGE reference ' +
-                `"${typeReference.name}" - found ${candidates.length} candidates, ` +
-                `hasClassMatch=${hasClassMatch}`,
-            );
             // If we found class candidates, treat as class reference
             // Also try to resolve as class even if no candidates found yet (symbol might not be loaded)
             // This handles cases where the class exists but isn't in the symbol graph yet
             return hasClassMatch || candidates.length === 0;
           })());
       if (isClassReferenceContext) {
-        console.log(
-          '[ApexSymbolManager] Treating as CLASS_REFERENCE - resolving via findSymbolByName',
-        );
         const candidates = this.findSymbolByName(typeReference.name);
-        console.log(
-          '[ApexSymbolManager] findSymbolByName found ' +
-            `${candidates.length} candidates for "${typeReference.name}"`,
-        );
-        // Also check symbol graph directly for debugging
-        const graphSymbols = this.symbolGraph.findSymbolByName(
-          typeReference.name,
-        );
-        console.log(
-          '[ApexSymbolManager] symbolGraph.findSymbolByName found ' +
-            `${graphSymbols.length} symbols`,
-        );
-        if (graphSymbols.length > 0) {
-          console.log(
-            '[ApexSymbolManager] Graph symbols: ' +
-              graphSymbols.map((s) => `${s.name} (${s.kind})`).join(', '),
-          );
-        }
         if (candidates.length === 0) {
           return null;
         }
@@ -3378,27 +3358,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const classCandidates = candidates.filter(
           (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
         );
-        console.log(
-          '[ApexSymbolManager] Filtered to ' +
-            `${classCandidates.length} class candidates`,
-        );
         if (classCandidates.length > 0) {
           // Prefer same-file classes, then accessible classes
           const sameFileClass = classCandidates.find(
             (s) => s.key.path[0] === sourceFile,
           );
           if (sameFileClass) {
-            console.log('[ApexSymbolManager] Found same-file class');
             return sameFileClass;
           }
           const accessibleClass = classCandidates.find((s) =>
             this.isSymbolAccessibleFromFile(s, sourceFile),
           );
           if (accessibleClass) {
-            console.log('[ApexSymbolManager] Found accessible class');
             return accessibleClass;
           }
-          console.log('[ApexSymbolManager] Returning first class candidate');
           return classCandidates[0];
         }
         return null;
@@ -4998,29 +4971,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               // Position is exactly at the start of the chained reference
               // This means we're on the first node - check if there's a CLASS_REFERENCE
               // that matches this position (prefer it over the chained reference)
-              console.log(
-                '[ApexSymbolManager] Position is at start of chained reference ' +
-                  `"${ref.name}" - checking for CLASS_REFERENCE`,
-              );
-              console.log(
-                '[ApexSymbolManager] All typeReferences contexts: ' +
-                  typeReferences
-                    .map(
-                      (r) =>
-                        `${r.name}=${r.context}(${ReferenceContext[r.context] || 'unknown'})`,
-                    )
-                    .join(', '),
-              );
               // Check for CLASS_REFERENCE or VARIABLE_USAGE contexts
               // (VARIABLE_USAGE is sometimes incorrectly used for class qualifiers)
               const classRefs = typeReferences.filter(
                 (r) =>
                   r.context === ReferenceContext.CLASS_REFERENCE ||
                   r.context === ReferenceContext.VARIABLE_USAGE,
-              );
-              console.log(
-                '[ApexSymbolManager] Found ' +
-                  `${classRefs.length} candidates (CLASS_REFERENCE or VARIABLE_USAGE)`,
               );
               let foundClassRef = false;
               for (const classRef of classRefs) {
@@ -5035,17 +4991,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   position.line <= classLoc.endLine &&
                   position.character >= classLoc.startColumn &&
                   position.character <= classLoc.endColumn;
-                console.log(
-                  '[ApexSymbolManager] CLASS_REFERENCE ' +
-                    `"${classRef.name}" ` +
-                    `(${classLoc.startLine}:${classLoc.startColumn}-${classLoc.endColumn}) ` +
-                    `matchesFirstNode=${matchesFirstNode}, matchesPosition=${matchesPosition}`,
-                );
                 if (matchesFirstNode && matchesPosition) {
-                  console.log(
-                    '[ApexSymbolManager] ✓ Found matching CLASS_REFERENCE ' +
-                      `"${classRef.name}" at start position`,
-                  );
                   // Mark this reference as needing class resolution even if it's VARIABLE_USAGE
                   // We'll handle this in resolveSymbolReferenceToSymbol
                   referenceToResolve = classRef;
@@ -5054,10 +5000,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 }
               }
               if (!foundClassRef) {
-                console.log(
-                  '[ApexSymbolManager] No CLASS_REFERENCE found, using chained reference ' +
-                    `"${ref.name}"`,
-                );
                 referenceToResolve = ref;
               }
               break;
@@ -5103,23 +5045,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               position.character >= firstNodeStart.startColumn &&
               position.character <= firstNodeStart.endColumn;
 
-            console.log(
-              '[ApexSymbolManager] Checking if position ' +
-                `${position.line}:${position.character} ` +
-                'is within first node ' +
-                `(${firstNodeStart.startLine}:${firstNodeStart.startColumn}-${firstNodeStart.endColumn}): ` +
-                `${isWithinFirstNode}`,
-            );
-
             if (isWithinFirstNode) {
               // Position is within the first node - check if there's a standalone CLASS_REFERENCE
               // that matches this position (prefer it over the chained reference for qualifier resolution)
               const classRefs = typeReferences.filter(
                 (r) => r.context === ReferenceContext.CLASS_REFERENCE,
-              );
-              console.log(
-                '[ApexSymbolManager] Found ' +
-                  `${classRefs.length} CLASS_REFERENCE candidates to check`,
               );
               // Find any CLASS_REFERENCE that matches the position (more lenient matching)
               let foundMatchingClassRef = false;
@@ -5130,19 +5060,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   position.line <= classLoc.endLine &&
                   position.character >= classLoc.startColumn &&
                   position.character <= classLoc.endColumn;
-                console.log(
-                  '[ApexSymbolManager] Checking CLASS_REFERENCE ' +
-                    `"${classRef.name}" ` +
-                    `(${classLoc.startLine}:${classLoc.startColumn}-${classLoc.endColumn}): ` +
-                    `matches=${matchesPosition}`,
-                );
                 // Check if position is within the CLASS_REFERENCE range
                 if (matchesPosition) {
                   // Found a CLASS_REFERENCE that matches the position - prefer it over the chained reference
-                  console.log(
-                    `[ApexSymbolManager] ✓ Selected CLASS_REFERENCE "${classRef.name}" over ` +
-                      `chained reference "${ref.name}"`,
-                  );
                   referenceToResolve = classRef;
                   foundMatchingClassRef = true;
                   break;
@@ -5150,9 +5070,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               }
               // If no matching CLASS_REFERENCE found, use the chained reference
               if (!foundMatchingClassRef) {
-                console.log(
-                  `[ApexSymbolManager] ✗ No matching CLASS_REFERENCE found, using chained reference "${ref.name}"`,
-                );
                 referenceToResolve = ref;
               }
               // Always break after handling this chained reference
@@ -5287,29 +5204,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // Step 3: Try to resolve the most specific reference
         // Keyword check happens inside resolveSymbolReferenceToSymbol
         // after built-in type resolution (some keywords are built-in types)
-        const refContext =
-          ReferenceContext[referenceToResolve.context] ||
-          referenceToResolve.context;
-        console.log(
-          `[ApexSymbolManager] Resolving reference "${referenceToResolve.name}" ` +
-            `(context: ${refContext})`,
-        );
         let resolvedSymbol = await this.resolveSymbolReferenceToSymbol(
           referenceToResolve,
           fileUri,
           position,
         );
         if (resolvedSymbol) {
-          console.log(
-            `[ApexSymbolManager] Successfully resolved "${referenceToResolve.name}" to ` +
-              `symbol "${resolvedSymbol.name}" (kind: ${resolvedSymbol.kind})`,
-          );
           return resolvedSymbol;
-        } else {
-          console.log(
-            `[ApexSymbolManager] Failed to resolve "${referenceToResolve.name}" ` +
-              `(context: ${refContext})`,
-          );
         }
 
         // Step 3b: If resolution failed and we have CLASS_REFERENCE references,

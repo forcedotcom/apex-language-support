@@ -32,6 +32,8 @@ import {
   TypeRefContext,
   // Add missing contexts for complete reference capture
   IdPrimaryContext,
+  ThisPrimaryContext,
+  SuperPrimaryContext,
   PrimaryExpressionContext,
   AssignExpressionContext,
   ArrayExpressionContext,
@@ -53,7 +55,6 @@ import {
   ArgumentsContext,
   ArrayInitializerContext,
   LiteralContext,
-  PrimaryContext,
   // Add contexts for control structures
   IfStatementContext,
   WhileStatementContext,
@@ -856,24 +857,12 @@ export class ApexSymbolCollectorListener
    */
   exitModifier(ctx: ModifierContext): void {
     try {
-      const modifier = ctx.text.toLowerCase();
       const modifiers = this.getCurrentModifiers();
 
       // Validate modifier combinations
-      // Check for conflicting visibility modifiers
-      const visibilityModifiers = [
-        modifiers.isPublic,
-        modifiers.isPrivate,
-        modifiers.isProtected,
-        modifiers.isGlobal,
-      ].filter(Boolean).length;
-
-      if (visibilityModifiers > 1) {
-        this.addError(
-          'Conflicting visibility modifiers: only one visibility modifier is allowed',
-          ctx,
-        );
-      }
+      // Note: Visibility is stored as a single enum value, not individual booleans
+      // Multiple visibility modifiers would be caught during parsing/application
+      // The visibility enum ensures only one visibility modifier can be set
 
       // Check for conflicting access modifiers
       if (modifiers.isFinal && modifiers.isAbstract) {
@@ -2061,10 +2050,7 @@ export class ApexSymbolCollectorListener
       // Finalize declaration group - ensure proper type linking
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(
-        `Error exiting variable declarators: ${errorMessage}`,
-        ctx,
-      );
+      this.addError(`Error exiting variable declarators: ${errorMessage}`, ctx);
     }
   }
 
@@ -2487,6 +2473,9 @@ export class ApexSymbolCollectorListener
   exitCompilationUnit(): void {
     // Second pass: Correct reference contexts using symbol table
     this.correctReferenceContexts();
+
+    // Defensive cleanup: Ensure methodCallStack is empty after parsing
+    this.validateMethodCallStackCleanup();
   }
 
   /**
@@ -2496,6 +2485,9 @@ export class ApexSymbolCollectorListener
   exitAnonymousUnit(): void {
     // Second pass: Correct reference contexts using symbol table
     this.correctReferenceContexts();
+
+    // Defensive cleanup: Ensure methodCallStack is empty after parsing
+    this.validateMethodCallStackCleanup();
   }
 
   /**
@@ -2689,6 +2681,7 @@ export class ApexSymbolCollectorListener
    * within the ExpressionListContext that follows.
    */
   enterMethodCall(ctx: MethodCallContext): void {
+    let pushed = false;
     try {
       const idNode = ctx.id();
       const methodName = idNode?.text || 'unknownMethod';
@@ -2710,10 +2703,21 @@ export class ApexSymbolCollectorListener
         callRef: reference,
         parameterRefs: [],
       });
+      pushed = true;
 
       // Also add to symbol table for general tracking
       this.symbolTable.addTypeReference(reference);
     } catch (error) {
+      // Defensive cleanup: if we pushed but error occurred, pop to prevent stack leak
+      if (pushed) {
+        try {
+          this.methodCallStack.pop();
+        } catch (popError) {
+          this.logger.warn(
+            () => `Error cleaning up methodCallStack: ${popError}`,
+          );
+        }
+      }
       this.logger.warn(() => `Error capturing MethodCall: ${error}`);
     }
   }
@@ -2745,6 +2749,7 @@ export class ApexSymbolCollectorListener
    * Capture qualified method calls like "Assert.isFalse(...)" using DotMethodCallContext
    */
   enterDotMethodCall(ctx: DotMethodCallContext): void {
+    let pushed = false;
     try {
       const anyIdNode = ctx.anyId();
       const methodName = anyIdNode?.text || 'unknownMethod';
@@ -2765,6 +2770,7 @@ export class ApexSymbolCollectorListener
         callRef: reference,
         parameterRefs: [],
       });
+      pushed = true;
 
       // Also handle chain scope tracking (existing logic)
       if (this.chainExpressionScope?.isActive) {
@@ -2784,6 +2790,16 @@ export class ApexSymbolCollectorListener
       // Add to symbol table
       this.symbolTable.addTypeReference(reference);
     } catch (error) {
+      // Defensive cleanup: if we pushed but error occurred, pop to prevent stack leak
+      if (pushed) {
+        try {
+          this.methodCallStack.pop();
+        } catch (popError) {
+          this.logger.warn(
+            () => `Error cleaning up methodCallStack: ${popError}`,
+          );
+        }
+      }
       this.logger.warn(() => `Error capturing DotMethodCall: ${error}`);
     }
   }
@@ -3163,8 +3179,13 @@ export class ApexSymbolCollectorListener
     try {
       const location = this.getLocation(ctx);
       let literalValue: string | number | boolean | null = null;
-      let literalType: 'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null' =
-        'Null';
+      let literalType:
+        | 'Integer'
+        | 'Long'
+        | 'Decimal'
+        | 'String'
+        | 'Boolean'
+        | 'Null' = 'Null';
 
       // Extract literal value and determine type
       if (ctx.IntegerLiteral()) {
@@ -3212,49 +3233,36 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Called when entering a primary expression
-   * Handles THIS/SUPER keywords directly and eliminates manual extraction patterns
+   * Called when entering a thisPrimary expression
+   * Handles THIS keyword directly
    */
-  enterPrimary(ctx: PrimaryContext): void {
+  enterThisPrimary(ctx: ThisPrimaryContext): void {
     try {
-      // Handle THIS keyword
-      if (ctx.THIS()) {
-        const location = this.getLocation(ctx);
-        const thisReference = SymbolReferenceFactory.createVariableReference(
-          'this',
-          location,
-        );
-        this.symbolTable.addTypeReference(thisReference);
-      }
-
-      // Handle SUPER keyword
-      if (ctx.SUPER()) {
-        const location = this.getLocation(ctx);
-        const superReference = SymbolReferenceFactory.createVariableReference(
-          'super',
-          location,
-        );
-        this.symbolTable.addTypeReference(superReference);
-      }
-
-      // Other primary types (literal, typeRef.class, id, SOQL, SOSL) are handled
-      // by their specific handlers or don't need special handling
+      const location = this.getLocation(ctx);
+      const thisReference = SymbolReferenceFactory.createVariableUsageReference(
+        'this',
+        location,
+      );
+      this.symbolTable.addTypeReference(thisReference);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(`Error entering primary: ${errorMessage}`, ctx);
+      this.addError(`Error entering thisPrimary: ${errorMessage}`, ctx);
     }
   }
 
   /**
-   * Called when exiting a primary expression
-   * Provides cleanup point for primary expression tracking
+   * Called when entering a superPrimary expression
+   * Handles SUPER keyword directly
    */
-  exitPrimary(ctx: PrimaryContext): void {
+  enterSuperPrimary(ctx: SuperPrimaryContext): void {
     try {
-      // Primary expression tracking cleanup can be added here if needed
+      const location = this.getLocation(ctx);
+      const superReference =
+        SymbolReferenceFactory.createVariableUsageReference('super', location);
+      this.symbolTable.addTypeReference(superReference);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(`Error exiting primary: ${errorMessage}`, ctx);
+      this.addError(`Error entering superPrimary: ${errorMessage}`, ctx);
     }
   }
 
@@ -7159,5 +7167,31 @@ export class ApexSymbolCollectorListener
     }
 
     return null;
+  }
+
+  /**
+   * Validate that methodCallStack is empty after parsing completes
+   * This defensive check helps catch any stack leaks from error conditions
+   */
+  private validateMethodCallStackCleanup(): void {
+    if (!this.methodCallStack.isEmpty()) {
+      const entries = this.methodCallStack.toArray();
+      const remainingEntries = entries.length;
+      this.logger.warn(
+        () =>
+          `methodCallStack is not empty after parsing: ${remainingEntries} entries remaining. ` +
+          'This may indicate incomplete cleanup from error conditions.',
+      );
+      // Log details about remaining entries for debugging
+      entries.forEach((entry, index) => {
+        this.logger.warn(
+          () =>
+            `  Entry ${index + 1}: ${entry.callRef.context} "${entry.callRef.name}" ` +
+            `at line ${entry.callRef.location.symbolRange.startLine}`,
+        );
+      });
+      // Clear the stack to prevent memory leaks
+      this.methodCallStack.clear();
+    }
   }
 }

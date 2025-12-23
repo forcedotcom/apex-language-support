@@ -11,6 +11,7 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import { ReferenceContext } from '../../src/types/symbolReference';
 import { SymbolKind } from '../../src/types/symbol';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
+import { isMethodSymbol, isEnumSymbol } from '../../src/utils/symbolNarrowing';
 
 describe('ApexSymbolCollectorListener - Exit Methods', () => {
   let compilerService: CompilerService;
@@ -41,7 +42,7 @@ public class TestClass {
       expect(method).toBeDefined();
       expect(method?.kind).toBe(SymbolKind.Method);
 
-      if (method && 'parameters' in method) {
+      if (method && isMethodSymbol(method)) {
         const params = method.parameters;
         expect(params).toHaveLength(2);
         // Verify parameters are created correctly without modifier leakage
@@ -68,7 +69,7 @@ public class TestClass {
       const method = symbols.find((s) => s.name === 'method');
       expect(method).toBeDefined();
 
-      if (method && 'parameters' in method) {
+      if (method && isMethodSymbol(method)) {
         expect(method.parameters).toHaveLength(3);
         expect(method.parameters[0].name).toBe('a');
         expect(method.parameters[1].name).toBe('b');
@@ -95,7 +96,7 @@ public class TestClass {
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
       const variables = symbols.filter((s) => s.kind === SymbolKind.Variable);
-      
+
       // Should have 5 variables: a, b, c, x, y
       expect(variables.length).toBeGreaterThanOrEqual(5);
       const varNames = variables.map((v) => v.name);
@@ -120,11 +121,11 @@ public class TestClass {
       // Check both compilation errors and semantic errors from listener
       const semanticErrors = listener.getErrors();
       const hasDuplicateError =
-        result.errors.some(
-          (e) => e.message.includes('Duplicate variable declaration'),
+        result.errors.some((e) =>
+          e.message.includes('Duplicate variable declaration'),
         ) ||
-        semanticErrors.some(
-          (e) => e.message.includes('Duplicate variable declaration'),
+        semanticErrors.some((e) =>
+          e.message.includes('Duplicate variable declaration'),
         );
       expect(hasDuplicateError).toBe(true);
     });
@@ -244,9 +245,9 @@ public enum TestEnum {
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
       const enumSymbol = symbols.find((s) => s.name === 'TestEnum');
-      
+
       expect(enumSymbol).toBeDefined();
-      if (enumSymbol && 'values' in enumSymbol) {
+      if (enumSymbol && isEnumSymbol(enumSymbol)) {
         expect(enumSymbol.values).toHaveLength(3);
         expect(enumSymbol.values.map((v) => v.name)).toEqual([
           'VALUE1',
@@ -265,7 +266,7 @@ public class TestClass {
 }`;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(apexCode, 'test.cls', listener);
+      compilerService.compile(apexCode, 'test.cls', listener);
 
       // Note: Modifier conflict detection happens in exitModifier, but since modifiers
       // are applied sequentially, the check may not catch all conflicts immediately.
@@ -289,11 +290,11 @@ public class TestClass {
       // Check both compilation errors and semantic errors from listener
       const semanticErrors = listener.getErrors();
       const hasConflictError =
-        result.errors.some(
-          (e) => e.message.includes('final and abstract cannot be used together'),
+        result.errors.some((e) =>
+          e.message.includes('final and abstract cannot be used together'),
         ) ||
-        semanticErrors.some(
-          (e) => e.message.includes('final and abstract cannot be used together'),
+        semanticErrors.some((e) =>
+          e.message.includes('final and abstract cannot be used together'),
         );
       expect(hasConflictError).toBe(true);
     });
@@ -341,7 +342,9 @@ public class TestClass {
       const symbols = symbolTable.getAllSymbols();
       // Enhanced for loop variables are processed as local variables
       // They may be scoped to the for loop block
-      const loopVar = symbols.find((s) => s.name === 'item' && s.kind === SymbolKind.Variable);
+      const loopVar = symbols.find(
+        (s) => s.name === 'item' && s.kind === SymbolKind.Variable,
+      );
       // If not found as a top-level symbol, check if it's in a block scope
       if (!loopVar) {
         // The variable might be scoped within the for loop block
@@ -419,7 +422,7 @@ public class TestClass {
       const symbols = symbolTable.getAllSymbols();
       const arr = symbols.find((s) => s.name === 'arr');
       const strArr = symbols.find((s) => s.name === 'strArr');
-      
+
       expect(arr).toBeDefined();
       expect(strArr).toBeDefined();
     });
@@ -468,7 +471,7 @@ public class ParentClass {
 
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
-      
+
       // Note: super.parentMethod() is parsed as a dot expression, and super
       // might be handled as part of the dot expression rather than as a standalone primary.
       // The enterPrimary handler for SUPER is called when super appears as a standalone
@@ -477,11 +480,10 @@ public class ParentClass {
       // The implementation is correct - super references are tracked when they appear
       // as standalone primary expressions. For dot expressions, the super is part of
       // the chained expression.
-      const superRefs = references.filter((r) => r.name === 'super');
       const methodCallRefs = references.filter(
         (r) => r.name === 'parentMethod',
       );
-      
+
       // Verify that the method call is tracked (which implies super was processed)
       expect(methodCallRefs.length).toBeGreaterThan(0);
     });
@@ -507,13 +509,13 @@ public class TestClass {
       const literalRefs = references.filter(
         (r) => r.context === ReferenceContext.LITERAL,
       );
-      
+
       expect(literalRefs.length).toBeGreaterThan(0);
       const integerLiterals = literalRefs.filter(
         (r) => r.literalType === 'Integer',
       );
       expect(integerLiterals.length).toBeGreaterThan(0);
-      
+
       const value42 = integerLiterals.find((r) => r.literalValue === 42);
       expect(value42).toBeDefined();
     });
@@ -534,9 +536,10 @@ public class TestClass {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
       const literalRefs = references.filter(
-        (r) => r.context === ReferenceContext.LITERAL && r.literalType === 'Long',
+        (r) =>
+          r.context === ReferenceContext.LITERAL && r.literalType === 'Long',
       );
-      
+
       expect(literalRefs.length).toBeGreaterThan(0);
     });
 
@@ -557,9 +560,10 @@ public class TestClass {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
       const decimalLiterals = references.filter(
-        (r) => r.context === ReferenceContext.LITERAL && r.literalType === 'Decimal',
+        (r) =>
+          r.context === ReferenceContext.LITERAL && r.literalType === 'Decimal',
       );
-      
+
       expect(decimalLiterals.length).toBeGreaterThan(0);
     });
 
@@ -580,11 +584,14 @@ public class TestClass {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
       const stringLiterals = references.filter(
-        (r) => r.context === ReferenceContext.LITERAL && r.literalType === 'String',
+        (r) =>
+          r.context === ReferenceContext.LITERAL && r.literalType === 'String',
       );
-      
+
       expect(stringLiterals.length).toBeGreaterThan(0);
-      const helloLiteral = stringLiterals.find((r) => r.literalValue === 'hello');
+      const helloLiteral = stringLiterals.find(
+        (r) => r.literalValue === 'hello',
+      );
       expect(helloLiteral).toBeDefined();
     });
 
@@ -605,12 +612,15 @@ public class TestClass {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
       const booleanLiterals = references.filter(
-        (r) => r.context === ReferenceContext.LITERAL && r.literalType === 'Boolean',
+        (r) =>
+          r.context === ReferenceContext.LITERAL && r.literalType === 'Boolean',
       );
-      
+
       expect(booleanLiterals.length).toBeGreaterThanOrEqual(2);
       const trueLiteral = booleanLiterals.find((r) => r.literalValue === true);
-      const falseLiteral = booleanLiterals.find((r) => r.literalValue === false);
+      const falseLiteral = booleanLiterals.find(
+        (r) => r.literalValue === false,
+      );
       expect(trueLiteral).toBeDefined();
       expect(falseLiteral).toBeDefined();
     });
@@ -632,9 +642,10 @@ public class TestClass {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
       const nullLiterals = references.filter(
-        (r) => r.context === ReferenceContext.LITERAL && r.literalType === 'Null',
+        (r) =>
+          r.context === ReferenceContext.LITERAL && r.literalType === 'Null',
       );
-      
+
       expect(nullLiterals.length).toBeGreaterThan(0);
       const nullLiteral = nullLiterals.find((r) => r.literalValue === null);
       expect(nullLiteral).toBeDefined();
@@ -663,9 +674,9 @@ public class TestClass {
       const literalRefs = references.filter(
         (r) => r.context === ReferenceContext.LITERAL,
       );
-      
+
       expect(literalRefs.length).toBeGreaterThanOrEqual(4);
-      
+
       const types = literalRefs.map((r) => r.literalType);
       expect(types).toContain('Boolean');
       expect(types).toContain('Integer');
@@ -699,19 +710,19 @@ public class TestClass {
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      
+
       // Verify all symbols are collected correctly
       expect(symbols.find((s) => s.name === 'CONSTANT')).toBeDefined();
       expect(symbols.find((s) => s.name === 'method')).toBeDefined();
       expect(symbols.find((s) => s.name === 'property')).toBeDefined();
       expect(symbols.find((s) => s.name === 'field')).toBeDefined();
-      
+
       // Verify parameters
       const method = symbols.find((s) => s.name === 'method');
-      if (method && 'parameters' in method) {
+      if (method && isMethodSymbol(method)) {
         expect(method.parameters).toHaveLength(2);
       }
-      
+
       // Verify local variables
       const localVars = symbols.filter((s) => s.kind === SymbolKind.Variable);
       const localVarNames = localVars.map((v) => v.name);
@@ -722,4 +733,3 @@ public class TestClass {
     });
   });
 });
-

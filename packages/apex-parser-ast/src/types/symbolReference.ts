@@ -94,7 +94,13 @@ export class EnhancedSymbolReference implements SymbolReference {
     public access?: 'read' | 'write' | 'readwrite',
     public isStatic?: boolean,
     public literalValue?: string | number | boolean | null,
-    public literalType?: 'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null',
+    public literalType?:
+      | 'Integer'
+      | 'Long'
+      | 'Decimal'
+      | 'String'
+      | 'Boolean'
+      | 'Null',
   ) {}
 
   // Custom JSON serialization to avoid circular references
