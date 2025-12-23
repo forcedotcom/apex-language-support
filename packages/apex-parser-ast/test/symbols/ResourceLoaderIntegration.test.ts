@@ -103,6 +103,20 @@ describe('ResourceLoader Integration', () => {
       }
     });
 
+    it('should resolve unqualified String class name via resolveStandardApexClass', async () => {
+      // Test that resolveStandardApexClass can resolve "String" (unqualified) to System.String
+      const stringSymbol =
+        await symbolManager['resolveStandardApexClass']('String');
+
+      expect(stringSymbol).toBeDefined();
+      if (stringSymbol) {
+        expect(stringSymbol.name).toBe('String');
+        expect(stringSymbol.fileUri).toBe(
+          'apexlib://resources/StandardApexLibrary/System/String.cls',
+        );
+      }
+    });
+
     it('should identify standard Apex classes with namespace prefixes', () => {
       // Test the isStandardApexClass method for fully qualified names
       expect(symbolManager.isStandardApexClass('System.Assert')).toBe(true);
