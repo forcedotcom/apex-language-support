@@ -38,6 +38,10 @@ const builds: BuildOptions[] = [
     format: 'cjs',
     outExtension: { '.js': '.js' },
     external,
+    // Bundle the Standard Apex Library ZIP as a base64 data URL
+    loader: {
+      '.zip': 'dataurl',
+    },
   },
   {
     ...nodeBaseConfig,
@@ -46,6 +50,10 @@ const builds: BuildOptions[] = [
     format: 'esm',
     outExtension: { '.js': '.mjs' },
     external,
+    // Bundle the Standard Apex Library ZIP as a base64 data URL
+    loader: {
+      '.zip': 'dataurl',
+    },
   },
 ];
 

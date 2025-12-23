@@ -24,7 +24,7 @@ jest.mock('vscode', () => ({
   },
 }));
 
-describe('apex/provideStandardLibrary Request Handler', () => {
+describe('Standard Apex Library Path Resolution', () => {
   let mockContext: vscode.ExtensionContext;
 
   beforeEach(() => {

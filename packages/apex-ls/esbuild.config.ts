@@ -86,6 +86,11 @@ const builds: BuildOptions[] = [
     // Ensure Node.js resolution for vscode-languageserver packages
     conditions: ['node', 'require', 'default'],
     mainFields: ['main', 'module'],
+    // Bundle the Standard Apex Library ZIP as a base64 data URL
+    // This embeds the ZIP directly into the server bundle
+    loader: {
+      '.zip': 'dataurl',
+    },
   },
   // Worker build - used by web VSCode extension
   // Produces worker.global.js as an IIFE bundle for Web Worker context
@@ -106,6 +111,11 @@ const builds: BuildOptions[] = [
     treeShaking: true,
     conditions: ['browser', 'worker', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],
+    // Bundle the Standard Apex Library ZIP as a base64 data URL
+    // This embeds the ZIP directly into the worker bundle
+    loader: {
+      '.zip': 'dataurl',
+    },
   },
 ];
 
