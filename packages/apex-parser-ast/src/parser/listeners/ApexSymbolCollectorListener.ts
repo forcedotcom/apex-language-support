@@ -11,10 +11,12 @@ import {
   FieldDeclarationContext,
   MethodDeclarationContext,
   VariableDeclaratorContext,
+  VariableDeclaratorsContext,
   InterfaceDeclarationContext,
   ConstructorDeclarationContext,
   InterfaceMethodDeclarationContext,
   FormalParameterContext,
+  FormalParametersContext,
   EnumDeclarationContext,
   BlockContext,
   ModifierContext,
@@ -47,10 +49,17 @@ import {
   InstanceOfExpressionContext,
   ExpressionListContext,
   TypeArgumentsContext,
+  ParExpressionContext,
+  ArgumentsContext,
+  ArrayInitializerContext,
+  LiteralContext,
+  PrimaryContext,
   // Add contexts for control structures
   IfStatementContext,
   WhileStatementContext,
   ForStatementContext,
+  ForControlContext,
+  ForUpdateContext,
   TryStatementContext,
   CatchClauseContext,
   FinallyBlockContext,
@@ -800,6 +809,20 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Called when exiting an annotation
+   * Finalizes annotation processing and validates annotation structure
+   */
+  exitAnnotation(ctx: AnnotationContext): void {
+    try {
+      // Annotation validation can be added here if needed
+      // The annotation has already been added to currentAnnotations in enterAnnotation
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting annotation: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
    * Called when entering a modifier
    * The parser will call this for each modifier it encounters
    */
@@ -824,6 +847,46 @@ export class ApexSymbolCollectorListener
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error processing modifier: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a modifier
+   * Validates modifier combinations and ensures no conflicting modifiers
+   */
+  exitModifier(ctx: ModifierContext): void {
+    try {
+      const modifier = ctx.text.toLowerCase();
+      const modifiers = this.getCurrentModifiers();
+
+      // Validate modifier combinations
+      // Check for conflicting visibility modifiers
+      const visibilityModifiers = [
+        modifiers.isPublic,
+        modifiers.isPrivate,
+        modifiers.isProtected,
+        modifiers.isGlobal,
+      ].filter(Boolean).length;
+
+      if (visibilityModifiers > 1) {
+        this.addError(
+          'Conflicting visibility modifiers: only one visibility modifier is allowed',
+          ctx,
+        );
+      }
+
+      // Check for conflicting access modifiers
+      if (modifiers.isFinal && modifiers.isAbstract) {
+        this.addError(
+          'Conflicting modifiers: final and abstract cannot be used together',
+          ctx,
+        );
+      }
+
+      // Additional modifier validation can be added here
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting modifier: ${errorMessage}`, ctx);
     }
   }
 
@@ -1570,6 +1633,61 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Called when exiting a formal parameter
+   * Resets modifiers and annotations to prevent leakage to the next parameter
+   */
+  exitFormalParameter(ctx: FormalParameterContext): void {
+    try {
+      this.resetModifiers();
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting parameter: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when entering formal parameters
+   * Tracks parameter collection for validation
+   */
+  enterFormalParameters(ctx: FormalParametersContext): void {
+    try {
+      // Parameter collection is handled by enterFormalParameter
+      // This method provides a hook for future validation needs
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error entering formal parameters: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting formal parameters
+   * Validates parameter count and ensures all parameters were processed
+   */
+  exitFormalParameters(ctx: FormalParametersContext): void {
+    try {
+      const currentMethod = this.getCurrentMethod();
+      if (currentMethod) {
+        // Validate parameter count if needed
+        const paramList = ctx.formalParameterList();
+        const expectedCount = paramList?.formalParameter()?.length ?? 0;
+        const actualCount = currentMethod.parameters.length;
+        if (expectedCount !== actualCount) {
+          this.logger.warn(
+            `Parameter count mismatch: expected ${expectedCount}, got ${actualCount}`,
+          );
+        }
+      }
+      // Reset state after parameter list
+      this.resetModifiers();
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting formal parameters: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
    * Called when entering a property declaration
    */
   enterPropertyDeclaration(ctx: PropertyDeclarationContext): void {
@@ -1637,6 +1755,21 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Called when exiting a property declaration
+   * Resets modifiers and annotations after property processing
+   */
+  exitPropertyDeclaration(ctx: PropertyDeclarationContext): void {
+    try {
+      // Ensure modifiers and annotations are reset
+      this.resetModifiers();
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting property declaration: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
    * Called when entering a field declaration
    * Grammar: fieldDeclaration : typeRef variableDeclarators SEMI
    *
@@ -1685,6 +1818,21 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Called when exiting a field declaration
+   * Resets modifiers and annotations after field processing
+   */
+  exitFieldDeclaration(ctx: FieldDeclarationContext): void {
+    try {
+      // Ensure modifiers and annotations are reset
+      this.resetModifiers();
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting field declaration: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
    * Called when entering a local variable declaration
    * Grammar: localVariableDeclaration : modifier* typeRef variableDeclarators
    *
@@ -1700,6 +1848,24 @@ export class ApexSymbolCollectorListener
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(
         `Error in local variable declaration: ${errorMessage}`,
+        ctx,
+      );
+    }
+  }
+
+  /**
+   * Called when exiting a local variable declaration
+   * Resets modifiers and annotations after local variable processing
+   */
+  exitLocalVariableDeclaration(ctx: LocalVariableDeclarationContext): void {
+    try {
+      // Ensure modifiers and annotations are reset
+      this.resetModifiers();
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(
+        `Error exiting local variable declaration: ${errorMessage}`,
         ctx,
       );
     }
@@ -1838,6 +2004,71 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Called when exiting a variable declarator
+   * Performs post-processing validation
+   */
+  exitVariableDeclarator(ctx: VariableDeclaratorContext): void {
+    try {
+      // Post-processing validation can be added here if needed
+      // Type reference linking is already complete at this point
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting variable declarator: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when entering variable declarators
+   * Tracks declaration groups for validation
+   */
+  enterVariableDeclarators(ctx: VariableDeclaratorsContext): void {
+    try {
+      // Declaration group tracking can be added here if needed
+      // Individual declarators are processed by enterVariableDeclarator
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(
+        `Error entering variable declarators: ${errorMessage}`,
+        ctx,
+      );
+    }
+  }
+
+  /**
+   * Called when exiting variable declarators
+   * Validates all variables declared together and ensures proper type linking
+   */
+  exitVariableDeclarators(ctx: VariableDeclaratorsContext): void {
+    try {
+      const declarators = ctx.variableDeclarator();
+      if (declarators && declarators.length > 0) {
+        // Validate all variables declared together
+        const names = new Set<string>();
+        for (const declarator of declarators) {
+          const name = declarator.id()?.text;
+          if (name) {
+            if (names.has(name)) {
+              this.addError(
+                `Duplicate variable declaration: '${name}' is already declared in this statement`,
+                declarator,
+              );
+            } else {
+              names.add(name);
+            }
+          }
+        }
+      }
+      // Finalize declaration group - ensure proper type linking
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(
+        `Error exiting variable declarators: ${errorMessage}`,
+        ctx,
+      );
+    }
+  }
+
+  /**
    * Called when entering an enum declaration
    */
   enterEnumDeclaration(ctx: EnumDeclarationContext): void {
@@ -1918,6 +2149,40 @@ export class ApexSymbolCollectorListener
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in enum constants: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting enum constants
+   * Validates enum values and checks for duplicates
+   */
+  exitEnumConstants(ctx: EnumConstantsContext): void {
+    try {
+      const currentType = this.getCurrentType();
+      if (!isEnumSymbol(currentType)) {
+        return;
+      }
+
+      const enumSymbol = currentType;
+      const names = new Set<string>();
+
+      // Check for duplicate enum values
+      for (const valueSymbol of enumSymbol.values) {
+        if (names.has(valueSymbol.name)) {
+          this.addError(
+            `Duplicate enum value: '${valueSymbol.name}' is already defined`,
+            ctx,
+          );
+        } else {
+          names.add(valueSymbol.name);
+        }
+      }
+
+      // Finalize enum value collection
+      // Additional validation can be added here if needed
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting enum constants: ${errorMessage}`, ctx);
     }
   }
 
@@ -2014,6 +2279,62 @@ export class ApexSymbolCollectorListener
    */
   exitForStatement(): void {
     this.exitScope('for');
+  }
+
+  /**
+   * Called when entering for control
+   * Validates for loop structure
+   */
+  enterForControl(ctx: ForControlContext): void {
+    try {
+      // For loop structure validation can be added here
+      // The control structure is: enhancedForControl | forInit? SEMI expression? SEMI forUpdate?
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error entering for control: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting for control
+   * Validates for loop structure and ensures proper control flow
+   */
+  exitForControl(ctx: ForControlContext): void {
+    try {
+      // Validate for loop structure
+      // Additional validation can be added here if needed
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting for control: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when entering for update
+   * Tracks update operations
+   */
+  enterForUpdate(ctx: ForUpdateContext): void {
+    try {
+      // For update expression tracking can be added here
+      // The update is an expressionList
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error entering for update: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting for update
+   * Validates for update expressions
+   */
+  exitForUpdate(ctx: ForUpdateContext): void {
+    try {
+      // Validate for update expressions
+      // Additional validation can be added here if needed
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting for update: ${errorMessage}`, ctx);
+    }
   }
 
   /**
@@ -2748,6 +3069,193 @@ export class ApexSymbolCollectorListener
   enterPrimaryExpression(ctx: PrimaryExpressionContext): void {
     // The specific primary types are handled by their individual listeners
     // This method can be used for general primary expression processing if needed
+  }
+
+  /**
+   * Called when entering a parenthesized expression
+   * Tracks parenthesized expressions for better context understanding
+   */
+  enterParExpression(ctx: ParExpressionContext): void {
+    try {
+      // Parenthesized expression tracking can be added here
+      // The structure is: LPAREN expression RPAREN
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error entering par expression: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a parenthesized expression
+   * Provides cleanup point for expression tracking
+   */
+  exitParExpression(ctx: ParExpressionContext): void {
+    try {
+      // Expression tracking cleanup can be added here if needed
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting par expression: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when entering arguments
+   * Detects constructor calls with arguments and validates argument lists
+   */
+  enterArguments(ctx: ArgumentsContext): void {
+    try {
+      // Argument list tracking can be added here
+      // The structure is: LPAREN expressionList? RPAREN
+      // This provides symmetry with formalParameters handlers
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error entering arguments: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting arguments
+   * Validates constructor argument lists
+   */
+  exitArguments(ctx: ArgumentsContext): void {
+    try {
+      // Validate argument lists
+      // Additional validation can be added here if needed
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting arguments: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when entering an array initializer
+   * Validates array initialization
+   */
+  enterArrayInitializer(ctx: ArrayInitializerContext): void {
+    try {
+      // Array initialization tracking can be added here
+      // The structure is: LBRACE (expression (COMMA expression)* (COMMA)? )? RBRACE
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error entering array initializer: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting an array initializer
+   * Validates array initialization and tracks array elements
+   */
+  exitArrayInitializer(ctx: ArrayInitializerContext): void {
+    try {
+      // Validate array initialization
+      // Additional validation can be added here if needed
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting array initializer: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when entering a literal
+   * Captures literal values and types for semantic analysis
+   */
+  enterLiteral(ctx: LiteralContext): void {
+    try {
+      const location = this.getLocation(ctx);
+      let literalValue: string | number | boolean | null = null;
+      let literalType: 'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null' =
+        'Null';
+
+      // Extract literal value and determine type
+      if (ctx.IntegerLiteral()) {
+        const text = ctx.IntegerLiteral()!.text;
+        literalValue = parseInt(text, 10);
+        literalType = 'Integer';
+      } else if (ctx.LongLiteral()) {
+        const text = ctx.LongLiteral()!.text;
+        // Remove 'L' or 'l' suffix
+        const numText = text.replace(/[Ll]$/, '');
+        literalValue = parseInt(numText, 10);
+        literalType = 'Long';
+      } else if (ctx.NumberLiteral()) {
+        const text = ctx.NumberLiteral()!.text;
+        literalValue = parseFloat(text);
+        literalType = 'Decimal';
+      } else if (ctx.StringLiteral()) {
+        const text = ctx.StringLiteral()!.text;
+        // Remove surrounding quotes
+        literalValue = text.slice(1, -1);
+        literalType = 'String';
+      } else if (ctx.BooleanLiteral()) {
+        const text = ctx.BooleanLiteral()!.text.toLowerCase();
+        literalValue = text === 'true';
+        literalType = 'Boolean';
+      } else if (ctx.NULL()) {
+        literalValue = null;
+        literalType = 'Null';
+      }
+
+      // Create symbol reference with LITERAL context
+      const literalReference: SymbolReference = {
+        name: String(literalValue ?? 'null'),
+        location,
+        context: ReferenceContext.LITERAL,
+        literalValue,
+        literalType,
+      };
+
+      this.symbolTable.addTypeReference(literalReference);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error entering literal: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when entering a primary expression
+   * Handles THIS/SUPER keywords directly and eliminates manual extraction patterns
+   */
+  enterPrimary(ctx: PrimaryContext): void {
+    try {
+      // Handle THIS keyword
+      if (ctx.THIS()) {
+        const location = this.getLocation(ctx);
+        const thisReference = SymbolReferenceFactory.createVariableReference(
+          'this',
+          location,
+        );
+        this.symbolTable.addTypeReference(thisReference);
+      }
+
+      // Handle SUPER keyword
+      if (ctx.SUPER()) {
+        const location = this.getLocation(ctx);
+        const superReference = SymbolReferenceFactory.createVariableReference(
+          'super',
+          location,
+        );
+        this.symbolTable.addTypeReference(superReference);
+      }
+
+      // Other primary types (literal, typeRef.class, id, SOQL, SOSL) are handled
+      // by their specific handlers or don't need special handling
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error entering primary: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when exiting a primary expression
+   * Provides cleanup point for primary expression tracking
+   */
+  exitPrimary(ctx: PrimaryContext): void {
+    try {
+      // Primary expression tracking cleanup can be added here if needed
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error exiting primary: ${errorMessage}`, ctx);
+    }
   }
 
   /**

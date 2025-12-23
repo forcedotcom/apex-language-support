@@ -29,6 +29,7 @@ export enum ReferenceContext {
   NAMESPACE = 13, // Explicitly resolved namespace
   RETURN_TYPE = 14, // For return type references in method declarations
   PROPERTY_REFERENCE = 15, // For property names in property declarations
+  LITERAL = 16, // For literal values (Integer, Long, Decimal, String, Boolean, Null)
 }
 
 /**
@@ -63,6 +64,10 @@ export interface SymbolReference {
   access?: 'read' | 'write' | 'readwrite';
   /** Optional: indicates static access when known from parsing */
   isStatic?: boolean;
+  /** Optional: literal value for LITERAL context (string, number, boolean, or null) */
+  literalValue?: string | number | boolean | null;
+  /** Optional: literal type for LITERAL context */
+  literalType?: 'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null';
 }
 
 /**
@@ -88,6 +93,8 @@ export class EnhancedSymbolReference implements SymbolReference {
     public parentContext?: string,
     public access?: 'read' | 'write' | 'readwrite',
     public isStatic?: boolean,
+    public literalValue?: string | number | boolean | null,
+    public literalType?: 'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null',
   ) {}
 
   // Custom JSON serialization to avoid circular references
@@ -100,6 +107,8 @@ export class EnhancedSymbolReference implements SymbolReference {
       parentContext: this.parentContext,
       access: this.access,
       isStatic: this.isStatic,
+      literalValue: this.literalValue,
+      literalType: this.literalType,
     };
 
     // Add chained expression info without circular references
