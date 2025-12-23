@@ -38,12 +38,14 @@ let embeddedZipDataUrl: string | undefined;
 // In unbundled builds, this will fail and we'll fall back to fs.readFileSync
 try {
   // Dynamic require to prevent TypeScript from complaining
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const imported = require('../../resources/StandardApexLibrary.zip');
   // In bundled builds, this will be a data URL string
   if (typeof imported === 'string' && imported.startsWith('data:')) {
     embeddedZipDataUrl = imported;
-  } else if (typeof imported?.default === 'string' && imported.default.startsWith('data:')) {
+  } else if (
+    typeof imported?.default === 'string' &&
+    imported.default.startsWith('data:')
+  ) {
     embeddedZipDataUrl = imported.default;
   }
 } catch {
@@ -62,9 +64,7 @@ function loadZipFromDisk(): Uint8Array | undefined {
       return undefined;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require('fs');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const path = require('path');
 
     // Try multiple possible locations for the ZIP file
