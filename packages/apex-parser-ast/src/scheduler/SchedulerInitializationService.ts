@@ -86,21 +86,12 @@ export class SchedulerInitializationService {
       const settingsManager = ApexSettingsManager.getInstance();
       const settings = settingsManager.getSettings();
       const schedulerConfig = settings.apex.scheduler;
+      const queueCapacity = schedulerConfig.queueCapacity;
 
       this.logger.debug(
         () =>
           `Initializing scheduler with config: ${JSON.stringify(schedulerConfig)}`,
       );
-
-      // Handle backward compatibility: queueCapacity can be number or per-priority Record
-      let queueCapacity: number | Record<string, number>;
-      if (typeof schedulerConfig.queueCapacity === 'number') {
-        // Legacy single number - scheduler will convert to per-priority internally
-        queueCapacity = schedulerConfig.queueCapacity;
-      } else {
-        // Per-priority configuration - pass through to scheduler
-        queueCapacity = schedulerConfig.queueCapacity;
-      }
 
       // Initialize the scheduler with settings
       await Effect.runPromise(
