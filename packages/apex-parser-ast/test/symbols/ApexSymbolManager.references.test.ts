@@ -324,7 +324,9 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       // Should have VARIABLE_USAGE reference for "contacts" only
       const contactsRefs = references.filter(
-        (r) => r.name === 'contacts' && r.context === ReferenceContext.VARIABLE_USAGE,
+        (r) =>
+          r.name === 'contacts' &&
+          r.context === ReferenceContext.VARIABLE_USAGE,
       );
       expect(contactsRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -439,7 +441,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       // Verify that the reference can be resolved using getSymbolAtPosition
       // This will use resolveBuiltInType internally, which should leverage the chain nodes
-      const resolvedSymbol = await symbolManager.getSymbolAtPosition(fileUri, {
+      const _resolvedSymbol = await symbolManager.getSymbolAtPosition(fileUri, {
         line: systemUrlRef.location.identifierRange.startLine,
         character: systemUrlRef.location.identifierRange.startColumn,
       });
@@ -473,8 +475,10 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       // Find references - System.Assert should be captured as a chained expression
       // The System part should be resolvable as a built-in type using chain nodes
-      const systemRefs = references.filter(
-        (ref) => ref.name === 'System' && ref.context === ReferenceContext.CHAINED_TYPE,
+      const _systemRefs = references.filter(
+        (ref) =>
+          ref.name === 'System' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
       );
       // System might be captured as part of System.Assert chain
       expect(references.length).toBeGreaterThan(0);
@@ -502,14 +506,16 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       // Find String type reference
       const stringRefs = references.filter(
-        (ref) => ref.name === 'String' && ref.context === ReferenceContext.TYPE_DECLARATION,
+        (ref) =>
+          ref.name === 'String' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
       );
       expect(stringRefs.length).toBeGreaterThanOrEqual(1);
 
       // Verify simple TypeReference can still be resolved
       const stringRef = stringRefs[0];
       // Test that getSymbolAtPosition works (this uses resolveBuiltInType internally)
-      const resolvedSymbol = await symbolManager.getSymbolAtPosition(fileUri, {
+      const _resolvedSymbol = await symbolManager.getSymbolAtPosition(fileUri, {
         line: stringRef.location.identifierRange.startLine,
         character: stringRef.location.identifierRange.startColumn,
       });
@@ -540,7 +546,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       const references = symbolManager.getAllReferencesInFile(fileUri);
 
       // Find System.EncodingUtil.urlEncode chain
-      const longChainRefs = references.filter(
+      const _longChainRefs = references.filter(
         (ref) =>
           ref.context === ReferenceContext.CHAINED_TYPE &&
           ref.name.includes('System.EncodingUtil'),

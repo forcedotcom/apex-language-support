@@ -88,11 +88,22 @@ describe('ResourceLoader Integration', () => {
         name: 'String',
         context: ReferenceContext.CLASS_REFERENCE,
         location: {
-          identifierRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 6 },
-          symbolRange: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 6 },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 6,
+          },
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 6,
+          },
         },
       };
-      const stringSymbol = await symbolManager['resolveBuiltInType'](mockTypeRef);
+      const stringSymbol =
+        await symbolManager['resolveBuiltInType'](mockTypeRef);
 
       expect(stringSymbol).toBeDefined();
       if (stringSymbol) {
@@ -253,7 +264,9 @@ describe('ResourceLoader Integration', () => {
       // Test that it returns FQN for standard classes (List, Map, String are standard Apex classes)
       expect(symbolManager.findFQNForStandardClass('List')).toBe('System.List');
       expect(symbolManager.findFQNForStandardClass('Map')).toBe('System.Map');
-      expect(symbolManager.findFQNForStandardClass('String')).toBe('System.String');
+      expect(symbolManager.findFQNForStandardClass('String')).toBe(
+        'System.String',
+      );
     });
 
     it('should get available standard classes', () => {

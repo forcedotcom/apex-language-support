@@ -8,7 +8,6 @@
 import * as vscode from 'vscode';
 import { getPerformanceSettingsWebviewContent } from '../webviews/performanceSettingsView';
 import { getWorkspaceSettings } from '../configuration';
-import { ApexLanguageServerSettings } from '@salesforce/apex-lsp-shared';
 
 /**
  * Helper function to save settings to VSCode configuration
@@ -28,7 +27,10 @@ async function saveSettingsToConfig(
   if (settings.deferredReferenceProcessing) {
     // Handle maxDeferredTasksPerSecond: if undefined/empty, remove it from config
     const deferredSettings = { ...settings.deferredReferenceProcessing };
-    if (deferredSettings.maxDeferredTasksPerSecond === undefined || deferredSettings.maxDeferredTasksPerSecond === null) {
+    if (
+      deferredSettings.maxDeferredTasksPerSecond === undefined ||
+      deferredSettings.maxDeferredTasksPerSecond === null
+    ) {
       // Remove the setting to use default
       await apexConfig.update(
         'deferredReferenceProcessing.maxDeferredTasksPerSecond',
@@ -48,7 +50,10 @@ async function saveSettingsToConfig(
   if (settings.queueProcessing) {
     // Handle maxTotalConcurrency: if undefined/empty, remove it from config
     const queueProcessingSettings = { ...settings.queueProcessing };
-    if (queueProcessingSettings.maxTotalConcurrency === undefined || queueProcessingSettings.maxTotalConcurrency === null) {
+    if (
+      queueProcessingSettings.maxTotalConcurrency === undefined ||
+      queueProcessingSettings.maxTotalConcurrency === null
+    ) {
       // Remove the setting to use default (calculated from sum * 1.2)
       await apexConfig.update(
         'queueProcessing.maxTotalConcurrency',
@@ -155,7 +160,6 @@ export async function showPerformanceSettings(
   context: vscode.ExtensionContext,
 ): Promise<void> {
   // Get current settings using VSCode workspace APIs
-  const config = vscode.workspace.getConfiguration('apex');
   const currentSettings = getWorkspaceSettings();
 
   // Create the panel
@@ -194,7 +198,7 @@ export async function showPerformanceSettings(
       case 'saveSettingsAndReload': {
         try {
           const { settings, scope } = message;
-          
+
           // Save settings to configuration
           await saveSettingsToConfig(settings, scope);
 
@@ -307,7 +311,9 @@ export function registerPerformanceSettingsSerializer(
                 type: 'settingsSaved',
                 success: true,
               });
-              await vscode.commands.executeCommand('workbench.action.reloadWindow');
+              await vscode.commands.executeCommand(
+                'workbench.action.reloadWindow',
+              );
             } catch (error) {
               console.error('Failed to save settings:', error);
               webviewPanel.webview.postMessage({
@@ -348,7 +354,9 @@ export function registerPerformanceSettingsSerializer(
             break;
           }
           case 'reloadWorkspace': {
-            await vscode.commands.executeCommand('workbench.action.reloadWindow');
+            await vscode.commands.executeCommand(
+              'workbench.action.reloadWindow',
+            );
             break;
           }
         }
@@ -356,4 +364,3 @@ export function registerPerformanceSettingsSerializer(
     },
   });
 }
-

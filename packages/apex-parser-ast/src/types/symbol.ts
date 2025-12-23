@@ -1405,7 +1405,8 @@ export class SymbolTable {
     );
     if (matched.length > 0) {
       console.log(
-        `[SymbolTable.getReferencesAtPosition] Position ${position.line}:${position.character} found ${matched.length} references:`,
+        `[SymbolTable.getReferencesAtPosition] Position ${position.line}:${position.character} ` +
+          `found ${matched.length} references:`,
       );
       for (let idx = 0; idx < matched.length; idx++) {
         const r = matched[idx];
@@ -1424,7 +1425,11 @@ export class SymbolTable {
               `isChained: ${!!chainNodes}, ` +
               `chainNodes: ${chainNodes ? chainNodes.length : 0}`,
           );
-          if (chainNodes && Array.isArray(chainNodes) && chainNodes.length > 0) {
+          if (
+            chainNodes &&
+            Array.isArray(chainNodes) &&
+            chainNodes.length > 0
+          ) {
             chainNodes.forEach((node: any, nodeIdx: number) => {
               const nodeLoc = node?.location?.identifierRange;
               if (nodeLoc) {
@@ -1436,15 +1441,13 @@ export class SymbolTable {
             });
           }
         } catch (error) {
-          console.error(
-            `  [${idx}] Error logging reference: ${error}`,
-            r,
-          );
+          console.error(`  [${idx}] Error logging reference: ${error}`, r);
         }
       }
     } else {
       console.log(
-        `[SymbolTable.getReferencesAtPosition] Position ${position.line}:${position.character} found 0 references. Total references in table: ${this.references.length}`,
+        `[SymbolTable.getReferencesAtPosition] Position ${position.line}:${position.character} ` +
+          `found 0 references. Total references in table: ${this.references.length}`,
       );
     }
 

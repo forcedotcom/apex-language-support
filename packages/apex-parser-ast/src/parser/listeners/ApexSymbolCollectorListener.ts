@@ -3774,6 +3774,17 @@ export class ApexSymbolCollectorListener
       );
 
       this.symbolTable.addSymbol(variableSymbol, this.getCurrentScopeSymbol());
+
+      // Create VARIABLE_DECLARATION reference for the variable/field declaration
+      const identifierLocation = this.getIdentifierLocation(ctx);
+      const parentContext = this.getCurrentScopeSymbol()?.name;
+      const variableDeclarationRef =
+        SymbolReferenceFactory.createVariableDeclarationReference(
+          name,
+          identifierLocation,
+          parentContext,
+        );
+      this.symbolTable.addTypeReference(variableDeclarationRef);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in variable: ${errorMessage}`, ctx);

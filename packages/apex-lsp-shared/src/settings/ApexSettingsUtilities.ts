@@ -362,15 +362,13 @@ export function mergeWithDefaults(
                   ...(baseDefaults.apex.scheduler.queueCapacity as Record<
                     string,
                     number
-                 >),
-                  ...(userSettings.apex?.scheduler?.queueCapacity as Record<
-                    string,
-                    number
-                 > | undefined),
+                  >),
+                  ...(userSettings.apex?.scheduler?.queueCapacity as
+                    | Record<string, number>
+                    | undefined),
                 },
       },
-      deferredReferenceProcessing: baseDefaults.apex
-        .deferredReferenceProcessing
+      deferredReferenceProcessing: baseDefaults.apex.deferredReferenceProcessing
         ? {
             ...baseDefaults.apex.deferredReferenceProcessing,
             ...userSettings.apex?.deferredReferenceProcessing,
@@ -454,11 +452,10 @@ export function mergeWithExisting(
                   ...(existingSettings.apex.scheduler.queueCapacity as Record<
                     string,
                     number
-                 >),
-                  ...(partialSettings.apex?.scheduler?.queueCapacity as Record<
-                    string,
-                    number
-                 > | undefined),
+                  >),
+                  ...(partialSettings.apex?.scheduler?.queueCapacity as
+                    | Record<string, number>
+                    | undefined),
                 },
       },
       deferredReferenceProcessing:

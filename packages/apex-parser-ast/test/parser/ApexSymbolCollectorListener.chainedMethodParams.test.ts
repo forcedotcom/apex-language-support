@@ -8,11 +8,11 @@
 
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
-import { ReferenceContext } from '../../src/types/symbolReference';
+import {
+  ReferenceContext,
+  ChainedSymbolReference,
+} from '../../src/types/symbolReference';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
-import * as fs from 'fs';
-import * as path from 'path';
-import { ChainedSymbolReference } from '../../src/types/symbolReference';
 
 describe('ApexSymbolCollectorListener - Chained Method Calls in Parameters', () => {
   let compilerService: CompilerService;
@@ -22,15 +22,6 @@ describe('ApexSymbolCollectorListener - Chained Method Calls in Parameters', () 
     enableConsoleLogging();
     setLogLevel('error');
   });
-
-  const loadFixtureFile = (fileName: string): string => {
-    const fixturePath = path.join(
-      __dirname,
-      '../fixtures/cross-file',
-      fileName,
-    );
-    return fs.readFileSync(fixturePath, 'utf8');
-  };
 
   describe('Chained Expressions as Method Parameters', () => {
     it('should capture chained expression as method parameter for simple 2-level chain', () => {
@@ -47,7 +38,7 @@ describe('ApexSymbolCollectorListener - Chained Method Calls in Parameters', () 
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
+      const _result = compilerService.compile(
         sourceCode,
         'TestClass.cls',
         listener,
@@ -110,7 +101,7 @@ describe('ApexSymbolCollectorListener - Chained Method Calls in Parameters', () 
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
+      const _result = compilerService.compile(
         sourceCode,
         'TestClass.cls',
         listener,
@@ -148,7 +139,7 @@ describe('ApexSymbolCollectorListener - Chained Method Calls in Parameters', () 
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
+      const _result = compilerService.compile(
         sourceCode,
         'TestClass.cls',
         listener,
@@ -192,7 +183,7 @@ describe('ApexSymbolCollectorListener - Chained Method Calls in Parameters', () 
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
+      const _result = compilerService.compile(
         sourceCode,
         'TestClass.cls',
         listener,
@@ -242,7 +233,7 @@ describe('ApexSymbolCollectorListener - Chained Method Calls in Parameters', () 
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
+      const _result = compilerService.compile(
         sourceCode,
         'TestClass.cls',
         listener,
@@ -277,7 +268,7 @@ describe('ApexSymbolCollectorListener - Chained Method Calls in Parameters', () 
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
+      const _result = compilerService.compile(
         sourceCode,
         'TestClass.cls',
         listener,
@@ -310,7 +301,7 @@ describe('ApexSymbolCollectorListener - Chained Method Calls in Parameters', () 
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
+      const _result = compilerService.compile(
         sourceCode,
         'TestClass.cls',
         listener,
@@ -323,7 +314,9 @@ describe('ApexSymbolCollectorListener - Chained Method Calls in Parameters', () 
       const chainedRef = references.find(
         (ref) =>
           ref.context === ReferenceContext.CHAINED_TYPE &&
-          ref.name.includes('Account.SObjectType.getDescribe.getLabel.toLowerCase'),
+          ref.name.includes(
+            'Account.SObjectType.getDescribe.getLabel.toLowerCase',
+          ),
       );
       expect(chainedRef).toBeDefined();
     });
@@ -340,7 +333,7 @@ describe('ApexSymbolCollectorListener - Chained Method Calls in Parameters', () 
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
+      const _result = compilerService.compile(
         sourceCode,
         'TestClass.cls',
         listener,
@@ -364,4 +357,3 @@ describe('ApexSymbolCollectorListener - Chained Method Calls in Parameters', () 
     });
   });
 });
-

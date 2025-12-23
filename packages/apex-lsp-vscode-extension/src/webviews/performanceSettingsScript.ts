@@ -95,7 +95,9 @@ class PerformanceSettingsUI {
       switch (message.type) {
         case 'settingsLoaded':
           this.currentSettings = message.settings;
-          this.originalSettings = JSON.parse(JSON.stringify(this.currentSettings)); // Deep copy
+          this.originalSettings = JSON.parse(
+            JSON.stringify(this.currentSettings),
+          ); // Deep copy
           this.isDirty = false;
           this.updateSaveButtonState();
           this.render();
@@ -103,7 +105,9 @@ class PerformanceSettingsUI {
         case 'settingsSaved':
           if (message.success) {
             // Update original settings to current settings after successful save
-            this.originalSettings = JSON.parse(JSON.stringify(this.currentSettings));
+            this.originalSettings = JSON.parse(
+              JSON.stringify(this.currentSettings),
+            );
             this.isDirty = false;
             this.updateSaveButtonState();
             this.showStatus('Settings saved successfully', 'success');
@@ -139,12 +143,16 @@ class PerformanceSettingsUI {
     // Reload modal buttons
     const reloadAcceptBtn = document.getElementById('reload-accept-btn');
     if (reloadAcceptBtn) {
-      reloadAcceptBtn.addEventListener('click', () => this.handleReloadAccept());
+      reloadAcceptBtn.addEventListener('click', () =>
+        this.handleReloadAccept(),
+      );
     }
 
     const reloadCancelBtn = document.getElementById('reload-cancel-btn');
     if (reloadCancelBtn) {
-      reloadCancelBtn.addEventListener('click', () => this.handleReloadCancel());
+      reloadCancelBtn.addEventListener('click', () =>
+        this.handleReloadCancel(),
+      );
     }
 
     // Section toggles
@@ -159,7 +167,6 @@ class PerformanceSettingsUI {
         }
       }
     });
-
   }
 
   private checkDirtyState(): void {
@@ -198,7 +205,7 @@ class PerformanceSettingsUI {
       ${this.renderPerformance(settings.performance)}
       ${this.renderCommentCollection(settings.commentCollection)}
     `;
-    
+
     // Re-attach event listeners and update button state after render
     this.setupInputListeners();
     this.updateSaveButtonState();
@@ -206,7 +213,9 @@ class PerformanceSettingsUI {
 
   private setupInputListeners(): void {
     // Track input changes for dirty state
-    const inputs = document.querySelectorAll('.setting-input, input[type="checkbox"]');
+    const inputs = document.querySelectorAll(
+      '.setting-input, input[type="checkbox"]',
+    );
     inputs.forEach((input) => {
       input.addEventListener('input', () => this.checkDirtyState());
       input.addEventListener('change', () => this.checkDirtyState());
@@ -244,7 +253,8 @@ class PerformanceSettingsUI {
         value: def.maxRetryAttempts,
         min: 0,
         max: 100,
-        tooltip: 'Maximum number of retry attempts (0 to disable retries, default: 10)',
+        tooltip:
+          'Maximum number of retry attempts (0 to disable retries, default: 10)',
       },
       {
         key: 'retryDelayMs',
@@ -300,7 +310,8 @@ class PerformanceSettingsUI {
         value: def.circuitBreakerFailureThreshold,
         min: 1,
         max: 50,
-        tooltip: 'Consecutive failures before activating circuit breaker (default: 5)',
+        tooltip:
+          'Consecutive failures before activating circuit breaker (default: 5)',
       },
       {
         key: 'circuitBreakerResetThreshold',
@@ -308,7 +319,8 @@ class PerformanceSettingsUI {
         value: def.circuitBreakerResetThreshold,
         min: 0,
         max: 100,
-        tooltip: 'Queue capacity percentage to reset circuit breaker (default: 50)',
+        tooltip:
+          'Queue capacity percentage to reset circuit breaker (default: 50)',
       },
       {
         key: 'maxDeferredTasksPerSecond',
@@ -316,7 +328,8 @@ class PerformanceSettingsUI {
         value: def.maxDeferredTasksPerSecond ?? 10,
         min: 1,
         max: 1000,
-        tooltip: 'Rate limit for enqueueing deferred tasks per second (default: 10)',
+        tooltip:
+          'Rate limit for enqueueing deferred tasks per second (default: 10)',
       },
     ];
 
@@ -361,9 +374,12 @@ class PerformanceSettingsUI {
     `;
   }
 
-  private renderQueueSettings(queueProcessingSettings: any, schedulerSettings: any): string {
+  private renderQueueSettings(
+    queueProcessingSettings: any,
+    schedulerSettings: any,
+  ): string {
     const expanded = this.expandedSections.has('queueSettings');
-    
+
     // Queue Processing defaults
     const queueDef = queueProcessingSettings || {
       maxConcurrency: {
@@ -455,7 +471,7 @@ class PerformanceSettingsUI {
               <input type="number" class="setting-input" 
                      data-path="queueProcessing.maxTotalConcurrency"
                      value="${queueDef.maxTotalConcurrency || ''}" min="1" placeholder="Auto (sum * 1.2)">
-              <div class="setting-help">Optional overall maximum concurrent tasks across all priorities. When set, provides a safety net to prevent system overload. Default: sum of per-priority limits * 1.2 (20% buffer). When overall limit is exceeded, only lower priorities (Normal/Low/Background) are blocked. Critical/Immediate/High priorities are always allowed through to prevent priority inversion.</div>
+              <div class="setting-help">Optional overall maximum concurrent tasks across all priorities.</div>
             </div>
             <div class="setting-item">
               <label class="setting-label">
@@ -822,7 +838,11 @@ class PerformanceSettingsUI {
         const value = input.value.trim();
         // Handle empty values for optional fields (like maxTotalConcurrency)
         // For optional fields, empty means use default (undefined)
-        if (value === '' && (lastPart === 'maxTotalConcurrency' || lastPart === 'maxDeferredTasksPerSecond')) {
+        if (
+          value === '' &&
+          (lastPart === 'maxTotalConcurrency' ||
+            lastPart === 'maxDeferredTasksPerSecond')
+        ) {
           // Don't set the field - will use default from settings merge
           return;
         }
@@ -931,4 +951,3 @@ function initSettingsUI() {
 }
 
 initSettingsUI();
-

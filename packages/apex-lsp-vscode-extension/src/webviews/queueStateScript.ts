@@ -223,9 +223,15 @@ class QueueStateDashboard {
     const requestTypeBreakdown = metrics.requestTypeBreakdown || {};
     // Handle both legacy single number and per-priority Record
     const queueCapacityValue = metrics.queueCapacity;
-    const queueCapacityPerPriority: Record<number, number> = 
+    const queueCapacityPerPriority: Record<number, number> =
       typeof queueCapacityValue === 'number'
-        ? { 1: queueCapacityValue, 2: queueCapacityValue, 3: queueCapacityValue, 4: queueCapacityValue, 5: queueCapacityValue }
+        ? {
+            1: queueCapacityValue,
+            2: queueCapacityValue,
+            3: queueCapacityValue,
+            4: queueCapacityValue,
+            5: queueCapacityValue,
+          }
         : queueCapacityValue || { 1: 200, 2: 200, 3: 200, 4: 200, 5: 200 };
 
     // Debug: Log the structure of received data

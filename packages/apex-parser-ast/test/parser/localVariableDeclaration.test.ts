@@ -475,18 +475,20 @@ public class TypeResolutionTest {
       const selfReferenceField = allSymbols.find(
         (s) => s.name === 'selfReference' && s.kind === SymbolKind.Field,
       );
-      
+
       // Find the variable that uses TypeResolutionTest as its type
       const instanceVar = allSymbols.find(
         (s) => s.name === 'instance' && s.kind === SymbolKind.Variable,
       );
-      
+
       // Test field resolution
       if (selfReferenceField) {
         expect(selfReferenceField.type?.name).toBe('TypeResolutionTest');
         // After second-pass resolution, type.resolvedSymbol should be set for same-file types
         expect(selfReferenceField.type?.resolvedSymbol).toBeDefined();
-        expect(selfReferenceField.type?.resolvedSymbol?.id).toBe(typeResolutionTestClass!.id);
+        expect(selfReferenceField.type?.resolvedSymbol?.id).toBe(
+          typeResolutionTestClass!.id,
+        );
       }
 
       // Test variable resolution
@@ -494,7 +496,9 @@ public class TypeResolutionTest {
         expect(instanceVar.type?.name).toBe('TypeResolutionTest');
         // After second-pass resolution, type.resolvedSymbol should be set for same-file types
         expect(instanceVar.type?.resolvedSymbol).toBeDefined();
-        expect(instanceVar.type?.resolvedSymbol?.id).toBe(typeResolutionTestClass!.id);
+        expect(instanceVar.type?.resolvedSymbol?.id).toBe(
+          typeResolutionTestClass!.id,
+        );
       }
 
       // At least one of field or variable should be found

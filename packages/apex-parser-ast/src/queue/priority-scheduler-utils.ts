@@ -534,7 +534,8 @@ function getCurrentMetrics(
     const queueCapacityPerPriority = {} as Record<Priority, number>;
     for (const p of AllPriorities) {
       const priorityName = priorityNameMap[p] || 'NORMAL';
-      queueCapacityPerPriority[p] = capacityMap[priorityName] || capacityMap.NORMAL || 200;
+      queueCapacityPerPriority[p] =
+        capacityMap[priorityName] || capacityMap.NORMAL || 200;
     }
 
     return {
@@ -1043,7 +1044,8 @@ export function initialize(
         const queueCapacityPerPriority = {} as Record<Priority, number>;
         for (const p of AllPriorities) {
           const priorityName = priorityNameMap[p] || 'NORMAL';
-          queueCapacityPerPriority[p] = capacityMap[priorityName] || capacityMap.NORMAL || 200;
+          queueCapacityPerPriority[p] =
+            capacityMap[priorityName] || capacityMap.NORMAL || 200;
         }
 
         return {

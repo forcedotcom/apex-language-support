@@ -7227,6 +7227,46 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 }
               }
             }
+
+            // If member not found in current class, traverse inheritance chain
+            // In Apex, Object is always in the inheritance chain (unless we're already at Object)
+            // This applies to both methods and properties
+            if (contextSymbol.kind === SymbolKind.Class) {
+              const classTypeSymbol = contextSymbol as TypeSymbol;
+
+              // Step 1: Check explicit superclass first (if exists)
+              if (classTypeSymbol.superClass) {
+                const superclassSymbol =
+                  await this.resolveSuperclassSymbol(classTypeSymbol);
+                if (superclassSymbol) {
+                  const superclassMember = await this.resolveMemberInContext(
+                    { type: 'symbol', symbol: superclassSymbol },
+                    memberName,
+                    memberType,
+                  );
+                  if (superclassMember) {
+                    return superclassMember;
+                  }
+                }
+              }
+
+              // Step 2: Always check Object class (unless we're already at Object)
+              // This implements implicit Object inheritance - Object is always in the chain
+              if (classTypeSymbol.name?.toLowerCase() !== 'object') {
+                const objectClass = await this.resolveObjectClass();
+                if (objectClass) {
+                  const objectMember = await this.resolveMemberInContext(
+                    { type: 'symbol', symbol: objectClass },
+                    memberName,
+                    memberType,
+                  );
+                  if (objectMember) {
+                    return objectMember;
+                  }
+                }
+              }
+            }
+
             // If class block lookup failed and we couldn't load the class, return null
             // This prevents falling back to global search which might pick methods from
             // the wrong class (e.g., Email.toString() instead of String.toString())
@@ -7335,6 +7375,167 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
     }
 
+    return null;
+  }
+
+  /**
+   * Resolve the superclass symbol for a given TypeSymbol.
+   * Handles loading the superclass symbol table if needed.
+   *
+   * @param typeSymbol The TypeSymbol to resolve superclass for
+   * @returns The superclass TypeSymbol or null if not found or no superclass
+   */
+  private async resolveSuperclassSymbol(
+    typeSymbol: TypeSymbol,
+  ): Promise<TypeSymbol | null> {
+    // Check if there's an explicit superclass
+    if (!typeSymbol.superClass) {
+      return null;
+    }
+
+    const superclassName = typeSymbol.superClass;
+
+    // Try to find the superclass symbol
+    const superclassSymbols = this.findSymbolByName(superclassName);
+    const superclassTypeSymbol = superclassSymbols.find(
+      (s) => s.kind === SymbolKind.Class,
+    ) as TypeSymbol | undefined;
+
+    if (superclassTypeSymbol) {
+      // Ensure the symbol table is loaded
+      if (superclassTypeSymbol.fileUri) {
+        let symbolTable = this.symbolGraph.getSymbolTableForFile(
+          superclassTypeSymbol.fileUri,
+        );
+
+        // If not loaded and it's a standard Apex class, try to load it
+        if (
+          !symbolTable &&
+          superclassTypeSymbol.fileUri &&
+          isStandardApexUri(superclassTypeSymbol.fileUri) &&
+          this.resourceLoader
+        ) {
+          const classPath = extractApexLibPath(superclassTypeSymbol.fileUri);
+          if (classPath) {
+            try {
+              const normalizedUri = extractFilePathFromUri(
+                superclassTypeSymbol.fileUri,
+              );
+              if (!this.loadingSymbolTables.has(normalizedUri)) {
+                this.loadingSymbolTables.add(normalizedUri);
+                try {
+                  const artifact =
+                    await this.resourceLoader.loadAndCompileClass(classPath);
+                  if (artifact?.compilationResult.result) {
+                    await this.addSymbolTable(
+                      artifact.compilationResult.result,
+                      superclassTypeSymbol.fileUri,
+                    );
+                    symbolTable = this.symbolGraph.getSymbolTableForFile(
+                      superclassTypeSymbol.fileUri,
+                    );
+                  }
+                } finally {
+                  this.loadingSymbolTables.delete(normalizedUri);
+                }
+              }
+            } catch (_error) {
+              // Error loading, continue
+            }
+          }
+        }
+      }
+
+      return superclassTypeSymbol;
+    }
+
+    // If not found, try to resolve as a standard Apex class
+    if (this.resourceLoader) {
+      const standardClass = await this.resolveStandardApexClass(superclassName);
+      if (standardClass && standardClass.kind === SymbolKind.Class) {
+        return standardClass as TypeSymbol;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolve the Object class symbol.
+   * Object is always the root of the inheritance hierarchy in Apex.
+   *
+   * @returns The Object TypeSymbol or null if not found
+   */
+  private async resolveObjectClass(): Promise<TypeSymbol | null> {
+    // Try to find Object in the symbol graph first
+    const objectSymbols = this.findSymbolByName('Object');
+    const objectTypeSymbol = objectSymbols.find(
+      (s) =>
+        s.kind === SymbolKind.Class &&
+        (s.fileUri?.includes('StandardApexLibrary') ||
+          s.fileUri?.includes('apexlib://') ||
+          s.fileUri?.includes('builtins')),
+    ) as TypeSymbol | undefined;
+
+    if (objectTypeSymbol) {
+      // Ensure the symbol table is loaded
+      if (objectTypeSymbol.fileUri) {
+        let symbolTable = this.symbolGraph.getSymbolTableForFile(
+          objectTypeSymbol.fileUri,
+        );
+
+        // If not loaded, try to load it
+        if (!symbolTable && this.resourceLoader) {
+          const classPath = extractApexLibPath(objectTypeSymbol.fileUri);
+          if (classPath) {
+            try {
+              const normalizedUri = extractFilePathFromUri(
+                objectTypeSymbol.fileUri,
+              );
+              if (!this.loadingSymbolTables.has(normalizedUri)) {
+                this.loadingSymbolTables.add(normalizedUri);
+                try {
+                  const artifact =
+                    await this.resourceLoader.loadAndCompileClass(classPath);
+                  if (artifact?.compilationResult.result) {
+                    await this.addSymbolTable(
+                      artifact.compilationResult.result,
+                      objectTypeSymbol.fileUri,
+                    );
+                    symbolTable = this.symbolGraph.getSymbolTableForFile(
+                      objectTypeSymbol.fileUri,
+                    );
+                  }
+                } finally {
+                  this.loadingSymbolTables.delete(normalizedUri);
+                }
+              }
+            } catch (_error) {
+              // Error loading, continue
+            }
+          }
+        }
+      }
+
+      return objectTypeSymbol;
+    }
+
+    // If not found in graph, try to resolve via ResourceLoader
+    if (this.resourceLoader) {
+      // Try "Object" first, then "System.Object"
+      let standardClass = await this.resolveStandardApexClass('Object');
+      if (!standardClass) {
+        standardClass = await this.resolveStandardApexClass('System.Object');
+      }
+
+      if (standardClass && standardClass.kind === SymbolKind.Class) {
+        return standardClass as TypeSymbol;
+      }
+    }
+
+    this.logger.warn(
+      () => 'Object class not found - inheritance chain traversal may fail',
+    );
     return null;
   }
 

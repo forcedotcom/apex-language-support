@@ -34,7 +34,7 @@ export enum ReferenceContext {
 /**
  * Enhanced SymbolReference interface
  * Tracks all code references (methods, fields, types, variables, etc.) hierarchically.
- * 
+ *
  * SymbolReference is used throughout the parser to track references to:
  * - Method calls (METHOD_CALL)
  * - Field access (FIELD_ACCESS)
@@ -42,7 +42,7 @@ export enum ReferenceContext {
  * - Type declarations (TYPE_DECLARATION)
  * - Constructor calls (CONSTRUCTOR_CALL)
  * - And other code references
- * 
+ *
  * The parser uses a hierarchical approach with separate stacks:
  * - scopeStack: Tracks lexical scopes (class, method, block) for symbol resolution
  * - methodCallStack: Tracks method/constructor call hierarchy for parameter tracking
@@ -716,5 +716,3 @@ export class SymbolReferenceFactory {
     };
   }
 }
-
-

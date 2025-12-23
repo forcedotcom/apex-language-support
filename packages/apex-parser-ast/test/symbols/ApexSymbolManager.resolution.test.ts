@@ -912,10 +912,270 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result).toBeDefined();
       expect(result?.name).toBe('toString');
       expect(result?.kind).toBe('method');
-      // Should resolve to String.toString(), not System.SavePoint.toString() or any other toString()
+      // String doesn't override toString(), so it should resolve to Object.toString()
+      // This verifies inheritance chain traversal works correctly
       expect(result?.fileUri).toBe(
-        'apexlib://resources/StandardApexLibrary/System/String.cls',
+        'apexlib://resources/StandardApexLibrary/System/Object.cls',
       );
+    });
+
+    describe('Inheritance Chain Traversal', () => {
+      beforeEach(async () => {
+        // Initialize services for this describe block
+        symbolManager = new ApexSymbolManager();
+        compilerService = new CompilerService();
+      });
+
+      it('should resolve method through explicit inheritance chain (Child extends Parent)', async () => {
+        // Test that methods in parent classes are found through inheritance
+        const parentCode = `
+          public class Parent {
+            public String parentMethod() {
+              return 'parent';
+            }
+          }
+        `;
+
+        const childCode = `
+          public class Child extends Parent {
+            public void testMethod() {
+              String result = parentMethod();
+            }
+          }
+        `;
+
+        await compileAndAddToManager(parentCode, 'file:///test/Parent.cls');
+        await compileAndAddToManager(childCode, 'file:///test/Child.cls');
+
+        // Find position of "parentMethod" in Child class
+        const lines = childCode.split('\n');
+        const lineIndex = lines.findIndex((line) =>
+          line.includes('parentMethod()'),
+        );
+        expect(lineIndex).toBeGreaterThanOrEqual(0);
+
+        const line = lines[lineIndex];
+        const methodIndex = line.indexOf('parentMethod');
+        expect(methodIndex).toBeGreaterThanOrEqual(0);
+
+        const result = await symbolManager.getSymbolAtPosition(
+          'file:///test/Child.cls',
+          { line: lineIndex + 1, character: methodIndex },
+          'precise',
+        );
+
+        expect(result).toBeDefined();
+        expect(result?.name).toBe('parentMethod');
+        expect(result?.kind).toBe('method');
+        expect(result?.fileUri).toBe('file:///test/Parent.cls');
+      });
+
+      it('should resolve method through implicit Object inheritance', async () => {
+        // Test that methods in Object are found for classes without explicit extends
+        const testCode = `
+          public class MyClass {
+            public void testMethod() {
+              String str = 'test';
+              String result = str.toString();
+            }
+          }
+        `;
+
+        await compileAndAddToManager(testCode, 'file:///test/MyClass.cls');
+
+        // Find position of "toString" in MyClass
+        const lines = testCode.split('\n');
+        const lineIndex = lines.findIndex((line) =>
+          line.includes('toString()'),
+        );
+        expect(lineIndex).toBeGreaterThanOrEqual(0);
+
+        const line = lines[lineIndex];
+        const toStringIndex = line.indexOf('toString');
+        expect(toStringIndex).toBeGreaterThanOrEqual(0);
+
+        const result = await symbolManager.getSymbolAtPosition(
+          'file:///test/MyClass.cls',
+          { line: lineIndex + 1, character: toStringIndex },
+          'precise',
+        );
+
+        expect(result).toBeDefined();
+        expect(result?.name).toBe('toString');
+        expect(result?.kind).toBe('method');
+        // Should resolve to Object.toString() since String doesn't override it
+        expect(result?.fileUri).toBe(
+          'apexlib://resources/StandardApexLibrary/System/Object.cls',
+        );
+      });
+
+      it('should find subclass method when method is overridden', async () => {
+        // Test that subclass methods take precedence over superclass methods
+        const parentCode = `
+          public class Parent {
+            public String getValue() {
+              return 'parent';
+            }
+          }
+        `;
+
+        const childCode = `
+          public class Child extends Parent {
+            public String getValue() {
+              return 'child';
+            }
+            
+            public void testMethod() {
+              String result = getValue();
+            }
+          }
+        `;
+
+        await compileAndAddToManager(parentCode, 'file:///test/Parent.cls');
+        await compileAndAddToManager(childCode, 'file:///test/Child.cls');
+
+        // Find position of "getValue" in Child class
+        const lines = childCode.split('\n');
+        const lineIndex = lines.findIndex(
+          (line) => line.includes('getValue()') && line.includes('result'),
+        );
+        expect(lineIndex).toBeGreaterThanOrEqual(0);
+
+        const line = lines[lineIndex];
+        const methodIndex = line.indexOf('getValue');
+        expect(methodIndex).toBeGreaterThanOrEqual(0);
+
+        const result = await symbolManager.getSymbolAtPosition(
+          'file:///test/Child.cls',
+          { line: lineIndex + 1, character: methodIndex },
+          'precise',
+        );
+
+        expect(result).toBeDefined();
+        expect(result?.name).toBe('getValue');
+        expect(result?.kind).toBe('method');
+        // Should resolve to Child.getValue(), not Parent.getValue()
+        expect(result?.fileUri).toBe('file:///test/Child.cls');
+      });
+
+      it('should not traverse further when resolving methods on Object class', async () => {
+        // Test that Object class itself doesn't check Object again (prevents infinite loop)
+        // This is tested implicitly - if Object.toString() is called, it should find Object.toString()
+        // and not try to traverse further
+        const testCode = `
+          public class TestClass {
+            public void testMethod() {
+              Object obj = new Object();
+              String result = obj.toString();
+            }
+          }
+        `;
+
+        await compileAndAddToManager(testCode, 'file:///test/TestClass.cls');
+
+        // Find position of "toString" in TestClass
+        const lines = testCode.split('\n');
+        const lineIndex = lines.findIndex((line) =>
+          line.includes('toString()'),
+        );
+        expect(lineIndex).toBeGreaterThanOrEqual(0);
+
+        const line = lines[lineIndex];
+        const toStringIndex = line.indexOf('toString');
+        expect(toStringIndex).toBeGreaterThanOrEqual(0);
+
+        const result = await symbolManager.getSymbolAtPosition(
+          'file:///test/TestClass.cls',
+          { line: lineIndex + 1, character: toStringIndex },
+          'precise',
+        );
+
+        expect(result).toBeDefined();
+        expect(result?.name).toBe('toString');
+        expect(result?.kind).toBe('method');
+        // Should resolve to Object.toString()
+        expect(result?.fileUri).toBe(
+          'apexlib://resources/StandardApexLibrary/System/Object.cls',
+        );
+      });
+
+      it('should resolve method through multi-level inheritance chain', async () => {
+        // Test inheritance chain: GrandChild -> Child -> Parent -> Object
+        const parentCode = `
+          public class Parent {
+            public String parentMethod() {
+              return 'parent';
+            }
+          }
+        `;
+
+        const childCode = `
+          public class Child extends Parent {
+            public String childMethod() {
+              return 'child';
+            }
+          }
+        `;
+
+        const grandChildCode = `
+          public class GrandChild extends Child {
+            public void testMethod() {
+              String result1 = parentMethod();
+              String result2 = childMethod();
+            }
+          }
+        `;
+
+        await compileAndAddToManager(parentCode, 'file:///test/Parent.cls');
+        await compileAndAddToManager(childCode, 'file:///test/Child.cls');
+        await compileAndAddToManager(
+          grandChildCode,
+          'file:///test/GrandChild.cls',
+        );
+
+        // Test parentMethod resolution
+        const lines = grandChildCode.split('\n');
+        const parentMethodLineIndex = lines.findIndex((line) =>
+          line.includes('parentMethod()'),
+        );
+        expect(parentMethodLineIndex).toBeGreaterThanOrEqual(0);
+
+        const parentMethodLine = lines[parentMethodLineIndex];
+        const parentMethodIndex = parentMethodLine.indexOf('parentMethod');
+        expect(parentMethodIndex).toBeGreaterThanOrEqual(0);
+
+        const parentResult = await symbolManager.getSymbolAtPosition(
+          'file:///test/GrandChild.cls',
+          { line: parentMethodLineIndex + 1, character: parentMethodIndex },
+          'precise',
+        );
+
+        expect(parentResult).toBeDefined();
+        expect(parentResult?.name).toBe('parentMethod');
+        expect(parentResult?.kind).toBe('method');
+        expect(parentResult?.fileUri).toBe('file:///test/Parent.cls');
+
+        // Test childMethod resolution
+        const childMethodLineIndex = lines.findIndex((line) =>
+          line.includes('childMethod()'),
+        );
+        expect(childMethodLineIndex).toBeGreaterThanOrEqual(0);
+
+        const childMethodLine = lines[childMethodLineIndex];
+        const childMethodIndex = childMethodLine.indexOf('childMethod');
+        expect(childMethodIndex).toBeGreaterThanOrEqual(0);
+
+        const childResult = await symbolManager.getSymbolAtPosition(
+          'file:///test/GrandChild.cls',
+          { line: childMethodLineIndex + 1, character: childMethodIndex },
+          'precise',
+        );
+
+        expect(childResult).toBeDefined();
+        expect(childResult?.name).toBe('childMethod');
+        expect(childResult?.kind).toBe('method');
+        expect(childResult?.fileUri).toBe('file:///test/Child.cls');
+      });
     });
 
     // Tests for resolving standard class names (System, String) via getSymbolAtPosition
