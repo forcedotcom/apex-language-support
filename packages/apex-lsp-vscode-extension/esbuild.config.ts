@@ -271,6 +271,23 @@ const builds: BuildOptions[] = [
       'process.env.NODE_ENV': '"production"',
     },
   },
+  {
+    entryPoints: ['src/webviews/performanceSettingsScript.ts'],
+    outdir: 'dist/webview',
+    format: 'iife',
+    platform: 'browser',
+    target: 'es2020',
+    outExtension: { '.js': '.bundle.js' },
+    sourcemap: true,
+    splitting: false,
+    external: [],
+    bundle: true,
+    treeShaking: true,
+    keepNames: true,
+    define: {
+      'process.env.NODE_ENV': '"production"',
+    },
+  },
 ];
 
 async function run(watch = false): Promise<void> {

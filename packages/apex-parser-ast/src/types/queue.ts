@@ -50,8 +50,16 @@ export interface SchedulerMetrics {
   readonly queueUtilization?: Readonly<Record<Priority, number>>;
   /** Currently active (executing) tasks per priority */
   readonly activeTasks?: Readonly<Record<Priority, number>>;
-  /** Queue capacity per priority (bounded size) */
-  readonly queueCapacity: number;
+  /** Queue capacity per priority (bounded size) - can be single number (legacy) or per-priority Record */
+  readonly queueCapacity: number | Readonly<Record<Priority, number>>;
+  /** Back pressure metrics: enqueue retry counts per priority */
+  readonly enqueueRetries?: Readonly<Record<Priority, number>>;
+  /** Back pressure metrics: average enqueue wait time per priority (ms) */
+  readonly enqueueWaitTime?: Readonly<Record<Priority, number>>;
+  /** Back pressure metrics: back pressure duration per priority (ms) */
+  readonly backPressureDuration?: Readonly<Record<Priority, number>>;
+  /** Back pressure metrics: back pressure event count per priority */
+  readonly backPressureEvents?: Readonly<Record<Priority, number>>;
 }
 
 export interface PriorityScheduler {
@@ -64,9 +72,14 @@ export interface PriorityScheduler {
 }
 
 export interface PrioritySchedulerConfigShape {
-  queueCapacity: number;
+  /** Queue capacity - can be a single number (applied to all) or per-priority Record */
+  queueCapacity: number | Record<string, number>;
   maxHighPriorityStreak: number;
   idleSleepMs: number;
+  /** Per-priority concurrency limits */
+  maxConcurrency: Record<string, number>;
+  /** Optional overall maximum concurrent tasks across all priorities */
+  maxTotalConcurrency?: number;
 }
 
 export interface QueuedItem<A = never, E = never, R = never> {
@@ -93,8 +106,20 @@ export interface SchedulerInternalState {
   readonly requestTypeCounts: Ref.Ref<Map<number, Map<string, number>>>;
   /** Active tasks per priority (currently executing) */
   readonly activeTaskCounts: Ref.Ref<Map<number, number>>;
-  /** Queue capacity per priority */
-  readonly queueCapacity: number;
+  /** Queue capacity per priority - can be single number (legacy) or per-priority Record */
+  readonly queueCapacity: number | Record<string, number>;
+  /** Per-priority concurrency limits */
+  readonly maxConcurrency: Record<string, number>;
+  /** Overall maximum concurrent tasks across all priorities */
+  readonly maxTotalConcurrency: number;
+  /** Back pressure tracking: enqueue retry counts per priority */
+  readonly enqueueRetries: Ref.Ref<Map<number, number>>;
+  /** Back pressure tracking: total enqueue wait time per priority (ms) */
+  readonly enqueueWaitTime: Ref.Ref<Map<number, number>>;
+  /** Back pressure tracking: back pressure event counts per priority */
+  readonly backPressureEvents: Ref.Ref<Map<number, number>>;
+  /** Back pressure tracking: back pressure start time per priority (timestamp) */
+  readonly backPressureStartTime: Ref.Ref<Map<number, number>>;
 }
 
 // Internal state types for scheduler utils

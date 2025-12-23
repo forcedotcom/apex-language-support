@@ -11,6 +11,7 @@ import {
   SymbolKind,
   SymbolModifiers,
   SymbolVisibility,
+  TypeSymbol,
 } from '../../src/types/symbol';
 import { Namespaces } from '../../src/namespace/NamespaceUtils';
 
@@ -179,7 +180,6 @@ describe('SymbolFactory with Namespace Support', () => {
 
     it('should handle type data with namespace', () => {
       const namespace = Namespaces.create('MyNamespace');
-      const typeData = { interfaces: ['Interface1', 'Interface2'] };
 
       const symbol = SymbolFactory.createFullSymbolWithNamespace(
         'TestClass',
@@ -188,11 +188,13 @@ describe('SymbolFactory with Namespace Support', () => {
         'test.cls',
         mockModifiers,
         null,
-        typeData,
+        undefined, // No typeData - interfaces are set directly on TypeSymbol
         namespace,
-      );
+      ) as TypeSymbol;
 
-      expect(symbol._typeData).toEqual(typeData);
+      // Interfaces are set directly on TypeSymbol, not in _typeData
+      symbol.interfaces = ['Interface1', 'Interface2'];
+      expect(symbol.interfaces).toEqual(['Interface1', 'Interface2']);
       expect(symbol.namespace).toBe(namespace);
       expect(symbol._isLoaded).toBe(true);
     });

@@ -393,6 +393,175 @@
               "description": "%configuration.apex-ls-ts.loadWorkspace.yieldDelayMs.description%"
             }
           }
+        },
+        "apex.queueProcessing": {
+          "type": "object",
+          "description": "%configuration.apex-ls-ts.queueProcessing.description%",
+          "properties": {
+            "maxConcurrency": {
+              "type": "object",
+              "description": "%configuration.apex-ls-ts.queueProcessing.maxConcurrency.description%",
+              "properties": {
+                "CRITICAL": {
+                  "type": "number",
+                  "default": 100,
+                  "description": "%configuration.apex-ls-ts.queueProcessing.maxConcurrency.CRITICAL.description%"
+                },
+                "IMMEDIATE": {
+                  "type": "number",
+                  "default": 50,
+                  "description": "%configuration.apex-ls-ts.queueProcessing.maxConcurrency.IMMEDIATE.description%"
+                },
+                "HIGH": {
+                  "type": "number",
+                  "default": 50,
+                  "description": "%configuration.apex-ls-ts.queueProcessing.maxConcurrency.HIGH.description%"
+                },
+                "NORMAL": {
+                  "type": "number",
+                  "default": 25,
+                  "description": "%configuration.apex-ls-ts.queueProcessing.maxConcurrency.NORMAL.description%"
+                },
+                "LOW": {
+                  "type": "number",
+                  "default": 10,
+                  "description": "%configuration.apex-ls-ts.queueProcessing.maxConcurrency.LOW.description%"
+                },
+                "BACKGROUND": {
+                  "type": "number",
+                  "default": 5,
+                  "description": "%configuration.apex-ls-ts.queueProcessing.maxConcurrency.BACKGROUND.description%"
+                }
+              }
+            },
+            "maxTotalConcurrency": {
+              "type": "number",
+              "description": "%configuration.apex-ls-ts.queueProcessing.maxTotalConcurrency.description%"
+            },
+            "yieldInterval": {
+              "type": "number",
+              "default": 50,
+              "description": "%configuration.apex-ls-ts.queueProcessing.yieldInterval.description%"
+            },
+            "yieldDelayMs": {
+              "type": "number",
+              "default": 25,
+              "description": "%configuration.apex-ls-ts.queueProcessing.yieldDelayMs.description%"
+            }
+          }
+        },
+        "apex.scheduler": {
+          "type": "object",
+          "description": "%configuration.apex-ls-ts.scheduler.description%",
+          "properties": {
+            "queueCapacity": {
+              "type": "object",
+              "description": "%configuration.apex-ls-ts.scheduler.queueCapacity.description%",
+              "properties": {
+                "CRITICAL": {
+                  "type": "number",
+                  "default": 200,
+                  "description": "%configuration.apex-ls-ts.scheduler.queueCapacity.CRITICAL.description%"
+                },
+                "IMMEDIATE": {
+                  "type": "number",
+                  "default": 200,
+                  "description": "%configuration.apex-ls-ts.scheduler.queueCapacity.IMMEDIATE.description%"
+                },
+                "HIGH": {
+                  "type": "number",
+                  "default": 200,
+                  "description": "%configuration.apex-ls-ts.scheduler.queueCapacity.HIGH.description%"
+                },
+                "NORMAL": {
+                  "type": "number",
+                  "default": 200,
+                  "description": "%configuration.apex-ls-ts.scheduler.queueCapacity.NORMAL.description%"
+                },
+                "LOW": {
+                  "type": "number",
+                  "default": 200,
+                  "description": "%configuration.apex-ls-ts.scheduler.queueCapacity.LOW.description%"
+                },
+                "BACKGROUND": {
+                  "type": "number",
+                  "default": 200,
+                  "description": "%configuration.apex-ls-ts.scheduler.queueCapacity.BACKGROUND.description%"
+                }
+              }
+            },
+            "maxHighPriorityStreak": {
+              "type": "number",
+              "default": 50,
+              "description": "%configuration.apex-ls-ts.scheduler.maxHighPriorityStreak.description%"
+            },
+            "idleSleepMs": {
+              "type": "number",
+              "default": 1,
+              "description": "%configuration.apex-ls-ts.scheduler.idleSleepMs.description%"
+            }
+          }
+        },
+        "apex.deferredReferenceProcessing": {
+          "type": "object",
+          "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.description%",
+          "properties": {
+            "deferredBatchSize": {
+              "type": "number",
+              "default": 50,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.deferredBatchSize.description%"
+            },
+            "maxRetryAttempts": {
+              "type": "number",
+              "default": 10,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.maxRetryAttempts.description%"
+            },
+            "retryDelayMs": {
+              "type": "number",
+              "default": 100,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.retryDelayMs.description%"
+            },
+            "maxRetryDelayMs": {
+              "type": "number",
+              "default": 5000,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.maxRetryDelayMs.description%"
+            },
+            "queueCapacityThreshold": {
+              "type": "number",
+              "default": 90,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.queueCapacityThreshold.description%"
+            },
+            "queueDrainThreshold": {
+              "type": "number",
+              "default": 75,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.queueDrainThreshold.description%"
+            },
+            "queueFullRetryDelayMs": {
+              "type": "number",
+              "default": 10000,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.queueFullRetryDelayMs.description%"
+            },
+            "maxQueueFullRetryDelayMs": {
+              "type": "number",
+              "default": 30000,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.maxQueueFullRetryDelayMs.description%"
+            },
+            "circuitBreakerFailureThreshold": {
+              "type": "number",
+              "default": 5,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.circuitBreakerFailureThreshold.description%"
+            },
+            "circuitBreakerResetThreshold": {
+              "type": "number",
+              "default": 50,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.circuitBreakerResetThreshold.description%"
+            },
+            "maxDeferredTasksPerSecond": {
+              "type": "number",
+              "default": 10,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.maxDeferredTasksPerSecond.description%"
+            }
+          }
         }
       }
     },
@@ -428,6 +597,10 @@
       {
         "command": "apex-ls-ts.showQueueState",
         "title": "%commands.apex-ls-ts.showQueueState.title%"
+      },
+      {
+        "command": "apex-ls-ts.showPerformanceSettings",
+        "title": "%commands.apex-ls-ts.showPerformanceSettings.title%"
       },
       {
         "command": "apex.profiling.start",

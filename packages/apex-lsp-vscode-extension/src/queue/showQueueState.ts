@@ -21,7 +21,7 @@ interface QueueStateData {
     requestTypeBreakdown?: Record<number, Record<string, number>>;
     queueUtilization?: Record<number, number>;
     activeTasks?: Record<number, number>;
-    queueCapacity?: number;
+    queueCapacity?: number | Record<number, number>;
   };
   metadata: {
     timestamp: number;
@@ -72,7 +72,7 @@ export async function showQueueState(
         requestTypeBreakdown: {},
         queueUtilization: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
         activeTasks: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-        queueCapacity: 100,
+        queueCapacity: { 1: 200, 2: 200, 3: 200, 4: 200, 5: 200 },
       },
       metadata: {
         timestamp: Date.now(),
@@ -157,5 +157,24 @@ export async function showQueueState(
   // Handle panel disposal
   panel.onDidDispose(() => {
     console.log('Queue state panel disposed');
+  });
+}
+
+/**
+ * Register webview panel serializer for queue state
+ * This handles webview restoration when VSCode restarts
+ */
+export function registerQueueStateSerializer(
+  context: vscode.ExtensionContext,
+): void {
+  vscode.window.registerWebviewPanelSerializer('queueState', {
+    async deserializeWebviewPanel(
+      webviewPanel: vscode.WebviewPanel,
+      _state: any,
+    ) {
+      // Close the restored panel since queue state is dynamic and requires a live connection
+      // User can reopen it via command if needed
+      webviewPanel.dispose();
+    },
   });
 }

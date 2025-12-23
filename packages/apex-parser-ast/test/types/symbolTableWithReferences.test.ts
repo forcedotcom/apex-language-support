@@ -9,8 +9,8 @@
 import { SymbolTable } from '../../src/types/symbol';
 import {
   ReferenceContext,
-  TypeReferenceFactory,
-} from '../../src/types/typeReference';
+  SymbolReferenceFactory,
+} from '../../src/types/symbolReference';
 
 describe('SymbolTable with Type References', () => {
   let symbolTable: SymbolTable;
@@ -21,7 +21,7 @@ describe('SymbolTable with Type References', () => {
 
   describe('addTypeReference', () => {
     it('should add a type reference to the symbol table', () => {
-      const reference = TypeReferenceFactory.createMethodCallReference(
+      const reference = SymbolReferenceFactory.createMethodCallReference(
         'createFile',
         {
           symbolRange: {
@@ -49,7 +49,7 @@ describe('SymbolTable with Type References', () => {
     });
 
     it('should add multiple type references', () => {
-      const reference1 = TypeReferenceFactory.createMethodCallReference(
+      const reference1 = SymbolReferenceFactory.createMethodCallReference(
         'createFile',
         {
           symbolRange: {
@@ -68,7 +68,7 @@ describe('SymbolTable with Type References', () => {
         'FileUtilities',
       );
 
-      const reference2 = TypeReferenceFactory.createTypeDeclarationReference(
+      const reference2 = SymbolReferenceFactory.createTypeDeclarationReference(
         'Property__c',
         {
           symbolRange: {
@@ -98,7 +98,7 @@ describe('SymbolTable with Type References', () => {
 
   describe('getAllReferences', () => {
     it('should return a copy of references to prevent external modification', () => {
-      const reference = TypeReferenceFactory.createMethodCallReference(
+      const reference = SymbolReferenceFactory.createMethodCallReference(
         'createFile',
         {
           symbolRange: {
@@ -123,7 +123,7 @@ describe('SymbolTable with Type References', () => {
 
       // Modify the returned array
       allReferences.push(
-        TypeReferenceFactory.createTypeDeclarationReference('String', {
+        SymbolReferenceFactory.createTypeDeclarationReference('String', {
           symbolRange: {
             startLine: 15,
             startColumn: 0,
@@ -147,7 +147,7 @@ describe('SymbolTable with Type References', () => {
 
   describe('getReferencesAtPosition', () => {
     it('should find references at exact position', () => {
-      const reference = TypeReferenceFactory.createMethodCallReference(
+      const reference = SymbolReferenceFactory.createMethodCallReference(
         'createFile',
         {
           symbolRange: {
@@ -177,7 +177,7 @@ describe('SymbolTable with Type References', () => {
     });
 
     it('should find references within range', () => {
-      const reference = TypeReferenceFactory.createMethodCallReference(
+      const reference = SymbolReferenceFactory.createMethodCallReference(
         'createFile',
         {
           symbolRange: {
@@ -207,7 +207,7 @@ describe('SymbolTable with Type References', () => {
     });
 
     it('should not find references outside range', () => {
-      const reference = TypeReferenceFactory.createMethodCallReference(
+      const reference = SymbolReferenceFactory.createMethodCallReference(
         'createFile',
         {
           symbolRange: {
@@ -236,7 +236,7 @@ describe('SymbolTable with Type References', () => {
     });
 
     it('should find multiple references at same position', () => {
-      const reference1 = TypeReferenceFactory.createMethodCallReference(
+      const reference1 = SymbolReferenceFactory.createMethodCallReference(
         'createFile',
         {
           symbolRange: {
@@ -254,7 +254,7 @@ describe('SymbolTable with Type References', () => {
         },
       );
 
-      const reference2 = TypeReferenceFactory.createFieldAccessReference(
+      const reference2 = SymbolReferenceFactory.createFieldAccessReference(
         'Id',
         {
           symbolRange: {
@@ -289,7 +289,7 @@ describe('SymbolTable with Type References', () => {
 
   describe('getReferencesByContext', () => {
     it('should filter references by context', () => {
-      const methodCallRef = TypeReferenceFactory.createMethodCallReference(
+      const methodCallRef = SymbolReferenceFactory.createMethodCallReference(
         'createFile',
         {
           symbolRange: {
@@ -307,7 +307,7 @@ describe('SymbolTable with Type References', () => {
         },
       );
 
-      const typeDeclRef = TypeReferenceFactory.createTypeDeclarationReference(
+      const typeDeclRef = SymbolReferenceFactory.createTypeDeclarationReference(
         'Property__c',
         {
           symbolRange: {
@@ -325,7 +325,7 @@ describe('SymbolTable with Type References', () => {
         },
       );
 
-      const fieldAccessRef = TypeReferenceFactory.createFieldAccessReference(
+      const fieldAccessRef = SymbolReferenceFactory.createFieldAccessReference(
         'Id',
         {
           symbolRange: {
@@ -368,7 +368,7 @@ describe('SymbolTable with Type References', () => {
     });
 
     it('should return empty array for non-existent context', () => {
-      const reference = TypeReferenceFactory.createMethodCallReference(
+      const reference = SymbolReferenceFactory.createMethodCallReference(
         'createFile',
         {
           symbolRange: {
@@ -398,7 +398,7 @@ describe('SymbolTable with Type References', () => {
 
   describe('positionInRange', () => {
     it('should correctly handle zero-based positions and locations', () => {
-      const reference = TypeReferenceFactory.createMethodCallReference(
+      const reference = SymbolReferenceFactory.createMethodCallReference(
         'createFile',
         {
           symbolRange: {

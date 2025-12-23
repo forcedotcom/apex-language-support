@@ -10,7 +10,7 @@ import { SymbolLocation } from './symbol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 /**
- * Represents the context in which a type reference is used
+ * Represents the context in which a symbol reference is used
  */
 export enum ReferenceContext {
   METHOD_CALL = 0,
@@ -29,12 +29,27 @@ export enum ReferenceContext {
   NAMESPACE = 13, // Explicitly resolved namespace
   RETURN_TYPE = 14, // For return type references in method declarations
   PROPERTY_REFERENCE = 15, // For property names in property declarations
+  LITERAL = 16, // For literal values (Integer, Long, Decimal, String, Boolean, Null)
 }
 
 /**
- * Enhanced TypeReference interface
+ * Enhanced SymbolReference interface
+ * Tracks all code references (methods, fields, types, variables, etc.) hierarchically.
+ *
+ * SymbolReference is used throughout the parser to track references to:
+ * - Method calls (METHOD_CALL)
+ * - Field access (FIELD_ACCESS)
+ * - Variable usage (VARIABLE_USAGE)
+ * - Type declarations (TYPE_DECLARATION)
+ * - Constructor calls (CONSTRUCTOR_CALL)
+ * - And other code references
+ *
+ * The parser uses a hierarchical approach with separate stacks:
+ * - scopeStack: Tracks lexical scopes (class, method, block) for symbol resolution
+ * - methodCallStack: Tracks method/constructor call hierarchy for parameter tracking
+ * These stacks operate independently and track different concerns.
  */
-export interface TypeReference {
+export interface SymbolReference {
   /** The referenced name (e.g., "createFile") */
   name: string;
   /** Exact position in source */
@@ -43,37 +58,49 @@ export interface TypeReference {
   context: ReferenceContext;
   /** Parent method/class context */
   parentContext?: string;
-  /** Always false during parsing - used for lazy resolution */
-  isResolved: boolean;
+  /** ID of the resolved symbol (if resolved, undefined otherwise) */
+  resolvedSymbolId?: string;
   /** Optional access semantics for reads/writes (assignments) */
   access?: 'read' | 'write' | 'readwrite';
   /** Optional: indicates static access when known from parsing */
   isStatic?: boolean;
+  /** Optional: literal value for LITERAL context (string, number, boolean, or null) */
+  literalValue?: string | number | boolean | null;
+  /** Optional: literal type for LITERAL context */
+  literalType?: 'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null';
 }
 
 /**
- * A type reference that represents a chained expression
+ * A symbol reference that represents a chained expression
  * The root reference spans the entire chain and contains all nodes
  */
-export interface ChainedTypeReference extends TypeReference {
+export interface ChainedSymbolReference extends SymbolReference {
   /** All nodes in the chain, including the base expression and all steps */
-  readonly chainNodes: TypeReference[];
+  readonly chainNodes: SymbolReference[];
 }
 
 /**
- * Enhanced TypeReference implementation with computed properties
+ * Enhanced SymbolReference implementation with computed properties
  */
-export class EnhancedTypeReference implements TypeReference {
+export class EnhancedSymbolReference implements SymbolReference {
   private _logger = getLogger();
 
   constructor(
     public name: string,
     public location: SymbolLocation,
     public context: ReferenceContext,
-    public isResolved: boolean = false,
+    public resolvedSymbolId?: string,
     public parentContext?: string,
     public access?: 'read' | 'write' | 'readwrite',
     public isStatic?: boolean,
+    public literalValue?: string | number | boolean | null,
+    public literalType?:
+      | 'Integer'
+      | 'Long'
+      | 'Decimal'
+      | 'String'
+      | 'Boolean'
+      | 'Null',
   ) {}
 
   // Custom JSON serialization to avoid circular references
@@ -82,10 +109,12 @@ export class EnhancedTypeReference implements TypeReference {
       name: this.name,
       location: this.location,
       context: this.context,
-      isResolved: this.isResolved,
+      resolvedSymbolId: this.resolvedSymbolId,
       parentContext: this.parentContext,
       access: this.access,
       isStatic: this.isStatic,
+      literalValue: this.literalValue,
+      literalType: this.literalType,
     };
 
     // Add chained expression info without circular references
@@ -94,7 +123,7 @@ export class EnhancedTypeReference implements TypeReference {
       base.chainNodes = chainNodes; // Preserve the actual chainNodes array
       base.referenceChainSize = chainNodes.length;
       base.referenceChainNames = chainNodes.map(
-        (node: TypeReference) => node.name,
+        (node: SymbolReference) => node.name,
       );
     }
 
@@ -103,14 +132,14 @@ export class EnhancedTypeReference implements TypeReference {
 }
 
 /**
- * Factory for creating TypeReference instances
+ * Factory for creating SymbolReference instances
  */
-export class TypeReferenceFactory {
+export class SymbolReferenceFactory {
   // Cache for parsed type names to avoid repeated string splitting
   private static typeNameCache = new Map<string, string[]>();
 
-  // Cache for chained type references to avoid repeated creation
-  private static chainedTypeCache = new Map<string, ChainedTypeReference>();
+  // Cache for chained symbol references to avoid repeated creation
+  private static chainedSymbolCache = new Map<string, ChainedSymbolReference>();
 
   /**
    * Parse a type name into parts with caching
@@ -132,7 +161,7 @@ export class TypeReferenceFactory {
    */
   static clearCaches(): void {
     this.typeNameCache.clear();
-    this.chainedTypeCache.clear();
+    this.chainedSymbolCache.clear();
   }
 
   /**
@@ -140,11 +169,11 @@ export class TypeReferenceFactory {
    */
   static getCacheStats(): {
     typeNameCacheSize: number;
-    chainedTypeCacheSize: number;
+    chainedSymbolCacheSize: number;
   } {
     return {
       typeNameCacheSize: this.typeNameCache.size,
-      chainedTypeCacheSize: this.chainedTypeCache.size,
+      chainedSymbolCacheSize: this.chainedSymbolCache.size,
     };
   }
 
@@ -156,12 +185,12 @@ export class TypeReferenceFactory {
     location: SymbolLocation,
     parentContext?: string,
     isStatic?: boolean,
-  ): TypeReference {
-    const reference = new EnhancedTypeReference(
+  ): SymbolReference {
+    const reference = new EnhancedSymbolReference(
       methodName,
       location,
       ReferenceContext.METHOD_CALL,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       undefined,
       isStatic,
@@ -182,12 +211,12 @@ export class TypeReferenceFactory {
     methodLocation: SymbolLocation,
     parentContext?: string,
     isStatic?: boolean,
-  ): TypeReference {
-    const methodRef = new EnhancedTypeReference(
+  ): SymbolReference {
+    const methodRef = new EnhancedSymbolReference(
       methodName,
       methodLocation,
       ReferenceContext.METHOD_CALL,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       undefined,
       isStatic,
@@ -204,12 +233,12 @@ export class TypeReferenceFactory {
     location: SymbolLocation,
     parentContext?: string,
     preciseLocations?: SymbolLocation[],
-  ): TypeReference {
+  ): SymbolReference {
     // Check if this is a dotted type name that needs chain resolution
     if (typeName.includes('.')) {
       // For dotted type names, create individual chain nodes
       const parts = this.parseTypeName(typeName);
-      const chainNodes: TypeReference[] = [];
+      const chainNodes: SymbolReference[] = [];
 
       // Create chain nodes for each part
       for (let i = 0; i < parts.length; i++) {
@@ -222,20 +251,20 @@ export class TypeReferenceFactory {
             ? preciseLocations[i]
             : location;
 
-        const nodeRef = new EnhancedTypeReference(
+        const nodeRef = new EnhancedSymbolReference(
           part,
           partLocation,
           isLast
             ? ReferenceContext.CLASS_REFERENCE
             : ReferenceContext.NAMESPACE,
-          false,
+          undefined, // resolvedSymbolId - will be set during second-pass resolution
           parentContext,
         );
 
         chainNodes.push(nodeRef);
       }
 
-      // Create a chained type reference
+      // Create a chained symbol reference
       return this.createChainedTypeReference(
         chainNodes,
         typeName,
@@ -245,11 +274,11 @@ export class TypeReferenceFactory {
     }
 
     // For simple type names, create a regular type declaration reference
-    return new EnhancedTypeReference(
+    return new EnhancedSymbolReference(
       typeName,
       location,
       ReferenceContext.TYPE_DECLARATION,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -263,12 +292,12 @@ export class TypeReferenceFactory {
     objectName: string,
     parentContext?: string,
     access?: 'read' | 'write' | 'readwrite',
-  ): TypeReference {
-    const fieldRef = new EnhancedTypeReference(
+  ): SymbolReference {
+    const fieldRef = new EnhancedSymbolReference(
       fieldName,
       location,
       ReferenceContext.FIELD_ACCESS,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       access,
       undefined,
@@ -289,12 +318,12 @@ export class TypeReferenceFactory {
     fieldLocation: SymbolLocation,
     parentContext?: string,
     access?: 'read' | 'write' | 'readwrite',
-  ): TypeReference {
-    const fieldRef = new EnhancedTypeReference(
+  ): SymbolReference {
+    const fieldRef = new EnhancedSymbolReference(
       fieldName,
       fieldLocation,
       ReferenceContext.FIELD_ACCESS,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       access,
       undefined,
@@ -313,12 +342,12 @@ export class TypeReferenceFactory {
     typeName: string,
     location: SymbolLocation,
     parentContext?: string,
-  ): TypeReference {
-    return new EnhancedTypeReference(
+  ): SymbolReference {
+    return new EnhancedSymbolReference(
       typeName,
       location,
       ReferenceContext.CONSTRUCTOR_CALL,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -330,12 +359,12 @@ export class TypeReferenceFactory {
     className: string,
     location: SymbolLocation,
     parentContext?: string,
-  ): TypeReference {
-    return new EnhancedTypeReference(
+  ): SymbolReference {
+    return new EnhancedSymbolReference(
       className,
       location,
       ReferenceContext.CLASS_REFERENCE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -348,12 +377,12 @@ export class TypeReferenceFactory {
     location: SymbolLocation,
     parentContext?: string,
     access?: 'read' | 'write' | 'readwrite',
-  ): TypeReference {
-    return new EnhancedTypeReference(
+  ): SymbolReference {
+    return new EnhancedSymbolReference(
       variableName,
       location,
       ReferenceContext.VARIABLE_USAGE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       access,
     );
@@ -366,12 +395,12 @@ export class TypeReferenceFactory {
     variableName: string,
     location: SymbolLocation,
     parentContext?: string,
-  ): TypeReference {
-    return new EnhancedTypeReference(
+  ): SymbolReference {
+    return new EnhancedSymbolReference(
       variableName,
       location,
       ReferenceContext.VARIABLE_DECLARATION,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -384,12 +413,12 @@ export class TypeReferenceFactory {
     location: SymbolLocation,
     parentContext?: string,
     preciseLocations?: SymbolLocation[],
-  ): TypeReference {
+  ): SymbolReference {
     // Check if this is a dotted type name that needs chain resolution
     if (typeName.includes('.')) {
       // For dotted type names, create individual chain nodes
       const parts = this.parseTypeName(typeName);
-      const chainNodes: TypeReference[] = [];
+      const chainNodes: SymbolReference[] = [];
 
       // Create chain nodes for each part
       for (let i = 0; i < parts.length; i++) {
@@ -402,20 +431,20 @@ export class TypeReferenceFactory {
             ? preciseLocations[i]
             : location;
 
-        const nodeRef = new EnhancedTypeReference(
+        const nodeRef = new EnhancedSymbolReference(
           part,
           partLocation,
           isLast
             ? ReferenceContext.CLASS_REFERENCE
             : ReferenceContext.CLASS_REFERENCE,
-          false,
+          undefined, // resolvedSymbolId - will be set during second-pass resolution
           parentContext,
         );
 
         chainNodes.push(nodeRef);
       }
 
-      // Create a chained type reference
+      // Create a chained symbol reference
       return this.createChainedTypeReference(
         chainNodes,
         typeName,
@@ -425,11 +454,11 @@ export class TypeReferenceFactory {
     }
 
     // For simple type names, create a simple PARAMETER_TYPE reference
-    return new EnhancedTypeReference(
+    return new EnhancedSymbolReference(
       typeName,
       location,
       ReferenceContext.PARAMETER_TYPE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -441,12 +470,12 @@ export class TypeReferenceFactory {
     typeName: string,
     location: SymbolLocation,
     parentContext?: string,
-  ): TypeReference {
-    return new EnhancedTypeReference(
+  ): SymbolReference {
+    return new EnhancedSymbolReference(
       typeName,
       location,
       ReferenceContext.GENERIC_PARAMETER_TYPE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -458,12 +487,12 @@ export class TypeReferenceFactory {
     typeName: string,
     location: SymbolLocation,
     parentContext?: string,
-  ): TypeReference {
-    return new EnhancedTypeReference(
+  ): SymbolReference {
+    return new EnhancedSymbolReference(
       typeName,
       location,
       ReferenceContext.CAST_TYPE_REFERENCE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -475,12 +504,12 @@ export class TypeReferenceFactory {
     typeName: string,
     location: SymbolLocation,
     parentContext?: string,
-  ): TypeReference {
-    return new EnhancedTypeReference(
+  ): SymbolReference {
+    return new EnhancedSymbolReference(
       typeName,
       location,
       ReferenceContext.INSTANCEOF_TYPE_REFERENCE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -496,18 +525,18 @@ export class TypeReferenceFactory {
     parentContext?: string,
     isStatic?: boolean,
     access?: 'read' | 'write' | 'readwrite',
-  ): TypeReference {
+  ): SymbolReference {
     if (parts.length === 0) {
       throw new Error('Cannot create hierarchical reference with empty parts');
     }
 
     if (parts.length === 1) {
       // Single part - no hierarchy needed
-      return new EnhancedTypeReference(
+      return new EnhancedSymbolReference(
         parts[0],
         locations[0],
         context,
-        false,
+        undefined, // resolvedSymbolId - will be set during second-pass resolution
         parentContext,
         access,
         isStatic,
@@ -515,11 +544,11 @@ export class TypeReferenceFactory {
     }
 
     // Create the main reference (the last part)
-    const mainRef = new EnhancedTypeReference(
+    const mainRef = new EnhancedSymbolReference(
       parts[parts.length - 1],
       locations[locations.length - 1],
       context,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       access,
       isStatic,
@@ -529,15 +558,15 @@ export class TypeReferenceFactory {
   }
 
   /**
-   * Create a root TypeRef for the entire chained expression
-   * This TypeRef represents the complete chain with all nodes stored in an array
+   * Create a root SymbolRef for the entire chained expression
+   * This SymbolRef represents the complete chain with all nodes stored in an array
    * The root reference spans the entire chain from start to end
    */
   static createChainedExpressionReference(
-    chainNodes: TypeReference[],
-    chainedExpression: TypeReference,
+    chainNodes: SymbolReference[],
+    chainedExpression: SymbolReference,
     parentContext?: string,
-  ): ChainedTypeReference {
+  ): ChainedSymbolReference {
     // Compute combined location from chain nodes
     const baseLocation = chainNodes[0]?.location;
     const finalLocation = chainNodes[chainNodes.length - 1]?.location;
@@ -548,7 +577,7 @@ export class TypeReferenceFactory {
 
     // Create the root reference with the full chain span
     // For chained expressions, the identifierRange should match the symbolRange
-    const rootRef = new EnhancedTypeReference(
+    const rootRef = new EnhancedSymbolReference(
       chainedExpression.name, // Name contains the full expression
       {
         symbolRange: {
@@ -565,7 +594,7 @@ export class TypeReferenceFactory {
         },
       },
       ReferenceContext.CHAINED_TYPE, // New context for chained expressions
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       undefined,
       false, // Not static by default
@@ -574,21 +603,21 @@ export class TypeReferenceFactory {
     // Add chained expression properties
     (rootRef as any).chainNodes = chainNodes;
 
-    return rootRef as unknown as ChainedTypeReference;
+    return rootRef as unknown as ChainedSymbolReference;
   }
 
   /**
    * Create a chained type reference for dotted type names
    * This method handles dotted type references like "System.Url" in type declarations,
-   * creating a chained type reference that can be resolved using the same
+   * creating a chained symbol reference that can be resolved using the same
    * chain resolution logic as expressions
    */
   static createChainedTypeReference(
-    chainNodes: TypeReference[],
+    chainNodes: SymbolReference[],
     fullTypeName: string,
     location: SymbolLocation,
     parentContext?: string,
-  ): ChainedTypeReference {
+  ): ChainedSymbolReference {
     // Compute combined location from chain nodes or use provided location
     const baseLocation = chainNodes[0]?.location || location;
     const finalLocation =
@@ -599,7 +628,7 @@ export class TypeReferenceFactory {
     }
 
     // Create the root reference with the full chain span
-    const rootRef = new EnhancedTypeReference(
+    const rootRef = new EnhancedSymbolReference(
       fullTypeName, // Name contains the full type name (e.g., "System.Url")
       {
         symbolRange: {
@@ -616,7 +645,7 @@ export class TypeReferenceFactory {
         },
       },
       ReferenceContext.CHAINED_TYPE, // Use chained expression context for type chains
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       undefined,
       false, // Not static by default
@@ -625,7 +654,7 @@ export class TypeReferenceFactory {
     // Add chained expression properties
     (rootRef as any).chainNodes = chainNodes;
 
-    return rootRef as unknown as ChainedTypeReference;
+    return rootRef as unknown as ChainedSymbolReference;
   }
 
   /**
@@ -637,12 +666,12 @@ export class TypeReferenceFactory {
     location: SymbolLocation,
     parentContext?: string,
     preciseLocations?: SymbolLocation[],
-  ): TypeReference {
+  ): SymbolReference {
     // Check if this is a dotted type name that needs chain resolution
     if (typeName.includes('.')) {
       // For dotted type names, create individual chain nodes
       const parts = this.parseTypeName(typeName);
-      const chainNodes: TypeReference[] = [];
+      const chainNodes: SymbolReference[] = [];
 
       // Create chain nodes for each part
       for (let i = 0; i < parts.length; i++) {
@@ -655,20 +684,20 @@ export class TypeReferenceFactory {
             ? preciseLocations[i]
             : location;
 
-        const nodeRef = new EnhancedTypeReference(
+        const nodeRef = new EnhancedSymbolReference(
           part,
           partLocation,
           isLast
             ? ReferenceContext.CLASS_REFERENCE
             : ReferenceContext.NAMESPACE,
-          false,
+          undefined, // resolvedSymbolId - will be set during second-pass resolution
           parentContext,
         );
 
         chainNodes.push(nodeRef);
       }
 
-      // Create a chained type reference
+      // Create a chained symbol reference
       return this.createChainedTypeReference(
         chainNodes,
         typeName,
@@ -678,11 +707,11 @@ export class TypeReferenceFactory {
     }
 
     // For simple type names, create a regular return type reference
-    return new EnhancedTypeReference(
+    return new EnhancedSymbolReference(
       typeName,
       location,
       ReferenceContext.RETURN_TYPE,
-      false,
+      undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
     );
   }
@@ -693,12 +722,12 @@ export class TypeReferenceFactory {
   static createPropertyReference(
     propertyName: string,
     location: SymbolLocation,
-  ): TypeReference {
+  ): SymbolReference {
     return {
       name: propertyName,
       context: ReferenceContext.PROPERTY_REFERENCE,
       location,
-      isResolved: false,
+      resolvedSymbolId: undefined, // Will be set during second-pass resolution
     };
   }
 }

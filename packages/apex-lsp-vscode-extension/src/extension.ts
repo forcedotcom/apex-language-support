@@ -30,9 +30,13 @@ import {
   registerRestartCommand,
   registerGraphCommand,
   registerQueueStateCommand,
+  registerPerformanceSettingsCommand,
   registerProfilingCommands,
   setRestartHandler,
 } from './commands';
+import { registerPerformanceSettingsSerializer } from './settings/showPerformanceSettings';
+import { registerQueueStateSerializer } from './queue/showQueueState';
+import { registerGraphSerializer } from './graph/showGraph';
 import {
   startLanguageServer,
   restartLanguageServer,
@@ -103,7 +107,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Register queue state command
   registerQueueStateCommand(context);
+  registerPerformanceSettingsCommand(context);
   logToOutputChannel('📝 Queue state command registered', 'debug');
+
+  // Register webview panel serializers for proper restoration/disposal
+  registerPerformanceSettingsSerializer(context);
+  registerQueueStateSerializer(context);
+  registerGraphSerializer(context);
+  logToOutputChannel('📝 Webview serializers registered', 'debug');
 
   // Register profiling commands (only in desktop environment)
   if (vscode.env.uiKind !== vscode.UIKind.Web) {

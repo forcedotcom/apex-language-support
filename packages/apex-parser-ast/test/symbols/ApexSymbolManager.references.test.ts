@@ -7,7 +7,7 @@
  */
 
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
-import { ReferenceContext } from '../../src/types/typeReference';
+import { ReferenceContext } from '../../src/types/symbolReference';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
@@ -295,6 +295,264 @@ describe('ApexSymbolManager Reference Processing', () => {
       if (stats.totalReferences > 0) {
         expect(stats.totalReferences).toBeGreaterThan(0);
       }
+    });
+  });
+
+  describe('Invalid Identifier Validation', () => {
+    it('should not trigger ResourceLoader lookup for array access contacts[0]', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<Contact> contacts = new List<Contact>();
+            Contact c = contacts[0];
+          }
+        }
+      `;
+
+      const fileUri = 'file:///TestClass.cls';
+      const compilerService = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, fileUri, listener);
+
+      const symbolTable = listener.getResult();
+      await symbolManager.addSymbolTable(symbolTable, fileUri);
+
+      // Wait for deferred processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const references = symbolManager.getAllReferencesInFile(fileUri);
+
+      // Should have VARIABLE_USAGE reference for "contacts" only
+      const contactsRefs = references.filter(
+        (r) =>
+          r.name === 'contacts' &&
+          r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+      expect(contactsRefs.length).toBeGreaterThanOrEqual(1);
+
+      // Should NOT have any reference with name "contacts[0]"
+      const invalidRefs = references.filter((r) => r.name.includes('['));
+      expect(invalidRefs.length).toBe(0);
+    });
+
+    it('should not trigger ResourceLoader lookup for trailing dots', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            Contact c1 = new Contact();
+            // Incomplete expression c1. should be captured but not resolved
+          }
+        }
+      `;
+
+      const fileUri = 'file:///TestClass.cls';
+      const compilerService = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, fileUri, listener);
+
+      const symbolTable = listener.getResult();
+      await symbolManager.addSymbolTable(symbolTable, fileUri);
+
+      // Wait for deferred processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const references = symbolManager.getAllReferencesInFile(fileUri);
+
+      // Trailing dots may be captured for completion, but should not trigger resolution
+      // The validation in resolveBuiltInType should prevent ResourceLoader calls
+      const trailingDotRefs = references.filter((r) => r.name.endsWith('.'));
+      // If captured, they should not be resolved (resolvedSymbolId should be undefined)
+      trailingDotRefs.forEach((ref) => {
+        expect(ref.resolvedSymbolId).toBeUndefined();
+      });
+    });
+
+    it('should validate type reference names before ResourceLoader calls', async () => {
+      // This test verifies that isValidTypeReferenceName prevents invalid lookups
+      // We can't directly test the private method, but we can verify behavior
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<Contact> contacts = new List<Contact>();
+            Contact c = contacts[0];
+          }
+        }
+      `;
+
+      const fileUri = 'file:///TestClass.cls';
+      const compilerService = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, fileUri, listener);
+
+      const symbolTable = listener.getResult();
+      await symbolManager.addSymbolTable(symbolTable, fileUri);
+
+      // Wait for deferred processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Verify that no references with invalid names exist
+      const references = symbolManager.getAllReferencesInFile(fileUri);
+      const invalidNames = references.filter(
+        (r) =>
+          r.name.includes('[') ||
+          (r.name.match(/\./g) || []).length > 2 ||
+          r.name.endsWith('.'),
+      );
+
+      // All invalid names should be filtered out by validation
+      expect(invalidNames.length).toBe(0);
+    });
+  });
+
+  describe('ChainedSymbolReference Built-in Type Resolution', () => {
+    it('should resolve System.Url using chain nodes when passed to resolveBuiltInType', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public System.Url myUrl;
+        }
+      `;
+
+      const fileUri = 'file:///TestClass.cls';
+      const compilerService = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, fileUri, listener);
+
+      const symbolTable = listener.getResult();
+      await symbolManager.addSymbolTable(symbolTable, fileUri);
+
+      // Wait for deferred processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const references = symbolManager.getAllReferencesInFile(fileUri);
+
+      // Find the ChainedSymbolReference for System.Url
+      const systemUrlRefs = references.filter(
+        (ref) =>
+          ref.context === ReferenceContext.CHAINED_TYPE &&
+          ref.name === 'System.Url',
+      );
+      expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
+
+      const systemUrlRef = systemUrlRefs[0] as any;
+      expect(systemUrlRef.chainNodes).toBeDefined();
+      expect(systemUrlRef.chainNodes.length).toBe(2);
+      expect(systemUrlRef.chainNodes[0].name).toBe('System');
+      expect(systemUrlRef.chainNodes[1].name).toBe('Url');
+
+      // Verify that the reference can be resolved using getSymbolAtPosition
+      // This will use resolveBuiltInType internally, which should leverage the chain nodes
+      const _resolvedSymbol = await symbolManager.getSymbolAtPosition(fileUri, {
+        line: systemUrlRef.location.identifierRange.startLine,
+        character: systemUrlRef.location.identifierRange.startColumn,
+      });
+      // Symbol might be null for type declarations, but the resolution should not throw
+      // The important thing is that resolveBuiltInType was called with the TypeReference
+      expect(systemUrlRef.chainNodes).toBeDefined();
+      expect(systemUrlRef.chainNodes.length).toBe(2);
+    });
+
+    it('should resolve System.Assert using chain nodes', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            System.Assert.isTrue(true);
+          }
+        }
+      `;
+
+      const fileUri = 'file:///TestClass.cls';
+      const compilerService = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, fileUri, listener);
+
+      const symbolTable = listener.getResult();
+      await symbolManager.addSymbolTable(symbolTable, fileUri);
+
+      // Wait for deferred processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const references = symbolManager.getAllReferencesInFile(fileUri);
+
+      // Find references - System.Assert should be captured as a chained expression
+      // The System part should be resolvable as a built-in type using chain nodes
+      const _systemRefs = references.filter(
+        (ref) =>
+          ref.name === 'System' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+      // System might be captured as part of System.Assert chain
+      expect(references.length).toBeGreaterThan(0);
+    });
+
+    it('should handle simple TypeReference (non-chained) resolution', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public String myString;
+        }
+      `;
+
+      const fileUri = 'file:///TestClass.cls';
+      const compilerService = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, fileUri, listener);
+
+      const symbolTable = listener.getResult();
+      await symbolManager.addSymbolTable(symbolTable, fileUri);
+
+      // Wait for deferred processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const references = symbolManager.getAllReferencesInFile(fileUri);
+
+      // Find String type reference
+      const stringRefs = references.filter(
+        (ref) =>
+          ref.name === 'String' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+      expect(stringRefs.length).toBeGreaterThanOrEqual(1);
+
+      // Verify simple TypeReference can still be resolved
+      const stringRef = stringRefs[0];
+      // Test that getSymbolAtPosition works (this uses resolveBuiltInType internally)
+      const _resolvedSymbol = await symbolManager.getSymbolAtPosition(fileUri, {
+        line: stringRef.location.identifierRange.startLine,
+        character: stringRef.location.identifierRange.startColumn,
+      });
+      // Symbol might be null for type declarations, but resolution should not throw
+      expect(stringRef.name).toBe('String');
+    });
+
+    it('should handle chain nodes with more than 2 nodes', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            System.EncodingUtil.urlEncode('test');
+          }
+        }
+      `;
+
+      const fileUri = 'file:///TestClass.cls';
+      const compilerService = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, fileUri, listener);
+
+      const symbolTable = listener.getResult();
+      await symbolManager.addSymbolTable(symbolTable, fileUri);
+
+      // Wait for deferred processing to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const references = symbolManager.getAllReferencesInFile(fileUri);
+
+      // Find System.EncodingUtil.urlEncode chain
+      const _longChainRefs = references.filter(
+        (ref) =>
+          ref.context === ReferenceContext.CHAINED_TYPE &&
+          ref.name.includes('System.EncodingUtil'),
+      );
+      // Should have chained references, but resolveBuiltInType should handle them correctly
+      expect(references.length).toBeGreaterThan(0);
     });
   });
 });

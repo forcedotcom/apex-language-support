@@ -497,3 +497,22 @@ export async function showGraph(context: vscode.ExtensionContext) {
     }
   });
 }
+
+/**
+ * Register webview panel serializer for symbol graph
+ * This handles webview restoration when VSCode restarts
+ */
+export function registerGraphSerializer(
+  context: vscode.ExtensionContext,
+): void {
+  vscode.window.registerWebviewPanelSerializer('symbolGraph', {
+    async deserializeWebviewPanel(
+      webviewPanel: vscode.WebviewPanel,
+      _state: any,
+    ) {
+      // Close the restored panel since graph data is dynamic and requires a live connection
+      // User can reopen it via command if needed
+      webviewPanel.dispose();
+    },
+  });
+}

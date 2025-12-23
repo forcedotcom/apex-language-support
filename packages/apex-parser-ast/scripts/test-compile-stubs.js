@@ -65,7 +65,7 @@ async function testCompileStubs() {
   const pattern = process.argv[2];
 
   // Get test files based on pattern
-  const testFiles = await getTestFiles(pattern);
+  const testFiles = getTestFiles(pattern);
 
   const logger = getLogger();
 

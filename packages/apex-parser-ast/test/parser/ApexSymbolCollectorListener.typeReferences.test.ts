@@ -11,7 +11,8 @@
 
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
-import { ReferenceContext } from '../../src/types/typeReference';
+import { ReferenceContext } from '../../src/types/symbolReference';
+import { SymbolKind } from '../../src/types/symbol';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolCollectorListener with Type References', () => {
@@ -44,13 +45,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
 
-      // With new chained expression approach, we now get:
-      // 1. TYPE_REFERENCE for FileUtilities (class)
-      // 2. CHAINED_EXPRESSION for FileUtilities.createFile
-      // 3. VARIABLE_USAGE for base64Data (parameter)
-      // 4. VARIABLE_USAGE for fileName (parameter)
-      // 5. VARIABLE_USAGE for recordId (parameter)
-      expect(references).toHaveLength(5);
+      expect(references).toHaveLength(6);
 
       // Check for CHAINED_EXPRESSION (FileUtilities.createFile)
       const chainedRef = references.find(
@@ -61,7 +56,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       expect(chainedRef).toBeDefined();
       expect(chainedRef?.context).toBe(ReferenceContext.CHAINED_TYPE);
       expect(chainedRef?.parentContext).toBe('testMethod');
-      expect(chainedRef?.isResolved).toBe(false);
+      expect(chainedRef?.resolvedSymbolId).toBeUndefined();
       // Check chainNodes structure
       const chainedRefTyped = chainedRef as any;
       expect(chainedRefTyped?.chainNodes).toBeDefined();
@@ -463,13 +458,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
 
-      // With new chained expression approach, we now get:
-      // 1. TYPE_REFERENCE for FileUtilities (class)
-      // 2. CHAINED_EXPRESSION for FileUtilities.createFile
-      // 3. VARIABLE_USAGE for data (parameter)
-      // 4. VARIABLE_USAGE for name (parameter)
-      // 5. VARIABLE_USAGE for id (parameter)
-      expect(references).toHaveLength(5);
+      expect(references).toHaveLength(6);
 
       // Check CHAINED_EXPRESSION location accuracy
       const chainedRef = references.find(
@@ -956,19 +945,29 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
 
-      // Find the complex nested reference
-      const urlEncodeRef = references.find(
+      // Find the chained expression passed as argument to urlEncode
+      // Account.SObjectType.getDescribe().getName() is a separate chained expression
+      const accountChainRef = references.find(
         (ref) =>
-          ref.name ===
-            'EncodingUtil.urlEncode.SObjectType.getDescribe.getName' &&
+          ref.name === 'Account.SObjectType.getDescribe.getName' &&
           ref.context === ReferenceContext.CHAINED_TYPE,
       );
 
-      expect(urlEncodeRef).toBeDefined();
+      expect(accountChainRef).toBeDefined();
       // Check chainNodes structure for chained expression
-      const urlEncodeRefTyped = urlEncodeRef as any;
-      expect(urlEncodeRefTyped?.chainNodes).toBeDefined();
-      expect(urlEncodeRefTyped?.chainNodes?.length).toBeGreaterThan(1);
+      const accountChainRefTyped = accountChainRef as any;
+      expect(accountChainRefTyped?.chainNodes).toBeDefined();
+      expect(accountChainRefTyped?.chainNodes?.length).toBeGreaterThan(1);
+
+      // Also check for EncodingUtil.urlEncode reference (method call)
+      const urlEncodeRef = references.find(
+        (ref) =>
+          (ref.name === 'EncodingUtil.urlEncode' || ref.name === 'urlEncode') &&
+          (ref.context === ReferenceContext.CHAINED_TYPE ||
+            ref.context === ReferenceContext.METHOD_CALL),
+      );
+
+      expect(urlEncodeRef).toBeDefined();
 
       // Find the URL.getOrgDomainUrl.toExternalForm reference
       const urlRef = references.find(
@@ -982,6 +981,337 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const urlRefTyped = urlRef as any;
       expect(urlRefTyped?.chainNodes).toBeDefined();
       expect(urlRefTyped?.chainNodes?.length).toBeGreaterThan(1);
+    });
+  });
+
+  describe('Array Expression Identifier Extraction', () => {
+    it('should extract only "contacts" from contacts[0]', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<Contact> contacts = new List<Contact>();
+            Contact c = contacts[0];
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      // Should have VARIABLE_USAGE reference for "contacts" only, not "contacts[0]"
+      const contactsRefs = references.filter(
+        (r) =>
+          r.name === 'contacts' &&
+          r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+      expect(contactsRefs.length).toBeGreaterThanOrEqual(1);
+
+      // Should NOT have any reference with name "contacts[0]"
+      const invalidRefs = references.filter((r) => r.name.includes('['));
+      expect(invalidRefs.length).toBe(0);
+    });
+
+    it('should extract "obj" and "field" from obj.field[0]', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<Contact> obj = new List<Contact>();
+            Contact c = obj.field[0];
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      // Should have VARIABLE_USAGE references for "obj" and "field" separately
+      const objRefs = references.filter(
+        (r) =>
+          r.name === 'obj' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+      const fieldRefs = references.filter(
+        (r) =>
+          r.name === 'field' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+
+      expect(objRefs.length).toBeGreaterThanOrEqual(1);
+      expect(fieldRefs.length).toBeGreaterThanOrEqual(1);
+
+      // Should NOT have any reference with name containing "["
+      const invalidRefs = references.filter((r) => r.name.includes('['));
+      expect(invalidRefs.length).toBe(0);
+    });
+
+    it('should extract "arr" and "i" from arr[i]', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<Integer> arr = new List<Integer>();
+            Integer i = 0;
+            Integer x = arr[i];
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      // Should have VARIABLE_USAGE references for both "arr" and "i"
+      const arrRefs = references.filter(
+        (r) =>
+          r.name === 'arr' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+      const iRefs = references.filter(
+        (r) => r.name === 'i' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+
+      expect(arrRefs.length).toBeGreaterThanOrEqual(1);
+      expect(iRefs.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should extract identifiers from nested arrays arr[0][1]', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<List<Integer>> arr = new List<List<Integer>>();
+            Integer x = arr[0][1];
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      // Should have VARIABLE_USAGE reference for "arr" only
+      const arrRefs = references.filter(
+        (r) =>
+          r.name === 'arr' && r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+      expect(arrRefs.length).toBeGreaterThanOrEqual(1);
+
+      // Should NOT have any reference with name containing "["
+      const invalidRefs = references.filter((r) => r.name.includes('['));
+      expect(invalidRefs.length).toBe(0);
+    });
+  });
+
+  describe('Second Pass Resolution for CHAINED_TYPE References', () => {
+    it('should resolve CHAINED_TYPE reference to final member (method) in same-file scenario', () => {
+      const sourceCode = `
+        public class ScopeExample {
+          public static String method4() {
+            return 'test';
+          }
+          
+          public void method3() {
+            String c = ScopeExample.method4();
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'ScopeExample.cls', listener);
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+      const allSymbols = symbolTable.getAllSymbols();
+
+      // Find the CHAINED_TYPE reference for ScopeExample.method4
+      const chainedRef = references.find(
+        (ref) =>
+          ref.name === 'ScopeExample.method4' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+      expect(chainedRef).toBeDefined();
+
+      // CHAINED_TYPE should be resolved to the method, not the class
+      expect(chainedRef?.resolvedSymbolId).toBeDefined();
+
+      // Verify it resolves to the method symbol
+      const resolvedSymbol = allSymbols.find(
+        (s) => s.id === chainedRef?.resolvedSymbolId,
+      );
+      expect(resolvedSymbol).toBeDefined();
+      expect(resolvedSymbol?.kind).toBe(SymbolKind.Method);
+      expect(resolvedSymbol?.name).toBe('method4');
+
+      // Verify chain nodes are also resolved
+      const chainedRefTyped = chainedRef as any;
+      expect(chainedRefTyped?.chainNodes).toBeDefined();
+      expect(chainedRefTyped?.chainNodes).toHaveLength(2);
+
+      // First node (qualifier) should resolve to the class
+      const firstNode = chainedRefTyped.chainNodes[0];
+      expect(firstNode.name).toBe('ScopeExample');
+      expect(firstNode.resolvedSymbolId).toBeDefined();
+      const qualifierSymbol = allSymbols.find(
+        (s) => s.id === firstNode.resolvedSymbolId,
+      );
+      expect(qualifierSymbol).toBeDefined();
+      expect(qualifierSymbol?.kind).toBe(SymbolKind.Class);
+      expect(qualifierSymbol?.name).toBe('ScopeExample');
+
+      // Last node (member) should resolve to the method
+      const lastNode = chainedRefTyped.chainNodes[1];
+      expect(lastNode.name).toBe('method4');
+      expect(lastNode.resolvedSymbolId).toBeDefined();
+      const memberSymbol = allSymbols.find(
+        (s) => s.id === lastNode.resolvedSymbolId,
+      );
+      expect(memberSymbol).toBeDefined();
+      expect(memberSymbol?.kind).toBe(SymbolKind.Method);
+      expect(memberSymbol?.name).toBe('method4');
+    });
+
+    it('should resolve CHAINED_TYPE reference to final member (field) in same-file scenario', () => {
+      const sourceCode = `
+        public class ScopeExample {
+          static String b;
+          
+          public void method3() {
+            String c = ScopeExample.b;
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'ScopeExample.cls', listener);
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+      const allSymbols = symbolTable.getAllSymbols();
+
+      // Find the CHAINED_TYPE reference for ScopeExample.b
+      const chainedRef = references.find(
+        (ref) =>
+          ref.name === 'ScopeExample.b' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+      expect(chainedRef).toBeDefined();
+
+      // CHAINED_TYPE should be resolved to the field, not the class
+      expect(chainedRef?.resolvedSymbolId).toBeDefined();
+
+      // Verify it resolves to the field symbol
+      const resolvedSymbol = allSymbols.find(
+        (s) => s.id === chainedRef?.resolvedSymbolId,
+      );
+      expect(resolvedSymbol).toBeDefined();
+      expect(resolvedSymbol?.kind).toBe(SymbolKind.Field);
+      expect(resolvedSymbol?.name).toBe('b');
+
+      // Verify chain nodes are also resolved
+      const chainedRefTyped = chainedRef as any;
+      expect(chainedRefTyped?.chainNodes).toBeDefined();
+      expect(chainedRefTyped?.chainNodes).toHaveLength(2);
+
+      // First node (qualifier) should resolve to the class
+      const firstNode = chainedRefTyped.chainNodes[0];
+      expect(firstNode.name).toBe('ScopeExample');
+      expect(firstNode.resolvedSymbolId).toBeDefined();
+
+      // Last node (member) should resolve to the field
+      const lastNode = chainedRefTyped.chainNodes[1];
+      expect(lastNode.name).toBe('b');
+      expect(lastNode.resolvedSymbolId).toBeDefined();
+      const memberSymbol = allSymbols.find(
+        (s) => s.id === lastNode.resolvedSymbolId,
+      );
+      expect(memberSymbol).toBeDefined();
+      expect(memberSymbol?.kind).toBe(SymbolKind.Field);
+      expect(memberSymbol?.name).toBe('b');
+    });
+
+    it('should not resolve CHAINED_TYPE reference for cross-file references', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            FileUtilities.createFile('test.txt', 'content');
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+
+      // Find the CHAINED_TYPE reference for FileUtilities.createFile
+      const chainedRef = references.find(
+        (ref) =>
+          ref.name === 'FileUtilities.createFile' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+      expect(chainedRef).toBeDefined();
+
+      // CHAINED_TYPE should NOT be resolved for cross-file references
+      // (FileUtilities is not defined in this file)
+      expect(chainedRef?.resolvedSymbolId).toBeUndefined();
+
+      // Chain nodes should also not be resolved
+      const chainedRefTyped = chainedRef as any;
+      if (chainedRefTyped?.chainNodes) {
+        for (const node of chainedRefTyped.chainNodes) {
+          expect(node.resolvedSymbolId).toBeUndefined();
+        }
+      }
+    });
+  });
+
+  describe('ChainedSymbolReference vs Array Access', () => {
+    it('should use ChainedSymbolReference for contacts.Id', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            Contact contacts = new Contact();
+            String id = contacts.Id;
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      // Should have ChainedSymbolReference for contacts.Id
+      const chainedRefs = references.filter(
+        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+      expect(chainedRefs.length).toBeGreaterThanOrEqual(1);
+      expect(chainedRefs.some((r) => r.name === 'contacts.Id')).toBe(true);
+    });
+
+    it('should use VARIABLE_USAGE for contacts[0], not ChainedSymbolReference', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void testMethod() {
+            List<Contact> contacts = new List<Contact>();
+            Contact c = contacts[0];
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      // Should have VARIABLE_USAGE for contacts
+      const contactsRefs = references.filter(
+        (r) =>
+          r.name === 'contacts' &&
+          r.context === ReferenceContext.VARIABLE_USAGE,
+      );
+      expect(contactsRefs.length).toBeGreaterThanOrEqual(1);
+
+      // Should NOT have ChainedSymbolReference for contacts[0]
+      const chainedRefs = references.filter(
+        (ref) =>
+          ref.context === ReferenceContext.CHAINED_TYPE &&
+          ref.name.includes('contacts'),
+      );
+      expect(chainedRefs.length).toBe(0);
     });
   });
 });

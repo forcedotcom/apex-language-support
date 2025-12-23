@@ -16,6 +16,10 @@ jest.mock('vscode', () => ({
     Desktop: 1,
     Web: 2,
   },
+  window: {
+    ...jest.requireActual('vscode').window,
+    registerWebviewPanelSerializer: jest.fn(),
+  },
 }));
 
 // Provide a lightweight mock for vscode-languageclient to avoid runtime deps

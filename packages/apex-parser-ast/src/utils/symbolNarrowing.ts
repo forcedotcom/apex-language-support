@@ -21,7 +21,10 @@ import type {
   CompilationResultWithComments,
   CompilationResultWithAssociations,
 } from '../parser/compilerService';
-import { ChainedTypeReference, TypeReference } from '../types/typeReference';
+import {
+  ChainedSymbolReference,
+  SymbolReference,
+} from '../types/symbolReference';
 
 /**
  * Type predicate to check if a context has an id() method
@@ -135,10 +138,10 @@ export const hasCommentAssociations = (
   'comments' in (result as any) &&
   'commentAssociations' in (result as any);
 
-export const isChainedTypeReference = (
-  typeReference: TypeReference,
-): typeReference is ChainedTypeReference =>
-  !!typeReference &&
-  typeof typeReference === 'object' &&
-  'chainNodes' in typeReference &&
-  Array.isArray(typeReference.chainNodes);
+export const isChainedSymbolReference = (
+  symbolReference: SymbolReference,
+): symbolReference is ChainedSymbolReference =>
+  !!symbolReference &&
+  typeof symbolReference === 'object' &&
+  'chainNodes' in symbolReference &&
+  Array.isArray(symbolReference.chainNodes);

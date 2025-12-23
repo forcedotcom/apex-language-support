@@ -164,11 +164,59 @@ export interface LoadWorkspaceSettings {
 }
 
 /**
+ * Deferred reference processing settings
+ */
+export interface DeferredReferenceProcessingSettings {
+  /** Batch size for processing deferred references (default: 50) */
+  deferredBatchSize: number;
+
+  /** Maximum number of retry attempts for deferred references (default: 10) */
+  maxRetryAttempts: number;
+
+  /** Initial retry delay in milliseconds (default: 100) */
+  retryDelayMs: number;
+
+  /** Maximum retry delay in milliseconds for exponential backoff (default: 5000) */
+  maxRetryDelayMs: number;
+
+  /** Queue capacity threshold percentage - don't retry if queue > this % full (default: 90) */
+  queueCapacityThreshold: number;
+
+  /** Queue drain threshold percentage - only retry when queue < this % full (default: 75) */
+  queueDrainThreshold: number;
+
+  /** Delay in milliseconds when queue is full (default: 10000) */
+  queueFullRetryDelayMs: number;
+
+  /** Maximum delay in milliseconds when queue is full (default: 30000) */
+  maxQueueFullRetryDelayMs: number;
+
+  /** Number of consecutive failures before activating circuit breaker (default: 5) */
+  circuitBreakerFailureThreshold: number;
+
+  /** Queue capacity percentage threshold to reset circuit breaker (default: 50) */
+  circuitBreakerResetThreshold: number;
+
+  /** Rate limit for enqueueing deferred tasks per second (default: 10) */
+  maxDeferredTasksPerSecond?: number;
+}
+
+/**
  * Queue processing settings
  */
 export interface QueueProcessingSettings {
-  /** Maximum number of concurrent tasks per priority level */
+  /** Maximum number of concurrent tasks per priority level
+   * Supports: CRITICAL (0), IMMEDIATE (1), HIGH (2), NORMAL (3), LOW (4), BACKGROUND (5)
+   */
   maxConcurrency: Record<string, number>;
+
+  /** Optional overall maximum concurrent tasks across all priorities
+   * When set, provides a safety net to prevent system overload
+   * Default: sum of per-priority limits * 1.2 (20% buffer)
+   * When overall limit is exceeded, only lower priorities (Normal/Low/Background) are blocked
+   * Critical/Immediate/High priorities are always allowed through to prevent priority inversion
+   */
+  maxTotalConcurrency?: number;
 
   /** Number of tasks processed before yielding control to prevent blocking */
   yieldInterval: number;
@@ -181,8 +229,12 @@ export interface QueueProcessingSettings {
  * Priority scheduler settings
  */
 export interface SchedulerSettings {
-  /** Queue capacity per priority level (default: 100) */
-  queueCapacity: number;
+  /** Queue capacity per priority level
+   * Can be a single number (applied to all priorities) or a Record with per-priority values
+   * Supports: CRITICAL (0), IMMEDIATE (1), HIGH (2), NORMAL (3), LOW (4), BACKGROUND (5)
+   * Default: 200 for all priorities
+   */
+  queueCapacity: number | Record<string, number>;
 
   /** Maximum number of high-priority tasks before starvation relief (default: 50) */
   maxHighPriorityStreak: number;
@@ -219,6 +271,9 @@ export interface ApexLanguageServerSettings {
 
     /** Priority scheduler settings */
     scheduler: SchedulerSettings;
+
+    /** Deferred reference processing settings */
+    deferredReferenceProcessing?: DeferredReferenceProcessingSettings;
 
     /** Server version for compatibility checks */
     version?: string;

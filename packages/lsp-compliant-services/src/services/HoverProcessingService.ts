@@ -11,6 +11,7 @@ import {
   Hover,
   MarkupContent,
   MarkupKind,
+  Position,
 } from 'vscode-languageserver';
 import {
   ApexCapabilitiesManager,
@@ -31,6 +32,7 @@ import {
   isVariableSymbol,
   VariableSymbol,
   inTypeSymbolGroup,
+  isApexKeyword,
 } from '@salesforce/apex-lsp-parser-ast';
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { calculateDisplayFQN } from '../utils/displayFQNUtils';
@@ -39,6 +41,7 @@ import {
   transformLspToParserPosition,
   formatPosition,
 } from '../utils/positionUtils';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 /**
  * Interface for hover processing functionality
@@ -94,6 +97,24 @@ export class HoverProcessingService implements IHoverProcessor {
     );
 
     try {
+      // Early keyword check: if position is on a keyword, return null immediately
+      // This prevents hover from processing keywords
+      const storage = ApexStorageManager.getInstance().getStorage();
+      const document = await storage.getDocument(params.textDocument.uri);
+      if (document) {
+        const wordAtPosition = this.extractWordAtPosition(
+          document,
+          params.position,
+        );
+        if (wordAtPosition && isApexKeyword(wordAtPosition)) {
+          this.logger.debug(
+            () =>
+              `Position is on keyword "${wordAtPosition}", returning null for hover`,
+          );
+          return null;
+        }
+      }
+
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
 
@@ -179,6 +200,33 @@ export class HoverProcessingService implements IHoverProcessor {
       this.logger.error(() => `Error processing hover: ${error}`);
       return null;
     }
+  }
+
+  /**
+   * Extract word at the given position from the document
+   * Similar to ReferencesProcessingService.getWordRangeAtPosition
+   */
+  private extractWordAtPosition(
+    document: TextDocument,
+    position: Position,
+  ): string | null {
+    const text = document.getText();
+    const offset = document.offsetAt(position);
+
+    // Simple word boundary detection
+    const wordRegex = /\b\w+\b/g;
+    let match;
+
+    while ((match = wordRegex.exec(text)) !== null) {
+      const start = match.index;
+      const end = start + match[0].length;
+
+      if (offset >= start && offset < end) {
+        return match[0];
+      }
+    }
+
+    return null;
   }
 
   /**

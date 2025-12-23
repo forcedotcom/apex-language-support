@@ -9,8 +9,8 @@
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { ReferenceContext } from '../../src/types/typeReference';
-import type { ChainedTypeReference } from '../../src/types/typeReference';
+import { ReferenceContext } from '../../src/types/symbolReference';
+import type { ChainedSymbolReference } from '../../src/types/symbolReference';
 
 describe('ApexSymbolManager - Precise Location Tracking', () => {
   let symbolManager: ApexSymbolManager;
@@ -58,7 +58,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       );
       expect(chainedTypeRefs).toHaveLength(1);
 
-      const chainedRef = chainedTypeRefs[0] as ChainedTypeReference;
+      const chainedRef = chainedTypeRefs[0] as ChainedSymbolReference;
       expect(chainedRef.chainNodes).toHaveLength(2);
 
       // Check that each chain node has its own location
@@ -94,7 +94,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       );
       expect(chainedTypeRefs).toHaveLength(1);
 
-      const chainedRef = chainedTypeRefs[0] as ChainedTypeReference;
+      const chainedRef = chainedTypeRefs[0] as ChainedSymbolReference;
       expect(chainedRef.chainNodes).toHaveLength(2);
 
       // Check that each chain node has its own location
@@ -128,7 +128,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       );
       expect(chainedTypeRefs).toHaveLength(1);
 
-      const chainedRef = chainedTypeRefs[0] as ChainedTypeReference;
+      const chainedRef = chainedTypeRefs[0] as ChainedSymbolReference;
       expect(chainedRef.chainNodes).toHaveLength(2);
 
       // Check that each chain node has its own location
@@ -165,7 +165,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
       // Check the first chained reference (should be the return type)
-      const chainedRef = chainedTypeRefs[0] as ChainedTypeReference;
+      const chainedRef = chainedTypeRefs[0] as ChainedSymbolReference;
       expect(chainedRef.chainNodes).toHaveLength(2);
 
       // Check that each chain node has its own location

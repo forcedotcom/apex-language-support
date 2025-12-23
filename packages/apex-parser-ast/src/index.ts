@@ -27,7 +27,7 @@ export * from './utils/CommentAssociator';
 // Export type definitions
 export * from './types/typeInfo';
 export * from './types/symbol';
-export * from './types/typeReference';
+export * from './types/symbolReference';
 export * from './types/referenceVertex';
 export * from './types/qname';
 export * from './types/source';

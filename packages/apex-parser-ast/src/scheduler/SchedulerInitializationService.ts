@@ -86,6 +86,7 @@ export class SchedulerInitializationService {
       const settingsManager = ApexSettingsManager.getInstance();
       const settings = settingsManager.getSettings();
       const schedulerConfig = settings.apex.scheduler;
+      const queueCapacity = schedulerConfig.queueCapacity;
 
       this.logger.debug(
         () =>
@@ -95,9 +96,12 @@ export class SchedulerInitializationService {
       // Initialize the scheduler with settings
       await Effect.runPromise(
         schedulerInitialize({
-          queueCapacity: schedulerConfig.queueCapacity,
+          queueCapacity,
           maxHighPriorityStreak: schedulerConfig.maxHighPriorityStreak,
           idleSleepMs: schedulerConfig.idleSleepMs,
+          maxConcurrency: settings.apex.queueProcessing.maxConcurrency,
+          maxTotalConcurrency:
+            settings.apex.queueProcessing.maxTotalConcurrency,
         }),
       );
     } catch (error) {

@@ -11,15 +11,15 @@
  * Handles polling, data rendering, and user interactions
  */
 
-// Global variables for the webview
-declare const acquireVsCodeApi: () => any;
-declare const initialData: any;
-
-// Extend Window interface to include our custom properties
+// Global variables for the webview (provided by webview HTML)
 interface WindowWithVSCode extends Window {
   vscode?: any;
   initialData?: any;
 }
+
+// Type-only declarations for webview globals (avoid redeclaration conflicts)
+declare function acquireVsCodeApi(): any;
+declare const initialData: any;
 
 interface QueueStateData {
   metrics: {
@@ -30,7 +30,7 @@ interface QueueStateData {
     requestTypeBreakdown?: Record<number, Record<string, number>>;
     queueUtilization?: Record<number, number>;
     activeTasks?: Record<number, number>;
-    queueCapacity?: number;
+    queueCapacity?: number | Record<number, number>;
   };
   metadata: {
     timestamp: number;
@@ -221,11 +221,22 @@ class QueueStateDashboard {
     const utilization = metrics.queueUtilization || {};
     const activeTasks = metrics.activeTasks || {};
     const requestTypeBreakdown = metrics.requestTypeBreakdown || {};
-    const queueCapacity = metrics.queueCapacity || 100;
+    // Handle both legacy single number and per-priority Record
+    const queueCapacityValue = metrics.queueCapacity;
+    const queueCapacityPerPriority: Record<number, number> =
+      typeof queueCapacityValue === 'number'
+        ? {
+            1: queueCapacityValue,
+            2: queueCapacityValue,
+            3: queueCapacityValue,
+            4: queueCapacityValue,
+            5: queueCapacityValue,
+          }
+        : queueCapacityValue || { 1: 200, 2: 200, 3: 200, 4: 200, 5: 200 };
 
     // Debug: Log the structure of received data
     console.log('Queue sizes:', queueSizes);
-    console.log('Queue capacity:', queueCapacity);
+    console.log('Queue capacity:', queueCapacityPerPriority);
     console.log('Request type breakdown:', requestTypeBreakdown);
 
     // Calculate totals
@@ -296,12 +307,15 @@ class QueueStateDashboard {
           0,
         );
 
+        // Get capacity for this priority
+        const capacity = queueCapacityPerPriority[priority] ?? 200;
+
         // Debug log for this priority
         console.log(`Priority ${priority} (${priorityName}):`, {
           queueSize,
           active,
           util,
-          capacity: queueCapacity,
+          capacity,
           totalProcessed,
           requestTypes,
         });
@@ -351,7 +365,7 @@ class QueueStateDashboard {
                 </div>
                 <div class="priority-stat">
                   <div class="priority-stat-label">Capacity</div>
-                  <div class="priority-stat-value">${queueCapacity}</div>
+                  <div class="priority-stat-value">${capacity}</div>
                 </div>
                 <div class="priority-stat">
                   <div class="priority-stat-label">Active</div>

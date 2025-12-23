@@ -29,6 +29,15 @@ export async function setupScheduler(): Promise<void> {
       queueCapacity: 100,
       maxHighPriorityStreak: 50,
       idleSleepMs: 1,
+      maxConcurrency: {
+        CRITICAL: Infinity,
+        IMMEDIATE: Infinity,
+        HIGH: Infinity,
+        NORMAL: Infinity,
+        LOW: Infinity,
+        BACKGROUND: Infinity,
+      },
+      maxTotalConcurrency: Infinity,
     }),
   );
 }

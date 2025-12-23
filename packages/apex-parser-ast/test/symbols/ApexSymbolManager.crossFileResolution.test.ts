@@ -13,7 +13,7 @@ import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolKind } from '../../src/types/symbol';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
-import { isChainedTypeReference } from '../../src/utils/symbolNarrowing';
+import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
 import {
   initializeResourceLoaderForTests,
   resetResourceLoader,
@@ -111,7 +111,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       expect(['class', 'method'].includes(foundSymbol?.kind || '')).toBe(true);
       expect(foundSymbol?.name).toBeDefined();
       // Confirm it points at the std lib path
-      expect(foundSymbol?.fileUri).toContain(
+      expect(foundSymbol?.fileUri).toBe(
         'apexlib://resources/StandardApexLibrary/System/EncodingUtil.cls',
       );
     });
@@ -149,7 +149,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       // With our URI scheme fixes, this should now resolve to the method
       expect(foundSymbol?.kind).toBe(SymbolKind.Method);
       expect(foundSymbol?.name).toBe('urlDecode');
-      expect(foundSymbol?.fileUri).toContain(
+      expect(foundSymbol?.fileUri).toBe(
         'apexlib://resources/StandardApexLibrary/System/EncodingUtil.cls',
       );
     });
@@ -195,7 +195,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       }
     });
 
-    it.skip('should resolve String.isNotBlank reference to see if corruption is pervasive', async () => {
+    it('should resolve String.isNotBlank reference to see if corruption is pervasive', async () => {
       // Read the real TestClass.cls file
       const testClassPath = path.join(
         __dirname,
@@ -246,8 +246,8 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       expect(foundSymbol).toBeDefined();
       expect(foundSymbol?.kind).toBe(SymbolKind.Method);
       expect(foundSymbol?.name).toBe('isNotBlank');
-      expect(foundSymbol?.fileUri).toContain(
-        'apexlib://resources/System/String.cls',
+      expect(foundSymbol?.fileUri).toBe(
+        'apexlib://resources/StandardApexLibrary/System/String.cls',
       );
     });
 
@@ -547,7 +547,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       // For chained references, we need to get the position of the specific part we want
       // The target is the entire "acc.Name" reference, but we want the "Name" part specifically
       let found;
-      if (target && isChainedTypeReference(target)) {
+      if (target && isChainedSymbolReference(target)) {
         const nameNode = target.chainNodes.find(
           (node: any) => node.name === 'Name',
         );

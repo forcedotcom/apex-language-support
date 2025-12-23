@@ -122,6 +122,13 @@ describe('NamespaceResolutionService', () => {
     mockSymbolProvider = createMockSymbolProvider();
   });
 
+  /**
+   * Note: Same-file types are now resolved during second-pass resolution (in correctReferenceContexts),
+   * which sets type.resolvedSymbol immediately. This service handles deferred resolution for:
+   * - Built-in types (String, Integer, etc.)
+   * - Cross-file types (types from other files in the workspace)
+   * - Qualified type names (System.List, etc.)
+   */
   describe('resolveDeferredReferences', () => {
     it('should resolve type references in variable declarations', () => {
       const symbolTable = createMockSymbolTableWithTypeReferences();

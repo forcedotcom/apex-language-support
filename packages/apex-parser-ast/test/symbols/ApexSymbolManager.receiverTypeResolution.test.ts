@@ -12,7 +12,7 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolKind } from '../../src/types/symbol';
-import { ReferenceContext } from '../../src/types/typeReference';
+import { ReferenceContext } from '../../src/types/symbolReference';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { URI } from 'vscode-uri';
 import {

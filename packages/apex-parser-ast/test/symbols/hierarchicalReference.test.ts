@@ -7,7 +7,7 @@
  */
 
 import { HierarchicalReferenceResolver } from '../../src/types/hierarchicalReference';
-import { ReferenceContext } from '../../src/types/typeReference';
+import { ReferenceContext } from '../../src/types/symbolReference';
 
 describe('HierarchicalReferenceResolver POC', () => {
   let resolver: HierarchicalReferenceResolver;

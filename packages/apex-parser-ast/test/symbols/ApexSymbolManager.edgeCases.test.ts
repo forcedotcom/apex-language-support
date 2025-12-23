@@ -10,9 +10,9 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
-  ChainedTypeReference,
+  ChainedSymbolReference,
   ReferenceContext,
-} from '../../src/types/typeReference';
+} from '../../src/types/symbolReference';
 
 describe('ApexSymbolManager - Edge Cases', () => {
   let symbolManager: ApexSymbolManager;
@@ -162,7 +162,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
       if (chainedTypeRefs.length > 0) {
-        const chainedRef = chainedTypeRefs[0] as ChainedTypeReference;
+        const chainedRef = chainedTypeRefs[0] as ChainedSymbolReference;
         expect(chainedRef.chainNodes).toHaveLength(2);
         expect(chainedRef.chainNodes[0].name).toBe('System');
         expect(chainedRef.chainNodes[1].name).toBe('Url');
@@ -190,7 +190,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
       if (chainedTypeRefs.length > 0) {
-        const chainedRef = chainedTypeRefs[0] as ChainedTypeReference;
+        const chainedRef = chainedTypeRefs[0] as ChainedSymbolReference;
         expect(chainedRef.chainNodes).toHaveLength(4);
         expect(chainedRef.chainNodes[0].name).toBe('A');
         expect(chainedRef.chainNodes[1].name).toBe('B');
@@ -345,7 +345,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
       if (chainedTypeRefs.length > 0) {
-        const chainedRef = chainedTypeRefs[0] as ChainedTypeReference;
+        const chainedRef = chainedTypeRefs[0] as ChainedSymbolReference;
         expect(chainedRef.chainNodes).toHaveLength(2);
         expect(chainedRef.chainNodes[0].name).toBe('A');
         expect(chainedRef.chainNodes[1].name).toBe('B');
@@ -379,7 +379,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
         (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
       );
       if (chainedTypeRefs.length > 0) {
-        const chainedRef = chainedTypeRefs[0] as ChainedTypeReference;
+        const chainedRef = chainedTypeRefs[0] as ChainedSymbolReference;
         expect(chainedRef.chainNodes).toHaveLength(2);
         expect(chainedRef.chainNodes[0].name).toBe('System');
         expect(chainedRef.chainNodes[1].name).toBe('Url');

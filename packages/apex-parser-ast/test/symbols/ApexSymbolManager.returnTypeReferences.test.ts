@@ -9,7 +9,7 @@
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { ReferenceContext } from '../../src/types/typeReference';
+import { ReferenceContext } from '../../src/types/symbolReference';
 
 describe('ApexSymbolManager - Return Type References', () => {
   let symbolManager: ApexSymbolManager;

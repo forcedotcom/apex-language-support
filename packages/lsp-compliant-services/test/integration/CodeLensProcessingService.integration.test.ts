@@ -94,13 +94,8 @@ public class ApexTestExample {
 
       const result = await codeLensService.processCodeLens(params);
 
-      console.log(`\n📊 Generated ${result.length} code lenses`);
-      result.forEach((lens, idx) => {
-        console.log(
-          `   ${idx + 1}. ${lens.command?.title} (${lens.command?.command}) at line ${lens.range.start.line}`,
-        );
-        console.log(`      Full lens: ${JSON.stringify(lens, null, 2)}`);
-      });
+      // Verify code lenses were generated
+      expect(result.length).toBeGreaterThan(0);
 
       // Should have code lenses for:
       // - 2 for the class (Run All Tests, Debug All Tests)

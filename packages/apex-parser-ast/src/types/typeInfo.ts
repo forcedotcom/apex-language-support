@@ -73,6 +73,13 @@ export interface TypeInfo {
   resolutionConfidence?: number;
 
   /**
+   * Reference ID of the TYPE_DECLARATION reference that represents this type
+   * This links the variable/field/property/parameter to its type reference
+   * Set during symbol collection when the TYPE_DECLARATION reference is created
+   */
+  typeReferenceId?: string;
+
+  /**
    * Get the namespace of this type
    */
   getNamespace(): Namespace | null;

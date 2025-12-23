@@ -79,8 +79,8 @@ export class ResourceLoader {
     new CaseInsensitivePathMap(); // Cache for decoded file contents
   private namespaceIndex: CaseInsensitivePathMap<string> =
     new CaseInsensitivePathMap(); // Case-insensitive namespace index for O(1) lookups
-  private classNameToNamespace: CaseInsensitivePathMap<string> =
-    new CaseInsensitivePathMap(); // Reverse index: className -> namespace
+  private classNameToNamespace: CaseInsensitivePathMap<Set<string>> =
+    new CaseInsensitivePathMap(); // Reverse index: className -> Set<namespace>
   private totalSize: number = 0; // Total size of all files
   private accessCount: number = 0; // Simple access counter for statistics
   private artifactAccessCounts: CaseInsensitivePathMap<number> =
@@ -137,7 +137,7 @@ export class ResourceLoader {
     this.normalizedToZipPath = new CaseInsensitivePathMap<string>();
     this.decodedContentCache = new CaseInsensitivePathMap<string>();
     this.namespaceIndex = new CaseInsensitivePathMap<string>();
-    this.classNameToNamespace = new CaseInsensitivePathMap<string>();
+    this.classNameToNamespace = new CaseInsensitivePathMap<Set<string>>();
     this.namespaces = new Map<string, CIS[]>();
     this.totalSize = 0;
   }
@@ -223,17 +223,36 @@ export class ResourceLoader {
         }
         this.namespaces.get(existingNamespaceKey)!.push(CIS.from(fileName));
 
-        // Build reverse index: className -> namespace for O(1) lookup
+        // Build reverse index: className -> Set<namespace> for O(1) lookup
         const normalizedClassName = this.normalizePath(originalPath);
-        this.classNameToNamespace.set(
-          normalizedClassName,
-          existingNamespaceKey,
-        );
+        const existingNamespaces =
+          this.classNameToNamespace.get(normalizedClassName);
+        if (existingNamespaces) {
+          // Add to Set (automatically handles uniqueness)
+          existingNamespaces.add(existingNamespaceKey);
+        } else {
+          // Create new Set with namespace
+          this.classNameToNamespace.set(
+            normalizedClassName,
+            new Set([existingNamespaceKey]),
+          );
+        }
 
-        // Also map just the class name (without path) to namespace
+        // Also map just the class name (without path) to Set<namespace>
         const classNameOnly = fileName.replace(/\.cls$/i, '');
         if (classNameOnly) {
-          this.classNameToNamespace.set(classNameOnly, existingNamespaceKey);
+          const existingNamespacesForClass =
+            this.classNameToNamespace.get(classNameOnly);
+          if (existingNamespacesForClass) {
+            // Add to Set (automatically handles uniqueness)
+            existingNamespacesForClass.add(existingNamespaceKey);
+          } else {
+            // Create new Set with namespace
+            this.classNameToNamespace.set(
+              classNameOnly,
+              new Set([existingNamespaceKey]),
+            );
+          }
         }
       }
 
@@ -942,7 +961,8 @@ export class ResourceLoader {
       }
 
       // Get namespace using O(1) lookup from classNameToNamespace index
-      const namespace = this.classNameToNamespace.get(normalizedPath);
+      const namespaces = this.classNameToNamespace.get(normalizedPath);
+      const namespace = namespaces ? Array.from(namespaces)[0] : undefined;
 
       // Compile the single class
       const symbolTable = new SymbolTable();
@@ -1062,12 +1082,9 @@ export class ResourceLoader {
 
     if (parts.length === 1) {
       // Single name - check if it's a namespace or class
-      return (
-        this.namespaces.has(parts[0]) ||
-        [...this.originalPaths.values()].some((path) =>
-          path.endsWith(`/${parts[0]}.cls`),
-        )
-      );
+      // Use classNameToNamespace map for O(1) class lookup
+      const classNamespaces = this.findNamespaceForClass(parts[0]);
+      return this.namespaces.has(parts[0]) || classNamespaces.size > 0;
     }
 
     if (parts.length === 2) {
@@ -1136,23 +1153,26 @@ export class ResourceLoader {
   }
 
   /**
-   * Find the namespace that contains a specific class using case-insensitive lookup.
+   * Find all namespaces that contain a specific class using case-insensitive lookup.
    * Uses classNameToNamespace reverse index for O(1) lookup instead of nested iteration.
    *
    * @param className The class name to search for (case-insensitive)
-   * @returns The namespace containing the class, or null if not found
+   * @returns Set of namespaces containing the class, or empty Set if not found
    */
-  public findNamespaceForClass(className: string): string | null {
+  public findNamespaceForClass(className: string): Set<string> {
     // Use reverse index for O(1) lookup
     const normalizedClassName = className.replace(/\.cls$/i, '');
-    const namespace = this.classNameToNamespace.get(normalizedClassName);
+    const namespaces = this.classNameToNamespace.get(normalizedClassName);
 
-    if (namespace) {
-      return namespace;
+    if (namespaces && namespaces.size > 0) {
+      return namespaces;
     }
 
     // Fallback: try with normalized path if it looks like a path
     const normalizedPath = this.normalizePath(className);
-    return this.classNameToNamespace.get(normalizedPath) || null;
+    const namespacesFromPath = this.classNameToNamespace.get(normalizedPath);
+    return namespacesFromPath && namespacesFromPath.size > 0
+      ? namespacesFromPath
+      : new Set<string>();
   }
 }

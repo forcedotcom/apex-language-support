@@ -7,9 +7,12 @@
  */
 
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
-import { CompilerService } from '../../src/parser/compilerService';
+import {
+  CompilerService,
+  CompilationOptions,
+} from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { ReferenceContext } from '../../src/types/typeReference';
+import { ReferenceContext } from '../../src/types/symbolReference';
 
 describe('ApexSymbolCollectorListener - Assignment Reference Capture', () => {
   let compilerService: CompilerService;
@@ -36,12 +39,13 @@ describe('ApexSymbolCollectorListener - Assignment Reference Capture', () => {
 
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
-      // Also verify a declaration reference exists for variable 'a'
-      const declRefs = references.filter(
-        (r) =>
-          (r as any).context === 7 /* VARIABLE_DECLARATION */ && r.name === 'a',
-      );
-      expect(declRefs.length).toBeGreaterThanOrEqual(1);
+      // Note: VARIABLE_DECLARATION references were removed as part of optimization.
+      // Variables are now resolved directly by checking identifierRange in getSymbolAtPositionPrecise.
+      // Verify that variable 'a' exists as a symbol instead
+      const variableSymbol = symbolTable
+        .getAllSymbols()
+        .find((s) => s.name === 'a' && s.kind === 'variable');
+      expect(variableSymbol).toBeDefined();
 
       // Filter variable usages in this method
       const vars = references.filter(
@@ -280,6 +284,197 @@ describe('ApexSymbolCollectorListener - Assignment Reference Capture', () => {
       expect(methodCalls.length).toBe(2);
       // Should not misclassify the qualifier as a variable usage
       expect(encVarUsages.length).toBe(0);
+    });
+  });
+
+  describe('reference correction disabled (no second pass)', () => {
+    it('should keep VARIABLE_USAGE for class qualifiers when correction is disabled', () => {
+      const sourceCode = `
+        public class StdRefTest {
+          public void m() {
+            String a = EncodingUtil.urlEncode('Hello World', 'UTF-8');
+            String b = FileUtilities.createFile('test.txt', 'content');
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      const options: CompilationOptions = {
+        enableReferenceCorrection: false,
+      };
+      compilerService.compile(sourceCode, 'StdRefTest.cls', listener, options);
+
+      const symbolTable = listener.getResult();
+      const refs = symbolTable.getAllReferences();
+
+      // When correction is disabled, EncodingUtil should remain VARIABLE_USAGE
+      const encVarUsages = refs.filter(
+        (r) =>
+          r.context === ReferenceContext.VARIABLE_USAGE &&
+          r.name === 'EncodingUtil',
+      );
+      expect(encVarUsages.length).toBeGreaterThan(0);
+
+      // FileUtilities should also remain VARIABLE_USAGE when correction is disabled
+      const fileUtilsVarUsages = refs.filter(
+        (r) =>
+          r.context === ReferenceContext.VARIABLE_USAGE &&
+          r.name === 'FileUtilities',
+      );
+      expect(fileUtilsVarUsages.length).toBeGreaterThan(0);
+
+      // Method calls should still be captured
+      const methodCalls = refs.filter(
+        (r) =>
+          r.context === ReferenceContext.METHOD_CALL &&
+          (r.name === 'urlEncode' || r.name === 'createFile'),
+      );
+      expect(methodCalls.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should keep VARIABLE_USAGE for workspace class qualifiers when correction is disabled', () => {
+      // Note: FileUtilities class must be compiled separately or available in symbol manager
+      // For this test, we'll use a simpler approach - just test the method call capture
+      const sourceCode = `
+        public class TestClass {
+          public void m() {
+            String result = FileUtilities.createFile('test.txt', 'content');
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      const options: CompilationOptions = {
+        enableReferenceCorrection: false,
+      };
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, options);
+
+      const symbolTable = listener.getResult();
+      const refs = symbolTable.getAllReferences();
+
+      // FileUtilities should remain VARIABLE_USAGE when correction is disabled
+      // When correction is disabled, processStandaloneMethodCall creates VARIABLE_USAGE
+      // The chain nodes use CHAIN_STEP context, but we have a separate VARIABLE_USAGE reference
+      const fileUtilsVarUsages = refs.filter(
+        (r) =>
+          r.context === ReferenceContext.VARIABLE_USAGE &&
+          r.name === 'FileUtilities',
+      );
+
+      // When correction is disabled, we should have a VARIABLE_USAGE reference
+      expect(fileUtilsVarUsages.length).toBeGreaterThan(0);
+
+      // Should NOT have CLASS_REFERENCE for FileUtilities when correction is disabled
+      const fileUtilsClassRefs = refs.filter(
+        (r) =>
+          r.context === ReferenceContext.CLASS_REFERENCE &&
+          r.name === 'FileUtilities',
+      );
+      expect(fileUtilsClassRefs.length).toBe(0);
+    });
+
+    it('should still capture chained references when correction is disabled', () => {
+      const sourceCode = `
+        public class TestClass {
+          public void m() {
+            String result = FileUtilities.createFile('test.txt', 'content');
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      const options: CompilationOptions = {
+        enableReferenceCorrection: false,
+      };
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, options);
+
+      const symbolTable = listener.getResult();
+      const refs = symbolTable.getAllReferences();
+
+      // Chained references should still be captured
+      const chainedRefs = refs.filter(
+        (r) =>
+          r.context === ReferenceContext.CHAINED_TYPE &&
+          r.name === 'FileUtilities.createFile',
+      );
+      expect(chainedRefs.length).toBeGreaterThan(0);
+    });
+
+    it('should demonstrate difference between enabled and disabled correction', () => {
+      // Use a cross-file class reference (FileUtilities not in same file)
+      // This tests the behavior when the class isn't known at parse time
+      const sourceCode = `
+        public class TestClass {
+          public void m() {
+            String result = FileUtilities.createFile('test.txt', 'content');
+          }
+        }
+      `;
+
+      // Test with correction DISABLED
+      const listenerDisabled = new ApexSymbolCollectorListener();
+      const optionsDisabled: CompilationOptions = {
+        enableReferenceCorrection: false,
+      };
+      compilerService.compile(
+        sourceCode,
+        'TestClassDisabled.cls',
+        listenerDisabled,
+        optionsDisabled,
+      );
+
+      const symbolTableDisabled = listenerDisabled.getResult();
+      const refsDisabled = symbolTableDisabled.getAllReferences();
+
+      const fileUtilsVarUsagesDisabled = refsDisabled.filter(
+        (r) =>
+          r.context === ReferenceContext.VARIABLE_USAGE &&
+          r.name === 'FileUtilities',
+      );
+      const fileUtilsClassRefsDisabled = refsDisabled.filter(
+        (r) =>
+          r.context === ReferenceContext.CLASS_REFERENCE &&
+          r.name === 'FileUtilities',
+      );
+
+      // With correction disabled: VARIABLE_USAGE exists, CLASS_REFERENCE does not
+      expect(fileUtilsVarUsagesDisabled.length).toBeGreaterThan(0);
+      expect(fileUtilsClassRefsDisabled.length).toBe(0);
+
+      // Test with correction ENABLED (default)
+      const listenerEnabled = new ApexSymbolCollectorListener();
+      compilerService.compile(
+        sourceCode,
+        'TestClassEnabled.cls',
+        listenerEnabled,
+      );
+
+      const symbolTableEnabled = listenerEnabled.getResult();
+      const refsEnabled = symbolTableEnabled.getAllReferences();
+
+      const fileUtilsVarUsagesEnabled = refsEnabled.filter(
+        (r) =>
+          r.context === ReferenceContext.VARIABLE_USAGE &&
+          r.name === 'FileUtilities',
+      );
+      const fileUtilsClassRefsEnabled = refsEnabled.filter(
+        (r) =>
+          r.context === ReferenceContext.CLASS_REFERENCE &&
+          r.name === 'FileUtilities',
+      );
+
+      // With correction enabled: The second pass upgrades VARIABLE_USAGE to CLASS_REFERENCE
+      // because FileUtilities is a qualifier in FileUtilities.createFile()
+      // The shouldBeClassReference method checks isQualifierInQualifiedCall, which returns true
+      // So VARIABLE_USAGE gets upgraded to CLASS_REFERENCE even for cross-file classes
+      // The key difference is:
+      // - When disabled: VARIABLE_USAGE remains as VARIABLE_USAGE (second pass doesn't run)
+      // - When enabled: VARIABLE_USAGE gets upgraded to CLASS_REFERENCE (second pass runs)
+      expect(fileUtilsVarUsagesEnabled.length).toBe(0);
+      expect(fileUtilsClassRefsEnabled.length).toBeGreaterThan(0);
+
+      // The main point: when disabled, we explicitly have VARIABLE_USAGE and NOT CLASS_REFERENCE
+      // This demonstrates that the toggle is working - disabled creates VARIABLE_USAGE and doesn't upgrade it
     });
   });
 });

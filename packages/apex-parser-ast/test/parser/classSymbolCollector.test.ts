@@ -127,6 +127,7 @@ describe('ApexSymbolCollectorListener', () => {
         .find(
           (s) =>
             s.kind === SymbolKind.Block &&
+            isBlockSymbol(s) &&
             s.scopeType === 'class' &&
             s.parentId === classSymbol?.id,
         ) as ScopeSymbol | undefined;
@@ -134,9 +135,10 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('Class scope retrieved');
 
       // Check fields - use table.getSymbolsInScope() with class scope id
-      const allClassSymbols = classScope
-        ? symbolTable.getSymbolsInScope(classScope.id)
-        : [];
+      const allClassSymbols =
+        classScope && symbolTable
+          ? symbolTable.getSymbolsInScope(classScope.id)
+          : [];
       const classSemanticSymbols = allClassSymbols.filter(
         (s) => !isBlockSymbol(s),
       );
@@ -284,11 +286,14 @@ describe('ApexSymbolCollectorListener', () => {
       // Check method scope for parameters
       // Method scopes' parentId points to the method symbol, not the class scope
       // So we need to find all method scopes by searching all symbols
-      const methodScopes = symbolTable
+      const methodScopes = (symbolTable
         ?.getAllSymbols()
         .filter(
-          (s) => s.kind === SymbolKind.Block && s.scopeType === 'method',
-        ) as ScopeSymbol[];
+          (s) =>
+            s.kind === SymbolKind.Block &&
+            isBlockSymbol(s) &&
+            s.scopeType === 'method',
+        ) || []) as ScopeSymbol[];
       expect(methodScopes.length).toBe(4); // One for each method
       logger.debug(
         () => `Method scopes verified: count=${methodScopes.length}`,
@@ -298,7 +303,7 @@ describe('ApexSymbolCollectorListener', () => {
       // Method blocks now use block counter names, not method names
       // Find by finding the method symbol first, then finding its block
       const setNameMethod = symbolTable
-        .getAllSymbols()
+        ?.getAllSymbols()
         .find((s) => s.name === 'setName' && s.kind === SymbolKind.Method);
       const setNameScope = setNameMethod
         ? methodScopes.find(
@@ -309,11 +314,12 @@ describe('ApexSymbolCollectorListener', () => {
       expect(setNameScope).toBeDefined();
       logger.debug('setName scope found');
 
-      const setNameParams = setNameScope
-        ? symbolTable
-            .getSymbolsInScope(setNameScope.id)
-            .filter((s: ApexSymbol) => s.kind === SymbolKind.Parameter)
-        : [];
+      const setNameParams =
+        setNameScope && symbolTable
+          ? symbolTable
+              .getSymbolsInScope(setNameScope.id)
+              .filter((s: ApexSymbol) => s.kind === SymbolKind.Parameter)
+          : [];
       expect(setNameParams?.length).toBe(1);
       logger.debug(
         () => `setName parameters found: count=${setNameParams?.length}`,
@@ -346,10 +352,7 @@ describe('ApexSymbolCollectorListener', () => {
 
       // Debug: Check for compilation errors
       if (result.errors.length > 0) {
-        console.log(
-          'Compilation errors:',
-          result.errors.map((e) => e.message),
-        );
+        // Errors are logged via logger if needed
       }
 
       // The test has a compilation error because the constructor name doesn't match the class name
@@ -374,6 +377,7 @@ describe('ApexSymbolCollectorListener', () => {
         .find(
           (s) =>
             s.kind === SymbolKind.Block &&
+            isBlockSymbol(s) &&
             s.scopeType === 'class' &&
             s.parentId === outerClassSymbol?.id,
         ) as ScopeSymbol | undefined;
@@ -392,30 +396,22 @@ describe('ApexSymbolCollectorListener', () => {
 
       // Inner class blocks now use block counter names, not class name
       // Find by scopeType and parentId pointing to the inner class symbol
-      const innerClassScope = innerClassSymbol
-        ? symbolTable
-            .getAllSymbols()
-            .find(
-              (s) =>
-                s.kind === SymbolKind.Block &&
-                s.scopeType === 'class' &&
-                s.parentId === innerClassSymbol.id,
-            )
-        : undefined;
+      const innerClassScope =
+        innerClassSymbol && symbolTable
+          ? symbolTable
+              .getAllSymbols()
+              .find(
+                (s) =>
+                  s.kind === SymbolKind.Block &&
+                  isBlockSymbol(s) &&
+                  s.scopeType === 'class' &&
+                  s.parentId === innerClassSymbol.id,
+              )
+          : undefined;
       expect(innerClassScope).toBeDefined();
 
       // Debug: Check what symbols are in the inner class scope
-      const innerClassSymbols = innerClassScope
-        ? symbolTable.getSymbolsInScope(innerClassScope.id)
-        : [];
-      console.log(
-        'Inner class symbols:',
-        innerClassSymbols.map((s) => ({
-          name: s.name,
-          kind: s.kind,
-          isConstructor: (s as any).isConstructor,
-        })),
-      );
+      // Symbols are verified via assertions below
 
       // Find constructor symbol - it's in the inner class scope
       // Since there's a compilation error, the constructor might not be collected
@@ -545,17 +541,19 @@ describe('ApexSymbolCollectorListener', () => {
         .find(
           (s) =>
             s.kind === SymbolKind.Block &&
+            isBlockSymbol(s) &&
             s.scopeType === 'class' &&
             s.parentId === enumSymbol?.id,
         ) as ScopeSymbol | undefined;
       expect(enumScope).toBeDefined();
       logger.debug('Enum scope retrieved');
 
-      const values = enumScope
-        ? symbolTable
-            .getSymbolsInScope(enumScope.id)
-            .filter((s: ApexSymbol) => s.kind === SymbolKind.EnumValue)
-        : [];
+      const values =
+        enumScope && symbolTable
+          ? symbolTable
+              .getSymbolsInScope(enumScope.id)
+              .filter((s: ApexSymbol) => s.kind === SymbolKind.EnumValue)
+          : [];
       expect(values?.length).toBe(3);
       logger.debug(() => `Found ${values?.length} enum values`);
 
@@ -626,16 +624,18 @@ describe('ApexSymbolCollectorListener', () => {
         );
       // Method blocks now use block counter names (e.g., block2), not the method name
       // Find by scopeType and parentId pointing to the method symbol
-      const methodScope = methodSymbol
-        ? (symbolTable
-            ?.getAllSymbols()
-            .find(
-              (s) =>
-                s.kind === SymbolKind.Block &&
-                s.scopeType === 'method' &&
-                s.parentId === methodSymbol.id,
-            ) as ScopeSymbol | undefined)
-        : undefined;
+      const methodScope =
+        methodSymbol && symbolTable
+          ? (symbolTable
+              .getAllSymbols()
+              .find(
+                (s) =>
+                  s.kind === SymbolKind.Block &&
+                  isBlockSymbol(s) &&
+                  s.scopeType === 'method' &&
+                  s.parentId === methodSymbol.id,
+              ) as ScopeSymbol | undefined)
+          : undefined;
       expect(methodScope).toBeDefined();
       logger.debug('Method scope retrieved');
 
@@ -715,26 +715,29 @@ describe('ApexSymbolCollectorListener', () => {
       const outerClassSymbol = symbolTable
         ?.getAllSymbols()
         .find((s) => s.name === 'OuterClass' && s.kind === SymbolKind.Class);
-      const outerScope = outerClassSymbol
-        ? symbolTable
-            ?.getAllSymbols()
-            .find(
-              (s) =>
-                s.kind === SymbolKind.Block &&
-                s.scopeType === 'class' &&
-                s.parentId === outerClassSymbol.id,
-            )
-        : undefined;
+      const outerScope =
+        outerClassSymbol && symbolTable
+          ? symbolTable
+              .getAllSymbols()
+              .find(
+                (s) =>
+                  s.kind === SymbolKind.Block &&
+                  isBlockSymbol(s) &&
+                  s.scopeType === 'class' &&
+                  s.parentId === outerClassSymbol.id,
+              )
+          : undefined;
       expect(outerScope).toBeDefined();
       // Class blocks now use block counter names, not class name
       logger.debug('Outer scope retrieved');
 
       // Check outer class field
-      const outerField = outerScope
-        ? symbolTable
-            .getSymbolsInScope(outerScope.id)
-            .find((s) => s.name === 'outerField')
-        : undefined;
+      const outerField =
+        outerScope && symbolTable
+          ? symbolTable
+              .getSymbolsInScope(outerScope.id)
+              .find((s) => s.name === 'outerField')
+          : undefined;
       expect(outerField).toBeDefined();
       logger.debug(
         () =>
@@ -743,9 +746,10 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check inner class - filter out scope symbols
-      const allOuterScopeSymbols = outerScope
-        ? symbolTable.getSymbolsInScope(outerScope.id)
-        : [];
+      const allOuterScopeSymbols =
+        outerScope && symbolTable
+          ? symbolTable.getSymbolsInScope(outerScope.id)
+          : [];
       const outerScopeSemanticSymbols = allOuterScopeSymbols.filter(
         (s) => !isBlockSymbol(s),
       );
@@ -754,8 +758,8 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // If not found in outer scope, check all symbols filtered by parent
-      if (!innerClass && outerClass) {
-        const allTableSymbols = symbolTable?.getAllSymbols() || [];
+      if (!innerClass && outerClass && symbolTable) {
+        const allTableSymbols = symbolTable.getAllSymbols() || [];
         const allSemanticSymbols = allTableSymbols.filter(
           (s) => !isBlockSymbol(s),
         );
@@ -784,16 +788,18 @@ describe('ApexSymbolCollectorListener', () => {
             s.kind === SymbolKind.Class &&
             s.parentId === outerClass?.id,
         );
-      const innerScope = innerClassSymbol
-        ? symbolTable
-            ?.getAllSymbols()
-            .find(
-              (s) =>
-                s.kind === SymbolKind.Block &&
-                s.scopeType === 'class' &&
-                s.parentId === innerClassSymbol.id,
-            )
-        : undefined;
+      const innerScope =
+        innerClassSymbol && symbolTable
+          ? symbolTable
+              .getAllSymbols()
+              .find(
+                (s) =>
+                  s.kind === SymbolKind.Block &&
+                  isBlockSymbol(s) &&
+                  s.scopeType === 'class' &&
+                  s.parentId === innerClassSymbol.id,
+              )
+          : undefined;
 
       if (innerScope) {
         logger.debug('Inner scope found');
@@ -909,6 +915,7 @@ describe('ApexSymbolCollectorListener', () => {
         .find(
           (s) =>
             s.kind === SymbolKind.Block &&
+            isBlockSymbol(s) &&
             s.scopeType === 'class' &&
             s.parentId === outerClassSymbol?.id,
         ) as ScopeSymbol | undefined;
@@ -916,9 +923,10 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('Outer class scope retrieved');
 
       // Check inner class symbol - use table.getSymbolsInScope() with class scope id
-      const allOuterSymbols = outerClassScope
-        ? symbolTable.getSymbolsInScope(outerClassScope.id)
-        : [];
+      const allOuterSymbols =
+        outerClassScope && symbolTable
+          ? symbolTable.getSymbolsInScope(outerClassScope.id)
+          : [];
       const outerSemanticSymbols = allOuterSymbols.filter(
         (s) => !isBlockSymbol(s),
       );
@@ -951,25 +959,29 @@ describe('ApexSymbolCollectorListener', () => {
 
       // Check inner class scope - inner class blocks now use block counter names
       // Find by scopeType and parentId pointing to the inner class symbol
-      const innerClassScope = innerClassSymbol
-        ? symbolTable
-            .getAllSymbols()
-            .find(
-              (s) =>
-                s.kind === SymbolKind.Block &&
-                s.scopeType === 'class' &&
-                s.parentId === innerClassSymbol.id,
-            )
-        : undefined;
+      let innerClassScope: ScopeSymbol | undefined = undefined;
+      if (innerClassSymbol && symbolTable) {
+        const innerClassId = innerClassSymbol.id;
+        innerClassScope = symbolTable
+          .getAllSymbols()
+          .find(
+            (s) =>
+              s.kind === SymbolKind.Block &&
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.parentId === innerClassId,
+          ) as ScopeSymbol | undefined;
+      }
       expect(innerClassScope).toBeDefined();
       logger.debug('Inner class scope retrieved');
 
       // Check inner class method
-      const innerMethod = innerClassScope
-        ? symbolTable
-            .getSymbolsInScope(innerClassScope.id)
-            .find((s: ApexSymbol) => s.kind === SymbolKind.Method)
-        : undefined;
+      const innerMethod =
+        innerClassScope && symbolTable
+          ? symbolTable
+              .getSymbolsInScope(innerClassScope.id)
+              .find((s: ApexSymbol) => s.kind === SymbolKind.Method)
+          : undefined;
       expect(innerMethod).toBeDefined();
       expect(innerMethod?.name).toBe('innerMethod');
       expect(innerMethod?.modifiers.visibility).toBe(SymbolVisibility.Public);
@@ -1067,16 +1079,18 @@ describe('ApexSymbolCollectorListener', () => {
       const testClassSymbol = classSymbolTable
         ?.getAllSymbols()
         .find((s) => s.name === 'TestClass' && s.kind === SymbolKind.Class);
-      const classScope = testClassSymbol
-        ? classSymbolTable
-            ?.getAllSymbols()
-            .find(
-              (s) =>
-                s.kind === SymbolKind.Block &&
-                s.scopeType === 'class' &&
-                s.parentId === testClassSymbol.id,
-            )
-        : undefined;
+      const classScope =
+        testClassSymbol && classSymbolTable
+          ? classSymbolTable
+              .getAllSymbols()
+              .find(
+                (s) =>
+                  s.kind === SymbolKind.Block &&
+                  isBlockSymbol(s) &&
+                  s.scopeType === 'class' &&
+                  s.parentId === testClassSymbol.id,
+              )
+          : undefined;
       expect(classScope).toBeDefined();
       // Class blocks now use block counter names, not class name
       logger.debug('Class scope retrieved');
@@ -1217,7 +1231,7 @@ describe('ApexSymbolCollectorListener', () => {
 
       expect(semanticErrors.length).toBeGreaterThan(0);
       expect(semanticErrors[0].message).toContain(
-        'cannot be both abstract and final',
+        'final and abstract cannot be used together',
       );
       logger.debug(
         () => `Semantic error verified: message=${semanticErrors[0].message}`,
