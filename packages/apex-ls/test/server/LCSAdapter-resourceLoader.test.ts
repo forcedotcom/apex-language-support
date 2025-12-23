@@ -30,7 +30,10 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   },
 }));
 
-// Mock the apex-parser-ast package
+// Mock embedded ZIP buffer
+const mockEmbeddedZip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // ZIP magic bytes
+
+// Mock the apex-parser-ast package with embedded ZIP support
 jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
   ResourceLoader: {
     getInstance: jest.fn(() => ({
@@ -42,6 +45,7 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
       initialize: jest.fn().mockResolvedValue(undefined),
     })),
   },
+  getEmbeddedStandardLibraryZip: jest.fn(() => mockEmbeddedZip),
   ApexSymbolManager: class MockApexSymbolManager {},
   ApexSymbolProcessingManager: class MockApexSymbolProcessingManager {
     static getInstance() {
@@ -63,7 +67,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Create mock connection with sendRequest capability
+    // Create mock connection
     mockConnection = {
       sendRequest: jest.fn(),
       onRequest: jest.fn(),
@@ -144,27 +148,18 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
     });
   });
 
-  describe('initializeResourceLoader', () => {
-    it('should successfully request and load standard library ZIP from client', async () => {
-      // Mock successful ZIP data response
-      const mockZipData = Buffer.from('fake zip content').toString('base64');
-      const mockZipSize = 1024;
-
-      mockConnection.sendRequest.mockResolvedValue({
-        zipData: mockZipData,
-        size: mockZipSize,
-      });
-
+  describe('initializeResourceLoader with embedded ZIP', () => {
+    it('should use embedded ZIP without requesting from client', async () => {
       // Call the private method using reflection
       await (adapter as any).initializeResourceLoader();
 
-      // Verify that the connection requested the ZIP
-      expect(mockConnection.sendRequest).toHaveBeenCalledWith(
+      // Verify that NO sendRequest was made (ZIP is embedded, not transferred)
+      expect(mockConnection.sendRequest).not.toHaveBeenCalledWith(
         'apex/provideStandardLibrary',
-        {},
+        expect.anything(),
       );
 
-      // Verify that ResourceLoader was imported and initialized
+      // Verify that ResourceLoader was initialized with the embedded ZIP
       const { ResourceLoader } = await import(
         '@salesforce/apex-lsp-parser-ast'
       );
@@ -174,49 +169,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       });
     });
 
-    it('should handle missing ZIP data gracefully', async () => {
-      // Mock response with no ZIP data
-      mockConnection.sendRequest.mockResolvedValue(undefined);
-
-      // Call the private method - should not throw
-      await expect(
-        (adapter as any).initializeResourceLoader(),
-      ).resolves.not.toThrow();
-
-      // Verify that an error was logged but execution continued
-      expect(mockConnection.sendRequest).toHaveBeenCalledWith(
-        'apex/provideStandardLibrary',
-        {},
-      );
-    });
-
-    it('should handle client request failure gracefully', async () => {
-      // Mock request failure
-      mockConnection.sendRequest.mockRejectedValue(
-        new Error('Client not responding'),
-      );
-
-      // Call the private method - should not throw
-      await expect(
-        (adapter as any).initializeResourceLoader(),
-      ).resolves.not.toThrow();
-
-      // Verify that the error was caught and logged
-      expect(mockConnection.sendRequest).toHaveBeenCalledWith(
-        'apex/provideStandardLibrary',
-        {},
-      );
-    });
-
-    it('should convert base64 ZIP data to Uint8Array correctly', async () => {
-      const testData = 'test zip content';
-      const mockZipData = Buffer.from(testData).toString('base64');
-
-      mockConnection.sendRequest.mockResolvedValue({
-        zipData: mockZipData,
-        size: testData.length,
-      });
-
+    it('should call setZipBuffer with embedded ZIP data', async () => {
       const { ResourceLoader } = await import(
         '@salesforce/apex-lsp-parser-ast'
       );
@@ -235,24 +188,30 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
       await (adapter as any).initializeResourceLoader();
 
-      // Verify setZipBuffer was called with a Uint8Array
+      // Verify setZipBuffer was called with the embedded Uint8Array
       expect(mockResourceLoader.setZipBuffer).toHaveBeenCalled();
       const callArg = mockResourceLoader.setZipBuffer.mock.calls[0][0];
       expect(callArg).toBeInstanceOf(Uint8Array);
+      expect(callArg).toEqual(mockEmbeddedZip);
+    });
 
-      // Verify the data was correctly converted
-      const convertedData = Buffer.from(callArg).toString();
-      expect(convertedData).toBe(testData);
+    it('should handle missing embedded ZIP gracefully', async () => {
+      const { getEmbeddedStandardLibraryZip } = await import(
+        '@salesforce/apex-lsp-parser-ast'
+      );
+
+      // Mock the function to return undefined
+      (getEmbeddedStandardLibraryZip as jest.Mock).mockReturnValueOnce(
+        undefined,
+      );
+
+      // Call the private method - should not throw
+      await expect(
+        (adapter as any).initializeResourceLoader(),
+      ).resolves.not.toThrow();
     });
 
     it('should call initialize on ResourceLoader after setting ZIP buffer', async () => {
-      const mockZipData = Buffer.from('zip content').toString('base64');
-
-      mockConnection.sendRequest.mockResolvedValue({
-        zipData: mockZipData,
-        size: 1024,
-      });
-
       const { ResourceLoader } = await import(
         '@salesforce/apex-lsp-parser-ast'
       );
@@ -290,17 +249,9 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         logger: mockLogger,
       });
 
-      const mockZipData = Buffer.from('zip content').toString('base64');
-
-      mockConnection.sendRequest.mockResolvedValue({
-        zipData: mockZipData,
-        size: 1024,
-      });
-
       await (adapterWithLogger as any).initializeResourceLoader();
 
       // Verify that success was logged with statistics
-      // Note: The implementation uses debug() not info() for this log
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.any(Function), // Logger uses function for lazy evaluation
       );
@@ -317,24 +268,31 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       expect(debugCall).toBeDefined();
     });
 
-    it('should handle ResourceLoader import failure gracefully', async () => {
-      // Temporarily replace the mock to simulate import failure
-      const originalMock = jest.requireMock('@salesforce/apex-lsp-parser-ast');
+    it('should log message about using embedded ZIP', async () => {
+      const mockLogger = {
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      };
 
-      jest.doMock('@salesforce/apex-lsp-parser-ast', () => ({
-        ResourceLoader: undefined,
-      }));
+      const adapterWithLogger = new LCSAdapter({
+        connection: mockConnection as Connection,
+        logger: mockLogger,
+      });
 
-      // This test verifies the dynamic import error handling
-      // In practice, the ResourceLoader should always be available,
-      // but this tests the defensive coding
+      await (adapterWithLogger as any).initializeResourceLoader();
 
-      await expect(
-        (adapter as any).initializeResourceLoader(),
-      ).resolves.not.toThrow();
+      // Verify the embedded ZIP message was logged
+      const debugCall = mockLogger.debug.mock.calls.find((call: any[]) => {
+        const logFn = call[0];
+        return (
+          typeof logFn === 'function' &&
+          logFn().includes('Using embedded Standard Apex Library ZIP')
+        );
+      });
 
-      // Restore original mock
-      jest.doMock('@salesforce/apex-lsp-parser-ast', () => originalMock);
+      expect(debugCall).toBeDefined();
     });
   });
 
@@ -361,12 +319,6 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         adapter as any,
         'initializeResourceLoader',
       );
-
-      const mockZipData = Buffer.from('zip content').toString('base64');
-      mockConnection.sendRequest.mockResolvedValue({
-        zipData: mockZipData,
-        size: 1024,
-      });
 
       // Trigger the initialized event
       const onInitializedHandler =

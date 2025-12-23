@@ -15,6 +15,8 @@ module.exports = {
     '**/test/**/generate-Standard-Apex-Library.ts',
   ],
   moduleNameMapper: {
+    // Mock ZIP file imports for Jest (esbuild handles these at bundle time)
+    '\\.zip$': '<rootDir>/test/__mocks__/zipMock.js',
     // Override the base config to remove apex-lsp-shared mapping
     '^@salesforce/apex-lsp-parser-ast$':
       '<rootDir>/../apex-parser-ast/src/index.ts',

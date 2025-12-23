@@ -227,6 +227,10 @@ const builds: BuildOptions[] = [
     banner: undefined,
     footer: undefined,
     keepNames: true,
+    // Bundle the Standard Apex Library ZIP as a base64 data URL
+    loader: {
+      '.zip': 'dataurl',
+    },
   },
   {
     ...browserBaseConfig,
@@ -245,6 +249,10 @@ const builds: BuildOptions[] = [
     define: { global: 'globalThis' },
     alias: NODE_POLYFILLS,
     keepNames: true,
+    // Bundle the Standard Apex Library ZIP as a base64 data URL
+    loader: {
+      '.zip': 'dataurl',
+    },
   },
   {
     entryPoints: ['src/webviews/graphScript.ts'],

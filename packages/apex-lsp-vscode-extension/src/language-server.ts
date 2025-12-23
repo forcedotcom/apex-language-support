@@ -697,41 +697,6 @@ async function createWebLanguageClient(
     }
   });
 
-  // Register handler for server-to-client apex/provideStandardLibrary requests
-  Client.onRequest('apex/provideStandardLibrary', async (params: any) => {
-    logToOutputChannel(
-      '📦 Received apex/provideStandardLibrary request from server',
-      'info',
-    );
-
-    try {
-      // Use utility function to get ZIP URI from virtual file system
-      const zipUri = getStdApexClassesPathFromContext(context);
-
-      // Read file using virtual file system API
-      const zipBuffer = await vscode.workspace.fs.readFile(zipUri);
-
-      // Convert to base64 for transmission
-      const base64Data = Buffer.from(zipBuffer).toString('base64');
-
-      logToOutputChannel(
-        `✅ Standard library ZIP loaded: ${zipBuffer.length} bytes`,
-        'info',
-      );
-
-      return {
-        zipData: base64Data,
-        size: zipBuffer.length,
-      };
-    } catch (error) {
-      logToOutputChannel(
-        `❌ Failed to provide standard library: ${error}`,
-        'error',
-      );
-      throw error;
-    }
-  });
-
   // Register handler for server-to-client apex/loadWorkspace requests
   Client.onRequest('apex/loadWorkspace', async (params: any) => {
     logToOutputChannel(
@@ -968,41 +933,6 @@ async function createDesktopLanguageClient(
         'error',
       );
       return { notFound: true };
-    }
-  });
-
-  // Register handler for server-to-client apex/provideStandardLibrary requests
-  Client.onRequest('apex/provideStandardLibrary', async (params: any) => {
-    logToOutputChannel(
-      '📦 Received apex/provideStandardLibrary request from server',
-      'info',
-    );
-
-    try {
-      // Use utility function to get ZIP URI from virtual file system
-      const zipUri = getStdApexClassesPathFromContext(context);
-
-      // Read file using virtual file system API
-      const zipBuffer = await vscode.workspace.fs.readFile(zipUri);
-
-      // Convert to base64 for transmission
-      const base64Data = Buffer.from(zipBuffer).toString('base64');
-
-      logToOutputChannel(
-        `✅ Standard library ZIP loaded: ${zipBuffer.length} bytes`,
-        'info',
-      );
-
-      return {
-        zipData: base64Data,
-        size: zipBuffer.length,
-      };
-    } catch (error) {
-      logToOutputChannel(
-        `❌ Failed to provide standard library: ${error}`,
-        'error',
-      );
-      throw error;
     }
   });
 
