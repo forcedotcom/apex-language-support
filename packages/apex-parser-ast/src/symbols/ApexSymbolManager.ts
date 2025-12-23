@@ -26,6 +26,7 @@ import {
   Range,
   SymbolResolutionStrategy,
   TypeSymbol,
+  VariableSymbol,
 } from '../types/symbol';
 import { UnifiedCache } from '../utils/UnifiedCache';
 import {
@@ -3240,7 +3241,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Step 1: Handle chained expression references
       if (isChainedSymbolReference(typeReference)) {
-        return this.resolveChainedSymbolReference(typeReference, position);
+        return this.resolveChainedSymbolReference(typeReference, position, sourceFile);
       }
 
       // Step 1: Try qualified reference resolution using chainNodes
@@ -4881,6 +4882,29 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
+   * Check if a position is within a symbol's identifierRange
+   * @param position The position to check (1-based line, 0-based column)
+   * @param identifierRange The identifier range to check against
+   * @returns True if the position is within the identifier range
+   */
+  private isPositionInIdentifierRange(
+    position: { line: number; character: number },
+    identifierRange: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    },
+  ): boolean {
+    return (
+      position.line >= identifierRange.startLine &&
+      position.line <= identifierRange.endLine &&
+      position.character >= identifierRange.startColumn &&
+      position.character <= identifierRange.endColumn
+    );
+  }
+
+  /**
    * Check if one symbol is contained within another symbol
    * @param innerSymbol The potentially inner symbol
    * @param outerSymbol The potentially outer symbol
@@ -4923,7 +4947,30 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     position: { line: number; character: number },
   ): Promise<ApexSymbol | null> {
     try {
+      // Fast path: Check symbols directly by identifierRange first (for declarations only)
+      // This eliminates the need for VARIABLE_DECLARATION references
+      // Only match if position is exactly on a declaration identifier (not method calls or chained expressions)
+      const symbolsInFile = this.findSymbolsInFile(fileUri);
+      for (const symbol of symbolsInFile) {
+        if (
+          symbol.location?.identifierRange &&
+          this.isPositionInIdentifierRange(position, symbol.location.identifierRange)
+        ) {
+          // Only return for declaration symbols (variable, field, method, class, etc.)
+          // Skip if there are references at this position (indicates a usage, not a declaration)
+          const refsAtPosition = this.getReferencesAtPosition(fileUri, position);
+          if (refsAtPosition.length === 0) {
+            // No references means this is a declaration - return the symbol directly
+            return symbol;
+          }
+          // If there are references, continue to reference-based resolution
+          // (references take precedence for method calls, chained expressions, etc.)
+          break;
+        }
+      }
+
       // Step 1: Try to find SymbolReferences at the exact position
+      // (for method calls, chained expressions, type references, etc.)
       const typeReferences = this.getReferencesAtPosition(fileUri, position);
 
       if (typeReferences.length > 0) {
@@ -5486,6 +5533,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   private async resolveEntireChain(
     chainNodes: SymbolReference[],
+    fileUri?: string,
   ): Promise<ChainResolutionContext[] | null> {
     if (!chainNodes?.length) {
       return null;
@@ -5493,9 +5541,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Find all possible resolution paths
     const resolutionPaths =
-      await this.findAllPossibleResolutionPaths(chainNodes);
+      await this.findAllPossibleResolutionPaths(chainNodes, fileUri);
 
     if (resolutionPaths.length === 0) {
+      this.logger.debug(
+        () =>
+          `No resolution paths found for chain: ${chainNodes.map((n) => n.name).join('.')} ` +
+          `(fileUri: ${fileUri})`,
+      );
       return null;
     }
 
@@ -5518,6 +5571,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   private async findAllPossibleResolutionPaths(
     chainNodes: SymbolReference[],
+    fileUri?: string,
   ): Promise<ChainResolutionContext[][]> {
     const paths: ChainResolutionContext[][] = [];
     const pathStack = new Stack<ChainResolutionContext>();
@@ -5528,6 +5582,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       undefined,
       pathStack,
       paths,
+      fileUri,
     );
 
     paths.forEach((path, index) => {
@@ -5546,6 +5601,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     currentContext: ChainResolutionContext,
     pathStack: Stack<ChainResolutionContext>,
     allPaths: ChainResolutionContext[][],
+    fileUri?: string,
   ): Promise<void> {
     if (stepIndex >= chainNodes.length) {
       // Complete path found - add to results
@@ -5563,7 +5619,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       step,
       currentContext,
       nextStep,
+      fileUri,
     );
+    
+    if (possibleResolutions.length === 0 && stepIndex === 0) {
+      this.logger.debug(
+        () =>
+          `No resolutions found for first step "${step.name}" ` +
+          `(context: ${ReferenceContext[step.context] || step.context}, ` +
+          `fileUri: ${fileUri})`,
+      );
+    }
 
     for (const resolution of possibleResolutions) {
       pathStack.push(resolution);
@@ -5573,6 +5639,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         resolution,
         pathStack,
         allPaths,
+        fileUri,
       );
       pathStack.pop(); // Backtrack
     }
@@ -5585,6 +5652,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     step: SymbolReference,
     currentContext: ChainResolutionContext,
     nextStep?: SymbolReference,
+    fileUri?: string,
   ): Promise<ChainResolutionContext[]> {
     const resolutions: ChainResolutionContext[] = [];
     const stepName = step.name;
@@ -5600,6 +5668,71 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
     }
 
+      // Strategy 1.5: Try variable resolution FIRST when there's no current context
+      // This is important for chained calls like "base64Data.toString()"
+      // We prioritize variables over classes when resolving the first step of a chain
+      if (
+        !currentContext &&
+        (step.context === ReferenceContext.VARIABLE_USAGE ||
+          step.context === ReferenceContext.CHAIN_STEP ||
+          step.context === ReferenceContext.CLASS_REFERENCE)
+      ) {
+        let variableSymbol: ApexSymbol | undefined;
+        
+        // Fast path: if the step has a resolvedSymbolId, use it directly
+        if (step.resolvedSymbolId) {
+          const resolvedSymbol = this.getSymbol(step.resolvedSymbolId);
+          if (
+            resolvedSymbol &&
+            (resolvedSymbol.kind === 'variable' ||
+              resolvedSymbol.kind === 'field' ||
+              resolvedSymbol.kind === 'parameter' ||
+              resolvedSymbol.kind === 'property')
+          ) {
+            variableSymbol = resolvedSymbol;
+          }
+        }
+        
+        // If still not found and we have fileUri, try scope-based lookup for local variables FIRST
+        // (before global lookup, as local variables take precedence)
+        if (!variableSymbol && fileUri && step.location) {
+          const position = {
+            line: step.location.identifierRange?.startLine ?? step.location.symbolRange.startLine,
+            character: step.location.identifierRange?.startColumn ?? step.location.symbolRange.startColumn,
+          };
+          const scopeBasedSymbol = this.resolveUnqualifiedReferenceByScope(
+            step,
+            fileUri,
+            position,
+          );
+          if (
+            scopeBasedSymbol &&
+            (scopeBasedSymbol.kind === 'variable' ||
+              scopeBasedSymbol.kind === 'parameter' ||
+              scopeBasedSymbol.kind === 'field' ||
+              scopeBasedSymbol.kind === 'property')
+          ) {
+            variableSymbol = scopeBasedSymbol;
+          }
+        }
+        
+        // If not found via resolvedSymbolId or scope, try global lookup (works for fields and global variables)
+        if (!variableSymbol) {
+          const variableSymbols = this.findSymbolByName(stepName);
+          variableSymbol = variableSymbols.find(
+            (s) =>
+              s.kind === 'variable' ||
+              s.kind === 'field' ||
+              s.kind === 'parameter' ||
+              s.kind === 'property',
+          );
+        }
+        
+        if (variableSymbol) {
+          resolutions.push({ type: 'symbol', symbol: variableSymbol });
+        }
+      }
+
     // Strategy 2: Try class resolution
     const classSymbol = await this.tryResolveAsClass(stepName, currentContext);
     if (classSymbol) {
@@ -5607,6 +5740,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Strategy 2.5: Try instance resolution (for variables that are treated as class references)
+    // This works both when currentContext is defined (for nested chains) and undefined (for first step)
     const instanceSymbol = await this.tryResolveAsInstance(
       stepName,
       currentContext,
@@ -5631,7 +5765,54 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       resolutions.push({ type: 'symbol', symbol: builtInSymbol });
     }
 
-    // Strategy 5: Try global symbol resolution
+    // Strategy 5: Try VARIABLE_USAGE/CHAIN_STEP/CLASS_REFERENCE resolution (for variables, fields, parameters)
+    // This is important for chained calls like "base64Data.toString()"
+    // When there's no current context and the step could be a variable, try to resolve it
+    // Note: CLASS_REFERENCE context is sometimes used for variables in chain nodes
+    if (
+      !currentContext &&
+      (step.context === ReferenceContext.VARIABLE_USAGE ||
+        step.context === ReferenceContext.CHAIN_STEP ||
+        step.context === ReferenceContext.CLASS_REFERENCE)
+    ) {
+      // First try global lookup (works for fields and global variables)
+      let variableSymbols = this.findSymbolByName(stepName);
+      let variableSymbol = variableSymbols.find(
+        (s) =>
+          s.kind === 'variable' ||
+          s.kind === 'field' ||
+          s.kind === 'parameter' ||
+          s.kind === 'property',
+      );
+      
+      // If not found and we have fileUri, try scope-based lookup for local variables
+      if (!variableSymbol && fileUri && step.location) {
+        const position = {
+          line: step.location.symbolRange.startLine,
+          character: step.location.symbolRange.startColumn,
+        };
+        const scopeBasedSymbol = this.resolveUnqualifiedReferenceByScope(
+          step,
+          fileUri,
+          position,
+        );
+        if (
+          scopeBasedSymbol &&
+          (scopeBasedSymbol.kind === 'variable' ||
+            scopeBasedSymbol.kind === 'parameter' ||
+            scopeBasedSymbol.kind === 'field' ||
+            scopeBasedSymbol.kind === 'property')
+        ) {
+          variableSymbol = scopeBasedSymbol;
+        }
+      }
+      
+      if (variableSymbol) {
+        resolutions.push({ type: 'symbol', symbol: variableSymbol });
+      }
+    }
+
+    // Strategy 6: Try global symbol resolution
     const globalSymbols = this.findSymbolByName(stepName);
     const matchingGlobalSymbol = globalSymbols.find(
       (s) => s.kind === 'class' || s.kind === 'property' || s.kind === 'method',
@@ -5640,7 +5821,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       resolutions.push({ type: 'symbol', symbol: matchingGlobalSymbol });
     }
 
-    // Strategy 6: Try standard Apex class resolution (for cases like URL without namespace)
+    // Strategy 7: Try standard Apex class resolution (for cases like URL without namespace)
     if (currentContext?.type === 'namespace') {
       const fqn = `${currentContext.name}.${stepName}`;
       const standardClass = await this.resolveStandardApexClass(fqn);
@@ -5993,6 +6174,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   public async resolveChainedSymbolReference(
     typeReference: SymbolReference,
     position?: { line: number; character: number },
+    fileUri?: string,
   ): Promise<ApexSymbol | null> {
     // Fast path: if already resolved by listener second-pass, use the ID directly
     if (typeReference.resolvedSymbolId) {
@@ -6021,7 +6203,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
 
         // Resolve the entire chain
-        const resolvedChain = await this.resolveEntireChain(chainNodes);
+        const resolvedChain = await this.resolveEntireChain(chainNodes, fileUri);
         if (!resolvedChain) {
           return null;
         }
@@ -6401,19 +6583,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   private async tryResolveAsInstance(
     stepName: string,
-    currentContext: ChainResolutionContext,
+    currentContext: ChainResolutionContext | undefined,
   ): Promise<ApexSymbol | null> {
-    // Try to find as a property in the current context (closest to variable)
-    const propertySymbol = await this.resolveMemberInContext(
-      currentContext,
-      stepName,
-      'property',
-    );
-    if (propertySymbol) {
-      return propertySymbol;
+    // If we have a current context, try to find as a property in that context
+    if (currentContext) {
+      const propertySymbol = await this.resolveMemberInContext(
+        currentContext,
+        stepName,
+        'property',
+      );
+      if (propertySymbol) {
+        return propertySymbol;
+      }
     }
 
-    // Try to find as a global variable
+    // Try to find as a global variable (works when currentContext is undefined or property lookup failed)
     const globalSymbols = this.findSymbolByName(stepName);
     const globalVariableSymbol = globalSymbols.find(
       (s) =>
@@ -6545,6 +6729,117 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
 
         if (symbolTable) {
+          // If the context symbol is a variable/field/parameter/property, resolve the member on its type
+          if (
+            contextSymbol.kind === SymbolKind.Variable ||
+            contextSymbol.kind === SymbolKind.Field ||
+            contextSymbol.kind === SymbolKind.Parameter ||
+            contextSymbol.kind === SymbolKind.Property
+          ) {
+            const variableSymbol = contextSymbol as VariableSymbol;
+            const typeInfo = variableSymbol.type;
+            
+            if (typeInfo) {
+              // First, try to use the resolved symbol if available
+              if (typeInfo.resolvedSymbol) {
+                const typeSymbol = typeInfo.resolvedSymbol;
+                // Recursively resolve the member on the type's class symbol
+                return this.resolveMemberInContext(
+                  { type: 'symbol', symbol: typeSymbol },
+                  memberName,
+                  memberType,
+                );
+              }
+              
+              // Otherwise, resolve the type name to a class symbol
+              const typeName = typeInfo.name;
+              if (typeName) {
+                // Remove array brackets if present (e.g., "String[]" -> "String")
+                const baseTypeName = typeName.replace(/\[\]$/, '');
+                
+                // Try to resolve the type as a class symbol
+                // For built-in types like String, prefer standard Apex class resolution
+                // to ensure we get the correct built-in type definition
+                if (typeInfo.isBuiltIn) {
+                  // For built-in types, use standard Apex class resolution first
+                  const standardClassSymbol =
+                    await this.resolveStandardApexClass(baseTypeName);
+                  if (standardClassSymbol) {
+                    // Recursively resolve the member on the standard class
+                    return this.resolveMemberInContext(
+                      { type: 'symbol', symbol: standardClassSymbol },
+                      memberName,
+                      memberType,
+                    );
+                  }
+                }
+                
+                const typeSymbols = this.findSymbolByName(baseTypeName);
+                const typeClassSymbol = typeSymbols.find(
+                  (s) =>
+                    s.kind === SymbolKind.Class ||
+                    s.kind === SymbolKind.Interface ||
+                    s.kind === SymbolKind.Enum,
+                );
+                
+                if (typeClassSymbol) {
+                  // Recursively resolve the member on the type's class symbol
+                  return this.resolveMemberInContext(
+                    { type: 'symbol', symbol: typeClassSymbol },
+                    memberName,
+                    memberType,
+                  );
+                }
+                
+                // If not found, try resolving as built-in type or standard Apex class
+                const typeRef: SymbolReference = {
+                  name: baseTypeName,
+                  context: ReferenceContext.CLASS_REFERENCE,
+                  location: {
+                    symbolRange: {
+                      startLine: 0,
+                      startColumn: 0,
+                      endLine: 0,
+                      endColumn: 0,
+                    },
+                    identifierRange: {
+                      startLine: 0,
+                      startColumn: 0,
+                      endLine: 0,
+                      endColumn: 0,
+                    },
+                  },
+                  resolvedSymbolId: undefined,
+                };
+                
+                // Try built-in type resolution
+                const builtInTypeSymbol = await this.resolveBuiltInType(typeRef);
+                if (builtInTypeSymbol) {
+                  // Recursively resolve the member on the built-in type
+                  return this.resolveMemberInContext(
+                    { type: 'symbol', symbol: builtInTypeSymbol },
+                    memberName,
+                    memberType,
+                  );
+                }
+                
+                // Try standard Apex class resolution
+                const standardClassSymbol =
+                  await this.resolveStandardApexClass(baseTypeName);
+                if (standardClassSymbol) {
+                  // Recursively resolve the member on the standard class
+                  return this.resolveMemberInContext(
+                    { type: 'symbol', symbol: standardClassSymbol },
+                    memberName,
+                    memberType,
+                  );
+                }
+              }
+            }
+            
+            // If type resolution failed, fall through to other resolution strategies
+          }
+          
           // If the context symbol is a class, find its class block and look for members there
           // This ensures we only find members that actually belong to the class
           if (
@@ -6565,21 +6860,55 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               // Get all symbols in the class block scope
               const classMembers = symbolTable.getSymbolsInScope(classBlock.id);
               // Filter by name and kind, excluding block symbols
+              // CRITICAL: Also verify that the member's fileUri matches the class's fileUri
+              // This ensures we only get methods from the correct class file
               const matchingMembers = classMembers.filter(
                 (s) =>
                   !isBlockSymbol(s) &&
                   s.name === memberName &&
-                  s.kind === memberType,
+                  s.kind === memberType &&
+                  s.fileUri === contextSymbol.fileUri &&
+                  s.parentId === classBlock.id,
               );
 
               if (matchingMembers.length > 0) {
-                return matchingMembers[0];
+                // Return the first exact match (should be the only one for a given class)
+                // CRITICAL: Verify that the method's parent class matches the context class
+                // This ensures we don't pick methods from the wrong class
+                const method = matchingMembers[0];
+                if (method.kind === SymbolKind.Method) {
+                  // For methods, verify the parentId chain leads back to the context class
+                  // The method's parentId should be the class block, and the class block's parentId should be the class
+                  const methodParentBlock = symbolTable.getAllSymbols().find(
+                    (s) => s.id === method.parentId && isBlockSymbol(s),
+                  );
+                  if (
+                    methodParentBlock &&
+                    methodParentBlock.parentId === contextSymbol.id
+                  ) {
+                    return method;
+                  }
+                  // If parent chain doesn't match, continue searching or return null
+                  // This prevents picking methods from the wrong class
+                  this.logger.debug(
+                    () =>
+                      `Method ${memberName} found but parent chain doesn't match context class ${contextSymbol.name}`,
+                  );
+                } else {
+                  // For non-methods (properties), return the first match
+                  return method;
+                }
               }
             }
+            // If class block lookup failed for a class/interface/enum, don't use global fallback
+            // Return null to allow other resolution strategies (like built-in type resolution)
+            // CRITICAL: For standard Apex classes, we should NOT fall back to global search
+            // as it might pick methods from the wrong class (e.g., Email.toString() instead of String.toString())
+            return null;
           }
 
           // Fallback: Look for members with the given name in the same file
-          // (for non-class contexts or if class block lookup failed)
+          // (for non-class contexts only - variables, fields, etc.)
           const allSymbols = symbolTable.getAllSymbols();
 
           const contextMembers = allSymbols.filter(
@@ -6609,11 +6938,23 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // If not found in context file, try to find it as a built-in type or global symbol
-    const globalSymbols = this.findSymbolByName(memberName);
-    const matchingSymbol = globalSymbols.find((s) => s.kind === memberType);
+    // CRITICAL: Only do global search if we're NOT resolving a method on a class
+    // (methods on classes should only be found in the class's own symbol table)
+    // This prevents picking methods from the wrong class (e.g., Email.toString() instead of String.toString())
+    const isResolvingMethodOnClass =
+      context?.type === 'symbol' &&
+      (context.symbol.kind === SymbolKind.Class ||
+        context.symbol.kind === SymbolKind.Interface ||
+        context.symbol.kind === SymbolKind.Enum) &&
+      memberType === 'method';
 
-    if (matchingSymbol) {
-      return matchingSymbol;
+    if (!isResolvingMethodOnClass) {
+      const globalSymbols = this.findSymbolByName(memberName);
+      const matchingSymbol = globalSymbols.find((s) => s.kind === memberType);
+
+      if (matchingSymbol) {
+        return matchingSymbol;
+      }
     }
 
     // For built-in types, try to resolve them

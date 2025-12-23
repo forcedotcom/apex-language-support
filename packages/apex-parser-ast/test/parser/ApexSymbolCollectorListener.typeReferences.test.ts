@@ -945,19 +945,29 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
 
-      // Find the complex nested reference
-      const urlEncodeRef = references.find(
+      // Find the chained expression passed as argument to urlEncode
+      // Account.SObjectType.getDescribe().getName() is a separate chained expression
+      const accountChainRef = references.find(
         (ref) =>
-          ref.name ===
-            'EncodingUtil.urlEncode.SObjectType.getDescribe.getName' &&
+          ref.name === 'Account.SObjectType.getDescribe.getName' &&
           ref.context === ReferenceContext.CHAINED_TYPE,
       );
 
-      expect(urlEncodeRef).toBeDefined();
+      expect(accountChainRef).toBeDefined();
       // Check chainNodes structure for chained expression
-      const urlEncodeRefTyped = urlEncodeRef as any;
-      expect(urlEncodeRefTyped?.chainNodes).toBeDefined();
-      expect(urlEncodeRefTyped?.chainNodes?.length).toBeGreaterThan(1);
+      const accountChainRefTyped = accountChainRef as any;
+      expect(accountChainRefTyped?.chainNodes).toBeDefined();
+      expect(accountChainRefTyped?.chainNodes?.length).toBeGreaterThan(1);
+
+      // Also check for EncodingUtil.urlEncode reference (method call)
+      const urlEncodeRef = references.find(
+        (ref) =>
+          (ref.name === 'EncodingUtil.urlEncode' || ref.name === 'urlEncode') &&
+          (ref.context === ReferenceContext.CHAINED_TYPE ||
+            ref.context === ReferenceContext.METHOD_CALL),
+      );
+
+      expect(urlEncodeRef).toBeDefined();
 
       // Find the URL.getOrgDomainUrl.toExternalForm reference
       const urlRef = references.find(
@@ -1116,10 +1126,10 @@ describe('ApexSymbolCollectorListener with Type References', () => {
           ref.context === ReferenceContext.CHAINED_TYPE,
       );
       expect(chainedRef).toBeDefined();
-      
+
       // CHAINED_TYPE should be resolved to the method, not the class
       expect(chainedRef?.resolvedSymbolId).toBeDefined();
-      
+
       // Verify it resolves to the method symbol
       const resolvedSymbol = allSymbols.find(
         (s) => s.id === chainedRef?.resolvedSymbolId,
@@ -1132,7 +1142,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const chainedRefTyped = chainedRef as any;
       expect(chainedRefTyped?.chainNodes).toBeDefined();
       expect(chainedRefTyped?.chainNodes).toHaveLength(2);
-      
+
       // First node (qualifier) should resolve to the class
       const firstNode = chainedRefTyped.chainNodes[0];
       expect(firstNode.name).toBe('ScopeExample');
@@ -1180,10 +1190,10 @@ describe('ApexSymbolCollectorListener with Type References', () => {
           ref.context === ReferenceContext.CHAINED_TYPE,
       );
       expect(chainedRef).toBeDefined();
-      
+
       // CHAINED_TYPE should be resolved to the field, not the class
       expect(chainedRef?.resolvedSymbolId).toBeDefined();
-      
+
       // Verify it resolves to the field symbol
       const resolvedSymbol = allSymbols.find(
         (s) => s.id === chainedRef?.resolvedSymbolId,
@@ -1196,12 +1206,12 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const chainedRefTyped = chainedRef as any;
       expect(chainedRefTyped?.chainNodes).toBeDefined();
       expect(chainedRefTyped?.chainNodes).toHaveLength(2);
-      
+
       // First node (qualifier) should resolve to the class
       const firstNode = chainedRefTyped.chainNodes[0];
       expect(firstNode.name).toBe('ScopeExample');
       expect(firstNode.resolvedSymbolId).toBeDefined();
-      
+
       // Last node (member) should resolve to the field
       const lastNode = chainedRefTyped.chainNodes[1];
       expect(lastNode.name).toBe('b');
@@ -1235,11 +1245,11 @@ describe('ApexSymbolCollectorListener with Type References', () => {
           ref.context === ReferenceContext.CHAINED_TYPE,
       );
       expect(chainedRef).toBeDefined();
-      
+
       // CHAINED_TYPE should NOT be resolved for cross-file references
       // (FileUtilities is not defined in this file)
       expect(chainedRef?.resolvedSymbolId).toBeUndefined();
-      
+
       // Chain nodes should also not be resolved
       const chainedRefTyped = chainedRef as any;
       if (chainedRefTyped?.chainNodes) {

@@ -199,8 +199,8 @@ namespaceResolutionService.resolveDeferredReferences(
 
 // Verify resolution
 const symbols = symbolTable.getAllSymbols();
-const resolvedVariable = symbols.find((s) => s.name === 'testVar');
-expect(resolvedVariable?._typeData?.type?.resolvedSymbol).toBe(
+const resolvedVariable = symbols.find((s) => s.name === 'testVar') as VariableSymbol;
+expect(resolvedVariable?.type?.resolvedSymbol).toBe(
   mockResolvedSymbol,
 );
 ```

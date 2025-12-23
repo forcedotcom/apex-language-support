@@ -180,7 +180,6 @@ export class SymbolFactory {
       namespace: namespace || null, // Ensure null instead of undefined
       annotations,
       identifierLocation,
-      _typeData: typeData,
       _isLoaded: true,
       modifiers,
     };
@@ -237,7 +236,6 @@ export class SymbolFactory {
       fqn,
       namespace, // Store the Namespace object directly
       annotations,
-      _typeData: typeData,
       _isLoaded: true,
       modifiers,
     };
@@ -461,12 +459,6 @@ export interface ApexSymbol {
   annotations?: Annotation[];
   identifierLocation?: SymbolLocation;
 
-  // Type-specific data (lazy loaded)
-  _typeData?: {
-    parameters?: string[]; // Array of parameter IDs
-    values?: string[]; // Array of enum value IDs
-  };
-
   // Lazy loading support
   _isLoaded: boolean;
   _loadPromise?: Promise<void>;
@@ -574,10 +566,6 @@ export class ScopeSymbol implements ApexSymbol {
   namespace?: string | Namespace | null;
   annotations?: Annotation[];
   identifierLocation?: SymbolLocation;
-  _typeData?: {
-    parameters?: string[];
-    values?: string[];
-  };
   _isLoaded: boolean;
   _loadPromise?: Promise<void>;
   modifiers: SymbolModifiers;

@@ -640,7 +640,10 @@ export class ApexSymbolGraph {
       const lowQueueUtilization =
         currentMetrics.queueUtilization?.[Priority.Low] || 0;
       const lowQueueSize = currentMetrics.queueSizes[Priority.Low] || 0;
-      const queueCapacity = currentMetrics.queueCapacity;
+      // Handle both legacy single number and per-priority Record
+      const queueCapacity = typeof currentMetrics.queueCapacity === 'number'
+        ? currentMetrics.queueCapacity
+        : currentMetrics.queueCapacity[Priority.Low] || 200;
 
       if (lowQueueUtilization >= self.QUEUE_CAPACITY_THRESHOLD) {
         // Queue too full, re-schedule with queue-full delay

@@ -173,7 +173,7 @@ private with sharing class FileUtilitiesTest {
 
       // Verify each property variable has the correct type
       propertyVariables.forEach((prop) => {
-        expect(prop._typeData?.type?.name).toBe('Property__c');
+        expect(prop.type?.name).toBe('Property__c');
       });
     });
 
@@ -224,7 +224,7 @@ public class VariableScopeTest {
       testVarVariables.forEach((var_, index) => {
         logger.debug(
           `testVar ${index + 1}: name=${var_.name}, line=${var_.location.symbolRange.startLine}, ` +
-            `type=${var_._typeData?.type?.name || 'unknown'}, scope=${var_.parentId || 'unknown'}`,
+            `type=${var_.type?.name || 'unknown'}, scope=${var_.parentId || 'unknown'}`,
         );
       });
 
@@ -233,10 +233,10 @@ public class VariableScopeTest {
 
       // Check that each variable has the correct type
       const stringVars = testVarVariables.filter(
-        (v) => v._typeData?.type?.name === 'String',
+        (v) => v.type?.name === 'String',
       );
       const integerVars = testVarVariables.filter(
-        (v) => v._typeData?.type?.name === 'Integer',
+        (v) => v.type?.name === 'Integer',
       );
 
       expect(stringVars.length).toBe(2);
@@ -295,7 +295,7 @@ public class NestedScopeTest {
 
       // Check that both variables have the correct type
       outerVarVariables.forEach((var_) => {
-        expect(var_._typeData?.type?.name).toBe('String');
+        expect(var_.type?.name).toBe('String');
       });
     });
   });
@@ -345,13 +345,13 @@ public class NestedScopeTest {
       expect(var3).toBeDefined();
 
       logger.debug(
-        `var1: line ${var1!.location.symbolRange.startLine}, type ${var1!._typeData?.type?.name || 'unknown'}`,
+        `var1: line ${var1!.location.symbolRange.startLine}, type ${var1!.type?.name || 'unknown'}`,
       );
       logger.debug(
-        `var2: line ${var2!.location.symbolRange.startLine}, type ${var2!._typeData?.type?.name || 'unknown'}`,
+        `var2: line ${var2!.location.symbolRange.startLine}, type ${var2!.type?.name || 'unknown'}`,
       );
       logger.debug(
-        `var3: line ${var3!.location.symbolRange.startLine}, type ${var3!._typeData?.type?.name || 'unknown'}`,
+        `var3: line ${var3!.location.symbolRange.startLine}, type ${var3!.type?.name || 'unknown'}`,
       );
 
       // Check line numbers (accounting for the actual line numbers in the code)
@@ -360,9 +360,9 @@ public class NestedScopeTest {
       expect(var3!.location.symbolRange.startLine).toBe(6);
 
       // Check types
-      expect(var1!._typeData?.type?.name).toBe('String');
-      expect(var2!._typeData?.type?.name).toBe('Integer');
-      expect(var3!._typeData?.type?.name).toBe('Boolean');
+      expect(var1!.type?.name).toBe('String');
+      expect(var2!.type?.name).toBe('Integer');
+      expect(var3!.type?.name).toBe('Boolean');
     });
   });
 
@@ -425,6 +425,119 @@ public class ParentChildTest {
       // Both parentIds should point to block symbols (contain "block:")
       expect(parentVar!.parentId).toContain('block:');
       expect(childVar!.parentId).toContain('block:');
+    });
+  });
+
+  describe('Type resolution during second-pass', () => {
+    it('should set type.resolvedSymbol for same-file types during second-pass resolution', () => {
+      // Use a single class with an inner class to test same-file type resolution
+      // Note: Apex doesn't support inner classes, so we'll test with a field that references
+      // a type that would be resolved in the same file. For this test, we'll use a simpler
+      // approach: test that when a TYPE_DECLARATION reference resolves to a same-file class,
+      // the variable's type.resolvedSymbol is set.
+      const fileContent = `
+public class TypeResolutionTest {
+    // Field declaration - the type "TypeResolutionTest" references the same class
+    private TypeResolutionTest selfReference;
+    
+    public void testMethod() {
+        // Variable declaration using the same class type
+        TypeResolutionTest instance = new TypeResolutionTest();
+        instance.testMethod();
+    }
+}`;
+
+      logger.debug('Compiling TypeResolutionTest class');
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'TypeResolutionTest.cls',
+        listener,
+      );
+
+      // Don't fail on compilation errors for now, just log them
+      if (result.errors.length > 0) {
+        logger.debug(`Compilation errors found: ${result.errors.length}`);
+        result.errors.forEach((error, index) => {
+          logger.debug(`Error ${index + 1}: ${error.message}`);
+        });
+      }
+
+      const symbolTable = result.result;
+      const allSymbols = getAllSymbolsFromAllScopes(symbolTable!);
+
+      // Find the TypeResolutionTest class symbol
+      const typeResolutionTestClass = allSymbols.find(
+        (s) => s.name === 'TypeResolutionTest' && s.kind === SymbolKind.Class,
+      );
+      expect(typeResolutionTestClass).toBeDefined();
+
+      // Find the field that uses TypeResolutionTest as its type
+      const selfReferenceField = allSymbols.find(
+        (s) => s.name === 'selfReference' && s.kind === SymbolKind.Field,
+      );
+      
+      // Find the variable that uses TypeResolutionTest as its type
+      const instanceVar = allSymbols.find(
+        (s) => s.name === 'instance' && s.kind === SymbolKind.Variable,
+      );
+      
+      // Test field resolution
+      if (selfReferenceField) {
+        expect(selfReferenceField.type?.name).toBe('TypeResolutionTest');
+        // After second-pass resolution, type.resolvedSymbol should be set for same-file types
+        expect(selfReferenceField.type?.resolvedSymbol).toBeDefined();
+        expect(selfReferenceField.type?.resolvedSymbol?.id).toBe(typeResolutionTestClass!.id);
+      }
+
+      // Test variable resolution
+      if (instanceVar) {
+        expect(instanceVar.type?.name).toBe('TypeResolutionTest');
+        // After second-pass resolution, type.resolvedSymbol should be set for same-file types
+        expect(instanceVar.type?.resolvedSymbol).toBeDefined();
+        expect(instanceVar.type?.resolvedSymbol?.id).toBe(typeResolutionTestClass!.id);
+      }
+
+      // At least one of field or variable should be found
+      expect(selfReferenceField || instanceVar).toBeDefined();
+    });
+
+    it('should not set type.resolvedSymbol for built-in types during second-pass (handled by NamespaceResolutionService)', () => {
+      const fileContent = `
+public class BuiltInTypeTest {
+    public void testMethod() {
+        String message = 'Hello';
+        Integer count = 42;
+    }
+}`;
+
+      logger.debug('Compiling BuiltInTypeTest class');
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'BuiltInTypeTest.cls',
+        listener,
+      );
+
+      const symbolTable = result.result;
+      const allSymbols = getAllSymbolsFromAllScopes(symbolTable!);
+
+      // Find variables with built-in types
+      const messageVar = allSymbols.find(
+        (s) => s.name === 'message' && s.kind === SymbolKind.Variable,
+      );
+      const countVar = allSymbols.find(
+        (s) => s.name === 'count' && s.kind === SymbolKind.Variable,
+      );
+
+      expect(messageVar).toBeDefined();
+      expect(countVar).toBeDefined();
+      expect(messageVar!.type?.name).toBe('String');
+      expect(countVar!.type?.name).toBe('Integer');
+
+      // Built-in types are not resolved during second-pass (they're not in the same file)
+      // They will be resolved later by NamespaceResolutionService during deferred resolution
+      // So type.resolvedSymbol should be undefined after second-pass
+      expect(messageVar!.type?.resolvedSymbol).toBeUndefined();
+      expect(countVar!.type?.resolvedSymbol).toBeUndefined();
     });
   });
 

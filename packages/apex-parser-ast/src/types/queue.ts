@@ -50,8 +50,8 @@ export interface SchedulerMetrics {
   readonly queueUtilization?: Readonly<Record<Priority, number>>;
   /** Currently active (executing) tasks per priority */
   readonly activeTasks?: Readonly<Record<Priority, number>>;
-  /** Queue capacity per priority (bounded size) */
-  readonly queueCapacity: number;
+  /** Queue capacity per priority (bounded size) - can be single number (legacy) or per-priority Record */
+  readonly queueCapacity: number | Readonly<Record<Priority, number>>;
   /** Back pressure metrics: enqueue retry counts per priority */
   readonly enqueueRetries?: Readonly<Record<Priority, number>>;
   /** Back pressure metrics: average enqueue wait time per priority (ms) */

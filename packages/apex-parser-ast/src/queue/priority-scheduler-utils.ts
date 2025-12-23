@@ -530,11 +530,12 @@ function getCurrentMetrics(
       requestTypeBreakdown[p] = breakdown;
     }
 
-    // For metrics API, return a representative capacity (use NORMAL priority for backward compatibility)
-    const representativeCapacity =
-      typeof state.queueCapacity === 'number'
-        ? state.queueCapacity
-        : state.queueCapacity.NORMAL || 200;
+    // Return per-priority queue capacities
+    const queueCapacityPerPriority = {} as Record<Priority, number>;
+    for (const p of AllPriorities) {
+      const priorityName = priorityNameMap[p] || 'NORMAL';
+      queueCapacityPerPriority[p] = capacityMap[priorityName] || capacityMap.NORMAL || 200;
+    }
 
     return {
       queueSizes: ms,
@@ -544,7 +545,7 @@ function getCurrentMetrics(
       requestTypeBreakdown,
       queueUtilization: utilization,
       activeTasks,
-      queueCapacity: representativeCapacity,
+      queueCapacity: queueCapacityPerPriority,
     } satisfies SchedulerMetrics;
   });
 }
@@ -1038,6 +1039,13 @@ export function initialize(
           }
         }
 
+        // Return per-priority queue capacities
+        const queueCapacityPerPriority = {} as Record<Priority, number>;
+        for (const p of AllPriorities) {
+          const priorityName = priorityNameMap[p] || 'NORMAL';
+          queueCapacityPerPriority[p] = capacityMap[priorityName] || capacityMap.NORMAL || 200;
+        }
+
         return {
           queueSizes: ms,
           tasksStarted: yield* Ref.get(schedulerState.tasksStarted),
@@ -1046,10 +1054,7 @@ export function initialize(
           requestTypeBreakdown,
           queueUtilization: utilization,
           activeTasks,
-          queueCapacity:
-            typeof schedulerState.queueCapacity === 'number'
-              ? schedulerState.queueCapacity
-              : schedulerState.queueCapacity.NORMAL || 200,
+          queueCapacity: queueCapacityPerPriority,
           enqueueRetries: retriesByPriority,
           enqueueWaitTime: waitTimeByPriority,
           backPressureDuration: backPressureDurationByPriority,

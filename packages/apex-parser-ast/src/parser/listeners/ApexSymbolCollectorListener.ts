@@ -60,6 +60,7 @@ import {
   RunAsStatementContext,
   GetterContext,
   SetterContext,
+  LocalVariableDeclarationContext,
   // Add contexts for keyword detection
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
@@ -187,6 +188,15 @@ export class ApexSymbolCollectorListener
   private hierarchicalResolver = new HierarchicalReferenceResolver();
 
   private enableReferenceCorrection: boolean = true; // Default to enabled
+
+  // WeakMap to store TYPE_DECLARATION SymbolReference objects by localVariableDeclaration context
+  // When enterTypeRef is called from within a localVariableDeclaration, we store the reference
+  // keyed by the parent localVariableDeclaration context. Then when processLocalVariableDeclaration
+  // processes the variable, we can retrieve the reference using the same context object.
+  private localVarDeclToTypeRefMap = new WeakMap<
+    ParserRuleContext,
+    SymbolReference
+  >();
 
   /**
    * Creates a new instance of the ApexSymbolCollectorListener.
@@ -1628,6 +1638,10 @@ export class ApexSymbolCollectorListener
 
   /**
    * Called when entering a field declaration
+   * Grammar: fieldDeclaration : typeRef variableDeclarators SEMI
+   *
+   * This method validates field declarations. Individual variable declarators
+   * are processed by enterVariableDeclarator.
    */
   enterFieldDeclaration(ctx: FieldDeclarationContext): void {
     try {
@@ -1636,9 +1650,10 @@ export class ApexSymbolCollectorListener
         this.addError('Field declaration missing type reference', ctx);
         return;
       }
-      const type = this.createTypeInfoFromTypeRef(typeRef);
 
-      // Get current modifiers
+      // Get current modifiers for validation
+      // Note: We don't reset modifiers here - they're reset in enterVariableDeclarator
+      // This allows enterVariableDeclarator to access them
       const modifiers = this.getCurrentModifiers();
 
       // Validate field declaration in interface
@@ -1660,21 +1675,9 @@ export class ApexSymbolCollectorListener
         );
       }
 
-      // Process each variable declarator in the field declaration
-      for (const declarator of ctx
-        .variableDeclarators()
-        ?.variableDeclarator() || []) {
-        this.processVariableDeclarator(
-          declarator,
-          type,
-          modifiers,
-          SymbolKind.Field,
-        );
-      }
-
-      // Reset modifiers and annotations for the next symbol
-      this.resetModifiers();
-      this.resetAnnotations();
+      // Note: Individual variable declarators are processed by enterVariableDeclarator
+      // which will be called automatically by the parser for each variable declarator
+      // in the variableDeclarators list. Modifiers and annotations are reset there.
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in field declaration: ${errorMessage}`, ctx);
@@ -1682,25 +1685,155 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Called when entering a local variable declaration statement
+   * Called when entering a local variable declaration
+   * Grammar: localVariableDeclaration : modifier* typeRef variableDeclarators
+   *
+   * This method prepares the type information. Individual variable declarators
+   * are processed by enterVariableDeclarator.
    */
-  enterLocalVariableDeclarationStatement(ctx: ParserRuleContext): void {
+  enterLocalVariableDeclaration(ctx: LocalVariableDeclarationContext): void {
     try {
-      // Extract the local variable declaration from the statement
-      // The statement has the structure: localVariableDeclaration SEMI
-      // So the first child should be the localVariableDeclaration
-      const localVarDecl = ctx.children?.[0];
-      if (localVarDecl) {
-        // Process the local variable declaration directly here
-        // since the parser doesn't call enterLocalVariableDeclaration
-        this.processLocalVariableDeclaration(localVarDecl);
-      }
+      // Store modifiers for use by enterVariableDeclarator
+      // Note: We don't reset modifiers here - they're reset in enterVariableDeclarator
+      // This allows enterVariableDeclarator to access them
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(
-        `Error in local variable declaration statement: ${errorMessage}`,
+        `Error in local variable declaration: ${errorMessage}`,
         ctx,
       );
+    }
+  }
+
+  /**
+   * Called when entering a variable declarator
+   * Grammar: variableDeclarator : id (ASSIGN expression)?
+   *
+   * This handles each variable in declarations like "String a, b, c"
+   * Each variable declarator is processed individually, allowing proper
+   * type ref linking and assignment expression capture.
+   *
+   * This method handles both local variables (from LocalVariableDeclarationContext)
+   * and fields (from FieldDeclarationContext).
+   */
+  enterVariableDeclarator(ctx: VariableDeclaratorContext): void {
+    try {
+      // Find the parent context (either LocalVariableDeclarationContext or FieldDeclarationContext)
+      let parent = ctx.parent;
+      let localVarDeclContext: LocalVariableDeclarationContext | null = null;
+      let fieldDeclContext: FieldDeclarationContext | null = null;
+
+      while (parent) {
+        if (parent instanceof LocalVariableDeclarationContext) {
+          localVarDeclContext = parent;
+          break;
+        }
+        if (parent instanceof FieldDeclarationContext) {
+          fieldDeclContext = parent;
+          break;
+        }
+        parent = parent.parent;
+      }
+
+      // Determine if this is a local variable or a field
+      const isLocalVariable = !!localVarDeclContext;
+      const isField = !!fieldDeclContext;
+
+      if (!isLocalVariable && !isField) {
+        // This shouldn't happen, but if it does, skip processing
+        return;
+      }
+
+      const modifiers = this.getCurrentModifiers();
+      this.resetModifiers();
+
+      // Get the type ref from the parent declaration
+      let typeRef: TypeRefContext | undefined;
+      let parentContext: ParserRuleContext;
+
+      if (isLocalVariable && localVarDeclContext) {
+        typeRef = localVarDeclContext.typeRef();
+        parentContext = localVarDeclContext;
+      } else if (isField && fieldDeclContext) {
+        typeRef = fieldDeclContext.typeRef();
+        parentContext = fieldDeclContext;
+      } else {
+        return;
+      }
+
+      const varType = typeRef
+        ? this.createTypeInfoFromTypeRef(typeRef, parentContext)
+        : createTypeInfo('Object');
+
+      const name = ctx.id()?.text ?? 'unknownVariable';
+
+      // Check for duplicate variable names within the same statement
+      // We need to check against other variables in the same variableDeclarators context
+      let variableDeclarators:
+        | { variableDeclarator(): VariableDeclaratorContext[] }
+        | null
+        | undefined = null;
+
+      if (isLocalVariable && localVarDeclContext) {
+        variableDeclarators = localVarDeclContext.variableDeclarators();
+      } else if (isField && fieldDeclContext) {
+        variableDeclarators = fieldDeclContext.variableDeclarators();
+      }
+
+      if (variableDeclarators) {
+        const declarators = variableDeclarators.variableDeclarator();
+        const statementVariableNames = new Set<string>();
+
+        // Collect all names declared in this statement
+        for (const declarator of declarators) {
+          const declName = declarator.id()?.text;
+          if (declName) {
+            statementVariableNames.add(declName);
+          }
+        }
+
+        // Check if this variable name appears multiple times in the statement
+        const nameCount = Array.from(statementVariableNames).filter(
+          (n) => n === name,
+        ).length;
+        if (nameCount > 1) {
+          this.addError(
+            `Duplicate variable declaration: '${name}' is already declared in this statement`,
+            ctx,
+          );
+          return; // Skip processing this duplicate variable
+        }
+      }
+
+      // Check for duplicate variable declaration in the current scope (from previous statements)
+      const existingSymbol = this.symbolTable.findSymbolInCurrentScope(
+        name,
+        this.getCurrentScopeSymbol(),
+      );
+      if (existingSymbol) {
+        this.addError(
+          `Duplicate variable declaration: '${name}' is already declared in this scope`,
+          ctx,
+        );
+        return; // Skip processing this duplicate variable
+      }
+
+      // Process the variable declarator (this will create the symbol)
+      // The assignment expression (if present) will be automatically captured
+      // by the parser's tree walk through enterExpression, enterMethodCall, etc.
+      this.processVariableDeclarator(
+        ctx,
+        varType,
+        modifiers,
+        isField ? SymbolKind.Field : SymbolKind.Variable,
+      );
+
+      // Reset annotations after processing the variable declarator
+      // This ensures annotations don't leak to the next symbol declaration
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in variable declarator: ${errorMessage}`, ctx);
     }
   }
 
@@ -2457,6 +2590,17 @@ export class ApexSymbolCollectorListener
             parentContext,
             preciseLocations,
           );
+
+          // If this TypeRef is a child of a localVariableDeclaration, store the reference
+          // keyed by the parent localVariableDeclaration context
+          // This allows us to retrieve it later when processing the variable declaration
+          const parent = ctx.parent;
+          if (
+            parent &&
+            parent.constructor.name === 'LocalVariableDeclarationContext'
+          ) {
+            this.localVarDeclToTypeRefMap.set(parent, baseReference);
+          }
         } else {
           // For other cases, use PARAMETER_TYPE
           baseReference = SymbolReferenceFactory.createParameterTypeReference(
@@ -3368,7 +3512,10 @@ export class ApexSymbolCollectorListener
     // we need to finalize it before processing parameters. This ensures that chains in parameters
     // (like URL.getOrgDomainUrl().toExternalForm()) start fresh and don't get merged with the
     // parent method call's chain (like request.setHeader).
-    if (this.isInMethodOrConstructorCall(ctx) && this.chainExpressionScope?.isActive) {
+    if (
+      this.isInMethodOrConstructorCall(ctx) &&
+      this.chainExpressionScope?.isActive
+    ) {
       // Finalize the current chain scope (e.g., request.setHeader)
       this.finalizeChainScope(this.chainExpressionScope);
       // Clear the scope so parameters start with a clean slate
@@ -3393,20 +3540,10 @@ export class ApexSymbolCollectorListener
    * Called when entering a for loop initialization
    */
   enterForInit(ctx: any): void {
-    try {
-      // Check if this is a local variable declaration (e.g., "Integer i = 0")
-      const localVarDecl = ctx.localVariableDeclaration();
-      if (localVarDecl) {
-        // Process the local variable declaration within the for loop
-        this.processLocalVariableDeclaration(localVarDecl);
-      }
-
-      // Note: If it's an expressionList (e.g., "i = 0"), we don't need to process it
-      // as a variable declaration since it's just an assignment to an existing variable
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(`Error in for loop initialization: ${errorMessage}`, ctx);
-    }
+    // The parser will automatically call enterLocalVariableDeclaration for any
+    // localVariableDeclaration child, so we don't need to process it here manually
+    // Note: If it's an expressionList (e.g., "i = 0"), we don't need to process it
+    // as a variable declaration since it's just an assignment to an existing variable
   }
 
   /**
@@ -3545,8 +3682,9 @@ export class ApexSymbolCollectorListener
       }
 
       // Get the type using parser structure for accurate generic type extraction
+      // Pass the localVariableDeclaration context so we can link to the TYPE_DECLARATION reference
       const varType = typeRefChild
-        ? this.createTypeInfoFromTypeRef(typeRefChild as TypeRefContext)
+        ? this.createTypeInfoFromTypeRef(typeRefChild as TypeRefContext, ctx)
         : createTypeInfo('Object');
 
       // Process each variable declared
@@ -3636,23 +3774,6 @@ export class ApexSymbolCollectorListener
       );
 
       this.symbolTable.addSymbol(variableSymbol, this.getCurrentScopeSymbol());
-
-      // Emit a declaration reference for the variable identifier itself to enable precise hover
-      try {
-        const identifierLocation = this.getIdentifierLocation(
-          ctx as unknown as ParserRuleContext,
-        );
-        const parentContext = this.getCurrentMethodName();
-        const declRef =
-          SymbolReferenceFactory.createVariableDeclarationReference(
-            name,
-            identifierLocation,
-            parentContext,
-          );
-        this.symbolTable.addTypeReference(declRef);
-      } catch (e) {
-        this.logger.warn(() => `Error creating declaration reference: ${e}`);
-      }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in variable: ${errorMessage}`, ctx);
@@ -3883,9 +4004,13 @@ export class ApexSymbolCollectorListener
    * Extract TypeInfo from TypeRefContext using parser structure
    * This provides more accurate type information than string parsing
    * @param typeRef The TypeRefContext to extract type info from
+   * @param localVarDeclContext Optional localVariableDeclaration context for linking to TYPE_DECLARATION reference
    * @returns TypeInfo object with proper structure including typeParameters
    */
-  private createTypeInfoFromTypeRef(typeRef: TypeRefContext): TypeInfo {
+  private createTypeInfoFromTypeRef(
+    typeRef: TypeRefContext,
+    localVarDeclContext?: ParserRuleContext,
+  ): TypeInfo {
     const typeNames = typeRef.typeName();
     if (!typeNames || typeNames.length === 0) {
       return createTypeInfo('Object');
@@ -3936,11 +4061,21 @@ export class ApexSymbolCollectorListener
       const qualifiedName = qualifiedParts.join('.');
       // For qualified types with generics, we still use createTypeInfo
       // but it will now extract the base name correctly
-      return createTypeInfo(
+      const typeInfo = createTypeInfo(
         typeArguments
           ? `${qualifiedName}<${genericTypeRefs.map((tr) => this.getTextFromContext(tr)).join(', ')}>`
           : qualifiedName,
       );
+
+      // Link to TYPE_DECLARATION reference
+      this.linkTypeInfoToReference(
+        typeInfo,
+        qualifiedName,
+        typeRef,
+        localVarDeclContext,
+      );
+
+      return typeInfo;
     }
 
     // Handle generic type parameters
@@ -3952,23 +4087,50 @@ export class ApexSymbolCollectorListener
 
       // Handle Map specially (has keyType and valueType)
       if (mapToken && typeParameters.length >= 2) {
-        return createMapTypeInfo(typeParameters[0], typeParameters[1]);
+        const typeInfo = createMapTypeInfo(
+          typeParameters[0],
+          typeParameters[1],
+        );
+        this.linkTypeInfoToReference(
+          typeInfo,
+          baseTypeNameStr,
+          typeRef,
+          localVarDeclContext,
+        );
+        return typeInfo;
       }
 
       // Handle List and Set
       if (listToken || setToken) {
-        return createCollectionTypeInfo(baseTypeNameStr, typeParameters);
+        const typeInfo = createCollectionTypeInfo(
+          baseTypeNameStr,
+          typeParameters,
+        );
+        this.linkTypeInfoToReference(
+          typeInfo,
+          baseTypeNameStr,
+          typeRef,
+          localVarDeclContext,
+        );
+        return typeInfo;
       }
 
       // For regular types with generics, create base type with typeParameters
       // Note: This is a simplified approach - full support would require
       // a more sophisticated TypeInfo structure
       const baseTypeInfo = createTypeInfo(baseTypeNameStr);
-      return {
+      const typeInfo = {
         ...baseTypeInfo,
         typeParameters,
         originalTypeString: `${baseTypeNameStr}<${typeParameters.map((tp) => tp.originalTypeString).join(', ')}>`,
       };
+      this.linkTypeInfoToReference(
+        typeInfo,
+        baseTypeNameStr,
+        typeRef,
+        localVarDeclContext,
+      );
+      return typeInfo;
     }
 
     // Check for array subscripts (arrays are handled at typeRef level)
@@ -3977,11 +4139,70 @@ export class ApexSymbolCollectorListener
       // This is an array type - use createTypeInfo which handles arrays via string parsing
       // Arrays are complex because they can be nested: String[][]
       // For now, fall back to string-based parsing for arrays
-      return createTypeInfo(this.getTextFromContext(typeRef));
+      const typeInfo = createTypeInfo(this.getTextFromContext(typeRef));
+      // For arrays, link to the base type reference (without array brackets)
+      this.linkTypeInfoToReference(
+        typeInfo,
+        baseTypeNameStr,
+        typeRef,
+        localVarDeclContext,
+      );
+      return typeInfo;
     }
 
     // No generics - just create the base type
-    return createTypeInfo(baseTypeNameStr);
+    const typeInfo = createTypeInfo(baseTypeNameStr);
+
+    // Link the TypeInfo to its TYPE_DECLARATION reference
+    this.linkTypeInfoToReference(
+      typeInfo,
+      baseTypeNameStr,
+      typeRef,
+      localVarDeclContext,
+    );
+
+    return typeInfo;
+  }
+
+  /**
+   * Link a TypeInfo to its TYPE_DECLARATION reference
+   * This allows variables/fields/properties/parameters to have a pointer to their type reference
+   *
+   * Uses the parser structure: when enterTypeRef is called from within a localVariableDeclaration,
+   * we store the reference keyed by the parent localVariableDeclaration context. Then when we
+   * process the variable declaration, we can retrieve it using the same context object.
+   */
+  private linkTypeInfoToReference(
+    typeInfo: TypeInfo,
+    typeName: string,
+    typeRef: TypeRefContext,
+    localVarDeclContext?: ParserRuleContext,
+  ): void {
+    // If we have the localVariableDeclaration context, use it to look up the reference
+    if (localVarDeclContext) {
+      const typeDeclarationRef =
+        this.localVarDeclToTypeRefMap.get(localVarDeclContext);
+
+      if (typeDeclarationRef) {
+        // Generate the reference ID from the stored reference
+        const refId = `${this.currentFilePath}:${
+          typeDeclarationRef.location.identifierRange.startLine
+        }:${typeDeclarationRef.location.identifierRange.startColumn}:${
+          typeDeclarationRef.name
+        }:TYPE_DECLARATION`;
+        typeInfo.typeReferenceId = refId;
+        this.logger.debug(
+          () =>
+            `[linkTypeInfoToReference] Linked type "${typeName}" to reference ID: ${refId}`,
+        );
+        return;
+      }
+    }
+
+    this.logger.debug(
+      () =>
+        `[linkTypeInfoToReference] Could not find TYPE_DECLARATION reference for "${typeName}" in WeakMap`,
+    );
   }
 
   /**
@@ -4729,7 +4950,7 @@ export class ApexSymbolCollectorListener
       this.currentFilePath,
       modifiers,
       parent?.id || null,
-      { interfaces: [] },
+      undefined, // No typeData needed - interfaces are set directly on TypeSymbol
       namespace, // Pass the determined namespace (can be null)
       this.getCurrentAnnotations(),
       scopePath, // Pass scope path for unique ID generation
@@ -4836,7 +5057,7 @@ export class ApexSymbolCollectorListener
       this.currentFilePath,
       modifiers,
       methodParentId,
-      { returnType, parameters: [] },
+      undefined, // No typeData needed - returnType and parameters are set directly on MethodSymbol
       namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
       scopePath, // Pass scope path for unique ID generation
@@ -4895,7 +5116,7 @@ export class ApexSymbolCollectorListener
       this.currentFilePath,
       modifiers,
       parent?.id || null,
-      { type },
+      undefined, // No typeData needed - type is set directly on VariableSymbol
       namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
       scopePath, // Pass scope path for unique ID generation
@@ -5028,7 +5249,7 @@ export class ApexSymbolCollectorListener
       this.currentFilePath,
       modifiers,
       parent?.id || null,
-      { returnType: createPrimitiveType('void'), parameters: [] },
+      undefined, // No typeData needed - returnType and parameters are set directly on MethodSymbol
       namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
       scopePath, // Pass scope path for unique ID generation
@@ -5671,9 +5892,42 @@ export class ApexSymbolCollectorListener
         scopeHierarchy,
       );
 
+      // For chained references with variable method calls (e.g., "base64Data.toString()"),
+      // only set resolvedSymbolId on the chained reference if we resolved the full chain
+      // (i.e., found the method). Otherwise, let runtime resolution handle it.
+      // For non-chained references or chained references where we found the final method,
+      // set resolvedSymbolId on the reference itself.
       if (resolvedSymbol) {
-        ref.resolvedSymbolId = resolvedSymbol.id;
-        resolvedCount++;
+        // Check if this is a chained reference that resolved to a variable (not the final method)
+        const isVariableMethodCall =
+          isChainedSymbolReference(ref) &&
+          ref.chainNodes &&
+          ref.chainNodes.length >= 2 &&
+          resolvedSymbol.kind === SymbolKind.Variable;
+
+        if (!isVariableMethodCall) {
+          // Set resolvedSymbolId on the reference for non-chained refs or full chain resolution
+          ref.resolvedSymbolId = resolvedSymbol.id;
+          resolvedCount++;
+        }
+        // For variable method calls, we don't set resolvedSymbolId on the chained reference
+        // to allow runtime resolution to find the method on the variable's type
+      }
+
+      // If this is a TYPE_DECLARATION reference that was resolved, update variable/field/property/parameter
+      // symbols that use this type to set their type.resolvedSymbol
+      if (
+        ref.context === ReferenceContext.TYPE_DECLARATION &&
+        resolvedSymbol &&
+        (resolvedSymbol.kind === SymbolKind.Class ||
+          resolvedSymbol.kind === SymbolKind.Interface ||
+          resolvedSymbol.kind === SymbolKind.Enum)
+      ) {
+        this.updateTypeResolvedSymbolForDeclarations(
+          ref,
+          resolvedSymbol,
+          scopeHierarchy,
+        );
       }
 
       // For chained references, ensure chain nodes are also resolved
@@ -5886,8 +6140,8 @@ export class ApexSymbolCollectorListener
         );
 
       case ReferenceContext.CHAINED_TYPE:
-        // For chained references like "ScopeExample.method4", resolve the entire chain
-        // to the final member (method/property), not just the first node
+        // For chained references like "ScopeExample.method4" or "base64Data.toString()",
+        // resolve the entire chain to the final member (method/property)
         if (
           isChainedSymbolReference(ref) &&
           ref.chainNodes &&
@@ -5896,7 +6150,92 @@ export class ApexSymbolCollectorListener
           const firstNode = ref.chainNodes[0];
           const lastNode = ref.chainNodes[ref.chainNodes.length - 1];
 
-          // First, resolve the qualifier (first node) to get the containing class
+          // First, try to resolve the first node as a variable (for cases like "base64Data.toString()")
+          const nodePosition = {
+            line: firstNode.location.identifierRange.startLine,
+            character: firstNode.location.identifierRange.startColumn,
+          };
+          const nodeScopeHierarchy =
+            this.symbolTable.getScopeHierarchy(nodePosition);
+          const nodeContainingScope =
+            nodeScopeHierarchy.length > 0
+              ? nodeScopeHierarchy[nodeScopeHierarchy.length - 1]
+              : null;
+
+          // Try to resolve as variable first (scope-based lookup)
+          let firstNodeSymbol = this.symbolTable.lookup(
+            firstNode.name,
+            nodeContainingScope,
+          );
+          if (
+            firstNodeSymbol &&
+            (firstNodeSymbol.kind === SymbolKind.Variable ||
+              firstNodeSymbol.kind === SymbolKind.Parameter ||
+              firstNodeSymbol.kind === SymbolKind.Field ||
+              firstNodeSymbol.kind === SymbolKind.Property)
+          ) {
+            // First node is a variable - resolve the method on the variable's type
+            firstNode.resolvedSymbolId = firstNodeSymbol.id;
+
+            // Get the variable's type
+            const variableType =
+              firstNodeSymbol.kind === SymbolKind.Variable ||
+              firstNodeSymbol.kind === SymbolKind.Parameter
+                ? (firstNodeSymbol as VariableSymbol).type
+                : firstNodeSymbol.kind === SymbolKind.Field ||
+                    firstNodeSymbol.kind === SymbolKind.Property
+                  ? (firstNodeSymbol as any).type
+                  : null;
+
+            // For built-in types (like String, Integer, etc.), methods are not in the same file
+            // So we only resolve the variable itself and let runtime resolution handle the method
+            // For same-file types, try to resolve the method
+            if (
+              variableType &&
+              lastNode.context === ReferenceContext.METHOD_CALL &&
+              !variableType.isBuiltIn
+            ) {
+              // Find the method on the variable's type (only for same-file types)
+              const typeName = variableType.name;
+              const typeSymbol = allSymbols.find(
+                (s) =>
+                  s.name === typeName &&
+                  (s.kind === SymbolKind.Class ||
+                    s.kind === SymbolKind.Interface),
+              );
+
+              if (typeSymbol) {
+                // Find the class block for the type
+                const typeClassBlock = allSymbols.find(
+                  (s) =>
+                    isBlockSymbol(s) &&
+                    s.scopeType === 'class' &&
+                    s.parentId === typeSymbol.id,
+                ) as ScopeSymbol | undefined;
+
+                if (typeClassBlock) {
+                  // Find the method in the type's class block
+                  const methodSymbol = allSymbols.find(
+                    (s) =>
+                      s.kind === SymbolKind.Method &&
+                      s.name === lastNode.name &&
+                      s.parentId === typeClassBlock.id,
+                  );
+                  if (methodSymbol) {
+                    // Resolve the last node to the method
+                    lastNode.resolvedSymbolId = methodSymbol.id;
+                    return methodSymbol;
+                  }
+                }
+              }
+            }
+
+            // For built-in types or if method not found, just resolve the variable itself
+            // The runtime resolution will handle finding methods on built-in types
+            return firstNodeSymbol;
+          }
+
+          // If not a variable, try to resolve as a class/type (for cases like "ScopeExample.method4")
           const qualifierSymbol = this.resolveTypeReference(
             firstNode,
             allSymbols,
@@ -5958,7 +6297,35 @@ export class ApexSymbolCollectorListener
           ref.chainNodes &&
           ref.chainNodes.length === 1
         ) {
-          // Single node chain - resolve as type reference
+          // Single node chain - try variable first, then type reference
+          const nodePosition = {
+            line: ref.chainNodes[0].location.identifierRange.startLine,
+            character: ref.chainNodes[0].location.identifierRange.startColumn,
+          };
+          const nodeScopeHierarchy =
+            this.symbolTable.getScopeHierarchy(nodePosition);
+          const nodeContainingScope =
+            nodeScopeHierarchy.length > 0
+              ? nodeScopeHierarchy[nodeScopeHierarchy.length - 1]
+              : null;
+
+          // Try variable lookup first
+          const variableSymbol = this.symbolTable.lookup(
+            ref.chainNodes[0].name,
+            nodeContainingScope,
+          );
+          if (
+            variableSymbol &&
+            (variableSymbol.kind === SymbolKind.Variable ||
+              variableSymbol.kind === SymbolKind.Parameter ||
+              variableSymbol.kind === SymbolKind.Field ||
+              variableSymbol.kind === SymbolKind.Property)
+          ) {
+            ref.chainNodes[0].resolvedSymbolId = variableSymbol.id;
+            return variableSymbol;
+          }
+
+          // Fall back to type reference
           const resolved = this.resolveTypeReference(
             ref.chainNodes[0],
             allSymbols,
@@ -6156,6 +6523,85 @@ export class ApexSymbolCollectorListener
             s.kind === SymbolKind.Enum),
       ) || null
     );
+  }
+
+  /**
+   * Update type.resolvedSymbol for variable/field/property/parameter declarations
+   * that use the resolved TYPE_DECLARATION reference
+   */
+  private updateTypeResolvedSymbolForDeclarations(
+    ref: SymbolReference,
+    resolvedTypeSymbol: ApexSymbol,
+    scopeHierarchy: ScopeSymbol[],
+  ): void {
+    const allSymbols = this.symbolTable.getAllSymbols();
+    const typeName = ref.name;
+    const refLine = ref.location.identifierRange.startLine;
+
+    // Find all variable/field/property/parameter symbols that:
+    // 1. Are in the same file
+    // 2. Have a type matching this TYPE_DECLARATION reference
+    // 3. Are declared on the same line or nearby (within 2 lines) as the reference
+    // 4. Are in one of the scopes in the scope hierarchy
+    const candidateSymbols = allSymbols.filter((s) => {
+      // Must be a variable/field/property/parameter
+      if (
+        s.kind !== SymbolKind.Variable &&
+        s.kind !== SymbolKind.Parameter &&
+        s.kind !== SymbolKind.Field &&
+        s.kind !== SymbolKind.Property
+      ) {
+        return false;
+      }
+
+      // Must be in the same file
+      if (s.fileUri !== this.currentFilePath) {
+        return false;
+      }
+
+      // Must be declared on the same line or nearby (TYPE_DECLARATION references are typically
+      // on the same line as the variable declaration, or within 1-2 lines)
+      const symbolLine = s.location.identifierRange.startLine;
+      if (Math.abs(symbolLine - refLine) > 2) {
+        return false;
+      }
+
+      // Must be in one of the scopes in the scope hierarchy
+      const isInScopeHierarchy = scopeHierarchy.some(
+        (scope) => s.parentId === scope.id,
+      );
+      if (!isInScopeHierarchy) {
+        return false;
+      }
+
+      return true;
+    });
+
+    // Check each candidate symbol to see if its type matches
+    for (const symbol of candidateSymbols) {
+      let typeInfo: TypeInfo | undefined;
+      if (
+        symbol.kind === SymbolKind.Variable ||
+        symbol.kind === SymbolKind.Parameter
+      ) {
+        typeInfo = (symbol as VariableSymbol).type;
+      } else if (
+        symbol.kind === SymbolKind.Field ||
+        symbol.kind === SymbolKind.Property
+      ) {
+        typeInfo = (symbol as any).type;
+      }
+
+      if (typeInfo && typeInfo.name === typeName && !typeInfo.resolvedSymbol) {
+        // Set the resolved symbol on the type
+        typeInfo.resolvedSymbol = resolvedTypeSymbol;
+        this.logger.debug(
+          () =>
+            '[updateTypeResolvedSymbolForDeclarations] Set type.resolvedSymbol ' +
+            `for ${symbol.kind} "${symbol.name}" to ${resolvedTypeSymbol.kind} "${resolvedTypeSymbol.name}"`,
+        );
+      }
+    }
   }
 
   /**

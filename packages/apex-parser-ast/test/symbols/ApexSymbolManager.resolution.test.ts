@@ -881,6 +881,43 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.modifiers?.isBuiltIn).toBe(false);
     });
 
+    it('should resolve method name on String variable (base64Data.toString())', async () => {
+      // Test hover on "toString" in "base64Data.toString()"
+      // This ensures method calls on variables resolve to methods on the variable's type
+      const testCode = loadFixtureFile('VariableMethodCallTestClass.cls');
+
+      await compileAndAddToManager(
+        testCode,
+        'file:///test/VariableMethodCallTestClass.cls',
+      );
+
+      // Find position of "toString" in "base64Data.toString()"
+      const lines = testCode.split('\n');
+      const lineIndex = lines.findIndex((line) =>
+        line.includes('base64Data.toString()'),
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+
+      const line = lines[lineIndex];
+      const toStringIndex = line.indexOf('toString');
+      expect(toStringIndex).toBeGreaterThanOrEqual(0);
+
+      // Position on "toString" (parser-ast format: 1-based line, 0-based column)
+      const result = await symbolManager.getSymbolAtPosition(
+        'file:///test/VariableMethodCallTestClass.cls',
+        { line: lineIndex + 1, character: toStringIndex },
+        'precise',
+      );
+
+      expect(result).toBeDefined();
+      expect(result?.name).toBe('toString');
+      expect(result?.kind).toBe('method');
+      // Should resolve to String.toString(), not System.SavePoint.toString() or any other toString()
+      expect(result?.fileUri).toBe(
+        'apexlib://resources/StandardApexLibrary/System/String.cls',
+      );
+    });
+
     // Tests for resolving standard class names (System, String) via getSymbolAtPosition
     describe('Standard Class Name Resolution', () => {
       it('should resolve System class name in System.debug call', async () => {

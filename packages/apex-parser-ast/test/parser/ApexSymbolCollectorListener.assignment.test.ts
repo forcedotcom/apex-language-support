@@ -39,12 +39,13 @@ describe('ApexSymbolCollectorListener - Assignment Reference Capture', () => {
 
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
-      // Also verify a declaration reference exists for variable 'a'
-      const declRefs = references.filter(
-        (r) =>
-          (r as any).context === 7 /* VARIABLE_DECLARATION */ && r.name === 'a',
-      );
-      expect(declRefs.length).toBeGreaterThanOrEqual(1);
+      // Note: VARIABLE_DECLARATION references were removed as part of optimization.
+      // Variables are now resolved directly by checking identifierRange in getSymbolAtPositionPrecise.
+      // Verify that variable 'a' exists as a symbol instead
+      const variableSymbol = symbolTable
+        .getAllSymbols()
+        .find((s) => s.name === 'a' && s.kind === 'variable');
+      expect(variableSymbol).toBeDefined();
 
       // Filter variable usages in this method
       const vars = references.filter(

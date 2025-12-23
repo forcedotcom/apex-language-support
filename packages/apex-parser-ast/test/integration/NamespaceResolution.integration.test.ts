@@ -52,12 +52,12 @@ describe('Namespace Resolution Integration', () => {
 
       // These should have their type references resolved during deferred resolution
       fieldVariables.forEach((variable) => {
-        expect(variable._typeData?.type?.name).toBeDefined();
+        expect(variable.type?.name).toBeDefined();
         // The type should be marked as needing resolution (qualified names)
-        if (variable._typeData?.type?.name?.includes('.')) {
+        if (variable.type?.name?.includes('.')) {
           // In a full implementation, this would have resolved symbol information
           // For now, we're testing that the infrastructure is in place
-          expect(variable._typeData?.type?.name).toContain('.');
+          expect(variable.type?.name).toContain('.');
         }
       });
     });
