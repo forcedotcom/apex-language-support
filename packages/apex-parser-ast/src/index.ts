@@ -46,6 +46,7 @@ export * from './parser/compilerService';
 // Export resource utilities
 export * from './utils/ResourceUtils';
 export * from './utils/resourceLoader';
+export * from './utils/embeddedStandardLibrary';
 
 // Export platform-specific utilities
 export * from './utils/PlatformUtils';

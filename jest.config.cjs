@@ -22,6 +22,8 @@ module.exports = {
     '^.+\\.ts$': 'ts-jest',
   },
   moduleNameMapper: {
+    // Mock ZIP file imports for Jest (esbuild handles these at bundle time)
+    '\\.zip$': '<rootDir>/packages/apex-parser-ast/test/__mocks__/zipMock.js',
     '^@salesforce/apex-lsp-shared$':
       '<rootDir>/packages/apex-lsp-shared/src/index.ts',
     '^@salesforce/apex-lsp-parser-ast$':

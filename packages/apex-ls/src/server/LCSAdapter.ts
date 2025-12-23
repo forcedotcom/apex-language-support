@@ -73,6 +73,7 @@ import {
   ApexSymbolProcessingManager,
   setQueueStateChangeCallback,
   SchedulerMetrics,
+  getEmbeddedStandardLibraryZip,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
@@ -160,9 +161,9 @@ export class LCSAdapter {
    * Initialize the ResourceLoader singleton with the standard library ZIP.
    *
    * Loading Strategy:
-   * - Requests ZIP from client via apex/provideStandardLibrary
-   * - Client reads from virtual file system using vscode.workspace.fs
-   * - Works uniformly in both web and desktop environments
+   * - Uses embedded ZIP bundled directly in the worker/server
+   * - No client/server communication needed for standard library
+   * - ZIP is embedded at build time via esbuild
    * - Load mode determined from settings (apex.resources.loadMode)
    */
   private async initializeResourceLoader(): Promise<void> {
@@ -183,8 +184,20 @@ export class LCSAdapter {
         preloadStdClasses: true,
       });
 
-      const zipBuffer = await this.requestStandardLibraryZip();
-      resourceLoader.setZipBuffer(zipBuffer);
+      // Use the embedded ZIP bundled directly in the worker
+      const embeddedZip = getEmbeddedStandardLibraryZip();
+      if (!embeddedZip) {
+        throw new Error(
+          'Embedded Standard Apex Library ZIP not available. ' +
+            'This typically means the build did not properly bundle the ZIP resource.',
+        );
+      }
+
+      this.logger.debug(
+        () =>
+          `📦 Using embedded Standard Apex Library ZIP (${embeddedZip.length} bytes)`,
+      );
+      resourceLoader.setZipBuffer(embeddedZip);
 
       const stats = resourceLoader.getDirectoryStatistics();
       this.logger.debug(
@@ -198,32 +211,6 @@ export class LCSAdapter {
     } catch (error) {
       this.handleResourceLoaderError(error);
     }
-  }
-
-  /**
-   * Request standard library ZIP from client
-   */
-  private async requestStandardLibraryZip(): Promise<Uint8Array> {
-    this.logger.debug(
-      () =>
-        '📦 Requesting standard library ZIP from client via virtual file system...',
-    );
-
-    const result = (await this.connection.sendRequest(
-      'apex/provideStandardLibrary',
-      {},
-    )) as { zipData: string; size: number } | undefined;
-
-    if (!result || !result.zipData) {
-      throw new Error('Client did not provide ZIP data');
-    }
-
-    this.logger.debug(
-      () => `📦 Received ZIP buffer from client (${result.size} bytes)`,
-    );
-
-    const binaryString = Buffer.from(result.zipData, 'base64');
-    return new Uint8Array(binaryString);
   }
 
   /**

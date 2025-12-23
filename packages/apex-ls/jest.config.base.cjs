@@ -6,6 +6,8 @@ module.exports = {
   // Shared module name mappings
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,
+    // Mock ZIP file imports for Jest (esbuild handles these at bundle time)
+    '\\.zip$': '<rootDir>/../apex-parser-ast/test/__mocks__/zipMock.js',
     '^@salesforce/apex-lsp-shared$':
       '<rootDir>/../apex-lsp-shared/src/index.ts',
     '^@salesforce/apex-lsp-parser-ast$':
