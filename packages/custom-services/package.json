@@ -82,7 +82,7 @@
       ]
     },
     "lint": {
-      "command": "eslint --color --cache --cache-location .eslintcache src/**/*.ts $(test -d test && echo 'test/**/*.ts' || true)",
+      "command": "eslint --color --cache --cache-location .eslintcache src test",
       "dependencies": [
         "compile"
       ],
