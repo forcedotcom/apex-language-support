@@ -82,7 +82,7 @@
       ]
     },
     "lint": {
-      "command": "eslint --color --cache --cache-location .eslintcache src test",
+      "command": "eslint --color --cache --cache-location .eslintcache src",
       "dependencies": [
         "compile"
       ],
