@@ -688,7 +688,8 @@
     "copy-worker-files": {
       "command": "node scripts/postbundle.js",
       "dependencies": [
-        "bundle"
+        "bundle",
+        "../apex-ls:bundle"
       ],
       "output": [
         "dist/**"
