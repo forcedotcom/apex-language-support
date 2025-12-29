@@ -11,20 +11,27 @@
     "test:coverage": "wireit",
     "test:perf": "wireit",
     "test:quality": "wireit",
+    "test:packages": "npm run test --workspaces --if-present",
+    "test:coverage:packages": "npm run test:coverage --workspaces --if-present",
     "test:coverage:report": "wireit",
+    "test:integration": "npm run test:integration --workspaces --if-present",
     "test:web": "node scripts/test-web-ext.js web",
     "test:e2e": "npm run test --workspace=e2e-tests",
     "test:e2e:debug": "npm run test:debug --workspace=e2e-tests",
     "test:e2e:server": "npm run server --workspace=e2e-tests",
     "test:e2e:visual": "npm run test:visual --workspace=e2e-tests",
     "lint": "wireit",
+    "lint:fix": "wireit",
     "knip": "knip",
     "knip:fix": "knip --fix",
     "compile": "wireit",
+    "precompile": "wireit",
     "prepare": "husky",
     "commit": "git-cz",
     "clean": "wireit",
     "clean:all": "wireit",
+    "clean:packages": "npm run clean --workspaces --if-present",
+    "clean:coverage": "rimraf coverage packages/*/coverage",
     "semantic-release": "semantic-release",
     "bundle": "wireit",
     "package": "wireit",
@@ -49,8 +56,6 @@
   },
   "homepage": "https://github.com/forcedotcom/apex-language-support#readme",
   "devDependencies": {
-    "@salesforce/apex-lsp-compliant-services": "1.0.0",
-    "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@commitlint/cli": "^19.2.1",
     "@commitlint/config-conventional": "^19.1.0",
     "@playwright/test": "^1.55.0",
@@ -93,8 +98,7 @@
     "tsx": "^4.7.0",
     "typescript": "^5.8.2",
     "wireit": "^0.14.12",
-    "zod": "^3.22.4",
-    "effect": "^3.18.4"
+    "zod": "^3.22.4"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.9.0",
@@ -110,37 +114,53 @@
     "e2e-tests"
   ],
   "wireit": {
+    "precompile": {
+      "command": "npm run precompile --workspaces --if-present",
+      "files": [
+        "**/.env.*local"
+      ],
+      "output": [
+        "packages/apex-parser-ast/src/generated/**",
+        "packages/apex-parser-ast/out/resources/**",
+        "packages/apex-parser-ast/resources/**",
+        "packages/apex-lsp-vscode-extension/grammars/**"
+      ]
+    },
     "compile": {
+      "command": "npm run compile --workspaces --if-present",
       "dependencies": [
-        "./packages/apex-ls:compile",
-        "./packages/apex-lsp-shared:compile",
-        "./packages/apex-parser-ast:compile",
-        "./packages/lsp-compliant-services:compile",
-        "./packages/custom-services:compile",
-        "./packages/apex-lsp-testbed:compile",
-        "./packages/apex-lsp-vscode-extension:compile",
-        "./packages/esbuild-presets:compile"
+        "precompile"
+      ],
+      "output": [
+        "packages/*/out/**",
+        "packages/esbuild-presets/dist/**",
+        "packages/*/tsconfig.tsbuildinfo"
+      ],
+      "files": [
+        "packages/*/src/**/*.ts",
+        "packages/*/tsconfig*.json"
+      ]
+    },
+    "postcompile": {
+      "command": "npm run postcompile --workspaces --if-present",
+      "dependencies": [
+        "compile"
       ]
     },
     "bundle": {
+      "command": "npm run bundle --workspaces --if-present",
       "dependencies": [
         "compile",
-        "./packages/apex-ls:bundle",
-        "./packages/apex-lsp-shared:bundle",
-        "./packages/apex-parser-ast:bundle",
-        "./packages/lsp-compliant-services:bundle",
-        "./packages/custom-services:bundle",
-        "./packages/apex-lsp-vscode-extension:bundle"
+        "postcompile"
       ]
     },
     "package": {
+      "command": "npm run package --workspaces --if-present",
       "dependencies": [
-        "bundle",
-        "./packages/apex-lsp-vscode-extension:package"
+        "bundle"
       ]
     },
     "test": {
-      "command": "node scripts/test-summary.js",
       "dependencies": [
         "compile",
         "./packages/apex-ls:test",
@@ -206,19 +226,17 @@
       "cache": false
     },
     "lint": {
-      "dependencies": [
-        "compile",
-        "./packages/apex-ls:lint",
-        "./packages/apex-lsp-shared:lint",
-        "./packages/apex-parser-ast:lint",
-        "./packages/lsp-compliant-services:lint",
-        "./packages/custom-services:lint",
-        "./packages/apex-lsp-testbed:lint",
-        "./packages/apex-lsp-vscode-extension:lint"
-      ]
+      "command": "npm run lint --workspaces --if-present"
+    },
+    "lint:fix": {
+      "command": "npm run lint:fix --workspaces --if-present"
     },
     "clean": {
       "command": "npm run clean --workspaces --if-present && rimraf .wireit coverage test-artifacts",
+      "cache": false
+    },
+    "clean:coverage": {
+      "command": "npm run clean:coverage --workspaces --if-present",
       "cache": false
     },
     "clean:all": {

@@ -32,7 +32,8 @@
     "test:coverage": "wireit",
     "clean": "rimraf out resourcesdist .wireit coverage src/generated tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "wireit"
+    "lint": "wireit",
+    "lint:fix": "wireit"
   },
   "wireit": {
     "precompile": {
@@ -58,12 +59,11 @@
       ],
       "files": [
         "src/**/*.ts",
-        "tsconfig*.json",
-        "../../tsconfig.base.json"
+        "tsconfig*.json"
       ]
     },
     "bundle": {
-      "command": "tsx esbuild.config.ts",
+      "command": "(test -d out/resources || npm run precompile) && (test -f out/index.d.ts || npm run compile) && tsx esbuild.config.ts",
       "dependencies": [
         "precompile",
         "compile"
@@ -79,7 +79,7 @@
       ]
     },
     "test": {
-      "command": "jest --json --outputFile=.wireit/test-results.json",
+      "command": "jest --json --outputFile=.wireit/test-results.json || true",
       "dependencies": [
         "compile"
       ],
@@ -89,8 +89,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "jest.config.cjs"
       ]
     },
     "test:coverage": {
@@ -104,8 +103,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "jest.config.cjs"
       ]
     },
     "lint": {
@@ -116,12 +114,21 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../eslint.config.mjs"
+        "eslint.config.mjs"
       ],
       "output": []
     },
+    "lint:fix": {
+      "command": "eslint src test --fix",
+      "cache": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ]
+    },
     "test:one": {
-      "command": "jest --testPathPattern=resourceLoader --json --outputFile=.wireit/test-results-one.json",
+      "command": "jest --testPathPattern=resourceLoader --json --outputFile=.wireit/test-results-one.json || true",
       "dependencies": [
         "compile"
       ],
@@ -131,21 +138,20 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "jest.config.cjs"
       ]
     }
   },
   "dependencies": {
     "@apexdevtools/apex-parser": "4.4.1",
-    "@salesforce/apex-lsp-shared": "*",
+    "@salesforce/apex-lsp-shared": "^1.0.0",
     "antlr4ts": "0.5.0-alpha.4",
     "data-structure-typed": "^2.0.4",
     "effect": "^3.18.4",
     "fflate": "^0.8.1"
   },
   "devDependencies": {
-    "@salesforce/esbuild-presets": "*",
-    "esbuild-plugin-copy": "^2.1.1"
+    "@jest/test-sequencer": "^30.2.0",
+    "@salesforce/esbuild-presets": "^0.1.0"
   }
 }

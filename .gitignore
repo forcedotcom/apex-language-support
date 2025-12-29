@@ -58,9 +58,6 @@ test-workspace
 /packages/apex-lsp-testbed/test-artifacts
 /test-artifacts
 
-# ESLint cache
-.eslintcache
-
 /packages/apex-parser-ast/test/generator/test-files
 /packages/apex-parser-ast/src/generated
 

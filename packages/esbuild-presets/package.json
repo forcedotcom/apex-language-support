@@ -23,15 +23,8 @@
   "wireit": {
     "compile": {
       "command": "tsc --build",
-      "output": [
-        "dist/**",
-        "tsconfig.tsbuildinfo"
-      ],
-      "files": [
-        "src/**/*.ts",
-        "tsconfig*.json",
-        "../../tsconfig.base.json"
-      ]
+      "output": ["dist/**", "tsconfig.tsbuildinfo"],
+      "files": ["src/**/*.ts", "tsconfig*.json"]
     }
   },
   "license": "BSD-3-Clause",

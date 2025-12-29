@@ -122,11 +122,7 @@ Wireit tasks are defined in the `wireit` field of each package's `package.json`.
       "output": ["src/generated/**", "out/**"]
     },
     "compile": {
-      "dependencies": [
-        "precompile",
-        "<workspace>:precompile",
-        "<workspace>:compile"
-      ],
+      "dependencies": ["precompile", "<workspace>:precompile", "<workspace>:compile"],
       "output": ["out/**", "*.tsbuildinfo"],
       "files": ["src/**/*.ts", "src/generated/**"]
     },
@@ -305,6 +301,11 @@ npm run package
 
   ```bash
   npm run test:coverage
+  ```
+
+- **Run package-specific tests**:
+  ```bash
+  npm run test:packages
   ```
 
 ### Code Quality

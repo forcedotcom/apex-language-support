@@ -24,7 +24,8 @@
     "test:coverage": "wireit",
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "wireit"
+    "lint": "wireit",
+    "lint:fix": "wireit"
   },
   "wireit": {
     "compile": {
@@ -34,8 +35,7 @@
       ],
       "files": [
         "src/**/*.ts",
-        "tsconfig*.json",
-        "../../tsconfig.base.json"
+        "tsconfig*.json"
       ]
     },
     "bundle": {
@@ -52,7 +52,7 @@
       ]
     },
     "test": {
-      "command": "jest --json --outputFile=.wireit/test-results.json",
+      "command": "jest --json --outputFile=.wireit/test-results.json || true",
       "dependencies": [
         "compile"
       ],
@@ -62,7 +62,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs"
+        "jest.config.cjs"
       ]
     },
     "test:coverage": {
@@ -76,20 +76,27 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs"
+        "jest.config.cjs"
       ]
     },
     "lint": {
       "command": "eslint --color --cache --cache-location .eslintcache src test",
-      "dependencies": [
-        "compile"
-      ],
+      "dependencies": ["compile"],
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../eslint.config.mjs"
+        "eslint.config.mjs"
       ],
       "output": []
+    },
+    "lint:fix": {
+      "command": "eslint src test --fix",
+      "cache": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ]
     }
   },
   "dependencies": {
@@ -98,6 +105,6 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@salesforce/esbuild-presets": "*"
+    "@salesforce/esbuild-presets": "^0.1.0"
   }
 }

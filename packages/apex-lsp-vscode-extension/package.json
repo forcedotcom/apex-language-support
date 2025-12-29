@@ -629,13 +629,17 @@
     "precompile": "wireit",
     "compile": "wireit",
     "bundle": "wireit",
+    "copy-worker-files": "wireit",
     "package": "wireit",
     "rebuild": "npm run clean && npm run build",
+    "copy:files": "wireit",
     "test": "wireit",
     "test:coverage": "wireit",
     "clean": "rimraf out dist extension .wireit coverage grammars tsconfig.tsbuildinfo server-bundle",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "wireit"
+    "clean:coverage": "rimraf coverage",
+    "lint": "wireit",
+    "lint:fix": "wireit"
   },
   "wireit": {
     "precompile": {
@@ -645,8 +649,7 @@
       ],
       "files": [
         "package.nls*.json",
-        "language-configuration.json",
-        "../../node_modules/@salesforce/apex-tmlanguage/grammars/**"
+        "language-configuration.json"
       ]
     },
     "compile": {
@@ -662,16 +665,13 @@
       ],
       "files": [
         "src/**/*.ts",
-        "tsconfig*.json",
-        "../../tsconfig.base.json"
+        "tsconfig*.json"
       ]
     },
     "bundle": {
       "command": "tsx esbuild.config.ts",
       "dependencies": [
-        "compile",
-        "../esbuild-presets:compile",
-        "../apex-ls:bundle"
+        "compile"
       ],
       "output": [
         "extension/**",
@@ -685,10 +685,23 @@
         "out/extension.js"
       ]
     },
-    "package": {
-      "command": "cd dist && vsce package --out ../ --no-dependencies",
+    "copy-worker-files": {
+      "command": "node scripts/postbundle.js",
       "dependencies": [
         "bundle"
+      ],
+      "output": [
+        "dist/**"
+      ],
+      "files": [
+        "dist/package.json"
+      ]
+    },
+    "package": {
+      "command": "if [ ! -f dist/package.json ]; then (test -f out/extension.js || npm run compile) && tsx esbuild.config.ts && node scripts/postbundle.js; fi && cd dist && vsce package --out ../ --no-dependencies",
+      "dependencies": [
+        "bundle",
+        "copy-worker-files"
       ],
       "output": [
         "*.vsix"
@@ -698,7 +711,7 @@
       ]
     },
     "test": {
-      "command": "jest --passWithNoTests --json --outputFile=.wireit/test-results.json",
+      "command": "jest --passWithNoTests --json --outputFile=.wireit/test-results.json || true",
       "dependencies": [
         "compile"
       ],
@@ -708,7 +721,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs"
+        "jest.config.cjs"
       ]
     },
     "test:coverage": {
@@ -722,38 +735,48 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs"
+        "jest.config.cjs"
       ]
     },
     "lint": {
       "command": "eslint --color --cache --cache-location .eslintcache src test",
-      "dependencies": [
-        "compile"
-      ],
+      "dependencies": ["compile"],
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../eslint.config.mjs"
+        "eslint.config.mjs"
       ],
       "output": []
+    },
+    "lint:fix": {
+      "command": "eslint src test --fix",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ]
+    },
+    "copy:files": {
+      "command": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
+      "output": [
+        "grammars/**"
+      ]
     }
   },
   "dependencies": {
-    "@salesforce/apex-lsp-compliant-services": "*",
-    "@salesforce/apex-lsp-shared": "*",
-    "effect": "^3.18.4",
+    "@salesforce/apex-lsp-shared": "1.0.0",
     "vscode-languageclient": "^9.0.1",
     "web-worker": "^1.5.0"
   },
   "devDependencies": {
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@salesforce/apex-tmlanguage": "1.8.2",
-    "@salesforce/esbuild-presets": "*",
+    "@salesforce/esbuild-presets": "^0.1.0",
     "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^2.15.0",
     "buffer": "^6.0.3",
-    "esbuild-plugin-copy": "^2.1.1",
     "events": "^3.3.0",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",

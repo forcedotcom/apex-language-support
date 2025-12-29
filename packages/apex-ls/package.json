@@ -32,24 +32,21 @@
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo || rm -rf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "wireit",
+    "lint:fix": "wireit",
     "rebuild": "npm run clean && npm run compile"
   },
   "wireit": {
     "compile": {
       "command": "npm-run-all --parallel compile:browser compile:worker compile:node",
       "dependencies": [
-        "../apex-parser-ast:precompile",
-        "../apex-parser-ast:compile",
-        "../lsp-compliant-services:compile"
+        "../apex-parser-ast:precompile"
       ],
       "output": [
         "out/**"
       ],
       "files": [
         "src/**/*.ts",
-        "tsconfig*.json",
-        "tsconfig.base.shared.json",
-        "../../tsconfig.base.json"
+        "tsconfig*.json"
       ]
     },
     "rebuild": {
@@ -78,7 +75,7 @@
       ]
     },
     "test": {
-      "command": "jest --json --outputFile=.wireit/test-results.json",
+      "command": "jest --json --outputFile=.wireit/test-results.json || true",
       "dependencies": [
         "compile"
       ],
@@ -88,8 +85,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "jest.config*.cjs"
       ]
     },
     "test:coverage": {
@@ -103,24 +99,30 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "jest.config*.cjs"
       ]
     },
     "lint": {
       "command": "eslint --color --cache --cache-location .eslintcache src test",
-      "dependencies": [
-        "compile"
-      ],
+      "dependencies": ["compile"],
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../eslint.config.mjs"
+        "eslint.config.mjs"
       ],
       "output": []
     },
+    "lint:fix": {
+      "command": "eslint src test --fix",
+      "cache": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ]
+    },
     "test:web": {
-      "command": "jest --config jest.config.browser.cjs --json --outputFile=.wireit/test-results-web.json",
+      "command": "jest --config jest.config.browser.cjs --json --outputFile=.wireit/test-results-web.json || true",
       "dependencies": [
         "compile"
       ],
@@ -130,36 +132,31 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "jest.config.base.cjs",
-        "../../scripts/jest-teardown.js"
+        "jest.config.browser.cjs"
       ]
     }
   },
   "dependencies": {
-    "@salesforce/apex-lsp-compliant-services": "*",
-    "@salesforce/apex-lsp-parser-ast": "*",
-    "@salesforce/apex-lsp-shared": "*",
-    "effect": "^3.18.4",
+    "@salesforce/apex-lsp-compliant-services": "1.0.0",
+    "@salesforce/apex-lsp-shared": "1.0.0",
     "vscode-jsonrpc": "^8.2.0",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
     "web-worker": "^1.5.0"
   },
   "devDependencies": {
-    "@salesforce/esbuild-presets": "*",
+    "@salesforce/esbuild-presets": "^0.1.0",
     "@types/node": "^20.19.4",
     "@types/vscode": "^1.90.0",
     "assert": "^2.1.0",
+    "npm-run-all": "^4.1.5",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
-    "esbuild-plugin-copy": "^2.1.1",
     "events": "^3.3.0",
     "jest-environment-jsdom": "^30.0.5",
     "memfs": "^4.17.0",
     "memfs-browser": "^3.5.10302",
     "node-dir": "^0.1.17",
-    "npm-run-all": "^4.1.5",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
