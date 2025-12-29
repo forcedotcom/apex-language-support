@@ -39,7 +39,9 @@
     "compile": {
       "command": "npm-run-all --parallel compile:browser compile:worker compile:node",
       "dependencies": [
-        "../apex-parser-ast:precompile"
+        "../apex-parser-ast:precompile",
+        "../apex-parser-ast:compile",
+        "../lsp-compliant-services:compile"
       ],
       "output": [
         "out/**"
