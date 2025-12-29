@@ -110,7 +110,10 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
 
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
-        expect(configContent).toContain('dist/resources');
+        // The path is constructed using path.join, so check for the pattern
+        expect(configContent).toContain('resourcesDir');
+        expect(configContent).toContain('path.join');
+        expect(configContent).toContain('resources');
       }
     });
 
