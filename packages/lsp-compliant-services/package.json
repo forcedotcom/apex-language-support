@@ -24,49 +24,94 @@
     "test:coverage": "wireit",
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "wireit",
-    "lint:fix": "wireit"
+    "lint": "wireit"
   },
   "wireit": {
     "compile": {
       "command": "tsc --build",
-      "dependencies": ["../apex-parser-ast:precompile"],
-      "output": ["out/**"],
-      "files": ["src/**/*.ts", "tsconfig*.json"]
+      "dependencies": [
+        "../apex-parser-ast:precompile"
+      ],
+      "output": [
+        "out/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "tsconfig*.json",
+        "../../tsconfig.base.json"
+      ]
     },
     "bundle": {
       "command": "tsx esbuild.config.ts",
-      "dependencies": ["compile", "../esbuild-presets:compile", "../apex-parser-ast:compile"],
-      "output": ["dist/**"],
-      "files": ["src/**/*.ts", "esbuild.config.ts"]
+      "dependencies": [
+        "compile",
+        "../esbuild-presets:compile",
+        "../apex-parser-ast:compile"
+      ],
+      "output": [
+        "dist/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "esbuild.config.ts"
+      ]
     },
     "test": {
-      "command": "jest --json --outputFile=.wireit/test-results.json || true",
-      "dependencies": ["compile"],
-      "output": [".wireit/test-results.json"],
-      "files": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+      "command": "jest --json --outputFile=.wireit/test-results.json",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        ".wireit/test-results.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "**/jest.config.cjs",
+        "../../scripts/jest-teardown.js"
+      ]
     },
     "test:coverage": {
       "command": "jest --coverage --coverageDirectory=./coverage",
-      "dependencies": ["compile"],
-      "output": ["coverage/**"],
-      "files": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        "coverage/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "**/jest.config.cjs",
+        "../../scripts/jest-teardown.js"
+      ]
     },
     "lint": {
       "command": "eslint --color --cache --cache-location .eslintcache src test",
-      "dependencies": ["compile"],
-      "files": ["src/**/*.ts", "test/**/*.ts", "eslint.config.mjs"],
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ],
       "output": []
     },
-    "lint:fix": {
-      "command": "eslint src test --fix",
-      "files": ["src/**/*.ts", "test/**/*.ts", "eslint.config.mjs"]
-    },
     "test:one": {
-      "command": "jest --testPathPattern=HoverProcessingService.integration.test --testNamePattern=\"should provide hover for method declaration testFileUtilities\" --json --outputFile=.wireit/test-results-one.json || true",
-      "dependencies": ["compile"],
-      "output": [".wireit/test-results-one.json"],
-      "files": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+      "command": "jest --testPathPattern=HoverProcessingService.integration.test --testNamePattern=\"should provide hover for method declaration testFileUtilities\" --json --outputFile=.wireit/test-results-one.json",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        ".wireit/test-results-one.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "**/jest.config.cjs",
+        "../../scripts/jest-teardown.js"
+      ]
     }
   },
   "dependencies": {

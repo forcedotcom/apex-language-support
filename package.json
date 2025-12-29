@@ -21,17 +21,14 @@
     "test:e2e:server": "npm run server --workspace=e2e-tests",
     "test:e2e:visual": "npm run test:visual --workspace=e2e-tests",
     "lint": "wireit",
-    "lint:fix": "wireit",
     "knip": "knip",
     "knip:fix": "knip --fix",
     "compile": "wireit",
-    "precompile": "wireit",
     "prepare": "husky",
     "commit": "git-cz",
     "clean": "wireit",
     "clean:all": "wireit",
     "clean:packages": "npm run clean --workspaces --if-present",
-    "clean:coverage": "rimraf coverage packages/*/coverage",
     "semantic-release": "semantic-release",
     "bundle": "wireit",
     "package": "wireit",
@@ -114,15 +111,8 @@
     "e2e-tests"
   ],
   "wireit": {
-    "precompile": {
-      "dependencies": [
-        "./packages/apex-parser-ast:precompile",
-        "./packages/apex-lsp-vscode-extension:precompile"
-      ]
-    },
     "compile": {
       "dependencies": [
-        "precompile",
         "./packages/apex-ls:compile",
         "./packages/apex-lsp-shared:compile",
         "./packages/apex-parser-ast:compile",
@@ -133,16 +123,9 @@
         "./packages/esbuild-presets:compile"
       ]
     },
-    "postcompile": {
-      "command": "npm run postcompile --workspaces --if-present",
-      "dependencies": [
-        "compile"
-      ]
-    },
     "bundle": {
       "dependencies": [
         "compile",
-        "postcompile",
         "./packages/apex-ls:bundle",
         "./packages/apex-lsp-shared:bundle",
         "./packages/apex-parser-ast:bundle",
@@ -158,6 +141,7 @@
       ]
     },
     "test": {
+      "command": "node scripts/test-summary.js",
       "dependencies": [
         "compile",
         "./packages/apex-ls:test",
@@ -234,16 +218,8 @@
         "./packages/apex-lsp-vscode-extension:lint"
       ]
     },
-    "lint:fix": {
-      "command": "npm run lint:fix --workspaces --if-present",
-      "cache": false
-    },
     "clean": {
       "command": "npm run clean --workspaces --if-present && rimraf .wireit coverage test-artifacts",
-      "cache": false
-    },
-    "clean:coverage": {
-      "command": "npm run clean:coverage --workspaces --if-present",
       "cache": false
     },
     "clean:all": {

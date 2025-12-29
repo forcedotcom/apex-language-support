@@ -14,19 +14,44 @@
   "wireit": {
     "test:e2e": {
       "command": "playwright test",
-      "output": ["test-results/**", "playwright-report/**"],
-      "files": ["tests/**/*.ts", "utils/**/*.ts", "playwright.config.ts"]
+      "output": [
+        "test-results/**",
+        "playwright-report/**"
+      ],
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "playwright.config.ts"
+      ]
     },
     "test:debug": {
-      "command": "DEBUG_MODE=1 playwright test --debug",
-      "output": ["test-results/**"],
-      "files": ["tests/**/*.ts", "utils/**/*.ts", "playwright.config.ts"],
+      "command": "playwright test --debug",
+      "env": {
+        "DEBUG_MODE": "1"
+      },
+      "output": [
+        "test-results/**"
+      ],
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "playwright.config.ts"
+      ],
       "cache": false
     },
     "test:visual": {
-      "command": "DEBUG_MODE=1 playwright test --ui",
-      "output": ["test-results/**"],
-      "files": ["tests/**/*.ts", "utils/**/*.ts", "playwright.config.ts"],
+      "command": "playwright test --ui",
+      "env": {
+        "DEBUG_MODE": "1"
+      },
+      "output": [
+        "test-results/**"
+      ],
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "playwright.config.ts"
+      ],
       "cache": false
     }
   },
