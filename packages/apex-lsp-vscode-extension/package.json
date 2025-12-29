@@ -629,7 +629,6 @@
     "precompile": "wireit",
     "compile": "wireit",
     "bundle": "wireit",
-    "copy-worker-files": "wireit",
     "package": "wireit",
     "rebuild": "npm run clean && npm run build",
     "copy:files": "wireit",
@@ -670,7 +669,8 @@
     "bundle": {
       "command": "tsx esbuild.config.ts",
       "dependencies": [
-        "compile"
+        "compile",
+        "../apex-ls:bundle"
       ],
       "output": [
         "extension/**",
@@ -684,24 +684,10 @@
         "out/extension.js"
       ]
     },
-    "copy-worker-files": {
-      "command": "node scripts/postbundle.js",
-      "dependencies": [
-        "bundle",
-        "../apex-ls:bundle"
-      ],
-      "output": [
-        "dist/**"
-      ],
-      "files": [
-        "dist/package.json"
-      ]
-    },
     "package": {
-      "command": "if [ ! -f dist/package.json ]; then (test -f out/extension.js || npm run compile) && tsx esbuild.config.ts && node scripts/postbundle.js; fi && cd dist && vsce package --out ../ --no-dependencies",
+      "command": "cd dist && vsce package --out ../ --no-dependencies",
       "dependencies": [
-        "bundle",
-        "copy-worker-files"
+        "bundle"
       ],
       "output": [
         "*.vsix"

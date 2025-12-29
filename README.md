@@ -173,9 +173,6 @@ This project includes comprehensive test coverage for all packages. Test coverag
 # Run all tests with coverage
 npm run test:coverage
 
-# Run tests with coverage for specific packages
-npm run test:coverage:packages
-
 # Generate a consolidated coverage report for the entire repository
 npm run test:coverage:report
 ```

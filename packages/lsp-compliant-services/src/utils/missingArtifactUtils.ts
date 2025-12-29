@@ -7,7 +7,11 @@
  */
 
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
-import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import {
+  ISymbolManager,
+  ReferenceContext,
+  isChainedSymbolReference,
+} from '@salesforce/apex-lsp-parser-ast';
 
 import {
   MissingArtifactResolutionService,
@@ -343,8 +347,15 @@ export class MissingArtifactUtils {
       );
 
       if (references && references.length > 0) {
-        // Use the first reference found at the position
-        const reference = references[0];
+        // Prioritize chained references when they exist
+        // This ensures we get the full chain (e.g., "FileUtilities.createFile")
+        // instead of just the individual part (e.g., "createFile")
+        const chainedRefs = references.filter((ref) =>
+          isChainedSymbolReference(ref),
+        );
+
+        const reference =
+          chainedRefs.length > 0 ? chainedRefs[0] : references[0];
 
         this.logger.debug(
           () =>
@@ -375,17 +386,30 @@ export class MissingArtifactUtils {
     const hints: any[] = [];
 
     try {
+      // Extract qualifier from chained references if applicable
+      let qualifier: string | undefined = reference.qualifier;
+      if (!qualifier && isChainedSymbolReference(reference)) {
+        // For chained references, extract qualifier from chainNodes
+        const chainNodes = reference.chainNodes;
+        if (chainNodes && chainNodes.length >= 2) {
+          qualifier = chainNodes[0].name;
+        }
+      }
+
       // Generate search patterns based on qualifier and context
-      if (reference.qualifier) {
+      if (qualifier) {
         // Qualified reference like "Foo.bar" or "myInstance.method"
-        const qualifierType = this.inferQualifierType(reference, parentContext);
+        const qualifierType = this.inferQualifierType(
+          { ...reference, qualifier },
+          parentContext,
+        );
 
         if (qualifierType === 'class') {
           // High confidence: qualifier is a class name
           hints.push({
-            searchPatterns: [`**/${reference.qualifier}.cls`],
+            searchPatterns: [`**/${qualifier}.cls`],
             priority: 'exact',
-            reasoning: `Qualifier '${reference.qualifier}' is a class, searching for class definition`,
+            reasoning: `Qualifier '${qualifier}' is a class, searching for class definition`,
             expectedFileType: 'class',
             confidence: 0.9,
           });
@@ -394,7 +418,7 @@ export class MissingArtifactUtils {
           hints.push({
             searchPatterns: ['**/*.cls'], // Will be refined by resolvedQualifier
             priority: 'medium',
-            reasoning: `Qualifier '${reference.qualifier}' is a variable, searching for its type definition`,
+            reasoning: `Qualifier '${qualifier}' is a variable, searching for its type definition`,
             expectedFileType: 'class',
             confidence: 0.6,
           });
@@ -437,8 +461,15 @@ export class MissingArtifactUtils {
       }
 
       // Add namespace-specific hints if we can infer them
-      if (reference.qualifier && reference.qualifier.includes('.')) {
-        const [namespace, className] = reference.qualifier.split('.');
+      const effectiveQualifier =
+        qualifier ||
+        (isChainedSymbolReference(reference) &&
+        reference.chainNodes &&
+        reference.chainNodes.length >= 2
+          ? reference.chainNodes[0].name
+          : undefined);
+      if (effectiveQualifier && effectiveQualifier.includes('.')) {
+        const [namespace, className] = effectiveQualifier.split('.');
         hints.push({
           searchPatterns: [`**/${className}.cls`],
           priority: 'exact',
@@ -479,19 +510,30 @@ export class MissingArtifactUtils {
     parentContext: any,
   ): 'class' | 'variable' {
     try {
+      const qualifier = reference.qualifier;
+      if (!qualifier) {
+        return 'variable';
+      }
+
       // Check if qualifier matches a known class name in the current context
-      if (parentContext?.containingType?.name === reference.qualifier) {
+      if (parentContext?.containingType?.name === qualifier) {
         return 'class';
       }
 
       // Check if qualifier is in the ancestor chain
       if (parentContext?.ancestorChain) {
         const isAncestor = parentContext.ancestorChain.some(
-          (ancestor: any) => ancestor.name === reference.qualifier,
+          (ancestor: any) => ancestor.name === qualifier,
         );
         if (isAncestor) {
           return 'class';
         }
+      }
+
+      // For chained references, the first part is often a class name
+      // (e.g., "FileUtilities.createFile" -> "FileUtilities" is likely a class)
+      if (isChainedSymbolReference(reference)) {
+        return 'class';
       }
 
       // Default to variable (instance, parameter, etc.)
@@ -516,13 +558,22 @@ export class MissingArtifactUtils {
     readonly filePath?: string;
   } | null {
     try {
-      if (!reference.qualifier) {
+      // Extract qualifier from chained references if applicable
+      let qualifier: string | undefined = reference.qualifier;
+      if (!qualifier && isChainedSymbolReference(reference)) {
+        const chainNodes = reference.chainNodes;
+        if (chainNodes && chainNodes.length >= 2) {
+          qualifier = chainNodes[0].name;
+        }
+      }
+
+      if (!qualifier) {
         return null;
       }
 
       // Try to find the qualifier symbol in the current context
       const qualifierSymbol = this.findQualifierSymbol(
-        reference.qualifier,
+        qualifier,
         parentContext,
       );
 
@@ -539,7 +590,7 @@ export class MissingArtifactUtils {
       // Fallback: infer from context
       return {
         type: 'unknown',
-        name: reference.qualifier,
+        name: qualifier,
         isStatic: false,
       };
     } catch (error) {

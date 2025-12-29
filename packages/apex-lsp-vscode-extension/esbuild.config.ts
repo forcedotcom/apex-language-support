@@ -86,7 +86,6 @@ function fixPackagePaths() {
 
 /**
  * Execute immediate post-build tasks (non-dependent on other packages)
- * Worker file copying is done in a separate postbundle script that Wireit can track
  * Note: File copying is handled by esbuild-plugin-copy, so we only need to:
  * - Fix package.json paths (transform, not copy)
  * - Create .vscodeignore file (generated content)
@@ -160,6 +159,24 @@ const builds: BuildOptions[] = [
           {
             from: ['out/webviews/*.js'],
             to: ['./dist/webview'],
+          },
+          // Copy worker and server files from apex-ls package to dist
+          // Note: Wireit dependency ensures ../apex-ls:bundle completes before this runs
+          {
+            from: ['../apex-ls/dist/worker.global.js'],
+            to: ['./dist/worker.global.js'],
+          },
+          {
+            from: ['../apex-ls/dist/worker.global.js.map'],
+            to: ['./dist/worker.global.js.map'],
+          },
+          {
+            from: ['../apex-ls/dist/server.node.js'],
+            to: ['./dist/server.node.js'],
+          },
+          {
+            from: ['../apex-ls/dist/server.node.js.map'],
+            to: ['./dist/server.node.js.map'],
           },
         ],
         watch: true,

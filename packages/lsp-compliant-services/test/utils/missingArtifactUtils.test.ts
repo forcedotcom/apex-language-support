@@ -7,7 +7,11 @@
  */
 
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import {
+  ISymbolManager,
+  ReferenceContext,
+  isChainedSymbolReference,
+} from '@salesforce/apex-lsp-parser-ast';
 import { MissingArtifactUtils } from '../../src/utils/missingArtifactUtils';
 
 describe('MissingArtifactUtils', () => {
@@ -135,6 +139,148 @@ describe('MissingArtifactUtils', () => {
       // Assert
       expect(result).toEqual(mockReference1);
       expect(mockSymbolManager.getReferencesAtPosition).toHaveBeenCalled();
+    });
+
+    it('should prioritize chained references over individual references when both exist', () => {
+      // Arrange
+      // This test case covers the bug where hovering over "FileUtilities.createFile"
+      // would extract just "createFile" instead of the full chain "FileUtilities.createFile"
+      const uri = 'file:///test/TestClass.cls';
+      const position = { line: 33, character: 61 }; // Position on "createFile" in "FileUtilities.createFile"
+
+      // Individual reference for "createFile" (this was being incorrectly selected)
+      const individualReference = {
+        name: 'createFile',
+        location: {
+          identifierRange: {
+            startLine: 34,
+            startColumn: 57,
+            endLine: 34,
+            endColumn: 66,
+          },
+        },
+        context: ReferenceContext.METHOD_CALL,
+        resolvedSymbolId: undefined,
+      };
+
+      // Chained reference for "FileUtilities.createFile" (this should be prioritized)
+      const chainedReference = {
+        name: 'FileUtilities.createFile',
+        location: {
+          identifierRange: {
+            startLine: 34,
+            startColumn: 57,
+            endLine: 34,
+            endColumn: 66,
+          },
+        },
+        context: ReferenceContext.CHAINED_TYPE,
+        resolvedSymbolId: undefined,
+        chainNodes: [
+          {
+            name: 'FileUtilities',
+            location: {
+              identifierRange: {
+                startLine: 34,
+                startColumn: 57,
+                endLine: 34,
+                endColumn: 70,
+              },
+            },
+            context: ReferenceContext.CLASS_REFERENCE,
+          },
+          {
+            name: 'createFile',
+            location: {
+              identifierRange: {
+                startLine: 34,
+                startColumn: 71,
+                endLine: 34,
+                endColumn: 80,
+              },
+            },
+            context: ReferenceContext.METHOD_CALL,
+          },
+        ],
+      };
+
+      // Simulate the scenario where both references are returned
+      // Individual reference comes first (this was the bug - it was selected)
+      mockSymbolManager.getReferencesAtPosition.mockReturnValue([
+        individualReference,
+        chainedReference,
+      ] as any);
+
+      // Act
+      const result = (utils as any).extractReferenceAtPosition(uri, position);
+
+      // Assert
+      // Should prioritize the chained reference, not the individual one
+      expect(result).toEqual(chainedReference);
+      expect(result.name).toBe('FileUtilities.createFile');
+      expect(isChainedSymbolReference(result)).toBe(true);
+      expect(mockSymbolManager.getReferencesAtPosition).toHaveBeenCalled();
+    });
+
+    it('should prioritize chained reference even when it comes after individual references', () => {
+      // Arrange
+      const uri = 'file:///test/TestClass.cls';
+      const position = { line: 10, character: 20 };
+
+      const individualRef1 = {
+        name: 'FileUtilities',
+        context: ReferenceContext.CLASS_REFERENCE,
+        location: {
+          identifierRange: {
+            startLine: 10,
+            startColumn: 20,
+            endLine: 10,
+            endColumn: 33,
+          },
+        },
+      };
+
+      const individualRef2 = {
+        name: 'createFile',
+        context: ReferenceContext.METHOD_CALL,
+        location: {
+          identifierRange: {
+            startLine: 10,
+            startColumn: 35,
+            endLine: 10,
+            endColumn: 44,
+          },
+        },
+      };
+
+      const chainedRef = {
+        name: 'FileUtilities.createFile',
+        context: ReferenceContext.CHAINED_TYPE,
+        location: {
+          identifierRange: {
+            startLine: 10,
+            startColumn: 20,
+            endLine: 10,
+            endColumn: 44,
+          },
+        },
+        chainNodes: [individualRef1, individualRef2],
+      };
+
+      // Chained reference comes last in the array
+      mockSymbolManager.getReferencesAtPosition.mockReturnValue([
+        individualRef1,
+        individualRef2,
+        chainedRef,
+      ] as any);
+
+      // Act
+      const result = (utils as any).extractReferenceAtPosition(uri, position);
+
+      // Assert
+      expect(result).toEqual(chainedRef);
+      expect(result.name).toBe('FileUtilities.createFile');
+      expect(isChainedSymbolReference(result)).toBe(true);
     });
   });
 });
