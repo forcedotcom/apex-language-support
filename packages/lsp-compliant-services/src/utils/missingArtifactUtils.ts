@@ -9,6 +9,7 @@
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import {
   ISymbolManager,
+  ReferenceContext,
   isChainedSymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
 
