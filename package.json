@@ -49,6 +49,8 @@
   },
   "homepage": "https://github.com/forcedotcom/apex-language-support#readme",
   "devDependencies": {
+    "@salesforce/apex-lsp-compliant-services": "1.0.0",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@commitlint/cli": "^19.2.1",
     "@commitlint/config-conventional": "^19.1.0",
     "@playwright/test": "^1.55.0",
@@ -91,7 +93,8 @@
     "tsx": "^4.7.0",
     "typescript": "^5.8.2",
     "wireit": "^0.14.12",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "effect": "^3.18.4"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.9.0",
