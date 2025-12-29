@@ -146,6 +146,7 @@
   },
   "devDependencies": {
     "@jest/test-sequencer": "^30.2.0",
-    "@salesforce/esbuild-presets": "^0.1.0"
+    "@salesforce/esbuild-presets": "^0.1.0",
+    "esbuild-plugin-copy": "^2.1.1"
   }
 }
