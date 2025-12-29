@@ -631,7 +631,6 @@
     "bundle": "wireit",
     "package": "wireit",
     "rebuild": "npm run clean && npm run build",
-    "copy:files": "wireit",
     "test": "wireit",
     "test:coverage": "wireit",
     "clean": "rimraf out dist extension .wireit coverage grammars tsconfig.tsbuildinfo server-bundle",
@@ -646,7 +645,8 @@
       ],
       "files": [
         "package.nls*.json",
-        "language-configuration.json"
+        "language-configuration.json",
+        "../../node_modules/@salesforce/apex-tmlanguage/grammars/**"
       ]
     },
     "compile": {
@@ -670,6 +670,7 @@
       "command": "tsx esbuild.config.ts",
       "dependencies": [
         "compile",
+        "../esbuild-presets:compile",
         "../apex-ls:bundle"
       ],
       "output": [
@@ -735,12 +736,6 @@
         "eslint.config.mjs"
       ],
       "output": []
-    },
-    "copy:files": {
-      "command": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
-      "output": [
-        "grammars/**"
-      ]
     }
   },
   "dependencies": {

@@ -49,7 +49,7 @@
         "dist/**"
       ],
       "files": [
-        "src/**/*.ts",
+        "out/**",
         "esbuild.config.ts"
       ]
     },

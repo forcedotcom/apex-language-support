@@ -63,7 +63,7 @@
       ]
     },
     "bundle": {
-      "command": "(test -d out/resources || npm run precompile) && (test -f out/index.d.ts || npm run compile) && tsx esbuild.config.ts",
+      "command": "tsx esbuild.config.ts",
       "dependencies": [
         "precompile",
         "compile"
