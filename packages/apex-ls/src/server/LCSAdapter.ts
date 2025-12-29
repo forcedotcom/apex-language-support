@@ -74,6 +74,7 @@ import {
   setQueueStateChangeCallback,
   SchedulerMetrics,
   getEmbeddedStandardLibraryZip,
+  SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
@@ -1231,12 +1232,43 @@ export class LCSAdapter {
     const configManager = LSPConfigurationManager.getInstance();
     const previousCapabilities = configManager.getCapabilities();
 
+    // Get previous scheduler settings before update
+    const settingsManager = configManager.getSettingsManager();
+    const previousSchedulerSettings =
+      settingsManager.getSettings().apex.scheduler;
+
     const success = configManager.updateFromLSPConfiguration(change);
     this.logger.debug(
       () => `Configuration update ${success ? 'succeeded' : 'failed'}`,
     );
 
     if (success) {
+      // Check if scheduler settings changed and reinitialize if needed
+      const newSchedulerSettings = settingsManager.getSettings().apex.scheduler;
+      const schedulerSettingsChanged =
+        JSON.stringify(previousSchedulerSettings) !==
+        JSON.stringify(newSchedulerSettings);
+
+      if (schedulerSettingsChanged) {
+        this.logger.debug(
+          () => 'Scheduler settings changed, reinitializing scheduler',
+        );
+        try {
+          const schedulerService = SchedulerInitializationService.getInstance();
+          if (schedulerService.isInitialized()) {
+            await schedulerService.reinitialize();
+            this.logger.debug(
+              () => 'Scheduler reinitialized successfully with new settings',
+            );
+          }
+        } catch (error) {
+          this.logger.error(
+            () =>
+              `Failed to reinitialize scheduler after settings change: ${formattedError(error)}`,
+          );
+        }
+      }
+
       const newCapabilities = configManager.getCapabilities();
 
       // Check if findMissingArtifact capability changed

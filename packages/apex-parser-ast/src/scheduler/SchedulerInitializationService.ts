@@ -130,4 +130,37 @@ export class SchedulerInitializationService {
   public isInitialized(): boolean {
     return this.initialized;
   }
+
+  /**
+   * Reinitialize the scheduler with updated settings.
+   * This should be called when scheduler settings change after initial initialization.
+   */
+  public async reinitialize(): Promise<void> {
+    if (!this.initialized) {
+      // Not initialized yet, just initialize normally
+      return this.ensureInitialized();
+    }
+
+    this.logger.debug(() => 'Reinitializing scheduler with updated settings');
+
+    try {
+      // Reset the scheduler first
+      const { reset, shutdown } = await import('../queue/priority-scheduler-utils');
+      await Effect.runPromise(shutdown());
+      await Effect.runPromise(reset());
+
+      // Reset our state
+      this.initialized = false;
+      this.initializationPromise = null;
+
+      // Reinitialize with new settings
+      await this.ensureInitialized();
+      this.logger.debug(() => 'Scheduler reinitialized successfully with new settings');
+    } catch (error) {
+      this.logger.error(
+        () => `Failed to reinitialize priority scheduler: ${error}`,
+      );
+      throw error;
+    }
+  }
 }

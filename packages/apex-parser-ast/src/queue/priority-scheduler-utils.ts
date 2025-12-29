@@ -230,6 +230,8 @@ function controllerLoop(
   let lastSummaryLogTime = Date.now();
   const SUMMARY_LOG_INTERVAL_MS = 30000; // 30 seconds
   let lastQueueSizes = new Map<number, number>();
+  let lastCallbackTime = 0;
+  const CALLBACK_THROTTLE_MS = 100; // Send updates max every 100ms
 
   return Effect.gen(function* () {
     let streak = 0;
@@ -362,22 +364,32 @@ function controllerLoop(
         }
 
         // Notify callback if registered and metrics have changed (only send updates when state changes)
+        // Throttle callback frequency to avoid overwhelming the connection
         const callback = yield* Ref.get(queueStateCallbackRef);
         if (callback) {
-          try {
-            // Get current metrics synchronously for callback
-            const currentMetrics = yield* getCurrentMetrics(state);
-            const lastSent = yield* Ref.get(lastSentMetricsRef);
+          const now = Date.now();
+          const timeSinceLastCallback = now - lastCallbackTime;
 
-            // Only send notification if metrics have changed (avoid sending when idle)
-            if (metricsChanged(lastSent, currentMetrics)) {
-              callback(currentMetrics);
-              // Store the metrics we just sent
-              yield* Ref.set(lastSentMetricsRef, currentMetrics);
+          // Only check metrics if enough time has passed (throttle)
+          if (timeSinceLastCallback >= CALLBACK_THROTTLE_MS) {
+            try {
+              // Get current metrics synchronously for callback
+              const currentMetrics = yield* getCurrentMetrics(state);
+              const lastSent = yield* Ref.get(lastSentMetricsRef);
+
+              // Only send notification if metrics have changed (avoid sending when idle)
+              if (metricsChanged(lastSent, currentMetrics)) {
+                // Callback is already deferred via setImmediate in LCSAdapter
+                // This prevents blocking the scheduler loop
+                callback(currentMetrics);
+                // Store the metrics we just sent
+                yield* Ref.set(lastSentMetricsRef, currentMetrics);
+                lastCallbackTime = now;
+              }
+            } catch (error) {
+              // Don't let callback errors break the scheduler loop
+              logger.debug(() => `Queue state callback error: ${error}`);
             }
-          } catch (error) {
-            // Don't let callback errors break the scheduler loop
-            logger.debug(() => `Queue state callback error: ${error}`);
           }
         }
 
@@ -534,8 +546,8 @@ function getCurrentMetrics(
     const queueCapacityPerPriority = {} as Record<Priority, number>;
     for (const p of AllPriorities) {
       const priorityName = priorityNameMap[p] || 'NORMAL';
-      queueCapacityPerPriority[p] =
-        capacityMap[priorityName] || capacityMap.NORMAL || 200;
+      const capacity = capacityMap[priorityName] || capacityMap.NORMAL || 200;
+      queueCapacityPerPriority[p] = capacity;
     }
 
     return {
@@ -719,6 +731,17 @@ export function initialize(
       maxTotalConcurrency,
     };
 
+    // Log what we received for debugging
+    const logger = getLogger();
+    logger.debug(
+      () =>
+        `[SCHEDULER INIT] Received config.queueCapacity: ${JSON.stringify(config?.queueCapacity)}`,
+    );
+    logger.debug(
+      () =>
+        `[SCHEDULER INIT] finalConfig.queueCapacity: ${JSON.stringify(finalConfig.queueCapacity)}`,
+    );
+
     // Handle backward compatibility: convert single number to per-priority Record
     let queueCapacityMap: Record<string, number>;
     if (typeof finalConfig.queueCapacity === 'number') {
@@ -734,6 +757,11 @@ export function initialize(
     } else {
       queueCapacityMap = finalConfig.queueCapacity;
     }
+
+    logger.debug(
+      () =>
+        `[SCHEDULER INIT] Final queueCapacityMap: ${JSON.stringify(queueCapacityMap)}`,
+    );
 
     // Create a persistent scope that will keep the scheduler alive
     // This scope is reused across all calls to maintain singleton behavior
@@ -815,7 +843,6 @@ export function initialize(
     yield* Effect.yieldNow();
 
     // Build the scheduler from the state
-    const logger = getLogger();
     const scheduler: PriorityScheduler = {
       offer<A, E, R>(
         priority: Priority | typeof Critical,
@@ -939,6 +966,28 @@ export function initialize(
               `queue size: ${queueSize}/${capacity}`,
           );
 
+          // Notify callback immediately after enqueueing to capture queue growth
+          // This ensures we capture transient queue sizes before tasks complete
+          // Note: Callback is already deferred via setImmediate in LCSAdapter to avoid blocking
+          const callback = yield* Ref.get(queueStateCallbackRef);
+          if (callback) {
+            try {
+              const currentMetrics = yield* getCurrentMetrics(schedulerState);
+              const lastSent = yield* Ref.get(lastSentMetricsRef);
+              if (metricsChanged(lastSent, currentMetrics)) {
+                // Callback is already deferred via setImmediate in LCSAdapter
+                // This prevents blocking the enqueue operation
+                callback(currentMetrics);
+                yield* Ref.set(lastSentMetricsRef, currentMetrics);
+              }
+            } catch (error) {
+              // Don't let callback errors break enqueueing
+              logger.debug(
+                () => `Queue state callback error during enqueue: ${error}`,
+              );
+            }
+          }
+
           return {
             fiber: Deferred.await(queuedItem.fiberDeferred),
             requestType: queuedItem.requestType,
@@ -1044,8 +1093,9 @@ export function initialize(
         const queueCapacityPerPriority = {} as Record<Priority, number>;
         for (const p of AllPriorities) {
           const priorityName = priorityNameMap[p] || 'NORMAL';
-          queueCapacityPerPriority[p] =
+          const capacity =
             capacityMap[priorityName] || capacityMap.NORMAL || 200;
+          queueCapacityPerPriority[p] = capacity;
         }
 
         return {
