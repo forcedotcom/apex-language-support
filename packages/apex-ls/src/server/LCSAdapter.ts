@@ -1101,17 +1101,28 @@ export class LCSAdapter {
         this.logger.debug('🔧 Registering queue state change callback...');
         Effect.runSync(
           setQueueStateChangeCallback((metrics: SchedulerMetrics) => {
-            try {
-              this.connection.sendNotification('apex/queueStateChanged', {
-                metrics,
-                metadata: {
-                  timestamp: Date.now(),
-                },
-              });
-            } catch (_error) {
-              // Don't log callback errors to avoid noise
-              // The callback is called very frequently (every loop iteration)
-            }
+            // Fire-and-forget async notification to avoid blocking scheduler loop
+            // Use setTimeout to defer to next event loop tick, ensuring scheduler continues immediately
+            setTimeout(() => {
+              try {
+                this.connection.sendNotification('apex/queueStateChanged', {
+                  metrics,
+                  metadata: {
+                    timestamp: Date.now(),
+                  },
+                });
+              } catch (error) {
+                // Don't log callback errors to avoid noise
+                // The callback is called very frequently (every loop iteration)
+                // Errors are handled silently to prevent scheduler loop disruption
+                this.logger.debug(
+                  () =>
+                    `Queue state notification error (silenced): ${
+                      error instanceof Error ? error.message : String(error)
+                    }`,
+                );
+              }
+            }, 0);
           }),
         );
         this.logger.debug('✅ Queue state change callback registered');
