@@ -16,13 +16,13 @@
     "directory": "packages/apex-lsp-testbed"
   },
   "scripts": {
-    "compile": "tsc --build",
+    "compile": "wireit",
     "bundle": "echo 'Bundle is not needed for testbed'",
-    "test": "jest",
-    "test:quality": "jest --testMatch \"**/test/**/*.quality.ts\"",
-    "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "test:perf": "jest --testMatch \"**/test/**/*.perf.ts\"",
-    "clean": "rimraf out dist .turbo tsconfig.tsbuildinfo coverage test-artifacts",
+    "test": "wireit",
+    "test:quality": "wireit",
+    "test:coverage": "wireit",
+    "test:perf": "wireit",
+    "clean": "rimraf out dist .wireit tsconfig.tsbuildinfo coverage test-artifacts",
     "clean:all": "npm run clean && rimraf node_modules coverage test-artifacts",
     "start:demo": "node --enable-source-maps ./out/cli.js --server demo --interactive",
     "start:jorje": "node --enable-source-maps ./out/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
@@ -33,8 +33,48 @@
     "start:jorje:debug:suspend": "node --enable-source-maps --inspect ./out/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
     "start:jorje:debug:verbose:suspend": "node --enable-source-maps --inspect ./out/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
     "start:apex-ls": "node --enable-source-maps ./out/cli.js --server nodeServer --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
-    "lint": "eslint src test",
-    "lint:fix": "eslint src test --fix"
+    "lint": "wireit",
+    "lint:fix": "wireit"
+  },
+  "wireit": {
+    "compile": {
+      "command": "tsc --build",
+      "dependencies": ["../apex-parser-ast:precompile"],
+      "output": ["out/**"],
+      "files": ["src/**/*.ts", "tsconfig*.json"]
+    },
+    "test": {
+      "command": "jest --json --outputFile=.wireit/test-results.json || true",
+      "dependencies": ["compile"],
+      "output": [".wireit/test-results.json"],
+      "files": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+    },
+    "test:quality": {
+      "command": "jest --testMatch \"**/test/**/*.quality.ts\"",
+      "dependencies": ["compile"],
+      "files": ["src/**/*.ts", "test/**/*.quality.ts", "jest.config.cjs"]
+    },
+    "test:coverage": {
+      "command": "jest --coverage --coverageDirectory=./coverage",
+      "dependencies": ["compile"],
+      "output": ["coverage/**"],
+      "files": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+    },
+    "test:perf": {
+      "command": "jest --testMatch \"**/test/**/*.perf.ts\"",
+      "dependencies": ["compile"],
+      "files": ["src/**/*.ts", "test/**/*.perf.ts", "jest.config.cjs"]
+    },
+    "lint": {
+      "command": "eslint --color --cache --cache-location .eslintcache src test",
+      "dependencies": ["compile"],
+      "files": ["src/**/*.ts", "test/**/*.ts", "eslint.config.mjs"],
+      "output": []
+    },
+    "lint:fix": {
+      "command": "eslint src test --fix",
+      "files": ["src/**/*.ts", "test/**/*.ts", "eslint.config.mjs"]
+    }
   },
   "dependencies": {
     "data-structure-typed": "^2.0.4",

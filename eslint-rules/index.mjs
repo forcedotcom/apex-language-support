@@ -6,14 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import turboScriptCheck from './turbo-script-check.mjs';
-import turboCircularDependency from './turbo-circular-dependency.mjs';
-import turboUnfilteredUsage from './turbo-unfiltered-usage.mjs';
-
 export default {
-  rules: {
-    'turbo-script-check': turboScriptCheck,
-    'turbo-circular-dependency': turboCircularDependency,
-    'turbo-unfiltered-usage': turboUnfilteredUsage,
-  },
+  rules: {},
 };

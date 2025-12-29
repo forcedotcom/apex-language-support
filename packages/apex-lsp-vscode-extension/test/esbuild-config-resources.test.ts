@@ -200,7 +200,12 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
         );
 
         expect(packageJson.scripts).toHaveProperty('bundle');
-        expect(packageJson.scripts.bundle).toContain('esbuild');
+        // After migration to Wireit, bundle script delegates to wireit
+        expect(packageJson.scripts.bundle).toBe('wireit');
+        // Verify wireit configuration has esbuild command
+        expect(packageJson.wireit).toBeDefined();
+        expect(packageJson.wireit.bundle).toBeDefined();
+        expect(packageJson.wireit.bundle.command).toContain('esbuild');
       }
     });
 

@@ -21,19 +21,120 @@
     "directory": "packages/apex-ls"
   },
   "scripts": {
-    "compile": "npm-run-all --parallel compile:browser compile:worker compile:node",
+    "compile": "wireit",
     "compile:browser": "tsc --build tsconfig.browser.json",
     "compile:worker": "tsc --build tsconfig.worker.json",
     "compile:node": "tsc --build tsconfig.node.json",
-    "bundle": "tsx esbuild.config.ts",
-    "test": "jest",
-    "test:web": "jest --config jest.config.browser.cjs",
-    "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo || rm -rf out dist .turbo coverage tsconfig.tsbuildinfo",
+    "bundle": "wireit",
+    "test": "wireit",
+    "test:web": "wireit",
+    "test:coverage": "wireit",
+    "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo || rm -rf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "eslint src test",
-    "lint:fix": "eslint src test --fix",
+    "lint": "wireit",
+    "lint:fix": "wireit",
     "rebuild": "npm run clean && npm run compile"
+  },
+  "wireit": {
+    "compile": {
+      "command": "npm-run-all --parallel compile:browser compile:worker compile:node",
+      "dependencies": [
+        "../apex-parser-ast:precompile"
+      ],
+      "output": [
+        "out/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "tsconfig*.json"
+      ]
+    },
+    "rebuild": {
+      "dependencies": [
+        "clean",
+        "precompile",
+        "compile",
+        "bundle"
+      ],
+      "cache": false
+    },
+    "bundle": {
+      "command": "tsx esbuild.config.ts",
+      "dependencies": [
+        "compile",
+        "../esbuild-presets:compile",
+        "../lsp-compliant-services:compile",
+        "../apex-parser-ast:compile"
+      ],
+      "output": [
+        "dist/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "esbuild.config.ts"
+      ]
+    },
+    "test": {
+      "command": "jest --json --outputFile=.wireit/test-results.json || true",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        ".wireit/test-results.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "jest.config*.cjs"
+      ]
+    },
+    "test:coverage": {
+      "command": "jest --coverage --coverageDirectory=./coverage",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        "coverage/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "jest.config*.cjs"
+      ]
+    },
+    "lint": {
+      "command": "eslint --color --cache --cache-location .eslintcache src test",
+      "dependencies": ["compile"],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ],
+      "output": []
+    },
+    "lint:fix": {
+      "command": "eslint src test --fix",
+      "cache": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ]
+    },
+    "test:web": {
+      "command": "jest --config jest.config.browser.cjs --json --outputFile=.wireit/test-results-web.json || true",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        ".wireit/test-results-web.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "jest.config.browser.cjs"
+      ]
+    }
   },
   "dependencies": {
     "@salesforce/apex-lsp-compliant-services": "1.0.0",

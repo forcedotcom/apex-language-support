@@ -7,35 +7,36 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "test": "turbo run test",
-    "test:coverage": "turbo run test:coverage",
-    "test:perf": "turbo run test:perf",
-    "test:quality": "turbo run test:quality",
-    "test:packages": "turbo run test --filter=./packages/*",
-    "test:coverage:packages": "turbo run test:coverage --filter=./packages/*",
-    "test:coverage:report": "node scripts/merge-coverage.js",
-    "test:integration": "turbo run test:integration",
+    "test": "wireit",
+    "test:coverage": "wireit",
+    "test:perf": "wireit",
+    "test:quality": "wireit",
+    "test:packages": "npm run test --workspaces --if-present",
+    "test:coverage:packages": "npm run test:coverage --workspaces --if-present",
+    "test:coverage:report": "wireit",
+    "test:integration": "npm run test:integration --workspaces --if-present",
     "test:web": "node scripts/test-web-ext.js web",
-    "test:e2e": "turbo run test --filter=e2e-tests",
-    "test:e2e:debug": "turbo run test:debug --filter=e2e-tests",
-    "test:e2e:server": "turbo run server --filter=e2e-tests",
-    "test:e2e:visual": "turbo run test:visual --filter=e2e-tests",
-    "lint": "turbo run lint",
-    "lint:fix": "turbo run lint:fix",
+    "test:e2e": "npm run test --workspace=e2e-tests",
+    "test:e2e:debug": "npm run test:debug --workspace=e2e-tests",
+    "test:e2e:server": "npm run server --workspace=e2e-tests",
+    "test:e2e:visual": "npm run test:visual --workspace=e2e-tests",
+    "lint": "wireit",
+    "lint:fix": "wireit",
     "knip": "knip",
     "knip:fix": "knip --fix",
-    "compile": "turbo run compile",
-    "precompile": "turbo run precompile",
+    "compile": "wireit",
+    "precompile": "wireit",
     "prepare": "husky",
     "commit": "git-cz",
-    "clean": "turbo run clean && rimraf .turbo coverage test-artifacts",
-    "clean:all": "turbo run clean:all && rimraf node_modules coverage test-artifacts",
-    "clean:packages": "turbo run clean --filter=./packages/*",
+    "clean": "wireit",
+    "clean:all": "wireit",
+    "clean:packages": "npm run clean --workspaces --if-present",
     "clean:coverage": "rimraf coverage packages/*/coverage",
     "semantic-release": "semantic-release",
-    "bundle": "turbo run bundle",
-    "package:packages": "turbo run package --filter=./packages/*",
-    "rebuild": "turbo run clean && turbo run compile && turbo run bundle"
+    "bundle": "wireit",
+    "package": "wireit",
+    "package:packages": "npm run package",
+    "rebuild": "npm run clean && npm run compile && npm run bundle"
   },
   "keywords": [
     "salesforce",
@@ -95,8 +96,8 @@
     "ts-jest": "^29.3.0",
     "esbuild": "^0.24.0",
     "tsx": "^4.7.0",
-    "turbo": "^2.5.4",
     "typescript": "^5.8.2",
+    "wireit": "^0.14.12",
     "zod": "^3.22.4"
   },
   "optionalDependencies": {
@@ -112,6 +113,150 @@
     "packages/*",
     "e2e-tests"
   ],
+  "wireit": {
+    "precompile": {
+      "command": "npm run precompile --workspaces --if-present",
+      "files": [
+        "**/.env.*local"
+      ],
+      "output": [
+        "packages/apex-parser-ast/src/generated/**",
+        "packages/apex-parser-ast/out/resources/**",
+        "packages/apex-parser-ast/resources/**",
+        "packages/apex-lsp-vscode-extension/grammars/**"
+      ]
+    },
+    "compile": {
+      "command": "npm run compile --workspaces --if-present",
+      "dependencies": [
+        "precompile"
+      ],
+      "output": [
+        "packages/*/out/**",
+        "packages/esbuild-presets/dist/**",
+        "packages/*/tsconfig.tsbuildinfo"
+      ],
+      "files": [
+        "packages/*/src/**/*.ts",
+        "packages/*/tsconfig*.json"
+      ]
+    },
+    "postcompile": {
+      "command": "npm run postcompile --workspaces --if-present",
+      "dependencies": [
+        "compile"
+      ]
+    },
+    "bundle": {
+      "command": "npm run bundle --workspaces --if-present",
+      "dependencies": [
+        "compile",
+        "postcompile"
+      ]
+    },
+    "package": {
+      "command": "npm run package --workspaces --if-present",
+      "dependencies": [
+        "bundle"
+      ]
+    },
+    "test": {
+      "dependencies": [
+        "compile",
+        "./packages/apex-ls:test",
+        "./packages/apex-lsp-shared:test",
+        "./packages/apex-lsp-testbed:test",
+        "./packages/apex-lsp-vscode-extension:test",
+        "./packages/apex-parser-ast:test",
+        "./packages/custom-services:test",
+        "./packages/lsp-compliant-services:test"
+      ]
+    },
+    "test:coverage": {
+      "dependencies": [
+        "compile",
+        "./packages/apex-ls:test:coverage",
+        "./packages/apex-lsp-shared:test:coverage",
+        "./packages/apex-lsp-testbed:test:coverage",
+        "./packages/apex-lsp-vscode-extension:test:coverage",
+        "./packages/apex-parser-ast:test:coverage",
+        "./packages/custom-services:test:coverage",
+        "./packages/lsp-compliant-services:test:coverage"
+      ]
+    },
+    "test:perf": {
+      "dependencies": [
+        "compile",
+        "./packages/apex-lsp-testbed:test:perf"
+      ]
+    },
+    "test:quality": {
+      "dependencies": [
+        "compile",
+        "bundle",
+        "./packages/apex-lsp-testbed:test:quality"
+      ]
+    },
+    "server": {
+      "command": "npm run server --workspaces --if-present",
+      "dependencies": [
+        "compile"
+      ],
+      "cache": false
+    },
+    "test:debug": {
+      "command": "npm run test:debug --workspaces --if-present",
+      "dependencies": [
+        "compile"
+      ],
+      "cache": false
+    },
+    "test:visual": {
+      "command": "npm run test:visual --workspaces --if-present",
+      "dependencies": [
+        "compile"
+      ],
+      "cache": false
+    },
+    "test:web": {
+      "command": "npm run test:web --workspaces --if-present",
+      "dependencies": [
+        "bundle"
+      ],
+      "cache": false
+    },
+    "lint": {
+      "command": "npm run lint --workspaces --if-present"
+    },
+    "lint:fix": {
+      "command": "npm run lint:fix --workspaces --if-present"
+    },
+    "clean": {
+      "command": "npm run clean --workspaces --if-present && rimraf .wireit coverage test-artifacts",
+      "cache": false
+    },
+    "clean:coverage": {
+      "command": "npm run clean:coverage --workspaces --if-present",
+      "cache": false
+    },
+    "clean:all": {
+      "command": "npm run clean:all --workspaces --if-present && rimraf node_modules coverage test-artifacts",
+      "cache": false
+    },
+    "test:coverage:report": {
+      "command": "node scripts/merge-coverage.js",
+      "dependencies": [
+        "test:coverage"
+      ],
+      "output": [
+        "coverage/**"
+      ],
+      "files": [
+        "scripts/merge-coverage.js",
+        "packages/*/coverage/coverage-final.json"
+      ]
+    }
+  },
   "config": {
     "commitizen": {
       "path": "./node_modules/cz-conventional-changelog"

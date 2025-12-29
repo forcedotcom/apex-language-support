@@ -62,7 +62,18 @@ function copyManifestFiles() {
 
   const dirsToCopy = ['grammars', 'snippets', 'resources'];
 
-  filesToCopy.forEach((file) => {
+  // package.json is critical - fail if it can't be copied
+  const packageJsonSrc = path.join(__dirname, 'package.json');
+  const packageJsonDest = path.join(distDir, 'package.json');
+  try {
+    fs.copyFileSync(packageJsonSrc, packageJsonDest);
+  } catch (error) {
+    console.error('❌ Failed to copy package.json:', (error as Error).message);
+    throw error;
+  }
+
+  // Other files can fail without breaking the build
+  filesToCopy.slice(1).forEach((file) => {
     const srcFile = path.join(__dirname, file);
     const destFile = path.join(distDir, file);
     try {
@@ -135,34 +146,11 @@ function fixPackagePaths() {
 
     fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
   } catch (error) {
-    console.warn('Failed to fix package.json paths:', (error as Error).message);
-  }
-}
-
-/**
- * Copy out/resources contents to dist/resources to match assets path
- */
-function copyOutResources() {
-  const distDir = path.resolve(__dirname, 'dist');
-  const outResourcesDir = path.join(__dirname, 'out/resources');
-  const distResourcesDir = path.join(distDir, 'resources');
-
-  try {
-    fs.mkdirSync(distResourcesDir, { recursive: true });
-
-    const files = fs.readdirSync(outResourcesDir);
-    files.forEach((file) => {
-      const srcFile = path.join(outResourcesDir, file);
-      const destFile = path.join(distResourcesDir, file);
-      fs.copyFileSync(srcFile, destFile);
-    });
-
-    console.log('✅ Copied out/resources contents to dist/resources');
-  } catch (error) {
-    console.warn(
-      'Failed to copy out/resources contents:',
+    console.error(
+      '❌ Failed to fix package.json paths:',
       (error as Error).message,
     );
+    throw error;
   }
 }
 
@@ -196,11 +184,10 @@ function copyWebviewScripts() {
 
 /**
  * Execute immediate post-build tasks (non-dependent on other packages)
- * Worker file copying is done in a separate postbundle script that Turbo can track
+ * Worker file copying is done in a separate postbundle script that Wireit can track
  */
 function executePostBuildTasks(): void {
   copyManifestFiles();
-  copyOutResources();
   copyWebviewScripts();
   copyStandardLibraryResources();
   fixPackagePaths();
@@ -217,13 +204,7 @@ const builds: BuildOptions[] = [
     // For VSIX packaging, only 'vscode' should be external (provided by VS Code at runtime).
     // All other dependencies (vscode-languageclient, vscode-languageserver-protocol, etc.)
     // must be bundled since node_modules won't exist in the installed extension.
-    external: [
-      'vscode',
-      'vm',
-      'net',
-      'worker_threads',
-      'web-worker',
-    ],
+    external: ['vscode', 'vm', 'net', 'worker_threads', 'web-worker'],
     banner: undefined,
     footer: undefined,
     keepNames: true,
@@ -302,7 +283,13 @@ async function run(watch = false): Promise<void> {
   });
 }
 
-run(process.argv.includes('--watch')).catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// Ensure the async function completes before the script exits
+// This is critical for Wireit to properly detect outputs
+(async () => {
+  try {
+    await run(process.argv.includes('--watch'));
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+})();

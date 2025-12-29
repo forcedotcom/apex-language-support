@@ -133,26 +133,23 @@ To build all packages, run the following command from the root of the repository
 
 ```bash
 # Build all packages
-turbo build
+npm run compile
 ```
 
 Other useful commands for development include:
 
 ```bash
-# Watch all packages for changes
-turbo dev
-
 # Run all tests
-turbo test
+npm run test
 
 # Run all tests with coverage
-turbo test:coverage
+npm run test:coverage
 
 # Lint all packages
-turbo lint
+npm run lint
 
 # Fix linting issues
-turbo lint:fix
+npm run lint:fix
 ```
 
 ### Building and Packaging the VS Code Extension
@@ -161,7 +158,7 @@ To build and package the VS Code extension (`.vsix` file), run the following com
 
 ```bash
 # Build and package the VS Code extension
-turbo package --filter=apex-language-server-extension
+npm run package --workspace=apex-language-server-extension
 ```
 
 The packaged extension will be available in the `packages/apex-lsp-vscode-extension` directory.

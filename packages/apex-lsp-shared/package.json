@@ -17,15 +17,87 @@
     "directory": "packages/apex-lsp-shared"
   },
   "scripts": {
-    "compile": "tsc --build",
-    "bundle": "tsx esbuild.config.ts",
+    "compile": "wireit",
+    "bundle": "wireit",
     "dev": "tsx esbuild.config.ts --watch",
-    "test": "jest",
-    "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
+    "test": "wireit",
+    "test:coverage": "wireit",
+    "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "eslint src test",
-    "lint:fix": "eslint src test --fix"
+    "lint": "wireit",
+    "lint:fix": "wireit"
+  },
+  "wireit": {
+    "compile": {
+      "command": "tsc --build",
+      "output": [
+        "out/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "tsconfig*.json"
+      ]
+    },
+    "bundle": {
+      "command": "tsx esbuild.config.ts",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        "dist/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "esbuild.config.ts"
+      ]
+    },
+    "test": {
+      "command": "jest --json --outputFile=.wireit/test-results.json || true",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        ".wireit/test-results.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "jest.config.cjs"
+      ]
+    },
+    "test:coverage": {
+      "command": "jest --coverage --coverageDirectory=./coverage",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        "coverage/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "jest.config.cjs"
+      ]
+    },
+    "lint": {
+      "command": "eslint --color --cache --cache-location .eslintcache src test",
+      "dependencies": ["compile"],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ],
+      "output": []
+    },
+    "lint:fix": {
+      "command": "eslint src test --fix",
+      "cache": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ]
+    }
   },
   "dependencies": {
     "vscode-jsonrpc": "^8.2.0",

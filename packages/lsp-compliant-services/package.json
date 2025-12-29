@@ -17,15 +17,57 @@
     "directory": "packages/lsp-compliant-services"
   },
   "scripts": {
-    "compile": "tsc --build",
-    "bundle": "tsx esbuild.config.ts",
-    "test": "jest",
-    "test:one": "jest --testPathPattern=HoverProcessingService.integration.test --testNamePattern=\"should provide hover for method declaration testFileUtilities\"",
-    "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
+    "compile": "wireit",
+    "bundle": "wireit",
+    "test": "wireit",
+    "test:one": "wireit",
+    "test:coverage": "wireit",
+    "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "eslint src test",
-    "lint:fix": "eslint src test --fix"
+    "lint": "wireit",
+    "lint:fix": "wireit"
+  },
+  "wireit": {
+    "compile": {
+      "command": "tsc --build",
+      "dependencies": ["../apex-parser-ast:precompile"],
+      "output": ["out/**"],
+      "files": ["src/**/*.ts", "tsconfig*.json"]
+    },
+    "bundle": {
+      "command": "tsx esbuild.config.ts",
+      "dependencies": ["compile", "../esbuild-presets:compile", "../apex-parser-ast:compile"],
+      "output": ["dist/**"],
+      "files": ["src/**/*.ts", "esbuild.config.ts"]
+    },
+    "test": {
+      "command": "jest --json --outputFile=.wireit/test-results.json || true",
+      "dependencies": ["compile"],
+      "output": [".wireit/test-results.json"],
+      "files": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+    },
+    "test:coverage": {
+      "command": "jest --coverage --coverageDirectory=./coverage",
+      "dependencies": ["compile"],
+      "output": ["coverage/**"],
+      "files": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+    },
+    "lint": {
+      "command": "eslint --color --cache --cache-location .eslintcache src test",
+      "dependencies": ["compile"],
+      "files": ["src/**/*.ts", "test/**/*.ts", "eslint.config.mjs"],
+      "output": []
+    },
+    "lint:fix": {
+      "command": "eslint src test --fix",
+      "files": ["src/**/*.ts", "test/**/*.ts", "eslint.config.mjs"]
+    },
+    "test:one": {
+      "command": "jest --testPathPattern=HoverProcessingService.integration.test --testNamePattern=\"should provide hover for method declaration testFileUtilities\" --json --outputFile=.wireit/test-results-one.json || true",
+      "dependencies": ["compile"],
+      "output": [".wireit/test-results-one.json"],
+      "files": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+    }
   },
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",

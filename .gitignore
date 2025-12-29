@@ -57,7 +57,6 @@ webpack-stats.json
 test-workspace
 /packages/apex-lsp-testbed/test-artifacts
 /test-artifacts
-.turbo
 
 /packages/apex-parser-ast/test/generator/test-files
 /packages/apex-parser-ast/src/generated

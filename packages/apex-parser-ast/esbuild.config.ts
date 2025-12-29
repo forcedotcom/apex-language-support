@@ -52,8 +52,6 @@ const builds: BuildOptions[] = [
  * Both compile and bundle use the same 'out/resources/' directory
  */
 function postBuild(): void {
-  console.log('✅ Using consistent resource directory: out/resources/');
-  copyResourcesToDist();
   copyTypesToDist();
   createBundledPackageJson();
 }

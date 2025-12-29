@@ -9,7 +9,7 @@
 
 /**
  * Post-bundle script to copy worker and server files from apex-ls
- * This runs as a separate npm script so Turbo can properly track dependencies
+ * This runs as a separate npm script so Wireit can properly track dependencies
  */
 
 const fs = require('fs');
@@ -17,7 +17,7 @@ const path = require('path');
 
 /**
  * Copy worker and server files from apex-ls dist to extension dist
- * Turbo dependency management ensures @salesforce/apex-ls#bundle completes before this runs
+ * Wireit dependency management ensures @salesforce/apex-ls:bundle completes before this runs
  */
 function copyWorkerFiles() {
   const distDir = path.resolve(__dirname, '../dist');
@@ -50,7 +50,7 @@ function copyWorkerFiles() {
       if (!fs.existsSync(srcPath)) {
         console.error(`❌ Source file does not exist: ${srcPath}`);
         console.error(
-          '   Turbo dependency violation: @salesforce/apex-ls#bundle should complete before copy-worker-files runs.',
+          '   Wireit dependency violation: @salesforce/apex-ls:bundle should complete before copy-worker-files runs.',
         );
         allFilesCopied = false;
         continue;
@@ -66,7 +66,7 @@ function copyWorkerFiles() {
 
   if (!allFilesCopied) {
     console.error('\n❌ Some worker/server files could not be copied.');
-    console.error('   This indicates a Turbo dependency configuration issue.');
+    console.error('   This indicates a Wireit dependency configuration issue.');
     process.exit(1);
   }
 

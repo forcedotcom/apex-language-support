@@ -70,12 +70,11 @@ packages/
 
 #### Root Configuration
 
-- **`package.json`**: Monorepo configuration, workspace definitions, and root scripts
+- **`package.json`**: Monorepo configuration, workspace definitions, root scripts, and Wireit task configuration
 - **`tsconfig.json`**: TypeScript project references and path mappings
 - **`tsconfig.base.json`**: Shared TypeScript compiler options
-- **`turbo.json`**: Build pipeline configuration and task dependencies
 - **`jest.config.cjs`**: Root Jest configuration for testing
-- **`eslint.config.cjs`**: ESLint configuration for code quality
+- **`eslint.config.mjs`**: ESLint configuration for code quality
 - **`.prettierrc`**: Code formatting rules
 
 #### Build & Bundling
@@ -94,7 +93,7 @@ packages/
 
 ### Primary Build Tools
 
-1. **Turbo**: Monorepo build system with intelligent caching and parallel execution
+1. **Wireit**: Monorepo build system with intelligent caching and parallel execution
 2. **TypeScript**: Primary language with strict type checking
 3. **esbuild**: Fast TypeScript bundler used across the monorepo
 4. **Jest**: Testing framework with coverage reporting
@@ -102,7 +101,7 @@ packages/
 
 ### Build Pipeline Overview
 
-The build system uses **Turbo** for orchestrating builds across the monorepo with the following task hierarchy:
+The build system uses **Wireit** for orchestrating builds across the monorepo with the following task hierarchy:
 
 ```
 precompile → compile → bundle → package
@@ -111,25 +110,29 @@ precompile → compile → bundle → package
   resources  compilation bundles  extensions
 ```
 
-### Task Dependencies (from turbo.json)
+### Task Dependencies (from package.json wireit configuration)
+
+Wireit tasks are defined in the `wireit` field of each package's `package.json`. Dependencies use workspace references:
 
 ```json
 {
-  "precompile": {
-    "dependsOn": ["^precompile"],
-    "outputs": ["src/generated/**", "dist/**"]
-  },
-  "compile": {
-    "dependsOn": ["precompile", "^compile"],
-    "outputs": ["dist/**", "*.tsbuildinfo"]
-  },
-  "bundle": {
-    "dependsOn": ["compile", "^bundle"],
-    "outputs": ["bundle/**", "dist/**"]
-  },
-  "package": {
-    "dependsOn": ["bundle", "^package"],
-    "outputs": ["extension/**"]
+  "wireit": {
+    "precompile": {
+      "dependencies": ["<workspace>:precompile"],
+      "output": ["src/generated/**", "out/**"]
+    },
+    "compile": {
+      "dependencies": ["precompile", "<workspace>:precompile", "<workspace>:compile"],
+      "output": ["out/**", "*.tsbuildinfo"],
+      "files": ["src/**/*.ts", "src/generated/**"]
+    },
+    "bundle": {
+      "dependencies": ["compile", "<workspace>:compile", "<workspace>:bundle"],
+      "output": ["dist/**", "out/**"]
+    },
+    "package": {
+      "dependencies": ["bundle", "<workspace>:package"]
+    }
   }
 }
 ```
@@ -240,7 +243,7 @@ The root `tsconfig.json` defines path mappings for cross-package imports:
 
 #### Development Dependencies
 
-- **turbo**: Build orchestration
+- **wireit**: Build orchestration
 - **typescript**: Type checking and compilation
 - **jest**: Testing framework
 - **eslint**: Code linting
@@ -250,7 +253,7 @@ The root `tsconfig.json` defines path mappings for cross-package imports:
 
 ### Building
 
-This project uses **Turbo** for smart incremental builds that only rebuild what has changed:
+This project uses **Wireit** for smart incremental builds that only rebuild what has changed:
 
 - **Build all packages**:
 
@@ -418,7 +421,7 @@ This project follows these code style practices:
 
 ### Build Issues
 
-- **Turbo cache issues**: Run `npm run clean` to clear build artifacts
+- **Wireit cache issues**: Run `npm run clean` to clear build artifacts
 - **TypeScript path resolution**: Ensure packages are built in dependency order
 - **Missing dependencies**: Run `npm install` in the root directory
 
@@ -440,7 +443,7 @@ If you encounter issues with npm workspaces:
 
 ## Performance Considerations
 
-- **Incremental builds**: Turbo automatically handles incremental building based on file changes
+- **Incremental builds**: Wireit automatically handles incremental building based on file changes
 - **Parallel execution**: Tasks that don't depend on each other run in parallel
 - **Caching**: Build outputs are cached to avoid redundant work
 - **Bundle optimization**: Use `npm run bundle` for optimized production builds

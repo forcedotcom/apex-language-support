@@ -86,7 +86,7 @@
     "dist/**",
     "out/**",
     "node_modules/**",
-    ".turbo/**",
+    ".wireit/**",
     "**/*.tsbuildinfo",
     "**/*.config.{js,cjs,mjs}",
     "**/jest.config*.{js,cjs,mjs}",

@@ -626,21 +626,142 @@
     }
   },
   "scripts": {
-    "precompile": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars . && shx mkdir -p out && shx cp package.nls*.json language-configuration.json out/",
-    "compile": "tsc --build",
-    "postcompile": "shx mkdir -p out/resources && shx cp ../apex-parser-ast/out/resources/StandardApexLibrary.zip out/resources/",
-    "bundle": "tsx esbuild.config.ts",
-    "copy-worker-files": "node scripts/postbundle.js",
-    "package": "cd dist && vsce package --out ../ --no-dependencies",
+    "precompile": "wireit",
+    "compile": "wireit",
+    "bundle": "wireit",
+    "copy-worker-files": "wireit",
+    "package": "wireit",
     "rebuild": "npm run clean && npm run build",
-    "copy:files": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
-    "test": "jest --passWithNoTests",
-    "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-    "clean": "rimraf out dist extension .turbo coverage grammars tsconfig.tsbuildinfo server-bundle",
+    "copy:files": "wireit",
+    "test": "wireit",
+    "test:coverage": "wireit",
+    "clean": "rimraf out dist extension .wireit coverage grammars tsconfig.tsbuildinfo server-bundle",
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage",
-    "lint": "eslint src test",
-    "lint:fix": "eslint src test --fix"
+    "lint": "wireit",
+    "lint:fix": "wireit"
+  },
+  "wireit": {
+    "precompile": {
+      "command": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars . && shx mkdir -p out && shx cp package.nls*.json language-configuration.json out/",
+      "output": [
+        "grammars/**"
+      ],
+      "files": [
+        "package.nls*.json",
+        "language-configuration.json"
+      ]
+    },
+    "compile": {
+      "command": "tsc --build",
+      "dependencies": [
+        "precompile",
+        "../apex-parser-ast:precompile"
+      ],
+      "output": [
+        "out/**/*.js",
+        "out/**/*.d.ts",
+        "out/.tsbuildinfo"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "tsconfig*.json"
+      ]
+    },
+    "bundle": {
+      "command": "tsx esbuild.config.ts",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        "extension/**",
+        "dist/**",
+        "server-bundle/**",
+        "dist/package.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "esbuild.config.ts",
+        "out/extension.js"
+      ]
+    },
+    "copy-worker-files": {
+      "command": "node scripts/postbundle.js",
+      "dependencies": [
+        "bundle"
+      ],
+      "output": [
+        "dist/**"
+      ],
+      "files": [
+        "dist/package.json"
+      ]
+    },
+    "package": {
+      "command": "if [ ! -f dist/package.json ]; then (test -f out/extension.js || npm run compile) && tsx esbuild.config.ts && node scripts/postbundle.js; fi && cd dist && vsce package --out ../ --no-dependencies",
+      "dependencies": [
+        "bundle",
+        "copy-worker-files"
+      ],
+      "output": [
+        "*.vsix"
+      ],
+      "files": [
+        "dist/package.json"
+      ]
+    },
+    "test": {
+      "command": "jest --passWithNoTests --json --outputFile=.wireit/test-results.json || true",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        ".wireit/test-results.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "jest.config.cjs"
+      ]
+    },
+    "test:coverage": {
+      "command": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        "coverage/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "jest.config.cjs"
+      ]
+    },
+    "lint": {
+      "command": "eslint --color --cache --cache-location .eslintcache src test",
+      "dependencies": ["compile"],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ],
+      "output": []
+    },
+    "lint:fix": {
+      "command": "eslint src test --fix",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ]
+    },
+    "copy:files": {
+      "command": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
+      "output": [
+        "grammars/**"
+      ]
+    }
   },
   "dependencies": {
     "@salesforce/apex-lsp-shared": "1.0.0",
@@ -650,6 +771,7 @@
   "devDependencies": {
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@salesforce/apex-tmlanguage": "1.8.2",
     "@salesforce/esbuild-presets": "^0.1.0",
     "@types/vscode": "^1.90.0",
@@ -661,8 +783,5 @@
     "shx": "^0.3.4",
     "stream-browserify": "^3.0.0",
     "util": "^0.12.5"
-  },
-  "workspaces": [
-    "../apex-ls"
-  ]
+  }
 }
