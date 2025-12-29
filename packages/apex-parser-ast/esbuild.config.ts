@@ -7,14 +7,8 @@
  */
 
 import type { BuildOptions } from 'esbuild';
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from 'fs';
+import { copy } from 'esbuild-plugin-copy';
+import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { nodeBaseConfig, runBuilds } from '@salesforce/esbuild-presets';
 
@@ -31,6 +25,25 @@ const builds: BuildOptions[] = [
     loader: {
       '.zip': 'dataurl',
     },
+    plugins: [
+      copy({
+        resolveFrom: 'cwd',
+        assets: [
+          // Copy resources from out/resources/ to dist/resources/
+          {
+            from: ['out/resources/**/*'],
+            to: ['./dist/resources'],
+          },
+          // Copy type definitions from out/ to dist/
+          {
+            from: ['out/index.d.ts', 'out/index.d.ts.map'],
+            to: ['./dist'],
+          },
+        ],
+        watch: true,
+        verbose: true,
+      }),
+    ],
   },
   {
     ...nodeBaseConfig,
@@ -48,71 +61,11 @@ const builds: BuildOptions[] = [
 ];
 
 /**
- * Post-build hook for consistent resource structure and bundled package.json
- * Both compile and bundle use the same 'out/resources/' directory
+ * Post-build hook for creating bundled package.json
+ * Note: File copying (resources and types) is handled by esbuild-plugin-copy
  */
 function postBuild(): void {
-  copyTypesToDist();
   createBundledPackageJson();
-}
-
-/**
- * Copies resources from out/resources/ to dist/resources/ for bundled package
- */
-function copyResourcesToDist(): void {
-  try {
-    const sourceResourcesDir = 'out/resources';
-    const distResourcesDir = 'dist/resources';
-
-    if (existsSync(sourceResourcesDir)) {
-      mkdirSync(distResourcesDir, { recursive: true });
-      const files = readdirSync(sourceResourcesDir);
-
-      for (const file of files) {
-        const sourcePath = join(sourceResourcesDir, file);
-        const destPath = join(distResourcesDir, file);
-        copyFileSync(sourcePath, destPath);
-      }
-
-      console.log(`✅ Copied resources to ${distResourcesDir}`);
-    } else {
-      console.log(
-        `⚠️  Source resources directory not found: ${sourceResourcesDir}`,
-      );
-    }
-  } catch (error) {
-    console.error('❌ Failed to copy resources to dist:', error);
-  }
-}
-
-/**
- * Copies type definitions from out/ to dist/ for bundled package
- */
-function copyTypesToDist(): void {
-  try {
-    const sourceTypesDir = 'out';
-    const distTypesDir = 'dist';
-
-    if (existsSync(join(sourceTypesDir, 'index.d.ts'))) {
-      const sourceTypeFile = join(sourceTypesDir, 'index.d.ts');
-      const destTypeFile = join(distTypesDir, 'index.d.ts');
-      copyFileSync(sourceTypeFile, destTypeFile);
-
-      const sourceTypeMapFile = join(sourceTypesDir, 'index.d.ts.map');
-      if (existsSync(sourceTypeMapFile)) {
-        const destTypeMapFile = join(distTypesDir, 'index.d.ts.map');
-        copyFileSync(sourceTypeMapFile, destTypeMapFile);
-      }
-
-      console.log(`✅ Copied type definitions to ${distTypesDir}`);
-    } else {
-      console.log(
-        `⚠️  Source type definitions not found: ${sourceTypesDir}/index.d.ts`,
-      );
-    }
-  } catch (error) {
-    console.error('❌ Failed to copy type definitions to dist:', error);
-  }
 }
 
 /**
