@@ -83,19 +83,18 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
   });
 
   describe('Build Configuration', () => {
-    it('should use esbuild-plugin-copy for file copying', () => {
+    it('should have esbuild.config.ts with copyStandardLibraryResources function', () => {
       const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
       expect(fs.existsSync(esbuildConfigPath)).toBe(true);
 
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
-        expect(configContent).toContain('esbuild-plugin-copy');
-        expect(configContent).toContain('copy');
+        expect(configContent).toContain('copyStandardLibraryResources');
         expect(configContent).toContain('StandardApexLibrary.zip');
       }
     });
 
-    it('should have correct source path in copy plugin configuration', () => {
+    it('should have correct source path in copy function', () => {
       const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
       if (fs.existsSync(esbuildConfigPath)) {
@@ -106,101 +105,90 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
       }
     });
 
-    it('should have correct destination path in copy plugin configuration', () => {
+    it('should have correct destination path in copy function', () => {
       const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
-        // The plugin uses './dist/resources/StandardApexLibrary.zip' as destination
-        expect(configContent).toContain('./dist/resources');
-        expect(configContent).toContain('StandardApexLibrary.zip');
+        // The path is constructed using path.join, so check for the pattern
+        expect(configContent).toContain('resourcesDir');
+        expect(configContent).toContain('path.join');
+        expect(configContent).toContain('resources');
       }
     });
 
-    it('should configure copy plugin with assets array', () => {
+    it('should call copyStandardLibraryResources in build process', () => {
       const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         expect(configContent).toContain('executePostBuildTasks');
-        expect(configContent).toContain('assets');
-        expect(configContent).toContain('from');
-        expect(configContent).toContain('to');
+        expect(configContent).toContain('copyStandardLibraryResources()');
       }
     });
   });
 
   describe('Error Handling', () => {
-    it('should configure copy plugin with watch and verbose options', () => {
+    it('should handle missing source ZIP gracefully in copy function', () => {
       const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
-        // The plugin handles errors internally and provides verbose logging
-        expect(configContent).toContain('watch');
-        expect(configContent).toContain('verbose');
+        expect(configContent).toContain('try {');
+        expect(configContent).toContain('catch');
       }
     });
 
-    it('should use resolveFrom option for path resolution', () => {
+    it('should log appropriate messages on copy success/failure', () => {
       const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
-        expect(configContent).toContain('resolveFrom');
-        expect(configContent).toContain('cwd');
+        expect(configContent).toMatch(/console\.(log|warn)/);
+        expect(configContent).toContain('StandardApexLibrary.zip');
       }
     });
   });
 
   describe('File System Operations', () => {
-    it('should use esbuild-plugin-copy for file operations', () => {
+    it('should create resources directory if it does not exist', () => {
       const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
-        // The plugin handles directory creation and file copying internally
-        expect(configContent).toContain('esbuild-plugin-copy');
-        expect(configContent).toContain('plugins');
+        expect(configContent).toContain('mkdirSync');
+        expect(configContent).toContain('recursive: true');
       }
     });
 
-    it('should configure copy plugin with proper asset paths', () => {
+    it('should use fs.copyFileSync for atomic copy operation', () => {
       const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
-        // Verify the plugin configuration includes the StandardApexLibrary.zip copy
-        expect(configContent).toContain(
-          '../apex-parser-ast/resources/StandardApexLibrary.zip',
-        );
-        expect(configContent).toContain(
-          './dist/resources/StandardApexLibrary.zip',
-        );
+        expect(configContent).toContain('copyFileSync');
       }
     });
   });
 
   describe('Path Resolution', () => {
-    it('should use resolveFrom cwd for plugin path resolution', () => {
+    it('should use path.resolve for absolute paths', () => {
       const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
-        // The plugin uses resolveFrom: 'cwd' for path resolution
-        expect(configContent).toContain('resolveFrom');
-        expect(configContent).toContain("'cwd'");
+        expect(configContent).toContain('path.resolve');
+        expect(configContent).toContain('__dirname');
       }
     });
 
-    it('should handle relative paths in plugin configuration', () => {
+    it('should handle relative paths from esbuild.config.ts location', () => {
       const esbuildConfigPath = path.join(extensionRoot, 'esbuild.config.ts');
 
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
-        // Plugin uses relative paths like '../apex-parser-ast' and './dist'
+        expect(configContent).toContain('__dirname');
         expect(configContent).toContain('../apex-parser-ast');
-        expect(configContent).toContain('./dist');
       }
     });
   });
