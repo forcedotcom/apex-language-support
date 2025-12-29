@@ -23,43 +23,75 @@
     "test:coverage": "wireit",
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "wireit",
-    "lint:fix": "wireit"
+    "lint": "wireit"
   },
   "wireit": {
     "compile": {
       "command": "tsc --build",
-      "dependencies": ["../apex-parser-ast:precompile"],
-      "output": ["out/**"],
-      "files": ["src/**/*.ts", "tsconfig*.json"]
+      "dependencies": [
+        "../apex-parser-ast:precompile"
+      ],
+      "output": [
+        "out/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "tsconfig*.json",
+        "../../tsconfig.base.json"
+      ]
     },
     "bundle": {
       "command": "tsx esbuild.config.ts",
-      "dependencies": ["compile"],
-      "output": ["dist/**"],
-      "files": ["src/**/*.ts", "esbuild.config.ts"]
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        "dist/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "esbuild.config.ts"
+      ]
     },
     "test": {
-      "command": "jest --passWithNoTests --json --outputFile=.wireit/test-results.json || true",
-      "dependencies": ["compile"],
-      "output": [".wireit/test-results.json"],
-      "files": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+      "command": "jest --passWithNoTests --json --outputFile=.wireit/test-results.json",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        ".wireit/test-results.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "**/jest.config.cjs"
+      ]
     },
     "test:coverage": {
       "command": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-      "dependencies": ["compile"],
-      "output": ["coverage/**"],
-      "files": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        "coverage/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "**/jest.config.cjs"
+      ]
     },
     "lint": {
-      "command": "eslint --color --cache --cache-location .eslintcache src",
-      "dependencies": ["compile"],
-      "files": ["src/**/*.ts", "eslint.config.mjs"],
+      "command": "eslint --color --cache --cache-location .eslintcache src/**/*.ts $(test -d test && echo 'test/**/*.ts' || true)",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ],
       "output": []
-    },
-    "lint:fix": {
-      "command": "eslint src --fix",
-      "files": ["src/**/*.ts", "eslint.config.mjs"]
     }
   },
   "dependencies": {},

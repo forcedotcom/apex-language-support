@@ -637,9 +637,7 @@
     "test:coverage": "wireit",
     "clean": "rimraf out dist extension .wireit coverage grammars tsconfig.tsbuildinfo server-bundle",
     "clean:all": "npm run clean && rimraf node_modules",
-    "clean:coverage": "rimraf coverage",
-    "lint": "wireit",
-    "lint:fix": "wireit"
+    "lint": "wireit"
   },
   "wireit": {
     "precompile": {
@@ -665,7 +663,8 @@
       ],
       "files": [
         "src/**/*.ts",
-        "tsconfig*.json"
+        "tsconfig*.json",
+        "../../tsconfig.base.json"
       ]
     },
     "bundle": {
@@ -712,7 +711,7 @@
       ]
     },
     "test": {
-      "command": "jest --passWithNoTests --json --outputFile=.wireit/test-results.json || true",
+      "command": "jest --passWithNoTests --json --outputFile=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],
@@ -722,7 +721,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "jest.config.cjs"
+        "**/jest.config.cjs"
       ]
     },
     "test:coverage": {
@@ -736,26 +735,20 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "jest.config.cjs"
+        "**/jest.config.cjs"
       ]
     },
     "lint": {
       "command": "eslint --color --cache --cache-location .eslintcache src test",
-      "dependencies": ["compile"],
+      "dependencies": [
+        "compile"
+      ],
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
         "eslint.config.mjs"
       ],
       "output": []
-    },
-    "lint:fix": {
-      "command": "eslint src test --fix",
-      "files": [
-        "src/**/*.ts",
-        "test/**/*.ts",
-        "eslint.config.mjs"
-      ]
     },
     "copy:files": {
       "command": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",

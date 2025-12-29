@@ -32,8 +32,7 @@
     "test:coverage": "wireit",
     "clean": "rimraf out resourcesdist .wireit coverage src/generated tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "wireit",
-    "lint:fix": "wireit"
+    "lint": "wireit"
   },
   "wireit": {
     "precompile": {
@@ -59,7 +58,8 @@
       ],
       "files": [
         "src/**/*.ts",
-        "tsconfig*.json"
+        "tsconfig*.json",
+        "../../tsconfig.base.json"
       ]
     },
     "bundle": {
@@ -79,7 +79,7 @@
       ]
     },
     "test": {
-      "command": "jest --json --outputFile=.wireit/test-results.json || true",
+      "command": "jest --json --outputFile=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],
@@ -89,7 +89,8 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "jest.config.cjs"
+        "**/jest.config.cjs",
+        "../../scripts/jest-teardown.js"
       ]
     },
     "test:coverage": {
@@ -103,7 +104,8 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "jest.config.cjs"
+        "**/jest.config.cjs",
+        "../../scripts/jest-teardown.js"
       ]
     },
     "lint": {
@@ -118,17 +120,8 @@
       ],
       "output": []
     },
-    "lint:fix": {
-      "command": "eslint src test --fix",
-      "cache": false,
-      "files": [
-        "src/**/*.ts",
-        "test/**/*.ts",
-        "eslint.config.mjs"
-      ]
-    },
     "test:one": {
-      "command": "jest --testPathPattern=resourceLoader --json --outputFile=.wireit/test-results-one.json || true",
+      "command": "jest --testPathPattern=resourceLoader --json --outputFile=.wireit/test-results-one.json",
       "dependencies": [
         "compile"
       ],
@@ -138,7 +131,8 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "jest.config.cjs"
+        "**/jest.config.cjs",
+        "../../scripts/jest-teardown.js"
       ]
     }
   },
