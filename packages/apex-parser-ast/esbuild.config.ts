@@ -61,64 +61,44 @@ const builds: BuildOptions[] = [
 ];
 
 /**
- * Post-build hook for creating bundled package.json
+ * Creates a package.json for the bundled artifacts in dist/
+ * This is used when publishing the package from the dist/ directory.
  * Note: File copying (resources and types) is handled by esbuild-plugin-copy
  */
-function postBuild(): void {
-  createBundledPackageJson();
-}
-
-/**
- * Creates a package.json for the bundled artifacts that points to dist/ instead of out/
- */
 function createBundledPackageJson(): void {
-  try {
-    const originalPackageJson = JSON.parse(
-      readFileSync('package.json', 'utf-8'),
-    );
+  const originalPackageJson = JSON.parse(readFileSync('package.json', 'utf-8'));
 
-    const bundledPackageJson = {
-      ...originalPackageJson,
-      name: originalPackageJson.name,
-      version: originalPackageJson.version,
-      description: originalPackageJson.description,
-      main: 'index.js',
-      module: 'index.mjs',
-      types: 'index.d.ts',
-      exports: {
-        '.': {
-          import: './index.mjs',
-          require: './index.js',
-          types: './index.d.ts',
-        },
+  const bundledPackageJson = {
+    ...originalPackageJson,
+    main: 'index.js',
+    module: 'index.mjs',
+    types: 'index.d.ts',
+    exports: {
+      '.': {
+        import: './index.mjs',
+        require: './index.js',
+        types: './index.d.ts',
       },
-      files: ['.', 'README.md'],
-      scripts: {
-        test: originalPackageJson.scripts?.test || 'echo "No test script"',
-      },
-      devDependencies: {},
-      license: originalPackageJson.license,
-      repository: originalPackageJson.repository,
-      keywords: originalPackageJson.keywords || [],
-      author: originalPackageJson.author,
-      sideEffects: originalPackageJson.sideEffects,
-    };
+    },
+    files: ['.', 'README.md'],
+    scripts: {
+      test: originalPackageJson.scripts?.test || 'echo "No test script"',
+    },
+    devDependencies: {},
+  };
 
-    writeFileSync(
-      join('dist', 'package.json'),
-      JSON.stringify(bundledPackageJson, null, 2) + '\n',
-    );
+  writeFileSync(
+    join('dist', 'package.json'),
+    JSON.stringify(bundledPackageJson, null, 2) + '\n',
+  );
 
-    console.log('✅ Created bundled package.json in dist/');
-  } catch (error) {
-    console.error('❌ Failed to create bundled package.json:', error);
-  }
+  console.log('✅ Created bundled package.json in dist/');
 }
 
 async function run(watch = false): Promise<void> {
   await runBuilds(builds, {
     watch,
-    afterBuild: postBuild,
+    afterBuild: createBundledPackageJson,
     onError: (error) => {
       console.error('❌ Rebuild failed', error);
     },

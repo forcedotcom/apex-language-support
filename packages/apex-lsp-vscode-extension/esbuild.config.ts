@@ -27,8 +27,7 @@ import {
 function createVscodeIgnore() {
   const distDir = path.resolve(__dirname, 'dist');
   const vscodeignorePath = path.join(distDir, '.vscodeignore');
-  const vscodeignoreContent = `# Include all files - no exclusions
-`;
+  const vscodeignoreContent = '# Include all files - no exclusions';
   try {
     fs.writeFileSync(vscodeignorePath, vscodeignoreContent);
     console.log('✅ Created .vscodeignore in dist');

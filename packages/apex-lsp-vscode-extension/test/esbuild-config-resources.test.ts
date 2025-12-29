@@ -171,8 +171,12 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
         // Verify the plugin configuration includes the StandardApexLibrary.zip copy
-        expect(configContent).toContain('../apex-parser-ast/resources/StandardApexLibrary.zip');
-        expect(configContent).toContain('./dist/resources/StandardApexLibrary.zip');
+        expect(configContent).toContain(
+          '../apex-parser-ast/resources/StandardApexLibrary.zip',
+        );
+        expect(configContent).toContain(
+          './dist/resources/StandardApexLibrary.zip',
+        );
       }
     });
   });
