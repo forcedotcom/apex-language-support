@@ -117,20 +117,20 @@ Wireit tasks are defined in the `wireit` field of each package's `package.json`.
 ```json
 {
   "wireit": {
-    "precompile": {
+  "precompile": {
       "dependencies": ["<workspace>:precompile"],
       "output": ["src/generated/**", "out/**"]
-    },
-    "compile": {
+  },
+  "compile": {
       "dependencies": ["precompile", "<workspace>:precompile", "<workspace>:compile"],
       "output": ["out/**", "*.tsbuildinfo"],
       "files": ["src/**/*.ts", "src/generated/**"]
-    },
-    "bundle": {
+  },
+  "bundle": {
       "dependencies": ["compile", "<workspace>:compile", "<workspace>:bundle"],
       "output": ["dist/**", "out/**"]
-    },
-    "package": {
+  },
+  "package": {
       "dependencies": ["bundle", "<workspace>:package"]
     }
   }
