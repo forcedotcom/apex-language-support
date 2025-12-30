@@ -9,6 +9,7 @@
 import type { BuildOptions } from 'esbuild';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
+import { copy } from 'esbuild-plugin-copy';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -19,75 +20,14 @@ import {
 } from '@salesforce/esbuild-presets';
 
 /**
- * Copy standard library resources for web extension
+ * Create .vscodeignore file in dist directory
+ * This ensures worker.global.js, server.node.js, and their .map files are included
+ * Note: When packaging from dist/, vsce uses this .vscodeignore file
  */
-function copyStandardLibraryResources() {
+function createVscodeIgnore() {
   const distDir = path.resolve(__dirname, 'dist');
-  const resourcesDir = path.join(distDir, 'resources');
-
-  fs.mkdirSync(resourcesDir, { recursive: true });
-
-  const standardLibZipSrc = path.resolve(
-    __dirname,
-    '../apex-parser-ast/resources/StandardApexLibrary.zip',
-  );
-  const standardLibZipDest = path.join(resourcesDir, 'StandardApexLibrary.zip');
-
-  try {
-    fs.copyFileSync(standardLibZipSrc, standardLibZipDest);
-    console.log('✅ Copied StandardApexLibrary.zip to web extension resources');
-  } catch (error) {
-    console.warn(
-      '⚠️ Failed to copy StandardApexLibrary.zip:',
-      (error as Error).message,
-    );
-    console.warn(
-      '   This will cause standard library hovers to fail in web extension',
-    );
-  }
-}
-
-/**
- * Copy manifest and configuration files to dist
- */
-function copyManifestFiles() {
-  const distDir = path.resolve(__dirname, 'dist');
-
-  const filesToCopy = [
-    'package.json',
-    'package.nls.json',
-    'language-configuration.json',
-    'LICENSE.txt',
-  ];
-
-  const dirsToCopy = ['grammars', 'snippets', 'resources'];
-
-  filesToCopy.forEach((file) => {
-    const srcFile = path.join(__dirname, file);
-    const destFile = path.join(distDir, file);
-    try {
-      fs.copyFileSync(srcFile, destFile);
-    } catch (error) {
-      console.warn(`Failed to copy ${file}:`, (error as Error).message);
-    }
-  });
-
-  dirsToCopy.forEach((dir) => {
-    const srcDirPath = path.join(__dirname, dir);
-    const destDirPath = path.join(distDir, dir);
-    try {
-      fs.cpSync(srcDirPath, destDirPath, { recursive: true });
-    } catch (error) {
-      console.warn(`Failed to copy ${dir}/:`, (error as Error).message);
-    }
-  });
-
-  // Create an empty .vscodeignore in dist to include everything
-  // This ensures worker.global.js, server.node.js, and their .map files are included
-  // Note: When packaging from dist/, vsce uses this .vscodeignore file
-  const vscodeignoreContent = `# Include all files - no exclusions
-`;
   const vscodeignorePath = path.join(distDir, '.vscodeignore');
+  const vscodeignoreContent = '# Include all files - no exclusions';
   try {
     fs.writeFileSync(vscodeignorePath, vscodeignoreContent);
     console.log('✅ Created .vscodeignore in dist');
@@ -135,75 +75,23 @@ function fixPackagePaths() {
 
     fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
   } catch (error) {
-    console.warn('Failed to fix package.json paths:', (error as Error).message);
-  }
-}
-
-/**
- * Copy out/resources contents to dist/resources to match assets path
- */
-function copyOutResources() {
-  const distDir = path.resolve(__dirname, 'dist');
-  const outResourcesDir = path.join(__dirname, 'out/resources');
-  const distResourcesDir = path.join(distDir, 'resources');
-
-  try {
-    fs.mkdirSync(distResourcesDir, { recursive: true });
-
-    const files = fs.readdirSync(outResourcesDir);
-    files.forEach((file) => {
-      const srcFile = path.join(outResourcesDir, file);
-      const destFile = path.join(distResourcesDir, file);
-      fs.copyFileSync(srcFile, destFile);
-    });
-
-    console.log('✅ Copied out/resources contents to dist/resources');
-  } catch (error) {
-    console.warn(
-      'Failed to copy out/resources contents:',
+    console.error(
+      '❌ Failed to fix package.json paths:',
       (error as Error).message,
     );
-  }
-}
-
-/**
- * Copy webview scripts from out/webviews to dist/webview
- */
-function copyWebviewScripts() {
-  const distDir = path.resolve(__dirname, 'dist');
-  const outWebviewsDir = path.join(__dirname, 'out/webviews');
-  const distWebviewDir = path.join(distDir, 'webview');
-
-  try {
-    fs.mkdirSync(distWebviewDir, { recursive: true });
-
-    if (fs.existsSync(outWebviewsDir)) {
-      const files = fs.readdirSync(outWebviewsDir);
-      files.forEach((file) => {
-        if (file.endsWith('.js') && !file.endsWith('.d.ts')) {
-          const srcFile = path.join(outWebviewsDir, file);
-          const destFile = path.join(distWebviewDir, file);
-          fs.copyFileSync(srcFile, destFile);
-        }
-      });
-
-      console.log('✅ Copied webview scripts to dist/webview');
-    }
-  } catch (error) {
-    console.warn('Failed to copy webview scripts:', (error as Error).message);
+    throw error;
   }
 }
 
 /**
  * Execute immediate post-build tasks (non-dependent on other packages)
- * Worker file copying is done in a separate postbundle script that Turbo can track
+ * Note: File copying is handled by esbuild-plugin-copy, so we only need to:
+ * - Fix package.json paths (transform, not copy)
+ * - Create .vscodeignore file (generated content)
  */
 function executePostBuildTasks(): void {
-  copyManifestFiles();
-  copyOutResources();
-  copyWebviewScripts();
-  copyStandardLibraryResources();
   fixPackagePaths();
+  createVscodeIgnore();
 }
 
 const builds: BuildOptions[] = [
@@ -217,13 +105,7 @@ const builds: BuildOptions[] = [
     // For VSIX packaging, only 'vscode' should be external (provided by VS Code at runtime).
     // All other dependencies (vscode-languageclient, vscode-languageserver-protocol, etc.)
     // must be bundled since node_modules won't exist in the installed extension.
-    external: [
-      'vscode',
-      'vm',
-      'net',
-      'worker_threads',
-      'web-worker',
-    ],
+    external: ['vscode', 'vm', 'net', 'worker_threads', 'web-worker'],
     banner: undefined,
     footer: undefined,
     keepNames: true,
@@ -231,6 +113,75 @@ const builds: BuildOptions[] = [
     loader: {
       '.zip': 'dataurl',
     },
+    plugins: [
+      copy({
+        // Use cwd as base path so we can specify paths relative to project root
+        resolveFrom: 'cwd',
+        assets: [
+          // Copy manifest and configuration files to dist (preserve filenames)
+          {
+            from: ['package.json'],
+            to: ['./dist/package.json'],
+          },
+          {
+            from: ['package.nls.json'],
+            to: ['./dist/package.nls.json'],
+          },
+          {
+            from: ['language-configuration.json'],
+            to: ['./dist/language-configuration.json'],
+          },
+          {
+            from: ['LICENSE.txt'],
+            to: ['./dist/LICENSE.txt'],
+          },
+          // Copy directories (grammars, snippets, resources) to dist
+          {
+            from: ['grammars/**/*'],
+            to: ['./dist/grammars'],
+          },
+          {
+            from: ['snippets/**/*'],
+            to: ['./dist/snippets'],
+          },
+          {
+            from: ['resources/**/*'],
+            to: ['./dist/resources'],
+          },
+          // Copy StandardApexLibrary.zip from apex-parser-ast package to dist/resources
+          {
+            from: ['../apex-parser-ast/resources/StandardApexLibrary.zip'],
+            to: ['./dist/resources/StandardApexLibrary.zip'],
+          },
+          // Copy webview scripts from compiled output to dist/webview
+          // Note: The glob pattern 'out/webviews/*.js' already filters to .js files
+          {
+            from: ['out/webviews/*.js'],
+            to: ['./dist/webview'],
+          },
+          // Copy worker and server files from apex-ls package to dist
+          // Note: Wireit dependency ensures ../apex-ls:bundle completes before this runs
+          {
+            from: ['../apex-ls/dist/worker.global.js'],
+            to: ['./dist/worker.global.js'],
+          },
+          {
+            from: ['../apex-ls/dist/worker.global.js.map'],
+            to: ['./dist/worker.global.js.map'],
+          },
+          {
+            from: ['../apex-ls/dist/server.node.js'],
+            to: ['./dist/server.node.js'],
+          },
+          {
+            from: ['../apex-ls/dist/server.node.js.map'],
+            to: ['./dist/server.node.js.map'],
+          },
+        ],
+        watch: true,
+        verbose: true,
+      }),
+    ],
   },
   {
     ...browserBaseConfig,
@@ -302,7 +253,13 @@ async function run(watch = false): Promise<void> {
   });
 }
 
-run(process.argv.includes('--watch')).catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// Ensure the async function completes before the script exits
+// This is critical for Wireit to properly detect outputs
+(async () => {
+  try {
+    await run(process.argv.includes('--watch'));
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+})();

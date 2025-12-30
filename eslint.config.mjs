@@ -20,7 +20,7 @@ export default [
   {
     // Global configuration that ensures package.json files are always included
     ignores: [
-      '**/.turbo/**',
+      '**/.wireit/**',
       '**/out/**',
       '**/dist/**',
       '**/coverage/**',
@@ -94,17 +94,10 @@ export default [
     },
   },
   {
-    // Override for package.json files to use JSONC parser and turbo rules
+    // Override for package.json files to use JSONC parser
     files: ['**/package.json'],
     languageOptions: {
       parser: jsoncParser,
-    },
-    plugins: {
-      local: localRules,
-    },
-    rules: {
-      'local/turbo-circular-dependency': 'error',
-      'local/turbo-unfiltered-usage': 'warn',
     },
   },
 ];

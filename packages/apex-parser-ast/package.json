@@ -24,27 +24,128 @@
     "README.md"
   ],
   "scripts": {
-    "precompile": "node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs",
-    "bundle": "tsx esbuild.config.ts",
-    "compile": "tsc --build",
-    "test": "jest",
-    "test:one": "jest --testPathPattern=resourceLoader",
-    "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf out dist .turbo coverage src/generated tsconfig.tsbuildinfo",
+    "precompile": "wireit",
+    "bundle": "wireit",
+    "compile": "wireit",
+    "test": "wireit",
+    "test:one": "wireit",
+    "test:coverage": "wireit",
+    "clean": "rimraf out resourcesdist .wireit coverage src/generated tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "eslint src test",
-    "lint:fix": "eslint src test --fix"
+    "lint": "wireit"
+  },
+  "wireit": {
+    "precompile": {
+      "command": "node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs",
+      "output": [
+        "src/generated/**",
+        "out/resources/**",
+        "resources/**"
+      ],
+      "files": [
+        "scripts/generate-keywords.mjs",
+        "scripts/generate-zip.mjs",
+        "src/**/*.cls"
+      ]
+    },
+    "compile": {
+      "command": "tsc --build",
+      "dependencies": [
+        "precompile"
+      ],
+      "output": [
+        "out/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "tsconfig*.json",
+        "../../tsconfig.base.json"
+      ]
+    },
+    "bundle": {
+      "command": "tsx esbuild.config.ts",
+      "dependencies": [
+        "precompile",
+        "compile"
+      ],
+      "output": [
+        "dist/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "esbuild.config.ts",
+        "out/resources/**",
+        "out/index.d.ts"
+      ]
+    },
+    "test": {
+      "command": "jest --json --outputFile=.wireit/test-results.json",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        ".wireit/test-results.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "**/jest.config.cjs",
+        "../../scripts/jest-teardown.js"
+      ]
+    },
+    "test:coverage": {
+      "command": "jest --coverage --coverageDirectory=./coverage",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        "coverage/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "**/jest.config.cjs",
+        "../../scripts/jest-teardown.js"
+      ]
+    },
+    "lint": {
+      "command": "eslint --color --cache --cache-location .eslintcache src test",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "../../eslint.config.mjs"
+      ],
+      "output": []
+    },
+    "test:one": {
+      "command": "jest --testPathPattern=resourceLoader --json --outputFile=.wireit/test-results-one.json",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        ".wireit/test-results-one.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "**/jest.config.cjs",
+        "../../scripts/jest-teardown.js"
+      ]
+    }
   },
   "dependencies": {
     "@apexdevtools/apex-parser": "4.4.1",
-    "@salesforce/apex-lsp-shared": "^1.0.0",
+    "@salesforce/apex-lsp-shared": "*",
     "antlr4ts": "0.5.0-alpha.4",
     "data-structure-typed": "^2.0.4",
     "effect": "^3.18.4",
     "fflate": "^0.8.1"
   },
   "devDependencies": {
-    "@jest/test-sequencer": "^30.2.0",
-    "@salesforce/esbuild-presets": "^0.1.0"
+    "@salesforce/esbuild-presets": "*",
+    "esbuild-plugin-copy": "^2.1.1"
   }
 }

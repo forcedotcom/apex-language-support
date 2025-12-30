@@ -50,7 +50,10 @@
       ],
       "@salesforce/apex-lsp-vscode-extension/*": [
         "packages/apex-lsp-vscode-extension/out/*"
-      ]
+      ],
+
+      "@salesforce/esbuild-presets": ["packages/esbuild-presets/dist"],
+      "@salesforce/esbuild-presets/*": ["packages/esbuild-presets/dist/*"]
     }
   },
   "exclude": ["node_modules", "out", "dist"],
@@ -61,6 +64,7 @@
     { "path": "./packages/custom-services" },
     { "path": "./packages/apex-ls" },
     { "path": "./packages/apex-lsp-testbed" },
-    { "path": "./packages/apex-lsp-vscode-extension" }
+    { "path": "./packages/apex-lsp-vscode-extension" },
+    { "path": "./packages/esbuild-presets" }
   ]
 }

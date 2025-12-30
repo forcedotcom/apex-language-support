@@ -17,8 +17,22 @@
     "dist"
   ],
   "scripts": {
-    "compile": "tsc --build",
+    "compile": "wireit",
     "clean": "rimraf dist tsconfig.tsbuildinfo"
+  },
+  "wireit": {
+    "compile": {
+      "command": "tsc --build",
+      "output": [
+        "dist/**",
+        "tsconfig.tsbuildinfo"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "tsconfig*.json",
+        "../../tsconfig.base.json"
+      ]
+    }
   },
   "license": "BSD-3-Clause",
   "publishConfig": {

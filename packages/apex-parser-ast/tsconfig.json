@@ -5,7 +5,7 @@
     "rootDir": "./src",
     "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/generated/**/*"],
   "exclude": ["node_modules", "out", "dist", "esbuild.config.ts", "test/**/*"],
   "references": [{ "path": "../apex-lsp-shared" }]
 }

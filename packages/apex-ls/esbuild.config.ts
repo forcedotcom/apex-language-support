@@ -7,7 +7,7 @@
  */
 
 import type { BuildOptions } from 'esbuild';
-import { copyFileSync, existsSync } from 'fs';
+import { copy } from 'esbuild-plugin-copy';
 import {
   configureWebWorkerPolyfills,
   nodeBaseConfig,
@@ -91,6 +91,29 @@ const builds: BuildOptions[] = [
     loader: {
       '.zip': 'dataurl',
     },
+    plugins: [
+      copy({
+        resolveFrom: 'cwd',
+        assets: [
+          // Copy type definition files from out/ to dist/ if they exist
+          // Note: These files may not always exist depending on TypeScript compilation output
+          {
+            from: ['out/index.d.ts'],
+            to: ['./dist/index.d.ts'],
+          },
+          {
+            from: ['out/browser.d.ts'],
+            to: ['./dist/browser.d.ts'],
+          },
+          {
+            from: ['out/worker.d.ts'],
+            to: ['./dist/worker.d.ts'],
+          },
+        ],
+        watch: true,
+        verbose: true,
+      }),
+    ],
   },
   // Worker build - used by web VSCode extension
   // Produces worker.global.js as an IIFE bundle for Web Worker context
@@ -122,20 +145,9 @@ const builds: BuildOptions[] = [
 // Apply browser/worker-specific settings to the worker bundle
 configureWebWorkerPolyfills(builds[builds.length - 1]);
 
-const copyDtsFiles = (): void => {
-  const files = ['index.d.ts', 'browser.d.ts', 'worker.d.ts'];
-  files.forEach((file) => {
-    if (existsSync(`out/${file}`)) {
-      copyFileSync(`out/${file}`, `dist/${file}`);
-      console.log(`✅ Copied ${file}`);
-    }
-  });
-};
-
 async function run(watch = false): Promise<void> {
   await runBuilds(builds, {
     watch,
-    afterBuild: copyDtsFiles,
     onError: (error) => {
       console.error('❌ Rebuild failed', error);
     },

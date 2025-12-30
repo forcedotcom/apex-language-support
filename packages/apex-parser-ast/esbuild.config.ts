@@ -7,14 +7,8 @@
  */
 
 import type { BuildOptions } from 'esbuild';
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from 'fs';
+import { copy } from 'esbuild-plugin-copy';
+import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { nodeBaseConfig, runBuilds } from '@salesforce/esbuild-presets';
 
@@ -31,6 +25,25 @@ const builds: BuildOptions[] = [
     loader: {
       '.zip': 'dataurl',
     },
+    plugins: [
+      copy({
+        resolveFrom: 'cwd',
+        assets: [
+          // Copy resources from out/resources/ to dist/resources/
+          {
+            from: ['out/resources/**/*'],
+            to: ['./dist/resources'],
+          },
+          // Copy type definitions from out/ to dist/
+          {
+            from: ['out/index.d.ts', 'out/index.d.ts.map'],
+            to: ['./dist'],
+          },
+        ],
+        watch: true,
+        verbose: true,
+      }),
+    ],
   },
   {
     ...nodeBaseConfig,
@@ -48,126 +61,44 @@ const builds: BuildOptions[] = [
 ];
 
 /**
- * Post-build hook for consistent resource structure and bundled package.json
- * Both compile and bundle use the same 'out/resources/' directory
- */
-function postBuild(): void {
-  console.log('✅ Using consistent resource directory: out/resources/');
-  copyResourcesToDist();
-  copyTypesToDist();
-  createBundledPackageJson();
-}
-
-/**
- * Copies resources from out/resources/ to dist/resources/ for bundled package
- */
-function copyResourcesToDist(): void {
-  try {
-    const sourceResourcesDir = 'out/resources';
-    const distResourcesDir = 'dist/resources';
-
-    if (existsSync(sourceResourcesDir)) {
-      mkdirSync(distResourcesDir, { recursive: true });
-      const files = readdirSync(sourceResourcesDir);
-
-      for (const file of files) {
-        const sourcePath = join(sourceResourcesDir, file);
-        const destPath = join(distResourcesDir, file);
-        copyFileSync(sourcePath, destPath);
-      }
-
-      console.log(`✅ Copied resources to ${distResourcesDir}`);
-    } else {
-      console.log(
-        `⚠️  Source resources directory not found: ${sourceResourcesDir}`,
-      );
-    }
-  } catch (error) {
-    console.error('❌ Failed to copy resources to dist:', error);
-  }
-}
-
-/**
- * Copies type definitions from out/ to dist/ for bundled package
- */
-function copyTypesToDist(): void {
-  try {
-    const sourceTypesDir = 'out';
-    const distTypesDir = 'dist';
-
-    if (existsSync(join(sourceTypesDir, 'index.d.ts'))) {
-      const sourceTypeFile = join(sourceTypesDir, 'index.d.ts');
-      const destTypeFile = join(distTypesDir, 'index.d.ts');
-      copyFileSync(sourceTypeFile, destTypeFile);
-
-      const sourceTypeMapFile = join(sourceTypesDir, 'index.d.ts.map');
-      if (existsSync(sourceTypeMapFile)) {
-        const destTypeMapFile = join(distTypesDir, 'index.d.ts.map');
-        copyFileSync(sourceTypeMapFile, destTypeMapFile);
-      }
-
-      console.log(`✅ Copied type definitions to ${distTypesDir}`);
-    } else {
-      console.log(
-        `⚠️  Source type definitions not found: ${sourceTypesDir}/index.d.ts`,
-      );
-    }
-  } catch (error) {
-    console.error('❌ Failed to copy type definitions to dist:', error);
-  }
-}
-
-/**
- * Creates a package.json for the bundled artifacts that points to dist/ instead of out/
+ * Creates a package.json for the bundled artifacts in dist/
+ * This is used when publishing the package from the dist/ directory.
+ * Note: File copying (resources and types) is handled by esbuild-plugin-copy
  */
 function createBundledPackageJson(): void {
-  try {
-    const originalPackageJson = JSON.parse(
-      readFileSync('package.json', 'utf-8'),
-    );
+  const originalPackageJson = JSON.parse(readFileSync('package.json', 'utf-8'));
 
-    const bundledPackageJson = {
-      ...originalPackageJson,
-      name: originalPackageJson.name,
-      version: originalPackageJson.version,
-      description: originalPackageJson.description,
-      main: 'index.js',
-      module: 'index.mjs',
-      types: 'index.d.ts',
-      exports: {
-        '.': {
-          import: './index.mjs',
-          require: './index.js',
-          types: './index.d.ts',
-        },
+  const bundledPackageJson = {
+    ...originalPackageJson,
+    main: 'index.js',
+    module: 'index.mjs',
+    types: 'index.d.ts',
+    exports: {
+      '.': {
+        import: './index.mjs',
+        require: './index.js',
+        types: './index.d.ts',
       },
-      files: ['.', 'README.md'],
-      scripts: {
-        test: originalPackageJson.scripts?.test || 'echo "No test script"',
-      },
-      devDependencies: {},
-      license: originalPackageJson.license,
-      repository: originalPackageJson.repository,
-      keywords: originalPackageJson.keywords || [],
-      author: originalPackageJson.author,
-      sideEffects: originalPackageJson.sideEffects,
-    };
+    },
+    files: ['.', 'README.md'],
+    scripts: {
+      test: originalPackageJson.scripts?.test || 'echo "No test script"',
+    },
+    devDependencies: {},
+  };
 
-    writeFileSync(
-      join('dist', 'package.json'),
-      JSON.stringify(bundledPackageJson, null, 2) + '\n',
-    );
+  writeFileSync(
+    join('dist', 'package.json'),
+    JSON.stringify(bundledPackageJson, null, 2) + '\n',
+  );
 
-    console.log('✅ Created bundled package.json in dist/');
-  } catch (error) {
-    console.error('❌ Failed to create bundled package.json:', error);
-  }
+  console.log('✅ Created bundled package.json in dist/');
 }
 
 async function run(watch = false): Promise<void> {
   await runBuilds(builds, {
     watch,
-    afterBuild: postBuild,
+    afterBuild: createBundledPackageJson,
     onError: (error) => {
       console.error('❌ Rebuild failed', error);
     },
