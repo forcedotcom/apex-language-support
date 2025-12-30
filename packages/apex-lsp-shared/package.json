@@ -87,7 +87,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "eslint.config.mjs"
+        "../../eslint.config.mjs"
       ],
       "output": []
     }
@@ -98,6 +98,6 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@salesforce/esbuild-presets": "^0.1.0"
+    "@salesforce/esbuild-presets": "workspace:*"
   }
 }
