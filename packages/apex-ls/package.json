@@ -137,9 +137,9 @@
     }
   },
   "dependencies": {
-    "@salesforce/apex-lsp-compliant-services": "workspace:*",
-    "@salesforce/apex-lsp-parser-ast": "workspace:*",
-    "@salesforce/apex-lsp-shared": "workspace:*",
+    "@salesforce/apex-lsp-compliant-services": "*",
+    "@salesforce/apex-lsp-parser-ast": "*",
+    "@salesforce/apex-lsp-shared": "*",
     "effect": "^3.18.4",
     "vscode-jsonrpc": "^8.2.0",
     "vscode-languageserver": "^9.0.1",
@@ -147,7 +147,7 @@
     "web-worker": "^1.5.0"
   },
   "devDependencies": {
-    "@salesforce/esbuild-presets": "workspace:*",
+    "@salesforce/esbuild-presets": "*",
     "@types/node": "^20.19.4",
     "@types/vscode": "^1.90.0",
     "assert": "^2.1.0",

@@ -96,6 +96,6 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@salesforce/esbuild-presets": "workspace:*"
+    "@salesforce/esbuild-presets": "*"
   }
 }

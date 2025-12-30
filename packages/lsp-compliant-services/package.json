@@ -115,8 +115,8 @@
     }
   },
   "dependencies": {
-    "@salesforce/apex-lsp-parser-ast": "workspace:*",
-    "@salesforce/apex-lsp-shared": "workspace:*",
+    "@salesforce/apex-lsp-parser-ast": "*",
+    "@salesforce/apex-lsp-shared": "*",
     "data-structure-typed": "^2.0.4",
     "effect": "^3.18.4",
     "vscode-languageserver": "^9.0.1",
@@ -124,6 +124,6 @@
     "vscode-languageserver-textdocument": "^1.0.12"
   },
   "devDependencies": {
-    "@salesforce/esbuild-presets": "workspace:*"
+    "@salesforce/esbuild-presets": "*"
   }
 }

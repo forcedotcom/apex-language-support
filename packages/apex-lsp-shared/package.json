@@ -98,6 +98,6 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@salesforce/esbuild-presets": "workspace:*"
+    "@salesforce/esbuild-presets": "*"
   }
 }
