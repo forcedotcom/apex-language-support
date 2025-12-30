@@ -150,6 +150,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   > = new HashMap();
   // Track files currently being loaded to prevent recursive loops
   private loadingSymbolTables: Set<string> = new Set();
+  // Cache for isStaticReference results to avoid recomputing
+  private readonly isStaticCache = new WeakMap<SymbolReference, boolean>();
+  // Batch size for initial reference processing
+  private readonly initialReferenceBatchSize: number;
 
   constructor() {
     // Get settings from ApexSettingsManager (with fallback for test environments)
@@ -191,6 +195,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (!deferredReferenceSettings) {
         deferredReferenceSettings = {
           deferredBatchSize: 50,
+          initialReferenceBatchSize: 50,
           maxRetryAttempts: 10,
           retryDelayMs: 100,
           maxRetryDelayMs: 5000,
@@ -203,6 +208,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         };
       }
     }
+
+    // Store initialReferenceBatchSize for use in processSymbolReferencesToGraph
+    this.initialReferenceBatchSize =
+      deferredReferenceSettings.initialReferenceBatchSize ?? 50;
 
     // Initialize ApexSymbolGraph with deferred reference processing settings
     this.symbolGraph = new ApexSymbolGraph(deferredReferenceSettings);
@@ -2083,33 +2092,50 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable: SymbolTable,
     fileUri: string,
   ): Promise<void> {
-    try {
-      const typeReferences = symbolTable.getAllReferences();
+    return Effect.runPromise(
+      this.processSymbolReferencesToGraphEffect(symbolTable, fileUri),
+    );
+  }
 
-      // Process references in batches with yields to prevent blocking
-      const batchSize = 50; // Process 50 references at a time
-      for (let i = 0; i < typeReferences.length; i += batchSize) {
-        const batch = typeReferences.slice(i, i + batchSize);
+  /**
+   * Process type references from a SymbolTable and add them to the symbol graph (Effect-based)
+   * @param symbolTable The symbol table containing type references
+   * @param fileUri The file path where the references were found
+   */
+  private processSymbolReferencesToGraphEffect(
+    symbolTable: SymbolTable,
+    fileUri: string,
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      try {
+        const typeReferences = symbolTable.getAllReferences();
 
-        // Process batch
-        for (const typeRef of batch) {
-          await this.processSymbolReferenceToGraph(
-            typeRef,
-            fileUri,
-            symbolTable,
-          );
+        // Process references in batches with yields to prevent blocking
+        const batchSize = self.initialReferenceBatchSize;
+        for (let i = 0; i < typeReferences.length; i += batchSize) {
+          const batch = typeReferences.slice(i, i + batchSize);
+
+          // Process batch
+          for (const typeRef of batch) {
+            yield* self.processSymbolReferenceToGraphEffect(
+              typeRef,
+              fileUri,
+              symbolTable,
+            );
+          }
+
+          // Yield after each batch (except the last) to allow other tasks to run
+          if (i + batchSize < typeReferences.length) {
+            yield* Effect.yieldNow();
+          }
         }
-
-        // Yield after each batch (except the last) to allow other tasks to run
-        if (i + batchSize < typeReferences.length) {
-          await new Promise((resolve) => setTimeout(resolve, 0));
-        }
+      } catch (error) {
+        self.logger.error(
+          () => `Error processing type references for ${fileUri}: ${error}`,
+        );
       }
-    } catch (error) {
-      this.logger.error(
-        () => `Error processing type references for ${fileUri}: ${error}`,
-      );
-    }
+    });
   }
 
   /**
@@ -2123,228 +2149,259 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     fileUri: string,
     symbolTable: SymbolTable,
   ): Promise<void> {
-    try {
-      // Skip LITERAL references - they don't represent symbol relationships
-      // They're tracked for semantic analysis but shouldn't create graph edges
-      if (typeRef.context === ReferenceContext.LITERAL) {
-        return;
-      }
+    return Effect.runPromise(
+      this.processSymbolReferenceToGraphEffect(typeRef, fileUri, symbolTable),
+    );
+  }
 
-      // Check if this is a cross-file reference BEFORE trying to resolve
-      // This prevents recursive cascades when processing standard library classes
-      const qualifierInfo = this.extractQualifierFromChain(typeRef);
-      let isCrossFileReference = false;
+  /**
+   * Process a single type reference and add it to the symbol graph (Effect-based)
+   * @param typeRef The type reference to process
+   * @param fileUri The file path where the reference was found
+   * @param symbolTable The symbol table for the current file (to check for same-file symbols)
+   */
+  private processSymbolReferenceToGraphEffect(
+    typeRef: SymbolReference,
+    fileUri: string,
+    symbolTable: SymbolTable,
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      try {
+        // Skip LITERAL references - they don't represent symbol relationships
+        // They're tracked for semantic analysis but shouldn't create graph edges
+        if (typeRef.context === ReferenceContext.LITERAL) {
+          return;
+        }
 
-      if (qualifierInfo && qualifierInfo.isQualified) {
-        // For qualified references (e.g., "System.debug"), check if the qualifier is in the current file
-        // Special case: 'this' qualifier is always same-file
-        if (qualifierInfo.qualifier.toLowerCase() === 'this') {
-          // 'this' is always same-file, so check if the member exists in the file
-          // Use getAllSymbols().find() for more reliable same-file lookup
-          const allSymbols = symbolTable.getAllSymbols();
-          const memberInFile = allSymbols.find(
-            (s) => s.name === qualifierInfo.member,
-          );
-          if (!memberInFile) {
-            isCrossFileReference = true;
+        // Check if this is a cross-file reference BEFORE trying to resolve
+        // This prevents recursive cascades when processing standard library classes
+        const qualifierInfo = self.extractQualifierFromChain(typeRef);
+        let isCrossFileReference = false;
+
+        if (qualifierInfo && qualifierInfo.isQualified) {
+          // For qualified references (e.g., "System.debug"), check if the qualifier is in the current file
+          // Special case: 'this' qualifier is always same-file
+          if (qualifierInfo.qualifier.toLowerCase() === 'this') {
+            // 'this' is always same-file, so check if the member exists in the file
+            // Use getAllSymbols().find() for more reliable same-file lookup
+            const allSymbols = symbolTable.getAllSymbols();
+            const memberInFile = allSymbols.find(
+              (s) => s.name === qualifierInfo.member,
+            );
+            if (!memberInFile) {
+              isCrossFileReference = true;
+            }
+          } else {
+            // Check if the qualifier is in the current file
+            // Use getAllSymbols().find() for more reliable same-file lookup
+            const allSymbols = symbolTable.getAllSymbols();
+            const qualifierInFile = allSymbols.find(
+              (s) => s.name === qualifierInfo.qualifier,
+            );
+            if (!qualifierInFile) {
+              // Qualifier not in current file - this is a cross-file reference
+              isCrossFileReference = true;
+            }
           }
         } else {
-          // Check if the qualifier is in the current file
+          // For unqualified references, check if the symbol exists in the current file
           // Use getAllSymbols().find() for more reliable same-file lookup
           const allSymbols = symbolTable.getAllSymbols();
-          const qualifierInFile = allSymbols.find(
-            (s) => s.name === qualifierInfo.qualifier,
-          );
-          if (!qualifierInFile) {
-            // Qualifier not in current file - this is a cross-file reference
+          const symbolInFile = allSymbols.find((s) => s.name === typeRef.name);
+          if (!symbolInFile) {
+            // Symbol not in current file - this is a cross-file reference
             isCrossFileReference = true;
           }
         }
-      } else {
-        // For unqualified references, check if the symbol exists in the current file
-        // Use getAllSymbols().find() for more reliable same-file lookup
-        const allSymbols = symbolTable.getAllSymbols();
-        const symbolInFile = allSymbols.find((s) => s.name === typeRef.name);
-        if (!symbolInFile) {
-          // Symbol not in current file - this is a cross-file reference
-          isCrossFileReference = true;
-        }
-      }
 
-      // If it's a cross-file reference, defer it immediately without resolving
-      // This prevents triggering resolution of standard library classes or other files
-      if (isCrossFileReference) {
-        // For cross-file references, we still need a source symbol for deferral
-        // Use the graph-based lookup as fallback since SymbolTable won't have cross-file symbols
-        const properUri =
-          getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
-        const normalizedUri = extractFilePathFromUri(properUri);
-        let sourceSymbol = this.findContainingSymbolForReference(
+        // If it's a cross-file reference, defer it immediately without resolving
+        // This prevents triggering resolution of standard library classes or other files
+        if (isCrossFileReference) {
+          // For cross-file references, we still need a source symbol for deferral
+          // Use the graph-based lookup as fallback since SymbolTable won't have cross-file symbols
+          const properUri =
+            getProtocolType(fileUri) !== null
+              ? fileUri
+              : createFileUri(fileUri);
+          const normalizedUri = extractFilePathFromUri(properUri);
+          let sourceSymbol = self.findContainingSymbolForReference(
+            typeRef,
+            normalizedUri,
+          );
+          if (!sourceSymbol) {
+            // Fallback: Try to find the class symbol in the file
+            const symbolsInFile = self.findSymbolsInFile(normalizedUri);
+            sourceSymbol =
+              symbolsInFile.find(
+                (s) =>
+                  s.kind === SymbolKind.Class ||
+                  s.kind === SymbolKind.Interface ||
+                  s.kind === SymbolKind.Enum ||
+                  s.kind === SymbolKind.Trigger,
+              ) || null;
+          }
+
+          if (sourceSymbol) {
+            const referenceType = self.mapReferenceContextToType(
+              typeRef.context,
+            );
+            const isStatic = yield* self.isStaticReferenceEffect(typeRef);
+            self.symbolGraph.enqueueDeferredReference(
+              sourceSymbol,
+              typeRef.name,
+              referenceType,
+              typeRef.location,
+              {
+                methodName: typeRef.parentContext,
+                isStatic: isStatic,
+              },
+            );
+          }
+          return;
+        }
+
+        // At this point, we know the reference is to a symbol in the same file (Set A)
+        // Optimize: Resolve both source and target from SymbolTable directly
+        // This is deterministic since symbol collection is complete
+
+        // 1. Resolve source symbol from SymbolTable (handles blocks by finding containing method/class)
+        const sourceSymbol = self.findContainingSymbolFromSymbolTable(
           typeRef,
-          normalizedUri,
+          symbolTable,
         );
         if (!sourceSymbol) {
-          // Fallback: Try to find the class symbol in the file
-          const symbolsInFile = this.findSymbolsInFile(normalizedUri);
-          sourceSymbol =
-            symbolsInFile.find(
-              (s) =>
-                s.kind === SymbolKind.Class ||
-                s.kind === SymbolKind.Interface ||
-                s.kind === SymbolKind.Enum ||
-                s.kind === SymbolKind.Trigger,
-            ) || null;
+          // Can't resolve source symbol - skip this reference
+          self.logger.debug(
+            () =>
+              `Skipping type reference ${typeRef.name}: could not resolve source symbol from SymbolTable`,
+          );
+          return;
         }
 
-        if (sourceSymbol) {
-          const referenceType = this.mapReferenceContextToType(typeRef.context);
-          this.symbolGraph.enqueueDeferredReference(
+        // 2. Resolve target symbol - check if already resolved by listener second-pass first
+        let targetSymbol: ApexSymbol | null = null;
+        if (typeRef.resolvedSymbolId) {
+          // Fast path: use pre-resolved symbol ID from listener second-pass
+          targetSymbol = self.getSymbol(typeRef.resolvedSymbolId);
+          if (targetSymbol) {
+            self.logger.debug(
+              () =>
+                `Using pre-resolved symbol ID "${typeRef.resolvedSymbolId}" ` +
+                `for reference "${typeRef.name}" in graph processing`,
+            );
+          }
+        }
+
+        // Fall back to normal resolution if not already resolved
+        if (!targetSymbol) {
+          targetSymbol = yield* Effect.tryPromise({
+            try: () =>
+              self.findTargetSymbolForReference(
+                typeRef,
+                fileUri,
+                sourceSymbol,
+                symbolTable,
+              ),
+            catch: (error) => error as Error,
+          }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+          if (targetSymbol) {
+            // Update resolvedSymbolId if not already set
+            typeRef.resolvedSymbolId = targetSymbol.id;
+          }
+        }
+
+        if (!targetSymbol) {
+          // Even though it should be in the file, we couldn't resolve it
+          // Defer it as a fallback
+          const referenceType = self.mapReferenceContextToType(typeRef.context);
+          const isStatic = yield* self.isStaticReferenceEffect(typeRef);
+          self.symbolGraph.enqueueDeferredReference(
             sourceSymbol,
-            typeRef.name,
+            typeRef.name, // target symbol name
             referenceType,
             typeRef.location,
             {
               methodName: typeRef.parentContext,
-              isStatic: await this.isStaticReference(typeRef),
+              isStatic: isStatic,
             },
           );
+          return;
         }
-        return;
-      }
 
-      // At this point, we know the reference is to a symbol in the same file (Set A)
-      // Optimize: Resolve both source and target from SymbolTable directly
-      // This is deterministic since symbol collection is complete
+        // At this point, targetSymbol is guaranteed to be non-null
+        const resolvedTargetSymbol = targetSymbol;
 
-      // 1. Resolve source symbol from SymbolTable (handles blocks by finding containing method/class)
-      const sourceSymbol = this.findContainingSymbolFromSymbolTable(
-        typeRef,
-        symbolTable,
-      );
-      if (!sourceSymbol) {
-        // Can't resolve source symbol - skip this reference
-        this.logger.debug(
-          () =>
-            `Skipping type reference ${typeRef.name}: could not resolve source symbol from SymbolTable`,
-        );
-        return;
-      }
-
-      // 2. Resolve target symbol - check if already resolved by listener second-pass first
-      let targetSymbol: ApexSymbol | null = null;
-      if (typeRef.resolvedSymbolId) {
-        // Fast path: use pre-resolved symbol ID from listener second-pass
-        targetSymbol = this.getSymbol(typeRef.resolvedSymbolId);
-        if (targetSymbol) {
-          this.logger.debug(
-            () =>
-              `Using pre-resolved symbol ID "${typeRef.resolvedSymbolId}" ` +
-              `for reference "${typeRef.name}" in graph processing`,
-          );
+        // Skip creating edges for declaration references; they are not dependencies
+        // Note: VARIABLE_DECLARATION and PROPERTY_REFERENCE references are still marked as resolved above
+        // since we successfully found the target symbol, even though we don't add them to the graph
+        // These are for editor UX (hover, go-to-definition) and don't represent actual dependencies
+        if (
+          typeRef.context === ReferenceContext.VARIABLE_DECLARATION ||
+          typeRef.context === ReferenceContext.PROPERTY_REFERENCE
+        ) {
+          return;
         }
-      }
 
-      // Fall back to normal resolution if not already resolved
-      if (!targetSymbol) {
-        targetSymbol = await this.findTargetSymbolForReference(
-          typeRef,
-          fileUri,
-          sourceSymbol,
-          symbolTable,
+        // 3. Add to graph directly (symbols are already in graph from addSymbolTable)
+        // Get symbols from graph to ensure we use the exact instances stored there
+        const sourceSymbolsInGraph = self.symbolGraph.findSymbolByName(
+          sourceSymbol.name,
         );
-        if (targetSymbol) {
-          // Update resolvedSymbolId if not already set
-          typeRef.resolvedSymbolId = targetSymbol.id;
-        }
-      }
-
-      if (!targetSymbol) {
-        // Even though it should be in the file, we couldn't resolve it
-        // Defer it as a fallback
-        const referenceType = this.mapReferenceContextToType(typeRef.context);
-        this.symbolGraph.enqueueDeferredReference(
-          sourceSymbol,
-          typeRef.name, // target symbol name
-          referenceType,
-          typeRef.location,
-          {
-            methodName: typeRef.parentContext,
-            isStatic: await this.isStaticReference(typeRef),
-          },
-        );
-        return;
-      }
-
-      // At this point, targetSymbol is guaranteed to be non-null
-      const resolvedTargetSymbol = targetSymbol;
-
-      // Skip creating edges for declaration references; they are not dependencies
-      // Note: VARIABLE_DECLARATION and PROPERTY_REFERENCE references are still marked as resolved above
-      // since we successfully found the target symbol, even though we don't add them to the graph
-      // These are for editor UX (hover, go-to-definition) and don't represent actual dependencies
-      if (
-        typeRef.context === ReferenceContext.VARIABLE_DECLARATION ||
-        typeRef.context === ReferenceContext.PROPERTY_REFERENCE
-      ) {
-        return;
-      }
-
-      // 3. Add to graph directly (symbols are already in graph from addSymbolTable)
-      // Get symbols from graph to ensure we use the exact instances stored there
-      const sourceSymbolsInGraph = this.symbolGraph.findSymbolByName(
-        sourceSymbol.name,
-      );
-      const targetSymbolsInGraph = this.symbolGraph.findSymbolByName(
-        resolvedTargetSymbol.name,
-      );
-
-      const sourceInGraph = sourceSymbol.fileUri
-        ? sourceSymbolsInGraph.find((s) => s.fileUri === sourceSymbol.fileUri)
-        : sourceSymbolsInGraph[0];
-
-      const targetInGraph = resolvedTargetSymbol.fileUri
-        ? targetSymbolsInGraph.find(
-            (s) => s.fileUri === resolvedTargetSymbol.fileUri,
-          )
-        : targetSymbolsInGraph[0];
-
-      // Symbols should be in graph since addSymbolTable runs before processSymbolReferencesToGraph
-      // If they're not, queue for when they are added (rare edge case)
-      if (!sourceInGraph || !targetInGraph) {
-        const referenceType = this.mapReferenceContextToType(typeRef.context);
-        this.symbolGraph.enqueueDeferredReference(
-          sourceSymbol,
+        const targetSymbolsInGraph = self.symbolGraph.findSymbolByName(
           resolvedTargetSymbol.name,
+        );
+
+        const sourceInGraph = sourceSymbol.fileUri
+          ? sourceSymbolsInGraph.find((s) => s.fileUri === sourceSymbol.fileUri)
+          : sourceSymbolsInGraph[0];
+
+        const targetInGraph = resolvedTargetSymbol.fileUri
+          ? targetSymbolsInGraph.find(
+              (s) => s.fileUri === resolvedTargetSymbol.fileUri,
+            )
+          : targetSymbolsInGraph[0];
+
+        // Symbols should be in graph since addSymbolTable runs before processSymbolReferencesToGraph
+        // If they're not, queue for when they are added (rare edge case)
+        if (!sourceInGraph || !targetInGraph) {
+          const referenceType = self.mapReferenceContextToType(typeRef.context);
+          const isStatic = yield* self.isStaticReferenceEffect(typeRef);
+          self.symbolGraph.enqueueDeferredReference(
+            sourceSymbol,
+            resolvedTargetSymbol.name,
+            referenceType,
+            typeRef.location,
+            {
+              methodName: typeRef.parentContext,
+              isStatic: isStatic,
+            },
+          );
+          return;
+        }
+
+        // Map ReferenceContext to ReferenceType
+        const referenceType = self.mapReferenceContextToType(typeRef.context);
+
+        // Add the reference to the symbol graph using symbols from the graph
+        // This is deterministic for same-file references since both symbols are resolved from SymbolTable
+        const isStatic = yield* self.isStaticReferenceEffect(typeRef);
+        self.symbolGraph.addReference(
+          sourceInGraph,
+          targetInGraph,
           referenceType,
           typeRef.location,
           {
             methodName: typeRef.parentContext,
-            isStatic: await this.isStaticReference(typeRef),
+            isStatic: isStatic,
           },
         );
-        return;
+      } catch (error) {
+        self.logger.error(
+          () => `Error processing type reference ${typeRef.name}: ${error}`,
+        );
       }
-
-      // Map ReferenceContext to ReferenceType
-      const referenceType = this.mapReferenceContextToType(typeRef.context);
-
-      // Add the reference to the symbol graph using symbols from the graph
-      // This is deterministic for same-file references since both symbols are resolved from SymbolTable
-      this.symbolGraph.addReference(
-        sourceInGraph,
-        targetInGraph,
-        referenceType,
-        typeRef.location,
-        {
-          methodName: typeRef.parentContext,
-          isStatic: await this.isStaticReference(typeRef),
-        },
-      );
-    } catch (error) {
-      this.logger.error(
-        () => `Error processing type reference ${typeRef.name}: ${error}`,
-      );
-    }
+    });
   }
 
   /**
@@ -2918,6 +2975,53 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @returns True if the reference is static
    */
   private async isStaticReference(typeRef: SymbolReference): Promise<boolean> {
+    // Check cache first
+    const cached = this.isStaticCache.get(typeRef);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    // Compute result
+    const result = await this.computeIsStaticReference(typeRef);
+
+    // Store in cache
+    this.isStaticCache.set(typeRef, result);
+    return result;
+  }
+
+  /**
+   * Compute whether a reference is static (Effect-based with caching)
+   * @param typeRef The type reference
+   * @returns Effect that resolves to true if the reference is static
+   */
+  private isStaticReferenceEffect(
+    typeRef: SymbolReference,
+  ): Effect.Effect<boolean, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      // Check cache first
+      const cached = self.isStaticCache.get(typeRef);
+      if (cached !== undefined) {
+        return cached;
+      }
+
+      // Compute result
+      const result = yield* self.computeIsStaticReferenceEffect(typeRef);
+
+      // Store in cache
+      self.isStaticCache.set(typeRef, result);
+      return result;
+    });
+  }
+
+  /**
+   * Compute whether a reference is static (internal implementation)
+   * @param typeRef The type reference
+   * @returns True if the reference is static
+   */
+  private async computeIsStaticReference(
+    typeRef: SymbolReference,
+  ): Promise<boolean> {
     // Check if this is a qualified reference (which is typically static)
     const qualifierInfo = this.extractQualifierFromChain(typeRef);
     if (qualifierInfo && qualifierInfo.isQualified) {
@@ -2950,6 +3054,57 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     return false;
+  }
+
+  /**
+   * Compute whether a reference is static (Effect-based internal implementation)
+   * @param typeRef The type reference
+   * @returns Effect that resolves to true if the reference is static
+   */
+  private computeIsStaticReferenceEffect(
+    typeRef: SymbolReference,
+  ): Effect.Effect<boolean, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      // Check if this is a qualified reference (which is typically static)
+      const qualifierInfo = self.extractQualifierFromChain(typeRef);
+      if (qualifierInfo && qualifierInfo.isQualified) {
+        // For qualified references like "System.debug", check if the qualifier is a class
+        const qualifierSymbols = self.findSymbolByName(qualifierInfo.qualifier);
+        if (qualifierSymbols.length > 0) {
+          const qualifierSymbol = qualifierSymbols[0];
+          return qualifierSymbol.kind === SymbolKind.Class;
+        }
+
+        // Also check if it's a built-in type (which are typically static)
+        // Extract qualifier node from chain if available
+        let qualifierRef: SymbolReference;
+        if (
+          isChainedSymbolReference(typeRef) &&
+          typeRef.chainNodes.length >= 2
+        ) {
+          // Use the qualifier node from the chain
+          qualifierRef = typeRef.chainNodes[0];
+        } else {
+          // Create a minimal SymbolReference for the qualifier string
+          qualifierRef = {
+            name: qualifierInfo.qualifier,
+            context: ReferenceContext.NAMESPACE,
+            location: typeRef.location,
+            resolvedSymbolId: undefined,
+          };
+        }
+        const builtInQualifier = yield* Effect.tryPromise({
+          try: () => self.resolveBuiltInType(qualifierRef),
+          catch: (error) => error as Error,
+        }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+        if (builtInQualifier) {
+          return true;
+        }
+      }
+
+      return false;
+    });
   }
 
   /**

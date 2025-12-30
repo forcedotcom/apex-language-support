@@ -58,9 +58,6 @@ const PRIORITY_COLORS: Record<number, string> = {
 
 class QueueStateDashboard {
   private vscode: any;
-  private pollInterval: number = 3000; // Default 3 seconds
-  private pollTimer: number | null = null;
-  private isPaused: boolean = false;
   private currentData: QueueStateData | null = null;
   private priorityTogglesSetup: boolean = false;
   private expandedPriorities: Set<number> = new Set();
@@ -76,26 +73,32 @@ class QueueStateDashboard {
     if (this.currentData) {
       this.render(this.currentData);
     }
-    // Note: Polling is now optional since we receive real-time updates via notifications
-    // Keep it as a fallback for manual refresh
-    this.startPolling();
   }
 
   private setupMessageListener(): void {
-    // Listen for messages from the extension (including real-time queue state updates)
+    // Single message listener for all messages from the extension
     window.addEventListener('message', (event) => {
       const message = event.data;
-      if (message.type === 'queueStateData') {
-        // Real-time update received from scheduler loop
-        this.currentData = message.data;
-        if (this.currentData) {
-          this.render(this.currentData);
-        }
-      } else if (message.type === 'error') {
-        this.showError(message.message || 'Unknown error');
-      } else if (message.type === 'intervalUpdated') {
-        // Interval was updated
-        console.log('Polling interval updated:', message.interval);
+      console.log('[QueueStateDashboard] Received message:', message.type);
+      switch (message.type) {
+        case 'queueStateData':
+          // Real-time update received from scheduler loop or manual refresh
+          console.log(
+            '[QueueStateDashboard] Updating dashboard with new data',
+            message.data,
+          );
+          this.currentData = message.data;
+          if (this.currentData) {
+            this.render(this.currentData);
+            this.updateLastUpdateTime();
+          }
+          break;
+        case 'error':
+          console.error('[QueueStateDashboard] Error from extension:', message.message);
+          this.showError(message.message || 'Unknown error');
+          break;
+        default:
+          console.log('[QueueStateDashboard] Unknown message type:', message.type);
       }
     });
   }
@@ -105,101 +108,14 @@ class QueueStateDashboard {
     const refreshBtn = document.getElementById('refresh-btn');
     if (refreshBtn) {
       refreshBtn.addEventListener('click', () => {
+        console.log('[QueueStateDashboard] Refresh button clicked');
         this.refresh();
       });
     }
-
-    // Pause/Resume button
-    const pauseBtn = document.getElementById('pause-btn');
-    if (pauseBtn) {
-      pauseBtn.addEventListener('click', () => {
-        this.togglePause();
-      });
-    }
-
-    // Interval selector
-    const intervalSelect = document.getElementById(
-      'interval-select',
-    ) as HTMLSelectElement;
-    if (intervalSelect) {
-      intervalSelect.addEventListener('change', (e) => {
-        const newInterval = parseInt((e.target as HTMLSelectElement).value, 10);
-        this.updateInterval(newInterval);
-      });
-    }
-
-    // Listen for messages from extension
-    window.addEventListener('message', (event) => {
-      const message = event.data;
-      switch (message.type) {
-        case 'queueStateData':
-          this.currentData = message.data;
-          this.render(message.data);
-          this.updateLastUpdateTime();
-          break;
-        case 'error':
-          console.error('Error from extension:', message.message);
-          this.showError(message.message);
-          break;
-        case 'intervalUpdated':
-          this.pollInterval = message.interval;
-          break;
-      }
-    });
   }
 
   private refresh(): void {
     this.vscode.postMessage({ type: 'refresh' });
-  }
-
-  private togglePause(): void {
-    this.isPaused = !this.isPaused;
-    const pauseBtn = document.getElementById('pause-btn') as HTMLButtonElement;
-    const statusIndicator = document.getElementById('status-indicator');
-    const statusText = document.getElementById('status-text');
-
-    if (this.isPaused) {
-      this.stopPolling();
-      if (pauseBtn) pauseBtn.textContent = 'Resume';
-      if (statusIndicator) {
-        statusIndicator.className = 'status-indicator status-paused';
-      }
-      if (statusText) statusText.textContent = 'Auto-refresh paused';
-    } else {
-      this.startPolling();
-      if (pauseBtn) pauseBtn.textContent = 'Pause';
-      if (statusIndicator) {
-        statusIndicator.className = 'status-indicator status-active';
-      }
-      if (statusText) statusText.textContent = 'Auto-refresh active';
-    }
-  }
-
-  private updateInterval(newInterval: number): void {
-    this.pollInterval = newInterval;
-    if (!this.isPaused) {
-      this.stopPolling();
-      this.startPolling();
-    }
-    this.vscode.postMessage({ type: 'updateInterval', interval: newInterval });
-  }
-
-  private startPolling(): void {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-    }
-    this.pollTimer = setInterval(() => {
-      if (!this.isPaused) {
-        this.refresh();
-      }
-    }, this.pollInterval) as unknown as number;
-  }
-
-  private stopPolling(): void {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
   }
 
   private render(data: QueueStateData): void {

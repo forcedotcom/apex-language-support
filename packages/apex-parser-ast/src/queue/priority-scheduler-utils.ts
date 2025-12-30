@@ -230,8 +230,6 @@ function controllerLoop(
   let lastSummaryLogTime = Date.now();
   const SUMMARY_LOG_INTERVAL_MS = 30000; // 30 seconds
   let lastQueueSizes = new Map<number, number>();
-  let lastCallbackTime = 0;
-  const CALLBACK_THROTTLE_MS = 100; // Send updates max every 100ms
 
   return Effect.gen(function* () {
     let streak = 0;
@@ -361,36 +359,6 @@ function controllerLoop(
         if (!executed) {
           streak = 0;
           yield* Effect.sleep(Duration.millis(cfg.idleSleepMs));
-        }
-
-        // Notify callback if registered and metrics have changed (only send updates when state changes)
-        // Throttle callback frequency to avoid overwhelming the connection
-        const callback = yield* Ref.get(queueStateCallbackRef);
-        if (callback) {
-          const now = Date.now();
-          const timeSinceLastCallback = now - lastCallbackTime;
-
-          // Only check metrics if enough time has passed (throttle)
-          if (timeSinceLastCallback >= CALLBACK_THROTTLE_MS) {
-            try {
-              // Get current metrics synchronously for callback
-              const currentMetrics = yield* getCurrentMetrics(state);
-              const lastSent = yield* Ref.get(lastSentMetricsRef);
-
-              // Only send notification if metrics have changed (avoid sending when idle)
-              if (metricsChanged(lastSent, currentMetrics)) {
-                // Callback is already deferred via setImmediate in LCSAdapter
-                // This prevents blocking the scheduler loop
-                callback(currentMetrics);
-                // Store the metrics we just sent
-                yield* Ref.set(lastSentMetricsRef, currentMetrics);
-                lastCallbackTime = now;
-              }
-            } catch (error) {
-              // Don't let callback errors break the scheduler loop
-              logger.debug(() => `Queue state callback error: ${error}`);
-            }
-          }
         }
 
         // Enhanced starvation relief - process multiple lower-priority tasks based on queue imbalance
@@ -683,19 +651,14 @@ const DEFAULT_CONFIG: PrioritySchedulerConfigShape = {
  * Returns an Effect that builds the scheduler and stores it for reuse.
  *
  * @param config Scheduler configuration
- * @param queueStateChangeCallback Optional callback to be called after each scheduler loop
- *   iteration with current metrics
  */
-export function initialize(
-  config?: {
-    queueCapacity: number | Record<string, number>;
-    maxHighPriorityStreak: number;
-    idleSleepMs: number;
-    maxConcurrency?: Record<string, number>;
-    maxTotalConcurrency?: number;
-  },
-  queueStateChangeCallback?: (metrics: SchedulerMetrics) => void,
-): Effect.Effect<void, Error, never> {
+export function initialize(config?: {
+  queueCapacity: number | Record<string, number>;
+  maxHighPriorityStreak: number;
+  idleSleepMs: number;
+  maxConcurrency?: Record<string, number>;
+  maxTotalConcurrency?: number;
+}): Effect.Effect<void, Error, never> {
   return Effect.gen(function* () {
     const state = yield* Ref.get(utilsStateRef);
 
@@ -808,11 +771,6 @@ export function initialize(
       enqueueWaitTimeMap.set(p, 0);
       backPressureEventsMap.set(p, 0);
       backPressureStartTimeMap.set(p, 0);
-    }
-
-    // Store callback in Ref for later access
-    if (queueStateChangeCallback) {
-      yield* Ref.set(queueStateCallbackRef, queueStateChangeCallback);
     }
 
     const schedulerState: SchedulerInternalState = {
@@ -1216,6 +1174,128 @@ export function setQueueStateChangeCallback(
   callback?: (metrics: SchedulerMetrics) => void,
 ): Effect.Effect<void, never, never> {
   return Ref.set(queueStateCallbackRef, callback);
+}
+
+/**
+ * Start a periodic background task that checks for queue state changes and invokes
+ * the callback at the specified interval. The task runs until the scheduler is shut down.
+ *
+ * @param callback Callback function to receive queue state updates
+ * @param intervalMs Interval in milliseconds between notification checks
+ * @returns Effect that produces a Fiber handle for the notification task
+ */
+export function startQueueStateNotificationTask(
+  callback: (metrics: SchedulerMetrics) => void,
+  intervalMs: number,
+): Effect.Effect<Fiber.RuntimeFiber<void, never>, Error, never> {
+  return Effect.gen(function* () {
+    const state = yield* Ref.get(utilsStateRef);
+
+    if (state.type !== 'initialized') {
+      return yield* Effect.fail(
+        new Error(
+          'Scheduler not initialized. Call initialize() first at application startup.',
+        ),
+      );
+    }
+
+    const { scope } = state;
+
+    // Store callback in Ref for potential future use
+    yield* Ref.set(queueStateCallbackRef, callback);
+
+    // Create the periodic notification loop
+    const notificationLoop = Effect.gen(function* () {
+      const logger = getLogger();
+      logger.debug(
+        () =>
+          `Starting queue state notification task with interval ${intervalMs}ms`,
+      );
+
+      while (true) {
+        // Sleep for the configured interval
+        yield* Effect.sleep(Duration.millis(intervalMs));
+
+        // Check if scheduler is still initialized (shutdown check)
+        const currentState = yield* Ref.get(utilsStateRef);
+        if (currentState.type !== 'initialized') {
+          logger.debug(
+            () => 'Scheduler shutdown detected, stopping notification task',
+          );
+          break;
+        }
+
+        try {
+          // Get current metrics using the metrics() function
+          const currentMetricsResult = yield* Effect.either(metrics());
+          if (currentMetricsResult._tag === 'Left') {
+            // Scheduler not initialized or error getting metrics
+            logger.debug(
+              () =>
+                `Error getting metrics in notification task: ${currentMetricsResult.left}`,
+            );
+            continue;
+          }
+
+          const currentMetrics = currentMetricsResult.right;
+          const lastSent = yield* Ref.get(lastSentMetricsRef);
+
+          // Check if metrics have changed
+          if (metricsChanged(lastSent, currentMetrics)) {
+            logger.debug(
+              () =>
+                `Queue metrics changed, calling callback: Started=${
+                  currentMetrics.tasksStarted
+                }, Completed=${currentMetrics.tasksCompleted}`,
+            );
+            // Invoke callback (caller is responsible for deferring if needed)
+            callback(currentMetrics);
+            // Update last sent metrics
+            yield* Ref.set(lastSentMetricsRef, currentMetrics);
+          }
+        } catch (error) {
+          // Don't let errors break the notification loop
+          logger.debug(
+            () =>
+              `Queue state notification task error: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+          );
+        }
+      }
+
+      logger.debug(() => 'Queue state notification task stopped');
+    });
+
+    // Fork the notification loop in the scheduler's scope
+    const fiber = yield* Effect.forkScoped(notificationLoop).pipe(
+      Effect.provide(Layer.succeed(Scope.Scope, scope)),
+    );
+
+    return fiber;
+  });
+}
+
+/**
+ * Reset lastSentMetricsRef to current metrics.
+ * This ensures that future metric changes will trigger notifications.
+ * Useful when a client requests current state and wants to receive updates.
+ */
+export function resetLastSentMetrics(): Effect.Effect<void, never, never> {
+  return Effect.gen(function* () {
+    // Get current metrics using the same function as metrics()
+    // If metrics() fails (scheduler not initialized), silently ignore
+    const currentMetrics = yield* Effect.catchAll(metrics(), () =>
+      Effect.succeed({
+        queueSizes: {},
+        tasksStarted: 0,
+        tasksCompleted: 0,
+        tasksDropped: 0,
+        queueCapacity: {},
+      } as SchedulerMetrics),
+    );
+    yield* Ref.set(lastSentMetricsRef, currentMetrics);
+  });
 }
 
 /**

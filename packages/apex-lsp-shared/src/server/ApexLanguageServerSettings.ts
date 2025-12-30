@@ -170,6 +170,9 @@ export interface DeferredReferenceProcessingSettings {
   /** Batch size for processing deferred references (default: 50) */
   deferredBatchSize: number;
 
+  /** Batch size for initial reference processing when adding symbol tables (default: 50) */
+  initialReferenceBatchSize: number;
+
   /** Maximum number of retry attempts for deferred references (default: 10) */
   maxRetryAttempts: number;
 
@@ -241,6 +244,9 @@ export interface SchedulerSettings {
 
   /** Idle sleep duration in milliseconds when no tasks available (default: 1) */
   idleSleepMs: number;
+
+  /** Interval for periodic queue state notifications to client in milliseconds (default: 200) */
+  queueStateNotificationIntervalMs: number;
 }
 
 /**

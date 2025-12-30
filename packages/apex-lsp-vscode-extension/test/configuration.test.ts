@@ -239,7 +239,7 @@ describe('Configuration Module', () => {
       const settings = getWorkspaceSettings();
 
       // Should use default values from mergeWithDefaults
-      expect(settings.apex.findMissingArtifact.enabled).toBe(false); // Default from DEFAULT_APEX_SETTINGS
+      expect(settings.apex.findMissingArtifact.enabled).toBe(true); // Default from DEFAULT_APEX_SETTINGS
       expect(settings.apex.findMissingArtifact.blockingWaitTimeoutMs).toBe(
         2000, // Default from DEFAULT_APEX_SETTINGS
       );

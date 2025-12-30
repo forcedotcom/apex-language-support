@@ -24,6 +24,7 @@ declare const initialSettings: any;
 interface PerformanceSettings {
   deferredReferenceProcessing?: {
     deferredBatchSize: number;
+    initialReferenceBatchSize: number;
     maxRetryAttempts: number;
     retryDelayMs: number;
     maxRetryDelayMs: number;
@@ -226,6 +227,7 @@ class PerformanceSettingsUI {
     const expanded = this.expandedSections.has('deferredReferenceProcessing');
     const def = settings || {
       deferredBatchSize: 50,
+      initialReferenceBatchSize: 50,
       maxRetryAttempts: 10,
       retryDelayMs: 100,
       maxRetryDelayMs: 5000,
@@ -246,6 +248,15 @@ class PerformanceSettingsUI {
         min: 1,
         max: 1000,
         tooltip: 'Batch size for processing deferred references (default: 50)',
+      },
+      {
+        key: 'initialReferenceBatchSize',
+        label: 'Initial Reference Batch Size',
+        value: def.initialReferenceBatchSize,
+        min: 1,
+        max: 1000,
+        tooltip:
+          'Batch size for initial reference processing when adding symbol tables (default: 50)',
       },
       {
         key: 'maxRetryAttempts',

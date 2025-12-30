@@ -338,7 +338,7 @@
           "properties": {
             "enabled": {
               "type": "boolean",
-              "default": false,
+              "default": true,
               "description": "%configuration.apex-ls-ts.findMissingArtifact.enabled.description%"
             },
             "blockingWaitTimeoutMs": {
@@ -499,6 +499,11 @@
               "type": "number",
               "default": 1,
               "description": "%configuration.apex-ls-ts.scheduler.idleSleepMs.description%"
+            },
+            "queueStateNotificationIntervalMs": {
+              "type": "number",
+              "default": 200,
+              "description": "%configuration.apex-ls-ts.scheduler.queueStateNotificationIntervalMs.description%"
             }
           }
         },
@@ -510,6 +515,11 @@
               "type": "number",
               "default": 50,
               "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.deferredBatchSize.description%"
+            },
+            "initialReferenceBatchSize": {
+              "type": "number",
+              "default": 50,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.initialReferenceBatchSize.description%"
             },
             "maxRetryAttempts": {
               "type": "number",

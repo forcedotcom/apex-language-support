@@ -43,7 +43,7 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       standardApexLibraryPath: undefined,
     },
     findMissingArtifact: {
-      enabled: false,
+      enabled: true,
       blockingWaitTimeoutMs: 2000,
       indexingBarrierPollMs: 100,
       maxCandidatesToOpen: 3,
@@ -51,7 +51,7 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       enablePerfMarks: false,
     },
     loadWorkspace: {
-      enabled: true,
+      enabled: false,
       maxConcurrency: 50,
       yieldInterval: 50,
       yieldDelayMs: 25,
@@ -82,9 +82,11 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       },
       maxHighPriorityStreak: 50,
       idleSleepMs: 1,
+      queueStateNotificationIntervalMs: 200,
     },
     deferredReferenceProcessing: {
       deferredBatchSize: 25, // Reduced from 50 to improve responsiveness
+      initialReferenceBatchSize: 50,
       maxRetryAttempts: 10,
       retryDelayMs: 100,
       maxRetryDelayMs: 5000,
@@ -181,9 +183,11 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
         LOW: 64,
         BACKGROUND: 64,
       },
+      queueStateNotificationIntervalMs: 200,
     },
     deferredReferenceProcessing: {
       deferredBatchSize: 25, // Smaller batches in browser
+      initialReferenceBatchSize: 50,
       maxRetryAttempts: 5, // Fewer retries in browser
       retryDelayMs: 100,
       maxRetryDelayMs: 5000,

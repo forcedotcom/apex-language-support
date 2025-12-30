@@ -71,11 +71,12 @@ import {
 import {
   ResourceLoader,
   ApexSymbolProcessingManager,
-  setQueueStateChangeCallback,
+  startQueueStateNotificationTask,
   SchedulerMetrics,
   getEmbeddedStandardLibraryZip,
   SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
+import type { Fiber } from 'effect';
 import { Effect } from 'effect';
 
 /**
@@ -98,6 +99,7 @@ export class LCSAdapter {
   private readonly diagnosticProcessor: DiagnosticProcessingService;
   private hoverHandlerRegistered = false;
   private clientCapabilities?: ClientCapabilities;
+  private queueStateNotificationFiber?: Fiber.RuntimeFiber<void, never>;
 
   private constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
@@ -1107,38 +1109,64 @@ export class LCSAdapter {
       initializeLSPQueueManager(symbolManager);
       this.logger.debug('✅ LSP queue manager initialized');
 
-      // Register queue state change callback to send notifications to client (development mode only)
+      // Start periodic queue state notification task (development mode only)
       const capabilitiesManager =
         LSPConfigurationManager.getInstance().getCapabilitiesManager();
       if (capabilitiesManager.getMode() === 'development') {
-        this.logger.debug('🔧 Registering queue state change callback...');
-        Effect.runSync(
-          setQueueStateChangeCallback((metrics: SchedulerMetrics) => {
-            // Fire-and-forget async notification to avoid blocking scheduler loop
-            // Use setTimeout to defer to next event loop tick, ensuring scheduler continues immediately
-            setTimeout(() => {
-              try {
-                this.connection.sendNotification('apex/queueStateChanged', {
-                  metrics,
-                  metadata: {
-                    timestamp: Date.now(),
-                  },
-                });
-              } catch (error) {
-                // Don't log callback errors to avoid noise
-                // The callback is called very frequently (every loop iteration)
-                // Errors are handled silently to prevent scheduler loop disruption
-                this.logger.debug(
-                  () =>
-                    `Queue state notification error (silenced): ${
-                      error instanceof Error ? error.message : String(error)
-                    }`,
-                );
-              }
-            }, 0);
-          }),
-        );
-        this.logger.debug('✅ Queue state change callback registered');
+        this.logger.debug('🔧 Starting queue state notification task...');
+        try {
+          const settingsManager =
+            LSPConfigurationManager.getInstance().getSettingsManager();
+          const settings = settingsManager.getSettings();
+          const intervalMs =
+            settings.apex.scheduler.queueStateNotificationIntervalMs ?? 200;
+
+          // Callback function to send notifications to client
+          const notificationCallback = (metrics: SchedulerMetrics) => {
+            try {
+              this.logger.debug(
+                () =>
+                  `Sending queue state notification: Started=${
+                    metrics.tasksStarted
+                  }, Completed=${metrics.tasksCompleted}`,
+              );
+              this.connection.sendNotification('apex/queueStateChanged', {
+                metrics,
+                metadata: {
+                  timestamp: Date.now(),
+                },
+              });
+              this.logger.debug(
+                () => 'Queue state notification sent successfully',
+              );
+            } catch (error) {
+              // Log errors to help diagnose notification delivery issues
+              this.logger.debug(
+                () =>
+                  `Queue state notification error: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+              );
+            }
+          };
+
+          // Start the periodic notification task
+          const fiber = Effect.runSync(
+            startQueueStateNotificationTask(notificationCallback, intervalMs),
+          );
+          this.queueStateNotificationFiber = fiber;
+          this.logger.debug(
+            () =>
+              `✅ Queue state notification task started with interval ${intervalMs}ms`,
+          );
+        } catch (error) {
+          this.logger.error(
+            () =>
+              `❌ Failed to start queue state notification task: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+          );
+        }
       }
     } catch (error) {
       this.logger.error(

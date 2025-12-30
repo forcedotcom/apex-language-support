@@ -632,8 +632,22 @@ async function createWebLanguageClient(
     onRequest: (method: string, handler: (params: any) => any) => {
       languageClient.onRequest(method, handler);
     },
-    onNotification: (method: string, handler: (params: any) => void) => {
-      languageClient.onNotification(method, handler);
+    onNotification: (
+      method: string,
+      handler: (params: any) => void,
+    ): vscode.Disposable => {
+      logToOutputChannel(
+        `[Client] Registering notification handler for: ${method}`,
+        'debug',
+      );
+      const disposable = languageClient.onNotification(method, (params: any) => {
+        logToOutputChannel(
+          `[Client] Notification received: ${method}`,
+          'debug',
+        );
+        handler(params);
+      });
+      return disposable;
     },
     isDisposed: () => !languageClient.isRunning(),
     dispose: () => {
@@ -872,8 +886,20 @@ async function createDesktopLanguageClient(
         throw error;
       }
     },
-    onNotification: (method: string, handler: (...args: any[]) => void) =>
-      nodeClient.onNotification(method, handler),
+    onNotification: (method: string, handler: (...args: any[]) => void) => {
+      logToOutputChannel(
+        `[Client] Registering notification handler for: ${method}`,
+        'debug',
+      );
+      const disposable = nodeClient.onNotification(method, (...args: any[]) => {
+        logToOutputChannel(
+          `[Client] Notification received: ${method}`,
+          'debug',
+        );
+        handler(...args);
+      });
+      return disposable;
+    },
     onRequest: (method: string, handler: (...args: any[]) => any) =>
       nodeClient.onRequest(method, handler),
     isDisposed: () => !nodeClient.isRunning(),
