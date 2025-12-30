@@ -58,8 +58,7 @@ export class LSPQueueManager {
     }
 
     this.logger.debug(
-      () =>
-        'LSP Queue Manager initialized (scheduler will initialize on first use)',
+      'LSP Queue Manager initialized (scheduler initialization handled separately)',
     );
   }
 
@@ -68,11 +67,14 @@ export class LSPQueueManager {
    * Uses centralized SchedulerInitializationService to ensure single initialization
    */
   private async ensureSchedulerInitialized(): Promise<void> {
-    if (!this.schedulerInitialized) {
-      const schedulerService = SchedulerInitializationService.getInstance();
-      await schedulerService.ensureInitialized();
-      this.schedulerInitialized = schedulerService.isInitialized();
+    // Fast path: if already initialized, return immediately
+    if (this.schedulerInitialized) {
+      return;
     }
+
+    const schedulerService = SchedulerInitializationService.getInstance();
+    await schedulerService.ensureInitialized();
+    this.schedulerInitialized = schedulerService.isInitialized();
   }
 
   /**

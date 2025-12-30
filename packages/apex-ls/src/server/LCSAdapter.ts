@@ -140,6 +140,18 @@ export class LCSAdapter {
       this.logger.error(`❌ Failed to initialize ApexStorageManager: ${error}`);
     }
 
+    // Initialize scheduler early, before document handlers are registered
+    // This ensures scheduler is ready when didOpen events arrive
+    try {
+      this.logger.debug('🔧 Initializing priority scheduler...');
+      const schedulerService = SchedulerInitializationService.getInstance();
+      await schedulerService.ensureInitialized();
+      this.logger.debug('✅ Priority scheduler initialized successfully');
+    } catch (error) {
+      this.logger.error(`❌ Failed to initialize scheduler: ${error}`);
+      // Don't throw - allow server to continue, scheduler will retry on first use
+    }
+
     this.setupDocumentHandlers();
 
     // Document listener — safe now

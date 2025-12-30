@@ -141,11 +141,13 @@ export class SchedulerInitializationService {
       return this.ensureInitialized();
     }
 
-    this.logger.debug(() => 'Reinitializing scheduler with updated settings');
+    this.logger.debug('Reinitializing scheduler with updated settings');
 
     try {
       // Reset the scheduler first
-      const { reset, shutdown } = await import('../queue/priority-scheduler-utils');
+      const { reset, shutdown } = await import(
+        '../queue/priority-scheduler-utils'
+      );
       await Effect.runPromise(shutdown());
       await Effect.runPromise(reset());
 
@@ -155,7 +157,9 @@ export class SchedulerInitializationService {
 
       // Reinitialize with new settings
       await this.ensureInitialized();
-      this.logger.debug(() => 'Scheduler reinitialized successfully with new settings');
+      this.logger.debug(
+        'Scheduler reinitialized successfully with new settings',
+      );
     } catch (error) {
       this.logger.error(
         () => `Failed to reinitialize priority scheduler: ${error}`,
