@@ -669,19 +669,19 @@ async function createWebLanguageClient(
     },
     sendNotification: (method: string, params?: any) => {
       try {
-        logToOutputChannel(`Sending notification: ${method}`, 'debug');
-        try {
+        const isDidOpen = method === 'textDocument/didOpen';
+        
+        if (isDidOpen && params) {
+          const uri = params.textDocument?.uri || 'unknown';
+          const version = params.textDocument?.version ?? '?';
+          const languageId = params.textDocument?.languageId || 'unknown';
           logToOutputChannel(
-            `Notification params: ${JSON.stringify(params, null, 2)}`,
+            `📤 [CLIENT] Sending textDocument/didOpen: ${uri} (version: ${version}, language: ${languageId})`,
             'debug',
           );
-        } catch (_error) {
-          logToOutputChannel(
-            'Notification params: [unable to serialize]',
-            'debug',
-          );
+        } else {
+          logToOutputChannel(`Sending notification: ${method}`, 'debug');
         }
-        logToOutputChannel(`Sending notification: ${method}`, 'debug');
 
         // Ensure params are serializable before sending
         let cleanParams = params;
@@ -698,13 +698,23 @@ async function createWebLanguageClient(
         }
 
         languageClient.sendNotification(method, cleanParams);
-        logToOutputChannel(
-          `Successfully sent notification: ${method}`,
-          'debug',
-        );
+        
+        if (isDidOpen) {
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `✅ [CLIENT] Successfully sent textDocument/didOpen: ${uri}`,
+            'debug',
+          );
+        } else {
+          logToOutputChannel(
+            `Successfully sent notification: ${method}`,
+            'debug',
+          );
+        }
       } catch (error) {
+        const uri = params?.textDocument?.uri || 'unknown';
         logToOutputChannel(
-          `Failed to send notification ${method}: ${error}`,
+          `❌ [CLIENT] Failed to send textDocument/didOpen: ${uri} - ${error}`,
           'error',
         );
         try {
@@ -974,15 +984,38 @@ async function createDesktopLanguageClient(
     },
     sendNotification: (method: string, params?: any) => {
       try {
-        logToOutputChannel(`Sending desktop notification: ${method}`, 'debug');
+        const isDidOpen = method === 'textDocument/didOpen';
+        
+        if (isDidOpen && params) {
+          const uri = params.textDocument?.uri || 'unknown';
+          const version = params.textDocument?.version ?? '?';
+          const languageId = params.textDocument?.languageId || 'unknown';
+          logToOutputChannel(
+            `📤 [CLIENT] Sending textDocument/didOpen: ${uri} (version: ${version}, language: ${languageId})`,
+            'debug',
+          );
+        } else {
+          logToOutputChannel(`Sending desktop notification: ${method}`, 'debug');
+        }
+        
         nodeClient.sendNotification(method, params);
-        logToOutputChannel(
-          `Successfully sent desktop notification: ${method}`,
-          'debug',
-        );
+        
+        if (isDidOpen) {
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `✅ [CLIENT] Successfully sent textDocument/didOpen: ${uri}`,
+            'debug',
+          );
+        } else {
+          logToOutputChannel(
+            `Successfully sent desktop notification: ${method}`,
+            'debug',
+          );
+        }
       } catch (error) {
+        const uri = params?.textDocument?.uri || 'unknown';
         logToOutputChannel(
-          `Failed to send desktop notification ${method}: ${error}`,
+          `❌ [CLIENT] Failed to send textDocument/didOpen: ${uri} - ${error}`,
           'error',
         );
         try {

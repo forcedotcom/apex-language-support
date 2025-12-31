@@ -7,7 +7,7 @@
  */
 
 import { HashMap, DirectedGraph, DirectedVertex } from 'data-structure-typed';
-import { Effect, Fiber, Duration } from 'effect';
+import { Effect, Fiber, Duration, Ref, Layer } from 'effect';
 import { Priority } from '@salesforce/apex-lsp-shared';
 import {
   offer,
@@ -21,6 +21,20 @@ import {
   toUint16,
   type DeferredReferenceProcessingSettings,
 } from '@salesforce/apex-lsp-shared';
+import {
+  DeferredReferenceProcessorService,
+  queueDeferredReferencesForSymbol,
+  queuePendingReferencesForSymbol,
+  processDeferredReference,
+  processPendingDeferredReference,
+  processDeferredReferencesBatchEffect,
+  retryPendingDeferredReferencesBatchEffect,
+  logDeferredProcessingSummary,
+  type DeferredReference,
+  type PendingDeferredReference,
+  type DeferredProcessingMetrics,
+  type MemoryStats,
+} from './DeferredReferenceProcessor';
 import {
   generateSymbolId,
   parseSymbolId,
@@ -318,6 +332,7 @@ export class ApexSymbolGraph {
   private DEFERRED_BATCH_SIZE = 50;
   private MAX_RETRY_ATTEMPTS = 10;
   private RETRY_DELAY_MS = 100;
+  private YIELD_TIME_THRESHOLD_MS = 50;
   private MAX_RETRY_DELAY_MS = 5000; // Cap exponential backoff at 5 seconds
   private QUEUE_CAPACITY_THRESHOLD = 90; // Don't retry if queue > 90% full
   private QUEUE_DRAIN_THRESHOLD = 75; // Only retry when queue < 75% full
@@ -341,6 +356,20 @@ export class ApexSymbolGraph {
 
   private resourceLoader: ResourceLoader;
 
+  // Refs for deferred reference processor service
+  private deferredReferencesRef: Ref.Ref<
+    CaseInsensitiveHashMap<DeferredReference[]>
+  >;
+  private pendingDeferredReferencesRef: Ref.Ref<
+    CaseInsensitiveHashMap<PendingDeferredReference[]>
+  >;
+  private deferredProcessingMetricsRef: Ref.Ref<DeferredProcessingMetrics>;
+  private memoryStatsRef: Ref.Ref<MemoryStats>;
+  private deferredProcessorLayer: Layer.Layer<
+    DeferredReferenceProcessorService,
+    never
+  >;
+
   constructor(
     deferredReferenceSettings?: Partial<DeferredReferenceProcessingSettings>,
   ) {
@@ -352,11 +381,75 @@ export class ApexSymbolGraph {
       this.deferredTaskRateLimiter.maxPerSecond =
         deferredReferenceSettings.maxDeferredTasksPerSecond;
     }
+    // Initialize yield time threshold from settings
+    if (deferredReferenceSettings?.yieldTimeThresholdMs !== undefined) {
+      this.YIELD_TIME_THRESHOLD_MS =
+        deferredReferenceSettings.yieldTimeThresholdMs;
+    }
     // Note: Deferred reference processing now uses shared priority scheduler
     // Apply settings if provided
     if (deferredReferenceSettings) {
       this.updateDeferredReferenceSettings(deferredReferenceSettings);
     }
+
+    // Create Refs for state (sync with class fields)
+    this.deferredReferencesRef = Ref.unsafeMake(this.deferredReferences);
+    this.pendingDeferredReferencesRef = Ref.unsafeMake(
+      this.pendingDeferredReferences,
+    );
+    this.deferredProcessingMetricsRef = Ref.unsafeMake(
+      this.deferredProcessingMetrics,
+    );
+    this.memoryStatsRef = Ref.unsafeMake(this.memoryStats);
+
+    // Create service implementation
+    // Note: We'll create the layer after serviceImpl is defined to avoid circular reference
+    const self = this;
+    const serviceImpl: DeferredReferenceProcessorService.Impl = {
+      addEdge: (sourceId, targetId, weight, edge) =>
+        self.referenceGraph.addEdge(sourceId, targetId, weight, edge),
+      getVertex: (symbolId) => self.symbolToVertex.get(symbolId),
+      findSymbolByName: (name) => self.findSymbolByName(name),
+      getSymbolId: (symbol, fileUri) => self.getSymbolId(symbol, fileUri),
+      deferredReferences: self.deferredReferencesRef,
+      pendingDeferredReferences: self.pendingDeferredReferencesRef,
+      deferredProcessingMetrics: self.deferredProcessingMetricsRef,
+      memoryStats: self.memoryStatsRef,
+      deferredBatchSize: self.DEFERRED_BATCH_SIZE,
+      maxConcurrentReferencesPerSymbol: 10,
+      yieldTimeThresholdMs: self.YIELD_TIME_THRESHOLD_MS,
+      enqueueDeferredReferenceTask: (task) =>
+        Effect.gen(function* () {
+          // Create Layer on-the-fly for this call
+          const layer = DeferredReferenceProcessorService.Live(serviceImpl);
+          const processEffect = processDeferredReference(task).pipe(
+            Effect.provide(layer),
+          );
+          const queuedItem = yield* createQueuedItem(
+            processEffect,
+            'deferred-reference-process',
+          );
+          yield* offer(task.priority, queuedItem);
+        }),
+      enqueuePendingReferenceTask: (task) =>
+        Effect.gen(function* () {
+          // Create Layer on-the-fly for this call
+          const layer = DeferredReferenceProcessorService.Live(serviceImpl);
+          const processEffect = processPendingDeferredReference(task).pipe(
+            Effect.provide(layer),
+          );
+          const queuedItem = yield* createQueuedItem(
+            processEffect,
+            'pending-deferred-reference-process',
+          );
+          yield* offer(task.priority, queuedItem);
+        }),
+      logger: self.logger,
+    };
+
+    // Create Layer for use in other methods
+    this.deferredProcessorLayer =
+      DeferredReferenceProcessorService.Live(serviceImpl);
   }
 
   /**
@@ -368,6 +461,97 @@ export class ApexSymbolGraph {
   ): void {
     if (settings.deferredBatchSize !== undefined) {
       this.DEFERRED_BATCH_SIZE = settings.deferredBatchSize;
+      // Update the service's deferredBatchSize by recreating the layer
+      // Note: The serviceImpl object captures self.DEFERRED_BATCH_SIZE by reference,
+      // so we need to update the service implementation
+      const self = this;
+      const serviceImpl: DeferredReferenceProcessorService.Impl = {
+        addEdge: (sourceId, targetId, weight, edge) =>
+          self.referenceGraph.addEdge(sourceId, targetId, weight, edge),
+        getVertex: (symbolId) => self.symbolToVertex.get(symbolId),
+        findSymbolByName: (name) => self.findSymbolByName(name),
+        getSymbolId: (symbol, fileUri) => self.getSymbolId(symbol, fileUri),
+        deferredReferences: self.deferredReferencesRef,
+        pendingDeferredReferences: self.pendingDeferredReferencesRef,
+        deferredProcessingMetrics: self.deferredProcessingMetricsRef,
+        memoryStats: self.memoryStatsRef,
+        deferredBatchSize: self.DEFERRED_BATCH_SIZE, // Updated value
+        maxConcurrentReferencesPerSymbol: 10,
+        yieldTimeThresholdMs: self.YIELD_TIME_THRESHOLD_MS,
+        enqueueDeferredReferenceTask: (task) =>
+          Effect.gen(function* () {
+            const layer = DeferredReferenceProcessorService.Live(serviceImpl);
+            const processEffect = processDeferredReference(task).pipe(
+              Effect.provide(layer),
+            );
+            const queuedItem = yield* createQueuedItem(
+              processEffect,
+              'deferred-reference-process',
+            );
+            yield* offer(task.priority, queuedItem);
+          }),
+        enqueuePendingReferenceTask: (task) =>
+          Effect.gen(function* () {
+            const layer = DeferredReferenceProcessorService.Live(serviceImpl);
+            const processEffect = processPendingDeferredReference(task).pipe(
+              Effect.provide(layer),
+            );
+            const queuedItem = yield* createQueuedItem(
+              processEffect,
+              'pending-deferred-reference-process',
+            );
+            yield* offer(task.priority, queuedItem);
+          }),
+        logger: self.logger,
+      };
+      this.deferredProcessorLayer =
+        DeferredReferenceProcessorService.Live(serviceImpl);
+    }
+    if (settings.yieldTimeThresholdMs !== undefined) {
+      this.YIELD_TIME_THRESHOLD_MS = settings.yieldTimeThresholdMs;
+      // Update the service's yieldTimeThresholdMs by recreating the layer
+      const self = this;
+      const serviceImpl: DeferredReferenceProcessorService.Impl = {
+        addEdge: (sourceId, targetId, weight, edge) =>
+          self.referenceGraph.addEdge(sourceId, targetId, weight, edge),
+        getVertex: (symbolId) => self.symbolToVertex.get(symbolId),
+        findSymbolByName: (name) => self.findSymbolByName(name),
+        getSymbolId: (symbol, fileUri) => self.getSymbolId(symbol, fileUri),
+        deferredReferences: self.deferredReferencesRef,
+        pendingDeferredReferences: self.pendingDeferredReferencesRef,
+        deferredProcessingMetrics: self.deferredProcessingMetricsRef,
+        memoryStats: self.memoryStatsRef,
+        deferredBatchSize: self.DEFERRED_BATCH_SIZE,
+        maxConcurrentReferencesPerSymbol: 10,
+        yieldTimeThresholdMs: self.YIELD_TIME_THRESHOLD_MS, // Updated value
+        enqueueDeferredReferenceTask: (task) =>
+          Effect.gen(function* () {
+            const layer = DeferredReferenceProcessorService.Live(serviceImpl);
+            const processEffect = processDeferredReference(task).pipe(
+              Effect.provide(layer),
+            );
+            const queuedItem = yield* createQueuedItem(
+              processEffect,
+              'deferred-reference-process',
+            );
+            yield* offer(task.priority, queuedItem);
+          }),
+        enqueuePendingReferenceTask: (task) =>
+          Effect.gen(function* () {
+            const layer = DeferredReferenceProcessorService.Live(serviceImpl);
+            const processEffect = processPendingDeferredReference(task).pipe(
+              Effect.provide(layer),
+            );
+            const queuedItem = yield* createQueuedItem(
+              processEffect,
+              'pending-deferred-reference-process',
+            );
+            yield* offer(task.priority, queuedItem);
+          }),
+        logger: self.logger,
+      };
+      this.deferredProcessorLayer =
+        DeferredReferenceProcessorService.Live(serviceImpl);
     }
     if (settings.maxRetryAttempts !== undefined) {
       const oldValue = this.MAX_RETRY_ATTEMPTS;
@@ -915,31 +1099,22 @@ export class ApexSymbolGraph {
     if (this.deferredReferences.has(symbol.name)) {
       // Check rate limit before enqueueing
       if (this.canEnqueueDeferredTask()) {
-        const task: DeferredProcessingTask = {
-          _tag: 'DeferredProcessingTask',
-          symbolName: symbol.name,
-          taskType: 'processDeferred',
-          priority: Priority.Low, // Use Low priority to avoid competing with client requests
-          retryCount: 0,
-          firstAttemptTime: Date.now(),
-        };
+        // Sync Refs with class fields before queueing
+        this.syncRefsToClassFields();
         try {
-          const queuedItemEffect = createQueuedItem(
-            this.processDeferredTask(task),
-            'deferred-reference-process',
-          );
-          const scheduledTaskEffect = Effect.gen(function* () {
-            const queuedItem = yield* queuedItemEffect;
-            return yield* offer(task.priority, queuedItem);
-          });
+          // Use new queueing function that creates individual tasks
+          const queueEffect = queueDeferredReferencesForSymbol(
+            symbol.name,
+            Priority.Low,
+          ).pipe(Effect.provide(this.deferredProcessorLayer));
           // Use async enqueueing to avoid blocking when queue is full
-          Effect.runPromise(scheduledTaskEffect).catch((error) => {
+          Effect.runPromise(queueEffect).catch((error) => {
             // If scheduling fails, log and continue - deferred processing will retry later
             const errorMessage =
               error instanceof Error ? error.message : String(error);
             this.logger.debug(
               () =>
-                `Failed to enqueue deferred processing task for ${symbol.name}: ${errorMessage}`,
+                `Failed to enqueue deferred processing tasks for ${symbol.name}: ${errorMessage}`,
             );
           });
         } catch (error) {
@@ -948,7 +1123,7 @@ export class ApexSymbolGraph {
             error instanceof Error ? error.message : String(error);
           this.logger.debug(
             () =>
-              `Failed to create deferred processing task for ${symbol.name}: ${errorMessage}`,
+              `Failed to create deferred processing tasks for ${symbol.name}: ${errorMessage}`,
           );
         }
       }
@@ -961,40 +1136,29 @@ export class ApexSymbolGraph {
       this.pendingDeferredReferences.has(symbol.name) &&
       this.MAX_RETRY_ATTEMPTS > 0
     ) {
-      const task: DeferredProcessingTask = {
-        _tag: 'DeferredProcessingTask',
-        symbolName: symbol.name,
-        taskType: 'retryPending',
-        priority: Priority.Low, // Retry operations use Low priority
-        retryCount: 0,
-        firstAttemptTime: Date.now(),
-      };
+      // Sync Refs with class fields before queueing
+      this.syncRefsToClassFields();
       try {
-        const queuedItemEffect = createQueuedItem(
-          this.processDeferredTask(task),
-          'deferred-reference-retry',
-        );
-        const scheduledTaskEffect = Effect.gen(function* () {
-          const queuedItem = yield* queuedItemEffect;
-          return yield* offer(task.priority, queuedItem);
-        });
+        // Use new queueing function that creates individual tasks
+        const queueEffect = queuePendingReferencesForSymbol(
+          symbol.name,
+          Priority.Low,
+        ).pipe(Effect.provide(this.deferredProcessorLayer));
         // Use async enqueueing to avoid blocking when queue is full
-        Effect.runPromise(scheduledTaskEffect).catch((error) => {
-          // If scheduling fails, log and continue - retry will happen later
+        Effect.runPromise(queueEffect).catch((error) => {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
           this.logger.debug(
             () =>
-              `Failed to enqueue pending retry task for ${symbol.name}: ${errorMessage}`,
+              `Failed to enqueue pending deferred reference tasks for ${symbol.name}: ${errorMessage}`,
           );
         });
       } catch (error) {
-        // If scheduling fails, log and continue - retry will happen later
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         this.logger.debug(
           () =>
-            `Failed to create pending retry task for ${symbol.name}: ${errorMessage}`,
+            `Failed to create pending deferred reference tasks for ${symbol.name}: ${errorMessage}`,
         );
       }
     } else if (
@@ -2041,6 +2205,74 @@ export class ApexSymbolGraph {
 
     // Note: Deferred reference processing now uses shared priority scheduler
     // No queue initialization needed here
+
+    // Clear Refs
+    Effect.runSync(
+      Ref.set(this.deferredReferencesRef, new CaseInsensitiveHashMap()),
+    );
+    Effect.runSync(
+      Ref.set(this.pendingDeferredReferencesRef, new CaseInsensitiveHashMap()),
+    );
+    Effect.runSync(
+      Ref.set(this.deferredProcessingMetricsRef, {
+        totalBatchesProcessed: 0,
+        totalItemsProcessed: 0,
+        totalSuccessCount: 0,
+        totalFailureCount: 0,
+        totalBatchDuration: 0,
+        lastBatchTime: 0,
+        activeTaskCount: 0,
+        queueDepthHistory: [],
+        lastMetricsLogTime: Date.now(),
+      }),
+    );
+    Effect.runSync(
+      Ref.set(this.memoryStatsRef, {
+        totalSymbols: 0,
+        totalVertices: 0,
+        totalEdges: 0,
+        memoryOptimizationLevel: 'OPTIMAL',
+        estimatedMemorySavings: 0,
+      }),
+    );
+  }
+
+  /**
+   * Sync Refs with class fields (call before queueing to ensure latest state)
+   */
+  private syncRefsToClassFields(): void {
+    Effect.runSync(
+      Ref.set(this.deferredReferencesRef, this.deferredReferences),
+    );
+    Effect.runSync(
+      Ref.set(
+        this.pendingDeferredReferencesRef,
+        this.pendingDeferredReferences,
+      ),
+    );
+    Effect.runSync(
+      Ref.set(
+        this.deferredProcessingMetricsRef,
+        this.deferredProcessingMetrics,
+      ),
+    );
+    Effect.runSync(Ref.set(this.memoryStatsRef, this.memoryStats));
+  }
+
+  /**
+   * Sync class fields with Refs (call after processing to update class state)
+   */
+  private syncClassFieldsFromRefs(): void {
+    this.deferredReferences = Effect.runSync(
+      Ref.get(this.deferredReferencesRef),
+    );
+    this.pendingDeferredReferences = Effect.runSync(
+      Ref.get(this.pendingDeferredReferencesRef),
+    );
+    this.deferredProcessingMetrics = Effect.runSync(
+      Ref.get(this.deferredProcessingMetricsRef),
+    );
+    this.memoryStats = Effect.runSync(Ref.get(this.memoryStatsRef));
   }
 
   /**
@@ -2143,6 +2375,11 @@ export class ApexSymbolGraph {
       context,
     });
     this.deferredReferences.set(targetSymbolName, existing);
+
+    // Sync to Ref
+    Effect.runSync(
+      Ref.set(this.deferredReferencesRef, this.deferredReferences),
+    );
 
     // Log when references are deferred for debugging
     this.logger.debug(
@@ -2371,8 +2608,29 @@ export class ApexSymbolGraph {
    * Process deferred references for a symbol in batches with retry tracking (Effect-based)
    * Returns result indicating if retry is needed and why
    * This version yields periodically to prevent blocking
+   * @deprecated Use queueDeferredReferencesForSymbol for individual task queueing
    */
   private processDeferredReferencesBatchEffect(
+    symbolName: string,
+  ): Effect.Effect<BatchProcessingResult, never, never> {
+    // Sync class fields to Refs before processing
+    this.syncRefsToClassFields();
+    return processDeferredReferencesBatchEffect(symbolName).pipe(
+      Effect.provide(this.deferredProcessorLayer),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          // Sync Refs back to class fields after processing
+          this.syncClassFieldsFromRefs();
+        }),
+      ),
+    );
+  }
+
+  /**
+   * Legacy implementation - kept for reference
+   * @deprecated
+   */
+  private processDeferredReferencesBatchEffect_OLD(
     symbolName: string,
   ): Effect.Effect<BatchProcessingResult, never, never> {
     const self = this;
@@ -2754,8 +3012,29 @@ export class ApexSymbolGraph {
    * Retry pending deferred references when source symbol is added (Effect-based)
    * Returns result indicating if retry is needed and why
    * This version yields periodically to prevent blocking
+   * @deprecated Use queuePendingReferencesForSymbol for individual task queueing
    */
   private retryPendingDeferredReferencesBatchEffect(
+    symbolName: string,
+  ): Effect.Effect<BatchProcessingResult, never, never> {
+    // Sync class fields to Refs before processing
+    this.syncRefsToClassFields();
+    return retryPendingDeferredReferencesBatchEffect(symbolName).pipe(
+      Effect.provide(this.deferredProcessorLayer),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          // Sync Refs back to class fields after processing
+          this.syncClassFieldsFromRefs();
+        }),
+      ),
+    );
+  }
+
+  /**
+   * Legacy implementation - kept for reference
+   * @deprecated
+   */
+  private retryPendingDeferredReferencesBatchEffect_OLD(
     symbolName: string,
   ): Effect.Effect<BatchProcessingResult, never, never> {
     const self = this;
@@ -3147,6 +3426,22 @@ export class ApexSymbolGraph {
    * Log periodic summary of deferred processing metrics
    */
   private logDeferredProcessingSummary(): Effect.Effect<void, never, never> {
+    // Sync class fields to Refs before logging
+    this.syncRefsToClassFields();
+    return logDeferredProcessingSummary().pipe(
+      Effect.provide(this.deferredProcessorLayer),
+    );
+  }
+
+  /**
+   * Legacy implementation - kept for reference
+   * @deprecated
+   */
+  private logDeferredProcessingSummary_OLD(): Effect.Effect<
+    void,
+    never,
+    never
+  > {
     const self = this;
     return Effect.gen(function* () {
       const deferredMetrics = self.deferredProcessingMetrics;

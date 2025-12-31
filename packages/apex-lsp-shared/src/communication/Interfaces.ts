@@ -55,10 +55,7 @@ export interface ClientInterface {
   initialize(params: InitializeParams): Promise<InitializeResult>;
   sendNotification(method: string, params?: any): void;
   sendRequest<T = any>(method: string, params?: any): Promise<T>;
-  onNotification(
-    method: string,
-    handler: (params: any) => void,
-  ): Disposable;
+  onNotification(method: string, handler: (params: any) => void): Disposable;
   onRequest(method: string, handler: (params: any) => any): void;
   isDisposed(): boolean;
   dispose(): void;

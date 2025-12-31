@@ -272,6 +272,49 @@ export interface WorkspaceLoadCompleteParams {
 }
 
 /**
+ * File metadata for workspace batch loading
+ */
+export interface WorkspaceFileMetadata {
+  readonly uri: string;
+  readonly version: number;
+}
+
+/**
+ * Workspace file batch containing files and metadata
+ */
+export interface WorkspaceFileBatch {
+  readonly batchIndex: number;
+  readonly totalBatches: number;
+  readonly isLastBatch: boolean;
+  readonly fileMetadata: readonly WorkspaceFileMetadata[];
+  readonly files: Array<{
+    readonly uri: string;
+    readonly version: number;
+    readonly content: string;
+  }>;
+}
+
+/**
+ * Parameters for client-to-server workspace batch request
+ */
+export interface SendWorkspaceBatchParams {
+  readonly batchIndex: number;
+  readonly totalBatches: number;
+  readonly isLastBatch: boolean;
+  readonly compressedData: string; // Base64-encoded ZIP file
+  readonly fileMetadata: readonly WorkspaceFileMetadata[];
+}
+
+/**
+ * Result for server-to-client workspace batch response
+ */
+export interface SendWorkspaceBatchResult {
+  readonly success: boolean;
+  readonly enqueuedCount: number;
+  readonly error?: string;
+}
+
+/**
  * LSP Work Done Progress interfaces
  */
 export interface WorkDoneProgressBegin {

@@ -38,6 +38,8 @@ import {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
   WorkspaceLoadCompleteParams,
+  SendWorkspaceBatchParams,
+  SendWorkspaceBatchResult,
   PingResponse,
   formattedError,
   getDocumentSelectorsFromSettings,
@@ -68,6 +70,8 @@ import {
   onWorkspaceLoadComplete,
   onWorkspaceLoadFailed,
 } from '@salesforce/apex-lsp-compliant-services';
+
+import { handleWorkspaceBatch } from './WorkspaceBatchHandler';
 
 import {
   ResourceLoader,
@@ -520,6 +524,35 @@ export class LCSAdapter {
       },
     );
     this.logger.debug('✅ apexlib/resolve handler registered');
+
+    // Register apex/sendWorkspaceBatch handler for batch workspace loading
+    this.connection.onRequest(
+      'apex/sendWorkspaceBatch',
+      async (
+        params: SendWorkspaceBatchParams,
+      ): Promise<SendWorkspaceBatchResult> => {
+        this.logger.debug(
+          () =>
+            `📦 apex/sendWorkspaceBatch request received: batch ${
+              params.batchIndex + 1
+            }/${params.totalBatches} (${params.fileMetadata.length} files)`,
+        );
+        try {
+          return await handleWorkspaceBatch(params);
+        } catch (error) {
+          this.logger.error(
+            () =>
+              `Error processing sendWorkspaceBatch: ${formattedError(error)}`,
+          );
+          return {
+            success: false,
+            enqueuedCount: 0,
+            error: formattedError(error),
+          };
+        }
+      },
+    );
+    this.logger.debug('✅ apex/sendWorkspaceBatch handler registered');
 
     // Register workspace/executeCommand handler
     if (capabilities.executeCommandProvider) {

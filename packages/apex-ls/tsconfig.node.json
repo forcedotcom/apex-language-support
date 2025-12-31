@@ -14,6 +14,7 @@
     "src/server/ApexLanguageServer.ts",
     "src/server/nodeServer.ts",
     "src/server/LCSAdapter.ts",
+    "src/server/WorkspaceBatchHandler.ts",
     "src/communication/NodeClient.ts",
     "src/communication/NodeBridge.ts",
     "src/communication/Interfaces.ts",

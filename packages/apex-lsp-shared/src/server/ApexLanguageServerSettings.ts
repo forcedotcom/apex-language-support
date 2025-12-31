@@ -161,6 +161,9 @@ export interface LoadWorkspaceSettings {
 
   /** Delay in milliseconds when yielding control during workspace loading */
   yieldDelayMs: number;
+
+  /** Number of files per batch when using batch loading (default: 100) */
+  batchSize: number;
 }
 
 /**
@@ -202,6 +205,9 @@ export interface DeferredReferenceProcessingSettings {
 
   /** Rate limit for enqueueing deferred tasks per second (default: 10) */
   maxDeferredTasksPerSecond?: number;
+
+  /** Time threshold in milliseconds - if batch processing exceeds this, yield more frequently (default: 50) */
+  yieldTimeThresholdMs?: number;
 }
 
 /**

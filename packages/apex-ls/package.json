@@ -142,6 +142,7 @@
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@salesforce/apex-lsp-shared": "1.0.0",
     "effect": "^3.18.4",
+    "fflate": "^0.8.1",
     "vscode-jsonrpc": "^8.2.0",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",

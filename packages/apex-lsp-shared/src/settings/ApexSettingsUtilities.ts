@@ -60,22 +60,23 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       maxConcurrency: 4, // WAS 50
       yieldInterval: 10, // WAS 50
       yieldDelayMs: 25,
+      batchSize: 100,
     },
 
     queueProcessing: {
       maxConcurrency: {
-        CRITICAL: 4, // WAS 100
-        IMMEDIATE: 4, // WAS 50
-        HIGH: 2, // WAS 50
-        NORMAL: 2, // WAS 25
-        LOW: 1,
+        CRITICAL: 4,
+        IMMEDIATE: 4,
+        HIGH: 2,
+        NORMAL: 2,
+        LOW: 2,
         BACKGROUND: 1,
       },
 
       // HARD CAP — do not derive from per-priority sums
-      maxTotalConcurrency: 8,
+      maxTotalConcurrency: 9,
 
-      yieldInterval: 10, // WAS 50
+      yieldInterval: 10,
       yieldDelayMs: 25,
     },
 
@@ -89,13 +90,13 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
         BACKGROUND: 256,
       },
 
-      maxHighPriorityStreak: 10, // WAS 50
-      idleSleepMs: 25, // WAS 1
+      maxHighPriorityStreak: 10,
+      idleSleepMs: 25,
       queueStateNotificationIntervalMs: 500,
     },
 
     deferredReferenceProcessing: {
-      deferredBatchSize: 10, // WAS 25
+      deferredBatchSize: 10,
       initialReferenceBatchSize: 25,
       maxRetryAttempts: 5,
       retryDelayMs: 100,
@@ -106,7 +107,8 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       maxQueueFullRetryDelayMs: 30000,
       circuitBreakerFailureThreshold: 5,
       circuitBreakerResetThreshold: 50,
-      maxDeferredTasksPerSecond: 5, // WAS 10
+      maxDeferredTasksPerSecond: 5,
+      yieldTimeThresholdMs: 50,
     },
 
     worker: {
@@ -160,6 +162,7 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: Partial<ApexLanguageServerSettings> 
         maxConcurrency: 2,
         yieldInterval: 5,
         yieldDelayMs: 25,
+        batchSize: 100,
       },
 
       queueProcessing: {
