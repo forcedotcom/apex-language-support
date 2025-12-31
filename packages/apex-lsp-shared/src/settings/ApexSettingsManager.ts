@@ -21,7 +21,6 @@ export interface CompilationOptions {
 
 import {
   DEFAULT_APEX_SETTINGS,
-  BROWSER_DEFAULT_APEX_SETTINGS,
   mergeWithDefaults,
   mergeWithExisting,
   validateApexSettings,
@@ -507,7 +506,7 @@ export class ApexSettingsManager {
     environment: RuntimePlatform = 'desktop',
   ): ApexLanguageServerSettings {
     return environment === 'web'
-      ? BROWSER_DEFAULT_APEX_SETTINGS
+      ? mergeWithDefaults({}, environment)
       : DEFAULT_APEX_SETTINGS;
   }
 

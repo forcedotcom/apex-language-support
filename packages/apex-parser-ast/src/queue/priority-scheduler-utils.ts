@@ -222,6 +222,10 @@ function processQueuedItem<A, E, R>(
   });
 }
 
+const yieldToEventLoop = Effect.async<void>((resume) => {
+  setImmediate(() => resume(Effect.void));
+});
+
 function controllerLoop(
   state: SchedulerInternalState,
   cfg: PrioritySchedulerConfigShape,
@@ -241,6 +245,9 @@ function controllerLoop(
         let executed = false;
         const currentTime = Date.now();
 
+        const loopStart = Date.now();
+        const YIELD_BUDGET_MS = 5;
+
         // Periodic summary logging (every 30 seconds)
         if (currentTime - lastSummaryLogTime >= SUMMARY_LOG_INTERVAL_MS) {
           yield* logQueueSummary(state, cfg, logger);
@@ -248,6 +255,10 @@ function controllerLoop(
         }
 
         for (const p of AllPrioritiesWithCritical) {
+          if (Date.now() - loopStart >= YIELD_BUDGET_MS) {
+            yield* yieldToEventLoop;
+            break;
+          }
           const q = state.queues.get(p)!;
           const queueSize = yield* Queue.size(q);
           const oldSize = lastQueueSizes.get(p) || 0;
@@ -346,10 +357,8 @@ function controllerLoop(
 
             yield* processQueuedItem(state, item, p, logger);
 
-            // Always yield after processing to ensure scheduler gets regular event loop turns
-            // This prevents the scheduler from being starved when many fibers are running
-            // and allows client requests to be processed
-            yield* Effect.yieldNow();
+            // HARD macrotask yield — forces Node to service I/O
+            yield* yieldToEventLoop;
 
             break;
           }
@@ -358,6 +367,7 @@ function controllerLoop(
         // If no tasks were executed, sleep briefly before checking again
         if (!executed) {
           streak = 0;
+          yield* yieldToEventLoop;
           yield* Effect.sleep(Duration.millis(cfg.idleSleepMs));
         }
 
@@ -1212,23 +1222,9 @@ export function startQueueStateNotificationTask(
           `Starting queue state notification task with interval ${intervalMs}ms`,
       );
 
-      let lastCheckTime = Date.now();
-
       while (true) {
         // Sleep for the configured interval
         yield* Effect.sleep(Duration.millis(intervalMs));
-
-        const currentCheckTime = Date.now();
-        const actualInterval = currentCheckTime - lastCheckTime;
-        lastCheckTime = currentCheckTime;
-
-        // Log every loop iteration to track execution frequency
-        logger.debug(
-          () =>
-            `[QUEUE-STATE] Loop check: expected=${intervalMs}ms, ` +
-            `actual=${actualInterval}ms, ` +
-            `delay=${actualInterval - intervalMs}ms`,
-        );
 
         // Check if scheduler is still initialized (shutdown check)
         const currentState = yield* Ref.get(utilsStateRef);
@@ -1266,14 +1262,6 @@ export function startQueueStateNotificationTask(
             callback(currentMetrics);
             // Update last sent metrics
             yield* Ref.set(lastSentMetricsRef, currentMetrics);
-          } else {
-            // Log when loop runs but metrics haven't changed
-            logger.debug(
-              () =>
-                `[QUEUE-STATE] Metrics unchanged: Started=${
-                  currentMetrics.tasksStarted
-                }, Completed=${currentMetrics.tasksCompleted}`,
-            );
           }
         } catch (error) {
           // Don't let errors break the notification loop

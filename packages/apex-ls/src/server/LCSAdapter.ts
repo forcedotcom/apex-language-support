@@ -37,8 +37,7 @@ import {
   LSPConfigurationManager,
   FindMissingArtifactParams,
   FindMissingArtifactResult,
-  LoadWorkspaceParams,
-  LoadWorkspaceResult,
+  WorkspaceLoadCompleteParams,
   PingResponse,
   formattedError,
   getDocumentSelectorsFromSettings,
@@ -66,6 +65,8 @@ import {
   dispatchProcessOnQueueState,
   dispatchProcessOnGraphData,
   dispatchProcessOnExecuteCommand,
+  onWorkspaceLoadComplete,
+  onWorkspaceLoadFailed,
 } from '@salesforce/apex-lsp-compliant-services';
 
 import {
@@ -545,51 +546,44 @@ export class LCSAdapter {
       );
     }
 
-    // Register custom apex/loadWorkspace handler
-    this.connection.onRequest(
-      'apex/loadWorkspace',
-      async (params: LoadWorkspaceParams): Promise<LoadWorkspaceResult> => {
-        const requestStartTime = Date.now();
-        const requestType = params.queryOnly
-          ? 'QUERY'
-          : params.workDoneToken
-            ? 'TRIGGER'
-            : 'MONITOR';
+    // Register workspace load completion notification handlers
+    this.connection.onNotification(
+      'apex/workspaceLoadComplete',
+      async (params: WorkspaceLoadCompleteParams) => {
         this.logger.debug(
           () =>
-            `[WORKSPACE-LOAD] ${requestType} request received at ${requestStartTime}: ` +
-            `${JSON.stringify(params)}`,
+            `[WORKSPACE-LOAD] Received workspace load complete notification: ${JSON.stringify(params)}`,
         );
         try {
-          // Forward the request to the client
-          const forwardStartTime = Date.now();
-          const result = await this.connection.sendRequest(
-            'apex/loadWorkspace',
-            params,
-          );
-          const forwardDuration = Date.now() - forwardStartTime;
-          const totalDuration = Date.now() - requestStartTime;
-          this.logger.debug(
-            () =>
-              `[WORKSPACE-LOAD] ${requestType} request completed: ` +
-              `forward=${forwardDuration}ms, total=${totalDuration}ms, ` +
-              `result: ${JSON.stringify(result)}`,
-          );
-          return result as LoadWorkspaceResult;
+          await Effect.runPromise(onWorkspaceLoadComplete(params, this.logger));
         } catch (error) {
-          const totalDuration = Date.now() - requestStartTime;
           this.logger.error(
             () =>
-              `[WORKSPACE-LOAD] ${requestType} request failed after ${totalDuration}ms: ${formattedError(error)}`,
+              `[WORKSPACE-LOAD] Failed to handle workspace load complete: ${formattedError(error)}`,
           );
-          return {
-            error: `Failed to forward loadWorkspace request to client: ${formattedError(error)}`,
-          };
         }
       },
     );
 
-    this.logger.debug('✅ apex/loadWorkspace handler registered');
+    this.connection.onNotification(
+      'apex/workspaceLoadFailed',
+      async (params: WorkspaceLoadCompleteParams) => {
+        this.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Received workspace load failed notification: ${JSON.stringify(params)}`,
+        );
+        try {
+          await Effect.runPromise(onWorkspaceLoadFailed(params, this.logger));
+        } catch (error) {
+          this.logger.error(
+            () =>
+              `[WORKSPACE-LOAD] Failed to handle workspace load failed: ${formattedError(error)}`,
+          );
+        }
+      },
+    );
+
+    this.logger.debug('✅ Workspace load notification handlers registered');
 
     // Register custom development-mode endpoints
     const capabilitiesManager =

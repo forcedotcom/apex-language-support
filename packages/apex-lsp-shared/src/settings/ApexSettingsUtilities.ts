@@ -22,26 +22,30 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       includeSingleLineComments: false,
       associateCommentsWithSymbols: false,
       enableForDocumentChanges: true,
-      enableForDocumentOpen: true,
-      enableForDocumentSymbols: false, // Disabled for performance
-      enableForFoldingRanges: false, // Disabled for performance
+      enableForDocumentOpen: false,
+      enableForDocumentSymbols: false,
+      enableForFoldingRanges: false,
     },
+
     performance: {
-      commentCollectionMaxFileSize: 102400, // 100KB
+      commentCollectionMaxFileSize: 102400,
       useAsyncCommentProcessing: true,
       documentChangeDebounceMs: 300,
     },
+
     environment: {
-      runtimePlatform: 'desktop', // Will be overridden by actual environment
-      serverMode: 'production', // Will be overridden by actual environment
+      runtimePlatform: 'desktop',
+      serverMode: 'production',
       profilingMode: 'none',
       profilingType: 'cpu',
       commentCollectionLogLevel: 'info',
     },
+
     resources: {
       loadMode: 'lazy',
       standardApexLibraryPath: undefined,
     },
+
     findMissingArtifact: {
       enabled: true,
       blockingWaitTimeoutMs: 2000,
@@ -50,57 +54,65 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       timeoutMsHint: 1500,
       enablePerfMarks: false,
     },
+
     loadWorkspace: {
       enabled: false,
-      maxConcurrency: 50,
-      yieldInterval: 50,
+      maxConcurrency: 4, // WAS 50
+      yieldInterval: 10, // WAS 50
       yieldDelayMs: 25,
     },
+
     queueProcessing: {
       maxConcurrency: {
-        CRITICAL: 100, // Ephemeral Critical queue - higher concurrency for system tasks
-        IMMEDIATE: 50,
-        HIGH: 50,
-        NORMAL: 25,
-        LOW: 5, // Reduced from 10 to improve responsiveness
-        BACKGROUND: 5,
+        CRITICAL: 4, // WAS 100
+        IMMEDIATE: 4, // WAS 50
+        HIGH: 2, // WAS 50
+        NORMAL: 2, // WAS 25
+        LOW: 1,
+        BACKGROUND: 1,
       },
-      // Default: sum of per-priority limits * 1.2 (20% buffer)
-      // Desktop: (100+50+50+25+10+5) * 1.2 = 288
-      maxTotalConcurrency: undefined, // Will be calculated as sum * 1.2 if not set
-      yieldInterval: 50,
+
+      // HARD CAP — do not derive from per-priority sums
+      maxTotalConcurrency: 8,
+
+      yieldInterval: 10, // WAS 50
       yieldDelayMs: 25,
     },
+
     scheduler: {
       queueCapacity: {
-        CRITICAL: 200,
-        IMMEDIATE: 200,
-        HIGH: 200,
-        NORMAL: 200,
-        LOW: 200,
-        BACKGROUND: 200,
+        CRITICAL: 128,
+        IMMEDIATE: 128,
+        HIGH: 128,
+        NORMAL: 128,
+        LOW: 256,
+        BACKGROUND: 256,
       },
-      maxHighPriorityStreak: 50,
-      idleSleepMs: 1,
-      queueStateNotificationIntervalMs: 200,
+
+      maxHighPriorityStreak: 10, // WAS 50
+      idleSleepMs: 25, // WAS 1
+      queueStateNotificationIntervalMs: 500,
     },
+
     deferredReferenceProcessing: {
-      deferredBatchSize: 25, // Reduced from 50 to improve responsiveness
-      initialReferenceBatchSize: 50,
-      maxRetryAttempts: 10,
+      deferredBatchSize: 10, // WAS 25
+      initialReferenceBatchSize: 25,
+      maxRetryAttempts: 5,
       retryDelayMs: 100,
       maxRetryDelayMs: 5000,
-      queueCapacityThreshold: 90,
-      queueDrainThreshold: 75,
+      queueCapacityThreshold: 85,
+      queueDrainThreshold: 70,
       queueFullRetryDelayMs: 10000,
       maxQueueFullRetryDelayMs: 30000,
       circuitBreakerFailureThreshold: 5,
       circuitBreakerResetThreshold: 50,
-      maxDeferredTasksPerSecond: 10,
+      maxDeferredTasksPerSecond: 5, // WAS 10
     },
+
     worker: {
       logLevel: 'info',
     },
+
     version: undefined,
     logLevel: 'info',
   },
@@ -120,92 +132,65 @@ function calculateDefaultMaxTotalConcurrency(
 /**
  * Browser-optimized default settings
  */
-export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
-  apex: {
-    ...DEFAULT_APEX_SETTINGS,
-    commentCollection: {
-      ...DEFAULT_APEX_SETTINGS.apex.commentCollection,
-      // More conservative defaults for browser environment
-      enableCommentCollection: true,
-      associateCommentsWithSymbols: false, // More expensive in browser
-    },
-    performance: {
-      ...DEFAULT_APEX_SETTINGS.apex.performance,
-      commentCollectionMaxFileSize: 51200, // 50KB (smaller for browser)
-      useAsyncCommentProcessing: true,
-      documentChangeDebounceMs: 500, // Longer debounce for browser
-    },
-    environment: {
-      ...DEFAULT_APEX_SETTINGS.apex.environment,
-      runtimePlatform: 'web',
-      serverMode: 'production',
-      profilingMode: 'none', // Profiling typically disabled in browser
-      profilingType: 'cpu',
-    },
-    resources: {
-      ...DEFAULT_APEX_SETTINGS.apex.resources,
-      loadMode: 'lazy',
-      standardApexLibraryPath: undefined,
-    },
-    findMissingArtifact: {
-      ...DEFAULT_APEX_SETTINGS.apex.findMissingArtifact,
-      // More conservative defaults for browser
-      blockingWaitTimeoutMs: 1500, // Shorter timeout in browser
-    },
-    loadWorkspace: {
-      ...DEFAULT_APEX_SETTINGS.apex.loadWorkspace,
-      // More conservative defaults for browser
-      maxConcurrency: 25, // Lower concurrency in browser
-      yieldInterval: 25, // More frequent yielding in browser
-    },
-    queueProcessing: {
-      ...DEFAULT_APEX_SETTINGS.apex.queueProcessing,
-      // More conservative defaults for browser
-      maxConcurrency: {
-        CRITICAL: 50, // Lower than desktop but still higher for system tasks
-        IMMEDIATE: 25,
-        HIGH: 25,
-        NORMAL: 10,
-        LOW: 5,
-        BACKGROUND: 3,
+export const BROWSER_DEFAULT_APEX_SETTINGS: Partial<ApexLanguageServerSettings> =
+  {
+    apex: {
+      ...DEFAULT_APEX_SETTINGS.apex,
+
+      commentCollection: {
+        ...DEFAULT_APEX_SETTINGS.apex.commentCollection,
+        enableForDocumentOpen: false,
+        associateCommentsWithSymbols: false,
       },
-      yieldInterval: 25, // More frequent yielding in browser
-      yieldDelayMs: 25,
-    },
-    scheduler: {
-      ...DEFAULT_APEX_SETTINGS.apex.scheduler,
-      // More conservative defaults for browser
-      queueCapacity: {
-        CRITICAL: 64,
-        IMMEDIATE: 64,
-        HIGH: 64,
-        NORMAL: 64,
-        LOW: 64,
-        BACKGROUND: 64,
+
+      performance: {
+        ...DEFAULT_APEX_SETTINGS.apex.performance,
+        commentCollectionMaxFileSize: 51200,
+        documentChangeDebounceMs: 500,
       },
-      queueStateNotificationIntervalMs: 200,
+
+      environment: {
+        ...DEFAULT_APEX_SETTINGS.apex.environment,
+        runtimePlatform: 'web',
+        profilingMode: 'none',
+      },
+
+      loadWorkspace: {
+        enabled: false,
+        maxConcurrency: 2,
+        yieldInterval: 5,
+        yieldDelayMs: 25,
+      },
+
+      queueProcessing: {
+        maxConcurrency: {
+          CRITICAL: 2,
+          IMMEDIATE: 2,
+          HIGH: 1,
+          NORMAL: 1,
+          LOW: 1,
+          BACKGROUND: 1,
+        },
+        maxTotalConcurrency: 4,
+        yieldInterval: 5,
+        yieldDelayMs: 25,
+      },
+
+      scheduler: {
+        queueCapacity: {
+          CRITICAL: 64,
+          IMMEDIATE: 64,
+          HIGH: 64,
+          NORMAL: 64,
+          LOW: 128,
+          BACKGROUND: 128,
+        },
+        idleSleepMs: 50,
+        maxHighPriorityStreak: 5,
+        queueStateNotificationIntervalMs: 0,
+      },
     },
-    deferredReferenceProcessing: {
-      deferredBatchSize: 25, // Smaller batches in browser
-      initialReferenceBatchSize: 50,
-      maxRetryAttempts: 5, // Fewer retries in browser
-      retryDelayMs: 100,
-      maxRetryDelayMs: 5000,
-      queueCapacityThreshold: 90,
-      queueDrainThreshold: 75,
-      queueFullRetryDelayMs: 10000,
-      maxQueueFullRetryDelayMs: 30000,
-      circuitBreakerFailureThreshold: 5,
-      circuitBreakerResetThreshold: 50,
-      maxDeferredTasksPerSecond: 10,
-    },
-    worker: {
-      ...DEFAULT_APEX_SETTINGS.apex.worker,
-    },
-    version: undefined,
-    logLevel: 'info',
-  },
-};
+  };
 
 /**
  * Interface for validation result
@@ -296,51 +281,57 @@ export function mergeWithDefaults(
       ? BROWSER_DEFAULT_APEX_SETTINGS
       : DEFAULT_APEX_SETTINGS;
 
+  // Ensure we always have a full apex object by merging with DEFAULT_APEX_SETTINGS
+  const baseApex = {
+    ...DEFAULT_APEX_SETTINGS.apex,
+    ...baseDefaults.apex,
+  };
+
   return {
     apex: {
       commentCollection: {
-        ...baseDefaults.apex.commentCollection,
+        ...baseApex.commentCollection,
         ...userSettings.apex?.commentCollection,
       },
       performance: {
-        ...baseDefaults.apex.performance,
+        ...baseApex.performance,
         ...userSettings.apex?.performance,
       },
       environment: {
-        ...baseDefaults.apex.environment,
+        ...baseApex.environment,
         runtimePlatform: environment,
         ...userSettings.apex?.environment,
       },
       resources: {
-        ...baseDefaults.apex.resources,
+        ...baseApex.resources,
         ...userSettings.apex?.resources,
       },
       findMissingArtifact: {
-        ...baseDefaults.apex.findMissingArtifact,
+        ...baseApex.findMissingArtifact,
         ...userSettings.apex?.findMissingArtifact,
       },
       loadWorkspace: {
-        ...baseDefaults.apex.loadWorkspace,
+        ...baseApex.loadWorkspace,
         ...userSettings.apex?.loadWorkspace,
       },
       queueProcessing: {
-        ...baseDefaults.apex.queueProcessing,
+        ...baseApex.queueProcessing,
         ...userSettings.apex?.queueProcessing,
         maxConcurrency: {
-          ...baseDefaults.apex.queueProcessing.maxConcurrency,
+          ...baseApex.queueProcessing.maxConcurrency,
           ...userSettings.apex?.queueProcessing?.maxConcurrency,
         },
         // Calculate maxTotalConcurrency if not provided
         maxTotalConcurrency:
           userSettings.apex?.queueProcessing?.maxTotalConcurrency ??
-          baseDefaults.apex.queueProcessing.maxTotalConcurrency ??
+          baseApex.queueProcessing.maxTotalConcurrency ??
           calculateDefaultMaxTotalConcurrency({
-            ...baseDefaults.apex.queueProcessing.maxConcurrency,
+            ...baseApex.queueProcessing.maxConcurrency,
             ...userSettings.apex?.queueProcessing?.maxConcurrency,
           }),
       },
       scheduler: {
-        ...baseDefaults.apex.scheduler,
+        ...baseApex.scheduler,
         ...userSettings.apex?.scheduler,
         // Handle backward compatibility: if queueCapacity is a number, convert to per-priority object
         queueCapacity:
@@ -353,17 +344,17 @@ export function mergeWithDefaults(
                 LOW: userSettings.apex.scheduler.queueCapacity,
                 BACKGROUND: userSettings.apex.scheduler.queueCapacity,
               }
-            : typeof baseDefaults.apex.scheduler.queueCapacity === 'number'
+            : typeof baseApex.scheduler.queueCapacity === 'number'
               ? {
-                  CRITICAL: baseDefaults.apex.scheduler.queueCapacity,
-                  IMMEDIATE: baseDefaults.apex.scheduler.queueCapacity,
-                  HIGH: baseDefaults.apex.scheduler.queueCapacity,
-                  NORMAL: baseDefaults.apex.scheduler.queueCapacity,
-                  LOW: baseDefaults.apex.scheduler.queueCapacity,
-                  BACKGROUND: baseDefaults.apex.scheduler.queueCapacity,
+                  CRITICAL: baseApex.scheduler.queueCapacity,
+                  IMMEDIATE: baseApex.scheduler.queueCapacity,
+                  HIGH: baseApex.scheduler.queueCapacity,
+                  NORMAL: baseApex.scheduler.queueCapacity,
+                  LOW: baseApex.scheduler.queueCapacity,
+                  BACKGROUND: baseApex.scheduler.queueCapacity,
                 }
               : {
-                  ...(baseDefaults.apex.scheduler.queueCapacity as Record<
+                  ...(baseApex.scheduler.queueCapacity as Record<
                     string,
                     number
                   >),
@@ -372,18 +363,18 @@ export function mergeWithDefaults(
                     | undefined),
                 },
       },
-      deferredReferenceProcessing: baseDefaults.apex.deferredReferenceProcessing
+      deferredReferenceProcessing: baseApex.deferredReferenceProcessing
         ? {
-            ...baseDefaults.apex.deferredReferenceProcessing,
+            ...baseApex.deferredReferenceProcessing,
             ...userSettings.apex?.deferredReferenceProcessing,
           }
         : userSettings.apex?.deferredReferenceProcessing,
       worker: {
-        ...baseDefaults.apex.worker,
+        ...baseApex.worker,
         ...userSettings.apex?.worker,
       },
-      version: userSettings.apex?.version || baseDefaults.apex.version,
-      logLevel: userSettings.apex?.logLevel || baseDefaults.apex.logLevel,
+      version: userSettings.apex?.version || baseApex.version,
+      logLevel: userSettings.apex?.logLevel || baseApex.logLevel,
     },
   };
 }

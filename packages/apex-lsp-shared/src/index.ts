@@ -232,11 +232,17 @@ export interface FindApexTestsResult {
 
 export type ProgressToken = number | string;
 
+/**
+ * @deprecated Use RequestWorkspaceLoadParams and notification-based pattern instead
+ */
 export interface LoadWorkspaceParams {
   readonly workDoneToken?: ProgressToken;
   readonly queryOnly?: boolean; // NEW: Query state without triggering load
 }
 
+/**
+ * @deprecated Use WorkspaceLoadCompleteParams notification instead
+ */
 export type LoadWorkspaceResult =
   | {
       accepted: true;
@@ -249,6 +255,21 @@ export type LoadWorkspaceResult =
   | { failed: true } // NEW: For queryOnly responses
   | { loaded: false } // NEW: For queryOnly responses when not loaded and not loading
   | { error: string };
+
+/**
+ * Parameters for server-to-client workspace load request notification
+ */
+export interface RequestWorkspaceLoadParams {
+  readonly workDoneToken?: ProgressToken;
+}
+
+/**
+ * Parameters for client-to-server workspace load completion notification
+ */
+export interface WorkspaceLoadCompleteParams {
+  readonly success: boolean;
+  readonly error?: string;
+}
 
 /**
  * LSP Work Done Progress interfaces

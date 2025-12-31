@@ -18,8 +18,6 @@ import {
   LoggerInterface,
   LSPConfigurationManager,
   Priority,
-  LoadWorkspaceParams,
-  LoadWorkspaceResult,
 } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -37,7 +35,11 @@ import {
   transformParserToLspPosition,
   transformLspToParserPosition,
 } from '../utils/positionUtils';
-import { ensureWorkspaceLoaded } from './WorkspaceLoadCoordinator';
+import {
+  ensureWorkspaceLoaded,
+  isWorkspaceLoaded,
+  isWorkspaceLoading,
+} from './WorkspaceLoadCoordinator';
 
 /**
  * Interface for references processing functionality
@@ -90,45 +92,24 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   }
 
   /**
-   * Query workspace state synchronously (not wrapped in Effect)
-   * Used to check workspace state before queuing load tasks
-   */
-  private async queryWorkspaceStateSync(
-    connection: Connection,
-  ): Promise<LoadWorkspaceResult | null> {
-    try {
-      return await connection.sendRequest('apex/loadWorkspace', {
-        queryOnly: true,
-      } as LoadWorkspaceParams);
-    } catch (error) {
-      this.logger.debug(() => `Failed to query workspace state: ${error}`);
-      return null;
-    }
-  }
-
-  /**
    * Queue workspace load if needed (only if workspace is not already loaded or loading)
+   * Uses local state tracking instead of querying client
    */
   private async queueWorkspaceLoadIfNeeded(
     connection: Connection,
     workDoneToken?: ProgressToken,
   ): Promise<void> {
-    const workspaceState = await this.queryWorkspaceStateSync(connection);
-
-    if (workspaceState && 'loaded' in workspaceState && workspaceState.loaded) {
+    // Check local state first
+    if (isWorkspaceLoaded()) {
       this.logger.debug(
-        () => 'Workspace already loaded, skipping workspace load',
+        () => 'Workspace already loaded (from local state), skipping workspace load',
       );
       return;
     }
 
-    if (
-      workspaceState &&
-      'loading' in workspaceState &&
-      workspaceState.loading
-    ) {
+    if (isWorkspaceLoading()) {
       this.logger.debug(
-        () => 'Workspace already loading, skipping workspace load',
+        () => 'Workspace already loading (from local state), skipping workspace load',
       );
       return;
     }

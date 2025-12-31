@@ -12,6 +12,7 @@ import type {
   ClientInterface,
   RuntimePlatform,
   LogMessageType,
+  RequestWorkspaceLoadParams,
 } from '@salesforce/apex-lsp-shared';
 import {
   getClientCapabilitiesForMode,
@@ -802,31 +803,29 @@ async function createWebLanguageClient(
     }
   });
 
-  // Register handler for server-to-client apex/loadWorkspace requests
-  Client.onRequest('apex/loadWorkspace', async (params: any) => {
+  // Register handler for server-to-client apex/requestWorkspaceLoad notification
+  Client.onNotification('apex/requestWorkspaceLoad', async (params: RequestWorkspaceLoadParams) => {
     logToOutputChannel(
-      '📨 Received apex/loadWorkspace request from server',
+      '📨 Received apex/requestWorkspaceLoad notification from server',
       'debug',
     );
 
     try {
-      const result = await Effect.runPromise(
+      await Effect.runPromise(
         Effect.provide(
-          handleLoadWorkspace(params, Client!),
+          startWorkspaceLoad(Client!, params.workDoneToken),
           sharedWorkspaceLoadLayer,
         ),
       );
       logToOutputChannel(
-        `✅ Load workspace acknowledged: ${JSON.stringify(result)}`,
+        '✅ Workspace load initiated from server notification',
         'debug',
       );
-      return result;
     } catch (error) {
       logToOutputChannel(
-        `❌ Failed to handle loadWorkspace request: ${error}`,
+        `❌ Failed to handle workspace load notification: ${error}`,
         'error',
       );
-      return { error: `Failed to handle loadWorkspace request: ${error}` };
     }
   });
 
@@ -1144,31 +1143,29 @@ async function createDesktopLanguageClient(
     }
   });
 
-  // Register handler for server-to-client apex/loadWorkspace requests
-  Client.onRequest('apex/loadWorkspace', async (params: any) => {
+  // Register handler for server-to-client apex/requestWorkspaceLoad notification
+  Client.onNotification('apex/requestWorkspaceLoad', async (params: RequestWorkspaceLoadParams) => {
     logToOutputChannel(
-      '📨 Received apex/loadWorkspace request from server',
+      '📨 Received apex/requestWorkspaceLoad notification from server',
       'debug',
     );
 
     try {
-      const result = await Effect.runPromise(
+      await Effect.runPromise(
         Effect.provide(
-          handleLoadWorkspace(params, Client!),
+          startWorkspaceLoad(Client!, params.workDoneToken),
           sharedWorkspaceLoadLayer,
         ),
       );
       logToOutputChannel(
-        `✅ Load workspace acknowledged: ${JSON.stringify(result)}`,
+        '✅ Workspace load initiated from server notification',
         'debug',
       );
-      return result;
     } catch (error) {
       logToOutputChannel(
-        `❌ Failed to handle loadWorkspace request: ${error}`,
+        `❌ Failed to handle workspace load notification: ${error}`,
         'error',
       );
-      return { error: `Failed to handle loadWorkspace request: ${error}` };
     }
   });
 

@@ -11,6 +11,7 @@ import type {
   LoadWorkspaceParams,
   LoadWorkspaceResult,
   ProgressToken,
+  WorkspaceLoadCompleteParams,
 } from '@salesforce/apex-lsp-shared';
 import { getDefaultDocumentSelectors } from '@salesforce/apex-lsp-shared';
 import { loadWorkspaceForServer } from './workspace-loader';
@@ -109,8 +110,20 @@ const launchWorkspaceLoaderEffect = (
 
     if (result._tag === 'Left') {
       yield* _(setWorkspaceFailed(true));
+      // Send failure notification to server
+      const error = result.left as unknown;
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      languageClient.sendNotification('apex/workspaceLoadFailed', {
+        success: false,
+        error: errorMessage,
+      } as WorkspaceLoadCompleteParams);
     } else {
       yield* _(setWorkspaceLoaded(true));
+      // Send success notification to server
+      languageClient.sendNotification('apex/workspaceLoadComplete', {
+        success: true,
+      } as WorkspaceLoadCompleteParams);
     }
     yield* _(setWorkspaceLoading(false));
   });
@@ -201,6 +214,8 @@ const queryWorkspaceState = Effect.gen(function* (_) {
 });
 
 // Export wrapper function
+// Note: This function is deprecated - workspace load now uses notifications
+// Kept for backward compatibility during migration
 export const handleLoadWorkspace = (
   params: LoadWorkspaceParams,
   languageClient: ClientInterface,
@@ -214,7 +229,7 @@ export const handleLoadWorkspace = (
     >;
   }
 
-  // Normal load behavior
+  // Normal load behavior - will send notifications on completion
   return pipe(
     WorkspaceLoaderService,
     Effect.flatMap((service) =>
