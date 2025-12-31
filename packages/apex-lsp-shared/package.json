@@ -29,6 +29,7 @@
   "wireit": {
     "compile": {
       "command": "tsc --build",
+      "clean": "if-file-deleted",
       "output": [
         "out/**"
       ],

@@ -549,25 +549,38 @@ export class LCSAdapter {
     this.connection.onRequest(
       'apex/loadWorkspace',
       async (params: LoadWorkspaceParams): Promise<LoadWorkspaceResult> => {
+        const requestStartTime = Date.now();
+        const requestType = params.queryOnly
+          ? 'QUERY'
+          : params.workDoneToken
+            ? 'TRIGGER'
+            : 'MONITOR';
         this.logger.debug(
           () =>
-            `🔍 apex/loadWorkspace request received for: ${JSON.stringify(params)}`,
+            `[WORKSPACE-LOAD] ${requestType} request received at ${requestStartTime}: ` +
+            `${JSON.stringify(params)}`,
         );
         try {
           // Forward the request to the client
+          const forwardStartTime = Date.now();
           const result = await this.connection.sendRequest(
             'apex/loadWorkspace',
             params,
           );
+          const forwardDuration = Date.now() - forwardStartTime;
+          const totalDuration = Date.now() - requestStartTime;
           this.logger.debug(
             () =>
-              `✅ apex/loadWorkspace client response: ${JSON.stringify(result)}`,
+              `[WORKSPACE-LOAD] ${requestType} request completed: ` +
+              `forward=${forwardDuration}ms, total=${totalDuration}ms, ` +
+              `result: ${JSON.stringify(result)}`,
           );
           return result as LoadWorkspaceResult;
         } catch (error) {
+          const totalDuration = Date.now() - requestStartTime;
           this.logger.error(
             () =>
-              `Error forwarding loadWorkspace to client: ${formattedError(error)}`,
+              `[WORKSPACE-LOAD] ${requestType} request failed after ${totalDuration}ms: ${formattedError(error)}`,
           );
           return {
             error: `Failed to forward loadWorkspace request to client: ${formattedError(error)}`,
@@ -1634,18 +1647,28 @@ export class LCSAdapter {
 
     this.connection.onHover(
       async (params: HoverParams): Promise<Hover | null> => {
+        const requestStartTime = Date.now();
         this.logger.debug(
           `🔍 [LCSAdapter] Hover request received for ${params.textDocument.uri}` +
-            ` at ${params.position.line}:${params.position.character}`,
+            ` at ${params.position.line}:${params.position.character} ` +
+            `[time: ${requestStartTime}]`,
         );
         try {
+          const dispatchStartTime = Date.now();
           const result = await dispatchProcessOnHover(params);
+          const totalTime = Date.now() - requestStartTime;
+          const dispatchTime = Date.now() - dispatchStartTime;
           this.logger.debug(
-            `✅ [LCSAdapter] Hover request completed for ${params.textDocument.uri}: ${result ? 'success' : 'null'}`,
+            '✅ [LCSAdapter] Hover request completed: ' +
+              `total=${totalTime}ms, dispatch=${dispatchTime}ms, ` +
+              `result=${result ? 'success' : 'null'}`,
           );
           return result;
         } catch (error) {
-          this.logger.error(`Error processing hover: ${error}`);
+          const totalTime = Date.now() - requestStartTime;
+          this.logger.error(
+            `Error processing hover after ${totalTime}ms: ${error}`,
+          );
           return null;
         }
       },

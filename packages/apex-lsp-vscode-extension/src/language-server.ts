@@ -346,6 +346,57 @@ async function createWebLanguageClient(
     );
     logToOutputChannel('Language Client created successfully', 'debug');
 
+    // Wrap LanguageClient's sendRequest to intercept hover requests
+    const originalSendRequest = languageClient.sendRequest.bind(languageClient);
+    (languageClient as any).sendRequest = async (method: string, ...args: any[]) => {
+      const isHoverRequest = method === 'textDocument/hover';
+      const requestStartTime = Date.now();
+
+      if (isHoverRequest && args[0]) {
+        const params = args[0];
+        const uri = params.textDocument?.uri || 'unknown';
+        const line = params.position?.line ?? '?';
+        const character = params.position?.character ?? '?';
+        logToOutputChannel(
+          `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
+          'debug',
+        );
+      }
+
+      try {
+        const sendStartTime = Date.now();
+        const result = await originalSendRequest(method, ...args);
+        const sendTime = Date.now() - sendStartTime;
+        const totalTime = Date.now() - requestStartTime;
+
+        if (isHoverRequest) {
+          const params = args[0];
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `✅ [CLIENT] Hover request completed: ${uri} ` +
+              `total=${totalTime}ms, send=${sendTime}ms, ` +
+              `result=${result ? 'success' : 'null'}`,
+            'debug',
+          );
+        }
+
+        return result;
+      } catch (error) {
+        const totalTime = Date.now() - requestStartTime;
+
+        if (isHoverRequest) {
+          const params = args[0];
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+            'error',
+          );
+        }
+
+        throw error;
+      }
+    };
+
     // Workspace state is now managed via Effect Context/Layer
   } catch (error) {
     logToOutputChannel(`Failed to create Language Client: ${error}`, 'error');
@@ -554,16 +605,56 @@ async function createWebLanguageClient(
       }
     },
     sendRequest: async (method: string, params?: any) => {
-      try {
+      const isHoverRequest = method === 'textDocument/hover';
+      const requestStartTime = Date.now();
+
+      if (isHoverRequest && params) {
+        const uri = params.textDocument?.uri || 'unknown';
+        const line = params.position?.line ?? '?';
+        const character = params.position?.character ?? '?';
+        logToOutputChannel(
+          `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
+          'debug',
+        );
+      } else {
         logToOutputChannel(`Sending request: ${method}`, 'debug');
+      }
+
+      try {
+        const sendStartTime = Date.now();
         const result = await languageClient.sendRequest(method, params);
-        logToOutputChannel(`Successfully sent request: ${method}`, 'debug');
+        const sendTime = Date.now() - sendStartTime;
+        const totalTime = Date.now() - requestStartTime;
+
+        if (isHoverRequest) {
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `✅ [CLIENT] Hover request completed: ${uri} ` +
+              `total=${totalTime}ms, send=${sendTime}ms, ` +
+              `result=${result ? 'success' : 'null'}`,
+            'debug',
+          );
+        } else {
+          logToOutputChannel(`Successfully sent request: ${method}`, 'debug');
+        }
+
         return result;
       } catch (error) {
-        logToOutputChannel(
-          `Failed to send request ${method}: ${error}`,
-          'error',
-        );
+        const totalTime = Date.now() - requestStartTime;
+
+        if (isHoverRequest) {
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+            'error',
+          );
+        } else {
+          logToOutputChannel(
+            `Failed to send request ${method}: ${error}`,
+            'error',
+          );
+        }
+
         try {
           logToOutputChannel(
             `Request params: ${JSON.stringify(params, null, 2)}`,
@@ -816,6 +907,57 @@ async function createDesktopLanguageClient(
 
   logToOutputChannel('🚀 Starting Node.js language client...', 'info');
 
+  // Wrap LanguageClient's sendRequest to intercept hover requests
+  const originalSendRequest = nodeClient.sendRequest.bind(nodeClient);
+  (nodeClient as any).sendRequest = async (method: string, ...args: any[]) => {
+    const isHoverRequest = method === 'textDocument/hover';
+    const requestStartTime = Date.now();
+
+    if (isHoverRequest && args[0]) {
+      const params = args[0];
+      const uri = params.textDocument?.uri || 'unknown';
+      const line = params.position?.line ?? '?';
+      const character = params.position?.character ?? '?';
+      logToOutputChannel(
+        `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
+        'debug',
+      );
+    }
+
+    try {
+      const sendStartTime = Date.now();
+      const result = await originalSendRequest(method, ...args);
+      const sendTime = Date.now() - sendStartTime;
+      const totalTime = Date.now() - requestStartTime;
+
+      if (isHoverRequest) {
+        const params = args[0];
+        const uri = params?.textDocument?.uri || 'unknown';
+        logToOutputChannel(
+          `✅ [CLIENT] Hover request completed: ${uri} ` +
+            `total=${totalTime}ms, send=${sendTime}ms, ` +
+            `result=${result ? 'success' : 'null'}`,
+          'debug',
+        );
+      }
+
+      return result;
+    } catch (error) {
+      const totalTime = Date.now() - requestStartTime;
+
+      if (isHoverRequest) {
+        const params = args[0];
+        const uri = params?.textDocument?.uri || 'unknown';
+        logToOutputChannel(
+          `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+          'error',
+        );
+      }
+
+      throw error;
+    }
+  };
+
   // Start the client and language server
   await nodeClient.start();
 
@@ -858,20 +1000,60 @@ async function createDesktopLanguageClient(
         throw error;
       }
     },
-    sendRequest: (method: string, params?: any) => {
-      try {
-        logToOutputChannel(`Sending desktop request: ${method}`, 'debug');
-        const result = nodeClient.sendRequest(method, params);
+    sendRequest: async (method: string, params?: any) => {
+      const isHoverRequest = method === 'textDocument/hover';
+      const requestStartTime = Date.now();
+
+      if (isHoverRequest && params) {
+        const uri = params.textDocument?.uri || 'unknown';
+        const line = params.position?.line ?? '?';
+        const character = params.position?.character ?? '?';
         logToOutputChannel(
-          `Successfully sent desktop request: ${method}`,
+          `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
           'debug',
         );
+      } else {
+        logToOutputChannel(`Sending desktop request: ${method}`, 'debug');
+      }
+
+      try {
+        const sendStartTime = Date.now();
+        const result = await nodeClient.sendRequest(method, params);
+        const sendTime = Date.now() - sendStartTime;
+        const totalTime = Date.now() - requestStartTime;
+
+        if (isHoverRequest) {
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `✅ [CLIENT] Hover request completed: ${uri} ` +
+              `total=${totalTime}ms, send=${sendTime}ms, ` +
+              `result=${result ? 'success' : 'null'}`,
+            'debug',
+          );
+        } else {
+          logToOutputChannel(
+            `Successfully sent desktop request: ${method}`,
+            'debug',
+          );
+        }
+
         return result;
       } catch (error) {
-        logToOutputChannel(
-          `Failed to send desktop request ${method}: ${error}`,
-          'error',
-        );
+        const totalTime = Date.now() - requestStartTime;
+
+        if (isHoverRequest) {
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+            'error',
+          );
+        } else {
+          logToOutputChannel(
+            `Failed to send desktop request ${method}: ${error}`,
+            'error',
+          );
+        }
+
         try {
           logToOutputChannel(
             `Desktop request params: ${JSON.stringify(params, null, 2)}`,

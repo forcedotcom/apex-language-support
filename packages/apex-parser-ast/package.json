@@ -50,6 +50,7 @@
     },
     "compile": {
       "command": "tsc --build",
+      "clean": "if-file-deleted",
       "dependencies": [
         "precompile"
       ],

@@ -28,6 +28,7 @@
   "wireit": {
     "compile": {
       "command": "tsc --build",
+      "clean": "if-file-deleted",
       "dependencies": [
         "../apex-parser-ast:precompile"
       ],

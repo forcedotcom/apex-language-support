@@ -12,12 +12,14 @@ import {
   Range,
   Position,
 } from 'vscode-languageserver-protocol';
-import { Connection } from 'vscode-languageserver';
+import { Connection, ProgressToken } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   LoggerInterface,
   LSPConfigurationManager,
   Priority,
+  LoadWorkspaceParams,
+  LoadWorkspaceResult,
 } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -88,6 +90,68 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   }
 
   /**
+   * Query workspace state synchronously (not wrapped in Effect)
+   * Used to check workspace state before queuing load tasks
+   */
+  private async queryWorkspaceStateSync(
+    connection: Connection,
+  ): Promise<LoadWorkspaceResult | null> {
+    try {
+      return await connection.sendRequest('apex/loadWorkspace', {
+        queryOnly: true,
+      } as LoadWorkspaceParams);
+    } catch (error) {
+      this.logger.debug(() => `Failed to query workspace state: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Queue workspace load if needed (only if workspace is not already loaded or loading)
+   */
+  private async queueWorkspaceLoadIfNeeded(
+    connection: Connection,
+    workDoneToken?: ProgressToken,
+  ): Promise<void> {
+    const workspaceState = await this.queryWorkspaceStateSync(connection);
+
+    if (workspaceState && 'loaded' in workspaceState && workspaceState.loaded) {
+      this.logger.debug(
+        () => 'Workspace already loaded, skipping workspace load',
+      );
+      return;
+    }
+
+    if (
+      workspaceState &&
+      'loading' in workspaceState &&
+      workspaceState.loading
+    ) {
+      this.logger.debug(
+        () => 'Workspace already loading, skipping workspace load',
+      );
+      return;
+    }
+
+    // Queue workspace load
+    const schedulerService = SchedulerInitializationService.getInstance();
+    await schedulerService.ensureInitialized();
+
+    const loadEffect = ensureWorkspaceLoaded(
+      connection,
+      this.logger,
+      workDoneToken,
+    );
+
+    const queuedItem = await Effect.runPromise(
+      createQueuedItem(loadEffect, 'workspace-load'),
+    );
+    await Effect.runPromise(offer(Priority.Low, queuedItem));
+
+    this.logger.debug(() => 'Workspace load task queued');
+  }
+
+  /**
    * Process a references request
    * @param params The references parameters
    * @returns Reference locations for the requested symbol
@@ -103,29 +167,21 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       const connection = this.getConnection();
       if (connection) {
         try {
-          // Ensure scheduler is initialized
-          const schedulerService = SchedulerInitializationService.getInstance();
-          await schedulerService.ensureInitialized();
-
-          const loadEffect = ensureWorkspaceLoaded(
+          // Check workspace state synchronously BEFORE queuing
+          await this.queueWorkspaceLoadIfNeeded(
             connection,
-            this.logger,
             params.workDoneToken,
           );
 
-          // Queue workspace load task (non-blocking)
-          const queuedItem = await Effect.runPromise(
-            createQueuedItem(loadEffect, 'workspace-load'),
-          );
-          await Effect.runPromise(offer(Priority.Low, queuedItem));
-
           this.logger.debug(
             () =>
-              'Workspace load task queued, proceeding with reference search (results may be partial)',
+              'Workspace load check completed, proceeding with reference search (results may be partial)',
           );
         } catch (error) {
-          this.logger.error(() => `Error queuing workspace load: ${error}`);
-          // Continue with reference search even if workspace load queuing fails
+          this.logger.error(
+            () => `Error checking/queuing workspace load: ${error}`,
+          );
+          // Continue with reference search even if workspace load check/queuing fails
         }
       } else {
         this.logger.debug(

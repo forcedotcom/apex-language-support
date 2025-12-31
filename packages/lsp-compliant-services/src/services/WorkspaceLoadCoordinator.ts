@@ -41,7 +41,14 @@ function queryWorkspaceState(
   logger: LoggerInterface,
 ): Effect.Effect<LoadWorkspaceResult, Error, never> {
   return Effect.gen(function* () {
-    const result = yield* Effect.tryPromise({
+    const requestStartTime = Date.now();
+    logger.debug(
+      () =>
+        `[WORKSPACE-LOAD] Sending query request (queryOnly: true) at ${requestStartTime}`,
+    );
+
+    // Add timeout to prevent indefinite hangs (5 seconds per query)
+    const queryEffect = Effect.tryPromise({
       try: () =>
         connection.sendRequest('apex/loadWorkspace', {
           queryOnly: true,
@@ -49,13 +56,37 @@ function queryWorkspaceState(
       catch: (error) => error as Error,
     });
 
-    logger.debug(
-      () => `Workspace state query result: ${JSON.stringify(result)}`,
+    const timeoutEffect = Effect.sleep(Duration.millis(5000)).pipe(
+      Effect.andThen(
+        Effect.succeed({
+          error: 'Query request timed out after 5000ms',
+        } as LoadWorkspaceResult),
+      ),
     );
-    return result as LoadWorkspaceResult;
+
+    const result = yield* Effect.race(queryEffect, timeoutEffect);
+    const resultTyped = result as LoadWorkspaceResult;
+    if (
+      'error' in resultTyped &&
+      typeof resultTyped.error === 'string' &&
+      resultTyped.error.includes('timed out')
+    ) {
+      logger.error(
+        () => '[WORKSPACE-LOAD] Query request timed out after 5000ms',
+      );
+    }
+
+    const requestDuration = Date.now() - requestStartTime;
+    logger.debug(
+      () =>
+        `[WORKSPACE-LOAD] Query request completed in ${requestDuration}ms, result: ${JSON.stringify(resultTyped)}`,
+    );
+    return resultTyped;
   }).pipe(
     Effect.catchAll((error) => {
-      logger.error(() => `Failed to query workspace state: ${error}`);
+      logger.error(
+        () => `[WORKSPACE-LOAD] Failed to query workspace state: ${error}`,
+      );
       return Effect.succeed({
         error: `Failed to query workspace state: ${error}`,
       } as LoadWorkspaceResult);
@@ -78,6 +109,13 @@ function triggerWorkspaceLoad(
   workDoneToken?: ProgressToken,
 ): Effect.Effect<LoadWorkspaceResult, Error, never> {
   return Effect.gen(function* () {
+    const requestStartTime = Date.now();
+    const tokenStatus = workDoneToken ? 'present' : 'none';
+    logger.debug(
+      () =>
+        `[WORKSPACE-LOAD] Sending trigger request (workDoneToken: ${tokenStatus}) at ${requestStartTime}`,
+    );
+
     const result = yield* Effect.tryPromise({
       try: () =>
         connection.sendRequest('apex/loadWorkspace', {
@@ -86,11 +124,17 @@ function triggerWorkspaceLoad(
       catch: (error) => error as Error,
     });
 
-    logger.debug(() => `Workspace load result: ${JSON.stringify(result)}`);
+    const requestDuration = Date.now() - requestStartTime;
+    logger.debug(
+      () =>
+        `[WORKSPACE-LOAD] Trigger request completed in ${requestDuration}ms, result: ${JSON.stringify(result)}`,
+    );
     return result as LoadWorkspaceResult;
   }).pipe(
     Effect.catchAll((error) => {
-      logger.error(() => `Failed to trigger workspace load: ${error}`);
+      logger.error(
+        () => `[WORKSPACE-LOAD] Failed to trigger workspace load: ${error}`,
+      );
       return Effect.succeed({
         error: `Failed to trigger workspace load: ${error}`,
       } as LoadWorkspaceResult);
@@ -118,42 +162,88 @@ function monitorWorkspaceLoad(
   pollInterval: number = 1000,
 ): Effect.Effect<LoadResult, Error, never> {
   return Effect.gen(function* () {
+    const pollCycleStartTime = Date.now();
+    const elapsed = Date.now() - startTime;
+
+    logger.debug(
+      () =>
+        '[WORKSPACE-LOAD] Monitor poll cycle starting: ' +
+        `elapsed=${elapsed}ms, maxWait=${maxWaitTime}ms, ` +
+        `pollInterval=${pollInterval}ms`,
+    );
+
     // Yield control to queue before checking
     yield* Effect.yieldNow();
 
     // Check if timeout exceeded
-    const elapsed = Date.now() - startTime;
     if (elapsed >= maxWaitTime) {
-      logger.warn(() => 'Timeout waiting for client workspace load');
+      logger.warn(
+        () =>
+          `[WORKSPACE-LOAD] Timeout waiting for client workspace load (elapsed=${elapsed}ms, maxWait=${maxWaitTime}ms)`,
+      );
       yield* Ref.set(loadInProgressRef, false);
       return { status: 'timeout' } as LoadResult;
     }
 
     // Query workspace state
+    const queryStartTime = Date.now();
     const stateResult = yield* queryWorkspaceState(connection, logger);
+    const queryDuration = Date.now() - queryStartTime;
+
+    logger.debug(
+      () =>
+        `[WORKSPACE-LOAD] Monitor poll query completed in ${queryDuration}ms, state: ${JSON.stringify(stateResult)}`,
+    );
 
     if ('loaded' in stateResult && stateResult.loaded) {
-      logger.debug(() => 'Client workspace load completed');
+      const totalDuration = Date.now() - startTime;
+      logger.debug(
+        () =>
+          `[WORKSPACE-LOAD] Client workspace load completed (total wait=${totalDuration}ms)`,
+      );
       yield* Ref.set(loadInProgressRef, false);
       return { status: 'loaded' } as LoadResult;
     }
 
     if ('failed' in stateResult && stateResult.failed) {
-      logger.debug(() => 'Client workspace load failed');
+      const totalDuration = Date.now() - startTime;
+      logger.debug(
+        () =>
+          `[WORKSPACE-LOAD] Client workspace load failed (total wait=${totalDuration}ms)`,
+      );
       yield* Ref.set(loadInProgressRef, false);
       return { status: 'failed' } as LoadResult;
+    }
+
+    // Check for error in result
+    if ('error' in stateResult && stateResult.error) {
+      logger.error(
+        () => `[WORKSPACE-LOAD] Query returned error: ${stateResult.error}`,
+      );
+      // Treat error as still loading - will retry on next poll cycle
     }
 
     // Still loading - check if load is still in progress before re-queuing
     const stillInProgress = yield* Ref.get(loadInProgressRef);
     if (!stillInProgress) {
       // Load completed/failed in another task, don't re-queue
-      logger.debug(() => 'Workspace load completed in another task');
+      logger.debug(
+        () =>
+          '[WORKSPACE-LOAD] Workspace load completed in another task, stopping monitor',
+      );
       return { status: 'loaded' } as LoadResult;
     }
 
     // Sleep and re-queue monitor task
+    const sleepStartTime = Date.now();
     yield* Effect.sleep(Duration.millis(pollInterval));
+    const sleepDuration = Date.now() - sleepStartTime;
+
+    logger.debug(
+      () =>
+        `[WORKSPACE-LOAD] Monitor sleeping for ${pollInterval}ms ` +
+        `(actual=${sleepDuration}ms), re-queuing for next poll cycle`,
+    );
 
     // Create and queue monitor task to continue checking
     const monitorEffect = monitorWorkspaceLoad(
@@ -172,9 +262,28 @@ function monitorWorkspaceLoad(
     // Queue with low priority to not block other tasks
     yield* offer(Priority.Low, queuedItem);
 
+    const pollCycleDuration = Date.now() - pollCycleStartTime;
+    logger.debug(
+      () =>
+        `[WORKSPACE-LOAD] Monitor poll cycle completed in ${pollCycleDuration}ms, re-queued for next cycle`,
+    );
+
     // Return intermediate status (monitor will continue)
     return { status: 'loading' } as LoadResult;
-  });
+  }).pipe(
+    // Catch all errors to prevent monitor from silently failing
+    Effect.catchAll((error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(
+        () => `[WORKSPACE-LOAD] Monitor task failed: ${errorMessage}`,
+      );
+      return Effect.gen(function* () {
+        yield* Ref.set(loadInProgressRef, false);
+        return { status: 'timeout' } as LoadResult;
+      });
+    }),
+  );
 }
 
 /**

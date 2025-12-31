@@ -1212,9 +1212,23 @@ export function startQueueStateNotificationTask(
           `Starting queue state notification task with interval ${intervalMs}ms`,
       );
 
+      let lastCheckTime = Date.now();
+
       while (true) {
         // Sleep for the configured interval
         yield* Effect.sleep(Duration.millis(intervalMs));
+
+        const currentCheckTime = Date.now();
+        const actualInterval = currentCheckTime - lastCheckTime;
+        lastCheckTime = currentCheckTime;
+
+        // Log every loop iteration to track execution frequency
+        logger.debug(
+          () =>
+            `[QUEUE-STATE] Loop check: expected=${intervalMs}ms, ` +
+            `actual=${actualInterval}ms, ` +
+            `delay=${actualInterval - intervalMs}ms`,
+        );
 
         // Check if scheduler is still initialized (shutdown check)
         const currentState = yield* Ref.get(utilsStateRef);
@@ -1252,6 +1266,14 @@ export function startQueueStateNotificationTask(
             callback(currentMetrics);
             // Update last sent metrics
             yield* Ref.set(lastSentMetricsRef, currentMetrics);
+          } else {
+            // Log when loop runs but metrics haven't changed
+            logger.debug(
+              () =>
+                `[QUEUE-STATE] Metrics unchanged: Started=${
+                  currentMetrics.tasksStarted
+                }, Completed=${currentMetrics.tasksCompleted}`,
+            );
           }
         } catch (error) {
           // Don't let errors break the notification loop
