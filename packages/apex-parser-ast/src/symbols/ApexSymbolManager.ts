@@ -1635,6 +1635,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   // Scope and Symbol Table Methods
+  /**
+   * Add a symbol table to the manager.
+   * This method processes same-file references immediately (for graph edges and scope resolution)
+   * and defers cross-file references for on-demand resolution to avoid queue pressure during workspace loading.
+   * Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics).
+   *
+   * @param symbolTable The symbol table to add
+   * @param fileUri The file URI associated with the symbol table
+   */
   async addSymbolTable(
     symbolTable: SymbolTable,
     fileUri: string,
@@ -1686,7 +1695,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Invalidate file-based cache when symbols are added to a file
     // This ensures that findSymbolsInFile() will see the newly added symbols
-    // Do this BEFORE processing references so references can find the symbols
     this.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
 
     // Also invalidate name-based cache to ensure findSymbolByName works correctly
@@ -1695,10 +1703,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
     }
 
-    // Process type references and add them to the symbol graph
-    // This must happen after symbols are added and cache is invalidated
-    // Use the normalized URI for consistency with how symbols are stored
-    await this.processSymbolReferencesToGraph(symbolTable, normalizedUri);
+    // Process same-file references immediately (cheap, synchronous, needed for graph edges)
+    // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
+    await this.processSameFileReferencesToGraph(symbolTable, normalizedUri);
 
     // Sync memory stats with the graph's stats to ensure consistency
     // The graph is the source of truth for symbol counts
@@ -1707,79 +1714,222 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Add a symbol table to the manager without processing references (minimal version).
-   * This method skips reference processing to avoid queue pressure during workspace loading.
-   * Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics).
+   * Process same-file references only (skip cross-file references).
+   * This processes references synchronously and adds edges to the graph for dependency tracking.
+   * Cross-file references are skipped to avoid queue pressure - they'll be resolved on-demand.
    *
-   * @param symbolTable The symbol table to add
-   * @param fileUri The file URI associated with the symbol table
+   * @param symbolTable The symbol table containing type references
+   * @param fileUri The file path where the references were found
    */
-  async addSymbolTableMinimal(
+  private async processSameFileReferencesToGraph(
     symbolTable: SymbolTable,
     fileUri: string,
   ): Promise<void> {
-    // Convert fileUri to proper URI format to match symbol ID generation
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    return Effect.runPromise(
+      this.processSameFileReferencesToGraphEffect(symbolTable, fileUri),
+    );
+  }
 
-    // Normalize URI using extractFilePathFromUri to ensure consistency with SymbolTable registration
-    // This ensures that fileIndex lookups will find the symbols
-    const normalizedUri = extractFilePathFromUri(properUri);
+  /**
+   * Process same-file references only (Effect-based).
+   * Cross-file references are skipped to avoid queue pressure.
+   *
+   * @param symbolTable The symbol table containing type references
+   * @param fileUri The file path where the references were found
+   */
+  private processSameFileReferencesToGraphEffect(
+    symbolTable: SymbolTable,
+    fileUri: string,
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      try {
+        const typeReferences = symbolTable.getAllReferences();
 
-    // Register SymbolTable once for the entire file before processing symbols
-    // This avoids redundant registration calls for each symbol
-    this.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
+        // Process references in batches with yields to prevent blocking
+        const batchSize = self.initialReferenceBatchSize;
+        for (let i = 0; i < typeReferences.length; i += batchSize) {
+          const batch = typeReferences.slice(i, i + batchSize);
 
-    // Add all symbols from the symbol table
-    const symbols = symbolTable.getAllSymbols
-      ? symbolTable.getAllSymbols()
-      : [];
+          // Process batch - only same-file references
+          for (const typeRef of batch) {
+            yield* self.processSameFileReferenceToGraphEffect(
+              typeRef,
+              fileUri,
+              symbolTable,
+            );
+          }
 
-    // Update all symbols to use the normalized URI
-    // Process in batches with yields for large symbol tables to prevent blocking
-    const batchSize = 100;
-    const symbolNamesAdded = new Set<string>();
-    for (let i = 0; i < symbols.length; i++) {
-      const symbol = symbols[i];
-      // Update the symbol's fileUri to match the normalized URI
-      symbol.fileUri = normalizedUri;
-      // Pass undefined for symbolTable since it's already registered above
-      // addSymbol() will use the registered SymbolTable via ensureSymbolTableForFile()
-      this.addSymbol(symbol, normalizedUri, undefined);
-      symbolNamesAdded.add(symbol.name);
-
-      // Yield every batchSize symbols to allow other tasks to run
-      if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
-        // Use setTimeout to yield to event loop
-        await new Promise((resolve) => setTimeout(resolve, 0));
+          // Yield after each batch (except the last) to allow other tasks to run
+          if (i + batchSize < typeReferences.length) {
+            yield* Effect.yieldNow();
+          }
+        }
+      } catch (error) {
+        self.logger.error(
+          () =>
+            `Error processing same-file references for ${fileUri}: ${error}`,
+        );
       }
-    }
+    });
+  }
 
-    // Invalidate cache for all symbol names that were added
-    // This ensures that findSymbolByName() will see the newly added symbols
-    for (const symbolName of symbolNamesAdded) {
-      // Normalize to lowercase to match cache key format in findSymbolByName()
-      const normalizedName = symbolName.toLowerCase();
-      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
-    }
+  /**
+   * Process a single same-file reference and add it to the symbol graph.
+   * Cross-file references are skipped.
+   *
+   * @param typeRef The type reference to process
+   * @param fileUri The file path where the reference was found
+   * @param symbolTable The symbol table for the current file
+   */
+  private processSameFileReferenceToGraphEffect(
+    typeRef: SymbolReference,
+    fileUri: string,
+    symbolTable: SymbolTable,
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      try {
+        // Skip LITERAL references - they don't represent symbol relationships
+        if (typeRef.context === ReferenceContext.LITERAL) {
+          return;
+        }
 
-    // Invalidate file-based cache when symbols are added to a file
-    // This ensures that findSymbolsInFile() will see the newly added symbols
-    this.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
+        // Check if this is a cross-file reference - if so, skip it
+        const qualifierInfo = self.extractQualifierFromChain(typeRef);
+        let isCrossFileReference = false;
 
-    // Also invalidate name-based cache to ensure findSymbolByName works correctly
-    for (const symbolName of symbolNamesAdded) {
-      const normalizedName = symbolName.toLowerCase();
-      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
-    }
+        if (qualifierInfo && qualifierInfo.isQualified) {
+          // For qualified references, check if the qualifier is in the current file
+          if (qualifierInfo.qualifier.toLowerCase() === 'this') {
+            const allSymbols = symbolTable.getAllSymbols();
+            const memberInFile = allSymbols.find(
+              (s) => s.name === qualifierInfo.member,
+            );
+            if (!memberInFile) {
+              isCrossFileReference = true;
+            }
+          } else {
+            const allSymbols = symbolTable.getAllSymbols();
+            const qualifierInFile = allSymbols.find(
+              (s) => s.name === qualifierInfo.qualifier,
+            );
+            if (!qualifierInFile) {
+              isCrossFileReference = true;
+            }
+          }
+        } else {
+          // For unqualified references, check if the symbol exists in the current file
+          const allSymbols = symbolTable.getAllSymbols();
+          const symbolInFile = allSymbols.find((s) => s.name === typeRef.name);
+          if (!symbolInFile) {
+            isCrossFileReference = true;
+          }
+        }
 
-    // NOTE: We skip processSymbolReferencesToGraph() here to avoid queue pressure
-    // Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics)
+        // Skip cross-file references - they'll be resolved on-demand
+        if (isCrossFileReference) {
+          return;
+        }
 
-    // Sync memory stats with the graph's stats to ensure consistency
-    // The graph is the source of truth for symbol counts
-    const graphStats = this.symbolGraph.getStats();
-    this.memoryStats.totalSymbols = graphStats.totalSymbols;
+        // Process same-file reference - resolve and add to graph
+        // This is the same logic as processSymbolReferenceToGraphEffect for same-file refs
+        const sourceSymbol = self.findContainingSymbolFromSymbolTable(
+          typeRef,
+          symbolTable,
+        );
+        if (!sourceSymbol) {
+          return;
+        }
+
+        // Resolve target symbol
+        let targetSymbol: ApexSymbol | null = null;
+        if (typeRef.resolvedSymbolId) {
+          targetSymbol = self.getSymbol(typeRef.resolvedSymbolId);
+        }
+
+        if (!targetSymbol) {
+          targetSymbol = yield* Effect.tryPromise({
+            try: () =>
+              self.findTargetSymbolForReference(
+                typeRef,
+                fileUri,
+                sourceSymbol,
+                symbolTable,
+              ),
+            catch: (error) => error as Error,
+          }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+          if (targetSymbol) {
+            typeRef.resolvedSymbolId = targetSymbol.id;
+          }
+        }
+
+        if (!targetSymbol) {
+          // Even though it should be in the file, we couldn't resolve it
+          // This can happen if scope-based resolution fails (e.g., scope hierarchy issue)
+          // Defer it as a fallback so it can be resolved later when more context is available
+          const referenceType = self.mapReferenceContextToType(typeRef.context);
+          const isStatic = yield* self.isStaticReferenceEffect(typeRef);
+          self.symbolGraph.enqueueDeferredReference(
+            sourceSymbol,
+            typeRef.name, // target symbol name
+            referenceType,
+            typeRef.location,
+            {
+              methodName: typeRef.parentContext,
+              isStatic: isStatic,
+            },
+          );
+          return;
+        }
+
+        // Skip creating edges for declaration references
+        if (
+          typeRef.context === ReferenceContext.VARIABLE_DECLARATION ||
+          typeRef.context === ReferenceContext.PROPERTY_REFERENCE
+        ) {
+          return;
+        }
+
+        // Add to graph
+        const sourceSymbolsInGraph = self.symbolGraph.findSymbolByName(
+          sourceSymbol.name,
+        );
+        const targetSymbolsInGraph = self.symbolGraph.findSymbolByName(
+          targetSymbol.name,
+        );
+
+        const sourceInGraph = sourceSymbol.fileUri
+          ? sourceSymbolsInGraph.find((s) => s.fileUri === sourceSymbol.fileUri)
+          : sourceSymbolsInGraph[0];
+
+        const targetInGraph = targetSymbol.fileUri
+          ? targetSymbolsInGraph.find((s) => s.fileUri === targetSymbol.fileUri)
+          : targetSymbolsInGraph[0];
+
+        if (!sourceInGraph || !targetInGraph) {
+          return;
+        }
+
+        const referenceType = self.mapReferenceContextToType(typeRef.context);
+        const isStatic = yield* self.isStaticReferenceEffect(typeRef);
+        self.symbolGraph.addReference(
+          sourceInGraph,
+          targetInGraph,
+          referenceType,
+          typeRef.location,
+          {
+            methodName: typeRef.parentContext,
+            isStatic: isStatic,
+          },
+        );
+      } catch (error) {
+        self.logger.error(
+          () =>
+            `Error processing same-file reference ${typeRef.name}: ${error}`,
+        );
+      }
+    });
   }
 
   /**
@@ -2202,7 +2352,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Process references using the existing method
-      yield* self.processSymbolReferencesToGraphEffect(symbolTable, normalizedUri);
+      yield* self.processSymbolReferencesToGraphEffect(
+        symbolTable,
+        normalizedUri,
+      );
     });
   }
 
@@ -2720,11 +2873,27 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
 
         // Also search nested blocks (descendants of this block)
-        const nestedBlocks = allFileSymbols.filter(
-          (s) => s.kind === SymbolKind.Block && s.parentId === blockSymbol.id,
-        );
+        // IMPORTANT: Only search nested blocks that are in the scope hierarchy
+        // This prevents searching sibling blocks (e.g., method1 when we're in method3)
+        const nestedBlocks = allFileSymbols.filter((s) => {
+          if (s.kind !== SymbolKind.Block || s.parentId !== blockSymbol.id) {
+            return false;
+          }
+          // Only include blocks that are in the scope hierarchy
+          // This ensures we don't search sibling blocks (e.g., method1 when we're in method3)
+          return scopeHierarchy.some(
+            (hierarchyBlock) => hierarchyBlock.id === s.id,
+          );
+        });
         const symbolsInNestedBlocks: ApexSymbol[] = [];
         for (const nestedBlock of nestedBlocks) {
+          // Double-check that the nested block is actually in the hierarchy
+          const isInHierarchy = scopeHierarchy.some(
+            (hierarchyBlock) => hierarchyBlock.id === nestedBlock.id,
+          );
+          if (!isInHierarchy) {
+            continue;
+          }
           const nestedSymbols = allFileSymbols.filter(
             (symbol) =>
               symbol.name?.toLowerCase() === typeRef.name.toLowerCase() &&
@@ -2754,69 +2923,73 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // If not found in any block scope, search for symbols in parent scopes
       // This includes class fields, method parameters, etc.
-      // Search from outermost to innermost to find the most specific parent symbol
-      for (const blockSymbol of scopeHierarchy) {
-        // Find all symbols with the target name (case-insensitive for Apex)
-        const sameNameSymbols = allFileSymbols.filter(
-          (s) => s.name?.toLowerCase() === typeRef.name.toLowerCase(),
-        );
+      // Search from innermost to outermost to find the closest parent symbol
+      // Reverse the hierarchy to go from innermost (method) to outermost (class/file)
+      const parentScopeSearchOrder = [...scopeHierarchy].reverse();
+      for (const blockSymbol of parentScopeSearchOrder) {
+        // Ensure blockSymbol is actually a block symbol with scopeType
+        if (!isBlockSymbol(blockSymbol)) {
+          continue;
+        }
 
-        // Check if any symbol is a parent or ancestor of this block
-        // Prioritize variables/parameters over fields when searching parent scopes
-        const parentScopeSymbols = sameNameSymbols.filter((s) => {
-          // Check if this symbol is a direct parent of the block (e.g., class field, method parameter)
-          if (blockSymbol.parentId === s.id) {
-            return true;
-          }
-          // Check if symbol is an ancestor by following parentId chain up from the block
-          let currentBlockId: string | null = blockSymbol.parentId;
-          while (currentBlockId) {
-            if (currentBlockId === s.id) {
-              return true;
-            }
-            // Find parent block to continue chain
-            const parentBlock = allFileSymbols.find(
-              (p) => p.id === currentBlockId && p.kind === SymbolKind.Block,
-            );
-            currentBlockId = parentBlock?.parentId || null;
-          }
-          return false;
-        });
+        // Skip method blocks when searching for class-level fields
+        // We only want to search class/file level blocks for fields
+        const isClassOrFileLevel =
+          blockSymbol.scopeType === 'class' || blockSymbol.scopeType === 'file';
+        const isMethodLevel = blockSymbol.scopeType === 'method';
 
-        // Prioritize variables/parameters over fields in parent scopes
-        if (parentScopeSymbols.length > 0) {
-          const prioritized = parentScopeSymbols.sort((a, b) => {
-            const aIsVar =
-              a.kind === SymbolKind.Variable || a.kind === SymbolKind.Parameter;
-            const bIsVar =
-              b.kind === SymbolKind.Variable || b.kind === SymbolKind.Parameter;
-            if (aIsVar && !bIsVar) return -1;
-            if (!aIsVar && bIsVar) return 1;
-            return 0;
-          });
-          return prioritized[0];
+        // At class/file level, look for fields and methods
+        if (isClassOrFileLevel) {
+          // First try fields
+          const classFields = allFileSymbols.filter(
+            (s) =>
+              s.name === typeRef.name &&
+              s.parentId === blockSymbol.id &&
+              s.kind === SymbolKind.Field,
+          );
+          if (classFields.length > 0) {
+            return classFields[0];
+          }
+          // Then try methods
+          const classMethods = allFileSymbols.filter(
+            (s) =>
+              s.name === typeRef.name &&
+              s.parentId === blockSymbol.id &&
+              s.kind === SymbolKind.Method,
+          );
+          if (classMethods.length > 0) {
+            return classMethods[0];
+          }
+        }
+
+        // At method level, look for parameters (not local variables - those were already searched)
+        if (isMethodLevel) {
+          const parameters = allFileSymbols.filter(
+            (s) =>
+              s.name === typeRef.name &&
+              s.parentId === blockSymbol.id &&
+              s.kind === SymbolKind.Parameter,
+          );
+          if (parameters.length > 0) {
+            return parameters[0];
+          }
         }
       }
     }
 
-    // Fallback: Try to find the symbol by name (for unqualified references)
-    const symbols = this.findSymbolByName(typeRef.name);
-    if (symbols.length > 0) {
-      // If fileUri is provided, prefer symbols from the same file
-      if (fileUri) {
-        const normalizedUri = extractFilePathFromUri(
-          getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri),
-        );
-        const sameFileSymbols = symbols.filter(
-          (s) => s.fileUri === normalizedUri,
-        );
-        if (sameFileSymbols.length > 0) {
-          return this.selectMostSpecificSymbol(sameFileSymbols, fileUri);
-        }
+    // If scope-based resolution didn't find the symbol, but we have symbolTable,
+    // try a direct lookup in the SymbolTable as a last resort for same-file references
+    // This handles cases where scope hierarchy might not be perfect but we know the symbol exists
+    if (symbolTable) {
+      const allFileSymbols = symbolTable.getAllSymbols();
+      const directMatch = allFileSymbols.find(
+        (s) => s.name?.toLowerCase() === typeRef.name.toLowerCase(),
+      );
+      if (directMatch) {
+        // Found symbol directly in SymbolTable - use it
+        // This is safe for same-file references since we've already verified it's same-file
+        return directMatch;
       }
-      // For now, take the first match. In a more sophisticated implementation,
-      // we would use context to disambiguate
-      return symbols[0];
     }
 
     // Try to resolve as built-in type

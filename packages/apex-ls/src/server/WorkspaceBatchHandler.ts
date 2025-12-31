@@ -50,7 +50,9 @@ function handleWorkspaceBatchEffect(
   return Effect.gen(function* () {
     logger.debug(
       () =>
-        `Processing workspace batch ${params.batchIndex + 1}/${params.totalBatches} (${params.fileMetadata.length} files)`,
+        `Processing workspace batch ${params.batchIndex + 1}/${
+          params.totalBatches
+        } (${params.fileMetadata.length} files)`,
     );
 
     // Decode base64 to Uint8Array
@@ -114,8 +116,7 @@ function handleWorkspaceBatchEffect(
           const fileContent = decompressedFiles[fileMeta.uri];
           if (!fileContent) {
             logger.warn(
-              () =>
-                `File content not found in batch for URI: ${fileMeta.uri}`,
+              () => `File content not found in batch for URI: ${fileMeta.uri}`,
             );
             return;
           }
@@ -186,9 +187,7 @@ export async function handleWorkspaceBatch(
     return {
       success: false,
       enqueuedCount: 0,
-      error:
-        error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : String(error),
     } as SendWorkspaceBatchResult;
   }
 }
-

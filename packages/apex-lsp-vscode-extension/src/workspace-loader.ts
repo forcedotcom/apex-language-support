@@ -99,8 +99,6 @@ export async function loadWorkspaceForServer(
         // Get settings from configuration
         const settings = getWorkspaceSettings();
         const maxConcurrency = settings.apex.loadWorkspace.maxConcurrency;
-        const yieldInterval = settings.apex.loadWorkspace.yieldInterval;
-        const yieldDelayMs = settings.apex.loadWorkspace.yieldDelayMs;
 
         // Send progress begin notification (LSP)
         if (workDoneToken) {
@@ -174,22 +172,18 @@ export async function loadWorkspaceForServer(
           const batchSize = settings.apex.loadWorkspace.batchSize;
 
           // Read all file contents in parallel
-          logToOutputChannel(
-            `📖 Reading ${allUris.length} files...`,
-            'debug',
-          );
+          logToOutputChannel(`📖 Reading ${allUris.length} files...`, 'debug');
 
           const fileDataArray = yield* _(
-            Effect.forEach(
-              allUris,
-              (uri) => readFileContent(uri),
-              { concurrency: maxConcurrency },
-            ),
+            Effect.forEach(allUris, (uri) => readFileContent(uri), {
+              concurrency: maxConcurrency,
+            }),
           );
 
           // Filter out any failed reads (they return void on error)
           const validFiles: FileData[] = fileDataArray.filter(
-            (file: FileData | undefined): file is FileData => file !== undefined,
+            (file: FileData | undefined): file is FileData =>
+              file !== undefined,
           );
 
           logToOutputChannel(
@@ -245,8 +239,7 @@ export async function loadWorkspaceForServer(
                       }/${totalBatches}...`,
                       percentage: Math.min(
                         90,
-                        20 +
-                          Math.floor((processedBatches / totalBatches) * 70),
+                        20 + Math.floor((processedBatches / totalBatches) * 70),
                       ),
                     });
                   }
@@ -274,8 +267,7 @@ export async function loadWorkspaceForServer(
                       }/${totalBatches}...`,
                       percentage: Math.min(
                         90,
-                        20 +
-                          Math.floor((processedBatches / totalBatches) * 70),
+                        20 + Math.floor((processedBatches / totalBatches) * 70),
                       ),
                     });
                   }
@@ -338,7 +330,9 @@ export async function loadWorkspaceForServer(
                   });
 
                   logToOutputChannel(
-                    `✅ Batch ${batch.batchIndex + 1}/${totalBatches} sent successfully (${result.enqueuedCount} files enqueued)`,
+                    `✅ Batch ${batch.batchIndex + 1}/${totalBatches} sent successfully (${
+                      result.enqueuedCount
+                    } files enqueued)`,
                     'debug',
                   );
                 }).pipe(

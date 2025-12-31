@@ -94,11 +94,17 @@ class QueueStateDashboard {
           }
           break;
         case 'error':
-          console.error('[QueueStateDashboard] Error from extension:', message.message);
+          console.error(
+            '[QueueStateDashboard] Error from extension:',
+            message.message,
+          );
           this.showError(message.message || 'Unknown error');
           break;
         default:
-          console.log('[QueueStateDashboard] Unknown message type:', message.type);
+          console.log(
+            '[QueueStateDashboard] Unknown message type:',
+            message.type,
+          );
       }
     });
   }

@@ -221,7 +221,9 @@ export async function showQueueState(
 
   // Handle panel disposal - clean up notification handler
   panel.onDidDispose(() => {
-    console.log('[QueueState] Panel disposed, cleaning up notification handler');
+    console.log(
+      '[QueueState] Panel disposed, cleaning up notification handler',
+    );
     isPanelDisposed = true;
     if (notificationDisposable) {
       notificationDisposable.dispose();

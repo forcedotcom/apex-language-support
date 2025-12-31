@@ -802,7 +802,10 @@ class PerformanceSettingsUI {
               <input type="number" class="setting-input" 
                      data-path="loadWorkspace.batchSize"
                      value="${def.batchSize}" min="1" max="1000">
-              <div class="setting-help">Number of files to include in each batch during workspace loading (default: 100)</div>
+              <div class="setting-help">
+                Number of files to include in each batch during workspace loading
+                (default: 100)
+              </div>
             </div>
           </div>
         </div>

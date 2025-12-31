@@ -7,7 +7,7 @@
  */
 import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { LoggerInterface, Priority } from '@salesforce/apex-lsp-shared';
+import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 import {
   CompilerService,
@@ -217,7 +217,7 @@ export class DocumentProcessingService {
               );
               // Add symbols immediately (synchronous) without processing references
               // This avoids queue pressure during workspace loading
-              await symbolManager.addSymbolTableMinimal(
+              await symbolManager.addSymbolTable(
                 symbolTable,
                 event.document.uri,
               );
@@ -346,12 +346,10 @@ export class DocumentProcessingService {
             () =>
               `Adding symbols synchronously for ${event.document.uri} (single processing)`,
           );
-          // Add symbols immediately (synchronous) without processing references
+          // Add symbols immediately (synchronous) without processing cross-file references
+          // Same-file references are processed immediately, cross-file references are deferred
           // This avoids queue pressure during workspace loading
-          await symbolManager.addSymbolTableMinimal(
-            symbolTable,
-            event.document.uri,
-          );
+          await symbolManager.addSymbolTable(symbolTable, event.document.uri);
           this.logger.debug(
             () =>
               `Successfully added symbols synchronously for ${event.document.uri}`,

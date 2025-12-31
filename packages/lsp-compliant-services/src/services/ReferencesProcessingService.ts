@@ -102,14 +102,16 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     // Check local state first
     if (isWorkspaceLoaded()) {
       this.logger.debug(
-        () => 'Workspace already loaded (from local state), skipping workspace load',
+        () =>
+          'Workspace already loaded (from local state), skipping workspace load',
       );
       return;
     }
 
     if (isWorkspaceLoading()) {
       this.logger.debug(
-        () => 'Workspace already loading (from local state), skipping workspace load',
+        () =>
+          'Workspace already loading (from local state), skipping workspace load',
       );
       return;
     }

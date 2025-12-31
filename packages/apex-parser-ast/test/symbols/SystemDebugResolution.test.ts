@@ -104,10 +104,17 @@ public class StdApex {
     await compileAndAddToManager(testCode, 'file:///test/StdApex.cls');
 
     // Test hovering over System.debug - should resolve to System.debug, not StdApex.debug
+    // Note: findSymbolByName only finds symbols that have been added via addSymbolTable
+    // System.debug is a cross-file reference and won't be found until cross-file resolution occurs
     const debugSymbols = symbolManager.findSymbolByName('debug');
-    // Should find at least System.debug and the local debug method
-    // May find additional debug symbols from standard library due to case-insensitive lookup
-    expect(debugSymbols.length).toBeGreaterThanOrEqual(2);
+    // Should find at least the local debug method (same-file symbol)
+    // System.debug won't be found yet as it requires cross-file resolution
+    expect(debugSymbols.length).toBeGreaterThanOrEqual(1);
+    // Verify the local debug method is found
+    const localDebugMethod = debugSymbols.find(
+      (s) => s.fileUri === 'file:///test/StdApex.cls' && s.kind === 'method',
+    );
+    expect(localDebugMethod).toBeDefined();
 
     // Wait for any deferred references to complete
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -146,10 +153,17 @@ public class StdApex2 {
 }`.trim();
     await compileAndAddToManager(testCode, 'file:///test/StdApex2.cls');
 
+    // Note: findSymbolByName only finds symbols that have been added via addSymbolTable
+    // System.debug is a cross-file reference and won't be found until cross-file resolution occurs
     const debugSymbols = symbolManager.findSymbolByName('debug');
-    // Should find at least System.debug and the local debug method
-    // May find additional debug symbols from standard library due to case-insensitive lookup
-    expect(debugSymbols.length).toBeGreaterThanOrEqual(2);
+    // Should find at least the local debug method (same-file symbol)
+    // System.debug won't be found yet as it requires cross-file resolution
+    expect(debugSymbols.length).toBeGreaterThanOrEqual(1);
+    // Verify the local debug method is found
+    const localDebugMethod = debugSymbols.find(
+      (s) => s.fileUri === 'file:///test/StdApex2.cls' && s.kind === 'method',
+    );
+    expect(localDebugMethod).toBeDefined();
 
     // Wait for any deferred references to complete
     await new Promise((resolve) => setTimeout(resolve, 100));

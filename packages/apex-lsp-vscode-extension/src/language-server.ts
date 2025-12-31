@@ -28,7 +28,6 @@ import {
 import { setStartingFlag, resetServerStartRetries } from './commands';
 import { handleFindMissingArtifact } from './missing-artifact-handler';
 import {
-  handleLoadWorkspace,
   startWorkspaceLoad,
   WorkspaceLoaderServiceLive,
   WorkspaceStateLive,
@@ -349,7 +348,10 @@ async function createWebLanguageClient(
 
     // Wrap LanguageClient's sendRequest to intercept hover requests
     const originalSendRequest = languageClient.sendRequest.bind(languageClient);
-    (languageClient as any).sendRequest = async (method: string, ...args: any[]) => {
+    (languageClient as any).sendRequest = async (
+      method: string,
+      ...args: any[]
+    ) => {
       const isHoverRequest = method === 'textDocument/hover';
       const requestStartTime = Date.now();
 
@@ -670,7 +672,7 @@ async function createWebLanguageClient(
     sendNotification: (method: string, params?: any) => {
       try {
         const isDidOpen = method === 'textDocument/didOpen';
-        
+
         if (isDidOpen && params) {
           const uri = params.textDocument?.uri || 'unknown';
           const version = params.textDocument?.version ?? '?';
@@ -698,7 +700,7 @@ async function createWebLanguageClient(
         }
 
         languageClient.sendNotification(method, cleanParams);
-        
+
         if (isDidOpen) {
           const uri = params?.textDocument?.uri || 'unknown';
           logToOutputChannel(
@@ -742,13 +744,16 @@ async function createWebLanguageClient(
         `[Client] Registering notification handler for: ${method}`,
         'debug',
       );
-      const disposable = languageClient.onNotification(method, (params: any) => {
-        logToOutputChannel(
-          `[Client] Notification received: ${method}`,
-          'debug',
-        );
-        handler(params);
-      });
+      const disposable = languageClient.onNotification(
+        method,
+        (params: any) => {
+          logToOutputChannel(
+            `[Client] Notification received: ${method}`,
+            'debug',
+          );
+          handler(params);
+        },
+      );
       return disposable;
     },
     isDisposed: () => !languageClient.isRunning(),
@@ -814,30 +819,33 @@ async function createWebLanguageClient(
   });
 
   // Register handler for server-to-client apex/requestWorkspaceLoad notification
-  Client.onNotification('apex/requestWorkspaceLoad', async (params: RequestWorkspaceLoadParams) => {
-    logToOutputChannel(
-      '📨 Received apex/requestWorkspaceLoad notification from server',
-      'debug',
-    );
-
-    try {
-      await Effect.runPromise(
-        Effect.provide(
-          startWorkspaceLoad(Client!, params.workDoneToken),
-          sharedWorkspaceLoadLayer,
-        ),
-      );
+  Client.onNotification(
+    'apex/requestWorkspaceLoad',
+    async (params: RequestWorkspaceLoadParams) => {
       logToOutputChannel(
-        '✅ Workspace load initiated from server notification',
+        '📨 Received apex/requestWorkspaceLoad notification from server',
         'debug',
       );
-    } catch (error) {
-      logToOutputChannel(
-        `❌ Failed to handle workspace load notification: ${error}`,
-        'error',
-      );
-    }
-  });
+
+      try {
+        await Effect.runPromise(
+          Effect.provide(
+            startWorkspaceLoad(Client!, params.workDoneToken),
+            sharedWorkspaceLoadLayer,
+          ),
+        );
+        logToOutputChannel(
+          '✅ Workspace load initiated from server notification',
+          'debug',
+        );
+      } catch (error) {
+        logToOutputChannel(
+          `❌ Failed to handle workspace load notification: ${error}`,
+          'error',
+        );
+      }
+    },
+  );
 
   // Initialize the language server
   logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
@@ -985,7 +993,7 @@ async function createDesktopLanguageClient(
     sendNotification: (method: string, params?: any) => {
       try {
         const isDidOpen = method === 'textDocument/didOpen';
-        
+
         if (isDidOpen && params) {
           const uri = params.textDocument?.uri || 'unknown';
           const version = params.textDocument?.version ?? '?';
@@ -995,11 +1003,14 @@ async function createDesktopLanguageClient(
             'debug',
           );
         } else {
-          logToOutputChannel(`Sending desktop notification: ${method}`, 'debug');
+          logToOutputChannel(
+            `Sending desktop notification: ${method}`,
+            'debug',
+          );
         }
-        
+
         nodeClient.sendNotification(method, params);
-        
+
         if (isDidOpen) {
           const uri = params?.textDocument?.uri || 'unknown';
           logToOutputChannel(
@@ -1177,30 +1188,33 @@ async function createDesktopLanguageClient(
   });
 
   // Register handler for server-to-client apex/requestWorkspaceLoad notification
-  Client.onNotification('apex/requestWorkspaceLoad', async (params: RequestWorkspaceLoadParams) => {
-    logToOutputChannel(
-      '📨 Received apex/requestWorkspaceLoad notification from server',
-      'debug',
-    );
-
-    try {
-      await Effect.runPromise(
-        Effect.provide(
-          startWorkspaceLoad(Client!, params.workDoneToken),
-          sharedWorkspaceLoadLayer,
-        ),
-      );
+  Client.onNotification(
+    'apex/requestWorkspaceLoad',
+    async (params: RequestWorkspaceLoadParams) => {
       logToOutputChannel(
-        '✅ Workspace load initiated from server notification',
+        '📨 Received apex/requestWorkspaceLoad notification from server',
         'debug',
       );
-    } catch (error) {
-      logToOutputChannel(
-        `❌ Failed to handle workspace load notification: ${error}`,
-        'error',
-      );
-    }
-  });
+
+      try {
+        await Effect.runPromise(
+          Effect.provide(
+            startWorkspaceLoad(Client!, params.workDoneToken),
+            sharedWorkspaceLoadLayer,
+          ),
+        );
+        logToOutputChannel(
+          '✅ Workspace load initiated from server notification',
+          'debug',
+        );
+      } catch (error) {
+        logToOutputChannel(
+          `❌ Failed to handle workspace load notification: ${error}`,
+          'error',
+        );
+      }
+    },
+  );
 
   logToOutputChannel('✅ Node.js language client started successfully', 'info');
 

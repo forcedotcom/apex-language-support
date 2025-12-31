@@ -57,10 +57,14 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
 });
 
 const mockEnsureWorkspaceLoaded = jest.fn();
+const mockIsWorkspaceLoaded = jest.fn();
+const mockIsWorkspaceLoading = jest.fn();
 jest.mock('../../src/services/WorkspaceLoadCoordinator', () => ({
   ensureWorkspaceLoaded: jest.fn((...args: any[]) =>
     mockEnsureWorkspaceLoaded(...args),
   ),
+  isWorkspaceLoaded: jest.fn(() => mockIsWorkspaceLoaded()),
+  isWorkspaceLoading: jest.fn(() => mockIsWorkspaceLoading()),
 }));
 
 describe('ReferencesProcessingService', () => {
@@ -75,6 +79,8 @@ describe('ReferencesProcessingService', () => {
     // Reset mocks
     jest.clearAllMocks();
     mockEnsureWorkspaceLoaded.mockClear();
+    mockIsWorkspaceLoaded.mockReturnValue(false);
+    mockIsWorkspaceLoading.mockReturnValue(false);
 
     // Setup logger
     logger = getLogger();
@@ -136,6 +142,7 @@ describe('ReferencesProcessingService', () => {
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 5, character: 10 },
+        context: { includeDeclaration: false },
       };
 
       const document = TextDocument.create(
@@ -164,6 +171,7 @@ describe('ReferencesProcessingService', () => {
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 5, character: 10 },
+        context: { includeDeclaration: false },
       };
 
       const document = TextDocument.create(
@@ -178,10 +186,12 @@ describe('ReferencesProcessingService', () => {
       // Mock findReferences to return empty array (no references found)
       jest.spyOn(service as any, 'findReferences').mockResolvedValue([]);
 
-      // Mock workspace coordinator to indicate workspace loaded
-      mockEnsureWorkspaceLoaded.mockReturnValue(
-        Effect.succeed({ status: 'loaded' } as { status: 'loaded' }),
-      );
+      // Ensure workspace state functions return false so ensureWorkspaceLoaded gets called
+      mockIsWorkspaceLoaded.mockReturnValue(false);
+      mockIsWorkspaceLoading.mockReturnValue(false);
+
+      // Mock workspace coordinator to return Effect
+      mockEnsureWorkspaceLoaded.mockReturnValue(Effect.succeed(undefined));
 
       // Act
       const result = await service.processReferences(params);
@@ -202,6 +212,7 @@ describe('ReferencesProcessingService', () => {
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 5, character: 10 },
+        context: { includeDeclaration: false },
       };
 
       const document = TextDocument.create(
@@ -235,6 +246,7 @@ describe('ReferencesProcessingService', () => {
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 5, character: 10 },
+        context: { includeDeclaration: false },
       };
 
       mockStorage.getDocument.mockResolvedValue(null);
@@ -252,6 +264,7 @@ describe('ReferencesProcessingService', () => {
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 2, character: 4 }, // Position on "if" keyword
+        context: { includeDeclaration: false },
       };
 
       const document = TextDocument.create(
@@ -283,6 +296,7 @@ describe('ReferencesProcessingService', () => {
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 5, character: 10 },
+        context: { includeDeclaration: false },
       };
 
       const document = TextDocument.create(
@@ -341,6 +355,7 @@ describe('ReferencesProcessingService', () => {
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 5, character: 10 },
+        context: { includeDeclaration: false },
       };
 
       const document = TextDocument.create(
@@ -360,6 +375,11 @@ describe('ReferencesProcessingService', () => {
       });
 
       mockSymbolManager.findReferencesTo.mockReturnValue([]);
+
+      // Ensure workspace state functions return false so ensureWorkspaceLoaded gets called
+      mockIsWorkspaceLoaded.mockReturnValue(false);
+      mockIsWorkspaceLoading.mockReturnValue(false);
+
       mockEnsureWorkspaceLoaded.mockReturnValue(
         Effect.fail(new Error('Workspace load failed')),
       );

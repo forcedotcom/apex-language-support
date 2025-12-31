@@ -91,7 +91,7 @@ describe('Configuration Module', () => {
           if (key === 'commentCollection.associateCommentsWithSymbols')
             return false;
           if (key === 'commentCollection.enableForDocumentChanges') return true;
-          if (key === 'commentCollection.enableForDocumentOpen') return true;
+          if (key === 'commentCollection.enableForDocumentOpen') return false;
           if (key === 'commentCollection.enableForDocumentSymbols')
             return false;
           if (key === 'commentCollection.enableForFoldingRanges') return false;
@@ -120,22 +120,24 @@ describe('Configuration Module', () => {
             includeSingleLineComments: false,
             associateCommentsWithSymbols: false,
             enableForDocumentChanges: true,
-            enableForDocumentOpen: true,
+            enableForDocumentOpen: false,
             enableForDocumentSymbols: false,
             enableForFoldingRanges: false,
           },
           deferredReferenceProcessing: {
-            deferredBatchSize: 25, // Reduced from 50 to improve responsiveness
-            maxRetryAttempts: 10,
+            deferredBatchSize: 10,
+            initialReferenceBatchSize: 25,
+            maxRetryAttempts: 5,
             retryDelayMs: 100,
             maxRetryDelayMs: 5000,
-            queueCapacityThreshold: 90,
-            queueDrainThreshold: 75,
+            queueCapacityThreshold: 85,
+            queueDrainThreshold: 70,
             queueFullRetryDelayMs: 10000,
             maxQueueFullRetryDelayMs: 30000,
             circuitBreakerFailureThreshold: 5,
             circuitBreakerResetThreshold: 50,
-            maxDeferredTasksPerSecond: 10,
+            maxDeferredTasksPerSecond: 5,
+            yieldTimeThresholdMs: 50,
           },
           performance: {
             commentCollectionMaxFileSize: 102400,
@@ -144,18 +146,18 @@ describe('Configuration Module', () => {
           },
           queueProcessing: {
             maxConcurrency: {
-              CRITICAL: 100,
-              HIGH: 50,
-              IMMEDIATE: 50,
-              LOW: 5, // Reduced from 10 to improve responsiveness
-              NORMAL: 25,
-              BACKGROUND: 5,
+              CRITICAL: 4,
+              HIGH: 2,
+              IMMEDIATE: 4,
+              LOW: 2,
+              NORMAL: 2,
+              BACKGROUND: 1,
             },
             // maxTotalConcurrency is calculated as sum * 1.2 if not provided
-            // (100+50+50+25+5+5) * 1.2 = 282
-            maxTotalConcurrency: 282,
+            // (4+4+2+2+2+1) * 1.2 = 18, but hard cap is 9
+            maxTotalConcurrency: 9,
             yieldDelayMs: 25,
-            yieldInterval: 50,
+            yieldInterval: 10,
           },
           environment: {
             runtimePlatform: 'desktop',
@@ -170,18 +172,19 @@ describe('Configuration Module', () => {
           },
           scheduler: {
             queueCapacity: {
-              CRITICAL: 200,
-              IMMEDIATE: 200,
-              HIGH: 200,
-              NORMAL: 200,
-              LOW: 200,
-              BACKGROUND: 200,
+              CRITICAL: 128,
+              IMMEDIATE: 128,
+              HIGH: 128,
+              NORMAL: 128,
+              LOW: 256,
+              BACKGROUND: 256,
             },
-            maxHighPriorityStreak: 50,
-            idleSleepMs: 1,
+            maxHighPriorityStreak: 10,
+            idleSleepMs: 25,
+            queueStateNotificationIntervalMs: 500,
           },
           findMissingArtifact: {
-            enabled: false,
+            enabled: true,
             blockingWaitTimeoutMs: 2000,
             indexingBarrierPollMs: 100,
             maxCandidatesToOpen: 3,
@@ -189,10 +192,11 @@ describe('Configuration Module', () => {
             enablePerfMarks: false,
           },
           loadWorkspace: {
-            enabled: true,
-            maxConcurrency: 50,
+            enabled: false,
+            maxConcurrency: 4,
             yieldDelayMs: 25,
-            yieldInterval: 50,
+            yieldInterval: 10,
+            batchSize: 100,
           },
           worker: {
             logLevel: 'info',
@@ -249,10 +253,11 @@ describe('Configuration Module', () => {
       expect(settings.apex.findMissingArtifact.enablePerfMarks).toBe(false); // Default
 
       // Should also have loadWorkspace defaults
-      expect(settings.apex.loadWorkspace.enabled).toBe(true); // Default
-      expect(settings.apex.loadWorkspace.maxConcurrency).toBe(50); // Default
-      expect(settings.apex.loadWorkspace.yieldInterval).toBe(50); // Default
+      expect(settings.apex.loadWorkspace.enabled).toBe(false); // Default
+      expect(settings.apex.loadWorkspace.maxConcurrency).toBe(4); // Default
+      expect(settings.apex.loadWorkspace.yieldInterval).toBe(10); // Default
       expect(settings.apex.loadWorkspace.yieldDelayMs).toBe(25); // Default
+      expect(settings.apex.loadWorkspace.batchSize).toBe(100); // Default
     });
 
     it('should merge user loadWorkspace settings with defaults', () => {
@@ -279,8 +284,9 @@ describe('Configuration Module', () => {
       expect(settings.apex.loadWorkspace.maxConcurrency).toBe(25); // User override
 
       // Should use defaults where not provided
-      expect(settings.apex.loadWorkspace.yieldInterval).toBe(50); // Default
+      expect(settings.apex.loadWorkspace.yieldInterval).toBe(10); // Default
       expect(settings.apex.loadWorkspace.yieldDelayMs).toBe(25); // Default
+      expect(settings.apex.loadWorkspace.batchSize).toBe(100); // Default
     });
   });
 
@@ -366,7 +372,7 @@ describe('Configuration Module', () => {
             includeSingleLineComments: false,
             associateCommentsWithSymbols: false,
             enableForDocumentChanges: true,
-            enableForDocumentOpen: true,
+            enableForDocumentOpen: false,
             enableForDocumentSymbols: false,
             enableForFoldingRanges: false,
           },

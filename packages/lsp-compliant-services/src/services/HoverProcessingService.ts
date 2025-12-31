@@ -233,7 +233,7 @@ export class HoverProcessingService implements IHoverProcessor {
         if (totalTime > 50) {
           this.logger.debug(
             () =>
-              `[HOVER-DIAG] Hover returned null (missing artifact disabled) ` +
+              '[HOVER-DIAG] Hover returned null (missing artifact disabled) ' +
               `in ${totalTime}ms (symbolResolution=${symbolResolutionTime}ms)`,
           );
         }

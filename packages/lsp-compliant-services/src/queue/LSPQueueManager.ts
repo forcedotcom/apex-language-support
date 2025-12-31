@@ -402,8 +402,7 @@ export class LSPQueueManager {
       const initTime = Date.now() - initStartTime;
       if (initTime > 10) {
         this.logger.debug(
-          () =>
-            `[QUEUE-DIAG] ${type} scheduler init took ${initTime}ms`,
+          () => `[QUEUE-DIAG] ${type} scheduler init took ${initTime}ms`,
         );
       }
 
@@ -458,8 +457,7 @@ export class LSPQueueManager {
       const fiberWaitTime = Date.now() - fiberStartTime;
       if (fiberWaitTime > 5) {
         this.logger.debug(
-          () =>
-            `[QUEUE-DIAG] ${type} fiber obtained in ${fiberWaitTime}ms`,
+          () => `[QUEUE-DIAG] ${type} fiber obtained in ${fiberWaitTime}ms`,
         );
       }
 

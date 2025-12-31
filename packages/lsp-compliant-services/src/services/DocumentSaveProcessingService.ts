@@ -202,9 +202,10 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
         const symbolManager = backgroundManager.getSymbolManager();
         symbolManager.removeFile(document.uri);
 
-        // Add symbols immediately without processing references
+        // Add symbols immediately without processing cross-file references
+        // Same-file references are processed immediately, cross-file references are deferred
         // Cross-file references will be resolved on-demand when needed
-        await symbolManager.addSymbolTableMinimal(symbolTable, document.uri);
+        await symbolManager.addSymbolTable(symbolTable, document.uri);
 
         this.logger.debug(
           () =>
