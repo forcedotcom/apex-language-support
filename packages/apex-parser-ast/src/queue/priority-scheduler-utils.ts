@@ -1252,12 +1252,6 @@ export function startQueueStateNotificationTask(
 
           // Check if metrics have changed
           if (metricsChanged(lastSent, currentMetrics)) {
-            logger.debug(
-              () =>
-                `Queue metrics changed, calling callback: Started=${
-                  currentMetrics.tasksStarted
-                }, Completed=${currentMetrics.tasksCompleted}`,
-            );
             // Invoke callback (caller is responsible for deferring if needed)
             callback(currentMetrics);
             // Update last sent metrics

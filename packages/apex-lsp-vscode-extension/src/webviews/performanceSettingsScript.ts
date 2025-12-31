@@ -203,6 +203,7 @@ class PerformanceSettingsUI {
       <div id="status-message" class="status-message"></div>
       ${this.renderQueueSettings(settings.queueProcessing, settings.scheduler)}
       ${this.renderDeferredReferenceProcessing(settings.deferredReferenceProcessing)}
+      ${this.renderLoadWorkspace(settings.loadWorkspace)}
       ${this.renderPerformance(settings.performance)}
       ${this.renderCommentCollection(settings.commentCollection)}
     `;
@@ -733,6 +734,75 @@ class PerformanceSettingsUI {
                      data-path="performance.documentChangeDebounceMs"
                      value="${def.documentChangeDebounceMs}" min="0" max="5000">
               <div class="setting-help">Debounce delay for document changes (default: 300)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderLoadWorkspace(settings: any): string {
+    const expanded = this.expandedSections.has('loadWorkspace');
+    const def = settings || {
+      enabled: false,
+      maxConcurrency: 4,
+      yieldInterval: 10,
+      yieldDelayMs: 25,
+      batchSize: 100,
+    };
+
+    return `
+      <div class="settings-section" id="loadWorkspace">
+        <div class="section-header">
+          <div class="section-title">Workspace Loading</div>
+          <div class="section-toggle">${expanded ? '▼' : '▶'}</div>
+        </div>
+        <div class="section-content ${expanded ? 'expanded' : ''}">
+          <div class="setting-group">
+            <div class="setting-item">
+              <label class="setting-label">
+                <input type="checkbox" 
+                       data-path="loadWorkspace.enabled"
+                       ${def.enabled ? 'checked' : ''}>
+                <span class="setting-label-text">Enable Workspace Loading</span>
+              </label>
+              <div class="setting-help">Automatically load workspace files at startup (default: false)</div>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">
+                <span class="setting-label-text">Max Concurrency</span>
+              </label>
+              <input type="number" class="setting-input" 
+                     data-path="loadWorkspace.maxConcurrency"
+                     value="${def.maxConcurrency}" min="1" max="100">
+              <div class="setting-help">Maximum concurrent file operations during workspace loading (default: 4)</div>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">
+                <span class="setting-label-text">Yield Interval</span>
+              </label>
+              <input type="number" class="setting-input" 
+                     data-path="loadWorkspace.yieldInterval"
+                     value="${def.yieldInterval}" min="1" max="1000">
+              <div class="setting-help">Number of file operations before yielding control (default: 10)</div>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">
+                <span class="setting-label-text">Yield Delay (ms)</span>
+              </label>
+              <input type="number" class="setting-input" 
+                     data-path="loadWorkspace.yieldDelayMs"
+                     value="${def.yieldDelayMs}" min="0" max="1000">
+              <div class="setting-help">Delay in milliseconds when yielding control (default: 25)</div>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">
+                <span class="setting-label-text">Batch Size</span>
+              </label>
+              <input type="number" class="setting-input" 
+                     data-path="loadWorkspace.batchSize"
+                     value="${def.batchSize}" min="1" max="1000">
+              <div class="setting-help">Number of files to include in each batch during workspace loading (default: 100)</div>
             </div>
           </div>
         </div>
