@@ -1707,6 +1707,82 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
+   * Add a symbol table to the manager without processing references (minimal version).
+   * This method skips reference processing to avoid queue pressure during workspace loading.
+   * Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics).
+   *
+   * @param symbolTable The symbol table to add
+   * @param fileUri The file URI associated with the symbol table
+   */
+  async addSymbolTableMinimal(
+    symbolTable: SymbolTable,
+    fileUri: string,
+  ): Promise<void> {
+    // Convert fileUri to proper URI format to match symbol ID generation
+    const properUri =
+      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+
+    // Normalize URI using extractFilePathFromUri to ensure consistency with SymbolTable registration
+    // This ensures that fileIndex lookups will find the symbols
+    const normalizedUri = extractFilePathFromUri(properUri);
+
+    // Register SymbolTable once for the entire file before processing symbols
+    // This avoids redundant registration calls for each symbol
+    this.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
+
+    // Add all symbols from the symbol table
+    const symbols = symbolTable.getAllSymbols
+      ? symbolTable.getAllSymbols()
+      : [];
+
+    // Update all symbols to use the normalized URI
+    // Process in batches with yields for large symbol tables to prevent blocking
+    const batchSize = 100;
+    const symbolNamesAdded = new Set<string>();
+    for (let i = 0; i < symbols.length; i++) {
+      const symbol = symbols[i];
+      // Update the symbol's fileUri to match the normalized URI
+      symbol.fileUri = normalizedUri;
+      // Pass undefined for symbolTable since it's already registered above
+      // addSymbol() will use the registered SymbolTable via ensureSymbolTableForFile()
+      this.addSymbol(symbol, normalizedUri, undefined);
+      symbolNamesAdded.add(symbol.name);
+
+      // Yield every batchSize symbols to allow other tasks to run
+      if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
+        // Use setTimeout to yield to event loop
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    // Invalidate cache for all symbol names that were added
+    // This ensures that findSymbolByName() will see the newly added symbols
+    for (const symbolName of symbolNamesAdded) {
+      // Normalize to lowercase to match cache key format in findSymbolByName()
+      const normalizedName = symbolName.toLowerCase();
+      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
+    }
+
+    // Invalidate file-based cache when symbols are added to a file
+    // This ensures that findSymbolsInFile() will see the newly added symbols
+    this.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
+
+    // Also invalidate name-based cache to ensure findSymbolByName works correctly
+    for (const symbolName of symbolNamesAdded) {
+      const normalizedName = symbolName.toLowerCase();
+      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
+    }
+
+    // NOTE: We skip processSymbolReferencesToGraph() here to avoid queue pressure
+    // Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics)
+
+    // Sync memory stats with the graph's stats to ensure consistency
+    // The graph is the source of truth for symbol counts
+    const graphStats = this.symbolGraph.getStats();
+    this.memoryStats.totalSymbols = graphStats.totalSymbols;
+  }
+
+  /**
    * Get SymbolReference data at a specific position in a file
    * This provides precise AST-based position data for enhanced symbol resolution
    * @param fileUri The file path to search in
@@ -2095,6 +2171,39 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return Effect.runPromise(
       this.processSymbolReferencesToGraphEffect(symbolTable, fileUri),
     );
+  }
+
+  /**
+   * Resolve cross-file references for a file on-demand.
+   * This method processes references from the SymbolTable and resolves cross-file references
+   * when needed (e.g., for diagnostics, hover, goto definition).
+   *
+   * @param fileUri The file URI to resolve cross-file references for
+   * @returns Effect that resolves cross-file references for the file
+   */
+  resolveCrossFileReferencesForFile(
+    fileUri: string,
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      // Convert fileUri to proper URI format
+      const properUri =
+        getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+      const normalizedUri = extractFilePathFromUri(properUri);
+
+      // Get the SymbolTable for this file
+      const symbolTable = self.symbolGraph.getSymbolTableForFile(normalizedUri);
+      if (!symbolTable) {
+        self.logger.debug(
+          () =>
+            `No SymbolTable found for ${normalizedUri}, skipping cross-file reference resolution`,
+        );
+        return;
+      }
+
+      // Process references using the existing method
+      yield* self.processSymbolReferencesToGraphEffect(symbolTable, normalizedUri);
+    });
   }
 
   /**

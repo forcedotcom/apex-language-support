@@ -208,33 +208,22 @@ export class DocumentProcessingService {
             });
 
             // Add symbols synchronously so they're immediately available for hover/goto definition
-            // Then queue background processing for cross-file resolution and references
+            // Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics)
             if (symbolTable) {
               const symbolManager = backgroundManager.getSymbolManager();
               this.logger.debug(
                 () =>
                   `Adding symbols synchronously for ${event.document.uri} (batch processing)`,
               );
-              // Add symbols immediately (synchronous)
-              await symbolManager.addSymbolTable(
+              // Add symbols immediately (synchronous) without processing references
+              // This avoids queue pressure during workspace loading
+              await symbolManager.addSymbolTableMinimal(
                 symbolTable,
                 event.document.uri,
               );
               this.logger.debug(
                 () =>
                   `Successfully added symbols synchronously for ${event.document.uri}`,
-              );
-
-              // Queue additional background processing for cross-file resolution and references
-              backgroundManager.processSymbolTable(
-                symbolTable,
-                event.document.uri,
-                {
-                  priority: Priority.Normal,
-                  enableCrossFileResolution: true,
-                  enableReferenceProcessing: true,
-                },
-                event.document.version,
               );
             } else {
               this.logger.warn(
@@ -350,30 +339,22 @@ export class DocumentProcessingService {
         });
 
         // Add symbols synchronously so they're immediately available for hover/goto definition
-        // Then queue background processing for cross-file resolution and references
+        // Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics)
         if (symbolTable) {
           const symbolManager = backgroundManager.getSymbolManager();
           this.logger.debug(
             () =>
               `Adding symbols synchronously for ${event.document.uri} (single processing)`,
           );
-          // Add symbols immediately (synchronous)
-          await symbolManager.addSymbolTable(symbolTable, event.document.uri);
+          // Add symbols immediately (synchronous) without processing references
+          // This avoids queue pressure during workspace loading
+          await symbolManager.addSymbolTableMinimal(
+            symbolTable,
+            event.document.uri,
+          );
           this.logger.debug(
             () =>
               `Successfully added symbols synchronously for ${event.document.uri}`,
-          );
-
-          // Queue additional background processing for cross-file resolution and references
-          backgroundManager.processSymbolTable(
-            symbolTable,
-            event.document.uri,
-            {
-              priority: Priority.Normal,
-              enableCrossFileResolution: true,
-              enableReferenceProcessing: true,
-            },
-            event.document.version,
           );
         } else {
           this.logger.warn(

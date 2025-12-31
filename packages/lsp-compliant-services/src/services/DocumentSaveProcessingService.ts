@@ -202,25 +202,14 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
         const symbolManager = backgroundManager.getSymbolManager();
         symbolManager.removeFile(document.uri);
 
-        // Queue the updated symbol processing
-        const taskId = backgroundManager.processSymbolTable(
-          symbolTable,
-          document.uri,
-          {
-            priority: Priority.High,
-            enableCrossFileResolution: true,
-            enableReferenceProcessing: true,
-          },
-          document.version,
-        );
+        // Add symbols immediately without processing references
+        // Cross-file references will be resolved on-demand when needed
+        await symbolManager.addSymbolTableMinimal(symbolTable, document.uri);
 
         this.logger.debug(
           () =>
-            `Document save symbol processing queued: ${taskId} for ${document.uri} (version: ${document.version})`,
+            `Document save symbols added for ${document.uri} (version: ${document.version})`,
         );
-
-        // Monitor task completion and update cache
-        this.monitorTaskCompletion(taskId, document.uri, document.version);
 
         // Cache the parse result for future requests with same version
         // symbolsIndexed defaults to false for new entries

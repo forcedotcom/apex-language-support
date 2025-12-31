@@ -215,6 +215,25 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           () =>
             `Using cached parse result for diagnostics ${document.uri} (version ${document.version})`,
         );
+        // Resolve cross-file references on-demand before computing enhanced diagnostics
+        // This ensures cross-file semantic diagnostics are available even for cached results
+        try {
+          await Effect.runPromise(
+            this.symbolManager.resolveCrossFileReferencesForFile(
+              params.textDocument.uri,
+            ),
+          );
+          this.logger.debug(
+            () =>
+              `Resolved cross-file references for ${params.textDocument.uri} (cached) before computing diagnostics`,
+          );
+        } catch (error) {
+          this.logger.debug(
+            () =>
+              `Error resolving cross-file references for ${params.textDocument.uri} (cached): ${error}`,
+          );
+          // Continue with diagnostics even if cross-file resolution fails
+        }
         // Convert cached errors to diagnostics and enhance (with yielding)
         return await Effect.runPromise(
           this.enhanceDiagnosticsWithGraphAnalysisEffect(
@@ -244,6 +263,26 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         documentVersion: document.version,
         documentLength: document.getText().length,
       });
+
+      // Resolve cross-file references on-demand before computing enhanced diagnostics
+      // This ensures cross-file semantic diagnostics are available when diagnostics are requested
+      try {
+        await Effect.runPromise(
+          this.symbolManager.resolveCrossFileReferencesForFile(
+            params.textDocument.uri,
+          ),
+        );
+        this.logger.debug(
+          () =>
+            `Resolved cross-file references for ${params.textDocument.uri} before computing diagnostics`,
+        );
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error resolving cross-file references for ${params.textDocument.uri}: ${error}`,
+        );
+        // Continue with diagnostics even if cross-file resolution fails
+      }
 
       // Enhance diagnostics with cross-file analysis using ApexSymbolManager (with yielding)
       const enhancedDiagnostics = await Effect.runPromise(
