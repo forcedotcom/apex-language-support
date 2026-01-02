@@ -16,6 +16,7 @@ import {
   HoverParams,
   Hover,
   DefinitionParams,
+  ImplementationParams,
   ReferenceParams,
   Location,
   DocumentDiagnosticParams,
@@ -54,6 +55,7 @@ import {
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
   dispatchProcessOnDefinition,
+  dispatchProcessOnImplementation,
   dispatchProcessOnReferences,
   dispatchProcessOnFoldingRange,
   dispatchProcessOnFindMissingArtifact,
@@ -362,6 +364,32 @@ export class LCSAdapter {
     } else {
       this.logger.debug(
         '⚠️ Definition handler not registered (capability disabled)',
+      );
+    }
+
+    // Only register implementation handler if the capability is enabled (development mode only)
+    if (capabilities.implementationProvider) {
+      this.connection.onImplementation(
+        async (params: ImplementationParams): Promise<Location[] | null> => {
+          this.logger.debug(
+            () =>
+              `🔍 Implementation request for URI: ${params.textDocument.uri} ` +
+              `at ${params.position.line}:${params.position.character}`,
+          );
+          try {
+            return await dispatchProcessOnImplementation(params);
+          } catch (error) {
+            this.logger.error(
+              () => `Error processing implementation: ${formattedError(error)}`,
+            );
+            return null;
+          }
+        },
+      );
+      this.logger.debug('✅ Implementation handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Implementation handler not registered (capability disabled)',
       );
     }
 
@@ -1578,6 +1606,22 @@ export class LCSAdapter {
         registerOptions: {
           documentSelector: getDocumentSelectorsFromSettings(
             'definition',
+            settings,
+          ),
+        },
+      });
+    }
+
+    if (
+      capabilities.implementationProvider &&
+      this.supportsDynamicRegistration('implementation')
+    ) {
+      registrations.push({
+        id: 'apex-implementation',
+        method: 'textDocument/implementation',
+        registerOptions: {
+          documentSelector: getDocumentSelectorsFromSettings(
+            'implementation',
             settings,
           ),
         },

@@ -24,6 +24,10 @@ import {
 } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { getDocumentStateCache } from './DocumentStateCache';
+import {
+  isWorkspaceLoading,
+  isWorkspaceLoaded,
+} from './WorkspaceLoadCoordinator';
 
 /**
  * Interface for diagnostic processing functionality to make handlers more testable.
@@ -215,24 +219,36 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           () =>
             `Using cached parse result for diagnostics ${document.uri} (version ${document.version})`,
         );
-        // Resolve cross-file references on-demand before computing enhanced diagnostics
-        // This ensures cross-file semantic diagnostics are available even for cached results
-        try {
-          await Effect.runPromise(
-            this.symbolManager.resolveCrossFileReferencesForFile(
-              params.textDocument.uri,
-            ),
-          );
+        // Skip cross-file resolution during workspace load to remain lazy and responsive
+        // Only resolve cross-file references if workspace is fully loaded
+        // This prevents deferred reference processing during initial workspace load
+        const workspaceLoading = isWorkspaceLoading();
+        const workspaceLoaded = isWorkspaceLoaded();
+        
+        if (!workspaceLoading && workspaceLoaded) {
+          // Workspace is loaded - safe to resolve cross-file references for enhanced diagnostics
+          try {
+            await Effect.runPromise(
+              this.symbolManager.resolveCrossFileReferencesForFile(
+                params.textDocument.uri,
+              ),
+            );
+            this.logger.debug(
+              () =>
+                `Resolved cross-file references for ${params.textDocument.uri} (cached) before computing diagnostics`,
+            );
+          } catch (error) {
+            this.logger.debug(
+              () =>
+                `Error resolving cross-file references for ${params.textDocument.uri} (cached): ${error}`,
+            );
+            // Continue with diagnostics even if cross-file resolution fails
+          }
+        } else {
           this.logger.debug(
             () =>
-              `Resolved cross-file references for ${params.textDocument.uri} (cached) before computing diagnostics`,
+              `Skipping cross-file resolution for ${params.textDocument.uri} (workspace loading: ${workspaceLoading}, loaded: ${workspaceLoaded})`,
           );
-        } catch (error) {
-          this.logger.debug(
-            () =>
-              `Error resolving cross-file references for ${params.textDocument.uri} (cached): ${error}`,
-          );
-          // Continue with diagnostics even if cross-file resolution fails
         }
         // Convert cached errors to diagnostics and enhance (with yielding)
         return await Effect.runPromise(
@@ -264,24 +280,36 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         documentLength: document.getText().length,
       });
 
-      // Resolve cross-file references on-demand before computing enhanced diagnostics
-      // This ensures cross-file semantic diagnostics are available when diagnostics are requested
-      try {
-        await Effect.runPromise(
-          this.symbolManager.resolveCrossFileReferencesForFile(
-            params.textDocument.uri,
-          ),
-        );
+      // Skip cross-file resolution during workspace load to remain lazy and responsive
+      // Only resolve cross-file references if workspace is fully loaded
+      // This prevents deferred reference processing during initial workspace load
+      const workspaceLoading = isWorkspaceLoading();
+      const workspaceLoaded = isWorkspaceLoaded();
+      
+      if (!workspaceLoading && workspaceLoaded) {
+        // Workspace is loaded - safe to resolve cross-file references for enhanced diagnostics
+        try {
+          await Effect.runPromise(
+            this.symbolManager.resolveCrossFileReferencesForFile(
+              params.textDocument.uri,
+            ),
+          );
+          this.logger.debug(
+            () =>
+              `Resolved cross-file references for ${params.textDocument.uri} before computing diagnostics`,
+          );
+        } catch (error) {
+          this.logger.debug(
+            () =>
+              `Error resolving cross-file references for ${params.textDocument.uri}: ${error}`,
+          );
+          // Continue with diagnostics even if cross-file resolution fails
+        }
+      } else {
         this.logger.debug(
           () =>
-            `Resolved cross-file references for ${params.textDocument.uri} before computing diagnostics`,
+            `Skipping cross-file resolution for ${params.textDocument.uri} (workspace loading: ${workspaceLoading}, loaded: ${workspaceLoaded})`,
         );
-      } catch (error) {
-        this.logger.debug(
-          () =>
-            `Error resolving cross-file references for ${params.textDocument.uri}: ${error}`,
-        );
-        // Continue with diagnostics even if cross-file resolution fails
       }
 
       // Enhance diagnostics with cross-file analysis using ApexSymbolManager (with yielding)

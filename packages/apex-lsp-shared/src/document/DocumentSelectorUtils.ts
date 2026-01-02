@@ -20,6 +20,7 @@ export type LSPCapability =
   | 'diagnostic'
   | 'completion'
   | 'definition'
+  | 'implementation'
   | 'codeLens'
   | 'executeCommand'
   | 'all';
@@ -34,6 +35,7 @@ const VALID_LSP_CAPABILITIES: readonly string[] = [
   'diagnostic',
   'completion',
   'definition',
+  'implementation',
   'codeLens',
   'executeCommand',
   'all',
