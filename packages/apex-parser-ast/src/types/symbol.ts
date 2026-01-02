@@ -463,6 +463,9 @@ export interface ApexSymbol {
   _isLoaded: boolean;
   _loadPromise?: Promise<void>;
 
+  // Layered compilation support - tracks what level of detail has been captured
+  _detailLevel?: 'public-api' | 'protected' | 'private' | 'full';
+
   modifiers: SymbolModifiers;
 }
 
@@ -825,7 +828,41 @@ export class SymbolTable {
     // Track previous parentId for roots array maintenance
     const previousParentId = existingSymbol?.parentId;
 
-    this.symbolMap.set(symbolKey, symbol);
+    // Layered compilation: enrich existing symbol if it has lower detail level
+    let symbolToAdd = symbol;
+    if (existingSymbol && symbol._detailLevel && existingSymbol._detailLevel) {
+      const detailLevelOrder: Record<string, number> = {
+        'public-api': 1,
+        'protected': 2,
+        'private': 3,
+        'full': 4,
+      };
+      const existingLevel = detailLevelOrder[existingSymbol._detailLevel] || 0;
+      const newLevel = detailLevelOrder[symbol._detailLevel] || 0;
+
+      // If new symbol has higher detail level, enrich the existing symbol
+      if (newLevel > existingLevel) {
+        // Merge properties from new symbol into existing symbol
+        // Preserve existing properties, add new ones
+        Object.assign(existingSymbol, {
+          ...symbol,
+          // Preserve existing ID and key (they shouldn't change)
+          id: existingSymbol.id,
+          key: existingSymbol.key,
+          // Preserve existing parentId unless explicitly changed
+          parentId: symbol.parentId ?? existingSymbol.parentId,
+        });
+        // Use enriched symbol
+        symbolToAdd = existingSymbol;
+      } else if (newLevel <= existingLevel) {
+        // Existing symbol has same or higher detail level, skip enrichment
+        // Keep existing symbol
+        return;
+      }
+    }
+
+    // Add or update symbol in map
+    this.symbolMap.set(symbolKey, symbolToAdd);
 
     // Maintain array incrementally to avoid expensive HashMap iterator
     if (existingSymbol) {
@@ -835,32 +872,32 @@ export class SymbolTable {
         (s) => this.keyToString(s.key) === symbolKey,
       );
       if (index !== -1) {
-        this.symbolArray[index] = symbol;
+        this.symbolArray[index] = symbolToAdd;
       } else {
         // Fallback: symbol not found in array, just push (shouldn't happen)
-        this.symbolArray.push(symbol);
+        this.symbolArray.push(symbolToAdd);
       }
       // Update idIndex
-      this.idIndex.set(symbol.id, symbol);
+      this.idIndex.set(symbolToAdd.id, symbolToAdd);
     } else {
       // New symbol, add to array and idIndex
-      this.symbolArray.push(symbol);
-      this.idIndex.set(symbol.id, symbol);
+      this.symbolArray.push(symbolToAdd);
+      this.idIndex.set(symbolToAdd.id, symbolToAdd);
     }
 
     // Maintain roots array: track symbols with parentId === null
     // If parentId changed from null to non-null, remove from roots
-    if (previousParentId === null && symbol.parentId !== null) {
-      const rootsIndex = this.roots.findIndex((s) => s.id === symbol.id);
+    if (previousParentId === null && symbolToAdd.parentId !== null) {
+      const rootsIndex = this.roots.findIndex((s) => s.id === symbolToAdd.id);
       if (rootsIndex !== -1) {
         this.roots.splice(rootsIndex, 1);
       }
     }
     // If parentId is null (top-level), add to roots array
-    if (symbol.parentId === null) {
-      const rootsIndex = this.roots.findIndex((s) => s.id === symbol.id);
+    if (symbolToAdd.parentId === null) {
+      const rootsIndex = this.roots.findIndex((s) => s.id === symbolToAdd.id);
       if (rootsIndex === -1) {
-        this.roots.push(symbol);
+        this.roots.push(symbolToAdd);
       }
     }
   }

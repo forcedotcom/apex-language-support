@@ -34,6 +34,13 @@ import { CommentAssociator } from '../utils/CommentAssociator';
 import { SymbolTable } from '../types/symbol';
 import { NamespaceResolutionService } from '../namespace/NamespaceResolutionService';
 import { ApexSymbolCollectorListener } from './listeners/ApexSymbolCollectorListener';
+import { FullSymbolCollectorListener } from './listeners/FullSymbolCollectorListener';
+import { ApexReferenceCollectorListener } from './listeners/ApexReferenceCollectorListener';
+import { ApexReferenceResolver } from './references/ApexReferenceResolver';
+import { LayeredSymbolListenerBase, DetailLevel } from './listeners/LayeredSymbolListenerBase';
+import { PublicAPISymbolListener } from './listeners/PublicAPISymbolListener';
+import { ProtectedSymbolListener } from './listeners/ProtectedSymbolListener';
+import { PrivateSymbolListener } from './listeners/PrivateSymbolListener';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../constants/constants';
 
 export interface CompilationResult<T> {
@@ -67,6 +74,13 @@ export interface CompilationOptions {
   includeSingleLineComments?: boolean;
   associateComments?: boolean;
   enableReferenceCorrection?: boolean; // New option, defaults to true
+  collectReferences?: boolean; // Collect references using ApexReferenceCollectorListener (default: false)
+  resolveReferences?: boolean; // Resolve references using ApexReferenceResolver (default: true if collectReferences is true)
+}
+
+export interface LayeredCompilationOptions extends CompilationOptions {
+  cacheParseTree?: boolean; // Cache parse tree for reuse (default: true)
+  enforceDependencies?: boolean; // Auto-include dependencies (default: true)
 }
 
 export class CompilerService {
@@ -156,7 +170,10 @@ export class CompilerService {
 
       // Set reference correction flag BEFORE walking the tree
       // This ensures the listener uses the correct setting during parsing
-      if (listener instanceof ApexSymbolCollectorListener) {
+      if (
+        listener instanceof ApexSymbolCollectorListener ||
+        listener instanceof FullSymbolCollectorListener
+      ) {
         listener.setEnableReferenceCorrection(
           options.enableReferenceCorrection !== false,
         );
@@ -165,7 +182,36 @@ export class CompilerService {
       const walker = new ParseTreeWalker();
       walker.walk(listener, parseTree);
 
-      if (listener instanceof ApexSymbolCollectorListener) {
+      // Optionally collect references using dedicated listener
+      const collectReferences = options.collectReferences === true;
+      const resolveReferences =
+        options.resolveReferences !== false && collectReferences;
+
+      if (collectReferences && listener.getResult() instanceof SymbolTable) {
+        const symbolTable = listener.getResult() as SymbolTable;
+        const referenceCollector = new ApexReferenceCollectorListener(
+          symbolTable,
+        );
+        referenceCollector.setErrorListener(errorListener);
+        referenceCollector.setCurrentFileUri(fileName);
+        if (namespace && typeof referenceCollector.setProjectNamespace === 'function') {
+          referenceCollector.setProjectNamespace(namespace);
+        }
+
+        // Walk parse tree again to collect references
+        walker.walk(referenceCollector, parseTree);
+
+        // Optionally resolve references
+        if (resolveReferences) {
+          const resolver = new ApexReferenceResolver();
+          resolver.resolveSameFileReferences(symbolTable, fileName);
+        }
+      }
+
+      if (
+        listener instanceof ApexSymbolCollectorListener ||
+        listener instanceof FullSymbolCollectorListener
+      ) {
         const symbolTable = listener.getResult();
         const compilationContext = this.createCompilationContext(
           namespace,
@@ -412,5 +458,209 @@ export class CompilerService {
       findUserType: (name: string, namespace?: string) => null,
       findExternalType: (name: string, packageName: string) => null,
     };
+  }
+
+  /**
+   * Compile using layered listeners for incremental symbol collection
+   * @param fileContent The source code content
+   * @param fileName The file name/URI
+   * @param layers The detail levels to apply ('public-api', 'protected', 'private')
+   * @param existingSymbolTable Optional existing SymbolTable to enrich
+   * @param options Compilation options including dependency enforcement
+   * @returns Compilation result with enriched SymbolTable
+   */
+  public compileLayered(
+    fileContent: string,
+    fileName: string = 'unknown.cls',
+    layers: DetailLevel[],
+    existingSymbolTable?: SymbolTable,
+    options: LayeredCompilationOptions = {},
+  ): CompilationResult<SymbolTable> {
+    this.logger.debug(
+      () =>
+        `Starting layered compilation of ${fileName} with layers: ${layers.join(', ')}`,
+    );
+
+    try {
+      // Enforce dependencies: if layer n is requested, include all layers < n
+      const enforceDependencies =
+        options.enforceDependencies !== false; // Default: true
+      const requestedLayers = enforceDependencies
+        ? this.ensureDependencies(layers)
+        : layers;
+
+      this.logger.debug(
+        () =>
+          `Layers after dependency enforcement: ${requestedLayers.join(', ')}`,
+      );
+
+      // Create or reuse parse tree
+      const { parseTree, errorListener, tokenStream } = this.createParseTree(
+        fileContent,
+        fileName,
+      );
+
+      // Start with existing SymbolTable or create new one
+      const symbolTable = existingSymbolTable || new SymbolTable();
+      symbolTable.setFileUri(fileName);
+
+      // Apply listeners in order (public-api -> protected -> private)
+      const walker = new ParseTreeWalker();
+      const namespace = options.projectNamespace || this.projectNamespace;
+
+      for (const layer of requestedLayers) {
+        const listener = this.createListenerForLayer(layer, symbolTable);
+
+        listener.setErrorListener(errorListener);
+        listener.setCurrentFileUri(fileName);
+
+        if (namespace && typeof listener.setProjectNamespace === 'function') {
+          listener.setProjectNamespace(namespace);
+        }
+
+        // Walk the same parse tree with this listener
+        walker.walk(listener, parseTree);
+
+        this.logger.debug(
+          () =>
+            `Applied ${layer} listener to ${fileName}, symbols: ${symbolTable.getAllSymbols().length}`,
+        );
+      }
+
+      // Optionally collect references using dedicated listener
+      const collectReferences = options.collectReferences === true;
+      const resolveReferences =
+        options.resolveReferences !== false && collectReferences;
+
+      if (collectReferences) {
+        const referenceCollector = new ApexReferenceCollectorListener(
+          symbolTable,
+        );
+        referenceCollector.setErrorListener(errorListener);
+        referenceCollector.setCurrentFileUri(fileName);
+        if (namespace && typeof referenceCollector.setProjectNamespace === 'function') {
+          referenceCollector.setProjectNamespace(namespace);
+        }
+
+        // Walk parse tree again to collect references
+        walker.walk(referenceCollector, parseTree);
+
+        // Optionally resolve references
+        if (resolveReferences) {
+          const resolver = new ApexReferenceResolver();
+          resolver.resolveSameFileReferences(symbolTable, fileName);
+        }
+      }
+
+      // Handle namespace resolution if needed (similar to regular compile)
+      const compilationContext = this.createCompilationContext(
+        namespace,
+        fileName,
+      );
+      const symbolProvider = this.createSymbolProvider();
+      this.namespaceResolutionService.resolveDeferredReferences(
+        symbolTable,
+        compilationContext,
+        symbolProvider,
+      );
+
+      const result: CompilationResult<SymbolTable> = {
+        fileName,
+        result: symbolTable,
+        errors: errorListener.getErrors(),
+        warnings: [],
+      };
+
+      this.logger.debug(
+        () =>
+          `Layered compilation completed for ${fileName}: ` +
+          `${result.errors.length} errors, ` +
+          `detail levels applied: ${requestedLayers.join(', ')}`,
+      );
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        () => `Unexpected error during layered compilation of ${fileName}`,
+      );
+      const errorObject: ApexError = {
+        type: 'semantic' as any,
+        severity: 'error' as any,
+        message: error instanceof Error ? error.message : String(error),
+        line: 0,
+        column: 0,
+        fileUri: fileName,
+      };
+      return {
+        fileName,
+        result: existingSymbolTable || null,
+        errors: [errorObject],
+        warnings: [],
+      };
+    }
+  }
+
+  /**
+   * Ensure all required dependency layers are included
+   * Layer 1 (public-api) has no dependencies
+   * Layer 2 (protected) requires Layer 1
+   * Layer 3 (private) requires Layers 1 and 2
+   */
+  private ensureDependencies(requestedLayers: DetailLevel[]): DetailLevel[] {
+    const layerOrder: Record<DetailLevel, number> = {
+      'public-api': 1,
+      protected: 2,
+      private: 3,
+      full: 4,
+    };
+
+    const includedLayers = new Set<DetailLevel>();
+
+    // Add all requested layers and their dependencies
+    for (const layer of requestedLayers) {
+      const layerNum = layerOrder[layer] || 0;
+
+      // Include all layers < layerNum
+      for (const [level, num] of Object.entries(layerOrder)) {
+        if (num < layerNum) {
+          includedLayers.add(level as DetailLevel);
+        }
+      }
+
+      // Include the requested layer itself
+      includedLayers.add(layer);
+    }
+
+    // Return in order
+    const ordered: DetailLevel[] = [];
+    if (includedLayers.has('public-api')) ordered.push('public-api');
+    if (includedLayers.has('protected')) ordered.push('protected');
+    if (includedLayers.has('private')) ordered.push('private');
+    if (includedLayers.has('full')) ordered.push('full');
+
+    return ordered;
+  }
+
+  /**
+   * Create the appropriate listener for a given detail level
+   */
+  private createListenerForLayer(
+    layer: DetailLevel,
+    symbolTable: SymbolTable,
+  ): LayeredSymbolListenerBase {
+    switch (layer) {
+      case 'public-api':
+        return new PublicAPISymbolListener(symbolTable);
+      case 'protected':
+        return new ProtectedSymbolListener(symbolTable);
+      case 'private':
+        return new PrivateSymbolListener(symbolTable);
+      case 'full':
+        // For 'full', use the FullSymbolCollectorListener wrapper
+        // which internally uses all three layered listeners + reference collector + resolver
+        return new FullSymbolCollectorListener(symbolTable) as any;
+      default:
+        throw new Error(`Unknown detail level: ${layer}`);
+    }
   }
 }

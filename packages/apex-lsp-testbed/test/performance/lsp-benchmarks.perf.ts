@@ -273,9 +273,22 @@ describe(testTitle, () => {
 
   afterAll(async () => {
     if (serverContext) {
-      await serverContext.cleanup();
-      // Add a small delay to ensure cleanup completes
-      const cleanupDelay = serverType === 'webServer' ? 5000 : 1000;
+      try {
+        // Ensure client is stopped (stop() is safe to call multiple times)
+        await serverContext.client.stop();
+      } catch (error) {
+        console.warn(`Error stopping client in afterAll: ${error}`);
+      }
+
+      try {
+        // Cleanup workspace and other resources
+        await serverContext.cleanup();
+      } catch (error) {
+        console.warn(`Error during cleanup in afterAll: ${error}`);
+      }
+
+      // Add a delay to ensure all cleanup completes and handles are closed
+      const cleanupDelay = serverType === 'webServer' ? 5000 : 2000;
       await new Promise((resolve) => setTimeout(resolve, cleanupDelay));
     }
   });
@@ -481,7 +494,7 @@ describe(testTitle, () => {
             }
             console.log(String(benchmark));
           })
-          .on('complete', function (this: Benchmark.Suite) {
+          .on('complete', async function (this: Benchmark.Suite) {
             console.log(
               `Fastest ${serverType} method is ` +
                 this.filter('fastest').map('name'),
@@ -497,6 +510,10 @@ describe(testTitle, () => {
               outputPath,
               JSON.stringify(results, null, 2),
             );
+
+            // Small delay to allow any pending operations to complete
+            await new Promise((r) => setTimeout(r, 200));
+
             resolve();
           })
           .run({ async: true });

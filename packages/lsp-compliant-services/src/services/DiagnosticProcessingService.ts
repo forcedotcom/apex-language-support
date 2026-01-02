@@ -11,7 +11,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,
   SymbolTable,
-  ApexSymbolCollectorListener,
+  PublicAPISymbolListener,
   ApexSymbolProcessingManager,
   ISymbolManager,
   type CompilationResult,
@@ -90,7 +90,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    */
   private compileDocumentEffect(
     document: any,
-    listener: ApexSymbolCollectorListener,
+    listener: PublicAPISymbolListener,
   ): Effect.Effect<CompilationResult<SymbolTable>, never, never> {
     const logger = this.logger;
     return Effect.gen(function* () {
@@ -106,7 +106,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             document.getText(),
             document.uri,
             listener,
-            {},
+            {
+              collectReferences: true,
+              resolveReferences: true,
+            },
           ),
         );
       } catch (error: unknown) {
@@ -261,8 +264,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       }
 
       // Create a symbol collector listener
+      // Use PublicAPISymbolListener for diagnostics (syntax errors don't need private symbols)
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new PublicAPISymbolListener(table);
 
       // Parse the document using Effect-based compilation (with yielding)
       const result = await Effect.runPromise(

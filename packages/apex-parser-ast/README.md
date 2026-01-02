@@ -10,7 +10,10 @@ The package is built around a few core concepts that work together to turn raw s
 - **`SymbolTable`**: The primary data structure produced by this package. It's a hierarchical collection of `ApexSymbol` objects organized by `parentId` relationships that mirrors the lexical scoping of the source code (file > class > method > block). It contains every symbol found in the file and allows for efficient lookup and scope-aware queries.
 - **`ApexSymbol`**: A generic data structure representing a single named entity in the code, such as a class, interface, method, property, or variable. Specialized versions (`TypeSymbol`, `MethodSymbol`, `VariableSymbol`, `ScopeSymbol`) extend this base structure to hold relevant metadata.
 - **`ScopeSymbol`**: A specialized `ApexSymbol` representing a lexical scope (class body, method body, block, control structure, etc.). The system defines 15 distinct scope types, each with its own subclass. Scope symbols use `parentId` relationships to establish containment hierarchies.
-- **Parser Listeners**: Classes that subscribe to events emitted by the ANTLR parser as it traverses the parse tree. The key listener is the `ApexSymbolCollectorListener`, which uses a stack-based approach to track scopes during parsing and builds the `SymbolTable` with proper parent-child relationships.
+- **Parser Listeners**: Classes that subscribe to events emitted by the ANTLR parser as it traverses the parse tree. The key listeners include:
+  - `ApexSymbolCollectorListener`: The full listener that collects symbols and references, using a stack-based approach to track scopes during parsing and builds the `SymbolTable` with proper parent-child relationships.
+  - `ApexReferenceCollectorListener`: A dedicated listener for capturing symbol references independently of symbol declaration.
+  - Layered Listeners (`PublicAPISymbolListener`, `ProtectedSymbolListener`, `PrivateSymbolListener`): Specialized listeners for progressive symbol collection based on visibility levels.
 - **`ResourceLoader`**: A singleton service that manages the Standard Apex Library using an in-memory file system (memfs). It provides access to compiled symbol tables and source code for standard Apex classes like `System`, `Database`, `Schema`, etc.
 
 ## Architecture and Workflow
@@ -271,7 +274,13 @@ const parentScope = variable.parentId
 
 - `src/parser/`: Contains the ANTLR-driven parsing infrastructure.
   - `compilerService.ts`: The high-level `CompilerService` that orchestrates the process.
-  - `listeners/`: Home to the various parser listeners, including `ApexSymbolCollectorListener`, which builds the symbol table, and `ApexErrorListener`, which collects syntax errors.
+  - `listeners/`: Home to the various parser listeners:
+    - `ApexSymbolCollectorListener`: The full listener that builds the symbol table
+    - `ApexReferenceCollectorListener`: Dedicated listener for reference collection
+    - Layered listeners (`PublicAPISymbolListener`, `ProtectedSymbolListener`, `PrivateSymbolListener`): Progressive symbol collection
+    - `ApexErrorListener`: Collects syntax errors
+  - `references/`: Reference resolution services:
+    - `ApexReferenceResolver.ts`: Standalone service for resolving references to symbols
 - `src/types/`: Defines the core data model for the AST.
   - `symbol.ts`: Defines the `ApexSymbol` hierarchy and the `SymbolTable` / `SymbolScope` classes.
   - `typeInfo.ts`: Defines structures for representing type information.
@@ -304,6 +313,8 @@ This package provides parser utilities, AST generation, and analysis tools for A
 ```typescript
 import {
   ApexSymbolCollectorListener,
+  ApexReferenceCollectorListener,
+  ApexReferenceResolver,
   AnnotationValidator,
   AnnotationUtils,
   CompilerService,
@@ -318,6 +329,12 @@ const result = compiler.compile(fileContent, fileName, listener);
 const symbolTable = result.result;
 const errors = result.errors;
 const warnings = result.warnings;
+
+// References are automatically collected and resolved by ApexSymbolCollectorListener
+// For custom reference handling, use the dedicated components:
+const referenceCollector = new ApexReferenceCollectorListener(symbolTable);
+const referenceResolver = new ApexReferenceResolver();
+referenceResolver.resolveSameFileReferences(symbolTable, fileName);
 
 // Use annotation utilities to work with annotations
 const isTestClass = AnnotationUtils.isTestClass(classSymbol);
@@ -360,6 +377,84 @@ The package now provides **comprehensive reference capture** with 95%+ coverage 
 - **No performance regression** - Parse time and memory usage maintained
 - **Efficient reference storage** with minimal overhead
 - **Scalable for large codebases** with thousands of references
+
+#### **Separated Reference Collection and Resolution Architecture**
+
+The package now provides a **modular reference processing system** that separates reference collection from resolution, enabling flexible and reusable reference handling across different symbol collection strategies:
+
+##### **Components**
+
+- **`ApexReferenceCollectorListener`**: A dedicated listener that captures symbol references during parse tree walk. Can be used independently or alongside symbol declaration listeners. Works with any `SymbolTable`, regardless of how symbols were collected.
+- **`ApexReferenceResolver`**: A standalone service that resolves symbol references to their definitions. Works with any `SymbolTable` and provides consistent resolution logic across all listeners (full and layered).
+
+##### **Benefits**
+
+- **Separation of Concerns**: Reference capture/resolution is independent of symbol declaration
+- **Reusability**: All layers can use the same reference resolution logic
+- **Consistency**: Same resolution process across full and layered listeners
+- **Flexibility**: Can be applied to any `SymbolTable` regardless of detail level
+- **Progressive Enhancement**: Resolve references as more symbols become available across layers
+
+##### **Usage**
+
+```typescript
+import {
+  CompilerService,
+  ApexReferenceCollectorListener,
+  ApexReferenceResolver,
+  PublicAPISymbolListener,
+} from '@salesforce/apex-lsp-parser-ast';
+
+const compilerService = new CompilerService();
+
+// Option 1: Full listener with references (default behavior)
+const fullListener = new ApexSymbolCollectorListener();
+const result = compilerService.compile(content, fileName, fullListener);
+// References are automatically collected and resolved
+
+// Option 2: Layered compilation with references
+const layeredResult = compilerService.compileLayered(
+  content,
+  fileName,
+  ['public-api', 'protected'],
+  undefined,
+  { collectReferences: true, resolveReferences: true }
+);
+
+// Option 3: Collect references separately
+const symbolTable = new SymbolTable();
+const publicListener = new PublicAPISymbolListener(symbolTable);
+const referenceCollector = new ApexReferenceCollectorListener(symbolTable);
+
+// Walk parse tree for symbols
+walker.walk(publicListener, parseTree);
+
+// Walk parse tree again for references (parse tree reuse is efficient)
+walker.walk(referenceCollector, parseTree);
+
+// Resolve references
+const resolver = new ApexReferenceResolver();
+resolver.resolveSameFileReferences(symbolTable, fileName);
+```
+
+##### **Reference Collection**
+
+The `ApexReferenceCollectorListener` captures all types of references:
+- Method calls (qualified and unqualified)
+- Constructor calls
+- Type references (declarations, parameters, return types)
+- Field/property access
+- Variable usage
+- Chain expressions (e.g., `obj.method().field`)
+- Array expressions, cast expressions, etc.
+
+##### **Reference Resolution**
+
+The `ApexReferenceResolver` provides:
+- **Context Correction**: Fixes misclassified references (e.g., VARIABLE_USAGE → CLASS_REFERENCE)
+- **Same-File Resolution**: Resolves references to their symbol definitions within the same file
+- **Scope-Aware Lookup**: Uses scope hierarchy for accurate symbol resolution
+- **Chain Resolution**: Resolves chained expressions to their final targets
 
 #### **Variable Declaration Enhancements**
 

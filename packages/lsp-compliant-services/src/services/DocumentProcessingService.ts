@@ -12,7 +12,7 @@ import { Effect } from 'effect';
 import {
   CompilerService,
   ApexSymbolProcessingManager,
-  ApexSymbolCollectorListener,
+  PublicAPISymbolListener,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -152,16 +152,20 @@ export class DocumentProcessingService {
       try {
         // Create listeners for each file
         // Store listeners and symbol tables so we can access them later
-        const listeners: ApexSymbolCollectorListener[] = [];
+        // Use PublicAPISymbolListener for document open (only need public API for cross-file refs)
+        const listeners: PublicAPISymbolListener[] = [];
         const compileConfigs = uncachedEvents.map((event) => {
           const table = new SymbolTable();
-          const listener = new ApexSymbolCollectorListener(table);
+          const listener = new PublicAPISymbolListener(table);
           listeners.push(listener);
           return {
             content: event.document.getText(),
             fileName: event.document.uri,
             listener,
-            options: {},
+            options: {
+              collectReferences: true,
+              resolveReferences: true,
+            },
           };
         });
 
@@ -187,7 +191,7 @@ export class DocumentProcessingService {
             let symbolTable: SymbolTable | undefined;
             if (compileResult.result instanceof SymbolTable) {
               symbolTable = compileResult.result;
-            } else if (listener instanceof ApexSymbolCollectorListener) {
+            } else if (listener instanceof PublicAPISymbolListener) {
               symbolTable = listener.getResult();
             }
 
@@ -195,7 +199,7 @@ export class DocumentProcessingService {
               () =>
                 `Batch processing ${event.document.uri}: symbolTable extracted: ` +
                 `${symbolTable ? 'yes' : 'no'}, from result: ${compileResult.result instanceof SymbolTable}, ` +
-                `from listener: ${listener instanceof ApexSymbolCollectorListener}`,
+                `from listener: ${listener instanceof PublicAPISymbolListener}`,
             );
 
             // Cache diagnostics and symbol table
@@ -303,14 +307,18 @@ export class DocumentProcessingService {
       await storage.setDocument(event.document.uri, event.document);
 
       // Compile - create listener
+      // Use PublicAPISymbolListener for document open (only need public API for cross-file refs)
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new PublicAPISymbolListener(table);
 
       const compileResult = compilerService.compile(
         event.document.getText(),
         event.document.uri,
         listener,
-        {},
+        {
+          collectReferences: true,
+          resolveReferences: true,
+        },
       );
 
       if (compileResult) {

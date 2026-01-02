@@ -124,6 +124,7 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => {
     CompilerService: jest.fn(),
     SymbolTable: jest.fn(),
     ApexSymbolCollectorListener: jest.fn(),
+    PublicAPISymbolListener: jest.fn(),
     ApexSymbolProcessingManager: {
       getInstance: jest.fn(() => ({
         getSymbolManager: jest.fn(() => symbolManager),
@@ -236,6 +237,10 @@ describe('DiagnosticProcessingService', () => {
 
       // Mock the compilation result with errors
       const mockCompileResult = {
+        fileName: 'file:///test.cls',
+        result: {
+          getAllSymbols: jest.fn().mockReturnValue([]),
+        },
         errors: [
           {
             type: 'syntax',
@@ -243,9 +248,10 @@ describe('DiagnosticProcessingService', () => {
             message: 'Test error',
             line: 1,
             column: 1,
-            filePath: 'file:///test.cls',
+            fileUri: 'file:///test.cls',
           },
         ],
+        warnings: [],
       };
 
       // Mock the CompilerService
@@ -294,7 +300,12 @@ describe('DiagnosticProcessingService', () => {
 
       // Mock the compilation result with no errors
       const mockCompileResult = {
+        fileName: 'file:///test.cls',
+        result: {
+          getAllSymbols: jest.fn().mockReturnValue([]),
+        },
         errors: [],
+        warnings: [],
       };
 
       // Mock the CompilerService
@@ -408,10 +419,12 @@ describe('DiagnosticProcessingService', () => {
 
       // Mock compilation result
       const mockCompileResult = {
+        fileName: 'file:///test.cls',
         errors: [],
         result: {
           getAllSymbols: jest.fn().mockReturnValue([]),
         },
+        warnings: [],
       };
 
       const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
@@ -460,10 +473,12 @@ describe('DiagnosticProcessingService', () => {
 
       // Mock compilation result
       const mockCompileResult = {
+        fileName: 'file:///test.cls',
         errors: [],
         result: {
           getAllSymbols: jest.fn().mockReturnValue([]),
         },
+        warnings: [],
       };
 
       const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
@@ -507,10 +522,12 @@ describe('DiagnosticProcessingService', () => {
 
       // Mock compilation result
       const mockCompileResult = {
+        fileName: 'file:///test.cls',
         errors: [],
         result: {
           getAllSymbols: jest.fn().mockReturnValue([]),
         },
+        warnings: [],
       };
 
       const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
@@ -547,6 +564,10 @@ describe('DiagnosticProcessingService', () => {
 
       // Mock the compilation result with errors
       const mockCompileResult = {
+        fileName: 'file:///Users/test/MyClass.cls',
+        result: {
+          getAllSymbols: jest.fn().mockReturnValue([]),
+        },
         errors: [
           {
             type: 'syntax',
@@ -554,9 +575,10 @@ describe('DiagnosticProcessingService', () => {
             message: 'Test error',
             line: 1,
             column: 1,
-            filePath: 'file:///Users/test/MyClass.cls',
+            fileUri: 'file:///Users/test/MyClass.cls',
           },
         ],
+        warnings: [],
       };
 
       // Mock the CompilerService

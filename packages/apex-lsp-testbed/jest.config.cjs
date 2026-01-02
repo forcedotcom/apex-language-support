@@ -2,9 +2,17 @@ const baseConfig = require('../../jest.config.cjs');
 
 module.exports = {
   ...baseConfig,
+  // Include both .test.ts and .perf.ts files for Jest extension recognition
+  testMatch: [
+    '**/test/**/*.test.ts',
+    '**/test/**/*.perf.ts',
+  ],
   testPathIgnorePatterns: [
     ...(baseConfig.testPathIgnorePatterns || []),
     '/node_modules/',
+  ],
+  modulePathIgnorePatterns: [
+    '<rootDir>/test-artifacts/',
   ],
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,
