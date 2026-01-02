@@ -1865,22 +1865,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
 
         if (!targetSymbol) {
-          // Even though it should be in the file, we couldn't resolve it
-          // This can happen if scope-based resolution fails (e.g., scope hierarchy issue)
-          // Defer it as a fallback so it can be resolved later when more context is available
-          const referenceType = self.mapReferenceContextToType(typeRef.context);
-          const isStatic = yield* self.isStaticReferenceEffect(typeRef);
-          self.symbolGraph.enqueueDeferredReference(
-            sourceSymbol,
-            typeRef.name, // target symbol name
-            referenceType,
-            typeRef.location,
-            {
-              methodName: typeRef.parentContext,
-              isStatic: isStatic,
-            },
+          // Same-file reference couldn't be resolved
+          // This shouldn't happen if second-pass resolution worked correctly,
+          // but if it does, skip it rather than deferring (deferring won't help for same-file refs)
+          // Only cross-file references should be deferred, as they may be resolved when the target file is loaded
+          self.logger.debug(
+            () =>
+              `Skipping unresolved same-file reference ${typeRef.name} in ${fileUri} ` +
+              `(should have been resolved during second-pass)`,
           );
-          return;
+          return; // Skip, don't defer
         }
 
         // Skip creating edges for declaration references
@@ -2574,21 +2568,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
 
         if (!targetSymbol) {
-          // Even though it should be in the file, we couldn't resolve it
-          // Defer it as a fallback
-          const referenceType = self.mapReferenceContextToType(typeRef.context);
-          const isStatic = yield* self.isStaticReferenceEffect(typeRef);
-          self.symbolGraph.enqueueDeferredReference(
-            sourceSymbol,
-            typeRef.name, // target symbol name
-            referenceType,
-            typeRef.location,
-            {
-              methodName: typeRef.parentContext,
-              isStatic: isStatic,
-            },
+          // Same-file reference couldn't be resolved
+          // This shouldn't happen if second-pass resolution worked correctly,
+          // but if it does, skip it rather than deferring (deferring won't help for same-file refs)
+          // Only cross-file references should be deferred, as they may be resolved when the target file is loaded
+          self.logger.debug(
+            () =>
+              `Skipping unresolved same-file reference ${typeRef.name} in ${fileUri} ` +
+              `during on-demand resolution (should have been resolved during second-pass)`,
           );
-          return;
+          return; // Skip, don't defer
         }
 
         // At this point, targetSymbol is guaranteed to be non-null

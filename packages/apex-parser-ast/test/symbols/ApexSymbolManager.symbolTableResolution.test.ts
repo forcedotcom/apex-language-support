@@ -660,7 +660,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
 
       // With the new approach, cross-file references are not deferred during addSymbolTable
       // They're skipped entirely and will be resolved on-demand when resolveCrossFileReferencesForFile is called
-      // For same-file references that can't be resolved, they would be deferred, but in this case
+      // For same-file references that can't be resolved, they are skipped (not deferred), but in this case
       // field1 doesn't exist in the file, so it's a cross-file reference that gets skipped
       // Note: We access private properties for testing - these casts bypass TypeScript's
       // access control to verify internal implementation details
