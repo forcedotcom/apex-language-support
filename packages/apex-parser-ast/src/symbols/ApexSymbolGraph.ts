@@ -1094,41 +1094,10 @@ export class ApexSymbolGraph {
     // Invalidate cache for this symbol name (cache might become stale)
     this.symbolCache.delete(symbol.name);
 
-    // Queue deferred reference processing instead of executing synchronously
-    // This prevents event loop blocking when many symbols are added
-    if (this.deferredReferences.has(symbol.name)) {
-      // Check rate limit before enqueueing
-      if (this.canEnqueueDeferredTask()) {
-        // Sync Refs with class fields before queueing
-        this.syncRefsToClassFields();
-        try {
-          // Use new queueing function that creates individual tasks
-          const queueEffect = queueDeferredReferencesForSymbol(
-            symbol.name,
-            Priority.Low,
-          ).pipe(Effect.provide(this.deferredProcessorLayer));
-          // Use async enqueueing to avoid blocking when queue is full
-          Effect.runPromise(queueEffect).catch((error) => {
-            // If scheduling fails, log and continue - deferred processing will retry later
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
-            this.logger.debug(
-              () =>
-                `Failed to enqueue deferred processing tasks for ${symbol.name}: ${errorMessage}`,
-            );
-          });
-        } catch (error) {
-          // If scheduling fails, log and continue - deferred processing will retry later
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          this.logger.debug(
-            () =>
-              `Failed to create deferred processing tasks for ${symbol.name}: ${errorMessage}`,
-          );
-        }
-      }
-      // If rate limit exceeded, skip enqueueing - task will be retried later when symbol is processed again
-    }
+    // NOTE: Deferred references are NOT automatically processed when symbols are added.
+    // They are stored and only processed on-demand when explicitly requested
+    // (e.g., via resolveCrossFileReferencesForFile or similar on-demand methods).
+    // This ensures we remain lazy and don't overwhelm the queue during workspace load.
 
     // Queue retry of pending deferred references that were waiting for this source symbol
     // Skip if retries are disabled (MAX_RETRY_ATTEMPTS === 0)

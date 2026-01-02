@@ -28,6 +28,8 @@ interface QueueStateData {
     tasksCompleted: number;
     tasksDropped: number;
     requestTypeBreakdown?: Record<number, Record<string, number>>;
+    queuedRequestTypeBreakdown?: Record<number, Record<string, number>>;
+    activeRequestTypeBreakdown?: Record<number, Record<string, number>>;
     queueUtilization?: Record<number, number>;
     activeTasks?: Record<number, number>;
     queueCapacity?: number | Record<number, number>;
@@ -143,6 +145,8 @@ class QueueStateDashboard {
     const utilization = metrics.queueUtilization || {};
     const activeTasks = metrics.activeTasks || {};
     const requestTypeBreakdown = metrics.requestTypeBreakdown || {};
+    const queuedRequestTypeBreakdown = metrics.queuedRequestTypeBreakdown || {};
+    const activeRequestTypeBreakdown = metrics.activeRequestTypeBreakdown || {};
     // Handle both legacy single number and per-priority Record
     const queueCapacityValue = metrics.queueCapacity;
     const queueCapacityPerPriority: Record<number, number> =
@@ -220,11 +224,13 @@ class QueueStateDashboard {
         const queueSize = queueSizes[priority] ?? 0;
         const util = utilization[priority] ?? 0;
         const active = activeTasks[priority] ?? 0;
-        const requestTypes = requestTypeBreakdown[priority] || {};
+        const processedTypes = requestTypeBreakdown[priority] || {};
+        const queuedTypes = queuedRequestTypeBreakdown[priority] || {};
+        const activeTypes = activeRequestTypeBreakdown[priority] || {};
         const priorityColor = PRIORITY_COLORS[priority] || '#666';
 
         // Calculate total processed for this priority (sum of all request type counts)
-        const totalProcessed = Object.values(requestTypes).reduce(
+        const totalProcessed = Object.values(processedTypes).reduce(
           (sum, count) => sum + (typeof count === 'number' ? count : 0),
           0,
         );
@@ -239,7 +245,9 @@ class QueueStateDashboard {
           util,
           capacity,
           totalProcessed,
-          requestTypes,
+          processedTypes,
+          queuedTypes,
+          activeTypes,
         });
 
         // Determine utilization class
@@ -250,23 +258,41 @@ class QueueStateDashboard {
           utilClass = 'utilization-medium';
         }
 
-        // Build request type HTML
-        const requestTypeItems = Object.entries(requestTypes)
-          .map(
-            ([type, count]) => `
-            <div class="request-type-item">
-              <span class="request-type-name">${this.escapeHtml(type)}</span>
-              <span class="request-type-count">${count}</span>
-            </div>
-          `,
-          )
+        // Build combined request type display: queued/active/complete
+        // Get all unique request types across queued, active, and processed
+        const allRequestTypes = new Set([
+          ...Object.keys(queuedTypes),
+          ...Object.keys(activeTypes),
+          ...Object.keys(processedTypes),
+        ]);
+
+        const requestTypeItems = Array.from(allRequestTypes)
+          .map((type) => {
+            const queued = queuedTypes[type] || 0;
+            const active = activeTypes[type] || 0;
+            const processed = processedTypes[type] || 0;
+            const total = queued + active + processed;
+            
+            // Only show if there's at least one count
+            if (total === 0) {
+              return '';
+            }
+            
+            return `
+              <div class="request-type-item">
+                <span class="request-type-name">${this.escapeHtml(type)}</span>
+                <span class="request-type-count">${queued}/${active}/${processed}</span>
+              </div>
+            `;
+          })
+          .filter((item) => item !== '')
           .join('');
 
         const requestTypeHtml =
-          Object.keys(requestTypes).length > 0
+          requestTypeItems.length > 0
             ? `
             <div class="request-type-section">
-              <div class="request-type-title">Request Types</div>
+              <div class="request-type-title">Request Types (queued/active/complete)</div>
               <div class="request-type-list">
                 ${requestTypeItems}
               </div>
@@ -341,9 +367,12 @@ class QueueStateDashboard {
         // Update the DOM element if it exists
         const content = document.getElementById(`priority-content-${priority}`);
         if (content) {
+          const isExpanded = this.expandedPriorities.has(priority);
           content.classList.toggle('expanded');
+          // Update inline style to match expanded state (inline style takes precedence)
+          content.style.display = isExpanded ? 'block' : 'none';
           console.log(
-            `Toggled priority ${priority}: ${this.expandedPriorities.has(priority) ? 'expanded' : 'collapsed'}`,
+            `Toggled priority ${priority}: ${isExpanded ? 'expanded' : 'collapsed'}`,
           );
         } else {
           console.warn(`Could not find priority-content-${priority}`);

@@ -20,6 +20,8 @@ interface QueueStateData {
     tasksCompleted: number;
     tasksDropped: number;
     requestTypeBreakdown?: Record<number, Record<string, number>>;
+    queuedRequestTypeBreakdown?: Record<number, Record<string, number>>;
+    activeRequestTypeBreakdown?: Record<number, Record<string, number>>;
     queueUtilization?: Record<number, number>;
     activeTasks?: Record<number, number>;
     queueCapacity?: number | Record<number, number>;

@@ -14,8 +14,14 @@ import type {
   SendWorkspaceBatchParams,
   SendWorkspaceBatchResult,
 } from '@salesforce/apex-lsp-shared';
-import { dispatchProcessOnOpenDocument } from '@salesforce/apex-lsp-compliant-services';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  createQueuedItem,
+  offer,
+  Priority,
+  SchedulerInitializationService,
+} from '@salesforce/apex-lsp-parser-ast';
+import { DocumentProcessingService } from '@salesforce/apex-lsp-compliant-services';
 
 /**
  * Decode base64 string to Uint8Array
@@ -37,7 +43,9 @@ function decodeBase64(base64: string): Uint8Array {
 
 /**
  * Effect-based handler for workspace batch requests
- * Decompresses the batch and enqueues each file as a didOpen task
+ * Decompresses the batch and processes all files in the batch as a single scheduler task
+ * with LOW priority. This provides scheduler protection (concurrency limits, metrics)
+ * while still batching compilation efficiently.
  *
  * @param params Batch request parameters
  * @returns Effect that resolves to batch response or fails with Error
@@ -105,8 +113,8 @@ function handleWorkspaceBatchEffect(
         ),
     });
 
-    // Process each file in the batch
-    let enqueuedCount = 0;
+    // Collect all document open events from the batch
+    const didOpenEvents: TextDocumentChangeEvent<TextDocument>[] = [];
 
     yield* Effect.forEach(
       metadata.fileMetadata,
@@ -138,26 +146,64 @@ function handleWorkspaceBatchEffect(
             document,
           };
 
-          // Enqueue as didOpen task (fire-and-forget, processes asynchronously)
-          dispatchProcessOnOpenDocument(didOpenEvent);
-          enqueuedCount++;
-
-          logger.debug(
-            () =>
-              `Enqueued didOpen task for ${fileMeta.uri} (version: ${fileMeta.version})`,
-          );
+          didOpenEvents.push(didOpenEvent);
         }),
-      { concurrency: 1 }, // Sequential processing to avoid overwhelming the queue
+      { concurrency: 1 }, // Sequential processing to collect events
     );
 
-    logger.debug(
-      () =>
-        `Successfully processed batch ${params.batchIndex + 1}/${params.totalBatches}: ${enqueuedCount} files enqueued`,
-    );
+    // Process entire batch as a single scheduler task with LOW priority
+    // This provides scheduler protection (concurrency limits, metrics) while
+    // still batching compilation efficiently
+    if (didOpenEvents.length > 0) {
+      // Ensure scheduler is initialized (wrap Promise in Effect)
+      const schedulerService = SchedulerInitializationService.getInstance();
+      yield* Effect.promise(() => schedulerService.ensureInitialized());
+
+      // Create Effect that processes the batch
+      const batchProcessingEffect = Effect.gen(function* () {
+        const documentProcessingService = new DocumentProcessingService(logger);
+        const results = yield* Effect.promise(() =>
+          documentProcessingService.processDocumentOpenBatch(didOpenEvents),
+        );
+        logger.debug(
+          () =>
+            `Successfully processed workspace batch ${params.batchIndex + 1}/${params.totalBatches}: ` +
+            `${didOpenEvents.length} files processed via scheduler`,
+        );
+        return results;
+      }).pipe(
+        Effect.catchAll((error: unknown) =>
+          Effect.gen(function* () {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            logger.error(
+              () =>
+                `Error processing workspace batch ${params.batchIndex + 1}/${params.totalBatches}: ${errorMessage}`,
+            );
+            // Return empty results on error
+            return didOpenEvents.map(() => undefined);
+          }),
+        ),
+      );
+
+      // Create queued item and submit to scheduler with LOW priority
+      // LOW priority ensures workspace load doesn't block user requests
+      const queuedItem = yield* createQueuedItem(
+        batchProcessingEffect,
+        'workspace-batch',
+      );
+      yield* offer(Priority.Low, queuedItem);
+
+      logger.debug(
+        () =>
+          `Submitted workspace batch ${params.batchIndex + 1}/${params.totalBatches} ` +
+          `(${didOpenEvents.length} files) to scheduler with LOW priority`,
+      );
+    }
 
     return {
       success: true,
-      enqueuedCount,
+      enqueuedCount: didOpenEvents.length,
     } as SendWorkspaceBatchResult;
   });
 }

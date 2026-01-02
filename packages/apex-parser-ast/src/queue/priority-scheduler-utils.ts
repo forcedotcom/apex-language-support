@@ -149,7 +149,24 @@ function processQueuedItem<A, E, R>(
     const contextSuffix =
       context === 'starvation-relief' ? ' (starvation relief)' : '';
 
-    // Track requestType
+    // Move from queued to active: decrement queued, increment active
+    yield* Ref.update(state.queuedRequestTypeCounts, (counts) => {
+      const priorityCounts = counts.get(priority) || new Map<string, number>();
+      const currentCount = priorityCounts.get(requestType) || 0;
+      priorityCounts.set(requestType, Math.max(0, currentCount - 1));
+      counts.set(priority, priorityCounts);
+      return counts;
+    });
+
+    yield* Ref.update(state.activeRequestTypeCounts, (counts) => {
+      const priorityCounts = counts.get(priority) || new Map<string, number>();
+      const currentCount = priorityCounts.get(requestType) || 0;
+      priorityCounts.set(requestType, currentCount + 1);
+      counts.set(priority, priorityCounts);
+      return counts;
+    });
+
+    // Track requestType (processed/completed tasks)
     yield* Ref.update(state.requestTypeCounts, (counts) => {
       const priorityCounts = counts.get(priority) || new Map<string, number>();
       const currentCount = priorityCounts.get(requestType) || 0;
@@ -179,6 +196,14 @@ function processQueuedItem<A, E, R>(
         Effect.ensuring(
           Effect.gen(function* () {
             const duration = Date.now() - startTime;
+            // Move from active to completed: decrement active
+            yield* Ref.update(state.activeRequestTypeCounts, (counts) => {
+              const priorityCounts = counts.get(priority) || new Map<string, number>();
+              const currentCount = priorityCounts.get(requestType) || 0;
+              priorityCounts.set(requestType, Math.max(0, currentCount - 1));
+              counts.set(priority, priorityCounts);
+              return counts;
+            });
             // Decrement active task count
             yield* Ref.update(state.activeTaskCounts, (counts) => {
               const current = counts.get(priority) || 0;
@@ -506,7 +531,7 @@ function getCurrentMetrics(
       const activeCountsValue = activeCounts as Map<number, number>;
       activeTasks[p] = activeCountsValue.get(p) || 0;
 
-      // Get requestType breakdown
+      // Get requestType breakdown (processed/completed)
       const requestTypeCounts = yield* Ref.get(state.requestTypeCounts);
       const requestTypeCountsValue = requestTypeCounts as Map<
         number,
@@ -518,6 +543,44 @@ function getCurrentMetrics(
         breakdown[requestType] = count;
       }
       requestTypeBreakdown[p] = breakdown;
+    }
+
+    // Build queued requestType breakdown
+    const queuedRequestTypeBreakdown: Record<Priority, Record<string, number>> =
+      {} as Record<Priority, Record<string, number>>;
+    for (const p of AllPriorities) {
+      const queuedRequestTypeCounts = yield* Ref.get(
+        state.queuedRequestTypeCounts,
+      );
+      const queuedCountsValue = queuedRequestTypeCounts as Map<
+        number,
+        Map<string, number>
+      >;
+      const priorityCounts = queuedCountsValue.get(p) || new Map();
+      const breakdown: Record<string, number> = {};
+      for (const [requestType, count] of priorityCounts.entries()) {
+        breakdown[requestType] = count;
+      }
+      queuedRequestTypeBreakdown[p] = breakdown;
+    }
+
+    // Build active requestType breakdown
+    const activeRequestTypeBreakdown: Record<Priority, Record<string, number>> =
+      {} as Record<Priority, Record<string, number>>;
+    for (const p of AllPriorities) {
+      const activeRequestTypeCounts = yield* Ref.get(
+        state.activeRequestTypeCounts,
+      );
+      const activeCountsValue = activeRequestTypeCounts as Map<
+        number,
+        Map<string, number>
+      >;
+      const priorityCounts = activeCountsValue.get(p) || new Map();
+      const breakdown: Record<string, number> = {};
+      for (const [requestType, count] of priorityCounts.entries()) {
+        breakdown[requestType] = count;
+      }
+      activeRequestTypeBreakdown[p] = breakdown;
     }
 
     // Return per-priority queue capacities
@@ -534,6 +597,8 @@ function getCurrentMetrics(
       tasksCompleted: (yield* Ref.get(state.tasksCompleted)) as number,
       tasksDropped: (yield* Ref.get(state.tasksDropped)) as number,
       requestTypeBreakdown,
+      queuedRequestTypeBreakdown,
+      activeRequestTypeBreakdown,
       queueUtilization: utilization,
       activeTasks,
       queueCapacity: queueCapacityPerPriority,
@@ -759,10 +824,22 @@ export function initialize(config?: {
       );
     }
 
-    // Initialize requestType tracking map
+    // Initialize requestType tracking map (processed/completed tasks)
     const requestTypeCountsMap = new Map<number, Map<string, number>>();
     for (const p of AllPrioritiesWithCritical) {
       requestTypeCountsMap.set(p, new Map<string, number>());
+    }
+
+    // Initialize queued requestType tracking map (waiting in queue)
+    const queuedRequestTypeCountsMap = new Map<number, Map<string, number>>();
+    for (const p of AllPrioritiesWithCritical) {
+      queuedRequestTypeCountsMap.set(p, new Map<string, number>());
+    }
+
+    // Initialize active requestType tracking map (currently executing)
+    const activeRequestTypeCountsMap = new Map<number, Map<string, number>>();
+    for (const p of AllPrioritiesWithCritical) {
+      activeRequestTypeCountsMap.set(p, new Map<string, number>());
     }
 
     // Initialize active task counts map
@@ -790,6 +867,8 @@ export function initialize(config?: {
       tasksDropped: yield* Ref.make(0),
       shutdownSignal: yield* Deferred.make<void, void>(),
       requestTypeCounts: yield* Ref.make(requestTypeCountsMap),
+      queuedRequestTypeCounts: yield* Ref.make(queuedRequestTypeCountsMap),
+      activeRequestTypeCounts: yield* Ref.make(activeRequestTypeCountsMap),
       activeTaskCounts: yield* Ref.make(activeTaskCountsMap),
       queueCapacity: queueCapacityMap,
       maxConcurrency: maxConcurrencyMap,
@@ -863,6 +942,15 @@ export function initialize(config?: {
               yield* Effect.sleep(Duration.millis(1));
             }
           }
+
+          // Track queued request type (item successfully added to queue)
+          yield* Ref.update(schedulerState.queuedRequestTypeCounts, (counts) => {
+            const priorityCounts = counts.get(priority) || new Map<string, number>();
+            const currentCount = priorityCounts.get(requestType) || 0;
+            priorityCounts.set(requestType, currentCount + 1);
+            counts.set(priority, priorityCounts);
+            return counts;
+          });
 
           // Update back pressure metrics if retries occurred
           if (retryCount > 0) {
@@ -967,6 +1055,8 @@ export function initialize(config?: {
         const utilization: any = {};
         const activeTasks: any = {};
         const requestTypeBreakdown: any = {};
+        const queuedRequestTypeBreakdown: any = {};
+        const activeRequestTypeBreakdown: any = {};
 
         // Only include public priorities in metrics (exclude Critical for API stability)
         // Get capacity map (handle both legacy single number and per-priority Record)
@@ -1002,7 +1092,7 @@ export function initialize(config?: {
           const activeCounts = yield* Ref.get(schedulerState.activeTaskCounts);
           activeTasks[p] = activeCounts.get(p) || 0;
 
-          // Get requestType breakdown
+          // Get requestType breakdown (processed/completed)
           const requestTypeCounts = yield* Ref.get(
             schedulerState.requestTypeCounts,
           );
@@ -1012,6 +1102,28 @@ export function initialize(config?: {
             breakdown[requestType] = count;
           }
           requestTypeBreakdown[p] = breakdown;
+
+          // Get queued requestType breakdown
+          const queuedRequestTypeCounts = yield* Ref.get(
+            schedulerState.queuedRequestTypeCounts,
+          );
+          const queuedPriorityCounts = queuedRequestTypeCounts.get(p) || new Map();
+          const queuedBreakdown: Record<string, number> = {};
+          for (const [requestType, count] of queuedPriorityCounts.entries()) {
+            queuedBreakdown[requestType] = count;
+          }
+          queuedRequestTypeBreakdown[p] = queuedBreakdown;
+
+          // Get active requestType breakdown
+          const activeRequestTypeCounts = yield* Ref.get(
+            schedulerState.activeRequestTypeCounts,
+          );
+          const activePriorityCounts = activeRequestTypeCounts.get(p) || new Map();
+          const activeBreakdown: Record<string, number> = {};
+          for (const [requestType, count] of activePriorityCounts.entries()) {
+            activeBreakdown[requestType] = count;
+          }
+          activeRequestTypeBreakdown[p] = activeBreakdown;
         }
 
         // Calculate back pressure metrics
@@ -1072,6 +1184,8 @@ export function initialize(config?: {
           tasksCompleted: yield* Ref.get(schedulerState.tasksCompleted),
           tasksDropped: yield* Ref.get(schedulerState.tasksDropped),
           requestTypeBreakdown,
+          queuedRequestTypeBreakdown,
+          activeRequestTypeBreakdown,
           queueUtilization: utilization,
           activeTasks,
           queueCapacity: queueCapacityPerPriority,
