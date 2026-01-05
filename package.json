@@ -12,7 +12,7 @@
     "test:perf": "wireit",
     "test:quality": "wireit",
     "test:coverage:report": "wireit",
-    "test:web": "node scripts/test-web-ext.js web",
+    "test:web": "wireit",
     "test:e2e": "npm run test --workspace=e2e-tests",
     "test:e2e:debug": "npm run test:debug --workspace=e2e-tests",
     "test:e2e:server": "npm run server --workspace=e2e-tests",
@@ -144,6 +144,7 @@
       "dependencies": [
         "compile",
         "./packages/apex-ls:test",
+        "./packages/apex-ls:test:web",
         "./packages/apex-lsp-shared:test",
         "./packages/apex-lsp-testbed:test",
         "./packages/apex-lsp-vscode-extension:test",
@@ -199,7 +200,7 @@
       "cache": false
     },
     "test:web": {
-      "command": "npm run test:web --workspaces --if-present",
+      "command": "node scripts/test-web-ext.js",
       "dependencies": [
         "bundle"
       ],
