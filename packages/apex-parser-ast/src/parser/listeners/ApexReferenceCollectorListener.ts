@@ -1080,8 +1080,26 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     try {
       const { baseExpression, chainNodes, startLocation } = chainScope;
 
+      this.logger.debug(
+        () =>
+          `[CHAIN_ROOT] Creating chain root reference: baseExpression="${baseExpression}", ` +
+          `chainNodes.length=${chainNodes.length}`,
+      );
+
       if (baseExpression === 'this') {
+        this.logger.debug(
+          () => `[CHAIN_ROOT] Detected 'this' chain with ${chainNodes.length} nodes`,
+        );
+        // Log all chain nodes BEFORE filtering
+        chainNodes.forEach((node, idx) => {
+          this.logger.debug(
+            () =>
+              `[CHAIN_ROOT] Chain node ${idx}: name="${node.name}", context=${node.context}`,
+          );
+        });
         const parentContext = this.getCurrentMethodName();
+
+        // Create individual member access references (for backward compatibility)
         chainNodes.forEach((chainNode) => {
           // Preserve the original context (METHOD_CALL, FIELD_ACCESS, etc.)
           // Only change CHAIN_STEP to FIELD_ACCESS for field access
@@ -1107,6 +1125,78 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           );
           this.symbolTable.addTypeReference(memberRef);
         });
+
+        // Also create a ChainedSymbolReference for precise position-based resolution
+        // This allows getSymbolAtPositionPrecise to find the specific chain member
+        if (chainNodes.length > 0) {
+          // Filter out any invalid chain nodes (nodes with names that include parentheses or 'this.')
+          // These shouldn't be in the chain nodes array
+          // Also remove duplicates by keeping only the first occurrence of each method name
+          this.logger.debug(
+            () =>
+              `[THIS_CHAIN] Filtering ${chainNodes.length} chain nodes for 'this' chain`,
+          );
+          const seenNames = new Set<string>();
+          const validChainNodes = chainNodes.filter((node) => {
+            const name = node.name;
+            // Exclude nodes that look like full expressions (contain 'this.' or '()')
+            if (name.includes('this.') || name.includes('()')) {
+              this.logger.debug(
+                () => `[THIS_CHAIN] Filtering out invalid node: "${name}"`,
+              );
+              return false;
+            }
+            // Remove duplicates - keep only the first occurrence
+            if (seenNames.has(name)) {
+              this.logger.debug(
+                () => `[THIS_CHAIN] Filtering out duplicate node: "${name}"`,
+              );
+              return false;
+            }
+            seenNames.add(name);
+            return true;
+          });
+          this.logger.debug(
+            () =>
+              `[THIS_CHAIN] After filtering: ${validChainNodes.length} valid chain nodes`,
+          );
+
+          // Only create chained reference if we have valid chain nodes
+          if (validChainNodes.length > 0) {
+            // Create the full expression string
+            const fullExpression = `this.${validChainNodes.map((s) => s.name).join('.')}`;
+            const finalLocation =
+              validChainNodes.length > 0
+                ? validChainNodes[validChainNodes.length - 1].location
+                : startLocation;
+
+            // Create chained expression location
+            const chainedExpressionLocation = this.createChainedExpression(
+              fullExpression,
+              startLocation,
+              finalLocation,
+            );
+
+            // Create a SymbolReference for the chained expression
+            const chainedExpression: SymbolReference = {
+              name: fullExpression,
+              location: chainedExpressionLocation,
+              context: ReferenceContext.CHAINED_TYPE,
+              parentContext,
+            };
+
+            // Create root reference with valid chain nodes only
+            // Note: For 'this' chains, we don't include 'this' as a chain node,
+            // only the actual method/property calls
+            const rootRef = SymbolReferenceFactory.createChainedExpressionReference(
+              validChainNodes,
+              chainedExpression,
+              parentContext,
+            );
+
+            this.symbolTable.addTypeReference(rootRef);
+          }
+        }
         return;
       }
 
@@ -1346,40 +1436,147 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   }
 
   private extractBaseExpressionFromParser(ctx: DotExpressionContext): string {
-    const expressions = (ctx as any).expression?.();
-    const leftExpression =
-      Array.isArray(expressions) && expressions.length > 0
-        ? expressions[0]
-        : (expressions ?? null);
+    try {
+      const expressions = (ctx as any).expression?.();
+      const leftExpression =
+        Array.isArray(expressions) && expressions.length > 0
+          ? expressions[0]
+          : (expressions ?? null);
 
-    if (leftExpression) {
-      const identifiers = this.extractIdentifiersFromExpression(leftExpression);
-      return identifiers.length > 0 ? identifiers[0] : 'unknown';
+      if (leftExpression) {
+        // Check for THIS keyword explicitly first
+        // THIS keyword can appear in PrimaryExpressionContext
+        if (isContextType(leftExpression, PrimaryExpressionContext)) {
+          const primaryExpr = leftExpression as PrimaryExpressionContext;
+          const primary = primaryExpr.primary?.();
+          if (primary) {
+            // Check if primary contains THIS token
+            const thisToken = (primary as any).THIS?.();
+            if (thisToken) {
+              this.logger.debug(
+                () => `[EXTRACT_BASE] Found THIS token in PrimaryExpressionContext`,
+              );
+              return 'this';
+            }
+          }
+        }
+
+        // Also check directly on the expression context for THIS token
+        const thisTokenDirect = (leftExpression as any).THIS?.();
+        if (thisTokenDirect) {
+          this.logger.debug(
+            () => `[EXTRACT_BASE] Found THIS token directly on expression`,
+          );
+          return 'this';
+        }
+
+        // If leftExpression is a DotExpressionContext, recursively extract the base
+        // This handles nested chains like "this.method().anotherMethod()"
+        if (isContextType(leftExpression, DotExpressionContext)) {
+          const nestedBase = this.extractBaseExpressionFromParser(
+            leftExpression as DotExpressionContext,
+          );
+          this.logger.debug(
+            () =>
+              `[EXTRACT_BASE] Recursively extracted base from nested DotExpression: "${nestedBase}"`,
+          );
+          return nestedBase;
+        }
+
+        // Use extractIdentifiersFromExpression to get only identifiers, not method calls
+        const identifiers = this.extractIdentifiersFromExpression(leftExpression);
+        const result = identifiers.length > 0 ? identifiers[0] : 'unknown';
+        this.logger.debug(
+          () =>
+            `[EXTRACT_BASE] Extracted base expression: "${result}" from ${identifiers.length} identifiers`,
+        );
+        // Warn if the result contains parentheses or 'this.' - this shouldn't happen
+        if (result.includes('()') || result.includes('this.')) {
+          this.logger.warn(
+            () =>
+              `[EXTRACT_BASE] WARNING: Base expression contains invalid characters: "${result}"`,
+          );
+        }
+        return result;
+      }
+      this.logger.debug(() => `[EXTRACT_BASE] No leftExpression found, returning 'unknown'`);
+      return 'unknown';
+    } catch (error) {
+      this.logger.warn(
+        () => `Error extracting base expression from parser: ${error}`,
+      );
+      return 'unknown';
     }
-
-    return 'unknown';
   }
 
   private extractIdentifiersFromExpression(expr: any): string[] {
     const identifiers: string[] = [];
 
+    if (!expr) return [];
+
+    // Handle IdPrimaryContext (simple identifier)
+    if (isContextType(expr, IdPrimaryContext)) {
+      const idNode = (expr as IdPrimaryContext).id();
+      if (idNode) {
+        identifiers.push(idNode.text);
+      }
+      return identifiers;
+    }
+
+    // Handle DotExpressionContext (obj.field or obj.method())
+    // Recursively extract from base expression, then add the field/method name
+    if (isContextType(expr, DotExpressionContext)) {
+      const dotExpression = expr as DotExpressionContext;
+      const baseExpression = dotExpression.expression();
+      const baseIds = this.extractIdentifiersFromExpression(baseExpression);
+
+      // Extract field/method name from anyId or dotMethodCall
+      const anyId = dotExpression.anyId?.();
+      if (anyId) {
+        return [...baseIds, anyId.text];
+      }
+
+      const dotMethodCall = dotExpression.dotMethodCall?.();
+      if (dotMethodCall) {
+        const methodId = dotMethodCall.anyId?.();
+        if (methodId) {
+          return [...baseIds, methodId.text];
+        }
+      }
+
+      return baseIds;
+    }
+
+    // Handle simple identifier node
     if (expr.id) {
       const id = expr.id();
       if (id) {
         identifiers.push(id.text);
+        return identifiers;
       }
-    } else if (expr.text) {
-      identifiers.push(expr.text);
-    } else if (expr.children) {
+    }
+
+    // Fallback: try to extract from children
+    if (expr.children) {
       for (const child of expr.children) {
         if (child.id) {
           const id = child.id();
           if (id) {
             identifiers.push(id.text);
           }
-        } else if (child.text) {
+        } else if (child.text && !child.text.includes('(') && !child.text.includes('.')) {
+          // Only use text if it doesn't contain parentheses or dots (which indicate complex expressions)
           identifiers.push(child.text);
         }
+      }
+    }
+
+    // Last resort: use text property only if it's a simple identifier (no parentheses, no dots)
+    if (identifiers.length === 0 && expr.text) {
+      const text = expr.text;
+      // Only use text if it looks like a simple identifier (no parentheses, no dots)
+      if (!text.includes('(') && !text.includes('.')) {
+        identifiers.push(text);
       }
     }
 

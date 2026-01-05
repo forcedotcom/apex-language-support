@@ -27,6 +27,7 @@ import {
   SymbolResolutionStrategy,
   TypeSymbol,
   VariableSymbol,
+  MethodSymbol,
 } from '../types/symbol';
 import { UnifiedCache } from '../utils/UnifiedCache';
 import {
@@ -79,6 +80,7 @@ import { CommentAssociator } from '../utils/CommentAssociator';
 import {
   isChainedSymbolReference,
   isBlockSymbol,
+  isMethodSymbol,
 } from '../utils/symbolNarrowing';
 
 /**
@@ -5524,28 +5526,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             );
             if (chainMember) {
               // Found a chained reference with a specific member at this position
-              // Prefer chained references that have resolved parts (indicates better context)
-              const firstNodeHasResolution =
-                chainNodes[0]?.resolvedSymbolId !== undefined;
-              const isOnMethodOrProperty = chainMember.index > 0;
-
-              // Prefer this chained reference if:
-              // 1. We're on a method/property call (not the first node), OR
-              // 2. The first node has been resolved (indicates successful variable resolution)
-              if (isOnMethodOrProperty || firstNodeHasResolution) {
-                // This chained reference has more context - prefer it over standalone references
-                referenceToResolve = ref;
-                break;
-              } else {
-                // Still prefer chained reference over standalone, but mark it for potential override
-                // if we find a better one later
-                if (
-                  !isChainedSymbolReference(referenceToResolve) ||
-                  referenceToResolve === typeReferences[0]
-                ) {
-                  referenceToResolve = ref;
-                }
-              }
+              // Always prefer chained references over standalone references when position matches
+              // This ensures 'this.method().anotherMethod()' chains are resolved correctly
+              referenceToResolve = ref;
+              break;
             }
 
             // If position is within the first node's range (but not at the start)
@@ -6200,6 +6184,61 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
     }
 
+    // Strategy 1.6: Try method resolution in current class when there's no current context
+    // This handles 'this.method()' chains where the first node is a method call
+    // and should resolve to a method in the current class
+    if (
+      !currentContext &&
+      step.context === ReferenceContext.METHOD_CALL &&
+      fileUri &&
+      step.location
+    ) {
+      // Try to find the method in the current class using scope-based resolution
+      const position = {
+        line:
+          step.location.identifierRange?.startLine ??
+          step.location.symbolRange.startLine,
+        character:
+          step.location.identifierRange?.startColumn ??
+          step.location.symbolRange.startColumn,
+      };
+      const scopeBasedSymbol = this.resolveUnqualifiedReferenceByScope(
+        step,
+        fileUri,
+        position,
+      );
+      if (
+        scopeBasedSymbol &&
+        scopeBasedSymbol.kind === SymbolKind.Method &&
+        scopeBasedSymbol.name === stepName
+      ) {
+        resolutions.push({ type: 'symbol', symbol: scopeBasedSymbol });
+      } else {
+        // Fallback: Try to find the method in the current class via symbol table
+        const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+        if (symbolTable) {
+          const allSymbols = symbolTable.getAllSymbols();
+          // Find methods in the current class that match the step name
+          const methodSymbols = allSymbols.filter(
+            (s) =>
+              s.kind === SymbolKind.Method && s.name === stepName,
+          );
+          if (methodSymbols.length > 0) {
+            // Prefer non-static methods for 'this.method()' chains
+            const instanceMethod = methodSymbols.find(
+              (s) => !s.modifiers?.isStatic,
+            );
+            if (instanceMethod) {
+              resolutions.push({ type: 'symbol', symbol: instanceMethod });
+            } else {
+              // Fall back to any method if no instance method found
+              resolutions.push({ type: 'symbol', symbol: methodSymbols[0] });
+            }
+          }
+        }
+      }
+    }
+
     // Strategy 2: Try class resolution
     const classSymbol = await this.tryResolveAsClass(stepName, currentContext);
     if (classSymbol) {
@@ -6290,6 +6329,38 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     );
     if (matchingGlobalSymbol) {
       resolutions.push({ type: 'symbol', symbol: matchingGlobalSymbol });
+    }
+
+    // Strategy 6.5: Final fallback for method calls in current class when no context
+    // This handles 'this.method()' chains where other strategies failed
+    if (
+      !currentContext &&
+      step.context === ReferenceContext.METHOD_CALL &&
+      fileUri &&
+      resolutions.length === 0
+    ) {
+      // Try to find the method in the current class via symbol table
+      const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+      if (symbolTable) {
+        const allSymbols = symbolTable.getAllSymbols();
+        // Find methods in the current class that match the step name
+        const methodSymbols = allSymbols.filter(
+          (s) =>
+            s.kind === SymbolKind.Method && s.name === stepName,
+        );
+        if (methodSymbols.length > 0) {
+          // Prefer non-static methods for 'this.method()' chains
+          const instanceMethod = methodSymbols.find(
+            (s) => !s.modifiers?.isStatic,
+          );
+          if (instanceMethod) {
+            resolutions.push({ type: 'symbol', symbol: instanceMethod });
+          } else {
+            // Fall back to any method if no instance method found
+            resolutions.push({ type: 'symbol', symbol: methodSymbols[0] });
+          }
+        }
+      }
     }
 
     // Strategy 7: Try standard Apex class resolution (for cases like URL without namespace)
@@ -6673,16 +6744,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return null;
         }
 
-        // Resolve the entire chain
-        const resolvedChain = await this.resolveEntireChain(
-          chainNodes,
-          fileUri,
-        );
-        if (!resolvedChain) {
-          return null;
-        }
-
-        // If position is provided, find the specific chain member and return its resolved symbol
+        // If position is provided, try to resolve the specific chain member first
+        // This handles cases where resolveEntireChain might fail (e.g., 'this.method()' chains)
         if (position) {
           const firstNode = chainNodes[0];
 
@@ -6698,6 +6761,36 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     `"${firstNode.resolvedSymbolId}" for first node "${firstNode.name}"`,
                 );
                 return resolvedSymbol;
+              }
+            }
+
+            // Special handling for method calls in 'this' chains
+            // For 'this.method().anotherMethod()', the first node is a method call,
+            // not a class, so we should resolve it as a method in the current class
+            if (
+              firstNode.context === ReferenceContext.METHOD_CALL &&
+              fileUri
+            ) {
+              // Try to resolve as a method in the current class
+              const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+              if (symbolTable) {
+                const allSymbols = symbolTable.getAllSymbols();
+                const methodSymbols = allSymbols.filter(
+                  (s) =>
+                    s.kind === SymbolKind.Method &&
+                    s.name === firstNode.name,
+                );
+                if (methodSymbols.length > 0) {
+                  // Prefer non-static methods for 'this.method()' chains
+                  const instanceMethod = methodSymbols.find(
+                    (s) => !s.modifiers?.isStatic,
+                  );
+                  if (instanceMethod) {
+                    return instanceMethod;
+                  }
+                  // Fall back to any method if no instance method found
+                  return methodSymbols[0];
+                }
               }
             }
 
@@ -6717,29 +6810,87 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             position,
           );
 
-          if (chainMember) {
-            // If position is on the first node, try resolving it as a class
-            if (chainMember.index === 0) {
-              // Fast path: if first node already has resolvedSymbolId, use it directly
-              const firstNode = chainNodes[0];
-              if (firstNode.resolvedSymbolId) {
-                const resolvedSymbol = this.getSymbol(
-                  firstNode.resolvedSymbolId,
+          if (chainMember && chainMember.index === 0) {
+            // We already tried resolving the first node above, but if it failed,
+            // try one more time here with the chain member context
+            const firstNode = chainNodes[0];
+            if (
+              firstNode.context === ReferenceContext.METHOD_CALL &&
+              fileUri
+            ) {
+              const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+              if (symbolTable) {
+                const allSymbols = symbolTable.getAllSymbols();
+                const methodSymbols = allSymbols.filter(
+                  (s) =>
+                    s.kind === SymbolKind.Method &&
+                    s.name === firstNode.name,
                 );
-                if (resolvedSymbol) {
-                  this.logger.debug(
-                    () =>
-                      'Using pre-resolved symbol ID ' +
-                      `"${firstNode.resolvedSymbolId}" for first node "${firstNode.name}" ` +
-                      'in chain member resolution',
+                if (methodSymbols.length > 0) {
+                  const instanceMethod = methodSymbols.find(
+                    (s) => !s.modifiers?.isStatic,
                   );
-                  return resolvedSymbol;
+                  if (instanceMethod) {
+                    return instanceMethod;
+                  }
+                  return methodSymbols[0];
                 }
               }
+            }
+          }
+        }
 
+        // Resolve the entire chain
+        // Note: For 'this.method()' chains, resolveEntireChain might return null
+        // if the first method call can't be resolved through normal chain resolution.
+        // We handle this case above by resolving the first node directly.
+        const resolvedChain = await this.resolveEntireChain(
+          chainNodes,
+          fileUri,
+        );
+
+        // If position is provided, find the specific chain member and return its resolved symbol
+        if (position) {
+          // Find the chain member at the position (if not already found above)
+          const chainMember = this.findChainMemberAtPosition(
+            typeReference,
+            position,
+          );
+
+          if (chainMember) {
+            // If position is on the first node, we already tried resolving it above
+            // Skip to resolving other chain members
+            if (chainMember.index === 0) {
+              // We already handled the first node above, but if it failed,
+              // try one more time here
+              const firstNode = chainNodes[0];
+              if (
+                firstNode.context === ReferenceContext.METHOD_CALL &&
+                fileUri
+              ) {
+                const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+                if (symbolTable) {
+                  const allSymbols = symbolTable.getAllSymbols();
+                  const methodSymbols = allSymbols.filter(
+                    (s) =>
+                      s.kind === SymbolKind.Method &&
+                      s.name === firstNode.name,
+                  );
+                  if (methodSymbols.length > 0) {
+                    const instanceMethod = methodSymbols.find(
+                      (s) => !s.modifiers?.isStatic,
+                    );
+                    if (instanceMethod) {
+                      return instanceMethod;
+                    }
+                    return methodSymbols[0];
+                  }
+                }
+              }
+              // If we get here, first node resolution failed - try class resolution
               const firstNodeSymbol = await this.resolveFirstNodeAsClass(
                 chainNodes[0].name,
-                false, // Don't retry here since we already tried above
+                false,
               );
               if (firstNodeSymbol) {
                 return firstNodeSymbol;
@@ -6747,9 +6898,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             }
 
             // Resolve the chain member from the resolved chain context
-            resolvedContext = resolvedChain[chainMember.index];
-            if (resolvedContext?.type === 'symbol') {
-              return resolvedContext.symbol || null;
+            // Only use resolvedChain if it exists and has the member at this index
+            if (resolvedChain && resolvedChain.length > chainMember.index) {
+              resolvedContext = resolvedChain[chainMember.index];
+              if (resolvedContext?.type === 'symbol') {
+                return resolvedContext.symbol || null;
+              }
             }
 
             // If the resolved context is not a symbol (e.g., namespace or global), and we're on the first node,
@@ -6791,10 +6945,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
 
         // Return the final resolved symbol (last in the chain)
-        resolvedContext = resolvedChain[resolvedChain.length - 1];
-        return resolvedContext?.type === 'symbol'
-          ? resolvedContext.symbol
-          : null;
+        // Only if resolvedChain exists
+        if (resolvedChain && resolvedChain.length > 0) {
+          resolvedContext = resolvedChain[resolvedChain.length - 1];
+          return resolvedContext?.type === 'symbol'
+            ? resolvedContext.symbol
+            : null;
+        }
+        
+        // If resolvedChain is null and we have a position, we might have already
+        // resolved the first node above, so return null here
+        return null;
       } catch (error) {
         this.logger.error(
           () => `Error resolving chained expression reference: ${error}`,
@@ -7484,6 +7645,108 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             // Don't fall through to other resolution strategies as they might pick methods from the wrong class
             // (e.g., Email.toString() instead of String.toString())
             // This ensures we only resolve methods on the variable's actual type
+            return null;
+          }
+
+          // If the context symbol is a method, extract its return type and resolve the member on that type
+          // This handles chained method calls like "this.method1().method2()"
+          if (isMethodSymbol(contextSymbol)) {
+            // Type narrowing: isMethodSymbol ensures contextSymbol is MethodSymbol
+            const returnType = contextSymbol.returnType;
+
+            if (returnType) {
+              // First, try to use the resolved symbol if available
+              if (returnType.resolvedSymbol) {
+                const returnTypeSymbol = returnType.resolvedSymbol;
+                // Recursively resolve the member on the return type's class symbol
+                const resolvedMember = await this.resolveMemberInContext(
+                  { type: 'symbol', symbol: returnTypeSymbol },
+                  memberName,
+                  memberType,
+                );
+                if (resolvedMember) {
+                  return resolvedMember;
+                }
+              }
+
+              // Otherwise, resolve the return type name to a class symbol
+              const returnTypeName = returnType.name;
+              if (returnTypeName) {
+                // Remove array brackets if present (e.g., "String[]" -> "String")
+                const baseTypeName = returnTypeName.replace(/\[\]$/, '');
+
+                // Try to resolve the return type as a class symbol
+                const typeRef: SymbolReference = {
+                  name: baseTypeName,
+                  context: ReferenceContext.CLASS_REFERENCE,
+                  location: {
+                    symbolRange: {
+                      startLine: 0,
+                      startColumn: 0,
+                      endLine: 0,
+                      endColumn: 0,
+                    },
+                    identifierRange: {
+                      startLine: 0,
+                      startColumn: 0,
+                      endLine: 0,
+                      endColumn: 0,
+                    },
+                  },
+                  resolvedSymbolId: undefined,
+                };
+
+                // Try built-in type resolution
+                const builtInTypeSymbol =
+                  await this.resolveBuiltInType(typeRef);
+                if (builtInTypeSymbol) {
+                  const resolvedMember = await this.resolveMemberInContext(
+                    { type: 'symbol', symbol: builtInTypeSymbol },
+                    memberName,
+                    memberType,
+                  );
+                  if (resolvedMember) {
+                    return resolvedMember;
+                  }
+                }
+
+                // Try standard Apex class resolution
+                const standardClassSymbol =
+                  await this.resolveStandardApexClass(baseTypeName);
+                if (standardClassSymbol) {
+                  const resolvedMember = await this.resolveMemberInContext(
+                    { type: 'symbol', symbol: standardClassSymbol },
+                    memberName,
+                    memberType,
+                  );
+                  if (resolvedMember) {
+                    return resolvedMember;
+                  }
+                }
+
+                // Try to find the class symbol in the symbol graph
+                const typeClassSymbols = this.findSymbolByName(baseTypeName);
+                const typeClassSymbol = typeClassSymbols.find(
+                  (s) =>
+                    s.kind === SymbolKind.Class ||
+                    s.kind === SymbolKind.Interface ||
+                    s.kind === SymbolKind.Enum,
+                );
+
+                if (typeClassSymbol) {
+                  const resolvedMember = await this.resolveMemberInContext(
+                    { type: 'symbol', symbol: typeClassSymbol },
+                    memberName,
+                    memberType,
+                  );
+                  if (resolvedMember) {
+                    return resolvedMember;
+                  }
+                }
+              }
+            }
+
+            // If return type resolution failed for a method, return null
             return null;
           }
 

@@ -4,6 +4,3 @@ public class TestClass {
     }
 }
 
-public class DualListboxValueVModel {
-}
-

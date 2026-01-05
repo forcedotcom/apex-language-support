@@ -9,7 +9,3 @@ public class TestClass {
     }
 }
 
-public class AccountAutoDeletionSettingsVMapper {
-    public AccountAutoDeletionSettingsVMapper() { }
-}
-

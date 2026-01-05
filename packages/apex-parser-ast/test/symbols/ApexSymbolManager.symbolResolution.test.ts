@@ -51,7 +51,7 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
   beforeEach(() => {
     enableConsoleLogging();
-    setLogLevel('error');
+    setLogLevel('debug'); // Set to 'debug' to see debug messages for troubleshooting
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
   });
@@ -70,6 +70,24 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       filename,
     );
     return fs.readFileSync(fixturePath, 'utf8');
+  };
+
+  /**
+   * Compile and add multiple fixture files to the symbol manager
+   */
+  const compileAndAddFixtures = async (filenames: string[]): Promise<void> => {
+    for (const filename of filenames) {
+      const sourceCode = loadFixture(filename);
+      const fileUri = `file:///test/${filename}`;
+      const listener = new FullSymbolCollectorListener();
+      const result = compilerService.compile(sourceCode, fileUri, listener);
+
+      if (result.result) {
+        await symbolManager.addSymbolTable(result.result, fileUri);
+      }
+    }
+    // Wait for reference processing
+    await new Promise((resolve) => setTimeout(resolve, 100));
   };
 
   /**
@@ -171,6 +189,34 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
         character: secondMethodStart,
       };
 
+      // Diagnostic: Check what references are found at the position
+      const referencesAtPosition = symbolManager.getReferencesAtPosition(
+        fileUri,
+        firstMethodPosition,
+      );
+      console.log(
+        `[DEBUG] Found ${referencesAtPosition.length} references at position ` +
+          `${firstMethodPosition.line}:${firstMethodPosition.character}`,
+      );
+      const chainedRefs = referencesAtPosition.filter(
+        (ref) =>
+          (ref as any).chainNodes && Array.isArray((ref as any).chainNodes),
+      );
+      console.log(`[DEBUG] Found ${chainedRefs.length} chained references`);
+      chainedRefs.forEach((ref, idx) => {
+        const chainNodes = (ref as any).chainNodes;
+        console.log(
+          `[DEBUG] Chained reference ${idx}: name="${ref.name}", ` +
+            `has ${chainNodes.length} nodes`,
+        );
+        chainNodes.forEach((node: any, nodeIdx: number) => {
+          console.log(
+            `[DEBUG]   Node ${nodeIdx}: name="${node.name}", context=${node.context}, ` +
+              `location=${node.location?.identifierRange?.startLine}:${node.location?.identifierRange?.startColumn}`,
+          );
+        });
+      });
+
       // Test symbol resolution on first method name
       const symbol1 = await symbolManager.getSymbolAtPosition(
         fileUri,
@@ -197,18 +243,14 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
   describe('new ClassName() symbol resolution', () => {
     it('should resolve class name in new ClassName() expression', async () => {
+      // Compile both files - TestClass and AccountAutoDeletionSettingsVMapper
+      await compileAndAddFixtures([
+        'NewExpression.cls',
+        'AccountAutoDeletionSettingsVMapper.cls',
+      ]);
+
       const sourceCode = loadFixture('NewExpression.cls');
       const fileUri = 'file:///test/NewExpression.cls';
-
-      const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(sourceCode, fileUri, listener);
-
-      if (result.result) {
-        await symbolManager.addSymbolTable(result.result, fileUri);
-      }
-
-      // Wait for reference processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Calculate position: find the class name after "new " in the source code
       const lines = sourceCode.split('\n');
@@ -238,18 +280,14 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     });
 
     it('should resolve class name in new List<ClassName>() expression', async () => {
+      // Compile both files - TestClass and DualListboxValueVModel
+      await compileAndAddFixtures([
+        'NewGenericExpression.cls',
+        'DualListboxValueVModel.cls',
+      ]);
+
       const sourceCode = loadFixture('NewGenericExpression.cls');
       const fileUri = 'file:///test/NewGenericExpression.cls';
-
-      const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(sourceCode, fileUri, listener);
-
-      if (result.result) {
-        await symbolManager.addSymbolTable(result.result, fileUri);
-      }
-
-      // Wait for reference processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Calculate position: find DualListboxValueVModel in the generic type parameter
       // Find the first occurrence which should be in the type parameter, not a declaration
@@ -331,18 +369,14 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
   describe('assignment LHS symbol resolution', () => {
     it('should resolve private static field when hovering on assignment LHS', async () => {
+      // Compile both files - TestClass and AccountAutoDeletionSettingsVMapper
+      await compileAndAddFixtures([
+        'AssignmentLHS.cls',
+        'AccountAutoDeletionSettingsVMapper.cls',
+      ]);
+
       const sourceCode = loadFixture('AssignmentLHS.cls');
       const fileUri = 'file:///test/AssignmentLHS.cls';
-
-      const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(sourceCode, fileUri, listener);
-
-      if (result.result) {
-        await symbolManager.addSymbolTable(result.result, fileUri);
-      }
-
-      // Wait for reference processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Calculate position: find instance in assignment (instance = new ...)
       const lines = sourceCode.split('\n');
@@ -370,18 +404,14 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     });
 
     it('should resolve private static field when hovering on assignment LHS in if condition', async () => {
+      // Compile both files - TestClass and AccountAutoDeletionSettingsVMapper
+      await compileAndAddFixtures([
+        'AssignmentLHSInCondition.cls',
+        'AccountAutoDeletionSettingsVMapper.cls',
+      ]);
+
       const sourceCode = loadFixture('AssignmentLHSInCondition.cls');
       const fileUri = 'file:///test/AssignmentLHSInCondition.cls';
-
-      const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(sourceCode, fileUri, listener);
-
-      if (result.result) {
-        await symbolManager.addSymbolTable(result.result, fileUri);
-      }
-
-      // Wait for reference processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Calculate position: find instance in if condition (if (instance == null))
       const lines = sourceCode.split('\n');
@@ -411,20 +441,14 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
   describe('on-demand enrichment for private symbols', () => {
     it('should enrich SymbolTable when hovering on private field that was not initially indexed', async () => {
+      // Compile both files - TestClass and AccountAutoDeletionSettingsVMapper
+      await compileAndAddFixtures([
+        'OnDemandEnrichment.cls',
+        'AccountAutoDeletionSettingsVMapper.cls',
+      ]);
+
       const sourceCode = loadFixture('OnDemandEnrichment.cls');
       const fileUri = 'file:///test/OnDemandEnrichment.cls';
-
-      // Use FullSymbolCollectorListener which collects all symbols
-      // In real scenario, initial load might use PublicAPISymbolListener only
-      const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(sourceCode, fileUri, listener);
-
-      if (result.result) {
-        await symbolManager.addSymbolTable(result.result, fileUri);
-      }
-
-      // Wait for reference processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Calculate position: find instance in if condition
       const lines = sourceCode.split('\n');
@@ -495,18 +519,18 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     });
 
     it('should have accurate identifierRange for constructor call references', async () => {
+      // Compile both files - TestClass and AccountAutoDeletionSettingsVMapper
+      await compileAndAddFixtures([
+        'IdentifierRangeConstructor.cls',
+        'AccountAutoDeletionSettingsVMapper.cls',
+      ]);
+
       const sourceCode = loadFixture('IdentifierRangeConstructor.cls');
       const fileUri = 'file:///test/IdentifierRangeConstructor.cls';
 
+      // Compile to get symbol table for reference lookup
       const listener = new FullSymbolCollectorListener();
       const result = compilerService.compile(sourceCode, fileUri, listener);
-
-      if (result.result) {
-        await symbolManager.addSymbolTable(result.result, fileUri);
-      }
-
-      // Wait for reference processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Calculate position: find the class name after "new " in the source code
       const lines = sourceCode.split('\n');
