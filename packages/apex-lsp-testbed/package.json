@@ -157,8 +157,7 @@
     "web-worker": "^1.5.0"
   },
   "devDependencies": {
-    "@apexdevtools/apex-parser": "4.4.1",
-    "@salesforce/apex-lsp-parser-ast": "1.0.0",
-    "@salesforce/apex-lsp-shared": "1.0.0"
+    "@salesforce/apex-lsp-parser-ast": "workspace:*",
+    "@salesforce/apex-lsp-shared": "workspace:*"
   }
 }

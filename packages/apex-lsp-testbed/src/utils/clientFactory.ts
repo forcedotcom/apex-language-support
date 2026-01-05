@@ -283,3 +283,5 @@ export class MockApexJsonRpcClient extends ApexJsonRpcClient {
     ];
   }
 }
+
+module.exports = { createClient, MockApexJsonRpcClient };

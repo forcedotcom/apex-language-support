@@ -2,11 +2,17 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
     ".": {
-      "entry": [".github/scripts/**/*.{js,ts,mjs}"]
+      "entry": [
+        ".github/scripts/**/*.{js,ts,mjs}",
+        "scripts/test-web-ext.js"
+      ]
     },
     "packages/apex-ls": {
       "entry": [
         "src/server.*.ts",
+        "src/index.browser.ts",
+        "src/server.ts",
+        "src/server/webWorkerServer.ts",
         "src/communication/BrowserClient.ts",
         "src/communication/PlatformBridges.ts",
         "src/launcher/WorkerLauncher.ts",
@@ -47,6 +53,11 @@
         "src/index.ts",
         "src/utils.js",
         "src/logging/VSCodeLogNotificationHandler.ts",
+        "src/webviews/graphScript.ts",
+        "src/webviews/graphRenderer.ts",
+        "src/webviews/performanceSettingsScript.ts",
+        "src/webviews/queueStateScript.ts",
+        "src/apexlib/index.ts",
         "test/**/*.ts"
       ],
       "ignoreDependencies": [
@@ -64,7 +75,9 @@
         "src/semantics/validation/index.ts",
         "src/semantics/versions.ts",
         "src/symbols/BackgroundProcessingManager.ts",
-        "src/symbols/resolution/index.ts"
+        "src/symbols/resolution/index.ts",
+        "test/**/*.ts",
+        "test/helpers/**/*.ts"
       ]
     },
     "packages/lsp-compliant-services": {
@@ -89,7 +102,8 @@
     "**/*.config.{js,cjs,mjs}",
     "**/jest.config*.{js,cjs,mjs}",
     ".releaserc.json",
-    "tsconfig*.json"
+    "tsconfig*.json",
+    "packages/apex-lsp-testbed/src/utils/clientFactory.ts"
   ],
   "ignoreExportsUsedInFile": false,
   "rules": {
