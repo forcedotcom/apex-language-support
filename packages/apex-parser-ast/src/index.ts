@@ -80,7 +80,6 @@ export * from './utils/ApexKeywords';
 // Export cross-file symbol management
 export * from './symbols/ApexSymbolManager';
 export * from './symbols/ApexSymbolProcessingManager';
-export * from './symbols/ProgressiveEnhancementService';
 
 // Export resolution framework types
 export * from './symbols/resolution/types';

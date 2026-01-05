@@ -136,26 +136,41 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
 
           const backgroundManager = ApexSymbolProcessingManager.getInstance();
           const symbolManager = backgroundManager.getSymbolManager();
-          // Remove old symbols before adding new ones (didSave should refresh symbols)
-          symbolManager.removeFile(document.uri);
-          const taskId = backgroundManager.processSymbolTable(
-            cached.symbolTable,
-            document.uri,
-            {
-              priority: Priority.High,
-              enableCrossFileResolution: true,
-              enableReferenceProcessing: true,
-            },
-            document.version,
-          );
-          this.logger.debug(
-            () =>
-              'Document save symbol processing queued (cached): ' +
-              `${taskId} for ${document.uri} (version: ${document.version})`,
-          );
-          // Monitor task completion and update cache
-          this.monitorTaskCompletion(taskId, document.uri, document.version);
-          return;
+          
+          // Get SymbolTable from manager (not cache)
+          const symbolTable = symbolManager.getSymbolTableForFile(document.uri);
+          
+          if (symbolTable) {
+            // Remove old symbols before adding new ones (didSave should refresh symbols)
+            symbolManager.removeFile(document.uri);
+            const taskId = backgroundManager.processSymbolTable(
+              symbolTable,
+              document.uri,
+              {
+                priority: Priority.High,
+                enableCrossFileResolution: true,
+                enableReferenceProcessing: true,
+              },
+              document.version,
+            );
+            this.logger.debug(
+              () =>
+                'Document save symbol processing queued (cached): ' +
+                `${taskId} for ${document.uri} (version: ${document.version})`,
+            );
+            // Monitor task completion and update cache
+            this.monitorTaskCompletion(taskId, document.uri, document.version);
+          } else {
+            this.logger.debug(
+              () =>
+                `Cached diagnostics but no SymbolTable in manager for ${document.uri}, will recompile`,
+            );
+            // Fall through to recompilation
+          }
+          
+          if (symbolTable) {
+            return;
+          }
         }
 
         // Get the storage manager instance
@@ -219,10 +234,9 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
             `Document save symbols added for ${document.uri} (version: ${document.version})`,
         );
 
-        // Cache the parse result for future requests with same version
+        // Cache diagnostics (SymbolTable is stored in ApexSymbolManager)
         // symbolsIndexed defaults to false for new entries
         parseCache.merge(document.uri, {
-          symbolTable,
           diagnostics: [],
           documentVersion: document.version,
           documentLength: document.getText().length,

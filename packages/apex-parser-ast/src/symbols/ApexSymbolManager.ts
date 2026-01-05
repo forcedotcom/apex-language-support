@@ -479,6 +479,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
+   * Get SymbolTable for a file
+   * @param fileUri The file URI
+   * @returns The SymbolTable for the file, or undefined if not found
+   */
+  getSymbolTableForFile(fileUri: string): SymbolTable | undefined {
+    // Convert fileUri to proper URI format to match how symbols are stored
+    const properUri =
+      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+
+    // Normalize URI using the same logic as getSymbolsInFile() to ensure consistency
+    const normalizedUri = extractFilePathFromUri(properUri);
+
+    return this.symbolGraph.getSymbolTableForFile(normalizedUri);
+  }
+
+  /**
    * Check if a file path is from the standard Apex library
    */
   private isStandardApexLibraryPath(fileUri: string): boolean {

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbol, SymbolResolutionStrategy } from '../types/symbol';
+import { ApexSymbol, SymbolResolutionStrategy, SymbolTable } from '../types/symbol';
 import {
   ReferenceResult,
   DependencyAnalysis,
@@ -173,6 +173,20 @@ export interface ISymbolManager {
    * Remove a file's symbols
    */
   removeFile(fileUri: string): void;
+
+  /**
+   * Add a symbol table to the manager
+   * @param symbolTable The symbol table to add
+   * @param fileUri The file URI associated with the symbol table
+   */
+  addSymbolTable(symbolTable: SymbolTable, fileUri: string): Promise<void>;
+
+  /**
+   * Get SymbolTable for a file
+   * @param fileUri The file URI
+   * @returns The SymbolTable for the file, or undefined if not found
+   */
+  getSymbolTableForFile(fileUri: string): SymbolTable | undefined;
 
   /**
    * Optimize memory usage

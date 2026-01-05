@@ -25,6 +25,7 @@ import {
   isBlockSymbol,
   SymbolKind as ApexSymbolKind,
   ScopeSymbol,
+  ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
@@ -33,6 +34,7 @@ import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { transformParserToLspPosition } from '../utils/positionUtils';
 import { getDocumentStateCache } from '../services/DocumentStateCache';
+import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
 
 /**
  * Maps Apex symbol kinds to LSP symbol kinds
@@ -123,21 +125,20 @@ export class DefaultApexDocumentSymbolProvider
       );
 
       // Check parse result cache first
-      // NOTE: Safe to use cached SymbolTable even with different compilation options
-      // because SymbolTable only contains structural symbols (classes, methods, fields)
-      // and is independent of comment collection settings
       const parseCache = getDocumentStateCache();
       const cached = parseCache.getSymbolResult(documentUri, document.version);
 
-      let symbolTable: SymbolTable;
+      // Get SymbolTable from manager (not cache)
+      const backgroundManager = ApexSymbolProcessingManager.getInstance();
+      const symbolManager = backgroundManager.getSymbolManager();
+      let symbolTable = symbolManager.getSymbolTableForFile(documentUri);
 
-      if (cached) {
+      if (cached && symbolTable) {
         logger.debug(
           () =>
             `Using cached parse result for document symbols ${documentUri} (version ${document.version})`,
         );
-        // Use cached symbol table for document symbols
-        symbolTable = cached.symbolTable;
+        // SymbolTable from manager, diagnostics from cache
       } else {
         // Create a symbol collector listener to parse the document
         const table = new SymbolTable();
@@ -169,6 +170,27 @@ export class DefaultApexDocumentSymbolProvider
         // Get the symbol table from the compilation result
         if (result.result) {
           symbolTable = result.result;
+
+          // Extract diagnostics
+          const diagnostics = getDiagnosticsFromErrors(result.errors);
+
+          // Cache the compilation result for future requests
+          parseCache.merge(documentUri, {
+            diagnostics,
+            documentVersion: document.version,
+            documentLength: document.getText().length,
+            symbolsIndexed: false,
+          });
+
+          // Also ensure symbols are in symbol manager
+          const existingSymbols = symbolManager.findSymbolsInFile(documentUri);
+          if (existingSymbols.length === 0) {
+            await symbolManager.addSymbolTable(symbolTable, documentUri);
+            logger.debug(
+              () =>
+                `Added SymbolTable to manager for ${documentUri} during document symbols`,
+            );
+          }
         } else {
           logger.error(() => 'Symbol table is null from compilation result');
           return null;

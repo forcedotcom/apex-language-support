@@ -521,13 +521,25 @@ describe('DiagnosticProcessingService', () => {
       const { Effect } = require('effect');
       const mockResolveEffect = Effect.succeed(undefined);
       const mockSymbolManager = {
-        resolveCrossFileReferencesForFile: jest
-          .fn()
-          .mockReturnValue(mockResolveEffect),
+        resolveCrossFileReferencesForFile: jest.fn().mockReturnValue(mockResolveEffect),
+        findSymbolsInFile: jest.fn().mockReturnValue([]),
+        addSymbolTable: jest.fn().mockResolvedValue(undefined),
       };
       (service as any).symbolManager = mockSymbolManager;
 
-      // Mock compilation result
+      // Mock cache hit - this is required for resolveCrossFileReferencesForFile to be called
+      const {
+        getDocumentStateCache,
+      } = require('../../src/services/DocumentStateCache');
+      const cache = getDocumentStateCache();
+      cache.merge('file:///test.cls', {
+        diagnostics: [],
+        documentVersion: 1,
+        documentLength: 20,
+        symbolsIndexed: false,
+      });
+
+      // Mock compilation result (in case cache miss path is taken)
       const mockCompileResult = {
         fileName: 'file:///test.cls',
         errors: [],

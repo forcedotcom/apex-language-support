@@ -267,17 +267,18 @@ describe('DocumentProcessingService - Batch Processing', () => {
       const event1 = createMockEvent('file:///test1.cls', 1);
       const event2 = createMockEvent('file:///test2.cls', 1);
 
-      // First document is cached
+      // First document is cached (diagnostics only, SymbolTable is in manager)
       mockCache.getSymbolResult
         .mockReturnValueOnce({
           diagnostics: [],
-          symbolTable: {
-            getCurrentScope: jest.fn().mockReturnValue({
-              getAllSymbols: jest.fn().mockReturnValue([]),
-            }),
-          },
         })
         .mockReturnValueOnce(null);
+
+      // Mock that symbols exist in manager for cached document (so it doesn't get recompiled)
+      const mockSymbolManager = mockSymbolProcessingManager.getSymbolManager();
+      mockSymbolManager.findSymbolsInFile
+        .mockReturnValueOnce([{ name: 'TestClass' }]) // Symbols exist for test1.cls
+        .mockReturnValueOnce([]); // No symbols for test2.cls
 
       mockCache.get.mockReturnValueOnce({
         symbolsIndexed: false,

@@ -6,7 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { SymbolTable } from '@salesforce/apex-lsp-parser-ast';
 import {
   DocumentStateCache,
   DocumentState,
@@ -52,7 +51,6 @@ describe('DocumentStateCache', () => {
       const uri = 'file:///test.cls';
       const version = 1;
       const result: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: version,
         timestamp: Date.now(),
@@ -70,7 +68,6 @@ describe('DocumentStateCache', () => {
     it('should return null when version does not match', () => {
       const uri = 'file:///test.cls';
       const result: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
@@ -100,7 +97,6 @@ describe('DocumentStateCache', () => {
       // Fill cache to capacity
       for (let i = 0; i < maxSize; i++) {
         const result: DocumentState = {
-          symbolTable: new SymbolTable(),
           diagnostics: [],
           documentVersion: 1,
           timestamp: Date.now() - (maxSize - i) * 1000, // Different timestamps
@@ -117,7 +113,6 @@ describe('DocumentStateCache', () => {
 
       // Add another entry - should evict oldest
       const newResult: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
@@ -142,7 +137,6 @@ describe('DocumentStateCache', () => {
     it('should not evict when updating existing entry', () => {
       const uri = 'file:///test.cls';
       const result1: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
@@ -154,7 +148,6 @@ describe('DocumentStateCache', () => {
       expect(cache.size()).toBe(1);
 
       const result2: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 2,
         timestamp: Date.now(),
@@ -171,7 +164,6 @@ describe('DocumentStateCache', () => {
     it('should remove specific cache entry', () => {
       const uri = 'file:///test.cls';
       const result: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
@@ -190,7 +182,6 @@ describe('DocumentStateCache', () => {
     it('should increment invalidation count', () => {
       const uri = 'file:///test.cls';
       const result: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
@@ -210,7 +201,6 @@ describe('DocumentStateCache', () => {
     it('should remove all cache entries', () => {
       for (let i = 0; i < 5; i++) {
         const result: DocumentState = {
-          symbolTable: new SymbolTable(),
           diagnostics: [],
           documentVersion: 1,
           timestamp: Date.now(),
@@ -228,7 +218,6 @@ describe('DocumentStateCache', () => {
     it('should increment eviction count', () => {
       for (let i = 0; i < 5; i++) {
         const result: DocumentState = {
-          symbolTable: new SymbolTable(),
           diagnostics: [],
           documentVersion: 1,
           timestamp: Date.now(),
@@ -248,7 +237,6 @@ describe('DocumentStateCache', () => {
     it('should track cache hits and misses', () => {
       const uri = 'file:///test.cls';
       const result: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
@@ -275,7 +263,6 @@ describe('DocumentStateCache', () => {
     it('should track cache size and utilization', () => {
       for (let i = 0; i < 5; i++) {
         const result: DocumentState = {
-          symbolTable: new SymbolTable(),
           diagnostics: [],
           documentVersion: 1,
           timestamp: Date.now(),
@@ -296,7 +283,6 @@ describe('DocumentStateCache', () => {
     it('should return true when URI is cached', () => {
       const uri = 'file:///test.cls';
       const result: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
@@ -344,7 +330,6 @@ describe('DocumentStateCache', () => {
 
       // Set version 1
       const result1: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
@@ -361,7 +346,6 @@ describe('DocumentStateCache', () => {
 
       // Update to version 2
       const result2: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 2,
         timestamp: Date.now(),
@@ -380,7 +364,6 @@ describe('DocumentStateCache', () => {
 
       for (let version = 1; version <= 5; version++) {
         const result: DocumentState = {
-          symbolTable: new SymbolTable(),
           diagnostics: [],
           documentVersion: version,
           timestamp: Date.now(),
@@ -408,7 +391,6 @@ describe('DocumentStateCache', () => {
     it('should default symbolsIndexed to false for new entries', () => {
       const uri = 'file:///test.cls';
       const result: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
@@ -426,7 +408,6 @@ describe('DocumentStateCache', () => {
     it('should preserve symbolsIndexed when merging if not explicitly overridden', () => {
       const uri = 'file:///test.cls';
       const initial: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
@@ -449,7 +430,6 @@ describe('DocumentStateCache', () => {
     it('should update symbolsIndexed when explicitly set in merge', () => {
       const uri = 'file:///test.cls';
       const initial: DocumentState = {
-        symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
@@ -476,7 +456,6 @@ describe('DocumentStateCache', () => {
       cache.merge(uri, {
         documentVersion: 1,
         documentLength: 100,
-        symbolTable: new SymbolTable(),
       });
 
       const retrieved = cache.get(uri, 1);
@@ -491,7 +470,6 @@ describe('DocumentStateCache', () => {
       cache.merge(uri, {
         documentVersion: 1,
         documentLength: 100,
-        symbolTable: new SymbolTable(),
         symbolsIndexed: true,
       });
 

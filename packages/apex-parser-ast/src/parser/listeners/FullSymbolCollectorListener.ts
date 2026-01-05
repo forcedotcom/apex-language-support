@@ -43,7 +43,6 @@ interface SemanticError {
  * - ApexReferenceCollectorListener (reference collection)
  * - ApexReferenceResolver (reference resolution)
  *
- * @deprecated Consider using layered listeners directly for better performance control
  */
 export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTable> {
   private readonly logger = getLogger();

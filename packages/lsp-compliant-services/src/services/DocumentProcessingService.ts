@@ -118,27 +118,19 @@ export class DocumentProcessingService {
         // Still update storage
         await storage.setDocument(event.document.uri, event.document);
 
-        // Even if cached, ensure symbols are added to the symbol manager
-        // (they might have been cached from a diagnostic request that didn't add symbols)
-        if (cached.symbolTable) {
-          const symbolManager = backgroundManager.getSymbolManager();
-          const existingSymbols = symbolManager.findSymbolsInFile(
-            event.document.uri,
+        // Check if symbols exist in symbol manager (they should if cache hit)
+        // If not, we need to recompile to get them
+        const symbolManager = backgroundManager.getSymbolManager();
+        const existingSymbols = symbolManager.findSymbolsInFile(
+          event.document.uri,
+        );
+        if (existingSymbols.length === 0) {
+          // Cache hit but no symbols in manager - need to recompile
+          this.logger.debug(
+            () =>
+              `Batch: Cached file ${event.document.uri} has no symbols in manager, will recompile`,
           );
-          if (existingSymbols.length === 0) {
-            this.logger.debug(
-              () =>
-                `Batch: Cached file ${event.document.uri} has no symbols in manager, adding them now`,
-            );
-            await symbolManager.addSymbolTable(
-              cached.symbolTable,
-              event.document.uri,
-            );
-            this.logger.debug(
-              () =>
-                `Batch: Successfully added cached symbols synchronously for ${event.document.uri}`,
-            );
-          }
+          uncachedEvents.push(event);
         }
       } else {
         uncachedEvents.push(event);
@@ -202,9 +194,8 @@ export class DocumentProcessingService {
                 `from listener: ${listener instanceof PublicAPISymbolListener}`,
             );
 
-            // Cache diagnostics and symbol table
+            // Cache diagnostics (SymbolTable is stored in ApexSymbolManager)
             cache.merge(event.document.uri, {
-              symbolTable,
               diagnostics,
               documentVersion: event.document.version,
               documentLength: event.document.getText().length,
@@ -275,31 +266,23 @@ export class DocumentProcessingService {
     if (cached) {
       await storage.setDocument(event.document.uri, event.document);
 
-      // Even if cached, we need to ensure symbols are added to the symbol manager
-      // (they might have been cached from a diagnostic request that didn't add symbols)
-      if (cached.symbolTable) {
-        const symbolManager = backgroundManager.getSymbolManager();
-        // Check if symbols already exist for this file
-        const existingSymbols = symbolManager.findSymbolsInFile(
-          event.document.uri,
+      // Check if symbols exist in symbol manager (they should if cache hit)
+      // If not, we need to recompile to get them
+      const symbolManager = backgroundManager.getSymbolManager();
+      const existingSymbols = symbolManager.findSymbolsInFile(
+        event.document.uri,
+      );
+      if (existingSymbols.length === 0) {
+        // Cache hit but no symbols in manager - need to recompile
+        this.logger.debug(
+          () =>
+            `Cached file ${event.document.uri} has no symbols in manager, will recompile`,
         );
-        if (existingSymbols.length === 0) {
-          this.logger.debug(
-            () =>
-              `Cached file ${event.document.uri} has no symbols in manager, adding them now`,
-          );
-          await symbolManager.addSymbolTable(
-            cached.symbolTable,
-            event.document.uri,
-          );
-          this.logger.debug(
-            () =>
-              `Successfully added cached symbols synchronously for ${event.document.uri}`,
-          );
-        }
+        // Fall through to recompilation
+      } else {
+        // Cache hit and symbols exist - return cached diagnostics
+        return cached.diagnostics;
       }
-
-      return cached.diagnostics;
     }
 
     try {
@@ -337,9 +320,8 @@ export class DocumentProcessingService {
             `type: ${typeof compileResult.result}, instanceof: ${compileResult.result instanceof SymbolTable}`,
         );
 
-        // Cache diagnostics and symbol table
+        // Cache diagnostics (SymbolTable is stored in ApexSymbolManager)
         cache.merge(event.document.uri, {
-          symbolTable,
           diagnostics,
           documentVersion: event.document.version,
           documentLength: event.document.getText().length,

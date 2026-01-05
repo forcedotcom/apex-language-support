@@ -272,9 +272,18 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       // Get diagnostics from errors
       const diagnostics = getDiagnosticsFromErrors(result.errors);
 
-      // Cache the parse result
+      // Add SymbolTable to manager if not already present
+      const existingSymbols = this.symbolManager.findSymbolsInFile(document.uri);
+      if (existingSymbols.length === 0 && table) {
+        await this.symbolManager.addSymbolTable(table, document.uri);
+        this.logger.debug(
+          () =>
+            `Added SymbolTable to manager for ${document.uri} during diagnostics`,
+        );
+      }
+
+      // Cache diagnostics (SymbolTable is stored in ApexSymbolManager)
       parseCache.merge(document.uri, {
-        symbolTable: table,
         diagnostics,
         documentVersion: document.version,
         documentLength: document.getText().length,
