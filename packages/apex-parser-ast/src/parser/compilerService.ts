@@ -77,8 +77,8 @@ export interface CompilationOptions {
   includeSingleLineComments?: boolean;
   associateComments?: boolean;
   enableReferenceCorrection?: boolean; // New option, defaults to true
-  collectReferences?: boolean; // Collect references using ApexReferenceCollectorListener (default: false)
-  resolveReferences?: boolean; // Resolve references using ApexReferenceResolver (default: true if collectReferences)
+  collectReferences?: boolean; // Collect references using ApexReferenceCollectorListener
+  resolveReferences?: boolean; // Resolve references using ApexReferenceResolver
 }
 
 export interface LayeredCompilationOptions extends CompilationOptions {

@@ -521,7 +521,9 @@ describe('DiagnosticProcessingService', () => {
       const { Effect } = require('effect');
       const mockResolveEffect = Effect.succeed(undefined);
       const mockSymbolManager = {
-        resolveCrossFileReferencesForFile: jest.fn().mockReturnValue(mockResolveEffect),
+        resolveCrossFileReferencesForFile: jest
+          .fn()
+          .mockReturnValue(mockResolveEffect),
         findSymbolsInFile: jest.fn().mockReturnValue([]),
         addSymbolTable: jest.fn().mockResolvedValue(undefined),
       };

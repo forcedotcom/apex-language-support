@@ -536,7 +536,6 @@ export class ProtectedSymbolListener extends LayeredSymbolListenerBase {
     const fileUri = this.symbolTable.getFileUri();
     const scopePath = this.symbolTable.getCurrentScopePath(parentScope);
 
-    const _searchName = semanticName || name;
     const currentType = this.getCurrentType();
     let parentId: string | null = null;
     if (currentType && scopeType === 'class') {

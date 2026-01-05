@@ -354,9 +354,6 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       compilerService.compile(fileContent, 'ComplexClass.cls', privateListener);
 
       const layeredSymbols = getSemanticSymbols(layeredSymbolTable);
-      const _layeredParameters = layeredSymbols.filter(
-        (s) => s.kind === SymbolKind.Parameter,
-      );
 
       // Parameters are captured as part of method symbols in layered listeners
       // Check that methods have parameters if full listener captured them
@@ -484,10 +481,6 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       compilerService.compile(fileContent, 'TestEnum.cls', publicListener);
 
       const layeredSymbols = getSemanticSymbols(layeredSymbolTable);
-      const _layeredEnums = layeredSymbols.filter(
-        (s) => s.kind === SymbolKind.Enum,
-      );
-
       // Enums may not be fully implemented in PublicAPISymbolListener yet
       // This test verifies the structure is compatible when enums are captured
       if (fullEnums.length > 0) {

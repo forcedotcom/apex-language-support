@@ -273,7 +273,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       const diagnostics = getDiagnosticsFromErrors(result.errors);
 
       // Add SymbolTable to manager if not already present
-      const existingSymbols = this.symbolManager.findSymbolsInFile(document.uri);
+      const existingSymbols = this.symbolManager.findSymbolsInFile(
+        document.uri,
+      );
       if (existingSymbols.length === 0 && table) {
         await this.symbolManager.addSymbolTable(table, document.uri);
         this.logger.debug(

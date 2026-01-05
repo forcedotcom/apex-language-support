@@ -7,7 +7,7 @@
  */
 
 import { HashMap } from 'data-structure-typed';
-import { SymbolTable, FoldingRange } from '@salesforce/apex-lsp-parser-ast';
+import { FoldingRange } from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Diagnostic } from 'vscode-languageserver-protocol';
 

@@ -677,7 +677,6 @@ export class PublicAPISymbolListener extends LayeredSymbolListenerBase {
     const scopePath = this.symbolTable.getCurrentScopePath(parentScope);
 
     // Find semantic symbol and determine parentId
-    const _searchName = semanticName || name;
     const currentType = this.getCurrentType();
     let parentId: string | null = null;
     if (currentType && scopeType === 'class') {

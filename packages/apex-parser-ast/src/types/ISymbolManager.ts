@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbol, SymbolResolutionStrategy, SymbolTable } from '../types/symbol';
+import {
+  ApexSymbol,
+  SymbolResolutionStrategy,
+  SymbolTable,
+} from '../types/symbol';
 import {
   ReferenceResult,
   DependencyAnalysis,

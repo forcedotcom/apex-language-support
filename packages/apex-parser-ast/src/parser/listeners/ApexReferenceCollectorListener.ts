@@ -301,7 +301,6 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       const typeName = typeNames[0];
       if (!typeName) return;
 
-      const _isGenericArg = this.isGenericArgument(ctx);
       const isTypeDeclaration = this.isTypeDeclarationContext(ctx);
       const isMethodReturnType = this.isMethodReturnTypeContext(ctx);
 

@@ -136,10 +136,10 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
 
           const backgroundManager = ApexSymbolProcessingManager.getInstance();
           const symbolManager = backgroundManager.getSymbolManager();
-          
+
           // Get SymbolTable from manager (not cache)
           const symbolTable = symbolManager.getSymbolTableForFile(document.uri);
-          
+
           if (symbolTable) {
             // Remove old symbols before adding new ones (didSave should refresh symbols)
             symbolManager.removeFile(document.uri);
@@ -167,7 +167,7 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
             );
             // Fall through to recompilation
           }
-          
+
           if (symbolTable) {
             return;
           }
