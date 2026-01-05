@@ -18,12 +18,10 @@ import {
   ISymbolManager,
   CompilerService,
   DetailLevel,
-  SymbolTable,
-  CompilationResult,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { getDocumentStateCache, DetailLevel as CacheDetailLevel } from './DocumentStateCache';
+import { getDocumentStateCache } from './DocumentStateCache';
 
 /**
  * File selection strategy for layer enrichment
@@ -133,7 +131,8 @@ export class LayerEnrichmentService {
               // Get all files and filter by namespace
               const allFiles = this.getAllWorkspaceFiles();
               for (const fileUri of allFiles) {
-                const fileSymbols = this.symbolManager.findSymbolsInFile(fileUri);
+                const fileSymbols =
+                  this.symbolManager.findSymbolsInFile(fileUri);
                 if (
                   fileSymbols.length > 0 &&
                   fileSymbols[0].namespace === namespace
@@ -169,7 +168,8 @@ export class LayerEnrichmentService {
 
             // Find references from this symbol (files it references)
             try {
-              const referencesFrom = this.symbolManager.findReferencesFrom(symbol);
+              const referencesFrom =
+                this.symbolManager.findReferencesFrom(symbol);
               for (const ref of referencesFrom) {
                 if (ref.fileUri && ref.fileUri !== context.fileUri) {
                   relatedFiles.add(ref.fileUri);
@@ -214,7 +214,11 @@ export class LayerEnrichmentService {
     const storage = storageManager.getStorage();
 
     // Filter files that need enrichment
-    const filesToEnrich: Array<{ uri: string; currentLevel: DetailLevel | null; version: number }> = [];
+    const filesToEnrich: Array<{
+      uri: string;
+      currentLevel: DetailLevel | null;
+      version: number;
+    }> = [];
 
     for (const fileUri of fileUris) {
       try {
@@ -233,9 +237,7 @@ export class LayerEnrichmentService {
           });
         }
       } catch (error) {
-        this.logger.debug(
-          () => `Error checking file ${fileUri}: ${error}`,
-        );
+        this.logger.debug(() => `Error checking file ${fileUri}: ${error}`);
       }
     }
 
@@ -259,7 +261,7 @@ export class LayerEnrichmentService {
           token: workDoneToken,
           value: {
             kind: 'begin',
-            title: `Enriching symbol layers`,
+            title: 'Enriching symbol layers',
             message: `Enriching ${filesToEnrich.length} files to ${targetLevel} level`,
             percentage: 0,
           } as WorkDoneProgressBegin,
@@ -294,7 +296,11 @@ export class LayerEnrichmentService {
    * Effect-based enrichment with yielding for progress
    */
   private enrichFilesEffect(
-    filesToEnrich: Array<{ uri: string; currentLevel: DetailLevel | null; version: number }>,
+    filesToEnrich: Array<{
+      uri: string;
+      currentLevel: DetailLevel | null;
+      version: number;
+    }>,
     targetLevel: DetailLevel,
     workDoneToken?: ProgressToken | SharedProgressToken,
   ): Effect.Effect<void, never, never> {
@@ -308,7 +314,9 @@ export class LayerEnrichmentService {
         const { uri, currentLevel, version } = filesToEnrich[i];
 
         try {
-          const document = yield* Effect.promise(() => storage.getDocument(uri));
+          const document = yield* Effect.promise(() =>
+            storage.getDocument(uri),
+          );
           if (!document) {
             continue;
           }
@@ -324,7 +332,8 @@ export class LayerEnrichmentService {
           }
 
           // Get existing symbol table
-          const existingSymbolTable = self.symbolManager.getSymbolTableForFile(uri);
+          const existingSymbolTable =
+            self.symbolManager.getSymbolTableForFile(uri);
 
           // Compile with additional layers
           const result = self.compilerService.compileLayered(
@@ -373,7 +382,7 @@ export class LayerEnrichmentService {
                   percentage,
                 } as WorkDoneProgressReport,
               });
-            } catch (error) {
+            } catch (_error) {
               // Ignore progress errors
             }
           }
@@ -383,9 +392,7 @@ export class LayerEnrichmentService {
             yield* Effect.yieldNow();
           }
         } catch (error) {
-          self.logger.error(
-            () => `Error enriching file ${uri}: ${error}`,
-          );
+          self.logger.error(() => `Error enriching file ${uri}: ${error}`);
         }
       }
     });
@@ -449,4 +456,3 @@ export class LayerEnrichmentService {
     return files;
   }
 }
-

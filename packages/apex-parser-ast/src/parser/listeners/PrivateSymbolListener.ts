@@ -588,8 +588,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
           startColumn: idNode.start.charPositionInLine,
           endLine: idNode.stop.line,
           endColumn:
-            idNode.stop.charPositionInLine +
-            (idNode.stop.text?.length || 0),
+            idNode.stop.charPositionInLine + (idNode.stop.text?.length || 0),
         };
       }
     }
@@ -600,8 +599,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
         startLine: ctx.start.line,
         startColumn: ctx.start.charPositionInLine,
         endLine: ctx.start.line,
-        endColumn:
-          ctx.start.charPositionInLine + (ctx.start.text?.length || 0),
+        endColumn: ctx.start.charPositionInLine + (ctx.start.text?.length || 0),
       };
     }
 

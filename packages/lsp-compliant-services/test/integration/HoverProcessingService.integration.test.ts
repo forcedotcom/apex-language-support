@@ -1927,7 +1927,10 @@ describe('HoverProcessingService Integration Tests', () => {
     it('should provide hover information for method name in this.methodName() expression', async () => {
       const fixturesDir = join(__dirname, '../fixtures/classes');
       const hoverTestClassPath = join(fixturesDir, 'HoverTestClass.cls');
-      const serviceClassPath = join(fixturesDir, 'AccountRecordTypeAutoDeletionService.cls');
+      const serviceClassPath = join(
+        fixturesDir,
+        'AccountRecordTypeAutoDeletionService.cls',
+      );
 
       const hoverTestClassContent = readFileSync(hoverTestClassPath, 'utf8');
       const serviceClassContent = readFileSync(serviceClassPath, 'utf8');
@@ -1942,7 +1945,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       // Compile and add both classes to symbol manager
       const compilerService = new CompilerService();
-      
+
       // Compile AccountRecordTypeAutoDeletionService first
       const serviceClassListener = new FullSymbolCollectorListener();
       const serviceClassResult = compilerService.compile(
@@ -1983,8 +1986,9 @@ describe('HoverProcessingService Integration Tests', () => {
       );
       expect(targetLine).toBeGreaterThanOrEqual(0);
       const targetLineText = lines[targetLine];
-      const methodNameStart =
-        targetLineText.indexOf('locateAccountRecordTypeAutoDeletionService');
+      const methodNameStart = targetLineText.indexOf(
+        'locateAccountRecordTypeAutoDeletionService',
+      );
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///HoverTestClass.cls' },
@@ -2008,10 +2012,19 @@ describe('HoverProcessingService Integration Tests', () => {
   describe('Hover Fixes - new ClassName() expressions', () => {
     it('should provide hover information for class name in new ClassName() expression', async () => {
       const fixturesDir = join(__dirname, '../fixtures/classes');
-      const newExpressionTestClassPath = join(fixturesDir, 'NewExpressionTestClass.cls');
-      const mapperClassPath = join(fixturesDir, 'AccountAutoDeletionSettingsVMapper.cls');
+      const newExpressionTestClassPath = join(
+        fixturesDir,
+        'NewExpressionTestClass.cls',
+      );
+      const mapperClassPath = join(
+        fixturesDir,
+        'AccountAutoDeletionSettingsVMapper.cls',
+      );
 
-      const newExpressionTestClassContent = readFileSync(newExpressionTestClassPath, 'utf8');
+      const newExpressionTestClassContent = readFileSync(
+        newExpressionTestClassPath,
+        'utf8',
+      );
       const mapperClassContent = readFileSync(mapperClassPath, 'utf8');
 
       const document = TextDocument.create(
@@ -2024,7 +2037,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       // Compile and add both classes to symbol manager
       const compilerService = new CompilerService();
-      
+
       // Compile AccountAutoDeletionSettingsVMapper first (so it's available when NewExpressionTestClass references it)
       const mapperClassListener = new FullSymbolCollectorListener();
       const mapperClassResult = compilerService.compile(
@@ -2106,7 +2119,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       // Compile and add both classes to symbol manager
       const compilerService = new CompilerService();
-      
+
       // Compile TestClass
       const testClassListener = new FullSymbolCollectorListener();
       const testClassResult = compilerService.compile(
@@ -2176,10 +2189,19 @@ describe('HoverProcessingService Integration Tests', () => {
   describe('Hover Fixes - assignment LHS', () => {
     it('should provide hover information for private static field when hovering on assignment LHS', async () => {
       const fixturesDir = join(__dirname, '../fixtures/classes');
-      const assignmentLHSTestClassPath = join(fixturesDir, 'AssignmentLHSTestClass.cls');
-      const mapperClassPath = join(fixturesDir, 'AccountAutoDeletionSettingsVMapper.cls');
+      const assignmentLHSTestClassPath = join(
+        fixturesDir,
+        'AssignmentLHSTestClass.cls',
+      );
+      const mapperClassPath = join(
+        fixturesDir,
+        'AccountAutoDeletionSettingsVMapper.cls',
+      );
 
-      const assignmentLHSTestClassContent = readFileSync(assignmentLHSTestClassPath, 'utf8');
+      const assignmentLHSTestClassContent = readFileSync(
+        assignmentLHSTestClassPath,
+        'utf8',
+      );
       const mapperClassContent = readFileSync(mapperClassPath, 'utf8');
 
       const document = TextDocument.create(
@@ -2192,7 +2214,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       // Compile and add both classes to symbol manager
       const compilerService = new CompilerService();
-      
+
       // Compile AccountAutoDeletionSettingsVMapper first
       const mapperClassListener = new FullSymbolCollectorListener();
       const mapperClassResult = compilerService.compile(

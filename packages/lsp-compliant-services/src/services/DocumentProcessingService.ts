@@ -368,11 +368,7 @@ export class DocumentProcessingService {
               );
               // Enrich asynchronously (don't block diagnostics return)
               this.layerEnrichmentService
-                .enrichFiles(
-                  [event.document.uri],
-                  'full',
-                  'same-file',
-                )
+                .enrichFiles([event.document.uri], 'full', 'same-file')
                 .then(() => {
                   this.logger.debug(
                     () =>
@@ -381,8 +377,7 @@ export class DocumentProcessingService {
                 })
                 .catch((error) => {
                   this.logger.debug(
-                    () =>
-                      `Error enriching ${event.document.uri}: ${error}`,
+                    () => `Error enriching ${event.document.uri}: ${error}`,
                   );
                 });
             } catch (error) {

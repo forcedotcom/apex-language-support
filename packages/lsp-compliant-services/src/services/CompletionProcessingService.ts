@@ -121,14 +121,12 @@ export class CompletionProcessingService implements ICompletionProcessor {
             )
             .catch((error: unknown) => {
               this.logger.debug(
-                () =>
-                  `Error enriching file for completion: ${error}`,
+                () => `Error enriching file for completion: ${error}`,
               );
             });
         } catch (error) {
           this.logger.debug(
-            () =>
-              `Error initiating enrichment for completion: ${error}`,
+            () => `Error initiating enrichment for completion: ${error}`,
           );
         }
       }

@@ -202,15 +202,13 @@ export class ReferencesProcessingService implements IReferencesProcessor {
               )
               .catch((error) => {
                 this.logger.debug(
-                  () =>
-                    `Error enriching files for references: ${error}`,
+                  () => `Error enriching files for references: ${error}`,
                 );
               });
           }
         } catch (error) {
           this.logger.debug(
-            () =>
-              `Error initiating enrichment for references: ${error}`,
+            () => `Error initiating enrichment for references: ${error}`,
           );
         }
       }

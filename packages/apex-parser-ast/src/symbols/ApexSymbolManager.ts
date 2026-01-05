@@ -3640,7 +3640,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           // Second try: method block -> method symbol -> class block (for compatibility)
           const methodSymbol = allFileSymbols.find(
-            (s) => s.id === blockSymbol.parentId && s.kind === SymbolKind.Method,
+            (s) =>
+              s.id === blockSymbol.parentId && s.kind === SymbolKind.Method,
           );
           if (methodSymbol && methodSymbol.parentId) {
             // Method symbol's parentId points to the class block
@@ -3801,13 +3802,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // If a SymbolReference was created, it means the parser determined it's being used
       // as an identifier (from id/anyId context), not as a keyword (accessLevel context)
 
-      // Step 3: For CLASS_REFERENCE, skip scope-based resolution and go straight to name lookup
-      // CLASS_REFERENCE is meant to reference classes from other files, not local variables
+      // Step 3: For CLASS_REFERENCE, CONSTRUCTOR_CALL, and GENERIC_PARAMETER_TYPE,
+      // skip scope-based resolution and go straight to name lookup
+      // These contexts reference classes/types, not local variables
       // Also handle VARIABLE_USAGE that matches a class qualifier (sometimes incorrectly created)
       // When VARIABLE_USAGE is used for a class qualifier, try to resolve it as a class
       // We check if VARIABLE_USAGE matches a class name, and if so, treat it as CLASS_REFERENCE
       const isClassReferenceContext =
         typeReference.context === ReferenceContext.CLASS_REFERENCE ||
+        typeReference.context === ReferenceContext.CONSTRUCTOR_CALL ||
+        typeReference.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
         (typeReference.context === ReferenceContext.VARIABLE_USAGE &&
           // For VARIABLE_USAGE, try to resolve as class if it matches a class name
           // This handles cases where VARIABLE_USAGE is incorrectly used for class qualifiers
@@ -3824,17 +3828,35 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           })());
       if (isClassReferenceContext) {
         const candidates = this.findSymbolByName(typeReference.name);
-        if (candidates.length === 0) {
-          return null;
+        
+        // If name-based lookup fails, try searching in the source file's symbol table directly
+        // This handles cases where symbols exist but haven't been indexed by name yet
+        let classCandidates: ApexSymbol[] = [];
+        if (candidates.length > 0) {
+          // Filter to class symbols only
+          classCandidates = candidates.filter(
+            (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+          );
         }
-        // Filter to class symbols only
-        const classCandidates = candidates.filter(
-          (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-        );
+        
+        // Fallback: search symbol table directly if name lookup found nothing
+        if (classCandidates.length === 0) {
+          const symbolTable = this.symbolGraph.getSymbolTableForFile(sourceFile);
+          if (symbolTable) {
+            const allSymbols = symbolTable.getAllSymbols();
+            classCandidates = allSymbols.filter(
+              (s) =>
+                s.name === typeReference.name &&
+                (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface),
+            );
+          }
+        }
+        
         if (classCandidates.length > 0) {
           // Prefer same-file classes, then accessible classes
+          // Use fileUri for comparison as it's more reliable than key.path[0]
           const sameFileClass = classCandidates.find(
-            (s) => s.key.path[0] === sourceFile,
+            (s) => s.fileUri === sourceFile || s.key.path[0] === sourceFile,
           );
           if (sameFileClass) {
             return sameFileClass;
@@ -3870,8 +3892,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Step 5: For unqualified references, try same-file resolution first
+      // Use fileUri for comparison as it's more reliable than key.path[0]
       const sameFileCandidates = candidates.filter(
-        (symbol) => symbol.key.path[0] === sourceFile,
+        (symbol) => symbol.fileUri === sourceFile || symbol.key.path[0] === sourceFile,
       );
 
       if (sameFileCandidates.length > 0) {
@@ -5399,12 +5422,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             fileUri,
             position,
           );
-          
+
           if (refsAtPosition.length === 0) {
             // No references means this is a declaration - return the symbol directly
             return symbol;
           }
-          
+
           // If there are references, try to resolve the first one
           // But if it doesn't resolve to a symbol, fall back to the declaration
           // This handles cases where references exist but don't resolve (e.g., invalid references)
@@ -5414,12 +5437,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             fileUri,
             position,
           );
-          
+
           if (resolvedFromRef) {
             // Reference resolved to a symbol - use that (for method calls, chained expressions, etc.)
             return resolvedFromRef;
           }
-          
+
           // References exist but didn't resolve - this is likely a declaration
           // Return the declaration symbol so hover works on method/field names in declarations
           return symbol;

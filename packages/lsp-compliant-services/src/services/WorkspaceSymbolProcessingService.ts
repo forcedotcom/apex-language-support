@@ -91,23 +91,25 @@ export class WorkspaceSymbolProcessingService
 
       // Determine required detail level based on query
       if (this.layerEnrichmentService) {
-        const requiredLevel = this.layerEnrichmentService.determineRequiredLevel(
-          'workspaceSymbol',
-          {
-            query: params.query,
-            includePrivate: context.query?.includes('private'),
-            includeProtected: context.query?.includes('protected'),
-          },
-        );
+        const requiredLevel =
+          this.layerEnrichmentService.determineRequiredLevel(
+            'workspaceSymbol',
+            {
+              query: params.query,
+              includePrivate: context.query?.includes('private'),
+              includeProtected: context.query?.includes('protected'),
+            },
+          );
 
         // If we need deeper than public-api, enrich matching files
         if (requiredLevel !== 'public-api') {
           try {
             // Select files to enrich based on query (workspace-wide for workspace symbol search)
-            const filesToEnrich = this.layerEnrichmentService.selectFilesToEnrich(
-              { query: params.query },
-              'workspace-wide',
-            );
+            const filesToEnrich =
+              this.layerEnrichmentService.selectFilesToEnrich(
+                { query: params.query },
+                'workspace-wide',
+              );
 
             if (filesToEnrich.length > 0) {
               // Enrich asynchronously - return partial results immediately
@@ -120,15 +122,13 @@ export class WorkspaceSymbolProcessingService
                 )
                 .catch((error) => {
                   this.logger.debug(
-                    () =>
-                      `Error enriching files for workspaceSymbol: ${error}`,
+                    () => `Error enriching files for workspaceSymbol: ${error}`,
                   );
                 });
             }
           } catch (error) {
             this.logger.debug(
-              () =>
-                `Error initiating enrichment for workspaceSymbol: ${error}`,
+              () => `Error initiating enrichment for workspaceSymbol: ${error}`,
             );
           }
         }

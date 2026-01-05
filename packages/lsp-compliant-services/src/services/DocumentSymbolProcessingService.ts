@@ -101,8 +101,7 @@ export class DocumentSymbolProcessingService
             );
           } catch (error) {
             this.logger.debug(
-              () =>
-                `Error enriching file for documentSymbol: ${error}`,
+              () => `Error enriching file for documentSymbol: ${error}`,
             );
           }
         }

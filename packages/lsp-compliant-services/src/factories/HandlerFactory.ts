@@ -222,9 +222,10 @@ export class HandlerFactory {
    */
   static createHoverHandler(): HoverHandler {
     const logger = getLogger();
-    const symbolManager = ApexSymbolProcessingManager.getInstance().getSymbolManager();
+    const symbolManager =
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
     const hoverProcessor = new HoverProcessingService(logger, symbolManager);
-    
+
     // Inject LayerEnrichmentService for on-demand SymbolTable enrichment
     const layerEnrichmentService = new LayerEnrichmentService(
       logger,

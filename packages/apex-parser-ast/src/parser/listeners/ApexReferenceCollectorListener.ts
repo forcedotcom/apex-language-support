@@ -240,7 +240,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       this.logger.debug(
         () =>
           `[DOT_METHOD_CALL] Creating reference for "${methodName}" ` +
-          `at ${methodLocation.identifierRange.startLine}:${methodLocation.identifierRange.startColumn}-${methodLocation.identifierRange.endLine}:${methodLocation.identifierRange.endColumn} ` +
+          `at ${methodLocation.identifierRange.startLine}:${methodLocation.identifierRange.startColumn}-` +
+          `${methodLocation.identifierRange.endLine}:${methodLocation.identifierRange.endColumn} ` +
           `(anyIdNode type: ${anyIdNode ? anyIdNode.constructor.name : 'null'})`,
       );
 
@@ -1001,7 +1002,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
       this.logger.debug(
         () =>
-          `[CONSTRUCTOR_CALL] Created reference for "${className}" at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}-${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
+          `[CONSTRUCTOR_CALL] Created reference for "${className}" at ` +
+          `${location.identifierRange.startLine}:${location.identifierRange.startColumn}-` +
+          `${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
       );
 
       const parentContext = this.getCurrentMethodName();
@@ -1091,7 +1094,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             () =>
               `[CHAIN_ROOT] Creating memberRef for "${chainNode.name}" ` +
               `with context ${finalContext} ` +
-              `at ${chainNode.location.identifierRange.startLine}:${chainNode.location.identifierRange.startColumn}-${chainNode.location.identifierRange.endLine}:${chainNode.location.identifierRange.endColumn}`,
+              `at ${chainNode.location.identifierRange.startLine}:${chainNode.location.identifierRange.startColumn}-` +
+              `${chainNode.location.identifierRange.endLine}:${chainNode.location.identifierRange.endColumn}`,
           );
 
           const memberRef = new EnhancedSymbolReference(
@@ -1633,7 +1637,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       };
       this.logger.debug(
         () =>
-          `[getLocationForReference] TerminalNode: "${text}" at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}-${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
+          `[getLocationForReference] TerminalNode: "${text}" at ` +
+          `${location.identifierRange.startLine}:${location.identifierRange.startColumn}-` +
+          `${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
       );
       return location;
     }
@@ -1643,7 +1649,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       const location = this.getLocation(ctx as ParserRuleContext);
       this.logger.debug(
         () =>
-          `[getLocationForReference] ParserRuleContext: at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}-${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
+          '[getLocationForReference] ParserRuleContext: at ' +
+          `${location.identifierRange.startLine}:${location.identifierRange.startColumn}-` +
+          `${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
       );
       return location;
     }
@@ -1652,7 +1660,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     const location = this.getLocation(ctx as ParserRuleContext);
     this.logger.debug(
       () =>
-        `[getLocationForReference] Fallback: at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}-${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
+        '[getLocationForReference] Fallback: at ' +
+        `${location.identifierRange.startLine}:${location.identifierRange.startColumn}-` +
+        `${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
     );
     return location;
   }

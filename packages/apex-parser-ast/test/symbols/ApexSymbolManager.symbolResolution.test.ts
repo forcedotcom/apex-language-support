@@ -16,6 +16,8 @@ import {
   reset as schedulerReset,
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
+import * as fs from 'fs';
+import * as path from 'path';
 
 describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
   let symbolManager: ApexSymbolManager;
@@ -58,113 +60,121 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     symbolManager.clear();
   });
 
-  describe('this.methodName() hover resolution', () => {
+  /**
+   * Load a fixture file from the symbol-resolution fixtures directory
+   */
+  const loadFixture = (filename: string): string => {
+    const fixturePath = path.join(
+      __dirname,
+      '../fixtures/symbol-resolution',
+      filename,
+    );
+    return fs.readFileSync(fixturePath, 'utf8');
+  };
+
+  /**
+   * Find the line and character position of a search string in source code
+   */
+  const findPosition = (
+    sourceCode: string,
+    searchString: string,
+    offset: number = 0,
+  ): { line: number; character: number } => {
+    const lines = sourceCode.split('\n');
+    const targetLineIndex = lines.findIndex((line) =>
+      line.includes(searchString),
+    );
+    expect(targetLineIndex).toBeGreaterThanOrEqual(0);
+    // Convert 0-based array index to 1-based line number
+    const targetLine = targetLineIndex + 1;
+    const targetLineText = lines[targetLineIndex];
+    const character = targetLineText.indexOf(searchString) + offset;
+    return { line: targetLine, character };
+  };
+
+  describe('this.methodName() symbol resolution', () => {
     it('should resolve method name in this.methodName() expression', async () => {
-      const sourceCode = `
-        public class TestClass {
-          public void testMethod() {
-            this.locateAccountRecordTypeAutoDeletionService();
-          }
-          
-          private AccountRecordTypeAutoDeletionService locateAccountRecordTypeAutoDeletionService() {
-            return new AccountRecordTypeAutoDeletionService();
-          }
-        }
-      `;
+      const sourceCode = loadFixture('ThisMethodCall.cls');
+      const fileUri = 'file:///test/ThisMethodCall.cls';
 
       const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'file:///test/TestClass.cls',
-        listener,
-      );
+      const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
-        await symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClass.cls',
-        );
+        await symbolManager.addSymbolTable(result.result, fileUri);
       }
 
       // Wait for reference processing
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Calculate position: find the method name in the source code
-      const lines = sourceCode.split('\n');
-      const targetLine = lines.findIndex((line) =>
-        line.includes('this.locateAccountRecordTypeAutoDeletionService()'),
-      );
-      const targetLineText = lines[targetLine];
-      const methodNameStart = targetLineText.indexOf(
+      const position = findPosition(
+        sourceCode,
         'locateAccountRecordTypeAutoDeletionService',
       );
 
-      // Test hover on method name in "this.locateAccountRecordTypeAutoDeletionService()"
+      // Test symbol resolution on method name in "this.locateAccountRecordTypeAutoDeletionService()"
       const symbol = await symbolManager.getSymbolAtPosition(
-        'file:///test/TestClass.cls',
-        { line: targetLine, character: methodNameStart },
+        fileUri,
+        position,
         'precise',
       );
 
       expect(symbol).toBeDefined();
       expect(symbol?.name).toBe('locateAccountRecordTypeAutoDeletionService');
       expect(symbol?.kind).toBe('method');
-      expect(symbol?.fileUri).toBe('file:///test/TestClass.cls');
+      expect(symbol?.fileUri).toBe(fileUri);
     });
 
     it('should resolve method name in chained this.methodName().anotherMethod() expression', async () => {
-      const sourceCode = `
-        public class TestClass {
-          public void testMethod() {
-            this.locateAccountRecordTypeAutoDeletionService()
-                .getAccountRecordTypeAutoDeletionModel();
-          }
-          
-          private AccountRecordTypeAutoDeletionService locateAccountRecordTypeAutoDeletionService() {
-            return new AccountRecordTypeAutoDeletionService();
-          }
-        }
-      `;
+      const sourceCode = loadFixture('ChainedThisMethodCall.cls');
+      const fileUri = 'file:///test/ChainedThisMethodCall.cls';
 
       const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'file:///test/TestClass.cls',
-        listener,
-      );
+      const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
-        await symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClass.cls',
-        );
+        await symbolManager.addSymbolTable(result.result, fileUri);
       }
 
       // Wait for reference processing
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Calculate positions
+      // Calculate positions - find the method calls in chained expression
+      // Need to find the call (with "this.") not the declaration
       const lines = sourceCode.split('\n');
-      const firstMethodLine = lines.findIndex((line) =>
+      const firstMethodLineIndex = lines.findIndex((line) =>
         line.includes('this.locateAccountRecordTypeAutoDeletionService()'),
       );
-      const firstMethodLineText = lines[firstMethodLine];
+      expect(firstMethodLineIndex).toBeGreaterThanOrEqual(0);
+      const firstMethodLine = firstMethodLineIndex + 1;
+      const firstMethodLineText = lines[firstMethodLineIndex];
       const firstMethodStart = firstMethodLineText.indexOf(
         'locateAccountRecordTypeAutoDeletionService',
       );
+      const firstMethodPosition = {
+        line: firstMethodLine,
+        character: firstMethodStart,
+      };
 
-      const secondMethodLine = lines.findIndex((line) =>
-        line.includes('getAccountRecordTypeAutoDeletionModel()'),
+      const secondMethodLineIndex = lines.findIndex((line) =>
+        line.includes('.getAccountRecordTypeAutoDeletionModel()'),
       );
-      const secondMethodLineText = lines[secondMethodLine];
+      expect(secondMethodLineIndex).toBeGreaterThanOrEqual(0);
+      const secondMethodLine = secondMethodLineIndex + 1;
+      const secondMethodLineText = lines[secondMethodLineIndex];
       const secondMethodStart = secondMethodLineText.indexOf(
         'getAccountRecordTypeAutoDeletionModel',
       );
+      const secondMethodPosition = {
+        line: secondMethodLine,
+        character: secondMethodStart,
+      };
 
-      // Test hover on first method name
+      // Test symbol resolution on first method name
       const symbol1 = await symbolManager.getSymbolAtPosition(
-        'file:///test/TestClass.cls',
-        { line: firstMethodLine, character: firstMethodStart },
+        fileUri,
+        firstMethodPosition,
         'precise',
       );
 
@@ -172,10 +182,10 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       expect(symbol1?.name).toBe('locateAccountRecordTypeAutoDeletionService');
       expect(symbol1?.kind).toBe('method');
 
-      // Test hover on second method name
+      // Test symbol resolution on second method name
       const symbol2 = await symbolManager.getSymbolAtPosition(
-        'file:///test/TestClass.cls',
-        { line: secondMethodLine, character: secondMethodStart },
+        fileUri,
+        secondMethodPosition,
         'precise',
       );
 
@@ -185,32 +195,16 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     });
   });
 
-  describe('new ClassName() hover resolution', () => {
+  describe('new ClassName() symbol resolution', () => {
     it('should resolve class name in new ClassName() expression', async () => {
-      const sourceCode = `
-        public class TestClass {
-          public void testMethod() {
-            AccountAutoDeletionSettingsVMapper mapper = new AccountAutoDeletionSettingsVMapper();
-          }
-        }
-        
-        public class AccountAutoDeletionSettingsVMapper {
-          public AccountAutoDeletionSettingsVMapper() { }
-        }
-      `;
+      const sourceCode = loadFixture('NewExpression.cls');
+      const fileUri = 'file:///test/NewExpression.cls';
 
       const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'file:///test/TestClass.cls',
-        listener,
-      );
+      const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
-        await symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClass.cls',
-        );
+        await symbolManager.addSymbolTable(result.result, fileUri);
       }
 
       // Wait for reference processing
@@ -218,16 +212,23 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
       // Calculate position: find the class name after "new " in the source code
       const lines = sourceCode.split('\n');
-      const targetLine = lines.findIndex((line) =>
-        line.includes('new AccountAutoDeletionSettingsVMapper()'),
+      const targetLineIndex = lines.findIndex((line) =>
+        line.includes('new AccountAutoDeletionSettingsVMapper'),
       );
-      const targetLineText = lines[targetLine];
-      const classNameStart = targetLineText.indexOf('new ') + 4; // Position after "new "
+      expect(targetLineIndex).toBeGreaterThanOrEqual(0);
+      const targetLine = targetLineIndex + 1;
+      const targetLineText = lines[targetLineIndex];
+      const newPos = targetLineText.indexOf('new ');
+      const classNameStart = targetLineText.indexOf(
+        'AccountAutoDeletionSettingsVMapper',
+        newPos,
+      );
+      const position = { line: targetLine, character: classNameStart };
 
-      // Test hover on class name in "new AccountAutoDeletionSettingsVMapper()"
+      // Test symbol resolution on class name in "new AccountAutoDeletionSettingsVMapper()"
       const symbol = await symbolManager.getSymbolAtPosition(
-        'file:///test/TestClass.cls',
-        { line: targetLine, character: classNameStart },
+        fileUri,
+        position,
         'precise',
       );
 
@@ -237,46 +238,27 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     });
 
     it('should resolve class name in new List<ClassName>() expression', async () => {
-      const sourceCode = `
-        public class TestClass {
-          public void testMethod() {
-            List<DualListboxValueVModel> list = new List<DualListboxValueVModel>();
-          }
-        }
-        
-        public class DualListboxValueVModel {
-        }
-      `;
+      const sourceCode = loadFixture('NewGenericExpression.cls');
+      const fileUri = 'file:///test/NewGenericExpression.cls';
 
       const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'file:///test/TestClass.cls',
-        listener,
-      );
+      const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
-        await symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClass.cls',
-        );
+        await symbolManager.addSymbolTable(result.result, fileUri);
       }
 
       // Wait for reference processing
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Calculate position: find DualListboxValueVModel in the generic type
-      const lines = sourceCode.split('\n');
-      const targetLine = lines.findIndex((line) =>
-        line.includes('List<DualListboxValueVModel>'),
-      );
-      const targetLineText = lines[targetLine];
-      const classNameStart = targetLineText.indexOf('<') + 1; // Position after "<"
+      // Calculate position: find DualListboxValueVModel in the generic type parameter
+      // Find the first occurrence which should be in the type parameter, not a declaration
+      const position = findPosition(sourceCode, 'DualListboxValueVModel');
 
-      // Test hover on class name in generic type
+      // Test symbol resolution on class name in generic type
       const symbol = await symbolManager.getSymbolAtPosition(
-        'file:///test/TestClass.cls',
-        { line: targetLine, character: classNameStart },
+        fileUri,
+        position,
         'precise',
       );
 
@@ -286,92 +268,58 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     });
   });
 
-  describe('method declaration hover resolution', () => {
+  describe('method declaration symbol resolution', () => {
     it('should resolve method name when hovering on method name in declaration', async () => {
-      const sourceCode = `
-        public class TestClass {
-          public static AccountAutoDeletionSettingsVMapper getInstance() {
-            return null;
-          }
-        }
-      `;
+      const sourceCode = loadFixture('MethodDeclaration.cls');
+      const fileUri = 'file:///test/MethodDeclaration.cls';
 
       const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'file:///test/TestClass.cls',
-        listener,
-      );
+      const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
-        await symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClass.cls',
-        );
+        await symbolManager.addSymbolTable(result.result, fileUri);
       }
 
       // Wait for reference processing
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Calculate position: find getInstance in the method declaration
-      const lines = sourceCode.split('\n');
-      const targetLine = lines.findIndex((line) =>
-        line.includes('getInstance()'),
-      );
-      const targetLineText = lines[targetLine];
-      const methodNameStart = targetLineText.indexOf('getInstance');
+      const position = findPosition(sourceCode, 'getInstance');
 
-      // Test hover on method name in declaration
+      // Test symbol resolution on method name in declaration
       const symbol = await symbolManager.getSymbolAtPosition(
-        'file:///test/TestClass.cls',
-        { line: targetLine, character: methodNameStart },
+        fileUri,
+        position,
         'precise',
       );
 
       expect(symbol).toBeDefined();
       expect(symbol?.name).toBe('getInstance');
       expect(symbol?.kind).toBe('method');
-      expect(symbol?.fileUri).toBe('file:///test/TestClass.cls');
+      expect(symbol?.fileUri).toBe(fileUri);
     });
 
     it('should resolve method name when hovering on method name in private method declaration', async () => {
-      const sourceCode = `
-        public class TestClass {
-          private void privateMethod() {
-            // Private method
-          }
-        }
-      `;
+      const sourceCode = loadFixture('PrivateMethodDeclaration.cls');
+      const fileUri = 'file:///test/PrivateMethodDeclaration.cls';
 
       const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'file:///test/TestClass.cls',
-        listener,
-      );
+      const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
-        await symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClass.cls',
-        );
+        await symbolManager.addSymbolTable(result.result, fileUri);
       }
 
       // Wait for reference processing
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Calculate position: find privateMethod in the method declaration
-      const lines = sourceCode.split('\n');
-      const targetLine = lines.findIndex((line) =>
-        line.includes('privateMethod()'),
-      );
-      const targetLineText = lines[targetLine];
-      const methodNameStart = targetLineText.indexOf('privateMethod');
+      const position = findPosition(sourceCode, 'privateMethod');
 
-      // Test hover on private method name in declaration
+      // Test symbol resolution on private method name in declaration
       const symbol = await symbolManager.getSymbolAtPosition(
-        'file:///test/TestClass.cls',
-        { line: targetLine, character: methodNameStart },
+        fileUri,
+        position,
         'precise',
       );
 
@@ -381,37 +329,16 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     });
   });
 
-  describe('assignment LHS hover resolution', () => {
+  describe('assignment LHS symbol resolution', () => {
     it('should resolve private static field when hovering on assignment LHS', async () => {
-      const sourceCode = `
-        public class TestClass {
-          @TestVisible private static AccountAutoDeletionSettingsVMapper instance;
-          
-          public static AccountAutoDeletionSettingsVMapper getInstance() {
-            if (instance == null) {
-              instance = new AccountAutoDeletionSettingsVMapper();
-            }
-            return instance;
-          }
-        }
-        
-        public class AccountAutoDeletionSettingsVMapper {
-          public AccountAutoDeletionSettingsVMapper() { }
-        }
-      `;
+      const sourceCode = loadFixture('AssignmentLHS.cls');
+      const fileUri = 'file:///test/AssignmentLHS.cls';
 
       const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'file:///test/TestClass.cls',
-        listener,
-      );
+      const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
-        await symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClass.cls',
-        );
+        await symbolManager.addSymbolTable(result.result, fileUri);
       }
 
       // Wait for reference processing
@@ -419,16 +346,19 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
       // Calculate position: find instance in assignment (instance = new ...)
       const lines = sourceCode.split('\n');
-      const targetLine = lines.findIndex((line) =>
+      const targetLineIndex = lines.findIndex((line) =>
         line.includes('instance = new'),
       );
-      const targetLineText = lines[targetLine];
+      expect(targetLineIndex).toBeGreaterThanOrEqual(0);
+      const targetLine = targetLineIndex + 1;
+      const targetLineText = lines[targetLineIndex];
       const instanceStart = targetLineText.indexOf('instance');
+      const instancePosition = { line: targetLine, character: instanceStart };
 
-      // Test hover on instance in assignment LHS
+      // Test symbol resolution on instance in assignment LHS
       const symbol = await symbolManager.getSymbolAtPosition(
-        'file:///test/TestClass.cls',
-        { line: targetLine, character: instanceStart },
+        fileUri,
+        instancePosition,
         'precise',
       );
 
@@ -440,35 +370,14 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     });
 
     it('should resolve private static field when hovering on assignment LHS in if condition', async () => {
-      const sourceCode = `
-        public class TestClass {
-          @TestVisible private static AccountAutoDeletionSettingsVMapper instance;
-          
-          public static AccountAutoDeletionSettingsVMapper getInstance() {
-            if (instance == null) {
-              instance = new AccountAutoDeletionSettingsVMapper();
-            }
-            return instance;
-          }
-        }
-        
-        public class AccountAutoDeletionSettingsVMapper {
-          public AccountAutoDeletionSettingsVMapper() { }
-        }
-      `;
+      const sourceCode = loadFixture('AssignmentLHSInCondition.cls');
+      const fileUri = 'file:///test/AssignmentLHSInCondition.cls';
 
       const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'file:///test/TestClass.cls',
-        listener,
-      );
+      const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
-        await symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClass.cls',
-        );
+        await symbolManager.addSymbolTable(result.result, fileUri);
       }
 
       // Wait for reference processing
@@ -476,16 +385,19 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
       // Calculate position: find instance in if condition (if (instance == null))
       const lines = sourceCode.split('\n');
-      const targetLine = lines.findIndex((line) =>
+      const targetLineIndex = lines.findIndex((line) =>
         line.includes('if (instance == null)'),
       );
-      const targetLineText = lines[targetLine];
+      expect(targetLineIndex).toBeGreaterThanOrEqual(0);
+      const targetLine = targetLineIndex + 1;
+      const targetLineText = lines[targetLineIndex];
       const instanceStart = targetLineText.indexOf('instance');
+      const instancePosition = { line: targetLine, character: instanceStart };
 
-      // Test hover on instance in if condition
+      // Test symbol resolution on instance in if condition
       const symbol = await symbolManager.getSymbolAtPosition(
-        'file:///test/TestClass.cls',
-        { line: targetLine, character: instanceStart },
+        fileUri,
+        instancePosition,
         'precise',
       );
 
@@ -499,38 +411,16 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
   describe('on-demand enrichment for private symbols', () => {
     it('should enrich SymbolTable when hovering on private field that was not initially indexed', async () => {
-      // First compile with public-api only (simulating initial workspace load)
-      const sourceCode = `
-        public class TestClass {
-          @TestVisible private static AccountAutoDeletionSettingsVMapper instance;
-          
-          public static AccountAutoDeletionSettingsVMapper getInstance() {
-            if (instance == null) {
-              instance = new AccountAutoDeletionSettingsVMapper();
-            }
-            return instance;
-          }
-        }
-        
-        public class AccountAutoDeletionSettingsVMapper {
-          public AccountAutoDeletionSettingsVMapper() { }
-        }
-      `;
+      const sourceCode = loadFixture('OnDemandEnrichment.cls');
+      const fileUri = 'file:///test/OnDemandEnrichment.cls';
 
       // Use FullSymbolCollectorListener which collects all symbols
       // In real scenario, initial load might use PublicAPISymbolListener only
       const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'file:///test/TestClass.cls',
-        listener,
-      );
+      const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
-        await symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClass.cls',
-        );
+        await symbolManager.addSymbolTable(result.result, fileUri);
       }
 
       // Wait for reference processing
@@ -538,16 +428,19 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
       // Calculate position: find instance in if condition
       const lines = sourceCode.split('\n');
-      const targetLine = lines.findIndex((line) =>
+      const targetLineIndex = lines.findIndex((line) =>
         line.includes('if (instance == null)'),
       );
-      const targetLineText = lines[targetLine];
+      expect(targetLineIndex).toBeGreaterThanOrEqual(0);
+      const targetLine = targetLineIndex + 1;
+      const targetLineText = lines[targetLineIndex];
       const instanceStart = targetLineText.indexOf('instance');
+      const instancePosition = { line: targetLine, character: instanceStart };
 
-      // Test hover on private field - should work even if initially only public-api was indexed
+      // Test symbol resolution on private field - should work even if initially only public-api was indexed
       const symbol = await symbolManager.getSymbolAtPosition(
-        'file:///test/TestClass.cls',
-        { line: targetLine, character: instanceStart },
+        fileUri,
+        instancePosition,
         'precise',
       );
 
@@ -560,52 +453,28 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
   describe('identifierRange accuracy', () => {
     it('should have accurate identifierRange for method references in this.methodName()', async () => {
-      const sourceCode = `
-        public class TestClass {
-          public void testMethod() {
-            this.locateAccountRecordTypeAutoDeletionService();
-          }
-          
-          private AccountRecordTypeAutoDeletionService locateAccountRecordTypeAutoDeletionService() {
-            return new AccountRecordTypeAutoDeletionService();
-          }
-        }
-      `;
+      const sourceCode = loadFixture('IdentifierRangeMethod.cls');
+      const fileUri = 'file:///test/IdentifierRangeMethod.cls';
 
       const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'file:///test/TestClass.cls',
-        listener,
-      );
+      const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
-        await symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClass.cls',
-        );
+        await symbolManager.addSymbolTable(result.result, fileUri);
       }
 
       // Wait for reference processing
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Calculate position: find the method name in the source code
-      const lines = sourceCode.split('\n');
-      const targetLine = lines.findIndex((line) =>
-        line.includes('this.locateAccountRecordTypeAutoDeletionService()'),
-      );
-      expect(targetLine).toBeGreaterThanOrEqual(0);
-      const targetLineText = lines[targetLine];
-      const methodNameStart = targetLineText.indexOf(
+      const position = findPosition(
+        sourceCode,
         'locateAccountRecordTypeAutoDeletionService',
       );
 
       // Get references at the method name position
       const symbolTable = result.result;
-      const references = symbolTable?.getReferencesAtPosition({
-        line: targetLine!,
-        character: methodNameStart,
-      });
+      const references = symbolTable?.getReferencesAtPosition(position);
 
       expect(references).toBeDefined();
       expect(references?.length).toBeGreaterThan(0);
@@ -615,39 +484,25 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
         (ref) => ref.name === 'locateAccountRecordTypeAutoDeletionService',
       );
       expect(methodRef).toBeDefined();
-      expect(methodRef?.location.identifierRange.startLine).toBe(targetLine);
-      expect(methodRef?.location.identifierRange.endLine).toBe(targetLine);
+      expect(methodRef?.location.identifierRange.startLine).toBe(position.line);
+      expect(methodRef?.location.identifierRange.endLine).toBe(position.line);
       // The identifierRange should cover only the method name, not the entire expression
-      expect(methodRef?.location.identifierRange.endColumn).toBeGreaterThan(
-        methodRef?.location.identifierRange.startColumn,
+      expect(methodRef?.location.identifierRange.startColumn).toBeDefined();
+      expect(methodRef?.location.identifierRange.endColumn).toBeDefined();
+      expect(methodRef!.location.identifierRange.endColumn).toBeGreaterThan(
+        methodRef!.location.identifierRange.startColumn,
       );
     });
 
     it('should have accurate identifierRange for constructor call references', async () => {
-      const sourceCode = `
-        public class TestClass {
-          public void testMethod() {
-            AccountAutoDeletionSettingsVMapper mapper = new AccountAutoDeletionSettingsVMapper();
-          }
-        }
-        
-        public class AccountAutoDeletionSettingsVMapper {
-          public AccountAutoDeletionSettingsVMapper() { }
-        }
-      `;
+      const sourceCode = loadFixture('IdentifierRangeConstructor.cls');
+      const fileUri = 'file:///test/IdentifierRangeConstructor.cls';
 
       const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'file:///test/TestClass.cls',
-        listener,
-      );
+      const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
-        await symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClass.cls',
-        );
+        await symbolManager.addSymbolTable(result.result, fileUri);
       }
 
       // Wait for reference processing
@@ -655,19 +510,22 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
       // Calculate position: find the class name after "new " in the source code
       const lines = sourceCode.split('\n');
-      const targetLine = lines.findIndex((line) =>
-        line.includes('new AccountAutoDeletionSettingsVMapper()'),
+      const targetLineIndex = lines.findIndex((line) =>
+        line.includes('new AccountAutoDeletionSettingsVMapper'),
       );
-      expect(targetLine).toBeGreaterThanOrEqual(0);
-      const targetLineText = lines[targetLine!];
-      const classNameStart = targetLineText.indexOf('new ') + 4; // Position after "new "
+      expect(targetLineIndex).toBeGreaterThanOrEqual(0);
+      const targetLine = targetLineIndex + 1;
+      const targetLineText = lines[targetLineIndex];
+      const newPos = targetLineText.indexOf('new ');
+      const classNameStart = targetLineText.indexOf(
+        'AccountAutoDeletionSettingsVMapper',
+        newPos,
+      );
+      const position = { line: targetLine, character: classNameStart };
 
       // Get references at the class name position in new expression
       const symbolTable = result.result;
-      const references = symbolTable?.getReferencesAtPosition({
-        line: targetLine!,
-        character: classNameStart,
-      });
+      const references = symbolTable?.getReferencesAtPosition(position);
 
       expect(references).toBeDefined();
       expect(references?.length).toBeGreaterThan(0);
@@ -678,15 +536,19 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       );
       expect(constructorRef).toBeDefined();
       expect(constructorRef?.location.identifierRange.startLine).toBe(
-        targetLine!,
+        position.line,
       );
       expect(constructorRef?.location.identifierRange.endLine).toBe(
-        targetLine!,
+        position.line,
       );
       // The identifierRange should cover only the class name, not the entire new expression
       expect(
-        constructorRef?.location.identifierRange.endColumn,
-      ).toBeGreaterThan(constructorRef?.location.identifierRange.startColumn);
+        constructorRef?.location.identifierRange.startColumn,
+      ).toBeDefined();
+      expect(constructorRef?.location.identifierRange.endColumn).toBeDefined();
+      expect(
+        constructorRef!.location.identifierRange.endColumn,
+      ).toBeGreaterThan(constructorRef!.location.identifierRange.startColumn);
     });
   });
 });
