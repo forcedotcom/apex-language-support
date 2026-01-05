@@ -406,6 +406,9 @@ export class ProtectedSymbolListener extends LayeredSymbolListenerBase {
     const start = ctx.start;
     const stop = ctx.stop || start;
 
+    // Try to extract identifier range from context (for method names, field names, etc.)
+    const identifierRange = this.getIdentifierRange(ctx);
+
     return {
       symbolRange: {
         startLine: start.line,
@@ -413,13 +416,58 @@ export class ProtectedSymbolListener extends LayeredSymbolListenerBase {
         endLine: stop.line,
         endColumn: stop.charPositionInLine + (stop.text?.length || 0),
       },
-      identifierRange: {
+      identifierRange: identifierRange || {
         startLine: start.line,
         startColumn: start.charPositionInLine,
         endLine: start.line,
         endColumn: start.charPositionInLine + (start.text?.length || 0),
       },
     };
+  }
+
+  /**
+   * Extract the precise range of the identifier from a parser context
+   * For method declarations, extracts the method name (id() node)
+   * For other contexts, attempts to find the identifier node
+   */
+  private getIdentifierRange(ctx: ParserRuleContext): {
+    startLine: number;
+    startColumn: number;
+    endLine: number;
+    endColumn: number;
+  } | null {
+    // Strategy 1: Check if the context has an id() method (most common case for methods)
+    if (
+      ctx &&
+      typeof ctx === 'object' &&
+      'id' in ctx &&
+      typeof (ctx as any).id === 'function'
+    ) {
+      const idNode = (ctx as any).id();
+      if (idNode?.start && idNode?.stop) {
+        return {
+          startLine: idNode.start.line,
+          startColumn: idNode.start.charPositionInLine,
+          endLine: idNode.stop.line,
+          endColumn:
+            idNode.stop.charPositionInLine +
+            (idNode.stop.text?.length || 0),
+        };
+      }
+    }
+
+    // Strategy 2: Check if context itself is an identifier (TerminalNode or similar)
+    if (ctx.start === ctx.stop && ctx.start) {
+      return {
+        startLine: ctx.start.line,
+        startColumn: ctx.start.charPositionInLine,
+        endLine: ctx.start.line,
+        endColumn:
+          ctx.start.charPositionInLine + (ctx.start.text?.length || 0),
+      };
+    }
+
+    return null;
   }
 
   private generateBlockName(scopeType: ScopeType): string {

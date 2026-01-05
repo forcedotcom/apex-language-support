@@ -17,6 +17,7 @@ import {
   ApexSymbolManager,
   CompilerService,
   ApexSymbolCollectorListener,
+  FullSymbolCollectorListener,
   SymbolTable,
   ResourceLoader,
   ApexSymbolProcessingManager,
@@ -1919,6 +1920,338 @@ describe('HoverProcessingService Integration Tests', () => {
       // Assert: Should return null and NOT trigger missing artifact resolution
       expect(result).toBeNull();
       expect(tryResolveSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Hover Fixes - this.methodName() expressions', () => {
+    it('should provide hover information for method name in this.methodName() expression', async () => {
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const hoverTestClassPath = join(fixturesDir, 'HoverTestClass.cls');
+      const serviceClassPath = join(fixturesDir, 'AccountRecordTypeAutoDeletionService.cls');
+
+      const hoverTestClassContent = readFileSync(hoverTestClassPath, 'utf8');
+      const serviceClassContent = readFileSync(serviceClassPath, 'utf8');
+
+      const document = TextDocument.create(
+        'file:///HoverTestClass.cls',
+        'apex',
+        1,
+        hoverTestClassContent,
+      );
+      mockStorage.getDocument.mockResolvedValue(document);
+
+      // Compile and add both classes to symbol manager
+      const compilerService = new CompilerService();
+      
+      // Compile AccountRecordTypeAutoDeletionService first
+      const serviceClassListener = new FullSymbolCollectorListener();
+      const serviceClassResult = compilerService.compile(
+        serviceClassContent,
+        'file:///AccountRecordTypeAutoDeletionService.cls',
+        serviceClassListener,
+      );
+
+      if (serviceClassResult.result) {
+        await symbolManager.addSymbolTable(
+          serviceClassResult.result,
+          'file:///AccountRecordTypeAutoDeletionService.cls',
+        );
+      }
+
+      // Compile HoverTestClass
+      const hoverTestClassListener = new FullSymbolCollectorListener();
+      const hoverTestClassResult = compilerService.compile(
+        hoverTestClassContent,
+        'file:///HoverTestClass.cls',
+        hoverTestClassListener,
+      );
+
+      if (hoverTestClassResult.result) {
+        await symbolManager.addSymbolTable(
+          hoverTestClassResult.result,
+          'file:///HoverTestClass.cls',
+        );
+      }
+
+      // Wait for reference processing
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Calculate position: find the method name in the source code
+      const lines = hoverTestClassContent.split('\n');
+      const targetLine = lines.findIndex((line) =>
+        line.includes('this.locateAccountRecordTypeAutoDeletionService()'),
+      );
+      expect(targetLine).toBeGreaterThanOrEqual(0);
+      const targetLineText = lines[targetLine];
+      const methodNameStart =
+        targetLineText.indexOf('locateAccountRecordTypeAutoDeletionService');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///HoverTestClass.cls' },
+        position: { line: targetLine, character: methodNameStart },
+      };
+
+      const hoverResult = await hoverService.processHover(params);
+
+      expect(hoverResult).toBeDefined();
+      expect(hoverResult?.contents).toBeDefined();
+      const content =
+        typeof hoverResult?.contents === 'object' &&
+        'value' in hoverResult?.contents
+          ? hoverResult.contents.value
+          : '';
+      expect(content).toContain('locateAccountRecordTypeAutoDeletionService');
+      expect(content).toContain('()'); // Method signature
+    });
+  });
+
+  describe('Hover Fixes - new ClassName() expressions', () => {
+    it('should provide hover information for class name in new ClassName() expression', async () => {
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const newExpressionTestClassPath = join(fixturesDir, 'NewExpressionTestClass.cls');
+      const mapperClassPath = join(fixturesDir, 'AccountAutoDeletionSettingsVMapper.cls');
+
+      const newExpressionTestClassContent = readFileSync(newExpressionTestClassPath, 'utf8');
+      const mapperClassContent = readFileSync(mapperClassPath, 'utf8');
+
+      const document = TextDocument.create(
+        'file:///NewExpressionTestClass.cls',
+        'apex',
+        1,
+        newExpressionTestClassContent,
+      );
+      mockStorage.getDocument.mockResolvedValue(document);
+
+      // Compile and add both classes to symbol manager
+      const compilerService = new CompilerService();
+      
+      // Compile AccountAutoDeletionSettingsVMapper first (so it's available when NewExpressionTestClass references it)
+      const mapperClassListener = new FullSymbolCollectorListener();
+      const mapperClassResult = compilerService.compile(
+        mapperClassContent,
+        'file:///AccountAutoDeletionSettingsVMapper.cls',
+        mapperClassListener,
+      );
+
+      if (mapperClassResult.result) {
+        await symbolManager.addSymbolTable(
+          mapperClassResult.result,
+          'file:///AccountAutoDeletionSettingsVMapper.cls',
+        );
+      }
+
+      // Compile NewExpressionTestClass
+      const newExpressionTestClassListener = new FullSymbolCollectorListener();
+      const newExpressionTestClassResult = compilerService.compile(
+        newExpressionTestClassContent,
+        'file:///NewExpressionTestClass.cls',
+        newExpressionTestClassListener,
+      );
+
+      if (newExpressionTestClassResult.result) {
+        await symbolManager.addSymbolTable(
+          newExpressionTestClassResult.result,
+          'file:///NewExpressionTestClass.cls',
+        );
+      }
+
+      // Wait for reference processing
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Calculate position: find the class name after "new " in the source code
+      const lines = newExpressionTestClassContent.split('\n');
+      const targetLine = lines.findIndex((line) =>
+        line.includes('new AccountAutoDeletionSettingsVMapper()'),
+      );
+      expect(targetLine).toBeGreaterThanOrEqual(0);
+      const targetLineText = lines[targetLine];
+      const classNameStart = targetLineText.indexOf('new ') + 4; // Position after "new "
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///NewExpressionTestClass.cls' },
+        position: { line: targetLine, character: classNameStart },
+      };
+
+      const hoverResult = await hoverService.processHover(params);
+
+      expect(hoverResult).toBeDefined();
+      expect(hoverResult?.contents).toBeDefined();
+      const content =
+        typeof hoverResult?.contents === 'object' &&
+        'value' in hoverResult?.contents
+          ? hoverResult.contents.value
+          : '';
+      expect(content).toContain('AccountAutoDeletionSettingsVMapper');
+      expect(content).toContain('()'); // Constructor signature
+    });
+  });
+
+  describe('Hover Fixes - method declaration', () => {
+    it('should provide hover information when hovering on method name in declaration', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public static AccountAutoDeletionSettingsVMapper getInstance() {
+            return null;
+          }
+        }
+      `;
+
+      const document = TextDocument.create(
+        'file:///TestClass.cls',
+        'apex',
+        1,
+        sourceCode,
+      );
+      mockStorage.getDocument.mockResolvedValue(document);
+
+      // Compile and add both classes to symbol manager
+      const compilerService = new CompilerService();
+      
+      // Compile TestClass
+      const testClassListener = new FullSymbolCollectorListener();
+      const testClassResult = compilerService.compile(
+        sourceCode,
+        'file:///TestClass.cls',
+        testClassListener,
+      );
+
+      if (testClassResult.result) {
+        await symbolManager.addSymbolTable(
+          testClassResult.result,
+          'file:///TestClass.cls',
+        );
+      }
+
+      // Compile AccountAutoDeletionSettingsVMapper separately
+      const mapperClassCode = `
+        public class AccountAutoDeletionSettingsVMapper {
+          public AccountAutoDeletionSettingsVMapper() { }
+        }
+      `;
+      const mapperClassListener = new FullSymbolCollectorListener();
+      const mapperClassResult = compilerService.compile(
+        mapperClassCode,
+        'file:///AccountAutoDeletionSettingsVMapper.cls',
+        mapperClassListener,
+      );
+
+      if (mapperClassResult.result) {
+        await symbolManager.addSymbolTable(
+          mapperClassResult.result,
+          'file:///AccountAutoDeletionSettingsVMapper.cls',
+        );
+      }
+
+      // Wait for reference processing
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Calculate position: find getInstance in the method declaration
+      const lines = sourceCode.split('\n');
+      const targetLine = lines.findIndex((line) =>
+        line.includes('getInstance()'),
+      );
+      expect(targetLine).toBeGreaterThanOrEqual(0);
+      const targetLineText = lines[targetLine];
+      const methodNameStart = targetLineText.indexOf('getInstance');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///TestClass.cls' },
+        position: { line: targetLine, character: methodNameStart },
+      };
+
+      const hoverResult = await hoverService.processHover(params);
+
+      expect(hoverResult).toBeDefined();
+      expect(hoverResult?.contents).toBeDefined();
+      const content =
+        typeof hoverResult?.contents === 'object' &&
+        'value' in hoverResult?.contents
+          ? hoverResult.contents.value
+          : '';
+      expect(content).toContain('getInstance');
+      expect(content).toContain('()'); // Method signature
+    });
+  });
+
+  describe('Hover Fixes - assignment LHS', () => {
+    it('should provide hover information for private static field when hovering on assignment LHS', async () => {
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const assignmentLHSTestClassPath = join(fixturesDir, 'AssignmentLHSTestClass.cls');
+      const mapperClassPath = join(fixturesDir, 'AccountAutoDeletionSettingsVMapper.cls');
+
+      const assignmentLHSTestClassContent = readFileSync(assignmentLHSTestClassPath, 'utf8');
+      const mapperClassContent = readFileSync(mapperClassPath, 'utf8');
+
+      const document = TextDocument.create(
+        'file:///AssignmentLHSTestClass.cls',
+        'apex',
+        1,
+        assignmentLHSTestClassContent,
+      );
+      mockStorage.getDocument.mockResolvedValue(document);
+
+      // Compile and add both classes to symbol manager
+      const compilerService = new CompilerService();
+      
+      // Compile AccountAutoDeletionSettingsVMapper first
+      const mapperClassListener = new FullSymbolCollectorListener();
+      const mapperClassResult = compilerService.compile(
+        mapperClassContent,
+        'file:///AccountAutoDeletionSettingsVMapper.cls',
+        mapperClassListener,
+      );
+
+      if (mapperClassResult.result) {
+        await symbolManager.addSymbolTable(
+          mapperClassResult.result,
+          'file:///AccountAutoDeletionSettingsVMapper.cls',
+        );
+      }
+
+      // Compile AssignmentLHSTestClass
+      const assignmentLHSTestClassListener = new FullSymbolCollectorListener();
+      const assignmentLHSTestClassResult = compilerService.compile(
+        assignmentLHSTestClassContent,
+        'file:///AssignmentLHSTestClass.cls',
+        assignmentLHSTestClassListener,
+      );
+
+      if (assignmentLHSTestClassResult.result) {
+        await symbolManager.addSymbolTable(
+          assignmentLHSTestClassResult.result,
+          'file:///AssignmentLHSTestClass.cls',
+        );
+      }
+
+      // Wait for reference processing
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Calculate position: find instance in assignment (instance = new ...)
+      const lines = assignmentLHSTestClassContent.split('\n');
+      const targetLine = lines.findIndex((line) =>
+        line.includes('instance = new'),
+      );
+      expect(targetLine).toBeGreaterThanOrEqual(0);
+      const targetLineText = lines[targetLine];
+      const instanceStart = targetLineText.indexOf('instance');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///AssignmentLHSTestClass.cls' },
+        position: { line: targetLine, character: instanceStart },
+      };
+
+      const hoverResult = await hoverService.processHover(params);
+
+      expect(hoverResult).toBeDefined();
+      expect(hoverResult?.contents).toBeDefined();
+      const content =
+        typeof hoverResult?.contents === 'object' &&
+        'value' in hoverResult?.contents
+          ? hoverResult.contents.value
+          : '';
+      expect(content).toContain('instance');
+      expect(content).toContain('static');
+      expect(content).toContain('private');
     });
   });
 });

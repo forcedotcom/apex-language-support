@@ -36,7 +36,10 @@ import {
 } from '../../types/symbolReference';
 import type { SymbolReference } from '../../types/symbolReference';
 import { SymbolTable, SymbolLocation } from '../../types/symbol';
-import { isDotExpressionContext } from '../../utils/contextTypeGuards';
+import {
+  isDotExpressionContext,
+  isContextType,
+} from '../../utils/contextTypeGuards';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 
 interface ChainScope {
@@ -173,7 +176,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       const idNode = ctx.id();
       const methodName = idNode?.text || 'unknownMethod';
       const location = idNode
-        ? this.getLocation(idNode)
+        ? this.getLocationForReference(idNode)
         : this.getLocation(ctx);
       const parentContext = this.getCurrentMethodName();
 
@@ -230,9 +233,16 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       const anyIdNode = ctx.anyId();
       const methodName = anyIdNode?.text || 'unknownMethod';
       const methodLocation = anyIdNode
-        ? this.getLocation(anyIdNode as unknown as ParserRuleContext)
+        ? this.getLocationForReference(anyIdNode)
         : this.getLocation(ctx);
       const parentContext = this.getCurrentMethodName();
+
+      this.logger.debug(
+        () =>
+          `[DOT_METHOD_CALL] Creating reference for "${methodName}" ` +
+          `at ${methodLocation.identifierRange.startLine}:${methodLocation.identifierRange.startColumn}-${methodLocation.identifierRange.endLine}:${methodLocation.identifierRange.endColumn} ` +
+          `(anyIdNode type: ${anyIdNode ? anyIdNode.constructor.name : 'null'})`,
+      );
 
       const reference = SymbolReferenceFactory.createMethodCallReference(
         methodName,
@@ -522,10 +532,27 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
   /**
    * Capture assignment expression references
+   * This captures both left-hand and right-hand side of assignments
    */
   enterAssignExpression(ctx: AssignExpressionContext): void {
     try {
-      this.suppressAssignmentLHS = true;
+      // Decide LHS access (readwrite for compound ops, else write)
+      const isCompound = !!(
+        ctx.ADD_ASSIGN() ||
+        ctx.SUB_ASSIGN() ||
+        ctx.MUL_ASSIGN() ||
+        ctx.DIV_ASSIGN() ||
+        ctx.AND_ASSIGN() ||
+        ctx.OR_ASSIGN() ||
+        ctx.XOR_ASSIGN() ||
+        ctx.LSHIFT_ASSIGN() ||
+        ctx.RSHIFT_ASSIGN() ||
+        ctx.URSHIFT_ASSIGN()
+      );
+      const lhsAccess: 'write' | 'readwrite' = isCompound
+        ? 'readwrite'
+        : 'write';
+
       const expressions = (ctx as any).expression?.();
       const leftExpression =
         Array.isArray(expressions) && expressions.length > 0
@@ -533,9 +560,128 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           : (expressions ?? null);
 
       if (leftExpression) {
-        this.suppressedLHSRange = this.getLocation(
+        const lhsLoc = this.getLocation(
           leftExpression as unknown as ParserRuleContext,
         );
+        const parentContext = this.getCurrentMethodName();
+
+        // Suppress child captures within LHS range
+        this.suppressAssignmentLHS = true;
+        this.suppressedLHSRange = lhsLoc;
+
+        // If it's a simple identifier, mark as write/readwrite
+        if (isContextType(leftExpression, PrimaryExpressionContext)) {
+          // Extract identifiers to handle array expressions correctly
+          // For array expressions like "arr[0]", extractIdentifiersFromExpression returns ["arr"]
+          const identifiers =
+            this.extractIdentifiersFromExpression(leftExpression);
+          if (identifiers.length > 0) {
+            // Use the first identifier (for array expressions, this is the base variable)
+            const varRef = SymbolReferenceFactory.createVariableUsageReference(
+              identifiers[0],
+              lhsLoc,
+              parentContext,
+              lhsAccess,
+            );
+            this.symbolTable.addTypeReference(varRef);
+          }
+          return;
+        }
+
+        // If it's a dotted field reference: obj.field
+        if (isContextType(leftExpression, DotExpressionContext)) {
+          const dotExpr = leftExpression;
+          const anyId = dotExpr.anyId();
+          if (anyId) {
+            const fieldName = this.getTextFromContext(anyId);
+            const objectExpr = dotExpr.expression();
+            if (objectExpr) {
+              // Extract identifiers from object expression (handles obj.field[0] cases)
+              const objectIdentifiers =
+                this.extractIdentifiersFromExpression(objectExpr);
+              const objLocation = lhsLoc;
+              // Create read references for each identifier in the object expression
+              for (const objectName of objectIdentifiers) {
+                const objRef =
+                  SymbolReferenceFactory.createVariableUsageReference(
+                    objectName,
+                    objLocation,
+                    parentContext,
+                    'read',
+                  );
+                this.symbolTable.addTypeReference(objRef);
+              }
+              // field write/readwrite
+              const fieldRef =
+                SymbolReferenceFactory.createFieldAccessReference(
+                  fieldName,
+                  lhsLoc,
+                  objectIdentifiers[0] || 'unknown',
+                  parentContext,
+                  lhsAccess,
+                );
+              this.symbolTable.addTypeReference(fieldRef);
+            }
+          }
+          return;
+        }
+
+        // If it's an array expression: arr[i] or obj.field[0]
+        // Manually capture array base and index as reads (they're needed to compute the write target)
+        if (isContextType(leftExpression, ArrayExpressionContext)) {
+          const arrayExpr = leftExpression;
+          const expressions = (arrayExpr as any).expression?.();
+          const arrayBaseExpression =
+            Array.isArray(expressions) && expressions.length > 0
+              ? expressions[0]
+              : (expressions ?? null);
+
+          // Extract and create read references for array base (e.g., "arr" in "arr[i]")
+          if (arrayBaseExpression) {
+            const arrayBaseIdentifiers =
+              this.extractIdentifiersFromExpression(arrayBaseExpression);
+            const arrayBaseLocation = this.getLocation(
+              arrayBaseExpression as unknown as ParserRuleContext,
+            );
+            for (const identifier of arrayBaseIdentifiers) {
+              const arrayRef =
+                SymbolReferenceFactory.createVariableUsageReference(
+                  identifier,
+                  arrayBaseLocation,
+                  parentContext,
+                  'read', // Array base is read to compute the write target
+                );
+              this.symbolTable.addTypeReference(arrayRef);
+            }
+          }
+
+          // Extract and create read references for index expression (e.g., "i" in "arr[i]")
+          // ArrayExpressionContext has index as expression(1), not expressionList
+          const indexExpression = (arrayExpr as any).expression?.(1);
+          if (indexExpression) {
+            const indexIdentifiers =
+              this.extractIdentifiersFromExpression(indexExpression);
+            const indexLocation = this.getLocation(
+              indexExpression as unknown as ParserRuleContext,
+            );
+            for (const identifier of indexIdentifiers) {
+              const indexRef =
+                SymbolReferenceFactory.createVariableUsageReference(
+                  identifier,
+                  indexLocation,
+                  parentContext,
+                  'read', // Index is read to compute the write target
+                );
+              this.symbolTable.addTypeReference(indexRef);
+            }
+          }
+
+          // Note: We don't create a write reference for the array element itself
+          // because array element writes are handled differently than variable writes
+          return;
+        }
+
+        // For other complex LHS, we avoid emitting flattened refs; let child listeners capture reads
       }
     } catch (error) {
       this.logger.warn(() => `Error entering assign expression: ${error}`);
@@ -718,29 +864,189 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   // Helper methods (extracted from ApexSymbolCollectorListener)
 
   private captureConstructorCallReference(ctx: NewExpressionContext): void {
-    const typeRef = (ctx as any).typeRef?.();
-    if (!typeRef) return;
+    try {
+      const creator = ctx.creator();
+      if (!creator) return;
 
-    const typeNames = typeRef.typeName();
-    if (!typeNames || typeNames.length === 0) return;
+      const createdName = creator.createdName();
+      if (!createdName) return;
 
-    const typeName = typeNames[0];
-    const className = typeName.id()?.text || 'unknownClass';
-    const location = this.getLocation(ctx);
-    const parentContext = this.getCurrentMethodName();
+      // Handle collection types (List, Set, Map) which are tokens, not identifiers
+      // For constructor calls like "new List<Integer>", the parser structure is:
+      // createdName -> idCreatedNamePair[0] -> typeName() -> LIST/SET/MAP token
+      // OR createdName -> typeName() -> LIST/SET/MAP token (direct)
+      let listToken: any = null;
+      let setToken: any = null;
+      let mapToken: any = null;
 
-    const reference = SymbolReferenceFactory.createConstructorCallReference(
-      className,
-      location,
-      parentContext,
-    );
+      // First, try to get typeName directly from createdName
+      let createdNameTypeName = (createdName as any).typeName?.();
+      let pairTypeName: any = null;
+      if (createdNameTypeName) {
+        listToken = createdNameTypeName.LIST?.() || null;
+        setToken = createdNameTypeName.SET?.() || null;
+        mapToken = createdNameTypeName.MAP?.() || null;
+      }
 
-    this.methodCallStack.push({
-      callRef: reference,
-      parameterRefs: [],
-    });
+      // If not found, check idCreatedNamePair structure
+      if (!listToken && !setToken && !mapToken) {
+        const idCreatedNamePairs = createdName.idCreatedNamePair();
+        if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
+          const firstPair = idCreatedNamePairs[0];
+          pairTypeName = (firstPair as any).typeName?.();
+          if (pairTypeName) {
+            listToken = pairTypeName.LIST?.() || null;
+            setToken = pairTypeName.SET?.() || null;
+            mapToken = pairTypeName.MAP?.() || null;
+          }
+        }
+      }
 
-    this.symbolTable.addTypeReference(reference);
+      if (listToken || setToken || mapToken) {
+        // Handle collection types (List, Set, Map)
+        const collectionType = listToken ? 'List' : setToken ? 'Set' : 'Map';
+        const token = listToken || setToken || mapToken;
+        const typeNameCtx = createdNameTypeName || pairTypeName;
+
+        let location: SymbolLocation;
+        if (typeNameCtx) {
+          const identifierRange = this.getIdentifierRange(typeNameCtx);
+          if (identifierRange) {
+            location = {
+              symbolRange: identifierRange,
+              identifierRange: identifierRange,
+            };
+          } else {
+            // Fallback to token-based location
+            const tokenSymbol = (token as any).symbol || token;
+            const tokenText =
+              tokenSymbol?.text || token?.text || collectionType;
+            const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
+            const tokenStartCol =
+              tokenSymbol?.charPositionInLine ??
+              (token as any).charPositionInLine ??
+              0;
+            location = {
+              symbolRange: {
+                startLine: tokenLine,
+                startColumn: tokenStartCol,
+                endLine: tokenLine,
+                endColumn: tokenStartCol + tokenText.length,
+              },
+              identifierRange: {
+                startLine: tokenLine,
+                startColumn: tokenStartCol,
+                endLine: tokenLine,
+                endColumn: tokenStartCol + tokenText.length,
+              },
+            };
+          }
+        } else {
+          // Fallback to token-based location if typeNameCtx not available
+          const tokenSymbol = (token as any).symbol || token;
+          const tokenText = tokenSymbol?.text || token?.text || collectionType;
+          const tokenLine = tokenSymbol?.line ?? (token as any).line ?? 1;
+          const tokenStartCol =
+            tokenSymbol?.charPositionInLine ??
+            (token as any).charPositionInLine ??
+            0;
+          location = {
+            symbolRange: {
+              startLine: tokenLine,
+              startColumn: tokenStartCol,
+              endLine: tokenLine,
+              endColumn: tokenStartCol + tokenText.length,
+            },
+            identifierRange: {
+              startLine: tokenLine,
+              startColumn: tokenStartCol,
+              endLine: tokenLine,
+              endColumn: tokenStartCol + tokenText.length,
+            },
+          };
+        }
+
+        const parentContext = this.getCurrentMethodName();
+        const ctorRef = SymbolReferenceFactory.createConstructorCallReference(
+          collectionType,
+          location,
+          parentContext,
+        );
+
+        // Check if this constructor call has arguments (classCreatorRest)
+        const classCreatorRest = (creator as any).classCreatorRest?.();
+        if (classCreatorRest) {
+          this.methodCallStack.push({
+            callRef: ctorRef,
+            parameterRefs: [],
+          });
+        }
+
+        this.symbolTable.addTypeReference(ctorRef);
+        return;
+      }
+
+      // Handle regular class names (not List/Set/Map)
+      // For constructor calls like "new AccountAutoDeletionSettingsVMapper()", the parser structure is:
+      // createdName -> idCreatedNamePair[0] -> anyId()
+      const idCreatedNamePairs = createdName.idCreatedNamePair();
+      if (!idCreatedNamePairs || idCreatedNamePairs.length === 0) return;
+
+      const firstPair = idCreatedNamePairs[0];
+      const anyId = firstPair.anyId();
+      if (!anyId) return;
+
+      const className = anyId.text;
+      const location = this.getLocationForReference(anyId);
+
+      this.logger.debug(
+        () =>
+          `[CONSTRUCTOR_CALL] Created reference for "${className}" at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}-${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
+      );
+
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = SymbolReferenceFactory.createConstructorCallReference(
+        className,
+        location,
+        parentContext,
+      );
+
+      // Check if this constructor call has arguments (classCreatorRest)
+      const classCreatorRest = (creator as any).classCreatorRest?.();
+      if (classCreatorRest) {
+        this.methodCallStack.push({
+          callRef: reference,
+          parameterRefs: [],
+        });
+      }
+
+      this.symbolTable.addTypeReference(reference);
+
+      // Handle dotted names (e.g., Namespace.Type)
+      if (idCreatedNamePairs.length > 1) {
+        for (let i = 1; i < idCreatedNamePairs.length; i++) {
+          const pair = idCreatedNamePairs[i];
+          const anyId = pair.anyId();
+          if (anyId) {
+            const dottedTypeName = anyId.text;
+            const dottedLocation = this.getLocationForReference(anyId);
+
+            const dottedParamRef =
+              SymbolReferenceFactory.createParameterTypeReference(
+                dottedTypeName,
+                dottedLocation,
+                parentContext,
+              );
+            this.symbolTable.addTypeReference(dottedParamRef);
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        () => `Error capturing constructor call reference: ${error}`,
+      );
+    }
   }
 
   private createNewChainScope(ctx: DotExpressionContext): ChainScope {
@@ -757,11 +1063,14 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     if (!chainScope.isActive) return;
     chainScope.isActive = false;
 
-    if (chainScope.chainNodes.length === 0) {
-      return;
+    // Even if there are no chain nodes, we might still need to create a reference
+    // for the base expression (e.g., FileUtilities.createFile() where baseExpression='FileUtilities')
+    // However, if there are chain nodes, create the full chain reference
+    if (chainScope.chainNodes.length > 0) {
+      this.createChainRootReference(chainScope);
     }
-
-    this.createChainRootReference(chainScope);
+    // Note: If chainNodes.length === 0, the base expression might still be captured
+    // by other listeners (e.g., enterIdPrimary), so we don't need to create a reference here
   }
 
   private createChainRootReference(chainScope: ChainScope): void {
@@ -771,12 +1080,24 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       if (baseExpression === 'this') {
         const parentContext = this.getCurrentMethodName();
         chainNodes.forEach((chainNode) => {
+          // Preserve the original context (METHOD_CALL, FIELD_ACCESS, etc.)
+          // Only change CHAIN_STEP to FIELD_ACCESS for field access
+          const finalContext =
+            chainNode.context === ReferenceContext.CHAIN_STEP
+              ? ReferenceContext.FIELD_ACCESS
+              : chainNode.context;
+
+          this.logger.debug(
+            () =>
+              `[CHAIN_ROOT] Creating memberRef for "${chainNode.name}" ` +
+              `with context ${finalContext} ` +
+              `at ${chainNode.location.identifierRange.startLine}:${chainNode.location.identifierRange.startColumn}-${chainNode.location.identifierRange.endLine}:${chainNode.location.identifierRange.endColumn}`,
+          );
+
           const memberRef = new EnhancedSymbolReference(
             chainNode.name,
             chainNode.location,
-            chainNode.context === ReferenceContext.CHAIN_STEP
-              ? ReferenceContext.FIELD_ACCESS
-              : chainNode.context,
+            finalContext,
             undefined,
             parentContext,
           );
@@ -830,6 +1151,16 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       );
 
       this.symbolTable.addTypeReference(rootRef);
+
+      // Also create a VARIABLE_USAGE reference for the base qualifier
+      // This is needed for reference correction tests and ensures the qualifier
+      // is captured even when reference correction is disabled
+      const baseVarRef = SymbolReferenceFactory.createVariableUsageReference(
+        baseExpression,
+        baseExpressionLocation,
+        this.getCurrentMethodName(),
+      );
+      this.symbolTable.addTypeReference(baseVarRef);
     } catch (error) {
       this.logger.warn(() => `Error creating chain root reference: ${error}`);
     }
@@ -1173,6 +1504,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   }
 
   private getLocation(ctx: ParserRuleContext): SymbolLocation {
+    // Try to extract identifier range from context (for method names, variable names, etc.)
+    const identifierRange = this.getIdentifierRangeForContext(ctx);
+
     return {
       symbolRange: {
         startLine: ctx.start.line,
@@ -1182,7 +1516,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
           (ctx.stop?.text?.length ?? 0),
       },
-      identifierRange: {
+      identifierRange: identifierRange || {
         startLine: ctx.start.line,
         startColumn: ctx.start.charPositionInLine,
         endLine: ctx.stop?.line ?? ctx.start.line,
@@ -1193,11 +1527,134 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     };
   }
 
-  private getLocationForReference(ctx: any): SymbolLocation {
-    if (ctx.start && ctx.stop) {
-      return this.getLocation(ctx as ParserRuleContext);
+  /**
+   * Extract the precise range of the identifier from a parser context
+   * For method calls, extracts the method name (id() node)
+   * For other contexts, attempts to find the identifier node
+   */
+  private getIdentifierRangeForContext(ctx: ParserRuleContext): {
+    startLine: number;
+    startColumn: number;
+    endLine: number;
+    endColumn: number;
+  } | null {
+    // Strategy 1: Check if the context has an id() method (most common case for methods)
+    if (
+      ctx &&
+      typeof ctx === 'object' &&
+      'id' in ctx &&
+      typeof (ctx as any).id === 'function'
+    ) {
+      const idNode = (ctx as any).id();
+      if (idNode?.start && idNode?.stop) {
+        return {
+          startLine: idNode.start.line,
+          startColumn: idNode.start.charPositionInLine,
+          endLine: idNode.stop.line,
+          endColumn:
+            idNode.stop.charPositionInLine + (idNode.stop.text?.length || 0),
+        };
+      }
     }
-    return this.getLocation(ctx as ParserRuleContext);
+
+    // Strategy 2: Check if context is AnyIdContext (e.g., from anyId() calls in dot expressions)
+    // AnyIdContext IS the identifier itself, so use its start/stop directly
+    // Match the deprecated listener's behavior: use start/stop for AnyIdContext
+    if (ctx && isContextType(ctx, AnyIdContext)) {
+      // For AnyIdContext, use ctx.text to get the identifier text
+      // This is more reliable than calculating from stop/start positions
+      const text = (ctx as any).text || ctx.stop?.text || ctx.start?.text || '';
+      const textLength =
+        text.length > 0
+          ? text.length
+          : (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) -
+            ctx.start.charPositionInLine +
+            (ctx.start.text?.length || 0);
+
+      return {
+        startLine: ctx.start.line,
+        startColumn: ctx.start.charPositionInLine,
+        endLine: ctx.stop?.line ?? ctx.start.line,
+        endColumn: ctx.start.charPositionInLine + textLength,
+      };
+    }
+
+    // Strategy 2b: Fallback for other contexts with start/stop (but not AnyIdContext)
+    // This handles cases where the context itself represents an identifier
+    if (ctx && ctx.start && ctx.stop && ctx.start !== ctx.stop) {
+      // Use the context's text property if available, otherwise calculate from positions
+      const text = (ctx as any).text || ctx.stop.text || ctx.start.text || '';
+      const textLength =
+        text.length > 0
+          ? text.length
+          : ctx.stop.charPositionInLine -
+            ctx.start.charPositionInLine +
+            (ctx.start.text?.length || 0);
+
+      return {
+        startLine: ctx.start.line,
+        startColumn: ctx.start.charPositionInLine,
+        endLine: ctx.stop.line,
+        endColumn: ctx.start.charPositionInLine + textLength,
+      };
+    }
+
+    // Strategy 3: Check if context itself is a single token (TerminalNode-like)
+    if (ctx.start === ctx.stop && ctx.start) {
+      return {
+        startLine: ctx.start.line,
+        startColumn: ctx.start.charPositionInLine,
+        endLine: ctx.start.line,
+        endColumn: ctx.start.charPositionInLine + (ctx.start.text?.length || 0),
+      };
+    }
+
+    return null;
+  }
+
+  private getLocationForReference(ctx: any): SymbolLocation {
+    // Handle TerminalNode (from id() calls) - has symbol property instead of start/stop
+    if (ctx.symbol && typeof ctx.symbol.line === 'number') {
+      const token = ctx.symbol;
+      const text = ctx.text || token.text || '';
+      const location: SymbolLocation = {
+        symbolRange: {
+          startLine: token.line,
+          startColumn: token.charPositionInLine,
+          endLine: token.line,
+          endColumn: token.charPositionInLine + text.length,
+        },
+        identifierRange: {
+          startLine: token.line,
+          startColumn: token.charPositionInLine,
+          endLine: token.line,
+          endColumn: token.charPositionInLine + text.length,
+        },
+      };
+      this.logger.debug(
+        () =>
+          `[getLocationForReference] TerminalNode: "${text}" at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}-${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
+      );
+      return location;
+    }
+
+    // Handle ParserRuleContext - has start and stop properties
+    if (ctx.start && ctx.stop) {
+      const location = this.getLocation(ctx as ParserRuleContext);
+      this.logger.debug(
+        () =>
+          `[getLocationForReference] ParserRuleContext: at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}-${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
+      );
+      return location;
+    }
+
+    // Fallback: try to use as ParserRuleContext anyway
+    const location = this.getLocation(ctx as ParserRuleContext);
+    this.logger.debug(
+      () =>
+        `[getLocationForReference] Fallback: at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}-${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
+    );
+    return location;
   }
 
   private getIdentifierRange(ctx: any): {

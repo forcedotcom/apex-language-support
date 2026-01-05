@@ -68,11 +68,13 @@ export class ServiceFactory {
    * Create hover processing service
    */
   createHoverService(): HoverProcessingService {
-    return new HoverProcessingService(
+    const service = new HoverProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
       // No need to create MissingArtifactResolutionService - MissingArtifactUtils will create it on-demand
     );
+    service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    return service;
   }
 
   /**

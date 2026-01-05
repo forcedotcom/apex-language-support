@@ -36,6 +36,8 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { calculateDisplayFQN } from '../utils/displayFQNUtils';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
+import { getDocumentStateCache } from './DocumentStateCache';
 
 import {
   transformLspToParserPosition,
@@ -69,6 +71,7 @@ export class HoverProcessingService implements IHoverProcessor {
   private readonly symbolManager: ISymbolManager;
   private readonly capabilitiesManager: ApexCapabilitiesManager;
   private readonly missingArtifactUtils: MissingArtifactUtils;
+  private layerEnrichmentService: LayerEnrichmentService | null = null;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
@@ -83,6 +86,17 @@ export class HoverProcessingService implements IHoverProcessor {
       logger,
       this.symbolManager,
     );
+  }
+
+  /**
+   * Set the layer enrichment service for on-demand SymbolTable enrichment
+   */
+  setLayerEnrichmentService(service: LayerEnrichmentService): void {
+    this.logger.debug(
+      () =>
+        `[HoverProcessingService] LayerEnrichmentService set: ${service ? 'yes' : 'no'}`,
+    );
+    this.layerEnrichmentService = service;
   }
 
   /**
@@ -187,10 +201,113 @@ export class HoverProcessingService implements IHoverProcessor {
         return hover;
       }
 
-      // No symbol found - check if TypeReference exists
+      // No symbol found - check if TypeReference exists OR if we should try enrichment
+      // Note: Assignment LHS references may be suppressed, so we should try enrichment
+      // even when no references are found if we're at a lower detail level
       if (references && references.length > 0) {
         // TypeReference exists but no symbol = unresolved identifier
-        // This indicates a missing artifact that should be resolved
+        // This could be because SymbolTable needs enrichment (private/protected symbols)
+        // or it's a cross-file reference
+
+        this.logger.debug(
+          () =>
+            '[HOVER] TypeReference exists but no symbol found. ' +
+            `layerEnrichmentService: ${this.layerEnrichmentService ? 'present' : 'missing'}`,
+        );
+
+        // FIRST: Try enriching the SymbolTable if it's at a lower detail level
+        if (this.layerEnrichmentService) {
+          try {
+            const cache = getDocumentStateCache();
+            const storage = ApexStorageManager.getInstance().getStorage();
+            const document = await storage.getDocument(params.textDocument.uri);
+
+            this.logger.debug(
+              () =>
+                `[HOVER] Document retrieved: ${document ? 'yes' : 'no'} for ${params.textDocument.uri}`,
+            );
+
+            if (document) {
+              const currentLevel = cache.getDetailLevel(
+                params.textDocument.uri,
+                document.version,
+              );
+
+              this.logger.debug(
+                () =>
+                  `[HOVER] Current detail level for ${params.textDocument.uri}: ${
+                    currentLevel || 'unknown (assuming public-api)'
+                  }`,
+              );
+
+              // If we're at 'public-api' or 'protected' level (or null/unknown,
+              // which likely means public-api from workspace batch)
+              // and need to find a symbol, enrich to 'private'
+              if (
+                currentLevel === null ||
+                currentLevel === 'public-api' ||
+                currentLevel === 'protected'
+              ) {
+                this.logger.debug(
+                  () =>
+                    `Enriching ${params.textDocument.uri} from ${currentLevel} to private for hover resolution`,
+                );
+
+                // Enrich synchronously (await) so we can retry immediately
+                await this.layerEnrichmentService.enrichFiles(
+                  [params.textDocument.uri],
+                  'private',
+                  'same-file',
+                );
+
+                // Retry symbol resolution after enrichment
+                const symbolAfterEnrichment =
+                  await this.symbolManager.getSymbolAtPosition(
+                    params.textDocument.uri,
+                    parserPosition,
+                    'precise',
+                  );
+
+                if (symbolAfterEnrichment) {
+                  this.logger.debug(
+                    () =>
+                      `Found symbol after enrichment: ${symbolAfterEnrichment.name} (${symbolAfterEnrichment.kind})`,
+                  );
+
+                  const hoverCreationStartTime = Date.now();
+                  const hover = await this.createHoverInformation(
+                    symbolAfterEnrichment,
+                  );
+                  const hoverCreationTime = Date.now() - hoverCreationStartTime;
+                  const totalTime = Date.now() - hoverStartTime;
+
+                  if (totalTime > 50) {
+                    this.logger.debug(
+                      () =>
+                        `[HOVER-DIAG] Hover completed after enrichment in ${totalTime}ms ` +
+                        `(keyword=${keywordCheckTime}ms, references=${referencesTime}ms, ` +
+                        `fileSymbols=${fileSymbolsTime}ms, symbolResolution=${symbolResolutionTime}ms, ` +
+                        `hoverCreation=${hoverCreationTime}ms)`,
+                    );
+                  }
+
+                  return hover;
+                } else {
+                  this.logger.debug(
+                    () =>
+                      `Symbol still not found after enriching ${params.textDocument.uri} to private level`,
+                  );
+                }
+              }
+            }
+          } catch (error) {
+            this.logger.debug(
+              () => `Error enriching SymbolTable for hover: ${error}`,
+            );
+          }
+        }
+
+        // If enrichment didn't help, fall back to missing artifact resolution
         this.logger.debug(() => {
           const parserPos = formatPosition(parserPosition, 'parser');
           return (
@@ -238,6 +355,159 @@ export class HoverProcessingService implements IHoverProcessor {
           );
         }
         return null;
+      } else if (!symbol && this.layerEnrichmentService) {
+        // No references found but no symbol either - could be assignment LHS or other suppressed reference
+        // Try enrichment if we're at a lower detail level
+        try {
+          const cache = getDocumentStateCache();
+          const storage = ApexStorageManager.getInstance().getStorage();
+          const document = await storage.getDocument(params.textDocument.uri);
+
+          this.logger.debug(
+            () =>
+              '[HOVER] No references found at position, ' +
+              `checking if enrichment needed. Document retrieved: ${
+                document ? 'yes' : 'no'
+              }`,
+          );
+
+          if (document) {
+            const currentLevel = cache.getDetailLevel(
+              params.textDocument.uri,
+              document.version,
+            );
+
+            this.logger.debug(
+              () =>
+                `[HOVER] Current detail level for ${params.textDocument.uri}: ` +
+                `${currentLevel || 'unknown (assuming public-api)'}`,
+            );
+
+            // If we're at 'public-api' or 'protected' level (or null/unknown), try enriching
+            // This helps with assignment LHS and other cases where references might be suppressed
+            if (
+              currentLevel === null ||
+              currentLevel === 'public-api' ||
+              currentLevel === 'protected'
+            ) {
+              this.logger.debug(
+                () =>
+                  `Enriching ${params.textDocument.uri} from ` +
+                  `${currentLevel || 'unknown'} to private for hover resolution ` +
+                  '(no references found)',
+              );
+
+              // Enrich synchronously (await) so we can retry immediately
+              await this.layerEnrichmentService.enrichFiles(
+                [params.textDocument.uri],
+                'private',
+                'same-file',
+              );
+
+              // Retry symbol resolution after enrichment
+              const symbolAfterEnrichment =
+                await this.symbolManager.getSymbolAtPosition(
+                  params.textDocument.uri,
+                  parserPosition,
+                  'precise',
+                );
+
+              this.logger.debug(
+                () =>
+                  `After enrichment, getSymbolAtPosition returned: ${
+                    symbolAfterEnrichment
+                      ? `${symbolAfterEnrichment.name} (${symbolAfterEnrichment.kind})`
+                      : 'null'
+                  }`,
+              );
+
+              if (symbolAfterEnrichment) {
+                this.logger.debug(
+                  () =>
+                    `Found symbol after enrichment: ${symbolAfterEnrichment.name} (${symbolAfterEnrichment.kind})`,
+                );
+
+                const hoverCreationStartTime = Date.now();
+                const hover = await this.createHoverInformation(
+                  symbolAfterEnrichment,
+                );
+                const hoverCreationTime = Date.now() - hoverCreationStartTime;
+                const totalTime = Date.now() - hoverStartTime;
+
+                if (totalTime > 50) {
+                  this.logger.debug(
+                    () =>
+                      '[HOVER-DIAG] Hover completed after enrichment ' +
+                      `in ${totalTime}ms (keyword=${keywordCheckTime}ms, ` +
+                      `references=${referencesTime}ms, ` +
+                      `fileSymbols=${fileSymbolsTime}ms, ` +
+                      `symbolResolution=${symbolResolutionTime}ms, ` +
+                      `hoverCreation=${hoverCreationTime}ms)`,
+                  );
+                }
+
+                return hover;
+              } else {
+                // Even after enrichment, no symbol found via getSymbolAtPosition
+                // This might be a declaration (method/field name) with no references
+                // Check symbols directly by identifierRange match
+                const symbolsInFile = this.symbolManager.findSymbolsInFile(
+                  params.textDocument.uri,
+                );
+                this.logger.debug(
+                  () =>
+                    `Checking ${symbolsInFile.length} symbols for identifierRange match ` +
+                    `at position ${parserPosition.line}:${parserPosition.character}`,
+                );
+                for (const candidateSymbol of symbolsInFile) {
+                  if (candidateSymbol.location?.identifierRange) {
+                    const idRange = candidateSymbol.location.identifierRange;
+                    const matches = this.isPositionInRange(
+                      parserPosition,
+                      idRange,
+                    );
+                    this.logger.debug(
+                      () =>
+                        `Symbol ${candidateSymbol.name} (${candidateSymbol.kind}): ` +
+                        `identifierRange=${idRange.startLine}:${idRange.startColumn}-` +
+                        `${idRange.endLine}:${idRange.endColumn}, ` +
+                        `position=${parserPosition.line}:${parserPosition.character}, ` +
+                        `matches=${matches}`,
+                    );
+                    if (matches) {
+                      // Found a declaration symbol at this position
+                      this.logger.debug(
+                        () =>
+                          'Found declaration symbol after enrichment: ' +
+                          `${candidateSymbol.name} (${candidateSymbol.kind}) ` +
+                          `at position ${parserPosition.line}:${parserPosition.character}`,
+                      );
+                      const hoverCreationStartTime = Date.now();
+                      const hover =
+                        await this.createHoverInformation(candidateSymbol);
+                      const hoverCreationTime =
+                        Date.now() - hoverCreationStartTime;
+                      const totalTime = Date.now() - hoverStartTime;
+                      if (totalTime > 50) {
+                        this.logger.debug(
+                          () =>
+                            '[HOVER-DIAG] Hover completed for declaration ' +
+                            `after enrichment in ${totalTime}ms ` +
+                            `(hoverCreation=${hoverCreationTime}ms)`,
+                        );
+                      }
+                      return hover;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          this.logger.debug(
+            () => `Error enriching SymbolTable for hover: ${error}`,
+          );
+        }
       }
 
       // No symbol AND no TypeReference = nothing of interest (keyword, whitespace, etc.)
@@ -259,6 +529,26 @@ export class HoverProcessingService implements IHoverProcessor {
       );
       return null;
     }
+  }
+
+  /**
+   * Check if a position is within a range
+   */
+  private isPositionInRange(
+    position: { line: number; character: number },
+    range: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    },
+  ): boolean {
+    return (
+      position.line >= range.startLine &&
+      position.line <= range.endLine &&
+      position.character >= range.startColumn &&
+      position.character <= range.endColumn
+    );
   }
 
   /**

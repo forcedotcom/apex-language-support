@@ -3600,16 +3600,47 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // If class block wasn't in the hierarchy (because getScopeHierarchy only follows blocks),
-      // we need to find it by traversing up through method symbols
-      // Method blocks -> method symbols -> class block (method symbol's parentId points to class block)
+      // we need to find it by traversing up through the parentId chain
+      // Method blocks can point directly to class blocks (not through method symbols)
       for (const blockSymbol of parentScopeSearchOrder) {
         if (!isBlockSymbol(blockSymbol)) {
           continue;
         }
-        // If this is a method block, find its parent method symbol, then use that to find the class block
+        // If this is a method block, check if its parentId points directly to a class block
         if (blockSymbol.scopeType === 'method' && blockSymbol.parentId) {
+          // First try: method block -> class block (direct relationship)
+          const directClassBlock = allFileSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.id === blockSymbol.parentId,
+          );
+          if (directClassBlock) {
+            // Look for fields in the class block
+            const classFields = allFileSymbols.filter(
+              (s) =>
+                s.name === typeReference.name &&
+                s.parentId === directClassBlock.id &&
+                s.kind === SymbolKind.Field,
+            );
+            if (classFields.length > 0) {
+              return classFields[0];
+            }
+            // Also look for methods in the class block
+            const classMethods = allFileSymbols.filter(
+              (s) =>
+                s.name === typeReference.name &&
+                s.parentId === directClassBlock.id &&
+                s.kind === SymbolKind.Method,
+            );
+            if (classMethods.length > 0) {
+              return classMethods[0];
+            }
+          }
+
+          // Second try: method block -> method symbol -> class block (for compatibility)
           const methodSymbol = allFileSymbols.find(
-            (s) => s.id === blockSymbol.parentId,
+            (s) => s.id === blockSymbol.parentId && s.kind === SymbolKind.Method,
           );
           if (methodSymbol && methodSymbol.parentId) {
             // Method symbol's parentId points to the class block
@@ -5363,19 +5394,35 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             symbol.location.identifierRange,
           )
         ) {
-          // Only return for declaration symbols (variable, field, method, class, etc.)
-          // Skip if there are references at this position (indicates a usage, not a declaration)
+          // Check if there are references at this position
           const refsAtPosition = this.getReferencesAtPosition(
             fileUri,
             position,
           );
+          
           if (refsAtPosition.length === 0) {
             // No references means this is a declaration - return the symbol directly
             return symbol;
           }
-          // If there are references, continue to reference-based resolution
-          // (references take precedence for method calls, chained expressions, etc.)
-          break;
+          
+          // If there are references, try to resolve the first one
+          // But if it doesn't resolve to a symbol, fall back to the declaration
+          // This handles cases where references exist but don't resolve (e.g., invalid references)
+          // and ensures declarations are still accessible via hover (e.g., method names in declarations)
+          const resolvedFromRef = await this.resolveSymbolReferenceToSymbol(
+            refsAtPosition[0],
+            fileUri,
+            position,
+          );
+          
+          if (resolvedFromRef) {
+            // Reference resolved to a symbol - use that (for method calls, chained expressions, etc.)
+            return resolvedFromRef;
+          }
+          
+          // References exist but didn't resolve - this is likely a declaration
+          // Return the declaration symbol so hover works on method/field names in declarations
+          return symbol;
         }
       }
 
