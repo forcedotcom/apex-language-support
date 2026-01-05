@@ -21,6 +21,7 @@ import {
 import { Effect } from 'effect';
 import { transformParserToLspPosition } from '../utils/positionUtils';
 import { toDisplayFQN } from '../utils/displayFQNUtils';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
 
 /**
  * Interface for workspace symbol processing functionality
@@ -56,12 +57,20 @@ export class WorkspaceSymbolProcessingService
 {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
+  private layerEnrichmentService: LayerEnrichmentService | null = null;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+  }
+
+  /**
+   * Set the layer enrichment service (for on-demand enrichment)
+   */
+  setLayerEnrichmentService(service: LayerEnrichmentService): void {
+    this.layerEnrichmentService = service;
   }
 
   /**
@@ -79,6 +88,51 @@ export class WorkspaceSymbolProcessingService
     try {
       // Analyze workspace symbol context
       const context = this.analyzeWorkspaceSymbolContext(params);
+
+      // Determine required detail level based on query
+      if (this.layerEnrichmentService) {
+        const requiredLevel = this.layerEnrichmentService.determineRequiredLevel(
+          'workspaceSymbol',
+          {
+            query: params.query,
+            includePrivate: context.query?.includes('private'),
+            includeProtected: context.query?.includes('protected'),
+          },
+        );
+
+        // If we need deeper than public-api, enrich matching files
+        if (requiredLevel !== 'public-api') {
+          try {
+            // Select files to enrich based on query (workspace-wide for workspace symbol search)
+            const filesToEnrich = this.layerEnrichmentService.selectFilesToEnrich(
+              { query: params.query },
+              'workspace-wide',
+            );
+
+            if (filesToEnrich.length > 0) {
+              // Enrich asynchronously - return partial results immediately
+              this.layerEnrichmentService
+                .enrichFiles(
+                  filesToEnrich,
+                  requiredLevel,
+                  'workspace-wide',
+                  undefined, // WorkspaceSymbolParams doesn't have workDoneToken in standard LSP
+                )
+                .catch((error) => {
+                  this.logger.debug(
+                    () =>
+                      `Error enriching files for workspaceSymbol: ${error}`,
+                  );
+                });
+            }
+          } catch (error) {
+            this.logger.debug(
+              () =>
+                `Error initiating enrichment for workspaceSymbol: ${error}`,
+            );
+          }
+        }
+      }
 
       // Get workspace symbols using ApexSymbolManager
       const symbols = await this.getWorkspaceSymbols(context);
@@ -139,16 +193,8 @@ export class WorkspaceSymbolProcessingService
       const symbols: SymbolInformation[] = [];
 
       try {
-        // Get symbols from ApexSymbolManager using available methods
-        // For now, we'll use a simple approach - in practice, we'd need to implement getAllSymbols
-        const allSymbols: any[] = [];
-
-        // This is a simplified implementation - in practice, ApexSymbolManager would need getAllSymbols method
-        // For now, we'll return empty results to avoid errors
-        self.logger.debug(
-          () =>
-            'Workspace symbol search requires getAllSymbols method in ApexSymbolManager',
-        );
+        // Get symbols from ApexSymbolManager using getAllSymbolsForCompletion
+        const allSymbols = self.symbolManager.getAllSymbolsForCompletion();
 
         const batchSize = 50;
         for (let i = 0; i < allSymbols.length; i++) {

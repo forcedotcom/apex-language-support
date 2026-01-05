@@ -1174,7 +1174,7 @@ export class LCSAdapter {
       this.logger.debug('🔧 Initializing LSP queue manager...');
       const symbolManager =
         ApexSymbolProcessingManager.getInstance().getSymbolManager();
-      initializeLSPQueueManager(symbolManager);
+      initializeLSPQueueManager(symbolManager, this.connection);
       this.logger.debug('✅ LSP queue manager initialized');
 
       // Start periodic queue state notification task (development mode only)

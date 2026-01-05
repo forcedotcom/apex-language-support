@@ -24,6 +24,7 @@ import {
   type DocumentOpenBatchConfig,
 } from './DocumentOpenBatcher';
 import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
 
 /**
  * Service for processing document open events
@@ -33,10 +34,18 @@ export class DocumentProcessingService {
   private readonly storageManager: ApexStorageManager;
   private batcher: DocumentOpenBatcherService | null = null;
   private batcherShutdown: Effect.Effect<void, never> | null = null;
+  private layerEnrichmentService: LayerEnrichmentService | null = null;
 
   constructor(logger: LoggerInterface) {
     this.logger = logger;
     this.storageManager = ApexStorageManager.getInstance();
+  }
+
+  /**
+   * Set the layer enrichment service (for editor-opened files)
+   */
+  setLayerEnrichmentService(service: LayerEnrichmentService): void {
+    this.layerEnrichmentService = service;
   }
 
   /**
@@ -195,11 +204,13 @@ export class DocumentProcessingService {
             );
 
             // Cache diagnostics (SymbolTable is stored in ApexSymbolManager)
+            // Workspace batch processing uses public-api only (fast initial load)
             cache.merge(event.document.uri, {
               diagnostics,
               documentVersion: event.document.version,
               documentLength: event.document.getText().length,
               symbolsIndexed: false,
+              detailLevel: 'public-api', // Workspace load is public API only
             });
 
             // Add symbols synchronously so they're immediately available for hover/goto definition
@@ -321,11 +332,13 @@ export class DocumentProcessingService {
         );
 
         // Cache diagnostics (SymbolTable is stored in ApexSymbolManager)
+        // Editor open starts with public-api, will be enriched to full
         cache.merge(event.document.uri, {
           diagnostics,
           documentVersion: event.document.version,
           documentLength: event.document.getText().length,
           symbolsIndexed: false,
+          detailLevel: 'public-api', // Initial level, will be enriched
         });
 
         // Add symbols synchronously so they're immediately available for hover/goto definition
@@ -344,6 +357,41 @@ export class DocumentProcessingService {
             () =>
               `Successfully added symbols synchronously for ${event.document.uri}`,
           );
+
+          // Enrich to full detail level for editor-opened files (not workspace batch)
+          // This ensures documentSymbol, completion, hover, and diagnostics have full semantics
+          if (this.layerEnrichmentService) {
+            try {
+              this.logger.debug(
+                () =>
+                  `Enriching editor-opened file ${event.document.uri} to full detail level`,
+              );
+              // Enrich asynchronously (don't block diagnostics return)
+              this.layerEnrichmentService
+                .enrichFiles(
+                  [event.document.uri],
+                  'full',
+                  'same-file',
+                )
+                .then(() => {
+                  this.logger.debug(
+                    () =>
+                      `Successfully enriched ${event.document.uri} to full detail level`,
+                  );
+                })
+                .catch((error) => {
+                  this.logger.debug(
+                    () =>
+                      `Error enriching ${event.document.uri}: ${error}`,
+                  );
+                });
+            } catch (error) {
+              this.logger.debug(
+                () =>
+                  `Error initiating enrichment for ${event.document.uri}: ${error}`,
+              );
+            }
+          }
         } else {
           this.logger.warn(
             () =>

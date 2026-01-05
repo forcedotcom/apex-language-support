@@ -22,6 +22,8 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 import { toDisplayFQN } from '../utils/displayFQNUtils';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
+import { getDocumentStateCache } from './DocumentStateCache';
 
 /**
  * Interface for completion processing functionality
@@ -56,12 +58,20 @@ export interface CompletionContext {
 export class CompletionProcessingService implements ICompletionProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
+  private layerEnrichmentService: LayerEnrichmentService | null = null;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+  }
+
+  /**
+   * Set the layer enrichment service (for on-demand enrichment)
+   */
+  setLayerEnrichmentService(service: LayerEnrichmentService): void {
+    this.layerEnrichmentService = service;
   }
 
   /**
@@ -88,6 +98,39 @@ export class CompletionProcessingService implements ICompletionProcessor {
           () => `Document not found: ${params.textDocument.uri}`,
         );
         return [];
+      }
+
+      // Check if file needs enrichment for private symbols (completion needs private symbols)
+      const cache = getDocumentStateCache();
+      if (
+        this.layerEnrichmentService &&
+        !cache.hasDetailLevel(
+          params.textDocument.uri,
+          document.version,
+          'private',
+        )
+      ) {
+        try {
+          // Enrich asynchronously - don't block completion, but start enrichment
+          this.layerEnrichmentService
+            .enrichFiles(
+              [params.textDocument.uri],
+              'private',
+              'same-file',
+              undefined, // CompletionParams doesn't have workDoneToken
+            )
+            .catch((error: unknown) => {
+              this.logger.debug(
+                () =>
+                  `Error enriching file for completion: ${error}`,
+              );
+            });
+        } catch (error) {
+          this.logger.debug(
+            () =>
+              `Error initiating enrichment for completion: ${error}`,
+          );
+        }
       }
 
       // Analyze completion context

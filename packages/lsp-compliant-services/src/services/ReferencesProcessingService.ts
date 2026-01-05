@@ -31,6 +31,7 @@ import {
   isApexKeyword,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
 import {
   transformParserToLspPosition,
   transformLspToParserPosition,
@@ -59,12 +60,20 @@ export interface IReferencesProcessor {
 export class ReferencesProcessingService implements IReferencesProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
+  private layerEnrichmentService: LayerEnrichmentService | null = null;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+  }
+
+  /**
+   * Set the layer enrichment service (for on-demand enrichment)
+   */
+  setLayerEnrichmentService(service: LayerEnrichmentService): void {
+    this.layerEnrichmentService = service;
   }
 
   /**
@@ -171,6 +180,39 @@ export class ReferencesProcessingService implements IReferencesProcessor {
           () =>
             'No connection available for workspace load coordination, continuing with reference search',
         );
+      }
+
+      // Enrich files that might reference the target symbol (for finding references to protected/private members)
+      if (this.layerEnrichmentService) {
+        try {
+          // Select files in dependency graph that might reference this symbol
+          const filesToEnrich = this.layerEnrichmentService.selectFilesToEnrich(
+            { fileUri: params.textDocument.uri },
+            'dependency-graph',
+          );
+
+          if (filesToEnrich.length > 0) {
+            // Enrich asynchronously - return partial results immediately
+            this.layerEnrichmentService
+              .enrichFiles(
+                filesToEnrich,
+                'protected', // References might need protected symbols
+                'dependency-graph',
+                params.workDoneToken,
+              )
+              .catch((error) => {
+                this.logger.debug(
+                  () =>
+                    `Error enriching files for references: ${error}`,
+                );
+              });
+          }
+        } catch (error) {
+          this.logger.debug(
+            () =>
+              `Error initiating enrichment for references: ${error}`,
+          );
+        }
       }
 
       // Search for references immediately (may return partial results if workspace isn't fully loaded)

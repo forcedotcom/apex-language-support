@@ -19,6 +19,8 @@ import {
   ApexSymbolProcessingManager,
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
+import { getDocumentStateCache } from './DocumentStateCache';
 
 /**
  * Interface for document symbol processing functionality
@@ -42,12 +44,20 @@ export class DocumentSymbolProcessingService
 {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
+  private layerEnrichmentService: LayerEnrichmentService | null = null;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+  }
+
+  /**
+   * Set the layer enrichment service (for on-demand enrichment)
+   */
+  setLayerEnrichmentService(service: LayerEnrichmentService): void {
+    this.layerEnrichmentService = service;
   }
 
   /**
@@ -67,6 +77,36 @@ export class DocumentSymbolProcessingService
       // Get the storage manager instance
       const storageManager = ApexStorageManager.getInstance();
       const storage = storageManager.getStorage();
+
+      // Get document to check detail level
+      const document = await storage.getDocument(params.textDocument.uri);
+      if (document) {
+        // Check if file needs enrichment for full symbol detail
+        const cache = getDocumentStateCache();
+        if (
+          this.layerEnrichmentService &&
+          !cache.hasDetailLevel(
+            params.textDocument.uri,
+            document.version,
+            'full',
+          )
+        ) {
+          try {
+            // Enrich synchronously for documentSymbol (user expects full results)
+            await this.layerEnrichmentService.enrichFiles(
+              [params.textDocument.uri],
+              'full',
+              'same-file',
+              undefined, // DocumentSymbolParams doesn't have workDoneToken in standard LSP
+            );
+          } catch (error) {
+            this.logger.debug(
+              () =>
+                `Error enriching file for documentSymbol: ${error}`,
+            );
+          }
+        }
+      }
 
       // Create the document symbol provider
       const provider = new DefaultApexDocumentSymbolProvider(storage);
