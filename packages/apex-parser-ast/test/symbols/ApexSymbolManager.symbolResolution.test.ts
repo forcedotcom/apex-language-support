@@ -145,18 +145,14 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     });
 
     it('should resolve method name in chained this.methodName().anotherMethod() expression', async () => {
+      // Compile both files - TestClass and AccountRecordTypeAutoDeletionService
+      await compileAndAddFixtures([
+        'ChainedThisMethodCall.cls',
+        'AccountRecordTypeAutoDeletionService.cls',
+      ]);
+
       const sourceCode = loadFixture('ChainedThisMethodCall.cls');
       const fileUri = 'file:///test/ChainedThisMethodCall.cls';
-
-      const listener = new FullSymbolCollectorListener();
-      const result = compilerService.compile(sourceCode, fileUri, listener);
-
-      if (result.result) {
-        await symbolManager.addSymbolTable(result.result, fileUri);
-      }
-
-      // Wait for reference processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Calculate positions - find the method calls in chained expression
       // Need to find the call (with "this.") not the declaration
@@ -292,6 +288,22 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       // Calculate position: find DualListboxValueVModel in the generic type parameter
       // Find the first occurrence which should be in the type parameter, not a declaration
       const position = findPosition(sourceCode, 'DualListboxValueVModel');
+
+      // Diagnostic: Check what references are found at the position
+      const referencesAtPosition = symbolManager.getReferencesAtPosition(
+        fileUri,
+        position,
+      );
+      console.log(
+        `[DEBUG] Found ${referencesAtPosition.length} references at position ${position.line}:${position.character}`,
+      );
+      referencesAtPosition.forEach((ref, idx) => {
+        console.log(
+          `[DEBUG] Reference ${idx}: name="${ref.name}", context=${ref.context}, ` +
+            `location=${ref.location.identifierRange.startLine}:${ref.location.identifierRange.startColumn}-` +
+            `${ref.location.identifierRange.endLine}:${ref.location.identifierRange.endColumn}`,
+        );
+      });
 
       // Test symbol resolution on class name in generic type
       const symbol = await symbolManager.getSymbolAtPosition(

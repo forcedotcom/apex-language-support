@@ -23,6 +23,7 @@ import {
   AnyIdContext,
   ExpressionListContext,
   TypeArgumentsContext,
+  TypeListContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -306,11 +307,25 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
    */
   enterTypeRef(ctx: TypeRefContext): void {
     try {
+      // Check if this TypeRef is inside a TypeArgumentsContext (generic type parameter)
+      // If so, enterTypeArguments will handle it, so we can skip it here
+      const isGenericArg = this.isGenericArgument(ctx);
+      if (isGenericArg) {
+        // Generic type parameters are handled by enterTypeArguments
+        return;
+      }
+
       const typeNames = ctx.typeName();
       if (!typeNames || typeNames.length === 0) return;
 
       const typeName = typeNames[0];
       if (!typeName) return;
+
+      // Check if this TypeRef has typeArguments directly (for generic types like List<String>)
+      // The typeArguments might be on the first typeName, not on the TypeRefContext itself
+      // Try accessing typeArguments on the first typeName (which might be a baseTypeName)
+      const baseTypeName = typeName;
+      const typeArgsOnBase = (baseTypeName as any).typeArguments?.();
 
       const isTypeDeclaration = this.isTypeDeclarationContext(ctx);
       const isMethodReturnType = this.isMethodReturnTypeContext(ctx);
@@ -395,6 +410,66 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       }
 
       this.symbolTable.addTypeReference(baseReference);
+
+      // Also capture generic type parameters if this type has them
+      // For type declarations like "List<String>", we need to capture the generic parameter
+      // Check if TypeRefContext has typeArguments (generic parameters)
+      // Try TypeRefContext, TypeNameContext (baseTypeName), and parent contexts
+      let typeArgs = (ctx as any).typeArguments?.();
+      if (!typeArgs) {
+        typeArgs = typeArgsOnBase;
+      }
+      if (!typeArgs) {
+        typeArgs = (typeName as any).typeArguments?.();
+      }
+      if (!typeArgs) {
+        typeArgs = parentTypeArgs;
+      }
+      this.logger.debug(
+        () =>
+          `[TYPE_REF] Checking for typeArguments: ctx.typeArguments=${!!(ctx as any).typeArguments?.()}, baseTypeName.typeArguments=${!!typeArgsOnBase}, typeName.typeArguments=${!!(typeName as any).typeArguments?.()}`,
+      );
+      if (typeArgs) {
+        this.logger.debug(
+          () =>
+            `[TYPE_REF] Found typeArguments for type declaration at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
+        );
+        this.logger.debug(
+          () =>
+            `[TYPE_REF] Found typeArguments for type declaration at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
+        );
+        const typeList = typeArgs.typeList();
+        if (typeList) {
+          const genericTypeRefs = typeList.typeRef();
+          for (const genericTypeRef of genericTypeRefs) {
+            const genericTypeNames = genericTypeRef.typeName();
+            if (!genericTypeNames || genericTypeNames.length === 0) continue;
+
+            const genericTypeName = genericTypeNames[0];
+            if (!genericTypeName) continue;
+
+            const genericIdNode = genericTypeName.id();
+            if (!genericIdNode) continue;
+
+            const genericLocation = this.getLocationForReference(genericIdNode);
+
+            this.logger.debug(
+              () =>
+                `[TYPE_REF] Creating generic parameter reference for "${genericIdNode.text}" ` +
+                `at ${genericLocation.identifierRange.startLine}:${genericLocation.identifierRange.startColumn}-` +
+                `${genericLocation.identifierRange.endLine}:${genericLocation.identifierRange.endColumn}`,
+            );
+
+            const genericReference =
+              SymbolReferenceFactory.createGenericParameterTypeReference(
+                genericIdNode.text,
+                genericLocation,
+                parentContext,
+              );
+            this.symbolTable.addTypeReference(genericReference);
+          }
+        }
+      }
     } catch (error) {
       this.logger.warn(
         () => `Error capturing type declaration reference: ${error}`,
@@ -797,15 +872,115 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   }
 
   /**
+   * Capture type list in generic types (for type declarations like List<ClassName>)
+   * This handles generic type parameters in variable declarations, not just in new expressions
+   */
+  enterTypeList(ctx: TypeListContext): void {
+    try {
+      this.logger.debug(
+        () =>
+          `[TYPE_LIST] enterTypeList called at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
+      );
+
+      // Check if we're inside typeArguments - if so, let enterTypeArguments handle it
+      let current: ParserRuleContext | undefined = ctx.parent;
+      let depth = 0;
+      while (current && depth < 10) {
+        this.logger.debug(
+          () =>
+            `[TYPE_LIST] Checking parent at depth ${depth}: ${current.constructor.name}`,
+        );
+        if (isContextType(current, TypeArgumentsContext)) {
+          this.logger.debug(() => `[TYPE_LIST] Inside TypeArgumentsContext, skipping`);
+          // enterTypeArguments will handle this, skip here
+          return;
+        }
+        // Check if we're in a constructor call (NewExpressionContext)
+        if (isContextType(current, NewExpressionContext)) {
+          this.logger.debug(() => `[TYPE_LIST] Inside NewExpressionContext, skipping`);
+          // Constructor calls are handled by enterTypeArguments or captureConstructorCallReference
+          return;
+        }
+        // Check if we're in a type declaration (LocalVariableDeclarationContext, FieldDeclarationContext, etc.)
+        const isTypeDecl =
+          current.constructor.name === 'LocalVariableDeclarationContext' ||
+          current.constructor.name === 'FieldDeclarationContext' ||
+          current.constructor.name === 'PropertyDeclarationContext';
+        if (isTypeDecl) {
+          this.logger.debug(
+            () => `[TYPE_LIST] Found type declaration context: ${current.constructor.name}`,
+          );
+          // This is a type declaration with generic parameters - capture them
+          const typeRefs = ctx.typeRef();
+          if (!typeRefs || typeRefs.length === 0) return;
+
+          const parentContext = this.determineTypeReferenceContext(
+            current as any,
+          );
+
+          for (const typeRef of typeRefs) {
+            const typeNames = typeRef.typeName();
+            if (!typeNames || typeNames.length === 0) continue;
+
+            const typeName = typeNames[0];
+            if (!typeName) continue;
+
+            // Get the identifier node from the typeName - this is the actual class name
+            const idNode = typeName.id();
+            if (!idNode) continue;
+
+            // Use getLocationForReference on the idNode (TerminalNode) for precise location
+            const location = this.getLocationForReference(idNode);
+
+            this.logger.debug(
+              () =>
+                `[TYPE_LIST] Creating generic parameter reference for "${idNode.text}" ` +
+                `at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}-` +
+                `${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
+            );
+
+            const genericReference =
+              SymbolReferenceFactory.createGenericParameterTypeReference(
+                idNode.text,
+                location,
+                parentContext,
+              );
+            this.symbolTable.addTypeReference(genericReference);
+          }
+          return;
+        }
+        current = current.parent;
+      }
+    } catch (error) {
+      this.logger.warn(() => `Error capturing type list: ${error}`);
+    }
+  }
+
+  /**
    * Capture type arguments in generic types
    */
   enterTypeArguments(ctx: TypeArgumentsContext): void {
     try {
+      this.logger.debug(
+        () =>
+          `[TYPE_ARGS] enterTypeArguments called at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
+      );
+
       const typeList = ctx.typeList();
-      if (!typeList) return;
+      if (!typeList) {
+        this.logger.debug(() => `[TYPE_ARGS] No typeList found`);
+        return;
+      }
 
       const typeRefs = typeList.typeRef();
-      if (!typeRefs || typeRefs.length === 0) return;
+      if (!typeRefs || typeRefs.length === 0) {
+        this.logger.debug(() => `[TYPE_ARGS] No typeRefs found`);
+        return;
+      }
+
+      this.logger.debug(
+        () => `[TYPE_ARGS] Processing ${typeRefs.length} type references`,
+      );
 
       for (const typeRef of typeRefs) {
         const typeNames = typeRef.typeName();
@@ -814,12 +989,27 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         const typeName = typeNames[0];
         if (!typeName) continue;
 
+        // Get the identifier node from the typeName - this is the actual class name
+        const idNode = typeName.id();
+        if (!idNode) {
+          this.logger.debug(() => `[TYPE_ARGS] No idNode found for typeName`);
+          continue;
+        }
+
         const parentContext = this.determineTypeReferenceContext(typeRef);
-        const location = this.getLocationForReference(typeName);
+        // Use getLocationForReference on the idNode (TerminalNode) for precise location
+        const location = this.getLocationForReference(idNode);
+
+        this.logger.debug(
+          () =>
+            `[TYPE_ARGS] Creating generic parameter reference for "${idNode.text}" ` +
+            `at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}-` +
+            `${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
+        );
 
         const genericReference =
           SymbolReferenceFactory.createGenericParameterTypeReference(
-            typeName.id()?.text || 'Object',
+            idNode.text,
             location,
             parentContext,
           );
