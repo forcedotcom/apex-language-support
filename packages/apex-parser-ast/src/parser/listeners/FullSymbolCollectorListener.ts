@@ -20,7 +20,7 @@ import { PublicAPISymbolListener } from './PublicAPISymbolListener';
 import { ProtectedSymbolListener } from './ProtectedSymbolListener';
 import { PrivateSymbolListener } from './PrivateSymbolListener';
 import { ApexReferenceCollectorListener } from './ApexReferenceCollectorListener';
-import { ReferenceCollectionListener } from './ReferenceCollectionListener';
+import { BlockContentListener } from './BlockContentListener';
 import { ApexReferenceResolver } from '../references/ApexReferenceResolver';
 import { SymbolTable } from '../../types/symbol';
 
@@ -42,7 +42,7 @@ interface SemanticError {
  * - ProtectedSymbolListener (Layer 2)
  * - PrivateSymbolListener (Layer 3)
  * - ApexReferenceCollectorListener (declaration reference collection via delegation)
- * - ReferenceCollectionListener (expression reference collection as separate pass)
+ * - BlockContentListener (block-level symbol table population as separate pass)
  * - ApexReferenceResolver (reference resolution)
  *
  */
@@ -59,7 +59,7 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   private protectedListener: ProtectedSymbolListener;
   private privateListener: PrivateSymbolListener;
   private referenceCollector: ApexReferenceCollectorListener;
-  private expressionReferenceCollector: ReferenceCollectionListener;
+  private blockContentListener: BlockContentListener;
   private referenceResolver: ApexReferenceResolver;
 
   // Track if we've been walked (to know when to apply reference collection/resolution)
@@ -85,9 +85,7 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     this.referenceCollector = new ApexReferenceCollectorListener(
       this.symbolTable,
     );
-    this.expressionReferenceCollector = new ReferenceCollectionListener(
-      this.symbolTable,
-    );
+    this.blockContentListener = new BlockContentListener(this.symbolTable);
     this.referenceResolver = new ApexReferenceResolver();
   }
 
@@ -112,7 +110,7 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     this.protectedListener.setCurrentFileUri(fileUri);
     this.privateListener.setCurrentFileUri(fileUri);
     this.referenceCollector.setCurrentFileUri(fileUri);
-    this.expressionReferenceCollector.setCurrentFileUri(fileUri);
+    this.blockContentListener.setCurrentFileUri(fileUri);
     this.logger.debug(() => `Set current file path to: ${fileUri}`);
   }
 
@@ -136,7 +134,7 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     this.protectedListener.setErrorListener(errorListener);
     this.privateListener.setErrorListener(errorListener);
     this.referenceCollector.setErrorListener(errorListener);
-    this.expressionReferenceCollector.setErrorListener(errorListener);
+    this.blockContentListener.setErrorListener(errorListener);
   }
 
   /**
@@ -203,8 +201,8 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     walker.walk(this.privateListener, this.parseTree);
 
     // Declaration references are collected via delegation from symbol listeners
-    // Expression references are collected as a separate pass
-    walker.walk(this.expressionReferenceCollector, this.parseTree);
+    // Block-level content (local variables, block scopes, expression references) is collected as a separate pass
+    walker.walk(this.blockContentListener, this.parseTree);
 
     // Apply reference resolver if enabled
     if (this.enableReferenceCorrection) {

@@ -27,24 +27,49 @@ import {
   WhenValueContext,
   InstanceOfExpressionContext,
   TypeRefPrimaryContext,
+  LocalVariableDeclarationContext,
+  BlockContext,
+  ParseTreeWalker,
+  MethodDeclarationContext,
+  ConstructorDeclarationContext,
+  ClassDeclarationContext,
+  InterfaceDeclarationContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Stack } from 'data-structure-typed';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
+import { ApexReferenceCollectorListener } from './ApexReferenceCollectorListener';
 import {
   SymbolReferenceFactory,
   ReferenceContext,
   EnhancedSymbolReference,
 } from '../../types/symbolReference';
 import type { SymbolReference } from '../../types/symbolReference';
-import { SymbolTable, SymbolLocation } from '../../types/symbol';
+import {
+  SymbolTable,
+  SymbolLocation,
+  SymbolKind,
+  SymbolModifiers,
+  SymbolVisibility,
+  VariableSymbol,
+  ScopeSymbol,
+  ScopeType,
+  SymbolKey,
+  ApexSymbol,
+  MethodSymbol,
+  TypeSymbol,
+  SymbolFactory,
+} from '../../types/symbol';
 import {
   isDotExpressionContext,
   isContextType,
 } from '../../utils/contextTypeGuards';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
+import { isBlockSymbol } from '../../utils/symbolNarrowing';
+import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
+import { createTypeInfo } from '../../utils/TypeInfoFactory';
 
 interface ChainScope {
   isActive: boolean;
@@ -55,14 +80,19 @@ interface ChainScope {
 }
 
 /**
- * Listener that collects expression references (method calls, assignments, etc.)
- * as a separate pass after symbol collection. This layer is orthogonal to visibility -
- * it collects all expression references regardless of which symbol listener processed
- * the containing declaration.
+ * Listener that handles all block-level symbol table population (Layer 4).
+ * This includes:
+ * - Local variable symbols (VariableSymbol creation)
+ * - Local variable type references
+ * - Block scopes (ScopeSymbol creation)
+ * - Expression references (method calls, assignments, etc.)
+ *
+ * This layer is orthogonal to visibility - it handles all block content regardless
+ * of which visibility layer processed the containing method/constructor.
  *
  * Uses parse tree traversal to determine parent context (method name, type name).
  */
-export class ReferenceCollectionListener extends BaseApexParserListener<SymbolTable> {
+export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   private readonly logger = getLogger();
   private symbolTable: SymbolTable;
   private currentFilePath: string = '';
@@ -80,6 +110,10 @@ export class ReferenceCollectionListener extends BaseApexParserListener<SymbolTa
   // Chain expression scope for capturing complete chains as single units
   private chainExpressionScope: ChainScope | null = null;
 
+  // Scope tracking for block-level symbols
+  private scopeStack: Stack<ApexSymbol> = new Stack<ApexSymbol>();
+  private blockCounter: number = 0;
+
   constructor(symbolTable: SymbolTable) {
     super();
     this.symbolTable = symbolTable;
@@ -89,6 +123,11 @@ export class ReferenceCollectionListener extends BaseApexParserListener<SymbolTa
     this.currentFilePath = fileUri;
     this.symbolTable.setFileUri(fileUri);
     this.logger.debug(() => `Set current file path to: ${fileUri}`);
+  }
+
+  setErrorListener(errorListener: any): void {
+    // Error listener support inherited from BaseApexParserListener
+    super.setErrorListener(errorListener);
   }
 
   getResult(): SymbolTable {
@@ -126,6 +165,12 @@ export class ReferenceCollectionListener extends BaseApexParserListener<SymbolTa
       }
 
       current = current.parent;
+    }
+
+    // Fallback: check scope stack for method
+    const method = this.getCurrentMethod();
+    if (method) {
+      return method.name;
     }
 
     return undefined;
@@ -1078,6 +1123,269 @@ export class ReferenceCollectionListener extends BaseApexParserListener<SymbolTa
 
   private getTextFromContext(ctx: ParserRuleContext): string {
     return ctx.text || '';
+  }
+
+  /**
+   * Called when entering a local variable declaration
+   * Creates VariableSymbol objects and delegates type reference collection
+   */
+  enterLocalVariableDeclaration(ctx: LocalVariableDeclarationContext): void {
+    try {
+      const typeRef = ctx.typeRef();
+      if (!typeRef) {
+        return;
+      }
+
+      const type = this.createTypeInfoFromTypeRef(typeRef);
+      const modifiers = this.createDefaultModifiers();
+      const declarators = ctx.variableDeclarators()?.variableDeclarator() || [];
+
+      for (const declarator of declarators) {
+        const name = declarator.id()?.text;
+        if (!name) {
+          continue;
+        }
+
+        const variableSymbol = this.createVariableSymbol(
+          ctx,
+          modifiers,
+          name,
+          SymbolKind.Variable,
+          type,
+        );
+
+        this.symbolTable.addSymbol(
+          variableSymbol,
+          this.getCurrentScopeSymbol(),
+        );
+      }
+
+      // Delegate reference collection to reference collector
+      const walker = new ParseTreeWalker();
+      const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
+      refCollector.setCurrentFileUri(this.currentFilePath);
+      const parentContext = this.determineParentContext(ctx);
+      const typeName = this.determineTypeName(ctx);
+      refCollector.setParentContext(parentContext, typeName);
+      walker.walk(refCollector, ctx); // Walk only this subtree
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.logger.warn(
+        () => `Error in local variable declaration: ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
+   * Called when entering a block
+   * Creates block scopes for implementation details
+   */
+  enterBlock(ctx: BlockContext): void {
+    try {
+      const location = this.getLocation(ctx);
+      const currentScope = this.getCurrentScopeSymbol();
+
+      const blockName = this.generateBlockName('block');
+      const blockSymbol = this.createBlockSymbol(
+        blockName,
+        'block',
+        location,
+        currentScope,
+      );
+
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
+    } catch (_e) {
+      // Silently continue - block scope tracking
+    }
+  }
+
+  exitBlock(): void {
+    this.scopeStack.pop();
+    // No validation needed for generic blocks
+  }
+
+  // Helper methods for symbol creation and scope tracking
+
+  private getCurrentScopeSymbol(): ScopeSymbol | null {
+    const peeked = this.scopeStack.peek();
+    return isBlockSymbol(peeked) ? peeked : null;
+  }
+
+  private getCurrentType(): TypeSymbol | null {
+    const stackArray = this.scopeStack.toArray();
+    for (let i = stackArray.length - 1; i >= 0; i--) {
+      const owner = stackArray[i];
+      if (isBlockSymbol(owner) && owner.scopeType === 'class') {
+        const typeSymbol = this.symbolTable
+          .getAllSymbols()
+          .find(
+            (s) =>
+              s.id === owner.parentId &&
+              (s.kind === SymbolKind.Class ||
+                s.kind === SymbolKind.Interface ||
+                s.kind === SymbolKind.Enum ||
+                s.kind === SymbolKind.Trigger),
+          );
+        if (typeSymbol) {
+          return typeSymbol as TypeSymbol;
+        }
+      }
+    }
+    return null;
+  }
+
+  private getCurrentMethod(): MethodSymbol | null {
+    const stackArray = this.scopeStack.toArray();
+    for (const owner of stackArray) {
+      if (isBlockSymbol(owner) && owner.scopeType === 'method') {
+        const methodSymbol = this.symbolTable
+          .getAllSymbols()
+          .find(
+            (s) =>
+              s.id === owner.parentId &&
+              (s.kind === SymbolKind.Method ||
+                s.kind === SymbolKind.Constructor),
+          );
+        if (methodSymbol) {
+          return methodSymbol as MethodSymbol;
+        }
+      }
+    }
+    return null;
+  }
+
+  private createDefaultModifiers(): SymbolModifiers {
+    return {
+      visibility: SymbolVisibility.Default,
+      isStatic: false,
+      isFinal: false,
+      isAbstract: false,
+      isVirtual: false,
+      isOverride: false,
+      isTransient: false,
+      isTestMethod: false,
+      isWebService: false,
+      isBuiltIn: false,
+    };
+  }
+
+  private createVariableSymbol(
+    ctx: ParserRuleContext,
+    modifiers: SymbolModifiers,
+    name: string,
+    kind: SymbolKind.Variable,
+    type: TypeInfo,
+  ): VariableSymbol {
+    const location = this.getLocation(ctx);
+    const parent = this.scopeStack.peek() || null;
+    const namespace = parent?.namespace || null;
+
+    const scopePath = this.symbolTable.getCurrentScopePath(
+      this.getCurrentScopeSymbol(),
+    );
+
+    const variableSymbol = SymbolFactory.createFullSymbolWithNamespace(
+      name,
+      kind,
+      location,
+      this.currentFilePath,
+      modifiers,
+      parent?.id || null,
+      undefined,
+      namespace,
+      [],
+      scopePath,
+    ) as VariableSymbol;
+
+    variableSymbol.type = type;
+
+    return variableSymbol;
+  }
+
+  private createBlockSymbol(
+    name: string,
+    scopeType: ScopeType,
+    location: SymbolLocation,
+    parentScope: ScopeSymbol | null,
+    semanticName?: string,
+  ): ScopeSymbol | null {
+    const fileUri = this.symbolTable.getFileUri();
+    const scopePath = this.symbolTable.getCurrentScopePath(parentScope);
+
+    const currentType = this.getCurrentType();
+    let parentId: string | null = null;
+    if (currentType && scopeType === 'class') {
+      parentId = currentType.id;
+    } else if (parentScope) {
+      parentId = parentScope.id;
+    }
+
+    const id = SymbolFactory.generateId(name, fileUri, scopePath, 'block');
+
+    const key: SymbolKey = {
+      prefix: scopeType,
+      name,
+      path: scopePath ? [fileUri, ...scopePath, name] : [fileUri, name],
+      unifiedId: id,
+      fileUri,
+      kind: SymbolKind.Block,
+    };
+
+    const modifiers = this.createDefaultModifiers();
+
+    const blockLocation: SymbolLocation = {
+      symbolRange: location.symbolRange,
+      identifierRange: location.symbolRange,
+    };
+
+    const blockSymbol = SymbolFactory.createScopeSymbolByType(
+      name,
+      scopeType,
+      blockLocation,
+      fileUri,
+      parentId,
+      key,
+      modifiers,
+    );
+
+    this.symbolTable.addSymbol(blockSymbol, parentScope ?? null);
+
+    return blockSymbol;
+  }
+
+  private generateBlockName(scopeType: ScopeType): string {
+    this.blockCounter++;
+    return `${scopeType}_${this.blockCounter}`;
+  }
+
+  private createTypeInfoFromTypeRef(typeRef: TypeRefContext): TypeInfo {
+    const typeText = typeRef.text || '';
+    return createTypeInfo(typeText);
+  }
+
+  /**
+   * Determine type name from parse tree context
+   */
+  private determineTypeName(ctx: ParserRuleContext): string | undefined {
+    let current: ParserRuleContext | undefined = ctx.parent;
+
+    while (current) {
+      const name = current.constructor.name;
+
+      if (
+        name === 'ClassDeclarationContext' ||
+        name === 'InterfaceDeclarationContext'
+      ) {
+        const typeId = (current as any).id?.();
+        return typeId?.text;
+      }
+
+      current = current.parent;
+    }
+
+    return undefined;
   }
 }
 

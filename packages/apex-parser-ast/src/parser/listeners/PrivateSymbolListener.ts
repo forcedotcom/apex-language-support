@@ -13,12 +13,10 @@ import {
   ConstructorDeclarationContext,
   FieldDeclarationContext,
   PropertyDeclarationContext,
-  LocalVariableDeclarationContext,
   FormalParametersContext,
   TypeRefContext,
   ModifierContext,
   AnnotationContext,
-  BlockContext,
   TriggerUnitContext,
   TriggerMemberDeclarationContext,
   ParseTreeWalker,
@@ -50,11 +48,13 @@ import {
 import { isBlockSymbol } from '../../utils/symbolNarrowing';
 
 /**
- * Listener that captures private members and implementation details (Layer 3)
+ * Listener that captures private API surface symbols (Layer 3)
  * This listener enriches existing symbols from Layers 1-2 with:
  * - Private methods, fields, and properties
- * - Local variables within methods
- * - Block scopes for implementation details
+ * - Method/constructor signatures (return types, parameters)
+ *
+ * Note: Block-level content (local variables, block scopes, expression references)
+ * is handled by BlockContentListener (Layer 4), not this listener.
  */
 export class PrivateSymbolListener extends LayeredSymbolListenerBase {
   private scopeStack: Stack<ApexSymbol> = new Stack<ApexSymbol>();
@@ -364,89 +364,6 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in property declaration: ${errorMessage}`, ctx);
     }
-  }
-
-  /**
-   * Called when entering a local variable declaration
-   * Captures local variables within methods/blocks
-   */
-  enterLocalVariableDeclaration(ctx: LocalVariableDeclarationContext): void {
-    try {
-      const typeRef = ctx.typeRef();
-      if (!typeRef) {
-        return;
-      }
-
-      const type = this.createTypeInfoFromTypeRef(typeRef);
-      const modifiers = this.getCurrentModifiers();
-      const declarators = ctx.variableDeclarators()?.variableDeclarator() || [];
-
-      for (const declarator of declarators) {
-        const name = declarator.id()?.text;
-        if (!name) {
-          continue;
-        }
-
-        const variableSymbol = this.createVariableSymbol(
-          ctx,
-          modifiers,
-          name,
-          SymbolKind.Variable,
-          type,
-        );
-
-        this.addSymbolWithDetailLevel(
-          variableSymbol,
-          this.getCurrentScopeSymbol(),
-        );
-      }
-
-      // Delegate reference collection to reference collector
-      const walker = new ParseTreeWalker();
-      const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
-      refCollector.setCurrentFileUri(this.currentFilePath);
-      refCollector.setParentContext(
-        this.getCurrentMethod()?.name, // Method name if in method
-        this.getCurrentType()?.name, // Type name if at class level
-      );
-      walker.walk(refCollector, ctx); // Walk only this subtree
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(
-        `Error in local variable declaration: ${errorMessage}`,
-        ctx,
-      );
-    }
-  }
-
-  /**
-   * Called when entering a block
-   * Creates block scopes for implementation details
-   */
-  enterBlock(ctx: BlockContext): void {
-    try {
-      const location = this.getLocation(ctx);
-      const currentScope = this.getCurrentScopeSymbol();
-
-      const blockName = this.generateBlockName('block');
-      const blockSymbol = this.createBlockSymbol(
-        blockName,
-        'block',
-        location,
-        currentScope,
-      );
-
-      if (blockSymbol) {
-        this.scopeStack.push(blockSymbol);
-      }
-    } catch (_e) {
-      // Silently continue - block scope tracking
-    }
-  }
-
-  exitBlock(): void {
-    this.scopeStack.pop();
-    // No validation needed for generic blocks
   }
 
   // Modifier and annotation tracking

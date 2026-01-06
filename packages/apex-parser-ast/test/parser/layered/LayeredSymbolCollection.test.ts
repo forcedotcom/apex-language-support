@@ -246,7 +246,7 @@ describe('Layered Symbol Collection', () => {
   });
 
   describe('PrivateSymbolListener', () => {
-    it('should capture only private symbols and local variables', () => {
+    it('should capture only private symbols (no local variables)', () => {
       const fileContent = `
         public class TestClass {
           public String publicField;
@@ -292,15 +292,15 @@ describe('Layered Symbol Collection', () => {
       expect(privateMethod).toBeDefined();
       expect(privateMethod?._detailLevel).toBe('private');
 
-      // Should have local variables
+      // Should NOT have local variables (handled by BlockContentListener, not PrivateSymbolListener)
       const localVar = semanticSymbols.find(
         (s) => s.kind === SymbolKind.Variable && s.name === 'localVar',
       );
       const localInt = semanticSymbols.find(
         (s) => s.kind === SymbolKind.Variable && s.name === 'localInt',
       );
-      expect(localVar).toBeDefined();
-      expect(localInt).toBeDefined();
+      expect(localVar).toBeUndefined();
+      expect(localInt).toBeUndefined();
 
       // Should NOT have public/protected symbols
       const publicField = semanticSymbols.find(
@@ -533,10 +533,9 @@ describe('Layered Symbol Collection', () => {
       expect(
         semanticSymbols.filter((s) => s.kind === SymbolKind.Method).length,
       ).toBe(3);
-      // Should have local variable
-      expect(
-        semanticSymbols.filter((s) => s.kind === SymbolKind.Variable).length,
-      ).toBe(1);
+      // Note: Local variables are handled by BlockContentListener (Layer 4),
+      // not by PrivateSymbolListener (Layer 3), so they won't be captured
+      // in this layered compilation test
 
       // Verify detail levels
       const publicField = semanticSymbols.find(
