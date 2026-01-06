@@ -267,6 +267,9 @@ export class DocumentProcessingService {
       const fileProcessingStartTime = Date.now();
       let filesProcessed = 0;
       let yieldsPerformed = 0;
+      // Yield every 10 files instead of every file to reduce overhead
+      // setImmediate has more overhead than Effect.sleep(0), so we yield less frequently
+      const YIELD_INTERVAL = 10;
 
       for (let i = 0; i < events.length; i++) {
         const event = events[i];
@@ -337,8 +340,9 @@ export class DocumentProcessingService {
           results.push(undefined);
         }
 
-        // Yield after each file (except last) to allow event loop to process other tasks
-        if (i + 1 < events.length) {
+        // Yield every YIELD_INTERVAL files (except last) to allow event loop to process other tasks
+        // Reduced frequency to minimize setImmediate overhead
+        if ((i + 1) % YIELD_INTERVAL === 0 && i + 1 < events.length) {
           yieldsPerformed++;
           yield* yieldToEventLoop; // Yield to event loop using setImmediate
         }
