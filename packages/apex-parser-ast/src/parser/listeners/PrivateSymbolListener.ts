@@ -63,8 +63,6 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
   private currentAnnotations: Annotation[] = [];
   private currentNamespace: Namespace | null = null;
   protected projectNamespace: string | undefined = undefined;
-  // Track methods/constructors we've processed to avoid duplicate reference collection
-  private processedMethods = new WeakSet<ParserRuleContext>();
 
   constructor(symbolTable?: SymbolTable) {
     super(symbolTable);
@@ -125,9 +123,6 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
         this.scopeStack.push(blockSymbol);
       }
 
-      // Mark this method as processed by this listener
-      this.processedMethods.add(ctx);
-
       // Delegate reference collection for return type
       const returnTypeRef = (ctx as any).typeRef?.();
       if (returnTypeRef) {
@@ -141,6 +136,21 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
           this.getCurrentType()?.name, // Type name
         );
         walker.walk(refCollector, returnTypeRef); // Walk return type subtree
+      }
+
+      // Delegate reference collection for parameter types
+      const formalParams = ctx.formalParameters();
+      if (formalParams) {
+        const walker = new ParseTreeWalker();
+        const refCollector = new ApexReferenceCollectorListener(
+          this.symbolTable,
+        );
+        refCollector.setCurrentFileUri(this.currentFilePath);
+        refCollector.setParentContext(
+          name, // Method name
+          this.getCurrentType()?.name, // Type name
+        );
+        walker.walk(refCollector, formalParams); // Walk parameters subtree
       }
 
       this.resetAnnotations();
@@ -212,8 +222,20 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
         this.scopeStack.push(blockSymbol);
       }
 
-      // Mark this constructor as processed by this listener
-      this.processedMethods.add(ctx);
+      // Delegate reference collection for parameter types
+      const formalParams = ctx.formalParameters();
+      if (formalParams) {
+        const walker = new ParseTreeWalker();
+        const refCollector = new ApexReferenceCollectorListener(
+          this.symbolTable,
+        );
+        refCollector.setCurrentFileUri(this.currentFilePath);
+        refCollector.setParentContext(
+          name, // Constructor name
+          this.getCurrentType()?.name, // Type name
+        );
+        walker.walk(refCollector, formalParams); // Walk parameters subtree
+      }
 
       this.resetAnnotations();
     } catch (e) {
@@ -406,13 +428,6 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
       const location = this.getLocation(ctx);
       const currentScope = this.getCurrentScopeSymbol();
 
-      // Check if this is a method/constructor body block by checking parent context
-      const parent = ctx.parent;
-      const isMethodBody =
-        parent &&
-        (parent.constructor.name === 'MethodDeclarationContext' ||
-          parent.constructor.name === 'ConstructorDeclarationContext');
-
       const blockName = this.generateBlockName('block');
       const blockSymbol = this.createBlockSymbol(
         blockName,
@@ -423,35 +438,6 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
 
       if (blockSymbol) {
         this.scopeStack.push(blockSymbol);
-      }
-
-      // Delegate reference collection for method/constructor body blocks
-      // This captures all expressions including assignments, method calls, etc.
-      // Only walk blocks for methods/constructors we've processed (to avoid duplicates)
-      if (isMethodBody && parent && this.processedMethods.has(parent)) {
-        // Extract method/constructor name from parent
-        let methodName: string | undefined;
-        if (parent.constructor.name === 'MethodDeclarationContext') {
-          methodName = (parent as any).id?.()?.text;
-        } else if (
-          parent.constructor.name === 'ConstructorDeclarationContext'
-        ) {
-          const qualifiedName = (parent as any).qualifiedName?.();
-          const ids = qualifiedName?.id();
-          methodName =
-            ids && ids.length > 0 ? ids[0].text : this.getCurrentType()?.name;
-        }
-
-        const walker = new ParseTreeWalker();
-        const refCollector = new ApexReferenceCollectorListener(
-          this.symbolTable,
-        );
-        refCollector.setCurrentFileUri(this.currentFilePath);
-        refCollector.setParentContext(
-          methodName, // Method/constructor name
-          this.getCurrentType()?.name, // Type name
-        );
-        walker.walk(refCollector, ctx); // Walk method body block
       }
     } catch (_e) {
       // Silently continue - block scope tracking

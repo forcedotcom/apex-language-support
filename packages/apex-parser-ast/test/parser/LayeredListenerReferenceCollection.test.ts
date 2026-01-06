@@ -22,23 +22,20 @@ describe('Layered Listener Reference Collection', () => {
   });
 
   describe('visibility-based reference collection', () => {
-    it('should only collect references in public methods for PublicAPISymbolListener', () => {
+    it('should only collect declaration references in public methods for PublicAPISymbolListener', () => {
       const sourceCode = `
         public class VisibilityTest {
-          public void publicMethod() {
+          public Integer publicMethod(Integer param) {
             Integer a = 1;
-            Integer b = 2;
-            a = b;
+            return a;
           }
-          protected void protectedMethod() {
+          protected Integer protectedMethod(Integer param) {
             Integer c = 3;
-            Integer d = 4;
-            c = d;
+            return c;
           }
-          private void privateMethod() {
+          private Integer privateMethod(Integer param) {
             Integer e = 5;
-            Integer f = 6;
-            e = f;
+            return e;
           }
         }
       `;
@@ -48,46 +45,48 @@ describe('Layered Listener Reference Collection', () => {
       compilerService.compile(sourceCode, 'VisibilityTest.cls', listener);
 
       const references = symbolTable.getAllReferences();
-      const variableUsages = references.filter(
-        (r) => r.context === ReferenceContext.VARIABLE_USAGE,
+      // Declaration references: return type, parameter types, local variable types
+      const declarationRefs = references.filter(
+        (r) =>
+          r.context === ReferenceContext.TYPE_DECLARATION ||
+          r.context === ReferenceContext.RETURN_TYPE ||
+          r.context === ReferenceContext.PARAMETER_TYPE,
       );
 
-      // Should only have references from publicMethod (a, b)
-      const aRefs = variableUsages.filter((r) => r.name === 'a');
-      const bRefs = variableUsages.filter((r) => r.name === 'b');
-      const cRefs = variableUsages.filter((r) => r.name === 'c');
-      const dRefs = variableUsages.filter((r) => r.name === 'd');
-      const eRefs = variableUsages.filter((r) => r.name === 'e');
-      const fRefs = variableUsages.filter((r) => r.name === 'f');
+      // Should only have declaration references from publicMethod
+      // (return type Integer, parameter type Integer, local variable type Integer)
+      const publicMethodRefs = declarationRefs.filter(
+        (r) => r.parentContext === 'publicMethod',
+      );
+      const protectedMethodRefs = declarationRefs.filter(
+        (r) => r.parentContext === 'protectedMethod',
+      );
+      const privateMethodRefs = declarationRefs.filter(
+        (r) => r.parentContext === 'privateMethod',
+      );
 
-      // Public method references should be captured
-      expect(aRefs.length).toBeGreaterThan(0);
-      expect(bRefs.length).toBeGreaterThan(0);
+      // Public method declaration references should be captured
+      expect(publicMethodRefs.length).toBeGreaterThan(0);
 
-      // Protected/private method references should NOT be captured
-      expect(cRefs.length).toBe(0);
-      expect(dRefs.length).toBe(0);
-      expect(eRefs.length).toBe(0);
-      expect(fRefs.length).toBe(0);
+      // Protected/private method declaration references should NOT be captured
+      expect(protectedMethodRefs.length).toBe(0);
+      expect(privateMethodRefs.length).toBe(0);
     });
 
-    it('should only collect references in protected/default methods for ProtectedSymbolListener', () => {
+    it('should only collect declaration references in protected/default methods for ProtectedSymbolListener', () => {
       const sourceCode = `
         public class VisibilityTest {
-          public void publicMethod() {
+          public Integer publicMethod(Integer param) {
             Integer a = 1;
-            Integer b = 2;
-            a = b;
+            return a;
           }
-          protected void protectedMethod() {
+          protected Integer protectedMethod(Integer param) {
             Integer c = 3;
-            Integer d = 4;
-            c = d;
+            return c;
           }
-          void defaultMethod() {
+          Integer defaultMethod(Integer param) {
             Integer g = 7;
-            Integer h = 8;
-            g = h;
+            return g;
           }
         }
       `;
@@ -97,41 +96,43 @@ describe('Layered Listener Reference Collection', () => {
       compilerService.compile(sourceCode, 'VisibilityTest.cls', listener);
 
       const references = symbolTable.getAllReferences();
-      const variableUsages = references.filter(
-        (r) => r.context === ReferenceContext.VARIABLE_USAGE,
+      // Declaration references: return type, parameter types, local variable types
+      const declarationRefs = references.filter(
+        (r) =>
+          r.context === ReferenceContext.TYPE_DECLARATION ||
+          r.context === ReferenceContext.RETURN_TYPE ||
+          r.context === ReferenceContext.PARAMETER_TYPE,
       );
 
-      // Should only have references from protectedMethod and defaultMethod (c, d, g, h)
-      const aRefs = variableUsages.filter((r) => r.name === 'a');
-      const bRefs = variableUsages.filter((r) => r.name === 'b');
-      const cRefs = variableUsages.filter((r) => r.name === 'c');
-      const dRefs = variableUsages.filter((r) => r.name === 'd');
-      const gRefs = variableUsages.filter((r) => r.name === 'g');
-      const hRefs = variableUsages.filter((r) => r.name === 'h');
+      // Should only have declaration references from protectedMethod and defaultMethod
+      const publicMethodRefs = declarationRefs.filter(
+        (r) => r.parentContext === 'publicMethod',
+      );
+      const protectedMethodRefs = declarationRefs.filter(
+        (r) => r.parentContext === 'protectedMethod',
+      );
+      const defaultMethodRefs = declarationRefs.filter(
+        (r) => r.parentContext === 'defaultMethod',
+      );
 
-      // Protected/default method references should be captured
-      expect(cRefs.length).toBeGreaterThan(0);
-      expect(dRefs.length).toBeGreaterThan(0);
-      expect(gRefs.length).toBeGreaterThan(0);
-      expect(hRefs.length).toBeGreaterThan(0);
+      // Protected/default method declaration references should be captured
+      expect(protectedMethodRefs.length).toBeGreaterThan(0);
+      expect(defaultMethodRefs.length).toBeGreaterThan(0);
 
-      // Public method references should NOT be captured
-      expect(aRefs.length).toBe(0);
-      expect(bRefs.length).toBe(0);
+      // Public method declaration references should NOT be captured
+      expect(publicMethodRefs.length).toBe(0);
     });
 
-    it('should only collect references in private methods for PrivateSymbolListener', () => {
+    it('should only collect declaration references in private methods for PrivateSymbolListener', () => {
       const sourceCode = `
         public class VisibilityTest {
-          public void publicMethod() {
+          public Integer publicMethod(Integer param) {
             Integer a = 1;
-            Integer b = 2;
-            a = b;
+            return a;
           }
-          private void privateMethod() {
+          private Integer privateMethod(Integer param) {
             Integer e = 5;
-            Integer f = 6;
-            e = f;
+            return e;
           }
         }
       `;
@@ -141,23 +142,27 @@ describe('Layered Listener Reference Collection', () => {
       compilerService.compile(sourceCode, 'VisibilityTest.cls', listener);
 
       const references = symbolTable.getAllReferences();
-      const variableUsages = references.filter(
-        (r) => r.context === ReferenceContext.VARIABLE_USAGE,
+      // Declaration references: return type, parameter types, local variable types
+      const declarationRefs = references.filter(
+        (r) =>
+          r.context === ReferenceContext.TYPE_DECLARATION ||
+          r.context === ReferenceContext.RETURN_TYPE ||
+          r.context === ReferenceContext.PARAMETER_TYPE,
       );
 
-      // Should only have references from privateMethod (e, f)
-      const aRefs = variableUsages.filter((r) => r.name === 'a');
-      const bRefs = variableUsages.filter((r) => r.name === 'b');
-      const eRefs = variableUsages.filter((r) => r.name === 'e');
-      const fRefs = variableUsages.filter((r) => r.name === 'f');
+      // Should only have declaration references from privateMethod
+      const publicMethodRefs = declarationRefs.filter(
+        (r) => r.parentContext === 'publicMethod',
+      );
+      const privateMethodRefs = declarationRefs.filter(
+        (r) => r.parentContext === 'privateMethod',
+      );
 
-      // Private method references should be captured
-      expect(eRefs.length).toBeGreaterThan(0);
-      expect(fRefs.length).toBeGreaterThan(0);
+      // Private method declaration references should be captured
+      expect(privateMethodRefs.length).toBeGreaterThan(0);
 
-      // Public method references should NOT be captured
-      expect(aRefs.length).toBe(0);
-      expect(bRefs.length).toBe(0);
+      // Public method declaration references should NOT be captured
+      expect(publicMethodRefs.length).toBe(0);
     });
   });
 
