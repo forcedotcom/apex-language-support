@@ -194,8 +194,8 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     walker.walk(this.protectedListener, this.parseTree);
     walker.walk(this.privateListener, this.parseTree);
 
-    // Apply reference collector
-    walker.walk(this.referenceCollector, this.parseTree);
+    // Reference collection now happens via delegation from primary listeners
+    // No full-tree walk needed
 
     // Apply reference resolver if enabled
     if (this.enableReferenceCorrection) {

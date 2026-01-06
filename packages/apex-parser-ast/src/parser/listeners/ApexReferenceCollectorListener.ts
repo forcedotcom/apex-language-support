@@ -24,7 +24,10 @@ import {
   ExpressionListContext,
   TypeArgumentsContext,
   TypeListContext,
-  LocalVariableDeclarationContext,
+  EnhancedForControlContext,
+  WhenValueContext,
+  InstanceOfExpressionContext,
+  TypeRefPrimaryContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -82,15 +85,37 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     SymbolReference
   >();
 
-  constructor(symbolTable?: SymbolTable) {
+  // Context tracking fields set by primary listeners
+  private currentMethodName: string | undefined;
+  private currentTypeName: string | undefined;
+
+  constructor(symbolTable: SymbolTable) {
     super();
-    this.symbolTable = symbolTable || new SymbolTable();
+    this.symbolTable = symbolTable;
   }
 
   setCurrentFileUri(fileUri: string): void {
     this.currentFilePath = fileUri;
     this.symbolTable.setFileUri(fileUri);
     this.logger.debug(() => `Set current file path to: ${fileUri}`);
+  }
+
+  /**
+   * Set parent context from primary listener
+   * @param methodName Method name if reference is in a method
+   * @param typeName Type/Class name if reference is at class level
+   */
+  setParentContext(methodName?: string, typeName?: string): void {
+    this.currentMethodName = methodName;
+    this.currentTypeName = typeName;
+  }
+
+  /**
+   * Reset parent context (useful when switching between subtrees)
+   */
+  resetContext(): void {
+    this.currentMethodName = undefined;
+    this.currentTypeName = undefined;
   }
 
   getResult(): SymbolTable {
@@ -317,7 +342,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       this.logger.debug(
         () =>
           `[TYPE_REF] enterTypeRef at ${ctx.start?.line}:${ctx.start?.charPositionInLine}, ` +
-          `parent=${ctx.parent?.constructor.name}, isGenericArg=${isGenericArg}, isTypeDeclaration=${isTypeDeclaration}`,
+          `parent=${ctx.parent?.constructor.name}, ` +
+          `isGenericArg=${isGenericArg}, isTypeDeclaration=${isTypeDeclaration}`,
       );
 
       // Special case: if parent is TypeListContext, this is likely a generic parameter
@@ -350,7 +376,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         if (!isGenericArgInTypeDecl) {
           this.logger.debug(
             () =>
-              `[TYPE_REF] TypeListContext parent but NOT in type declaration. Parent chain: [${parentChain.join(' -> ')}]`,
+              '[TYPE_REF] TypeListContext parent but NOT in type declaration. ' +
+              `Parent chain: [${parentChain.join(' -> ')}]`,
           );
         }
       }
@@ -361,7 +388,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         // we need to handle it here
         this.logger.debug(
           () =>
-            `[TYPE_REF] Skipping generic argument (will be handled by enterTypeArguments) at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
+            '[TYPE_REF] Skipping generic argument ' +
+            '(will be handled by enterTypeArguments) ' +
+            `at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
         );
         return;
       }
@@ -370,7 +399,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       if (isGenericArg && isGenericArgInTypeDecl) {
         this.logger.debug(
           () =>
-            `[TYPE_REF] Processing generic argument in type declaration at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
+            '[TYPE_REF] Processing generic argument in type declaration ' +
+            `at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
         );
         // Process this as a generic parameter reference
         const typeNames = ctx.typeName();
@@ -389,7 +419,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             this.symbolTable.addTypeReference(genericReference);
             this.logger.debug(
               () =>
-                `[TYPE_REF] Created generic parameter reference for "${idNode.text}" at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}`,
+                `[TYPE_REF] Created generic parameter reference for '${idNode.text}' ` +
+                `at ${location.identifierRange.startLine}:${location.identifierRange.startColumn}`,
             );
             return; // Don't process further as a regular type reference
           }
@@ -434,13 +465,16 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       const isTypeDeclarationForLog = isInTypeDeclaration;
       this.logger.debug(
         () =>
-          `[TYPE_REF] enterTypeRef at ${ctx.start?.line}:${ctx.start?.charPositionInLine}, parent=${ctx.parent?.constructor.name}, isTypeDeclaration=${isTypeDeclarationForLog}`,
+          `[TYPE_REF] enterTypeRef at ${ctx.start?.line}:${ctx.start?.charPositionInLine}, ` +
+          `parent=${ctx.parent?.constructor.name}, ` +
+          `isTypeDeclaration=${isTypeDeclarationForLog}`,
       );
       if (isTypeDeclarationForLog) {
         const parent = ctx.parent;
         this.logger.debug(
           () =>
-            `[TYPE_REF] Type declaration at ${ctx.start?.line}:${ctx.start?.charPositionInLine}, parent=${parent?.constructor.name}`,
+            `[TYPE_REF] Type declaration at ${ctx.start?.line}:${ctx.start?.charPositionInLine}, ` +
+            `parent=${parent?.constructor.name}`,
         );
         if (parent) {
           // Check if parent has typeArguments
@@ -448,7 +482,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           if (parentTypeRef) {
             this.logger.debug(
               () =>
-                `[TYPE_REF] Parent has typeRef, checking for typeArguments: ${!!(parentTypeRef as any).typeArguments?.()}`,
+                '[TYPE_REF] Parent has typeRef, checking for typeArguments: ' +
+                `${!!(parentTypeRef as any).typeArguments?.()}`,
             );
           }
           // Walk up the tree to find typeArguments
@@ -703,7 +738,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
                   typeArgs = child;
                   this.logger.debug(
                     () =>
-                      '[TYPE_REF] Found TypeArgumentsContext as child of TypeRefContext in LocalVariableDeclarationContext',
+                      '[TYPE_REF] Found TypeArgumentsContext as child of ' +
+                      'TypeRefContext in LocalVariableDeclarationContext',
                   );
                   break;
                 }
@@ -742,16 +778,22 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       }
       this.logger.debug(
         () =>
-          `[TYPE_REF] Checking for typeArguments: ctx.typeArguments=${!!(ctx as any).typeArguments?.()}, baseTypeName.typeArguments=${!!typeArgsOnBase}, typeName.typeArguments=${!!(typeName as any).typeArguments?.()}, parent.typeRef.typeArguments=${isTypeDeclaration && ctx.parent?.constructor.name === 'LocalVariableDeclarationContext' ? !!((ctx.parent as any).typeRef?.() as any)?.typeArguments?.() : false}`,
+          '[TYPE_REF] Checking for typeArguments: ' +
+          `ctx.typeArguments=${!!(ctx as any).typeArguments?.()}, ` +
+          `baseTypeName.typeArguments=${!!typeArgsOnBase}, ` +
+          `typeName.typeArguments=${!!(typeName as any).typeArguments?.()}, ` +
+          `parent.typeRef.typeArguments=${
+            isTypeDeclaration &&
+            ctx.parent?.constructor.name === 'LocalVariableDeclarationContext'
+              ? !!((ctx.parent as any).typeRef?.() as any)?.typeArguments?.()
+              : false
+          }`,
       );
       if (typeArgs) {
         this.logger.debug(
           () =>
-            `[TYPE_REF] Found typeArguments for type declaration at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
-        );
-        this.logger.debug(
-          () =>
-            `[TYPE_REF] Found typeArguments for type declaration at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
+            '[TYPE_REF] Found typeArguments for type declaration ' +
+            `at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
         );
         const typeList = typeArgs.typeList();
         if (typeList) {
@@ -1187,6 +1229,91 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   }
 
   /**
+   * Capture enhanced for control references (e.g., "for (Type var : collection)")
+   */
+  enterEnhancedForControl(ctx: EnhancedForControlContext): void {
+    try {
+      const typeRef = ctx.typeRef();
+      if (typeRef) {
+        const typeName = this.extractTypeNameFromTypeRef(typeRef);
+        const location = this.getLocation(ctx);
+        const reference = SymbolReferenceFactory.createTypeDeclarationReference(
+          typeName,
+          location,
+          this.determineTypeReferenceContext(ctx),
+        );
+        this.symbolTable.addTypeReference(reference);
+      }
+    } catch (error) {
+      this.logger.warn(() => `Error capturing enhanced for control: ${error}`);
+    }
+  }
+
+  /**
+   * Capture when value references in switch statements (e.g., "when Type var")
+   */
+  enterWhenValue(ctx: WhenValueContext): void {
+    try {
+      // whenValue can be ELSE or typeRef id
+      const typeRef = (ctx as any).typeRef?.();
+      if (typeRef) {
+        const typeName = this.extractTypeNameFromTypeRef(typeRef);
+        const location = this.getLocation(ctx);
+        const reference = SymbolReferenceFactory.createTypeDeclarationReference(
+          typeName,
+          location,
+          this.determineTypeReferenceContext(ctx),
+        );
+        this.symbolTable.addTypeReference(reference);
+      }
+    } catch (error) {
+      this.logger.warn(() => `Error capturing when value: ${error}`);
+    }
+  }
+
+  /**
+   * Capture instanceof expression references (e.g., "obj instanceof Type")
+   */
+  enterInstanceOfExpression(ctx: InstanceOfExpressionContext): void {
+    try {
+      const typeRef = (ctx as any).typeRef?.();
+      if (typeRef) {
+        const typeName = this.extractTypeNameFromTypeRef(typeRef);
+        const location = this.getLocation(ctx);
+        const reference = SymbolReferenceFactory.createInstanceOfTypeReference(
+          typeName,
+          location,
+          this.getCurrentMethodName(),
+        );
+        this.symbolTable.addTypeReference(reference);
+      }
+    } catch (error) {
+      this.logger.warn(() => `Error capturing instanceof expression: ${error}`);
+    }
+  }
+
+  /**
+   * Capture type ref primary references (e.g., "String.class")
+   */
+  enterTypeRefPrimary(ctx: TypeRefPrimaryContext): void {
+    try {
+      const typeRef = (ctx as any).typeRef?.();
+      if (typeRef) {
+        const typeName = this.extractTypeNameFromTypeRef(typeRef);
+        const location = this.getLocation(ctx);
+        const reference = SymbolReferenceFactory.createClassReference(
+          typeName,
+          location,
+          this.getCurrentMethodName(),
+        );
+        this.symbolTable.addTypeReference(reference);
+      }
+    } catch (error) {
+      this.logger.warn(() => `Error capturing type ref primary: ${error}`);
+    }
+  }
+
+  /**
    * Capture type list in generic types (for type declarations like List<ClassName>)
    * This handles generic type parameters in variable declarations, not just in new expressions
    */
@@ -1440,134 +1567,13 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   }
 
   /**
-   * Called when entering a local variable declaration
-   * Manually process typeArguments for generic types like List<String>
+   * Get the TYPE_DECLARATION reference for a local variable declaration context
+   * This allows primary listeners to link TypeInfo to references
    */
-  enterLocalVariableDeclaration(ctx: LocalVariableDeclarationContext): void {
-    try {
-      this.logger.debug(
-        () =>
-          `[LOCAL_VAR] enterLocalVariableDeclaration called at ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
-      );
-      const typeRef = ctx.typeRef();
-      if (!typeRef) {
-        this.logger.debug(() => '[LOCAL_VAR] No typeRef found');
-        return;
-      }
-
-      // Check if the typeRef has typeArguments (generic parameters)
-      // For "List<DualListboxValueVModel> list", we need to capture DualListboxValueVModel
-      // Try multiple ways to access typeArguments based on the grammar structure
-      let typeArgs: any = null;
-
-      // Method 1: Direct access from typeRef
-      typeArgs = (typeRef as any).typeArguments?.();
-
-      // Method 2: Access through typeName
-      if (!typeArgs) {
-        const typeNames = typeRef.typeName();
-        if (typeNames && typeNames.length > 0) {
-          const typeName = typeNames[0];
-          typeArgs = (typeName as any).typeArguments?.();
-
-          // Method 3: Check children of typeName for TypeArgumentsContext
-          if (!typeArgs) {
-            const typeNameChildren = (typeName as any).children || [];
-            for (const child of typeNameChildren) {
-              if (child.constructor.name === 'TypeArgumentsContext') {
-                typeArgs = child;
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      // Method 4: Check children of typeRef for TypeArgumentsContext
-      if (!typeArgs) {
-        const typeRefChildren = (typeRef as any).children || [];
-        for (const child of typeRefChildren) {
-          if (child.constructor.name === 'TypeArgumentsContext') {
-            typeArgs = child;
-            break;
-          }
-        }
-      }
-
-      if (typeArgs) {
-        this.logger.debug(
-          () =>
-            `[LOCAL_VAR] Found typeArguments, processing ${typeArgs.typeList()?.typeRef()?.length || 0} generic parameters`,
-        );
-        this.processTypeArguments(typeArgs, typeRef);
-      } else {
-        this.logger.debug(
-          () => '[LOCAL_VAR] No typeArguments found in typeRef',
-        );
-      }
-    } catch (error) {
-      this.logger.warn(
-        () =>
-          `Error processing local variable declaration typeArguments: ${error}`,
-      );
-    }
-  }
-
-  /**
-   * Helper method to process typeArguments and create references for generic parameters
-   */
-  private processTypeArguments(
-    typeArgs: any,
-    parentTypeRef: TypeRefContext,
-  ): void {
-    try {
-      const typeList = typeArgs.typeList();
-      if (!typeList) {
-        return;
-      }
-
-      const genericTypeRefs = typeList.typeRef();
-      if (!genericTypeRefs || genericTypeRefs.length === 0) {
-        return;
-      }
-
-      this.logger.debug(
-        () =>
-          `[LOCAL_VAR] Processing ${genericTypeRefs.length} generic type parameters`,
-      );
-
-      const parentContext = this.determineTypeReferenceContext(parentTypeRef);
-
-      for (const genericTypeRef of genericTypeRefs) {
-        const genericTypeNames = genericTypeRef.typeName();
-        if (!genericTypeNames || genericTypeNames.length === 0) continue;
-
-        const genericTypeName = genericTypeNames[0];
-        if (!genericTypeName) continue;
-
-        const genericIdNode = genericTypeName.id();
-        if (!genericIdNode) continue;
-
-        const genericLocation = this.getLocationForReference(genericIdNode);
-
-        this.logger.debug(
-          () =>
-            `[LOCAL_VAR] Creating generic parameter reference for "${genericIdNode.text}" ` +
-            `at ${genericLocation.identifierRange.startLine}:${genericLocation.identifierRange.startColumn}-` +
-            `${genericLocation.identifierRange.endLine}:${genericLocation.identifierRange.endColumn}`,
-        );
-
-        const genericReference =
-          SymbolReferenceFactory.createGenericParameterTypeReference(
-            genericIdNode.text,
-            genericLocation,
-            parentContext,
-          );
-        this.symbolTable.addTypeReference(genericReference);
-      }
-    } catch (error) {
-      this.logger.warn(() => `Error processing typeArguments: ${error}`);
-    }
+  getTypeDeclarationReference(
+    localVarDeclCtx: ParserRuleContext,
+  ): SymbolReference | undefined {
+    return this.localVarDeclToTypeRefMap.get(localVarDeclCtx);
   }
 
   /**
@@ -2053,6 +2059,11 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   }
 
   private getCurrentMethodName(): string | undefined {
+    // First check context set by primary listener
+    if (this.currentMethodName !== undefined) {
+      return this.currentMethodName;
+    }
+    // Fall back to methodCallStack for nested method calls within expressions
     const stackEntry = this.methodCallStack.peek();
     return stackEntry?.callRef.parentContext;
   }
@@ -2139,7 +2150,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       ) {
         this.logger.debug(
           () =>
-            `[isTypeDeclarationContext] Found type declaration context at depth ${depth}: ${name}, parent chain: [${parentChain.join(' -> ')}]`,
+            '[isTypeDeclarationContext] Found type declaration context ' +
+            `at depth ${depth}: ${name}, ` +
+            `parent chain: [${parentChain.join(' -> ')}]`,
         );
         return true;
       }
@@ -2150,7 +2163,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       ) {
         this.logger.debug(
           () =>
-            `[isTypeDeclarationContext] Found method context at depth ${depth}, stopping search. Parent chain: [${parentChain.join(' -> ')}]`,
+            `[isTypeDeclarationContext] Found method context at depth ${depth}, ` +
+            `stopping search. Parent chain: [${parentChain.join(' -> ')}]`,
         );
         return false;
       }
@@ -2190,6 +2204,15 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   private determineTypeReferenceContext(
     ctx: TypeRefContext | ParserRuleContext,
   ): string | undefined {
+    // Primary path: Use context set by primary listener
+    if (this.currentMethodName !== undefined) {
+      return this.currentMethodName;
+    }
+    if (this.currentTypeName !== undefined) {
+      return this.currentTypeName;
+    }
+
+    // Fallback path: Only walk parse tree if context not explicitly set (for standalone usage)
     // Traverse up the parse tree to find the appropriate context
     let current: ParserRuleContext | undefined =
       ctx instanceof TypeRefContext ? ctx.parent : ctx;
