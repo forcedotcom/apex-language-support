@@ -19,6 +19,14 @@ import {
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
+/**
+ * Yield to the Node.js event loop using setImmediate for immediate yielding
+ * This is more effective than Effect.sleep(0) which may use setTimeout
+ */
+const yieldToEventLoop = Effect.async<void>((resume) => {
+  setImmediate(() => resume(Effect.void));
+});
+
 import { BaseApexParserListener } from './listeners/BaseApexParserListener';
 import {
   ApexError,
@@ -416,7 +424,7 @@ export class CompilerService {
         }
 
         // Yield to event loop after each compilation to prevent blocking
-        yield* Effect.sleep(0);
+        yield* yieldToEventLoop;
       }
 
       // Results are already in order, just extract them

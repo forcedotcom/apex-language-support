@@ -10,6 +10,14 @@ import { unzipSync } from 'fflate';
 import { Effect, Fiber } from 'effect';
 import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
+/**
+ * Yield to the Node.js event loop using setImmediate for immediate yielding
+ * This is more effective than Effect.sleep(0) which may use setTimeout
+ */
+const yieldToEventLoop = Effect.async<void>((resume) => {
+  setImmediate(() => resume(Effect.void));
+});
+
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
 import { normalizeApexPath } from './PathUtils';
@@ -655,8 +663,7 @@ export class ResourceLoader {
           }
 
           // Yield after processing each result to allow other tasks to run
-          // Use sleep with 0ms to yield control without adding delay
-          yield* Effect.sleep(0);
+          yield* yieldToEventLoop;
         }
       });
 
