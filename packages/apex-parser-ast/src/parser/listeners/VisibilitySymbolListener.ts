@@ -25,7 +25,10 @@ import { ParserRuleContext } from 'antlr4ts';
 import { Stack } from 'data-structure-typed';
 import { ApexReferenceCollectorListener } from './ApexReferenceCollectorListener';
 
-import { LayeredSymbolListenerBase, DetailLevel } from './LayeredSymbolListenerBase';
+import {
+  LayeredSymbolListenerBase,
+  DetailLevel,
+} from './LayeredSymbolListenerBase';
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
@@ -76,7 +79,8 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       detailLevel !== 'private'
     ) {
       throw new Error(
-        `VisibilitySymbolListener only supports 'public-api', 'protected', or 'private' detail levels. Got: ${detailLevel}`,
+        "VisibilitySymbolListener only supports 'public-api', 'protected', " +
+          `or 'private' detail levels. Got: ${detailLevel}`,
       );
     }
     this.detailLevel = detailLevel;
@@ -155,7 +159,10 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         if (isTopLevel) {
           classSymbol.parentId = null;
         }
-        this.addSymbolWithDetailLevel(classSymbol, this.getCurrentScopeSymbol());
+        this.addSymbolWithDetailLevel(
+          classSymbol,
+          this.getCurrentScopeSymbol(),
+        );
       }
 
       // Create class block symbol for scope tracking (all levels need this)
@@ -1215,4 +1222,3 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
     return new VisibilitySymbolListener(this.detailLevel, newTable);
   }
 }
-

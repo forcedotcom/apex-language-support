@@ -27,7 +27,6 @@ import {
   SymbolResolutionStrategy,
   TypeSymbol,
   VariableSymbol,
-  MethodSymbol,
 } from '../types/symbol';
 import { UnifiedCache } from '../utils/UnifiedCache';
 import {
@@ -3832,38 +3831,41 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // For GENERIC_PARAMETER_TYPE and CLASS_REFERENCE, resolve as class/type
         // Use findSymbolByName which searches across all files via nameIndex
         const candidates = this.findSymbolByName(typeReference.name);
-        
+
         // Filter to class symbols only
         let classCandidates = candidates.filter(
           (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
         );
-        
+
         // Fallback: if name-based lookup found nothing, search symbol tables directly
         // This handles cases where symbols exist but haven't been indexed by name yet
         // or where indexing hasn't completed yet
         if (classCandidates.length === 0) {
           // Search the source file's symbol table first
-          const sourceSymbolTable = this.symbolGraph.getSymbolTableForFile(sourceFile);
+          const sourceSymbolTable =
+            this.symbolGraph.getSymbolTableForFile(sourceFile);
           if (sourceSymbolTable) {
             const allSymbols = sourceSymbolTable.getAllSymbols();
             classCandidates = allSymbols.filter(
               (s) =>
                 s.name === typeReference.name &&
-                (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface),
+                (s.kind === SymbolKind.Class ||
+                  s.kind === SymbolKind.Interface),
             );
           }
-          
+
           // If still not found, iterate through all registered symbol tables
           // This ensures we find classes in other files even if nameIndex isn't updated yet
           if (classCandidates.length === 0) {
             const fileToSymbolTable = this.symbolGraph.getFileToSymbolTable();
-            for (const [fileUri, symbolTable] of fileToSymbolTable.entries()) {
+            for (const [_fileUri, symbolTable] of fileToSymbolTable.entries()) {
               if (!symbolTable) continue;
               const allSymbols = symbolTable.getAllSymbols();
               const found = allSymbols.filter(
                 (s: ApexSymbol) =>
                   s.name === typeReference.name &&
-                  (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface),
+                  (s.kind === SymbolKind.Class ||
+                    s.kind === SymbolKind.Interface),
               );
               if (found.length > 0) {
                 classCandidates = found;
@@ -3872,7 +3874,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             }
           }
         }
-        
+
         if (classCandidates.length > 0) {
           // Prefer same-file classes, then accessible classes
           // Use fileUri for comparison as it's more reliable than key.path[0]
@@ -3915,7 +3917,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Step 5: For unqualified references, try same-file resolution first
       // Use fileUri for comparison as it's more reliable than key.path[0]
       const sameFileCandidates = candidates.filter(
-        (symbol) => symbol.fileUri === sourceFile || symbol.key.path[0] === sourceFile,
+        (symbol) =>
+          symbol.fileUri === sourceFile || symbol.key.path[0] === sourceFile,
       );
 
       if (sameFileCandidates.length > 0) {
@@ -5483,7 +5486,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const classRefs = typeReferences.filter(
           (ref) => ref.context === ReferenceContext.CLASS_REFERENCE,
         );
-        
+
         // Prefer GENERIC_PARAMETER_TYPE or CLASS_REFERENCE if available and position matches
         let referenceToResolve = typeReferences[0];
         if (genericParamRefs.length > 0 || classRefs.length > 0) {
@@ -5506,12 +5509,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             referenceToResolve = typeRefs[0];
           }
         }
-        
+
         // Step 2b: For chained references, find the most specific reference for this position
         // If position is on a specific chain member, prefer references that match that member
         // BUT: Don't override GENERIC_PARAMETER_TYPE or CLASS_REFERENCE if we've already selected one
         const isTypeReferenceSelected =
-          referenceToResolve.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
+          referenceToResolve.context ===
+            ReferenceContext.GENERIC_PARAMETER_TYPE ||
           referenceToResolve.context === ReferenceContext.CLASS_REFERENCE;
 
         // Prioritize chained references when position matches a chain member
@@ -6282,8 +6286,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           const allSymbols = symbolTable.getAllSymbols();
           // Find methods in the current class that match the step name
           const methodSymbols = allSymbols.filter(
-            (s) =>
-              s.kind === SymbolKind.Method && s.name === stepName,
+            (s) => s.kind === SymbolKind.Method && s.name === stepName,
           );
           if (methodSymbols.length > 0) {
             // Prefer non-static methods for 'this.method()' chains
@@ -6407,8 +6410,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const allSymbols = symbolTable.getAllSymbols();
         // Find methods in the current class that match the step name
         const methodSymbols = allSymbols.filter(
-          (s) =>
-            s.kind === SymbolKind.Method && s.name === stepName,
+          (s) => s.kind === SymbolKind.Method && s.name === stepName,
         );
         if (methodSymbols.length > 0) {
           // Prefer non-static methods for 'this.method()' chains
@@ -6829,18 +6831,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             // Special handling for method calls in 'this' chains
             // For 'this.method().anotherMethod()', the first node is a method call,
             // not a class, so we should resolve it as a method in the current class
-            if (
-              firstNode.context === ReferenceContext.METHOD_CALL &&
-              fileUri
-            ) {
+            if (firstNode.context === ReferenceContext.METHOD_CALL && fileUri) {
               // Try to resolve as a method in the current class
-              const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+              const symbolTable =
+                this.symbolGraph.getSymbolTableForFile(fileUri);
               if (symbolTable) {
                 const allSymbols = symbolTable.getAllSymbols();
                 const methodSymbols = allSymbols.filter(
                   (s) =>
-                    s.kind === SymbolKind.Method &&
-                    s.name === firstNode.name,
+                    s.kind === SymbolKind.Method && s.name === firstNode.name,
                 );
                 if (methodSymbols.length > 0) {
                   // Prefer non-static methods for 'this.method()' chains
@@ -6876,17 +6875,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             // We already tried resolving the first node above, but if it failed,
             // try one more time here with the chain member context
             const firstNode = chainNodes[0];
-            if (
-              firstNode.context === ReferenceContext.METHOD_CALL &&
-              fileUri
-            ) {
-              const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+            if (firstNode.context === ReferenceContext.METHOD_CALL && fileUri) {
+              const symbolTable =
+                this.symbolGraph.getSymbolTableForFile(fileUri);
               if (symbolTable) {
                 const allSymbols = symbolTable.getAllSymbols();
                 const methodSymbols = allSymbols.filter(
                   (s) =>
-                    s.kind === SymbolKind.Method &&
-                    s.name === firstNode.name,
+                    s.kind === SymbolKind.Method && s.name === firstNode.name,
                 );
                 if (methodSymbols.length > 0) {
                   const instanceMethod = methodSymbols.find(
@@ -6930,13 +6926,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 firstNode.context === ReferenceContext.METHOD_CALL &&
                 fileUri
               ) {
-                const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+                const symbolTable =
+                  this.symbolGraph.getSymbolTableForFile(fileUri);
                 if (symbolTable) {
                   const allSymbols = symbolTable.getAllSymbols();
                   const methodSymbols = allSymbols.filter(
                     (s) =>
-                      s.kind === SymbolKind.Method &&
-                      s.name === firstNode.name,
+                      s.kind === SymbolKind.Method && s.name === firstNode.name,
                   );
                   if (methodSymbols.length > 0) {
                     const instanceMethod = methodSymbols.find(
@@ -7014,7 +7010,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             ? resolvedContext.symbol
             : null;
         }
-        
+
         // If resolvedChain is null and we have a position, we might have already
         // resolved the first node above, so return null here
         return null;

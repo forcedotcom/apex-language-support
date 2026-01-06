@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CharStreams, CommonTokenStream, ParserRuleContext } from 'antlr4ts';
 import {
   ApexLexer,
   ApexParser,
@@ -14,12 +14,11 @@ import {
   TypeRefContext,
   LocalVariableDeclarationContext,
 } from '@apexdevtools/apex-parser';
-import { ParserRuleContext } from 'antlr4ts';
 
 /**
  * Diagnostic listener that tracks all rule visits to understand parse tree structure
  * and verify if enterTypeRef is being called by the ANTLR ParseTreeWalker
- * 
+ *
  * Uses a partial implementation approach - only implements the methods we care about
  * for diagnostic purposes. The ParseTreeWalker will call these methods via reflection.
  */
@@ -75,7 +74,8 @@ class DiagnosticListener {
       parent: parentName,
     });
     console.log(
-      `[DIAGNOSTIC] enterTypeRef called at line ${ctx.start?.line}:${ctx.start?.charPositionInLine}, parent=${parentName}`,
+      `[DIAGNOSTIC] enterTypeRef called at line ${ctx.start?.line}:` +
+        `${ctx.start?.charPositionInLine}, parent=${parentName}`,
     );
   }
 
@@ -165,18 +165,21 @@ public class TestClass {
 
       // Check if enterLocalVariableDeclaration was called
       console.log(
-        `[DIAGNOSTIC] enterLocalVariableDeclaration called ${listener.enterLocalVariableDeclarationCalled.length} times`,
+        '[DIAGNOSTIC] enterLocalVariableDeclaration called ' +
+          `${listener.enterLocalVariableDeclarationCalled.length} times`,
       );
       listener.enterLocalVariableDeclarationCalled.forEach((call, idx) => {
         console.log(
-          `[DIAGNOSTIC] enterLocalVariableDeclaration call ${idx + 1}: line ${call.line}:${call.column}, typeRefExists=${call.typeRefExists}, typeRefType=${call.typeRefType}`,
+          `[DIAGNOSTIC] enterLocalVariableDeclaration call ${idx + 1}: ` +
+            `line ${call.line}:${call.column}, typeRefExists=${call.typeRefExists}, ` +
+            `typeRefType=${call.typeRefType}`,
         );
       });
 
       // Assertions
-      expect(listener.enterLocalVariableDeclarationCalled.length).toBeGreaterThan(
-        0,
-      );
+      expect(
+        listener.enterLocalVariableDeclarationCalled.length,
+      ).toBeGreaterThan(0);
       expect(localVarTypeRefs.length).toBeGreaterThan(0);
 
       // Key assertion: verify enterTypeRef was called for the LHS typeRef
@@ -186,15 +189,15 @@ public class TestClass {
 
       if (lhsTypeRefCall) {
         console.log(
-          `[DIAGNOSTIC] ✓ enterTypeRef WAS called for LHS typeRef with LocalVariableDeclarationContext parent`,
+          '[DIAGNOSTIC] ✓ enterTypeRef WAS called for LHS typeRef with LocalVariableDeclarationContext parent',
         );
         expect(lhsTypeRefCall).toBeDefined();
       } else {
         console.log(
-          `[DIAGNOSTIC] ✗ enterTypeRef was NOT called for LHS typeRef with LocalVariableDeclarationContext parent`,
+          '[DIAGNOSTIC] ✗ enterTypeRef was NOT called for LHS typeRef with LocalVariableDeclarationContext parent',
         );
         console.log(
-          `[DIAGNOSTIC] This indicates a method signature mismatch or walker issue`,
+          '[DIAGNOSTIC] This indicates a method signature mismatch or walker issue',
         );
         // This test will fail, which is intentional to surface the issue
         expect(lhsTypeRefCall).toBeDefined();
@@ -221,7 +224,8 @@ public class TestClass {
       );
 
       console.log(
-        `[DIAGNOSTIC] Simple type: TypeRefContext visits with LocalVariableDeclarationContext parent: ${localVarTypeRefs.length}`,
+        '[DIAGNOSTIC] Simple type: TypeRefContext visits with ' +
+          `LocalVariableDeclarationContext parent: ${localVarTypeRefs.length}`,
       );
 
       const lhsTypeRefCall = listener.enterTypeRefCalled.find(
@@ -257,7 +261,8 @@ public class TestClass {
       );
       typeRefVisits.forEach((visit, idx) => {
         console.log(
-          `[DIAGNOSTIC] Generic constructor: TypeRefContext visit ${idx + 1}: line ${visit.line}:${visit.column}, parent=${visit.parent}`,
+          `[DIAGNOSTIC] Generic constructor: TypeRefContext visit ${idx + 1}: ` +
+            `line ${visit.line}:${visit.column}, parent=${visit.parent}`,
         );
       });
 
@@ -339,4 +344,3 @@ public class TestClass {
     });
   });
 });
-

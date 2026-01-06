@@ -65,18 +65,18 @@ describe('CompilerService.compileLayered', () => {
     `;
 
     const symbolTable = new SymbolTable();
-      const publicListener = new VisibilitySymbolListener(
-        'public-api',
-        symbolTable,
-      );
-      const protectedListener = new VisibilitySymbolListener(
-        'protected',
-        symbolTable,
-      );
-      const privateListener = new VisibilitySymbolListener(
-        'private',
-        symbolTable,
-      );
+    const publicListener = new VisibilitySymbolListener(
+      'public-api',
+      symbolTable,
+    );
+    const protectedListener = new VisibilitySymbolListener(
+      'protected',
+      symbolTable,
+    );
+    const privateListener = new VisibilitySymbolListener(
+      'private',
+      symbolTable,
+    );
 
     // Compile with public listener first
     const result1 = compilerService.compile(

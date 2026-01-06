@@ -49,7 +49,11 @@ describe('CompletionProcessingService', () => {
 
     const symbolTable = new SymbolTable();
     const listener = new ApexSymbolCollectorListener(symbolTable);
-    compilerService.compile(testClassContent, 'file:///test/TestClass.cls', listener);
+    compilerService.compile(
+      testClassContent,
+      'file:///test/TestClass.cls',
+      listener,
+    );
     symbolManager.addSymbolTable(symbolTable, 'file:///test/TestClass.cls');
 
     // Setup mock storage
@@ -91,7 +95,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const mockSymbols = [
+      const _mockSymbols = [
         {
           name: 'doSomething',
           kind: 'method',
@@ -172,7 +176,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const mockSymbols = [
+      const _mockSymbols = [
         {
           name: 'publicMethod',
           kind: 'method',
@@ -208,7 +212,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const mockSymbols = [
+      const _mockSymbols = [
         {
           name: 'staticMethod',
           kind: 'method',
@@ -351,7 +355,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const mockSymbols = [
+      const _mockSymbols = [
         {
           name: 'doSomething',
           kind: 'method',
@@ -391,7 +395,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const mockSymbols = [
+      const _mockSymbols = [
         {
           name: 'testField',
           kind: 'field',
@@ -421,7 +425,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const mockSymbols = [
+      const _mockSymbols = [
         {
           name: 'doSomething',
           kind: 'method',
@@ -452,15 +456,6 @@ describe('CompletionProcessingService', () => {
       };
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
-
-      // Create many mock symbols
-      const mockSymbols = Array.from({ length: 1000 }, (_, i) => ({
-        name: `method${i}`,
-        kind: 'method',
-        fqn: `TestClass.method${i}`,
-        modifiers: { visibility: 'public', isStatic: false },
-        parameters: [],
-      }));
 
       // Use real symbol manager with fixtures
 

@@ -35,7 +35,6 @@ import {
   isApexKeyword,
   ReferenceContext,
   SymbolKind,
-  MethodSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { calculateDisplayFQN } from '../utils/displayFQNUtils';
@@ -183,7 +182,8 @@ export class HoverProcessingService implements IHoverProcessor {
               ref.location.identifierRange.startLine === parserPosition.line &&
               ref.location.identifierRange.startColumn <=
                 parserPosition.character &&
-              ref.location.identifierRange.endColumn >= parserPosition.character,
+              ref.location.identifierRange.endColumn >=
+                parserPosition.character,
           );
 
           if (constructorCallRef) {
@@ -327,12 +327,12 @@ export class HoverProcessingService implements IHoverProcessor {
                   );
 
                   const hoverCreationStartTime = Date.now();
-                const hover = await this.createHoverInformation(
-                  symbolAfterEnrichment,
-                  undefined,
-                  references,
-                  parserPosition,
-                );
+                  const hover = await this.createHoverInformation(
+                    symbolAfterEnrichment,
+                    undefined,
+                    references,
+                    parserPosition,
+                  );
                   const hoverCreationTime = Date.now() - hoverCreationStartTime;
                   const totalTime = Date.now() - hoverStartTime;
 
@@ -482,14 +482,14 @@ export class HoverProcessingService implements IHoverProcessor {
                     `Found symbol after enrichment: ${symbolAfterEnrichment.name} (${symbolAfterEnrichment.kind})`,
                 );
 
-                  const hoverCreationStartTime = Date.now();
-                  const hover = await this.createHoverInformation(
-                    symbolAfterEnrichment,
-                    undefined,
-                    references,
-                    parserPosition,
-                  );
-                  const hoverCreationTime = Date.now() - hoverCreationStartTime;
+                const hoverCreationStartTime = Date.now();
+                const hover = await this.createHoverInformation(
+                  symbolAfterEnrichment,
+                  undefined,
+                  references,
+                  parserPosition,
+                );
+                const hoverCreationTime = Date.now() - hoverCreationStartTime;
                 const totalTime = Date.now() - hoverStartTime;
 
                 if (totalTime > 50) {
