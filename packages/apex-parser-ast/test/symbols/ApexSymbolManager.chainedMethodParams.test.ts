@@ -77,7 +77,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     symbolManager.clear();
   });
 
-  const addTestClass = (fileName: string = 'ChainedMethodParams.cls') => {
+  const addTestClass = async (fileName: string = 'ChainedMethodParams.cls') => {
     const testClassPath = path.resolve(
       path.join(__dirname, '../fixtures/cross-file', fileName),
     );
@@ -92,7 +92,10 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
       listener,
     );
     if (result.result) {
-      symbolManager.addSymbolTable(result.result, testClassUri);
+      // addSymbolTable now returns an Effect, so we need to run it
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result, testClassUri),
+      );
     }
 
     // Also load Account.cls if it exists, as it's used in the test fixtures
@@ -109,7 +112,10 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
         accountListener,
       );
       if (accountResult.result) {
-        symbolManager.addSymbolTable(accountResult.result, accountUri);
+        // addSymbolTable now returns an Effect, so we need to run it
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(accountResult.result, accountUri),
+        );
       }
     }
 
@@ -118,7 +124,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
 
   describe('Simple 2-Level Chain as Parameter', () => {
     it('should resolve first node (URL) in URL.getOrgDomainUrl().toExternalForm()', async () => {
-      const testClassUri = addTestClass();
+      const testClassUri = await addTestClass();
 
       // Find the chained expression reference
       const refs = symbolManager.getAllReferencesInFile(testClassUri);
@@ -148,7 +154,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     });
 
     it('should resolve middle node (getOrgDomainUrl) in URL.getOrgDomainUrl().toExternalForm()', async () => {
-      const testClassUri = addTestClass();
+      const testClassUri = await addTestClass();
 
       const refs = symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
@@ -175,7 +181,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     });
 
     it('should resolve last node (toExternalForm) in URL.getOrgDomainUrl().toExternalForm()', async () => {
-      const testClassUri = addTestClass();
+      const testClassUri = await addTestClass();
 
       const refs = symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
@@ -204,7 +210,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
 
   describe('Chained Call in Different Parameter Positions', () => {
     it('should resolve chained call when used as first parameter', async () => {
-      const testClassUri = addTestClass();
+      const testClassUri = await addTestClass();
 
       const refs = symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
@@ -232,7 +238,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     });
 
     it('should resolve chained call when used as middle parameter', async () => {
-      const testClassUri = addTestClass();
+      const testClassUri = await addTestClass();
 
       const refs = symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
@@ -259,7 +265,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     });
 
     it('should resolve chained call when used as last parameter', async () => {
-      const testClassUri = addTestClass();
+      const testClassUri = await addTestClass();
 
       const refs = symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
@@ -288,7 +294,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
 
   describe('Multiple Chained Parameters', () => {
     it('should resolve both chained calls when multiple chains are parameters', async () => {
-      const testClassUri = addTestClass();
+      const testClassUri = await addTestClass();
 
       const refs = symbolManager.getAllReferencesInFile(testClassUri);
 
@@ -349,7 +355,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
 
   describe('Static Method with Chained Parameter', () => {
     it('should resolve chained call in static method parameter', async () => {
-      const testClassUri = addTestClass();
+      const testClassUri = await addTestClass();
 
       const refs = symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
@@ -378,7 +384,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
 
   describe('Constructor with Chained Parameter', () => {
     it('should resolve chained call in constructor parameter', async () => {
-      const testClassUri = addTestClass();
+      const testClassUri = await addTestClass();
 
       const refs = symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
@@ -407,7 +413,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
 
   describe('Nested Chains', () => {
     it('should resolve nested chained call', async () => {
-      const testClassUri = addTestClass();
+      const testClassUri = await addTestClass();
 
       const refs = symbolManager.getAllReferencesInFile(testClassUri);
       const chainedRef = refs.find(
@@ -447,7 +453,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
 
   describe('Deeply Nested Chained Calls', () => {
     it('should resolve deeply nested chained calls a.b(c.d(e.f()).g.h()).i(j())', async () => {
-      const testClassUri = addTestClass();
+      const testClassUri = await addTestClass();
 
       const refs = symbolManager.getAllReferencesInFile(testClassUri);
 
@@ -512,7 +518,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
 
   describe('Chain After Method Call with Parameter', () => {
     it('should resolve chain that continues after method call with parameter a.b.c(d()).e', async () => {
-      const testClassUri = addTestClass();
+      const testClassUri = await addTestClass();
 
       const refs = symbolManager.getAllReferencesInFile(testClassUri);
 

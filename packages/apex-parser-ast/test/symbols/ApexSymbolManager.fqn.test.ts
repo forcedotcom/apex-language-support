@@ -11,6 +11,7 @@ import * as path from 'path';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { Effect } from 'effect';
 import { SymbolKind } from '../../src/types/symbol';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
@@ -30,7 +31,7 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
   });
 
   describe('FQN Calculation and Storage', () => {
-    it('should calculate and store FQN for top-level class', () => {
+    it('should calculate and store FQN for top-level class', async () => {
       // Read the real TestClassWithNested.cls file
       const testClassPath = path.join(
         __dirname,
@@ -47,9 +48,11 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       );
 
       if (testClassResult.result) {
-        symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClassWithNested.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClassWithNested.cls',
+          ),
         );
       }
 
@@ -71,7 +74,7 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       }
     });
 
-    it('should calculate and store FQN for nested method', () => {
+    it('should calculate and store FQN for nested method', async () => {
       // Read the real TestClassWithNested.cls file
       const testClassPath = path.join(
         __dirname,
@@ -88,9 +91,11 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       );
 
       if (testClassResult.result) {
-        symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClassWithNested.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClassWithNested.cls',
+          ),
         );
       }
 
@@ -113,7 +118,7 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       }
     });
 
-    it('should handle deeply nested symbols', () => {
+    it('should handle deeply nested symbols', async () => {
       // Read the real TestClassWithNested.cls file
       const testClassPath = path.join(
         __dirname,
@@ -130,9 +135,11 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       );
 
       if (testClassResult.result) {
-        symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClassWithNested.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClassWithNested.cls',
+          ),
         );
       }
 
@@ -176,7 +183,7 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       }
     });
 
-    it('should preserve existing FQNs when already present', () => {
+    it('should preserve existing FQNs when already present', async () => {
       // Read the real TestClassWithNested.cls file
       const testClassPath = path.join(
         __dirname,
@@ -193,9 +200,11 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       );
 
       if (testClassResult.result) {
-        symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClassWithNested.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClassWithNested.cls',
+          ),
         );
       }
 
@@ -219,7 +228,7 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
   });
 
   describe('FQN Index Population', () => {
-    it('should populate FQN index for all symbols', () => {
+    it('should populate FQN index for all symbols', async () => {
       // Read the real TestClassWithNested.cls file
       const testClassPath = path.join(
         __dirname,
@@ -236,9 +245,11 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       );
 
       if (testClassResult.result) {
-        symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClassWithNested.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClassWithNested.cls',
+          ),
         );
       }
 
@@ -302,7 +313,7 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
   });
 
   describe('Integration with Symbol Resolution', () => {
-    it('should resolve symbols by FQN in hover context', () => {
+    it('should resolve symbols by FQN in hover context', async () => {
       // Read the real TestClassWithNested.cls file
       const testClassPath = path.join(
         __dirname,
@@ -319,9 +330,11 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       );
 
       if (testClassResult.result) {
-        symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClassWithNested.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClassWithNested.cls',
+          ),
         );
       }
 

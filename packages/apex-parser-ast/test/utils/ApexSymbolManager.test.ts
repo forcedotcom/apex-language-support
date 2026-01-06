@@ -161,7 +161,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       const stats = manager.getStats();
@@ -193,10 +195,14 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol tables to the manager
       if (result1.result) {
-        manager.addSymbolTable(result1.result, 'File1.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result1.result, 'File1.cls'),
+        );
       }
       if (result2.result) {
-        manager.addSymbolTable(result2.result, 'File2.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result2.result, 'File2.cls'),
+        );
       }
 
       // Check that we can find symbols in both files
@@ -227,7 +233,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       // Add a symbol to another file
@@ -241,7 +249,9 @@ describe('ApexSymbolManager', () => {
         'OtherClass.cls',
       );
       if (otherResult.result) {
-        manager.addSymbolTable(otherResult.result, 'OtherClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(otherResult.result, 'OtherClass.cls'),
+        );
       }
 
       const statsBefore = manager.getStats();
@@ -280,10 +290,14 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol tables to the manager
       if (result1.result) {
-        manager.addSymbolTable(result1.result, 'File1.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result1.result, 'File1.cls'),
+        );
       }
       if (result2.result) {
-        manager.addSymbolTable(result2.result, 'File2.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result2.result, 'File2.cls'),
+        );
       }
 
       // Verify initial state
@@ -319,7 +333,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       const symbolsByName = manager.findSymbolByName('MyClass');
@@ -338,7 +354,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       // Find by FQN (assuming default namespace)
@@ -364,7 +382,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       const fileSymbols = manager.findSymbolsInFile('MyClass.cls');
@@ -398,10 +418,14 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol tables to the manager
       if (result1.result) {
-        manager.addSymbolTable(result1.result, 'File1.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result1.result, 'File1.cls'),
+        );
       }
       if (result2.result) {
-        manager.addSymbolTable(result2.result, 'File2.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result2.result, 'File2.cls'),
+        );
       }
 
       // Check what files are actually found
@@ -434,7 +458,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       // Find the class symbol from the manager instead of the collected symbols
@@ -459,7 +485,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       // Find the class symbol from the manager instead of the collected symbols
@@ -484,7 +512,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       // Find the class symbol from the manager instead of the collected symbols
@@ -512,7 +542,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       // Find the class symbol from the manager instead of the collected symbols
@@ -553,7 +585,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       const stats = manager.getStats();
@@ -589,7 +623,9 @@ describe('ApexSymbolManager', () => {
 
       // After adding symbol table
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
       stats = manager.getStats();
       expect(stats.totalSymbols).toBeGreaterThan(0);
@@ -617,12 +653,16 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       // Try to add the same symbol table again
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       const stats = manager.getStats();
@@ -679,7 +719,9 @@ describe('ApexSymbolManager', () => {
 
         // Add the full symbol table to the manager
         if (result.result) {
-          manager.addSymbolTable(result.result, `Class${i}.cls`);
+          await Effect.runPromise(
+            manager.addSymbolTable(result.result, `Class${i}.cls`),
+          );
         }
       }
 
@@ -709,7 +751,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       // Find the class symbol from the manager instead of the collected symbols
@@ -749,7 +793,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       // Find the class symbol
@@ -798,7 +844,9 @@ describe('ApexSymbolManager', () => {
       const { result } = await compileAndGetSymbols(apexCode, 'TestClass.cls');
 
       if (result.result) {
-        manager.addSymbolTable(result.result, 'TestClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'TestClass.cls'),
+        );
       }
 
       // Find the method symbol
@@ -845,8 +893,12 @@ describe('ApexSymbolManager', () => {
 
       if (result.result) {
         // Add symbol table twice
-        manager.addSymbolTable(result.result, 'MyClass.cls');
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       // Find the symbol
@@ -876,7 +928,9 @@ describe('ApexSymbolManager', () => {
       const { result } = await compileAndGetSymbols(apexCode, 'MyClass.cls');
 
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       // Test different lookup methods
@@ -1028,7 +1082,9 @@ describe('ApexSymbolManager', () => {
       const { result } = await compileAndGetSymbols(apexCode, 'MyClass.cls');
 
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyClass.cls'),
+        );
       }
 
       // Get original position data
@@ -1045,7 +1101,9 @@ describe('ApexSymbolManager', () => {
         manager.removeFile('MyClass.cls');
 
         if (result.result) {
-          manager.addSymbolTable(result.result, 'MyClass.cls');
+          await Effect.runPromise(
+            manager.addSymbolTable(result.result, 'MyClass.cls'),
+          );
         }
 
         // Find the symbol again
@@ -1074,7 +1132,9 @@ describe('ApexSymbolManager', () => {
       const { result } = await compileAndGetSymbols(apexCode, 'OuterClass.cls');
 
       if (result.result) {
-        manager.addSymbolTable(result.result, 'OuterClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'OuterClass.cls'),
+        );
       }
 
       // Find all symbols
@@ -1152,10 +1212,14 @@ describe('ApexSymbolManager', () => {
 
       // Add both symbol tables to the manager
       if (baseResult.result) {
-        manager.addSymbolTable(baseResult.result, 'BaseClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(baseResult.result, 'BaseClass.cls'),
+        );
       }
       if (derivedResult.result) {
-        manager.addSymbolTable(derivedResult.result, 'DerivedClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(derivedResult.result, 'DerivedClass.cls'),
+        );
       }
 
       // Find the symbols from the manager
@@ -1206,10 +1270,14 @@ describe('ApexSymbolManager', () => {
 
       // Add both symbol tables to the manager
       if (interfaceResult.result) {
-        manager.addSymbolTable(interfaceResult.result, 'MyInterface.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(interfaceResult.result, 'MyInterface.cls'),
+        );
       }
       if (classResult.result) {
-        manager.addSymbolTable(classResult.result, 'MyClass.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(classResult.result, 'MyClass.cls'),
+        );
       }
 
       // Find the symbols from the manager
@@ -1245,7 +1313,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'EnumTest.cls');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'EnumTest.cls'),
+        );
       }
 
       // Find the enum symbol from the manager instead of the collected symbols
@@ -1273,7 +1343,9 @@ describe('ApexSymbolManager', () => {
 
       // Add the full symbol table to the manager
       if (result.result) {
-        manager.addSymbolTable(result.result, 'MyTrigger.trigger');
+        await Effect.runPromise(
+          manager.addSymbolTable(result.result, 'MyTrigger.trigger'),
+        );
       }
 
       // Find the trigger symbol from the manager instead of the collected symbols

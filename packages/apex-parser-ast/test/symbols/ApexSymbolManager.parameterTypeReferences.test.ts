@@ -10,6 +10,7 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { ReferenceContext } from '../../src/types/symbolReference';
+import { Effect } from 'effect';
 
 describe('ApexSymbolManager - Parameter Type References', () => {
   let symbolManager: ApexSymbolManager;
@@ -24,24 +25,26 @@ describe('ApexSymbolManager - Parameter Type References', () => {
     symbolManager.clear();
   });
 
-  const addTestClass = (sourceCode: string, className: string) => {
+  const addTestClass = async (sourceCode: string, className: string) => {
     const testClassUri = `file:///test/${className}.cls`;
     const listener = new ApexSymbolCollectorListener();
     const result = compilerService.compile(sourceCode, testClassUri, listener);
 
     if (result.result) {
-      symbolManager.addSymbolTable(result.result, testClassUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result, testClassUri),
+      );
     }
 
     return testClassUri;
   };
 
   describe('Method Parameter Type References', () => {
-    it('should capture simple parameter type references', () => {
+    it('should capture simple parameter type references', async () => {
       const testClass =
         'public class TestClass { public void processString(String input) { } }';
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have a parameter type reference for String
@@ -52,7 +55,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       expect(paramTypeRefs[0].name).toBe('String');
     });
 
-    it('should capture dotted parameter type references', () => {
+    it('should capture dotted parameter type references', async () => {
       const testClass = `
         public class TestClass {
           public void processUrl(System.Url inputUrl) {
@@ -61,7 +64,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have a chained type reference for System.Url parameter
@@ -77,7 +80,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('should capture generic parameter type references', () => {
+    it('should capture generic parameter type references', async () => {
       const testClass = `
         public class TestClass {
           public void processList(List<String> inputList) {
@@ -86,7 +89,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have parameter type reference for List (the parameter type itself)
@@ -108,7 +111,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       expect(genericParamRefs).toHaveLength(1);
     });
 
-    it('should capture dotted generic parameter type references', () => {
+    it('should capture dotted generic parameter type references', async () => {
       const testClass = `
         public class TestClass {
           public void processUrlList(List<System.Url> inputUrlList) {
@@ -117,7 +120,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have parameter type references for List
@@ -139,7 +142,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       expect(genericParamRefs).toHaveLength(1);
     });
 
-    it('should distinguish between return types and parameter types', () => {
+    it('should distinguish between return types and parameter types', async () => {
       const testClass = `
         public class TestClass {
           public System.Url processUrl(System.Url inputUrl) {
@@ -148,7 +151,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.Url (both return and parameter)
@@ -166,14 +169,14 @@ describe('ApexSymbolManager - Parameter Type References', () => {
   });
 
   describe('Field Type References', () => {
-    it('should capture dotted field type references', () => {
+    it('should capture dotted field type references', async () => {
       const testClass = `
         public class TestClass {
           public System.Url myUrl;
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have a chained type reference for System.Url field type
@@ -191,7 +194,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
   });
 
   describe('Local Variable Type References', () => {
-    it('should capture dotted local variable type references', () => {
+    it('should capture dotted local variable type references', async () => {
       const testClass = `
         public class TestClass {
           public void testMethod() {
@@ -200,7 +203,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.Url (variable type and method call)

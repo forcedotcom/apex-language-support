@@ -20,6 +20,7 @@ import {
   ApexSymbolCollectorListener,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 
 // Only mock storage - use real implementations for everything else
 jest.mock('../../src/storage/ApexStorageManager');
@@ -31,7 +32,7 @@ describe('CompletionProcessingService', () => {
   let mockDocument: TextDocument;
   let logger: ReturnType<typeof getLogger>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset mocks
     jest.clearAllMocks();
 
@@ -54,7 +55,9 @@ describe('CompletionProcessingService', () => {
       'file:///test/TestClass.cls',
       listener,
     );
-    symbolManager.addSymbolTable(symbolTable, 'file:///test/TestClass.cls');
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(symbolTable, 'file:///test/TestClass.cls'),
+    );
 
     // Setup mock storage
     mockStorage = {

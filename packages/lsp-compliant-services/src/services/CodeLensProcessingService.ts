@@ -181,15 +181,23 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
   }
 
   /**
-   * Check if a class is a test class
-   * @param symbol The class symbol
-   * @returns True if the class has @isTest annotation
+   * Check if a class or method is a test
+   * @param symbol The class or method symbol
+   * @returns True if the symbol has @isTest annotation
    */
   private isTest(symbol: ApexSymbol): boolean {
-    // Check modifiers
-    if (symbol.modifiers) {
-      return symbol.modifiers.isTestMethod === true;
+    // Check modifiers (parser converts @isTest to isTestMethod modifier)
+    if (symbol.modifiers?.isTestMethod === true) {
+      return true;
     }
+    
+    // Also check annotations directly (for compatibility with FullSymbolCollectorListener)
+    if (symbol.annotations) {
+      return symbol.annotations.some(
+        (ann) => ann.name.toLowerCase() === 'istest',
+      );
+    }
+    
     return false;
   }
 

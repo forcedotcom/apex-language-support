@@ -79,9 +79,11 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       if (result.result) {
-        symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -112,9 +114,11 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       if (result.result) {
-        symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClassWithField.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///test/TestClassWithField.cls',
+          ),
         );
       }
 
@@ -145,9 +149,11 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       if (result.result) {
-        symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClassSimple.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///test/TestClassSimple.cls',
+          ),
         );
       }
 
@@ -178,9 +184,11 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       if (result.result) {
-        symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClassWithVariable.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///test/TestClassWithVariable.cls',
+          ),
         );
       }
 
@@ -211,9 +219,11 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       if (result.result) {
-        symbolManager.addSymbolTable(
-          result.result,
-          'file:///test/TestClassOverlapping.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///test/TestClassOverlapping.cls',
+          ),
         );
       }
 
@@ -245,7 +255,9 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       if (result.result) {
-        symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls');
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls'),
+        );
       }
 
       // Find the local variable 'a' in method1 (line 8, character 15)
@@ -286,7 +298,9 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       if (result.result) {
-        symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls');
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls'),
+        );
       }
 
       // Find the local variable 'a' in method2 (line 13, character 15)
@@ -329,7 +343,9 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       if (result.result) {
-        symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls');
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls'),
+        );
       }
 
       // Find the class field 'a' in method3 (line 18, character 19)
@@ -371,7 +387,9 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       if (result.result) {
-        symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls');
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls'),
+        );
       }
 
       const allSymbols = result.result?.getAllSymbols() || [];

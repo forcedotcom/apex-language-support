@@ -118,7 +118,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     }
 
     if (result.result) {
-      symbolManager.addSymbolTable(result.result, fileName);
+      // addSymbolTable now returns an Effect, so we need to run it
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result, fileName),
+      );
     }
   };
 

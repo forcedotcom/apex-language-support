@@ -128,7 +128,9 @@ describe('ReferencesProcessingService', () => {
       'file:///test/TestClass.cls',
       listener,
     );
-    symbolManager.addSymbolTable(symbolTable, 'file:///test/TestClass.cls');
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(symbolTable, 'file:///test/TestClass.cls'),
+    );
 
     // Setup mock storage
     mockStorage = {

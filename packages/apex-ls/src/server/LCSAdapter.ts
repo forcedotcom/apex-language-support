@@ -41,6 +41,8 @@ import {
   WorkspaceLoadCompleteParams,
   SendWorkspaceBatchParams,
   SendWorkspaceBatchResult,
+  ProcessWorkspaceBatchesParams,
+  ProcessWorkspaceBatchesResult,
   PingResponse,
   formattedError,
   getDocumentSelectorsFromSettings,
@@ -73,7 +75,10 @@ import {
   onWorkspaceLoadFailed,
 } from '@salesforce/apex-lsp-compliant-services';
 
-import { handleWorkspaceBatch } from './WorkspaceBatchHandler';
+import {
+  handleWorkspaceBatchRequest,
+  handleProcessWorkspaceBatchesRequest,
+} from './WorkspaceBatchHandler';
 
 import {
   ResourceLoader,
@@ -554,6 +559,7 @@ export class LCSAdapter {
     this.logger.debug('✅ apexlib/resolve handler registered');
 
     // Register apex/sendWorkspaceBatch handler for batch workspace loading
+    // Returns immediately after storing (no processing) to allow fast parallel sending
     this.connection.onRequest(
       'apex/sendWorkspaceBatch',
       async (
@@ -566,7 +572,7 @@ export class LCSAdapter {
             }/${params.totalBatches} (${params.fileMetadata.length} files)`,
         );
         try {
-          return await handleWorkspaceBatch(params);
+          return await handleWorkspaceBatchRequest(params);
         } catch (error) {
           this.logger.error(
             () =>
@@ -580,7 +586,33 @@ export class LCSAdapter {
         }
       },
     );
-    this.logger.debug('✅ apex/sendWorkspaceBatch handler registered');
+    this.logger.debug('✅ apex/sendWorkspaceBatch request handler registered');
+
+    // Register apex/processWorkspaceBatches handler to trigger processing after all batches sent
+    this.connection.onRequest(
+      'apex/processWorkspaceBatches',
+      async (
+        params: ProcessWorkspaceBatchesParams,
+      ): Promise<ProcessWorkspaceBatchesResult> => {
+        this.logger.debug(
+          () =>
+            `🔄 apex/processWorkspaceBatches request received for ${params.totalBatches} batches`,
+        );
+        try {
+          return await handleProcessWorkspaceBatchesRequest(params);
+        } catch (error) {
+          this.logger.error(
+            () =>
+              `Error processing workspace batches: ${formattedError(error)}`,
+          );
+          return {
+            success: false,
+            error: formattedError(error),
+          };
+        }
+      },
+    );
+    this.logger.debug('✅ apex/processWorkspaceBatches request handler registered');
 
     // Register workspace/executeCommand handler
     if (capabilities.executeCommandProvider) {

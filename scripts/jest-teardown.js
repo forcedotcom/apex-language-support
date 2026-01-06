@@ -88,15 +88,25 @@ module.exports = async () => {
       // Ignore errors - module might not be available
     }
 
-        // Give Effect-TS resources time to clean up
-        // This allows fibers to complete their cleanup and queues to fully shutdown
-        // Also allows any setTimeout-based monitoring tasks to complete
-        // Note: Some recursive setTimeout calls in DocumentProcessingService may still be active,
-        // but they will complete naturally and don't prevent Jest from exiting
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      })(),
-      timeout,
-    ]);
+    // Clear WorkspaceBatchHandler cleanup interval if it exists
+    // This prevents the interval from keeping the process alive
+    try {
+      const {
+        clearCleanupInterval,
+      } = require('@salesforce/apex-language-server/src/server/WorkspaceBatchHandler');
+      if (clearCleanupInterval && typeof clearCleanupInterval === 'function') {
+        clearCleanupInterval();
+      }
+    } catch (_error) {
+      // Ignore errors - module might not be available or function might not exist
+    }
+
+    // Give Effect-TS resources time to clean up
+    // This allows fibers to complete their cleanup and queues to fully shutdown
+    // Also allows any setTimeout-based monitoring tasks to complete
+    // Note: Some recursive setTimeout calls in DocumentProcessingService may still be active,
+    // but they will complete naturally and don't prevent Jest from exiting
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   } catch (error) {
     // Ignore errors during teardown - modules might not be available or timeout occurred
     if (error.message !== 'Teardown timeout') {

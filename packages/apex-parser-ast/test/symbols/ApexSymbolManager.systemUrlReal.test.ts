@@ -18,6 +18,7 @@ import {
   initializeResourceLoaderForTests,
   resetResourceLoader,
 } from '../helpers/testHelpers';
+import { Effect } from 'effect';
 
 /**
  * Tests that System.URL chained expression resolution works correctly
@@ -49,7 +50,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
     resetResourceLoader();
   });
 
-  const addTestClass = (fileUri?: string) => {
+  const addTestClass = async (fileUri?: string) => {
     const testClassPath = path.resolve(
       path.join(__dirname, fileUri || '../fixtures/cross-file/SystemUrl.cls'),
     );
@@ -64,12 +65,14 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
       listener,
     );
     if (result.result) {
-      symbolManager.addSymbolTable(result.result, testClassUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result, testClassUri),
+      );
     }
   };
 
   it('should resolve System.URL.getOrgDomainUrl().toExternalForm() chained expression', async () => {
-    addTestClass();
+    await addTestClass();
 
     // Get all references in the file
     const testClassPath = path.resolve(
@@ -105,7 +108,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
   });
 
   it('should resolve System.Url.getOrgDomainUrl().toExternalForm method call', async () => {
-    addTestClass();
+    await addTestClass();
 
     const testClassPath = path.resolve(
       path.join(__dirname, '../fixtures/cross-file/SystemUrl.cls'),
@@ -129,7 +132,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
   });
 
   it('should resolve System.Url as chained type reference', async () => {
-    addTestClass();
+    await addTestClass();
 
     const testClassPath = path.resolve(
       path.join(__dirname, '../fixtures/cross-file/SystemUrl.cls'),
