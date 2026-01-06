@@ -3829,28 +3829,47 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             return hasClassMatch || candidates.length === 0;
           })());
       if (isClassReferenceContext) {
+        // For GENERIC_PARAMETER_TYPE and CLASS_REFERENCE, resolve as class/type
+        // Use findSymbolByName which searches across all files via nameIndex
         const candidates = this.findSymbolByName(typeReference.name);
         
-        // If name-based lookup fails, try searching in the source file's symbol table directly
-        // This handles cases where symbols exist but haven't been indexed by name yet
-        let classCandidates: ApexSymbol[] = [];
-        if (candidates.length > 0) {
-          // Filter to class symbols only
-          classCandidates = candidates.filter(
-            (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-          );
-        }
+        // Filter to class symbols only
+        let classCandidates = candidates.filter(
+          (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+        );
         
-        // Fallback: search symbol table directly if name lookup found nothing
+        // Fallback: if name-based lookup found nothing, search symbol tables directly
+        // This handles cases where symbols exist but haven't been indexed by name yet
+        // or where indexing hasn't completed yet
         if (classCandidates.length === 0) {
-          const symbolTable = this.symbolGraph.getSymbolTableForFile(sourceFile);
-          if (symbolTable) {
-            const allSymbols = symbolTable.getAllSymbols();
+          // Search the source file's symbol table first
+          const sourceSymbolTable = this.symbolGraph.getSymbolTableForFile(sourceFile);
+          if (sourceSymbolTable) {
+            const allSymbols = sourceSymbolTable.getAllSymbols();
             classCandidates = allSymbols.filter(
               (s) =>
                 s.name === typeReference.name &&
                 (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface),
             );
+          }
+          
+          // If still not found, iterate through all registered symbol tables
+          // This ensures we find classes in other files even if nameIndex isn't updated yet
+          if (classCandidates.length === 0) {
+            const fileToSymbolTable = this.symbolGraph.getFileToSymbolTable();
+            for (const [fileUri, symbolTable] of fileToSymbolTable.entries()) {
+              if (!symbolTable) continue;
+              const allSymbols = symbolTable.getAllSymbols();
+              const found = allSymbols.filter(
+                (s: ApexSymbol) =>
+                  s.name === typeReference.name &&
+                  (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface),
+              );
+              if (found.length > 0) {
+                classCandidates = found;
+                break;
+              }
+            }
           }
         }
         
@@ -5456,9 +5475,44 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const typeReferences = this.getReferencesAtPosition(fileUri, position);
 
       if (typeReferences.length > 0) {
-        // Step 2: For chained references, find the most specific reference for this position
-        // If position is on a specific chain member, prefer references that match that member
+        // Step 2: Prioritize GENERIC_PARAMETER_TYPE and CLASS_REFERENCE references first
+        // These should be resolved as classes/types, not variables or methods
+        const genericParamRefs = typeReferences.filter(
+          (ref) => ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
+        );
+        const classRefs = typeReferences.filter(
+          (ref) => ref.context === ReferenceContext.CLASS_REFERENCE,
+        );
+        
+        // Prefer GENERIC_PARAMETER_TYPE or CLASS_REFERENCE if available and position matches
         let referenceToResolve = typeReferences[0];
+        if (genericParamRefs.length > 0 || classRefs.length > 0) {
+          const typeRefs = [...genericParamRefs, ...classRefs];
+          // Find the type reference that matches the position
+          for (const typeRef of typeRefs) {
+            const typeLoc = typeRef.location.identifierRange;
+            const isWithinIdentifierRange =
+              position.line >= typeLoc.startLine &&
+              position.line <= typeLoc.endLine &&
+              position.character >= typeLoc.startColumn &&
+              position.character <= typeLoc.endColumn;
+            if (isWithinIdentifierRange) {
+              referenceToResolve = typeRef;
+              break;
+            }
+          }
+          // If no exact match, use the first type reference as fallback
+          if (referenceToResolve === typeReferences[0] && typeRefs.length > 0) {
+            referenceToResolve = typeRefs[0];
+          }
+        }
+        
+        // Step 2b: For chained references, find the most specific reference for this position
+        // If position is on a specific chain member, prefer references that match that member
+        // BUT: Don't override GENERIC_PARAMETER_TYPE or CLASS_REFERENCE if we've already selected one
+        const isTypeReferenceSelected =
+          referenceToResolve.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
+          referenceToResolve.context === ReferenceContext.CLASS_REFERENCE;
 
         // Prioritize chained references when position matches a chain member
         // This ensures we resolve the correct part of the chain (e.g., "System" in "System.Url")
@@ -5467,7 +5521,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
 
         // Always prefer chained references over non-chained references when available
-        if (chainedRefs.length > 0) {
+        // BUT: Don't override type references (GENERIC_PARAMETER_TYPE, CLASS_REFERENCE) if already selected
+        if (chainedRefs.length > 0 && !isTypeReferenceSelected) {
           // Check each chained reference to find the one that matches the position
           for (const ref of chainedRefs) {
             const chainNodes = (ref as ChainedSymbolReference).chainNodes;
@@ -5630,30 +5685,37 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           }
         }
 
-        // If no chained reference was selected, prioritize CLASS_REFERENCE over METHOD_CALL
-        // when position matches the qualifier location (for qualified calls like FileUtilities.createFile)
+        // If no chained reference was selected, prioritize CLASS_REFERENCE and GENERIC_PARAMETER_TYPE
+        // over METHOD_CALL when position matches (for class references and generic type parameters)
         if (!isChainedSymbolReference(referenceToResolve)) {
           const classRefs = typeReferences.filter(
             (ref) => ref.context === ReferenceContext.CLASS_REFERENCE,
+          );
+          const genericParamRefs = typeReferences.filter(
+            (ref) => ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
           );
           const methodRefs = typeReferences.filter(
             (ref) => ref.context === ReferenceContext.METHOD_CALL,
           );
 
-          // If we have both CLASS_REFERENCE and METHOD_CALL, check if position matches qualifier
-          if (classRefs.length > 0 && methodRefs.length > 0) {
-            // Check if any CLASS_REFERENCE matches the exact position
-            for (const classRef of classRefs) {
-              const classLoc = classRef.location.identifierRange;
+          // Combine class and generic parameter references (both resolve to classes)
+          const typeRefs = [...classRefs, ...genericParamRefs];
+
+          // If we have both type references (CLASS_REFERENCE/GENERIC_PARAMETER_TYPE) and METHOD_CALL,
+          // check if position matches type reference
+          if (typeRefs.length > 0 && methodRefs.length > 0) {
+            // Check if any type reference matches the exact position
+            for (const typeRef of typeRefs) {
+              const typeLoc = typeRef.location.identifierRange;
               // Check if position is within the identifier range
               const isWithinIdentifierRange =
-                position.line >= classLoc.startLine &&
-                position.line <= classLoc.endLine &&
-                position.character >= classLoc.startColumn &&
-                position.character <= classLoc.endColumn;
+                position.line >= typeLoc.startLine &&
+                position.line <= typeLoc.endLine &&
+                position.character >= typeLoc.startColumn &&
+                position.character <= typeLoc.endColumn;
 
               // Also check the symbol range as fallback
-              const symbolRange = classRef.location.symbolRange;
+              const symbolRange = typeRef.location.symbolRange;
               const isWithinSymbolRange =
                 position.line >= symbolRange.startLine &&
                 position.line <= symbolRange.endLine &&
@@ -5661,21 +5723,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 position.character <= symbolRange.endColumn;
 
               if (isWithinIdentifierRange || isWithinSymbolRange) {
-                // Position matches CLASS_REFERENCE - prefer it over METHOD_CALL
-                referenceToResolve = classRef;
+                // Position matches type reference - prefer it over METHOD_CALL
+                referenceToResolve = typeRef;
                 break;
               }
             }
-          } else if (classRefs.length > 0) {
-            // Only CLASS_REFERENCE available - use it if position matches
-            for (const classRef of classRefs) {
-              const classLoc = classRef.location.identifierRange;
-              const symbolRange = classRef.location.symbolRange;
+          } else if (typeRefs.length > 0) {
+            // Only type references available - use it if position matches
+            for (const typeRef of typeRefs) {
+              const typeLoc = typeRef.location.identifierRange;
+              const symbolRange = typeRef.location.symbolRange;
               const isWithinIdentifierRange =
-                position.line >= classLoc.startLine &&
-                position.line <= classLoc.endLine &&
-                position.character >= classLoc.startColumn &&
-                position.character <= classLoc.endColumn;
+                position.line >= typeLoc.startLine &&
+                position.line <= typeLoc.endLine &&
+                position.character >= typeLoc.startColumn &&
+                position.character <= typeLoc.endColumn;
               const isWithinSymbolRange =
                 position.line >= symbolRange.startLine &&
                 position.line <= symbolRange.endLine &&
@@ -5683,16 +5745,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 position.character <= symbolRange.endColumn;
 
               if (isWithinIdentifierRange || isWithinSymbolRange) {
-                referenceToResolve = classRef;
+                referenceToResolve = typeRef;
                 break;
               }
             }
             // If no match found, use the first one as fallback
             if (
               referenceToResolve === typeReferences[0] &&
-              classRefs.length > 0
+              typeRefs.length > 0
             ) {
-              referenceToResolve = classRefs[0];
+              referenceToResolve = typeRefs[0];
             }
           }
         }

@@ -7,9 +7,7 @@
  */
 
 import { CompilerService } from '../../../src/parser/compilerService';
-import { PublicAPISymbolListener } from '../../../src/parser/listeners/PublicAPISymbolListener';
-import { ProtectedSymbolListener } from '../../../src/parser/listeners/ProtectedSymbolListener';
-import { PrivateSymbolListener } from '../../../src/parser/listeners/PrivateSymbolListener';
+import { VisibilitySymbolListener } from '../../../src/parser/listeners/VisibilitySymbolListener';
 import {
   SymbolTable,
   SymbolKind,
@@ -48,7 +46,7 @@ describe('Layered Symbol Collection', () => {
       `;
 
       const symbolTable = new SymbolTable();
-      const listener = new PublicAPISymbolListener(symbolTable);
+      const listener = new VisibilitySymbolListener('public-api', symbolTable);
       listener.setCurrentFileUri('TestClass.cls');
 
       const result = compilerService.compile(
@@ -130,7 +128,7 @@ describe('Layered Symbol Collection', () => {
       `;
 
       const symbolTable = new SymbolTable();
-      const listener = new PublicAPISymbolListener(symbolTable);
+      const listener = new VisibilitySymbolListener('public-api', symbolTable);
       listener.setCurrentFileUri('GlobalClass.cls');
 
       const result = compilerService.compile(
@@ -177,7 +175,7 @@ describe('Layered Symbol Collection', () => {
       `;
 
       const symbolTable = new SymbolTable();
-      const listener = new ProtectedSymbolListener(symbolTable);
+      const listener = new VisibilitySymbolListener('protected', symbolTable);
       listener.setCurrentFileUri('TestClass.cls');
 
       const result = compilerService.compile(
@@ -264,7 +262,7 @@ describe('Layered Symbol Collection', () => {
       `;
 
       const symbolTable = new SymbolTable();
-      const listener = new PrivateSymbolListener(symbolTable);
+      const listener = new VisibilitySymbolListener('private', symbolTable);
       listener.setCurrentFileUri('TestClass.cls');
 
       const result = compilerService.compile(
@@ -331,7 +329,10 @@ describe('Layered Symbol Collection', () => {
       const symbolTable = new SymbolTable();
 
       // First pass: public API only
-      const publicListener = new PublicAPISymbolListener(symbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        symbolTable,
+      );
       publicListener.setCurrentFileUri('TestClass.cls');
       const publicResult = compilerService.compile(
         fileContent,
@@ -350,7 +351,10 @@ describe('Layered Symbol Collection', () => {
       expect(publicField?._detailLevel).toBe('public-api');
 
       // Second pass: add protected symbols (should enrich existing symbol table)
-      const protectedListener = new ProtectedSymbolListener(symbolTable);
+      const protectedListener = new VisibilitySymbolListener(
+        'protected',
+        symbolTable,
+      );
       protectedListener.setCurrentFileUri('TestClass.cls');
       const protectedResult = compilerService.compile(
         fileContent,
@@ -378,7 +382,10 @@ describe('Layered Symbol Collection', () => {
       expect(protectedField?._detailLevel).toBe('protected');
 
       // Third pass: add private symbols
-      const privateListener = new PrivateSymbolListener(symbolTable);
+      const privateListener = new VisibilitySymbolListener(
+        'private',
+        symbolTable,
+      );
       privateListener.setCurrentFileUri('TestClass.cls');
       const privateResult = compilerService.compile(
         fileContent,
@@ -417,7 +424,10 @@ describe('Layered Symbol Collection', () => {
       const symbolTable = new SymbolTable();
 
       // First pass: full detail (simulated by using full listener)
-      const publicListener = new PublicAPISymbolListener(symbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        symbolTable,
+      );
       publicListener.setCurrentFileUri('TestClass.cls');
       const publicResult = compilerService.compile(
         fileContent,
@@ -435,7 +445,10 @@ describe('Layered Symbol Collection', () => {
       expect(publicField?._detailLevel).toBe('public-api');
 
       // Try to add same symbol again with same detail level - should be skipped
-      const publicListener2 = new PublicAPISymbolListener(symbolTable);
+      const publicListener2 = new VisibilitySymbolListener(
+        'public-api',
+        symbolTable,
+      );
       publicListener2.setCurrentFileUri('TestClass.cls');
       const publicResult2 = compilerService.compile(
         fileContent,
@@ -475,7 +488,10 @@ describe('Layered Symbol Collection', () => {
       const symbolTable = new SymbolTable();
 
       // Layer 1: Public API
-      const publicListener = new PublicAPISymbolListener(symbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        symbolTable,
+      );
       publicListener.setCurrentFileUri('TestClass.cls');
       const publicResult = compilerService.compile(
         fileContent,
@@ -494,7 +510,10 @@ describe('Layered Symbol Collection', () => {
       ).toBe(1);
 
       // Layer 2: Protected
-      const protectedListener = new ProtectedSymbolListener(symbolTable);
+      const protectedListener = new VisibilitySymbolListener(
+        'protected',
+        symbolTable,
+      );
       protectedListener.setCurrentFileUri('TestClass.cls');
       const protectedResult = compilerService.compile(
         fileContent,
@@ -513,7 +532,10 @@ describe('Layered Symbol Collection', () => {
       ).toBe(2);
 
       // Layer 3: Private
-      const privateListener = new PrivateSymbolListener(symbolTable);
+      const privateListener = new VisibilitySymbolListener(
+        'private',
+        symbolTable,
+      );
       privateListener.setCurrentFileUri('TestClass.cls');
       const privateResult = compilerService.compile(
         fileContent,

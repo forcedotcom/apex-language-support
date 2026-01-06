@@ -16,9 +16,7 @@ import {
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { ApexErrorListener } from './ApexErrorListener';
-import { PublicAPISymbolListener } from './PublicAPISymbolListener';
-import { ProtectedSymbolListener } from './ProtectedSymbolListener';
-import { PrivateSymbolListener } from './PrivateSymbolListener';
+import { VisibilitySymbolListener } from './VisibilitySymbolListener';
 import { ApexReferenceCollectorListener } from './ApexReferenceCollectorListener';
 import { BlockContentListener } from './BlockContentListener';
 import { ApexReferenceResolver } from '../references/ApexReferenceResolver';
@@ -38,9 +36,9 @@ interface SemanticError {
  * to achieve feature parity with ApexSymbolCollectorListener.
  *
  * This wrapper internally uses:
- * - PublicAPISymbolListener (Layer 1)
- * - ProtectedSymbolListener (Layer 2)
- * - PrivateSymbolListener (Layer 3)
+ * - VisibilitySymbolListener with 'public-api' detail level (Layer 1)
+ * - VisibilitySymbolListener with 'protected' detail level (Layer 2)
+ * - VisibilitySymbolListener with 'private' detail level (Layer 3)
  * - ApexReferenceCollectorListener (declaration reference collection via delegation)
  * - BlockContentListener (block-level symbol table population as separate pass)
  * - ApexReferenceResolver (reference resolution)
@@ -55,9 +53,9 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   protected errorListener: ApexErrorListener | null = null;
 
   // Internal listeners
-  private publicAPIListener: PublicAPISymbolListener;
-  private protectedListener: ProtectedSymbolListener;
-  private privateListener: PrivateSymbolListener;
+  private publicAPIListener: VisibilitySymbolListener;
+  private protectedListener: VisibilitySymbolListener;
+  private privateListener: VisibilitySymbolListener;
   private referenceCollector: ApexReferenceCollectorListener;
   private blockContentListener: BlockContentListener;
   private referenceResolver: ApexReferenceResolver;
@@ -79,9 +77,18 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     this.symbolTable = symbolTable || new SymbolTable();
 
     // Initialize layered listeners with the same symbol table
-    this.publicAPIListener = new PublicAPISymbolListener(this.symbolTable);
-    this.protectedListener = new ProtectedSymbolListener(this.symbolTable);
-    this.privateListener = new PrivateSymbolListener(this.symbolTable);
+    this.publicAPIListener = new VisibilitySymbolListener(
+      'public-api',
+      this.symbolTable,
+    );
+    this.protectedListener = new VisibilitySymbolListener(
+      'protected',
+      this.symbolTable,
+    );
+    this.privateListener = new VisibilitySymbolListener(
+      'private',
+      this.symbolTable,
+    );
     this.referenceCollector = new ApexReferenceCollectorListener(
       this.symbolTable,
     );

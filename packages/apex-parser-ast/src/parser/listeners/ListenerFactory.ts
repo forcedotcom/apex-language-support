@@ -7,7 +7,7 @@
  */
 
 import { BaseApexParserListener } from './BaseApexParserListener';
-import { PublicAPISymbolListener } from './PublicAPISymbolListener';
+import { VisibilitySymbolListener } from './VisibilitySymbolListener';
 import { FullSymbolCollectorListener } from './FullSymbolCollectorListener';
 import { SymbolTable } from '../../types/symbol';
 
@@ -35,14 +35,14 @@ export class ListenerFactory {
         // Use public API only for these services
         // They primarily need symbols for cross-file references (hover, goto definition)
         // Private symbols can be added later via progressive enhancement
-        return new PublicAPISymbolListener(symbolTable);
+        return new VisibilitySymbolListener('public-api', symbolTable);
       case 'full':
         // Use full listener for services that need all symbols
         // (e.g., code completion, refactoring)
         return new FullSymbolCollectorListener(symbolTable);
       default:
         // Default to public API for safety
-        return new PublicAPISymbolListener(symbolTable);
+        return new VisibilitySymbolListener('public-api', symbolTable);
     }
   }
 }

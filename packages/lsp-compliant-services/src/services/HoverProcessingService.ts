@@ -33,6 +33,9 @@ import {
   VariableSymbol,
   inTypeSymbolGroup,
   isApexKeyword,
+  ReferenceContext,
+  SymbolKind,
+  MethodSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { calculateDisplayFQN } from '../utils/displayFQNUtils';
@@ -168,15 +171,64 @@ export class HoverProcessingService implements IHoverProcessor {
       const symbolResolutionTime = Date.now() - symbolResolutionStartTime;
 
       if (symbol) {
+        // Symbol found - check if we're hovering over a class name in a constructor call context
+        // If so, try to find the constructor symbol instead
+        let symbolToUse = symbol;
+        if (isClassSymbol(symbol) && references && references.length > 0) {
+          // Check if there's a CONSTRUCTOR_CALL reference at this position
+          const constructorCallRef = references.find(
+            (ref) =>
+              ref.context === ReferenceContext.CONSTRUCTOR_CALL &&
+              ref.name === symbol.name &&
+              ref.location.identifierRange.startLine === parserPosition.line &&
+              ref.location.identifierRange.startColumn <=
+                parserPosition.character &&
+              ref.location.identifierRange.endColumn >= parserPosition.character,
+          );
+
+          if (constructorCallRef) {
+            // Try to find the constructor symbol for this class
+            const fileSymbols = this.symbolManager.findSymbolsInFile(
+              params.textDocument.uri,
+            );
+            const constructorSymbol = fileSymbols.find(
+              (s) =>
+                s.name === symbol.name &&
+                s.kind === SymbolKind.Constructor &&
+                s.parentId === symbol.id,
+            );
+
+            if (constructorSymbol) {
+              this.logger.debug(
+                () =>
+                  `Found constructor symbol for class ${symbol.name} in constructor call context`,
+              );
+              symbolToUse = constructorSymbol;
+            } else {
+              // No explicit constructor found - Apex has implicit default constructor
+              // We'll handle this in createHoverInformation by checking for constructor call context
+              this.logger.debug(
+                () =>
+                  `No explicit constructor found for class ${symbol.name}, will show default constructor signature`,
+              );
+            }
+          }
+        }
+
         // Symbol found - return hover information
         this.logger.debug(
           () =>
-            `Found symbol: ${symbol.name} (${symbol.kind}) at position ` +
+            `Found symbol: ${symbolToUse.name} (${symbolToUse.kind}) at position ` +
             `${parserPosition.line}:${parserPosition.character}`,
         );
 
         const hoverCreationStartTime = Date.now();
-        const hover = await this.createHoverInformation(symbol);
+        const hover = await this.createHoverInformation(
+          symbolToUse,
+          symbol,
+          references,
+          parserPosition,
+        );
         const hoverCreationTime = Date.now() - hoverCreationStartTime;
         const totalTime = Date.now() - hoverStartTime;
 
@@ -275,9 +327,12 @@ export class HoverProcessingService implements IHoverProcessor {
                   );
 
                   const hoverCreationStartTime = Date.now();
-                  const hover = await this.createHoverInformation(
-                    symbolAfterEnrichment,
-                  );
+                const hover = await this.createHoverInformation(
+                  symbolAfterEnrichment,
+                  undefined,
+                  references,
+                  parserPosition,
+                );
                   const hoverCreationTime = Date.now() - hoverCreationStartTime;
                   const totalTime = Date.now() - hoverStartTime;
 
@@ -427,11 +482,14 @@ export class HoverProcessingService implements IHoverProcessor {
                     `Found symbol after enrichment: ${symbolAfterEnrichment.name} (${symbolAfterEnrichment.kind})`,
                 );
 
-                const hoverCreationStartTime = Date.now();
-                const hover = await this.createHoverInformation(
-                  symbolAfterEnrichment,
-                );
-                const hoverCreationTime = Date.now() - hoverCreationStartTime;
+                  const hoverCreationStartTime = Date.now();
+                  const hover = await this.createHoverInformation(
+                    symbolAfterEnrichment,
+                    undefined,
+                    references,
+                    parserPosition,
+                  );
+                  const hoverCreationTime = Date.now() - hoverCreationStartTime;
                 const totalTime = Date.now() - hoverStartTime;
 
                 if (totalTime > 50) {
@@ -483,8 +541,12 @@ export class HoverProcessingService implements IHoverProcessor {
                           `at position ${parserPosition.line}:${parserPosition.character}`,
                       );
                       const hoverCreationStartTime = Date.now();
-                      const hover =
-                        await this.createHoverInformation(candidateSymbol);
+                      const hover = await this.createHoverInformation(
+                        candidateSymbol,
+                        undefined,
+                        references,
+                        parserPosition,
+                      );
                       const hoverCreationTime =
                         Date.now() - hoverCreationStartTime;
                       const totalTime = Date.now() - hoverStartTime;
@@ -580,8 +642,17 @@ export class HoverProcessingService implements IHoverProcessor {
 
   /**
    * Create hover information for a symbol
+   * @param symbol The symbol to create hover for
+   * @param originalSymbol The original symbol found (may differ if we're showing constructor for class)
+   * @param references Optional references at the position (for detecting constructor call context)
+   * @param position Optional position (for detecting constructor call context)
    */
-  private async createHoverInformation(symbol: ApexSymbol): Promise<Hover> {
+  private async createHoverInformation(
+    symbol: ApexSymbol,
+    originalSymbol?: ApexSymbol,
+    references?: any[],
+    position?: { line: number; character: number },
+  ): Promise<Hover> {
     const content: string[] = [];
 
     // Construct display FQN (semantic hierarchy without block symbols) with original casing preserved
@@ -608,7 +679,28 @@ export class HoverProcessingService implements IHoverProcessor {
       const ctorName = fqn || symbol.name;
       content.push(`${ctorName}(${paramsSig})`);
     } else if (isClassSymbol(symbol)) {
-      content.push(`class ${fqn || symbol.name}`);
+      // Check if we're in a constructor call context (hovering over class name in "new ClassName()")
+      const isConstructorCallContext =
+        originalSymbol &&
+        isClassSymbol(originalSymbol) &&
+        references &&
+        position &&
+        references.some(
+          (ref) =>
+            ref.context === ReferenceContext.CONSTRUCTOR_CALL &&
+            ref.name === symbol.name &&
+            ref.location.identifierRange.startLine === position.line &&
+            ref.location.identifierRange.startColumn <= position.character &&
+            ref.location.identifierRange.endColumn >= position.character,
+        );
+
+      if (isConstructorCallContext) {
+        // Show constructor signature format (default constructor if no explicit constructor exists)
+        const className = fqn || symbol.name;
+        content.push(`${className}()`);
+      } else {
+        content.push(`class ${fqn || symbol.name}`);
+      }
     } else if (isInterfaceSymbol(symbol)) {
       content.push(`interface ${fqn || symbol.name}`);
     } else if (isEnumSymbol(symbol)) {

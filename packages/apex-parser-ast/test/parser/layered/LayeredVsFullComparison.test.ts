@@ -8,9 +8,7 @@
 
 import { CompilerService } from '../../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../../src/parser/listeners/ApexSymbolCollectorListener';
-import { PublicAPISymbolListener } from '../../../src/parser/listeners/PublicAPISymbolListener';
-import { ProtectedSymbolListener } from '../../../src/parser/listeners/ProtectedSymbolListener';
-import { PrivateSymbolListener } from '../../../src/parser/listeners/PrivateSymbolListener';
+import { VisibilitySymbolListener } from '../../../src/parser/listeners/VisibilitySymbolListener';
 import {
   SymbolTable,
   SymbolKind,
@@ -99,9 +97,18 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
 
       // Layered collection using all three listeners
       const layeredSymbolTable = new SymbolTable();
-      const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
-      const protectedListener = new ProtectedSymbolListener(layeredSymbolTable);
-      const privateListener = new PrivateSymbolListener(layeredSymbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        layeredSymbolTable,
+      );
+      const protectedListener = new VisibilitySymbolListener(
+        'protected',
+        layeredSymbolTable,
+      );
+      const privateListener = new VisibilitySymbolListener(
+        'private',
+        layeredSymbolTable,
+      );
 
       // Apply in order
       compilerService.compile(fileContent, 'TestClass.cls', publicListener);
@@ -159,9 +166,18 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
 
     it('should capture all visibility levels correctly', () => {
       const layeredSymbolTable = new SymbolTable();
-      const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
-      const protectedListener = new ProtectedSymbolListener(layeredSymbolTable);
-      const privateListener = new PrivateSymbolListener(layeredSymbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        layeredSymbolTable,
+      );
+      const protectedListener = new VisibilitySymbolListener(
+        'protected',
+        layeredSymbolTable,
+      );
+      const privateListener = new VisibilitySymbolListener(
+        'private',
+        layeredSymbolTable,
+      );
 
       compilerService.compile(fileContent, 'TestClass.cls', publicListener);
       compilerService.compile(fileContent, 'TestClass.cls', protectedListener);
@@ -288,9 +304,18 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       );
 
       const layeredSymbolTable = new SymbolTable();
-      const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
-      const protectedListener = new ProtectedSymbolListener(layeredSymbolTable);
-      const privateListener = new PrivateSymbolListener(layeredSymbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        layeredSymbolTable,
+      );
+      const protectedListener = new VisibilitySymbolListener(
+        'protected',
+        layeredSymbolTable,
+      );
+      const privateListener = new VisibilitySymbolListener(
+        'private',
+        layeredSymbolTable,
+      );
 
       compilerService.compile(fileContent, 'ComplexClass.cls', publicListener);
       compilerService.compile(
@@ -342,9 +367,18 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       );
 
       const layeredSymbolTable = new SymbolTable();
-      const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
-      const protectedListener = new ProtectedSymbolListener(layeredSymbolTable);
-      const privateListener = new PrivateSymbolListener(layeredSymbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        layeredSymbolTable,
+      );
+      const protectedListener = new VisibilitySymbolListener(
+        'protected',
+        layeredSymbolTable,
+      );
+      const privateListener = new VisibilitySymbolListener(
+        'private',
+        layeredSymbolTable,
+      );
 
       compilerService.compile(fileContent, 'ComplexClass.cls', publicListener);
       compilerService.compile(
@@ -384,9 +418,18 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       );
 
       const layeredSymbolTable = new SymbolTable();
-      const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
-      const protectedListener = new ProtectedSymbolListener(layeredSymbolTable);
-      const privateListener = new PrivateSymbolListener(layeredSymbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        layeredSymbolTable,
+      );
+      const protectedListener = new VisibilitySymbolListener(
+        'protected',
+        layeredSymbolTable,
+      );
+      const privateListener = new VisibilitySymbolListener(
+        'private',
+        layeredSymbolTable,
+      );
 
       compilerService.compile(fileContent, 'ComplexClass.cls', publicListener);
       compilerService.compile(
@@ -450,7 +493,10 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       );
 
       const layeredSymbolTable = new SymbolTable();
-      const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        layeredSymbolTable,
+      );
 
       compilerService.compile(fileContent, 'TestInterface.cls', publicListener);
 
@@ -483,7 +529,10 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       const fullEnums = fullSymbols.filter((s) => s.kind === SymbolKind.Enum);
 
       const layeredSymbolTable = new SymbolTable();
-      const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        layeredSymbolTable,
+      );
 
       compilerService.compile(fileContent, 'TestEnum.cls', publicListener);
 
@@ -516,8 +565,14 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       const fullSymbolTable = fullResult.result as SymbolTable;
 
       const layeredSymbolTable = new SymbolTable();
-      const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
-      const privateListener = new PrivateSymbolListener(layeredSymbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        layeredSymbolTable,
+      );
+      const privateListener = new VisibilitySymbolListener(
+        'private',
+        layeredSymbolTable,
+      );
 
       compilerService.compile(fileContent, 'StructureTest.cls', publicListener);
       compilerService.compile(
@@ -551,8 +606,14 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
 
     it('should maintain symbol relationships correctly', () => {
       const layeredSymbolTable = new SymbolTable();
-      const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
-      const privateListener = new PrivateSymbolListener(layeredSymbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        layeredSymbolTable,
+      );
+      const privateListener = new VisibilitySymbolListener(
+        'private',
+        layeredSymbolTable,
+      );
 
       compilerService.compile(fileContent, 'StructureTest.cls', publicListener);
       compilerService.compile(
@@ -619,9 +680,18 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       const fullSymbols = getSemanticSymbols(fullResult.result as SymbolTable);
 
       const layeredSymbolTable = new SymbolTable();
-      const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
-      const protectedListener = new ProtectedSymbolListener(layeredSymbolTable);
-      const privateListener = new PrivateSymbolListener(layeredSymbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        layeredSymbolTable,
+      );
+      const protectedListener = new VisibilitySymbolListener(
+        'protected',
+        layeredSymbolTable,
+      );
+      const privateListener = new VisibilitySymbolListener(
+        'private',
+        layeredSymbolTable,
+      );
 
       compilerService.compile(
         fileContent,

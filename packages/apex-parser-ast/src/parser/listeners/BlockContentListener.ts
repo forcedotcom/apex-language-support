@@ -30,10 +30,6 @@ import {
   LocalVariableDeclarationContext,
   BlockContext,
   ParseTreeWalker,
-  MethodDeclarationContext,
-  ConstructorDeclarationContext,
-  ClassDeclarationContext,
-  InterfaceDeclarationContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -68,7 +64,7 @@ import {
 } from '../../utils/contextTypeGuards';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 import { isBlockSymbol } from '../../utils/symbolNarrowing';
-import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
+import { TypeInfo } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
 
 interface ChainScope {
@@ -138,9 +134,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
    * Determine parent context (method name or type name) by traversing parse tree
    * This is the primary method for context determination - no setParentContext needed
    */
-  private determineParentContext(
-    ctx: ParserRuleContext,
-  ): string | undefined {
+  private determineParentContext(ctx: ParserRuleContext): string | undefined {
     let current: ParserRuleContext | undefined = ctx.parent;
 
     while (current) {
@@ -217,7 +211,18 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
    */
   enterNewExpression(ctx: NewExpressionContext): void {
     try {
+      // Capture the constructor call reference first
       this.captureConstructorCallReference(ctx);
+
+      // Delegate type reference collection (including generic type parameters) to reference collector
+      // This ensures enterTypeArguments is called correctly for generic constructor calls
+      const walker = new ParseTreeWalker();
+      const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
+      refCollector.setCurrentFileUri(this.currentFilePath);
+      const parentContext = this.getCurrentMethodName(ctx);
+      const typeName = this.determineTypeName(ctx);
+      refCollector.setParentContext(parentContext, typeName);
+      walker.walk(refCollector, ctx); // Walk the entire NewExpressionContext subtree
     } catch (error) {
       this.logger.warn(
         () => `Error capturing constructor call reference: ${error}`,
@@ -404,12 +409,11 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
 
       // Check if this is a method call parameter
       if (this.isMethodCallParameter(ctx)) {
-        const varRef =
-          SymbolReferenceFactory.createVariableUsageReference(
-            idText,
-            location,
-            parentContext,
-          );
+        const varRef = SymbolReferenceFactory.createVariableUsageReference(
+          idText,
+          location,
+          parentContext,
+        );
         this.addToCurrentMethodParameters(varRef);
         this.symbolTable.addTypeReference(varRef);
         return;
@@ -447,12 +451,11 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
 
       // Check if this is a method call parameter
       if (this.isMethodCallParameter(ctx)) {
-        const varRef =
-          SymbolReferenceFactory.createVariableUsageReference(
-            idText,
-            location,
-            parentContext,
-          );
+        const varRef = SymbolReferenceFactory.createVariableUsageReference(
+          idText,
+          location,
+          parentContext,
+        );
         this.addToCurrentMethodParameters(varRef);
         this.symbolTable.addTypeReference(varRef);
         return;
@@ -556,13 +559,12 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
           const identifiers =
             this.extractIdentifiersFromExpression(leftExpression);
           if (identifiers.length > 0) {
-            const varRef =
-              SymbolReferenceFactory.createVariableUsageReference(
-                identifiers[0],
-                lhsLoc,
-                parentContext,
-                lhsAccess,
-              );
+            const varRef = SymbolReferenceFactory.createVariableUsageReference(
+              identifiers[0],
+              lhsLoc,
+              parentContext,
+              lhsAccess,
+            );
             this.symbolTable.addTypeReference(varRef);
           }
           return;
@@ -805,28 +807,11 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
 
   /**
    * Capture type arguments in expressions (generic type parameters)
+   * NOTE: Type argument collection is delegated to ApexReferenceCollectorListener
+   * via enterNewExpression delegation. This method is not used directly.
    */
-  enterTypeArguments(ctx: TypeArgumentsContext): void {
-    try {
-      const typeList = ctx.typeList();
-      if (typeList) {
-        const typeRefs = typeList.typeRef();
-        for (const typeRef of typeRefs) {
-          const typeName = this.extractTypeNameFromTypeRef(typeRef);
-          const location = this.getLocation(typeRef);
-          const parentContext = this.getCurrentMethodName(ctx);
-          const reference =
-            SymbolReferenceFactory.createGenericParameterTypeReference(
-              typeName,
-              location,
-              parentContext,
-            );
-          this.symbolTable.addTypeReference(reference);
-        }
-      }
-    } catch (error) {
-      this.logger.warn(() => `Error capturing type arguments: ${error}`);
-    }
+  enterTypeArguments(_ctx: TypeArgumentsContext): void {
+    // No-op: Delegated to ApexReferenceCollectorListener
   }
 
   /**
@@ -1078,15 +1063,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         startLine: start.line,
         startColumn: start.charPositionInLine,
         endLine: stop.line,
-        endColumn:
-          stop.charPositionInLine + (stop.text?.length || 0),
+        endColumn: stop.charPositionInLine + (stop.text?.length || 0),
       },
       identifierRange: {
         startLine: start.line,
         startColumn: start.charPositionInLine,
         endLine: stop.line,
-        endColumn:
-          stop.charPositionInLine + (stop.text?.length || 0),
+        endColumn: stop.charPositionInLine + (stop.text?.length || 0),
       },
     };
   }
@@ -1388,4 +1371,3 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     return undefined;
   }
 }
-

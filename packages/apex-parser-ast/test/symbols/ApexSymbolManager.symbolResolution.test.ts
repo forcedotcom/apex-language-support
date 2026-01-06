@@ -92,11 +92,12 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
   /**
    * Find the line and character position of a search string in source code
+   * @param occurrenceIndex If provided (1-based), finds the nth occurrence (e.g., 2 for second occurrence)
    */
   const findPosition = (
     sourceCode: string,
     searchString: string,
-    offset: number = 0,
+    occurrenceIndex: number = 1,
   ): { line: number; character: number } => {
     const lines = sourceCode.split('\n');
     const targetLineIndex = lines.findIndex((line) =>
@@ -106,7 +107,25 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     // Convert 0-based array index to 1-based line number
     const targetLine = targetLineIndex + 1;
     const targetLineText = lines[targetLineIndex];
-    const character = targetLineText.indexOf(searchString) + offset;
+
+    // Find the nth occurrence (1-based)
+    let character = -1;
+    let currentIndex = 0;
+    let searchStart = 0;
+    while (currentIndex < occurrenceIndex) {
+      const foundIndex = targetLineText.indexOf(searchString, searchStart);
+      if (foundIndex < 0) {
+        break;
+      }
+      currentIndex++;
+      if (currentIndex === occurrenceIndex) {
+        character = foundIndex;
+        break;
+      }
+      searchStart = foundIndex + 1;
+    }
+
+    expect(character).toBeGreaterThanOrEqual(0);
     return { line: targetLine, character };
   };
 
@@ -285,9 +304,16 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       const sourceCode = loadFixture('NewGenericExpression.cls');
       const fileUri = 'file:///test/NewGenericExpression.cls';
 
+      // Resolve cross-file references to ensure the class is indexed and available
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(fileUri),
+      );
+
       // Calculate position: find DualListboxValueVModel in the generic type parameter
-      // Find the first occurrence which should be in the type parameter, not a declaration
-      const position = findPosition(sourceCode, 'DualListboxValueVModel');
+      // Find the occurrence in the constructor call (second occurrence), not the type declaration
+      // The first occurrence is in "List<DualListboxValueVModel> list" (type declaration)
+      // The second occurrence is in "new List<DualListboxValueVModel>()" (constructor call)
+      const position = findPosition(sourceCode, 'DualListboxValueVModel', 2);
 
       // Diagnostic: Check what references are found at the position
       const referencesAtPosition = symbolManager.getReferencesAtPosition(
@@ -302,6 +328,19 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
           `[DEBUG] Reference ${idx}: name="${ref.name}", context=${ref.context}, ` +
             `location=${ref.location.identifierRange.startLine}:${ref.location.identifierRange.startColumn}-` +
             `${ref.location.identifierRange.endLine}:${ref.location.identifierRange.endColumn}`,
+        );
+      });
+
+      // Verify the class exists in the symbol manager
+      const classSymbols = symbolManager.findSymbolByName(
+        'DualListboxValueVModel',
+      );
+      console.log(
+        `[DEBUG] Found ${classSymbols.length} symbols with name 'DualListboxValueVModel'`,
+      );
+      classSymbols.forEach((s, idx) => {
+        console.log(
+          `[DEBUG] Symbol ${idx}: name="${s.name}", kind=${s.kind}, fileUri=${s.fileUri}`,
         );
       });
 

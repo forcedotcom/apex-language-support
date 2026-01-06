@@ -8,8 +8,7 @@
 
 import { CompilerService } from '../../../src/parser/compilerService';
 import { ListenerApplicationManager } from '../../../src/parser/listeners/ListenerApplicationManager';
-import { PublicAPISymbolListener } from '../../../src/parser/listeners/PublicAPISymbolListener';
-import { ProtectedSymbolListener } from '../../../src/parser/listeners/ProtectedSymbolListener';
+import { VisibilitySymbolListener } from '../../../src/parser/listeners/VisibilitySymbolListener';
 import { SymbolTable, SymbolKind } from '../../../src/types/symbol';
 import { isBlockSymbol } from '../../../src/utils/symbolNarrowing';
 import { TestLogger } from '../../utils/testLogger';
@@ -42,7 +41,7 @@ describe('ListenerApplicationManager', () => {
   it('should apply single listener', () => {
     const manager = new ListenerApplicationManager();
     const symbolTable = new SymbolTable();
-    const listener = new PublicAPISymbolListener(symbolTable);
+    const listener = new VisibilitySymbolListener('public-api', symbolTable);
 
     const fileContent = `
       public class TestClass {
@@ -88,7 +87,10 @@ describe('ListenerApplicationManager', () => {
     );
 
     // Request only protected listener - should auto-include public-api
-    const protectedListener = new ProtectedSymbolListener(symbolTable);
+    const protectedListener = new VisibilitySymbolListener(
+      'protected',
+      symbolTable,
+    );
     const result = manager.applyListenerGroup(
       parseTreeResult,
       [protectedListener],
@@ -130,7 +132,10 @@ describe('ListenerApplicationManager', () => {
       fileContent,
       'TestClass.cls',
     );
-    const publicListener = new PublicAPISymbolListener(symbolTable);
+    const publicListener = new VisibilitySymbolListener(
+      'public-api',
+      symbolTable,
+    );
     const result1 = manager.applyListener(
       parseTreeResult1,
       publicListener,
@@ -147,7 +152,10 @@ describe('ListenerApplicationManager', () => {
       fileContent,
       'TestClass.cls',
     );
-    const protectedListener = new ProtectedSymbolListener(symbolTable);
+    const protectedListener = new VisibilitySymbolListener(
+      'protected',
+      symbolTable,
+    );
     const result2 = manager.applyListener(
       parseTreeResult2,
       protectedListener,

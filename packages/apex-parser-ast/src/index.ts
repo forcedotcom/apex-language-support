@@ -23,9 +23,7 @@ export * from './parser/references/ApexReferenceResolver';
 
 // Export layered symbol listeners
 export * from './parser/listeners/LayeredSymbolListenerBase';
-export * from './parser/listeners/PublicAPISymbolListener';
-export * from './parser/listeners/ProtectedSymbolListener';
-export * from './parser/listeners/PrivateSymbolListener';
+export * from './parser/listeners/VisibilitySymbolListener';
 // Export ListenerApplicationManager but exclude ParseTreeResult (already exported from compilerService)
 export {
   ListenerApplicationManager,

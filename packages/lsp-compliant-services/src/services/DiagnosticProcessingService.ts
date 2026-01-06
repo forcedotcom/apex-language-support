@@ -11,10 +11,12 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,
   SymbolTable,
-  PublicAPISymbolListener,
+  VisibilitySymbolListener,
   ApexSymbolProcessingManager,
   ISymbolManager,
   type CompilationResult,
+  type CompilationResultWithComments,
+  type CompilationResultWithAssociations,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
@@ -90,15 +92,24 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    */
   private compileDocumentEffect(
     document: any,
-    listener: PublicAPISymbolListener,
-  ): Effect.Effect<CompilationResult<SymbolTable>, never, never> {
+    listener: VisibilitySymbolListener,
+  ): Effect.Effect<
+    | CompilationResult<SymbolTable>
+    | CompilationResultWithComments<SymbolTable>
+    | CompilationResultWithAssociations<SymbolTable>,
+    never,
+    never
+  > {
     const logger = this.logger;
     return Effect.gen(function* () {
       // Yield control before starting compilation
       yield* Effect.yieldNow();
 
       const compilerService = new CompilerService();
-      let result: CompilationResult<SymbolTable>;
+      let result:
+        | CompilationResult<SymbolTable>
+        | CompilationResultWithComments<SymbolTable>
+        | CompilationResultWithAssociations<SymbolTable>;
 
       try {
         result = yield* Effect.sync(() =>
@@ -260,9 +271,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       }
 
       // Create a symbol collector listener
-      // Use PublicAPISymbolListener for diagnostics (syntax errors don't need private symbols)
+      // Use VisibilitySymbolListener for diagnostics (syntax errors don't need private symbols)
       const table = new SymbolTable();
-      const listener = new PublicAPISymbolListener(table);
+      const listener = new VisibilitySymbolListener('public-api', table);
 
       // Parse the document using Effect-based compilation (with yielding)
       const result = await Effect.runPromise(

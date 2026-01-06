@@ -7,9 +7,7 @@
  */
 
 import { CompilerService } from '../../../src/parser/compilerService';
-import { PublicAPISymbolListener } from '../../../src/parser/listeners/PublicAPISymbolListener';
-import { ProtectedSymbolListener } from '../../../src/parser/listeners/ProtectedSymbolListener';
-import { PrivateSymbolListener } from '../../../src/parser/listeners/PrivateSymbolListener';
+import { VisibilitySymbolListener } from '../../../src/parser/listeners/VisibilitySymbolListener';
 import { SymbolTable, SymbolKind } from '../../../src/types/symbol';
 import { isBlockSymbol } from '../../../src/utils/symbolNarrowing';
 import { TestLogger } from '../../utils/testLogger';
@@ -32,7 +30,7 @@ describe('CompilerService.compileLayered', () => {
     `;
 
     const symbolTable = new SymbolTable();
-    const listener = new PublicAPISymbolListener(symbolTable);
+    const listener = new VisibilitySymbolListener('public-api', symbolTable);
 
     const result = compilerService.compile(
       fileContent,
@@ -67,9 +65,18 @@ describe('CompilerService.compileLayered', () => {
     `;
 
     const symbolTable = new SymbolTable();
-    const publicListener = new PublicAPISymbolListener(symbolTable);
-    const protectedListener = new ProtectedSymbolListener(symbolTable);
-    const privateListener = new PrivateSymbolListener(symbolTable);
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        symbolTable,
+      );
+      const protectedListener = new VisibilitySymbolListener(
+        'protected',
+        symbolTable,
+      );
+      const privateListener = new VisibilitySymbolListener(
+        'private',
+        symbolTable,
+      );
 
     // Compile with public listener first
     const result1 = compilerService.compile(
@@ -127,7 +134,7 @@ describe('CompilerService.compileLayered', () => {
     `;
 
     const symbolTable = new SymbolTable();
-    const listener = new PublicAPISymbolListener(symbolTable);
+    const listener = new VisibilitySymbolListener('public-api', symbolTable);
 
     const result = compilerService.compile(
       fileContent,

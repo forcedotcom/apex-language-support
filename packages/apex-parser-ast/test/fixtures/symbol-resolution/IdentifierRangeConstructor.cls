@@ -3,4 +3,3 @@ public class TestClass {
         AccountAutoDeletionSettingsVMapper mapper = new AccountAutoDeletionSettingsVMapper();
     }
 }
-

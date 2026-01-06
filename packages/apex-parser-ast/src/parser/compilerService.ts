@@ -41,9 +41,7 @@ import {
   LayeredSymbolListenerBase,
   DetailLevel,
 } from './listeners/LayeredSymbolListenerBase';
-import { PublicAPISymbolListener } from './listeners/PublicAPISymbolListener';
-import { ProtectedSymbolListener } from './listeners/ProtectedSymbolListener';
-import { PrivateSymbolListener } from './listeners/PrivateSymbolListener';
+import { VisibilitySymbolListener } from './listeners/VisibilitySymbolListener';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../constants/constants';
 
 export interface CompilationResult<T> {
@@ -658,11 +656,11 @@ export class CompilerService {
   ): LayeredSymbolListenerBase {
     switch (layer) {
       case 'public-api':
-        return new PublicAPISymbolListener(symbolTable);
+        return new VisibilitySymbolListener('public-api', symbolTable);
       case 'protected':
-        return new ProtectedSymbolListener(symbolTable);
+        return new VisibilitySymbolListener('protected', symbolTable);
       case 'private':
-        return new PrivateSymbolListener(symbolTable);
+        return new VisibilitySymbolListener('private', symbolTable);
       case 'full':
         // For 'full', use the FullSymbolCollectorListener wrapper
         // which internally uses all three layered listeners + reference collector + resolver

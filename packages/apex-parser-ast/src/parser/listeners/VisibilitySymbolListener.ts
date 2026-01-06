@@ -25,7 +25,7 @@ import { ParserRuleContext } from 'antlr4ts';
 import { Stack } from 'data-structure-typed';
 import { ApexReferenceCollectorListener } from './ApexReferenceCollectorListener';
 
-import { LayeredSymbolListenerBase } from './LayeredSymbolListenerBase';
+import { LayeredSymbolListenerBase, DetailLevel } from './LayeredSymbolListenerBase';
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
@@ -38,6 +38,7 @@ import {
   TypeSymbol,
   MethodSymbol,
   VariableSymbol,
+  EnumSymbol,
   Annotation,
   SymbolFactory,
   ApexSymbol,
@@ -45,18 +46,21 @@ import {
   ScopeType,
   SymbolKey,
 } from '../../types/symbol';
+import { IdentifierValidator } from '../../semantics/validation/IdentifierValidator';
 import { isBlockSymbol } from '../../utils/symbolNarrowing';
 
 /**
- * Listener that captures private API surface symbols (Layer 3)
- * This listener enriches existing symbols from Layers 1-2 with:
- * - Private methods, fields, and properties
- * - Method/constructor signatures (return types, parameters)
+ * Consolidated listener for visibility-based symbol collection.
+ * Replaces PublicAPISymbolListener, ProtectedSymbolListener, and PrivateSymbolListener
+ * with a single parameterized class that only differs by DetailLevel.
  *
- * Note: Block-level content (local variables, block scopes, expression references)
- * is handled by BlockContentListener (Layer 4), not this listener.
+ * This listener captures symbols based on visibility:
+ * - 'public-api': Public/global symbols and creates TypeSymbol objects (classes/interfaces/enums/triggers)
+ * - 'protected': Protected/default visibility symbols (enriches existing symbols)
+ * - 'private': Private symbols (enriches existing symbols)
  */
-export class PrivateSymbolListener extends LayeredSymbolListenerBase {
+export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
+  private readonly detailLevel: DetailLevel;
   private scopeStack: Stack<ApexSymbol> = new Stack<ApexSymbol>();
   private blockCounter: number = 0;
   private currentModifiers: SymbolModifiers = this.createDefaultModifiers();
@@ -64,12 +68,22 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
   private currentNamespace: Namespace | null = null;
   protected projectNamespace: string | undefined = undefined;
 
-  constructor(symbolTable?: SymbolTable) {
+  constructor(detailLevel: DetailLevel, symbolTable?: SymbolTable) {
     super(symbolTable);
+    if (
+      detailLevel !== 'public-api' &&
+      detailLevel !== 'protected' &&
+      detailLevel !== 'private'
+    ) {
+      throw new Error(
+        `VisibilitySymbolListener only supports 'public-api', 'protected', or 'private' detail levels. Got: ${detailLevel}`,
+      );
+    }
+    this.detailLevel = detailLevel;
   }
 
-  getDetailLevel(): 'private' {
-    return 'private';
+  getDetailLevel(): DetailLevel {
+    return this.detailLevel;
   }
 
   setProjectNamespace(namespace: string): void {
@@ -79,15 +93,189 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
   }
 
   /**
+   * Called when entering a class declaration
+   * Only creates TypeSymbol if detailLevel is 'public-api'
+   * Otherwise, only tracks scope for symbol enrichment
+   */
+  enterClassDeclaration(ctx: ClassDeclarationContext): void {
+    try {
+      const name = ctx.id()?.text ?? 'unknownClass';
+      const modifiers = this.getCurrentModifiers();
+
+      // Only process symbols matching this listener's visibility
+      if (!this.shouldProcessSymbol(modifiers.visibility)) {
+        return;
+      }
+
+      // Only create TypeSymbol for public-api level
+      if (this.detailLevel === 'public-api') {
+        // Validate identifier
+        const validationResult = IdentifierValidator.validateIdentifier(
+          name,
+          SymbolKind.Class,
+          this.scopeStack.isEmpty(), // isTopLevel
+          this.createValidationScope(),
+        );
+
+        if (!validationResult.isValid) {
+          validationResult.errors.forEach((error) => {
+            this.addError(error, ctx);
+          });
+        }
+
+        // Get superclass and interfaces
+        const superclass = ctx.typeRef()?.text;
+        const interfaces =
+          ctx
+            .typeList()
+            ?.typeRef()
+            .map((t) => t.text) || [];
+
+        // Create class symbol
+        const classSymbol = this.createTypeSymbol(
+          ctx,
+          name,
+          SymbolKind.Class,
+          modifiers,
+        );
+
+        // Set superclass and interfaces
+        if (superclass) {
+          classSymbol.superClass = superclass;
+        }
+        classSymbol.interfaces = interfaces;
+
+        // Add annotations
+        if (this.currentAnnotations.length > 0) {
+          classSymbol.annotations = [...this.currentAnnotations];
+        }
+
+        // Add symbol to symbol table
+        const isTopLevel = this.scopeStack.isEmpty();
+        if (isTopLevel) {
+          classSymbol.parentId = null;
+        }
+        this.addSymbolWithDetailLevel(classSymbol, this.getCurrentScopeSymbol());
+      }
+
+      // Create class block symbol for scope tracking (all levels need this)
+      const location = this.getLocation(ctx);
+      const blockName = this.generateBlockName('class');
+      const blockSymbol = this.createBlockSymbol(
+        blockName,
+        'class',
+        location,
+        this.getCurrentScopeSymbol(),
+        name,
+      );
+
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
+
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in class declaration: ${errorMessage}`, ctx);
+    }
+  }
+
+  exitClassDeclaration(): void {
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped) && popped.scopeType !== 'class') {
+      this.logger.warn(
+        `Expected class scope on exitClassDeclaration, but got ${popped.scopeType}`,
+      );
+    }
+  }
+
+  /**
+   * Called when entering an interface declaration
+   * Only creates TypeSymbol if detailLevel is 'public-api'
+   * Otherwise, only tracks scope for symbol enrichment
+   */
+  enterInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
+    try {
+      const name = ctx.id()?.text ?? 'unknownInterface';
+      const modifiers = this.getCurrentModifiers();
+
+      // Only process symbols matching this listener's visibility
+      if (!this.shouldProcessSymbol(modifiers.visibility)) {
+        return;
+      }
+
+      // Only create TypeSymbol for public-api level
+      if (this.detailLevel === 'public-api') {
+        const interfaces =
+          ctx
+            .typeList()
+            ?.typeRef()
+            .map((t) => t.text) || [];
+
+        const interfaceSymbol = this.createTypeSymbol(
+          ctx,
+          name,
+          SymbolKind.Interface,
+          modifiers,
+        );
+
+        interfaceSymbol.interfaces = interfaces;
+
+        if (this.currentAnnotations.length > 0) {
+          interfaceSymbol.annotations = [...this.currentAnnotations];
+        }
+
+        const isTopLevel = this.scopeStack.isEmpty();
+        if (isTopLevel) {
+          interfaceSymbol.parentId = null;
+        }
+        this.addSymbolWithDetailLevel(
+          interfaceSymbol,
+          this.getCurrentScopeSymbol(),
+        );
+      }
+
+      // Create interface block symbol for scope tracking (all levels need this)
+      const location = this.getLocation(ctx);
+      const blockName = this.generateBlockName('class');
+      const blockSymbol = this.createBlockSymbol(
+        blockName,
+        'class',
+        location,
+        this.getCurrentScopeSymbol(),
+        name,
+      );
+
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
+
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in interface declaration: ${errorMessage}`, ctx);
+    }
+  }
+
+  exitInterfaceDeclaration(): void {
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped) && popped.scopeType !== 'class') {
+      this.logger.warn(
+        `Expected class scope on exitInterfaceDeclaration, but got ${popped.scopeType}`,
+      );
+    }
+  }
+
+  /**
    * Called when entering a method declaration
-   * Captures private methods and their implementation details
+   * Captures methods matching this listener's visibility level
    */
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownMethod';
       const modifiers = this.getCurrentModifiers();
 
-      // Only process private methods (public/protected/default already captured)
+      // Only process methods matching this listener's visibility
       if (!this.shouldProcessSymbol(modifiers.visibility)) {
         return;
       }
@@ -110,17 +298,19 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
 
       this.addSymbolWithDetailLevel(methodSymbol, this.getCurrentScopeSymbol());
 
-      // Create method block for scope tracking
-      const location = this.getLocation(ctx);
-      const blockSymbol = this.createBlockSymbol(
-        name,
-        'method',
-        location,
-        this.getCurrentScopeSymbol(),
-      );
+      // Create method block for scope tracking (only for private level)
+      if (this.detailLevel === 'private') {
+        const location = this.getLocation(ctx);
+        const blockSymbol = this.createBlockSymbol(
+          name,
+          'method',
+          location,
+          this.getCurrentScopeSymbol(),
+        );
 
-      if (blockSymbol) {
-        this.scopeStack.push(blockSymbol);
+        if (blockSymbol) {
+          this.scopeStack.push(blockSymbol);
+        }
       }
 
       // Delegate reference collection for return type
@@ -161,20 +351,23 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
   }
 
   exitMethodDeclaration(): void {
-    const popped = this.scopeStack.pop();
-    if (isBlockSymbol(popped) && popped.scopeType !== 'method') {
-      this.logger.warn(
-        `Expected method scope on exitMethodDeclaration, but got ${popped.scopeType}`,
-      );
+    if (this.detailLevel === 'private') {
+      const popped = this.scopeStack.pop();
+      if (isBlockSymbol(popped) && popped.scopeType !== 'method') {
+        this.logger.warn(
+          `Expected method scope on exitMethodDeclaration, but got ${popped.scopeType}`,
+        );
+      }
     }
   }
 
   /**
    * Called when entering a constructor declaration
-   * Captures private constructors
+   * Captures constructors matching this listener's visibility level
    */
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
     try {
+      // Extract constructor name from qualified name
       const qualifiedName = ctx.qualifiedName();
       const ids = qualifiedName?.id();
       const currentType = this.getCurrentType();
@@ -185,7 +378,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
 
       const modifiers = this.getCurrentModifiers();
 
-      // Only process private constructors
+      // Only process constructors matching this listener's visibility
       if (!this.shouldProcessSymbol(modifiers.visibility)) {
         return;
       }
@@ -210,16 +403,19 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
         this.getCurrentScopeSymbol(),
       );
 
-      const location = this.getLocation(ctx);
-      const blockSymbol = this.createBlockSymbol(
-        name,
-        'method',
-        location,
-        this.getCurrentScopeSymbol(),
-      );
+      // Create constructor block for scope tracking (only for private level)
+      if (this.detailLevel === 'private') {
+        const location = this.getLocation(ctx);
+        const blockSymbol = this.createBlockSymbol(
+          name,
+          'method',
+          location,
+          this.getCurrentScopeSymbol(),
+        );
 
-      if (blockSymbol) {
-        this.scopeStack.push(blockSymbol);
+        if (blockSymbol) {
+          this.scopeStack.push(blockSymbol);
+        }
       }
 
       // Delegate reference collection for parameter types
@@ -245,23 +441,25 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
   }
 
   exitConstructorDeclaration(): void {
-    const popped = this.scopeStack.pop();
-    if (isBlockSymbol(popped) && popped.scopeType !== 'method') {
-      this.logger.warn(
-        `Expected method scope on exitConstructorDeclaration, but got ${popped.scopeType}`,
-      );
+    if (this.detailLevel === 'private') {
+      const popped = this.scopeStack.pop();
+      if (isBlockSymbol(popped) && popped.scopeType !== 'method') {
+        this.logger.warn(
+          `Expected method scope on exitConstructorDeclaration, but got ${popped.scopeType}`,
+        );
+      }
     }
   }
 
   /**
    * Called when entering a field declaration
-   * Captures private fields
+   * Captures fields matching this listener's visibility level
    */
   enterFieldDeclaration(ctx: FieldDeclarationContext): void {
     try {
       const modifiers = this.getCurrentModifiers();
 
-      // Only process private fields
+      // Only process fields matching this listener's visibility
       if (!this.shouldProcessSymbol(modifiers.visibility)) {
         return;
       }
@@ -313,13 +511,13 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
 
   /**
    * Called when entering a property declaration
-   * Captures private properties
+   * Captures properties matching this listener's visibility level
    */
   enterPropertyDeclaration(ctx: PropertyDeclarationContext): void {
     try {
       const modifiers = this.getCurrentModifiers();
 
-      // Only process private properties
+      // Only process properties matching this listener's visibility
       if (!this.shouldProcessSymbol(modifiers.visibility)) {
         return;
       }
@@ -377,6 +575,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
   }
 
   enterAnnotation(ctx: AnnotationContext): void {
+    // Extract annotation name similar to ApexSymbolCollectorListener
     const qn = ctx.qualifiedName?.();
     const ids = qn?.id();
     const name =
@@ -395,10 +594,40 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
     // Annotations are stored in currentAnnotations array
   }
 
-  // Track class/interface scopes
-  enterClassDeclaration(ctx: ClassDeclarationContext): void {
+  /**
+   * Called when entering a trigger unit
+   * Only creates TypeSymbol if detailLevel is 'public-api'
+   * Otherwise, only tracks scope for symbol enrichment
+   */
+  enterTriggerUnit(ctx: TriggerUnitContext): void {
     try {
-      const name = ctx.id()?.text ?? 'unknownClass';
+      // Get the trigger name from the first id
+      const name = ctx.id(0)?.text ?? 'unknownTrigger';
+      const modifiers = this.getCurrentModifiers();
+
+      // Only process triggers matching this listener's visibility
+      if (!this.shouldProcessSymbol(modifiers.visibility)) {
+        return;
+      }
+
+      // Only create TypeSymbol for public-api level
+      if (this.detailLevel === 'public-api') {
+        // Create trigger symbol
+        const triggerSymbol = this.createTypeSymbol(
+          ctx,
+          name,
+          SymbolKind.Trigger,
+          modifiers,
+        );
+
+        // Add symbol to current scope (null when stack is empty = file level)
+        this.addSymbolWithDetailLevel(
+          triggerSymbol,
+          this.getCurrentScopeSymbol(),
+        );
+      }
+
+      // Create trigger block symbol for scope tracking (all levels need this)
       const location = this.getLocation(ctx);
       const blockName = this.generateBlockName('class');
       const blockSymbol = this.createBlockSymbol(
@@ -406,29 +635,73 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
         'class',
         location,
         this.getCurrentScopeSymbol(),
-        name,
+        name, // Pass the trigger name so createBlockSymbol can find the trigger symbol
       );
 
+      // Push block symbol onto stack
       if (blockSymbol) {
         this.scopeStack.push(blockSymbol);
       }
-    } catch (_e) {
-      // Silently continue - scope tracking
+
+      // Reset annotations for the next symbol
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.logger.error(() => `Error in trigger declaration: ${errorMessage}`);
     }
   }
 
-  exitClassDeclaration(): void {
+  /**
+   * Called when exiting a trigger unit
+   */
+  exitTriggerUnit(): void {
+    // Pop from stack and validate it's a class scope
     const popped = this.scopeStack.pop();
-    if (isBlockSymbol(popped) && popped.scopeType !== 'class') {
-      this.logger.warn(
-        `Expected class scope on exitClassDeclaration, but got ${popped.scopeType}`,
-      );
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== 'class') {
+        this.logger.warn(
+          () =>
+            `Expected class scope on exitTriggerUnit, but got ${popped.scopeType}`,
+        );
+      }
     }
   }
 
-  enterInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
+  /**
+   * Called when entering a trigger member declaration
+   * Only creates TypeSymbol if detailLevel is 'public-api'
+   * Otherwise, only tracks scope for symbol enrichment
+   */
+  enterTriggerMemberDeclaration(ctx: TriggerMemberDeclarationContext): void {
     try {
-      const name = ctx.id()?.text ?? 'unknownInterface';
+      // Get the trigger name from the parent context
+      const triggerUnit = ctx.parent?.parent as TriggerUnitContext;
+      const name = triggerUnit?.id(0)?.text ?? 'unknownTrigger';
+      const modifiers = this.getCurrentModifiers();
+
+      // Only process triggers matching this listener's visibility
+      if (!this.shouldProcessSymbol(modifiers.visibility)) {
+        return;
+      }
+
+      // Only create TypeSymbol for public-api level
+      if (this.detailLevel === 'public-api') {
+        // Create trigger symbol
+        const triggerSymbol = this.createTypeSymbol(
+          ctx,
+          name,
+          SymbolKind.Trigger,
+          modifiers,
+        );
+
+        // Add symbol to current scope (null when stack is empty = file level)
+        this.addSymbolWithDetailLevel(
+          triggerSymbol,
+          this.getCurrentScopeSymbol(),
+        );
+      }
+
+      // Create trigger block symbol for scope tracking (all levels need this)
       const location = this.getLocation(ctx);
       const blockName = this.generateBlockName('class');
       const blockSymbol = this.createBlockSymbol(
@@ -436,27 +709,40 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
         'class',
         location,
         this.getCurrentScopeSymbol(),
-        name,
+        name, // Pass the trigger name so createBlockSymbol can find the trigger symbol
       );
 
+      // Push block symbol onto stack
       if (blockSymbol) {
         this.scopeStack.push(blockSymbol);
       }
-    } catch (_e) {
-      // Silently continue - scope tracking
+
+      // Reset annotations for the next symbol
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.logger.error(() => `Error in trigger declaration: ${errorMessage}`);
     }
   }
 
-  exitInterfaceDeclaration(): void {
+  /**
+   * Called when exiting a trigger member declaration
+   */
+  exitTriggerMemberDeclaration(): void {
+    // Pop from stack and validate it's a class scope
     const popped = this.scopeStack.pop();
-    if (isBlockSymbol(popped) && popped.scopeType !== 'class') {
-      this.logger.warn(
-        `Expected class scope on exitInterfaceDeclaration, but got ${popped.scopeType}`,
-      );
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== 'class') {
+        this.logger.warn(
+          () =>
+            `Expected class scope on exitTriggerMemberDeclaration, but got ${popped.scopeType}`,
+        );
+      }
     }
   }
 
-  // Helper methods (similar to other listeners)
+  // Helper methods
+
   private getCurrentScopeSymbol(): ScopeSymbol | null {
     const peeked = this.scopeStack.peek();
     return isBlockSymbol(peeked) ? peeked : null;
@@ -479,26 +765,6 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
           );
         if (typeSymbol) {
           return typeSymbol as TypeSymbol;
-        }
-      }
-    }
-    return null;
-  }
-
-  private getCurrentMethod(): MethodSymbol | null {
-    const stackArray = this.scopeStack.toArray();
-    for (const owner of stackArray) {
-      if (isBlockSymbol(owner) && owner.scopeType === 'method') {
-        const methodSymbol = this.symbolTable
-          .getAllSymbols()
-          .find(
-            (s) =>
-              s.id === owner.parentId &&
-              (s.kind === SymbolKind.Method ||
-                s.kind === SymbolKind.Constructor),
-          );
-        if (methodSymbol) {
-          return methodSymbol as MethodSymbol;
         }
       }
     }
@@ -607,6 +873,44 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
     return `${scopeType}_${this.blockCounter}`;
   }
 
+  /**
+   * Create a type symbol (class, interface, enum, trigger)
+   * Only used when detailLevel is 'public-api'
+   */
+  private createTypeSymbol(
+    ctx: ParserRuleContext,
+    name: string,
+    kind:
+      | SymbolKind.Class
+      | SymbolKind.Interface
+      | SymbolKind.Enum
+      | SymbolKind.Trigger,
+    modifiers: SymbolModifiers,
+  ): TypeSymbol | EnumSymbol {
+    const location = this.getLocation(ctx);
+    const parent = this.getCurrentType();
+    const namespace = this.determineNamespaceForType(name, kind);
+
+    const scopePath = this.symbolTable.getCurrentScopePath(
+      this.getCurrentScopeSymbol(),
+    );
+
+    const typeSymbol = SymbolFactory.createFullSymbolWithNamespace(
+      name,
+      kind,
+      location,
+      this.currentFilePath,
+      modifiers,
+      parent?.id || null,
+      undefined,
+      namespace,
+      this.getCurrentAnnotations(),
+      scopePath,
+    ) as TypeSymbol;
+
+    return typeSymbol;
+  }
+
   private createMethodSymbol(
     ctx: ParserRuleContext,
     name: string,
@@ -677,7 +981,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
     ctx: ParserRuleContext,
     modifiers: SymbolModifiers,
     name: string,
-    kind: SymbolKind.Field | SymbolKind.Property | SymbolKind.Variable,
+    kind: SymbolKind.Field | SymbolKind.Property,
     type: TypeInfo,
   ): VariableSymbol {
     const location = this.getLocation(ctx);
@@ -716,6 +1020,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
     const fileUri = this.symbolTable.getFileUri();
     const scopePath = this.symbolTable.getCurrentScopePath(parentScope);
 
+    // Find semantic symbol and determine parentId
     const currentType = this.getCurrentType();
     let parentId: string | null = null;
     if (currentType && scopeType === 'class') {
@@ -724,6 +1029,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
       parentId = parentScope.id;
     }
 
+    // Create block symbol ID
     const id = SymbolFactory.generateId(name, fileUri, scopePath, 'block');
 
     const key: SymbolKey = {
@@ -737,6 +1043,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
 
     const modifiers = this.createDefaultModifiers();
 
+    // For block symbols, symbolRange and identifierRange should be the same
     const blockLocation: SymbolLocation = {
       symbolRange: location.symbolRange,
       identifierRange: location.symbolRange,
@@ -752,9 +1059,40 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
       modifiers,
     );
 
+    // Add block symbol to symbol table
     this.symbolTable.addSymbol(blockSymbol, parentScope ?? null);
 
     return blockSymbol;
+  }
+
+  /**
+   * Determine namespace for a type symbol
+   * Only used when detailLevel is 'public-api'
+   */
+  private determineNamespaceForType(
+    name: string,
+    kind: SymbolKind,
+  ): Namespace | null {
+    if (this.currentFilePath && this.currentFilePath.startsWith('apexlib://')) {
+      const match = this.currentFilePath.match(
+        /apexlib:\/\/resources\/StandardApexLibrary\/([^\/]+)\//,
+      );
+      if (match) {
+        const namespaceName = match[1];
+        return Namespaces.create(namespaceName);
+      }
+    }
+
+    const currentType = this.getCurrentType();
+    if (!currentType) {
+      return this.currentNamespace;
+    }
+
+    const parentNamespace = currentType.namespace;
+    if (parentNamespace instanceof Namespace) {
+      return parentNamespace;
+    }
+    return null;
   }
 
   private getReturnType(ctx: MethodDeclarationContext): TypeInfo {
@@ -805,7 +1143,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
         this.getLocation(paramCtx),
         this.currentFilePath,
         modifiers,
-        null,
+        null, // Parameters will be set as children of method
         undefined,
         null,
         [],
@@ -858,134 +1196,23 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
   }
 
   /**
-   * Called when entering a trigger unit
-   * Triggers are typically public/global, so this will usually return early
+   * Create validation scope for identifier validation
+   * Only used when detailLevel is 'public-api'
    */
-  enterTriggerUnit(ctx: TriggerUnitContext): void {
-    try {
-      const modifiers = this.getCurrentModifiers();
-
-      // Only process private triggers (extremely rare, but possible)
-      if (!this.shouldProcessSymbol(modifiers.visibility)) {
-        return;
-      }
-
-      const name = ctx.id(0)?.text ?? 'unknownTrigger';
-
-      // For triggers, we need to find the existing trigger symbol and enrich it
-      // Since triggers are typically public, this will rarely execute
-      const existingSymbols = this.symbolTable.getAllSymbols();
-      const triggerSymbol = existingSymbols.find(
-        (s) => s.name === name && s.kind === SymbolKind.Trigger,
-      );
-
-      if (triggerSymbol) {
-        // Trigger already exists (likely from public API layer)
-        // Just ensure block symbol exists
-        const location = this.getLocation(ctx);
-        const blockName = this.generateBlockName('class');
-        const blockSymbol = this.createBlockSymbol(
-          blockName,
-          'class',
-          location,
-          this.getCurrentScopeSymbol(),
-          name,
-        );
-
-        if (blockSymbol) {
-          this.scopeStack.push(blockSymbol);
-        }
-      }
-
-      this.resetAnnotations();
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      this.logger.error(() => `Error in trigger declaration: ${errorMessage}`);
-    }
-  }
-
-  /**
-   * Called when exiting a trigger unit
-   */
-  exitTriggerUnit(): void {
-    const popped = this.scopeStack.pop();
-    if (isBlockSymbol(popped)) {
-      if (popped.scopeType !== 'class') {
-        this.logger.warn(
-          () =>
-            `Expected class scope on exitTriggerUnit, but got ${popped.scopeType}`,
-        );
-      }
-    }
-  }
-
-  /**
-   * Called when entering a trigger member declaration
-   * Triggers are typically public/global, so this will usually return early
-   */
-  enterTriggerMemberDeclaration(ctx: TriggerMemberDeclarationContext): void {
-    try {
-      const modifiers = this.getCurrentModifiers();
-
-      // Only process private triggers (extremely rare, but possible)
-      if (!this.shouldProcessSymbol(modifiers.visibility)) {
-        return;
-      }
-
-      const triggerUnit = ctx.parent?.parent as TriggerUnitContext;
-      const name = triggerUnit?.id(0)?.text ?? 'unknownTrigger';
-
-      // For triggers, we need to find the existing trigger symbol and enrich it
-      const existingSymbols = this.symbolTable.getAllSymbols();
-      const triggerSymbol = existingSymbols.find(
-        (s) => s.name === name && s.kind === SymbolKind.Trigger,
-      );
-
-      if (triggerSymbol) {
-        // Trigger already exists (likely from public API layer)
-        // Just ensure block symbol exists
-        const location = this.getLocation(ctx);
-        const blockName = this.generateBlockName('class');
-        const blockSymbol = this.createBlockSymbol(
-          blockName,
-          'class',
-          location,
-          this.getCurrentScopeSymbol(),
-          name,
-        );
-
-        if (blockSymbol) {
-          this.scopeStack.push(blockSymbol);
-        }
-      }
-
-      this.resetAnnotations();
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      this.logger.error(() => `Error in trigger declaration: ${errorMessage}`);
-    }
-  }
-
-  /**
-   * Called when exiting a trigger member declaration
-   */
-  exitTriggerMemberDeclaration(): void {
-    const popped = this.scopeStack.pop();
-    if (isBlockSymbol(popped)) {
-      if (popped.scopeType !== 'class') {
-        this.logger.warn(
-          () =>
-            `Expected class scope on exitTriggerMemberDeclaration, but got ${popped.scopeType}`,
-        );
-      }
-    }
+  private createValidationScope(): any {
+    // Simplified validation scope for identifier validation
+    return {
+      currentType: this.getCurrentType(),
+      currentMethod: null,
+    };
   }
 
   /**
    * Create a new instance of this listener with a fresh SymbolTable
    */
-  createNewInstance(): PrivateSymbolListener {
+  createNewInstance(): VisibilitySymbolListener {
     const newTable = new SymbolTable();
-    return new PrivateSymbolListener(newTable);
+    return new VisibilitySymbolListener(this.detailLevel, newTable);
   }
 }
+

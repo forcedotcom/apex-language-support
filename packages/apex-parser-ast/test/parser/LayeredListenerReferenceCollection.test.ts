@@ -7,9 +7,7 @@
  */
 
 import { CompilerService } from '../../src/parser/compilerService';
-import { PublicAPISymbolListener } from '../../src/parser/listeners/PublicAPISymbolListener';
-import { ProtectedSymbolListener } from '../../src/parser/listeners/ProtectedSymbolListener';
-import { PrivateSymbolListener } from '../../src/parser/listeners/PrivateSymbolListener';
+import { VisibilitySymbolListener } from '../../src/parser/listeners/VisibilitySymbolListener';
 import { FullSymbolCollectorListener } from '../../src/parser/listeners/FullSymbolCollectorListener';
 import { SymbolTable } from '../../src/types/symbol';
 import { ReferenceContext } from '../../src/types/symbolReference';
@@ -41,7 +39,7 @@ describe('Layered Listener Reference Collection', () => {
       `;
 
       const symbolTable = new SymbolTable();
-      const listener = new PublicAPISymbolListener(symbolTable);
+      const listener = new VisibilitySymbolListener('public-api', symbolTable);
       compilerService.compile(sourceCode, 'VisibilityTest.cls', listener);
 
       const references = symbolTable.getAllReferences();
@@ -92,7 +90,7 @@ describe('Layered Listener Reference Collection', () => {
       `;
 
       const symbolTable = new SymbolTable();
-      const listener = new ProtectedSymbolListener(symbolTable);
+      const listener = new VisibilitySymbolListener('protected', symbolTable);
       compilerService.compile(sourceCode, 'VisibilityTest.cls', listener);
 
       const references = symbolTable.getAllReferences();
@@ -138,7 +136,7 @@ describe('Layered Listener Reference Collection', () => {
       `;
 
       const symbolTable = new SymbolTable();
-      const listener = new PrivateSymbolListener(symbolTable);
+      const listener = new VisibilitySymbolListener('private', symbolTable);
       compilerService.compile(sourceCode, 'VisibilityTest.cls', listener);
 
       const references = symbolTable.getAllReferences();

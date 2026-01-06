@@ -1957,7 +1957,7 @@ export class ApexSymbolGraph {
     // If replacing an existing SymbolTable, preserve both symbols and references from the old one
     // This is important for workspace batch processing which may replace SymbolTables
     // that were created during initial file open with full symbols/references already collected
-    // with SymbolTables that only have public API symbols (from PublicAPISymbolListener)
+    // with SymbolTables that only have public API symbols (from VisibilitySymbolListener)
     if (existing && existing !== symbolTable) {
       const existingReferences = existing.getAllReferences();
       const newReferences = symbolTable.getAllReferences();

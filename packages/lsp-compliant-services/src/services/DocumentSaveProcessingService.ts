@@ -11,9 +11,11 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   CompilerService,
   SymbolTable,
-  PublicAPISymbolListener,
+  VisibilitySymbolListener,
   ApexSymbolProcessingManager,
   type CompilationResult,
+  type CompilationResultWithComments,
+  type CompilationResultWithAssociations,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   LoggerInterface,
@@ -48,16 +50,25 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
    */
   private compileDocument(
     document: TextDocument,
-    listener: PublicAPISymbolListener,
+    listener: VisibilitySymbolListener,
     options: any,
-  ): Effect.Effect<CompilationResult<SymbolTable>, never, never> {
+  ): Effect.Effect<
+    | CompilationResult<SymbolTable>
+    | CompilationResultWithComments<SymbolTable>
+    | CompilationResultWithAssociations<SymbolTable>,
+    never,
+    never
+  > {
     const logger = this.logger;
     return Effect.gen(function* () {
       // Yield control before starting compilation
       yield* Effect.yieldNow();
 
       const compilerService = new CompilerService();
-      let result: CompilationResult<SymbolTable>;
+      let result:
+        | CompilationResult<SymbolTable>
+        | CompilationResultWithComments<SymbolTable>
+        | CompilationResultWithAssociations<SymbolTable>;
 
       try {
         result = yield* Effect.sync(() =>
@@ -183,9 +194,9 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
         await storage.setDocument(document.uri, document);
 
         // Create a symbol collector listener
-        // Use PublicAPISymbolListener for document save (only need public API for cross-file refs)
+        // Use VisibilitySymbolListener for document save (only need public API for cross-file refs)
         const table = new SymbolTable();
-        const listener = new PublicAPISymbolListener(table);
+        const listener = new VisibilitySymbolListener('public-api', table);
 
         // Parse the document using Effect-based compilation (with yielding)
         const settingsManager = ApexSettingsManager.getInstance();
