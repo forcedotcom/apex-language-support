@@ -700,18 +700,14 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
    */
   enterCastExpression(ctx: CastExpressionContext): void {
     try {
-      const typeRef = (ctx as any).typeRef?.();
-      if (typeRef) {
-        const typeName = this.extractTypeNameFromTypeRef(typeRef);
-        const location = this.getLocation(ctx);
-        const parentContext = this.getCurrentMethodName(ctx);
-        const reference = SymbolReferenceFactory.createCastTypeReference(
-          typeName,
-          location,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(reference);
-      }
+      // Delegate type reference collection (including generic type parameters) to reference collector
+      const walker = new ParseTreeWalker();
+      const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
+      refCollector.setCurrentFileUri(this.currentFilePath);
+      const parentContext = this.getCurrentMethodName(ctx);
+      const typeName = this.determineTypeName(ctx);
+      refCollector.setParentContext(parentContext, typeName);
+      walker.walk(refCollector, ctx); // Walk the entire CastExpressionContext subtree
     } catch (error) {
       this.logger.warn(() => `Error capturing cast expression: ${error}`);
     }
@@ -722,18 +718,14 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
    */
   enterEnhancedForControl(ctx: EnhancedForControlContext): void {
     try {
-      const typeRef = ctx.typeRef();
-      if (typeRef) {
-        const typeName = this.extractTypeNameFromTypeRef(typeRef);
-        const location = this.getLocation(ctx);
-        const parentContext = this.getCurrentMethodName(ctx);
-        const reference = SymbolReferenceFactory.createTypeDeclarationReference(
-          typeName,
-          location,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(reference);
-      }
+      // Delegate type reference collection (including generic type parameters) to reference collector
+      const walker = new ParseTreeWalker();
+      const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
+      refCollector.setCurrentFileUri(this.currentFilePath);
+      const parentContext = this.getCurrentMethodName(ctx);
+      const typeName = this.determineTypeName(ctx);
+      refCollector.setParentContext(parentContext, typeName);
+      walker.walk(refCollector, ctx); // Walk the entire EnhancedForControlContext subtree
     } catch (error) {
       this.logger.warn(() => `Error capturing enhanced for control: ${error}`);
     }
@@ -744,18 +736,14 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
    */
   enterWhenValue(ctx: WhenValueContext): void {
     try {
-      const typeRef = (ctx as any).typeRef?.();
-      if (typeRef) {
-        const typeName = this.extractTypeNameFromTypeRef(typeRef);
-        const location = this.getLocation(ctx);
-        const parentContext = this.getCurrentMethodName(ctx);
-        const reference = SymbolReferenceFactory.createTypeDeclarationReference(
-          typeName,
-          location,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(reference);
-      }
+      // Delegate type reference collection (including generic type parameters) to reference collector
+      const walker = new ParseTreeWalker();
+      const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
+      refCollector.setCurrentFileUri(this.currentFilePath);
+      const parentContext = this.getCurrentMethodName(ctx);
+      const typeName = this.determineTypeName(ctx);
+      refCollector.setParentContext(parentContext, typeName);
+      walker.walk(refCollector, ctx); // Walk the entire WhenValueContext subtree
     } catch (error) {
       this.logger.warn(() => `Error capturing when value: ${error}`);
     }
@@ -766,18 +754,14 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
    */
   enterInstanceOfExpression(ctx: InstanceOfExpressionContext): void {
     try {
-      const typeRef = (ctx as any).typeRef?.();
-      if (typeRef) {
-        const typeName = this.extractTypeNameFromTypeRef(typeRef);
-        const location = this.getLocation(ctx);
-        const parentContext = this.getCurrentMethodName(ctx);
-        const reference = SymbolReferenceFactory.createInstanceOfTypeReference(
-          typeName,
-          location,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(reference);
-      }
+      // Delegate type reference collection (including generic type parameters) to reference collector
+      const walker = new ParseTreeWalker();
+      const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
+      refCollector.setCurrentFileUri(this.currentFilePath);
+      const parentContext = this.getCurrentMethodName(ctx);
+      const typeName = this.determineTypeName(ctx);
+      refCollector.setParentContext(parentContext, typeName);
+      walker.walk(refCollector, ctx); // Walk the entire InstanceOfExpressionContext subtree
     } catch (error) {
       this.logger.warn(() => `Error capturing instanceof expression: ${error}`);
     }
@@ -788,18 +772,14 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
    */
   enterTypeRefPrimary(ctx: TypeRefPrimaryContext): void {
     try {
-      const typeRef = (ctx as any).typeRef?.();
-      if (typeRef) {
-        const typeName = this.extractTypeNameFromTypeRef(typeRef);
-        const location = this.getLocation(ctx);
-        const parentContext = this.getCurrentMethodName(ctx);
-        const reference = SymbolReferenceFactory.createClassReference(
-          typeName,
-          location,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(reference);
-      }
+      // Delegate type reference collection (including generic type parameters) to reference collector
+      const walker = new ParseTreeWalker();
+      const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
+      refCollector.setCurrentFileUri(this.currentFilePath);
+      const parentContext = this.getCurrentMethodName(ctx);
+      const typeName = this.determineTypeName(ctx);
+      refCollector.setParentContext(parentContext, typeName);
+      walker.walk(refCollector, ctx); // Walk the entire TypeRefPrimaryContext subtree
     } catch (error) {
       this.logger.warn(() => `Error capturing type ref primary: ${error}`);
     }
