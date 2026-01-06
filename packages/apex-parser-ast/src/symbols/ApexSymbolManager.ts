@@ -14,6 +14,14 @@ import {
   ApexSettingsManager,
   DEFAULT_APEX_SETTINGS,
 } from '@salesforce/apex-lsp-shared';
+
+/**
+ * Yield to the Node.js event loop using setImmediate for immediate yielding
+ * This is more effective than Effect.sleep(0) which may use setTimeout
+ */
+const yieldToEventLoop = Effect.async<void>((resume) => {
+  setImmediate(() => resume(Effect.void));
+});
 import {
   ApexSymbol,
   SymbolKind,
@@ -1677,6 +1685,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): Effect.Effect<void, never, never> {
     const self = this;
     return Effect.gen(function* () {
+      const addStartTime = Date.now();
+      
       // Convert fileUri to proper URI format to match symbol ID generation
       const properUri =
         getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
@@ -1698,6 +1708,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Process in batches with yields for large symbol tables to prevent blocking
       const batchSize = 100;
       const symbolNamesAdded = new Set<string>();
+      let yieldsPerformed = 0;
       for (let i = 0; i < symbols.length; i++) {
         const symbol = symbols[i];
         // Update the symbol's fileUri to match the normalized URI
@@ -1709,8 +1720,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // Yield every batchSize symbols to allow other tasks to run
         if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
-          yield* Effect.sleep(0); // Yield to event loop, not just Effect runtime
+          yieldsPerformed++;
+          yield* yieldToEventLoop; // Yield to event loop using setImmediate
         }
+      }
+      
+      const addDuration = Date.now() - addStartTime;
+      if (addDuration > 50 || yieldsPerformed > 0) {
+        self.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Added ${symbols.length} symbols for ${normalizedUri} ` +
+            `in ${addDuration}ms (${yieldsPerformed} yields)`,
+        );
       }
 
       // Invalidate cache for all symbol names that were added

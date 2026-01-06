@@ -31,6 +31,14 @@ import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 
 /**
+ * Yield to the Node.js event loop using setImmediate for immediate yielding
+ * This is more effective than Effect.sleep(0) which may use setTimeout
+ */
+const yieldToEventLoop = Effect.async<void>((resume) => {
+  setImmediate(() => resume(Effect.void));
+});
+
+/**
  * Service for processing document open events
  */
 export class DocumentProcessingService {
@@ -154,6 +162,13 @@ export class DocumentProcessingService {
     const results: (Diagnostic[] | undefined)[] = [...cachedResults];
 
     if (uncachedEvents.length > 0) {
+      const batchStartTime = Date.now();
+      let compileDuration = 0;
+      this.logger.debug(
+        () =>
+          `[WORKSPACE-LOAD] Starting batch processing: ${uncachedEvents.length} files, ` +
+          `${cachedResults.length} cached, ${events.length} total`,
+      );
       try {
         // Create listeners for each file
         // Store listeners and symbol tables so we can access them later
@@ -174,12 +189,28 @@ export class DocumentProcessingService {
           };
         });
 
+        const compileStartTime = Date.now();
+        this.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Starting compilation: ${compileConfigs.length} files`,
+        );
         const compileResults = await Effect.runPromise(
           compilerService.compileMultipleWithConfigs(compileConfigs),
+        );
+        compileDuration = Date.now() - compileStartTime;
+        this.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Compilation completed in ${compileDuration}ms: ` +
+            `${compileResults.length} results`,
         );
 
         // Process results using Effect-based processing with yields between files
         const symbolManager = backgroundManager.getSymbolManager();
+        const postCompilationStartTime = Date.now();
+        this.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Starting post-compilation processing: ${uncachedEvents.length} files`,
+        );
         const postCompilationResults = await Effect.runPromise(
           this.processPostCompilationResultsEffect(
             compileResults,
@@ -190,7 +221,19 @@ export class DocumentProcessingService {
             symbolManager,
           ),
         );
+        const postCompilationDuration = Date.now() - postCompilationStartTime;
+        this.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Post-compilation processing completed in ${postCompilationDuration}ms`,
+        );
         results.push(...postCompilationResults);
+        
+        const batchDuration = Date.now() - batchStartTime;
+        this.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Batch processing completed in ${batchDuration}ms ` +
+            `(compile: ${compileDuration}ms, post-compile: ${postCompilationDuration}ms)`,
+        );
       } catch (error) {
         this.logger.error(
           () =>
@@ -221,6 +264,9 @@ export class DocumentProcessingService {
     const self = this;
     return Effect.gen(function* () {
       const results: (Diagnostic[] | undefined)[] = [];
+      const fileProcessingStartTime = Date.now();
+      let filesProcessed = 0;
+      let yieldsPerformed = 0;
 
       for (let i = 0; i < events.length; i++) {
         const event = events[i];
@@ -267,17 +313,18 @@ export class DocumentProcessingService {
           // Add symbols so they're immediately available for hover/goto definition
           // Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics)
           if (symbolTable) {
-            self.logger.debug(
-              () =>
-                `Adding symbols synchronously for ${event.document.uri} (batch processing)`,
-            );
+            const symbolAddStartTime = Date.now();
             // Add symbols immediately using Effect-based method
             // This avoids queue pressure during workspace loading
             yield* symbolManager.addSymbolTable(symbolTable, event.document.uri);
-            self.logger.debug(
-              () =>
-                `Successfully added symbols synchronously for ${event.document.uri}`,
-            );
+            const symbolAddDuration = Date.now() - symbolAddStartTime;
+            filesProcessed++;
+            if (symbolAddDuration > 50) {
+              self.logger.debug(
+                () =>
+                  `[WORKSPACE-LOAD] Added symbols for ${event.document.uri} in ${symbolAddDuration}ms`,
+              );
+            }
           } else {
             self.logger.warn(
               () =>
@@ -292,8 +339,18 @@ export class DocumentProcessingService {
 
         // Yield after each file (except last) to allow event loop to process other tasks
         if (i + 1 < events.length) {
-          yield* Effect.sleep(0); // Yield to event loop, not just Effect runtime
+          yieldsPerformed++;
+          yield* yieldToEventLoop; // Yield to event loop using setImmediate
         }
+      }
+
+      const totalDuration = Date.now() - fileProcessingStartTime;
+      if (totalDuration > 100 || yieldsPerformed > 0) {
+        self.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Processed ${filesProcessed} files with ${yieldsPerformed} yields ` +
+            `in ${totalDuration}ms (avg: ${filesProcessed > 0 ? (totalDuration / filesProcessed).toFixed(1) : 0}ms/file)`,
+        );
       }
 
       return results;
