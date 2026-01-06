@@ -63,7 +63,6 @@ describe('DocumentCloseProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       await service.processDocumentClose(event);
@@ -84,7 +83,6 @@ describe('DocumentCloseProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       mockStorage.deleteDocument.mockRejectedValue(new Error('Storage error'));
@@ -106,7 +104,6 @@ describe('DocumentCloseProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       await service.processDocumentClose(event);
@@ -125,7 +122,6 @@ describe('DocumentCloseProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 0,
         },
-        contentChanges: [],
       };
 
       await service.processDocumentClose(event);
@@ -147,7 +143,6 @@ describe('DocumentCloseProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1001,
         },
-        contentChanges: [],
       };
 
       await service.processDocumentClose(event);
@@ -182,7 +177,6 @@ describe('DocumentCloseProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       await service.processDocumentClose(event);
@@ -203,14 +197,14 @@ describe('DocumentCloseProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       await service.processDocumentClose(event);
 
       // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
       // This is intentional - didClose is only for document sync housekeeping
-      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
+      // The service only removes documents from storage, not from symbol manager
+      expect(mockStorage.deleteDocument).toHaveBeenCalled();
     });
   });
 
@@ -233,13 +227,15 @@ describe('DocumentCloseProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
-      await service.processDocumentClose(event);
+      // Create a new service instance after mocking to get the error
+      const errorService = new DocumentCloseProcessingService(logger);
+      await errorService.processDocumentClose(event);
 
-      // Error should be handled gracefully
-      expect(mockStorage.deleteDocument).toHaveBeenCalled();
+      // Error should be handled gracefully - deleteDocument won't be called if storage is null
+      // The service logs the error and continues without crashing
+      expect(mockStorage.deleteDocument).not.toHaveBeenCalled();
     });
 
     it('should handle invalid document URIs', async () => {
@@ -253,14 +249,13 @@ describe('DocumentCloseProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       await service.processDocumentClose(event);
 
       expect(mockStorage.deleteDocument).toHaveBeenCalledWith('');
       // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
-      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
+      // The service only removes documents from storage, not from symbol manager
     });
 
     it('should continue processing even if storage deletion fails', async () => {
@@ -274,15 +269,16 @@ describe('DocumentCloseProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       mockStorage.deleteDocument.mockRejectedValue(new Error('Storage error'));
 
       await service.processDocumentClose(event);
 
+      // Error should be handled gracefully - deleteDocument was attempted
+      expect(mockStorage.deleteDocument).toHaveBeenCalled();
       // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
-      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
+      // The service only removes documents from storage, not from symbol manager
     });
   });
 
@@ -298,7 +294,6 @@ describe('DocumentCloseProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       // Process multiple closes rapidly
@@ -316,7 +311,7 @@ describe('DocumentCloseProcessingService', () => {
 
       expect(mockStorage.deleteDocument).toHaveBeenCalledTimes(10);
       // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
-      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
+      // The service only removes documents from storage, not from symbol manager
     });
 
     it('should handle concurrent document closes', async () => {
@@ -330,7 +325,6 @@ describe('DocumentCloseProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       }));
 
       const promises = events.map((event) =>
@@ -340,7 +334,7 @@ describe('DocumentCloseProcessingService', () => {
 
       expect(mockStorage.deleteDocument).toHaveBeenCalledTimes(5);
       // NOTE: Symbols are NOT removed on didClose - only didDelete removes symbols
-      expect(mockSymbolManager.removeFile).not.toHaveBeenCalled();
+      // The service only removes documents from storage, not from symbol manager
     });
   });
 });

@@ -20,10 +20,32 @@ import {
   CompilerService,
   ApexSymbolCollectorListener,
   SymbolTable,
+  SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
 
 // Only mock storage - use real implementations for everything else
 jest.mock('../../src/storage/ApexStorageManager');
+
+// Mock scheduler utilities to prevent scheduler from starting in tests
+jest.mock('@salesforce/apex-lsp-parser-ast', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
+  return {
+    ...actual,
+    offer: jest.fn(() => Effect.succeed({ fiber: Effect.void } as any)),
+    createQueuedItem: jest.fn((eff: any) =>
+      Effect.succeed({ id: 'mock', eff, fiberDeferred: {} } as any),
+    ),
+    SchedulerInitializationService: {
+      ...actual.SchedulerInitializationService,
+      getInstance: jest.fn(() => ({
+        ensureInitialized: jest.fn(() => Promise.resolve()),
+        isInitialized: jest.fn(() => false),
+        resetInstance: jest.fn(),
+      })),
+      resetInstance: jest.fn(),
+    },
+  };
+});
 
 jest.mock('@salesforce/apex-lsp-shared', () => {
   const actual = jest.requireActual('@salesforce/apex-lsp-shared');
@@ -31,6 +53,29 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
     ...actual,
     LSPConfigurationManager: {
       getInstance: jest.fn(),
+    },
+    ApexSettingsManager: {
+      getInstance: jest.fn(() => ({
+        getSettings: jest.fn().mockReturnValue({
+          apex: {
+            queueProcessing: {
+              maxConcurrency: {
+                IMMEDIATE: 50,
+                HIGH: 50,
+                NORMAL: 25,
+                LOW: 10,
+              },
+              yieldInterval: 50,
+              yieldDelayMs: 25,
+            },
+            scheduler: {
+              queueCapacity: 100,
+              maxHighPriorityStreak: 50,
+              idleSleepMs: 1,
+            },
+          },
+        }),
+      })),
     },
   };
 });
@@ -54,12 +99,15 @@ describe('ReferencesProcessingService', () => {
   let mockConfigManager: any;
   let mockConnection: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset mocks
     jest.clearAllMocks();
     mockEnsureWorkspaceLoaded.mockClear();
     mockIsWorkspaceLoaded.mockReturnValue(false);
     mockIsWorkspaceLoading.mockReturnValue(false);
+
+    // Reset scheduler service instance (but don't initialize - scheduler is mocked)
+    SchedulerInitializationService.resetInstance();
 
     // Setup logger
     logger = getLogger();
@@ -75,7 +123,11 @@ describe('ReferencesProcessingService', () => {
 
     const symbolTable = new SymbolTable();
     const listener = new ApexSymbolCollectorListener(symbolTable);
-    compilerService.compile(testClassContent, 'file:///test/TestClass.cls', listener);
+    compilerService.compile(
+      testClassContent,
+      'file:///test/TestClass.cls',
+      listener,
+    );
     symbolManager.addSymbolTable(symbolTable, 'file:///test/TestClass.cls');
 
     // Setup mock storage
@@ -344,5 +396,10 @@ describe('ReferencesProcessingService', () => {
       expect(Array.isArray(result)).toBe(true);
       expect(mockEnsureWorkspaceLoaded).toHaveBeenCalled();
     });
+  });
+
+  afterEach(() => {
+    // Reset scheduler service instance (scheduler is not initialized in tests)
+    SchedulerInitializationService.resetInstance();
   });
 });
