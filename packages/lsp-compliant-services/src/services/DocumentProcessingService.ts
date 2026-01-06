@@ -292,7 +292,7 @@ export class DocumentProcessingService {
 
         // Yield after each file (except last) to allow event loop to process other tasks
         if (i + 1 < events.length) {
-          yield* Effect.yieldNow();
+          yield* Effect.sleep(0); // Yield to event loop, not just Effect runtime
         }
       }
 

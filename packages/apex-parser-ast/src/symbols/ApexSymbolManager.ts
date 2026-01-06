@@ -1709,7 +1709,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // Yield every batchSize symbols to allow other tasks to run
         if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
-          yield* Effect.yieldNow();
+          yield* Effect.sleep(0); // Yield to event loop, not just Effect runtime
         }
       }
 
