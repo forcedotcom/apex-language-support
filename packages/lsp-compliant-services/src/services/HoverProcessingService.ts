@@ -40,6 +40,7 @@ import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { calculateDisplayFQN } from '../utils/displayFQNUtils';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import { getDocumentStateCache } from './DocumentStateCache';
+import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
 
 import {
   transformLspToParserPosition,
@@ -569,6 +570,42 @@ export class HoverProcessingService implements IHoverProcessor {
           this.logger.debug(
             () => `Error enriching SymbolTable for hover: ${error}`,
           );
+        }
+      }
+
+      // If workspace is not loaded and no references found, try missing artifact resolution
+      // Symbols might exist in workspace but not be indexed yet
+      if (!isWorkspaceLoaded() && (!references || references.length === 0)) {
+        this.logger.debug(
+          () =>
+            'Workspace not loaded and no references found - ' +
+            'trying missing artifact resolution',
+        );
+
+        const settings = ApexSettingsManager.getInstance().getSettings();
+        if (settings?.apex?.findMissingArtifact?.enabled) {
+          // Initiate background resolution for missing artifact
+          this.missingArtifactUtils.tryResolveMissingArtifactBackground(
+            params.textDocument.uri,
+            params.position,
+            'hover',
+          );
+
+          // Return searching hover to inform user
+          const hoverCreationStartTime = Date.now();
+          const searchingHover = await this.createSearchingHover(params);
+          const hoverCreationTime = Date.now() - hoverCreationStartTime;
+          const totalTime = Date.now() - hoverStartTime;
+
+          if (totalTime > 50) {
+            this.logger.debug(
+              () =>
+                `[HOVER-DIAG] Searching hover returned (workspace not loaded) ` +
+                `in ${totalTime}ms (hoverCreation=${hoverCreationTime}ms)`,
+            );
+          }
+
+          return searchingHover;
         }
       }
 
