@@ -288,7 +288,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         document.uri,
       );
       if (existingSymbols.length === 0 && table) {
-        await this.symbolManager.addSymbolTable(table, document.uri);
+        await Effect.runPromise(
+          this.symbolManager.addSymbolTable(table, document.uri),
+        );
         this.logger.debug(
           () =>
             `Added SymbolTable to manager for ${document.uri} during diagnostics`,

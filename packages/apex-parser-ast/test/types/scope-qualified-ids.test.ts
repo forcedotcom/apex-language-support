@@ -17,6 +17,7 @@ import { ReferenceContext } from '../../src/types/symbolReference';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
+import { Effect } from 'effect';
 
 describe('Scope-Qualified Symbol IDs', () => {
   let listener: ApexSymbolCollectorListener;
@@ -771,7 +772,9 @@ describe('Scope-Qualified Symbol IDs', () => {
 
     // Process references through ApexSymbolManager
     const symbolManager = new ApexSymbolManager();
-    await symbolManager.addSymbolTable(symbolTable, 'file:///ScopeExample.cls');
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(symbolTable, 'file:///ScopeExample.cls'),
+    );
 
     // Wait for async reference processing to complete
     // Need to wait longer for reference resolution to complete

@@ -85,7 +85,9 @@ describe('ApexSymbolManager Reference Processing', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete (deferred references may need time)
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -169,7 +171,9 @@ describe('ApexSymbolManager Reference Processing', () => {
       const symbolTable = listener.getResult();
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete (deferred references may need time)
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -231,7 +235,9 @@ describe('ApexSymbolManager Reference Processing', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete (deferred references may need time)
       // Complex this. expressions may need more time for processing
@@ -315,7 +321,9 @@ describe('ApexSymbolManager Reference Processing', () => {
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
-      await symbolManager.addSymbolTable(symbolTable, fileUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, fileUri),
+      );
 
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -351,7 +359,9 @@ describe('ApexSymbolManager Reference Processing', () => {
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
-      await symbolManager.addSymbolTable(symbolTable, fileUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, fileUri),
+      );
 
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -385,7 +395,9 @@ describe('ApexSymbolManager Reference Processing', () => {
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
-      await symbolManager.addSymbolTable(symbolTable, fileUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, fileUri),
+      );
 
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -418,7 +430,9 @@ describe('ApexSymbolManager Reference Processing', () => {
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
-      await symbolManager.addSymbolTable(symbolTable, fileUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, fileUri),
+      );
 
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -466,7 +480,9 @@ describe('ApexSymbolManager Reference Processing', () => {
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
-      await symbolManager.addSymbolTable(symbolTable, fileUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, fileUri),
+      );
 
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -497,7 +513,9 @@ describe('ApexSymbolManager Reference Processing', () => {
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
-      await symbolManager.addSymbolTable(symbolTable, fileUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, fileUri),
+      );
 
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -538,7 +556,9 @@ describe('ApexSymbolManager Reference Processing', () => {
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
-      await symbolManager.addSymbolTable(symbolTable, fileUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, fileUri),
+      );
 
       // Wait for deferred processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));

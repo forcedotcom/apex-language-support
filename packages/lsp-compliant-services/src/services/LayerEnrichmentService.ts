@@ -349,9 +349,7 @@ export class LayerEnrichmentService {
 
           if (result?.result) {
             // Update symbol table in manager
-            yield* Effect.promise(() =>
-              self.symbolManager.addSymbolTable(result.result!, uri),
-            );
+            yield* self.symbolManager.addSymbolTable(result.result!, uri);
 
             // Update cache with new detail level
             const currentCache = cache.get(uri, version);

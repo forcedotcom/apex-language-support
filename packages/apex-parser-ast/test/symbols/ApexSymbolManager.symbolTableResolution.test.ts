@@ -86,7 +86,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -157,7 +159,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -263,7 +267,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -314,7 +320,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -360,7 +368,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -462,7 +472,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -550,9 +562,11 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         serviceListener,
       );
       expect(serviceResult.result).toBeDefined();
-      await symbolManager.addSymbolTable(
-        serviceResult.result!,
-        'file:///ServiceClass.cls',
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(
+          serviceResult.result!,
+          'file:///ServiceClass.cls',
+        ),
       );
 
       // Compile and add TestClass (source)
@@ -562,9 +576,11 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         testListener,
       );
       expect(testResult.result).toBeDefined();
-      await symbolManager.addSymbolTable(
-        testResult.result!,
-        'file:///TestClass.cls',
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(
+          testResult.result!,
+          'file:///TestClass.cls',
+        ),
       );
 
       // Wait for same-file reference processing
@@ -653,7 +669,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -692,7 +710,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -734,7 +754,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -795,7 +817,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));

@@ -185,7 +185,9 @@ export class DefaultApexDocumentSymbolProvider
           // Also ensure symbols are in symbol manager
           const existingSymbols = symbolManager.findSymbolsInFile(documentUri);
           if (existingSymbols.length === 0) {
-            await symbolManager.addSymbolTable(symbolTable, documentUri);
+            await Effect.runPromise(
+              symbolManager.addSymbolTable(symbolTable, documentUri),
+            );
             logger.debug(
               () =>
                 `Added SymbolTable to manager for ${documentUri} during document symbols`,

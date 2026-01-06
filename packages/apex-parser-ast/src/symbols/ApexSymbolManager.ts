@@ -1661,74 +1661,90 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @param symbolTable The symbol table to add
    * @param fileUri The file URI associated with the symbol table
    */
-  async addSymbolTable(
+  /**
+   * Add a symbol table to the manager.
+   * This method processes same-file references immediately (for graph edges and scope resolution)
+   * and defers cross-file references for on-demand resolution to avoid queue pressure during workspace loading.
+   * Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics).
+   *
+   * @param symbolTable The symbol table to add
+   * @param fileUri The file URI associated with the symbol table
+   * @returns Effect that resolves when the symbol table is added
+   */
+  addSymbolTable(
     symbolTable: SymbolTable,
     fileUri: string,
-  ): Promise<void> {
-    // Convert fileUri to proper URI format to match symbol ID generation
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      // Convert fileUri to proper URI format to match symbol ID generation
+      const properUri =
+        getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
 
-    // Normalize URI using extractFilePathFromUri to ensure consistency with SymbolTable registration
-    // This ensures that fileIndex lookups will find the symbols
-    const normalizedUri = extractFilePathFromUri(properUri);
+      // Normalize URI using extractFilePathFromUri to ensure consistency with SymbolTable registration
+      // This ensures that fileIndex lookups will find the symbols
+      const normalizedUri = extractFilePathFromUri(properUri);
 
-    // Register SymbolTable once for the entire file before processing symbols
-    // This avoids redundant registration calls for each symbol
-    this.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
+      // Register SymbolTable once for the entire file before processing symbols
+      // This avoids redundant registration calls for each symbol
+      self.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
 
-    // Add all symbols from the symbol table
-    const symbols = symbolTable.getAllSymbols
-      ? symbolTable.getAllSymbols()
-      : [];
+      // Add all symbols from the symbol table
+      const symbols = symbolTable.getAllSymbols
+        ? symbolTable.getAllSymbols()
+        : [];
 
-    // Update all symbols to use the normalized URI
-    // Process in batches with yields for large symbol tables to prevent blocking
-    const batchSize = 100;
-    const symbolNamesAdded = new Set<string>();
-    for (let i = 0; i < symbols.length; i++) {
-      const symbol = symbols[i];
-      // Update the symbol's fileUri to match the normalized URI
-      symbol.fileUri = normalizedUri;
-      // Pass undefined for symbolTable since it's already registered above
-      // addSymbol() will use the registered SymbolTable via ensureSymbolTableForFile()
-      this.addSymbol(symbol, normalizedUri, undefined);
-      symbolNamesAdded.add(symbol.name);
+      // Update all symbols to use the normalized URI
+      // Process in batches with yields for large symbol tables to prevent blocking
+      const batchSize = 100;
+      const symbolNamesAdded = new Set<string>();
+      for (let i = 0; i < symbols.length; i++) {
+        const symbol = symbols[i];
+        // Update the symbol's fileUri to match the normalized URI
+        symbol.fileUri = normalizedUri;
+        // Pass undefined for symbolTable since it's already registered above
+        // addSymbol() will use the registered SymbolTable via ensureSymbolTableForFile()
+        self.addSymbol(symbol, normalizedUri, undefined);
+        symbolNamesAdded.add(symbol.name);
 
-      // Yield every batchSize symbols to allow other tasks to run
-      if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
-        // Use setTimeout to yield to event loop
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        // Yield every batchSize symbols to allow other tasks to run
+        if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
+          yield* Effect.yieldNow();
+        }
       }
-    }
 
-    // Invalidate cache for all symbol names that were added
-    // This ensures that findSymbolByName() will see the newly added symbols
-    for (const symbolName of symbolNamesAdded) {
-      // Normalize to lowercase to match cache key format in findSymbolByName()
-      const normalizedName = symbolName.toLowerCase();
-      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
-    }
+      // Invalidate cache for all symbol names that were added
+      // This ensures that findSymbolByName() will see the newly added symbols
+      for (const symbolName of symbolNamesAdded) {
+        // Normalize to lowercase to match cache key format in findSymbolByName()
+        const normalizedName = symbolName.toLowerCase();
+        self.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
+      }
 
-    // Invalidate file-based cache when symbols are added to a file
-    // This ensures that findSymbolsInFile() will see the newly added symbols
-    this.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
+      // Invalidate file-based cache when symbols are added to a file
+      // This ensures that findSymbolsInFile() will see the newly added symbols
+      self.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
 
-    // Also invalidate name-based cache to ensure findSymbolByName works correctly
-    for (const symbolName of symbolNamesAdded) {
-      const normalizedName = symbolName.toLowerCase();
-      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
-    }
+      // Also invalidate name-based cache to ensure findSymbolByName works correctly
+      for (const symbolName of symbolNamesAdded) {
+        const normalizedName = symbolName.toLowerCase();
+        self.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
+      }
 
-    // Process same-file references immediately (cheap, synchronous, needed for graph edges)
-    // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
-    await this.processSameFileReferencesToGraph(symbolTable, normalizedUri);
+      // Process same-file references immediately (cheap, synchronous, needed for graph edges)
+      // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
+      yield* self.processSameFileReferencesToGraphEffect(
+        symbolTable,
+        normalizedUri,
+      );
 
-    // Sync memory stats with the graph's stats to ensure consistency
-    // The graph is the source of truth for symbol counts
-    const graphStats = this.symbolGraph.getStats();
-    this.memoryStats.totalSymbols = graphStats.totalSymbols;
+      // Sync memory stats with the graph's stats to ensure consistency
+      // The graph is the source of truth for symbol counts
+      const graphStats = self.symbolGraph.getStats();
+      self.memoryStats.totalSymbols = graphStats.totalSymbols;
+    });
   }
+
 
   /**
    * Process same-file references only (skip cross-file references).
@@ -4290,7 +4306,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (artifact && artifact.compilationResult?.result) {
         // Convert classPath to proper URI scheme for standard Apex library classes
         const fileUri = this.convertToStandardLibraryUri(classPath);
-        await this.addSymbolTable(artifact.compilationResult.result, fileUri);
+        await Effect.runPromise(
+          this.addSymbolTable(artifact.compilationResult.result, fileUri),
+        );
 
         // Update the class symbol's fileUri to use the new URI scheme
         classSymbol.fileUri = fileUri;
@@ -4363,7 +4381,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   async refresh(symbolTable: any): Promise<void> {
     // Clear existing data and reload from symbol table
     this.clear();
-    await this.addSymbolTable(symbolTable, 'refreshed');
+    await Effect.runPromise(this.addSymbolTable(symbolTable, 'refreshed'));
   }
 
   // Performance Monitoring
@@ -5175,7 +5193,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
         if (artifact?.compilationResult?.result) {
           // Add the symbol table to the symbol manager to get all symbols including methods
-          await this.addSymbolTable(artifact.compilationResult.result, fileUri);
+          await Effect.runPromise(
+            this.addSymbolTable(artifact.compilationResult.result, fileUri),
+          );
 
           // Find the class symbol from the loaded symbol table
           const symbols = artifact.compilationResult.result.getAllSymbols();
@@ -7413,7 +7433,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   symbolTable = artifact.compilationResult.result;
 
                   // Add the symbol table to our graph for future use
-                  await this.addSymbolTable(symbolTable, contextFile);
+                  await Effect.runPromise(
+                    this.addSymbolTable(symbolTable, contextFile),
+                  );
 
                   // Re-fetch symbol table to ensure it's registered
                   symbolTable =
@@ -7470,9 +7492,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                           classPath,
                         );
                       if (artifact?.compilationResult.result) {
-                        await this.addSymbolTable(
-                          artifact.compilationResult.result,
-                          typeSymbol.fileUri,
+                        await Effect.runPromise(
+                          this.addSymbolTable(
+                            artifact.compilationResult.result,
+                            typeSymbol.fileUri,
+                          ),
                         );
                         // Retry resolution after loading
                         const retryResult = await this.resolveMemberInContext(
@@ -7531,9 +7555,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                               classPath,
                             );
                           if (artifact?.compilationResult.result) {
-                            await this.addSymbolTable(
-                              artifact.compilationResult.result,
-                              standardClassSymbol.fileUri,
+                            await Effect.runPromise(
+                              this.addSymbolTable(
+                                artifact.compilationResult.result,
+                                standardClassSymbol.fileUri,
+                              ),
                             );
                             // Retry resolution after loading
                             const retryResult =
@@ -7589,9 +7615,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                             classPath,
                           );
                         if (artifact?.compilationResult.result) {
-                          await this.addSymbolTable(
-                            artifact.compilationResult.result,
-                            typeClassSymbol.fileUri,
+                          await Effect.runPromise(
+                            this.addSymbolTable(
+                              artifact.compilationResult.result,
+                              typeClassSymbol.fileUri,
+                            ),
                           );
                           // Retry resolution after loading
                           const retryResult = await this.resolveMemberInContext(
@@ -7676,9 +7704,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                             classPath,
                           );
                         if (artifact?.compilationResult.result) {
-                          await this.addSymbolTable(
-                            artifact.compilationResult.result,
-                            standardClassSymbol.fileUri,
+                          await Effect.runPromise(
+                            this.addSymbolTable(
+                              artifact.compilationResult.result,
+                              standardClassSymbol.fileUri,
+                            ),
                           );
                           // Retry resolution after loading
                           const retryResult = await this.resolveMemberInContext(
@@ -7892,9 +7922,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                           classPath,
                         );
                       if (artifact?.compilationResult.result) {
-                        await this.addSymbolTable(
-                          artifact.compilationResult.result,
-                          contextSymbol.fileUri,
+                        await Effect.runPromise(
+                          this.addSymbolTable(
+                            artifact.compilationResult.result,
+                            contextSymbol.fileUri,
+                          ),
                         );
                         // Re-fetch symbol table after loading
                         const reloadedSymbolTable =
@@ -8161,9 +8193,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   const artifact =
                     await this.resourceLoader.loadAndCompileClass(classPath);
                   if (artifact?.compilationResult.result) {
-                    await this.addSymbolTable(
-                      artifact.compilationResult.result,
-                      superclassTypeSymbol.fileUri,
+                    await Effect.runPromise(
+                      this.addSymbolTable(
+                        artifact.compilationResult.result,
+                        superclassTypeSymbol.fileUri,
+                      ),
                     );
                     symbolTable = this.symbolGraph.getSymbolTableForFile(
                       superclassTypeSymbol.fileUri,
@@ -8232,9 +8266,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   const artifact =
                     await this.resourceLoader.loadAndCompileClass(classPath);
                   if (artifact?.compilationResult.result) {
-                    await this.addSymbolTable(
-                      artifact.compilationResult.result,
-                      objectTypeSymbol.fileUri,
+                    await Effect.runPromise(
+                      this.addSymbolTable(
+                        artifact.compilationResult.result,
+                        objectTypeSymbol.fileUri,
+                      ),
                     );
                     symbolTable = this.symbolGraph.getSymbolTableForFile(
                       objectTypeSymbol.fileUri,

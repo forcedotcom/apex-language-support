@@ -238,7 +238,9 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
         // Add symbols immediately without processing cross-file references
         // Same-file references are processed immediately, cross-file references are deferred
         // Cross-file references will be resolved on-demand when needed
-        await symbolManager.addSymbolTable(symbolTable, document.uri);
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(symbolTable, document.uri),
+        );
 
         this.logger.debug(
           () =>

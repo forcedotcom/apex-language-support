@@ -87,9 +87,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -133,9 +135,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -170,9 +174,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -212,9 +218,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -268,9 +276,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -315,9 +325,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -356,9 +368,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -405,9 +419,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (fileUtilitiesResult.result) {
-        await symbolManager.addSymbolTable(
-          fileUtilitiesResult.result,
-          'file:///utils/FileUtilities.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            fileUtilitiesResult.result,
+            'file:///utils/FileUtilities.cls',
+          ),
         );
       }
 
@@ -420,9 +436,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -461,9 +479,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (fileUtilitiesResult.result) {
-        await symbolManager.addSymbolTable(
-          fileUtilitiesResult.result,
-          'file:///utils/FileUtilities.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            fileUtilitiesResult.result,
+            'file:///utils/FileUtilities.cls',
+          ),
         );
       }
 
@@ -476,9 +496,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -517,9 +539,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
         accountListener,
       );
       if (accountResult.result) {
-        await symbolManager.addSymbolTable(
-          accountResult.result,
-          '/sobjects/Account.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            accountResult.result,
+            '/sobjects/Account.cls',
+          ),
         );
       }
 
@@ -531,9 +555,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
         testListener,
       );
       if (testResult.result) {
-        await symbolManager.addSymbolTable(
-          testResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -593,9 +619,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (accountResult.result) {
-        await symbolManager.addSymbolTable(
-          accountResult.result,
-          '/sobjects/Account.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            accountResult.result,
+            '/sobjects/Account.cls',
+          ),
         );
       }
 
@@ -608,9 +636,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -652,9 +682,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (utilityClassResult.result) {
-        await symbolManager.addSymbolTable(
-          utilityClassResult.result,
-          '/utils/UtilityClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            utilityClassResult.result,
+            '/utils/UtilityClass.cls',
+          ),
         );
       }
 
@@ -667,9 +699,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -709,9 +743,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (serviceClassResult.result) {
-        await symbolManager.addSymbolTable(
-          serviceClassResult.result,
-          '/services/ServiceClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            serviceClassResult.result,
+            '/services/ServiceClass.cls',
+          ),
         );
       }
 
@@ -724,9 +760,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -771,9 +809,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -807,9 +847,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -844,9 +886,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -879,9 +923,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -918,9 +964,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
         );
 
         if (utilityClassResult.result) {
-          await symbolManager.addSymbolTable(
-            utilityClassResult.result,
-            `/utils/UtilityClass${i}.cls`,
+          await Effect.runPromise(
+            symbolManager.addSymbolTable(
+              utilityClassResult.result,
+              `/utils/UtilityClass${i}.cls`,
+            ),
           );
         }
       }
@@ -941,9 +989,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 

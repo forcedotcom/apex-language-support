@@ -28,6 +28,7 @@ import {
   setLogLevel,
   getLogger,
 } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -136,9 +137,11 @@ describe('HoverProcessingService Integration Tests', () => {
         // This ensures it's available for findSymbolByName to find
         // Use the correct URI format: apexlib://resources/StandardApexLibrary/System/System.cls
         const systemUri = `${STANDARD_APEX_LIBRARY_URI}/System/System.cls`;
-        await symbolManager.addSymbolTable(
-          systemArtifact.compilationResult.result,
-          systemUri,
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            systemArtifact.compilationResult.result,
+            systemUri,
+          ),
         );
       }
     } catch (_error) {
@@ -1955,9 +1958,11 @@ describe('HoverProcessingService Integration Tests', () => {
       );
 
       if (serviceClassResult.result) {
-        await symbolManager.addSymbolTable(
-          serviceClassResult.result,
-          'file:///AccountRecordTypeAutoDeletionService.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            serviceClassResult.result,
+            'file:///AccountRecordTypeAutoDeletionService.cls',
+          ),
         );
       }
 
@@ -1970,9 +1975,11 @@ describe('HoverProcessingService Integration Tests', () => {
       );
 
       if (hoverTestClassResult.result) {
-        await symbolManager.addSymbolTable(
-          hoverTestClassResult.result,
-          'file:///HoverTestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            hoverTestClassResult.result,
+            'file:///HoverTestClass.cls',
+          ),
         );
       }
 
@@ -2047,9 +2054,11 @@ describe('HoverProcessingService Integration Tests', () => {
       );
 
       if (mapperClassResult.result) {
-        await symbolManager.addSymbolTable(
-          mapperClassResult.result,
-          'file:///AccountAutoDeletionSettingsVMapper.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            mapperClassResult.result,
+            'file:///AccountAutoDeletionSettingsVMapper.cls',
+          ),
         );
       }
 
@@ -2062,9 +2071,11 @@ describe('HoverProcessingService Integration Tests', () => {
       );
 
       if (newExpressionTestClassResult.result) {
-        await symbolManager.addSymbolTable(
-          newExpressionTestClassResult.result,
-          'file:///NewExpressionTestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            newExpressionTestClassResult.result,
+            'file:///NewExpressionTestClass.cls',
+          ),
         );
       }
 
@@ -2129,9 +2140,11 @@ describe('HoverProcessingService Integration Tests', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///TestClass.cls',
+          ),
         );
       }
 
@@ -2149,9 +2162,11 @@ describe('HoverProcessingService Integration Tests', () => {
       );
 
       if (mapperClassResult.result) {
-        await symbolManager.addSymbolTable(
-          mapperClassResult.result,
-          'file:///AccountAutoDeletionSettingsVMapper.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            mapperClassResult.result,
+            'file:///AccountAutoDeletionSettingsVMapper.cls',
+          ),
         );
       }
 
@@ -2224,9 +2239,11 @@ describe('HoverProcessingService Integration Tests', () => {
       );
 
       if (mapperClassResult.result) {
-        await symbolManager.addSymbolTable(
-          mapperClassResult.result,
-          'file:///AccountAutoDeletionSettingsVMapper.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            mapperClassResult.result,
+            'file:///AccountAutoDeletionSettingsVMapper.cls',
+          ),
         );
       }
 
@@ -2239,9 +2256,11 @@ describe('HoverProcessingService Integration Tests', () => {
       );
 
       if (assignmentLHSTestClassResult.result) {
-        await symbolManager.addSymbolTable(
-          assignmentLHSTestClassResult.result,
-          'file:///AssignmentLHSTestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            assignmentLHSTestClassResult.result,
+            'file:///AssignmentLHSTestClass.cls',
+          ),
         );
       }
 

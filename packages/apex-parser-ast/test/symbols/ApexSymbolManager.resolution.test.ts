@@ -1198,9 +1198,11 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
 
         if (testClassResult.result) {
-          await symbolManager.addSymbolTable(
-            testClassResult.result,
-            'file:///test/TestClass.cls',
+          await Effect.runPromise(
+            symbolManager.addSymbolTable(
+              testClassResult.result,
+              'file:///test/TestClass.cls',
+            ),
           );
         }
 
@@ -1244,9 +1246,11 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
 
         if (testClassResult.result) {
-          await symbolManager.addSymbolTable(
-            testClassResult.result,
-            'file:///test/TestClass.cls',
+          await Effect.runPromise(
+            symbolManager.addSymbolTable(
+              testClassResult.result,
+              'file:///test/TestClass.cls',
+            ),
           );
         }
 
@@ -1289,9 +1293,11 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
 
         if (testClassResult.result) {
-          await symbolManager.addSymbolTable(
-            testClassResult.result,
-            'file:///test/TestClass.cls',
+          await Effect.runPromise(
+            symbolManager.addSymbolTable(
+              testClassResult.result,
+              'file:///test/TestClass.cls',
+            ),
           );
         }
 

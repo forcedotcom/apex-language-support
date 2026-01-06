@@ -182,8 +182,12 @@ export interface ISymbolManager {
    * Add a symbol table to the manager
    * @param symbolTable The symbol table to add
    * @param fileUri The file URI associated with the symbol table
+   * @returns Effect that resolves when the symbol table is added
    */
-  addSymbolTable(symbolTable: SymbolTable, fileUri: string): Promise<void>;
+  addSymbolTable(
+    symbolTable: SymbolTable,
+    fileUri: string,
+  ): Effect.Effect<void, never, never>;
 
   /**
    * Get SymbolTable for a file
