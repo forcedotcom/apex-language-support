@@ -11,7 +11,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   CompilerService,
   SymbolTable,
-  ApexSymbolCollectorListener,
+  PublicAPISymbolListener,
   ApexSymbolProcessingManager,
   type CompilationResult,
 } from '@salesforce/apex-lsp-parser-ast';
@@ -48,7 +48,7 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
    */
   private compileDocument(
     document: TextDocument,
-    listener: ApexSymbolCollectorListener,
+    listener: PublicAPISymbolListener,
     options: any,
   ): Effect.Effect<CompilationResult<SymbolTable>, never, never> {
     const logger = this.logger;
@@ -168,16 +168,23 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
         await storage.setDocument(document.uri, document);
 
         // Create a symbol collector listener
+        // Use PublicAPISymbolListener for document save (only need public API for cross-file refs)
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new PublicAPISymbolListener(table);
 
         // Parse the document using Effect-based compilation (with yielding)
         const settingsManager = ApexSettingsManager.getInstance();
         const fileSize = document.getText().length;
-        const options = settingsManager.getCompilationOptions(
+        const baseOptions = settingsManager.getCompilationOptions(
           'documentChange',
           fileSize,
         );
+        // Ensure reference collection/resolution is enabled
+        const options = {
+          ...baseOptions,
+          collectReferences: true,
+          resolveReferences: true,
+        };
 
         const result = await Effect.runPromise(
           this.compileDocument(document, listener, options),
@@ -202,25 +209,15 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
         const symbolManager = backgroundManager.getSymbolManager();
         symbolManager.removeFile(document.uri);
 
-        // Queue the updated symbol processing
-        const taskId = backgroundManager.processSymbolTable(
-          symbolTable,
-          document.uri,
-          {
-            priority: Priority.High,
-            enableCrossFileResolution: true,
-            enableReferenceProcessing: true,
-          },
-          document.version,
-        );
+        // Add symbols immediately without processing cross-file references
+        // Same-file references are processed immediately, cross-file references are deferred
+        // Cross-file references will be resolved on-demand when needed
+        await symbolManager.addSymbolTable(symbolTable, document.uri);
 
         this.logger.debug(
           () =>
-            `Document save symbol processing queued: ${taskId} for ${document.uri} (version: ${document.version})`,
+            `Document save symbols added for ${document.uri} (version: ${document.version})`,
         );
-
-        // Monitor task completion and update cache
-        this.monitorTaskCompletion(taskId, document.uri, document.version);
 
         // Cache the parse result for future requests with same version
         // symbolsIndexed defaults to false for new entries

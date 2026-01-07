@@ -161,6 +161,9 @@ export interface LoadWorkspaceSettings {
 
   /** Delay in milliseconds when yielding control during workspace loading */
   yieldDelayMs: number;
+
+  /** Number of files per batch when using batch loading (default: 100) */
+  batchSize: number;
 }
 
 /**
@@ -169,6 +172,9 @@ export interface LoadWorkspaceSettings {
 export interface DeferredReferenceProcessingSettings {
   /** Batch size for processing deferred references (default: 50) */
   deferredBatchSize: number;
+
+  /** Batch size for initial reference processing when adding symbol tables (default: 50) */
+  initialReferenceBatchSize: number;
 
   /** Maximum number of retry attempts for deferred references (default: 10) */
   maxRetryAttempts: number;
@@ -199,6 +205,9 @@ export interface DeferredReferenceProcessingSettings {
 
   /** Rate limit for enqueueing deferred tasks per second (default: 10) */
   maxDeferredTasksPerSecond?: number;
+
+  /** Time threshold in milliseconds - if batch processing exceeds this, yield more frequently (default: 50) */
+  yieldTimeThresholdMs?: number;
 }
 
 /**
@@ -241,6 +250,9 @@ export interface SchedulerSettings {
 
   /** Idle sleep duration in milliseconds when no tasks available (default: 1) */
   idleSleepMs: number;
+
+  /** Interval for periodic queue state notifications to client in milliseconds (default: 200) */
+  queueStateNotificationIntervalMs: number;
 }
 
 /**

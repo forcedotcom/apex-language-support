@@ -32,11 +32,12 @@
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo || rm -rf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "wireit",
-    "rebuild": "npm run clean && npm run compile"
+    "rebuild": "wireit"
   },
   "wireit": {
     "compile": {
       "command": "npm-run-all --parallel compile:browser compile:worker compile:node",
+      "clean": "if-file-deleted",
       "dependencies": [
         "../apex-parser-ast:precompile",
         "../apex-parser-ast:compile",
@@ -55,11 +56,11 @@
     "rebuild": {
       "dependencies": [
         "clean",
-        "precompile",
         "compile",
         "bundle"
       ],
-      "cache": false
+      "cache": false,
+      "command": "npm run clean && npm run compile"
     },
     "bundle": {
       "command": "tsx esbuild.config.ts",
@@ -115,7 +116,19 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../eslint.config.mjs"
+        "eslint.config.mjs"
+      ],
+      "output": []
+    },
+    "lint:fix": {
+      "command": "eslint --fix --color --cache --cache-location .eslintcache src test",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
       ],
       "output": []
     },
@@ -137,17 +150,18 @@
     }
   },
   "dependencies": {
-    "@salesforce/apex-lsp-compliant-services": "*",
-    "@salesforce/apex-lsp-parser-ast": "*",
-    "@salesforce/apex-lsp-shared": "*",
+    "@salesforce/apex-lsp-compliant-services": "1.0.0",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
+    "@salesforce/apex-lsp-shared": "1.0.0",
     "effect": "^3.18.4",
+    "fflate": "^0.8.1",
     "vscode-jsonrpc": "^8.2.0",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
     "web-worker": "^1.5.0"
   },
   "devDependencies": {
-    "@salesforce/esbuild-presets": "*",
+    "@salesforce/esbuild-presets": "^0.1.0",
     "@types/node": "^20.19.4",
     "@types/vscode": "^1.90.0",
     "assert": "^2.1.0",

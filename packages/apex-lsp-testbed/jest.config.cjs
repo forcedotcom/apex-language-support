@@ -2,9 +2,17 @@ const baseConfig = require('../../jest.config.cjs');
 
 module.exports = {
   ...baseConfig,
+  // Only include .test.ts files for unit tests
+  // Performance tests (.perf.ts) are run separately via test:perf command
+  testMatch: [
+    '**/test/**/*.test.ts',
+  ],
   testPathIgnorePatterns: [
     ...(baseConfig.testPathIgnorePatterns || []),
     '/node_modules/',
+  ],
+  modulePathIgnorePatterns: [
+    '<rootDir>/test-artifacts/',
   ],
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,

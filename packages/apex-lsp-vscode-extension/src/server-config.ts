@@ -20,6 +20,7 @@ import {
   logServerMessage,
   getWorkerServerOutputChannel,
   createFormattedOutputChannel,
+  logToOutputChannel,
 } from './logging';
 import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
 import { determineServerMode } from './utils/serverUtils';
@@ -324,6 +325,43 @@ export const createClientOptions = (
   errorHandler: {
     error: handleClientError,
     closed: () => handleClientClosed(),
+  },
+  // Use middleware to intercept hover requests for logging
+  middleware: {
+    provideHover: async (document, position, token, next) => {
+      const requestStartTime = Date.now();
+      const uri = document.uri.toString();
+      const line = position.line;
+      const character = position.character;
+
+      logToOutputChannel(
+        `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
+        'debug',
+      );
+
+      try {
+        const sendStartTime = Date.now();
+        const result = await next(document, position, token);
+        const sendTime = Date.now() - sendStartTime;
+        const totalTime = Date.now() - requestStartTime;
+
+        logToOutputChannel(
+          `✅ [CLIENT] Hover request completed: ${uri} ` +
+            `total=${totalTime}ms, send=${sendTime}ms, ` +
+            `result=${result ? 'success' : 'null'}`,
+          'debug',
+        );
+
+        return result;
+      } catch (error) {
+        const totalTime = Date.now() - requestStartTime;
+        logToOutputChannel(
+          `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+          'error',
+        );
+        throw error;
+      }
+    },
   },
   // Use the enhanced initialization options that include all necessary configuration
   initializationOptions,

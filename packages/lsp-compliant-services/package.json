@@ -29,6 +29,7 @@
   "wireit": {
     "compile": {
       "command": "tsc --build",
+      "clean": "if-file-deleted",
       "dependencies": [
         "../apex-parser-ast:precompile"
       ],
@@ -94,7 +95,19 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../eslint.config.mjs"
+        "eslint.config.mjs"
+      ],
+      "output": []
+    },
+    "lint:fix": {
+      "command": "eslint --fix --color --cache --cache-location .eslintcache src test",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
       ],
       "output": []
     },
@@ -115,8 +128,8 @@
     }
   },
   "dependencies": {
-    "@salesforce/apex-lsp-parser-ast": "*",
-    "@salesforce/apex-lsp-shared": "*",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
+    "@salesforce/apex-lsp-shared": "1.0.0",
     "data-structure-typed": "^2.0.4",
     "effect": "^3.18.4",
     "vscode-languageserver": "^9.0.1",
@@ -124,6 +137,6 @@
     "vscode-languageserver-textdocument": "^1.0.12"
   },
   "devDependencies": {
-    "@salesforce/esbuild-presets": "*"
+    "@salesforce/esbuild-presets": "^0.1.0"
   }
 }

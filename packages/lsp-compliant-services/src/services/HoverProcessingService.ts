@@ -91,6 +91,7 @@ export class HoverProcessingService implements IHoverProcessor {
    * @returns Hover information for the requested position
    */
   public async processHover(params: HoverParams): Promise<Hover | null> {
+    const hoverStartTime = Date.now();
     this.logger.debug(
       () =>
         `Symbols in file ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
@@ -99,6 +100,7 @@ export class HoverProcessingService implements IHoverProcessor {
     try {
       // Early keyword check: if position is on a keyword, return null immediately
       // This prevents hover from processing keywords
+      const keywordCheckStartTime = Date.now();
       const storage = ApexStorageManager.getInstance().getStorage();
       const document = await storage.getDocument(params.textDocument.uri);
       if (document) {
@@ -107,28 +109,35 @@ export class HoverProcessingService implements IHoverProcessor {
           params.position,
         );
         if (wordAtPosition && isApexKeyword(wordAtPosition)) {
+          const keywordCheckTime = Date.now() - keywordCheckStartTime;
           this.logger.debug(
             () =>
-              `Position is on keyword "${wordAtPosition}", returning null for hover`,
+              `[HOVER-DIAG] Position is on keyword "${wordAtPosition}", ` +
+              `returning null (keyword check: ${keywordCheckTime}ms)`,
           );
           return null;
         }
       }
+      const keywordCheckTime = Date.now() - keywordCheckStartTime;
 
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
 
       // Get TypeReferences at position first
       // This tells us if there's a parsed identifier at this position
+      const referencesStartTime = Date.now();
       const references = this.symbolManager.getReferencesAtPosition(
         params.textDocument.uri,
         parserPosition,
       );
+      const referencesTime = Date.now() - referencesStartTime;
 
       // Check if file has symbols indexed before lookup
+      const fileSymbolsStartTime = Date.now();
       const fileSymbols = this.symbolManager.findSymbolsInFile(
         params.textDocument.uri,
       );
+      const fileSymbolsTime = Date.now() - fileSymbolsStartTime;
       this.logger.debug(
         () =>
           `Symbols in file ${params.textDocument.uri}: ${fileSymbols.length} symbols found` +
@@ -136,11 +145,13 @@ export class HoverProcessingService implements IHoverProcessor {
       );
 
       // Use precise symbol resolution only for hover
+      const symbolResolutionStartTime = Date.now();
       const symbol = await this.symbolManager.getSymbolAtPosition(
         params.textDocument.uri,
         parserPosition,
         'precise',
       );
+      const symbolResolutionTime = Date.now() - symbolResolutionStartTime;
 
       if (symbol) {
         // Symbol found - return hover information
@@ -150,7 +161,24 @@ export class HoverProcessingService implements IHoverProcessor {
             `${parserPosition.line}:${parserPosition.character}`,
         );
 
+        const hoverCreationStartTime = Date.now();
         const hover = await this.createHoverInformation(symbol);
+        const hoverCreationTime = Date.now() - hoverCreationStartTime;
+        const totalTime = Date.now() - hoverStartTime;
+
+        if (
+          totalTime > 50 ||
+          symbolResolutionTime > 30 ||
+          hoverCreationTime > 20
+        ) {
+          this.logger.debug(
+            () =>
+              `[HOVER-DIAG] Hover completed in ${totalTime}ms ` +
+              `(keyword=${keywordCheckTime}ms, references=${referencesTime}ms, ` +
+              `fileSymbols=${fileSymbolsTime}ms, symbolResolution=${symbolResolutionTime}ms, ` +
+              `hoverCreation=${hoverCreationTime}ms)`,
+          );
+        }
 
         this.logger.debug(
           () => `Hover creation result: ${hover ? 'success' : 'null'}`,
@@ -182,22 +210,53 @@ export class HoverProcessingService implements IHoverProcessor {
           );
 
           // Return immediate feedback to user that we're searching
-          return await this.createSearchingHover(params);
+          const hoverCreationStartTime = Date.now();
+          const searchingHover = await this.createSearchingHover(params);
+          const hoverCreationTime = Date.now() - hoverCreationStartTime;
+          const totalTime = Date.now() - hoverStartTime;
+
+          if (totalTime > 50 || symbolResolutionTime > 30) {
+            this.logger.debug(
+              () =>
+                `[HOVER-DIAG] Missing artifact hover completed in ${totalTime}ms ` +
+                `(keyword=${keywordCheckTime}ms, references=${referencesTime}ms, ` +
+                `fileSymbols=${fileSymbolsTime}ms, symbolResolution=${symbolResolutionTime}ms, ` +
+                `hoverCreation=${hoverCreationTime}ms)`,
+            );
+          }
+
+          return searchingHover;
         }
 
         // If missing artifact resolution is disabled, return null
+        const totalTime = Date.now() - hoverStartTime;
+        if (totalTime > 50) {
+          this.logger.debug(
+            () =>
+              '[HOVER-DIAG] Hover returned null (missing artifact disabled) ' +
+              `in ${totalTime}ms (symbolResolution=${symbolResolutionTime}ms)`,
+          );
+        }
         return null;
       }
 
       // No symbol AND no TypeReference = nothing of interest (keyword, whitespace, etc.)
+      const totalTime = Date.now() - hoverStartTime;
       this.logger.debug(() => {
         const parserPos = formatPosition(parserPosition, 'parser');
-        return `No symbol and no TypeReference at parser position ${parserPos} - nothing of interest`;
+        return (
+          `No symbol and no TypeReference at parser position ${parserPos} - nothing of interest ` +
+          `(total time: ${totalTime}ms)`
+        );
       });
 
       return null;
     } catch (error) {
-      this.logger.error(() => `Error processing hover: ${error}`);
+      const totalTime = Date.now() - hoverStartTime;
+      this.logger.error(
+        () =>
+          `[HOVER-DIAG] Error processing hover after ${totalTime}ms: ${error}`,
+      );
       return null;
     }
   }

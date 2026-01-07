@@ -12,7 +12,7 @@ import {
 } from '../../src/symbols/ApexSymbolGraph';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
-import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { FullSymbolCollectorListener } from '../../src/parser/listeners/FullSymbolCollectorListener';
 import { SymbolKind } from '../../src/types/symbol';
 
 describe.skip('Symbol Management - Integration Tests', () => {
@@ -67,7 +67,8 @@ describe.skip('Symbol Management - Integration Tests', () => {
       `;
 
       // Process the code through the full pipeline
-      const listener = new ApexSymbolCollectorListener();
+      // Use FullSymbolCollectorListener (wrapper using layered listeners)
+      const listener = new FullSymbolCollectorListener();
       const result = await compilerService.compile(
         apexCode,
         'AccountService.cls',

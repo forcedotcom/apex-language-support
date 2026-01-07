@@ -22,6 +22,8 @@
     "test:quality": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
+    "test:perf:eda": "wireit",
+    "test:perf:lsp": "wireit",
     "clean": "rimraf out dist .wireit tsconfig.tsbuildinfo coverage test-artifacts",
     "clean:all": "npm run clean && rimraf node_modules coverage test-artifacts",
     "start:demo": "node --enable-source-maps ./out/cli.js --server demo --interactive",
@@ -38,6 +40,7 @@
   "wireit": {
     "compile": {
       "command": "tsc --build",
+      "clean": "if-file-deleted",
       "dependencies": [
         "../apex-parser-ast:precompile"
       ],
@@ -51,7 +54,7 @@
       ]
     },
     "test": {
-      "command": "jest --json --outputFile=.wireit/test-results.json",
+      "command": "jest --testMatch \"**/test/**/*.test.ts\" --json --outputFile=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],
@@ -100,6 +103,28 @@
         "**/jest.config.cjs"
       ]
     },
+    "test:perf:eda": {
+      "command": "jest --testMatch \"**/test/**/*.perf.ts\" --testPathPattern=eda-workspace",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.perf.ts",
+        "**/jest.config.cjs"
+      ]
+    },
+    "test:perf:lsp": {
+      "command": "jest --testMatch \"**/test/**/*.perf.ts\" --testPathPattern=lsp-benchmarks",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.perf.ts",
+        "**/jest.config.cjs"
+      ]
+    },
     "lint": {
       "command": "eslint --color --cache --cache-location .eslintcache src test",
       "dependencies": [
@@ -108,7 +133,19 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../eslint.config.mjs"
+        "eslint.config.mjs"
+      ],
+      "output": []
+    },
+    "lint:fix": {
+      "command": "eslint --fix --color --cache --cache-location .eslintcache src test",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
       ],
       "output": []
     }
@@ -118,5 +155,10 @@
     "vscode-jsonrpc": "^8.2.0",
     "vscode-languageserver": "^9.0.1",
     "web-worker": "^1.5.0"
+  },
+  "devDependencies": {
+    "@apexdevtools/apex-parser": "4.4.1",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
+    "@salesforce/apex-lsp-shared": "1.0.0"
   }
 }

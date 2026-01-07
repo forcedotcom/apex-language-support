@@ -142,6 +142,7 @@ import {
 import { ResourceLoader } from '../../utils/resourceLoader';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../constants/constants';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
+import { ApexReferenceResolver } from '../references/ApexReferenceResolver';
 
 interface SemanticError {
   type: 'semantic';
@@ -164,6 +165,16 @@ interface ChainScope {
 /**
  * A listener that collects symbols from Apex code and organizes them into symbol tables.
  * This listener builds a hierarchy of symbol scopes and tracks symbols defined in each scope.
+ *
+ * @deprecated Use {@link FullSymbolCollectorListener} instead, which uses layered listeners
+ * for better performance and progressive enhancement capabilities. For services that only
+ * need public API symbols (e.g., document open, diagnostics), use {@link PublicAPISymbolListener}
+ * directly for improved performance.
+ *
+ * Migration guide:
+ * - For full symbol collection: Replace `new ApexSymbolCollectorListener()` with `new FullSymbolCollectorListener()`
+ * - For public API only: Replace with `new PublicAPISymbolListener()`
+ * - Ensure `collectReferences: true` and `resolveReferences: true` are set in CompilationOptions
  */
 export class ApexSymbolCollectorListener
   extends BaseApexParserListener<SymbolTable>
@@ -196,6 +207,7 @@ export class ApexSymbolCollectorListener
   }> = new Stack();
 
   private hierarchicalResolver = new HierarchicalReferenceResolver();
+  private readonly referenceResolver = new ApexReferenceResolver();
 
   private enableReferenceCorrection: boolean = true; // Default to enabled
 
@@ -6361,6 +6373,8 @@ export class ApexSymbolCollectorListener
    * 1. Fixes VARIABLE_USAGE references that should be CLASS_REFERENCE
    * 2. Resolves all same-file references to their symbol definitions
    * Called from exitCompilationUnit, exitTriggerUnit, and exitAnonymousUnit
+   *
+   * Now delegates to ApexReferenceResolver for consistent resolution logic across all listeners
    */
   private correctReferenceContexts(): void {
     // Early return if correction is disabled
@@ -6368,138 +6382,25 @@ export class ApexSymbolCollectorListener
       return;
     }
 
-    const typeReferences = this.symbolTable.getAllReferences();
-    let correctedCount = 0;
-    let resolvedCount = 0;
+    // Delegate to ApexReferenceResolver for consistent resolution logic
+    // This ensures all listeners (full and layered) use the same resolution process
+    const result = this.referenceResolver.resolveSameFileReferences(
+      this.symbolTable,
+      this.currentFilePath,
+    );
 
-    // Step 1: Correct reference contexts (existing logic)
-    for (const ref of typeReferences) {
-      // Only process VARIABLE_USAGE references that might be misclassified
-      if (ref.context !== ReferenceContext.VARIABLE_USAGE) {
-        continue;
-      }
-
-      // Check if this reference should be CLASS_REFERENCE instead
-      // We can use the symbol table's own symbols to check if it's a class
-      const shouldBeClassRef = this.shouldBeClassReference(ref);
-
-      if (shouldBeClassRef) {
-        this.logger.debug(
-          () =>
-            `[correctReferenceContexts] Upgrading VARIABLE_USAGE "${ref.name}" ` +
-            'to CLASS_REFERENCE',
-        );
-        ref.context = ReferenceContext.CLASS_REFERENCE;
-        correctedCount++;
-      }
-    }
-
-    // Step 2: Resolve all same-file references to their symbol definitions
-    for (const ref of typeReferences) {
-      // Skip if already resolved
-      if (ref.resolvedSymbolId) {
-        continue;
-      }
-
-      // Get scope hierarchy for this reference's position
-      const position = {
-        line: ref.location.identifierRange.startLine,
-        character: ref.location.identifierRange.startColumn,
-      };
-      const scopeHierarchy = this.symbolTable.getScopeHierarchy(position);
-      const containingScope =
-        scopeHierarchy.length > 0
-          ? scopeHierarchy[scopeHierarchy.length - 1]
-          : null;
-
-      // Resolve based on context
-      const resolvedSymbol = this.resolveSameFileReference(
-        ref,
-        containingScope,
-        scopeHierarchy,
-      );
-
-      // For chained references with variable method calls (e.g., "base64Data.toString()"),
-      // only set resolvedSymbolId on the chained reference if we resolved the full chain
-      // (i.e., found the method). Otherwise, let runtime resolution handle it.
-      // For non-chained references or chained references where we found the final method,
-      // set resolvedSymbolId on the reference itself.
-      if (resolvedSymbol) {
-        // Check if this is a chained reference that resolved to a variable (not the final method)
-        const isVariableMethodCall =
-          isChainedSymbolReference(ref) &&
-          ref.chainNodes &&
-          ref.chainNodes.length >= 2 &&
-          resolvedSymbol.kind === SymbolKind.Variable;
-
-        if (!isVariableMethodCall) {
-          // Set resolvedSymbolId on the reference for non-chained refs or full chain resolution
-          ref.resolvedSymbolId = resolvedSymbol.id;
-          resolvedCount++;
-        }
-        // For variable method calls, we don't set resolvedSymbolId on the chained reference
-        // to allow runtime resolution to find the method on the variable's type
-      }
-
-      // If this is a TYPE_DECLARATION reference that was resolved, update variable/field/property/parameter
-      // symbols that use this type to set their type.resolvedSymbol
-      if (
-        ref.context === ReferenceContext.TYPE_DECLARATION &&
-        resolvedSymbol &&
-        (resolvedSymbol.kind === SymbolKind.Class ||
-          resolvedSymbol.kind === SymbolKind.Interface ||
-          resolvedSymbol.kind === SymbolKind.Enum)
-      ) {
-        this.updateTypeResolvedSymbolForDeclarations(
-          ref,
-          resolvedSymbol,
-          scopeHierarchy,
-        );
-      }
-
-      // For chained references, ensure chain nodes are also resolved
-      // (they may have been resolved in resolveSameFileReference, but check anyway)
-      if (isChainedSymbolReference(ref) && ref.chainNodes) {
-        for (const chainNode of ref.chainNodes) {
-          if (!chainNode.resolvedSymbolId) {
-            // Try to resolve this chain node individually
-            const nodePosition = {
-              line: chainNode.location.identifierRange.startLine,
-              character: chainNode.location.identifierRange.startColumn,
-            };
-            const nodeScopeHierarchy =
-              this.symbolTable.getScopeHierarchy(nodePosition);
-            const nodeContainingScope =
-              nodeScopeHierarchy.length > 0
-                ? nodeScopeHierarchy[nodeScopeHierarchy.length - 1]
-                : null;
-
-            const nodeResolvedSymbol = this.resolveSameFileReference(
-              chainNode,
-              nodeContainingScope,
-              nodeScopeHierarchy,
-            );
-
-            if (nodeResolvedSymbol) {
-              chainNode.resolvedSymbolId = nodeResolvedSymbol.id;
-            }
-          }
-        }
-      }
-    }
-
-    if (correctedCount > 0) {
+    if (result.correctedCount > 0) {
       this.logger.debug(
         () =>
-          `[correctReferenceContexts] Corrected ${correctedCount} reference ` +
+          `[correctReferenceContexts] Corrected ${result.correctedCount} reference ` +
           'context(s)',
       );
     }
 
-    if (resolvedCount > 0) {
+    if (result.resolvedCount > 0) {
       this.logger.debug(
         () =>
-          `[correctReferenceContexts] Resolved ${resolvedCount} same-file ` +
+          `[correctReferenceContexts] Resolved ${result.resolvedCount} same-file ` +
           'reference(s) to their symbol definitions',
       );
     }

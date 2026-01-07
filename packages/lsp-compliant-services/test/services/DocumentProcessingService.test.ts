@@ -490,7 +490,7 @@ describe('DocumentProcessingService - Batch Processing', () => {
 
       await service.processDocumentOpenBatch([event1, event2]);
 
-      // Should add symbols synchronously first, then queue background processing
+      // Should add symbols synchronously (same-file references processed, cross-file deferred)
       const symbolManager = mockSymbolProcessingManager.getSymbolManager();
       expect(symbolManager.addSymbolTable).toHaveBeenCalledTimes(2);
       expect(symbolManager.addSymbolTable).toHaveBeenCalledWith(
@@ -502,34 +502,10 @@ describe('DocumentProcessingService - Batch Processing', () => {
         'file:///test2.cls',
       );
 
-      // Should also queue background processing for cross-file resolution
+      // Cross-file references are resolved on-demand, not during file open
       expect(
         mockSymbolProcessingManager.processSymbolTable,
-      ).toHaveBeenCalledTimes(2);
-      expect(
-        mockSymbolProcessingManager.processSymbolTable,
-      ).toHaveBeenCalledWith(
-        mockSymbolTable1,
-        'file:///test1.cls',
-        expect.objectContaining({
-          priority: expect.any(Number),
-          enableCrossFileResolution: true,
-          enableReferenceProcessing: true,
-        }),
-        1, // document version
-      );
-      expect(
-        mockSymbolProcessingManager.processSymbolTable,
-      ).toHaveBeenCalledWith(
-        mockSymbolTable2,
-        'file:///test2.cls',
-        expect.objectContaining({
-          priority: expect.any(Number),
-          enableCrossFileResolution: true,
-          enableReferenceProcessing: true,
-        }),
-        1, // document version
-      );
+      ).not.toHaveBeenCalled();
     });
   });
 });

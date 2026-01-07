@@ -20,6 +20,7 @@ import type {
   CommentAssociation,
 } from '../parser/listeners/ApexCommentCollectorListener';
 import type { GraphData, FileGraphData, TypeGraphData } from '../types/graph';
+import { Effect } from 'effect';
 
 /**
  * Context for symbol resolution
@@ -87,6 +88,18 @@ export interface ISymbolManager {
    * Find files containing a symbol with the given name
    */
   findFilesForSymbol(name: string): string[];
+
+  /**
+   * Resolve cross-file references for a file on-demand.
+   * This method processes references from the SymbolTable and resolves cross-file references
+   * when needed (e.g., for diagnostics, hover, goto definition).
+   *
+   * @param fileUri The file URI to resolve cross-file references for
+   * @returns Effect that resolves cross-file references for the file
+   */
+  resolveCrossFileReferencesForFile(
+    fileUri: string,
+  ): Effect.Effect<void, never, never>;
 
   /**
    * Resolve a symbol by name with context

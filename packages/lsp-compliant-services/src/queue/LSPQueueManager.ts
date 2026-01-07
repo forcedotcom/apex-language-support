@@ -58,8 +58,7 @@ export class LSPQueueManager {
     }
 
     this.logger.debug(
-      () =>
-        'LSP Queue Manager initialized (scheduler will initialize on first use)',
+      'LSP Queue Manager initialized (scheduler initialization handled separately)',
     );
   }
 
@@ -68,11 +67,14 @@ export class LSPQueueManager {
    * Uses centralized SchedulerInitializationService to ensure single initialization
    */
   private async ensureSchedulerInitialized(): Promise<void> {
-    if (!this.schedulerInitialized) {
-      const schedulerService = SchedulerInitializationService.getInstance();
-      await schedulerService.ensureInitialized();
-      this.schedulerInitialized = schedulerService.isInitialized();
+    // Fast path: if already initialized, return immediately
+    if (this.schedulerInitialized) {
+      return;
     }
+
+    const schedulerService = SchedulerInitializationService.getInstance();
+    await schedulerService.ensureInitialized();
+    this.schedulerInitialized = schedulerService.isInitialized();
   }
 
   /**
@@ -391,9 +393,18 @@ export class LSPQueueManager {
       throw new Error('LSP Queue Manager is shutdown');
     }
 
+    const submitStartTime = Date.now();
+
     try {
       // Ensure scheduler is initialized
+      const initStartTime = Date.now();
       await this.ensureSchedulerInitialized();
+      const initTime = Date.now() - initStartTime;
+      if (initTime > 10) {
+        this.logger.debug(
+          () => `[QUEUE-DIAG] ${type} scheduler init took ${initTime}ms`,
+        );
+      }
 
       // Get configuration from service registry
       const requestedPriority = options.priority;
@@ -408,6 +419,7 @@ export class LSPQueueManager {
       );
 
       // Create QueuedItem from request
+      const createStartTime = Date.now();
       const queuedItem = await Effect.runPromise(
         this.createQueuedItem<T>(
           type,
@@ -418,15 +430,51 @@ export class LSPQueueManager {
           options.errorCallback,
         ),
       );
+      const createTime = Date.now() - createStartTime;
+      if (createTime > 10) {
+        this.logger.debug(
+          () => `[QUEUE-DIAG] ${type} createQueuedItem took ${createTime}ms`,
+        );
+      }
 
       // Schedule the task using the priority scheduler
+      const queueStartTime = Date.now();
       const scheduledTask = await Effect.runPromise(
         offer(priority, queuedItem),
       );
+      const queueWaitTime = Date.now() - queueStartTime;
+      if (queueWaitTime > 5) {
+        this.logger.debug(
+          () =>
+            `[QUEUE-DIAG] ${type} queued in ${queueWaitTime}ms, ` +
+            `priority=${priority}`,
+        );
+      }
 
       // Wait for the fiber to complete
+      const fiberStartTime = Date.now();
       const fiber = await Effect.runPromise(scheduledTask.fiber);
+      const fiberWaitTime = Date.now() - fiberStartTime;
+      if (fiberWaitTime > 5) {
+        this.logger.debug(
+          () => `[QUEUE-DIAG] ${type} fiber obtained in ${fiberWaitTime}ms`,
+        );
+      }
+
+      const executionStartTime = Date.now();
       const result = await Effect.runPromise(Fiber.await(fiber));
+      const executionTime = Date.now() - executionStartTime;
+      const totalTime = Date.now() - submitStartTime;
+
+      if (totalTime > 50 || queueWaitTime > 10 || executionTime > 50) {
+        this.logger.debug(
+          () =>
+            `[QUEUE-DIAG] ${type} completed in ${totalTime}ms ` +
+            `(init=${initTime}ms, create=${createTime}ms, ` +
+            `queue=${queueWaitTime}ms, fiber=${fiberWaitTime}ms, ` +
+            `execution=${executionTime}ms)`,
+        );
+      }
 
       if (result._tag === 'Failure') {
         // Extract the error from the Effect failure cause
@@ -466,7 +514,11 @@ export class LSPQueueManager {
 
       return result.value;
     } catch (error) {
-      this.logger.error(() => `Failed to submit ${type} request: ${error}`);
+      const totalTime = Date.now() - submitStartTime;
+      this.logger.error(
+        () =>
+          `[QUEUE-DIAG] Failed to submit ${type} request after ${totalTime}ms: ${error}`,
+      );
       throw error;
     }
   }

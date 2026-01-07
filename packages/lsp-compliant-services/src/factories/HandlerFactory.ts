@@ -47,6 +47,11 @@ import {
   DefinitionProcessingService,
   IDefinitionProcessor,
 } from '../services/DefinitionProcessingService';
+import { ImplementationHandler } from '../handlers/ImplementationHandler';
+import {
+  ImplementationProcessingService,
+  IImplementationProcessor,
+} from '../services/ImplementationProcessingService';
 import { ReferencesHandler } from '../handlers/ReferencesHandler';
 import {
   ReferencesProcessingService,
@@ -255,6 +260,30 @@ export class HandlerFactory {
     definitionProcessor: IDefinitionProcessor,
   ): DefinitionHandler {
     return new DefinitionHandler(logger, definitionProcessor);
+  }
+
+  /**
+   * Create an ImplementationHandler with default dependencies
+   * @returns A configured ImplementationHandler instance
+   */
+  static createImplementationHandler(): ImplementationHandler {
+    const logger = getLogger();
+    const implementationProcessor = new ImplementationProcessingService(logger);
+
+    return new ImplementationHandler(logger, implementationProcessor);
+  }
+
+  /**
+   * Create an ImplementationHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param implementationProcessor Custom implementation processor implementation
+   * @returns A configured ImplementationHandler instance
+   */
+  static createImplementationHandlerWithDependencies(
+    logger: LoggerInterface,
+    implementationProcessor: IImplementationProcessor,
+  ): ImplementationHandler {
+    return new ImplementationHandler(logger, implementationProcessor);
   }
 
   /**

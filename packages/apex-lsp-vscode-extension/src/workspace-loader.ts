@@ -12,22 +12,37 @@ import {
   formattedError,
   type ProgressToken,
   type WorkDoneProgress,
+  type SendWorkspaceBatchParams,
+  type WorkspaceFileBatch,
 } from '@salesforce/apex-lsp-shared';
 import { getWorkspaceSettings } from './configuration';
+import {
+  createFileBatches,
+  compressBatch,
+  encodeBatchForTransport,
+  type FileData,
+} from './workspace-batch-compressor';
 
 // --- Configuration ---
 export const EXCLUDE_GLOB =
   '**/{node_modules,.sfdx/tools/*/StandardApexLibrary}/**';
 
 // --- Effect-wrapped VSCode API ---
-const openDoc = (uri: vscode.Uri) =>
+/**
+ * Read file contents from URI
+ */
+const readFileContent = (uri: vscode.Uri) =>
   Effect.tryPromise({
     try: async () => {
-      await vscode.workspace.openTextDocument(uri);
-      return uri;
+      const fileData = await vscode.workspace.fs.readFile(uri);
+      const decoder = new TextDecoder();
+      const content = decoder.decode(fileData);
+      return { uri, version: 1, content };
     },
     catch: (err: unknown) =>
-      new Error(`Failed to open ${uri.fsPath}: ${String(formattedError(err))}`),
+      new Error(
+        `Failed to read file ${uri.fsPath}: ${String(formattedError(err))}`,
+      ),
   });
 
 /**
@@ -84,8 +99,6 @@ export async function loadWorkspaceForServer(
         // Get settings from configuration
         const settings = getWorkspaceSettings();
         const maxConcurrency = settings.apex.loadWorkspace.maxConcurrency;
-        const yieldInterval = settings.apex.loadWorkspace.yieldInterval;
-        const yieldDelayMs = settings.apex.loadWorkspace.yieldDelayMs;
 
         // Send progress begin notification (LSP)
         if (workDoneToken) {
@@ -155,77 +168,183 @@ export async function loadWorkspaceForServer(
             increment: 10,
           });
 
-          // Open all files in bounded parallel fashion
-          const itemsWithIndex: Array<{ uri: vscode.Uri; idx: number }> =
-            allUris.map((uri: vscode.Uri, idx: number) => ({ uri, idx }));
+          // Get batch size from settings
+          const batchSize = settings.apex.loadWorkspace.batchSize;
 
-          let processedCount = 0;
-          const totalFiles = allUris.length;
-          let lastReportedPercentage = 10; // Track last reported percentage (after discovery)
+          // Read all file contents in parallel
+          logToOutputChannel(`📖 Reading ${allUris.length} files...`, 'debug');
+
+          const fileDataArray = yield* _(
+            Effect.forEach(allUris, (uri) => readFileContent(uri), {
+              concurrency: maxConcurrency,
+            }),
+          );
+
+          // Filter out any failed reads (they return void on error)
+          const validFiles: FileData[] = fileDataArray.filter(
+            (file: FileData | undefined): file is FileData =>
+              file !== undefined,
+          );
+
+          logToOutputChannel(
+            `✅ Read ${validFiles.length} files, creating batches...`,
+            'debug',
+          );
+
+          // Create batches
+          const batches: readonly WorkspaceFileBatch[] = yield* _(
+            createFileBatches(validFiles, batchSize),
+          );
+
+          logToOutputChannel(
+            `📦 Created ${batches.length} batches (batch size: ${batchSize})`,
+            'info',
+          );
+
+          // Send progress report for batch creation
+          if (workDoneToken) {
+            sendProgressNotification(languageClient, workDoneToken, {
+              kind: 'report',
+              message: `Created ${batches.length} batches`,
+              percentage: 20,
+            });
+          }
+
+          progress.report({
+            message: `Created ${batches.length} batches`,
+            increment: 10,
+          });
+
+          // Process batches sequentially
+          let processedBatches = 0;
+          const totalBatches = batches.length;
+          let lastReportedPercentage = 20;
 
           yield* _(
             Effect.forEach(
-              itemsWithIndex,
-              ({ uri, idx }) =>
-                openDoc(uri).pipe(
-                  Effect.tap(() => {
-                    processedCount++;
-                    // Send progress report every 10 files or at completion
-                    if (
-                      workDoneToken &&
-                      (processedCount % 10 === 0 ||
-                        processedCount === totalFiles)
-                    ) {
-                      const percentage = Math.min(
-                        90,
-                        10 + Math.floor((processedCount / totalFiles) * 80),
-                      );
-                      sendProgressNotification(languageClient, workDoneToken, {
-                        kind: 'report',
-                        message: `Loading files... ${processedCount}/${totalFiles}`,
-                        percentage,
-                      });
-                    }
+              batches,
+              (batch) =>
+                Effect.gen(function* () {
+                  // Check for cancellation
+                  if (cancellationToken.isCancellationRequested) {
+                    return yield* Effect.fail(new Error('Cancelled'));
+                  }
 
-                    // Report progress to VS Code notification every 10 files or at completion
-                    if (
-                      processedCount % 10 === 0 ||
-                      processedCount === totalFiles
-                    ) {
-                      const currentPercentage = Math.min(
+                  // Report compression progress
+                  if (workDoneToken) {
+                    sendProgressNotification(languageClient, workDoneToken, {
+                      kind: 'report',
+                      message: `Compressing batch ${
+                        batch.batchIndex + 1
+                      }/${totalBatches}...`,
+                      percentage: Math.min(
                         90,
-                        10 + Math.floor((processedCount / totalFiles) * 80),
-                      );
-                      const increment =
-                        currentPercentage - lastReportedPercentage;
-                      lastReportedPercentage = currentPercentage;
+                        20 + Math.floor((processedBatches / totalBatches) * 70),
+                      ),
+                    });
+                  }
 
-                      progress.report({
-                        message: `Loading files... ${processedCount}/${totalFiles}`,
-                        increment,
-                      });
-                    }
-                  }),
-                  Effect.tap(() =>
-                    idx % yieldInterval === 0
-                      ? Effect.tryPromise({
-                          try: () =>
-                            new Promise<void>((resolve) =>
-                              setTimeout(resolve, yieldDelayMs),
-                            ),
-                          catch: () => new Error('Sleep failed'),
-                        })
-                      : Effect.void,
-                  ),
+                  progress.report({
+                    message: `Compressing batch ${
+                      batch.batchIndex + 1
+                    }/${totalBatches}...`,
+                  });
+
+                  // Compress batch
+                  const compressed = yield* _(compressBatch(batch));
+
+                  // Encode for transport
+                  const encodedData = yield* _(
+                    encodeBatchForTransport(compressed),
+                  );
+
+                  // Report sending progress
+                  if (workDoneToken) {
+                    sendProgressNotification(languageClient, workDoneToken, {
+                      kind: 'report',
+                      message: `Sending batch ${
+                        batch.batchIndex + 1
+                      }/${totalBatches}...`,
+                      percentage: Math.min(
+                        90,
+                        20 + Math.floor((processedBatches / totalBatches) * 70),
+                      ),
+                    });
+                  }
+
+                  progress.report({
+                    message: `Sending batch ${batch.batchIndex + 1}/${totalBatches}...`,
+                  });
+
+                  // Send batch request
+                  const batchParams: SendWorkspaceBatchParams = {
+                    batchIndex: batch.batchIndex,
+                    totalBatches: batch.totalBatches,
+                    isLastBatch: batch.isLastBatch,
+                    compressedData: encodedData,
+                    fileMetadata: batch.fileMetadata,
+                  };
+
+                  const result = yield* _(
+                    Effect.tryPromise({
+                      try: () =>
+                        languageClient.sendRequest(
+                          'apex/sendWorkspaceBatch',
+                          batchParams,
+                        ),
+                      catch: (err: unknown) =>
+                        new Error(
+                          `Failed to send batch ${batch.batchIndex + 1}: ${String(formattedError(err))}`,
+                        ),
+                    }),
+                  );
+
+                  if (!result.success) {
+                    logToOutputChannel(
+                      `⚠️ Batch ${batch.batchIndex + 1} failed: ${result.error ?? 'Unknown error'}`,
+                      'warning',
+                    );
+                  }
+
+                  processedBatches++;
+
+                  // Update progress
+                  const currentPercentage = Math.min(
+                    90,
+                    20 + Math.floor((processedBatches / totalBatches) * 70),
+                  );
+                  const increment = currentPercentage - lastReportedPercentage;
+                  lastReportedPercentage = currentPercentage;
+
+                  if (workDoneToken) {
+                    sendProgressNotification(languageClient, workDoneToken, {
+                      kind: 'report',
+                      message: `Processed ${processedBatches}/${totalBatches} batches`,
+                      percentage: currentPercentage,
+                    });
+                  }
+
+                  progress.report({
+                    message: `Processed ${processedBatches}/${totalBatches} batches`,
+                    increment,
+                  });
+
+                  logToOutputChannel(
+                    `✅ Batch ${batch.batchIndex + 1}/${totalBatches} sent successfully (${
+                      result.enqueuedCount
+                    } files enqueued)`,
+                    'debug',
+                  );
+                }).pipe(
                   Effect.catchAll((err: unknown) => {
                     logToOutputChannel(
-                      `Error opening file ${uri.fsPath}: ${formattedError(err)}`,
+                      `Error processing batch: ${formattedError(err)}`,
                       'error',
                     );
                     return Effect.void;
                   }),
                 ),
-              { concurrency: maxConcurrency },
+              { concurrency: 1 }, // Sequential batch processing
             ),
           );
 

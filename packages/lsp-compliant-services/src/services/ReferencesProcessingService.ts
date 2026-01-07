@@ -12,7 +12,7 @@ import {
   Range,
   Position,
 } from 'vscode-languageserver-protocol';
-import { Connection } from 'vscode-languageserver';
+import { Connection, ProgressToken } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   LoggerInterface,
@@ -35,7 +35,11 @@ import {
   transformParserToLspPosition,
   transformLspToParserPosition,
 } from '../utils/positionUtils';
-import { ensureWorkspaceLoaded } from './WorkspaceLoadCoordinator';
+import {
+  ensureWorkspaceLoaded,
+  isWorkspaceLoaded,
+  isWorkspaceLoading,
+} from './WorkspaceLoadCoordinator';
 
 /**
  * Interface for references processing functionality
@@ -88,6 +92,49 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   }
 
   /**
+   * Queue workspace load if needed (only if workspace is not already loaded or loading)
+   * Uses local state tracking instead of querying client
+   */
+  private async queueWorkspaceLoadIfNeeded(
+    connection: Connection,
+    workDoneToken?: ProgressToken,
+  ): Promise<void> {
+    // Check local state first
+    if (isWorkspaceLoaded()) {
+      this.logger.debug(
+        () =>
+          'Workspace already loaded (from local state), skipping workspace load',
+      );
+      return;
+    }
+
+    if (isWorkspaceLoading()) {
+      this.logger.debug(
+        () =>
+          'Workspace already loading (from local state), skipping workspace load',
+      );
+      return;
+    }
+
+    // Queue workspace load
+    const schedulerService = SchedulerInitializationService.getInstance();
+    await schedulerService.ensureInitialized();
+
+    const loadEffect = ensureWorkspaceLoaded(
+      connection,
+      this.logger,
+      workDoneToken,
+    );
+
+    const queuedItem = await Effect.runPromise(
+      createQueuedItem(loadEffect, 'workspace-load'),
+    );
+    await Effect.runPromise(offer(Priority.Low, queuedItem));
+
+    this.logger.debug(() => 'Workspace load task queued');
+  }
+
+  /**
    * Process a references request
    * @param params The references parameters
    * @returns Reference locations for the requested symbol
@@ -103,29 +150,21 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       const connection = this.getConnection();
       if (connection) {
         try {
-          // Ensure scheduler is initialized
-          const schedulerService = SchedulerInitializationService.getInstance();
-          await schedulerService.ensureInitialized();
-
-          const loadEffect = ensureWorkspaceLoaded(
+          // Check workspace state synchronously BEFORE queuing
+          await this.queueWorkspaceLoadIfNeeded(
             connection,
-            this.logger,
             params.workDoneToken,
           );
 
-          // Queue workspace load task (non-blocking)
-          const queuedItem = await Effect.runPromise(
-            createQueuedItem(loadEffect, 'workspace-load'),
-          );
-          await Effect.runPromise(offer(Priority.Low, queuedItem));
-
           this.logger.debug(
             () =>
-              'Workspace load task queued, proceeding with reference search (results may be partial)',
+              'Workspace load check completed, proceeding with reference search (results may be partial)',
           );
         } catch (error) {
-          this.logger.error(() => `Error queuing workspace load: ${error}`);
-          // Continue with reference search even if workspace load queuing fails
+          this.logger.error(
+            () => `Error checking/queuing workspace load: ${error}`,
+          );
+          // Continue with reference search even if workspace load check/queuing fails
         }
       } else {
         this.logger.debug(

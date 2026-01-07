@@ -29,6 +29,7 @@
   "wireit": {
     "compile": {
       "command": "tsc --build",
+      "clean": "if-file-deleted",
       "output": [
         "out/**"
       ],
@@ -87,7 +88,19 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../eslint.config.mjs"
+        "eslint.config.mjs"
+      ],
+      "output": []
+    },
+    "lint:fix": {
+      "command": "eslint --fix --color --cache --cache-location .eslintcache src test",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
       ],
       "output": []
     }
@@ -98,6 +111,6 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@salesforce/esbuild-presets": "*"
+    "@salesforce/esbuild-presets": "^0.1.0"
   }
 }

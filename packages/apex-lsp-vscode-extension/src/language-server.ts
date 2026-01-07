@@ -12,6 +12,7 @@ import type {
   ClientInterface,
   RuntimePlatform,
   LogMessageType,
+  RequestWorkspaceLoadParams,
 } from '@salesforce/apex-lsp-shared';
 import {
   getClientCapabilitiesForMode,
@@ -27,7 +28,6 @@ import {
 import { setStartingFlag, resetServerStartRetries } from './commands';
 import { handleFindMissingArtifact } from './missing-artifact-handler';
 import {
-  handleLoadWorkspace,
   startWorkspaceLoad,
   WorkspaceLoaderServiceLive,
   WorkspaceStateLive,
@@ -346,6 +346,60 @@ async function createWebLanguageClient(
     );
     logToOutputChannel('Language Client created successfully', 'debug');
 
+    // Wrap LanguageClient's sendRequest to intercept hover requests
+    const originalSendRequest = languageClient.sendRequest.bind(languageClient);
+    (languageClient as any).sendRequest = async (
+      method: string,
+      ...args: any[]
+    ) => {
+      const isHoverRequest = method === 'textDocument/hover';
+      const requestStartTime = Date.now();
+
+      if (isHoverRequest && args[0]) {
+        const params = args[0];
+        const uri = params.textDocument?.uri || 'unknown';
+        const line = params.position?.line ?? '?';
+        const character = params.position?.character ?? '?';
+        logToOutputChannel(
+          `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
+          'debug',
+        );
+      }
+
+      try {
+        const sendStartTime = Date.now();
+        const result = await originalSendRequest(method, ...args);
+        const sendTime = Date.now() - sendStartTime;
+        const totalTime = Date.now() - requestStartTime;
+
+        if (isHoverRequest) {
+          const params = args[0];
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `✅ [CLIENT] Hover request completed: ${uri} ` +
+              `total=${totalTime}ms, send=${sendTime}ms, ` +
+              `result=${result ? 'success' : 'null'}`,
+            'debug',
+          );
+        }
+
+        return result;
+      } catch (error) {
+        const totalTime = Date.now() - requestStartTime;
+
+        if (isHoverRequest) {
+          const params = args[0];
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+            'error',
+          );
+        }
+
+        throw error;
+      }
+    };
+
     // Workspace state is now managed via Effect Context/Layer
   } catch (error) {
     logToOutputChannel(`Failed to create Language Client: ${error}`, 'error');
@@ -554,16 +608,56 @@ async function createWebLanguageClient(
       }
     },
     sendRequest: async (method: string, params?: any) => {
-      try {
+      const isHoverRequest = method === 'textDocument/hover';
+      const requestStartTime = Date.now();
+
+      if (isHoverRequest && params) {
+        const uri = params.textDocument?.uri || 'unknown';
+        const line = params.position?.line ?? '?';
+        const character = params.position?.character ?? '?';
+        logToOutputChannel(
+          `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
+          'debug',
+        );
+      } else {
         logToOutputChannel(`Sending request: ${method}`, 'debug');
+      }
+
+      try {
+        const sendStartTime = Date.now();
         const result = await languageClient.sendRequest(method, params);
-        logToOutputChannel(`Successfully sent request: ${method}`, 'debug');
+        const sendTime = Date.now() - sendStartTime;
+        const totalTime = Date.now() - requestStartTime;
+
+        if (isHoverRequest) {
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `✅ [CLIENT] Hover request completed: ${uri} ` +
+              `total=${totalTime}ms, send=${sendTime}ms, ` +
+              `result=${result ? 'success' : 'null'}`,
+            'debug',
+          );
+        } else {
+          logToOutputChannel(`Successfully sent request: ${method}`, 'debug');
+        }
+
         return result;
       } catch (error) {
-        logToOutputChannel(
-          `Failed to send request ${method}: ${error}`,
-          'error',
-        );
+        const totalTime = Date.now() - requestStartTime;
+
+        if (isHoverRequest) {
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+            'error',
+          );
+        } else {
+          logToOutputChannel(
+            `Failed to send request ${method}: ${error}`,
+            'error',
+          );
+        }
+
         try {
           logToOutputChannel(
             `Request params: ${JSON.stringify(params, null, 2)}`,
@@ -577,19 +671,19 @@ async function createWebLanguageClient(
     },
     sendNotification: (method: string, params?: any) => {
       try {
-        logToOutputChannel(`Sending notification: ${method}`, 'debug');
-        try {
+        const isDidOpen = method === 'textDocument/didOpen';
+
+        if (isDidOpen && params) {
+          const uri = params.textDocument?.uri || 'unknown';
+          const version = params.textDocument?.version ?? '?';
+          const languageId = params.textDocument?.languageId || 'unknown';
           logToOutputChannel(
-            `Notification params: ${JSON.stringify(params, null, 2)}`,
+            `📤 [CLIENT] Sending textDocument/didOpen: ${uri} (version: ${version}, language: ${languageId})`,
             'debug',
           );
-        } catch (_error) {
-          logToOutputChannel(
-            'Notification params: [unable to serialize]',
-            'debug',
-          );
+        } else {
+          logToOutputChannel(`Sending notification: ${method}`, 'debug');
         }
-        logToOutputChannel(`Sending notification: ${method}`, 'debug');
 
         // Ensure params are serializable before sending
         let cleanParams = params;
@@ -606,13 +700,23 @@ async function createWebLanguageClient(
         }
 
         languageClient.sendNotification(method, cleanParams);
-        logToOutputChannel(
-          `Successfully sent notification: ${method}`,
-          'debug',
-        );
+
+        if (isDidOpen) {
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `✅ [CLIENT] Successfully sent textDocument/didOpen: ${uri}`,
+            'debug',
+          );
+        } else {
+          logToOutputChannel(
+            `Successfully sent notification: ${method}`,
+            'debug',
+          );
+        }
       } catch (error) {
+        const uri = params?.textDocument?.uri || 'unknown';
         logToOutputChannel(
-          `Failed to send notification ${method}: ${error}`,
+          `❌ [CLIENT] Failed to send textDocument/didOpen: ${uri} - ${error}`,
           'error',
         );
         try {
@@ -632,8 +736,25 @@ async function createWebLanguageClient(
     onRequest: (method: string, handler: (params: any) => any) => {
       languageClient.onRequest(method, handler);
     },
-    onNotification: (method: string, handler: (params: any) => void) => {
-      languageClient.onNotification(method, handler);
+    onNotification: (
+      method: string,
+      handler: (params: any) => void,
+    ): vscode.Disposable => {
+      logToOutputChannel(
+        `[Client] Registering notification handler for: ${method}`,
+        'debug',
+      );
+      const disposable = languageClient.onNotification(
+        method,
+        (params: any) => {
+          logToOutputChannel(
+            `[Client] Notification received: ${method}`,
+            'debug',
+          );
+          handler(params);
+        },
+      );
+      return disposable;
     },
     isDisposed: () => !languageClient.isRunning(),
     dispose: () => {
@@ -697,33 +818,34 @@ async function createWebLanguageClient(
     }
   });
 
-  // Register handler for server-to-client apex/loadWorkspace requests
-  Client.onRequest('apex/loadWorkspace', async (params: any) => {
-    logToOutputChannel(
-      '📨 Received apex/loadWorkspace request from server',
-      'debug',
-    );
-
-    try {
-      const result = await Effect.runPromise(
-        Effect.provide(
-          handleLoadWorkspace(params, Client!),
-          sharedWorkspaceLoadLayer,
-        ),
-      );
+  // Register handler for server-to-client apex/requestWorkspaceLoad notification
+  Client.onNotification(
+    'apex/requestWorkspaceLoad',
+    async (params: RequestWorkspaceLoadParams) => {
       logToOutputChannel(
-        `✅ Load workspace acknowledged: ${JSON.stringify(result)}`,
+        '📨 Received apex/requestWorkspaceLoad notification from server',
         'debug',
       );
-      return result;
-    } catch (error) {
-      logToOutputChannel(
-        `❌ Failed to handle loadWorkspace request: ${error}`,
-        'error',
-      );
-      return { error: `Failed to handle loadWorkspace request: ${error}` };
-    }
-  });
+
+      try {
+        await Effect.runPromise(
+          Effect.provide(
+            startWorkspaceLoad(Client!, params.workDoneToken),
+            sharedWorkspaceLoadLayer,
+          ),
+        );
+        logToOutputChannel(
+          '✅ Workspace load initiated from server notification',
+          'debug',
+        );
+      } catch (error) {
+        logToOutputChannel(
+          `❌ Failed to handle workspace load notification: ${error}`,
+          'error',
+        );
+      }
+    },
+  );
 
   // Initialize the language server
   logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
@@ -802,6 +924,57 @@ async function createDesktopLanguageClient(
 
   logToOutputChannel('🚀 Starting Node.js language client...', 'info');
 
+  // Wrap LanguageClient's sendRequest to intercept hover requests
+  const originalSendRequest = nodeClient.sendRequest.bind(nodeClient);
+  (nodeClient as any).sendRequest = async (method: string, ...args: any[]) => {
+    const isHoverRequest = method === 'textDocument/hover';
+    const requestStartTime = Date.now();
+
+    if (isHoverRequest && args[0]) {
+      const params = args[0];
+      const uri = params.textDocument?.uri || 'unknown';
+      const line = params.position?.line ?? '?';
+      const character = params.position?.character ?? '?';
+      logToOutputChannel(
+        `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
+        'debug',
+      );
+    }
+
+    try {
+      const sendStartTime = Date.now();
+      const result = await originalSendRequest(method, ...args);
+      const sendTime = Date.now() - sendStartTime;
+      const totalTime = Date.now() - requestStartTime;
+
+      if (isHoverRequest) {
+        const params = args[0];
+        const uri = params?.textDocument?.uri || 'unknown';
+        logToOutputChannel(
+          `✅ [CLIENT] Hover request completed: ${uri} ` +
+            `total=${totalTime}ms, send=${sendTime}ms, ` +
+            `result=${result ? 'success' : 'null'}`,
+          'debug',
+        );
+      }
+
+      return result;
+    } catch (error) {
+      const totalTime = Date.now() - requestStartTime;
+
+      if (isHoverRequest) {
+        const params = args[0];
+        const uri = params?.textDocument?.uri || 'unknown';
+        logToOutputChannel(
+          `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+          'error',
+        );
+      }
+
+      throw error;
+    }
+  };
+
   // Start the client and language server
   await nodeClient.start();
 
@@ -819,15 +992,41 @@ async function createDesktopLanguageClient(
     },
     sendNotification: (method: string, params?: any) => {
       try {
-        logToOutputChannel(`Sending desktop notification: ${method}`, 'debug');
+        const isDidOpen = method === 'textDocument/didOpen';
+
+        if (isDidOpen && params) {
+          const uri = params.textDocument?.uri || 'unknown';
+          const version = params.textDocument?.version ?? '?';
+          const languageId = params.textDocument?.languageId || 'unknown';
+          logToOutputChannel(
+            `📤 [CLIENT] Sending textDocument/didOpen: ${uri} (version: ${version}, language: ${languageId})`,
+            'debug',
+          );
+        } else {
+          logToOutputChannel(
+            `Sending desktop notification: ${method}`,
+            'debug',
+          );
+        }
+
         nodeClient.sendNotification(method, params);
-        logToOutputChannel(
-          `Successfully sent desktop notification: ${method}`,
-          'debug',
-        );
+
+        if (isDidOpen) {
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `✅ [CLIENT] Successfully sent textDocument/didOpen: ${uri}`,
+            'debug',
+          );
+        } else {
+          logToOutputChannel(
+            `Successfully sent desktop notification: ${method}`,
+            'debug',
+          );
+        }
       } catch (error) {
+        const uri = params?.textDocument?.uri || 'unknown';
         logToOutputChannel(
-          `Failed to send desktop notification ${method}: ${error}`,
+          `❌ [CLIENT] Failed to send textDocument/didOpen: ${uri} - ${error}`,
           'error',
         );
         try {
@@ -844,20 +1043,60 @@ async function createDesktopLanguageClient(
         throw error;
       }
     },
-    sendRequest: (method: string, params?: any) => {
-      try {
-        logToOutputChannel(`Sending desktop request: ${method}`, 'debug');
-        const result = nodeClient.sendRequest(method, params);
+    sendRequest: async (method: string, params?: any) => {
+      const isHoverRequest = method === 'textDocument/hover';
+      const requestStartTime = Date.now();
+
+      if (isHoverRequest && params) {
+        const uri = params.textDocument?.uri || 'unknown';
+        const line = params.position?.line ?? '?';
+        const character = params.position?.character ?? '?';
         logToOutputChannel(
-          `Successfully sent desktop request: ${method}`,
+          `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
           'debug',
         );
+      } else {
+        logToOutputChannel(`Sending desktop request: ${method}`, 'debug');
+      }
+
+      try {
+        const sendStartTime = Date.now();
+        const result = await nodeClient.sendRequest(method, params);
+        const sendTime = Date.now() - sendStartTime;
+        const totalTime = Date.now() - requestStartTime;
+
+        if (isHoverRequest) {
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `✅ [CLIENT] Hover request completed: ${uri} ` +
+              `total=${totalTime}ms, send=${sendTime}ms, ` +
+              `result=${result ? 'success' : 'null'}`,
+            'debug',
+          );
+        } else {
+          logToOutputChannel(
+            `Successfully sent desktop request: ${method}`,
+            'debug',
+          );
+        }
+
         return result;
       } catch (error) {
-        logToOutputChannel(
-          `Failed to send desktop request ${method}: ${error}`,
-          'error',
-        );
+        const totalTime = Date.now() - requestStartTime;
+
+        if (isHoverRequest) {
+          const uri = params?.textDocument?.uri || 'unknown';
+          logToOutputChannel(
+            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
+            'error',
+          );
+        } else {
+          logToOutputChannel(
+            `Failed to send desktop request ${method}: ${error}`,
+            'error',
+          );
+        }
+
         try {
           logToOutputChannel(
             `Desktop request params: ${JSON.stringify(params, null, 2)}`,
@@ -872,8 +1111,20 @@ async function createDesktopLanguageClient(
         throw error;
       }
     },
-    onNotification: (method: string, handler: (...args: any[]) => void) =>
-      nodeClient.onNotification(method, handler),
+    onNotification: (method: string, handler: (...args: any[]) => void) => {
+      logToOutputChannel(
+        `[Client] Registering notification handler for: ${method}`,
+        'debug',
+      );
+      const disposable = nodeClient.onNotification(method, (...args: any[]) => {
+        logToOutputChannel(
+          `[Client] Notification received: ${method}`,
+          'debug',
+        );
+        handler(...args);
+      });
+      return disposable;
+    },
     onRequest: (method: string, handler: (...args: any[]) => any) =>
       nodeClient.onRequest(method, handler),
     isDisposed: () => !nodeClient.isRunning(),
@@ -936,33 +1187,34 @@ async function createDesktopLanguageClient(
     }
   });
 
-  // Register handler for server-to-client apex/loadWorkspace requests
-  Client.onRequest('apex/loadWorkspace', async (params: any) => {
-    logToOutputChannel(
-      '📨 Received apex/loadWorkspace request from server',
-      'debug',
-    );
-
-    try {
-      const result = await Effect.runPromise(
-        Effect.provide(
-          handleLoadWorkspace(params, Client!),
-          sharedWorkspaceLoadLayer,
-        ),
-      );
+  // Register handler for server-to-client apex/requestWorkspaceLoad notification
+  Client.onNotification(
+    'apex/requestWorkspaceLoad',
+    async (params: RequestWorkspaceLoadParams) => {
       logToOutputChannel(
-        `✅ Load workspace acknowledged: ${JSON.stringify(result)}`,
+        '📨 Received apex/requestWorkspaceLoad notification from server',
         'debug',
       );
-      return result;
-    } catch (error) {
-      logToOutputChannel(
-        `❌ Failed to handle loadWorkspace request: ${error}`,
-        'error',
-      );
-      return { error: `Failed to handle loadWorkspace request: ${error}` };
-    }
-  });
+
+      try {
+        await Effect.runPromise(
+          Effect.provide(
+            startWorkspaceLoad(Client!, params.workDoneToken),
+            sharedWorkspaceLoadLayer,
+          ),
+        );
+        logToOutputChannel(
+          '✅ Workspace load initiated from server notification',
+          'debug',
+        );
+      } catch (error) {
+        logToOutputChannel(
+          `❌ Failed to handle workspace load notification: ${error}`,
+          'error',
+        );
+      }
+    },
+  );
 
   logToOutputChannel('✅ Node.js language client started successfully', 'info');
 

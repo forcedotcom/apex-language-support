@@ -110,12 +110,38 @@ export async function cloneGitHubRepository(
 
 /**
  * Execute a command and return a promise that resolves when the command completes
+ * Uses spawn instead of exec to avoid shell injection vulnerabilities
  */
 export function executeCommand(command: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    childProcess.exec(command, (error, stdout, stderr) => {
-      if (error) {
-        reject(new Error(`Command failed: ${error.message}\n${stderr}`));
+    // Parse command into executable and arguments
+    const parts = command.trim().split(/\s+/);
+    const executable = parts[0];
+    const args = parts.slice(1);
+
+    const child = childProcess.spawn(executable, args, {
+      shell: false, // Use spawn without shell to avoid deprecation warning
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout?.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr?.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    child.on('error', (error) => {
+      reject(new Error(`Command failed: ${error.message}\n${stderr}`));
+    });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Command failed with code ${code}\n${stderr}`));
       } else {
         resolve(stdout);
       }

@@ -124,6 +124,7 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => {
     CompilerService: jest.fn(),
     SymbolTable: jest.fn(),
     ApexSymbolCollectorListener: jest.fn(),
+    PublicAPISymbolListener: jest.fn(),
     ApexSymbolProcessingManager: {
       getInstance: jest.fn(() => ({
         getSymbolManager: jest.fn(() => symbolManager),
@@ -152,6 +153,14 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   getLogger: jest.fn(),
 }));
 jest.mock('../../src/utils/handlerUtil');
+
+// Mock WorkspaceLoadCoordinator
+const mockIsWorkspaceLoading = jest.fn();
+const mockIsWorkspaceLoaded = jest.fn();
+jest.mock('../../src/services/WorkspaceLoadCoordinator', () => ({
+  isWorkspaceLoading: jest.fn(() => mockIsWorkspaceLoading()),
+  isWorkspaceLoaded: jest.fn(() => mockIsWorkspaceLoaded()),
+}));
 
 describe('DiagnosticProcessingService', () => {
   let mockLogger: jest.Mocked<LoggerInterface>;
@@ -192,6 +201,10 @@ describe('DiagnosticProcessingService', () => {
     const cache = getDocumentStateCache();
     cache.clear();
 
+    // Reset workspace state mocks
+    mockIsWorkspaceLoading.mockReturnValue(false);
+    mockIsWorkspaceLoaded.mockReturnValue(true);
+
     service = new DiagnosticProcessingService(mockLogger);
   });
 
@@ -224,6 +237,10 @@ describe('DiagnosticProcessingService', () => {
 
       // Mock the compilation result with errors
       const mockCompileResult = {
+        fileName: 'file:///test.cls',
+        result: {
+          getAllSymbols: jest.fn().mockReturnValue([]),
+        },
         errors: [
           {
             type: 'syntax',
@@ -231,9 +248,10 @@ describe('DiagnosticProcessingService', () => {
             message: 'Test error',
             line: 1,
             column: 1,
-            filePath: 'file:///test.cls',
+            fileUri: 'file:///test.cls',
           },
         ],
+        warnings: [],
       };
 
       // Mock the CompilerService
@@ -282,7 +300,12 @@ describe('DiagnosticProcessingService', () => {
 
       // Mock the compilation result with no errors
       const mockCompileResult = {
+        fileName: 'file:///test.cls',
+        result: {
+          getAllSymbols: jest.fn().mockReturnValue([]),
+        },
         errors: [],
+        warnings: [],
       };
 
       // Mock the CompilerService
@@ -366,6 +389,178 @@ describe('DiagnosticProcessingService', () => {
       }
     });
 
+    it('should skip cross-file resolution during workspace load', async () => {
+      const params: DocumentSymbolParams = {
+        textDocument: { uri: 'file:///test.cls' },
+      };
+
+      const mockDocument = {
+        uri: 'file:///test.cls',
+        version: 1,
+        getText: () => 'public class TestClass { }',
+      } as TextDocument;
+
+      mockStorage.getDocument.mockResolvedValue(mockDocument);
+
+      // Mock workspace loading state
+      mockIsWorkspaceLoading.mockReturnValue(true);
+      mockIsWorkspaceLoaded.mockReturnValue(false);
+
+      // Mock symbol manager
+      const mockSymbolManager = {
+        resolveCrossFileReferencesForFile: jest.fn().mockReturnValue({
+          pipe: jest.fn().mockReturnValue({
+            pipe: jest.fn(),
+          }),
+        }),
+      };
+      (service as any).symbolManager = mockSymbolManager;
+
+      // Mock compilation result
+      const mockCompileResult = {
+        fileName: 'file:///test.cls',
+        errors: [],
+        result: {
+          getAllSymbols: jest.fn().mockReturnValue([]),
+        },
+        warnings: [],
+      };
+
+      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
+      CompilerService.mockImplementation(() => ({
+        compile: jest.fn().mockReturnValue(mockCompileResult),
+      }));
+
+      const {
+        getDiagnosticsFromErrors,
+      } = require('../../src/utils/handlerUtil');
+      getDiagnosticsFromErrors.mockReturnValue([]);
+
+      await service.processDiagnostic(params);
+
+      // Verify resolveCrossFileReferencesForFile was NOT called
+      expect(
+        mockSymbolManager.resolveCrossFileReferencesForFile,
+      ).not.toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
+    });
+
+    it('should skip cross-file resolution when workspace is not loaded', async () => {
+      const params: DocumentSymbolParams = {
+        textDocument: { uri: 'file:///test.cls' },
+      };
+
+      const mockDocument = {
+        uri: 'file:///test.cls',
+        version: 1,
+        getText: () => 'public class TestClass { }',
+      } as TextDocument;
+
+      mockStorage.getDocument.mockResolvedValue(mockDocument);
+
+      // Mock workspace not loaded state
+      mockIsWorkspaceLoading.mockReturnValue(false);
+      mockIsWorkspaceLoaded.mockReturnValue(false);
+
+      // Mock symbol manager
+      const mockSymbolManager = {
+        resolveCrossFileReferencesForFile: jest.fn().mockReturnValue({
+          pipe: jest.fn().mockReturnValue({
+            pipe: jest.fn(),
+          }),
+        }),
+      };
+      (service as any).symbolManager = mockSymbolManager;
+
+      // Mock compilation result
+      const mockCompileResult = {
+        fileName: 'file:///test.cls',
+        errors: [],
+        result: {
+          getAllSymbols: jest.fn().mockReturnValue([]),
+        },
+        warnings: [],
+      };
+
+      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
+      CompilerService.mockImplementation(() => ({
+        compile: jest.fn().mockReturnValue(mockCompileResult),
+      }));
+
+      const {
+        getDiagnosticsFromErrors,
+      } = require('../../src/utils/handlerUtil');
+      getDiagnosticsFromErrors.mockReturnValue([]);
+
+      await service.processDiagnostic(params);
+
+      // Verify resolveCrossFileReferencesForFile was NOT called
+      expect(
+        mockSymbolManager.resolveCrossFileReferencesForFile,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should resolve cross-file references when workspace is loaded', async () => {
+      const params: DocumentSymbolParams = {
+        textDocument: { uri: 'file:///test.cls' },
+      };
+
+      const mockDocument = {
+        uri: 'file:///test.cls',
+        version: 1,
+        getText: () => 'public class TestClass { }',
+      } as TextDocument;
+
+      mockStorage.getDocument.mockResolvedValue(mockDocument);
+
+      // Mock workspace loaded state
+      mockIsWorkspaceLoading.mockReturnValue(false);
+      mockIsWorkspaceLoaded.mockReturnValue(true);
+
+      // Mock symbol manager with a proper Effect that resolves
+      const { Effect } = require('effect');
+      const mockResolveEffect = Effect.succeed(undefined);
+      const mockSymbolManager = {
+        resolveCrossFileReferencesForFile: jest
+          .fn()
+          .mockReturnValue(mockResolveEffect),
+      };
+      (service as any).symbolManager = mockSymbolManager;
+
+      // Mock compilation result
+      const mockCompileResult = {
+        fileName: 'file:///test.cls',
+        errors: [],
+        result: {
+          getAllSymbols: jest.fn().mockReturnValue([]),
+        },
+        warnings: [],
+      };
+
+      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
+      CompilerService.mockImplementation(() => ({
+        compile: jest.fn().mockReturnValue(mockCompileResult),
+      }));
+
+      const {
+        getDiagnosticsFromErrors,
+      } = require('../../src/utils/handlerUtil');
+      getDiagnosticsFromErrors.mockReturnValue([]);
+
+      // Mock enhanceDiagnosticsWithGraphAnalysisEffect to return empty diagnostics
+      const mockEnhanceEffect = Effect.succeed([]);
+      jest
+        .spyOn(service as any, 'enhanceDiagnosticsWithGraphAnalysisEffect')
+        .mockReturnValue(mockEnhanceEffect);
+
+      await service.processDiagnostic(params);
+
+      // Verify resolveCrossFileReferencesForFile WAS called
+      expect(
+        mockSymbolManager.resolveCrossFileReferencesForFile,
+      ).toHaveBeenCalledWith('file:///test.cls');
+    });
+
     it('should not suppress diagnostics for user code URIs', async () => {
       const params: DocumentSymbolParams = {
         textDocument: { uri: 'file:///Users/test/MyClass.cls' },
@@ -380,6 +575,10 @@ describe('DiagnosticProcessingService', () => {
 
       // Mock the compilation result with errors
       const mockCompileResult = {
+        fileName: 'file:///Users/test/MyClass.cls',
+        result: {
+          getAllSymbols: jest.fn().mockReturnValue([]),
+        },
         errors: [
           {
             type: 'syntax',
@@ -387,9 +586,10 @@ describe('DiagnosticProcessingService', () => {
             message: 'Test error',
             line: 1,
             column: 1,
-            filePath: 'file:///Users/test/MyClass.cls',
+            fileUri: 'file:///Users/test/MyClass.cls',
           },
         ],
+        warnings: [],
       };
 
       // Mock the CompilerService
@@ -415,6 +615,13 @@ describe('DiagnosticProcessingService', () => {
         getDiagnosticsFromErrors,
       } = require('../../src/utils/handlerUtil');
       getDiagnosticsFromErrors.mockImplementation(mockGetDiagnosticsFromErrors);
+
+      // Mock enhanceDiagnosticsWithGraphAnalysisEffect to return the diagnostics as-is
+      const { Effect } = require('effect');
+      const mockEnhanceEffect = Effect.succeed(mockGetDiagnosticsFromErrors());
+      jest
+        .spyOn(service as any, 'enhanceDiagnosticsWithGraphAnalysisEffect')
+        .mockReturnValue(mockEnhanceEffect);
 
       const result = await service.processDiagnostic(params);
 

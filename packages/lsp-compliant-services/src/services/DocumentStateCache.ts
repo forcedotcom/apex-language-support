@@ -12,6 +12,17 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Diagnostic } from 'vscode-languageserver-protocol';
 
 /**
+ * Type for parse tree (from @apexdevtools/apex-parser)
+ * Using any to avoid direct dependency on parser package in this service layer
+ */
+type ParseTree = any; // CompilationUnitContext | TriggerUnitContext | BlockContext
+
+/**
+ * Detail level for layered symbol collection
+ */
+export type DetailLevel = 'public-api' | 'protected' | 'private' | 'full';
+
+/**
  * Document state with version tracking and indexing status
  *
  * This cache supports results from different listener types using optional fields.
@@ -19,7 +30,7 @@ import { Diagnostic } from 'vscode-languageserver-protocol';
  *
  * - ApexSymbolCollectorListener results: symbolTable and diagnostics fields
  * - ApexFoldingRangeListener results: foldingRanges field
- * - Future listeners can add their own optional fields
+ * - Layered compilation: parseTree, detailLevel, listenersApplied, contentHash fields
  *
  * The cache acts as a "todo list" for each file/version, tracking what work has been done.
  */
@@ -30,6 +41,12 @@ export interface DocumentState {
 
   // ApexFoldingRangeListener results (optional)
   foldingRanges?: FoldingRange[];
+
+  // Layered compilation support (optional)
+  parseTree?: ParseTree; // Cached parse tree for reuse across listeners
+  contentHash?: string; // Hash of file content for parse tree invalidation
+  detailLevel?: DetailLevel; // Highest detail level processed
+  listenersApplied?: string[]; // Track which listeners were applied
 
   // Common metadata
   documentVersion: number;
@@ -127,6 +144,75 @@ export class DocumentStateCache {
       return { foldingRanges: cached.foldingRanges };
     }
     return null;
+  }
+
+  /**
+   * Get cached parse tree for a document if version and content hash match
+   * @param uri Document URI
+   * @param version Document version number
+   * @param contentHash Hash of file content (optional, for validation)
+   * @returns Cached parse tree if version matches and content hash matches (if provided), null otherwise
+   */
+  getParseTree(
+    uri: string,
+    version: number,
+    contentHash?: string,
+  ): ParseTree | null {
+    const cached = this.get(uri, version);
+    if (cached?.parseTree) {
+      // If contentHash provided, validate it matches
+      if (
+        contentHash &&
+        cached.contentHash &&
+        cached.contentHash !== contentHash
+      ) {
+        this.logger.debug(
+          () =>
+            `Parse tree cache invalidated for ${uri}: content hash mismatch ` +
+            `(cached: ${cached.contentHash}, provided: ${contentHash})`,
+        );
+        return null;
+      }
+      return cached.parseTree;
+    }
+    return null;
+  }
+
+  /**
+   * Get the detail level of symbols in the cached document state
+   * @param uri Document URI
+   * @param version Document version number
+   * @returns The detail level if available, null otherwise
+   */
+  getDetailLevel(uri: string, version: number): DetailLevel | null {
+    const cached = this.get(uri, version);
+    return cached?.detailLevel || null;
+  }
+
+  /**
+   * Check if a specific detail level has been applied to the cached document
+   * @param uri Document URI
+   * @param version Document version number
+   * @param level The detail level to check
+   * @returns True if the detail level has been applied or exceeded
+   */
+  hasDetailLevel(uri: string, version: number, level: DetailLevel): boolean {
+    const cached = this.get(uri, version);
+    if (!cached?.detailLevel) {
+      return false;
+    }
+
+    const levelOrder: Record<DetailLevel, number> = {
+      'public-api': 1,
+      protected: 2,
+      private: 3,
+      full: 4,
+    };
+
+    const cachedLevel = levelOrder[cached.detailLevel] || 0;
+    const requestedLevel = levelOrder[level] || 0;
+
+    return cachedLevel >= requestedLevel;
   }
 
   /**

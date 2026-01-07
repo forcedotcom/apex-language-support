@@ -320,14 +320,6 @@ export function getQueueStateWebviewContent(
             <div class="dashboard-title">Queue State Dashboard</div>
             <div class="dashboard-controls">
               <button id="refresh-btn" class="control-btn">Refresh</button>
-              <button id="pause-btn" class="control-btn secondary">Pause</button>
-              <select id="interval-select" class="control-btn" style="padding: 4px 8px;">
-                <option value="1000">1s</option>
-                <option value="2000">2s</option>
-                <option value="3000" selected>3s</option>
-                <option value="5000">5s</option>
-                <option value="10000">10s</option>
-              </select>
             </div>
           </div>
           <div class="dashboard-content" id="dashboard-content">
@@ -336,7 +328,7 @@ export function getQueueStateWebviewContent(
           <div class="footer">
             <div>
               <span class="status-indicator status-active" id="status-indicator"></span>
-              <span id="status-text">Auto-refresh active</span>
+              <span id="status-text">Manual refresh only</span>
             </div>
             <div id="last-update">Last updated: --</div>
           </div>

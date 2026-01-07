@@ -338,7 +338,7 @@
           "properties": {
             "enabled": {
               "type": "boolean",
-              "default": false,
+              "default": true,
               "description": "%configuration.apex-ls-ts.findMissingArtifact.enabled.description%"
             },
             "blockingWaitTimeoutMs": {
@@ -391,6 +391,11 @@
               "type": "number",
               "default": 25,
               "description": "%configuration.apex-ls-ts.loadWorkspace.yieldDelayMs.description%"
+            },
+            "batchSize": {
+              "type": "number",
+              "default": 100,
+              "description": "%configuration.apex-ls-ts.loadWorkspace.batchSize.description%"
             }
           }
         },
@@ -499,6 +504,11 @@
               "type": "number",
               "default": 1,
               "description": "%configuration.apex-ls-ts.scheduler.idleSleepMs.description%"
+            },
+            "queueStateNotificationIntervalMs": {
+              "type": "number",
+              "default": 200,
+              "description": "%configuration.apex-ls-ts.scheduler.queueStateNotificationIntervalMs.description%"
             }
           }
         },
@@ -510,6 +520,11 @@
               "type": "number",
               "default": 50,
               "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.deferredBatchSize.description%"
+            },
+            "initialReferenceBatchSize": {
+              "type": "number",
+              "default": 50,
+              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.initialReferenceBatchSize.description%"
             },
             "maxRetryAttempts": {
               "type": "number",
@@ -651,6 +666,7 @@
     },
     "compile": {
       "command": "tsc --build",
+      "clean": "if-file-deleted",
       "dependencies": [
         "precompile",
         "../apex-parser-ast:precompile"
@@ -733,15 +749,28 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../eslint.config.mjs"
+        "eslint.config.mjs"
+      ],
+      "output": []
+    },
+    "lint:fix": {
+      "command": "eslint --fix --color --cache --cache-location .eslintcache src test",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
       ],
       "output": []
     }
   },
   "dependencies": {
-    "@salesforce/apex-lsp-compliant-services": "*",
-    "@salesforce/apex-lsp-shared": "*",
+    "@salesforce/apex-lsp-compliant-services": "1.0.0",
+    "@salesforce/apex-lsp-shared": "1.0.0",
     "effect": "^3.18.4",
+    "fflate": "^0.8.1",
     "vscode-languageclient": "^9.0.1",
     "web-worker": "^1.5.0"
   },
@@ -749,7 +778,7 @@
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@salesforce/apex-tmlanguage": "1.8.2",
-    "@salesforce/esbuild-presets": "*",
+    "@salesforce/esbuild-presets": "^0.1.0",
     "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^2.15.0",
     "buffer": "^6.0.3",

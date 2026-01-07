@@ -205,6 +205,7 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
   foldingRangeProvider: true,
   hoverProvider: true,
   definitionProvider: true,
+  implementationProvider: true,
   referencesProvider: true,
   codeLensProvider: {
     resolveProvider: false,

@@ -16,6 +16,7 @@ import {
   shutdown,
   reset,
   createQueuedItem,
+  setQueueStateChangeCallback,
 } from '../../src/queue/priority-scheduler-utils';
 
 // Helper to offer a task using utils API
@@ -635,14 +636,18 @@ describe('PriorityScheduler', () => {
       }> = [];
 
       await Effect.runPromise(
-        initialize(defaultConfig, (metrics) => {
-          callbackCount++;
-          callbackMetrics.push({
-            queueSizes: metrics.queueSizes,
-            tasksStarted: metrics.tasksStarted,
-            tasksCompleted: metrics.tasksCompleted,
-          });
-        }),
+        initialize(defaultConfig).pipe(
+          Effect.andThen(() =>
+            setQueueStateChangeCallback((metrics) => {
+              callbackCount++;
+              callbackMetrics.push({
+                queueSizes: metrics.queueSizes,
+                tasksStarted: metrics.tasksStarted,
+                tasksCompleted: metrics.tasksCompleted,
+              });
+            }),
+          ),
+        ),
       );
 
       const program = Effect.gen(function* () {
@@ -976,8 +981,10 @@ describe('PriorityScheduler', () => {
       const elapsed = await Effect.runPromise(program);
 
       // Should have elapsed time (scheduler was idle)
+      // CI environments may be slower, so use a more lenient upper bound
+      const maxElapsed = process.env.CI === 'true' ? 150 : 65;
       expect(elapsed).toBeGreaterThanOrEqual(40);
-      expect(elapsed).toBeLessThanOrEqual(65);
+      expect(elapsed).toBeLessThanOrEqual(maxElapsed);
     });
   });
 

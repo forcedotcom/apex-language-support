@@ -232,11 +232,17 @@ export interface FindApexTestsResult {
 
 export type ProgressToken = number | string;
 
+/**
+ * @deprecated Use RequestWorkspaceLoadParams and notification-based pattern instead
+ */
 export interface LoadWorkspaceParams {
   readonly workDoneToken?: ProgressToken;
   readonly queryOnly?: boolean; // NEW: Query state without triggering load
 }
 
+/**
+ * @deprecated Use WorkspaceLoadCompleteParams notification instead
+ */
 export type LoadWorkspaceResult =
   | {
       accepted: true;
@@ -249,6 +255,64 @@ export type LoadWorkspaceResult =
   | { failed: true } // NEW: For queryOnly responses
   | { loaded: false } // NEW: For queryOnly responses when not loaded and not loading
   | { error: string };
+
+/**
+ * Parameters for server-to-client workspace load request notification
+ */
+export interface RequestWorkspaceLoadParams {
+  readonly workDoneToken?: ProgressToken;
+}
+
+/**
+ * Parameters for client-to-server workspace load completion notification
+ */
+export interface WorkspaceLoadCompleteParams {
+  readonly success: boolean;
+  readonly error?: string;
+}
+
+/**
+ * File metadata for workspace batch loading
+ */
+export interface WorkspaceFileMetadata {
+  readonly uri: string;
+  readonly version: number;
+}
+
+/**
+ * Workspace file batch containing files and metadata
+ */
+export interface WorkspaceFileBatch {
+  readonly batchIndex: number;
+  readonly totalBatches: number;
+  readonly isLastBatch: boolean;
+  readonly fileMetadata: readonly WorkspaceFileMetadata[];
+  readonly files: Array<{
+    readonly uri: string;
+    readonly version: number;
+    readonly content: string;
+  }>;
+}
+
+/**
+ * Parameters for client-to-server workspace batch request
+ */
+export interface SendWorkspaceBatchParams {
+  readonly batchIndex: number;
+  readonly totalBatches: number;
+  readonly isLastBatch: boolean;
+  readonly compressedData: string; // Base64-encoded ZIP file
+  readonly fileMetadata: readonly WorkspaceFileMetadata[];
+}
+
+/**
+ * Result for server-to-client workspace batch response
+ */
+export interface SendWorkspaceBatchResult {
+  readonly success: boolean;
+  readonly enqueuedCount: number;
+  readonly error?: string;
+}
 
 /**
  * LSP Work Done Progress interfaces

@@ -42,8 +42,16 @@ export interface SchedulerMetrics {
   readonly tasksStarted: number;
   readonly tasksCompleted: number;
   readonly tasksDropped: number;
-  /** Request type breakdown per priority: priority -> requestType -> count */
+  /** Request type breakdown per priority: priority -> requestType -> count (processed/completed tasks) */
   readonly requestTypeBreakdown?: Readonly<
+    Record<Priority, Readonly<Record<string, number>>>
+  >;
+  /** Queued request type breakdown per priority: priority -> requestType -> count (waiting in queue) */
+  readonly queuedRequestTypeBreakdown?: Readonly<
+    Record<Priority, Readonly<Record<string, number>>>
+  >;
+  /** Active request type breakdown per priority: priority -> requestType -> count (currently executing) */
+  readonly activeRequestTypeBreakdown?: Readonly<
     Record<Priority, Readonly<Record<string, number>>>
   >;
   /** Queue utilization percentage per priority (0-100) */
@@ -102,8 +110,12 @@ export interface SchedulerInternalState {
   readonly tasksCompleted: Ref.Ref<number>;
   readonly tasksDropped: Ref.Ref<number>;
   readonly shutdownSignal: Deferred.Deferred<void, void>;
-  /** Request type counts per priority: priority -> requestType -> count */
+  /** Request type counts per priority: priority -> requestType -> count (processed/completed tasks) */
   readonly requestTypeCounts: Ref.Ref<Map<number, Map<string, number>>>;
+  /** Queued request type counts per priority: priority -> requestType -> count (waiting in queue) */
+  readonly queuedRequestTypeCounts: Ref.Ref<Map<number, Map<string, number>>>;
+  /** Active request type counts per priority: priority -> requestType -> count (currently executing) */
+  readonly activeRequestTypeCounts: Ref.Ref<Map<number, Map<string, number>>>;
   /** Active tasks per priority (currently executing) */
   readonly activeTaskCounts: Ref.Ref<Map<number, number>>;
   /** Queue capacity per priority - can be single number (legacy) or per-priority Record */

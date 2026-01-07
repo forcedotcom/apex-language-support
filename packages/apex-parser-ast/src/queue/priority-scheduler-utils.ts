@@ -149,7 +149,24 @@ function processQueuedItem<A, E, R>(
     const contextSuffix =
       context === 'starvation-relief' ? ' (starvation relief)' : '';
 
-    // Track requestType
+    // Move from queued to active: decrement queued, increment active
+    yield* Ref.update(state.queuedRequestTypeCounts, (counts) => {
+      const priorityCounts = counts.get(priority) || new Map<string, number>();
+      const currentCount = priorityCounts.get(requestType) || 0;
+      priorityCounts.set(requestType, Math.max(0, currentCount - 1));
+      counts.set(priority, priorityCounts);
+      return counts;
+    });
+
+    yield* Ref.update(state.activeRequestTypeCounts, (counts) => {
+      const priorityCounts = counts.get(priority) || new Map<string, number>();
+      const currentCount = priorityCounts.get(requestType) || 0;
+      priorityCounts.set(requestType, currentCount + 1);
+      counts.set(priority, priorityCounts);
+      return counts;
+    });
+
+    // Track requestType (processed/completed tasks)
     yield* Ref.update(state.requestTypeCounts, (counts) => {
       const priorityCounts = counts.get(priority) || new Map<string, number>();
       const currentCount = priorityCounts.get(requestType) || 0;
@@ -179,6 +196,15 @@ function processQueuedItem<A, E, R>(
         Effect.ensuring(
           Effect.gen(function* () {
             const duration = Date.now() - startTime;
+            // Move from active to completed: decrement active
+            yield* Ref.update(state.activeRequestTypeCounts, (counts) => {
+              const priorityCounts =
+                counts.get(priority) || new Map<string, number>();
+              const currentCount = priorityCounts.get(requestType) || 0;
+              priorityCounts.set(requestType, Math.max(0, currentCount - 1));
+              counts.set(priority, priorityCounts);
+              return counts;
+            });
             // Decrement active task count
             yield* Ref.update(state.activeTaskCounts, (counts) => {
               const current = counts.get(priority) || 0;
@@ -222,6 +248,10 @@ function processQueuedItem<A, E, R>(
   });
 }
 
+const yieldToEventLoop = Effect.async<void>((resume) => {
+  setImmediate(() => resume(Effect.void));
+});
+
 function controllerLoop(
   state: SchedulerInternalState,
   cfg: PrioritySchedulerConfigShape,
@@ -241,6 +271,9 @@ function controllerLoop(
         let executed = false;
         const currentTime = Date.now();
 
+        const loopStart = Date.now();
+        const YIELD_BUDGET_MS = 5;
+
         // Periodic summary logging (every 30 seconds)
         if (currentTime - lastSummaryLogTime >= SUMMARY_LOG_INTERVAL_MS) {
           yield* logQueueSummary(state, cfg, logger);
@@ -248,6 +281,10 @@ function controllerLoop(
         }
 
         for (const p of AllPrioritiesWithCritical) {
+          if (Date.now() - loopStart >= YIELD_BUDGET_MS) {
+            yield* yieldToEventLoop;
+            break;
+          }
           const q = state.queues.get(p)!;
           const queueSize = yield* Queue.size(q);
           const oldSize = lastQueueSizes.get(p) || 0;
@@ -346,10 +383,8 @@ function controllerLoop(
 
             yield* processQueuedItem(state, item, p, logger);
 
-            // Always yield after processing to ensure scheduler gets regular event loop turns
-            // This prevents the scheduler from being starved when many fibers are running
-            // and allows client requests to be processed
-            yield* Effect.yieldNow();
+            // HARD macrotask yield — forces Node to service I/O
+            yield* yieldToEventLoop;
 
             break;
           }
@@ -358,27 +393,8 @@ function controllerLoop(
         // If no tasks were executed, sleep briefly before checking again
         if (!executed) {
           streak = 0;
+          yield* yieldToEventLoop;
           yield* Effect.sleep(Duration.millis(cfg.idleSleepMs));
-        }
-
-        // Notify callback if registered and metrics have changed (only send updates when state changes)
-        const callback = yield* Ref.get(queueStateCallbackRef);
-        if (callback) {
-          try {
-            // Get current metrics synchronously for callback
-            const currentMetrics = yield* getCurrentMetrics(state);
-            const lastSent = yield* Ref.get(lastSentMetricsRef);
-
-            // Only send notification if metrics have changed (avoid sending when idle)
-            if (metricsChanged(lastSent, currentMetrics)) {
-              callback(currentMetrics);
-              // Store the metrics we just sent
-              yield* Ref.set(lastSentMetricsRef, currentMetrics);
-            }
-          } catch (error) {
-            // Don't let callback errors break the scheduler loop
-            logger.debug(() => `Queue state callback error: ${error}`);
-          }
         }
 
         // Enhanced starvation relief - process multiple lower-priority tasks based on queue imbalance
@@ -516,7 +532,7 @@ function getCurrentMetrics(
       const activeCountsValue = activeCounts as Map<number, number>;
       activeTasks[p] = activeCountsValue.get(p) || 0;
 
-      // Get requestType breakdown
+      // Get requestType breakdown (processed/completed)
       const requestTypeCounts = yield* Ref.get(state.requestTypeCounts);
       const requestTypeCountsValue = requestTypeCounts as Map<
         number,
@@ -530,12 +546,54 @@ function getCurrentMetrics(
       requestTypeBreakdown[p] = breakdown;
     }
 
+    // Build queued requestType breakdown
+    const queuedRequestTypeBreakdown: Record<
+      Priority,
+      Record<string, number>
+    > = {} as Record<Priority, Record<string, number>>;
+    for (const p of AllPriorities) {
+      const queuedRequestTypeCounts = yield* Ref.get(
+        state.queuedRequestTypeCounts,
+      );
+      const queuedCountsValue = queuedRequestTypeCounts as Map<
+        number,
+        Map<string, number>
+      >;
+      const priorityCounts = queuedCountsValue.get(p) || new Map();
+      const breakdown: Record<string, number> = {};
+      for (const [requestType, count] of priorityCounts.entries()) {
+        breakdown[requestType] = count;
+      }
+      queuedRequestTypeBreakdown[p] = breakdown;
+    }
+
+    // Build active requestType breakdown
+    const activeRequestTypeBreakdown: Record<
+      Priority,
+      Record<string, number>
+    > = {} as Record<Priority, Record<string, number>>;
+    for (const p of AllPriorities) {
+      const activeRequestTypeCounts = yield* Ref.get(
+        state.activeRequestTypeCounts,
+      );
+      const activeCountsValue = activeRequestTypeCounts as Map<
+        number,
+        Map<string, number>
+      >;
+      const priorityCounts = activeCountsValue.get(p) || new Map();
+      const breakdown: Record<string, number> = {};
+      for (const [requestType, count] of priorityCounts.entries()) {
+        breakdown[requestType] = count;
+      }
+      activeRequestTypeBreakdown[p] = breakdown;
+    }
+
     // Return per-priority queue capacities
     const queueCapacityPerPriority = {} as Record<Priority, number>;
     for (const p of AllPriorities) {
       const priorityName = priorityNameMap[p] || 'NORMAL';
-      queueCapacityPerPriority[p] =
-        capacityMap[priorityName] || capacityMap.NORMAL || 200;
+      const capacity = capacityMap[priorityName] || capacityMap.NORMAL || 200;
+      queueCapacityPerPriority[p] = capacity;
     }
 
     return {
@@ -544,6 +602,8 @@ function getCurrentMetrics(
       tasksCompleted: (yield* Ref.get(state.tasksCompleted)) as number,
       tasksDropped: (yield* Ref.get(state.tasksDropped)) as number,
       requestTypeBreakdown,
+      queuedRequestTypeBreakdown,
+      activeRequestTypeBreakdown,
       queueUtilization: utilization,
       activeTasks,
       queueCapacity: queueCapacityPerPriority,
@@ -671,19 +731,14 @@ const DEFAULT_CONFIG: PrioritySchedulerConfigShape = {
  * Returns an Effect that builds the scheduler and stores it for reuse.
  *
  * @param config Scheduler configuration
- * @param queueStateChangeCallback Optional callback to be called after each scheduler loop
- *   iteration with current metrics
  */
-export function initialize(
-  config?: {
-    queueCapacity: number | Record<string, number>;
-    maxHighPriorityStreak: number;
-    idleSleepMs: number;
-    maxConcurrency?: Record<string, number>;
-    maxTotalConcurrency?: number;
-  },
-  queueStateChangeCallback?: (metrics: SchedulerMetrics) => void,
-): Effect.Effect<void, Error, never> {
+export function initialize(config?: {
+  queueCapacity: number | Record<string, number>;
+  maxHighPriorityStreak: number;
+  idleSleepMs: number;
+  maxConcurrency?: Record<string, number>;
+  maxTotalConcurrency?: number;
+}): Effect.Effect<void, Error, never> {
   return Effect.gen(function* () {
     const state = yield* Ref.get(utilsStateRef);
 
@@ -719,6 +774,17 @@ export function initialize(
       maxTotalConcurrency,
     };
 
+    // Log what we received for debugging
+    const logger = getLogger();
+    logger.debug(
+      () =>
+        `[SCHEDULER INIT] Received config.queueCapacity: ${JSON.stringify(config?.queueCapacity)}`,
+    );
+    logger.debug(
+      () =>
+        `[SCHEDULER INIT] finalConfig.queueCapacity: ${JSON.stringify(finalConfig.queueCapacity)}`,
+    );
+
     // Handle backward compatibility: convert single number to per-priority Record
     let queueCapacityMap: Record<string, number>;
     if (typeof finalConfig.queueCapacity === 'number') {
@@ -734,6 +800,11 @@ export function initialize(
     } else {
       queueCapacityMap = finalConfig.queueCapacity;
     }
+
+    logger.debug(
+      () =>
+        `[SCHEDULER INIT] Final queueCapacityMap: ${JSON.stringify(queueCapacityMap)}`,
+    );
 
     // Create a persistent scope that will keep the scheduler alive
     // This scope is reused across all calls to maintain singleton behavior
@@ -758,10 +829,22 @@ export function initialize(
       );
     }
 
-    // Initialize requestType tracking map
+    // Initialize requestType tracking map (processed/completed tasks)
     const requestTypeCountsMap = new Map<number, Map<string, number>>();
     for (const p of AllPrioritiesWithCritical) {
       requestTypeCountsMap.set(p, new Map<string, number>());
+    }
+
+    // Initialize queued requestType tracking map (waiting in queue)
+    const queuedRequestTypeCountsMap = new Map<number, Map<string, number>>();
+    for (const p of AllPrioritiesWithCritical) {
+      queuedRequestTypeCountsMap.set(p, new Map<string, number>());
+    }
+
+    // Initialize active requestType tracking map (currently executing)
+    const activeRequestTypeCountsMap = new Map<number, Map<string, number>>();
+    for (const p of AllPrioritiesWithCritical) {
+      activeRequestTypeCountsMap.set(p, new Map<string, number>());
     }
 
     // Initialize active task counts map
@@ -782,11 +865,6 @@ export function initialize(
       backPressureStartTimeMap.set(p, 0);
     }
 
-    // Store callback in Ref for later access
-    if (queueStateChangeCallback) {
-      yield* Ref.set(queueStateCallbackRef, queueStateChangeCallback);
-    }
-
     const schedulerState: SchedulerInternalState = {
       queues,
       tasksStarted: yield* Ref.make(0),
@@ -794,6 +872,8 @@ export function initialize(
       tasksDropped: yield* Ref.make(0),
       shutdownSignal: yield* Deferred.make<void, void>(),
       requestTypeCounts: yield* Ref.make(requestTypeCountsMap),
+      queuedRequestTypeCounts: yield* Ref.make(queuedRequestTypeCountsMap),
+      activeRequestTypeCounts: yield* Ref.make(activeRequestTypeCountsMap),
       activeTaskCounts: yield* Ref.make(activeTaskCountsMap),
       queueCapacity: queueCapacityMap,
       maxConcurrency: maxConcurrencyMap,
@@ -815,7 +895,6 @@ export function initialize(
     yield* Effect.yieldNow();
 
     // Build the scheduler from the state
-    const logger = getLogger();
     const scheduler: PriorityScheduler = {
       offer<A, E, R>(
         priority: Priority | typeof Critical,
@@ -868,6 +947,19 @@ export function initialize(
               yield* Effect.sleep(Duration.millis(1));
             }
           }
+
+          // Track queued request type (item successfully added to queue)
+          yield* Ref.update(
+            schedulerState.queuedRequestTypeCounts,
+            (counts) => {
+              const priorityCounts =
+                counts.get(priority) || new Map<string, number>();
+              const currentCount = priorityCounts.get(requestType) || 0;
+              priorityCounts.set(requestType, currentCount + 1);
+              counts.set(priority, priorityCounts);
+              return counts;
+            },
+          );
 
           // Update back pressure metrics if retries occurred
           if (retryCount > 0) {
@@ -939,6 +1031,28 @@ export function initialize(
               `queue size: ${queueSize}/${capacity}`,
           );
 
+          // Notify callback immediately after enqueueing to capture queue growth
+          // This ensures we capture transient queue sizes before tasks complete
+          // Note: Callback is already deferred via setImmediate in LCSAdapter to avoid blocking
+          const callback = yield* Ref.get(queueStateCallbackRef);
+          if (callback) {
+            try {
+              const currentMetrics = yield* getCurrentMetrics(schedulerState);
+              const lastSent = yield* Ref.get(lastSentMetricsRef);
+              if (metricsChanged(lastSent, currentMetrics)) {
+                // Callback is already deferred via setImmediate in LCSAdapter
+                // This prevents blocking the enqueue operation
+                callback(currentMetrics);
+                yield* Ref.set(lastSentMetricsRef, currentMetrics);
+              }
+            } catch (error) {
+              // Don't let callback errors break enqueueing
+              logger.debug(
+                () => `Queue state callback error during enqueue: ${error}`,
+              );
+            }
+          }
+
           return {
             fiber: Deferred.await(queuedItem.fiberDeferred),
             requestType: queuedItem.requestType,
@@ -950,6 +1064,8 @@ export function initialize(
         const utilization: any = {};
         const activeTasks: any = {};
         const requestTypeBreakdown: any = {};
+        const queuedRequestTypeBreakdown: any = {};
+        const activeRequestTypeBreakdown: any = {};
 
         // Only include public priorities in metrics (exclude Critical for API stability)
         // Get capacity map (handle both legacy single number and per-priority Record)
@@ -985,7 +1101,7 @@ export function initialize(
           const activeCounts = yield* Ref.get(schedulerState.activeTaskCounts);
           activeTasks[p] = activeCounts.get(p) || 0;
 
-          // Get requestType breakdown
+          // Get requestType breakdown (processed/completed)
           const requestTypeCounts = yield* Ref.get(
             schedulerState.requestTypeCounts,
           );
@@ -995,6 +1111,30 @@ export function initialize(
             breakdown[requestType] = count;
           }
           requestTypeBreakdown[p] = breakdown;
+
+          // Get queued requestType breakdown
+          const queuedRequestTypeCounts = yield* Ref.get(
+            schedulerState.queuedRequestTypeCounts,
+          );
+          const queuedPriorityCounts =
+            queuedRequestTypeCounts.get(p) || new Map();
+          const queuedBreakdown: Record<string, number> = {};
+          for (const [requestType, count] of queuedPriorityCounts.entries()) {
+            queuedBreakdown[requestType] = count;
+          }
+          queuedRequestTypeBreakdown[p] = queuedBreakdown;
+
+          // Get active requestType breakdown
+          const activeRequestTypeCounts = yield* Ref.get(
+            schedulerState.activeRequestTypeCounts,
+          );
+          const activePriorityCounts =
+            activeRequestTypeCounts.get(p) || new Map();
+          const activeBreakdown: Record<string, number> = {};
+          for (const [requestType, count] of activePriorityCounts.entries()) {
+            activeBreakdown[requestType] = count;
+          }
+          activeRequestTypeBreakdown[p] = activeBreakdown;
         }
 
         // Calculate back pressure metrics
@@ -1044,8 +1184,9 @@ export function initialize(
         const queueCapacityPerPriority = {} as Record<Priority, number>;
         for (const p of AllPriorities) {
           const priorityName = priorityNameMap[p] || 'NORMAL';
-          queueCapacityPerPriority[p] =
+          const capacity =
             capacityMap[priorityName] || capacityMap.NORMAL || 200;
+          queueCapacityPerPriority[p] = capacity;
         }
 
         return {
@@ -1054,6 +1195,8 @@ export function initialize(
           tasksCompleted: yield* Ref.get(schedulerState.tasksCompleted),
           tasksDropped: yield* Ref.get(schedulerState.tasksDropped),
           requestTypeBreakdown,
+          queuedRequestTypeBreakdown,
+          activeRequestTypeBreakdown,
           queueUtilization: utilization,
           activeTasks,
           queueCapacity: queueCapacityPerPriority,
@@ -1166,6 +1309,122 @@ export function setQueueStateChangeCallback(
   callback?: (metrics: SchedulerMetrics) => void,
 ): Effect.Effect<void, never, never> {
   return Ref.set(queueStateCallbackRef, callback);
+}
+
+/**
+ * Start a periodic background task that checks for queue state changes and invokes
+ * the callback at the specified interval. The task runs until the scheduler is shut down.
+ *
+ * @param callback Callback function to receive queue state updates
+ * @param intervalMs Interval in milliseconds between notification checks
+ * @returns Effect that produces a Fiber handle for the notification task
+ */
+export function startQueueStateNotificationTask(
+  callback: (metrics: SchedulerMetrics) => void,
+  intervalMs: number,
+): Effect.Effect<Fiber.RuntimeFiber<void, never>, Error, never> {
+  return Effect.gen(function* () {
+    const state = yield* Ref.get(utilsStateRef);
+
+    if (state.type !== 'initialized') {
+      return yield* Effect.fail(
+        new Error(
+          'Scheduler not initialized. Call initialize() first at application startup.',
+        ),
+      );
+    }
+
+    const { scope } = state;
+
+    // Store callback in Ref for potential future use
+    yield* Ref.set(queueStateCallbackRef, callback);
+
+    // Create the periodic notification loop
+    const notificationLoop = Effect.gen(function* () {
+      const logger = getLogger();
+      logger.debug(
+        () =>
+          `Starting queue state notification task with interval ${intervalMs}ms`,
+      );
+
+      while (true) {
+        // Sleep for the configured interval
+        yield* Effect.sleep(Duration.millis(intervalMs));
+
+        // Check if scheduler is still initialized (shutdown check)
+        const currentState = yield* Ref.get(utilsStateRef);
+        if (currentState.type !== 'initialized') {
+          logger.debug(
+            () => 'Scheduler shutdown detected, stopping notification task',
+          );
+          break;
+        }
+
+        try {
+          // Get current metrics using the metrics() function
+          const currentMetricsResult = yield* Effect.either(metrics());
+          if (currentMetricsResult._tag === 'Left') {
+            // Scheduler not initialized or error getting metrics
+            logger.debug(
+              () =>
+                `Error getting metrics in notification task: ${currentMetricsResult.left}`,
+            );
+            continue;
+          }
+
+          const currentMetrics = currentMetricsResult.right;
+          const lastSent = yield* Ref.get(lastSentMetricsRef);
+
+          // Check if metrics have changed
+          if (metricsChanged(lastSent, currentMetrics)) {
+            // Invoke callback (caller is responsible for deferring if needed)
+            callback(currentMetrics);
+            // Update last sent metrics
+            yield* Ref.set(lastSentMetricsRef, currentMetrics);
+          }
+        } catch (error) {
+          // Don't let errors break the notification loop
+          logger.debug(
+            () =>
+              `Queue state notification task error: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+          );
+        }
+      }
+
+      logger.debug(() => 'Queue state notification task stopped');
+    });
+
+    // Fork the notification loop in the scheduler's scope
+    const fiber = yield* Effect.forkScoped(notificationLoop).pipe(
+      Effect.provide(Layer.succeed(Scope.Scope, scope)),
+    );
+
+    return fiber;
+  });
+}
+
+/**
+ * Reset lastSentMetricsRef to current metrics.
+ * This ensures that future metric changes will trigger notifications.
+ * Useful when a client requests current state and wants to receive updates.
+ */
+export function resetLastSentMetrics(): Effect.Effect<void, never, never> {
+  return Effect.gen(function* () {
+    // Get current metrics using the same function as metrics()
+    // If metrics() fails (scheduler not initialized), silently ignore
+    const currentMetrics = yield* Effect.catchAll(metrics(), () =>
+      Effect.succeed({
+        queueSizes: {},
+        tasksStarted: 0,
+        tasksCompleted: 0,
+        tasksDropped: 0,
+        queueCapacity: {},
+      } as SchedulerMetrics),
+    );
+    yield* Ref.set(lastSentMetricsRef, currentMetrics);
+  });
 }
 
 /**

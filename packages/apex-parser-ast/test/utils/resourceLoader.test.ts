@@ -349,21 +349,25 @@ describe('ResourceLoader Compilation', () => {
   let sharedCompiledLoader: ResourceLoader | null = null;
   let standardLibZip: Uint8Array;
 
-  beforeAll(async () => {
-    // Set up a shared compiled loader once for all tests in this describe block
-    standardLibZip = loadStandardLibraryZip();
+  beforeAll(
+    async () => {
+      // Set up a shared compiled loader once for all tests in this describe block
+      standardLibZip = loadStandardLibraryZip();
 
-    // Reset the singleton to ensure we get a fresh instance
-    (ResourceLoader as any).instance = null;
+      // Reset the singleton to ensure we get a fresh instance
+      (ResourceLoader as any).instance = null;
 
-    sharedCompiledLoader = ResourceLoader.getInstance({
-      loadMode: 'full',
-      zipBuffer: standardLibZip,
-    });
+      sharedCompiledLoader = ResourceLoader.getInstance({
+        loadMode: 'full',
+        zipBuffer: standardLibZip,
+      });
 
-    await sharedCompiledLoader.initialize();
-    await sharedCompiledLoader.waitForCompilation();
-  });
+      await sharedCompiledLoader.initialize();
+      await sharedCompiledLoader.waitForCompilation();
+    },
+    // Increase timeout for CI environments where compilation can be slower
+    process.env.CI ? 300000 : 180000, // 5 min for CI, 3 min for local
+  );
 
   beforeEach(() => {
     // Use the shared compiled loader for tests that need it

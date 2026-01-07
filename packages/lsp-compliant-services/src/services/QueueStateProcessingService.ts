@@ -7,7 +7,11 @@
  */
 
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
-import { metrics, SchedulerMetrics } from '@salesforce/apex-lsp-parser-ast';
+import {
+  metrics,
+  SchedulerMetrics,
+  resetLastSentMetrics,
+} from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
 /**
@@ -69,6 +73,11 @@ export class QueueStateProcessingService implements IQueueStateProcessor {
       this.logger.debug(
         `Processing queue state request: ${JSON.stringify(params)}`,
       );
+
+      // Reset lastSentMetricsRef to current metrics so future changes trigger notifications
+      // This ensures that when a dashboard opens and requests current state,
+      // subsequent metric changes will be sent as notifications
+      await Effect.runPromise(resetLastSentMetrics());
 
       // Get metrics from scheduler
       const schedulerMetrics = await Effect.runPromise(metrics());

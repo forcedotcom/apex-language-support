@@ -14,6 +14,7 @@ import {
   HoverParams,
   Hover,
   DefinitionParams,
+  ImplementationParams,
   ReferenceParams,
   Location,
   CodeLensParams,
@@ -58,6 +59,7 @@ export * from './handlers/DidCloseDocumentHandler';
 export * from './handlers/DidDeleteDocumentHandler';
 export * from './handlers/DocumentSymbolHandler';
 export * from './handlers/DefinitionHandler';
+export * from './handlers/ImplementationHandler';
 export * from './handlers/ReferencesHandler';
 export * from './handlers/FoldingRangeHandler';
 export * from './handlers/ApexLibResolveHandler';
@@ -268,6 +270,18 @@ export const dispatchProcessOnReferences = async (
 ): Promise<Location[] | null> => {
   const handler = HandlerFactory.createReferencesHandler();
   return await handler.handleReferences(params);
+};
+
+/**
+ * Dispatch function for implementation requests
+ * @param params The implementation parameters
+ * @returns Promise resolving to implementation locations or null
+ */
+export const dispatchProcessOnImplementation = async (
+  params: ImplementationParams,
+): Promise<Location[] | null> => {
+  const handler = HandlerFactory.createImplementationHandler();
+  return await handler.handleImplementation(params);
 };
 
 /**

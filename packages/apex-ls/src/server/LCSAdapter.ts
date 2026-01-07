@@ -16,6 +16,7 @@ import {
   HoverParams,
   Hover,
   DefinitionParams,
+  ImplementationParams,
   ReferenceParams,
   Location,
   DocumentDiagnosticParams,
@@ -37,8 +38,9 @@ import {
   LSPConfigurationManager,
   FindMissingArtifactParams,
   FindMissingArtifactResult,
-  LoadWorkspaceParams,
-  LoadWorkspaceResult,
+  WorkspaceLoadCompleteParams,
+  SendWorkspaceBatchParams,
+  SendWorkspaceBatchResult,
   PingResponse,
   formattedError,
   getDocumentSelectorsFromSettings,
@@ -53,6 +55,7 @@ import {
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
   dispatchProcessOnDefinition,
+  dispatchProcessOnImplementation,
   dispatchProcessOnReferences,
   dispatchProcessOnFoldingRange,
   dispatchProcessOnFindMissingArtifact,
@@ -66,15 +69,21 @@ import {
   dispatchProcessOnQueueState,
   dispatchProcessOnGraphData,
   dispatchProcessOnExecuteCommand,
+  onWorkspaceLoadComplete,
+  onWorkspaceLoadFailed,
 } from '@salesforce/apex-lsp-compliant-services';
+
+import { handleWorkspaceBatch } from './WorkspaceBatchHandler';
 
 import {
   ResourceLoader,
   ApexSymbolProcessingManager,
-  setQueueStateChangeCallback,
+  startQueueStateNotificationTask,
   SchedulerMetrics,
   getEmbeddedStandardLibraryZip,
+  SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
+import type { Fiber } from 'effect';
 import { Effect } from 'effect';
 
 /**
@@ -97,6 +106,7 @@ export class LCSAdapter {
   private readonly diagnosticProcessor: DiagnosticProcessingService;
   private hoverHandlerRegistered = false;
   private clientCapabilities?: ClientCapabilities;
+  private queueStateNotificationFiber?: Fiber.RuntimeFiber<void, never>;
 
   private constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
@@ -137,6 +147,18 @@ export class LCSAdapter {
       this.logger.debug('✅ ApexStorageManager initialized successfully');
     } catch (error) {
       this.logger.error(`❌ Failed to initialize ApexStorageManager: ${error}`);
+    }
+
+    // Initialize scheduler early, before document handlers are registered
+    // This ensures scheduler is ready when didOpen events arrive
+    try {
+      this.logger.debug('🔧 Initializing priority scheduler...');
+      const schedulerService = SchedulerInitializationService.getInstance();
+      await schedulerService.ensureInitialized();
+      this.logger.debug('✅ Priority scheduler initialized successfully');
+    } catch (error) {
+      this.logger.error(`❌ Failed to initialize scheduler: ${error}`);
+      // Don't throw - allow server to continue, scheduler will retry on first use
     }
 
     this.setupDocumentHandlers();
@@ -345,6 +367,32 @@ export class LCSAdapter {
       );
     }
 
+    // Only register implementation handler if the capability is enabled (development mode only)
+    if (capabilities.implementationProvider) {
+      this.connection.onImplementation(
+        async (params: ImplementationParams): Promise<Location[] | null> => {
+          this.logger.debug(
+            () =>
+              `🔍 Implementation request for URI: ${params.textDocument.uri} ` +
+              `at ${params.position.line}:${params.position.character}`,
+          );
+          try {
+            return await dispatchProcessOnImplementation(params);
+          } catch (error) {
+            this.logger.error(
+              () => `Error processing implementation: ${formattedError(error)}`,
+            );
+            return null;
+          }
+        },
+      );
+      this.logger.debug('✅ Implementation handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Implementation handler not registered (capability disabled)',
+      );
+    }
+
     // Only register references handler if the capability is enabled
     if (capabilities.referencesProvider) {
       this.connection.onReferences(
@@ -505,6 +553,35 @@ export class LCSAdapter {
     );
     this.logger.debug('✅ apexlib/resolve handler registered');
 
+    // Register apex/sendWorkspaceBatch handler for batch workspace loading
+    this.connection.onRequest(
+      'apex/sendWorkspaceBatch',
+      async (
+        params: SendWorkspaceBatchParams,
+      ): Promise<SendWorkspaceBatchResult> => {
+        this.logger.debug(
+          () =>
+            `📦 apex/sendWorkspaceBatch request received: batch ${
+              params.batchIndex + 1
+            }/${params.totalBatches} (${params.fileMetadata.length} files)`,
+        );
+        try {
+          return await handleWorkspaceBatch(params);
+        } catch (error) {
+          this.logger.error(
+            () =>
+              `Error processing sendWorkspaceBatch: ${formattedError(error)}`,
+          );
+          return {
+            success: false,
+            enqueuedCount: 0,
+            error: formattedError(error),
+          };
+        }
+      },
+    );
+    this.logger.debug('✅ apex/sendWorkspaceBatch handler registered');
+
     // Register workspace/executeCommand handler
     if (capabilities.executeCommandProvider) {
       this.connection.onExecuteCommand(
@@ -530,38 +607,44 @@ export class LCSAdapter {
       );
     }
 
-    // Register custom apex/loadWorkspace handler
-    this.connection.onRequest(
-      'apex/loadWorkspace',
-      async (params: LoadWorkspaceParams): Promise<LoadWorkspaceResult> => {
+    // Register workspace load completion notification handlers
+    this.connection.onNotification(
+      'apex/workspaceLoadComplete',
+      async (params: WorkspaceLoadCompleteParams) => {
         this.logger.debug(
           () =>
-            `🔍 apex/loadWorkspace request received for: ${JSON.stringify(params)}`,
+            `[WORKSPACE-LOAD] Received workspace load complete notification: ${JSON.stringify(params)}`,
         );
         try {
-          // Forward the request to the client
-          const result = await this.connection.sendRequest(
-            'apex/loadWorkspace',
-            params,
-          );
-          this.logger.debug(
-            () =>
-              `✅ apex/loadWorkspace client response: ${JSON.stringify(result)}`,
-          );
-          return result as LoadWorkspaceResult;
+          await Effect.runPromise(onWorkspaceLoadComplete(params, this.logger));
         } catch (error) {
           this.logger.error(
             () =>
-              `Error forwarding loadWorkspace to client: ${formattedError(error)}`,
+              `[WORKSPACE-LOAD] Failed to handle workspace load complete: ${formattedError(error)}`,
           );
-          return {
-            error: `Failed to forward loadWorkspace request to client: ${formattedError(error)}`,
-          };
         }
       },
     );
 
-    this.logger.debug('✅ apex/loadWorkspace handler registered');
+    this.connection.onNotification(
+      'apex/workspaceLoadFailed',
+      async (params: WorkspaceLoadCompleteParams) => {
+        this.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Received workspace load failed notification: ${JSON.stringify(params)}`,
+        );
+        try {
+          await Effect.runPromise(onWorkspaceLoadFailed(params, this.logger));
+        } catch (error) {
+          this.logger.error(
+            () =>
+              `[WORKSPACE-LOAD] Failed to handle workspace load failed: ${formattedError(error)}`,
+          );
+        }
+      },
+    );
+
+    this.logger.debug('✅ Workspace load notification handlers registered');
 
     // Register custom development-mode endpoints
     const capabilitiesManager =
@@ -1094,27 +1177,64 @@ export class LCSAdapter {
       initializeLSPQueueManager(symbolManager);
       this.logger.debug('✅ LSP queue manager initialized');
 
-      // Register queue state change callback to send notifications to client (development mode only)
+      // Start periodic queue state notification task (development mode only)
       const capabilitiesManager =
         LSPConfigurationManager.getInstance().getCapabilitiesManager();
       if (capabilitiesManager.getMode() === 'development') {
-        this.logger.debug('🔧 Registering queue state change callback...');
-        Effect.runSync(
-          setQueueStateChangeCallback((metrics: SchedulerMetrics) => {
+        this.logger.debug('🔧 Starting queue state notification task...');
+        try {
+          const settingsManager =
+            LSPConfigurationManager.getInstance().getSettingsManager();
+          const settings = settingsManager.getSettings();
+          const intervalMs =
+            settings.apex.scheduler.queueStateNotificationIntervalMs ?? 200;
+
+          // Callback function to send notifications to client
+          const notificationCallback = (metrics: SchedulerMetrics) => {
             try {
+              this.logger.debug(
+                () =>
+                  `Sending queue state notification: Started=${
+                    metrics.tasksStarted
+                  }, Completed=${metrics.tasksCompleted}`,
+              );
               this.connection.sendNotification('apex/queueStateChanged', {
                 metrics,
                 metadata: {
                   timestamp: Date.now(),
                 },
               });
-            } catch (_error) {
-              // Don't log callback errors to avoid noise
-              // The callback is called very frequently (every loop iteration)
+              this.logger.debug(
+                () => 'Queue state notification sent successfully',
+              );
+            } catch (error) {
+              // Log errors to help diagnose notification delivery issues
+              this.logger.debug(
+                () =>
+                  `Queue state notification error: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+              );
             }
-          }),
-        );
-        this.logger.debug('✅ Queue state change callback registered');
+          };
+
+          // Start the periodic notification task
+          const fiber = Effect.runSync(
+            startQueueStateNotificationTask(notificationCallback, intervalMs),
+          );
+          this.queueStateNotificationFiber = fiber;
+          this.logger.debug(
+            () =>
+              `✅ Queue state notification task started with interval ${intervalMs}ms`,
+          );
+        } catch (error) {
+          this.logger.error(
+            () =>
+              `❌ Failed to start queue state notification task: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+          );
+        }
       }
     } catch (error) {
       this.logger.error(
@@ -1220,12 +1340,43 @@ export class LCSAdapter {
     const configManager = LSPConfigurationManager.getInstance();
     const previousCapabilities = configManager.getCapabilities();
 
+    // Get previous scheduler settings before update
+    const settingsManager = configManager.getSettingsManager();
+    const previousSchedulerSettings =
+      settingsManager.getSettings().apex.scheduler;
+
     const success = configManager.updateFromLSPConfiguration(change);
     this.logger.debug(
       () => `Configuration update ${success ? 'succeeded' : 'failed'}`,
     );
 
     if (success) {
+      // Check if scheduler settings changed and reinitialize if needed
+      const newSchedulerSettings = settingsManager.getSettings().apex.scheduler;
+      const schedulerSettingsChanged =
+        JSON.stringify(previousSchedulerSettings) !==
+        JSON.stringify(newSchedulerSettings);
+
+      if (schedulerSettingsChanged) {
+        this.logger.debug(
+          () => 'Scheduler settings changed, reinitializing scheduler',
+        );
+        try {
+          const schedulerService = SchedulerInitializationService.getInstance();
+          if (schedulerService.isInitialized()) {
+            await schedulerService.reinitialize();
+            this.logger.debug(
+              () => 'Scheduler reinitialized successfully with new settings',
+            );
+          }
+        } catch (error) {
+          this.logger.error(
+            () =>
+              `Failed to reinitialize scheduler after settings change: ${formattedError(error)}`,
+          );
+        }
+      }
+
       const newCapabilities = configManager.getCapabilities();
 
       // Check if findMissingArtifact capability changed
@@ -1462,6 +1613,22 @@ export class LCSAdapter {
     }
 
     if (
+      capabilities.implementationProvider &&
+      this.supportsDynamicRegistration('implementation')
+    ) {
+      registrations.push({
+        id: 'apex-implementation',
+        method: 'textDocument/implementation',
+        registerOptions: {
+          documentSelector: getDocumentSelectorsFromSettings(
+            'implementation',
+            settings,
+          ),
+        },
+      });
+    }
+
+    if (
       capabilities.codeLensProvider &&
       this.supportsDynamicRegistration('codeLens')
     ) {
@@ -1551,18 +1718,28 @@ export class LCSAdapter {
 
     this.connection.onHover(
       async (params: HoverParams): Promise<Hover | null> => {
+        const requestStartTime = Date.now();
         this.logger.debug(
           `🔍 [LCSAdapter] Hover request received for ${params.textDocument.uri}` +
-            ` at ${params.position.line}:${params.position.character}`,
+            ` at ${params.position.line}:${params.position.character} ` +
+            `[time: ${requestStartTime}]`,
         );
         try {
+          const dispatchStartTime = Date.now();
           const result = await dispatchProcessOnHover(params);
+          const totalTime = Date.now() - requestStartTime;
+          const dispatchTime = Date.now() - dispatchStartTime;
           this.logger.debug(
-            `✅ [LCSAdapter] Hover request completed for ${params.textDocument.uri}: ${result ? 'success' : 'null'}`,
+            '✅ [LCSAdapter] Hover request completed: ' +
+              `total=${totalTime}ms, dispatch=${dispatchTime}ms, ` +
+              `result=${result ? 'success' : 'null'}`,
           );
           return result;
         } catch (error) {
-          this.logger.error(`Error processing hover: ${error}`);
+          const totalTime = Date.now() - requestStartTime;
+          this.logger.error(
+            `Error processing hover after ${totalTime}ms: ${error}`,
+          );
           return null;
         }
       },

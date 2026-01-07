@@ -14,6 +14,26 @@ export * from './parser/listeners/BaseApexParserListener';
 // Export symbol collector listener
 export * from './parser/listeners/ApexSymbolCollectorListener';
 
+// Export full symbol collector listener (wrapper using layered listeners)
+export * from './parser/listeners/FullSymbolCollectorListener';
+
+// Export reference collection and resolution components
+export * from './parser/listeners/ApexReferenceCollectorListener';
+export * from './parser/references/ApexReferenceResolver';
+
+// Export layered symbol listeners
+export * from './parser/listeners/LayeredSymbolListenerBase';
+export * from './parser/listeners/PublicAPISymbolListener';
+export * from './parser/listeners/ProtectedSymbolListener';
+export * from './parser/listeners/PrivateSymbolListener';
+// Export ListenerApplicationManager but exclude ParseTreeResult (already exported from compilerService)
+export {
+  ListenerApplicationManager,
+  type ListenerApplicationOptions,
+} from './parser/listeners/ListenerApplicationManager';
+// Export ListenerFactory for creating service-appropriate listeners
+export * from './parser/listeners/ListenerFactory';
+
 // Export error listener
 export * from './parser/listeners/ApexErrorListener';
 
@@ -60,6 +80,7 @@ export * from './utils/ApexKeywords';
 // Export cross-file symbol management
 export * from './symbols/ApexSymbolManager';
 export * from './symbols/ApexSymbolProcessingManager';
+export * from './symbols/ProgressiveEnhancementService';
 
 // Export resolution framework types
 export * from './symbols/resolution/types';

@@ -11,6 +11,7 @@ import type {
   InitializeParams,
   InitializeResult,
   ClientInterface,
+  Disposable,
 } from '@salesforce/apex-lsp-shared';
 import { NodeMessageBridge } from './NodeBridge';
 
@@ -80,12 +81,12 @@ export class Client implements ClientInterface {
     return this.connection.sendRequest(method, params);
   }
 
-  onNotification(method: string, handler: (params: any) => void): void {
+  onNotification(method: string, handler: (params: any) => void): Disposable {
     this.checkDisposed();
     if (!this.connection) {
       throw new Error('Connection not initialized');
     }
-    this.connection.onNotification(method, handler);
+    return this.connection.onNotification(method, handler);
   }
 
   onRequest(method: string, handler: (params: any) => any): void {
