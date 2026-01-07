@@ -12,6 +12,9 @@ const path = require('path');
 // Load tsconfig for reference, may be needed later
 require(path.resolve(__dirname, 'tsconfig.json'));
 
+// Resolve teardown script path relative to this config file
+const teardownPath = path.resolve(__dirname, 'scripts/jest-teardown.js');
+
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
@@ -57,5 +60,5 @@ module.exports = {
       statements: 10,
     },
   },
-  globalTeardown: '<rootDir>/scripts/jest-teardown.js',
+  globalTeardown: teardownPath,
 };
