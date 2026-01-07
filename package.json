@@ -2,10 +2,9 @@
   "name": "@salesforce/apex-language-server",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "npm@11.7.0",
   "engines": {
     "node": ">=20.0.0",
-    "npm": ">=11.0.0"
+    "npm": ">=10.0.0"
   },
   "scripts": {
     "test": "wireit",
