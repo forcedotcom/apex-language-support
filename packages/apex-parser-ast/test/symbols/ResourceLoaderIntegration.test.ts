@@ -8,7 +8,7 @@
 
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
-import { getLogger } from '@salesforce/apex-lsp-shared'; 
+import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ReferenceContext } from '../../src/types/symbolReference';
 import type { SymbolReference } from '../../src/types/symbolReference';
 import {
