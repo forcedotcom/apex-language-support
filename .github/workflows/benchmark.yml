@@ -26,8 +26,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         uses: ./.github/actions/npm-install-with-retries
@@ -38,7 +38,7 @@ jobs:
       - name: Run performance benchmarks
         run: npm run test:perf
         env:
-          CI: 'true'
+          CI: "true"
           SERVER_TYPE: ${{ matrix.server-type }}
 
       - name: Upload benchmark results
@@ -68,24 +68,24 @@ jobs:
       - name: Store nodeServer benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'LSP Performance Benchmarks - NodeServer'
-          tool: 'benchmarkjs'
-          output-file-path: 'benchmark-artifacts/benchmark-results-nodeServer/packages/apex-lsp-testbed/test/nodeserver-benchmark-results.json'
+          name: "LSP Performance Benchmarks - NodeServer"
+          tool: "benchmarkjs"
+          output-file-path: "benchmark-artifacts/benchmark-results-nodeServer/packages/apex-lsp-testbed/test/nodeserver-benchmark-results.json"
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
-          alert-threshold: '130%'
+          alert-threshold: "130%"
           comment-on-alert: true
           fail-on-alert: true
 
       - name: Store jorje benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'LSP Performance Benchmarks - Jorje'
-          tool: 'benchmarkjs'
-          output-file-path: 'benchmark-artifacts/benchmark-results-jorje/packages/apex-lsp-testbed/test/jorje-benchmark-results.json'
+          name: "LSP Performance Benchmarks - Jorje"
+          tool: "benchmarkjs"
+          output-file-path: "benchmark-artifacts/benchmark-results-jorje/packages/apex-lsp-testbed/test/jorje-benchmark-results.json"
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
-          alert-threshold: '130%'
+          alert-threshold: "130%"
           comment-on-alert: true
           fail-on-alert: true
 
@@ -108,13 +108,13 @@ jobs:
       - name: Compare nodeServer benchmark results in PR
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'LSP Performance Benchmarks - NodeServer'
-          tool: 'benchmarkjs'
-          output-file-path: 'benchmark-artifacts/benchmark-results-nodeServer/packages/apex-lsp-testbed/test/nodeserver-benchmark-results.json'
+          name: "LSP Performance Benchmarks - NodeServer"
+          tool: "benchmarkjs"
+          output-file-path: "benchmark-artifacts/benchmark-results-nodeServer/packages/apex-lsp-testbed/test/nodeserver-benchmark-results.json"
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: false
           save-data-file: false
-          alert-threshold: '130%'
+          alert-threshold: "130%"
           comment-on-alert: true
           fail-on-alert: false
           summary-always: true
@@ -122,13 +122,13 @@ jobs:
       - name: Compare jorje benchmark results in PR
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'LSP Performance Benchmarks - Jorje'
-          tool: 'benchmarkjs'
-          output-file-path: 'benchmark-artifacts/benchmark-results-jorje/packages/apex-lsp-testbed/test/jorje-benchmark-results.json'
+          name: "LSP Performance Benchmarks - Jorje"
+          tool: "benchmarkjs"
+          output-file-path: "benchmark-artifacts/benchmark-results-jorje/packages/apex-lsp-testbed/test/jorje-benchmark-results.json"
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: false
           save-data-file: false
-          alert-threshold: '130%'
+          alert-threshold: "130%"
           comment-on-alert: true
           fail-on-alert: false
           summary-always: true
