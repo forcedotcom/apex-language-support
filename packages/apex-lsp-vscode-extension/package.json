@@ -752,6 +752,18 @@
         "eslint.config.mjs"
       ],
       "output": []
+    },
+    "lint:fix": {
+      "command": "eslint --fix --color --cache --cache-location .eslintcache src test",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ],
+      "output": []
     }
   },
   "dependencies": {

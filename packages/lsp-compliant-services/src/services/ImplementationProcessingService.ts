@@ -145,7 +145,9 @@ export class ImplementationProcessingService
 
       return locations;
     } catch (error) {
-      this.logger.error(() => `Error processing implementation request: ${error}`);
+      this.logger.error(
+        () => `Error processing implementation request: ${error}`,
+      );
       return [];
     }
   }
@@ -164,8 +166,9 @@ export class ImplementationProcessingService
       // Case 1: Interface - find all classes that implement it
       if (symbol.kind === SymbolKind.Interface) {
         const interfaceSymbol = symbol as TypeSymbol;
-        const implementingClasses = this.findImplementingClasses(interfaceSymbol);
-        
+        const implementingClasses =
+          this.findImplementingClasses(interfaceSymbol);
+
         for (const classSymbol of implementingClasses) {
           const location = this.createLocationFromSymbol(classSymbol);
           if (location) {
@@ -176,8 +179,9 @@ export class ImplementationProcessingService
       // Case 2: Abstract method - find all methods that implement it
       else if (isMethodSymbol(symbol) && symbol.modifiers?.isAbstract) {
         const abstractMethod = symbol as MethodSymbol;
-        const implementingMethods = await this.findImplementingMethods(abstractMethod);
-        
+        const implementingMethods =
+          await this.findImplementingMethods(abstractMethod);
+
         for (const methodSymbol of implementingMethods) {
           const location = this.createLocationFromSymbol(methodSymbol);
           if (location) {
@@ -193,7 +197,9 @@ export class ImplementationProcessingService
         );
       }
     } catch (error) {
-      this.logger.debug(() => `Error getting implementation locations: ${error}`);
+      this.logger.debug(
+        () => `Error getting implementation locations: ${error}`,
+      );
     }
 
     return locations;
@@ -277,7 +283,8 @@ export class ImplementationProcessingService
 
     try {
       // Get the containing class of the abstract method
-      const containingType = this.symbolManager.getContainingType(abstractMethod);
+      const containingType =
+        this.symbolManager.getContainingType(abstractMethod);
       if (!containingType || !inTypeSymbolGroup(containingType)) {
         return implementingMethods;
       }
@@ -489,4 +496,3 @@ export class ImplementationProcessingService
     return null;
   }
 }
-

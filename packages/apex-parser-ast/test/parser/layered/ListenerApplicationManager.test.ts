@@ -10,7 +10,6 @@ import { CompilerService } from '../../../src/parser/compilerService';
 import { ListenerApplicationManager } from '../../../src/parser/listeners/ListenerApplicationManager';
 import { PublicAPISymbolListener } from '../../../src/parser/listeners/PublicAPISymbolListener';
 import { ProtectedSymbolListener } from '../../../src/parser/listeners/ProtectedSymbolListener';
-import { PrivateSymbolListener } from '../../../src/parser/listeners/PrivateSymbolListener';
 import { SymbolTable, SymbolKind } from '../../../src/types/symbol';
 import { isBlockSymbol } from '../../../src/utils/symbolNarrowing';
 import { TestLogger } from '../../utils/testLogger';
@@ -56,9 +55,14 @@ describe('ListenerApplicationManager', () => {
       'TestClass.cls',
     );
 
-    const result = manager.applyListener(parseTreeResult, listener, symbolTable, {
-      fileUri: 'TestClass.cls',
-    });
+    const result = manager.applyListener(
+      parseTreeResult,
+      listener,
+      symbolTable,
+      {
+        fileUri: 'TestClass.cls',
+      },
+    );
 
     expect(result).toBeDefined();
     const allSymbols = result.getAllSymbols();
@@ -127,9 +131,14 @@ describe('ListenerApplicationManager', () => {
       'TestClass.cls',
     );
     const publicListener = new PublicAPISymbolListener(symbolTable);
-    const result1 = manager.applyListener(parseTreeResult1, publicListener, symbolTable, {
-      fileUri: 'TestClass.cls',
-    });
+    const result1 = manager.applyListener(
+      parseTreeResult1,
+      publicListener,
+      symbolTable,
+      {
+        fileUri: 'TestClass.cls',
+      },
+    );
 
     expect(result1.getAllSymbols().length).toBeGreaterThan(0);
 
@@ -139,12 +148,16 @@ describe('ListenerApplicationManager', () => {
       'TestClass.cls',
     );
     const protectedListener = new ProtectedSymbolListener(symbolTable);
-    const result2 = manager.applyListener(parseTreeResult2, protectedListener, symbolTable, {
-      fileUri: 'TestClass.cls',
-    });
+    const result2 = manager.applyListener(
+      parseTreeResult2,
+      protectedListener,
+      symbolTable,
+      {
+        fileUri: 'TestClass.cls',
+      },
+    );
 
     // Should be same table instance
     expect(result2).toBe(symbolTable);
   });
 });
-

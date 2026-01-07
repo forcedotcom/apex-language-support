@@ -161,7 +161,11 @@ export class DocumentStateCache {
     const cached = this.get(uri, version);
     if (cached?.parseTree) {
       // If contentHash provided, validate it matches
-      if (contentHash && cached.contentHash && cached.contentHash !== contentHash) {
+      if (
+        contentHash &&
+        cached.contentHash &&
+        cached.contentHash !== contentHash
+      ) {
         this.logger.debug(
           () =>
             `Parse tree cache invalidated for ${uri}: content hash mismatch ` +

@@ -20,14 +20,9 @@ import {
   CastExpressionContext,
   MethodCallContext,
   DotMethodCallContext,
-  EnhancedForControlContext,
-  TypeRefPrimaryContext,
-  QualifiedNameContext,
   AnyIdContext,
   ExpressionListContext,
   TypeArgumentsContext,
-  CatchClauseContext,
-  LocalVariableDeclarationContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -41,10 +36,7 @@ import {
 } from '../../types/symbolReference';
 import type { SymbolReference } from '../../types/symbolReference';
 import { SymbolTable, SymbolLocation } from '../../types/symbol';
-import {
-  isDotExpressionContext,
-  isMethodCallContext,
-} from '../../utils/contextTypeGuards';
+import { isDotExpressionContext } from '../../utils/contextTypeGuards';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 
 interface ChainScope {
@@ -309,7 +301,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       const typeName = typeNames[0];
       if (!typeName) return;
 
-      const isGenericArg = this.isGenericArgument(ctx);
+      const _isGenericArg = this.isGenericArgument(ctx);
       const isTypeDeclaration = this.isTypeDeclarationContext(ctx);
       const isMethodReturnType = this.isMethodReturnTypeContext(ctx);
 
@@ -428,7 +420,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           const leftExpression =
             Array.isArray(expressions) && expressions.length > 0
               ? expressions[0]
-              : expressions ?? null;
+              : (expressions ?? null);
 
           if (leftExpression) {
             const objectIdentifiers =
@@ -539,7 +531,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       const leftExpression =
         Array.isArray(expressions) && expressions.length > 0
           ? expressions[0]
-          : expressions ?? null;
+          : (expressions ?? null);
 
       if (leftExpression) {
         this.suppressedLHSRange = this.getLocation(
@@ -565,7 +557,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       const arrayExpression =
         Array.isArray(expressions) && expressions.length > 0
           ? expressions[0]
-          : expressions ?? null;
+          : (expressions ?? null);
 
       if (arrayExpression) {
         const identifiers =
@@ -857,7 +849,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         const leftExpression =
           Array.isArray(expressions) && expressions.length > 0
             ? expressions[0]
-            : expressions ?? null;
+            : (expressions ?? null);
 
         if (leftExpression) {
           const qualifier = this.extractQualifierFromExpression(leftExpression);
@@ -1019,14 +1011,12 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     return this.getCurrentMethodName();
   }
 
-  private extractBaseExpressionFromParser(
-    ctx: DotExpressionContext,
-  ): string {
+  private extractBaseExpressionFromParser(ctx: DotExpressionContext): string {
     const expressions = (ctx as any).expression?.();
     const leftExpression =
       Array.isArray(expressions) && expressions.length > 0
         ? expressions[0]
-        : expressions ?? null;
+        : (expressions ?? null);
 
     if (leftExpression) {
       const identifiers = this.extractIdentifiersFromExpression(leftExpression);
@@ -1036,9 +1026,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     return 'unknown';
   }
 
-  private extractIdentifiersFromExpression(
-    expr: any,
-  ): string[] {
+  private extractIdentifiersFromExpression(expr: any): string[] {
     const identifiers: string[] = [];
 
     if (expr.id) {
@@ -1224,8 +1212,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         startLine: ctx.start.line,
         startColumn: ctx.start.charPositionInLine,
         endLine: ctx.stop.line,
-        endColumn:
-          ctx.stop.charPositionInLine + (ctx.stop.text?.length ?? 0),
+        endColumn: ctx.stop.charPositionInLine + (ctx.stop.text?.length ?? 0),
       };
     }
     return null;
@@ -1256,4 +1243,3 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     }
   }
 }
-

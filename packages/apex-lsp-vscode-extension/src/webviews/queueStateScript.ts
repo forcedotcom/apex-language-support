@@ -272,12 +272,12 @@ class QueueStateDashboard {
             const active = activeTypes[type] || 0;
             const processed = processedTypes[type] || 0;
             const total = queued + active + processed;
-            
+
             // Only show if there's at least one count
             if (total === 0) {
               return '';
             }
-            
+
             return `
               <div class="request-type-item">
                 <span class="request-type-name">${this.escapeHtml(type)}</span>

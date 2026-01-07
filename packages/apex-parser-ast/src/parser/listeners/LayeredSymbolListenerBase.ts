@@ -7,10 +7,8 @@
  */
 
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ParserRuleContext } from 'antlr4ts';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
-import { ApexErrorListener } from './ApexErrorListener';
 import {
   SymbolTable,
   ApexSymbol,
@@ -180,4 +178,3 @@ export abstract class LayeredSymbolListenerBase extends BaseApexParserListener<S
     return (order[level1] || 0) > (order[level2] || 0);
   }
 }
-

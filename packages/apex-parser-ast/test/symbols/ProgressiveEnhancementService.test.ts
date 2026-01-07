@@ -10,13 +10,7 @@ import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
 import { ProgressiveEnhancementService } from '../../src/symbols/ProgressiveEnhancementService';
-import {
-  SymbolTable,
-  SymbolKind,
-  SymbolVisibility,
-  ApexSymbol,
-} from '../../src/types/symbol';
-import { DetailLevel } from '../../src/parser/listeners/LayeredSymbolListenerBase';
+import { SymbolKind } from '../../src/types/symbol';
 
 describe('ProgressiveEnhancementService', () => {
   let compilerService: CompilerService;
@@ -359,7 +353,10 @@ describe('ProgressiveEnhancementService', () => {
     });
 
     it('should return cost 1 if already beyond target level', () => {
-      const cost = enhancementService.getEnhancementCost('private', 'public-api');
+      const cost = enhancementService.getEnhancementCost(
+        'private',
+        'public-api',
+      );
 
       expect(cost).toBe(1);
     });
@@ -374,7 +371,10 @@ describe('ProgressiveEnhancementService', () => {
     });
 
     it('should return cost 3 for public-api to private', () => {
-      const cost = enhancementService.getEnhancementCost('public-api', 'private');
+      const cost = enhancementService.getEnhancementCost(
+        'public-api',
+        'private',
+      );
 
       expect(cost).toBe(3);
     });
@@ -386,13 +386,19 @@ describe('ProgressiveEnhancementService', () => {
     });
 
     it('should return cost 2 for protected to private', () => {
-      const cost = enhancementService.getEnhancementCost('protected', 'private');
+      const cost = enhancementService.getEnhancementCost(
+        'protected',
+        'private',
+      );
 
       expect(cost).toBe(2);
     });
 
     it('should return cost 2 for no level to public-api', () => {
-      const cost = enhancementService.getEnhancementCost(undefined, 'public-api');
+      const cost = enhancementService.getEnhancementCost(
+        undefined,
+        'public-api',
+      );
 
       expect(cost).toBe(2);
     });
@@ -480,4 +486,3 @@ describe('ProgressiveEnhancementService', () => {
     });
   });
 });
-

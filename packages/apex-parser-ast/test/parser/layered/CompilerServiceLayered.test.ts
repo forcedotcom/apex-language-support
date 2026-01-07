@@ -10,10 +10,7 @@ import { CompilerService } from '../../../src/parser/compilerService';
 import { PublicAPISymbolListener } from '../../../src/parser/listeners/PublicAPISymbolListener';
 import { ProtectedSymbolListener } from '../../../src/parser/listeners/ProtectedSymbolListener';
 import { PrivateSymbolListener } from '../../../src/parser/listeners/PrivateSymbolListener';
-import {
-  SymbolTable,
-  SymbolKind,
-} from '../../../src/types/symbol';
+import { SymbolTable, SymbolKind } from '../../../src/types/symbol';
 import { isBlockSymbol } from '../../../src/utils/symbolNarrowing';
 import { TestLogger } from '../../utils/testLogger';
 
@@ -37,7 +34,11 @@ describe('CompilerService.compileLayered', () => {
     const symbolTable = new SymbolTable();
     const listener = new PublicAPISymbolListener(symbolTable);
 
-    const result = compilerService.compile(fileContent, 'TestClass.cls', listener);
+    const result = compilerService.compile(
+      fileContent,
+      'TestClass.cls',
+      listener,
+    );
 
     expect(result.errors.length).toBe(0);
     expect(result.result).toBeDefined();
@@ -128,10 +129,13 @@ describe('CompilerService.compileLayered', () => {
     const symbolTable = new SymbolTable();
     const listener = new PublicAPISymbolListener(symbolTable);
 
-    const result = compilerService.compile(fileContent, 'TestClass.cls', listener);
+    const result = compilerService.compile(
+      fileContent,
+      'TestClass.cls',
+      listener,
+    );
 
     // Should have errors but still return result
     expect(result.errors.length).toBeGreaterThan(0);
   });
 });
-

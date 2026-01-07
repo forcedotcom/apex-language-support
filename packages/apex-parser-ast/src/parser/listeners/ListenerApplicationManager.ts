@@ -14,7 +14,10 @@ import {
   ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 
-import { LayeredSymbolListenerBase, DetailLevel } from './LayeredSymbolListenerBase';
+import {
+  LayeredSymbolListenerBase,
+  DetailLevel,
+} from './LayeredSymbolListenerBase';
 import { SymbolTable } from '../../types/symbol';
 import { ApexErrorListener } from './ApexErrorListener';
 import { PublicAPISymbolListener } from './PublicAPISymbolListener';
@@ -86,8 +89,7 @@ export class ListenerApplicationManager {
     existingSymbolTable?: SymbolTable,
     options: ListenerApplicationOptions = {},
   ): SymbolTable {
-    const enforceDependencies =
-      options.enforceDependencies !== false; // Default: true
+    const enforceDependencies = options.enforceDependencies !== false; // Default: true
 
     // If dependency enforcement is enabled, ensure all required listeners are included
     const listenersToApply = enforceDependencies
@@ -262,7 +264,8 @@ export class ListenerApplicationManager {
           // For 'full', would use ApexSymbolCollectorListener
           // But that's not a LayeredSymbolListenerBase, so skip for now
           this.logger.warn(
-            () => `'full' detail level not supported in createListenersForLevels`,
+            () =>
+              "'full' detail level not supported in createListenersForLevels",
           );
           break;
       }
@@ -271,4 +274,3 @@ export class ListenerApplicationManager {
     return listeners;
   }
 }
-

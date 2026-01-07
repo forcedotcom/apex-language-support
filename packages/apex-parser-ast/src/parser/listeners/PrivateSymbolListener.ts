@@ -14,7 +14,6 @@ import {
   FieldDeclarationContext,
   PropertyDeclarationContext,
   LocalVariableDeclarationContext,
-  VariableDeclaratorContext,
   FormalParametersContext,
   TypeRefContext,
   ModifierContext,
@@ -107,10 +106,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
         methodSymbol.annotations = [...this.currentAnnotations];
       }
 
-      this.addSymbolWithDetailLevel(
-        methodSymbol,
-        this.getCurrentScopeSymbol(),
-      );
+      this.addSymbolWithDetailLevel(methodSymbol, this.getCurrentScopeSymbol());
 
       // Create method block for scope tracking
       const location = this.getLocation(ctx);
@@ -339,7 +335,10 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(`Error in local variable declaration: ${errorMessage}`, ctx);
+      this.addError(
+        `Error in local variable declaration: ${errorMessage}`,
+        ctx,
+      );
     }
   }
 
@@ -361,13 +360,13 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
       if (blockSymbol) {
         this.scopeStack.push(blockSymbol);
       }
-    } catch (e) {
+    } catch (_e) {
       // Silently continue - block scope tracking
     }
   }
 
   exitBlock(): void {
-    const popped = this.scopeStack.pop();
+    this.scopeStack.pop();
     // No validation needed for generic blocks
   }
 
@@ -417,7 +416,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
       if (blockSymbol) {
         this.scopeStack.push(blockSymbol);
       }
-    } catch (e) {
+    } catch (_e) {
       // Silently continue - scope tracking
     }
   }
@@ -447,7 +446,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
       if (blockSymbol) {
         this.scopeStack.push(blockSymbol);
       }
-    } catch (e) {
+    } catch (_e) {
       // Silently continue - scope tracking
     }
   }
@@ -675,7 +674,7 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
     const fileUri = this.symbolTable.getFileUri();
     const scopePath = this.symbolTable.getCurrentScopePath(parentScope);
 
-    const searchName = semanticName || name;
+    const _searchName = semanticName || name;
     const currentType = this.getCurrentType();
     let parentId: string | null = null;
     if (currentType && scopeType === 'class') {
@@ -949,4 +948,3 @@ export class PrivateSymbolListener extends LayeredSymbolListenerBase {
     return new PrivateSymbolListener(newTable);
   }
 }
-

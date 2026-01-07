@@ -12,16 +12,13 @@ import {
   ApexSymbol,
   SymbolKind,
   ScopeSymbol,
-  SymbolVisibility,
   VariableSymbol,
 } from '../../types/symbol';
+import { SymbolReference, ReferenceContext } from '../../types/symbolReference';
 import {
-  SymbolReference,
-  ReferenceContext,
-  ChainedSymbolReference,
-} from '../../types/symbolReference';
-import { isChainedSymbolReference } from '../../utils/symbolNarrowing';
-import { isBlockSymbol } from '../../utils/symbolNarrowing';
+  isChainedSymbolReference,
+  isBlockSymbol,
+} from '../../utils/symbolNarrowing';
 
 /**
  * Service that resolves symbol references to their definitions.
@@ -387,8 +384,7 @@ export class ApexReferenceResolver {
           (s) =>
             s.name === ref.name &&
             s.parentId === currentScope!.id &&
-            (s.kind === SymbolKind.Method ||
-              s.kind === SymbolKind.Constructor),
+            (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor),
         );
         if (methods.length > 0) {
           return (
@@ -588,8 +584,7 @@ export class ApexReferenceResolver {
           const typeSymbol = allSymbols.find(
             (s) =>
               s.name === typeName &&
-              (s.kind === SymbolKind.Class ||
-                s.kind === SymbolKind.Interface),
+              (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface),
           );
 
           if (typeSymbol) {
@@ -651,8 +646,7 @@ export class ApexReferenceResolver {
       } else if (lastNode.context === ReferenceContext.FIELD_ACCESS) {
         const fieldSymbol = allSymbols.find(
           (s) =>
-            (s.kind === SymbolKind.Field ||
-              s.kind === SymbolKind.Property) &&
+            (s.kind === SymbolKind.Field || s.kind === SymbolKind.Property) &&
             s.name === lastNode.name &&
             s.parentId === classBlock.id,
         );
@@ -689,10 +683,7 @@ export class ApexReferenceResolver {
         return variableSymbol;
       }
 
-      const resolved = this.resolveTypeReference(
-        ref.chainNodes[0],
-        allSymbols,
-      );
+      const resolved = this.resolveTypeReference(ref.chainNodes[0], allSymbols);
       if (resolved) {
         ref.chainNodes[0].resolvedSymbolId = resolved.id;
       }
@@ -770,4 +761,3 @@ export class ApexReferenceResolver {
     }
   }
 }
-

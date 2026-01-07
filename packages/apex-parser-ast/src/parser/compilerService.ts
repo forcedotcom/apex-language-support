@@ -37,7 +37,10 @@ import { ApexSymbolCollectorListener } from './listeners/ApexSymbolCollectorList
 import { FullSymbolCollectorListener } from './listeners/FullSymbolCollectorListener';
 import { ApexReferenceCollectorListener } from './listeners/ApexReferenceCollectorListener';
 import { ApexReferenceResolver } from './references/ApexReferenceResolver';
-import { LayeredSymbolListenerBase, DetailLevel } from './listeners/LayeredSymbolListenerBase';
+import {
+  LayeredSymbolListenerBase,
+  DetailLevel,
+} from './listeners/LayeredSymbolListenerBase';
 import { PublicAPISymbolListener } from './listeners/PublicAPISymbolListener';
 import { ProtectedSymbolListener } from './listeners/ProtectedSymbolListener';
 import { PrivateSymbolListener } from './listeners/PrivateSymbolListener';
@@ -75,7 +78,7 @@ export interface CompilationOptions {
   associateComments?: boolean;
   enableReferenceCorrection?: boolean; // New option, defaults to true
   collectReferences?: boolean; // Collect references using ApexReferenceCollectorListener (default: false)
-  resolveReferences?: boolean; // Resolve references using ApexReferenceResolver (default: true if collectReferences is true)
+  resolveReferences?: boolean; // Resolve references using ApexReferenceResolver (default: true if collectReferences)
 }
 
 export interface LayeredCompilationOptions extends CompilationOptions {
@@ -194,7 +197,10 @@ export class CompilerService {
         );
         referenceCollector.setErrorListener(errorListener);
         referenceCollector.setCurrentFileUri(fileName);
-        if (namespace && typeof referenceCollector.setProjectNamespace === 'function') {
+        if (
+          namespace &&
+          typeof referenceCollector.setProjectNamespace === 'function'
+        ) {
           referenceCollector.setProjectNamespace(namespace);
         }
 
@@ -483,8 +489,7 @@ export class CompilerService {
 
     try {
       // Enforce dependencies: if layer n is requested, include all layers < n
-      const enforceDependencies =
-        options.enforceDependencies !== false; // Default: true
+      const enforceDependencies = options.enforceDependencies !== false; // Default: true
       const requestedLayers = enforceDependencies
         ? this.ensureDependencies(layers)
         : layers;
@@ -495,7 +500,7 @@ export class CompilerService {
       );
 
       // Create or reuse parse tree
-      const { parseTree, errorListener, tokenStream } = this.createParseTree(
+      const { parseTree, errorListener } = this.createParseTree(
         fileContent,
         fileName,
       );
@@ -538,7 +543,10 @@ export class CompilerService {
         );
         referenceCollector.setErrorListener(errorListener);
         referenceCollector.setCurrentFileUri(fileName);
-        if (namespace && typeof referenceCollector.setProjectNamespace === 'function') {
+        if (
+          namespace &&
+          typeof referenceCollector.setProjectNamespace === 'function'
+        ) {
           referenceCollector.setProjectNamespace(namespace);
         }
 

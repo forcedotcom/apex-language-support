@@ -14,7 +14,6 @@ import {
   SymbolTable,
   SymbolKind,
   SymbolVisibility,
-  ApexSymbol,
 } from '../../../src/types/symbol';
 import { isBlockSymbol } from '../../../src/utils/symbolNarrowing';
 import { TestLogger } from '../../utils/testLogger';
@@ -52,7 +51,11 @@ describe('Layered Symbol Collection', () => {
       const listener = new PublicAPISymbolListener(symbolTable);
       listener.setCurrentFileUri('TestClass.cls');
 
-      const result = compilerService.compile(fileContent, 'TestClass.cls', listener);
+      const result = compilerService.compile(
+        fileContent,
+        'TestClass.cls',
+        listener,
+      );
 
       expect(result.errors.length).toBe(0);
       expect(result.result).toBeDefined();
@@ -61,7 +64,9 @@ describe('Layered Symbol Collection', () => {
       const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
       // Should have class
-      const classes = semanticSymbols.filter((s) => s.kind === SymbolKind.Class);
+      const classes = semanticSymbols.filter(
+        (s) => s.kind === SymbolKind.Class,
+      );
       expect(classes.length).toBe(1);
       expect(classes[0].name).toBe('TestClass');
       expect(classes[0]._detailLevel).toBe('public-api');
@@ -128,7 +133,11 @@ describe('Layered Symbol Collection', () => {
       const listener = new PublicAPISymbolListener(symbolTable);
       listener.setCurrentFileUri('GlobalClass.cls');
 
-      const result = compilerService.compile(fileContent, 'GlobalClass.cls', listener);
+      const result = compilerService.compile(
+        fileContent,
+        'GlobalClass.cls',
+        listener,
+      );
 
       expect(result.errors.length).toBe(0);
 
@@ -171,7 +180,11 @@ describe('Layered Symbol Collection', () => {
       const listener = new ProtectedSymbolListener(symbolTable);
       listener.setCurrentFileUri('TestClass.cls');
 
-      const result = compilerService.compile(fileContent, 'TestClass.cls', listener);
+      const result = compilerService.compile(
+        fileContent,
+        'TestClass.cls',
+        listener,
+      );
 
       expect(result.errors.length).toBe(0);
 
@@ -254,7 +267,11 @@ describe('Layered Symbol Collection', () => {
       const listener = new PrivateSymbolListener(symbolTable);
       listener.setCurrentFileUri('TestClass.cls');
 
-      const result = compilerService.compile(fileContent, 'TestClass.cls', listener);
+      const result = compilerService.compile(
+        fileContent,
+        'TestClass.cls',
+        listener,
+      );
 
       expect(result.errors.length).toBe(0);
 
@@ -469,8 +486,12 @@ describe('Layered Symbol Collection', () => {
 
       let allSymbols = (publicResult.result as SymbolTable).getAllSymbols();
       let semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
-      expect(semanticSymbols.filter((s) => s.kind === SymbolKind.Field).length).toBe(1);
-      expect(semanticSymbols.filter((s) => s.kind === SymbolKind.Method).length).toBe(1);
+      expect(
+        semanticSymbols.filter((s) => s.kind === SymbolKind.Field).length,
+      ).toBe(1);
+      expect(
+        semanticSymbols.filter((s) => s.kind === SymbolKind.Method).length,
+      ).toBe(1);
 
       // Layer 2: Protected
       const protectedListener = new ProtectedSymbolListener(symbolTable);
@@ -484,8 +505,12 @@ describe('Layered Symbol Collection', () => {
 
       allSymbols = (protectedResult.result as SymbolTable).getAllSymbols();
       semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
-      expect(semanticSymbols.filter((s) => s.kind === SymbolKind.Field).length).toBe(2);
-      expect(semanticSymbols.filter((s) => s.kind === SymbolKind.Method).length).toBe(2);
+      expect(
+        semanticSymbols.filter((s) => s.kind === SymbolKind.Field).length,
+      ).toBe(2);
+      expect(
+        semanticSymbols.filter((s) => s.kind === SymbolKind.Method).length,
+      ).toBe(2);
 
       // Layer 3: Private
       const privateListener = new PrivateSymbolListener(symbolTable);
@@ -501,11 +526,17 @@ describe('Layered Symbol Collection', () => {
       semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
       // Should have all fields
-      expect(semanticSymbols.filter((s) => s.kind === SymbolKind.Field).length).toBe(3);
+      expect(
+        semanticSymbols.filter((s) => s.kind === SymbolKind.Field).length,
+      ).toBe(3);
       // Should have all methods
-      expect(semanticSymbols.filter((s) => s.kind === SymbolKind.Method).length).toBe(3);
+      expect(
+        semanticSymbols.filter((s) => s.kind === SymbolKind.Method).length,
+      ).toBe(3);
       // Should have local variable
-      expect(semanticSymbols.filter((s) => s.kind === SymbolKind.Variable).length).toBe(1);
+      expect(
+        semanticSymbols.filter((s) => s.kind === SymbolKind.Variable).length,
+      ).toBe(1);
 
       // Verify detail levels
       const publicField = semanticSymbols.find(
@@ -524,4 +555,3 @@ describe('Layered Symbol Collection', () => {
     });
   });
 });
-

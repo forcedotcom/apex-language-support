@@ -40,7 +40,9 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
   /**
    * Helper to group symbols by kind
    */
-  function groupSymbolsByKind(symbols: ApexSymbol[]): Map<SymbolKind, ApexSymbol[]> {
+  function groupSymbolsByKind(
+    symbols: ApexSymbol[],
+  ): Map<SymbolKind, ApexSymbol[]> {
     const grouped = new Map<SymbolKind, ApexSymbol[]>();
     for (const symbol of symbols) {
       const existing = grouped.get(symbol.kind) || [];
@@ -123,7 +125,9 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       const fullFields = fullByKind.get(SymbolKind.Field) || [];
       const layeredFields = layeredByKind.get(SymbolKind.Field) || [];
       // Allow for default visibility fields not being captured
-      expect(layeredFields.length).toBeGreaterThanOrEqual(fullFields.length - 1);
+      expect(layeredFields.length).toBeGreaterThanOrEqual(
+        fullFields.length - 1,
+      );
 
       // Should have same number of methods (all visibility levels)
       // Note: Layered listeners may capture constructors differently
@@ -137,7 +141,9 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       ];
       // Allow some variance - layered listeners capture all constructors but may organize differently
       // Key is that all expected methods/constructors are present
-      expect(layeredMethods.length).toBeGreaterThanOrEqual(Math.min(fullMethods.length, 4));
+      expect(layeredMethods.length).toBeGreaterThanOrEqual(
+        Math.min(fullMethods.length, 4),
+      );
 
       // Should have local variables
       // Note: Local variables may be captured differently or in different scopes
@@ -145,7 +151,9 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       const layeredVariables = layeredByKind.get(SymbolKind.Variable) || [];
       // Allow some variance - layered listeners capture locals but may organize differently
       if (fullVariables.length > 0) {
-        expect(layeredVariables.length).toBeGreaterThanOrEqual(fullVariables.length - 1);
+        expect(layeredVariables.length).toBeGreaterThanOrEqual(
+          fullVariables.length - 1,
+        );
       }
     });
 
@@ -162,25 +170,43 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       const layeredSymbols = getSemanticSymbols(layeredSymbolTable);
 
       // Check public field
-      const publicField = findSymbol(layeredSymbols, 'publicField', SymbolKind.Field);
+      const publicField = findSymbol(
+        layeredSymbols,
+        'publicField',
+        SymbolKind.Field,
+      );
       expect(publicField).toBeDefined();
       expect(publicField?.modifiers.visibility).toBe(SymbolVisibility.Public);
       expect(publicField?._detailLevel).toBe('public-api');
 
       // Check protected field
-      const protectedField = findSymbol(layeredSymbols, 'protectedField', SymbolKind.Field);
+      const protectedField = findSymbol(
+        layeredSymbols,
+        'protectedField',
+        SymbolKind.Field,
+      );
       expect(protectedField).toBeDefined();
-      expect(protectedField?.modifiers.visibility).toBe(SymbolVisibility.Protected);
+      expect(protectedField?.modifiers.visibility).toBe(
+        SymbolVisibility.Protected,
+      );
       expect(protectedField?._detailLevel).toBe('protected');
 
       // Check private field
-      const privateField = findSymbol(layeredSymbols, 'privateField', SymbolKind.Field);
+      const privateField = findSymbol(
+        layeredSymbols,
+        'privateField',
+        SymbolKind.Field,
+      );
       expect(privateField).toBeDefined();
       expect(privateField?.modifiers.visibility).toBe(SymbolVisibility.Private);
       expect(privateField?._detailLevel).toBe('private');
 
       // Check public method
-      const publicMethod = findSymbol(layeredSymbols, 'publicMethod', SymbolKind.Method);
+      const publicMethod = findSymbol(
+        layeredSymbols,
+        'publicMethod',
+        SymbolKind.Method,
+      );
       expect(publicMethod).toBeDefined();
       expect(publicMethod?.modifiers.visibility).toBe(SymbolVisibility.Public);
       expect(publicMethod?._detailLevel).toBe('public-api');
@@ -192,13 +218,21 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
         SymbolKind.Method,
       );
       expect(protectedMethod).toBeDefined();
-      expect(protectedMethod?.modifiers.visibility).toBe(SymbolVisibility.Protected);
+      expect(protectedMethod?.modifiers.visibility).toBe(
+        SymbolVisibility.Protected,
+      );
       expect(protectedMethod?._detailLevel).toBe('protected');
 
       // Check private method
-      const privateMethod = findSymbol(layeredSymbols, 'privateMethod', SymbolKind.Method);
+      const privateMethod = findSymbol(
+        layeredSymbols,
+        'privateMethod',
+        SymbolKind.Method,
+      );
       expect(privateMethod).toBeDefined();
-      expect(privateMethod?.modifiers.visibility).toBe(SymbolVisibility.Private);
+      expect(privateMethod?.modifiers.visibility).toBe(
+        SymbolVisibility.Private,
+      );
       expect(privateMethod?._detailLevel).toBe('private');
 
       // Check constructors
@@ -210,7 +244,11 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       expect(publicConstructor).toBeDefined();
 
       // Check local variable
-      const localVar = findSymbol(layeredSymbols, 'localVar', SymbolKind.Variable);
+      const localVar = findSymbol(
+        layeredSymbols,
+        'localVar',
+        SymbolKind.Variable,
+      );
       expect(localVar).toBeDefined();
       expect(localVar?._detailLevel).toBe('private');
     });
@@ -244,7 +282,9 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
         fullListener,
       );
       const fullSymbols = getSemanticSymbols(fullResult.result as SymbolTable);
-      const fullProperties = fullSymbols.filter((s) => s.kind === SymbolKind.Property);
+      const fullProperties = fullSymbols.filter(
+        (s) => s.kind === SymbolKind.Property,
+      );
 
       const layeredSymbolTable = new SymbolTable();
       const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
@@ -252,18 +292,36 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       const privateListener = new PrivateSymbolListener(layeredSymbolTable);
 
       compilerService.compile(fileContent, 'ComplexClass.cls', publicListener);
-      compilerService.compile(fileContent, 'ComplexClass.cls', protectedListener);
+      compilerService.compile(
+        fileContent,
+        'ComplexClass.cls',
+        protectedListener,
+      );
       compilerService.compile(fileContent, 'ComplexClass.cls', privateListener);
 
       const layeredSymbols = getSemanticSymbols(layeredSymbolTable);
-      const layeredProperties = layeredSymbols.filter((s) => s.kind === SymbolKind.Property);
+      const layeredProperties = layeredSymbols.filter(
+        (s) => s.kind === SymbolKind.Property,
+      );
 
       expect(layeredProperties.length).toBe(fullProperties.length);
 
       // Check each property exists
-      const publicProp = findSymbol(layeredSymbols, 'publicProp', SymbolKind.Property);
-      const protectedProp = findSymbol(layeredSymbols, 'protectedProp', SymbolKind.Property);
-      const privateProp = findSymbol(layeredSymbols, 'privateProp', SymbolKind.Property);
+      const publicProp = findSymbol(
+        layeredSymbols,
+        'publicProp',
+        SymbolKind.Property,
+      );
+      const protectedProp = findSymbol(
+        layeredSymbols,
+        'protectedProp',
+        SymbolKind.Property,
+      );
+      const privateProp = findSymbol(
+        layeredSymbols,
+        'privateProp',
+        SymbolKind.Property,
+      );
 
       expect(publicProp).toBeDefined();
       expect(protectedProp).toBeDefined();
@@ -278,7 +336,9 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
         fullListener,
       );
       const fullSymbols = getSemanticSymbols(fullResult.result as SymbolTable);
-      const fullParameters = fullSymbols.filter((s) => s.kind === SymbolKind.Parameter);
+      const fullParameters = fullSymbols.filter(
+        (s) => s.kind === SymbolKind.Parameter,
+      );
 
       const layeredSymbolTable = new SymbolTable();
       const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
@@ -286,16 +346,26 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       const privateListener = new PrivateSymbolListener(layeredSymbolTable);
 
       compilerService.compile(fileContent, 'ComplexClass.cls', publicListener);
-      compilerService.compile(fileContent, 'ComplexClass.cls', protectedListener);
+      compilerService.compile(
+        fileContent,
+        'ComplexClass.cls',
+        protectedListener,
+      );
       compilerService.compile(fileContent, 'ComplexClass.cls', privateListener);
 
       const layeredSymbols = getSemanticSymbols(layeredSymbolTable);
-      const layeredParameters = layeredSymbols.filter((s) => s.kind === SymbolKind.Parameter);
+      const _layeredParameters = layeredSymbols.filter(
+        (s) => s.kind === SymbolKind.Parameter,
+      );
 
       // Parameters are captured as part of method symbols in layered listeners
       // Check that methods have parameters if full listener captured them
       if (fullParameters.length > 0) {
-        const complexMethod = findSymbol(layeredSymbols, 'complexMethod', SymbolKind.Method);
+        const complexMethod = findSymbol(
+          layeredSymbols,
+          'complexMethod',
+          SymbolKind.Method,
+        );
         expect(complexMethod).toBeDefined();
         // Method should exist, parameters may be stored differently
         // The key is that the method signature is captured
@@ -311,7 +381,9 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
         fullListener,
       );
       const fullSymbols = getSemanticSymbols(fullResult.result as SymbolTable);
-      const fullVariables = fullSymbols.filter((s) => s.kind === SymbolKind.Variable);
+      const fullVariables = fullSymbols.filter(
+        (s) => s.kind === SymbolKind.Variable,
+      );
 
       const layeredSymbolTable = new SymbolTable();
       const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
@@ -319,18 +391,28 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       const privateListener = new PrivateSymbolListener(layeredSymbolTable);
 
       compilerService.compile(fileContent, 'ComplexClass.cls', publicListener);
-      compilerService.compile(fileContent, 'ComplexClass.cls', protectedListener);
+      compilerService.compile(
+        fileContent,
+        'ComplexClass.cls',
+        protectedListener,
+      );
       compilerService.compile(fileContent, 'ComplexClass.cls', privateListener);
 
       const layeredSymbols = getSemanticSymbols(layeredSymbolTable);
-      const layeredVariables = layeredSymbols.filter((s) => s.kind === SymbolKind.Variable);
+      const layeredVariables = layeredSymbols.filter(
+        (s) => s.kind === SymbolKind.Variable,
+      );
 
       expect(layeredVariables.length).toBe(fullVariables.length);
 
       // Check local variables exist
       const local1 = findSymbol(layeredSymbols, 'local1', SymbolKind.Variable);
       const local2 = findSymbol(layeredSymbols, 'local2', SymbolKind.Variable);
-      const helperVar = findSymbol(layeredSymbols, 'helperVar', SymbolKind.Variable);
+      const helperVar = findSymbol(
+        layeredSymbols,
+        'helperVar',
+        SymbolKind.Variable,
+      );
 
       expect(local1).toBeDefined();
       expect(local2).toBeDefined();
@@ -359,7 +441,9 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
         fullListener,
       );
       const fullSymbols = getSemanticSymbols(fullResult.result as SymbolTable);
-      const fullInterfaces = fullSymbols.filter((s) => s.kind === SymbolKind.Interface);
+      const fullInterfaces = fullSymbols.filter(
+        (s) => s.kind === SymbolKind.Interface,
+      );
 
       const layeredSymbolTable = new SymbolTable();
       const publicListener = new PublicAPISymbolListener(layeredSymbolTable);
@@ -367,18 +451,30 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       compilerService.compile(fileContent, 'TestInterface.cls', publicListener);
 
       const layeredSymbols = getSemanticSymbols(layeredSymbolTable);
-      const layeredInterfaces = layeredSymbols.filter((s) => s.kind === SymbolKind.Interface);
+      const layeredInterfaces = layeredSymbols.filter(
+        (s) => s.kind === SymbolKind.Interface,
+      );
 
       expect(layeredInterfaces.length).toBe(fullInterfaces.length);
 
-      const interfaceSymbol = findSymbol(layeredSymbols, 'TestInterface', SymbolKind.Interface);
+      const interfaceSymbol = findSymbol(
+        layeredSymbols,
+        'TestInterface',
+        SymbolKind.Interface,
+      );
       expect(interfaceSymbol).toBeDefined();
-      expect(interfaceSymbol?.modifiers.visibility).toBe(SymbolVisibility.Public);
+      expect(interfaceSymbol?.modifiers.visibility).toBe(
+        SymbolVisibility.Public,
+      );
     });
 
     it('should capture enums correctly', () => {
       const fullListener = new ApexSymbolCollectorListener();
-      const fullResult = compilerService.compile(fileContent, 'TestEnum.cls', fullListener);
+      const fullResult = compilerService.compile(
+        fileContent,
+        'TestEnum.cls',
+        fullListener,
+      );
       const fullSymbols = getSemanticSymbols(fullResult.result as SymbolTable);
       const fullEnums = fullSymbols.filter((s) => s.kind === SymbolKind.Enum);
 
@@ -388,7 +484,9 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       compilerService.compile(fileContent, 'TestEnum.cls', publicListener);
 
       const layeredSymbols = getSemanticSymbols(layeredSymbolTable);
-      const layeredEnums = layeredSymbols.filter((s) => s.kind === SymbolKind.Enum);
+      const _layeredEnums = layeredSymbols.filter(
+        (s) => s.kind === SymbolKind.Enum,
+      );
 
       // Enums may not be fully implemented in PublicAPISymbolListener yet
       // This test verifies the structure is compatible when enums are captured
@@ -422,18 +520,32 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       const privateListener = new PrivateSymbolListener(layeredSymbolTable);
 
       compilerService.compile(fileContent, 'StructureTest.cls', publicListener);
-      compilerService.compile(fileContent, 'StructureTest.cls', privateListener);
+      compilerService.compile(
+        fileContent,
+        'StructureTest.cls',
+        privateListener,
+      );
 
       // Both should have same file URI
-      expect(layeredSymbolTable.getFileUri()).toBe(fullSymbolTable.getFileUri());
+      expect(layeredSymbolTable.getFileUri()).toBe(
+        fullSymbolTable.getFileUri(),
+      );
 
       // Both should have roots
-      const fullRoots = fullSymbolTable.getAllSymbols().filter((s) => s.parentId === null);
-      const layeredRoots = layeredSymbolTable.getAllSymbols().filter((s) => s.parentId === null);
+      const fullRoots = fullSymbolTable
+        .getAllSymbols()
+        .filter((s) => s.parentId === null);
+      const layeredRoots = layeredSymbolTable
+        .getAllSymbols()
+        .filter((s) => s.parentId === null);
 
       // Should have same number of root-level symbols (classes)
-      const fullRootClasses = fullRoots.filter((s) => s.kind === SymbolKind.Class);
-      const layeredRootClasses = layeredRoots.filter((s) => s.kind === SymbolKind.Class);
+      const fullRootClasses = fullRoots.filter(
+        (s) => s.kind === SymbolKind.Class,
+      );
+      const layeredRootClasses = layeredRoots.filter(
+        (s) => s.kind === SymbolKind.Class,
+      );
       expect(layeredRootClasses.length).toBe(fullRootClasses.length);
     });
 
@@ -443,10 +555,18 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       const privateListener = new PrivateSymbolListener(layeredSymbolTable);
 
       compilerService.compile(fileContent, 'StructureTest.cls', publicListener);
-      compilerService.compile(fileContent, 'StructureTest.cls', privateListener);
+      compilerService.compile(
+        fileContent,
+        'StructureTest.cls',
+        privateListener,
+      );
 
       const layeredSymbols = getSemanticSymbols(layeredSymbolTable);
-      const classSymbol = findSymbol(layeredSymbols, 'StructureTest', SymbolKind.Class);
+      const classSymbol = findSymbol(
+        layeredSymbols,
+        'StructureTest',
+        SymbolKind.Class,
+      );
       expect(classSymbol).toBeDefined();
 
       // Fields should have correct parentId
@@ -503,9 +623,21 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       const protectedListener = new ProtectedSymbolListener(layeredSymbolTable);
       const privateListener = new PrivateSymbolListener(layeredSymbolTable);
 
-      compilerService.compile(fileContent, 'PerformanceTest.cls', publicListener);
-      compilerService.compile(fileContent, 'PerformanceTest.cls', protectedListener);
-      compilerService.compile(fileContent, 'PerformanceTest.cls', privateListener);
+      compilerService.compile(
+        fileContent,
+        'PerformanceTest.cls',
+        publicListener,
+      );
+      compilerService.compile(
+        fileContent,
+        'PerformanceTest.cls',
+        protectedListener,
+      );
+      compilerService.compile(
+        fileContent,
+        'PerformanceTest.cls',
+        privateListener,
+      );
 
       const layeredSymbols = getSemanticSymbols(layeredSymbolTable);
 
@@ -539,8 +671,9 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       ).length;
 
       // Should be very close (allowing for minor differences in reference handling)
-      expect(Math.abs(layeredSemanticCount - fullSemanticCount)).toBeLessThanOrEqual(2);
+      expect(
+        Math.abs(layeredSemanticCount - fullSemanticCount),
+      ).toBeLessThanOrEqual(2);
     });
   });
 });
-

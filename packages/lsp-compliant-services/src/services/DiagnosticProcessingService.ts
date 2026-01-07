@@ -102,15 +102,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
       try {
         result = yield* Effect.sync(() =>
-          compilerService.compile(
-            document.getText(),
-            document.uri,
-            listener,
-            {
-              collectReferences: true,
-              resolveReferences: true,
-            },
-          ),
+          compilerService.compile(document.getText(), document.uri, listener, {
+            collectReferences: true,
+            resolveReferences: true,
+          }),
         );
       } catch (error: unknown) {
         logger.error(
@@ -227,7 +222,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         // This prevents deferred reference processing during initial workspace load
         const workspaceLoading = isWorkspaceLoading();
         const workspaceLoaded = isWorkspaceLoaded();
-        
+
         if (!workspaceLoading && workspaceLoaded) {
           // Workspace is loaded - safe to resolve cross-file references for enhanced diagnostics
           try {
@@ -250,7 +245,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         } else {
           this.logger.debug(
             () =>
-              `Skipping cross-file resolution for ${params.textDocument.uri} (workspace loading: ${workspaceLoading}, loaded: ${workspaceLoaded})`,
+              `Skipping cross-file resolution for ${params.textDocument.uri} ` +
+              `(workspace loading: ${workspaceLoading}, loaded: ${workspaceLoaded})`,
           );
         }
         // Convert cached errors to diagnostics and enhance (with yielding)
@@ -289,7 +285,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       // This prevents deferred reference processing during initial workspace load
       const workspaceLoading = isWorkspaceLoading();
       const workspaceLoaded = isWorkspaceLoaded();
-      
+
       if (!workspaceLoading && workspaceLoaded) {
         // Workspace is loaded - safe to resolve cross-file references for enhanced diagnostics
         try {
@@ -312,7 +308,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       } else {
         this.logger.debug(
           () =>
-            `Skipping cross-file resolution for ${params.textDocument.uri} (workspace loading: ${workspaceLoading}, loaded: ${workspaceLoaded})`,
+            `Skipping cross-file resolution for ${params.textDocument.uri} ` +
+            `(workspace loading: ${workspaceLoading}, loaded: ${workspaceLoaded})`,
         );
       }
 

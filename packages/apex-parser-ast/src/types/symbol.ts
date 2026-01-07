@@ -833,9 +833,9 @@ export class SymbolTable {
     if (existingSymbol && symbol._detailLevel && existingSymbol._detailLevel) {
       const detailLevelOrder: Record<string, number> = {
         'public-api': 1,
-        'protected': 2,
-        'private': 3,
-        'full': 4,
+        protected: 2,
+        private: 3,
+        full: 4,
       };
       const existingLevel = detailLevelOrder[existingSymbol._detailLevel] || 0;
       const newLevel = detailLevelOrder[symbol._detailLevel] || 0;

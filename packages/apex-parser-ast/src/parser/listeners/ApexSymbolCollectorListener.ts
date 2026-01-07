@@ -6373,7 +6373,7 @@ export class ApexSymbolCollectorListener
    * 1. Fixes VARIABLE_USAGE references that should be CLASS_REFERENCE
    * 2. Resolves all same-file references to their symbol definitions
    * Called from exitCompilationUnit, exitTriggerUnit, and exitAnonymousUnit
-   * 
+   *
    * Now delegates to ApexReferenceResolver for consistent resolution logic across all listeners
    */
   private correctReferenceContexts(): void {

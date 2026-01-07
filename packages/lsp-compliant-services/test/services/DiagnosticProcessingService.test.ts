@@ -407,7 +407,6 @@ describe('DiagnosticProcessingService', () => {
       mockIsWorkspaceLoaded.mockReturnValue(false);
 
       // Mock symbol manager
-      const mockResolveCrossFileReferences = jest.fn();
       const mockSymbolManager = {
         resolveCrossFileReferencesForFile: jest.fn().mockReturnValue({
           pipe: jest.fn().mockReturnValue({
@@ -432,16 +431,18 @@ describe('DiagnosticProcessingService', () => {
         compile: jest.fn().mockReturnValue(mockCompileResult),
       }));
 
-      const { getDiagnosticsFromErrors } = require('../../src/utils/handlerUtil');
+      const {
+        getDiagnosticsFromErrors,
+      } = require('../../src/utils/handlerUtil');
       getDiagnosticsFromErrors.mockReturnValue([]);
 
       await service.processDiagnostic(params);
 
       // Verify resolveCrossFileReferencesForFile was NOT called
-      expect(mockSymbolManager.resolveCrossFileReferencesForFile).not.toHaveBeenCalled();
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        expect.any(Function),
-      );
+      expect(
+        mockSymbolManager.resolveCrossFileReferencesForFile,
+      ).not.toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
     });
 
     it('should skip cross-file resolution when workspace is not loaded', async () => {
@@ -486,13 +487,17 @@ describe('DiagnosticProcessingService', () => {
         compile: jest.fn().mockReturnValue(mockCompileResult),
       }));
 
-      const { getDiagnosticsFromErrors } = require('../../src/utils/handlerUtil');
+      const {
+        getDiagnosticsFromErrors,
+      } = require('../../src/utils/handlerUtil');
       getDiagnosticsFromErrors.mockReturnValue([]);
 
       await service.processDiagnostic(params);
 
       // Verify resolveCrossFileReferencesForFile was NOT called
-      expect(mockSymbolManager.resolveCrossFileReferencesForFile).not.toHaveBeenCalled();
+      expect(
+        mockSymbolManager.resolveCrossFileReferencesForFile,
+      ).not.toHaveBeenCalled();
     });
 
     it('should resolve cross-file references when workspace is loaded', async () => {
@@ -516,7 +521,9 @@ describe('DiagnosticProcessingService', () => {
       const { Effect } = require('effect');
       const mockResolveEffect = Effect.succeed(undefined);
       const mockSymbolManager = {
-        resolveCrossFileReferencesForFile: jest.fn().mockReturnValue(mockResolveEffect),
+        resolveCrossFileReferencesForFile: jest
+          .fn()
+          .mockReturnValue(mockResolveEffect),
       };
       (service as any).symbolManager = mockSymbolManager;
 
@@ -535,19 +542,23 @@ describe('DiagnosticProcessingService', () => {
         compile: jest.fn().mockReturnValue(mockCompileResult),
       }));
 
-      const { getDiagnosticsFromErrors } = require('../../src/utils/handlerUtil');
+      const {
+        getDiagnosticsFromErrors,
+      } = require('../../src/utils/handlerUtil');
       getDiagnosticsFromErrors.mockReturnValue([]);
 
       // Mock enhanceDiagnosticsWithGraphAnalysisEffect to return empty diagnostics
       const mockEnhanceEffect = Effect.succeed([]);
-      jest.spyOn(service as any, 'enhanceDiagnosticsWithGraphAnalysisEffect').mockReturnValue(mockEnhanceEffect);
+      jest
+        .spyOn(service as any, 'enhanceDiagnosticsWithGraphAnalysisEffect')
+        .mockReturnValue(mockEnhanceEffect);
 
       await service.processDiagnostic(params);
 
       // Verify resolveCrossFileReferencesForFile WAS called
-      expect(mockSymbolManager.resolveCrossFileReferencesForFile).toHaveBeenCalledWith(
-        'file:///test.cls',
-      );
+      expect(
+        mockSymbolManager.resolveCrossFileReferencesForFile,
+      ).toHaveBeenCalledWith('file:///test.cls');
     });
 
     it('should not suppress diagnostics for user code URIs', async () => {
@@ -608,7 +619,9 @@ describe('DiagnosticProcessingService', () => {
       // Mock enhanceDiagnosticsWithGraphAnalysisEffect to return the diagnostics as-is
       const { Effect } = require('effect');
       const mockEnhanceEffect = Effect.succeed(mockGetDiagnosticsFromErrors());
-      jest.spyOn(service as any, 'enhanceDiagnosticsWithGraphAnalysisEffect').mockReturnValue(mockEnhanceEffect);
+      jest
+        .spyOn(service as any, 'enhanceDiagnosticsWithGraphAnalysisEffect')
+        .mockReturnValue(mockEnhanceEffect);
 
       const result = await service.processDiagnostic(params);
 

@@ -136,6 +136,18 @@
         "eslint.config.mjs"
       ],
       "output": []
+    },
+    "lint:fix": {
+      "command": "eslint --fix --color --cache --cache-location .eslintcache src test",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ],
+      "output": []
     }
   },
   "dependencies": {
@@ -145,8 +157,8 @@
     "web-worker": "^1.5.0"
   },
   "devDependencies": {
-    "@apexdevtools/apex-parser": "^1.0.0",
-    "@salesforce/apex-lsp-parser-ast": "workspace:*",
-    "@salesforce/apex-lsp-shared": "workspace:*"
+    "@apexdevtools/apex-parser": "4.4.1",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
+    "@salesforce/apex-lsp-shared": "1.0.0"
   }
 }

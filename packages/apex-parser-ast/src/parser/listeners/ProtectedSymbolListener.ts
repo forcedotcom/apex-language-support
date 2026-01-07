@@ -9,7 +9,6 @@
 import {
   ClassDeclarationContext,
   InterfaceDeclarationContext,
-  EnumDeclarationContext,
   MethodDeclarationContext,
   ConstructorDeclarationContext,
   FieldDeclarationContext,
@@ -44,7 +43,6 @@ import {
   ScopeType,
   SymbolKey,
 } from '../../types/symbol';
-import { IdentifierValidator } from '../../semantics/validation/IdentifierValidator';
 import { isBlockSymbol } from '../../utils/symbolNarrowing';
 
 /**
@@ -104,10 +102,7 @@ export class ProtectedSymbolListener extends LayeredSymbolListenerBase {
         methodSymbol.annotations = [...this.currentAnnotations];
       }
 
-      this.addSymbolWithDetailLevel(
-        methodSymbol,
-        this.getCurrentScopeSymbol(),
-      );
+      this.addSymbolWithDetailLevel(methodSymbol, this.getCurrentScopeSymbol());
 
       this.resetAnnotations();
     } catch (e) {
@@ -303,7 +298,7 @@ export class ProtectedSymbolListener extends LayeredSymbolListenerBase {
       if (blockSymbol) {
         this.scopeStack.push(blockSymbol);
       }
-    } catch (e) {
+    } catch (_e) {
       // Silently continue - we're just tracking scope, not creating symbols
     }
   }
@@ -333,7 +328,7 @@ export class ProtectedSymbolListener extends LayeredSymbolListenerBase {
       if (blockSymbol) {
         this.scopeStack.push(blockSymbol);
       }
-    } catch (e) {
+    } catch (_e) {
       // Silently continue - we're just tracking scope
     }
   }
@@ -541,7 +536,7 @@ export class ProtectedSymbolListener extends LayeredSymbolListenerBase {
     const fileUri = this.symbolTable.getFileUri();
     const scopePath = this.symbolTable.getCurrentScopePath(parentScope);
 
-    const searchName = semanticName || name;
+    const _searchName = semanticName || name;
     const currentType = this.getCurrentType();
     let parentId: string | null = null;
     if (currentType && scopeType === 'class') {
@@ -815,4 +810,3 @@ export class ProtectedSymbolListener extends LayeredSymbolListenerBase {
     return new ProtectedSymbolListener(newTable);
   }
 }
-

@@ -2,9 +2,10 @@
   "name": "@salesforce/apex-language-server",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "npm@10.2.4",
+  "packageManager": "npm@11.7.0",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.0.0",
+    "npm": ">=11.0.0"
   },
   "scripts": {
     "test": "wireit",
@@ -18,6 +19,7 @@
     "test:e2e:server": "npm run server --workspace=e2e-tests",
     "test:e2e:visual": "npm run test:visual --workspace=e2e-tests",
     "lint": "wireit",
+    "lint:fix": "wireit",
     "knip": "knip",
     "knip:fix": "knip --fix",
     "compile": "wireit",
@@ -215,6 +217,18 @@
         "./packages/custom-services:lint",
         "./packages/apex-lsp-testbed:lint",
         "./packages/apex-lsp-vscode-extension:lint"
+      ]
+    },
+    "lint:fix": {
+      "dependencies": [
+        "compile",
+        "./packages/apex-ls:lint:fix",
+        "./packages/apex-lsp-shared:lint:fix",
+        "./packages/apex-parser-ast:lint:fix",
+        "./packages/lsp-compliant-services:lint:fix",
+        "./packages/custom-services:lint:fix",
+        "./packages/apex-lsp-testbed:lint:fix",
+        "./packages/apex-lsp-vscode-extension:lint:fix"
       ]
     },
     "clean": {

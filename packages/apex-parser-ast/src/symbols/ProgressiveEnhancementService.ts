@@ -7,16 +7,9 @@
  */
 
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import {
-  CompilerService,
-  CompilationOptions,
-} from '../parser/compilerService';
+import { CompilerService, CompilationOptions } from '../parser/compilerService';
 import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
-import {
-  SymbolTable,
-  ApexSymbol,
-  SymbolKind,
-} from '../types/symbol';
+import { SymbolTable, ApexSymbol } from '../types/symbol';
 import { ApexSymbolManager } from './ApexSymbolManager';
 import { ApexSymbolGraph } from './ApexSymbolGraph';
 
@@ -113,10 +106,7 @@ export class ProgressiveEnhancementService {
     const startLevel = currentLevel || 'public-api';
 
     // If target is lower or equal to current, no listeners needed
-    if (
-      currentLevel &&
-      !this.isDetailLevelHigher(targetLevel, currentLevel)
-    ) {
+    if (currentLevel && !this.isDetailLevelHigher(targetLevel, currentLevel)) {
       return [];
     }
 
@@ -246,9 +236,7 @@ export class ProgressiveEnhancementService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        () => `Failed to enhance ${fileUri}: ${errorMessage}`,
-      );
+      this.logger.error(() => `Failed to enhance ${fileUri}: ${errorMessage}`);
       return {
         success: false,
         symbolTable: currentSymbolTable,
@@ -303,10 +291,13 @@ export class ProgressiveEnhancementService {
     let detailLevel = currentDetailLevel;
 
     // Try each detail level until symbol is found or all exhausted
-    const levelsToTry: DetailLevel[] = ['public-api', 'protected', 'private', 'full'];
-    const startIndex = detailLevel
-      ? levelsToTry.indexOf(detailLevel) + 1
-      : 0;
+    const levelsToTry: DetailLevel[] = [
+      'public-api',
+      'protected',
+      'private',
+      'full',
+    ];
+    const startIndex = detailLevel ? levelsToTry.indexOf(detailLevel) + 1 : 0;
 
     for (let i = startIndex; i < levelsToTry.length; i++) {
       const targetLevel = levelsToTry[i];
@@ -414,10 +405,7 @@ export class ProgressiveEnhancementService {
     currentLevel: DetailLevel | undefined,
     targetLevel: DetailLevel,
   ): number {
-    if (
-      currentLevel &&
-      !this.isDetailLevelHigher(targetLevel, currentLevel)
-    ) {
+    if (currentLevel && !this.isDetailLevelHigher(targetLevel, currentLevel)) {
       return 1; // Already at or beyond target
     }
 
@@ -430,4 +418,3 @@ export class ProgressiveEnhancementService {
     return listenersNeeded.length + 1; // +1 for base cost
   }
 }
-

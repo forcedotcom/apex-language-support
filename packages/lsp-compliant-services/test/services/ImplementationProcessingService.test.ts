@@ -9,7 +9,6 @@
 import { ImplementationParams } from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
-  ApexSymbol,
   TypeSymbol,
   MethodSymbol,
   SymbolKind,
@@ -399,9 +398,7 @@ describe('ImplementationProcessingService', () => {
       ]);
 
       // Mock findSymbolsInFile to return implementing method
-      mockSymbolManager.findSymbolsInFile.mockReturnValue([
-        implementingMethod,
-      ]);
+      mockSymbolManager.findSymbolsInFile.mockReturnValue([implementingMethod]);
 
       const result = await service.processImplementation(params);
 
@@ -481,4 +478,3 @@ describe('ImplementationProcessingService', () => {
     });
   });
 });
-

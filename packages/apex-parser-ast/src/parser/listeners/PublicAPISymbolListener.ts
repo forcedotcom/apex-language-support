@@ -9,12 +9,10 @@
 import {
   ClassDeclarationContext,
   InterfaceDeclarationContext,
-  EnumDeclarationContext,
   MethodDeclarationContext,
   ConstructorDeclarationContext,
   FieldDeclarationContext,
   PropertyDeclarationContext,
-  VariableDeclaratorContext,
   FormalParametersContext,
   TypeRefContext,
   ModifierContext,
@@ -28,11 +26,7 @@ import { Stack } from 'data-structure-typed';
 import { LayeredSymbolListenerBase } from './LayeredSymbolListenerBase';
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
-import {
-  createTypeInfo,
-  createCollectionTypeInfo,
-  createMapTypeInfo,
-} from '../../utils/TypeInfoFactory';
+import { createTypeInfo } from '../../utils/TypeInfoFactory';
 import {
   SymbolKind,
   SymbolLocation,
@@ -50,7 +44,6 @@ import {
   ScopeType,
   SymbolKey,
 } from '../../types/symbol';
-import { ClassModifierValidator } from '../../semantics/modifiers/ClassModifierValidator';
 import { IdentifierValidator } from '../../semantics/validation/IdentifierValidator';
 import { isBlockSymbol } from '../../utils/symbolNarrowing';
 
@@ -111,7 +104,10 @@ export class PublicAPISymbolListener extends LayeredSymbolListenerBase {
       // Get superclass and interfaces
       const superclass = ctx.typeRef()?.text;
       const interfaces =
-        ctx.typeList()?.typeRef().map((t) => t.text) || [];
+        ctx
+          .typeList()
+          ?.typeRef()
+          .map((t) => t.text) || [];
 
       // Create class symbol
       const classSymbol = this.createTypeSymbol(
@@ -137,10 +133,7 @@ export class PublicAPISymbolListener extends LayeredSymbolListenerBase {
       if (isTopLevel) {
         classSymbol.parentId = null;
       }
-      this.addSymbolWithDetailLevel(
-        classSymbol,
-        this.getCurrentScopeSymbol(),
-      );
+      this.addSymbolWithDetailLevel(classSymbol, this.getCurrentScopeSymbol());
 
       // Create class block symbol for scope tracking
       const location = this.getLocation(ctx);
@@ -186,7 +179,11 @@ export class PublicAPISymbolListener extends LayeredSymbolListenerBase {
         return;
       }
 
-      const interfaces = ctx.typeList()?.typeRef().map((t) => t.text) || [];
+      const interfaces =
+        ctx
+          .typeList()
+          ?.typeRef()
+          .map((t) => t.text) || [];
 
       const interfaceSymbol = this.createTypeSymbol(
         ctx,
@@ -270,10 +267,7 @@ export class PublicAPISymbolListener extends LayeredSymbolListenerBase {
         methodSymbol.annotations = [...this.currentAnnotations];
       }
 
-      this.addSymbolWithDetailLevel(
-        methodSymbol,
-        this.getCurrentScopeSymbol(),
-      );
+      this.addSymbolWithDetailLevel(methodSymbol, this.getCurrentScopeSymbol());
 
       this.resetAnnotations();
     } catch (e) {
@@ -683,7 +677,7 @@ export class PublicAPISymbolListener extends LayeredSymbolListenerBase {
     const scopePath = this.symbolTable.getCurrentScopePath(parentScope);
 
     // Find semantic symbol and determine parentId
-    const searchName = semanticName || name;
+    const _searchName = semanticName || name;
     const currentType = this.getCurrentType();
     let parentId: string | null = null;
     if (currentType && scopeType === 'class') {
@@ -816,10 +810,7 @@ export class PublicAPISymbolListener extends LayeredSymbolListenerBase {
     return params;
   }
 
-  private applyModifier(
-    modifiers: SymbolModifiers,
-    modifier: string,
-  ): void {
+  private applyModifier(modifiers: SymbolModifiers, modifier: string): void {
     switch (modifier.toLowerCase()) {
       case 'public':
         modifiers.visibility = SymbolVisibility.Public;
@@ -1010,4 +1001,3 @@ export class PublicAPISymbolListener extends LayeredSymbolListenerBase {
     return new PublicAPISymbolListener(newTable);
   }
 }
-

@@ -23,7 +23,6 @@ import {
 } from '@salesforce/apex-lsp-shared';
 import {
   DeferredReferenceProcessorService,
-  queueDeferredReferencesForSymbol,
   queuePendingReferencesForSymbol,
   processDeferredReference,
   processPendingDeferredReference,

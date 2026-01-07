@@ -1872,7 +1872,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           self.logger.debug(
             () =>
               `Skipping unresolved same-file reference ${typeRef.name} in ${fileUri} ` +
-              `(should have been resolved during second-pass)`,
+              '(should have been resolved during second-pass)',
           );
           return; // Skip, don't defer
         }
@@ -2575,7 +2575,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           self.logger.debug(
             () =>
               `Skipping unresolved same-file reference ${typeRef.name} in ${fileUri} ` +
-              `during on-demand resolution (should have been resolved during second-pass)`,
+              'during on-demand resolution (should have been resolved during second-pass)',
           );
           return; // Skip, don't defer
         }

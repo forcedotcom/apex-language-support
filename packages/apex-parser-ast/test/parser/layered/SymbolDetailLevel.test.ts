@@ -6,10 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { SymbolTable, SymbolKind, SymbolVisibility } from '../../../src/types/symbol';
-import { SymbolFactory } from '../../../src/types/symbol';
-import { SymbolLocation } from '../../../src/types/symbol';
-import { createPrimitiveType } from '../../../src/types/typeInfo';
+import {
+  SymbolTable,
+  SymbolKind,
+  SymbolVisibility,
+  SymbolFactory,
+  SymbolLocation,
+} from '../../../src/types/symbol';
 import { TestLogger } from '../../utils/testLogger';
 
 describe('Symbol Detail Level Tracking', () => {
@@ -320,4 +323,3 @@ describe('Symbol Detail Level Tracking', () => {
     expect(retrieved?._detailLevel).toBe('public-api');
   });
 });
-

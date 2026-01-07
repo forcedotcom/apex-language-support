@@ -6,17 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Effect } from 'effect';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { createHash } from 'crypto';
 
-import { CompilerService } from '../parser/compilerService';
+import { CompilerService, CompilationResult } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
-import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
-import {
-  CompilationResult,
-  LayeredCompilationOptions,
-} from '../parser/compilerService';
 
 export interface FileToProcess {
   content: string;
@@ -88,15 +82,14 @@ export class LayeredWorkspaceProcessor {
           // Note: We'd need to extract parse tree from CompilerService
           // For now, this is a placeholder - actual caching would be in CompilerService
           this.logger.debug(
-            () => `Cached parse tree for ${file.fileName} (hash: ${contentHash})`,
+            () =>
+              `Cached parse tree for ${file.fileName} (hash: ${contentHash})`,
           );
         }
 
         results.set(file.fileUri, result);
       } catch (error) {
-        this.logger.error(
-          () => `Error processing ${file.fileName}: ${error}`,
-        );
+        this.logger.error(() => `Error processing ${file.fileName}: ${error}`);
         results.set(file.fileUri, {
           fileName: file.fileName,
           result: null,
@@ -116,8 +109,7 @@ export class LayeredWorkspaceProcessor {
     }
 
     this.logger.debug(
-      () =>
-        `Public API processing complete: ${results.size} files processed`,
+      () => `Public API processing complete: ${results.size} files processed`,
     );
 
     return results;
@@ -157,7 +149,8 @@ export class LayeredWorkspaceProcessor {
         results.set(file.fileUri, result);
       } catch (error) {
         this.logger.error(
-          () => `Error enriching ${file.fileName} with protected layer: ${error}`,
+          () =>
+            `Error enriching ${file.fileName} with protected layer: ${error}`,
         );
         // Keep existing result on error
         if (existing) {
@@ -167,7 +160,8 @@ export class LayeredWorkspaceProcessor {
     }
 
     this.logger.debug(
-      () => `Protected layer processing complete: ${results.size} files enriched`,
+      () =>
+        `Protected layer processing complete: ${results.size} files enriched`,
     );
 
     return results;
@@ -227,9 +221,7 @@ export class LayeredWorkspaceProcessor {
    * Process workspace files in breadth-first layers
    * Returns after each layer completes, allowing progressive enhancement
    */
-  async processWorkspaceLayered(
-    files: FileToProcess[],
-  ): Promise<{
+  async processWorkspaceLayered(files: FileToProcess[]): Promise<{
     layer1: Map<string, CompilationResult<SymbolTable>>;
     layer2?: Map<string, CompilationResult<SymbolTable>>;
     layer3?: Map<string, CompilationResult<SymbolTable>>;
@@ -360,4 +352,3 @@ export class LayeredWorkspaceProcessor {
     };
   }
 }
-

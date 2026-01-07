@@ -25,11 +25,7 @@ export class ListenerFactory {
    * @returns A listener appropriate for the service's needs
    */
   static createListenerForService(
-    serviceType:
-      | 'document-open'
-      | 'diagnostic'
-      | 'document-save'
-      | 'full',
+    serviceType: 'document-open' | 'diagnostic' | 'document-save' | 'full',
     symbolTable?: SymbolTable,
   ): BaseApexParserListener<SymbolTable> {
     switch (serviceType) {
@@ -50,4 +46,3 @@ export class ListenerFactory {
     }
   }
 }
-

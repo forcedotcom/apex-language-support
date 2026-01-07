@@ -13,10 +13,7 @@ import type {
   SymbolTable,
   CompilationResult,
 } from '@salesforce/apex-lsp-parser-ast';
-import {
-  SymbolKind,
-  ApexSymbolManager,
-} from '@salesforce/apex-lsp-parser-ast';
+import { SymbolKind, ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Memory usage snapshot with timestamp

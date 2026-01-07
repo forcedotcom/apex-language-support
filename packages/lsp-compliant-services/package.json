@@ -99,6 +99,18 @@
       ],
       "output": []
     },
+    "lint:fix": {
+      "command": "eslint --fix --color --cache --cache-location .eslintcache src test",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ],
+      "output": []
+    },
     "test:one": {
       "command": "jest --testPathPattern=HoverProcessingService.integration.test --testNamePattern=\"should provide hover for method declaration testFileUtilities\" --json --outputFile=.wireit/test-results-one.json",
       "dependencies": [
