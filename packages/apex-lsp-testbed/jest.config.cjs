@@ -2,10 +2,10 @@ const baseConfig = require('../../jest.config.cjs');
 
 module.exports = {
   ...baseConfig,
-  // Include both .test.ts and .perf.ts files for Jest extension recognition
+  // Only include .test.ts files for unit tests
+  // Performance tests (.perf.ts) are run separately via test:perf command
   testMatch: [
     '**/test/**/*.test.ts',
-    '**/test/**/*.perf.ts',
   ],
   testPathIgnorePatterns: [
     ...(baseConfig.testPathIgnorePatterns || []),

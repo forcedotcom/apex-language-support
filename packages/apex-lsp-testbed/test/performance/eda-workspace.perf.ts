@@ -505,8 +505,12 @@ describe('EDA Workspace Performance Tests', () => {
 
         expect(Object.keys(results).length).toBe(batchSizes.length);
       },
-      process.env.QUICK === 'true' ? 30_000 : 300_000,
-    ); // 30s for quick, 5min for full
+      process.env.QUICK === 'true'
+        ? 30_000
+        : process.env.CI === 'true'
+          ? 600_000
+          : 300_000,
+    ); // 30s for quick, 10min for CI, 5min for local
   });
 
   describe('Incremental Load Performance', () => {
@@ -607,8 +611,12 @@ describe('EDA Workspace Performance Tests', () => {
 
         expect(Object.keys(results).length).toBeGreaterThan(0);
       },
-      process.env.QUICK === 'true' ? 20_000 : 120_000,
-    ); // 20s for quick, 2min for full
+      process.env.QUICK === 'true'
+        ? 20_000
+        : process.env.CI === 'true'
+          ? 300_000
+          : 120_000,
+    ); // 20s for quick, 5min for CI, 2min for local
   });
 
   describe('Layered Listener Performance Comparison', () => {
