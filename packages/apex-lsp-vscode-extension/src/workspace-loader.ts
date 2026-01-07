@@ -5,7 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { Effect } from 'effect';
+import { Effect, Duration } from 'effect';
 import * as vscode from 'vscode';
 import { logToOutputChannel } from './logging';
 import {
@@ -289,6 +289,9 @@ export async function loadWorkspaceForServer(
 
           // Send all batches as requests in parallel
           // Server returns immediately after storing (no processing), so parallel sending is safe
+          // Use lower concurrency (2 instead of maxConcurrency) to avoid saturating LSP connection
+          // This allows hover requests to be interleaved with batch sends
+          const batchSendConcurrency = Math.min(2, maxConcurrency);
           yield* _(
             Effect.forEach(
               preparedBatches as readonly SendWorkspaceBatchParams[],
@@ -298,6 +301,9 @@ export async function loadWorkspaceForServer(
                   if (cancellationToken.isCancellationRequested) {
                     return yield* Effect.fail(new Error('Cancelled'));
                   }
+
+                  // Yield before sending to allow event loop to process hover requests
+                  yield* Effect.yieldNow();
 
                   // Send as request - server stores and returns immediately
                   const result = yield* _(
@@ -346,8 +352,12 @@ export async function loadWorkspaceForServer(
                     message: `Sent batch ${index + 1}/${totalBatches}`,
                     increment: Math.floor(40 / totalBatches),
                   });
+
+                  // Yield after each batch to allow hover requests to be processed
+                  // Small delay helps prevent LSP connection saturation
+                  yield* Effect.sleep(Duration.millis(10));
                 }),
-              { concurrency: maxConcurrency }, // Parallel sending - server responds quickly
+              { concurrency: batchSendConcurrency }, // Lower concurrency to avoid blocking hover requests
             ),
           );
 
