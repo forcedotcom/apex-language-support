@@ -18,27 +18,44 @@
  * 4. Allows time for cleanup to complete
  */
 module.exports = async () => {
+  // Set a timeout for teardown to prevent hanging
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Teardown timeout')), 30000),
+  );
+
   try {
-    // Import scheduler utilities from parser-ast
-    const {
-      shutdown: schedulerShutdown,
-      reset: schedulerReset,
-    } = require('@salesforce/apex-lsp-parser-ast');
-    const { Effect } = require('effect');
+    await Promise.race([
+      (async () => {
+        // Import scheduler utilities from parser-ast
+        const {
+          shutdown: schedulerShutdown,
+          reset: schedulerReset,
+        } = require('@salesforce/apex-lsp-parser-ast');
+        const { Effect } = require('effect');
 
-    // Shutdown the scheduler first to stop the background loop
-    try {
-      await Effect.runPromise(schedulerShutdown());
-    } catch (_error) {
-      // Ignore errors - scheduler might not be initialized
-    }
+        // Shutdown the scheduler first to stop the background loop
+        try {
+          await Promise.race([
+            Effect.runPromise(schedulerShutdown()),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Shutdown timeout')), 5000),
+            ),
+          ]);
+        } catch (_error) {
+          // Ignore errors - scheduler might not be initialized or timed out
+        }
 
-    // Reset scheduler state
-    try {
-      await Effect.runPromise(schedulerReset());
-    } catch (_error) {
-      // Ignore errors
-    }
+        // Reset scheduler state
+        try {
+          await Promise.race([
+            Effect.runPromise(schedulerReset()),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Reset timeout')), 5000),
+            ),
+          ]);
+        } catch (_error) {
+          // Ignore errors
+        }
 
     // Clean up ApexSymbolProcessingManager singleton
     try {
@@ -71,15 +88,20 @@ module.exports = async () => {
       // Ignore errors - module might not be available
     }
 
-    // Give Effect-TS resources time to clean up
-    // This allows fibers to complete their cleanup and queues to fully shutdown
-    // Also allows any setTimeout-based monitoring tasks to complete
-    // Note: Some recursive setTimeout calls in DocumentProcessingService may still be active,
-    // but they will complete naturally and don't prevent Jest from exiting
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Give Effect-TS resources time to clean up
+        // This allows fibers to complete their cleanup and queues to fully shutdown
+        // Also allows any setTimeout-based monitoring tasks to complete
+        // Note: Some recursive setTimeout calls in DocumentProcessingService may still be active,
+        // but they will complete naturally and don't prevent Jest from exiting
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      })(),
+      timeout,
+    ]);
   } catch (error) {
-    // Ignore errors during teardown - modules might not be available
-    console.warn('Warning: Error during test teardown:', error.message);
+    // Ignore errors during teardown - modules might not be available or timeout occurred
+    if (error.message !== 'Teardown timeout') {
+      console.warn('Warning: Error during test teardown:', error.message);
+    }
   }
 };
 

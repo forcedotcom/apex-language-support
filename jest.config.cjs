@@ -57,4 +57,5 @@ module.exports = {
       statements: 10,
     },
   },
+  globalTeardown: '<rootDir>/scripts/jest-teardown.js',
 };
