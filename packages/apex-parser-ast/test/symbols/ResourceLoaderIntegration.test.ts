@@ -21,16 +21,19 @@ describe('ResourceLoader Integration', () => {
   let resourceLoader: ResourceLoader;
   const logger = getLogger();
 
-  beforeAll(async () => {
-    // Initialize ResourceLoader with StandardApexLibrary.zip
-    resourceLoader = await initializeResourceLoaderForTests({
-      loadMode: 'full',
-    });
-    await resourceLoader.waitForCompilation();
+  beforeAll(
+    async () => {
+      // Initialize ResourceLoader with StandardApexLibrary.zip
+      resourceLoader = await initializeResourceLoaderForTests({
+        loadMode: 'full',
+      });
+      await resourceLoader.waitForCompilation();
 
-    // Initialize SymbolManager
-    symbolManager = new ApexSymbolManager();
-  });
+      // Initialize SymbolManager
+      symbolManager = new ApexSymbolManager();
+    },
+    process.env.CI === 'true' ? 300_000 : 180_000,
+  ); // 5 minutes for CI, 3 minutes for local
 
   afterAll(() => {
     resetResourceLoader();

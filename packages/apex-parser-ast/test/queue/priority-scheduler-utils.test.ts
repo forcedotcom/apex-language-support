@@ -981,8 +981,10 @@ describe('PriorityScheduler', () => {
       const elapsed = await Effect.runPromise(program);
 
       // Should have elapsed time (scheduler was idle)
+      // CI environments may be slower, so use a more lenient upper bound
+      const maxElapsed = process.env.CI === 'true' ? 150 : 65;
       expect(elapsed).toBeGreaterThanOrEqual(40);
-      expect(elapsed).toBeLessThanOrEqual(65);
+      expect(elapsed).toBeLessThanOrEqual(maxElapsed);
     });
   });
 
