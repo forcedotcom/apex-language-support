@@ -3,6 +3,11 @@
  * Sets up DOM globals and polyfills needed for browser-like testing
  */
 
+// TextEncoder/TextDecoder polyfill for Effect library (must be first)
+const { TextEncoder, TextDecoder } = require('util');
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
 // Setup browser environment globals for environment detection
 global.window = global.window || {};
 global.document = global.document || { createElement: () => ({}) };

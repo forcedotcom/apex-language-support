@@ -145,6 +145,7 @@
       "dependencies": [
         "compile",
         "./packages/apex-ls:test",
+        "./packages/apex-ls:test:web",
         "./packages/apex-lsp-shared:test",
         "./packages/apex-lsp-testbed:test",
         "./packages/apex-lsp-vscode-extension:test",
@@ -200,7 +201,7 @@
       "cache": false
     },
     "test:web": {
-      "command": "npm run test:web --workspaces --if-present",
+      "command": "node scripts/test-web-ext.js",
       "dependencies": [
         "bundle"
       ],
