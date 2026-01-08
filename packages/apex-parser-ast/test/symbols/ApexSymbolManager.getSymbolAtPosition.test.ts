@@ -256,7 +256,10 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
 
       if (result.result) {
         await Effect.runPromise(
-          symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls'),
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///ScopeExample.cls',
+          ),
         );
       }
 
@@ -299,7 +302,10 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
 
       if (result.result) {
         await Effect.runPromise(
-          symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls'),
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///ScopeExample.cls',
+          ),
         );
       }
 
@@ -344,7 +350,10 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
 
       if (result.result) {
         await Effect.runPromise(
-          symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls'),
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///ScopeExample.cls',
+          ),
         );
       }
 
@@ -388,7 +397,10 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
 
       if (result.result) {
         await Effect.runPromise(
-          symbolManager.addSymbolTable(result.result, 'file:///ScopeExample.cls'),
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///ScopeExample.cls',
+          ),
         );
       }
 

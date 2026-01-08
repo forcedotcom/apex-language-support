@@ -11,7 +11,10 @@ import {
   Location,
   Range,
 } from 'vscode-languageserver-protocol';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  LoggerInterface,
+  ApexSettingsManager,
+} from '@salesforce/apex-lsp-shared';
 
 import {
   ApexSymbolProcessingManager,
@@ -28,7 +31,6 @@ import {
 
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
-import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 /**
  * Context information for definition processing

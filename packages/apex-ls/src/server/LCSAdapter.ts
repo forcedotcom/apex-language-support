@@ -612,7 +612,9 @@ export class LCSAdapter {
         }
       },
     );
-    this.logger.debug('✅ apex/processWorkspaceBatches request handler registered');
+    this.logger.debug(
+      '✅ apex/processWorkspaceBatches request handler registered',
+    );
 
     // Register workspace/executeCommand handler
     if (capabilities.executeCommandProvider) {

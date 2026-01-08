@@ -190,14 +190,14 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
     if (symbol.modifiers?.isTestMethod === true) {
       return true;
     }
-    
+
     // Also check annotations directly (for compatibility with FullSymbolCollectorListener)
     if (symbol.annotations) {
       return symbol.annotations.some(
         (ann) => ann.name.toLowerCase() === 'istest',
       );
     }
-    
+
     return false;
   }
 

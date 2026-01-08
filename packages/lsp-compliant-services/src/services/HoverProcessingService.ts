@@ -600,7 +600,7 @@ export class HoverProcessingService implements IHoverProcessor {
           if (totalTime > 50) {
             this.logger.debug(
               () =>
-                `[HOVER-DIAG] Searching hover returned (workspace not loaded) ` +
+                '[HOVER-DIAG] Searching hover returned (workspace not loaded) ' +
                 `in ${totalTime}ms (hoverCreation=${hoverCreationTime}ms)`,
             );
           }

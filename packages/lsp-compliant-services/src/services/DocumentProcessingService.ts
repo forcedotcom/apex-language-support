@@ -227,7 +227,7 @@ export class DocumentProcessingService {
             `[WORKSPACE-LOAD] Post-compilation processing completed in ${postCompilationDuration}ms`,
         );
         results.push(...postCompilationResults);
-        
+
         const batchDuration = Date.now() - batchStartTime;
         this.logger.debug(
           () =>
@@ -319,7 +319,10 @@ export class DocumentProcessingService {
             const symbolAddStartTime = Date.now();
             // Add symbols immediately using Effect-based method
             // This avoids queue pressure during workspace loading
-            yield* symbolManager.addSymbolTable(symbolTable, event.document.uri);
+            yield* symbolManager.addSymbolTable(
+              symbolTable,
+              event.document.uri,
+            );
             const symbolAddDuration = Date.now() - symbolAddStartTime;
             filesProcessed++;
             if (symbolAddDuration > 50) {
@@ -353,7 +356,9 @@ export class DocumentProcessingService {
         self.logger.debug(
           () =>
             `[WORKSPACE-LOAD] Processed ${filesProcessed} files with ${yieldsPerformed} yields ` +
-            `in ${totalDuration}ms (avg: ${filesProcessed > 0 ? (totalDuration / filesProcessed).toFixed(1) : 0}ms/file)`,
+            `in ${totalDuration}ms ` +
+            `(avg: ${filesProcessed > 0 ? (totalDuration / filesProcessed).toFixed(1) : 0}ms/file) ` +
+            `(yields: ${yieldsPerformed})`,
         );
       }
 

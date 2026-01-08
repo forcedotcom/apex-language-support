@@ -1686,7 +1686,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const self = this;
     return Effect.gen(function* () {
       const addStartTime = Date.now();
-      
+
       // Convert fileUri to proper URI format to match symbol ID generation
       const properUri =
         getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
@@ -1724,7 +1724,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           yield* yieldToEventLoop; // Yield to event loop using setImmediate
         }
       }
-      
+
       const addDuration = Date.now() - addStartTime;
       if (addDuration > 50 || yieldsPerformed > 0) {
         self.logger.debug(
@@ -1765,7 +1765,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       self.memoryStats.totalSymbols = graphStats.totalSymbols;
     });
   }
-
 
   /**
    * Process same-file references only (skip cross-file references).
