@@ -1780,6 +1780,108 @@ describe('HoverProcessingService Integration Tests', () => {
     });
   });
 
+  describe('Chained method hover formatting', () => {
+    const providerCode = `public with sharing class RecordTypeService {
+    private static RecordTypeService instance;
+    public static RecordTypeService getInstance() {
+        if (instance == null) instance = new RecordTypeService();
+        return instance;
+    }
+    public Map<Id, RecordTypeModel> getModelByIdMapForSObjectType(SObjectType sObjectType) {
+        return new Map<Id, RecordTypeModel>();
+    }
+}
+public class RecordTypeModel {}`;
+
+    const callerCode = `public with sharing class HoverChainCaller {
+    public void run() {
+        Map<Id, RecordTypeModel> m = this.locateRecordTypeService().getModelByIdMapForSObjectType(Account.SObjectType);
+    }
+    private RecordTypeService locateRecordTypeService() {
+        return RecordTypeService.getInstance();
+    }
+}`;
+
+    let callerDocument: TextDocument;
+
+    beforeAll(() => {
+      callerDocument = TextDocument.create(
+        'file:///HoverChainCaller.cls',
+        'apex',
+        1,
+        callerCode,
+      );
+    });
+
+    beforeEach(async () => {
+      const compilerService = new CompilerService();
+
+      // Provider
+      const providerTable = new SymbolTable();
+      const providerListener = new ApexSymbolCollectorListener(providerTable);
+      compilerService.compile(
+        providerCode,
+        'file:///RecordTypeService.cls',
+        providerListener,
+        {},
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(
+          providerTable,
+          'file:///RecordTypeService.cls',
+        ),
+      );
+
+      // Caller
+      const callerTable = new SymbolTable();
+      const callerListener = new ApexSymbolCollectorListener(callerTable);
+      compilerService.compile(
+        callerCode,
+        'file:///HoverChainCaller.cls',
+        callerListener,
+        {},
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(
+          callerTable,
+          'file:///HoverChainCaller.cls',
+        ),
+      );
+    });
+
+    it('should display containing type and full signature for chained method hover', async () => {
+      mockStorage.getDocument.mockResolvedValue(callerDocument);
+
+      // Find position of getModelByIdMapForSObjectType in callerCode
+      const lines = callerCode.split('\n');
+      const lineIndex = lines.findIndex((line) =>
+        line.includes('getModelByIdMapForSObjectType'),
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf(
+        'getModelByIdMapForSObjectType',
+      );
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///HoverChainCaller.cls' },
+        position: { line: lineIndex, character: charIndex + 1 },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? (result.contents as any).value
+            : '';
+        expect(content).toContain(
+          'Map<Id, RecordTypeModel> RecordTypeService.getModelByIdMapForSObjectType',
+        );
+      }
+    });
+  });
+
   describe('Inner class to outer class references', () => {
     const fixturesDir = join(__dirname, '../fixtures/classes');
     const scopeExamplePath = join(fixturesDir, 'ScopeExample.cls');
@@ -2320,6 +2422,171 @@ describe('HoverProcessingService Integration Tests', () => {
       expect(content).toContain('instance');
       expect(content).toContain('static');
       expect(content).toContain('private');
+    });
+  });
+
+  describe('Hover Fixes - variable declaration', () => {
+    it('should provide hover for variable name in declaration', async () => {
+      const testClassCode = `public with sharing class VariableDeclarationTestClass {
+    @TestVisible
+    private static AccountModelHealthCheckVMapper instance;
+    
+    public static VariableDeclarationTestClass getInstance() {
+        if (instance == null) {
+            instance = new VariableDeclarationTestClass();
+        }
+        return instance;
+    }
+}`;
+
+      const document = TextDocument.create(
+        'file:///VariableDeclarationTestClass.cls',
+        'apex',
+        1,
+        testClassCode,
+      );
+      mockStorage.getDocument.mockResolvedValue(document);
+
+      // Compile and add to symbol manager
+      const compilerService = new CompilerService();
+      const listener = new FullSymbolCollectorListener();
+      const result = compilerService.compile(
+        testClassCode,
+        'file:///VariableDeclarationTestClass.cls',
+        listener,
+      );
+
+      if (result.result) {
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///VariableDeclarationTestClass.cls',
+          ),
+        );
+      }
+
+      // Wait for reference processing
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Calculate position: hover over 'instance' in the declaration line
+      // @TestVisible
+      // private static AccountModelHealthCheckVMapper instance;
+      const lines = testClassCode.split('\n');
+      const declarationLine = lines.findIndex((line) =>
+        line.includes('private static AccountModelHealthCheckVMapper instance'),
+      );
+      expect(declarationLine).toBeGreaterThanOrEqual(0);
+      const declarationLineText = lines[declarationLine];
+      const instanceStart = declarationLineText.indexOf('instance');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///VariableDeclarationTestClass.cls' },
+        position: { line: declarationLine, character: instanceStart },
+      };
+
+      const hoverResult = await hoverService.processHover(params);
+
+      // Should resolve immediately without triggering missing artifact resolution
+      expect(hoverResult).toBeDefined();
+      expect(hoverResult?.contents).toBeDefined();
+      const content =
+        typeof hoverResult?.contents === 'object' &&
+        'value' in hoverResult?.contents
+          ? hoverResult.contents.value
+          : '';
+
+      // Verify it shows the variable information
+      expect(content).toContain('instance');
+      expect(content).toContain('static');
+      expect(content).toContain('private');
+      expect(content).toContain('AccountModelHealthCheckVMapper');
+
+      // Should NOT show "searching" message (which would indicate missing artifact resolution)
+      expect(content).not.toContain('searching');
+      expect(content).not.toContain('Searching');
+    });
+
+    it('should provide hover for local variable name in declaration without triggering missing artifact resolution', async () => {
+      const testClassCode = `public with sharing class LocalVariableTestClass {
+    public virtual HealthCheckGroupVModel getHealthCheckGroup() {
+        AccountModelSettingsModel accountModelSettingModel = this.locateAccountModelSettingsService().getAccountModelSettingsModel();
+        return null;
+    }
+    
+    private AccountModelSettingsService locateAccountModelSettingsService() {
+        return new AccountModelSettingsService();
+    }
+}
+
+public class AccountModelSettingsModel {}
+public class AccountModelSettingsService {
+    public AccountModelSettingsModel getAccountModelSettingsModel() {
+        return new AccountModelSettingsModel();
+    }
+}`;
+
+      const document = TextDocument.create(
+        'file:///LocalVariableTestClass.cls',
+        'apex',
+        1,
+        testClassCode,
+      );
+      mockStorage.getDocument.mockResolvedValue(document);
+
+      // Compile and add to symbol manager
+      const compilerService = new CompilerService();
+      const listener = new FullSymbolCollectorListener();
+      const result = compilerService.compile(
+        testClassCode,
+        'file:///LocalVariableTestClass.cls',
+        listener,
+      );
+
+      if (result.result) {
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///LocalVariableTestClass.cls',
+          ),
+        );
+      }
+
+      // Wait for reference processing
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Calculate position: hover over 'accountModelSettingModel' in the declaration line
+      // AccountModelSettingsModel accountModelSettingModel = ...
+      const lines = testClassCode.split('\n');
+      const declarationLine = lines.findIndex((line) =>
+        line.includes('AccountModelSettingsModel accountModelSettingModel'),
+      );
+      expect(declarationLine).toBeGreaterThanOrEqual(0);
+      const declarationLineText = lines[declarationLine];
+      const variableStart = declarationLineText.indexOf('accountModelSettingModel');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file:///LocalVariableTestClass.cls' },
+        position: { line: declarationLine, character: variableStart },
+      };
+
+      const hoverResult = await hoverService.processHover(params);
+
+      // Should resolve immediately without triggering missing artifact resolution
+      expect(hoverResult).toBeDefined();
+      expect(hoverResult?.contents).toBeDefined();
+      const content =
+        typeof hoverResult?.contents === 'object' &&
+        'value' in hoverResult?.contents
+          ? hoverResult.contents.value
+          : '';
+
+      // Verify it shows the variable information
+      expect(content).toContain('accountModelSettingModel');
+      expect(content).toContain('AccountModelSettingsModel');
+
+      // Should NOT show "searching" message (which would indicate missing artifact resolution)
+      expect(content).not.toContain('searching');
+      expect(content).not.toContain('Searching');
     });
   });
 });

@@ -89,6 +89,9 @@ import {
   isBlockSymbol,
   isMethodSymbol,
 } from '../utils/symbolNarrowing';
+import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
+import { CompilerService } from '../parser/compilerService';
+import { FullSymbolCollectorListener } from '../parser/listeners/FullSymbolCollectorListener';
 
 /**
  * Context for chain resolution - discriminated union for type safety
@@ -163,6 +166,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private readonly isStaticCache = new WeakMap<SymbolReference, boolean>();
   // Batch size for initial reference processing
   private readonly initialReferenceBatchSize: number;
+  // Track detail level per file for enrichment
+  private readonly fileDetailLevels: HashMap<string, DetailLevel> =
+    new HashMap();
+  // Compiler service for enrichment operations
+  private readonly compilerService: CompilerService;
 
   constructor() {
     // Get settings from ApexSettingsManager (with fallback for test environments)
@@ -225,6 +233,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // Initialize ApexSymbolGraph with deferred reference processing settings
     this.symbolGraph = new ApexSymbolGraph(deferredReferenceSettings);
     ApexSymbolGraph.setInstance(this.symbolGraph);
+
+    // Initialize compiler service for enrichment operations
+    this.compilerService = new CompilerService();
 
     // Register settings change listener if settings manager is available
     if (
@@ -8404,5 +8415,197 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   getGraphDataByTypeAsJSON(symbolType: string): string {
     return this.symbolGraph.getGraphDataByTypeAsJSON(symbolType);
+  }
+
+  /**
+   * Get the current detail level for a file
+   * @param fileUri The file URI to check
+   * @returns The current detail level, or null if file not indexed
+   */
+  getDetailLevelForFile(fileUri: string): DetailLevel | null {
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    return this.fileDetailLevels.get(normalizedUri) ?? null;
+  }
+
+  /**
+   * Set the detail level for a file (internal use)
+   */
+  private setDetailLevelForFile(fileUri: string, level: DetailLevel): void {
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    this.fileDetailLevels.set(normalizedUri, level);
+  }
+
+  /**
+   * Get the layer order for enrichment
+   */
+  private getLayerOrder(): DetailLevel[] {
+    return ['public-api', 'protected', 'private', 'full'];
+  }
+
+  /**
+   * Get the numeric order of a detail level (for comparison)
+   */
+  private getLayerOrderIndex(level: DetailLevel): number {
+    const order: Record<DetailLevel, number> = {
+      'public-api': 0,
+      protected: 1,
+      private: 2,
+      full: 3,
+    };
+    return order[level] ?? -1;
+  }
+
+  /**
+   * Get layers that need to be applied to reach target level from current level
+   */
+  private getLayersToApply(
+    currentLevel: DetailLevel | null,
+    targetLevel: DetailLevel,
+  ): DetailLevel[] {
+    const layers = this.getLayerOrder();
+    const currentIndex = currentLevel
+      ? this.getLayerOrderIndex(currentLevel)
+      : -1;
+    const targetIndex = this.getLayerOrderIndex(targetLevel);
+
+    if (targetIndex <= currentIndex) {
+      return [];
+    }
+
+    // Return layers from current+1 to target (inclusive)
+    return layers.slice(currentIndex + 1, targetIndex + 1);
+  }
+
+  /**
+   * Enrich a file to a target detail level
+   * Applies layers incrementally: public-api -> protected -> private -> full
+   */
+  enrichToLevel(
+    fileUri: string,
+    targetLevel: DetailLevel,
+    documentText: string,
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const normalizedUri = extractFilePathFromUri(fileUri);
+      const currentLevel = self.getDetailLevelForFile(normalizedUri);
+
+      // Check if already at or above target level
+      if (
+        currentLevel &&
+        self.getLayerOrderIndex(currentLevel) >=
+          self.getLayerOrderIndex(targetLevel)
+      ) {
+        self.logger.debug(
+          () =>
+            `File ${fileUri} already at level ${currentLevel}, ` +
+            `skipping enrichment to ${targetLevel}`,
+        );
+        return;
+      }
+
+      self.logger.debug(
+        () =>
+          `Enriching ${fileUri} from ${currentLevel ?? 'none'} to ${targetLevel}`,
+      );
+
+      if (targetLevel === 'full') {
+        // For 'full', use FullSymbolCollectorListener which includes BlockContentListener
+        const listener = new FullSymbolCollectorListener();
+        const result = self.compilerService.compile(
+          documentText,
+          fileUri,
+          listener,
+        );
+
+        if (result?.result) {
+          yield* self.addSymbolTable(result.result, fileUri);
+          self.setDetailLevelForFile(fileUri, 'full');
+          self.logger.debug(
+            () => `Enriched ${fileUri} to full level using FullSymbolCollectorListener`,
+          );
+        }
+      } else {
+        // For visibility layers, use compileLayered
+        const layersToApply = self.getLayersToApply(currentLevel, targetLevel);
+
+        if (layersToApply.length === 0) {
+          return;
+        }
+
+        const existingSymbolTable = self.getSymbolTableForFile(fileUri);
+        const result = self.compilerService.compileLayered(
+          documentText,
+          fileUri,
+          layersToApply,
+          existingSymbolTable,
+          {
+            collectReferences: true,
+            resolveReferences: true,
+          },
+        );
+
+        if (result?.result) {
+          yield* self.addSymbolTable(result.result, fileUri);
+          self.setDetailLevelForFile(fileUri, targetLevel);
+          self.logger.debug(
+            () =>
+              `Enriched ${fileUri} to ${targetLevel} level ` +
+              `(applied layers: ${layersToApply.join(', ')})`,
+          );
+        }
+      }
+    });
+  }
+
+  /**
+   * Resolve a symbol with iterative enrichment
+   * Tries resolution after each enrichment layer until found or all layers exhausted
+   */
+  resolveWithEnrichment<T>(
+    fileUri: string,
+    documentText: string,
+    resolver: () => T | null,
+  ): Effect.Effect<T | null, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      // Try at current level first
+      const result = resolver();
+      if (result !== null) {
+        return result;
+      }
+
+      const currentLevel = self.getDetailLevelForFile(fileUri);
+      const layers = self.getLayerOrder();
+      const startIndex = currentLevel
+        ? self.getLayerOrderIndex(currentLevel) + 1
+        : 0;
+
+      // Iterate through remaining layers
+      for (let i = startIndex; i < layers.length; i++) {
+        const layer = layers[i];
+        self.logger.debug(
+          () => `Enriching ${fileUri} to ${layer} for symbol resolution`,
+        );
+
+        yield* self.enrichToLevel(fileUri, layer, documentText);
+
+        // Try resolution after enrichment
+        const enrichedResult = resolver();
+        if (enrichedResult !== null) {
+          self.logger.debug(
+            () => `Found symbol after enriching to ${layer} level`,
+          );
+          return enrichedResult;
+        }
+      }
+
+      // Not found after all layers
+      self.logger.debug(
+        () =>
+          `Symbol not found after enriching ${fileUri} through all layers`,
+      );
+      return null;
+    });
   }
 }

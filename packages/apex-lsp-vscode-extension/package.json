@@ -327,7 +327,7 @@
         "apex.findMissingArtifact": {
           "type": "object",
           "default": {
-            "enabled": false,
+            "enabled": true,
             "blockingWaitTimeoutMs": 2000,
             "indexingBarrierPollMs": 100,
             "maxCandidatesToOpen": 3,
