@@ -2427,17 +2427,15 @@ public class RecordTypeModel {}`;
 
   describe('Hover Fixes - variable declaration', () => {
     it('should provide hover for variable name in declaration', async () => {
-      const testClassCode = `public with sharing class VariableDeclarationTestClass {
-    @TestVisible
-    private static AccountModelHealthCheckVMapper instance;
-    
-    public static VariableDeclarationTestClass getInstance() {
-        if (instance == null) {
-            instance = new VariableDeclarationTestClass();
-        }
-        return instance;
-    }
-}`;
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const variableDeclarationTestClassPath = join(
+        fixturesDir,
+        'VariableDeclarationTestClass.cls',
+      );
+      const testClassCode = readFileSync(
+        variableDeclarationTestClassPath,
+        'utf8',
+      );
 
       const document = TextDocument.create(
         'file:///VariableDeclarationTestClass.cls',
@@ -2506,24 +2504,13 @@ public class RecordTypeModel {}`;
       expect(content).not.toContain('Searching');
     });
 
-    it('should provide hover for local variable name in declaration without triggering missing artifact resolution', async () => {
-      const testClassCode = `public with sharing class LocalVariableTestClass {
-    public virtual HealthCheckGroupVModel getHealthCheckGroup() {
-        AccountModelSettingsModel accountModelSettingModel = this.locateAccountModelSettingsService().getAccountModelSettingsModel();
-        return null;
-    }
-    
-    private AccountModelSettingsService locateAccountModelSettingsService() {
-        return new AccountModelSettingsService();
-    }
-}
-
-public class AccountModelSettingsModel {}
-public class AccountModelSettingsService {
-    public AccountModelSettingsModel getAccountModelSettingsModel() {
-        return new AccountModelSettingsModel();
-    }
-}`;
+    it('should provide hover for local var in declaration w/o triggering missing artifact resolution', async () => {
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const localVariableTestClassPath = join(
+        fixturesDir,
+        'LocalVariableTestClass.cls',
+      );
+      const testClassCode = readFileSync(localVariableTestClassPath, 'utf8');
 
       const document = TextDocument.create(
         'file:///LocalVariableTestClass.cls',
@@ -2562,7 +2549,9 @@ public class AccountModelSettingsService {
       );
       expect(declarationLine).toBeGreaterThanOrEqual(0);
       const declarationLineText = lines[declarationLine];
-      const variableStart = declarationLineText.indexOf('accountModelSettingModel');
+      const variableStart = declarationLineText.indexOf(
+        'accountModelSettingModel',
+      );
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///LocalVariableTestClass.cls' },

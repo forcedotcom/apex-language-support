@@ -8522,7 +8522,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           yield* self.addSymbolTable(result.result, fileUri);
           self.setDetailLevelForFile(fileUri, 'full');
           self.logger.debug(
-            () => `Enriched ${fileUri} to full level using FullSymbolCollectorListener`,
+            () =>
+              `Enriched ${fileUri} to full level using FullSymbolCollectorListener`,
           );
         }
       } else {
@@ -8602,8 +8603,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Not found after all layers
       self.logger.debug(
-        () =>
-          `Symbol not found after enriching ${fileUri} through all layers`,
+        () => `Symbol not found after enriching ${fileUri} through all layers`,
       );
       return null;
     });

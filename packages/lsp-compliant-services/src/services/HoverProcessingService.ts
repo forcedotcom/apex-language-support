@@ -39,7 +39,6 @@ import {
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { calculateDisplayFQN } from '../utils/displayFQNUtils';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
-import { getDocumentStateCache } from './DocumentStateCache';
 import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
 
 import {
@@ -391,7 +390,7 @@ export class HoverProcessingService implements IHoverProcessor {
           if (symbolAfterEnrichment) {
             this.logger.debug(
               () =>
-                `Found symbol after iterative enrichment: ` +
+                'Found symbol after iterative enrichment: ' +
                 `${symbolAfterEnrichment.name} (${symbolAfterEnrichment.kind})`,
             );
 
@@ -441,7 +440,7 @@ export class HoverProcessingService implements IHoverProcessor {
           const parserPos = formatPosition(parserPosition, 'parser');
           return (
             `No symbol found after enrichment at parser position ${parserPos} ` +
-            `- triggering missing artifact resolution`
+            '- triggering missing artifact resolution'
           );
         });
 
@@ -514,7 +513,7 @@ export class HoverProcessingService implements IHoverProcessor {
           if (symbolAfterEnrichment) {
             this.logger.debug(
               () =>
-                `Found symbol after iterative enrichment (no refs): ` +
+                'Found symbol after iterative enrichment (no refs): ' +
                 `${symbolAfterEnrichment.name} (${symbolAfterEnrichment.kind})`,
             );
 
@@ -720,7 +719,9 @@ export class HoverProcessingService implements IHoverProcessor {
       if (!isMethodSymbol(symbol) && !isTypeLike && isVariableSymbol(symbol)) {
         const variableSymbol = symbol as VariableSymbol;
         if (variableSymbol.type?.name) {
-          content.push(`**Type:** ${this.formatTypeDisplay(variableSymbol.type)}`);
+          content.push(
+            `**Type:** ${this.formatTypeDisplay(variableSymbol.type)}`,
+          );
         }
       }
 
