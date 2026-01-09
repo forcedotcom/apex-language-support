@@ -16,7 +16,7 @@ import {
 import {
   SymbolTable,
   CompilerService,
-  ApexSymbolCollectorListener,
+  FullSymbolCollectorListener,
   ApexSymbol,
   VariableSymbol,
   TypeInfo,
@@ -124,31 +124,27 @@ export class DefaultApexDocumentSymbolProvider
           `Document found in storage. Content length: ${documentText.length}`,
       );
 
-      // Check parse result cache first
-      const parseCache = getDocumentStateCache();
-      const cached = parseCache.getSymbolResult(documentUri, document.version);
-
-      // Get SymbolTable from manager (not cache)
+      // For document symbols, always compile fresh with FullSymbolCollectorListener
+      // to ensure we have complete symbol hierarchy (all visibility levels + block content)
+      // This ensures consistency and avoids issues with cached symbol tables created
+      // with different listeners
       const backgroundManager = ApexSymbolProcessingManager.getInstance();
       const symbolManager = backgroundManager.getSymbolManager();
-      let symbolTable = symbolManager.getSymbolTableForFile(documentUri);
-
-      if (cached && symbolTable) {
-        logger.debug(
-          () =>
-            `Using cached parse result for document symbols ${documentUri} (version ${document.version})`,
-        );
-        // SymbolTable from manager, diagnostics from cache
-      } else {
-        // Create a symbol collector listener to parse the document
-        const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+      let symbolTable: SymbolTable;
+        // Create a full symbol collector listener to parse the document
+        const listener = new FullSymbolCollectorListener();
 
         const settingsManager = ApexSettingsManager.getInstance();
         const options = settingsManager.getCompilationOptions(
           'documentSymbols',
           documentText.length,
         );
+
+        // Set file URI and project namespace if needed
+        listener.setCurrentFileUri(documentUri);
+        if (options.projectNamespace) {
+          listener.setProjectNamespace(options.projectNamespace);
+        }
 
         // Parse the document using the compiler service
         const result = this.compilerService.compile(
@@ -171,33 +167,28 @@ export class DefaultApexDocumentSymbolProvider
         if (result.result) {
           symbolTable = result.result;
 
-          // Extract diagnostics
-          const diagnostics = getDiagnosticsFromErrors(result.errors);
+          // Also ensure symbols are in symbol manager (replace if exists to ensure fresh data)
+          await Effect.runPromise(
+            symbolManager.addSymbolTable(symbolTable, documentUri),
+          );
+          logger.debug(
+            () =>
+              `Added SymbolTable to manager for ${documentUri} during document symbols`,
+          );
 
-          // Cache the compilation result for future requests
+          // Cache the compilation result for diagnostics
+          const parseCache = getDocumentStateCache();
+          const diagnostics = getDiagnosticsFromErrors(result.errors);
           parseCache.merge(documentUri, {
             diagnostics,
             documentVersion: document.version,
             documentLength: document.getText().length,
             symbolsIndexed: false,
           });
-
-          // Also ensure symbols are in symbol manager
-          const existingSymbols = symbolManager.findSymbolsInFile(documentUri);
-          if (existingSymbols.length === 0) {
-            await Effect.runPromise(
-              symbolManager.addSymbolTable(symbolTable, documentUri),
-            );
-            logger.debug(
-              () =>
-                `Added SymbolTable to manager for ${documentUri} during document symbols`,
-            );
-          }
         } else {
           logger.error(() => 'Symbol table is null from compilation result');
           return null;
         }
-      }
 
       // Get all symbols from the entire symbol table
       const allSymbols = symbolTable.getAllSymbols();

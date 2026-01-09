@@ -748,4 +748,145 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       expect(result).toEqual([]);
     });
   });
+
+  /**
+   * Tests for VisibilitySymbolListener path
+   * These tests ensure document symbols work correctly when using layered compilation
+   * (VisibilitySymbolListener) which is used for workspace batch processing
+   */
+  describe('Layered Listener Path - VisibilitySymbolListener', () => {
+    it('produces correct document symbols with compileLayered (VisibilitySymbolListener path)', async () => {
+      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
+
+      const apexClassContent = [
+        'public with sharing class TestLayeredClass {',
+        '    private static String instanceField;',
+        '',
+        '    public void publicMethod() {',
+        '        System.debug("hello");',
+        '    }',
+        '',
+        '    private void privateMethod() {',
+        '        System.debug("private");',
+        '    }',
+        '',
+        '    public TestLayeredClass() {',
+        '        instanceField = "test";',
+        '    }',
+        '}',
+      ].join('\n');
+
+      const docUri = 'file:///TestLayeredClass.cls';
+
+      // Use compileLayered which correctly walks the same parse tree
+      // with multiple VisibilitySymbolListeners (public-api, protected, private)
+      const compilerService = new CompilerService();
+      const result = compilerService.compileLayered(
+        apexClassContent,
+        docUri,
+        ['public-api', 'protected', 'private'],
+        undefined,
+        { collectReferences: true, resolveReferences: true },
+      );
+
+      expect(result).toBeDefined();
+      expect(result.result).toBeDefined();
+
+      const table = result.result;
+      const allSymbols = table.getAllSymbols();
+
+      // Find the class symbol
+      const classSymbol = allSymbols.find(
+        (s: any) => s.kind === 'class' && s.name === 'TestLayeredClass',
+      );
+      expect(classSymbol).toBeDefined();
+
+      // Find the class block
+      const classBlock = allSymbols.find(
+        (s: any) =>
+          s.kind === 'block' &&
+          s.scopeType === 'class' &&
+          s.parentId === classSymbol.id,
+      );
+      expect(classBlock).toBeDefined();
+
+      // Verify methods have parentId === classBlock.id (not classSymbol.id)
+      // This is the key assertion that would have caught the regression
+      const publicMethod = allSymbols.find(
+        (s: any) => s.kind === 'method' && s.name === 'publicMethod',
+      );
+      expect(publicMethod).toBeDefined();
+      expect(publicMethod.parentId).toBe(classBlock.id);
+
+      const privateMethod = allSymbols.find(
+        (s: any) => s.kind === 'method' && s.name === 'privateMethod',
+      );
+      expect(privateMethod).toBeDefined();
+      expect(privateMethod.parentId).toBe(classBlock.id);
+
+      // Verify constructor has parentId === classBlock.id
+      const constructor = allSymbols.find(
+        (s: any) => s.kind === 'constructor' && s.name === 'TestLayeredClass',
+      );
+      expect(constructor).toBeDefined();
+      expect(constructor.parentId).toBe(classBlock.id);
+    });
+
+    it('produces correct document symbols with FullSymbolCollectorListener', async () => {
+      const {
+        CompilerService,
+        FullSymbolCollectorListener,
+      } = require('@salesforce/apex-lsp-parser-ast');
+
+      const apexClassContent = [
+        'public class TestFullCollector {',
+        '    public String myField;',
+        '',
+        '    public void myMethod() {',
+        '        System.debug("test");',
+        '    }',
+        '',
+        '    public TestFullCollector() {}',
+        '}',
+      ].join('\n');
+
+      const docUri = 'file:///TestFullCollector.cls';
+      const compilerService = new CompilerService();
+      const listener = new FullSymbolCollectorListener();
+      listener.setCurrentFileUri(docUri);
+
+      compilerService.compile(apexClassContent, docUri, listener);
+      const table = listener.getResult();
+      const allSymbols = table.getAllSymbols();
+
+      // Find the class symbol
+      const classSymbol = allSymbols.find(
+        (s: any) => s.kind === 'class' && s.name === 'TestFullCollector',
+      );
+      expect(classSymbol).toBeDefined();
+
+      // Find the class block
+      const classBlock = allSymbols.find(
+        (s: any) =>
+          s.kind === 'block' &&
+          s.scopeType === 'class' &&
+          s.parentId === classSymbol.id,
+      );
+      expect(classBlock).toBeDefined();
+
+      // Verify method has parentId === classBlock.id
+      const method = allSymbols.find(
+        (s: any) => s.kind === 'method' && s.name === 'myMethod',
+      );
+      expect(method).toBeDefined();
+      expect(method.parentId).toBe(classBlock.id);
+
+      // Verify constructor has parentId === classBlock.id
+      const constructor = allSymbols.find(
+        (s: any) => s.kind === 'constructor' && s.name === 'TestFullCollector',
+      );
+      expect(constructor).toBeDefined();
+      expect(constructor.parentId).toBe(classBlock.id);
+    });
+  });
 });

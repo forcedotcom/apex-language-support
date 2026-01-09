@@ -22,7 +22,7 @@ import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
 import { normalizeApexPath } from './PathUtils';
 import { CompilerService, CompilationOptions } from '../parser/compilerService';
-import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
+import { FullSymbolCollectorListener } from '../parser/listeners/FullSymbolCollectorListener';
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
 import { STANDARD_APEX_LIBRARY_URI } from './ResourceUtils';
@@ -578,7 +578,7 @@ export class ResourceLoader {
     const filesToCompile: Array<{
       content: string;
       fileName: string;
-      listener: ApexSymbolCollectorListener;
+      listener: FullSymbolCollectorListener;
       options: CompilationOptions;
     }> = [];
 
@@ -593,10 +593,16 @@ export class ResourceLoader {
         const pathParts = originalPath.split(/[\/\\]/);
         const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
 
+        const listener = new FullSymbolCollectorListener();
+        listener.setCurrentFileUri(originalPath);
+        if (namespace) {
+          listener.setProjectNamespace(namespace);
+        }
+        
         filesToCompile.push({
           content,
           fileName: originalPath, // Use original path to preserve namespace structure
-          listener: new ApexSymbolCollectorListener(),
+          listener,
           options: {
             projectNamespace: namespace,
             includeComments: true,
@@ -972,11 +978,15 @@ export class ResourceLoader {
       const namespace = namespaces ? Array.from(namespaces)[0] : undefined;
 
       // Compile the single class
-      const symbolTable = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(symbolTable);
+      const listener = new FullSymbolCollectorListener();
 
       // Convert className to proper URI scheme
       const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${className}`;
+      
+      listener.setCurrentFileUri(fileUri);
+      if (namespace) {
+        listener.setProjectNamespace(namespace);
+      }
 
       const result = this.compilerService.compile(
         content,

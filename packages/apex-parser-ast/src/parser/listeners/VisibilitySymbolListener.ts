@@ -107,12 +107,11 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       const modifiers = this.getCurrentModifiers();
 
       // Only process symbols matching this listener's visibility
-      if (!this.shouldProcessSymbol(modifiers.visibility)) {
-        return;
-      }
-
-      // Only create TypeSymbol for public-api level
-      if (this.detailLevel === 'public-api') {
+      // Only create TypeSymbol for public-api level and matching visibility
+      if (
+        this.detailLevel === 'public-api' &&
+        this.shouldProcessSymbol(modifiers.visibility)
+      ) {
         // Validate identifier
         const validationResult = IdentifierValidator.validateIdentifier(
           name,
@@ -165,7 +164,7 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         );
       }
 
-      // Create class block symbol for scope tracking (all levels need this)
+      // Create class block symbol for scope tracking (all levels need this - do NOT skip based on visibility)
       const location = this.getLocation(ctx);
       const blockName = this.generateBlockName('class');
       const blockSymbol = this.createBlockSymbol(
@@ -206,13 +205,11 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       const name = ctx.id()?.text ?? 'unknownInterface';
       const modifiers = this.getCurrentModifiers();
 
-      // Only process symbols matching this listener's visibility
-      if (!this.shouldProcessSymbol(modifiers.visibility)) {
-        return;
-      }
-
-      // Only create TypeSymbol for public-api level
-      if (this.detailLevel === 'public-api') {
+      // Only create TypeSymbol for public-api level and matching visibility
+      if (
+        this.detailLevel === 'public-api' &&
+        this.shouldProcessSymbol(modifiers.visibility)
+      ) {
         const interfaces =
           ctx
             .typeList()
@@ -242,7 +239,7 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         );
       }
 
-      // Create interface block symbol for scope tracking (all levels need this)
+      // Create interface block symbol for scope tracking (all levels need this - do NOT skip based on visibility)
       const location = this.getLocation(ctx);
       const blockName = this.generateBlockName('class');
       const blockSymbol = this.createBlockSymbol(
@@ -358,12 +355,14 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
   }
 
   exitMethodDeclaration(): void {
+    // Only pop if we actually pushed a method block in enterMethodDeclaration
+    // This happens only for private level AND when the method visibility matched
     if (this.detailLevel === 'private') {
-      const popped = this.scopeStack.pop();
-      if (isBlockSymbol(popped) && popped.scopeType !== 'method') {
-        this.logger.warn(
-          `Expected method scope on exitMethodDeclaration, but got ${popped.scopeType}`,
-        );
+      const currentScope = this.scopeStack.peek();
+      // Only pop if the current scope is a method block
+      // (avoid popping class block if method was skipped due to visibility mismatch)
+      if (isBlockSymbol(currentScope) && currentScope.scopeType === 'method') {
+        this.scopeStack.pop();
       }
     }
   }
@@ -448,12 +447,14 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
   }
 
   exitConstructorDeclaration(): void {
+    // Only pop if we actually pushed a method block in enterConstructorDeclaration
+    // This happens only for private level AND when the constructor visibility matched
     if (this.detailLevel === 'private') {
-      const popped = this.scopeStack.pop();
-      if (isBlockSymbol(popped) && popped.scopeType !== 'method') {
-        this.logger.warn(
-          `Expected method scope on exitConstructorDeclaration, but got ${popped.scopeType}`,
-        );
+      const currentScope = this.scopeStack.peek();
+      // Only pop if the current scope is a method block
+      // (avoid popping class block if constructor was skipped due to visibility mismatch)
+      if (isBlockSymbol(currentScope) && currentScope.scopeType === 'method') {
+        this.scopeStack.pop();
       }
     }
   }
@@ -612,13 +613,11 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       const name = ctx.id(0)?.text ?? 'unknownTrigger';
       const modifiers = this.getCurrentModifiers();
 
-      // Only process triggers matching this listener's visibility
-      if (!this.shouldProcessSymbol(modifiers.visibility)) {
-        return;
-      }
-
-      // Only create TypeSymbol for public-api level
-      if (this.detailLevel === 'public-api') {
+      // Only create TypeSymbol for public-api level and matching visibility
+      if (
+        this.detailLevel === 'public-api' &&
+        this.shouldProcessSymbol(modifiers.visibility)
+      ) {
         // Create trigger symbol
         const triggerSymbol = this.createTypeSymbol(
           ctx,
@@ -634,7 +633,7 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         );
       }
 
-      // Create trigger block symbol for scope tracking (all levels need this)
+      // Create trigger block symbol for scope tracking (all levels need this - do NOT skip based on visibility)
       const location = this.getLocation(ctx);
       const blockName = this.generateBlockName('class');
       const blockSymbol = this.createBlockSymbol(
@@ -686,13 +685,11 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       const name = triggerUnit?.id(0)?.text ?? 'unknownTrigger';
       const modifiers = this.getCurrentModifiers();
 
-      // Only process triggers matching this listener's visibility
-      if (!this.shouldProcessSymbol(modifiers.visibility)) {
-        return;
-      }
-
-      // Only create TypeSymbol for public-api level
-      if (this.detailLevel === 'public-api') {
+      // Only create TypeSymbol for public-api level and matching visibility
+      if (
+        this.detailLevel === 'public-api' &&
+        this.shouldProcessSymbol(modifiers.visibility)
+      ) {
         // Create trigger symbol
         const triggerSymbol = this.createTypeSymbol(
           ctx,
@@ -1037,7 +1034,6 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
     semanticName?: string,
   ): ScopeSymbol | null {
     const fileUri = this.symbolTable.getFileUri();
-    const scopePath = this.symbolTable.getCurrentScopePath(parentScope);
 
     // Find semantic symbol and determine parentId
     let currentType = this.getCurrentType();
@@ -1063,6 +1059,91 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       parentId = currentType.id;
     } else if (parentScope) {
       parentId = parentScope.id;
+    }
+
+    // Check if block symbol already exists (from a previous listener walk)
+    // Look it up by finding a block with matching scopeType and parentId
+    // This must happen BEFORE calculating scope path to reuse existing block's key
+    if (scopeType === 'class' && parentId) {
+      const existingBlock = this.symbolTable
+        .getAllSymbols()
+        .find(
+          (s) =>
+            isBlockSymbol(s) &&
+            s.scopeType === scopeType &&
+            s.parentId === parentId &&
+            s.fileUri === fileUri,
+        ) as ScopeSymbol | undefined;
+      if (existingBlock) {
+        // Block already exists, return it instead of creating a duplicate
+        // This ensures we reuse the same block instance across listener walks
+        return existingBlock;
+      }
+    }
+
+    // Calculate scope path correctly even when parentScope is null
+    // For class blocks, always build the path from the type symbol's hierarchy
+    // This ensures consistent keys across multiple listener walks
+    let scopePath: string[];
+    if (scopeType === 'class' && currentType) {
+      // Build scope path by traversing the type symbol's parentId chain
+      // This ensures we get the same path regardless of which listener is walking
+      const path: string[] = [];
+      let type: ApexSymbol | undefined = currentType;
+
+      // Traverse up the parentId chain to find all containing types
+      while (type && type.parentId) {
+        const parentSymbol = this.symbolTable
+          .getAllSymbols()
+          .find((s) => s.id === type!.parentId);
+
+        if (
+          parentSymbol &&
+          isBlockSymbol(parentSymbol) &&
+          parentSymbol.scopeType === 'class'
+        ) {
+          // Parent is a class block - add it to the path
+          path.unshift('block', parentSymbol.name);
+          // Find the type symbol this block belongs to
+          const parentType = this.symbolTable
+            .getAllSymbols()
+            .find(
+              (s) =>
+                s.id === parentSymbol.parentId &&
+                (s.kind === SymbolKind.Class ||
+                  s.kind === SymbolKind.Interface ||
+                  s.kind === SymbolKind.Enum ||
+                  s.kind === SymbolKind.Trigger),
+            );
+          type = parentType;
+        } else if (
+          parentSymbol &&
+          (parentSymbol.kind === SymbolKind.Class ||
+            parentSymbol.kind === SymbolKind.Interface ||
+            parentSymbol.kind === SymbolKind.Enum ||
+            parentSymbol.kind === SymbolKind.Trigger)
+        ) {
+          // Parent is a type symbol (inner class case) - find its block and continue
+          const parentBlock = this.symbolTable
+            .getAllSymbols()
+            .find(
+              (s) =>
+                isBlockSymbol(s) &&
+                s.scopeType === 'class' &&
+                s.parentId === parentSymbol.id,
+            ) as ScopeSymbol | undefined;
+          if (parentBlock) {
+            path.unshift('block', parentBlock.name);
+          }
+          type = parentSymbol;
+        } else {
+          break;
+        }
+      }
+      scopePath = path;
+    } else {
+      // Use the standard scope path calculation for non-class blocks
+      scopePath = this.symbolTable.getCurrentScopePath(parentScope);
     }
 
     // Create block symbol ID
