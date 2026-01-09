@@ -928,9 +928,15 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
     const parent = this.getCurrentType();
     const namespace = parent?.namespace || null;
 
-    const scopePath = this.symbolTable.getCurrentScopePath(
-      this.getCurrentScopeSymbol(),
-    );
+    // Get the current scope (should be a class block)
+    // Methods should have parentId = class block ID to match ApexSymbolCollectorListener
+    const currentScope = this.getCurrentScopeSymbol();
+    const parentId =
+      currentScope && currentScope.scopeType === 'class'
+        ? currentScope.id
+        : parent?.id || null;
+
+    const scopePath = this.symbolTable.getCurrentScopePath(currentScope);
 
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
@@ -938,7 +944,7 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       location,
       this.currentFilePath,
       modifiers,
-      parent?.id || null,
+      parentId,
       undefined,
       namespace instanceof Namespace ? namespace : null,
       this.getCurrentAnnotations(),
@@ -960,9 +966,15 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
     const parent = this.getCurrentType();
     const namespace = parent?.namespace || null;
 
-    const scopePath = this.symbolTable.getCurrentScopePath(
-      this.getCurrentScopeSymbol(),
-    );
+    // Get the current scope (should be a class block)
+    // Constructors should have parentId = class block ID to match ApexSymbolCollectorListener
+    const currentScope = this.getCurrentScopeSymbol();
+    const parentId =
+      currentScope && currentScope.scopeType === 'class'
+        ? currentScope.id
+        : parent?.id || null;
+
+    const scopePath = this.symbolTable.getCurrentScopePath(currentScope);
 
     const constructorSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
@@ -970,7 +982,7 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       location,
       this.currentFilePath,
       modifiers,
-      parent?.id || null,
+      parentId,
       undefined,
       namespace instanceof Namespace ? namespace : null,
       this.getCurrentAnnotations(),
@@ -1028,8 +1040,25 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
     const scopePath = this.symbolTable.getCurrentScopePath(parentScope);
 
     // Find semantic symbol and determine parentId
-    const currentType = this.getCurrentType();
+    let currentType = this.getCurrentType();
     let parentId: string | null = null;
+
+    // For class blocks, if getCurrentType() returns null but we have a semanticName,
+    // look up the type symbol by name (this handles the case where the class symbol
+    // was just added but the block hasn't been pushed to the scope stack yet)
+    if (!currentType && scopeType === 'class' && semanticName) {
+      const allSymbols = this.symbolTable.getAllSymbols();
+      currentType =
+        (allSymbols.find(
+          (s) =>
+            s.name === semanticName &&
+            (s.kind === SymbolKind.Class ||
+              s.kind === SymbolKind.Interface ||
+              s.kind === SymbolKind.Enum ||
+              s.kind === SymbolKind.Trigger),
+        ) as TypeSymbol | undefined) ?? null;
+    }
+
     if (currentType && scopeType === 'class') {
       parentId = currentType.id;
     } else if (parentScope) {
