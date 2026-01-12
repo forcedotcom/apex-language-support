@@ -12,7 +12,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import {
   CompilerService,
-  FullSymbolCollectorListener,
+  ApexSymbolCollectorListener,
   SymbolTable,
   SymbolKind,
   EnumSymbol,
@@ -95,7 +95,7 @@ function findApexFiles(
  */
 function parseApexFile(filePath: string, namespace: string): CompilationResult {
   const content = fs.readFileSync(filePath, 'utf8');
-  const listener = new FullSymbolCollectorListener();
+  const listener = new ApexSymbolCollectorListener(undefined, 'full');
   listener.setCurrentFileUri(filePath);
   if (namespace) {
     listener.setProjectNamespace(namespace);

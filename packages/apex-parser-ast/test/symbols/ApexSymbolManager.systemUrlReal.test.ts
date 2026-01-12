@@ -58,7 +58,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
     const testClassUri = URI.file(testClassPath).toString();
     const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
-    const listener = new ApexSymbolCollectorListener();
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
     const result = compilerService.compile(
       testClassContent,
       testClassUri,

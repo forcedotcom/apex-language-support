@@ -166,7 +166,7 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         }
         this.addSymbolWithDetailLevel(
           classSymbol,
-          this.getCurrentScopeSymbol(),
+          this.getCurrentScopeSymbol(ctx),
         );
       }
 
@@ -177,8 +177,9 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         blockName,
         'class',
         location,
-        this.getCurrentScopeSymbol(),
+        this.getCurrentScopeSymbol(ctx),
         name,
+        ctx,
       );
 
       if (blockSymbol) {
@@ -241,7 +242,7 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         }
         this.addSymbolWithDetailLevel(
           interfaceSymbol,
-          this.getCurrentScopeSymbol(),
+          this.getCurrentScopeSymbol(ctx),
         );
       }
 
@@ -252,8 +253,9 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         blockName,
         'class',
         location,
-        this.getCurrentScopeSymbol(),
+        this.getCurrentScopeSymbol(ctx),
         name,
+        ctx,
       );
 
       if (blockSymbol) {
@@ -311,7 +313,7 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         }
         this.addSymbolWithDetailLevel(
           enumSymbol,
-          this.getCurrentScopeSymbol(),
+          this.getCurrentScopeSymbol(ctx),
         );
       }
 
@@ -322,8 +324,9 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         blockName,
         'class',
         location,
-        this.getCurrentScopeSymbol(),
+        this.getCurrentScopeSymbol(ctx),
         name,
+        ctx,
       );
 
       if (blockSymbol) {
@@ -590,11 +593,33 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       // Extract constructor name from qualified name
       const qualifiedName = ctx.qualifiedName();
       const ids = qualifiedName?.id();
-      const currentType = this.getCurrentType();
+
+      // Validate that constructor name is not a dotted name (semantic error)
+      if (ids && ids.length > 1) {
+        const qualifiedNameError =
+          'Invalid constructor declaration: Constructor names cannot use qualified names. Found: ' +
+          this.getTextFromContext(qualifiedName);
+        this.addError(qualifiedNameError, ctx);
+        return;
+      }
+
+      const currentType = this.getCurrentType(ctx);
       const name =
         ids && ids.length > 0
           ? ids[0].text
           : (currentType?.name ?? 'unknownConstructor');
+
+      // Validate that constructor name matches the enclosing class name
+      if (currentType && name !== currentType.name) {
+        const errorMessage =
+          "Invalid constructor declaration: Constructor name '" +
+          name +
+          "' must match the enclosing class name '" +
+          currentType.name +
+          "'";
+        this.addError(errorMessage, ctx);
+        return;
+      }
 
       const modifiers = this.getCurrentModifiers();
 
@@ -604,6 +629,93 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       }
 
       const parameters = this.extractParameters(ctx.formalParameters());
+
+      // CRITICAL: Find the correct class block
+      // The constructor name matches the class name - use that to find the correct type and block
+      // This ensures we get the correct block for inner classes
+      // Strategy: Always look up by constructor name first, then verify/fallback to scope stack
+      let classBlock: ScopeSymbol | undefined = undefined;
+      
+      if (name) {
+        // Find the type with the constructor's name (most nested one if multiple)
+        const matchingTypes = this.symbolTable
+          .getAllSymbols()
+          .filter(
+            (s) =>
+              (s.kind === SymbolKind.Class ||
+                s.kind === SymbolKind.Interface ||
+                s.kind === SymbolKind.Enum ||
+                s.kind === SymbolKind.Trigger) &&
+              s.name === name &&
+              s.fileUri === this.currentFilePath,
+          ) as TypeSymbol[];
+        
+        if (matchingTypes.length > 0) {
+          // Prefer nested types (inner classes) - they're more specific
+          // If multiple types with same name, prefer the one that's nested (has parentId)
+          // This ensures inner classes are selected over outer classes with the same name
+          const targetType = matchingTypes.reduce((mostNested, current) => {
+            const currentIsNested = current.parentId !== null;
+            const mostNestedIsNested = mostNested.parentId !== null;
+            if (currentIsNested && !mostNestedIsNested) return current;
+            if (!currentIsNested && mostNestedIsNested) return mostNested;
+            // If both nested or both top-level, prefer the one that appears later in the array
+            // (which should be more nested due to parse order)
+            return current;
+          });
+          
+          // Find the block for this type
+          classBlock = this.symbolTable
+            .getAllSymbols()
+            .find(
+              (s) =>
+                isBlockSymbol(s) &&
+                s.scopeType === 'class' &&
+                s.parentId === targetType.id,
+            ) as ScopeSymbol | undefined;
+        }
+      }
+      
+      // Fallback: if lookup by name didn't work, try scope stack or currentType
+      if (!classBlock) {
+        classBlock = this.getCurrentScopeSymbol() || undefined;
+        
+        // Verify the block belongs to currentType if we have both
+        if (classBlock && currentType) {
+          const blockType = this.symbolTable
+            .getAllSymbols()
+            .find(
+              (s) =>
+                s.id === classBlock!.parentId &&
+                (s.kind === SymbolKind.Class ||
+                  s.kind === SymbolKind.Interface ||
+                  s.kind === SymbolKind.Enum ||
+                  s.kind === SymbolKind.Trigger),
+            ) as TypeSymbol | undefined;
+          
+          if (!blockType || blockType.id !== currentType.id) {
+            // Wrong block - look up by currentType
+            classBlock = this.symbolTable
+              .getAllSymbols()
+              .find(
+                (s) =>
+                  isBlockSymbol(s) &&
+                  s.scopeType === 'class' &&
+                  s.parentId === currentType.id,
+              ) as ScopeSymbol | undefined;
+          }
+        } else if (!classBlock && currentType) {
+          // No block from scope stack - look up by currentType
+          classBlock = this.symbolTable
+            .getAllSymbols()
+            .find(
+              (s) =>
+                isBlockSymbol(s) &&
+                s.scopeType === 'class' &&
+                s.parentId === currentType.id,
+            ) as ScopeSymbol | undefined;
+        }
+      }
 
       const constructorSymbol = this.createConstructorSymbol(
         ctx,
@@ -618,9 +730,23 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         constructorSymbol.annotations = [...this.currentAnnotations];
       }
 
+      // CRITICAL: Ensure constructor's parentId points to the class block (for uniform FQN hierarchy)
+      // Match the pattern from ApexSymbolCollectorListener - same for outer and inner classes
+      if (classBlock && classBlock.scopeType === 'class') {
+        constructorSymbol.parentId = classBlock.id;
+      } else if (currentType) {
+        // Fallback: if we couldn't find the block, use the type ID
+        // This should only happen in edge cases - normally the block should be found
+        constructorSymbol.parentId = currentType.id;
+        this.logger.warn(
+          () =>
+            `Could not find class block for constructor '${name}' in type '${currentType.name}', using type ID as parentId`,
+        );
+      }
+
       this.addSymbolWithDetailLevel(
         constructorSymbol,
-        this.getCurrentScopeSymbol(),
+        classBlock || null,
       );
 
       // Create constructor block for scope tracking (only for private level)
@@ -913,7 +1039,7 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         // Add symbol to current scope (null when stack is empty = file level)
         this.addSymbolWithDetailLevel(
           triggerSymbol,
-          this.getCurrentScopeSymbol(),
+          this.getCurrentScopeSymbol(ctx),
         );
       }
 
@@ -924,8 +1050,9 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         blockName,
         'class',
         location,
-        this.getCurrentScopeSymbol(),
+        this.getCurrentScopeSymbol(ctx),
         name, // Pass the trigger name so createBlockSymbol can find the trigger symbol
+        ctx,
       );
 
       // Push block symbol onto stack
@@ -959,31 +1086,148 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
 
   // Helper methods
 
-  private getCurrentScopeSymbol(): ScopeSymbol | null {
+  private getCurrentScopeSymbol(ctx?: ParserRuleContext): ScopeSymbol | null {
+    // First try scope stack (fast path)
     const peeked = this.scopeStack.peek();
-    return isBlockSymbol(peeked) ? peeked : null;
+    if (isBlockSymbol(peeked)) {
+      return peeked;
+    }
+
+    // Fallback: Use parse tree + symbol table when scope stack is empty
+    if (ctx && this.scopeStack.isEmpty()) {
+      const currentType = this.getCurrentTypeFromParseTree(ctx);
+      if (currentType) {
+        // Find the block for this type - use getAllSymbols() since we need to filter by parentId
+        const allSymbols = this.symbolTable.getAllSymbols();
+        const block = allSymbols.find(
+          (s) =>
+            isBlockSymbol(s) &&
+            s.scopeType === 'class' &&
+            s.parentId === currentType.id &&
+            s.fileUri === this.currentFilePath,
+        ) as ScopeSymbol | undefined;
+
+        return block || null;
+      }
+    }
+
+    return null;
   }
 
-  private getCurrentType(): TypeSymbol | null {
+  private getCurrentType(ctx?: ParserRuleContext): TypeSymbol | null {
+    // First try scope stack (fast path for public-api walk)
     const stackArray = this.scopeStack.toArray();
     for (let i = stackArray.length - 1; i >= 0; i--) {
       const owner = stackArray[i];
       if (isBlockSymbol(owner) && owner.scopeType === 'class') {
-        const typeSymbol = this.symbolTable
-          .getAllSymbols()
-          .find(
+        // Use getSymbolById for O(1) lookup instead of getAllSymbols().find()
+        if (owner.parentId) {
+          const typeSymbol = this.symbolTable.getSymbolById(owner.parentId);
+          if (
+            typeSymbol &&
+            (typeSymbol.kind === SymbolKind.Class ||
+              typeSymbol.kind === SymbolKind.Interface ||
+              typeSymbol.kind === SymbolKind.Enum ||
+              typeSymbol.kind === SymbolKind.Trigger)
+          ) {
+            return typeSymbol as TypeSymbol;
+          }
+        }
+      }
+    }
+
+    // Fallback: Use parse tree traversal when scope stack is empty
+    if (ctx && this.scopeStack.isEmpty()) {
+      return this.getCurrentTypeFromParseTree(ctx);
+    }
+
+    return null;
+  }
+
+  /**
+   * Get current type from parse tree structure when scope stack is empty.
+   * For class/interface/enum declarations, returns the type being declared.
+   * For other contexts, traverses up to find containing type declarations.
+   */
+  private getCurrentTypeFromParseTree(ctx: ParserRuleContext): TypeSymbol | null {
+    // Check if ctx itself is a type declaration context
+    const contextName = ctx.constructor.name;
+    if (
+      contextName === 'ClassDeclarationContext' ||
+      contextName === 'InterfaceDeclarationContext' ||
+      contextName === 'EnumDeclarationContext'
+    ) {
+      const typeId = (ctx as any).id?.();
+      const typeName = typeId?.text;
+
+      if (typeName) {
+        // Find the type symbol - prefer most nested if multiple matches
+        const allSymbols = this.symbolTable.getAllSymbols();
+        const matchingTypes = allSymbols.filter(
+          (s) =>
+            s.name === typeName &&
+            s.fileUri === this.currentFilePath &&
+            (s.kind === SymbolKind.Class ||
+              s.kind === SymbolKind.Interface ||
+              s.kind === SymbolKind.Enum ||
+              s.kind === SymbolKind.Trigger),
+        ) as TypeSymbol[];
+
+        if (matchingTypes.length > 0) {
+          // Return the most nested matching type (for inner classes)
+          return matchingTypes.reduce((mostNested, current) => {
+            const currentIsNested = current.parentId !== null;
+            const mostNestedIsNested = mostNested.parentId !== null;
+            if (currentIsNested && !mostNestedIsNested) return current;
+            if (!currentIsNested && mostNestedIsNested) return mostNested;
+            return current;
+          });
+        }
+      }
+    }
+
+    // Otherwise, traverse up parse tree to find containing type declarations
+    let current: ParserRuleContext | undefined = ctx.parent;
+    while (current) {
+      const parentContextName = current.constructor.name;
+
+      if (
+        parentContextName === 'ClassDeclarationContext' ||
+        parentContextName === 'InterfaceDeclarationContext' ||
+        parentContextName === 'EnumDeclarationContext'
+      ) {
+        const typeId = (current as any).id?.();
+        const typeName = typeId?.text;
+
+        if (typeName) {
+          // Find the type symbol - prefer most nested if multiple matches
+          const allSymbols = this.symbolTable.getAllSymbols();
+          const matchingTypes = allSymbols.filter(
             (s) =>
-              s.id === owner.parentId &&
+              s.name === typeName &&
+              s.fileUri === this.currentFilePath &&
               (s.kind === SymbolKind.Class ||
                 s.kind === SymbolKind.Interface ||
                 s.kind === SymbolKind.Enum ||
                 s.kind === SymbolKind.Trigger),
-          );
-        if (typeSymbol) {
-          return typeSymbol as TypeSymbol;
+          ) as TypeSymbol[];
+
+          if (matchingTypes.length > 0) {
+            // Return the most nested matching type (for inner classes)
+            return matchingTypes.reduce((mostNested, current) => {
+              const currentIsNested = current.parentId !== null;
+              const mostNestedIsNested = mostNested.parentId !== null;
+              if (currentIsNested && !mostNestedIsNested) return current;
+              if (!currentIsNested && mostNestedIsNested) return mostNested;
+              return current;
+            });
+          }
         }
       }
+
+      current = current.parent;
     }
+
     return null;
   }
 
@@ -1196,30 +1440,12 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
     const parent = this.getCurrentType();
     const namespace = parent?.namespace || null;
 
-    // Get the current scope (should be a class block)
-    // Constructors should have parentId = class block ID to match ApexSymbolCollectorListener
-    let currentScope = this.getCurrentScopeSymbol();
+    // Don't set parentId here - it will be set explicitly in enterConstructorDeclaration
+    // This ensures we always use the correct class block, even when scope stack is empty
+    const parentId = null; // Will be set explicitly after finding the correct block
 
-    // If scope stack is empty (subsequent listener walks), look up the class block from symbol table
-    if (!currentScope && parent) {
-      const classBlock = this.symbolTable
-        .getAllSymbols()
-        .find(
-          (s) =>
-            isBlockSymbol(s) &&
-            s.scopeType === 'class' &&
-            s.parentId === parent.id,
-        ) as ScopeSymbol | undefined;
-      if (classBlock) {
-        currentScope = classBlock;
-      }
-    }
-
-    const parentId =
-      currentScope && currentScope.scopeType === 'class'
-        ? currentScope.id
-        : parent?.id || null;
-
+    // Get scope path for ID generation (use current scope if available)
+    const currentScope = this.getCurrentScopeSymbol();
     const scopePath = this.symbolTable.getCurrentScopePath(currentScope);
 
     const constructorSymbol = SymbolFactory.createFullSymbolWithNamespace(
@@ -1281,27 +1507,63 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
     location: SymbolLocation,
     parentScope: ScopeSymbol | null,
     semanticName?: string,
+    ctx?: ParserRuleContext,
   ): ScopeSymbol | null {
     const fileUri = this.symbolTable.getFileUri();
 
     // Find semantic symbol and determine parentId
-    let currentType = this.getCurrentType();
+    let currentType = this.getCurrentType(ctx);
     let parentId: string | null = null;
 
-    // For class blocks, if getCurrentType() returns null but we have a semanticName,
-    // look up the type symbol by name (this handles the case where the class symbol
-    // was just added but the block hasn't been pushed to the scope stack yet)
-    if (!currentType && scopeType === 'class' && semanticName) {
+    // For class blocks, if we have a semanticName, check if getCurrentType() returned
+    // the correct type (matching semanticName). If not, or if getCurrentType() returned null,
+    // look up the type symbol by name (this handles inner classes where getCurrentType()
+    // might return the containing outer class instead of the inner class)
+    // For inner classes, prefer the most nested type with matching name
+    if (
+      scopeType === 'class' &&
+      semanticName &&
+      (!currentType || currentType.name !== semanticName)
+    ) {
       const allSymbols = this.symbolTable.getAllSymbols();
-      currentType =
-        (allSymbols.find(
-          (s) =>
-            s.name === semanticName &&
-            (s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum ||
-              s.kind === SymbolKind.Trigger),
-        ) as TypeSymbol | undefined) ?? null;
+      const matchingTypes = allSymbols.filter(
+        (s) =>
+          s.name === semanticName &&
+          s.fileUri === fileUri &&
+          (s.kind === SymbolKind.Class ||
+            s.kind === SymbolKind.Interface ||
+            s.kind === SymbolKind.Enum ||
+            s.kind === SymbolKind.Trigger),
+      ) as TypeSymbol[];
+      
+      if (matchingTypes.length > 0) {
+        // Prefer the most nested type (one with parentId, and deepest nesting)
+        // This ensures inner classes are correctly identified even when scope stack is empty
+        // For inner classes, we need to find the type that matches the current parse context
+        // Since we don't have scope stack info, we'll prefer nested types and use parse order
+        currentType = matchingTypes.reduce((mostNested, current) => {
+          const currentIsNested = current.parentId !== null;
+          const mostNestedIsNested = mostNested.parentId !== null;
+          
+          // Prefer nested over top-level
+          if (currentIsNested && !mostNestedIsNested) return current;
+          if (!currentIsNested && mostNestedIsNested) return mostNested;
+          
+          // If both nested, prefer the one that appears later in the array
+          // (which should be more deeply nested due to parse order)
+          // If both top-level, prefer the one that appears later (shouldn't happen for same name)
+          return current;
+        });
+        
+        // Debug: Log if we found multiple types (shouldn't happen in normal cases)
+        if (matchingTypes.length > 1 && currentType) {
+          const selectedType = currentType; // Capture for closure
+          this.logger.debug(
+            () =>
+              `Found ${matchingTypes.length} types with name '${semanticName}', selected: ${selectedType.name} (parentId: ${selectedType.parentId})`,
+          );
+        }
+      }
     }
 
     if (currentType && scopeType === 'class') {
@@ -1342,9 +1604,8 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
 
       // Traverse up the parentId chain to find all containing types
       while (type && type.parentId) {
-        const parentSymbol = this.symbolTable
-          .getAllSymbols()
-          .find((s) => s.id === type!.parentId);
+        // Use getSymbolById for O(1) lookup instead of getAllSymbols().find()
+        const parentSymbol = this.symbolTable.getSymbolById(type.parentId);
 
         if (
           parentSymbol &&
@@ -1353,18 +1614,25 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         ) {
           // Parent is a class block - add it to the path
           path.unshift('block', parentSymbol.name);
-          // Find the type symbol this block belongs to
-          const parentType = this.symbolTable
-            .getAllSymbols()
-            .find(
-              (s) =>
-                s.id === parentSymbol.parentId &&
-                (s.kind === SymbolKind.Class ||
-                  s.kind === SymbolKind.Interface ||
-                  s.kind === SymbolKind.Enum ||
-                  s.kind === SymbolKind.Trigger),
+          // Find the type symbol this block belongs to - use getSymbolById for O(1) lookup
+          if (parentSymbol.parentId) {
+            const parentType = this.symbolTable.getSymbolById(
+              parentSymbol.parentId,
             );
-          type = parentType;
+            if (
+              parentType &&
+              (parentType.kind === SymbolKind.Class ||
+                parentType.kind === SymbolKind.Interface ||
+                parentType.kind === SymbolKind.Enum ||
+                parentType.kind === SymbolKind.Trigger)
+            ) {
+              type = parentType as TypeSymbol;
+            } else {
+              break;
+            }
+          } else {
+            break;
+          }
         } else if (
           parentSymbol &&
           (parentSymbol.kind === SymbolKind.Class ||
@@ -1373,6 +1641,8 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
             parentSymbol.kind === SymbolKind.Trigger)
         ) {
           // Parent is a type symbol (inner class case) - find its block and continue
+          // Note: This lookup filters by parentId, so we can't use getSymbolById directly
+          // but this is only executed for inner classes (rare case)
           const parentBlock = this.symbolTable
             .getAllSymbols()
             .find(
@@ -1429,6 +1699,14 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
     this.symbolTable.addSymbol(blockSymbol, parentScope ?? null);
 
     return blockSymbol;
+  }
+
+  /**
+   * Extract text from a parser context
+   */
+  private getTextFromContext(ctx: ParserRuleContext | any): string {
+    if (!ctx) return '';
+    return ctx.text || '';
   }
 
   /**

@@ -56,7 +56,7 @@ describe.skip('ApexSymbolManager - Advanced Performance Tests', () => {
   beforeEach(() => {
     manager = new ApexSymbolManager();
     compilerService = new CompilerService();
-    listener = new ApexSymbolCollectorListener();
+    listener = new ApexSymbolCollectorListener(undefined, 'full');
   });
 
   afterEach(() => {

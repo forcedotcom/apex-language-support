@@ -143,6 +143,7 @@ import { ResourceLoader } from '../../utils/resourceLoader';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../constants/constants';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 import { ApexReferenceResolver } from '../references/ApexReferenceResolver';
+import { DetailLevel } from './LayeredSymbolListenerBase';
 
 interface SemanticError {
   type: 'semantic';
@@ -166,14 +167,13 @@ interface ChainScope {
  * A listener that collects symbols from Apex code and organizes them into symbol tables.
  * This listener builds a hierarchy of symbol scopes and tracks symbols defined in each scope.
  *
- * @deprecated Use {@link FullSymbolCollectorListener} instead, which uses layered listeners
- * for better performance and progressive enhancement capabilities. For services that only
- * need public API symbols (e.g., document open, diagnostics), use {@link PublicAPISymbolListener}
- * directly for improved performance.
+ * Enhanced listener that supports DetailLevel-based conditional symbol collection.
+ * Use with DetailLevel 'public-api', 'protected', 'private', or 'full' to control
+ * which symbols are collected. This enables progressive enrichment of symbol tables.
  *
- * Migration guide:
- * - For full symbol collection: Replace `new ApexSymbolCollectorListener()` with `new FullSymbolCollectorListener()`
- * - For public API only: Replace with `new PublicAPISymbolListener()`
+ * Usage:
+ * - For full symbol collection: `new ApexSymbolCollectorListener(symbolTable, 'full')`
+ * - For public API only: `new ApexSymbolCollectorListener(symbolTable, 'public-api')`
  * - Ensure `collectReferences: true` and `resolveReferences: true` are set in CompilationOptions
  */
 export class ApexSymbolCollectorListener
@@ -220,14 +220,18 @@ export class ApexSymbolCollectorListener
     SymbolReference
   >();
 
+  private readonly detailLevel: DetailLevel;
+
   /**
    * Creates a new instance of the ApexSymbolCollectorListener.
    * @param symbolTable Optional existing symbol table to use. If not provided, a new one will be created.
+   * @param detailLevel Optional detail level for selective symbol collection. Defaults to 'full' for backward compatibility.
    */
-  constructor(symbolTable?: SymbolTable) {
+  constructor(symbolTable?: SymbolTable, detailLevel: DetailLevel = 'full') {
     super();
     this.logger = getLogger();
     this.symbolTable = symbolTable || new SymbolTable();
+    this.detailLevel = detailLevel;
     // Note: SymbolTable constructor already creates a 'file' scope as root
     // No need to call enterScope('file') again
   }
@@ -266,6 +270,40 @@ export class ApexSymbolCollectorListener
    */
   getResult(): SymbolTable {
     return this.symbolTable;
+  }
+
+  /**
+   * Get the detail level for this listener
+   * @returns The detail level
+   */
+  getDetailLevel(): DetailLevel {
+    return this.detailLevel;
+  }
+
+  /**
+   * Check if a symbol with the given visibility should be processed by this listener
+   * @param visibility The visibility modifier of the symbol
+   * @returns True if this listener should process symbols with this visibility
+   */
+  private shouldProcessSymbol(visibility: SymbolVisibility): boolean {
+    switch (this.detailLevel) {
+      case 'public-api':
+        return (
+          visibility === SymbolVisibility.Public ||
+          visibility === SymbolVisibility.Global
+        );
+      case 'protected':
+        return (
+          visibility === SymbolVisibility.Protected ||
+          visibility === SymbolVisibility.Default
+        );
+      case 'private':
+        return visibility === SymbolVisibility.Private;
+      case 'full':
+        return true; // Collect all symbols
+      default:
+        return false;
+    }
   }
 
   /**
@@ -1265,49 +1303,59 @@ export class ApexSymbolCollectorListener
         }
       }
 
-      // Create a new method symbol
-      const methodSymbol = this.createMethodSymbol(
-        ctx,
-        name,
-        modifiers,
-        returnType,
-      );
+      // Check if we should collect this method based on detail level
+      const shouldCollect =
+        this.detailLevel === 'full' ||
+        this.shouldProcessSymbol(modifiers.visibility);
 
-      // Add annotations to the method symbol
-      if (annotations.length > 0) {
-        methodSymbol.annotations = annotations;
+      if (shouldCollect) {
+        // Create a new method symbol
+        const methodSymbol = this.createMethodSymbol(
+          ctx,
+          name,
+          modifiers,
+          returnType,
+        );
+
+        // Add annotations to the method symbol
+        if (annotations.length > 0) {
+          methodSymbol.annotations = annotations;
+        }
+
+        // CRITICAL: Ensure method's parentId points to the class block (for uniform FQN hierarchy)
+        // The method symbol's parentId should be set to the class block's id
+        // This ensures FQN calculation follows: class -> class block -> method block -> ...
+        // Find the class block from the stack
+        const classBlock = this.getCurrentScopeSymbol();
+        if (classBlock && classBlock.scopeType === 'class') {
+          methodSymbol.parentId = classBlock.id;
+        } else if (currentType) {
+          // Fallback: if we can't find the class block, use the class symbol
+          methodSymbol.parentId = currentType.id;
+        }
+
+        // Add method symbol to current scope (null when stack is empty = file level)
+        // Note: addSymbol will NOT override parentId if it's already set to a non-null value
+        this.symbolTable.addSymbol(methodSymbol, this.getCurrentScopeSymbol());
       }
 
-      // CRITICAL: Ensure method's parentId points to the class block (for uniform FQN hierarchy)
-      // The method symbol's parentId should be set to the class block's id
-      // This ensures FQN calculation follows: class -> class block -> method block -> ...
-      // Find the class block from the stack
-      const classBlock = this.getCurrentScopeSymbol();
-      if (classBlock && classBlock.scopeType === 'class') {
-        methodSymbol.parentId = classBlock.id;
-      } else if (currentType) {
-        // Fallback: if we can't find the class block, use the class symbol
-        methodSymbol.parentId = currentType.id;
+      // Create method block symbol for scope tracking (needed for block content)
+      // But only if detail level is 'full' or matches method visibility
+      if (this.detailLevel === 'full' || shouldCollect) {
+        const location = this.getLocation(ctx);
+        const parentScope = this.getCurrentScopeSymbol();
+        const blockName = this.generateBlockName('method');
+        const blockSymbol = this.createBlockSymbol(
+          blockName,
+          'method',
+          location,
+          parentScope,
+          name, // Pass the method name so createBlockSymbol can find the method symbol
+        );
+
+        // Push block symbol onto stack
+        this.scopeStack.push(blockSymbol);
       }
-
-      // Add method symbol to current scope (null when stack is empty = file level)
-      // Note: addSymbol will NOT override parentId if it's already set to a non-null value
-      this.symbolTable.addSymbol(methodSymbol, this.getCurrentScopeSymbol());
-
-      // Create method block symbol directly (stack-only scope tracking)
-      const location = this.getLocation(ctx);
-      const parentScope = this.getCurrentScopeSymbol();
-      const blockName = this.generateBlockName('method');
-      const blockSymbol = this.createBlockSymbol(
-        blockName,
-        'method',
-        location,
-        parentScope,
-        name, // Pass the method name so createBlockSymbol can find the method symbol
-      );
-
-      // Push block symbol onto stack
-      this.scopeStack.push(blockSymbol);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in method declaration: ${errorMessage}`, ctx);
@@ -1426,38 +1474,50 @@ export class ApexSymbolCollectorListener
 
       const modifiers = this.getCurrentModifiers();
 
-      // Create constructor symbol using dedicated createConstructorSymbol method
-      // The getIdentifierLocation method will automatically handle qualified names
-      // and extract the proper identifier location from the parser structure
-      const constructorSymbol = this.createConstructorSymbol(
-        ctx,
-        name,
-        modifiers,
-      );
+      // Check if we should collect this constructor based on detail level
+      const shouldCollect =
+        this.detailLevel === 'full' ||
+        this.shouldProcessSymbol(modifiers.visibility);
 
-      // CRITICAL: Ensure constructor's parentId points to the class block (for uniform FQN hierarchy)
-      // Find the class block from the stack
-      const classBlock = this.getCurrentScopeSymbol();
-      if (classBlock && classBlock.scopeType === 'class') {
-        constructorSymbol.parentId = classBlock.id;
+      if (shouldCollect) {
+        // Create constructor symbol using dedicated createConstructorSymbol method
+        // The getIdentifierLocation method will automatically handle qualified names
+        // and extract the proper identifier location from the parser structure
+        const constructorSymbol = this.createConstructorSymbol(
+          ctx,
+          name,
+          modifiers,
+        );
+
+        // CRITICAL: Ensure constructor's parentId points to the class block (for uniform FQN hierarchy)
+        // Find the class block from the stack
+        const classBlock = this.getCurrentScopeSymbol();
+        if (classBlock && classBlock.scopeType === 'class') {
+          constructorSymbol.parentId = classBlock.id;
+        }
+
+        this.symbolTable.addSymbol(
+          constructorSymbol,
+          this.getCurrentScopeSymbol(),
+        );
       }
 
-      this.symbolTable.addSymbol(
-        constructorSymbol,
-        this.getCurrentScopeSymbol(),
-      );
-      const location = this.getLocation(ctx);
-      const parentScope = this.getCurrentScopeSymbol();
-      const blockSymbol = this.createBlockSymbol(
-        name,
-        'method',
-        location,
-        parentScope,
-      );
+      // Create constructor block symbol for scope tracking (needed for block content)
+      // But only if detail level is 'full' or matches constructor visibility
+      if (this.detailLevel === 'full' || shouldCollect) {
+        const location = this.getLocation(ctx);
+        const parentScope = this.getCurrentScopeSymbol();
+        const blockSymbol = this.createBlockSymbol(
+          name,
+          'method',
+          location,
+          parentScope,
+        );
 
-      // Push block symbol onto stack
-      if (blockSymbol) {
-        this.scopeStack.push(blockSymbol);
+        // Push block symbol onto stack
+        if (blockSymbol) {
+          this.scopeStack.push(blockSymbol);
+        }
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -1983,6 +2043,19 @@ export class ApexSymbolCollectorListener
           ctx,
         );
         return; // Skip processing this duplicate variable
+      }
+
+      // For fields, check if we should collect based on detail level
+      // Local variables are always collected (they're implementation details, not API)
+      if (isField) {
+        const shouldCollect =
+          this.detailLevel === 'full' ||
+          this.shouldProcessSymbol(modifiers.visibility);
+        if (!shouldCollect) {
+          // Skip field collection but still reset annotations
+          this.resetAnnotations();
+          return;
+        }
       }
 
       // Process the variable declarator (this will create the symbol)
@@ -3571,7 +3644,7 @@ export class ApexSymbolCollectorListener
 
   /**
    * Capture exception type in catch clauses: catch (QualifiedName e)
-   * Also creates scope for the catch block
+   * Note: Catch scope creation is handled by BlockContentListener to avoid duplicates
    */
   enterCatchClause(ctx: CatchClauseContext): void {
     try {
@@ -3590,23 +3663,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Create scope for catch block
-      const name = this.generateBlockName('catch');
-      const location = this.getLocation(ctx);
-      const parentScope = this.getCurrentScopeSymbol();
-      const blockSymbol = this.createBlockSymbol(
-        name,
-        'catch',
-        location,
-        parentScope,
-      );
-
-      // Push block symbol onto stack (blockSymbol should never be null from enterScope)
-      if (!blockSymbol) {
-        this.addError('Failed to create block symbol', ctx);
-        return;
-      }
-      // Push block symbol onto stack
-      this.scopeStack.push(blockSymbol);
+      this.enterScope('catch', ctx);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in catch clause: ${errorMessage}`, ctx);
@@ -3617,18 +3674,7 @@ export class ApexSymbolCollectorListener
    * Called when exiting a catch clause
    */
   exitCatchClause(): void {
-    // No-op - stack handles scope exit
-    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
-
-    // Pop from stack and validate it's a catch scope
-    const popped = this.scopeStack.pop();
-    if (isBlockSymbol(popped)) {
-      if (popped.scopeType !== 'catch') {
-        this.logger.warn(
-          `Expected catch scope on exitCatchClause, but got ${popped.scopeType}`,
-        );
-      }
-    }
+    this.exitScope('catch');
   }
 
   /**

@@ -8,7 +8,7 @@
 
 import { CompilerService } from '../../src/parser/compilerService';
 import { VisibilitySymbolListener } from '../../src/parser/listeners/VisibilitySymbolListener';
-import { FullSymbolCollectorListener } from '../../src/parser/listeners/FullSymbolCollectorListener';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolTable } from '../../src/types/symbol';
 import { ReferenceContext } from '../../src/types/symbolReference';
 
@@ -175,7 +175,7 @@ describe('Layered Listener Reference Collection', () => {
         }
       `;
 
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'AssignTest.cls', listener);
 
       const symbolTable = listener.getResult();

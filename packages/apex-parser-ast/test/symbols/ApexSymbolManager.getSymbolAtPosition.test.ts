@@ -71,7 +71,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       // Parse the source and add symbols to the manager
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(
         apexSource,
         '/test/TestClass.cls',
@@ -106,7 +106,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       // Parse the source and add symbols to the manager
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(
         apexSource,
         '/test/TestClassWithField.cls',
@@ -141,7 +141,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       // Parse the source and add symbols to the manager
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(
         apexSource,
         '/test/TestClassSimple.cls',
@@ -176,7 +176,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       // Parse the source and add symbols to the manager
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(
         apexSource,
         '/test/TestClassWithVariable.cls',
@@ -211,7 +211,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       // Parse the source and add symbols to the manager
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(
         apexSource,
         '/test/TestClassOverlapping.cls',
@@ -247,7 +247,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         'utf8',
       );
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(
         apexSource,
         'file:///ScopeExample.cls',
@@ -293,7 +293,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         'utf8',
       );
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(
         apexSource,
         'file:///ScopeExample.cls',
@@ -341,7 +341,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         'utf8',
       );
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(
         apexSource,
         'file:///ScopeExample.cls',
@@ -388,7 +388,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         'utf8',
       );
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(
         apexSource,
         'file:///ScopeExample.cls',

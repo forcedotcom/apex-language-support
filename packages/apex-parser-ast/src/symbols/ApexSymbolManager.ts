@@ -91,7 +91,7 @@ import {
 } from '../utils/symbolNarrowing';
 import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 import { CompilerService } from '../parser/compilerService';
-import { FullSymbolCollectorListener } from '../parser/listeners/FullSymbolCollectorListener';
+import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 
 /**
  * Context for chain resolution - discriminated union for type safety
@@ -8509,52 +8509,26 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           `Enriching ${fileUri} from ${currentLevel ?? 'none'} to ${targetLevel}`,
       );
 
-      if (targetLevel === 'full') {
-        // For 'full', use FullSymbolCollectorListener which includes BlockContentListener
-        const listener = new FullSymbolCollectorListener();
-        const result = self.compilerService.compile(
-          documentText,
-          fileUri,
-          listener,
+      // Use ApexSymbolCollectorListener with appropriate detail level
+      // Re-use existing symbol table if available for enrichment
+      const existingSymbolTable = self.getSymbolTableForFile(fileUri);
+      const listener = new ApexSymbolCollectorListener(
+        existingSymbolTable || undefined,
+        targetLevel,
+      );
+
+      const result = self.compilerService.compile(documentText, fileUri, listener, {
+        collectReferences: true,
+        resolveReferences: true,
+      });
+
+      if (result?.result) {
+        yield* self.addSymbolTable(result.result, fileUri);
+        self.setDetailLevelForFile(fileUri, targetLevel);
+        self.logger.debug(
+          () =>
+            `Enriched ${fileUri} to ${targetLevel} level using ApexSymbolCollectorListener`,
         );
-
-        if (result?.result) {
-          yield* self.addSymbolTable(result.result, fileUri);
-          self.setDetailLevelForFile(fileUri, 'full');
-          self.logger.debug(
-            () =>
-              `Enriched ${fileUri} to full level using FullSymbolCollectorListener`,
-          );
-        }
-      } else {
-        // For visibility layers, use compileLayered
-        const layersToApply = self.getLayersToApply(currentLevel, targetLevel);
-
-        if (layersToApply.length === 0) {
-          return;
-        }
-
-        const existingSymbolTable = self.getSymbolTableForFile(fileUri);
-        const result = self.compilerService.compileLayered(
-          documentText,
-          fileUri,
-          layersToApply,
-          existingSymbolTable,
-          {
-            collectReferences: true,
-            resolveReferences: true,
-          },
-        );
-
-        if (result?.result) {
-          yield* self.addSymbolTable(result.result, fileUri);
-          self.setDetailLevelForFile(fileUri, targetLevel);
-          self.logger.debug(
-            () =>
-              `Enriched ${fileUri} to ${targetLevel} level ` +
-              `(applied layers: ${layersToApply.join(', ')})`,
-          );
-        }
       }
     });
   }

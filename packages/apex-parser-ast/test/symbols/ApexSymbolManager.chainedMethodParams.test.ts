@@ -85,7 +85,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     const testClassUri = URI.file(testClassPath).toString();
     const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
-    const listener = new ApexSymbolCollectorListener();
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
     const result = compilerService.compile(
       testClassContent,
       testClassUri,
@@ -105,7 +105,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     if (fs.existsSync(accountPath)) {
       const accountUri = URI.file(accountPath).toString();
       const accountContent = fs.readFileSync(accountPath, 'utf8');
-      const accountListener = new ApexSymbolCollectorListener();
+      const accountListener = new ApexSymbolCollectorListener(undefined, 'full');
       const accountResult = compilerService.compile(
         accountContent,
         accountUri,

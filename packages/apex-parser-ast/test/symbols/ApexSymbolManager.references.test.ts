@@ -73,7 +73,7 @@ describe('ApexSymbolManager Reference Processing', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -164,7 +164,7 @@ describe('ApexSymbolManager Reference Processing', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       compilerService.compile(sourceCode, 'file:///TestClass.cls', listener);
 
@@ -223,7 +223,7 @@ describe('ApexSymbolManager Reference Processing', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -317,7 +317,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       const fileUri = 'file:///TestClass.cls';
       const compilerService = new CompilerService();
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
@@ -355,7 +355,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       const fileUri = 'file:///TestClass.cls';
       const compilerService = new CompilerService();
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
@@ -391,7 +391,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       const fileUri = 'file:///TestClass.cls';
       const compilerService = new CompilerService();
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
@@ -426,7 +426,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       const fileUri = 'file:///TestClass.cls';
       const compilerService = new CompilerService();
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
@@ -476,7 +476,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       const fileUri = 'file:///TestClass.cls';
       const compilerService = new CompilerService();
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
@@ -509,7 +509,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       const fileUri = 'file:///TestClass.cls';
       const compilerService = new CompilerService();
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();
@@ -552,7 +552,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       const fileUri = 'file:///TestClass.cls';
       const compilerService = new CompilerService();
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, fileUri, listener);
 
       const symbolTable = listener.getResult();

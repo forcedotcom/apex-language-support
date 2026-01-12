@@ -106,7 +106,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     apexCode: string,
     fileName: string = 'file:///test/test.cls',
   ): Promise<void> => {
-    listener = new ApexSymbolCollectorListener();
+    listener = new ApexSymbolCollectorListener(undefined, 'full');
 
     const result = compilerService.compile(apexCode, fileName, listener);
 
@@ -1193,7 +1193,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
         const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
-        const testClassListener = new ApexSymbolCollectorListener();
+        const testClassListener = new ApexSymbolCollectorListener(undefined, 'full');
         const testClassResult = compilerService.compile(
           testClassContent,
           'file:///test/TestClass.cls',
@@ -1241,7 +1241,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
         const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
-        const testClassListener = new ApexSymbolCollectorListener();
+        const testClassListener = new ApexSymbolCollectorListener(undefined, 'full');
         const testClassResult = compilerService.compile(
           testClassContent,
           'file:///test/TestClass.cls',
@@ -1288,7 +1288,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
         const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
-        const testClassListener = new ApexSymbolCollectorListener();
+        const testClassListener = new ApexSymbolCollectorListener(undefined, 'full');
         const testClassResult = compilerService.compile(
           testClassContent,
           'file:///test/TestClass.cls',

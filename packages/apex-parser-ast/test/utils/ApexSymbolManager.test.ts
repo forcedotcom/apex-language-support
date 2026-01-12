@@ -89,7 +89,7 @@ describe('ApexSymbolManager', () => {
     const result = compilerService.compile(
       apexCode,
       fileName,
-      new ApexSymbolCollectorListener(),
+      new ApexSymbolCollectorListener(undefined, 'full'),
     );
 
     if (result.errors.length > 0) {

@@ -849,8 +849,11 @@ export class SymbolTable {
           // Preserve existing ID and key (they shouldn't change)
           id: existingSymbol.id,
           key: existingSymbol.key,
-          // Preserve existing parentId unless explicitly changed
-          parentId: symbol.parentId ?? existingSymbol.parentId,
+          // CRITICAL: Preserve existing parentId during enrichment
+          // The parentId should be set correctly during the first listener walk
+          // Subsequent walks should not override it, as the parent-child relationship
+          // is established during the first walk and shouldn't change
+          parentId: existingSymbol.parentId,
         });
         // Use enriched symbol
         symbolToAdd = existingSymbol;
@@ -1363,6 +1366,15 @@ export class SymbolTable {
    */
   getAllSymbols(): ApexSymbol[] {
     return this.symbolArray;
+  }
+
+  /**
+   * Get a symbol by its ID using O(1) HashMap lookup.
+   * @param id The symbol ID to look up
+   * @returns The symbol if found, undefined otherwise
+   */
+  getSymbolById(id: string): ApexSymbol | undefined {
+    return this.idIndex.get(id);
   }
 
   /**

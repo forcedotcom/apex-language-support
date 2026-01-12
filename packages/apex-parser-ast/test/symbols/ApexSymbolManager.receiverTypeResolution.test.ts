@@ -59,7 +59,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     const testClassUri = URI.file(testClassPath).toString();
     const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
-    const listener = new ApexSymbolCollectorListener();
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
     const result = compilerService.compile(
       testClassContent,
       testClassUri,

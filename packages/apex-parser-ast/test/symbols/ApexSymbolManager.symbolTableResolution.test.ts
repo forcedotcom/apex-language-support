@@ -74,7 +74,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -147,7 +147,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -255,7 +255,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -308,7 +308,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -356,7 +356,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -460,7 +460,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -551,8 +551,8 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const serviceListener = new ApexSymbolCollectorListener();
-      const testListener = new ApexSymbolCollectorListener();
+      const serviceListener = new ApexSymbolCollectorListener(undefined, 'full');
+      const testListener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
 
       // Compile and add ServiceClass first (target)
@@ -657,7 +657,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -698,7 +698,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -742,7 +742,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -805,7 +805,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,

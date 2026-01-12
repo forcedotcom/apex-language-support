@@ -18,7 +18,7 @@ import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import {
   ApexSymbolManager,
   CompilerService,
-  ApexSymbolCollectorListener,
+  FullSymbolCollectorListener,
   SymbolTable,
   SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
@@ -122,7 +122,7 @@ describe('ReferencesProcessingService', () => {
     const testClassContent = readFileSync(testClassPath, 'utf8');
 
     const symbolTable = new SymbolTable();
-    const listener = new ApexSymbolCollectorListener(symbolTable);
+    const listener = new FullSymbolCollectorListener(symbolTable);
     compilerService.compile(
       testClassContent,
       'file:///test/TestClass.cls',

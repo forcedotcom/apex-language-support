@@ -22,7 +22,7 @@ import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
 import { normalizeApexPath } from './PathUtils';
 import { CompilerService, CompilationOptions } from '../parser/compilerService';
-import { FullSymbolCollectorListener } from '../parser/listeners/FullSymbolCollectorListener';
+import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
 import { STANDARD_APEX_LIBRARY_URI } from './ResourceUtils';
@@ -590,7 +590,7 @@ export class ResourceLoader {
     const filesToCompile: Array<{
       content: string;
       fileName: string;
-      listener: FullSymbolCollectorListener;
+      listener: ApexSymbolCollectorListener;
       options: CompilationOptions;
     }> = [];
 
@@ -605,7 +605,7 @@ export class ResourceLoader {
         const pathParts = originalPath.split(/[\/\\]/);
         const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
 
-        const listener = new FullSymbolCollectorListener();
+        const listener = new ApexSymbolCollectorListener(undefined, 'full');
         listener.setCurrentFileUri(originalPath);
         if (namespace) {
           listener.setProjectNamespace(namespace);
@@ -1032,7 +1032,7 @@ export class ResourceLoader {
       const namespace = namespaces ? Array.from(namespaces)[0] : undefined;
 
       // Compile the single class
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
 
       // Convert className to proper URI scheme
       const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${className}`;

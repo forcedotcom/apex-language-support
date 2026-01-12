@@ -17,7 +17,7 @@ import {
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 import { CompilerService } from '../../src/parser/compilerService';
-import { FullSymbolCollectorListener } from '../../src/parser/listeners/FullSymbolCollectorListener';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -65,7 +65,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
   ): SymbolTable | null => {
     const content = loadFixture(filename);
     const uri = fileUri || `file:///test/${filename}`;
-    const listener = new FullSymbolCollectorListener();
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
     const result = compilerService.compile(content, uri, listener, {
       collectReferences: true,
       resolveReferences: true,

@@ -32,7 +32,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
 
   const addTestClass = async (sourceCode: string, className: string) => {
     const testClassUri = `file:///test/${className}.cls`;
-    const listener = new ApexSymbolCollectorListener();
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
     const result = compilerService.compile(sourceCode, testClassUri, listener);
 
     if (result.result) {

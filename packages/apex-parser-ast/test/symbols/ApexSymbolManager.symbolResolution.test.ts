@@ -9,7 +9,7 @@
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
-import { FullSymbolCollectorListener } from '../../src/parser/listeners/FullSymbolCollectorListener';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
   initialize as schedulerInitialize,
   shutdown as schedulerShutdown,
@@ -79,7 +79,7 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     for (const filename of filenames) {
       const sourceCode = loadFixture(filename);
       const fileUri = `file:///test/${filename}`;
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
@@ -136,7 +136,7 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       const sourceCode = loadFixture('ThisMethodCall.cls');
       const fileUri = 'file:///test/ThisMethodCall.cls';
 
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
@@ -366,7 +366,7 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       const sourceCode = loadFixture('MethodDeclaration.cls');
       const fileUri = 'file:///test/MethodDeclaration.cls';
 
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
@@ -398,7 +398,7 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       const sourceCode = loadFixture('PrivateMethodDeclaration.cls');
       const fileUri = 'file:///test/PrivateMethodDeclaration.cls';
 
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
@@ -539,7 +539,7 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       const sourceCode = loadFixture('IdentifierRangeMethod.cls');
       const fileUri = 'file:///test/IdentifierRangeMethod.cls';
 
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(sourceCode, fileUri, listener);
 
       if (result.result) {
@@ -590,7 +590,7 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       const fileUri = 'file:///test/IdentifierRangeConstructor.cls';
 
       // Compile to get symbol table for reference lookup
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(sourceCode, fileUri, listener);
 
       // Calculate position: find the class name after "new " in the source code

@@ -35,7 +35,7 @@ describe('ApexSymbolCollectorListener', () => {
     logger = TestLogger.getInstance();
     logger.debug('Setting up test environment');
     compilerService = new CompilerService();
-    listener = new ApexSymbolCollectorListener();
+    listener = new ApexSymbolCollectorListener(undefined, 'full');
   });
 
   describe('collect Class Symbols', () => {
@@ -605,7 +605,7 @@ describe('ApexSymbolCollectorListener', () => {
       const result: CompilationResult<SymbolTable> = compilerService.compile(
         fileContent,
         'BlocksTest.cls',
-        new ApexSymbolCollectorListener(),
+        new ApexSymbolCollectorListener(undefined, 'full'),
       );
 
       expect(result.errors.length).toBe(0);
@@ -1046,7 +1046,7 @@ describe('ApexSymbolCollectorListener', () => {
       `;
 
       logger.debug('Compiling implementing class file');
-      const classListener = new ApexSymbolCollectorListener();
+      const classListener = new ApexSymbolCollectorListener(undefined, 'full');
       const classResult: CompilationResult<SymbolTable> =
         compilerService.compile(classContent, 'TestClass.cls', classListener);
 

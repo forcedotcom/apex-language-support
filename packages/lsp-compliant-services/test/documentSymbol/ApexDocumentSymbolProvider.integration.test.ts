@@ -85,7 +85,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       // Test the parser directly like the parser tests do
       const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
       const {
-        ApexSymbolCollectorListener,
+        FullSymbolCollectorListener,
       } = require('@salesforce/apex-lsp-parser-ast');
       const { SymbolTable } = require('@salesforce/apex-lsp-parser-ast');
 
@@ -112,7 +112,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       // Use the same setup as the parser tests
       const compilerService = new CompilerService();
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new FullSymbolCollectorListener(table);
 
       compilerService.compile(
         apexClassContent,

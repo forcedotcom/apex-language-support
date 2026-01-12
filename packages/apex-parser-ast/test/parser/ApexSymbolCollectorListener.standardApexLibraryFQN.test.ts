@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { FullSymbolCollectorListener } from '../../src/parser/listeners/FullSymbolCollectorListener';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
 import { SymbolKind } from '../../src/types/symbol';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
@@ -19,7 +19,7 @@ import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 
-describe('FullSymbolCollectorListener - StandardApexLibrary FQN Tests', () => {
+describe('ApexSymbolCollectorListener - StandardApexLibrary FQN Tests', () => {
   let compilerService: CompilerService;
   let resourceLoader: ResourceLoader;
   let symbolManager: ApexSymbolManager;
@@ -52,7 +52,7 @@ describe('FullSymbolCollectorListener - StandardApexLibrary FQN Tests', () => {
         await resourceLoader.getFile('System/Assert.cls');
       expect(assertClassContent).toBeDefined();
 
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const fileUri =
         'apexlib://resources/StandardApexLibrary/System/Assert.cls';
       const result = compilerService.compile(
@@ -89,7 +89,7 @@ describe('FullSymbolCollectorListener - StandardApexLibrary FQN Tests', () => {
         await resourceLoader.getFile('System/Assert.cls');
       expect(assertClassContent).toBeDefined();
 
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const fileUri =
         'apexlib://resources/StandardApexLibrary/System/Assert.cls';
       const result = compilerService.compile(
@@ -126,7 +126,7 @@ describe('FullSymbolCollectorListener - StandardApexLibrary FQN Tests', () => {
           })
         : undefined;
 
-      // Try multiple ways to find the method - FullSymbolCollectorListener may structure symbols differently
+      // Try multiple ways to find the method - ApexSymbolCollectorListener structures symbols
       let methodSymbol = symbols.find(
         (s) =>
           s.name === 'isInstanceOfType' &&
@@ -143,10 +143,10 @@ describe('FullSymbolCollectorListener - StandardApexLibrary FQN Tests', () => {
 
       expect(methodSymbol).toBeDefined();
       // Method FQN format may vary - verify it contains the method name
-      // FullSymbolCollectorListener may calculate FQN differently than ApexSymbolCollectorListener
+      // ApexSymbolCollectorListener calculates FQN
       expect(methodSymbol?.fqn).toBeDefined();
       expect(methodSymbol?.fqn?.toLowerCase()).toContain('isinstanceoftype');
-      // Verify namespace - FullSymbolCollectorListener may set namespace on class but not on methods
+      // Verify namespace - ApexSymbolCollectorListener sets namespace on class and methods
       // The class namespace is already verified above, so methods inherit the namespace context
       if (methodSymbol?.namespace) {
         expect(methodSymbol?.namespace?.toString()).toBe('System');
@@ -163,7 +163,7 @@ describe('FullSymbolCollectorListener - StandardApexLibrary FQN Tests', () => {
         await resourceLoader.getFile('System/Assert.cls');
       expect(assertClassContent).toBeDefined();
 
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const fileUri =
         'apexlib://resources/StandardApexLibrary/System/Assert.cls';
       const result = compilerService.compile(
@@ -217,7 +217,7 @@ describe('FullSymbolCollectorListener - StandardApexLibrary FQN Tests', () => {
         if (param.fqn) {
           // Parameter FQN should at least contain the parameter name
           expect(param.fqn).toContain(param.name.toLowerCase());
-          // FullSymbolCollectorListener may set namespace differently
+          // ApexSymbolCollectorListener sets namespace
           if (param.namespace) {
             expect(param.namespace?.toString()).toBe('System');
           }
@@ -243,7 +243,7 @@ describe('FullSymbolCollectorListener - StandardApexLibrary FQN Tests', () => {
         await resourceLoader.getFile('System/Assert.cls');
       expect(assertClassContent).toBeDefined();
 
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const fileUri =
         'apexlib://resources/StandardApexLibrary/System/Assert.cls';
       const result = compilerService.compile(

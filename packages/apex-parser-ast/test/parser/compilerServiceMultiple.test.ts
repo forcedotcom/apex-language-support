@@ -11,7 +11,7 @@ import {
   CompilationOptions,
   CompilationResultWithComments,
 } from '../../src/parser/compilerService';
-import { FullSymbolCollectorListener } from '../../src/parser/listeners/FullSymbolCollectorListener';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
   ApexFoldingRangeListener,
   FoldingRange,
@@ -29,7 +29,7 @@ describe('CompilerService Multiple Files Compilation', () => {
   describe('compileMultiple method', () => {
     it('should process multiple files with the same listener type', async () => {
       const service = new CompilerService();
-      const listener = new FullSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
 
       const files = [
         {
@@ -82,7 +82,7 @@ describe('CompilerService Multiple Files Compilation', () => {
   describe('compileMultipleWithConfigs method', () => {
     it('should process multiple files with different listener types', async () => {
       const service = new CompilerService();
-      const symbolListener = new FullSymbolCollectorListener();
+      const symbolListener = new ApexSymbolCollectorListener(undefined, 'full');
       const foldingListener = new ApexFoldingRangeListener();
 
       // Test with symbol table listener
@@ -151,8 +151,8 @@ describe('CompilerService Multiple Files Compilation', () => {
       const service = new CompilerService();
 
       // Create two listeners with the same type but different configurations
-      const listenerWithComments = new FullSymbolCollectorListener();
-      const listenerNoComments = new FullSymbolCollectorListener();
+      const listenerWithComments = new ApexSymbolCollectorListener(undefined, 'full');
+      const listenerNoComments = new ApexSymbolCollectorListener(undefined, 'full');
 
       const fileCompilationConfigs = [
         {
@@ -224,8 +224,8 @@ describe('CompilerService Multiple Files Compilation', () => {
 
     it('should handle errors in individual file compilations', async () => {
       const service = new CompilerService();
-      const listener1 = new FullSymbolCollectorListener();
-      const listener2 = new FullSymbolCollectorListener();
+      const listener1 = new ApexSymbolCollectorListener(undefined, 'full');
+      const listener2 = new ApexSymbolCollectorListener(undefined, 'full');
 
       const fileCompilationConfigs = [
         {

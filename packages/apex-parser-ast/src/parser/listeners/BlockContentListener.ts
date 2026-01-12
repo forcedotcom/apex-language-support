@@ -30,6 +30,20 @@ import {
   LocalVariableDeclarationContext,
   BlockContext,
   ParseTreeWalker,
+  // Control structure contexts for scope creation
+  IfStatementContext,
+  WhileStatementContext,
+  ForStatementContext,
+  DoWhileStatementContext,
+  RunAsStatementContext,
+  TryStatementContext,
+  CatchClauseContext,
+  FinallyBlockContext,
+  SwitchStatementContext,
+  WhenControlContext,
+  GetterContext,
+  SetterContext,
+  MethodDeclarationContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -63,7 +77,7 @@ import {
   isContextType,
 } from '../../utils/contextTypeGuards';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
-import { isBlockSymbol } from '../../utils/symbolNarrowing';
+import { isBlockSymbol, isMethodSymbol } from '../../utils/symbolNarrowing';
 import { TypeInfo } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
 
@@ -1142,22 +1156,138 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   /**
    * Called when entering a block
    * Creates block scopes for implementation details
+   * Note: This creates generic 'block' scopes. Control structures (try, catch, if, etc.)
+   * create their own specific scope types via their respective enter handlers.
    */
   enterBlock(ctx: BlockContext): void {
     try {
-      const location = this.getLocation(ctx);
-      const currentScope = this.getCurrentScopeSymbol();
+      // Check if we're already inside a control structure scope
+      // If so, this block is part of that control structure and should be a child block
+      let currentScope = this.getCurrentScopeSymbol(ctx);
+      
+      // Special handling: If we're inside a method body but don't have method block on stack,
+      // ensure the method block is found and used as current scope
+      // This handles the case where enterMethodDeclaration didn't push the block
+      if ((!currentScope || currentScope.scopeType !== 'method') && this.scopeStack.isEmpty()) {
+        // Check if this block is a method body by traversing parse tree
+        let parent: ParserRuleContext | undefined = ctx.parent;
+        while (parent) {
+          const contextName = parent.constructor.name;
+          if (
+            contextName === 'MethodDeclarationContext' ||
+            contextName === 'ConstructorDeclarationContext'
+          ) {
+            // We're inside a method body - ensure method block is on stack
+            // This handles the case where enterMethodDeclaration didn't push the block
+            const methodName = this.extractMethodName(parent);
+            if (methodName) {
+              const allSymbols = this.symbolTable.getAllSymbols();
+              const fileUri = this.symbolTable.getFileUri();
+              
+              // Find method symbol
+              const currentType = this.getCurrentType(parent);
+              let methodSymbol: MethodSymbol | undefined;
+              
+              if (currentType) {
+                const typeBlock = allSymbols.find(
+                  (s) =>
+                    isBlockSymbol(s) &&
+                    s.scopeType === 'class' &&
+                    s.parentId === currentType.id &&
+                    s.fileUri === fileUri,
+                ) as ScopeSymbol | undefined;
+                
+                if (typeBlock) {
+                  methodSymbol = allSymbols.find(
+                    (s) =>
+                      (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor) &&
+                      s.name === methodName &&
+                      s.fileUri === fileUri &&
+                      s.parentId === typeBlock.id,
+                  ) as MethodSymbol | undefined;
+                }
+              }
+              
+              if (!methodSymbol) {
+                methodSymbol = allSymbols.find(
+                  (s) =>
+                    (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor) &&
+                    s.name === methodName &&
+                    s.fileUri === fileUri,
+                ) as MethodSymbol | undefined;
+              }
+              
+              if (methodSymbol) {
+                // Find method block
+                const methodBlock = allSymbols.find(
+                  (s) =>
+                    isBlockSymbol(s) &&
+                    s.scopeType === 'method' &&
+                    s.parentId === methodSymbol!.id &&
+                    s.fileUri === fileUri,
+                ) as ScopeSymbol | undefined;
+                
+                if (methodBlock && !this.scopeStack.toArray().includes(methodBlock)) {
+                  // Push method block onto stack if not already there
+                  this.scopeStack.push(methodBlock);
+                  currentScope = methodBlock;
+                }
+              }
+            }
+            break;
+          }
+          parent = parent.parent;
+        }
+      }
+      
+      const isControlStructureBlock =
+        currentScope &&
+        (currentScope.scopeType === 'try' ||
+          currentScope.scopeType === 'catch' ||
+          currentScope.scopeType === 'finally' ||
+          currentScope.scopeType === 'if' ||
+          currentScope.scopeType === 'while' ||
+          currentScope.scopeType === 'for' ||
+          currentScope.scopeType === 'doWhile' ||
+          currentScope.scopeType === 'runAs' ||
+          currentScope.scopeType === 'switch' ||
+          currentScope.scopeType === 'when' ||
+          currentScope.scopeType === 'getter' ||
+          currentScope.scopeType === 'setter');
 
-      const blockName = this.generateBlockName('block');
-      const blockSymbol = this.createBlockSymbol(
-        blockName,
-        'block',
-        location,
-        currentScope,
-      );
+      // Only create a generic block scope if we're not already inside a control structure
+      // Control structures create their own scopes, and their block bodies become child blocks
+      if (!isControlStructureBlock) {
+        const location = this.getLocation(ctx);
+        const blockName = this.generateBlockName('block');
+        const blockSymbol = this.createBlockSymbol(
+          blockName,
+          'block',
+          location,
+          currentScope,
+          undefined,
+          ctx,
+        );
 
-      if (blockSymbol) {
-        this.scopeStack.push(blockSymbol);
+        if (blockSymbol) {
+          this.scopeStack.push(blockSymbol);
+        }
+      } else {
+        // We're inside a control structure, create a child block scope
+        const location = this.getLocation(ctx);
+        const blockName = this.generateBlockName('block');
+        const blockSymbol = this.createBlockSymbol(
+          blockName,
+          'block',
+          location,
+          currentScope,
+          undefined,
+          ctx,
+        );
+
+        if (blockSymbol) {
+          this.scopeStack.push(blockSymbol);
+        }
       }
     } catch (_e) {
       // Silently continue - block scope tracking
@@ -1169,33 +1299,490 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     // No validation needed for generic blocks
   }
 
-  // Helper methods for symbol creation and scope tracking
+  /**
+   * Generic method to enter a scope for control structures
+   * @param scopeType The type of scope to enter
+   * @param ctx The parser context
+   */
+  private enterScope(
+    scopeType: ScopeType,
+    ctx: ParserRuleContext,
+  ): void {
+    try {
+      const name = this.generateBlockName(scopeType);
+      const location = this.getLocation(ctx);
+      const parentScope = this.getCurrentScopeSymbol(ctx);
+      const blockSymbol = this.createBlockSymbol(
+        name,
+        scopeType,
+        location,
+        parentScope,
+      );
 
-  private getCurrentScopeSymbol(): ScopeSymbol | null {
-    const peeked = this.scopeStack.peek();
-    return isBlockSymbol(peeked) ? peeked : null;
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.logger.warn(
+        () => `Error in ${scopeType} statement: ${errorMessage}`,
+      );
+    }
   }
 
-  private getCurrentType(): TypeSymbol | null {
+  /**
+   * Generic method to exit a scope
+   * @param expectedScopeType The expected scope type (for validation)
+   */
+  private exitScope(expectedScopeType: ScopeType): void {
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped)) {
+      if (popped.scopeType !== expectedScopeType) {
+        this.logger.warn(
+          () =>
+            `Expected ${expectedScopeType} scope on exit, but got ${popped.scopeType}`,
+        );
+      }
+    }
+  }
+
+  // Control structure scope handlers
+  enterMethodDeclaration(ctx: MethodDeclarationContext): void {
+    // Find the method symbol to reuse existing method block created by ApexSymbolCollectorListener
+    const methodId = ctx.id();
+    const methodName = methodId?.text;
+    if (methodName) {
+      try {
+        const allSymbols = this.symbolTable.getAllSymbols();
+        const fileUri = this.symbolTable.getFileUri();
+        
+        // Find method symbol first
+        const currentType = this.getCurrentType(ctx);
+        let methodSymbol: MethodSymbol | undefined;
+        
+        if (currentType) {
+          const typeBlock = allSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.parentId === currentType.id,
+          ) as ScopeSymbol | undefined;
+          
+          if (typeBlock) {
+            // Method symbols have parentId pointing to class block (set by ApexSymbolCollectorListener)
+            methodSymbol = allSymbols.find(
+              (s) =>
+                s.name === methodName &&
+                (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor) &&
+                s.fileUri === fileUri &&
+                s.parentId === typeBlock.id,
+            ) as MethodSymbol | undefined;
+          }
+          
+          // Fallback: check if parentId points to class symbol
+          if (!methodSymbol) {
+            methodSymbol = allSymbols.find(
+              (s) =>
+                s.name === methodName &&
+                (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor) &&
+                s.fileUri === fileUri &&
+                s.parentId === currentType.id,
+            ) as MethodSymbol | undefined;
+          }
+        }
+        
+        if (!methodSymbol) {
+          methodSymbol = allSymbols.find(
+            (s) =>
+              s.name === methodName &&
+              (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor) &&
+              s.fileUri === fileUri,
+          ) as MethodSymbol | undefined;
+        }
+        
+        // Find existing method block created by ApexSymbolCollectorListener
+        if (methodSymbol) {
+          const existingMethodBlock = allSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'method' &&
+              s.parentId === methodSymbol!.id &&
+              s.fileUri === fileUri,
+          ) as ScopeSymbol | undefined;
+          
+          if (existingMethodBlock) {
+            // Reuse existing method block by pushing it onto scope stack
+            this.scopeStack.push(existingMethodBlock);
+            return;
+          }
+        }
+        
+        // If no existing method block found, create one (fallback for edge cases)
+        const name = this.generateBlockName('method');
+        const location = this.getLocation(ctx);
+        const parentScope: ScopeSymbol | null = this.getCurrentScopeSymbol(ctx);
+        
+        const blockSymbol = this.createBlockSymbol(
+          name,
+          'method',
+          location,
+          parentScope,
+          methodSymbol ? methodSymbol.name : methodName,
+          ctx,
+        );
+        
+        if (blockSymbol && methodSymbol) {
+          blockSymbol.parentId = methodSymbol.id;
+        }
+
+        if (blockSymbol) {
+          this.scopeStack.push(blockSymbol);
+        }
+      } catch (e) {
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        this.logger.warn(
+          () => `Error in method declaration: ${errorMessage}`,
+        );
+      }
+    }
+  }
+
+  exitMethodDeclaration(): void {
+    this.exitScope('method');
+  }
+
+  enterIfStatement(ctx: IfStatementContext): void {
+    this.enterScope('if', ctx);
+  }
+
+  exitIfStatement(): void {
+    this.exitScope('if');
+  }
+
+  enterWhileStatement(ctx: WhileStatementContext): void {
+    this.enterScope('while', ctx);
+  }
+
+  exitWhileStatement(): void {
+    this.exitScope('while');
+  }
+
+  enterForStatement(ctx: ForStatementContext): void {
+    this.enterScope('for', ctx);
+  }
+
+  exitForStatement(): void {
+    this.exitScope('for');
+  }
+
+  enterDoWhileStatement(ctx: DoWhileStatementContext): void {
+    this.enterScope('doWhile', ctx);
+  }
+
+  exitDoWhileStatement(): void {
+    this.exitScope('doWhile');
+  }
+
+  enterRunAsStatement(ctx: RunAsStatementContext): void {
+    this.enterScope('runAs', ctx);
+  }
+
+  exitRunAsStatement(): void {
+    this.exitScope('runAs');
+  }
+
+  enterTryStatement(ctx: TryStatementContext): void {
+    this.enterScope('try', ctx);
+  }
+
+  exitTryStatement(): void {
+    this.exitScope('try');
+  }
+
+  enterCatchClause(ctx: CatchClauseContext): void {
+    this.enterScope('catch', ctx);
+  }
+
+  exitCatchClause(): void {
+    this.exitScope('catch');
+  }
+
+  enterFinallyBlock(ctx: FinallyBlockContext): void {
+    this.enterScope('finally', ctx);
+  }
+
+  exitFinallyBlock(): void {
+    this.exitScope('finally');
+  }
+
+  enterSwitchStatement(ctx: SwitchStatementContext): void {
+    this.enterScope('switch', ctx);
+  }
+
+  exitSwitchStatement(): void {
+    this.exitScope('switch');
+  }
+
+  enterWhenControl(ctx: WhenControlContext): void {
+    this.enterScope('when', ctx);
+  }
+
+  exitWhenControl(): void {
+    this.exitScope('when');
+  }
+
+  enterGetter(ctx: GetterContext): void {
+    this.enterScope('getter', ctx);
+  }
+
+  exitGetter(): void {
+    this.exitScope('getter');
+  }
+
+  enterSetter(ctx: SetterContext): void {
+    this.enterScope('setter', ctx);
+  }
+
+  exitSetter(): void {
+    this.exitScope('setter');
+  }
+
+  // Helper methods for symbol creation and scope tracking
+
+  private getCurrentScopeSymbol(ctx?: ParserRuleContext): ScopeSymbol | null {
+    // First try scope stack (fast path when stack has entries)
+    const peeked = this.scopeStack.peek();
+    if (peeked && isBlockSymbol(peeked)) {
+      return peeked;
+    }
+
+    // Fallback: Use parse tree traversal when scope stack is empty
+    if (ctx && this.scopeStack.isEmpty()) {
+      const fileUri = this.symbolTable.getFileUri();
+      const allSymbols = this.symbolTable.getAllSymbols();
+      
+      // First, try to find method block by traversing parse tree
+      // Traverse up to find method/constructor declaration
+      let current: ParserRuleContext | undefined = ctx.parent;
+      let foundMethodDeclaration = false;
+      
+      while (current) {
+        const contextName = current.constructor.name;
+        
+        // Check for method/constructor declaration
+        if (
+          contextName === 'MethodDeclarationContext' ||
+          contextName === 'ConstructorDeclarationContext'
+        ) {
+          foundMethodDeclaration = true;
+          const methodName = this.extractMethodName(current);
+          if (methodName) {
+            // Find method symbol first - need to check both class block and class symbol as parentId
+            const currentType = this.getCurrentType(current);
+            let methodSymbol: MethodSymbol | undefined;
+            
+            if (currentType) {
+              // Find the class block
+              const typeBlock = allSymbols.find(
+                (s) =>
+                  isBlockSymbol(s) &&
+                  s.scopeType === 'class' &&
+                  s.parentId === currentType.id &&
+                  s.fileUri === fileUri,
+              ) as ScopeSymbol | undefined;
+              
+              if (typeBlock) {
+                // Method symbols have parentId pointing to class block
+                methodSymbol = allSymbols.find(
+                  (s) =>
+                    (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor) &&
+                    s.name === methodName &&
+                    s.fileUri === fileUri &&
+                    s.parentId === typeBlock.id,
+                ) as MethodSymbol | undefined;
+              }
+              
+              // Fallback: check if parentId points to class symbol
+              if (!methodSymbol) {
+                methodSymbol = allSymbols.find(
+                  (s) =>
+                    (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor) &&
+                    s.name === methodName &&
+                    s.fileUri === fileUri &&
+                    s.parentId === currentType.id,
+                ) as MethodSymbol | undefined;
+              }
+            }
+            
+            // Final fallback: find by name and fileUri only
+            if (!methodSymbol) {
+              methodSymbol = allSymbols.find(
+                (s) =>
+                  (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor) &&
+                  s.name === methodName &&
+                  s.fileUri === fileUri,
+              ) as MethodSymbol | undefined;
+            }
+            
+            if (methodSymbol) {
+              // Find method block that is a child of the method symbol
+              const methodBlock = allSymbols.find(
+                (s) =>
+                  isBlockSymbol(s) &&
+                  s.scopeType === 'method' &&
+                  s.parentId === methodSymbol!.id &&
+                  s.fileUri === fileUri,
+              ) as ScopeSymbol | undefined;
+              
+              if (methodBlock) {
+                return methodBlock;
+              }
+            }
+          }
+          // Found method declaration - don't fall back to class block
+          break;
+        }
+        
+        current = current.parent;
+      }
+      
+      // If no method declaration found, try to find class block
+      if (!foundMethodDeclaration) {
+        const currentType = this.getCurrentType(ctx);
+        if (currentType) {
+          const block = allSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.parentId === currentType.id &&
+              s.fileUri === fileUri,
+          ) as ScopeSymbol | undefined;
+
+          return block || null;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private getCurrentType(ctx?: ParserRuleContext): TypeSymbol | null {
+    // First try scope stack (fast path when stack has entries)
     const stackArray = this.scopeStack.toArray();
     for (let i = stackArray.length - 1; i >= 0; i--) {
       const owner = stackArray[i];
       if (isBlockSymbol(owner) && owner.scopeType === 'class') {
-        const typeSymbol = this.symbolTable
-          .getAllSymbols()
-          .find(
+        // Use getSymbolById for O(1) lookup
+        if (owner.parentId) {
+          const typeSymbol = this.symbolTable.getSymbolById(owner.parentId);
+          if (
+            typeSymbol &&
+            (typeSymbol.kind === SymbolKind.Class ||
+              typeSymbol.kind === SymbolKind.Interface ||
+              typeSymbol.kind === SymbolKind.Enum ||
+              typeSymbol.kind === SymbolKind.Trigger)
+          ) {
+            return typeSymbol as TypeSymbol;
+          }
+        }
+      }
+    }
+
+    // Fallback: Use parse tree traversal when scope stack is empty OR when ctx is provided
+    if (ctx) {
+      return this.getCurrentTypeFromParseTree(ctx);
+    }
+
+    return null;
+  }
+
+  /**
+   * Get current type from parse tree structure when scope stack is empty.
+   * For class/interface/enum declarations, returns the type being declared.
+   * For other contexts, traverses up to find containing type declarations.
+   */
+  private getCurrentTypeFromParseTree(ctx: ParserRuleContext): TypeSymbol | null {
+    // Use fileUri from symbol table instead of currentFilePath to ensure consistency
+    const fileUri = this.symbolTable.getFileUri();
+    
+    // Check if ctx itself is a type declaration context
+    const contextName = ctx.constructor.name;
+    if (
+      contextName === 'ClassDeclarationContext' ||
+      contextName === 'InterfaceDeclarationContext' ||
+      contextName === 'EnumDeclarationContext'
+    ) {
+      const typeId = (ctx as any).id?.();
+      const typeName = typeId?.text;
+
+      if (typeName) {
+        // Find the type symbol - prefer most nested if multiple matches
+        const allSymbols = this.symbolTable.getAllSymbols();
+        const matchingTypes = allSymbols.filter(
+          (s) =>
+            s.name === typeName &&
+            s.fileUri === fileUri &&
+            (s.kind === SymbolKind.Class ||
+              s.kind === SymbolKind.Interface ||
+              s.kind === SymbolKind.Enum ||
+              s.kind === SymbolKind.Trigger),
+        ) as TypeSymbol[];
+
+        if (matchingTypes.length > 0) {
+          // Return the most nested matching type (for inner classes)
+          return matchingTypes.reduce((mostNested, current) => {
+            const currentIsNested = current.parentId !== null;
+            const mostNestedIsNested = mostNested.parentId !== null;
+            if (currentIsNested && !mostNestedIsNested) return current;
+            if (!currentIsNested && mostNestedIsNested) return mostNested;
+            return current;
+          });
+        }
+      }
+    }
+
+    // Otherwise, traverse up parse tree to find containing type declarations
+    let current: ParserRuleContext | undefined = ctx.parent;
+    while (current) {
+      const parentContextName = current.constructor.name;
+
+      if (
+        parentContextName === 'ClassDeclarationContext' ||
+        parentContextName === 'InterfaceDeclarationContext' ||
+        parentContextName === 'EnumDeclarationContext'
+      ) {
+        const typeId = (current as any).id?.();
+        const typeName = typeId?.text;
+
+        if (typeName) {
+          // Find the type symbol - prefer most nested if multiple matches
+          const allSymbols = this.symbolTable.getAllSymbols();
+          const matchingTypes = allSymbols.filter(
             (s) =>
-              s.id === owner.parentId &&
+              s.name === typeName &&
+              s.fileUri === fileUri &&
               (s.kind === SymbolKind.Class ||
                 s.kind === SymbolKind.Interface ||
                 s.kind === SymbolKind.Enum ||
                 s.kind === SymbolKind.Trigger),
-          );
-        if (typeSymbol) {
-          return typeSymbol as TypeSymbol;
+          ) as TypeSymbol[];
+
+          if (matchingTypes.length > 0) {
+            // Return the most nested matching type (for inner classes)
+            return matchingTypes.reduce((mostNested, current) => {
+              const currentIsNested = current.parentId !== null;
+              const mostNestedIsNested = mostNested.parentId !== null;
+              if (currentIsNested && !mostNestedIsNested) return current;
+              if (!currentIsNested && mostNestedIsNested) return mostNested;
+              return current;
+            });
+          }
         }
       }
+
+      current = current.parent;
     }
+
     return null;
   }
 
@@ -1273,14 +1860,58 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     location: SymbolLocation,
     parentScope: ScopeSymbol | null,
     semanticName?: string,
+    ctx?: ParserRuleContext,
   ): ScopeSymbol | null {
     const fileUri = this.symbolTable.getFileUri();
     const scopePath = this.symbolTable.getCurrentScopePath(parentScope);
 
-    const currentType = this.getCurrentType();
+    const currentType = ctx ? this.getCurrentType(ctx) : this.getCurrentType();
     let parentId: string | null = null;
     if (currentType && scopeType === 'class') {
       parentId = currentType.id;
+    } else if (scopeType === 'method' && semanticName) {
+      // For method blocks, find the method symbol and use its ID
+      // Need to match by name, fileUri, and containing type/scope
+      const allSymbols = this.symbolTable.getAllSymbols();
+      let methodSymbol: MethodSymbol | undefined;
+      
+      if (currentType) {
+        // First try to find method in the current type's scope
+        const typeBlock = allSymbols.find(
+          (s) =>
+            isBlockSymbol(s) &&
+            s.scopeType === 'class' &&
+            s.parentId === currentType.id,
+        ) as ScopeSymbol | undefined;
+        
+        if (typeBlock) {
+          // Find method symbol that is a child of the type block
+          // Methods can have parentId pointing to either the type block or the type symbol
+          methodSymbol = allSymbols.find(
+            (s) =>
+              s.name === semanticName &&
+              (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor) &&
+              s.fileUri === fileUri &&
+              (s.parentId === typeBlock.id || s.parentId === currentType.id),
+          ) as MethodSymbol | undefined;
+        }
+      }
+      
+      // Fallback: find by name and fileUri if type-based lookup failed
+      if (!methodSymbol) {
+        methodSymbol = allSymbols.find(
+          (s) =>
+            s.name === semanticName &&
+            (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor) &&
+            s.fileUri === fileUri,
+        ) as MethodSymbol | undefined;
+      }
+      
+      if (methodSymbol) {
+        parentId = methodSymbol.id;
+      } else if (parentScope) {
+        parentId = parentScope.id;
+      }
     } else if (parentScope) {
       parentId = parentScope.id;
     }

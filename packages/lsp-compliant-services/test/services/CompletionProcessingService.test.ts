@@ -17,7 +17,7 @@ import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import {
   ApexSymbolManager,
   CompilerService,
-  ApexSymbolCollectorListener,
+  FullSymbolCollectorListener,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
@@ -49,7 +49,7 @@ describe('CompletionProcessingService', () => {
     const testClassContent = readFileSync(testClassPath, 'utf8');
 
     const symbolTable = new SymbolTable();
-    const listener = new ApexSymbolCollectorListener(symbolTable);
+    const listener = new FullSymbolCollectorListener(symbolTable);
     compilerService.compile(
       testClassContent,
       'file:///test/TestClass.cls',

@@ -181,6 +181,7 @@ export class CompilerService {
       // This ensures the listener uses the correct setting during parsing
       if (
         listener instanceof ApexSymbolCollectorListener ||
+        listener instanceof ApexSymbolCollectorListener ||
         listener instanceof FullSymbolCollectorListener
       ) {
         listener.setEnableReferenceCorrection(
@@ -221,6 +222,7 @@ export class CompilerService {
       }
 
       if (
+        listener instanceof ApexSymbolCollectorListener ||
         listener instanceof ApexSymbolCollectorListener ||
         listener instanceof FullSymbolCollectorListener
       ) {
@@ -678,9 +680,9 @@ export class CompilerService {
       case 'private':
         return new VisibilitySymbolListener('private', symbolTable);
       case 'full':
-        // For 'full', use the FullSymbolCollectorListener wrapper
-        // which internally uses all three layered listeners + reference collector + resolver
-        return new FullSymbolCollectorListener(symbolTable) as any;
+        // For 'full', use ApexSymbolCollectorListener with 'full' detail level
+        // This collects all symbols (public, protected, private) in a single walk
+        return new ApexSymbolCollectorListener(symbolTable, 'full') as any;
       default:
         throw new Error(`Unknown detail level: ${layer}`);
     }

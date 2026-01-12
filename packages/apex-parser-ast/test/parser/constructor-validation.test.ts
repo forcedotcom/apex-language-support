@@ -29,7 +29,7 @@ describe('Constructor Validation Tests', () => {
     logger = TestLogger.getInstance();
     logger.debug('Setting up test environment');
     compilerService = new CompilerService();
-    listener = new ApexSymbolCollectorListener();
+    listener = new ApexSymbolCollectorListener(undefined, 'full');
   });
 
   describe('Dotted Constructor Name Validation', () => {

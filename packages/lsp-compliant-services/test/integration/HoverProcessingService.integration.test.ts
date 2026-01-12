@@ -16,7 +16,6 @@ import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import {
   ApexSymbolManager,
   CompilerService,
-  ApexSymbolCollectorListener,
   FullSymbolCollectorListener,
   SymbolTable,
   ResourceLoader,
@@ -215,7 +214,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
     // Parse TestClass.cls
     const testClassTable = new SymbolTable();
-    const testClassListener = new ApexSymbolCollectorListener(testClassTable);
+    const testClassListener = new FullSymbolCollectorListener(testClassTable);
     const _testClassResult = compilerService.compile(
       testClassContent,
       'file:///TestClass.cls',
@@ -228,7 +227,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
     // Parse AnotherTestClass.cls
     const anotherTestClassTable = new SymbolTable();
-    const anotherTestClassListener = new ApexSymbolCollectorListener(
+    const anotherTestClassListener = new FullSymbolCollectorListener(
       anotherTestClassTable,
     );
     const _anotherTestClassResult = compilerService.compile(
@@ -246,7 +245,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
     // Parse FileUtilities.cls
     const fileUtilitiesTable = new SymbolTable();
-    const fileUtilitiesListener = new ApexSymbolCollectorListener(
+    const fileUtilitiesListener = new FullSymbolCollectorListener(
       fileUtilitiesTable,
     );
     const _fileUtilitiesResult = compilerService.compile(
@@ -264,7 +263,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
     // Parse FileUtilitiesTest.cls
     const fileUtilitiesTestTable = new SymbolTable();
-    const fileUtilitiesTestListener = new ApexSymbolCollectorListener(
+    const fileUtilitiesTestListener = new FullSymbolCollectorListener(
       fileUtilitiesTestTable,
     );
     const _fileUtilitiesTestResult = compilerService.compile(
@@ -282,7 +281,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
     // Parse StdApex.cls
     const stdApexTable = new SymbolTable();
-    const stdApexListener = new ApexSymbolCollectorListener(stdApexTable);
+    const stdApexListener = new FullSymbolCollectorListener(stdApexTable);
     const _stdApexResult = compilerService.compile(
       stdApexContent,
       'file:///StdApex.cls',
@@ -295,7 +294,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
     // Parse ComplexTestClass.cls
     const complexTestClassTable = new SymbolTable();
-    const complexTestClassListener = new ApexSymbolCollectorListener(
+    const complexTestClassListener = new FullSymbolCollectorListener(
       complexTestClassTable,
     );
     const _complexTestClassResult = compilerService.compile(
@@ -1637,7 +1636,7 @@ describe('HoverProcessingService Integration Tests', () => {
       // Compile ScopeExample and add it to the symbol manager
       const compilerService = new CompilerService();
       const scopeExampleTable = new SymbolTable();
-      const scopeExampleListener = new ApexSymbolCollectorListener(
+      const scopeExampleListener = new FullSymbolCollectorListener(
         scopeExampleTable,
       );
       const _scopeExampleResult = compilerService.compile(
@@ -1818,7 +1817,7 @@ public class RecordTypeModel {}`;
 
       // Provider
       const providerTable = new SymbolTable();
-      const providerListener = new ApexSymbolCollectorListener(providerTable);
+      const providerListener = new FullSymbolCollectorListener(providerTable);
       compilerService.compile(
         providerCode,
         'file:///RecordTypeService.cls',
@@ -1834,7 +1833,7 @@ public class RecordTypeModel {}`;
 
       // Caller
       const callerTable = new SymbolTable();
-      const callerListener = new ApexSymbolCollectorListener(callerTable);
+      const callerListener = new FullSymbolCollectorListener(callerTable);
       compilerService.compile(
         callerCode,
         'file:///HoverChainCaller.cls',
@@ -1902,7 +1901,7 @@ public class RecordTypeModel {}`;
       // Compile ScopeExample and add it to the symbol manager
       const compilerService = new CompilerService();
       const innerClassTable = new SymbolTable();
-      const innerClassListener = new ApexSymbolCollectorListener(
+      const innerClassListener = new FullSymbolCollectorListener(
         innerClassTable,
       );
       const _innerClassResult = compilerService.compile(
