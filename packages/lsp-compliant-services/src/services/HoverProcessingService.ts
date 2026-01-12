@@ -148,6 +148,23 @@ export class HoverProcessingService implements IHoverProcessor {
         parserPosition,
       );
       const referencesTime = Date.now() - referencesStartTime;
+      
+      // Debug: Log all references at position
+      if (references && references.length > 0) {
+        this.logger.debug(
+          () =>
+            `[HOVER-DEBUG] Found ${references.length} reference(s) at position ${parserPosition.line}:${parserPosition.character}: ` +
+            references.map(
+              (ref) =>
+                `${ref.name} (${ReferenceContext[ref.context]}) at ${ref.location.identifierRange.startLine}:${ref.location.identifierRange.startColumn}-${ref.location.identifierRange.endColumn}`,
+            ).join(', '),
+        );
+      } else {
+        this.logger.debug(
+          () =>
+            `[HOVER-DEBUG] No references found at position ${parserPosition.line}:${parserPosition.character}`,
+        );
+      }
 
       // Check if file has symbols indexed before lookup
       const fileSymbolsStartTime = Date.now();
@@ -161,13 +178,140 @@ export class HoverProcessingService implements IHoverProcessor {
           `${fileSymbols.map((s) => s.name).join(', ')}`,
       );
 
-      // Use precise symbol resolution only for hover
+      // PRIORITY: Check for METHOD_CALL references FIRST before calling getSymbolAtPosition
+      // Even though getSymbolAtPosition prioritizes METHOD_CALL, if resolution fails it falls back
+      // to direct symbol lookup which can find variables. We need to ensure METHOD_CALL references
+      // are resolved even if it requires enrichment.
       const symbolResolutionStartTime = Date.now();
-      const symbol = await this.symbolManager.getSymbolAtPosition(
-        params.textDocument.uri,
-        parserPosition,
-        'precise',
-      );
+      let symbol: ApexSymbol | null = null;
+      
+      if (references && references.length > 0) {
+        const methodCallRef = references.find(
+          (ref) =>
+            ref.context === ReferenceContext.METHOD_CALL &&
+            ref.location.identifierRange.startLine === parserPosition.line &&
+            ref.location.identifierRange.startColumn <= parserPosition.character &&
+            ref.location.identifierRange.endColumn >= parserPosition.character,
+        );
+
+        if (methodCallRef) {
+          // Try to resolve the METHOD_CALL reference first
+          // This may require enrichment if standard library classes aren't loaded yet
+          symbol = await this.symbolManager.getSymbolAtPosition(
+            params.textDocument.uri,
+            parserPosition,
+            'precise',
+          );
+
+          // If we got a symbol but it's not a method, and we have a METHOD_CALL reference,
+          // reject the variable symbol and try enrichment to resolve the method call
+          if (symbol && !isMethodSymbol(symbol) && methodCallRef.name) {
+            const symbolKind = symbol.kind;
+            this.logger.debug(
+              () =>
+                `[HOVER] Found ${symbolKind} symbol but METHOD_CALL reference exists for "${methodCallRef.name}". ` +
+                `Rejecting ${symbolKind} symbol and attempting enrichment to resolve method call.`,
+            );
+
+            // Reject the variable symbol - we need to resolve the METHOD_CALL
+            symbol = null;
+
+            // Try enrichment to resolve the method call
+            const storage = ApexStorageManager.getInstance().getStorage();
+            const document = await storage.getDocument(params.textDocument.uri);
+            if (document) {
+              const documentText = document.getText();
+              const enrichedSymbol = await Effect.runPromise(
+                this.symbolManager.resolveWithEnrichment(
+                  params.textDocument.uri,
+                  documentText,
+                  async () => {
+                    // After enrichment, try getSymbolAtPosition again
+                    // This should now resolve the METHOD_CALL since standard library classes are loaded
+                    const resolvedSymbol = await this.symbolManager.getSymbolAtPosition(
+                      params.textDocument.uri,
+                      parserPosition,
+                      'precise',
+                    );
+                    // Only accept method symbols - reject variables
+                    if (resolvedSymbol && isMethodSymbol(resolvedSymbol)) {
+                      return resolvedSymbol;
+                    }
+                    return null;
+                  },
+                ),
+              );
+
+              if (enrichedSymbol && isMethodSymbol(enrichedSymbol)) {
+                symbol = enrichedSymbol;
+                this.logger.debug(
+                  () =>
+                    `[HOVER] Successfully resolved METHOD_CALL "${methodCallRef.name}" after enrichment.`,
+                );
+              } else {
+                this.logger.debug(
+                  () =>
+                    `[HOVER] Enrichment did not resolve METHOD_CALL "${methodCallRef.name}".`,
+                );
+              }
+            }
+          } else if (symbol && isMethodSymbol(symbol)) {
+            this.logger.debug(
+              () =>
+                `[HOVER] Successfully resolved METHOD_CALL "${methodCallRef.name}" without enrichment.`,
+            );
+          } else if (!symbol) {
+            // No symbol found - try enrichment to resolve the METHOD_CALL
+            this.logger.debug(
+              () =>
+                `[HOVER] No symbol found but METHOD_CALL reference exists for "${methodCallRef.name}". ` +
+                `Attempting enrichment to resolve method call.`,
+            );
+
+            const storage = ApexStorageManager.getInstance().getStorage();
+            const document = await storage.getDocument(params.textDocument.uri);
+            if (document) {
+              const documentText = document.getText();
+              const enrichedSymbol = await Effect.runPromise(
+                this.symbolManager.resolveWithEnrichment(
+                  params.textDocument.uri,
+                  documentText,
+                  async () => {
+                    const resolvedSymbol = await this.symbolManager.getSymbolAtPosition(
+                      params.textDocument.uri,
+                      parserPosition,
+                      'precise',
+                    );
+                    // Only accept method symbols
+                    if (resolvedSymbol && isMethodSymbol(resolvedSymbol)) {
+                      return resolvedSymbol;
+                    }
+                    return null;
+                  },
+                ),
+              );
+
+              if (enrichedSymbol && isMethodSymbol(enrichedSymbol)) {
+                symbol = enrichedSymbol;
+                this.logger.debug(
+                  () =>
+                    `[HOVER] Successfully resolved METHOD_CALL "${methodCallRef.name}" after enrichment.`,
+                );
+              }
+            }
+          }
+        }
+      }
+
+      // If no symbol found yet (or METHOD_CALL wasn't found), use getSymbolAtPosition
+      if (!symbol) {
+        symbol = await this.symbolManager.getSymbolAtPosition(
+          params.textDocument.uri,
+          parserPosition,
+          'precise',
+        );
+      }
+      
       const symbolResolutionTime = Date.now() - symbolResolutionStartTime;
 
       if (symbol) {
@@ -353,6 +497,77 @@ export class HoverProcessingService implements IHoverProcessor {
 
                 if (symbolAtIdRange) {
                   return symbolAtIdRange;
+                }
+
+                // Check for METHOD_CALL references first (prioritize method calls over variables)
+                // Find METHOD_CALL references on the same line, allowing for slight position variance
+                const methodCallRef = references.find(
+                  (ref) =>
+                    ref.context === ReferenceContext.METHOD_CALL &&
+                    ref.location.identifierRange.startLine === parserPosition.line &&
+                    // Allow position to be within or very close to the reference range
+                    ((ref.location.identifierRange.startColumn <=
+                      parserPosition.character &&
+                      ref.location.identifierRange.endColumn >=
+                        parserPosition.character) ||
+                      // Also check if position is just before the reference (within 5 characters)
+                      (parserPosition.character >=
+                        ref.location.identifierRange.startColumn - 5 &&
+                        parserPosition.character <
+                          ref.location.identifierRange.startColumn)),
+                );
+
+                if (methodCallRef) {
+                  // If the reference is already resolved, use the resolved symbol
+                  if (methodCallRef.resolvedSymbolId) {
+                    const resolvedSymbol = this.symbolManager.getSymbol(
+                      methodCallRef.resolvedSymbolId,
+                    );
+                    if (resolvedSymbol && isMethodSymbol(resolvedSymbol)) {
+                      return resolvedSymbol;
+                    }
+                  }
+
+                  // If not resolved, try to find the method symbol by name
+                  // This might be in the current file or in a standard library class
+                  if (methodCallRef.name) {
+                    const methodSymbols = this.symbolManager.findSymbolByName(
+                      methodCallRef.name,
+                    );
+                    // Filter for method symbols
+                    const methodCandidates = methodSymbols.filter((s) =>
+                      isMethodSymbol(s),
+                    );
+
+                    // If we have a parent context (e.g., "EncodingUtil"), try to match it
+                    // parentContext is a string representing the type name
+                    if (
+                      methodCallRef.parentContext &&
+                      methodCandidates.length > 0
+                    ) {
+                      const parentClassSymbols = this.symbolManager.findSymbolByName(
+                        methodCallRef.parentContext,
+                      );
+                      const parentClass = parentClassSymbols.find((c) =>
+                        isClassSymbol(c),
+                      );
+
+                      if (parentClass) {
+                        // Find method in the parent class
+                        const methodInParent = methodCandidates.find(
+                          (m) => m.parentId === parentClass.id,
+                        );
+                        if (methodInParent) {
+                          return methodInParent;
+                        }
+                      }
+                    }
+
+                    // Fallback: return first method symbol if found
+                    if (methodCandidates.length > 0) {
+                      return methodCandidates[0];
+                    }
+                  }
                 }
 
                 // Check for VARIABLE_USAGE or VARIABLE_DECLARATION references
