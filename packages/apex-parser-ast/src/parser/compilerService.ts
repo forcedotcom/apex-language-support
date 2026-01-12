@@ -372,6 +372,10 @@ export class CompilerService {
         result: CompilationResult<T> | CompilationResultWithComments<T>;
       }[] = [];
 
+      // Yield interval to reduce setImmediate overhead for large batches
+      // Yields every N files instead of every file to minimize callback queue buildup
+      const YIELD_INTERVAL = 10;
+
       // Process files sequentially with yielding to avoid CPU issues
       // This approach avoids Effect.all overhead while still allowing event loop to process other tasks
       for (let i = 0; i < fileCompilationConfigs.length; i++) {
@@ -423,8 +427,12 @@ export class CompilerService {
           });
         }
 
-        // Yield to event loop after each compilation to prevent blocking
-        yield* yieldToEventLoop;
+        // Yield to event loop every YIELD_INTERVAL files (except last) to prevent blocking
+        // Reduced frequency minimizes setImmediate callback overhead for large batches
+        // This matches the pattern used in DocumentProcessingService for consistency
+        if ((i + 1) % YIELD_INTERVAL === 0 && i + 1 < fileCompilationConfigs.length) {
+          yield* yieldToEventLoop;
+        }
       }
 
       // Results are already in order, just extract them

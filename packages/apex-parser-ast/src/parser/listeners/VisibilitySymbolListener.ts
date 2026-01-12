@@ -10,6 +10,7 @@ import {
   ClassDeclarationContext,
   InterfaceDeclarationContext,
   MethodDeclarationContext,
+  InterfaceMethodDeclarationContext,
   ConstructorDeclarationContext,
   FieldDeclarationContext,
   PropertyDeclarationContext,
@@ -19,6 +20,8 @@ import {
   AnnotationContext,
   TriggerUnitContext,
   TriggerMemberDeclarationContext,
+  EnumDeclarationContext,
+  EnumConstantsContext,
   ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
@@ -50,7 +53,10 @@ import {
   SymbolKey,
 } from '../../types/symbol';
 import { IdentifierValidator } from '../../semantics/validation/IdentifierValidator';
-import { isBlockSymbol } from '../../utils/symbolNarrowing';
+import {
+  isBlockSymbol,
+  isEnumSymbol,
+} from '../../utils/symbolNarrowing';
 
 /**
  * Consolidated listener for visibility-based symbol collection.
@@ -271,6 +277,127 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
   }
 
   /**
+   * Called when entering an enum declaration
+   * Only creates TypeSymbol if detailLevel is 'public-api'
+   * Otherwise, only tracks scope for symbol enrichment
+   */
+  enterEnumDeclaration(ctx: EnumDeclarationContext): void {
+    try {
+      const name = ctx.id()?.text ?? 'unknownEnum';
+      const modifiers = this.getCurrentModifiers();
+
+      // Only create TypeSymbol for public-api level and matching visibility
+      if (
+        this.detailLevel === 'public-api' &&
+        this.shouldProcessSymbol(modifiers.visibility)
+      ) {
+        const enumSymbol = this.createTypeSymbol(
+          ctx,
+          name,
+          SymbolKind.Enum,
+          modifiers,
+        ) as EnumSymbol;
+
+        // Initialize enum values array
+        enumSymbol.values = [];
+
+        if (this.currentAnnotations.length > 0) {
+          enumSymbol.annotations = [...this.currentAnnotations];
+        }
+
+        const isTopLevel = this.scopeStack.isEmpty();
+        if (isTopLevel) {
+          enumSymbol.parentId = null;
+        }
+        this.addSymbolWithDetailLevel(
+          enumSymbol,
+          this.getCurrentScopeSymbol(),
+        );
+      }
+
+      // Create enum block symbol for scope tracking (all levels need this - do NOT skip based on visibility)
+      const location = this.getLocation(ctx);
+      const blockName = this.generateBlockName('class');
+      const blockSymbol = this.createBlockSymbol(
+        blockName,
+        'class',
+        location,
+        this.getCurrentScopeSymbol(),
+        name,
+      );
+
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
+      }
+
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in enum declaration: ${errorMessage}`, ctx);
+    }
+  }
+
+  exitEnumDeclaration(): void {
+    const popped = this.scopeStack.pop();
+    if (isBlockSymbol(popped) && popped.scopeType !== 'class') {
+      this.logger.warn(
+        `Expected class scope on exitEnumDeclaration, but got ${popped.scopeType}`,
+      );
+    }
+  }
+
+  /**
+   * Called when entering enum constants
+   * Collects enum values and adds them to the enum symbol
+   */
+  enterEnumConstants(ctx: EnumConstantsContext): void {
+    try {
+      const currentType = this.getCurrentType();
+      if (!isEnumSymbol(currentType)) {
+        this.addError('Enum constants found outside of enum declaration', ctx);
+        return;
+      }
+
+      const enumType = createTypeInfo(currentType?.name ?? 'Object');
+      const enumSymbol = currentType;
+
+      // Ensure values array exists
+      if (!enumSymbol.values) {
+        enumSymbol.values = [];
+      }
+
+      for (const id of ctx.id()) {
+        const name = id.text;
+        const modifiers = this.getCurrentModifiers();
+
+        // Create enum value symbol using createVariableSymbol method
+        const valueSymbol = this.createVariableSymbol(
+          id,
+          modifiers,
+          name,
+          SymbolKind.EnumValue,
+          enumType,
+        ) as VariableSymbol;
+
+        // Set the kind explicitly to EnumValue
+        valueSymbol.kind = SymbolKind.EnumValue;
+
+        // Add to enum symbol's values array
+        enumSymbol.values.push(valueSymbol);
+
+        // Add to symbol table with the enum block as parent
+        this.addSymbolWithDetailLevel(
+          valueSymbol,
+          this.getCurrentScopeSymbol(),
+        );
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in enum constants: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
    * Called when entering a method declaration
    * Captures methods matching this listener's visibility level
    */
@@ -364,6 +491,93 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       if (isBlockSymbol(currentScope) && currentScope.scopeType === 'method') {
         this.scopeStack.pop();
       }
+    }
+  }
+
+  /**
+   * Called when entering an interface method declaration
+   * Interface methods are always public and abstract
+   */
+  enterInterfaceMethodDeclaration(
+    ctx: InterfaceMethodDeclarationContext,
+  ): void {
+    try {
+      const name = ctx.id()?.text ?? 'unknownMethod';
+
+      // Interface methods are implicitly public and abstract
+      // Always process them regardless of detail level (they're part of the interface contract)
+      const implicitModifiers: SymbolModifiers = {
+        visibility: SymbolVisibility.Public,
+        isStatic: false,
+        isFinal: false,
+        isAbstract: true,
+        isVirtual: false,
+        isOverride: false,
+        isTransient: false,
+        isTestMethod: false,
+        isWebService: false,
+        isBuiltIn: false,
+      };
+
+      const returnType = this.getReturnType(ctx);
+      const parameters = this.extractParameters(ctx.formalParameters());
+
+      const methodSymbol = this.createMethodSymbol(
+        ctx,
+        name,
+        implicitModifiers,
+        returnType,
+      );
+
+      methodSymbol.parameters = parameters;
+
+      if (this.currentAnnotations.length > 0) {
+        methodSymbol.annotations = [...this.currentAnnotations];
+      }
+
+      // Always add interface methods (they're part of the public API)
+      this.addSymbolWithDetailLevel(
+        methodSymbol,
+        this.getCurrentScopeSymbol(),
+      );
+
+      // Delegate reference collection for return type
+      const returnTypeRef = (ctx as any).typeRef?.();
+      if (returnTypeRef) {
+        const walker = new ParseTreeWalker();
+        const refCollector = new ApexReferenceCollectorListener(
+          this.symbolTable,
+        );
+        refCollector.setCurrentFileUri(this.currentFilePath);
+        refCollector.setParentContext(
+          name, // Method name
+          this.getCurrentType()?.name, // Type name
+        );
+        walker.walk(refCollector, returnTypeRef); // Walk return type subtree
+      }
+
+      // Delegate reference collection for parameter types
+      const formalParams = ctx.formalParameters();
+      if (formalParams) {
+        const walker = new ParseTreeWalker();
+        const refCollector = new ApexReferenceCollectorListener(
+          this.symbolTable,
+        );
+        refCollector.setCurrentFileUri(this.currentFilePath);
+        refCollector.setParentContext(
+          name, // Method name
+          this.getCurrentType()?.name, // Type name
+        );
+        walker.walk(refCollector, formalParams); // Walk parameters subtree
+      }
+
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(
+        `Error in interface method declaration: ${errorMessage}`,
+        ctx,
+      );
     }
   }
 
@@ -613,12 +827,10 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       const name = ctx.id(0)?.text ?? 'unknownTrigger';
       const modifiers = this.getCurrentModifiers();
 
-      // Only create TypeSymbol for public-api level and matching visibility
-      if (
-        this.detailLevel === 'public-api' &&
-        this.shouldProcessSymbol(modifiers.visibility)
-      ) {
-        // Create trigger symbol
+      // Triggers don't have visibility modifiers - they're always public
+      // Only create TypeSymbol for public-api level (always process triggers)
+      if (this.detailLevel === 'public-api') {
+        // Create trigger symbol (parentId is already set to null in createTypeSymbol)
         const triggerSymbol = this.createTypeSymbol(
           ctx,
           name,
@@ -899,13 +1111,18 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
       this.getCurrentScopeSymbol(),
     );
 
+    // For triggers, always set parentId to null (they're always top-level)
+    // For other types, use parent?.id || null
+    const parentId =
+      kind === SymbolKind.Trigger ? null : parent?.id || null;
+
     const typeSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       kind,
       location,
       this.currentFilePath,
       modifiers,
-      parent?.id || null,
+      parentId,
       undefined,
       namespace,
       this.getCurrentAnnotations(),
@@ -916,7 +1133,7 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
   }
 
   private createMethodSymbol(
-    ctx: ParserRuleContext,
+    ctx: MethodDeclarationContext | InterfaceMethodDeclarationContext,
     name: string,
     modifiers: SymbolModifiers,
     returnType: TypeInfo,
@@ -927,7 +1144,23 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
 
     // Get the current scope (should be a class block)
     // Methods should have parentId = class block ID to match ApexSymbolCollectorListener
-    const currentScope = this.getCurrentScopeSymbol();
+    let currentScope = this.getCurrentScopeSymbol();
+
+    // If scope stack is empty (subsequent listener walks), look up the class block from symbol table
+    if (!currentScope && parent) {
+      const classBlock = this.symbolTable
+        .getAllSymbols()
+        .find(
+          (s) =>
+            isBlockSymbol(s) &&
+            s.scopeType === 'class' &&
+            s.parentId === parent.id,
+        ) as ScopeSymbol | undefined;
+      if (classBlock) {
+        currentScope = classBlock;
+      }
+    }
+
     const parentId =
       currentScope && currentScope.scopeType === 'class'
         ? currentScope.id
@@ -965,7 +1198,23 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
 
     // Get the current scope (should be a class block)
     // Constructors should have parentId = class block ID to match ApexSymbolCollectorListener
-    const currentScope = this.getCurrentScopeSymbol();
+    let currentScope = this.getCurrentScopeSymbol();
+
+    // If scope stack is empty (subsequent listener walks), look up the class block from symbol table
+    if (!currentScope && parent) {
+      const classBlock = this.symbolTable
+        .getAllSymbols()
+        .find(
+          (s) =>
+            isBlockSymbol(s) &&
+            s.scopeType === 'class' &&
+            s.parentId === parent.id,
+        ) as ScopeSymbol | undefined;
+      if (classBlock) {
+        currentScope = classBlock;
+      }
+    }
+
     const parentId =
       currentScope && currentScope.scopeType === 'class'
         ? currentScope.id
@@ -997,7 +1246,7 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
     ctx: ParserRuleContext,
     modifiers: SymbolModifiers,
     name: string,
-    kind: SymbolKind.Field | SymbolKind.Property,
+    kind: SymbolKind.Field | SymbolKind.Property | SymbolKind.EnumValue,
     type: TypeInfo,
   ): VariableSymbol {
     const location = this.getLocation(ctx);
@@ -1212,8 +1461,10 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
     return null;
   }
 
-  private getReturnType(ctx: MethodDeclarationContext): TypeInfo {
-    const typeRef = ctx.typeRef();
+  private getReturnType(
+    ctx: MethodDeclarationContext | InterfaceMethodDeclarationContext,
+  ): TypeInfo {
+    const typeRef = (ctx as any).typeRef?.();
     if (typeRef) {
       return this.createTypeInfoFromTypeRef(typeRef);
     }

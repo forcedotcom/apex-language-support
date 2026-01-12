@@ -51,5 +51,5 @@ export async function initializeResourceLoaderForTests(options?: {
  * This should be called in afterEach() or afterAll() hooks.
  */
 export function resetResourceLoader(): void {
-  (ResourceLoader as any).instance = null;
+  ResourceLoader.resetInstance();
 }

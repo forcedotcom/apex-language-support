@@ -440,6 +440,12 @@ export class DefaultApexDocumentSymbolProvider
         if (isBlockSymbol(symbol)) {
           return false;
         }
+        // For enums, include enum values (they're children of the enum block)
+        if (parentKind.toLowerCase() === 'enum') {
+          if (symbol.kind === ApexSymbolKind.EnumValue) {
+            return true; // Include enum values
+          }
+        }
         // Exclude variable and parameter symbols (these are type references, not declarations)
         // Only include actual field/property declarations
         if (
@@ -486,12 +492,26 @@ export class DefaultApexDocumentSymbolProvider
             const childScope = childClassBlocks[0];
             logger.debug(
               () =>
-                `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}'`,
+                `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}', blockId: ${childScope.id?.slice(-30)}`,
+            );
+            // Debug: check what symbols have this block as parent
+            const childrenOfBlock = symbolTable
+              .getAllSymbols()
+              .filter((s) => s.parentId === childScope.id);
+            logger.debug(
+              () =>
+                `Found ${childrenOfBlock.length} direct children of block: ${childrenOfBlock.map((s) => `${s.kind}:${s.name}`).join(', ')}`,
             );
             childDocumentSymbol.children = yield* self.collectChildrenEffect(
               childScope.id,
               childSymbol.kind,
               symbolTable,
+              childSymbol.id, // Pass parentTypeId for finding nested inner types
+            );
+          } else {
+            logger.debug(
+              () =>
+                `No class block found for nested ${childSymbol.kind} '${childSymbol.name}' (parentId: ${childSymbol.parentId?.slice(-30)})`,
             );
           }
         }
