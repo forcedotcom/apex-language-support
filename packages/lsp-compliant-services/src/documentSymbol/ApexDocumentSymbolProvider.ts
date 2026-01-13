@@ -131,64 +131,64 @@ export class DefaultApexDocumentSymbolProvider
       const backgroundManager = ApexSymbolProcessingManager.getInstance();
       const symbolManager = backgroundManager.getSymbolManager();
       let symbolTable: SymbolTable;
-        // Create a full symbol collector listener to parse the document
-        const listener = new FullSymbolCollectorListener();
+      // Create a full symbol collector listener to parse the document
+      const listener = new FullSymbolCollectorListener();
 
-        const settingsManager = ApexSettingsManager.getInstance();
-        const options = settingsManager.getCompilationOptions(
-          'documentSymbols',
-          documentText.length,
+      const settingsManager = ApexSettingsManager.getInstance();
+      const options = settingsManager.getCompilationOptions(
+        'documentSymbols',
+        documentText.length,
+      );
+
+      // Set file URI and project namespace if needed
+      listener.setCurrentFileUri(documentUri);
+      if (options.projectNamespace) {
+        listener.setProjectNamespace(options.projectNamespace);
+      }
+
+      // Parse the document using the compiler service
+      const result = this.compilerService.compile(
+        documentText,
+        documentUri,
+        listener,
+        options,
+      );
+
+      logger.debug(
+        () =>
+          `Compilation result: ${JSON.stringify({
+            hasResult: !!result.result,
+            errorCount: result.errors.length,
+            warningCount: result.warnings.length,
+          })}`,
+      );
+
+      // Get the symbol table from the compilation result
+      if (result.result) {
+        symbolTable = result.result;
+
+        // Also ensure symbols are in symbol manager (replace if exists to ensure fresh data)
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(symbolTable, documentUri),
         );
-
-        // Set file URI and project namespace if needed
-        listener.setCurrentFileUri(documentUri);
-        if (options.projectNamespace) {
-          listener.setProjectNamespace(options.projectNamespace);
-        }
-
-        // Parse the document using the compiler service
-        const result = this.compilerService.compile(
-          documentText,
-          documentUri,
-          listener,
-          options,
-        );
-
         logger.debug(
           () =>
-            `Compilation result: ${JSON.stringify({
-              hasResult: !!result.result,
-              errorCount: result.errors.length,
-              warningCount: result.warnings.length,
-            })}`,
+            `Added SymbolTable to manager for ${documentUri} during document symbols`,
         );
 
-        // Get the symbol table from the compilation result
-        if (result.result) {
-          symbolTable = result.result;
-
-          // Also ensure symbols are in symbol manager (replace if exists to ensure fresh data)
-          await Effect.runPromise(
-            symbolManager.addSymbolTable(symbolTable, documentUri),
-          );
-          logger.debug(
-            () =>
-              `Added SymbolTable to manager for ${documentUri} during document symbols`,
-          );
-
-          // Cache the compilation result for diagnostics
-          const parseCache = getDocumentStateCache();
-          const diagnostics = getDiagnosticsFromErrors(result.errors);
-          parseCache.merge(documentUri, {
-            diagnostics,
-            documentVersion: document.version,
-            documentLength: document.getText().length,
-            symbolsIndexed: false,
-          });
-        } else {
-          logger.error(() => 'Symbol table is null from compilation result');
-          return null;
-        }
+        // Cache the compilation result for diagnostics
+        const parseCache = getDocumentStateCache();
+        const diagnostics = getDiagnosticsFromErrors(result.errors);
+        parseCache.merge(documentUri, {
+          diagnostics,
+          documentVersion: document.version,
+          documentLength: document.getText().length,
+          symbolsIndexed: false,
+        });
+      } else {
+        logger.error(() => 'Symbol table is null from compilation result');
+        return null;
+      }
 
       // Get all symbols from the entire symbol table
       const allSymbols = symbolTable.getAllSymbols();
@@ -198,7 +198,7 @@ export class DefaultApexDocumentSymbolProvider
       const candidateTopLevelSymbols = allSymbols.filter(
         (symbol) => inTypeSymbolGroup(symbol) && symbol.parentId === null,
       );
-      
+
       // Additional safeguard: exclude symbols that are nested within other type symbols by location
       // This prevents inner classes from appearing as top-level even if their parentId is incorrectly null
       const topLevelSymbols = candidateTopLevelSymbols.filter((symbol) => {
@@ -517,7 +517,8 @@ export class DefaultApexDocumentSymbolProvider
             const childScope = childClassBlocks[0];
             logger.debug(
               () =>
-                `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}', blockId: ${childScope.id?.slice(-30)}`,
+                `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}', ` +
+                `blockId: ${childScope.id?.slice(-30)}`,
             );
             // Debug: check what symbols have this block as parent
             const childrenOfBlock = symbolTable
@@ -525,7 +526,8 @@ export class DefaultApexDocumentSymbolProvider
               .filter((s) => s.parentId === childScope.id);
             logger.debug(
               () =>
-                `Found ${childrenOfBlock.length} direct children of block: ${childrenOfBlock.map((s) => `${s.kind}:${s.name}`).join(', ')}`,
+                `Found ${childrenOfBlock.length} direct children of block: ` +
+                `${childrenOfBlock.map((s) => `${s.kind}:${s.name}`).join(', ')}`,
             );
             childDocumentSymbol.children = yield* self.collectChildrenEffect(
               childScope.id,
@@ -536,7 +538,8 @@ export class DefaultApexDocumentSymbolProvider
           } else {
             logger.debug(
               () =>
-                `No class block found for nested ${childSymbol.kind} '${childSymbol.name}' (parentId: ${childSymbol.parentId?.slice(-30)})`,
+                `No class block found for nested ${childSymbol.kind} '${childSymbol.name}' ` +
+                `(parentId: ${childSymbol.parentId?.slice(-30)})`,
             );
           }
         }

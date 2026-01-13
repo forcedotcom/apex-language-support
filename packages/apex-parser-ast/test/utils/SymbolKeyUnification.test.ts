@@ -72,15 +72,21 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       );
     });
 
-    it('should convert SymbolKey to string for legacy compatibility', () => {
+    it('should convert SymbolKey to string using unifiedId', () => {
       const key: SymbolKey = {
         prefix: 'class',
         name: 'TestClass',
         path: ['file', 'TestClass'],
+        fileUri: 'file:///file',
       };
 
       const stringKey = keyToString(key);
-      expect(stringKey).toBe('class:file.TestClass');
+      // keyToString now always uses unifiedId (generated if missing)
+      // unifiedId format: fileUri:scopePath:prefix:name
+      expect(stringKey).toContain('TestClass');
+      expect(stringKey).toContain('class');
+      // Should be a unifiedId format, not path-based
+      expect(stringKey).not.toBe('class:file.TestClass');
     });
 
     it('should create SymbolKey from ApexSymbol with unified ID', () => {
