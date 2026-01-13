@@ -555,7 +555,33 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 {
   "actualResponse": [
     {
-      "children": [],
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFile(String, String, String) : String",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 31,
+            },
+            "start": {
+              "character": 18,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 35,
+              "line": 2,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+        },
+      ],
       "kind": 5,
       "name": "FileUtilities",
       "range": {
@@ -570,11 +596,11 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       },
       "selectionRange": {
         "end": {
-          "character": 25,
+          "character": 39,
           "line": 0,
         },
         "start": {
-          "character": 20,
+          "character": 26,
           "line": 0,
         },
       },
@@ -652,7 +678,59 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
   result: [Array]
 }: textDocument/documentSymbol-request 1`] = `
 {
-  "actualResponse": [],
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "importSampleData() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 15,
+            },
+            "start": {
+              "character": 11,
+              "line": 3,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 32,
+              "line": 3,
+            },
+            "start": {
+              "character": 16,
+              "line": 3,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "TestSampleDataController",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 16,
+        },
+        "start": {
+          "character": 8,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 38,
+          "line": 1,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+    },
+  ],
   "expectedResponse": [
     {
       "children": [
@@ -725,7 +803,134 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
   result: [Array]
 }: textDocument/documentSymbol-request 1`] = `
 {
-  "actualResponse": [],
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createProperties(Integer) : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 17,
+            },
+            "start": {
+              "character": 18,
+              "line": 4,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 39,
+              "line": 4,
+            },
+            "start": {
+              "character": 23,
+              "line": 4,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "testGetPagedPropertyList() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 71,
+            },
+            "start": {
+              "character": 11,
+              "line": 20,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 20,
+            },
+            "start": {
+              "character": 16,
+              "line": 20,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "testGetPicturesNoResults() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 85,
+            },
+            "start": {
+              "character": 11,
+              "line": 74,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 74,
+            },
+            "start": {
+              "character": 16,
+              "line": 74,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "testGetPicturesWithResults() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 119,
+            },
+            "start": {
+              "character": 11,
+              "line": 88,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 42,
+              "line": 88,
+            },
+            "start": {
+              "character": 16,
+              "line": 88,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "TestPropertyController",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 120,
+        },
+        "start": {
+          "character": 8,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 36,
+          "line": 1,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+    },
+  ],
   "expectedResponse": [
     {
       "children": [
@@ -896,7 +1101,487 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 {
   "actualResponse": [
     {
-      "children": [],
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "geocodeAddresses(List<GeocodingAddress>) : List<Coordinates>",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 50,
+            },
+            "start": {
+              "character": 18,
+              "line": 4,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 52,
+              "line": 4,
+            },
+            "start": {
+              "character": 36,
+              "line": 4,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 8,
+              "name": "street : String",
+              "range": {
+                "end": {
+                  "character": 28,
+                  "line": 54,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 54,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 28,
+                  "line": 54,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 54,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "city : String",
+              "range": {
+                "end": {
+                  "character": 26,
+                  "line": 56,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 56,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 26,
+                  "line": 56,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 56,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "state : String",
+              "range": {
+                "end": {
+                  "character": 27,
+                  "line": 58,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 58,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 27,
+                  "line": 58,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 58,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "country : String",
+              "range": {
+                "end": {
+                  "character": 29,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 60,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 29,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 60,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "postalcode : String",
+              "range": {
+                "end": {
+                  "character": 32,
+                  "line": 62,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 62,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 32,
+                  "line": 62,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 62,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "GeocodingAddress",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 63,
+            },
+            "start": {
+              "character": 11,
+              "line": 52,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 33,
+              "line": 52,
+            },
+            "start": {
+              "character": 17,
+              "line": 52,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 8,
+              "name": "lat : Decimal",
+              "range": {
+                "end": {
+                  "character": 26,
+                  "line": 67,
+                },
+                "start": {
+                  "character": 23,
+                  "line": 67,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 26,
+                  "line": 67,
+                },
+                "start": {
+                  "character": 23,
+                  "line": 67,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "lon : Decimal",
+              "range": {
+                "end": {
+                  "character": 26,
+                  "line": 69,
+                },
+                "start": {
+                  "character": 23,
+                  "line": 69,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 26,
+                  "line": 69,
+                },
+                "start": {
+                  "character": 23,
+                  "line": 69,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "Coordinates",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 70,
+            },
+            "start": {
+              "character": 11,
+              "line": 65,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 28,
+              "line": 65,
+            },
+            "start": {
+              "character": 17,
+              "line": 65,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 8,
+              "name": "street : String",
+              "range": {
+                "end": {
+                  "character": 29,
+                  "line": 54,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 54,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 21,
+                  "line": 54,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 54,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "city : String",
+              "range": {
+                "end": {
+                  "character": 27,
+                  "line": 56,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 56,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 21,
+                  "line": 56,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 56,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "state : String",
+              "range": {
+                "end": {
+                  "character": 28,
+                  "line": 58,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 58,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 21,
+                  "line": 58,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 58,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "country : String",
+              "range": {
+                "end": {
+                  "character": 30,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 60,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 21,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 60,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "postalcode : String",
+              "range": {
+                "end": {
+                  "character": 33,
+                  "line": 62,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 62,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 21,
+                  "line": 62,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 62,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "GeocodingAddress",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 63,
+            },
+            "start": {
+              "character": 11,
+              "line": 52,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 33,
+              "line": 52,
+            },
+            "start": {
+              "character": 17,
+              "line": 52,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 8,
+              "name": "lat : Decimal",
+              "range": {
+                "end": {
+                  "character": 27,
+                  "line": 67,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 67,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 22,
+                  "line": 67,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 67,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "lon : Decimal",
+              "range": {
+                "end": {
+                  "character": 27,
+                  "line": 69,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 69,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 22,
+                  "line": 69,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 69,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "Coordinates",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 70,
+            },
+            "start": {
+              "character": 11,
+              "line": 65,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 28,
+              "line": 65,
+            },
+            "start": {
+              "character": 17,
+              "line": 65,
+            },
+          },
+        },
+      ],
       "kind": 5,
       "name": "GeocodingService",
       "range": {
@@ -911,62 +1596,12 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       },
       "selectionRange": {
         "end": {
-          "character": 25,
+          "character": 42,
           "line": 0,
         },
         "start": {
-          "character": 20,
+          "character": 26,
           "line": 0,
-        },
-      },
-    },
-    {
-      "children": [],
-      "kind": 5,
-      "name": "GeocodingAddress",
-      "range": {
-        "end": {
-          "character": 5,
-          "line": 63,
-        },
-        "start": {
-          "character": 11,
-          "line": 52,
-        },
-      },
-      "selectionRange": {
-        "end": {
-          "character": 16,
-          "line": 52,
-        },
-        "start": {
-          "character": 11,
-          "line": 52,
-        },
-      },
-    },
-    {
-      "children": [],
-      "kind": 5,
-      "name": "Coordinates",
-      "range": {
-        "end": {
-          "character": 5,
-          "line": 70,
-        },
-        "start": {
-          "character": 11,
-          "line": 65,
-        },
-      },
-      "selectionRange": {
-        "end": {
-          "character": 16,
-          "line": 65,
-        },
-        "start": {
-          "character": 11,
-          "line": 65,
         },
       },
     },
@@ -1289,7 +1924,133 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 {
   "actualResponse": [
     {
-      "children": [],
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "importSampleData() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 11,
+            },
+            "start": {
+              "character": 18,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 39,
+              "line": 2,
+            },
+            "start": {
+              "character": 23,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "insertBrokers() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 25,
+            },
+            "start": {
+              "character": 19,
+              "line": 13,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 37,
+              "line": 13,
+            },
+            "start": {
+              "character": 24,
+              "line": 13,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "insertProperties() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 40,
+            },
+            "start": {
+              "character": 19,
+              "line": 27,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 27,
+            },
+            "start": {
+              "character": 24,
+              "line": 27,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "insertContacts() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 54,
+            },
+            "start": {
+              "character": 19,
+              "line": 42,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 38,
+              "line": 42,
+            },
+            "start": {
+              "character": 24,
+              "line": 42,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "randomizeDateListed(List<Property__c>) : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 61,
+            },
+            "start": {
+              "character": 19,
+              "line": 56,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 43,
+              "line": 56,
+            },
+            "start": {
+              "character": 24,
+              "line": 56,
+            },
+          },
+        },
+      ],
       "kind": 5,
       "name": "SampleDataController",
       "range": {
@@ -1304,11 +2065,11 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       },
       "selectionRange": {
         "end": {
-          "character": 25,
+          "character": 46,
           "line": 0,
         },
         "start": {
-          "character": 20,
+          "character": 26,
           "line": 0,
         },
       },
@@ -1484,7 +2245,236 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 {
   "actualResponse": [
     {
-      "children": [],
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "successResponse() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 34,
+            },
+            "start": {
+              "character": 11,
+              "line": 11,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 31,
+              "line": 11,
+            },
+            "start": {
+              "character": 16,
+              "line": 11,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "blankAddress() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 54,
+            },
+            "start": {
+              "character": 11,
+              "line": 36,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 28,
+              "line": 36,
+            },
+            "start": {
+              "character": 16,
+              "line": 36,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "errorResponse() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 79,
+            },
+            "start": {
+              "character": 11,
+              "line": 56,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 29,
+              "line": 56,
+            },
+            "start": {
+              "character": 16,
+              "line": 56,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 6,
+              "name": "respond(HTTPRequest) : HTTPResponse",
+              "range": {
+                "end": {
+                  "character": 9,
+                  "line": 88,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 82,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 35,
+                  "line": 82,
+                },
+                "start": {
+                  "character": 28,
+                  "line": 82,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "OpenStreetMapHttpCalloutMockImpl",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 89,
+            },
+            "start": {
+              "character": 11,
+              "line": 81,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 49,
+              "line": 81,
+            },
+            "start": {
+              "character": 17,
+              "line": 81,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 6,
+              "name": "respond(HTTPRequest) : HTTPResponse",
+              "range": {
+                "end": {
+                  "character": 9,
+                  "line": 97,
+                },
+                "start": {
+                  "character": 15,
+                  "line": 92,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 35,
+                  "line": 92,
+                },
+                "start": {
+                  "character": 28,
+                  "line": 92,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "OpenStreetMapHttpCalloutMockImplError",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 98,
+            },
+            "start": {
+              "character": 11,
+              "line": 91,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 54,
+              "line": 91,
+            },
+            "start": {
+              "character": 17,
+              "line": 91,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "GeocodingServiceTest",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 99,
+        },
+        "start": {
+          "character": 21,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 47,
+          "line": 1,
+        },
+        "start": {
+          "character": 27,
+          "line": 1,
+        },
+      },
+    },
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "respond(HTTPRequest) : HTTPResponse",
+          "range": {
+            "end": {
+              "character": 9,
+              "line": 88,
+            },
+            "start": {
+              "character": 15,
+              "line": 82,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 35,
+              "line": 82,
+            },
+            "start": {
+              "character": 28,
+              "line": 82,
+            },
+          },
+        },
+      ],
       "kind": 5,
       "name": "OpenStreetMapHttpCalloutMockImpl",
       "range": {
@@ -1499,17 +2489,43 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       },
       "selectionRange": {
         "end": {
-          "character": 16,
+          "character": 49,
           "line": 81,
         },
         "start": {
-          "character": 11,
+          "character": 17,
           "line": 81,
         },
       },
     },
     {
-      "children": [],
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "respond(HTTPRequest) : HTTPResponse",
+          "range": {
+            "end": {
+              "character": 9,
+              "line": 97,
+            },
+            "start": {
+              "character": 15,
+              "line": 92,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 35,
+              "line": 92,
+            },
+            "start": {
+              "character": 28,
+              "line": 92,
+            },
+          },
+        },
+      ],
       "kind": 5,
       "name": "OpenStreetMapHttpCalloutMockImplError",
       "range": {
@@ -1524,11 +2540,11 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       },
       "selectionRange": {
         "end": {
-          "character": 16,
+          "character": 54,
           "line": 91,
         },
         "start": {
-          "character": 11,
+          "character": 17,
           "line": 91,
         },
       },
@@ -1924,7 +2940,33 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 {
   "actualResponse": [
     {
-      "children": [],
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "x() : String",
+          "range": {
+            "end": {
+              "character": 15,
+              "line": 2,
+            },
+            "start": {
+              "character": 4,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 12,
+              "line": 2,
+            },
+            "start": {
+              "character": 11,
+              "line": 2,
+            },
+          },
+        },
+      ],
       "kind": 11,
       "name": "MyInterface",
       "range": {
@@ -1939,11 +2981,11 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       },
       "selectionRange": {
         "end": {
-          "character": 16,
+          "character": 28,
           "line": 0,
         },
         "start": {
-          "character": 7,
+          "character": 17,
           "line": 0,
         },
       },
@@ -2038,11 +3080,11 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       },
       "selectionRange": {
         "end": {
-          "character": 25,
+          "character": 38,
           "line": 0,
         },
         "start": {
-          "character": 20,
+          "character": 26,
           "line": 0,
         },
       },
@@ -2168,7 +3210,134 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
   result: [Array]
 }: textDocument/documentSymbol-request 1`] = `
 {
-  "actualResponse": [],
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFileSucceedsWhenCorrectInput() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 21,
+            },
+            "start": {
+              "character": 11,
+              "line": 3,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 50,
+              "line": 3,
+            },
+            "start": {
+              "character": 16,
+              "line": 3,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFileFailsWhenIncorrectRecordId() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 42,
+            },
+            "start": {
+              "character": 11,
+              "line": 24,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 52,
+              "line": 24,
+            },
+            "start": {
+              "character": 16,
+              "line": 24,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFileFailsWhenIncorrectBase64Data() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 66,
+            },
+            "start": {
+              "character": 11,
+              "line": 45,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 54,
+              "line": 45,
+            },
+            "start": {
+              "character": 16,
+              "line": 45,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFileFailsWhenIncorrectFilename() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 90,
+            },
+            "start": {
+              "character": 11,
+              "line": 69,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 52,
+              "line": 69,
+            },
+            "start": {
+              "character": 16,
+              "line": 69,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "FileUtilitiesTest",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 91,
+        },
+        "start": {
+          "character": 21,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 44,
+          "line": 1,
+        },
+        "start": {
+          "character": 27,
+          "line": 1,
+        },
+      },
+    },
+  ],
   "expectedResponse": [
     {
       "children": [
@@ -2315,7 +3484,33 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 {
   "actualResponse": [
     {
-      "children": [],
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFile(String, String, String) : String",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 31,
+            },
+            "start": {
+              "character": 18,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 35,
+              "line": 2,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+        },
+      ],
       "kind": 5,
       "name": "FileUtilities",
       "range": {
@@ -2330,11 +3525,11 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       },
       "selectionRange": {
         "end": {
-          "character": 25,
+          "character": 39,
           "line": 0,
         },
         "start": {
-          "character": 20,
+          "character": 26,
           "line": 0,
         },
       },
@@ -2412,7 +3607,33 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 {
   "actualResponse": [
     {
-      "children": [],
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFile(String, String, String) : String",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 31,
+            },
+            "start": {
+              "character": 18,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 35,
+              "line": 2,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+        },
+      ],
       "kind": 5,
       "name": "FileUtilities",
       "range": {
@@ -2427,11 +3648,11 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       },
       "selectionRange": {
         "end": {
-          "character": 25,
+          "character": 39,
           "line": 0,
         },
         "start": {
-          "character": 20,
+          "character": 26,
           "line": 0,
         },
       },
@@ -2460,7 +3681,716 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 {
   "actualResponse": [
     {
-      "children": [],
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "getAnalyticsKey() : string",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 3,
+            },
+            "start": {
+              "character": 18,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 2,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "getOrgId() : string",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 7,
+            },
+            "start": {
+              "character": 18,
+              "line": 6,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 33,
+              "line": 6,
+            },
+            "start": {
+              "character": 25,
+              "line": 6,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "getSecurityFeature() : Boolean",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 10,
+            },
+            "start": {
+              "character": 18,
+              "line": 9,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 44,
+              "line": 9,
+            },
+            "start": {
+              "character": 26,
+              "line": 9,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [],
+                  "kind": 8,
+                  "name": "ClassName : String",
+                  "range": {
+                    "end": {
+                      "character": 31,
+                      "line": 30,
+                    },
+                    "start": {
+                      "character": 22,
+                      "line": 30,
+                    },
+                  },
+                  "selectionRange": {
+                    "end": {
+                      "character": 31,
+                      "line": 30,
+                    },
+                    "start": {
+                      "character": 22,
+                      "line": 30,
+                    },
+                  },
+                },
+                {
+                  "children": [],
+                  "kind": 8,
+                  "name": "NamespacePrefix : String",
+                  "range": {
+                    "end": {
+                      "character": 37,
+                      "line": 31,
+                    },
+                    "start": {
+                      "character": 22,
+                      "line": 31,
+                    },
+                  },
+                  "selectionRange": {
+                    "end": {
+                      "character": 37,
+                      "line": 31,
+                    },
+                    "start": {
+                      "character": 22,
+                      "line": 31,
+                    },
+                  },
+                },
+              ],
+              "kind": 5,
+              "name": "OverrideSettings",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 32,
+                },
+                "start": {
+                  "character": 14,
+                  "line": 29,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 36,
+                  "line": 29,
+                },
+                "start": {
+                  "character": 20,
+                  "line": 29,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "servicesByClassName : Map<String, String>",
+              "range": {
+                "end": {
+                  "character": 81,
+                  "line": 33,
+                },
+                "start": {
+                  "character": 34,
+                  "line": 33,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 53,
+                  "line": 33,
+                },
+                "start": {
+                  "character": 34,
+                  "line": 33,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 9,
+              "name": "SomeFactory",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 38,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 35,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 24,
+                  "line": 35,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 35,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 6,
+              "name": "newInstance(Type) : Object",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 41,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 40,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 40,
+                  "line": 40,
+                },
+                "start": {
+                  "character": 29,
+                  "line": 40,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "SomeFactory",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 42,
+            },
+            "start": {
+              "character": 12,
+              "line": 28,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 29,
+              "line": 28,
+            },
+            "start": {
+              "character": 18,
+              "line": 28,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 9,
+              "name": "AnotherFactory",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 46,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 45,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 27,
+                  "line": 45,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 45,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 6,
+              "name": "newInstance(SObjectType) : mypkg_ISObjectSelector",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 51,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 48,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 56,
+                  "line": 48,
+                },
+                "start": {
+                  "character": 45,
+                  "line": 48,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "AnotherFactory",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 52,
+            },
+            "start": {
+              "character": 11,
+              "line": 44,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 31,
+              "line": 44,
+            },
+            "start": {
+              "character": 17,
+              "line": 44,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 6,
+              "name": "getProject(Id) : Project__c",
+              "range": {
+                "end": {
+                  "character": 42,
+                  "line": 55,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 55,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 27,
+                  "line": 55,
+                },
+                "start": {
+                  "character": 17,
+                  "line": 55,
+                },
+              },
+            },
+          ],
+          "kind": 11,
+          "name": "IProjectService",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 56,
+            },
+            "start": {
+              "character": 4,
+              "line": 54,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 29,
+              "line": 54,
+            },
+            "start": {
+              "character": 14,
+              "line": 54,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 22,
+              "name": "Development",
+              "range": {
+                "end": {
+                  "character": 17,
+                  "line": 59,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 59,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 17,
+                  "line": 59,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 59,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 22,
+              "name": "Testing",
+              "range": {
+                "end": {
+                  "character": 13,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 60,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 13,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 60,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 22,
+              "name": "Production",
+              "range": {
+                "end": {
+                  "character": 16,
+                  "line": 61,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 61,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 16,
+                  "line": 61,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 61,
+                },
+              },
+            },
+          ],
+          "kind": 10,
+          "name": "ProjectType",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 62,
+            },
+            "start": {
+              "character": 4,
+              "line": 58,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 20,
+              "line": 58,
+            },
+            "start": {
+              "character": 9,
+              "line": 58,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 9,
+              "name": "AnotherFactory",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 46,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 45,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 27,
+                  "line": 45,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 45,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 6,
+              "name": "newInstance(SObjectType) : mypkg_ISObjectSelector",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 51,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 48,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 56,
+                  "line": 48,
+                },
+                "start": {
+                  "character": 45,
+                  "line": 48,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "AnotherFactory",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 52,
+            },
+            "start": {
+              "character": 11,
+              "line": 44,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 31,
+              "line": 44,
+            },
+            "start": {
+              "character": 17,
+              "line": 44,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 6,
+              "name": "getProject(Id) : Project__c",
+              "range": {
+                "end": {
+                  "character": 42,
+                  "line": 55,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 55,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 27,
+                  "line": 55,
+                },
+                "start": {
+                  "character": 17,
+                  "line": 55,
+                },
+              },
+            },
+          ],
+          "kind": 11,
+          "name": "IProjectService",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 56,
+            },
+            "start": {
+              "character": 4,
+              "line": 54,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 29,
+              "line": 54,
+            },
+            "start": {
+              "character": 14,
+              "line": 54,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 22,
+              "name": "Development",
+              "range": {
+                "end": {
+                  "character": 17,
+                  "line": 59,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 59,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 17,
+                  "line": 59,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 59,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 22,
+              "name": "Testing",
+              "range": {
+                "end": {
+                  "character": 13,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 60,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 13,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 60,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 22,
+              "name": "Production",
+              "range": {
+                "end": {
+                  "character": 16,
+                  "line": 61,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 61,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 16,
+                  "line": 61,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 61,
+                },
+              },
+            },
+          ],
+          "kind": 10,
+          "name": "ProjectType",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 62,
+            },
+            "start": {
+              "character": 4,
+              "line": 58,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 20,
+              "line": 58,
+            },
+            "start": {
+              "character": 9,
+              "line": 58,
+            },
+          },
+        },
+      ],
       "kind": 5,
       "name": "SomeManager",
       "range": {
@@ -2475,62 +4405,12 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       },
       "selectionRange": {
         "end": {
-          "character": 25,
+          "character": 37,
           "line": 0,
         },
         "start": {
-          "character": 20,
+          "character": 26,
           "line": 0,
-        },
-      },
-    },
-    {
-      "children": [],
-      "kind": 5,
-      "name": "AnotherFactory",
-      "range": {
-        "end": {
-          "character": 5,
-          "line": 52,
-        },
-        "start": {
-          "character": 11,
-          "line": 44,
-        },
-      },
-      "selectionRange": {
-        "end": {
-          "character": 16,
-          "line": 44,
-        },
-        "start": {
-          "character": 11,
-          "line": 44,
-        },
-      },
-    },
-    {
-      "children": [],
-      "kind": 11,
-      "name": "IProjectService",
-      "range": {
-        "end": {
-          "character": 5,
-          "line": 56,
-        },
-        "start": {
-          "character": 4,
-          "line": 54,
-        },
-      },
-      "selectionRange": {
-        "end": {
-          "character": 13,
-          "line": 54,
-        },
-        "start": {
-          "character": 4,
-          "line": 54,
         },
       },
     },
