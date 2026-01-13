@@ -194,9 +194,34 @@ export class DefaultApexDocumentSymbolProvider
       const allSymbols = symbolTable.getAllSymbols();
       // Filter for only top-level symbols (classes, interfaces, enums, triggers)
       // Top-level symbols have parentId === null, while inner classes have parentId pointing to their containing class
-      const topLevelSymbols = allSymbols.filter(
+      // First, get all type symbols with parentId === null (candidates for top-level)
+      const candidateTopLevelSymbols = allSymbols.filter(
         (symbol) => inTypeSymbolGroup(symbol) && symbol.parentId === null,
       );
+      
+      // Additional safeguard: exclude symbols that are nested within other type symbols by location
+      // This prevents inner classes from appearing as top-level even if their parentId is incorrectly null
+      const topLevelSymbols = candidateTopLevelSymbols.filter((symbol) => {
+        // Check if this symbol is nested within any other candidate top-level symbol
+        const isNested = candidateTopLevelSymbols.some((otherSymbol) => {
+          if (otherSymbol.id === symbol.id) {
+            return false;
+          }
+          // Check if symbol is nested within otherSymbol by location
+          const otherRange = otherSymbol.location?.symbolRange;
+          const symbolRange = symbol.location?.symbolRange;
+          if (!otherRange || !symbolRange) {
+            return false;
+          }
+          // Check if symbol is contained within otherSymbol's range (nested)
+          return (
+            symbolRange.startLine > otherRange.startLine &&
+            symbolRange.endLine < otherRange.endLine &&
+            otherSymbol.fileUri === symbol.fileUri
+          );
+        });
+        return !isNested;
+      });
 
       // Process each top-level symbol and convert to LSP DocumentSymbol format (with yielding)
       const symbolsResult = await Effect.runPromise(
