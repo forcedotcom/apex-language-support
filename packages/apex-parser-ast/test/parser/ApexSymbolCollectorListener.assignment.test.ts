@@ -429,7 +429,10 @@ describe('FullSymbolCollectorListener - Assignment Reference Capture', () => {
       `;
 
       // Test with correction DISABLED
-      const listenerDisabled = new ApexSymbolCollectorListener(undefined, 'full');
+      const listenerDisabled = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const optionsDisabled: CompilationOptions = {
         enableReferenceCorrection: false,
       };
@@ -459,7 +462,10 @@ describe('FullSymbolCollectorListener - Assignment Reference Capture', () => {
       expect(fileUtilsClassRefsDisabled.length).toBe(0);
 
       // Test with correction ENABLED (default)
-      const listenerEnabled = new ApexSymbolCollectorListener(undefined, 'full');
+      const listenerEnabled = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       compilerService.compile(
         sourceCode,
         'TestClassEnabled.cls',

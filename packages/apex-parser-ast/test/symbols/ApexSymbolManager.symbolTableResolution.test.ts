@@ -551,7 +551,10 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const serviceListener = new ApexSymbolCollectorListener(undefined, 'full');
+      const serviceListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testListener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
 

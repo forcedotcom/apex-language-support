@@ -151,8 +151,14 @@ describe('CompilerService Multiple Files Compilation', () => {
       const service = new CompilerService();
 
       // Create two listeners with the same type but different configurations
-      const listenerWithComments = new ApexSymbolCollectorListener(undefined, 'full');
-      const listenerNoComments = new ApexSymbolCollectorListener(undefined, 'full');
+      const listenerWithComments = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
+      const listenerNoComments = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
 
       const fileCompilationConfigs = [
         {

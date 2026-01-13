@@ -647,11 +647,10 @@ export const generateUnifiedId = (key: SymbolKey, fileUri?: string): string => {
  * @param key The symbol key
  * @returns String representation
  */
-export const keyToString = (key: SymbolKey, fileUri?: string): string => {
+export const keyToString = (key: SymbolKey, fileUri?: string): string =>
   // Always use unifiedId - generate if missing
   // This ensures consistent map keys and eliminates path-based fallback inconsistencies
-  return getUnifiedId(key, fileUri);
-};
+  getUnifiedId(key, fileUri);
 
 /**
  * Create a SymbolKey from an ApexSymbol with unified ID
@@ -862,7 +861,10 @@ export class SymbolTable {
         });
         // Ensure unifiedId is preserved after enrichment
         if (!existingSymbol.key.unifiedId) {
-          existingSymbol.key.unifiedId = getUnifiedId(existingSymbol.key, existingSymbol.fileUri);
+          existingSymbol.key.unifiedId = getUnifiedId(
+            existingSymbol.key,
+            existingSymbol.fileUri,
+          );
         }
         // Validate that unifiedId exists (should always be true)
         if (!existingSymbol.key.unifiedId) {

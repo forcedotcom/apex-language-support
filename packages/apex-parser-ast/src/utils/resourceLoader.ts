@@ -610,7 +610,7 @@ export class ResourceLoader {
         if (namespace) {
           listener.setProjectNamespace(namespace);
         }
-        
+
         filesToCompile.push({
           content,
           fileName: originalPath, // Use original path to preserve namespace structure
@@ -690,7 +690,10 @@ export class ResourceLoader {
           // Yield to event loop every YIELD_INTERVAL results (except last) to allow other tasks to run
           // Reduced frequency minimizes setImmediate callback overhead for large batches
           // This matches the pattern used in DocumentProcessingService and compileMultipleWithConfigs
-          if (processedCount % YIELD_INTERVAL === 0 && processedCount < results.length) {
+          if (
+            processedCount % YIELD_INTERVAL === 0 &&
+            processedCount < results.length
+          ) {
             yield* yieldToEventLoop;
           }
         }
@@ -1036,7 +1039,7 @@ export class ResourceLoader {
 
       // Convert className to proper URI scheme
       const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${className}`;
-      
+
       listener.setCurrentFileUri(fileUri);
       if (namespace) {
         listener.setProjectNamespace(namespace);

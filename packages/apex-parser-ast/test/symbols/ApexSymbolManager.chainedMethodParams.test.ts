@@ -105,7 +105,10 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
     if (fs.existsSync(accountPath)) {
       const accountUri = URI.file(accountPath).toString();
       const accountContent = fs.readFileSync(accountPath, 'utf8');
-      const accountListener = new ApexSymbolCollectorListener(undefined, 'full');
+      const accountListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const accountResult = compilerService.compile(
         accountContent,
         accountUri,

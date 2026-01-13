@@ -234,10 +234,20 @@ describe('Constructor ParentId Relationships - ApexSymbolCollectorListener', () 
         );
         logger.debug(
           `Inner class block not found. Inner class symbol ID: ${innerClassSymbol!.id}. ` +
-            `All class blocks: ${allClassBlocks.map((b) => `id=${b.id}, parentId=${b.parentId}, scopeType=${b.scopeType}`).join('; ')}`,
+            `All class blocks: ${allClassBlocks
+              .map(
+                (b) =>
+                  `id=${b.id}, parentId=${b.parentId}, scopeType=${b.scopeType}`,
+              )
+              .join('; ')}`,
         );
         logger.debug(
-          `All symbols: ${allSymbols.map((s) => `name=${s.name}, kind=${s.kind}, id=${s.id}, parentId=${s.parentId}`).join('; ')}`,
+          `All symbols: ${allSymbols
+            .map(
+              (s) =>
+                `name=${s.name}, kind=${s.kind}, id=${s.id}, parentId=${s.parentId}`,
+            )
+            .join('; ')}`,
         );
       }
       expect(innerClassBlock).toBeDefined();

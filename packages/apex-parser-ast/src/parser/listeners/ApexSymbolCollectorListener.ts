@@ -225,7 +225,8 @@ export class ApexSymbolCollectorListener
   /**
    * Creates a new instance of the ApexSymbolCollectorListener.
    * @param symbolTable Optional existing symbol table to use. If not provided, a new one will be created.
-   * @param detailLevel Optional detail level for selective symbol collection. Defaults to 'full' for backward compatibility.
+   * @param detailLevel Optional detail level for selective symbol collection.
+   *                    Defaults to 'full' for backward compatibility.
    */
   constructor(symbolTable?: SymbolTable, detailLevel: DetailLevel = 'full') {
     super();

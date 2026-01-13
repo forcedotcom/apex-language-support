@@ -9,7 +9,6 @@
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { ApexSymbolCollectorListener } from './ApexSymbolCollectorListener';
 import { SymbolTable } from '../../types/symbol';
-import { DetailLevel } from './LayeredSymbolListenerBase';
 
 /**
  * Factory for creating appropriate listeners based on service needs.

@@ -148,16 +148,22 @@ export class HoverProcessingService implements IHoverProcessor {
         parserPosition,
       );
       const referencesTime = Date.now() - referencesStartTime;
-      
+
       // Debug: Log all references at position
       if (references && references.length > 0) {
         this.logger.debug(
           () =>
-            `[HOVER-DEBUG] Found ${references.length} reference(s) at position ${parserPosition.line}:${parserPosition.character}: ` +
-            references.map(
-              (ref) =>
-                `${ref.name} (${ReferenceContext[ref.context]}) at ${ref.location.identifierRange.startLine}:${ref.location.identifierRange.startColumn}-${ref.location.identifierRange.endColumn}`,
-            ).join(', '),
+            `[HOVER-DEBUG] Found ${references.length} reference(s) at ` +
+            `position ${parserPosition.line}:${parserPosition.character}: ` +
+            references
+              .map(
+                (ref) =>
+                  `${ref.name} (${ReferenceContext[ref.context]}) at ` +
+                  `${ref.location.identifierRange.startLine}:` +
+                  `${ref.location.identifierRange.startColumn}-` +
+                  `${ref.location.identifierRange.endColumn}`,
+              )
+              .join(', '),
         );
       } else {
         this.logger.debug(
@@ -184,13 +190,14 @@ export class HoverProcessingService implements IHoverProcessor {
       // are resolved even if it requires enrichment.
       const symbolResolutionStartTime = Date.now();
       let symbol: ApexSymbol | null = null;
-      
+
       if (references && references.length > 0) {
         const methodCallRef = references.find(
           (ref) =>
             ref.context === ReferenceContext.METHOD_CALL &&
             ref.location.identifierRange.startLine === parserPosition.line &&
-            ref.location.identifierRange.startColumn <= parserPosition.character &&
+            ref.location.identifierRange.startColumn <=
+              parserPosition.character &&
             ref.location.identifierRange.endColumn >= parserPosition.character,
         );
 
@@ -228,11 +235,12 @@ export class HoverProcessingService implements IHoverProcessor {
                   async () => {
                     // After enrichment, try getSymbolAtPosition again
                     // This should now resolve the METHOD_CALL since standard library classes are loaded
-                    const resolvedSymbol = await this.symbolManager.getSymbolAtPosition(
-                      params.textDocument.uri,
-                      parserPosition,
-                      'precise',
-                    );
+                    const resolvedSymbol =
+                      await this.symbolManager.getSymbolAtPosition(
+                        params.textDocument.uri,
+                        parserPosition,
+                        'precise',
+                      );
                     // Only accept method symbols - reject variables
                     if (resolvedSymbol && isMethodSymbol(resolvedSymbol)) {
                       return resolvedSymbol;
@@ -265,7 +273,7 @@ export class HoverProcessingService implements IHoverProcessor {
             this.logger.debug(
               () =>
                 `[HOVER] No symbol found but METHOD_CALL reference exists for "${methodCallRef.name}". ` +
-                `Attempting enrichment to resolve method call.`,
+                'Attempting enrichment to resolve method call.',
             );
 
             const storage = ApexStorageManager.getInstance().getStorage();
@@ -277,11 +285,12 @@ export class HoverProcessingService implements IHoverProcessor {
                   params.textDocument.uri,
                   documentText,
                   async () => {
-                    const resolvedSymbol = await this.symbolManager.getSymbolAtPosition(
-                      params.textDocument.uri,
-                      parserPosition,
-                      'precise',
-                    );
+                    const resolvedSymbol =
+                      await this.symbolManager.getSymbolAtPosition(
+                        params.textDocument.uri,
+                        parserPosition,
+                        'precise',
+                      );
                     // Only accept method symbols
                     if (resolvedSymbol && isMethodSymbol(resolvedSymbol)) {
                       return resolvedSymbol;
@@ -311,7 +320,7 @@ export class HoverProcessingService implements IHoverProcessor {
           'precise',
         );
       }
-      
+
       const symbolResolutionTime = Date.now() - symbolResolutionStartTime;
 
       if (symbol) {
@@ -504,7 +513,8 @@ export class HoverProcessingService implements IHoverProcessor {
                 const methodCallRef = references.find(
                   (ref) =>
                     ref.context === ReferenceContext.METHOD_CALL &&
-                    ref.location.identifierRange.startLine === parserPosition.line &&
+                    ref.location.identifierRange.startLine ===
+                      parserPosition.line &&
                     // Allow position to be within or very close to the reference range
                     ((ref.location.identifierRange.startColumn <=
                       parserPosition.character &&
@@ -545,9 +555,10 @@ export class HoverProcessingService implements IHoverProcessor {
                       methodCallRef.parentContext &&
                       methodCandidates.length > 0
                     ) {
-                      const parentClassSymbols = this.symbolManager.findSymbolByName(
-                        methodCallRef.parentContext,
-                      );
+                      const parentClassSymbols =
+                        this.symbolManager.findSymbolByName(
+                          methodCallRef.parentContext,
+                        );
                       const parentClass = parentClassSymbols.find((c) =>
                         isClassSymbol(c),
                       );

@@ -8530,10 +8530,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         targetLevel,
       );
 
-      const result = self.compilerService.compile(documentText, fileUri, listener, {
-        collectReferences: true,
-        resolveReferences: true,
-      });
+      const result = self.compilerService.compile(
+        documentText,
+        fileUri,
+        listener,
+        {
+          collectReferences: true,
+          resolveReferences: true,
+        },
+      );
 
       if (result?.result) {
         yield* self.addSymbolTable(result.result, fileUri);

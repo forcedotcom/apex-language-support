@@ -40,7 +40,10 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener(undefined, 'full');
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClassWithNested.cls',
@@ -83,7 +86,10 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener(undefined, 'full');
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClassWithNested.cls',
@@ -127,7 +133,10 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener(undefined, 'full');
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClassWithNested.cls',
@@ -192,7 +201,10 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener(undefined, 'full');
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClassWithNested.cls',
@@ -237,7 +249,10 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener(undefined, 'full');
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClassWithNested.cls',
@@ -322,7 +337,10 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener(undefined, 'full');
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClassWithNested.cls',

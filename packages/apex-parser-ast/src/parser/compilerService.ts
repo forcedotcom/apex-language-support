@@ -432,7 +432,10 @@ export class CompilerService {
         // Yield to event loop every YIELD_INTERVAL files (except last) to prevent blocking
         // Reduced frequency minimizes setImmediate callback overhead for large batches
         // This matches the pattern used in DocumentProcessingService for consistency
-        if ((i + 1) % YIELD_INTERVAL === 0 && i + 1 < fileCompilationConfigs.length) {
+        if (
+          (i + 1) % YIELD_INTERVAL === 0 &&
+          i + 1 < fileCompilationConfigs.length
+        ) {
           yield* yieldToEventLoop;
         }
       }
