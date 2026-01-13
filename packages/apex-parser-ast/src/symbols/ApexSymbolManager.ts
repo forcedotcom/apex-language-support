@@ -5503,7 +5503,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             return symbol;
           }
 
-          // If there are references, try to resolve the first one
+          // If there are references, check if any are METHOD_CALL references
+          // METHOD_CALL references should be prioritized over variable declarations
+          const methodCallRefs = refsAtPosition.filter(
+            (ref) => ref.context === ReferenceContext.METHOD_CALL,
+          );
+
+          if (methodCallRefs.length > 0) {
+            // METHOD_CALL references exist - prioritize resolving them
+            // Skip the fast path fallback and continue to main reference resolution logic
+            // which handles METHOD_CALL prioritization properly
+            break;
+          }
+
+          // If there are references but no METHOD_CALL references, try to resolve the first one
           // But if it doesn't resolve to a symbol, fall back to the declaration
           // This handles cases where references exist but don't resolve (e.g., invalid references)
           // and ensures declarations are still accessible via hover (e.g., method names in declarations)
