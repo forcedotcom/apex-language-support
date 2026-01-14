@@ -106,3 +106,6 @@ export * from './registry';
 
 // Export scheduler initialization service
 export * from './scheduler/SchedulerInitializationService';
+
+// Export protobuf cache components
+export * from './cache';

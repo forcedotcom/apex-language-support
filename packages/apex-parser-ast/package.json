@@ -24,6 +24,7 @@
     "README.md"
   ],
   "scripts": {
+    "generate:stdlib-cache": "wireit",
     "precompile": "wireit",
     "bundle": "wireit",
     "compile": "wireit",
@@ -35,16 +36,32 @@
     "lint": "wireit"
   },
   "wireit": {
+    "generate:stdlib-cache": {
+      "command": "node scripts/generate-stdlib-cache.mjs",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        "resources/apex-stdlib-v*.pb",
+        "resources/apex-stdlib-v*.sha256"
+      ],
+      "files": [
+        "src/resources/StandardApexLibrary/**/*.cls",
+        "scripts/generate-stdlib-cache.mjs"
+      ]
+    },
     "precompile": {
-      "command": "node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs",
+      "command": "node scripts/generate-proto.mjs && node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs",
       "output": [
         "src/generated/**",
         "out/resources/**",
-        "resources/**"
+        "resources/StandardApexLibrary.zip"
       ],
       "files": [
+        "scripts/generate-proto.mjs",
         "scripts/generate-keywords.mjs",
         "scripts/generate-zip.mjs",
+        "proto/apex-stdlib.proto",
         "src/**/*.cls"
       ]
     },
@@ -151,6 +168,7 @@
   },
   "dependencies": {
     "@apexdevtools/apex-parser": "4.4.1",
+    "@protobuf-ts/runtime": "^2.9.4",
     "@salesforce/apex-lsp-shared": "^1.0.0",
     "antlr4ts": "0.5.0-alpha.4",
     "data-structure-typed": "^2.0.4",
@@ -158,6 +176,7 @@
     "fflate": "^0.8.1"
   },
   "devDependencies": {
+    "@protobuf-ts/plugin": "^2.9.4",
     "@salesforce/esbuild-presets": "^0.1.0",
     "esbuild-plugin-copy": "^2.1.1"
   }

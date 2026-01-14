@@ -21,9 +21,10 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     outExtension: { '.js': '.js' },
     external: [],
-    // Bundle the Standard Apex Library ZIP as a base64 data URL
+    // Bundle the Standard Apex Library ZIP and protobuf cache as base64 data URLs
     loader: {
       '.zip': 'dataurl',
+      '.pb': 'dataurl',
     },
     plugins: [
       copy({
@@ -32,6 +33,11 @@ const builds: BuildOptions[] = [
           // Copy resources from out/resources/ to dist/resources/
           {
             from: ['out/resources/**/*'],
+            to: ['./dist/resources'],
+          },
+          // Copy protobuf cache files to dist/resources/
+          {
+            from: ['resources/*.pb', 'resources/*.sha256'],
             to: ['./dist/resources'],
           },
           // Copy type definitions from out/ to dist/
@@ -53,9 +59,10 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     outExtension: { '.js': '.mjs' },
     external: [],
-    // Bundle the Standard Apex Library ZIP as a base64 data URL
+    // Bundle the Standard Apex Library ZIP and protobuf cache as base64 data URLs
     loader: {
       '.zip': 'dataurl',
+      '.pb': 'dataurl',
     },
   },
 ];
