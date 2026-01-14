@@ -38,9 +38,10 @@ const builds: BuildOptions[] = [
     format: 'cjs',
     outExtension: { '.js': '.js' },
     external,
-    // Bundle the Standard Apex Library ZIP as a base64 data URL
+    // Bundle the Standard Apex Library ZIP and protobuf cache as base64 data URLs
     loader: {
       '.zip': 'dataurl',
+      '.pb': 'dataurl',
     },
   },
   {
@@ -50,9 +51,10 @@ const builds: BuildOptions[] = [
     format: 'esm',
     outExtension: { '.js': '.mjs' },
     external,
-    // Bundle the Standard Apex Library ZIP as a base64 data URL
+    // Bundle the Standard Apex Library ZIP and protobuf cache as base64 data URLs
     loader: {
       '.zip': 'dataurl',
+      '.pb': 'dataurl',
     },
   },
 ];
