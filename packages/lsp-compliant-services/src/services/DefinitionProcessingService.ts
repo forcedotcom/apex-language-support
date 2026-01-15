@@ -11,7 +11,10 @@ import {
   Location,
   Range,
 } from 'vscode-languageserver-protocol';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  LoggerInterface,
+  ApexSettingsManager,
+} from '@salesforce/apex-lsp-shared';
 
 import {
   ApexSymbolProcessingManager,
@@ -27,6 +30,7 @@ import {
 } from '../utils/positionUtils';
 
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
+import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
 
 /**
  * Context information for definition processing
@@ -106,12 +110,59 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         parserPosition,
       );
 
-      // If no TypeReference exists, there's nothing of interest (keyword, whitespace, etc.)
+      // If no TypeReference exists, check if workspace is not loaded
+      // Symbols might exist in workspace but not be indexed yet
       if (!references || references.length === 0) {
         this.logger.debug(() => {
           const parserPos = `${parserPosition.line}:${parserPosition.character}`;
           return `No TypeReference at parser position ${parserPos} - nothing of interest`;
         });
+
+        // If workspace is not loaded, try missing artifact resolution
+        // The symbol might exist in workspace but not be indexed yet
+        if (!isWorkspaceLoaded()) {
+          this.logger.debug(
+            () =>
+              'Workspace not loaded and no references found - ' +
+              'trying missing artifact resolution',
+          );
+
+          const settings = ApexSettingsManager.getInstance().getSettings();
+          if (settings?.apex?.findMissingArtifact?.enabled) {
+            // For goto definition, use blocking resolution for immediate response
+            const resolutionResult =
+              await this.missingArtifactUtils.tryResolveMissingArtifactBlocking(
+                params.textDocument.uri,
+                params.position,
+                'definition',
+              );
+
+            // If resolution succeeded, retry symbol lookup
+            if (resolutionResult === 'resolved') {
+              this.logger.debug(
+                () => 'Missing artifact resolved, retrying symbol lookup',
+              );
+              const symbol = await this.symbolManager.getSymbolAtPosition(
+                params.textDocument.uri,
+                parserPosition,
+                'precise',
+              );
+
+              if (symbol) {
+                // Found symbol after resolution - return its definition location
+                const location = this.createLocationFromSymbol(symbol);
+                if (location) {
+                  this.logger.debug(
+                    () =>
+                      `Found symbol after missing artifact resolution: ${symbol.name} (${symbol.kind})`,
+                  );
+                  return [location];
+                }
+              }
+            }
+          }
+        }
+
         return [];
       }
 

@@ -311,6 +311,24 @@ export interface SendWorkspaceBatchParams {
 export interface SendWorkspaceBatchResult {
   readonly success: boolean;
   readonly enqueuedCount: number;
+  readonly stored?: boolean; // Indicates batch was stored (not processed yet)
+  readonly receivedCount?: number; // Number of batches received so far
+  readonly totalBatches?: number; // Total batches expected
+  readonly error?: string;
+}
+
+/**
+ * Parameters for processing stored workspace batches
+ */
+export interface ProcessWorkspaceBatchesParams {
+  readonly totalBatches: number;
+}
+
+/**
+ * Result for processing workspace batches request
+ */
+export interface ProcessWorkspaceBatchesResult {
+  readonly success: boolean;
   readonly error?: string;
 }
 

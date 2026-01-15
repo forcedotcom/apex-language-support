@@ -7,6 +7,7 @@
  */
 
 import { HashMap } from 'data-structure-typed';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 import { TypeInfo } from './typeInfo';
 import {
   Namespace,
@@ -646,13 +647,10 @@ export const generateUnifiedId = (key: SymbolKey, fileUri?: string): string => {
  * @param key The symbol key
  * @returns String representation
  */
-export const keyToString = (key: SymbolKey): string => {
-  // Use unifiedId if available (includes full scope path), otherwise fall back to path
-  if (key.unifiedId) {
-    return key.unifiedId;
-  }
-  return `${key.prefix}:${key.path.join('.')}`;
-};
+export const keyToString = (key: SymbolKey, fileUri?: string): string =>
+  // Always use unifiedId - generate if missing
+  // This ensures consistent map keys and eliminates path-based fallback inconsistencies
+  getUnifiedId(key, fileUri);
 
 /**
  * Create a SymbolKey from an ApexSymbol with unified ID
@@ -734,7 +732,8 @@ export const getUnifiedId = (key: SymbolKey, fileUri?: string): string => {
 export class SymbolTable {
   private roots: ApexSymbol[] = []; // Track all symbols with parentId === null (top-level symbols)
   private symbolMap: HashMap<string, ApexSymbol> = new HashMap();
-  private idIndex: HashMap<string, ApexSymbol> = new HashMap(); // O(1) lookup by id
+  // idIndex removed: symbolMap now serves both purposes since keys are always unifiedId
+  // and symbol.id is synchronized with key.unifiedId, so symbolMap.get(id) === idIndex.get(id)
   private references: SymbolReference[] = []; // Store symbol references
   private hierarchicalReferences: HierarchicalReference[] = []; // NEW: Store hierarchical references
   // Array maintained incrementally to avoid expensive HashMap iterator in getAllSymbols()
@@ -770,8 +769,10 @@ export class SymbolTable {
    * Convert a SymbolKey to a string for use as a map key
    * Updated for Phase 6.5.2: Symbol Key System Unification
    */
-  private keyToString(key: SymbolKey): string {
-    return keyToString(key);
+  private keyToString(key: SymbolKey, fileUri?: string): string {
+    // Use fileUri from symbol table if not provided
+    const effectiveFileUri = fileUri || this.fileUri;
+    return keyToString(key, effectiveFileUri);
   }
 
   /**
@@ -822,7 +823,10 @@ export class SymbolTable {
 
     // Containment is determined by parentId - no need to call scope.addSymbol()
     // The symbol's parentId already establishes the containment relationship
-    const symbolKey = this.keyToString(symbol.key);
+    // Normalize key to ensure unifiedId is always present and used as map key
+    const normalizedUnifiedId = getUnifiedId(symbol.key, symbol.fileUri);
+    // Always use unifiedId as the map key (never path-based fallback)
+    const symbolKey = normalizedUnifiedId;
     const existingSymbol = this.symbolMap.get(symbolKey);
 
     // Track previous parentId for roots array maintenance
@@ -849,9 +853,27 @@ export class SymbolTable {
           // Preserve existing ID and key (they shouldn't change)
           id: existingSymbol.id,
           key: existingSymbol.key,
-          // Preserve existing parentId unless explicitly changed
-          parentId: symbol.parentId ?? existingSymbol.parentId,
+          // CRITICAL: Preserve existing parentId during enrichment
+          // The parentId should be set correctly during the first listener walk
+          // Subsequent walks should not override it, as the parent-child relationship
+          // is established during the first walk and shouldn't change
+          parentId: existingSymbol.parentId,
         });
+        // Ensure unifiedId is preserved after enrichment
+        if (!existingSymbol.key.unifiedId) {
+          existingSymbol.key.unifiedId = getUnifiedId(
+            existingSymbol.key,
+            existingSymbol.fileUri,
+          );
+        }
+        // Validate that unifiedId exists (should always be true)
+        if (!existingSymbol.key.unifiedId) {
+          const logger = getLogger();
+          logger.warn(
+            () =>
+              `Symbol ${existingSymbol.name} missing unifiedId after enrichment - this should not happen`,
+          );
+        }
         // Use enriched symbol
         symbolToAdd = existingSymbol;
       } else if (newLevel <= existingLevel) {
@@ -867,22 +889,24 @@ export class SymbolTable {
     // Maintain array incrementally to avoid expensive HashMap iterator
     if (existingSymbol) {
       // Replace existing symbol in array if key already exists (HashMap overwrites)
-      // Find by comparing keys since the symbol object might be different
-      const index = this.symbolArray.findIndex(
-        (s) => this.keyToString(s.key) === symbolKey,
-      );
+      // Use symbol.id for comparison (more stable than key comparison)
+      // symbol.id is synchronized with key.unifiedId and doesn't change
+      const index = this.symbolArray.findIndex((s) => s.id === symbolToAdd.id);
       if (index !== -1) {
         this.symbolArray[index] = symbolToAdd;
       } else {
         // Fallback: symbol not found in array, just push (shouldn't happen)
+        // This indicates array/map sync issue - log warning in development
+        const logger = getLogger();
+        logger.debug(
+          () =>
+            `Symbol ${symbolToAdd.id} not found in array but exists in map - array may be out of sync`,
+        );
         this.symbolArray.push(symbolToAdd);
       }
-      // Update idIndex
-      this.idIndex.set(symbolToAdd.id, symbolToAdd);
     } else {
-      // New symbol, add to array and idIndex
+      // New symbol, add to array
       this.symbolArray.push(symbolToAdd);
-      this.idIndex.set(symbolToAdd.id, symbolToAdd);
     }
 
     // Maintain roots array: track symbols with parentId === null
@@ -1053,7 +1077,7 @@ export class SymbolTable {
       currentScopePath,
     );
 
-    // Add scope symbol to symbol table (via addSymbol which updates symbolArray and idIndex)
+    // Add scope symbol to symbol table (via addSymbol which updates symbolArray and symbolMap)
     this.addSymbol(scopeSymbol, parentScope ?? null);
 
     return scopeSymbol;
@@ -1135,12 +1159,12 @@ export class SymbolTable {
       return hierarchy;
     }
 
-    // Build hierarchy by following parentId chain using idIndex for O(1) lookup
+    // Build hierarchy by following parentId chain using symbolMap for O(1) lookup
     let current: ScopeSymbol | null = containingBlock as ScopeSymbol;
     while (current) {
       hierarchy.unshift(current);
       if (current.parentId) {
-        const parent = this.idIndex.get(current.parentId);
+        const parent = this.symbolMap.get(current.parentId);
         if (parent && parent.kind === SymbolKind.Block) {
           current = parent as ScopeSymbol;
         } else {
@@ -1192,7 +1216,7 @@ export class SymbolTable {
         path.unshift(current.name);
       }
       if (current.parentId) {
-        const parent = this.idIndex.get(current.parentId);
+        const parent = this.symbolMap.get(current.parentId);
         if (parent && parent.kind === SymbolKind.Block) {
           current = parent as ScopeSymbol;
         } else {
@@ -1213,7 +1237,7 @@ export class SymbolTable {
    */
   getParentScope(scope: ScopeSymbol): ScopeSymbol | null {
     if (scope.parentId) {
-      const parent = this.idIndex.get(scope.parentId);
+      const parent = this.symbolMap.get(scope.parentId);
       if (parent && parent.kind === SymbolKind.Block) {
         return parent as ScopeSymbol;
       }
@@ -1298,9 +1322,9 @@ export class SymbolTable {
       if (symbol) {
         return symbol;
       }
-      // Navigate to parent using idIndex
+      // Navigate to parent using symbolMap
       if (scope.parentId) {
-        const parent = this.idIndex.get(scope.parentId);
+        const parent = this.symbolMap.get(scope.parentId);
         if (parent && parent.kind === SymbolKind.Block) {
           scope = parent as ScopeSymbol;
         } else {
@@ -1354,7 +1378,8 @@ export class SymbolTable {
    * @returns The symbol if found, undefined otherwise
    */
   lookupByKey(key: SymbolKey): ApexSymbol | undefined {
-    return this.symbolMap.get(this.keyToString(key));
+    // Use symbol table's fileUri for key normalization
+    return this.symbolMap.get(this.keyToString(key, this.fileUri));
   }
 
   /**
@@ -1363,6 +1388,17 @@ export class SymbolTable {
    */
   getAllSymbols(): ApexSymbol[] {
     return this.symbolArray;
+  }
+
+  /**
+   * Get a symbol by its ID using O(1) HashMap lookup.
+   * @param id The symbol ID to look up
+   * @returns The symbol if found, undefined otherwise
+   */
+  getSymbolById(id: string): ApexSymbol | undefined {
+    // Use symbolMap instead of idIndex since map keys are now always unifiedId
+    // and symbol.id is synchronized with key.unifiedId
+    return this.symbolMap.get(id);
   }
 
   /**
@@ -1585,7 +1621,7 @@ export class SymbolTable {
 
     // Create a new object with cleaned scopes
     const cleanedScopes = scopeSymbols.map((scope) => ({
-      key: this.keyToString(scope.key),
+      key: this.keyToString(scope.key, scope.fileUri || this.fileUri),
       scope: {
         key: scope.key,
         symbols: this.getSymbolsInScope(scope.id).map((symbol: ApexSymbol) => ({

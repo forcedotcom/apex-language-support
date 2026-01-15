@@ -34,7 +34,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
   describe('setProjectNamespace', () => {
     it('should set project namespace correctly', () => {
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       listener.setProjectNamespace('MyNamespace');
 
       // Access private property for testing
@@ -43,7 +43,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should handle null namespace', () => {
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       listener.setProjectNamespace('');
 
       const currentNamespace = (listener as any).currentNamespace;
@@ -51,7 +51,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should handle undefined namespace', () => {
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       listener.setProjectNamespace(undefined as any);
 
       const currentNamespace = (listener as any).currentNamespace;
@@ -63,7 +63,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should assign project namespace to top-level class', () => {
       const sourceCode = readFixture('top-level-class.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestClass.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -79,7 +79,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should assign project namespace to top-level interface', () => {
       const sourceCode = readFixture('top-level-interface.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestInterface.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -95,7 +95,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should assign project namespace to top-level enum', () => {
       const sourceCode = readFixture('top-level-enum.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestEnum.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -111,7 +111,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should assign project namespace to top-level trigger', () => {
       const sourceCode = readFixture('top-level-trigger.trigger');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestTrigger.trigger', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -129,7 +129,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should inherit namespace for inner class', () => {
       const sourceCode = readFixture('inner-class.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'OuterClass.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -145,7 +145,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should inherit namespace for inner interface', () => {
       const sourceCode = readFixture('inner-interface.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'OuterClass.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -161,7 +161,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should inherit namespace for inner enum', () => {
       const sourceCode = readFixture('inner-enum.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'OuterClass.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -179,7 +179,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should inherit namespace for method in class', () => {
       const sourceCode = readFixture('method-in-class.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestClass.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -197,7 +197,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should inherit namespace for method in interface', () => {
       const sourceCode = readFixture('method-in-interface.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestInterface.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -213,7 +213,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should inherit namespace for constructor', () => {
       const sourceCode = readFixture('constructor.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestClass.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -233,7 +233,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should inherit namespace for field in class', () => {
       const sourceCode = readFixture('field-in-class.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestClass.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -249,7 +249,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should inherit namespace for property in class', () => {
       const sourceCode = readFixture('property-in-class.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestClass.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -267,7 +267,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should inherit namespace for local variable in method', () => {
       const sourceCode = readFixture('local-variable.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestClass.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -283,7 +283,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should inherit namespace for parameter in method', () => {
       const sourceCode = readFixture('method-parameter.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestClass.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -301,7 +301,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should inherit namespace for enum values', () => {
       const sourceCode = readFixture('enum-with-values.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestEnum.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -319,7 +319,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should handle nested inner classes with namespace inheritance', () => {
       const sourceCode = readFixture('nested-inner-classes.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'OuterClass.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -343,7 +343,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should handle multiple top-level types with same namespace', () => {
       const sourceCode = readFixture('multiple-inner-classes.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'OuterClass.cls', listener, {
         projectNamespace: 'MyNamespace',
       });
@@ -365,7 +365,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should handle compilation without project namespace', () => {
       const sourceCode = readFixture('no-namespace.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(
         sourceCode,
         'TestClass.cls',
@@ -384,7 +384,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should handle empty project namespace', () => {
       const sourceCode = readFixture('no-namespace.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(sourceCode, 'TestClass.cls', listener, {
         projectNamespace: '',
       });
@@ -400,7 +400,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should maintain backward compatibility with existing functionality', () => {
       const sourceCode = readFixture('backward-compatibility.cls');
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       compilerService.compile(
         sourceCode,
         'TestClass.cls',

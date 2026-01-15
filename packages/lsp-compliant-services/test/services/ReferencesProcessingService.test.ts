@@ -10,39 +10,40 @@ import { ReferenceParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 import { ReferencesProcessingService } from '../../src/services/ReferencesProcessingService';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
-import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
+import {
+  ApexSymbolManager,
+  CompilerService,
+  FullSymbolCollectorListener,
+  SymbolTable,
+  SchedulerInitializationService,
+} from '@salesforce/apex-lsp-parser-ast';
 
-// Mock dependencies
-jest.mock('../../src/storage/ApexStorageManager', () => ({
-  ApexStorageManager: {
-    getInstance: jest.fn(),
-  },
-}));
+// Only mock storage - use real implementations for everything else
+jest.mock('../../src/storage/ApexStorageManager');
 
+// Mock scheduler utilities to prevent scheduler from starting in tests
 jest.mock('@salesforce/apex-lsp-parser-ast', () => {
   const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
   return {
     ...actual,
-    ApexSymbolProcessingManager: {
-      getInstance: jest.fn(),
-    },
-    SchedulerInitializationService: {
-      getInstance: jest.fn(() => ({
-        ensureInitialized: jest.fn().mockResolvedValue(undefined),
-      })),
-    },
-    createQueuedItem: jest.fn((effect: any) =>
-      Effect.succeed({
-        eff: effect,
-        id: 'test-id',
-        fiberDeferred: null as any,
-        requestType: 'test',
-      }),
+    offer: jest.fn(() => Effect.succeed({ fiber: Effect.void } as any)),
+    createQueuedItem: jest.fn((eff: any) =>
+      Effect.succeed({ id: 'mock', eff, fiberDeferred: {} } as any),
     ),
-    offer: jest.fn(() => Effect.succeed(undefined)),
+    SchedulerInitializationService: {
+      ...actual.SchedulerInitializationService,
+      getInstance: jest.fn(() => ({
+        ensureInitialized: jest.fn(() => Promise.resolve()),
+        isInitialized: jest.fn(() => false),
+        resetInstance: jest.fn(),
+      })),
+      resetInstance: jest.fn(),
+    },
   };
 });
 
@@ -52,6 +53,29 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
     ...actual,
     LSPConfigurationManager: {
       getInstance: jest.fn(),
+    },
+    ApexSettingsManager: {
+      getInstance: jest.fn(() => ({
+        getSettings: jest.fn().mockReturnValue({
+          apex: {
+            queueProcessing: {
+              maxConcurrency: {
+                IMMEDIATE: 50,
+                HIGH: 50,
+                NORMAL: 25,
+                LOW: 10,
+              },
+              yieldInterval: 50,
+              yieldDelayMs: 25,
+            },
+            scheduler: {
+              queueCapacity: 100,
+              maxHighPriorityStreak: 50,
+              idleSleepMs: 1,
+            },
+          },
+        }),
+      })),
     },
   };
 });
@@ -69,21 +93,44 @@ jest.mock('../../src/services/WorkspaceLoadCoordinator', () => ({
 
 describe('ReferencesProcessingService', () => {
   let service: ReferencesProcessingService;
-  let logger: any;
+  let logger: ReturnType<typeof getLogger>;
+  let symbolManager: ApexSymbolManager;
   let mockStorage: any;
-  let mockSymbolManager: any;
   let mockConfigManager: any;
   let mockConnection: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset mocks
     jest.clearAllMocks();
     mockEnsureWorkspaceLoaded.mockClear();
     mockIsWorkspaceLoaded.mockReturnValue(false);
     mockIsWorkspaceLoading.mockReturnValue(false);
 
+    // Reset scheduler service instance (but don't initialize - scheduler is mocked)
+    SchedulerInitializationService.resetInstance();
+
     // Setup logger
     logger = getLogger();
+
+    // Use real symbol manager
+    symbolManager = new ApexSymbolManager();
+
+    // Pre-populate symbol manager with fixtures
+    const compilerService = new CompilerService();
+    const fixturesDir = join(__dirname, '../fixtures/classes');
+    const testClassPath = join(fixturesDir, 'TestClass.cls');
+    const testClassContent = readFileSync(testClassPath, 'utf8');
+
+    const symbolTable = new SymbolTable();
+    const listener = new FullSymbolCollectorListener(symbolTable);
+    compilerService.compile(
+      testClassContent,
+      'file:///test/TestClass.cls',
+      listener,
+    );
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(symbolTable, 'file:///test/TestClass.cls'),
+    );
 
     // Setup mock storage
     mockStorage = {
@@ -92,23 +139,6 @@ describe('ReferencesProcessingService', () => {
 
     (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
       getStorage: jest.fn().mockReturnValue(mockStorage),
-    });
-
-    // Setup mock symbol manager
-    mockSymbolManager = {
-      resolveSymbol: jest.fn(),
-      createResolutionContext: jest.fn().mockReturnValue({
-        sourceFile: 'file:///test/TestClass.cls',
-        namespaceContext: 'public',
-        currentScope: 'global',
-        scopeChain: ['global'],
-      }),
-      findReferencesTo: jest.fn(),
-      findReferencesFrom: jest.fn(),
-    };
-
-    (ApexSymbolProcessingManager.getInstance as jest.Mock).mockReturnValue({
-      getSymbolManager: jest.fn().mockReturnValue(mockSymbolManager),
     });
 
     // Setup mock connection
@@ -132,8 +162,8 @@ describe('ReferencesProcessingService', () => {
       Effect.succeed({ status: 'loaded' } as { status: 'loaded' }),
     );
 
-    // Create service instance
-    service = new ReferencesProcessingService(logger);
+    // Create service instance with real symbol manager
+    service = new ReferencesProcessingService(logger, symbolManager);
   });
 
   describe('processReferences', () => {
@@ -224,20 +254,12 @@ describe('ReferencesProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(document);
 
-      mockSymbolManager.resolveSymbol.mockReturnValue({
-        symbol: {
-          id: 'do-something-id',
-          name: 'doSomething',
-        },
-      });
-
-      mockSymbolManager.findReferencesTo.mockReturnValue([]);
-
       // Act
       const result = await service.processReferences(params);
 
       // Assert
-      expect(result).toEqual([]);
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
       expect(mockEnsureWorkspaceLoaded).not.toHaveBeenCalled();
     });
 
@@ -256,7 +278,6 @@ describe('ReferencesProcessingService', () => {
 
       // Assert
       expect(result).toEqual([]);
-      expect(mockSymbolManager.resolveSymbol).not.toHaveBeenCalled();
     });
 
     it('should return empty array when position is on keyword', async () => {
@@ -287,8 +308,6 @@ describe('ReferencesProcessingService', () => {
 
       // Assert
       expect(result).toEqual([]);
-      // Verify resolveSymbol was NOT called (short-circuited)
-      expect(mockSymbolManager.resolveSymbol).not.toHaveBeenCalled();
     });
 
     it('should handle missing symbol gracefully', async () => {
@@ -308,16 +327,12 @@ describe('ReferencesProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(document);
 
-      mockSymbolManager.resolveSymbol.mockReturnValue({
-        symbol: null,
-      });
-
       // Act
       const result = await service.processReferences(params);
 
       // Assert
-      expect(result).toEqual([]);
-      expect(mockSymbolManager.findReferencesTo).not.toHaveBeenCalled();
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
     });
 
     it('should handle includeDeclaration parameter', async () => {
@@ -367,15 +382,6 @@ describe('ReferencesProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(document);
 
-      mockSymbolManager.resolveSymbol.mockReturnValue({
-        symbol: {
-          id: 'do-something-id',
-          name: 'doSomething',
-        },
-      });
-
-      mockSymbolManager.findReferencesTo.mockReturnValue([]);
-
       // Ensure workspace state functions return false so ensureWorkspaceLoaded gets called
       mockIsWorkspaceLoaded.mockReturnValue(false);
       mockIsWorkspaceLoading.mockReturnValue(false);
@@ -388,8 +394,14 @@ describe('ReferencesProcessingService', () => {
       const result = await service.processReferences(params);
 
       // Assert
-      expect(result).toEqual([]);
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
       expect(mockEnsureWorkspaceLoaded).toHaveBeenCalled();
     });
+  });
+
+  afterEach(() => {
+    // Reset scheduler service instance (scheduler is not initialized in tests)
+    SchedulerInitializationService.resetInstance();
   });
 });

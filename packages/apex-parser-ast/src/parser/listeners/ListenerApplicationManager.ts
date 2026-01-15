@@ -20,9 +20,7 @@ import {
 } from './LayeredSymbolListenerBase';
 import { SymbolTable } from '../../types/symbol';
 import { ApexErrorListener } from './ApexErrorListener';
-import { PublicAPISymbolListener } from './PublicAPISymbolListener';
-import { ProtectedSymbolListener } from './ProtectedSymbolListener';
-import { PrivateSymbolListener } from './PrivateSymbolListener';
+import { VisibilitySymbolListener } from './VisibilitySymbolListener';
 
 export interface ParseTreeResult {
   parseTree: CompilationUnitContext | TriggerUnitContext | BlockContext;
@@ -207,13 +205,13 @@ export class ListenerApplicationManager {
 
     // Add in order
     if (neededLevels.has('public-api')) {
-      listeners.push(new PublicAPISymbolListener(symbolTable));
+      listeners.push(new VisibilitySymbolListener('public-api', symbolTable));
     }
     if (neededLevels.has('protected')) {
-      listeners.push(new ProtectedSymbolListener(symbolTable));
+      listeners.push(new VisibilitySymbolListener('protected', symbolTable));
     }
     if (neededLevels.has('private')) {
-      listeners.push(new PrivateSymbolListener(symbolTable));
+      listeners.push(new VisibilitySymbolListener('private', symbolTable));
     }
 
     // Add any requested listeners that weren't in the dependency chain
@@ -252,13 +250,13 @@ export class ListenerApplicationManager {
     for (const level of levels) {
       switch (level) {
         case 'public-api':
-          listeners.push(new PublicAPISymbolListener(table));
+          listeners.push(new VisibilitySymbolListener('public-api', table));
           break;
         case 'protected':
-          listeners.push(new ProtectedSymbolListener(table));
+          listeners.push(new VisibilitySymbolListener('protected', table));
           break;
         case 'private':
-          listeners.push(new PrivateSymbolListener(table));
+          listeners.push(new VisibilitySymbolListener('private', table));
           break;
         case 'full':
           // For 'full', would use ApexSymbolCollectorListener

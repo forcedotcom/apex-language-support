@@ -74,7 +74,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -86,7 +86,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -145,7 +147,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -157,7 +159,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -251,7 +255,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -263,7 +267,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -302,7 +308,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -314,7 +320,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -348,7 +356,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -360,7 +368,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -450,7 +460,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -462,7 +472,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -539,8 +551,11 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const serviceListener = new ApexSymbolCollectorListener();
-      const testListener = new ApexSymbolCollectorListener();
+      const serviceListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
+      const testListener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
 
       // Compile and add ServiceClass first (target)
@@ -550,9 +565,11 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         serviceListener,
       );
       expect(serviceResult.result).toBeDefined();
-      await symbolManager.addSymbolTable(
-        serviceResult.result!,
-        'file:///ServiceClass.cls',
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(
+          serviceResult.result!,
+          'file:///ServiceClass.cls',
+        ),
       );
 
       // Compile and add TestClass (source)
@@ -562,9 +579,11 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         testListener,
       );
       expect(testResult.result).toBeDefined();
-      await symbolManager.addSymbolTable(
-        testResult.result!,
-        'file:///TestClass.cls',
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(
+          testResult.result!,
+          'file:///TestClass.cls',
+        ),
       );
 
       // Wait for same-file reference processing
@@ -641,7 +660,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -653,7 +672,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -680,7 +701,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -692,7 +713,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -722,7 +745,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -734,7 +757,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -783,7 +808,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
         }
       `;
 
-      const listener = new ApexSymbolCollectorListener();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const compilerService = new CompilerService();
       const result = compilerService.compile(
         sourceCode,
@@ -795,7 +820,9 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       const symbolTable = result.result!;
 
       // Add the symbol table to the manager
-      await symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls');
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, 'file:///TestClass.cls'),
+      );
 
       // Wait for reference processing to complete
       await new Promise((resolve) => setTimeout(resolve, 100));

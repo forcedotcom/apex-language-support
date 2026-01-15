@@ -79,7 +79,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClass.cls',
@@ -87,9 +90,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -125,7 +130,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClass.cls',
@@ -133,9 +141,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -162,7 +172,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClass.cls',
@@ -170,9 +183,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -204,7 +219,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClass.cls',
@@ -212,9 +230,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -260,7 +280,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClass.cls',
@@ -268,9 +291,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -307,7 +332,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClass.cls',
@@ -315,9 +343,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -348,7 +378,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClass.cls',
@@ -356,9 +389,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -397,7 +432,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse FileUtilities and add it to the symbol manager
-      const fileUtilitiesListener = new ApexSymbolCollectorListener();
+      const fileUtilitiesListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const fileUtilitiesResult = compilerService.compile(
         fileUtilitiesContent,
         'file:///utils/FileUtilities.cls',
@@ -405,14 +443,19 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (fileUtilitiesResult.result) {
-        await symbolManager.addSymbolTable(
-          fileUtilitiesResult.result,
-          'file:///utils/FileUtilities.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            fileUtilitiesResult.result,
+            'file:///utils/FileUtilities.cls',
+          ),
         );
       }
 
       // Parse TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         '/test/TestClass.cls',
@@ -420,9 +463,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -453,7 +498,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse FileUtilities and add it to the symbol manager
-      const fileUtilitiesListener = new ApexSymbolCollectorListener();
+      const fileUtilitiesListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const fileUtilitiesResult = compilerService.compile(
         fileUtilitiesContent,
         'file:///utils/FileUtilities.cls',
@@ -461,14 +509,19 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (fileUtilitiesResult.result) {
-        await symbolManager.addSymbolTable(
-          fileUtilitiesResult.result,
-          'file:///utils/FileUtilities.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            fileUtilitiesResult.result,
+            'file:///utils/FileUtilities.cls',
+          ),
         );
       }
 
       // Parse TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         '/test/TestClass.cls',
@@ -476,9 +529,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -510,30 +565,37 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse and load Account
-      const accountListener = new ApexSymbolCollectorListener();
+      const accountListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const accountResult = compilerService.compile(
         accountContent,
         '/sobjects/Account.cls',
         accountListener,
       );
       if (accountResult.result) {
-        await symbolManager.addSymbolTable(
-          accountResult.result,
-          '/sobjects/Account.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            accountResult.result,
+            '/sobjects/Account.cls',
+          ),
         );
       }
 
       // Parse and load TestClass
-      const testListener = new ApexSymbolCollectorListener();
+      const testListener = new ApexSymbolCollectorListener(undefined, 'full');
       const testResult = compilerService.compile(
         testClassContent,
         'file:///test/TestClass.cls',
         testListener,
       );
       if (testResult.result) {
-        await symbolManager.addSymbolTable(
-          testResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -585,7 +647,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse Account and add it to the symbol manager
-      const accountListener = new ApexSymbolCollectorListener();
+      const accountListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const accountResult = compilerService.compile(
         accountContent,
         '/sobjects/Account.cls',
@@ -593,14 +658,19 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (accountResult.result) {
-        await symbolManager.addSymbolTable(
-          accountResult.result,
-          '/sobjects/Account.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            accountResult.result,
+            '/sobjects/Account.cls',
+          ),
         );
       }
 
       // Parse TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         '/test/TestClass.cls',
@@ -608,9 +678,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -644,7 +716,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse UtilityClass and add it to the symbol manager
-      const utilityClassListener = new ApexSymbolCollectorListener();
+      const utilityClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const utilityClassResult = compilerService.compile(
         utilityClassContent,
         '/utils/UtilityClass.cls',
@@ -652,14 +727,19 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (utilityClassResult.result) {
-        await symbolManager.addSymbolTable(
-          utilityClassResult.result,
-          '/utils/UtilityClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            utilityClassResult.result,
+            '/utils/UtilityClass.cls',
+          ),
         );
       }
 
       // Parse TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         '/test/TestClass.cls',
@@ -667,9 +747,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -701,7 +783,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse ServiceClass and add it to the symbol manager
-      const serviceClassListener = new ApexSymbolCollectorListener();
+      const serviceClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const serviceClassResult = compilerService.compile(
         serviceClassContent,
         '/services/ServiceClass.cls',
@@ -709,14 +794,19 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (serviceClassResult.result) {
-        await symbolManager.addSymbolTable(
-          serviceClassResult.result,
-          '/services/ServiceClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            serviceClassResult.result,
+            '/services/ServiceClass.cls',
+          ),
         );
       }
 
       // Parse TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         '/test/TestClass.cls',
@@ -724,9 +814,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          'file:///test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            'file:///test/TestClass.cls',
+          ),
         );
       }
 
@@ -763,7 +855,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         '/test/TestClass.cls',
@@ -771,9 +866,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -799,7 +896,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         '/test/TestClass.cls',
@@ -807,9 +907,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -836,7 +938,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         '/test/TestClass.cls',
@@ -844,9 +949,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -871,7 +978,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         '/test/TestClass.cls',
@@ -879,9 +989,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 
@@ -910,7 +1022,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const utilityClassContent = fs.readFileSync(utilityClassPath, 'utf8');
 
       for (let i = 0; i < 10; i++) {
-        const utilityClassListener = new ApexSymbolCollectorListener();
+        const utilityClassListener = new ApexSymbolCollectorListener(
+          undefined,
+          'full',
+        );
         const utilityClassResult = compilerService.compile(
           utilityClassContent,
           `/utils/UtilityClass${i}.cls`,
@@ -918,9 +1033,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
         );
 
         if (utilityClassResult.result) {
-          await symbolManager.addSymbolTable(
-            utilityClassResult.result,
-            `/utils/UtilityClass${i}.cls`,
+          await Effect.runPromise(
+            symbolManager.addSymbolTable(
+              utilityClassResult.result,
+              `/utils/UtilityClass${i}.cls`,
+            ),
           );
         }
       }
@@ -933,7 +1050,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
       // Parse the TestClass and add it to the symbol manager
-      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassListener = new ApexSymbolCollectorListener(
+        undefined,
+        'full',
+      );
       const testClassResult = compilerService.compile(
         testClassContent,
         '/test/TestClass.cls',
@@ -941,9 +1061,11 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       );
 
       if (testClassResult.result) {
-        await symbolManager.addSymbolTable(
-          testClassResult.result,
-          '/test/TestClass.cls',
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            testClassResult.result,
+            '/test/TestClass.cls',
+          ),
         );
       }
 

@@ -11,6 +11,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { DefinitionProcessingService } from '../../src/services/DefinitionProcessingService';
 import { ApexSymbol } from '@salesforce/apex-lsp-parser-ast';
+import * as WorkspaceLoadCoordinator from '../../src/services/WorkspaceLoadCoordinator';
 
 describe('DefinitionProcessingService', () => {
   let service: DefinitionProcessingService;
@@ -203,6 +204,11 @@ describe('DefinitionProcessingService', () => {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 2, character: 4 }, // Position on "if" keyword
       };
+
+      // Mock isWorkspaceLoaded to return true so missing artifact resolution is not triggered
+      jest
+        .spyOn(WorkspaceLoadCoordinator, 'isWorkspaceLoaded')
+        .mockReturnValue(true);
 
       // Keywords don't have TypeReferences - getReferencesAtPosition returns empty array
       jest

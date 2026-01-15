@@ -10,6 +10,7 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { ReferenceContext } from '../../src/types/symbolReference';
+import { Effect } from 'effect';
 
 describe('ApexSymbolManager - Return Type References', () => {
   let symbolManager: ApexSymbolManager;
@@ -24,24 +25,26 @@ describe('ApexSymbolManager - Return Type References', () => {
     symbolManager.clear();
   });
 
-  const addTestClass = (sourceCode: string, className: string) => {
+  const addTestClass = async (sourceCode: string, className: string) => {
     const testClassUri = `file:///test/${className}.cls`;
-    const listener = new ApexSymbolCollectorListener();
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
     const result = compilerService.compile(sourceCode, testClassUri, listener);
 
     if (result.result) {
-      symbolManager.addSymbolTable(result.result, testClassUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result, testClassUri),
+      );
     }
 
     return testClassUri;
   };
 
   describe('Method Return Type References', () => {
-    it('should capture simple return type references', () => {
+    it('should capture simple return type references', async () => {
       const testClass =
         "public class TestClass { public String getString() { return 'test'; } }";
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have a return type reference for String
@@ -52,7 +55,7 @@ describe('ApexSymbolManager - Return Type References', () => {
       expect(returnTypeRefs[0].name).toBe('String');
     });
 
-    it('should capture dotted return type references', () => {
+    it('should capture dotted return type references', async () => {
       const testClass = `
         public class TestClass {
           public System.Url getUrl() {
@@ -61,7 +64,7 @@ describe('ApexSymbolManager - Return Type References', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.Url (return type and method call)
@@ -77,7 +80,7 @@ describe('ApexSymbolManager - Return Type References', () => {
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('should capture generic return type references', () => {
+    it('should capture generic return type references', async () => {
       const testClass = `
         public class TestClass {
           public List<String> getStringList() {
@@ -86,7 +89,7 @@ describe('ApexSymbolManager - Return Type References', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have return type reference for List (the return type itself)
@@ -109,7 +112,7 @@ describe('ApexSymbolManager - Return Type References', () => {
       expect(genericParamRefs.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('should capture dotted generic return type references', () => {
+    it('should capture dotted generic return type references', async () => {
       const testClass = `
         public class TestClass {
           public List<System.Url> getUrlList() {
@@ -118,7 +121,7 @@ describe('ApexSymbolManager - Return Type References', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have return type references for List and System.Url
@@ -143,7 +146,7 @@ describe('ApexSymbolManager - Return Type References', () => {
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('should distinguish between return types and parameter types', () => {
+    it('should distinguish between return types and parameter types', async () => {
       const testClass = `
         public class TestClass {
           public System.Url processUrl(System.Url inputUrl) {
@@ -152,7 +155,7 @@ describe('ApexSymbolManager - Return Type References', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.Url (return type)
@@ -170,14 +173,14 @@ describe('ApexSymbolManager - Return Type References', () => {
   });
 
   describe('Interface Method Return Type References', () => {
-    it('should capture interface method return type references', () => {
+    it('should capture interface method return type references', async () => {
       const testClass = `
         public interface TestInterface {
           System.Url getUrl();
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestInterface');
+      const testClassUri = await addTestClass(testClass, 'TestInterface');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have a chained type reference for System.Url (dotted return types become chained)

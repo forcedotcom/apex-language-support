@@ -21,6 +21,7 @@ import {
   CodeLens,
   DeleteFilesParams,
   ExecuteCommandParams,
+  Connection,
 } from 'vscode-languageserver';
 import type {
   FindMissingArtifactParams,
@@ -121,6 +122,7 @@ export * from './registry';
  */
 export function initializeLSPQueueManager(
   symbolManager: ISymbolManager,
+  connection?: Connection,
 ): LSPQueueManager {
   const logger = getLogger();
   const serviceFactory = new ServiceFactory({
@@ -128,6 +130,7 @@ export function initializeLSPQueueManager(
     symbolManager,
     storageManager: ApexStorageManager.getInstance(),
     settingsManager: ApexSettingsManager.getInstance(),
+    connection,
   });
 
   const dependencies: LSPQueueManagerDependencies = {

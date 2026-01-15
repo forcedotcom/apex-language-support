@@ -42,17 +42,22 @@ describe('ResourceLoader', () => {
 
   afterEach(async () => {
     // Wait for any ongoing compilation to complete before resetting
-    // Use a timeout to prevent hanging if compilation is stuck
-    const instance = (ResourceLoader as any).instance;
+    const instance = ResourceLoader.getInstance({ loadMode: 'lazy' });
     if (instance) {
       let timeoutId: NodeJS.Timeout | null = null;
       try {
-        await Promise.race([
-          instance.waitForCompilation(),
-          new Promise<void>((resolve) => {
-            timeoutId = setTimeout(resolve, 5000); // 5 second timeout
-          }),
-        ]);
+        // First check if compilation is in progress
+        if (instance.isCompiling()) {
+          await Promise.race([
+            instance.waitForCompilation(),
+            new Promise<void>((resolve) => {
+              timeoutId = setTimeout(resolve, 2000); // 2 second timeout
+            }),
+          ]);
+        } else {
+          // Even if not compiling, wait briefly to ensure all Effect operations complete
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
       } catch (_error) {
         // Ignore errors during cleanup
       } finally {
@@ -64,7 +69,9 @@ describe('ResourceLoader', () => {
         instance.interruptCompilation();
       }
     }
-    (ResourceLoader as any).instance = null;
+    ResourceLoader.resetInstance();
+    // Final delay to ensure all cleanup completes (following pattern from other tests)
+    await new Promise((resolve) => setTimeout(resolve, 100));
   });
 
   describe('getInstance', () => {
@@ -320,6 +327,8 @@ describe('ResourceLoader', () => {
 
   describe('enhanced statistics', () => {
     it('should provide comprehensive statistics', async () => {
+      // Ensure singleton is reset before creating new instance
+      ResourceLoader.resetInstance();
       loader = ResourceLoader.getInstance({
         loadMode: 'lazy',
         zipBuffer: standardLibZip,
@@ -355,7 +364,7 @@ describe('ResourceLoader Compilation', () => {
       standardLibZip = loadStandardLibraryZip();
 
       // Reset the singleton to ensure we get a fresh instance
-      (ResourceLoader as any).instance = null;
+      ResourceLoader.resetInstance();
 
       sharedCompiledLoader = ResourceLoader.getInstance({
         loadMode: 'full',
@@ -398,7 +407,7 @@ describe('ResourceLoader Compilation', () => {
       }
     }
     // Clean up the shared instance
-    (ResourceLoader as any).instance = null;
+    ResourceLoader.resetInstance();
     sharedCompiledLoader = null;
   });
 
@@ -410,22 +419,16 @@ describe('ResourceLoader Compilation', () => {
   it('should not compile artifacts when loadMode is lazy', async () => {
     // Create a separate lazy loader instance for this test
     // We need to temporarily reset the singleton to test lazy mode properly
-    const originalInstance = (ResourceLoader as any).instance;
-    (ResourceLoader as any).instance = null;
+    ResourceLoader.resetInstance();
 
-    try {
-      const lazyLoader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
-        zipBuffer: standardLibZip,
-      });
-      await lazyLoader.initialize();
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      const compiledArtifacts = lazyLoader.getAllCompiledArtifacts();
-      expect(compiledArtifacts.size).toBe(0);
-    } finally {
-      // Restore the original instance
-      (ResourceLoader as any).instance = originalInstance;
-    }
+    const lazyLoader = ResourceLoader.getInstance({
+      loadMode: 'lazy',
+      zipBuffer: standardLibZip,
+    });
+    await lazyLoader.initialize();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const compiledArtifacts = lazyLoader.getAllCompiledArtifacts();
+    expect(compiledArtifacts.size).toBe(0);
   });
 
   it('should get compiled artifact for specific file', async () => {
@@ -527,7 +530,7 @@ describe('ResourceLoader Lazy Loading', () => {
 
   beforeEach(() => {
     // Reset singleton for each test
-    (ResourceLoader as any).instance = null;
+    ResourceLoader.resetInstance();
     loader = ResourceLoader.getInstance({
       loadMode: 'lazy',
       zipBuffer: standardLibZip,
@@ -536,7 +539,7 @@ describe('ResourceLoader Lazy Loading', () => {
 
   afterEach(async () => {
     // Wait for any ongoing compilation to complete before resetting
-    const instance = (ResourceLoader as any).instance;
+    const instance = ResourceLoader.getInstance({ loadMode: 'lazy' });
     if (instance) {
       try {
         await instance.waitForCompilation();
@@ -544,7 +547,7 @@ describe('ResourceLoader Lazy Loading', () => {
         // Ignore errors during cleanup
       }
     }
-    (ResourceLoader as any).instance = null;
+    ResourceLoader.resetInstance();
   });
 
   describe('loadAndCompileClass', () => {
@@ -740,7 +743,7 @@ describe('ResourceLoader Compilation Quality Analysis', () => {
   beforeAll(async () => {
     // Set up a loader that compiles a few classes for debugging
     standardLibZip = loadStandardLibraryZip();
-    (ResourceLoader as any).instance = null;
+    ResourceLoader.resetInstance();
     singleClassLoader = ResourceLoader.getInstance({
       loadMode: 'lazy',
       zipBuffer: standardLibZip,
@@ -791,7 +794,7 @@ describe('ResourceLoader Compilation Quality Analysis', () => {
         singleClassLoader.interruptCompilation();
       }
     }
-    (ResourceLoader as any).instance = null;
+    ResourceLoader.resetInstance();
     singleClassLoader = null;
   });
 
@@ -1257,6 +1260,40 @@ describe('ResourceLoader Compilation Quality Analysis', () => {
       // Stubs are expected to have compilation issues, so we focus on basic structure
       const topNamespaces = sortedNamespaces.slice(0, 5);
       topNamespaces.forEach(([namespace, quality]) => {
+        const errorPenalty = quality.errorCount * 5;
+        const warningPenalty = quality.warningCount * 2;
+        const symbolBonus = quality.symbolCount / quality.fileCount;
+        const rawScore = 100 - errorPenalty - warningPenalty + symbolBonus;
+
+        // Diagnostic: Log breakdown for all top namespaces
+        console.log(`\nNamespace "${namespace}" quality breakdown:`);
+        console.log(`  fileCount: ${quality.fileCount}`);
+        console.log(
+          `  errorCount: ${quality.errorCount} (penalty: ${errorPenalty})`,
+        );
+        console.log(
+          `  warningCount: ${quality.warningCount} (penalty: ${warningPenalty})`,
+        );
+        console.log(
+          `  symbolCount: ${quality.symbolCount} (bonus: ${symbolBonus.toFixed(2)})`,
+        );
+        console.log(`  successRate: ${quality.successRate.toFixed(2)}%`);
+        console.log(`  rawScore: ${rawScore.toFixed(2)}`);
+        console.log(`  qualityScore: ${quality.qualityScore}`);
+
+        // Show breakdown in error message if quality score fails
+        if (quality.qualityScore <= 30) {
+          throw new Error(
+            `Quality score too low for namespace "${namespace}": ` +
+              `score=${quality.qualityScore}, ` +
+              `files=${quality.fileCount}, ` +
+              `errors=${quality.errorCount} (penalty=${errorPenalty}), ` +
+              `warnings=${quality.warningCount} (penalty=${warningPenalty}), ` +
+              `symbols=${quality.symbolCount} (bonus=${symbolBonus.toFixed(2)}), ` +
+              `rawScore=${rawScore.toFixed(2)}`,
+          );
+        }
+
         // Top namespaces should have reasonable success rate for stubs
         expect(quality.successRate).toBeGreaterThan(40);
         // Top namespaces should have reasonable quality score for stubs

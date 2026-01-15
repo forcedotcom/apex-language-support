@@ -14,6 +14,14 @@ import {
   ApexSettingsManager,
   DEFAULT_APEX_SETTINGS,
 } from '@salesforce/apex-lsp-shared';
+
+/**
+ * Yield to the Node.js event loop using setImmediate for immediate yielding
+ * This is more effective than Effect.sleep(0) which may use setTimeout
+ */
+const yieldToEventLoop = Effect.async<void>((resume) => {
+  setImmediate(() => resume(Effect.void));
+});
 import {
   ApexSymbol,
   SymbolKind,
@@ -79,7 +87,11 @@ import { CommentAssociator } from '../utils/CommentAssociator';
 import {
   isChainedSymbolReference,
   isBlockSymbol,
+  isMethodSymbol,
 } from '../utils/symbolNarrowing';
+import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
+import { CompilerService } from '../parser/compilerService';
+import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 
 /**
  * Context for chain resolution - discriminated union for type safety
@@ -154,6 +166,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private readonly isStaticCache = new WeakMap<SymbolReference, boolean>();
   // Batch size for initial reference processing
   private readonly initialReferenceBatchSize: number;
+  // Track detail level per file for enrichment
+  private readonly fileDetailLevels: HashMap<string, DetailLevel> =
+    new HashMap();
+  // Compiler service for enrichment operations
+  private readonly compilerService: CompilerService;
 
   constructor() {
     // Get settings from ApexSettingsManager (with fallback for test environments)
@@ -216,6 +233,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // Initialize ApexSymbolGraph with deferred reference processing settings
     this.symbolGraph = new ApexSymbolGraph(deferredReferenceSettings);
     ApexSymbolGraph.setInstance(this.symbolGraph);
+
+    // Initialize compiler service for enrichment operations
+    this.compilerService = new CompilerService();
 
     // Register settings change listener if settings manager is available
     if (
@@ -476,6 +496,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const symbols = this.symbolGraph.getSymbolsInFile(normalizedUri);
     this.unifiedCache.set(cacheKey, symbols, 'file_lookup');
     return symbols;
+  }
+
+  /**
+   * Get SymbolTable for a file
+   * @param fileUri The file URI
+   * @returns The SymbolTable for the file, or undefined if not found
+   */
+  getSymbolTableForFile(fileUri: string): SymbolTable | undefined {
+    // Convert fileUri to proper URI format to match how symbols are stored
+    const properUri =
+      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+
+    // Normalize URI using the same logic as getSymbolsInFile() to ensure consistency
+    const normalizedUri = extractFilePathFromUri(properUri);
+
+    return this.symbolGraph.getSymbolTableForFile(normalizedUri);
   }
 
   /**
@@ -1644,73 +1680,101 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @param symbolTable The symbol table to add
    * @param fileUri The file URI associated with the symbol table
    */
-  async addSymbolTable(
+  /**
+   * Add a symbol table to the manager.
+   * This method processes same-file references immediately (for graph edges and scope resolution)
+   * and defers cross-file references for on-demand resolution to avoid queue pressure during workspace loading.
+   * Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics).
+   *
+   * @param symbolTable The symbol table to add
+   * @param fileUri The file URI associated with the symbol table
+   * @returns Effect that resolves when the symbol table is added
+   */
+  addSymbolTable(
     symbolTable: SymbolTable,
     fileUri: string,
-  ): Promise<void> {
-    // Convert fileUri to proper URI format to match symbol ID generation
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const addStartTime = Date.now();
 
-    // Normalize URI using extractFilePathFromUri to ensure consistency with SymbolTable registration
-    // This ensures that fileIndex lookups will find the symbols
-    const normalizedUri = extractFilePathFromUri(properUri);
+      // Convert fileUri to proper URI format to match symbol ID generation
+      const properUri =
+        getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
 
-    // Register SymbolTable once for the entire file before processing symbols
-    // This avoids redundant registration calls for each symbol
-    this.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
+      // Normalize URI using extractFilePathFromUri to ensure consistency with SymbolTable registration
+      // This ensures that fileIndex lookups will find the symbols
+      const normalizedUri = extractFilePathFromUri(properUri);
 
-    // Add all symbols from the symbol table
-    const symbols = symbolTable.getAllSymbols
-      ? symbolTable.getAllSymbols()
-      : [];
+      // Register SymbolTable once for the entire file before processing symbols
+      // This avoids redundant registration calls for each symbol
+      self.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
 
-    // Update all symbols to use the normalized URI
-    // Process in batches with yields for large symbol tables to prevent blocking
-    const batchSize = 100;
-    const symbolNamesAdded = new Set<string>();
-    for (let i = 0; i < symbols.length; i++) {
-      const symbol = symbols[i];
-      // Update the symbol's fileUri to match the normalized URI
-      symbol.fileUri = normalizedUri;
-      // Pass undefined for symbolTable since it's already registered above
-      // addSymbol() will use the registered SymbolTable via ensureSymbolTableForFile()
-      this.addSymbol(symbol, normalizedUri, undefined);
-      symbolNamesAdded.add(symbol.name);
+      // Add all symbols from the symbol table
+      const symbols = symbolTable.getAllSymbols
+        ? symbolTable.getAllSymbols()
+        : [];
 
-      // Yield every batchSize symbols to allow other tasks to run
-      if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
-        // Use setTimeout to yield to event loop
-        await new Promise((resolve) => setTimeout(resolve, 0));
+      // Update all symbols to use the normalized URI
+      // Process in batches with yields for large symbol tables to prevent blocking
+      const batchSize = 100;
+      const symbolNamesAdded = new Set<string>();
+      let yieldsPerformed = 0;
+      for (let i = 0; i < symbols.length; i++) {
+        const symbol = symbols[i];
+        // Update the symbol's fileUri to match the normalized URI
+        symbol.fileUri = normalizedUri;
+        // Pass undefined for symbolTable since it's already registered above
+        // addSymbol() will use the registered SymbolTable via ensureSymbolTableForFile()
+        self.addSymbol(symbol, normalizedUri, undefined);
+        symbolNamesAdded.add(symbol.name);
+
+        // Yield every batchSize symbols to allow other tasks to run
+        if ((i + 1) % batchSize === 0 && i + 1 < symbols.length) {
+          yieldsPerformed++;
+          yield* yieldToEventLoop; // Yield to event loop using setImmediate
+        }
       }
-    }
 
-    // Invalidate cache for all symbol names that were added
-    // This ensures that findSymbolByName() will see the newly added symbols
-    for (const symbolName of symbolNamesAdded) {
-      // Normalize to lowercase to match cache key format in findSymbolByName()
-      const normalizedName = symbolName.toLowerCase();
-      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
-    }
+      const addDuration = Date.now() - addStartTime;
+      if (addDuration > 50 || yieldsPerformed > 0) {
+        self.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Added ${symbols.length} symbols for ${normalizedUri} ` +
+            `in ${addDuration}ms (${yieldsPerformed} yields)`,
+        );
+      }
 
-    // Invalidate file-based cache when symbols are added to a file
-    // This ensures that findSymbolsInFile() will see the newly added symbols
-    this.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
+      // Invalidate cache for all symbol names that were added
+      // This ensures that findSymbolByName() will see the newly added symbols
+      for (const symbolName of symbolNamesAdded) {
+        // Normalize to lowercase to match cache key format in findSymbolByName()
+        const normalizedName = symbolName.toLowerCase();
+        self.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
+      }
 
-    // Also invalidate name-based cache to ensure findSymbolByName works correctly
-    for (const symbolName of symbolNamesAdded) {
-      const normalizedName = symbolName.toLowerCase();
-      this.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
-    }
+      // Invalidate file-based cache when symbols are added to a file
+      // This ensures that findSymbolsInFile() will see the newly added symbols
+      self.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
 
-    // Process same-file references immediately (cheap, synchronous, needed for graph edges)
-    // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
-    await this.processSameFileReferencesToGraph(symbolTable, normalizedUri);
+      // Also invalidate name-based cache to ensure findSymbolByName works correctly
+      for (const symbolName of symbolNamesAdded) {
+        const normalizedName = symbolName.toLowerCase();
+        self.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
+      }
 
-    // Sync memory stats with the graph's stats to ensure consistency
-    // The graph is the source of truth for symbol counts
-    const graphStats = this.symbolGraph.getStats();
-    this.memoryStats.totalSymbols = graphStats.totalSymbols;
+      // Process same-file references immediately (cheap, synchronous, needed for graph edges)
+      // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
+      yield* self.processSameFileReferencesToGraphEffect(
+        symbolTable,
+        normalizedUri,
+      );
+
+      // Sync memory stats with the graph's stats to ensure consistency
+      // The graph is the source of truth for symbol counts
+      const graphStats = self.symbolGraph.getStats();
+      self.memoryStats.totalSymbols = graphStats.totalSymbols;
+    });
   }
 
   /**
@@ -3584,16 +3648,48 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // If class block wasn't in the hierarchy (because getScopeHierarchy only follows blocks),
-      // we need to find it by traversing up through method symbols
-      // Method blocks -> method symbols -> class block (method symbol's parentId points to class block)
+      // we need to find it by traversing up through the parentId chain
+      // Method blocks can point directly to class blocks (not through method symbols)
       for (const blockSymbol of parentScopeSearchOrder) {
         if (!isBlockSymbol(blockSymbol)) {
           continue;
         }
-        // If this is a method block, find its parent method symbol, then use that to find the class block
+        // If this is a method block, check if its parentId points directly to a class block
         if (blockSymbol.scopeType === 'method' && blockSymbol.parentId) {
+          // First try: method block -> class block (direct relationship)
+          const directClassBlock = allFileSymbols.find(
+            (s) =>
+              isBlockSymbol(s) &&
+              s.scopeType === 'class' &&
+              s.id === blockSymbol.parentId,
+          );
+          if (directClassBlock) {
+            // Look for fields in the class block
+            const classFields = allFileSymbols.filter(
+              (s) =>
+                s.name === typeReference.name &&
+                s.parentId === directClassBlock.id &&
+                s.kind === SymbolKind.Field,
+            );
+            if (classFields.length > 0) {
+              return classFields[0];
+            }
+            // Also look for methods in the class block
+            const classMethods = allFileSymbols.filter(
+              (s) =>
+                s.name === typeReference.name &&
+                s.parentId === directClassBlock.id &&
+                s.kind === SymbolKind.Method,
+            );
+            if (classMethods.length > 0) {
+              return classMethods[0];
+            }
+          }
+
+          // Second try: method block -> method symbol -> class block (for compatibility)
           const methodSymbol = allFileSymbols.find(
-            (s) => s.id === blockSymbol.parentId,
+            (s) =>
+              s.id === blockSymbol.parentId && s.kind === SymbolKind.Method,
           );
           if (methodSymbol && methodSymbol.parentId) {
             // Method symbol's parentId points to the class block
@@ -3754,13 +3850,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // If a SymbolReference was created, it means the parser determined it's being used
       // as an identifier (from id/anyId context), not as a keyword (accessLevel context)
 
-      // Step 3: For CLASS_REFERENCE, skip scope-based resolution and go straight to name lookup
-      // CLASS_REFERENCE is meant to reference classes from other files, not local variables
+      // Step 3: For CLASS_REFERENCE, CONSTRUCTOR_CALL, and GENERIC_PARAMETER_TYPE,
+      // skip scope-based resolution and go straight to name lookup
+      // These contexts reference classes/types, not local variables
       // Also handle VARIABLE_USAGE that matches a class qualifier (sometimes incorrectly created)
       // When VARIABLE_USAGE is used for a class qualifier, try to resolve it as a class
       // We check if VARIABLE_USAGE matches a class name, and if so, treat it as CLASS_REFERENCE
       const isClassReferenceContext =
         typeReference.context === ReferenceContext.CLASS_REFERENCE ||
+        typeReference.context === ReferenceContext.CONSTRUCTOR_CALL ||
+        typeReference.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
         (typeReference.context === ReferenceContext.VARIABLE_USAGE &&
           // For VARIABLE_USAGE, try to resolve as class if it matches a class name
           // This handles cases where VARIABLE_USAGE is incorrectly used for class qualifiers
@@ -3776,18 +3875,58 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             return hasClassMatch || candidates.length === 0;
           })());
       if (isClassReferenceContext) {
+        // For GENERIC_PARAMETER_TYPE and CLASS_REFERENCE, resolve as class/type
+        // Use findSymbolByName which searches across all files via nameIndex
         const candidates = this.findSymbolByName(typeReference.name);
-        if (candidates.length === 0) {
-          return null;
-        }
+
         // Filter to class symbols only
-        const classCandidates = candidates.filter(
+        let classCandidates = candidates.filter(
           (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
         );
+
+        // Fallback: if name-based lookup found nothing, search symbol tables directly
+        // This handles cases where symbols exist but haven't been indexed by name yet
+        // or where indexing hasn't completed yet
+        if (classCandidates.length === 0) {
+          // Search the source file's symbol table first
+          const sourceSymbolTable =
+            this.symbolGraph.getSymbolTableForFile(sourceFile);
+          if (sourceSymbolTable) {
+            const allSymbols = sourceSymbolTable.getAllSymbols();
+            classCandidates = allSymbols.filter(
+              (s) =>
+                s.name === typeReference.name &&
+                (s.kind === SymbolKind.Class ||
+                  s.kind === SymbolKind.Interface),
+            );
+          }
+
+          // If still not found, iterate through all registered symbol tables
+          // This ensures we find classes in other files even if nameIndex isn't updated yet
+          if (classCandidates.length === 0) {
+            const fileToSymbolTable = this.symbolGraph.getFileToSymbolTable();
+            for (const [_fileUri, symbolTable] of fileToSymbolTable.entries()) {
+              if (!symbolTable) continue;
+              const allSymbols = symbolTable.getAllSymbols();
+              const found = allSymbols.filter(
+                (s: ApexSymbol) =>
+                  s.name === typeReference.name &&
+                  (s.kind === SymbolKind.Class ||
+                    s.kind === SymbolKind.Interface),
+              );
+              if (found.length > 0) {
+                classCandidates = found;
+                break;
+              }
+            }
+          }
+        }
+
         if (classCandidates.length > 0) {
           // Prefer same-file classes, then accessible classes
+          // Use fileUri for comparison as it's more reliable than key.path[0]
           const sameFileClass = classCandidates.find(
-            (s) => s.key.path[0] === sourceFile,
+            (s) => s.fileUri === sourceFile || s.key.path[0] === sourceFile,
           );
           if (sameFileClass) {
             return sameFileClass;
@@ -3823,8 +3962,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Step 5: For unqualified references, try same-file resolution first
+      // Use fileUri for comparison as it's more reliable than key.path[0]
       const sameFileCandidates = candidates.filter(
-        (symbol) => symbol.key.path[0] === sourceFile,
+        (symbol) =>
+          symbol.fileUri === sourceFile || symbol.key.path[0] === sourceFile,
       );
 
       if (sameFileCandidates.length > 0) {
@@ -4196,7 +4337,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (artifact && artifact.compilationResult?.result) {
         // Convert classPath to proper URI scheme for standard Apex library classes
         const fileUri = this.convertToStandardLibraryUri(classPath);
-        await this.addSymbolTable(artifact.compilationResult.result, fileUri);
+        await Effect.runPromise(
+          this.addSymbolTable(artifact.compilationResult.result, fileUri),
+        );
 
         // Update the class symbol's fileUri to use the new URI scheme
         classSymbol.fileUri = fileUri;
@@ -4269,7 +4412,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   async refresh(symbolTable: any): Promise<void> {
     // Clear existing data and reload from symbol table
     this.clear();
-    await this.addSymbolTable(symbolTable, 'refreshed');
+    await Effect.runPromise(this.addSymbolTable(symbolTable, 'refreshed'));
   }
 
   // Performance Monitoring
@@ -5081,7 +5224,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
         if (artifact?.compilationResult?.result) {
           // Add the symbol table to the symbol manager to get all symbols including methods
-          await this.addSymbolTable(artifact.compilationResult.result, fileUri);
+          await Effect.runPromise(
+            this.addSymbolTable(artifact.compilationResult.result, fileUri),
+          );
 
           // Find the class symbol from the loaded symbol table
           const symbols = artifact.compilationResult.result.getAllSymbols();
@@ -5347,19 +5492,48 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             symbol.location.identifierRange,
           )
         ) {
-          // Only return for declaration symbols (variable, field, method, class, etc.)
-          // Skip if there are references at this position (indicates a usage, not a declaration)
+          // Check if there are references at this position
           const refsAtPosition = this.getReferencesAtPosition(
             fileUri,
             position,
           );
+
           if (refsAtPosition.length === 0) {
             // No references means this is a declaration - return the symbol directly
             return symbol;
           }
-          // If there are references, continue to reference-based resolution
-          // (references take precedence for method calls, chained expressions, etc.)
-          break;
+
+          // If there are references, check if any are METHOD_CALL references
+          // METHOD_CALL references should be prioritized over variable declarations
+          const methodCallRefs = refsAtPosition.filter(
+            (ref) => ref.context === ReferenceContext.METHOD_CALL,
+          );
+
+          if (methodCallRefs.length > 0) {
+            // METHOD_CALL references exist - prioritize resolving them
+            // Skip the fast path fallback and continue to main reference resolution logic
+            // which handles METHOD_CALL prioritization properly
+            break;
+          }
+
+          // If there are references but no METHOD_CALL references, try to resolve the first one
+          // But if it doesn't resolve to a symbol, fall back to the declaration
+          // This handles cases where references exist but don't resolve (e.g., invalid references)
+          // and ensures declarations are still accessible via hover (e.g., method names in declarations)
+          const resolvedFromRef = await this.resolveSymbolReferenceToSymbol(
+            refsAtPosition[0],
+            fileUri,
+            position,
+          );
+
+          if (resolvedFromRef) {
+            // Reference resolved to a symbol - use that (for method calls, chained expressions, etc.)
+            return resolvedFromRef;
+          }
+
+          // References exist but didn't resolve - this is likely a declaration
+          // Return the declaration symbol so hover works on method/field names in declarations
+          return symbol;
         }
       }
 
@@ -5368,9 +5542,45 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const typeReferences = this.getReferencesAtPosition(fileUri, position);
 
       if (typeReferences.length > 0) {
-        // Step 2: For chained references, find the most specific reference for this position
-        // If position is on a specific chain member, prefer references that match that member
+        // Step 2: Prioritize GENERIC_PARAMETER_TYPE and CLASS_REFERENCE references first
+        // These should be resolved as classes/types, not variables or methods
+        const genericParamRefs = typeReferences.filter(
+          (ref) => ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
+        );
+        const classRefs = typeReferences.filter(
+          (ref) => ref.context === ReferenceContext.CLASS_REFERENCE,
+        );
+
+        // Prefer GENERIC_PARAMETER_TYPE or CLASS_REFERENCE if available and position matches
         let referenceToResolve = typeReferences[0];
+        if (genericParamRefs.length > 0 || classRefs.length > 0) {
+          const typeRefs = [...genericParamRefs, ...classRefs];
+          // Find the type reference that matches the position
+          for (const typeRef of typeRefs) {
+            const typeLoc = typeRef.location.identifierRange;
+            const isWithinIdentifierRange =
+              position.line >= typeLoc.startLine &&
+              position.line <= typeLoc.endLine &&
+              position.character >= typeLoc.startColumn &&
+              position.character <= typeLoc.endColumn;
+            if (isWithinIdentifierRange) {
+              referenceToResolve = typeRef;
+              break;
+            }
+          }
+          // If no exact match, use the first type reference as fallback
+          if (referenceToResolve === typeReferences[0] && typeRefs.length > 0) {
+            referenceToResolve = typeRefs[0];
+          }
+        }
+
+        // Step 2b: For chained references, find the most specific reference for this position
+        // If position is on a specific chain member, prefer references that match that member
+        // BUT: Don't override GENERIC_PARAMETER_TYPE or CLASS_REFERENCE if we've already selected one
+        const isTypeReferenceSelected =
+          referenceToResolve.context ===
+            ReferenceContext.GENERIC_PARAMETER_TYPE ||
+          referenceToResolve.context === ReferenceContext.CLASS_REFERENCE;
 
         // Prioritize chained references when position matches a chain member
         // This ensures we resolve the correct part of the chain (e.g., "System" in "System.Url")
@@ -5379,7 +5589,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
 
         // Always prefer chained references over non-chained references when available
-        if (chainedRefs.length > 0) {
+        // BUT: Don't override type references (GENERIC_PARAMETER_TYPE, CLASS_REFERENCE) if already selected
+        if (chainedRefs.length > 0 && !isTypeReferenceSelected) {
           // Check each chained reference to find the one that matches the position
           for (const ref of chainedRefs) {
             const chainNodes = (ref as ChainedSymbolReference).chainNodes;
@@ -5438,28 +5649,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             );
             if (chainMember) {
               // Found a chained reference with a specific member at this position
-              // Prefer chained references that have resolved parts (indicates better context)
-              const firstNodeHasResolution =
-                chainNodes[0]?.resolvedSymbolId !== undefined;
-              const isOnMethodOrProperty = chainMember.index > 0;
-
-              // Prefer this chained reference if:
-              // 1. We're on a method/property call (not the first node), OR
-              // 2. The first node has been resolved (indicates successful variable resolution)
-              if (isOnMethodOrProperty || firstNodeHasResolution) {
-                // This chained reference has more context - prefer it over standalone references
-                referenceToResolve = ref;
-                break;
-              } else {
-                // Still prefer chained reference over standalone, but mark it for potential override
-                // if we find a better one later
-                if (
-                  !isChainedSymbolReference(referenceToResolve) ||
-                  referenceToResolve === typeReferences[0]
-                ) {
-                  referenceToResolve = ref;
-                }
-              }
+              // Always prefer chained references over standalone references when position matches
+              // This ensures 'this.method().anotherMethod()' chains are resolved correctly
+              referenceToResolve = ref;
+              break;
             }
 
             // If position is within the first node's range (but not at the start)
@@ -5560,30 +5753,37 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           }
         }
 
-        // If no chained reference was selected, prioritize CLASS_REFERENCE over METHOD_CALL
-        // when position matches the qualifier location (for qualified calls like FileUtilities.createFile)
+        // If no chained reference was selected, prioritize CLASS_REFERENCE and GENERIC_PARAMETER_TYPE
+        // over METHOD_CALL when position matches (for class references and generic type parameters)
         if (!isChainedSymbolReference(referenceToResolve)) {
           const classRefs = typeReferences.filter(
             (ref) => ref.context === ReferenceContext.CLASS_REFERENCE,
+          );
+          const genericParamRefs = typeReferences.filter(
+            (ref) => ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
           );
           const methodRefs = typeReferences.filter(
             (ref) => ref.context === ReferenceContext.METHOD_CALL,
           );
 
-          // If we have both CLASS_REFERENCE and METHOD_CALL, check if position matches qualifier
-          if (classRefs.length > 0 && methodRefs.length > 0) {
-            // Check if any CLASS_REFERENCE matches the exact position
-            for (const classRef of classRefs) {
-              const classLoc = classRef.location.identifierRange;
+          // Combine class and generic parameter references (both resolve to classes)
+          const typeRefs = [...classRefs, ...genericParamRefs];
+
+          // If we have both type references (CLASS_REFERENCE/GENERIC_PARAMETER_TYPE) and METHOD_CALL,
+          // check if position matches type reference
+          if (typeRefs.length > 0 && methodRefs.length > 0) {
+            // Check if any type reference matches the exact position
+            for (const typeRef of typeRefs) {
+              const typeLoc = typeRef.location.identifierRange;
               // Check if position is within the identifier range
               const isWithinIdentifierRange =
-                position.line >= classLoc.startLine &&
-                position.line <= classLoc.endLine &&
-                position.character >= classLoc.startColumn &&
-                position.character <= classLoc.endColumn;
+                position.line >= typeLoc.startLine &&
+                position.line <= typeLoc.endLine &&
+                position.character >= typeLoc.startColumn &&
+                position.character <= typeLoc.endColumn;
 
               // Also check the symbol range as fallback
-              const symbolRange = classRef.location.symbolRange;
+              const symbolRange = typeRef.location.symbolRange;
               const isWithinSymbolRange =
                 position.line >= symbolRange.startLine &&
                 position.line <= symbolRange.endLine &&
@@ -5591,21 +5791,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 position.character <= symbolRange.endColumn;
 
               if (isWithinIdentifierRange || isWithinSymbolRange) {
-                // Position matches CLASS_REFERENCE - prefer it over METHOD_CALL
-                referenceToResolve = classRef;
+                // Position matches type reference - prefer it over METHOD_CALL
+                referenceToResolve = typeRef;
                 break;
               }
             }
-          } else if (classRefs.length > 0) {
-            // Only CLASS_REFERENCE available - use it if position matches
-            for (const classRef of classRefs) {
-              const classLoc = classRef.location.identifierRange;
-              const symbolRange = classRef.location.symbolRange;
+          } else if (typeRefs.length > 0) {
+            // Only type references available - use it if position matches
+            for (const typeRef of typeRefs) {
+              const typeLoc = typeRef.location.identifierRange;
+              const symbolRange = typeRef.location.symbolRange;
               const isWithinIdentifierRange =
-                position.line >= classLoc.startLine &&
-                position.line <= classLoc.endLine &&
-                position.character >= classLoc.startColumn &&
-                position.character <= classLoc.endColumn;
+                position.line >= typeLoc.startLine &&
+                position.line <= typeLoc.endLine &&
+                position.character >= typeLoc.startColumn &&
+                position.character <= typeLoc.endColumn;
               const isWithinSymbolRange =
                 position.line >= symbolRange.startLine &&
                 position.line <= symbolRange.endLine &&
@@ -5613,16 +5813,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 position.character <= symbolRange.endColumn;
 
               if (isWithinIdentifierRange || isWithinSymbolRange) {
-                referenceToResolve = classRef;
+                referenceToResolve = typeRef;
                 break;
               }
             }
             // If no match found, use the first one as fallback
             if (
               referenceToResolve === typeReferences[0] &&
-              classRefs.length > 0
+              typeRefs.length > 0
             ) {
-              referenceToResolve = classRefs[0];
+              referenceToResolve = typeRefs[0];
             }
           }
         }
@@ -6114,6 +6314,60 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
     }
 
+    // Strategy 1.6: Try method resolution in current class when there's no current context
+    // This handles 'this.method()' chains where the first node is a method call
+    // and should resolve to a method in the current class
+    if (
+      !currentContext &&
+      step.context === ReferenceContext.METHOD_CALL &&
+      fileUri &&
+      step.location
+    ) {
+      // Try to find the method in the current class using scope-based resolution
+      const position = {
+        line:
+          step.location.identifierRange?.startLine ??
+          step.location.symbolRange.startLine,
+        character:
+          step.location.identifierRange?.startColumn ??
+          step.location.symbolRange.startColumn,
+      };
+      const scopeBasedSymbol = this.resolveUnqualifiedReferenceByScope(
+        step,
+        fileUri,
+        position,
+      );
+      if (
+        scopeBasedSymbol &&
+        scopeBasedSymbol.kind === SymbolKind.Method &&
+        scopeBasedSymbol.name === stepName
+      ) {
+        resolutions.push({ type: 'symbol', symbol: scopeBasedSymbol });
+      } else {
+        // Fallback: Try to find the method in the current class via symbol table
+        const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+        if (symbolTable) {
+          const allSymbols = symbolTable.getAllSymbols();
+          // Find methods in the current class that match the step name
+          const methodSymbols = allSymbols.filter(
+            (s) => s.kind === SymbolKind.Method && s.name === stepName,
+          );
+          if (methodSymbols.length > 0) {
+            // Prefer non-static methods for 'this.method()' chains
+            const instanceMethod = methodSymbols.find(
+              (s) => !s.modifiers?.isStatic,
+            );
+            if (instanceMethod) {
+              resolutions.push({ type: 'symbol', symbol: instanceMethod });
+            } else {
+              // Fall back to any method if no instance method found
+              resolutions.push({ type: 'symbol', symbol: methodSymbols[0] });
+            }
+          }
+        }
+      }
+    }
+
     // Strategy 2: Try class resolution
     const classSymbol = await this.tryResolveAsClass(stepName, currentContext);
     if (classSymbol) {
@@ -6204,6 +6458,37 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     );
     if (matchingGlobalSymbol) {
       resolutions.push({ type: 'symbol', symbol: matchingGlobalSymbol });
+    }
+
+    // Strategy 6.5: Final fallback for method calls in current class when no context
+    // This handles 'this.method()' chains where other strategies failed
+    if (
+      !currentContext &&
+      step.context === ReferenceContext.METHOD_CALL &&
+      fileUri &&
+      resolutions.length === 0
+    ) {
+      // Try to find the method in the current class via symbol table
+      const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
+      if (symbolTable) {
+        const allSymbols = symbolTable.getAllSymbols();
+        // Find methods in the current class that match the step name
+        const methodSymbols = allSymbols.filter(
+          (s) => s.kind === SymbolKind.Method && s.name === stepName,
+        );
+        if (methodSymbols.length > 0) {
+          // Prefer non-static methods for 'this.method()' chains
+          const instanceMethod = methodSymbols.find(
+            (s) => !s.modifiers?.isStatic,
+          );
+          if (instanceMethod) {
+            resolutions.push({ type: 'symbol', symbol: instanceMethod });
+          } else {
+            // Fall back to any method if no instance method found
+            resolutions.push({ type: 'symbol', symbol: methodSymbols[0] });
+          }
+        }
+      }
     }
 
     // Strategy 7: Try standard Apex class resolution (for cases like URL without namespace)
@@ -6587,16 +6872,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return null;
         }
 
-        // Resolve the entire chain
-        const resolvedChain = await this.resolveEntireChain(
-          chainNodes,
-          fileUri,
-        );
-        if (!resolvedChain) {
-          return null;
-        }
-
-        // If position is provided, find the specific chain member and return its resolved symbol
+        // If position is provided, try to resolve the specific chain member first
+        // This handles cases where resolveEntireChain might fail (e.g., 'this.method()' chains)
         if (position) {
           const firstNode = chainNodes[0];
 
@@ -6612,6 +6889,33 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     `"${firstNode.resolvedSymbolId}" for first node "${firstNode.name}"`,
                 );
                 return resolvedSymbol;
+              }
+            }
+
+            // Special handling for method calls in 'this' chains
+            // For 'this.method().anotherMethod()', the first node is a method call,
+            // not a class, so we should resolve it as a method in the current class
+            if (firstNode.context === ReferenceContext.METHOD_CALL && fileUri) {
+              // Try to resolve as a method in the current class
+              const symbolTable =
+                this.symbolGraph.getSymbolTableForFile(fileUri);
+              if (symbolTable) {
+                const allSymbols = symbolTable.getAllSymbols();
+                const methodSymbols = allSymbols.filter(
+                  (s) =>
+                    s.kind === SymbolKind.Method && s.name === firstNode.name,
+                );
+                if (methodSymbols.length > 0) {
+                  // Prefer non-static methods for 'this.method()' chains
+                  const instanceMethod = methodSymbols.find(
+                    (s) => !s.modifiers?.isStatic,
+                  );
+                  if (instanceMethod) {
+                    return instanceMethod;
+                  }
+                  // Fall back to any method if no instance method found
+                  return methodSymbols[0];
+                }
               }
             }
 
@@ -6631,29 +6935,84 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             position,
           );
 
-          if (chainMember) {
-            // If position is on the first node, try resolving it as a class
-            if (chainMember.index === 0) {
-              // Fast path: if first node already has resolvedSymbolId, use it directly
-              const firstNode = chainNodes[0];
-              if (firstNode.resolvedSymbolId) {
-                const resolvedSymbol = this.getSymbol(
-                  firstNode.resolvedSymbolId,
+          if (chainMember && chainMember.index === 0) {
+            // We already tried resolving the first node above, but if it failed,
+            // try one more time here with the chain member context
+            const firstNode = chainNodes[0];
+            if (firstNode.context === ReferenceContext.METHOD_CALL && fileUri) {
+              const symbolTable =
+                this.symbolGraph.getSymbolTableForFile(fileUri);
+              if (symbolTable) {
+                const allSymbols = symbolTable.getAllSymbols();
+                const methodSymbols = allSymbols.filter(
+                  (s) =>
+                    s.kind === SymbolKind.Method && s.name === firstNode.name,
                 );
-                if (resolvedSymbol) {
-                  this.logger.debug(
-                    () =>
-                      'Using pre-resolved symbol ID ' +
-                      `"${firstNode.resolvedSymbolId}" for first node "${firstNode.name}" ` +
-                      'in chain member resolution',
+                if (methodSymbols.length > 0) {
+                  const instanceMethod = methodSymbols.find(
+                    (s) => !s.modifiers?.isStatic,
                   );
-                  return resolvedSymbol;
+                  if (instanceMethod) {
+                    return instanceMethod;
+                  }
+                  return methodSymbols[0];
                 }
               }
+            }
+          }
+        }
 
+        // Resolve the entire chain
+        // Note: For 'this.method()' chains, resolveEntireChain might return null
+        // if the first method call can't be resolved through normal chain resolution.
+        // We handle this case above by resolving the first node directly.
+        const resolvedChain = await this.resolveEntireChain(
+          chainNodes,
+          fileUri,
+        );
+
+        // If position is provided, find the specific chain member and return its resolved symbol
+        if (position) {
+          // Find the chain member at the position (if not already found above)
+          const chainMember = this.findChainMemberAtPosition(
+            typeReference,
+            position,
+          );
+
+          if (chainMember) {
+            // If position is on the first node, we already tried resolving it above
+            // Skip to resolving other chain members
+            if (chainMember.index === 0) {
+              // We already handled the first node above, but if it failed,
+              // try one more time here
+              const firstNode = chainNodes[0];
+              if (
+                firstNode.context === ReferenceContext.METHOD_CALL &&
+                fileUri
+              ) {
+                const symbolTable =
+                  this.symbolGraph.getSymbolTableForFile(fileUri);
+                if (symbolTable) {
+                  const allSymbols = symbolTable.getAllSymbols();
+                  const methodSymbols = allSymbols.filter(
+                    (s) =>
+                      s.kind === SymbolKind.Method && s.name === firstNode.name,
+                  );
+                  if (methodSymbols.length > 0) {
+                    const instanceMethod = methodSymbols.find(
+                      (s) => !s.modifiers?.isStatic,
+                    );
+                    if (instanceMethod) {
+                      return instanceMethod;
+                    }
+                    return methodSymbols[0];
+                  }
+                }
+              }
+              // If we get here, first node resolution failed - try class resolution
               const firstNodeSymbol = await this.resolveFirstNodeAsClass(
                 chainNodes[0].name,
-                false, // Don't retry here since we already tried above
+                false,
               );
               if (firstNodeSymbol) {
                 return firstNodeSymbol;
@@ -6661,9 +7020,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             }
 
             // Resolve the chain member from the resolved chain context
-            resolvedContext = resolvedChain[chainMember.index];
-            if (resolvedContext?.type === 'symbol') {
-              return resolvedContext.symbol || null;
+            // Only use resolvedChain if it exists and has the member at this index
+            if (resolvedChain && resolvedChain.length > chainMember.index) {
+              resolvedContext = resolvedChain[chainMember.index];
+              if (resolvedContext?.type === 'symbol') {
+                return resolvedContext.symbol || null;
+              }
             }
 
             // If the resolved context is not a symbol (e.g., namespace or global), and we're on the first node,
@@ -6705,10 +7067,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
 
         // Return the final resolved symbol (last in the chain)
-        resolvedContext = resolvedChain[resolvedChain.length - 1];
-        return resolvedContext?.type === 'symbol'
-          ? resolvedContext.symbol
-          : null;
+        // Only if resolvedChain exists
+        if (resolvedChain && resolvedChain.length > 0) {
+          resolvedContext = resolvedChain[resolvedChain.length - 1];
+          return resolvedContext?.type === 'symbol'
+            ? resolvedContext.symbol
+            : null;
+        }
+
+        // If resolvedChain is null and we have a position, we might have already
+        // resolved the first node above, so return null here
+        return null;
       } catch (error) {
         this.logger.error(
           () => `Error resolving chained expression reference: ${error}`,
@@ -7108,7 +7477,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   symbolTable = artifact.compilationResult.result;
 
                   // Add the symbol table to our graph for future use
-                  await this.addSymbolTable(symbolTable, contextFile);
+                  await Effect.runPromise(
+                    this.addSymbolTable(symbolTable, contextFile),
+                  );
 
                   // Re-fetch symbol table to ensure it's registered
                   symbolTable =
@@ -7165,9 +7536,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                           classPath,
                         );
                       if (artifact?.compilationResult.result) {
-                        await this.addSymbolTable(
-                          artifact.compilationResult.result,
-                          typeSymbol.fileUri,
+                        await Effect.runPromise(
+                          this.addSymbolTable(
+                            artifact.compilationResult.result,
+                            typeSymbol.fileUri,
+                          ),
                         );
                         // Retry resolution after loading
                         const retryResult = await this.resolveMemberInContext(
@@ -7226,9 +7599,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                               classPath,
                             );
                           if (artifact?.compilationResult.result) {
-                            await this.addSymbolTable(
-                              artifact.compilationResult.result,
-                              standardClassSymbol.fileUri,
+                            await Effect.runPromise(
+                              this.addSymbolTable(
+                                artifact.compilationResult.result,
+                                standardClassSymbol.fileUri,
+                              ),
                             );
                             // Retry resolution after loading
                             const retryResult =
@@ -7284,9 +7659,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                             classPath,
                           );
                         if (artifact?.compilationResult.result) {
-                          await this.addSymbolTable(
-                            artifact.compilationResult.result,
-                            typeClassSymbol.fileUri,
+                          await Effect.runPromise(
+                            this.addSymbolTable(
+                              artifact.compilationResult.result,
+                              typeClassSymbol.fileUri,
+                            ),
                           );
                           // Retry resolution after loading
                           const retryResult = await this.resolveMemberInContext(
@@ -7371,9 +7748,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                             classPath,
                           );
                         if (artifact?.compilationResult.result) {
-                          await this.addSymbolTable(
-                            artifact.compilationResult.result,
-                            standardClassSymbol.fileUri,
+                          await Effect.runPromise(
+                            this.addSymbolTable(
+                              artifact.compilationResult.result,
+                              standardClassSymbol.fileUri,
+                            ),
                           );
                           // Retry resolution after loading
                           const retryResult = await this.resolveMemberInContext(
@@ -7398,6 +7777,108 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             // Don't fall through to other resolution strategies as they might pick methods from the wrong class
             // (e.g., Email.toString() instead of String.toString())
             // This ensures we only resolve methods on the variable's actual type
+            return null;
+          }
+
+          // If the context symbol is a method, extract its return type and resolve the member on that type
+          // This handles chained method calls like "this.method1().method2()"
+          if (isMethodSymbol(contextSymbol)) {
+            // Type narrowing: isMethodSymbol ensures contextSymbol is MethodSymbol
+            const returnType = contextSymbol.returnType;
+
+            if (returnType) {
+              // First, try to use the resolved symbol if available
+              if (returnType.resolvedSymbol) {
+                const returnTypeSymbol = returnType.resolvedSymbol;
+                // Recursively resolve the member on the return type's class symbol
+                const resolvedMember = await this.resolveMemberInContext(
+                  { type: 'symbol', symbol: returnTypeSymbol },
+                  memberName,
+                  memberType,
+                );
+                if (resolvedMember) {
+                  return resolvedMember;
+                }
+              }
+
+              // Otherwise, resolve the return type name to a class symbol
+              const returnTypeName = returnType.name;
+              if (returnTypeName) {
+                // Remove array brackets if present (e.g., "String[]" -> "String")
+                const baseTypeName = returnTypeName.replace(/\[\]$/, '');
+
+                // Try to resolve the return type as a class symbol
+                const typeRef: SymbolReference = {
+                  name: baseTypeName,
+                  context: ReferenceContext.CLASS_REFERENCE,
+                  location: {
+                    symbolRange: {
+                      startLine: 0,
+                      startColumn: 0,
+                      endLine: 0,
+                      endColumn: 0,
+                    },
+                    identifierRange: {
+                      startLine: 0,
+                      startColumn: 0,
+                      endLine: 0,
+                      endColumn: 0,
+                    },
+                  },
+                  resolvedSymbolId: undefined,
+                };
+
+                // Try built-in type resolution
+                const builtInTypeSymbol =
+                  await this.resolveBuiltInType(typeRef);
+                if (builtInTypeSymbol) {
+                  const resolvedMember = await this.resolveMemberInContext(
+                    { type: 'symbol', symbol: builtInTypeSymbol },
+                    memberName,
+                    memberType,
+                  );
+                  if (resolvedMember) {
+                    return resolvedMember;
+                  }
+                }
+
+                // Try standard Apex class resolution
+                const standardClassSymbol =
+                  await this.resolveStandardApexClass(baseTypeName);
+                if (standardClassSymbol) {
+                  const resolvedMember = await this.resolveMemberInContext(
+                    { type: 'symbol', symbol: standardClassSymbol },
+                    memberName,
+                    memberType,
+                  );
+                  if (resolvedMember) {
+                    return resolvedMember;
+                  }
+                }
+
+                // Try to find the class symbol in the symbol graph
+                const typeClassSymbols = this.findSymbolByName(baseTypeName);
+                const typeClassSymbol = typeClassSymbols.find(
+                  (s) =>
+                    s.kind === SymbolKind.Class ||
+                    s.kind === SymbolKind.Interface ||
+                    s.kind === SymbolKind.Enum,
+                );
+
+                if (typeClassSymbol) {
+                  const resolvedMember = await this.resolveMemberInContext(
+                    { type: 'symbol', symbol: typeClassSymbol },
+                    memberName,
+                    memberType,
+                  );
+                  if (resolvedMember) {
+                    return resolvedMember;
+                  }
+                }
+              }
+            }
+
+            // If return type resolution failed for a method, return null
             return null;
           }
 
@@ -7485,9 +7966,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                           classPath,
                         );
                       if (artifact?.compilationResult.result) {
-                        await this.addSymbolTable(
-                          artifact.compilationResult.result,
-                          contextSymbol.fileUri,
+                        await Effect.runPromise(
+                          this.addSymbolTable(
+                            artifact.compilationResult.result,
+                            contextSymbol.fileUri,
+                          ),
                         );
                         // Re-fetch symbol table after loading
                         const reloadedSymbolTable =
@@ -7754,9 +8237,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   const artifact =
                     await this.resourceLoader.loadAndCompileClass(classPath);
                   if (artifact?.compilationResult.result) {
-                    await this.addSymbolTable(
-                      artifact.compilationResult.result,
-                      superclassTypeSymbol.fileUri,
+                    await Effect.runPromise(
+                      this.addSymbolTable(
+                        artifact.compilationResult.result,
+                        superclassTypeSymbol.fileUri,
+                      ),
                     );
                     symbolTable = this.symbolGraph.getSymbolTableForFile(
                       superclassTypeSymbol.fileUri,
@@ -7825,9 +8310,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   const artifact =
                     await this.resourceLoader.loadAndCompileClass(classPath);
                   if (artifact?.compilationResult.result) {
-                    await this.addSymbolTable(
-                      artifact.compilationResult.result,
-                      objectTypeSymbol.fileUri,
+                    await Effect.runPromise(
+                      this.addSymbolTable(
+                        artifact.compilationResult.result,
+                        objectTypeSymbol.fileUri,
+                      ),
                     );
                     symbolTable = this.symbolGraph.getSymbolTableForFile(
                       objectTypeSymbol.fileUri,
@@ -7941,5 +8428,176 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   getGraphDataByTypeAsJSON(symbolType: string): string {
     return this.symbolGraph.getGraphDataByTypeAsJSON(symbolType);
+  }
+
+  /**
+   * Get the current detail level for a file
+   * @param fileUri The file URI to check
+   * @returns The current detail level, or null if file not indexed
+   */
+  getDetailLevelForFile(fileUri: string): DetailLevel | null {
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    return this.fileDetailLevels.get(normalizedUri) ?? null;
+  }
+
+  /**
+   * Set the detail level for a file (internal use)
+   */
+  private setDetailLevelForFile(fileUri: string, level: DetailLevel): void {
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    this.fileDetailLevels.set(normalizedUri, level);
+  }
+
+  /**
+   * Get the layer order for enrichment
+   */
+  private getLayerOrder(): DetailLevel[] {
+    return ['public-api', 'protected', 'private', 'full'];
+  }
+
+  /**
+   * Get the numeric order of a detail level (for comparison)
+   */
+  private getLayerOrderIndex(level: DetailLevel): number {
+    const order: Record<DetailLevel, number> = {
+      'public-api': 0,
+      protected: 1,
+      private: 2,
+      full: 3,
+    };
+    return order[level] ?? -1;
+  }
+
+  /**
+   * Get layers that need to be applied to reach target level from current level
+   */
+  private getLayersToApply(
+    currentLevel: DetailLevel | null,
+    targetLevel: DetailLevel,
+  ): DetailLevel[] {
+    const layers = this.getLayerOrder();
+    const currentIndex = currentLevel
+      ? this.getLayerOrderIndex(currentLevel)
+      : -1;
+    const targetIndex = this.getLayerOrderIndex(targetLevel);
+
+    if (targetIndex <= currentIndex) {
+      return [];
+    }
+
+    // Return layers from current+1 to target (inclusive)
+    return layers.slice(currentIndex + 1, targetIndex + 1);
+  }
+
+  /**
+   * Enrich a file to a target detail level
+   * Applies layers incrementally: public-api -> protected -> private -> full
+   */
+  enrichToLevel(
+    fileUri: string,
+    targetLevel: DetailLevel,
+    documentText: string,
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const normalizedUri = extractFilePathFromUri(fileUri);
+      const currentLevel = self.getDetailLevelForFile(normalizedUri);
+
+      // Check if already at or above target level
+      if (
+        currentLevel &&
+        self.getLayerOrderIndex(currentLevel) >=
+          self.getLayerOrderIndex(targetLevel)
+      ) {
+        self.logger.debug(
+          () =>
+            `File ${fileUri} already at level ${currentLevel}, ` +
+            `skipping enrichment to ${targetLevel}`,
+        );
+        return;
+      }
+
+      self.logger.debug(
+        () =>
+          `Enriching ${fileUri} from ${currentLevel ?? 'none'} to ${targetLevel}`,
+      );
+
+      // Use ApexSymbolCollectorListener with appropriate detail level
+      // Re-use existing symbol table if available for enrichment
+      const existingSymbolTable = self.getSymbolTableForFile(fileUri);
+      const listener = new ApexSymbolCollectorListener(
+        existingSymbolTable || undefined,
+        targetLevel,
+      );
+
+      const result = self.compilerService.compile(
+        documentText,
+        fileUri,
+        listener,
+        {
+          collectReferences: true,
+          resolveReferences: true,
+        },
+      );
+
+      if (result?.result) {
+        yield* self.addSymbolTable(result.result, fileUri);
+        self.setDetailLevelForFile(fileUri, targetLevel);
+        self.logger.debug(
+          () =>
+            `Enriched ${fileUri} to ${targetLevel} level using ApexSymbolCollectorListener`,
+        );
+      }
+    });
+  }
+
+  /**
+   * Resolve a symbol with iterative enrichment
+   * Tries resolution after each enrichment layer until found or all layers exhausted
+   */
+  resolveWithEnrichment<T>(
+    fileUri: string,
+    documentText: string,
+    resolver: () => T | null,
+  ): Effect.Effect<T | null, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      // Try at current level first
+      const result = resolver();
+      if (result !== null) {
+        return result;
+      }
+
+      const currentLevel = self.getDetailLevelForFile(fileUri);
+      const layers = self.getLayerOrder();
+      const startIndex = currentLevel
+        ? self.getLayerOrderIndex(currentLevel) + 1
+        : 0;
+
+      // Iterate through remaining layers
+      for (let i = startIndex; i < layers.length; i++) {
+        const layer = layers[i];
+        self.logger.debug(
+          () => `Enriching ${fileUri} to ${layer} for symbol resolution`,
+        );
+
+        yield* self.enrichToLevel(fileUri, layer, documentText);
+
+        // Try resolution after enrichment
+        const enrichedResult = resolver();
+        if (enrichedResult !== null) {
+          self.logger.debug(
+            () => `Found symbol after enriching to ${layer} level`,
+          );
+          return enrichedResult;
+        }
+      }
+
+      // Not found after all layers
+      self.logger.debug(
+        () => `Symbol not found after enriching ${fileUri} through all layers`,
+      );
+      return null;
+    });
   }
 }

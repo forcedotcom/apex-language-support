@@ -10,6 +10,7 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { ReferenceContext } from '../../src/types/symbolReference';
+import { Effect } from 'effect';
 
 describe('ApexSymbolManager - Resolution Integration', () => {
   let symbolManager: ApexSymbolManager;
@@ -24,20 +25,22 @@ describe('ApexSymbolManager - Resolution Integration', () => {
     symbolManager.clear();
   });
 
-  const addTestClass = (sourceCode: string, className: string) => {
+  const addTestClass = async (sourceCode: string, className: string) => {
     const testClassUri = `file:///test/${className}.cls`;
-    const listener = new ApexSymbolCollectorListener();
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
     const result = compilerService.compile(sourceCode, testClassUri, listener);
 
     if (result.result) {
-      symbolManager.addSymbolTable(result.result, testClassUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result, testClassUri),
+      );
     }
 
     return testClassUri;
   };
 
   describe('Return Type Reference Resolution', () => {
-    it('should resolve return type references to symbols', () => {
+    it('should resolve return type references to symbols', async () => {
       const testClass = `
         public class TestClass {
           public System.Url getUrl() {
@@ -46,7 +49,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the chained type reference for System.Url return type
@@ -74,7 +77,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       }).not.toThrow();
     });
 
-    it('should resolve parameter type references to symbols', () => {
+    it('should resolve parameter type references to symbols', async () => {
       const testClass = `
         public class TestClass {
           public void processUrl(System.Url inputUrl) {
@@ -83,7 +86,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the type reference for System.Url parameter (could be CHAINED_TYPE or PARAMETER_TYPE)
@@ -105,14 +108,14 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       }).not.toThrow();
     });
 
-    it('should resolve field type references to symbols', () => {
+    it('should resolve field type references to symbols', async () => {
       const testClass = `
         public class TestClass {
           public System.Url myUrl;
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the chained type reference for System.Url field
@@ -133,7 +136,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       }).not.toThrow();
     });
 
-    it('should handle mixed return and parameter type references', () => {
+    it('should handle mixed return and parameter type references', async () => {
       const testClass = `
         public class TestClass {
           public System.Url processUrl(System.Url inputUrl) {
@@ -142,7 +145,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have multiple System.Url references (return type and parameter)
@@ -165,7 +168,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       }
     });
 
-    it('should handle generic return type references', () => {
+    it('should handle generic return type references', async () => {
       const testClass = `
         public class TestClass {
           public List<System.Url> getUrlList() {
@@ -174,7 +177,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have type references for System.Url (return type and generic parameter)
@@ -200,7 +203,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
   });
 
   describe('Cross-Reference Integration', () => {
-    it('should integrate with existing reference resolution patterns', () => {
+    it('should integrate with existing reference resolution patterns', async () => {
       const testClass = `
         public class TestClass {
           public System.Url getUrl() {
@@ -214,7 +217,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have multiple types of references

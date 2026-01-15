@@ -92,7 +92,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
 
       logger.debug('Creating symbol table and listener');
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
 
       logger.debug('Compiling test file');
       const result: CompilationResult<SymbolTable> = compilerService.compile(
@@ -219,7 +219,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
 
       logger.debug('Creating symbol table and listener');
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
 
       // Use the same compilation options as the integration test
       const options = {
@@ -342,7 +342,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'EmptyClass.cls',
@@ -392,7 +392,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'FieldOnlyClass.cls',
@@ -446,7 +446,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'OuterClass.cls',
@@ -543,7 +543,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -588,7 +588,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -635,7 +635,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -684,7 +684,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -748,7 +748,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -837,7 +837,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -872,7 +872,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -909,7 +909,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -946,7 +946,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -986,7 +986,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -1025,7 +1025,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -1058,7 +1058,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -1099,7 +1099,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -1151,7 +1151,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -1199,7 +1199,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -1240,7 +1240,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -1286,7 +1286,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -1360,7 +1360,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -1402,7 +1402,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -1448,7 +1448,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -1496,7 +1496,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'TestClass.cls',
@@ -1550,7 +1550,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -1594,7 +1594,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -1635,7 +1635,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -1679,7 +1679,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -1723,7 +1723,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -1773,7 +1773,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -1810,7 +1810,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -1847,7 +1847,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -1884,7 +1884,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -1925,7 +1925,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -1986,7 +1986,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -2040,7 +2040,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -2075,7 +2075,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -2110,7 +2110,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -2155,7 +2155,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         `;
 
         const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
+        const listener = new ApexSymbolCollectorListener(table, 'full');
         const result = compilerService.compile(
           apexCode,
           'TestClass.cls',
@@ -2196,7 +2196,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'file:///test/MyClass.cls',
@@ -2233,7 +2233,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'file:///test/MyClass.cls',
@@ -2277,7 +2277,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'file:///test/MyClass.cls',
@@ -2355,7 +2355,7 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       `;
 
       const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      const listener = new ApexSymbolCollectorListener(table, 'full');
       const result = compilerService.compile(
         apexCode,
         'file:///test/MyClass.cls',

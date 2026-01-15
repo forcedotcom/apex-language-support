@@ -11,6 +11,7 @@ import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { ReferenceContext } from '../../src/types/symbolReference';
 import type { ChainedSymbolReference } from '../../src/types/symbolReference';
+import { Effect } from 'effect';
 
 describe('ApexSymbolManager - Precise Location Tracking', () => {
   let symbolManager: ApexSymbolManager;
@@ -25,20 +26,22 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
     symbolManager.clear();
   });
 
-  const addTestClass = (sourceCode: string, className: string) => {
+  const addTestClass = async (sourceCode: string, className: string) => {
     const testClassUri = `file:///test/${className}.cls`;
-    const listener = new ApexSymbolCollectorListener();
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
     const result = compilerService.compile(sourceCode, testClassUri, listener);
 
     if (result.result) {
-      symbolManager.addSymbolTable(result.result, testClassUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result, testClassUri),
+      );
     }
 
     return testClassUri;
   };
 
   describe('Dotted Type Name Location Tracking', () => {
-    it('should track precise locations for each part of System.Url', () => {
+    it('should track precise locations for each part of System.Url', async () => {
       const testClass = `
         public class TestClass {
           public System.Url getUrl() {
@@ -47,7 +50,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the chained type reference for System.Url
@@ -74,7 +77,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       );
     });
 
-    it('should track precise locations for parameter types', () => {
+    it('should track precise locations for parameter types', async () => {
       const testClass = `
         public class TestClass {
           public void processUrl(System.Url inputUrl) {
@@ -83,7 +86,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the chained type reference for System.Url parameter
@@ -110,14 +113,14 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       );
     });
 
-    it('should track precise locations for field types', () => {
+    it('should track precise locations for field types', async () => {
       const testClass = `
         public class TestClass {
           public System.Url myUrl;
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find the chained type reference for System.Url field
@@ -144,7 +147,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
       );
     });
 
-    it('should track precise locations for complex dotted types', () => {
+    it('should track precise locations for complex dotted types', async () => {
       const testClass = `
         public class TestClass {
           public System.Url getUrl() {
@@ -153,7 +156,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
         }
       `;
 
-      const testClassUri = addTestClass(testClass, 'TestClass');
+      const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Find all chained type references for System.Url (return type and method call)

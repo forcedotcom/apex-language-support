@@ -5,7 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { Effect } from 'effect';
+import { Effect, Duration } from 'effect';
 import * as vscode from 'vscode';
 import { logToOutputChannel } from './logging';
 import {
@@ -215,40 +215,32 @@ export async function loadWorkspaceForServer(
             increment: 10,
           });
 
-          // Process batches sequentially
-          let processedBatches = 0;
+          // Phase 1: Compress and encode all batches (can be done in parallel)
           const totalBatches = batches.length;
-          let lastReportedPercentage = 20;
 
-          yield* _(
+          if (workDoneToken) {
+            sendProgressNotification(languageClient, workDoneToken, {
+              kind: 'report',
+              message: `Compressing ${totalBatches} batches...`,
+              percentage: 20,
+            });
+          }
+
+          progress.report({
+            message: `Compressing ${totalBatches} batches...`,
+            increment: 0,
+          });
+
+          // Compress and encode all batches in parallel
+          const preparedBatches = yield* _(
             Effect.forEach(
               batches,
-              (batch) =>
+              (batch, index) =>
                 Effect.gen(function* () {
                   // Check for cancellation
                   if (cancellationToken.isCancellationRequested) {
                     return yield* Effect.fail(new Error('Cancelled'));
                   }
-
-                  // Report compression progress
-                  if (workDoneToken) {
-                    sendProgressNotification(languageClient, workDoneToken, {
-                      kind: 'report',
-                      message: `Compressing batch ${
-                        batch.batchIndex + 1
-                      }/${totalBatches}...`,
-                      percentage: Math.min(
-                        90,
-                        20 + Math.floor((processedBatches / totalBatches) * 70),
-                      ),
-                    });
-                  }
-
-                  progress.report({
-                    message: `Compressing batch ${
-                      batch.batchIndex + 1
-                    }/${totalBatches}...`,
-                  });
 
                   // Compress batch
                   const compressed = yield* _(compressBatch(batch));
@@ -258,33 +250,62 @@ export async function loadWorkspaceForServer(
                     encodeBatchForTransport(compressed),
                   );
 
-                  // Report sending progress
+                  // Update progress during compression
+                  const compressionProgress =
+                    20 + Math.floor(((index + 1) / totalBatches) * 30);
                   if (workDoneToken) {
                     sendProgressNotification(languageClient, workDoneToken, {
                       kind: 'report',
-                      message: `Sending batch ${
-                        batch.batchIndex + 1
-                      }/${totalBatches}...`,
-                      percentage: Math.min(
-                        90,
-                        20 + Math.floor((processedBatches / totalBatches) * 70),
-                      ),
+                      message: `Compressed batch ${index + 1}/${totalBatches}`,
+                      percentage: compressionProgress,
                     });
                   }
 
-                  progress.report({
-                    message: `Sending batch ${batch.batchIndex + 1}/${totalBatches}...`,
-                  });
-
-                  // Send batch request
-                  const batchParams: SendWorkspaceBatchParams = {
+                  return {
                     batchIndex: batch.batchIndex,
                     totalBatches: batch.totalBatches,
                     isLastBatch: batch.isLastBatch,
                     compressedData: encodedData,
                     fileMetadata: batch.fileMetadata,
-                  };
+                  } as SendWorkspaceBatchParams;
+                }),
+              { concurrency: maxConcurrency }, // Parallel compression
+            ),
+          );
 
+          // Phase 2: Send all batches as notifications in parallel (fire-and-forget)
+          if (workDoneToken) {
+            sendProgressNotification(languageClient, workDoneToken, {
+              kind: 'report',
+              message: `Sending ${totalBatches} batches...`,
+              percentage: 50,
+            });
+          }
+
+          progress.report({
+            message: `Sending ${totalBatches} batches...`,
+            increment: 0,
+          });
+
+          // Send all batches as requests in parallel
+          // Server returns immediately after storing (no processing), so parallel sending is safe
+          // Use lower concurrency (2 instead of maxConcurrency) to avoid saturating LSP connection
+          // This allows hover requests to be interleaved with batch sends
+          const batchSendConcurrency = Math.min(2, maxConcurrency);
+          yield* _(
+            Effect.forEach(
+              preparedBatches as readonly SendWorkspaceBatchParams[],
+              (batchParams, index) =>
+                Effect.gen(function* () {
+                  // Check for cancellation
+                  if (cancellationToken.isCancellationRequested) {
+                    return yield* Effect.fail(new Error('Cancelled'));
+                  }
+
+                  // Yield before sending to allow event loop to process hover requests
+                  yield* Effect.yieldNow();
+
+                  // Send as request - server stores and returns immediately
                   const result = yield* _(
                     Effect.tryPromise({
                       try: () =>
@@ -294,59 +315,82 @@ export async function loadWorkspaceForServer(
                         ),
                       catch: (err: unknown) =>
                         new Error(
-                          `Failed to send batch ${batch.batchIndex + 1}: ${String(formattedError(err))}`,
+                          `Failed to send batch ${batchParams.batchIndex + 1}: ${String(formattedError(err))}`,
                         ),
                     }),
                   );
 
                   if (!result.success) {
                     logToOutputChannel(
-                      `⚠️ Batch ${batch.batchIndex + 1} failed: ${result.error ?? 'Unknown error'}`,
+                      `⚠️ Batch ${batchParams.batchIndex + 1} failed: ${result.error ?? 'Unknown error'}`,
                       'warning',
+                    );
+                  } else {
+                    const receivedCount = result.receivedCount ?? '?';
+                    const total =
+                      result.totalBatches ?? batchParams.totalBatches;
+                    logToOutputChannel(
+                      `✅ Batch ${batchParams.batchIndex + 1}/${batchParams.totalBatches} stored ` +
+                        `(${receivedCount}/${total} received, ` +
+                        `${batchParams.fileMetadata.length} files)`,
+                      'debug',
                     );
                   }
 
-                  processedBatches++;
-
                   // Update progress
-                  const currentPercentage = Math.min(
-                    90,
-                    20 + Math.floor((processedBatches / totalBatches) * 70),
-                  );
-                  const increment = currentPercentage - lastReportedPercentage;
-                  lastReportedPercentage = currentPercentage;
-
+                  const sendProgress =
+                    50 + Math.floor(((index + 1) / totalBatches) * 40);
                   if (workDoneToken) {
                     sendProgressNotification(languageClient, workDoneToken, {
                       kind: 'report',
-                      message: `Processed ${processedBatches}/${totalBatches} batches`,
-                      percentage: currentPercentage,
+                      message: `Sent batch ${index + 1}/${totalBatches}`,
+                      percentage: sendProgress,
                     });
                   }
 
                   progress.report({
-                    message: `Processed ${processedBatches}/${totalBatches} batches`,
-                    increment,
+                    message: `Sent batch ${index + 1}/${totalBatches}`,
+                    increment: Math.floor(40 / totalBatches),
                   });
 
-                  logToOutputChannel(
-                    `✅ Batch ${batch.batchIndex + 1}/${totalBatches} sent successfully (${
-                      result.enqueuedCount
-                    } files enqueued)`,
-                    'debug',
-                  );
-                }).pipe(
-                  Effect.catchAll((err: unknown) => {
-                    logToOutputChannel(
-                      `Error processing batch: ${formattedError(err)}`,
-                      'error',
-                    );
-                    return Effect.void;
-                  }),
-                ),
-              { concurrency: 1 }, // Sequential batch processing
+                  // Yield after each batch to allow hover requests to be processed
+                  // Small delay helps prevent LSP connection saturation
+                  yield* Effect.sleep(Duration.millis(10));
+                }),
+              { concurrency: batchSendConcurrency }, // Lower concurrency to avoid blocking hover requests
             ),
           );
+
+          logToOutputChannel(
+            `✅ All ${totalBatches} batches stored successfully - triggering processing`,
+            'info',
+          );
+
+          // Trigger processing of all stored batches
+          const processResult = yield* _(
+            Effect.tryPromise({
+              try: () =>
+                languageClient.sendRequest('apex/processWorkspaceBatches', {
+                  totalBatches,
+                }),
+              catch: (err: unknown) =>
+                new Error(
+                  `Failed to trigger batch processing: ${String(formattedError(err))}`,
+                ),
+            }),
+          );
+
+          if (!processResult.success) {
+            logToOutputChannel(
+              `⚠️ Failed to trigger batch processing: ${processResult.error ?? 'Unknown error'}`,
+              'warning',
+            );
+          } else {
+            logToOutputChannel(
+              '✅ Batch processing triggered successfully',
+              'debug',
+            );
+          }
 
           // Check for cancellation before completion
           if (cancellationToken.isCancellationRequested) {

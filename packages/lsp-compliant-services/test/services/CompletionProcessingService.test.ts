@@ -9,78 +9,55 @@
 import { CompletionParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 import { CompletionProcessingService } from '../../src/services/CompletionProcessingService';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
+import {
+  ApexSymbolManager,
+  CompilerService,
+  FullSymbolCollectorListener,
+  SymbolTable,
+} from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 
-// Logger is handled by the shared library's global logging system
-
-// Mock ApexStorageManager
-jest.mock('../../src/storage/ApexStorageManager', () => ({
-  ApexStorageManager: {
-    getInstance: jest.fn(),
-  },
-}));
+// Only mock storage - use real implementations for everything else
+jest.mock('../../src/storage/ApexStorageManager');
 
 describe('CompletionProcessingService', () => {
   let service: CompletionProcessingService;
-  let mockSymbolManager: any;
+  let symbolManager: ApexSymbolManager;
   let mockStorage: any;
   let mockDocument: TextDocument;
-  let logger: any;
+  let logger: ReturnType<typeof getLogger>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset mocks
     jest.clearAllMocks();
 
     // Setup logger
     logger = getLogger();
 
-    // Setup mock symbol manager
-    mockSymbolManager = {
-      findSymbolByName: jest.fn(),
-      findSymbolsInFile: jest.fn(),
-      findRelatedSymbols: jest.fn(),
-      resolveSymbol: jest.fn(),
-      findSymbolByFQN: jest.fn(),
-      findFilesForSymbol: jest.fn(),
-      addSymbol: jest.fn(),
-      removeSymbol: jest.fn(),
-      removeFile: jest.fn(),
-      addSymbolTable: jest.fn(),
-      refresh: jest.fn(),
-      findReferencesTo: jest.fn(),
-      findReferencesFrom: jest.fn(),
-      analyzeDependencies: jest.fn(),
-      detectCircularDependencies: jest.fn(),
-      getImpactAnalysis: jest.fn(),
-      getSymbolMetrics: jest.fn(),
-      computeMetrics: jest.fn(),
-      getMostReferencedSymbols: jest.fn(),
-      addSymbolsBatch: jest.fn(),
-      analyzeDependenciesBatch: jest.fn(),
-      getRelationshipStats: jest.fn(),
-      findSymbolsByPattern: jest.fn(),
-      getPerformanceStats: jest.fn(),
-      clearCache: jest.fn(),
-      getCacheStats: jest.fn(),
-      getAllSymbolsForCompletion: jest.fn(),
-      createResolutionContext: jest.fn().mockReturnValue({
-        sourceFile: 'file:///test/TestClass.cls',
-        namespaceContext: 'public',
-        currentScope: 'global',
-        scopeChain: ['global'],
-        expectedType: undefined,
-        parameterTypes: [],
-        accessModifier: 'public',
-        isStatic: false,
-        inheritanceChain: [],
-        interfaceImplementations: [],
-        importStatements: [],
-      }),
-    } as any;
+    // Use real symbol manager
+    symbolManager = new ApexSymbolManager();
 
-    // The mock is now handled in the jest.mock above
+    // Pre-populate symbol manager with fixtures
+    const compilerService = new CompilerService();
+    const fixturesDir = join(__dirname, '../fixtures/classes');
+    const testClassPath = join(fixturesDir, 'TestClass.cls');
+    const testClassContent = readFileSync(testClassPath, 'utf8');
+
+    const symbolTable = new SymbolTable();
+    const listener = new FullSymbolCollectorListener(symbolTable);
+    compilerService.compile(
+      testClassContent,
+      'file:///test/TestClass.cls',
+      listener,
+    );
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(symbolTable, 'file:///test/TestClass.cls'),
+    );
 
     // Setup mock storage
     mockStorage = {
@@ -107,8 +84,8 @@ describe('CompletionProcessingService', () => {
       lineCount: jest.fn().mockReturnValue(10),
     } as any;
 
-    // Create service instance with mock symbol manager
-    service = new CompletionProcessingService(logger, mockSymbolManager);
+    // Create service instance with real symbol manager
+    service = new CompletionProcessingService(logger, symbolManager);
   });
 
   describe('processCompletion', () => {
@@ -121,7 +98,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const mockSymbols = [
+      const _mockSymbols = [
         {
           name: 'doSomething',
           kind: 'method',
@@ -142,20 +119,7 @@ describe('CompletionProcessingService', () => {
         },
       ];
 
-      // Mock the symbol manager methods
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue(mockSymbols);
-      mockSymbolManager.findSymbolsInFile.mockReturnValue(mockSymbols);
-      mockSymbolManager.findRelatedSymbols.mockReturnValue([]);
-      mockSymbolManager.resolveSymbol.mockImplementation((name: string) => {
-        const symbol = mockSymbols.find((s) => s.name === name);
-        return {
-          symbol: symbol || null,
-          confidence: symbol ? 0.8 : 0,
-          resolutionContext: 'test context',
-          filePath: 'file:///test/TestClass.cls',
-          isAmbiguous: false,
-        };
-      });
+      // Use real symbol manager with fixtures
 
       // Act
       const result = await service.processCompletion(params);
@@ -215,7 +179,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const mockSymbols = [
+      const _mockSymbols = [
         {
           name: 'publicMethod',
           kind: 'method',
@@ -230,20 +194,7 @@ describe('CompletionProcessingService', () => {
         },
       ];
 
-      // Mock the symbol manager methods
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue(mockSymbols);
-      mockSymbolManager.findSymbolsInFile.mockReturnValue(mockSymbols);
-      mockSymbolManager.findRelatedSymbols.mockReturnValue([]);
-      mockSymbolManager.resolveSymbol.mockImplementation((name: string) => {
-        const symbol = mockSymbols.find((s) => s.name === name);
-        return {
-          symbol: symbol || null,
-          confidence: symbol ? 0.8 : 0,
-          resolutionContext: 'test context',
-          filePath: 'file:///test/TestClass.cls',
-          isAmbiguous: false,
-        };
-      });
+      // Use real symbol manager with fixtures
 
       // Act
       const result = await service.processCompletion(params);
@@ -264,7 +215,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const mockSymbols = [
+      const _mockSymbols = [
         {
           name: 'staticMethod',
           kind: 'method',
@@ -279,20 +230,7 @@ describe('CompletionProcessingService', () => {
         },
       ];
 
-      // Mock the symbol manager methods
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue(mockSymbols);
-      mockSymbolManager.findSymbolsInFile.mockReturnValue(mockSymbols);
-      mockSymbolManager.findRelatedSymbols.mockReturnValue([]);
-      mockSymbolManager.resolveSymbol.mockImplementation((name: string) => {
-        const symbol = mockSymbols.find((s) => s.name === name);
-        return {
-          symbol: symbol || null,
-          confidence: symbol ? 0.8 : 0,
-          resolutionContext: 'test context',
-          filePath: 'file:///test/TestClass.cls',
-          isAmbiguous: false,
-        };
-      });
+      // Use real symbol manager with fixtures
 
       // Act
       const result = await service.processCompletion(params);
@@ -420,7 +358,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const mockSymbols = [
+      const _mockSymbols = [
         {
           name: 'doSomething',
           kind: 'method',
@@ -434,20 +372,7 @@ describe('CompletionProcessingService', () => {
         },
       ];
 
-      // Mock the symbol manager methods
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue(mockSymbols);
-      mockSymbolManager.findSymbolsInFile.mockReturnValue(mockSymbols);
-      mockSymbolManager.findRelatedSymbols.mockReturnValue([]);
-      mockSymbolManager.resolveSymbol.mockImplementation((name: string) => {
-        const symbol = mockSymbols.find((s) => s.name === name);
-        return {
-          symbol: symbol || null,
-          confidence: symbol ? 0.8 : 0,
-          resolutionContext: 'test context',
-          filePath: 'file:///test/TestClass.cls',
-          isAmbiguous: false,
-        };
-      });
+      // Use real symbol manager with fixtures
 
       // Act
       const result = await service.processCompletion(params);
@@ -473,7 +398,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const mockSymbols = [
+      const _mockSymbols = [
         {
           name: 'testField',
           kind: 'field',
@@ -483,20 +408,7 @@ describe('CompletionProcessingService', () => {
         },
       ];
 
-      // Mock the symbol manager methods
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue(mockSymbols);
-      mockSymbolManager.findSymbolsInFile.mockReturnValue(mockSymbols);
-      mockSymbolManager.findRelatedSymbols.mockReturnValue([]);
-      mockSymbolManager.resolveSymbol.mockImplementation((name: string) => {
-        const symbol = mockSymbols.find((s) => s.name === name);
-        return {
-          symbol: symbol || null,
-          confidence: symbol ? 0.8 : 0,
-          resolutionContext: 'test context',
-          filePath: 'file:///test/TestClass.cls',
-          isAmbiguous: false,
-        };
-      });
+      // Use real symbol manager with fixtures
 
       // Act
       const result = await service.processCompletion(params);
@@ -516,7 +428,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const mockSymbols = [
+      const _mockSymbols = [
         {
           name: 'doSomething',
           kind: 'method',
@@ -526,20 +438,7 @@ describe('CompletionProcessingService', () => {
         },
       ];
 
-      // Mock the symbol manager methods
-      mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue(mockSymbols);
-      mockSymbolManager.findSymbolsInFile.mockReturnValue(mockSymbols);
-      mockSymbolManager.findRelatedSymbols.mockReturnValue([]);
-      mockSymbolManager.resolveSymbol.mockImplementation((name: string) => {
-        const symbol = mockSymbols.find((s) => s.name === name);
-        return {
-          symbol: symbol || null,
-          confidence: symbol ? 0.8 : 0,
-          resolutionContext: 'test context',
-          filePath: 'file:///test/TestClass.cls',
-          isAmbiguous: false,
-        };
-      });
+      // Use real symbol manager with fixtures
 
       // Act
       const result = await service.processCompletion(params);
@@ -561,16 +460,7 @@ describe('CompletionProcessingService', () => {
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      // Create many mock symbols
-      const mockSymbols = Array.from({ length: 1000 }, (_, i) => ({
-        name: `method${i}`,
-        kind: 'method',
-        fqn: `TestClass.method${i}`,
-        modifiers: { visibility: 'public', isStatic: false },
-        parameters: [],
-      }));
-
-      mockSymbolManager.findSymbolsInFile.mockReturnValue(mockSymbols);
+      // Use real symbol manager with fixtures
 
       const startTime = Date.now();
 

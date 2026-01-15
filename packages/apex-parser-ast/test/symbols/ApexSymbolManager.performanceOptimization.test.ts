@@ -10,6 +10,7 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolReferenceFactory } from '../../src/types/symbolReference';
+import { Effect } from 'effect';
 
 describe.skip('ApexSymbolManager - Performance Optimization', () => {
   let symbolManager: ApexSymbolManager;
@@ -27,20 +28,22 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
     SymbolReferenceFactory.clearCaches();
   });
 
-  const addTestClass = (sourceCode: string, className: string) => {
+  const addTestClass = async (sourceCode: string, className: string) => {
     const testClassUri = `file:///test/${className}.cls`;
-    const listener = new ApexSymbolCollectorListener();
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
     const result = compilerService.compile(sourceCode, testClassUri, listener);
 
     if (result.result) {
-      symbolManager.addSymbolTable(result.result, testClassUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result, testClassUri),
+      );
     }
 
     return testClassUri;
   };
 
   describe('Type Name Parsing Caching', () => {
-    it('should cache parsed type names for repeated use', () => {
+    it('should cache parsed type names for repeated use', async () => {
       const testClass = `
         public class TestClass {
           public System.Url getUrl1() { return null; }
@@ -52,7 +55,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
         }
       `;
 
-      addTestClass(testClass, 'TestClass');
+      await addTestClass(testClass, 'TestClass');
 
       // Get cache stats after processing
       const cacheStats = SymbolReferenceFactory.getCacheStats();
@@ -64,7 +67,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       expect(cacheStats.typeNameCacheSize).toBe(1); // Only "System.Url" should be cached
     });
 
-    it('should handle multiple different type names', () => {
+    it('should handle multiple different type names', async () => {
       const testClass = `
         public class TestClass {
           public System.Url getUrl() { return null; }
@@ -73,7 +76,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
         }
       `;
 
-      addTestClass(testClass, 'TestClass');
+      await addTestClass(testClass, 'TestClass');
 
       // Get cache stats after processing
       const cacheStats = SymbolReferenceFactory.getCacheStats();
@@ -82,14 +85,14 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       expect(cacheStats.typeNameCacheSize).toBeGreaterThan(1);
     });
 
-    it('should clear caches when requested', () => {
+    it('should clear caches when requested', async () => {
       const testClass = `
         public class TestClass {
           public System.Url getUrl() { return null; }
         }
       `;
 
-      addTestClass(testClass, 'TestClass');
+      await addTestClass(testClass, 'TestClass');
 
       // Verify cache has entries
       let cacheStats = SymbolReferenceFactory.getCacheStats();
@@ -106,7 +109,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
   });
 
   describe('Performance with Large Codebases', () => {
-    it('should handle many repeated type references efficiently', () => {
+    it('should handle many repeated type references efficiently', async () => {
       // Create a test class with many repeated System.Url references
       const methods = Array.from(
         { length: 50 },
@@ -126,7 +129,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       `;
 
       const startTime = Date.now();
-      addTestClass(testClass, 'TestClass');
+      await addTestClass(testClass, 'TestClass');
       const endTime = Date.now();
 
       // Should complete in reasonable time (less than 5 seconds)
@@ -137,7 +140,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       expect(cacheStats.typeNameCacheSize).toBe(1);
     });
 
-    it('should handle complex nested generic types efficiently', () => {
+    it('should handle complex nested generic types efficiently', async () => {
       const testClass = `
         public class TestClass {
           public Map<String, List<System.Url>> getComplex1() { return null; }
@@ -149,7 +152,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       `;
 
       const startTime = Date.now();
-      addTestClass(testClass, 'TestClass');
+      await addTestClass(testClass, 'TestClass');
       const endTime = Date.now();
 
       // Should complete in reasonable time
@@ -162,7 +165,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
   });
 
   describe('Memory Management', () => {
-    it('should not accumulate excessive cache entries', () => {
+    it('should not accumulate excessive cache entries', async () => {
       // Process multiple files with different type names
       const files = [
         'public class TestClass1 { public System.Url getUrl() { return null; } }',
@@ -171,7 +174,7 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       ];
 
       for (let i = 0; i < files.length; i++) {
-        addTestClass(files[i], `TestClass${i + 1}`);
+        await addTestClass(files[i], `TestClass${i + 1}`);
       }
 
       // Cache should have reasonable size
@@ -179,14 +182,14 @@ describe.skip('ApexSymbolManager - Performance Optimization', () => {
       expect(cacheStats.typeNameCacheSize).toBeLessThan(10); // Should not accumulate too many entries
     });
 
-    it('should handle cache clearing without errors', () => {
+    it('should handle cache clearing without errors', async () => {
       const testClass = `
         public class TestClass {
           public System.Url getUrl() { return null; }
         }
       `;
 
-      addTestClass(testClass, 'TestClass');
+      await addTestClass(testClass, 'TestClass');
 
       // Clear caches multiple times
       SymbolReferenceFactory.clearCaches();

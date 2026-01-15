@@ -47,6 +47,7 @@ import {
   SymbolVisibility,
   SymbolLocation,
   SymbolKind,
+  keyToString,
 } from '../types/symbol';
 import { isBlockSymbol } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
@@ -1953,6 +1954,104 @@ export class ApexSymbolGraph {
         `symbolCount: ${symbolTable.getAllSymbols().length})`,
     );
 
+    // If replacing an existing SymbolTable, preserve both symbols and references from the old one
+    // This is important for workspace batch processing which may replace SymbolTables
+    // that were created during initial file open with full symbols/references already collected
+    // with SymbolTables that only have public API symbols (from VisibilitySymbolListener)
+    if (existing && existing !== symbolTable) {
+      const existingReferences = existing.getAllReferences();
+      const newReferences = symbolTable.getAllReferences();
+      const existingSymbols = existing.getAllSymbols();
+      const newSymbols = symbolTable.getAllSymbols();
+
+      this.logger.debug(
+        () =>
+          `[registerSymbolTable] Replacing existing SymbolTable for ${normalizedUri}: ` +
+          `existing symbols: ${existingSymbols.length}, new symbols: ${newSymbols.length}, ` +
+          `existing references: ${existingReferences.length}, new references: ${newReferences.length}`,
+      );
+
+      // Log symbol names for debugging
+      this.logger.debug(
+        () =>
+          `[registerSymbolTable] Existing symbols: ${existingSymbols.map((s) => `${s.name}(${s.kind})`).join(', ')}`,
+      );
+      this.logger.debug(
+        () =>
+          `[registerSymbolTable] New symbols: ${newSymbols.map((s) => `${s.name}(${s.kind})`).join(', ')}`,
+      );
+
+      // Preserve symbols from the old SymbolTable that aren't in the new one
+      // This is critical for private/protected symbols that won't be in PublicAPISymbolListener results
+      // The addSymbol method will handle detail level enrichment automatically
+      let symbolsPreserved = 0;
+      const newSymbolKeys = new Set(newSymbols.map((s) => keyToString(s.key)));
+      for (const symbol of existingSymbols) {
+        const symbolKey = keyToString(symbol.key);
+        if (!newSymbolKeys.has(symbolKey)) {
+          // Symbol doesn't exist in new SymbolTable - preserve it
+          // Use addSymbol which handles detail level enrichment
+          symbolTable.addSymbol(symbol);
+          symbolsPreserved++;
+        } else {
+          // Symbol exists in both - let addSymbol handle detail level enrichment
+          // This ensures higher detail level symbols (private/full) enrich lower ones (public-api)
+          symbolTable.addSymbol(symbol);
+        }
+      }
+      if (symbolsPreserved > 0) {
+        this.logger.debug(
+          () =>
+            `[registerSymbolTable] Preserved ${symbolsPreserved} symbols from existing SymbolTable`,
+        );
+      }
+
+      // Preserve references from the old SymbolTable
+      // If the new SymbolTable has no references but the old one does, merge them
+      // This ensures hover/definition requests work even if workspace batch processing
+      // creates a new SymbolTable without references (e.g., if collectReferences wasn't set)
+      if (existingReferences.length > 0 && newReferences.length === 0) {
+        this.logger.debug(
+          () =>
+            `[registerSymbolTable] Merging ${existingReferences.length} references from existing SymbolTable`,
+        );
+        // Add all references from the old SymbolTable to the new one
+        for (const ref of existingReferences) {
+          symbolTable.addTypeReference(ref);
+        }
+      } else if (existingReferences.length > 0 && newReferences.length > 0) {
+        // Both have references - merge unique ones (avoid duplicates)
+        const newRefSet = new Set(
+          newReferences.map(
+            (r) =>
+              `${r.location.identifierRange.startLine}:${r.location.identifierRange.startColumn}:${r.name}`,
+          ),
+        );
+        let mergedCount = 0;
+        for (const ref of existingReferences) {
+          const refKey =
+            `${ref.location.identifierRange.startLine}:` +
+            `${ref.location.identifierRange.startColumn}:${ref.name}`;
+          if (!newRefSet.has(refKey)) {
+            symbolTable.addTypeReference(ref);
+            mergedCount++;
+          }
+        }
+        if (mergedCount > 0) {
+          this.logger.debug(
+            () =>
+              `[registerSymbolTable] Merged ${mergedCount} additional references from existing SymbolTable`,
+          );
+        } else {
+          this.logger.debug(
+            () =>
+              `[registerSymbolTable] No additional references to merge (all ${existingReferences.length} ` +
+              'existing references already present in new SymbolTable)',
+          );
+        }
+      }
+    }
+
     // Use normalized URI for registration to match what getSymbol() will look up
     // This allows replacing placeholders created by ensureSymbolTableForFile()
     this.fileToSymbolTable.set(normalizedUri, symbolTable);
@@ -1965,9 +2064,11 @@ export class ApexSymbolGraph {
           `[registerSymbolTable] Failed to register SymbolTable for URI: ${normalizedUri}`,
       );
     } else {
+      const finalRefCount = registered.getAllReferences().length;
       this.logger.debug(
         () =>
-          `[registerSymbolTable] Successfully registered SymbolTable for URI: ${normalizedUri}`,
+          `[registerSymbolTable] Successfully registered SymbolTable for URI: ${normalizedUri} ` +
+          `(references: ${finalRefCount})`,
       );
     }
   }

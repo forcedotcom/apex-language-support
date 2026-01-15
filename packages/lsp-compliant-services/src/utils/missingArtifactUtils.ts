@@ -557,6 +557,66 @@ export class MissingArtifactUtils {
     readonly filePath?: string;
   } | null {
     try {
+      // If this is a chained reference and the first node is already resolved,
+      // prefer the resolved symbol (and its return type) over the raw identifier name.
+      if (
+        isChainedSymbolReference(reference) &&
+        reference.chainNodes &&
+        reference.chainNodes.length > 0
+      ) {
+        const firstNode = reference.chainNodes[0];
+        if (firstNode?.resolvedSymbolId) {
+          const resolvedQualifierSymbol = this.symbolManager.getSymbol(
+            firstNode.resolvedSymbolId,
+          );
+
+          if (resolvedQualifierSymbol) {
+            // If the qualifier is a method, use its return type as the effective qualifier.
+            const returnType = (resolvedQualifierSymbol as any).returnType;
+            if (returnType) {
+              const returnTypeSymbol =
+                (returnType as any).resolvedSymbol ??
+                this.symbolManager
+                  .findSymbolByName(returnType.name || '')
+                  .find(
+                    (s) =>
+                      s.kind === 'class' ||
+                      s.kind === 'interface' ||
+                      s.kind === 'enum',
+                  );
+
+              if (returnTypeSymbol) {
+                return {
+                  type: this.mapSymbolKindToType(returnTypeSymbol.kind),
+                  name: returnTypeSymbol.name,
+                  namespace: returnTypeSymbol.namespace,
+                  isStatic: returnTypeSymbol.modifiers?.isStatic ?? false,
+                  filePath: returnTypeSymbol.fileUri,
+                };
+              }
+
+              if (returnType.name) {
+                return {
+                  type: 'class',
+                  name: returnType.name,
+                  isStatic: false,
+                };
+              }
+            }
+
+            // If the qualifier itself has a declared type, fall back to that.
+            const qualifierType = (resolvedQualifierSymbol as any).type;
+            if (qualifierType?.name) {
+              return {
+                type: 'class',
+                name: qualifierType.name,
+                isStatic: false,
+              };
+            }
+          }
+        }
+      }
+
       // Extract qualifier from chained references if applicable
       let qualifier: string | undefined = reference.qualifier;
       if (!qualifier && isChainedSymbolReference(reference)) {

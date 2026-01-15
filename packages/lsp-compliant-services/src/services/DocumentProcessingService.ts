@@ -12,11 +12,15 @@ import { Effect } from 'effect';
 import {
   CompilerService,
   ApexSymbolProcessingManager,
-  PublicAPISymbolListener,
+  VisibilitySymbolListener,
   SymbolTable,
+  type CompilationResult,
+  ApexSymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { getDocumentStateCache } from './DocumentStateCache';
+import type { ApexStorageInterface } from '../storage/ApexStorageInterface';
+import type { DocumentStateCache } from './DocumentStateCache';
 import {
   makeDocumentOpenBatcher,
   type DocumentOpenBatcherService,
@@ -24,6 +28,15 @@ import {
   type DocumentOpenBatchConfig,
 } from './DocumentOpenBatcher';
 import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
+
+/**
+ * Yield to the Node.js event loop using setImmediate for immediate yielding
+ * This is more effective than Effect.sleep(0) which may use setTimeout
+ */
+const yieldToEventLoop = Effect.async<void>((resume) => {
+  setImmediate(() => resume(Effect.void));
+});
 
 /**
  * Service for processing document open events
@@ -33,10 +46,18 @@ export class DocumentProcessingService {
   private readonly storageManager: ApexStorageManager;
   private batcher: DocumentOpenBatcherService | null = null;
   private batcherShutdown: Effect.Effect<void, never> | null = null;
+  private layerEnrichmentService: LayerEnrichmentService | null = null;
 
   constructor(logger: LoggerInterface) {
     this.logger = logger;
     this.storageManager = ApexStorageManager.getInstance();
+  }
+
+  /**
+   * Set the layer enrichment service (for editor-opened files)
+   */
+  setLayerEnrichmentService(service: LayerEnrichmentService): void {
+    this.layerEnrichmentService = service;
   }
 
   /**
@@ -118,27 +139,19 @@ export class DocumentProcessingService {
         // Still update storage
         await storage.setDocument(event.document.uri, event.document);
 
-        // Even if cached, ensure symbols are added to the symbol manager
-        // (they might have been cached from a diagnostic request that didn't add symbols)
-        if (cached.symbolTable) {
-          const symbolManager = backgroundManager.getSymbolManager();
-          const existingSymbols = symbolManager.findSymbolsInFile(
-            event.document.uri,
+        // Check if symbols exist in symbol manager (they should if cache hit)
+        // If not, we need to recompile to get them
+        const symbolManager = backgroundManager.getSymbolManager();
+        const existingSymbols = symbolManager.findSymbolsInFile(
+          event.document.uri,
+        );
+        if (existingSymbols.length === 0) {
+          // Cache hit but no symbols in manager - need to recompile
+          this.logger.debug(
+            () =>
+              `Batch: Cached file ${event.document.uri} has no symbols in manager, will recompile`,
           );
-          if (existingSymbols.length === 0) {
-            this.logger.debug(
-              () =>
-                `Batch: Cached file ${event.document.uri} has no symbols in manager, adding them now`,
-            );
-            await symbolManager.addSymbolTable(
-              cached.symbolTable,
-              event.document.uri,
-            );
-            this.logger.debug(
-              () =>
-                `Batch: Successfully added cached symbols synchronously for ${event.document.uri}`,
-            );
-          }
+          uncachedEvents.push(event);
         }
       } else {
         uncachedEvents.push(event);
@@ -149,14 +162,21 @@ export class DocumentProcessingService {
     const results: (Diagnostic[] | undefined)[] = [...cachedResults];
 
     if (uncachedEvents.length > 0) {
+      const batchStartTime = Date.now();
+      let compileDuration = 0;
+      this.logger.debug(
+        () =>
+          `[WORKSPACE-LOAD] Starting batch processing: ${uncachedEvents.length} files, ` +
+          `${cachedResults.length} cached, ${events.length} total`,
+      );
       try {
         // Create listeners for each file
         // Store listeners and symbol tables so we can access them later
-        // Use PublicAPISymbolListener for document open (only need public API for cross-file refs)
-        const listeners: PublicAPISymbolListener[] = [];
+        // Use VisibilitySymbolListener for document open (only need public API for cross-file refs)
+        const listeners: VisibilitySymbolListener[] = [];
         const compileConfigs = uncachedEvents.map((event) => {
           const table = new SymbolTable();
-          const listener = new PublicAPISymbolListener(table);
+          const listener = new VisibilitySymbolListener('public-api', table);
           listeners.push(listener);
           return {
             content: event.document.getText(),
@@ -169,78 +189,51 @@ export class DocumentProcessingService {
           };
         });
 
+        const compileStartTime = Date.now();
+        this.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Starting compilation: ${compileConfigs.length} files`,
+        );
         const compileResults = await Effect.runPromise(
           compilerService.compileMultipleWithConfigs(compileConfigs),
         );
+        compileDuration = Date.now() - compileStartTime;
+        this.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Compilation completed in ${compileDuration}ms: ` +
+            `${compileResults.length} results`,
+        );
 
-        // Process each result
-        for (let i = 0; i < uncachedEvents.length; i++) {
-          const event = uncachedEvents[i];
-          const compileResult = compileResults[i];
-          const listener = listeners[i];
+        // Process results using Effect-based processing with yields between files
+        const symbolManager = backgroundManager.getSymbolManager();
+        const postCompilationStartTime = Date.now();
+        this.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Starting post-compilation processing: ${uncachedEvents.length} files`,
+        );
+        const postCompilationResults = await Effect.runPromise(
+          this.processPostCompilationResultsEffect(
+            compileResults,
+            uncachedEvents,
+            listeners,
+            storage,
+            cache,
+            symbolManager,
+          ),
+        );
+        const postCompilationDuration = Date.now() - postCompilationStartTime;
+        this.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Post-compilation processing completed in ${postCompilationDuration}ms`,
+        );
+        results.push(...postCompilationResults);
 
-          // Update storage
-          await storage.setDocument(event.document.uri, event.document);
-
-          if (compileResult) {
-            // Extract diagnostics - handle both CompilationResult and CompilationResultWithComments
-            const diagnostics = getDiagnosticsFromErrors(compileResult.errors);
-
-            // Get symbol table from result or listener
-            // compileResult.result should be the SymbolTable, but fallback to listener.getResult()
-            let symbolTable: SymbolTable | undefined;
-            if (compileResult.result instanceof SymbolTable) {
-              symbolTable = compileResult.result;
-            } else if (listener instanceof PublicAPISymbolListener) {
-              symbolTable = listener.getResult();
-            }
-
-            this.logger.debug(
-              () =>
-                `Batch processing ${event.document.uri}: symbolTable extracted: ` +
-                `${symbolTable ? 'yes' : 'no'}, from result: ${compileResult.result instanceof SymbolTable}, ` +
-                `from listener: ${listener instanceof PublicAPISymbolListener}`,
-            );
-
-            // Cache diagnostics and symbol table
-            cache.merge(event.document.uri, {
-              symbolTable,
-              diagnostics,
-              documentVersion: event.document.version,
-              documentLength: event.document.getText().length,
-              symbolsIndexed: false,
-            });
-
-            // Add symbols synchronously so they're immediately available for hover/goto definition
-            // Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics)
-            if (symbolTable) {
-              const symbolManager = backgroundManager.getSymbolManager();
-              this.logger.debug(
-                () =>
-                  `Adding symbols synchronously for ${event.document.uri} (batch processing)`,
-              );
-              // Add symbols immediately (synchronous) without processing references
-              // This avoids queue pressure during workspace loading
-              await symbolManager.addSymbolTable(
-                symbolTable,
-                event.document.uri,
-              );
-              this.logger.debug(
-                () =>
-                  `Successfully added symbols synchronously for ${event.document.uri}`,
-              );
-            } else {
-              this.logger.warn(
-                () =>
-                  `No symbol table extracted for ${event.document.uri} in batch processing`,
-              );
-            }
-
-            results.push(diagnostics);
-          } else {
-            results.push(undefined);
-          }
-        }
+        const batchDuration = Date.now() - batchStartTime;
+        this.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Batch processing completed in ${batchDuration}ms ` +
+            `(compile: ${compileDuration}ms, post-compile: ${postCompilationDuration}ms)`,
+        );
       } catch (error) {
         this.logger.error(
           () =>
@@ -254,6 +247,123 @@ export class DocumentProcessingService {
     }
 
     return results;
+  }
+
+  /**
+   * Process post-compilation results using Effect-TS with yields between files
+   * This prevents event loop blocking during batch processing
+   */
+  private processPostCompilationResultsEffect(
+    compileResults: (CompilationResult<SymbolTable> | undefined)[],
+    events: TextDocumentChangeEvent<TextDocument>[],
+    listeners: VisibilitySymbolListener[],
+    storage: ApexStorageInterface,
+    cache: DocumentStateCache,
+    symbolManager: ApexSymbolManager,
+  ): Effect.Effect<(Diagnostic[] | undefined)[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const results: (Diagnostic[] | undefined)[] = [];
+      const fileProcessingStartTime = Date.now();
+      let filesProcessed = 0;
+      let yieldsPerformed = 0;
+      // Yield every 10 files instead of every file to reduce overhead
+      // setImmediate has more overhead than Effect.sleep(0), so we yield less frequently
+      const YIELD_INTERVAL = 10;
+
+      for (let i = 0; i < events.length; i++) {
+        const event = events[i];
+        const compileResult = compileResults[i];
+        const listener = listeners[i];
+
+        // Update storage wrapped in Effect with error handling
+        yield* Effect.promise(() =>
+          storage.setDocument(event.document.uri, event.document),
+        ).pipe(Effect.catchAll(() => Effect.void));
+
+        if (compileResult) {
+          // Extract diagnostics - handle both CompilationResult and CompilationResultWithComments
+          const diagnostics = getDiagnosticsFromErrors(compileResult.errors);
+
+          // Get symbol table from result or listener
+          // compileResult.result should be the SymbolTable, but fallback to listener.getResult()
+          let symbolTable: SymbolTable | undefined;
+          if (compileResult.result instanceof SymbolTable) {
+            symbolTable = compileResult.result;
+          } else if (listener instanceof VisibilitySymbolListener) {
+            symbolTable = listener.getResult();
+          }
+
+          self.logger.debug(
+            () =>
+              `Batch processing ${event.document.uri}: symbolTable extracted: ` +
+              `${symbolTable ? 'yes' : 'no'}, from result: ${compileResult.result instanceof SymbolTable}, ` +
+              `from listener: ${listener instanceof VisibilitySymbolListener}`,
+          );
+
+          // Cache diagnostics wrapped in Effect (synchronous operation)
+          // Workspace batch processing uses public-api only (fast initial load)
+          yield* Effect.sync(() =>
+            cache.merge(event.document.uri, {
+              diagnostics,
+              documentVersion: event.document.version,
+              documentLength: event.document.getText().length,
+              symbolsIndexed: false,
+              detailLevel: 'public-api', // Workspace load is public API only
+            }),
+          );
+
+          // Add symbols so they're immediately available for hover/goto definition
+          // Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics)
+          if (symbolTable) {
+            const symbolAddStartTime = Date.now();
+            // Add symbols immediately using Effect-based method
+            // This avoids queue pressure during workspace loading
+            yield* symbolManager.addSymbolTable(
+              symbolTable,
+              event.document.uri,
+            );
+            const symbolAddDuration = Date.now() - symbolAddStartTime;
+            filesProcessed++;
+            if (symbolAddDuration > 50) {
+              self.logger.debug(
+                () =>
+                  `[WORKSPACE-LOAD] Added symbols for ${event.document.uri} in ${symbolAddDuration}ms`,
+              );
+            }
+          } else {
+            self.logger.warn(
+              () =>
+                `No symbol table extracted for ${event.document.uri} in batch processing`,
+            );
+          }
+
+          results.push(diagnostics);
+        } else {
+          results.push(undefined);
+        }
+
+        // Yield every YIELD_INTERVAL files (except last) to allow event loop to process other tasks
+        // Reduced frequency to minimize setImmediate overhead
+        if ((i + 1) % YIELD_INTERVAL === 0 && i + 1 < events.length) {
+          yieldsPerformed++;
+          yield* yieldToEventLoop; // Yield to event loop using setImmediate
+        }
+      }
+
+      const totalDuration = Date.now() - fileProcessingStartTime;
+      if (totalDuration > 100 || yieldsPerformed > 0) {
+        self.logger.debug(
+          () =>
+            `[WORKSPACE-LOAD] Processed ${filesProcessed} files with ${yieldsPerformed} yields ` +
+            `in ${totalDuration}ms ` +
+            `(avg: ${filesProcessed > 0 ? (totalDuration / filesProcessed).toFixed(1) : 0}ms/file) ` +
+            `(yields: ${yieldsPerformed})`,
+        );
+      }
+
+      return results;
+    }) as Effect.Effect<(Diagnostic[] | undefined)[], never, never>;
   }
 
   /**
@@ -275,31 +385,23 @@ export class DocumentProcessingService {
     if (cached) {
       await storage.setDocument(event.document.uri, event.document);
 
-      // Even if cached, we need to ensure symbols are added to the symbol manager
-      // (they might have been cached from a diagnostic request that didn't add symbols)
-      if (cached.symbolTable) {
-        const symbolManager = backgroundManager.getSymbolManager();
-        // Check if symbols already exist for this file
-        const existingSymbols = symbolManager.findSymbolsInFile(
-          event.document.uri,
+      // Check if symbols exist in symbol manager (they should if cache hit)
+      // If not, we need to recompile to get them
+      const symbolManager = backgroundManager.getSymbolManager();
+      const existingSymbols = symbolManager.findSymbolsInFile(
+        event.document.uri,
+      );
+      if (existingSymbols.length === 0) {
+        // Cache hit but no symbols in manager - need to recompile
+        this.logger.debug(
+          () =>
+            `Cached file ${event.document.uri} has no symbols in manager, will recompile`,
         );
-        if (existingSymbols.length === 0) {
-          this.logger.debug(
-            () =>
-              `Cached file ${event.document.uri} has no symbols in manager, adding them now`,
-          );
-          await symbolManager.addSymbolTable(
-            cached.symbolTable,
-            event.document.uri,
-          );
-          this.logger.debug(
-            () =>
-              `Successfully added cached symbols synchronously for ${event.document.uri}`,
-          );
-        }
+        // Fall through to recompilation
+      } else {
+        // Cache hit and symbols exist - return cached diagnostics
+        return cached.diagnostics;
       }
-
-      return cached.diagnostics;
     }
 
     try {
@@ -307,9 +409,9 @@ export class DocumentProcessingService {
       await storage.setDocument(event.document.uri, event.document);
 
       // Compile - create listener
-      // Use PublicAPISymbolListener for document open (only need public API for cross-file refs)
+      // Use VisibilitySymbolListener for document open (only need public API for cross-file refs)
       const table = new SymbolTable();
-      const listener = new PublicAPISymbolListener(table);
+      const listener = new VisibilitySymbolListener('public-api', table);
 
       const compileResult = compilerService.compile(
         event.document.getText(),
@@ -337,13 +439,14 @@ export class DocumentProcessingService {
             `type: ${typeof compileResult.result}, instanceof: ${compileResult.result instanceof SymbolTable}`,
         );
 
-        // Cache diagnostics and symbol table
+        // Cache diagnostics (SymbolTable is stored in ApexSymbolManager)
+        // Editor open starts with public-api, will be enriched to full
         cache.merge(event.document.uri, {
-          symbolTable,
           diagnostics,
           documentVersion: event.document.version,
           documentLength: event.document.getText().length,
           symbolsIndexed: false,
+          detailLevel: 'public-api', // Initial level, will be enriched
         });
 
         // Add symbols synchronously so they're immediately available for hover/goto definition
@@ -357,11 +460,43 @@ export class DocumentProcessingService {
           // Add symbols immediately (synchronous) without processing cross-file references
           // Same-file references are processed immediately, cross-file references are deferred
           // This avoids queue pressure during workspace loading
-          await symbolManager.addSymbolTable(symbolTable, event.document.uri);
+          await Effect.runPromise(
+            symbolManager.addSymbolTable(symbolTable, event.document.uri),
+          );
           this.logger.debug(
             () =>
               `Successfully added symbols synchronously for ${event.document.uri}`,
           );
+
+          // Enrich to full detail level for editor-opened files (not workspace batch)
+          // This ensures documentSymbol, completion, hover, and diagnostics have full semantics
+          if (this.layerEnrichmentService) {
+            try {
+              this.logger.debug(
+                () =>
+                  `Enriching editor-opened file ${event.document.uri} to full detail level`,
+              );
+              // Enrich asynchronously (don't block diagnostics return)
+              this.layerEnrichmentService
+                .enrichFiles([event.document.uri], 'full', 'same-file')
+                .then(() => {
+                  this.logger.debug(
+                    () =>
+                      `Successfully enriched ${event.document.uri} to full detail level`,
+                  );
+                })
+                .catch((error) => {
+                  this.logger.debug(
+                    () => `Error enriching ${event.document.uri}: ${error}`,
+                  );
+                });
+            } catch (error) {
+              this.logger.debug(
+                () =>
+                  `Error initiating enrichment for ${event.document.uri}: ${error}`,
+              );
+            }
+          }
         } else {
           this.logger.warn(
             () =>

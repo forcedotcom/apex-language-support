@@ -51,9 +51,56 @@ export interface ApexError {
 export class ApexErrorListener implements ANTLRErrorListener<Token> {
   private errors: ApexError[] = [];
   private fileUri: string;
+  // Track seen errors to prevent duplicates from multiple parse tree walks
+  private seenErrorKeys: Set<string> = new Set();
 
   constructor(fileUri: string) {
     this.fileUri = fileUri;
+  }
+
+  /**
+   * Create a unique key for an error to detect duplicates
+   * Includes all fields that uniquely identify an error:
+   * - type: Distinguishes syntax vs semantic
+   * - severity: Distinguishes errors vs warnings
+   * - message: The error message (normalized/trimmed)
+   * - line: Line number
+   * - column: Column number
+   * - fileUri: File path
+   */
+  private createErrorKey(
+    type: ErrorType,
+    severity: ErrorSeverity,
+    message: string,
+    line: number,
+    column: number,
+  ): string {
+    // Normalize message by trimming whitespace
+    const normalizedMessage = message.trim();
+    return `${type}|${severity}|${normalizedMessage}|${line}|${column}|${this.fileUri}`;
+  }
+
+  /**
+   * Add an error if it doesn't already exist
+   * @param error The error to add
+   * @returns true if the error was added, false if it was a duplicate
+   */
+  private addErrorIfNotDuplicate(error: ApexError): boolean {
+    const key = this.createErrorKey(
+      error.type,
+      error.severity,
+      error.message,
+      error.line,
+      error.column,
+    );
+
+    if (this.seenErrorKeys.has(key)) {
+      return false; // Duplicate error
+    }
+
+    this.seenErrorKeys.add(key);
+    this.errors.push(error);
+    return true; // Error was added
   }
 
   /**
@@ -75,8 +122,8 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
     msg: string,
     e: RecognitionException | undefined,
   ): void {
-    // Add the syntax error to our collection
-    this.errors.push({
+    // Add the syntax error to our collection (with deduplication)
+    const error: ApexError = {
       type: ErrorType.Syntax,
       severity: ErrorSeverity.Error,
       message: msg,
@@ -84,7 +131,8 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
       column: charPositionInLine,
       fileUri: this.fileUri,
       source: offendingSymbol?.text,
-    });
+    };
+    this.addErrorIfNotDuplicate(error);
   }
 
   /**
@@ -98,7 +146,7 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
     endColumn?: number,
     source?: string,
   ): void {
-    this.errors.push({
+    const error: ApexError = {
       type: ErrorType.Semantic,
       severity: ErrorSeverity.Error,
       message,
@@ -108,7 +156,8 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
       endColumn,
       fileUri: this.fileUri,
       source,
-    });
+    };
+    this.addErrorIfNotDuplicate(error);
   }
 
   /**
@@ -122,7 +171,7 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
     endColumn?: number,
     source?: string,
   ): void {
-    this.errors.push({
+    const error: ApexError = {
       type: ErrorType.Semantic,
       severity: ErrorSeverity.Warning,
       message,
@@ -132,7 +181,8 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
       endColumn,
       fileUri: this.fileUri,
       source,
-    });
+    };
+    this.addErrorIfNotDuplicate(error);
   }
 
   /**

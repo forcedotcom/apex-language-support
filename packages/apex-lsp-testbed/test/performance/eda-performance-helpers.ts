@@ -14,6 +14,7 @@ import type {
   CompilationResult,
 } from '@salesforce/apex-lsp-parser-ast';
 import { SymbolKind, ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 
 /**
  * Memory usage snapshot with timestamp
@@ -415,7 +416,7 @@ export async function measureManagerAdditionCost(
     }
 
     // Add SymbolTable to manager
-    await manager.addSymbolTable(symbolTable, fileUri);
+    await Effect.runPromise(manager.addSymbolTable(symbolTable, fileUri));
 
     // Take periodic memory snapshots (every 10 files or at end)
     if ((i + 1) % 10 === 0 || i === fileUris.length - 1) {

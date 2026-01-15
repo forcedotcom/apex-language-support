@@ -106,7 +106,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     apexCode: string,
     fileName: string = 'file:///test/test.cls',
   ): Promise<void> => {
-    listener = new ApexSymbolCollectorListener();
+    listener = new ApexSymbolCollectorListener(undefined, 'full');
 
     const result = compilerService.compile(apexCode, fileName, listener);
 
@@ -118,7 +118,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     }
 
     if (result.result) {
-      symbolManager.addSymbolTable(result.result, fileName);
+      // addSymbolTable now returns an Effect, so we need to run it
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result, fileName),
+      );
     }
   };
 
@@ -860,6 +863,78 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.modifiers?.isBuiltIn).toBe(false);
     });
 
+    it('should prioritize METHOD_CALL over VARIABLE_USAGE when both exist at overlapping positions', async () => {
+      // Test case: String encoded = EncodingUtil.urlEncode('Hello World', 'UTF-8');
+      // When hovering over "urlEncode", there should be a METHOD_CALL reference.
+      // If there's also a VARIABLE_USAGE reference (e.g., for "encoded" variable),
+      // the parser should prioritize METHOD_CALL over VARIABLE_USAGE.
+      const sourceCode = `public class TestClass {
+    public void testMethod() {
+        String encoded = EncodingUtil.urlEncode('Hello World', 'UTF-8');
+    }
+}`;
+
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      const result = compilerService.compile(
+        sourceCode,
+        'file:///test/TestClass.cls',
+        listener,
+      );
+
+      if (result.result) {
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///test/TestClass.cls',
+          ),
+        );
+      }
+
+      // Find the position of "urlEncode" in the source code
+      const lines = sourceCode.split('\n');
+      const lineIndex = lines.findIndex((l) =>
+        l.includes('EncodingUtil.urlEncode'),
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf('urlEncode');
+      expect(charIndex).toBeGreaterThanOrEqual(0);
+
+      // Convert to parser position (1-based line, 0-based column)
+      const parserPosition = {
+        line: lineIndex + 1,
+        character: charIndex,
+      };
+
+      // Check what references exist at this position
+      const references = symbolManager.getReferencesAtPosition(
+        'file:///test/TestClass.cls',
+        parserPosition,
+      );
+
+      const methodCallRef = references.find(
+        (ref) =>
+          ref.context === ReferenceContext.METHOD_CALL &&
+          ref.name === 'urlEncode',
+      );
+
+      // METHOD_CALL reference should exist
+      expect(methodCallRef).toBeDefined();
+      expect(methodCallRef?.name).toBe('urlEncode');
+      expect(methodCallRef?.context).toBe(ReferenceContext.METHOD_CALL);
+
+      // getSymbolAtPosition should prioritize METHOD_CALL over any other references
+      const symbol = await symbolManager.getSymbolAtPosition(
+        'file:///test/TestClass.cls',
+        parserPosition,
+        'precise',
+      );
+
+      expect(symbol).toBeDefined();
+      // Should resolve to the method call, not a variable or other symbol
+      expect(symbol?.kind).toBe('method');
+      expect(symbol?.name).toBe('urlEncode');
+    });
+
     //TODO: disabled due to issue with chained method in call parameters
     // eslint-disable-next-line max-len
     it('should resolve method name in chained method call parameters (URL.getOrgDomainUrl().toExternalForm)', async () => {
@@ -1190,7 +1265,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
         const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
-        const testClassListener = new ApexSymbolCollectorListener();
+        const testClassListener = new ApexSymbolCollectorListener(
+          undefined,
+          'full',
+        );
         const testClassResult = compilerService.compile(
           testClassContent,
           'file:///test/TestClass.cls',
@@ -1198,9 +1276,11 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
 
         if (testClassResult.result) {
-          await symbolManager.addSymbolTable(
-            testClassResult.result,
-            'file:///test/TestClass.cls',
+          await Effect.runPromise(
+            symbolManager.addSymbolTable(
+              testClassResult.result,
+              'file:///test/TestClass.cls',
+            ),
           );
         }
 
@@ -1236,7 +1316,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
         const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
-        const testClassListener = new ApexSymbolCollectorListener();
+        const testClassListener = new ApexSymbolCollectorListener(
+          undefined,
+          'full',
+        );
         const testClassResult = compilerService.compile(
           testClassContent,
           'file:///test/TestClass.cls',
@@ -1244,9 +1327,11 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
 
         if (testClassResult.result) {
-          await symbolManager.addSymbolTable(
-            testClassResult.result,
-            'file:///test/TestClass.cls',
+          await Effect.runPromise(
+            symbolManager.addSymbolTable(
+              testClassResult.result,
+              'file:///test/TestClass.cls',
+            ),
           );
         }
 
@@ -1281,7 +1366,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
         const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
-        const testClassListener = new ApexSymbolCollectorListener();
+        const testClassListener = new ApexSymbolCollectorListener(
+          undefined,
+          'full',
+        );
         const testClassResult = compilerService.compile(
           testClassContent,
           'file:///test/TestClass.cls',
@@ -1289,9 +1377,11 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
 
         if (testClassResult.result) {
-          await symbolManager.addSymbolTable(
-            testClassResult.result,
-            'file:///test/TestClass.cls',
+          await Effect.runPromise(
+            symbolManager.addSymbolTable(
+              testClassResult.result,
+              'file:///test/TestClass.cls',
+            ),
           );
         }
 

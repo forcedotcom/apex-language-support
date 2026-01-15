@@ -11,10 +11,12 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,
   SymbolTable,
-  PublicAPISymbolListener,
+  VisibilitySymbolListener,
   ApexSymbolProcessingManager,
   ISymbolManager,
   type CompilationResult,
+  type CompilationResultWithComments,
+  type CompilationResultWithAssociations,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
@@ -90,15 +92,24 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    */
   private compileDocumentEffect(
     document: any,
-    listener: PublicAPISymbolListener,
-  ): Effect.Effect<CompilationResult<SymbolTable>, never, never> {
+    listener: VisibilitySymbolListener,
+  ): Effect.Effect<
+    | CompilationResult<SymbolTable>
+    | CompilationResultWithComments<SymbolTable>
+    | CompilationResultWithAssociations<SymbolTable>,
+    never,
+    never
+  > {
     const logger = this.logger;
     return Effect.gen(function* () {
       // Yield control before starting compilation
       yield* Effect.yieldNow();
 
       const compilerService = new CompilerService();
-      let result: CompilationResult<SymbolTable>;
+      let result:
+        | CompilationResult<SymbolTable>
+        | CompilationResultWithComments<SymbolTable>
+        | CompilationResultWithAssociations<SymbolTable>;
 
       try {
         result = yield* Effect.sync(() =>
@@ -260,9 +271,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       }
 
       // Create a symbol collector listener
-      // Use PublicAPISymbolListener for diagnostics (syntax errors don't need private symbols)
+      // Use VisibilitySymbolListener for diagnostics (syntax errors don't need private symbols)
       const table = new SymbolTable();
-      const listener = new PublicAPISymbolListener(table);
+      const listener = new VisibilitySymbolListener('public-api', table);
 
       // Parse the document using Effect-based compilation (with yielding)
       const result = await Effect.runPromise(
@@ -272,9 +283,22 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       // Get diagnostics from errors
       const diagnostics = getDiagnosticsFromErrors(result.errors);
 
-      // Cache the parse result
+      // Add SymbolTable to manager if not already present
+      const existingSymbols = this.symbolManager.findSymbolsInFile(
+        document.uri,
+      );
+      if (existingSymbols.length === 0 && table) {
+        await Effect.runPromise(
+          this.symbolManager.addSymbolTable(table, document.uri),
+        );
+        this.logger.debug(
+          () =>
+            `Added SymbolTable to manager for ${document.uri} during diagnostics`,
+        );
+      }
+
+      // Cache diagnostics (SymbolTable is stored in ApexSymbolManager)
       parseCache.merge(document.uri, {
-        symbolTable: table,
         diagnostics,
         documentVersion: document.version,
         documentLength: document.getText().length,

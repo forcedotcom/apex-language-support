@@ -57,36 +57,49 @@ module.exports = async () => {
           // Ignore errors
         }
 
-    // Clean up ApexSymbolProcessingManager singleton
-    try {
-      const {
-        ApexSymbolProcessingManager,
-      } = require('@salesforce/apex-lsp-parser-ast');
-      if (
-        ApexSymbolProcessingManager &&
-        typeof ApexSymbolProcessingManager.reset === 'function'
-      ) {
-        ApexSymbolProcessingManager.reset();
-      }
-    } catch (_error) {
-      // Ignore errors - module might not be available
-    }
+        // Clean up ApexSymbolProcessingManager singleton
+        try {
+          const {
+            ApexSymbolProcessingManager,
+          } = require('@salesforce/apex-lsp-parser-ast');
+          if (
+            ApexSymbolProcessingManager &&
+            typeof ApexSymbolProcessingManager.reset === 'function'
+          ) {
+            ApexSymbolProcessingManager.reset();
+          }
+        } catch (_error) {
+          // Ignore errors - module might not be available
+        }
 
-    // Clean up BackgroundProcessingInitializationService singleton
-    // This shuts down background processing and clears any setTimeout-based monitoring
-    try {
-      const {
-        BackgroundProcessingInitializationService,
-      } = require('@salesforce/apex-lsp-compliant-services');
-      if (
-        BackgroundProcessingInitializationService &&
-        typeof BackgroundProcessingInitializationService.reset === 'function'
-      ) {
-        await BackgroundProcessingInitializationService.reset();
-      }
-    } catch (_error) {
-      // Ignore errors - module might not be available
-    }
+        // Clean up BackgroundProcessingInitializationService singleton
+        // This shuts down background processing and clears any setTimeout-based monitoring
+        try {
+          const {
+            BackgroundProcessingInitializationService,
+          } = require('@salesforce/apex-lsp-compliant-services');
+          if (
+            BackgroundProcessingInitializationService &&
+            typeof BackgroundProcessingInitializationService.reset === 'function'
+          ) {
+            await BackgroundProcessingInitializationService.reset();
+          }
+        } catch (_error) {
+          // Ignore errors - module might not be available
+        }
+
+        // Clear WorkspaceBatchHandler cleanup interval if it exists
+        // This prevents the interval from keeping the process alive
+        try {
+          const {
+            clearCleanupInterval,
+          } = require('@salesforce/apex-language-server/src/server/WorkspaceBatchHandler');
+          if (clearCleanupInterval && typeof clearCleanupInterval === 'function') {
+            clearCleanupInterval();
+          }
+        } catch (_error) {
+          // Ignore errors - module might not be available or function might not exist
+        }
 
         // Give Effect-TS resources time to clean up
         // This allows fibers to complete their cleanup and queues to fully shutdown

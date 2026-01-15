@@ -16,10 +16,9 @@ import {
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { ApexErrorListener } from './ApexErrorListener';
-import { PublicAPISymbolListener } from './PublicAPISymbolListener';
-import { ProtectedSymbolListener } from './ProtectedSymbolListener';
-import { PrivateSymbolListener } from './PrivateSymbolListener';
+import { ApexSymbolCollectorListener } from './ApexSymbolCollectorListener';
 import { ApexReferenceCollectorListener } from './ApexReferenceCollectorListener';
+import { BlockContentListener } from './BlockContentListener';
 import { ApexReferenceResolver } from '../references/ApexReferenceResolver';
 import { SymbolTable } from '../../types/symbol';
 
@@ -33,17 +32,15 @@ interface SemanticError {
 }
 
 /**
- * Full symbol collector listener that uses layered listeners + reference collector + resolver
- * to achieve feature parity with ApexSymbolCollectorListener.
+ * Full symbol collector listener that uses ApexSymbolCollectorListener with 'full' detail level
+ * + reference collector + resolver to achieve feature parity with the original ApexSymbolCollectorListener.
  *
  * This wrapper internally uses:
- * - PublicAPISymbolListener (Layer 1)
- * - ProtectedSymbolListener (Layer 2)
- * - PrivateSymbolListener (Layer 3)
- * - ApexReferenceCollectorListener (reference collection)
+ * - ApexSymbolCollectorListener with 'full' detail level (collects all symbols with correct scope context)
+ * - ApexReferenceCollectorListener (declaration reference collection via delegation)
+ * - BlockContentListener (block-level symbol table population as separate pass)
  * - ApexReferenceResolver (reference resolution)
  *
- * @deprecated Consider using layered listeners directly for better performance control
  */
 export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTable> {
   private readonly logger = getLogger();
@@ -54,10 +51,9 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   protected errorListener: ApexErrorListener | null = null;
 
   // Internal listeners
-  private publicAPIListener: PublicAPISymbolListener;
-  private protectedListener: ProtectedSymbolListener;
-  private privateListener: PrivateSymbolListener;
+  private symbolCollector: ApexSymbolCollectorListener;
   private referenceCollector: ApexReferenceCollectorListener;
+  private blockContentListener: BlockContentListener;
   private referenceResolver: ApexReferenceResolver;
 
   // Track if we've been walked (to know when to apply reference collection/resolution)
@@ -76,13 +72,15 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     super();
     this.symbolTable = symbolTable || new SymbolTable();
 
-    // Initialize layered listeners with the same symbol table
-    this.publicAPIListener = new PublicAPISymbolListener(this.symbolTable);
-    this.protectedListener = new ProtectedSymbolListener(this.symbolTable);
-    this.privateListener = new PrivateSymbolListener(this.symbolTable);
+    // Initialize enhanced ApexSymbolCollectorListener with 'full' detail level
+    this.symbolCollector = new ApexSymbolCollectorListener(
+      this.symbolTable,
+      'full',
+    );
     this.referenceCollector = new ApexReferenceCollectorListener(
       this.symbolTable,
     );
+    this.blockContentListener = new BlockContentListener(this.symbolTable);
     this.referenceResolver = new ApexReferenceResolver();
   }
 
@@ -91,9 +89,7 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
    */
   setProjectNamespace(namespace: string): void {
     this.projectNamespace = namespace;
-    this.publicAPIListener.setProjectNamespace(namespace);
-    this.protectedListener.setProjectNamespace(namespace);
-    this.privateListener.setProjectNamespace(namespace);
+    this.symbolCollector.setProjectNamespace(namespace);
     this.logger.debug(() => `Set project namespace to: ${namespace}`);
   }
 
@@ -103,10 +99,9 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   setCurrentFileUri(fileUri: string): void {
     this.currentFilePath = fileUri;
     this.symbolTable.setFileUri(fileUri);
-    this.publicAPIListener.setCurrentFileUri(fileUri);
-    this.protectedListener.setCurrentFileUri(fileUri);
-    this.privateListener.setCurrentFileUri(fileUri);
+    this.symbolCollector.setCurrentFileUri(fileUri);
     this.referenceCollector.setCurrentFileUri(fileUri);
+    this.blockContentListener.setCurrentFileUri(fileUri);
     this.logger.debug(() => `Set current file path to: ${fileUri}`);
   }
 
@@ -116,6 +111,7 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
    */
   setEnableReferenceCorrection(enabled: boolean): void {
     this.enableReferenceCorrection = enabled;
+    this.symbolCollector.setEnableReferenceCorrection(enabled);
     this.logger.debug(
       () => `Reference correction ${enabled ? 'enabled' : 'disabled'}`,
     );
@@ -126,10 +122,9 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
    */
   setErrorListener(errorListener: ApexErrorListener): void {
     this.errorListener = errorListener;
-    this.publicAPIListener.setErrorListener(errorListener);
-    this.protectedListener.setErrorListener(errorListener);
-    this.privateListener.setErrorListener(errorListener);
+    this.symbolCollector.setErrorListener(errorListener);
     this.referenceCollector.setErrorListener(errorListener);
+    this.blockContentListener.setErrorListener(errorListener);
   }
 
   /**
@@ -190,13 +185,13 @@ export class FullSymbolCollectorListener extends BaseApexParserListener<SymbolTa
 
     const walker = new ParseTreeWalker();
 
-    // Apply layered listeners in order (they enrich the same SymbolTable)
-    walker.walk(this.publicAPIListener, this.parseTree);
-    walker.walk(this.protectedListener, this.parseTree);
-    walker.walk(this.privateListener, this.parseTree);
+    // Apply enhanced ApexSymbolCollectorListener with 'full' detail level
+    // This collects all symbols (public, protected, private) in a single walk with correct scope context
+    walker.walk(this.symbolCollector, this.parseTree);
 
-    // Apply reference collector
-    walker.walk(this.referenceCollector, this.parseTree);
+    // Declaration references are collected via delegation from symbol listeners
+    // Block-level content (local variables, block scopes, expression references) is collected as a separate pass
+    walker.walk(this.blockContentListener, this.parseTree);
 
     // Apply reference resolver if enabled
     if (this.enableReferenceCorrection) {

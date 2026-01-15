@@ -19,6 +19,7 @@ import {
   initializeResourceLoaderForTests,
   resetResourceLoader,
 } from '../helpers/testHelpers';
+import { Effect } from 'effect';
 
 /**
  * Tests that instance member resolution via variable receivers works for hover/definition
@@ -50,7 +51,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     resetResourceLoader();
   });
 
-  const addTestClass = (fileUri?: string) => {
+  const addTestClass = async (fileUri?: string) => {
     const testClassPath = path.resolve(
       path.join(__dirname, fileUri || '../fixtures/cross-file/TestClass.cls'),
     );
@@ -58,14 +59,16 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     const testClassUri = URI.file(testClassPath).toString();
     const testClassContent = fs.readFileSync(testClassPath, 'utf8');
 
-    const listener = new ApexSymbolCollectorListener();
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
     const result = compilerService.compile(
       testClassContent,
       testClassUri,
       listener,
     );
     if (result.result) {
-      symbolManager.addSymbolTable(result.result, testClassUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result, testClassUri),
+      );
     }
   };
 
@@ -77,7 +80,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
       path.join(__dirname, '../fixtures/cross-file/TestClass.cls'),
     );
     const testClassUri = URI.file(testClassPath).toString();
-    addTestClass();
+    await addTestClass();
     const refs = symbolManager.getAllReferencesInFile(testClassUri);
 
     // Helper function to extract qualifier from new structure
@@ -117,7 +120,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
       path.join(__dirname, '../fixtures/cross-file/TestClass.cls'),
     );
     const testClassUri = URI.file(testClassPath).toString();
-    addTestClass();
+    await addTestClass();
     const refs = symbolManager.getAllReferencesInFile(testClassUri);
 
     // Helper function to extract qualifier from new structure
@@ -157,7 +160,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
       path.join(__dirname, '../fixtures/cross-file/TestClass.cls'),
     );
     const testClassUri = URI.file(testClassPath).toString();
-    addTestClass();
+    await addTestClass();
     const refs = symbolManager.getAllReferencesInFile(testClassUri);
 
     // Helper function to extract qualifier from new structure
@@ -197,7 +200,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
       path.join(__dirname, '../fixtures/cross-file/TestClass.cls'),
     );
     const testClassUri = URI.file(testClassPath).toString();
-    addTestClass();
+    await addTestClass();
     const refs = symbolManager.getAllReferencesInFile(testClassUri);
 
     // Helper function to extract qualifier from new structure
@@ -237,7 +240,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
       path.join(__dirname, '../fixtures/cross-file/TestClass.cls'),
     );
     const testClassUri = URI.file(testClassPath).toString();
-    addTestClass();
+    await addTestClass();
     const refs = symbolManager.getAllReferencesInFile(testClassUri);
 
     // Helper function to extract qualifier from new structure
@@ -274,7 +277,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
   it('resolves chained std-class call URL.getOrgDomainUrl().toExternalForm()', async () => {
     const cut = '../fixtures/cross-file/SystemUrl.cls';
     const systemUrlPath = path.resolve(__dirname, cut);
-    addTestClass(cut);
+    await addTestClass(cut);
 
     const fileUri = URI.file(systemUrlPath).toString();
 

@@ -22,35 +22,8 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
   };
 });
 
-// Mock the parser module
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  CompilerService: jest.fn().mockImplementation(() => ({
-    compile: jest.fn().mockReturnValue({
-      errors: [],
-    }),
-  })),
-  SymbolTable: jest.fn().mockImplementation(() => ({
-    getCurrentScope: jest.fn().mockReturnValue({
-      getAllSymbols: jest.fn().mockReturnValue([]),
-    }),
-  })),
-  ApexSymbolCollectorListener: jest.fn().mockImplementation(() => ({
-    getResult: jest.fn().mockReturnValue({
-      getCurrentScope: jest.fn().mockReturnValue({
-        getAllSymbols: jest.fn().mockReturnValue([]),
-      }),
-    }),
-  })),
-  ApexSymbolProcessingManager: {
-    getInstance: jest.fn().mockReturnValue({
-      processSymbolTable: jest.fn().mockReturnValue('mock-task-id'),
-      getSymbolManager: jest.fn().mockReturnValue({
-        addSymbol: jest.fn(),
-        removeFile: jest.fn(),
-      }),
-    }),
-  },
-}));
+// Use real parser implementations - handler tests can use real services
+// Note: DocumentOpenBatcher is still mocked as it's appropriate for handler tests
 
 // Mock the storage manager
 jest.mock('../../src/storage/ApexStorageManager', () => ({

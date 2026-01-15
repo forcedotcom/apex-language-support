@@ -19,6 +19,14 @@ import {
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
+/**
+ * Yield to the Node.js event loop using setImmediate for immediate yielding
+ * This is more effective than Effect.sleep(0) which may use setTimeout
+ */
+const yieldToEventLoop = Effect.async<void>((resume) => {
+  setImmediate(() => resume(Effect.void));
+});
+
 import { BaseApexParserListener } from './listeners/BaseApexParserListener';
 import {
   ApexError,
@@ -41,9 +49,7 @@ import {
   LayeredSymbolListenerBase,
   DetailLevel,
 } from './listeners/LayeredSymbolListenerBase';
-import { PublicAPISymbolListener } from './listeners/PublicAPISymbolListener';
-import { ProtectedSymbolListener } from './listeners/ProtectedSymbolListener';
-import { PrivateSymbolListener } from './listeners/PrivateSymbolListener';
+import { VisibilitySymbolListener } from './listeners/VisibilitySymbolListener';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../constants/constants';
 
 export interface CompilationResult<T> {
@@ -77,8 +83,8 @@ export interface CompilationOptions {
   includeSingleLineComments?: boolean;
   associateComments?: boolean;
   enableReferenceCorrection?: boolean; // New option, defaults to true
-  collectReferences?: boolean; // Collect references using ApexReferenceCollectorListener (default: false)
-  resolveReferences?: boolean; // Resolve references using ApexReferenceResolver (default: true if collectReferences)
+  collectReferences?: boolean; // Collect references using ApexReferenceCollectorListener
+  resolveReferences?: boolean; // Resolve references using ApexReferenceResolver
 }
 
 export interface LayeredCompilationOptions extends CompilationOptions {
@@ -175,6 +181,7 @@ export class CompilerService {
       // This ensures the listener uses the correct setting during parsing
       if (
         listener instanceof ApexSymbolCollectorListener ||
+        listener instanceof ApexSymbolCollectorListener ||
         listener instanceof FullSymbolCollectorListener
       ) {
         listener.setEnableReferenceCorrection(
@@ -215,6 +222,7 @@ export class CompilerService {
       }
 
       if (
+        listener instanceof ApexSymbolCollectorListener ||
         listener instanceof ApexSymbolCollectorListener ||
         listener instanceof FullSymbolCollectorListener
       ) {
@@ -366,6 +374,10 @@ export class CompilerService {
         result: CompilationResult<T> | CompilationResultWithComments<T>;
       }[] = [];
 
+      // Yield interval to reduce setImmediate overhead for large batches
+      // Yields every N files instead of every file to minimize callback queue buildup
+      const YIELD_INTERVAL = 10;
+
       // Process files sequentially with yielding to avoid CPU issues
       // This approach avoids Effect.all overhead while still allowing event loop to process other tasks
       for (let i = 0; i < fileCompilationConfigs.length; i++) {
@@ -417,8 +429,15 @@ export class CompilerService {
           });
         }
 
-        // Yield to event loop after each compilation to prevent blocking
-        yield* Effect.sleep(0);
+        // Yield to event loop every YIELD_INTERVAL files (except last) to prevent blocking
+        // Reduced frequency minimizes setImmediate callback overhead for large batches
+        // This matches the pattern used in DocumentProcessingService for consistency
+        if (
+          (i + 1) % YIELD_INTERVAL === 0 &&
+          i + 1 < fileCompilationConfigs.length
+        ) {
+          yield* yieldToEventLoop;
+        }
       }
 
       // Results are already in order, just extract them
@@ -658,15 +677,15 @@ export class CompilerService {
   ): LayeredSymbolListenerBase {
     switch (layer) {
       case 'public-api':
-        return new PublicAPISymbolListener(symbolTable);
+        return new VisibilitySymbolListener('public-api', symbolTable);
       case 'protected':
-        return new ProtectedSymbolListener(symbolTable);
+        return new VisibilitySymbolListener('protected', symbolTable);
       case 'private':
-        return new PrivateSymbolListener(symbolTable);
+        return new VisibilitySymbolListener('private', symbolTable);
       case 'full':
-        // For 'full', use the FullSymbolCollectorListener wrapper
-        // which internally uses all three layered listeners + reference collector + resolver
-        return new FullSymbolCollectorListener(symbolTable) as any;
+        // For 'full', use ApexSymbolCollectorListener with 'full' detail level
+        // This collects all symbols (public, protected, private) in a single walk
+        return new ApexSymbolCollectorListener(symbolTable, 'full') as any;
       default:
         throw new Error(`Unknown detail level: ${layer}`);
     }

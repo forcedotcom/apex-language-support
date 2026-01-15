@@ -78,7 +78,9 @@ describe('System.debug Resolution Bug Fix', () => {
     const result = compilerService.compile(sourceCode, fileUri, listener);
 
     if (result.result) {
-      await symbolManager.addSymbolTable(result.result, fileUri);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(result.result, fileUri),
+      );
     }
 
     return result;

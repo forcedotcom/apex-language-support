@@ -8,198 +8,154 @@
 
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
-import { Effect, Fiber } from 'effect';
+import { getLogger } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
 import {
   SymbolTable,
-  CompilerService,
-  ApexSymbolCollectorListener,
+  ApexSymbolManager,
   ApexSymbolProcessingManager,
-  createQueuedItem,
-  offer,
-  SchedulerInitializationService,
   type CompilationResult,
 } from '@salesforce/apex-lsp-parser-ast';
 import { DocumentProcessingService } from '../../src/services/DocumentProcessingService';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import { getDocumentStateCache } from '../../src/services/DocumentStateCache';
 
-// Mock the logger
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
-  return {
-    ...actual,
-    getLogger: jest.fn(),
-    ApexSettingsManager: {
-      getInstance: jest.fn(),
-    },
-  };
-});
+// Only mock storage and upserters - use real implementations for everything else
+jest.mock('../../src/storage/ApexStorageManager');
 
-// Mock the parser module
-jest.mock('@salesforce/apex-lsp-parser-ast', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
-  return {
-    ...actual,
-    CompilerService: jest.fn(),
-    SymbolTable: jest.fn(),
-    ApexSymbolCollectorListener: jest.fn(),
-    ApexSymbolProcessingManager: {
-      getInstance: jest.fn(),
-    },
-    SchedulerInitializationService: {
-      getInstance: jest.fn(),
-    },
-    createQueuedItem: jest.fn(),
-    offer: jest.fn(),
-  };
-});
-
-// Mock the storage manager
-jest.mock('../../src/storage/ApexStorageManager', () => ({
-  ApexStorageManager: {
-    getInstance: jest.fn(),
-  },
-}));
-
-// Mock the definition upserter
 jest.mock('../../src/definition/ApexDefinitionUpserter', () => ({
   DefaultApexDefinitionUpserter: jest.fn().mockImplementation(() => ({
     upsertDefinition: jest.fn().mockResolvedValue(undefined),
   })),
 }));
 
-// Mock the references upserter
 jest.mock('../../src/references/ApexReferencesUpserter', () => ({
   DefaultApexReferencesUpserter: jest.fn().mockImplementation(() => ({
     upsertReferences: jest.fn().mockResolvedValue(undefined),
   })),
 }));
 
-// Mock document state cache
 jest.mock('../../src/services/DocumentStateCache', () => ({
   getDocumentStateCache: jest.fn(),
 }));
 
+// Mock CompilerService and scheduler utilities
+const mockCompileMultipleWithConfigs = jest.fn();
+jest.mock('@salesforce/apex-lsp-parser-ast', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
+  return {
+    ...actual,
+    CompilerService: jest.fn().mockImplementation(() => ({
+      compileMultipleWithConfigs: mockCompileMultipleWithConfigs,
+    })),
+    offer: jest.fn(() => Effect.succeed({ fiber: Effect.void } as any)),
+    createQueuedItem: jest.fn((eff: any) =>
+      Effect.succeed({ id: 'mock', eff, fiberDeferred: {} } as any),
+    ),
+    SchedulerInitializationService: {
+      ...actual.SchedulerInitializationService,
+      getInstance: jest.fn(() => ({
+        ensureInitialized: jest.fn(() => Promise.resolve()),
+        isInitialized: jest.fn(() => false),
+        resetInstance: jest.fn(),
+      })),
+      resetInstance: jest.fn(),
+    },
+    ApexSymbolProcessingManager: {
+      ...actual.ApexSymbolProcessingManager,
+      getInstance: jest.fn(),
+    },
+  };
+});
+jest.mock('@salesforce/apex-lsp-shared', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+  return {
+    ...actual,
+    ApexSettingsManager: {
+      getInstance: jest.fn(() => ({
+        getSettings: jest.fn().mockReturnValue({
+          apex: {
+            queueProcessing: {
+              maxConcurrency: {
+                IMMEDIATE: 50,
+                HIGH: 50,
+                NORMAL: 25,
+                LOW: 10,
+              },
+              yieldInterval: 50,
+              yieldDelayMs: 25,
+            },
+            scheduler: {
+              queueCapacity: 100,
+              maxHighPriorityStreak: 50,
+              idleSleepMs: 1,
+            },
+          },
+        }),
+        getCompilationOptions: jest.fn().mockReturnValue({}),
+      })),
+    },
+  };
+});
+
 describe('DocumentProcessingService - Batch Processing', () => {
   let service: DocumentProcessingService;
-  let mockLogger: any;
+  let logger: ReturnType<typeof getLogger>;
+  let symbolManager: ApexSymbolManager;
   let mockStorage: any;
-  let mockStorageManager: jest.Mocked<typeof ApexStorageManager>;
-  let mockSettingsManager: jest.Mocked<typeof ApexSettingsManager>;
-  let mockCompilerService: jest.Mocked<CompilerService>;
-  let mockSchedulerService: any;
-  let mockSymbolProcessingManager: any;
   let mockCache: any;
+  let mockSymbolProcessingManager: jest.Mocked<
+    typeof ApexSymbolProcessingManager
+  >;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // Setup logger
-    mockLogger = {
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-    };
-    (getLogger as jest.Mock).mockReturnValue(mockLogger);
+    logger = getLogger();
+    jest.spyOn(logger, 'error');
+    jest.spyOn(logger, 'debug');
+    jest.spyOn(logger, 'warn');
+
+    // Use real symbol manager
+    symbolManager = new ApexSymbolManager();
 
     // Setup storage
     mockStorage = {
       setDocument: jest.fn().mockResolvedValue(undefined),
     };
-    mockStorageManager = ApexStorageManager as jest.Mocked<
-      typeof ApexStorageManager
-    >;
-    mockStorageManager.getInstance.mockReturnValue({
+    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
       getStorage: jest.fn().mockReturnValue(mockStorage),
     } as any);
-
-    // Setup settings manager
-    mockSettingsManager = ApexSettingsManager as jest.Mocked<
-      typeof ApexSettingsManager
-    >;
-    mockSettingsManager.getInstance.mockReturnValue({
-      getCompilationOptions: jest.fn().mockReturnValue({}),
-    } as any);
-
-    // Setup compiler service
-    mockCompilerService = {
-      compile: jest.fn(),
-      compileMultiple: jest.fn(),
-      compileMultipleWithConfigs: jest.fn(),
-    } as any;
-    (CompilerService as jest.Mock).mockImplementation(
-      () => mockCompilerService,
-    );
-
-    // Setup scheduler service
-    mockSchedulerService = {
-      ensureInitialized: jest.fn().mockResolvedValue(undefined),
-      isInitialized: jest.fn().mockReturnValue(true),
-    };
-    (SchedulerInitializationService.getInstance as jest.Mock).mockReturnValue(
-      mockSchedulerService,
-    );
-
-    // Setup symbol processing manager
-    mockSymbolProcessingManager = {
-      processSymbolTable: jest.fn().mockReturnValue('mock-task-id'),
-      getTaskStatus: jest.fn().mockReturnValue('COMPLETED'),
-      getSymbolManager: jest.fn().mockReturnValue({
-        addSymbolTable: jest.fn(),
-        removeFile: jest.fn(),
-        findSymbolsInFile: jest.fn().mockReturnValue([]),
-      }),
-    };
-    (ApexSymbolProcessingManager.getInstance as jest.Mock).mockReturnValue(
-      mockSymbolProcessingManager,
-    );
 
     // Setup cache
     mockCache = {
       get: jest.fn().mockReturnValue(null),
       getSymbolResult: jest.fn().mockReturnValue(null),
       merge: jest.fn(),
+      clear: jest.fn(),
+      hasDetailLevel: jest.fn().mockReturnValue(false),
     };
-    (getDocumentStateCache as jest.Mock).mockReturnValue(mockCache);
+    (
+      getDocumentStateCache as jest.MockedFunction<typeof getDocumentStateCache>
+    ).mockReturnValue(mockCache as any);
 
-    // Setup Effect mocks
-    const mockFiber: Fiber.RuntimeFiber<any, never> = {
-      await: Effect.succeed({ _tag: 'Success', value: [] }),
-    } as any;
+    // Reset the mock for compileMultipleWithConfigs
+    mockCompileMultipleWithConfigs.mockReset();
 
-    (createQueuedItem as jest.Mock).mockImplementation((effect: any) =>
-      Effect.succeed({
-        eff: effect,
-        id: 'test-id',
-        fiberDeferred: null as any,
-        requestType: 'document-compilation-batch',
-      }),
-    );
+    // Mock ApexSymbolProcessingManager
+    mockSymbolProcessingManager = ApexSymbolProcessingManager as jest.Mocked<
+      typeof ApexSymbolProcessingManager
+    >;
+    // Spy on symbolManager methods
+    jest.spyOn(symbolManager, 'addSymbolTable');
+    jest.spyOn(symbolManager, 'findSymbolsInFile');
+    mockSymbolProcessingManager.getInstance.mockReturnValue({
+      getSymbolManager: jest.fn().mockReturnValue(symbolManager),
+      processSymbolTable: jest.fn(),
+    } as any);
 
-    (offer as jest.Mock).mockImplementation(() =>
-      Effect.succeed({
-        fiber: Effect.succeed(mockFiber),
-      }),
-    );
-
-    // Setup SymbolTable and Listener mocks
-    const mockSymbolTable = {
-      getCurrentScope: jest.fn().mockReturnValue({
-        getAllSymbols: jest.fn().mockReturnValue([]),
-      }),
-    };
-    (SymbolTable as jest.Mock).mockImplementation(() => mockSymbolTable);
-
-    const mockListener = {
-      getResult: jest.fn().mockReturnValue(mockSymbolTable),
-    };
-    (ApexSymbolCollectorListener as jest.Mock).mockImplementation(
-      () => mockListener,
-    );
-
-    service = new DocumentProcessingService(mockLogger);
+    service = new DocumentProcessingService(logger);
   });
 
   const createMockEvent = (
@@ -239,27 +195,14 @@ describe('DocumentProcessingService - Batch Processing', () => {
         },
       ];
 
-      mockCompilerService.compileMultipleWithConfigs.mockReturnValue(
+      mockCompileMultipleWithConfigs.mockReturnValue(
         Effect.succeed(mockResults),
-      );
-
-      const mockFiber: Fiber.RuntimeFiber<any, never> = {
-        await: Effect.succeed({
-          _tag: 'Success',
-          value: mockResults,
-        }),
-      } as any;
-
-      (offer as jest.Mock).mockReturnValue(
-        Effect.succeed({
-          fiber: Effect.succeed(mockFiber),
-        }),
       );
 
       const results = await service.processDocumentOpenBatch([event1, event2]);
 
       expect(results).toHaveLength(2);
-      expect(mockCompilerService.compileMultipleWithConfigs).toHaveBeenCalled();
+      expect(mockCompileMultipleWithConfigs).toHaveBeenCalled();
       expect(mockStorage.setDocument).toHaveBeenCalledTimes(2);
     });
 
@@ -267,17 +210,17 @@ describe('DocumentProcessingService - Batch Processing', () => {
       const event1 = createMockEvent('file:///test1.cls', 1);
       const event2 = createMockEvent('file:///test2.cls', 1);
 
-      // First document is cached
+      // First document is cached (diagnostics only, SymbolTable is in manager)
       mockCache.getSymbolResult
         .mockReturnValueOnce({
           diagnostics: [],
-          symbolTable: {
-            getCurrentScope: jest.fn().mockReturnValue({
-              getAllSymbols: jest.fn().mockReturnValue([]),
-            }),
-          },
         })
         .mockReturnValueOnce(null);
+
+      // Mock that symbols exist in manager for cached document (so it doesn't get recompiled)
+      (symbolManager.findSymbolsInFile as jest.Mock)
+        .mockReturnValueOnce([{ name: 'TestClass' }]) // Symbols exist for test1.cls
+        .mockReturnValueOnce([]); // No symbols for test2.cls
 
       mockCache.get.mockReturnValueOnce({
         symbolsIndexed: false,
@@ -293,30 +236,15 @@ describe('DocumentProcessingService - Batch Processing', () => {
         },
       ];
 
-      mockCompilerService.compileMultipleWithConfigs.mockReturnValue(
+      mockCompileMultipleWithConfigs.mockReturnValue(
         Effect.succeed(mockResults),
-      );
-
-      const mockFiber: Fiber.RuntimeFiber<any, never> = {
-        await: Effect.succeed({
-          _tag: 'Success',
-          value: mockResults,
-        }),
-      } as any;
-
-      (offer as jest.Mock).mockReturnValue(
-        Effect.succeed({
-          fiber: Effect.succeed(mockFiber),
-        }),
       );
 
       const results = await service.processDocumentOpenBatch([event1, event2]);
 
       expect(results).toHaveLength(2);
       // Should only compile the uncached document
-      expect(
-        mockCompilerService.compileMultipleWithConfigs,
-      ).toHaveBeenCalledWith(
+      expect(mockCompileMultipleWithConfigs).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             fileName: 'file:///test2.cls',
@@ -353,21 +281,8 @@ describe('DocumentProcessingService - Batch Processing', () => {
         },
       ];
 
-      mockCompilerService.compileMultipleWithConfigs.mockReturnValue(
+      mockCompileMultipleWithConfigs.mockReturnValue(
         Effect.succeed(mockResults),
-      );
-
-      const mockFiber: Fiber.RuntimeFiber<any, never> = {
-        await: Effect.succeed({
-          _tag: 'Success',
-          value: mockResults,
-        }),
-      } as any;
-
-      (offer as jest.Mock).mockReturnValue(
-        Effect.succeed({
-          fiber: Effect.succeed(mockFiber),
-        }),
       );
 
       const results = await service.processDocumentOpenBatch([event1, event2]);
@@ -382,14 +297,8 @@ describe('DocumentProcessingService - Batch Processing', () => {
       const event1 = createMockEvent('file:///test1.cls', 1);
       const event2 = createMockEvent('file:///test2.cls', 1);
 
-      const mockFiber: Fiber.RuntimeFiber<any, never> = {
-        await: Effect.fail(new Error('Compilation failed')),
-      } as any;
-
-      (offer as jest.Mock).mockReturnValue(
-        Effect.succeed({
-          fiber: Effect.succeed(mockFiber),
-        }),
+      mockCompileMultipleWithConfigs.mockReturnValue(
+        Effect.fail(new Error('Compilation failed')),
       );
 
       const results = await service.processDocumentOpenBatch([event1, event2]);
@@ -398,7 +307,7 @@ describe('DocumentProcessingService - Batch Processing', () => {
       // Both should have empty diagnostics on failure
       expect(results[0]).toEqual([]);
       expect(results[1]).toEqual([]);
-      expect(mockLogger.error).toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalled();
     });
 
     it('should process all documents individually if batch size is 1', async () => {
@@ -413,41 +322,23 @@ describe('DocumentProcessingService - Batch Processing', () => {
         },
       ];
 
-      mockCompilerService.compileMultipleWithConfigs.mockReturnValue(
+      mockCompileMultipleWithConfigs.mockReturnValue(
         Effect.succeed(mockResults),
-      );
-
-      const mockFiber: Fiber.RuntimeFiber<any, never> = {
-        await: Effect.succeed({
-          _tag: 'Success',
-          value: mockResults,
-        }),
-      } as any;
-
-      (offer as jest.Mock).mockReturnValue(
-        Effect.succeed({
-          fiber: Effect.succeed(mockFiber),
-        }),
       );
 
       const results = await service.processDocumentOpenBatch([event]);
 
       expect(results).toHaveLength(1);
-      expect(mockCompilerService.compileMultipleWithConfigs).toHaveBeenCalled();
+      expect(mockCompileMultipleWithConfigs).toHaveBeenCalled();
     });
 
     it('should queue symbol processing for each document', async () => {
       const event1 = createMockEvent('file:///test1.cls', 1);
       const event2 = createMockEvent('file:///test2.cls', 1);
 
-      // Create mock symbol tables that will pass instanceof check
-      // Use the mocked SymbolTable constructor to create instances
-      const mockSymbolTable1 = {} as SymbolTable;
-      const mockSymbolTable2 = {} as SymbolTable;
-
-      // Make them pass instanceof check by setting up the mock properly
-      Object.setPrototypeOf(mockSymbolTable1, SymbolTable.prototype);
-      Object.setPrototypeOf(mockSymbolTable2, SymbolTable.prototype);
+      // Create real symbol tables (not mocks) so instanceof checks pass
+      const mockSymbolTable1 = new SymbolTable();
+      const mockSymbolTable2 = new SymbolTable();
 
       const mockResults: CompilationResult<SymbolTable>[] = [
         {
@@ -464,34 +355,13 @@ describe('DocumentProcessingService - Batch Processing', () => {
         },
       ];
 
-      mockCompilerService.compileMultipleWithConfigs.mockReturnValue(
+      mockCompileMultipleWithConfigs.mockReturnValue(
         Effect.succeed(mockResults),
       );
-
-      const mockFiber: Fiber.RuntimeFiber<any, never> = {
-        await: Effect.succeed({
-          _tag: 'Success',
-          value: mockResults,
-        }),
-      } as any;
-
-      // Clear previous mock and set up new one that executes the Effect
-      (offer as jest.Mock).mockReset();
-      (offer as jest.Mock).mockImplementation((priority, queuedItem) => {
-        // Execute the Effect synchronously - Effect.sync should be safe to run sync
-        if (queuedItem?.eff) {
-          // For Effect.sync, we can run it synchronously
-          Effect.runSync(queuedItem.eff);
-        }
-        return Effect.succeed({
-          fiber: Effect.succeed(mockFiber),
-        });
-      });
 
       await service.processDocumentOpenBatch([event1, event2]);
 
       // Should add symbols synchronously (same-file references processed, cross-file deferred)
-      const symbolManager = mockSymbolProcessingManager.getSymbolManager();
       expect(symbolManager.addSymbolTable).toHaveBeenCalledTimes(2);
       expect(symbolManager.addSymbolTable).toHaveBeenCalledWith(
         mockSymbolTable1,
@@ -504,7 +374,7 @@ describe('DocumentProcessingService - Batch Processing', () => {
 
       // Cross-file references are resolved on-demand, not during file open
       expect(
-        mockSymbolProcessingManager.processSymbolTable,
+        mockSymbolProcessingManager.getInstance().processSymbolTable,
       ).not.toHaveBeenCalled();
     });
   });

@@ -95,7 +95,11 @@ function findApexFiles(
  */
 function parseApexFile(filePath: string, namespace: string): CompilationResult {
   const content = fs.readFileSync(filePath, 'utf8');
-  const listener = new ApexSymbolCollectorListener();
+  const listener = new ApexSymbolCollectorListener(undefined, 'full');
+  listener.setCurrentFileUri(filePath);
+  if (namespace) {
+    listener.setProjectNamespace(namespace);
+  }
   const compiler = new CompilerService(namespace);
 
   return compiler.compile(content, filePath, listener, {

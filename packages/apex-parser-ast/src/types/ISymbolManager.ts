@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbol, SymbolResolutionStrategy } from '../types/symbol';
+import {
+  ApexSymbol,
+  SymbolResolutionStrategy,
+  SymbolTable,
+} from '../types/symbol';
 import {
   ReferenceResult,
   DependencyAnalysis,
@@ -21,6 +25,7 @@ import type {
 } from '../parser/listeners/ApexCommentCollectorListener';
 import type { GraphData, FileGraphData, TypeGraphData } from '../types/graph';
 import { Effect } from 'effect';
+import type { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 
 /**
  * Context for symbol resolution
@@ -175,6 +180,24 @@ export interface ISymbolManager {
   removeFile(fileUri: string): void;
 
   /**
+   * Add a symbol table to the manager
+   * @param symbolTable The symbol table to add
+   * @param fileUri The file URI associated with the symbol table
+   * @returns Effect that resolves when the symbol table is added
+   */
+  addSymbolTable(
+    symbolTable: SymbolTable,
+    fileUri: string,
+  ): Effect.Effect<void, never, never>;
+
+  /**
+   * Get SymbolTable for a file
+   * @param fileUri The file URI
+   * @returns The SymbolTable for the file, or undefined if not found
+   */
+  getSymbolTableForFile(fileUri: string): SymbolTable | undefined;
+
+  /**
    * Optimize memory usage
    */
   optimizeMemory(): void;
@@ -294,4 +317,39 @@ export interface ISymbolManager {
    * Get graph data filtered by symbol type as JSON-serializable data
    */
   getGraphDataByType(symbolType: string): TypeGraphData;
+
+  /**
+   * Get the current detail level for a file
+   * @param fileUri The file URI to check
+   * @returns The current detail level, or null if file not indexed
+   */
+  getDetailLevelForFile(fileUri: string): DetailLevel | null;
+
+  /**
+   * Enrich a file to a target detail level
+   * Applies layers incrementally: public-api -> protected -> private -> full
+   * @param fileUri The file URI to enrich
+   * @param targetLevel The target detail level to reach
+   * @param documentText The document text for compilation
+   * @returns Effect that resolves when enrichment is complete
+   */
+  enrichToLevel(
+    fileUri: string,
+    targetLevel: DetailLevel,
+    documentText: string,
+  ): Effect.Effect<void, never, never>;
+
+  /**
+   * Resolve a symbol with iterative enrichment
+   * Tries resolution after each enrichment layer until found or all layers exhausted
+   * @param fileUri The file to enrich
+   * @param documentText The document text for compilation
+   * @param resolver Function that attempts resolution (called after each enrichment step)
+   * @returns Effect that resolves to the result or null if not found after all layers
+   */
+  resolveWithEnrichment<T>(
+    fileUri: string,
+    documentText: string,
+    resolver: () => T | null,
+  ): Effect.Effect<T | null, never, never>;
 }

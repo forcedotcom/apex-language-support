@@ -7,7 +7,7 @@
  */
 
 import { HashMap } from 'data-structure-typed';
-import { SymbolTable, FoldingRange } from '@salesforce/apex-lsp-parser-ast';
+import { FoldingRange } from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Diagnostic } from 'vscode-languageserver-protocol';
 
@@ -28,15 +28,16 @@ export type DetailLevel = 'public-api' | 'protected' | 'private' | 'full';
  * This cache supports results from different listener types using optional fields.
  * Callers should check which fields are present before use.
  *
- * - ApexSymbolCollectorListener results: symbolTable and diagnostics fields
+ * - ApexSymbolCollectorListener results: diagnostics field (SymbolTable stored in ApexSymbolManager)
  * - ApexFoldingRangeListener results: foldingRanges field
  * - Layered compilation: parseTree, detailLevel, listenersApplied, contentHash fields
  *
  * The cache acts as a "todo list" for each file/version, tracking what work has been done.
+ * Note: SymbolTable instances are stored in ApexSymbolManager, not in this cache.
  */
 export interface DocumentState {
   // ApexSymbolCollectorListener results (optional)
-  symbolTable?: SymbolTable;
+  // Note: symbolTable is NOT stored here - it's in ApexSymbolManager
   diagnostics?: Diagnostic[];
 
   // ApexFoldingRangeListener results (optional)
@@ -110,19 +111,32 @@ export class DocumentStateCache {
   }
 
   /**
-   * Get cached symbol table result for a document if version matches
+   * Get cached diagnostics for a document if version matches
    * @param uri Document URI
    * @param version Document version number
-   * @returns Cached symbol result if version matches and symbol data exists, null otherwise
+   * @returns Cached diagnostics if version matches, null otherwise
+   * @deprecated Use getDiagnostics() instead. This method is kept for backward compatibility.
    */
   getSymbolResult(
     uri: string,
     version: number,
-  ): { symbolTable: SymbolTable; diagnostics: Diagnostic[] } | null {
+  ): { diagnostics: Diagnostic[] } | null {
+    return this.getDiagnostics(uri, version);
+  }
+
+  /**
+   * Get cached diagnostics for a document if version matches
+   * @param uri Document URI
+   * @param version Document version number
+   * @returns Cached diagnostics if version matches, null otherwise
+   */
+  getDiagnostics(
+    uri: string,
+    version: number,
+  ): { diagnostics: Diagnostic[] } | null {
     const cached = this.get(uri, version);
-    if (cached?.symbolTable && cached?.diagnostics !== undefined) {
+    if (cached?.diagnostics !== undefined) {
       return {
-        symbolTable: cached.symbolTable,
         diagnostics: cached.diagnostics,
       };
     }

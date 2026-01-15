@@ -23,9 +23,11 @@ import { DiagnosticProcessingService } from '../services/DiagnosticProcessingSer
 import { DocumentSymbolProcessingService } from '../services/DocumentSymbolProcessingService';
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
 import { WorkspaceSymbolProcessingService } from '../services/WorkspaceSymbolProcessingService';
+import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
 
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
 import { ExecuteCommandProcessingService } from '../services/ExecuteCommandProcessingService';
+import { Connection } from 'vscode-languageserver';
 
 /**
  * Service dependencies interface
@@ -35,33 +37,56 @@ export interface ServiceDependencies {
   symbolManager: ISymbolManager;
   storageManager: ApexStorageManager;
   settingsManager: ApexSettingsManager;
+  connection?: Connection; // Optional connection for progress reporting
 }
 
 /**
  * Factory for creating LSP processing services with proper dependency injection
  */
 export class ServiceFactory {
+  private layerEnrichmentService: LayerEnrichmentService | null = null;
+
   constructor(private readonly dependencies: ServiceDependencies) {}
+
+  /**
+   * Get or create the layer enrichment service (singleton per factory)
+   */
+  private getLayerEnrichmentService(): LayerEnrichmentService {
+    if (!this.layerEnrichmentService) {
+      this.layerEnrichmentService = new LayerEnrichmentService(
+        this.dependencies.logger,
+        this.dependencies.symbolManager,
+      );
+      if (this.dependencies.connection) {
+        this.layerEnrichmentService.setConnection(this.dependencies.connection);
+      }
+    }
+    return this.layerEnrichmentService;
+  }
 
   /**
    * Create hover processing service
    */
   createHoverService(): HoverProcessingService {
-    return new HoverProcessingService(
+    const service = new HoverProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
       // No need to create MissingArtifactResolutionService - MissingArtifactUtils will create it on-demand
     );
+    service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    return service;
   }
 
   /**
    * Create completion processing service
    */
   createCompletionService(): CompletionProcessingService {
-    return new CompletionProcessingService(
+    const service = new CompletionProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
     );
+    service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    return service;
   }
 
   /**
@@ -78,10 +103,12 @@ export class ServiceFactory {
    * Create references processing service
    */
   createReferencesService(): ReferencesProcessingService {
-    return new ReferencesProcessingService(
+    const service = new ReferencesProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
     );
+    service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    return service;
   }
 
   /**
@@ -125,20 +152,24 @@ export class ServiceFactory {
    * Create document symbol processing service
    */
   createDocumentSymbolService(): DocumentSymbolProcessingService {
-    return new DocumentSymbolProcessingService(
+    const service = new DocumentSymbolProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
     );
+    service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    return service;
   }
 
   /**
    * Create workspace symbol processing service
    */
   createWorkspaceSymbolService(): WorkspaceSymbolProcessingService {
-    return new WorkspaceSymbolProcessingService(
+    const service = new WorkspaceSymbolProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
     );
+    service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    return service;
   }
 
   /**
@@ -152,7 +183,9 @@ export class ServiceFactory {
    * Create document processing service
    */
   createDocumentProcessingService(): DocumentProcessingService {
-    return new DocumentProcessingService(this.dependencies.logger);
+    const service = new DocumentProcessingService(this.dependencies.logger);
+    service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    return service;
   }
 
   /**

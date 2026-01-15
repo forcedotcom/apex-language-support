@@ -79,6 +79,8 @@ import {
   ExecuteCommandProcessingService,
   IExecuteCommandProcessor,
 } from '../services/ExecuteCommandProcessingService';
+import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
+import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Factory for creating handlers with proper dependency injection
@@ -220,7 +222,16 @@ export class HandlerFactory {
    */
   static createHoverHandler(): HoverHandler {
     const logger = getLogger();
-    const hoverProcessor = new HoverProcessingService(logger);
+    const symbolManager =
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
+    const hoverProcessor = new HoverProcessingService(logger, symbolManager);
+
+    // Inject LayerEnrichmentService for on-demand SymbolTable enrichment
+    const layerEnrichmentService = new LayerEnrichmentService(
+      logger,
+      symbolManager,
+    );
+    hoverProcessor.setLayerEnrichmentService(layerEnrichmentService);
 
     return new HoverHandler(logger, hoverProcessor);
   }

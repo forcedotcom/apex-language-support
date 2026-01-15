@@ -16,7 +16,7 @@ import {
 import {
   SymbolTable,
   CompilerService,
-  ApexSymbolCollectorListener,
+  FullSymbolCollectorListener,
   ApexSymbol,
   VariableSymbol,
   TypeInfo,
@@ -25,6 +25,7 @@ import {
   isBlockSymbol,
   SymbolKind as ApexSymbolKind,
   ScopeSymbol,
+  ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
@@ -33,6 +34,7 @@ import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { transformParserToLspPosition } from '../utils/positionUtils';
 import { getDocumentStateCache } from '../services/DocumentStateCache';
+import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
 
 /**
  * Maps Apex symbol kinds to LSP symbol kinds
@@ -122,63 +124,77 @@ export class DefaultApexDocumentSymbolProvider
           `Document found in storage. Content length: ${documentText.length}`,
       );
 
-      // Check parse result cache first
-      // NOTE: Safe to use cached SymbolTable even with different compilation options
-      // because SymbolTable only contains structural symbols (classes, methods, fields)
-      // and is independent of comment collection settings
-      const parseCache = getDocumentStateCache();
-      const cached = parseCache.getSymbolResult(documentUri, document.version);
-
+      // For document symbols, always compile fresh with FullSymbolCollectorListener
+      // to ensure we have complete symbol hierarchy (all visibility levels + block content)
+      // This ensures consistency and avoids issues with cached symbol tables created
+      // with different listeners
+      const backgroundManager = ApexSymbolProcessingManager.getInstance();
+      const symbolManager = backgroundManager.getSymbolManager();
       let symbolTable: SymbolTable;
+      // Create a full symbol collector listener to parse the document
+      const listener = new FullSymbolCollectorListener();
 
-      if (cached) {
+      const settingsManager = ApexSettingsManager.getInstance();
+      const options = settingsManager.getCompilationOptions(
+        'documentSymbols',
+        documentText.length,
+      );
+
+      // Set file URI and project namespace if needed
+      listener.setCurrentFileUri(documentUri);
+      if (options.projectNamespace) {
+        listener.setProjectNamespace(options.projectNamespace);
+      }
+
+      // Parse the document using the compiler service
+      const result = this.compilerService.compile(
+        documentText,
+        documentUri,
+        listener,
+        options,
+      );
+
+      logger.debug(
+        () =>
+          `Compilation result: ${JSON.stringify({
+            hasResult: !!result.result,
+            errorCount: result.errors.length,
+            warningCount: result.warnings.length,
+          })}`,
+      );
+
+      // Get the symbol table from the compilation result
+      if (result.result) {
+        symbolTable = result.result;
+
+        // Also ensure symbols are in symbol manager (replace if exists to ensure fresh data)
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(symbolTable, documentUri),
+        );
         logger.debug(
           () =>
-            `Using cached parse result for document symbols ${documentUri} (version ${document.version})`,
+            `Added SymbolTable to manager for ${documentUri} during document symbols`,
         );
-        // Use cached symbol table for document symbols
-        symbolTable = cached.symbolTable;
+
+        // Cache the compilation result for diagnostics
+        const parseCache = getDocumentStateCache();
+        const diagnostics = getDiagnosticsFromErrors(result.errors);
+        parseCache.merge(documentUri, {
+          diagnostics,
+          documentVersion: document.version,
+          documentLength: document.getText().length,
+          symbolsIndexed: false,
+        });
       } else {
-        // Create a symbol collector listener to parse the document
-        const table = new SymbolTable();
-        const listener = new ApexSymbolCollectorListener(table);
-
-        const settingsManager = ApexSettingsManager.getInstance();
-        const options = settingsManager.getCompilationOptions(
-          'documentSymbols',
-          documentText.length,
-        );
-
-        // Parse the document using the compiler service
-        const result = this.compilerService.compile(
-          documentText,
-          documentUri,
-          listener,
-          options,
-        );
-
-        logger.debug(
-          () =>
-            `Compilation result: ${JSON.stringify({
-              hasResult: !!result.result,
-              errorCount: result.errors.length,
-              warningCount: result.warnings.length,
-            })}`,
-        );
-
-        // Get the symbol table from the compilation result
-        if (result.result) {
-          symbolTable = result.result;
-        } else {
-          logger.error(() => 'Symbol table is null from compilation result');
-          return null;
-        }
+        logger.error(() => 'Symbol table is null from compilation result');
+        return null;
       }
 
       // Get all symbols from the entire symbol table
       const allSymbols = symbolTable.getAllSymbols();
       // Filter for only top-level symbols (classes, interfaces, enums, triggers)
       // Top-level symbols have parentId === null, while inner classes have parentId pointing to their containing class
+      // With proper hierarchy maintenance, parentId is the source of truth - no need for location-based filtering
       const topLevelSymbols = allSymbols.filter(
         (symbol) => inTypeSymbolGroup(symbol) && symbol.parentId === null,
       );
@@ -425,6 +441,12 @@ export class DefaultApexDocumentSymbolProvider
         if (isBlockSymbol(symbol)) {
           return false;
         }
+        // For enums, include enum values (they're children of the enum block)
+        if (parentKind.toLowerCase() === 'enum') {
+          if (symbol.kind === ApexSymbolKind.EnumValue) {
+            return true; // Include enum values
+          }
+        }
         // Exclude variable and parameter symbols (these are type references, not declarations)
         // Only include actual field/property declarations
         if (
@@ -471,12 +493,29 @@ export class DefaultApexDocumentSymbolProvider
             const childScope = childClassBlocks[0];
             logger.debug(
               () =>
-                `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}'`,
+                `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}', ` +
+                `blockId: ${childScope.id?.slice(-30)}`,
+            );
+            // Debug: check what symbols have this block as parent
+            const childrenOfBlock = symbolTable
+              .getAllSymbols()
+              .filter((s) => s.parentId === childScope.id);
+            logger.debug(
+              () =>
+                `Found ${childrenOfBlock.length} direct children of block: ` +
+                `${childrenOfBlock.map((s) => `${s.kind}:${s.name}`).join(', ')}`,
             );
             childDocumentSymbol.children = yield* self.collectChildrenEffect(
               childScope.id,
               childSymbol.kind,
               symbolTable,
+              childSymbol.id, // Pass parentTypeId for finding nested inner types
+            );
+          } else {
+            logger.debug(
+              () =>
+                `No class block found for nested ${childSymbol.kind} '${childSymbol.name}' ` +
+                `(parentId: ${childSymbol.parentId?.slice(-30)})`,
             );
           }
         }

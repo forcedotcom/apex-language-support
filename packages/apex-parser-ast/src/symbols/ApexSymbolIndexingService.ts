@@ -335,11 +335,10 @@ export class ApexSymbolIndexingService {
         );
 
         // Process symbols with yielding
-        yield* Effect.tryPromise({
-          try: () =>
-            self.symbolManager.addSymbolTable(task.symbolTable, task.fileUri),
-          catch: (error) => new Error(`Failed to add symbol table: ${error}`),
-        });
+        yield* self.symbolManager.addSymbolTable(
+          task.symbolTable,
+          task.fileUri,
+        );
 
         const symbolsAfter = self.symbolManager.findSymbolsInFile(task.fileUri);
         self.logger.debug(

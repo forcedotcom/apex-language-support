@@ -10,6 +10,14 @@ import { unzipSync } from 'fflate';
 import { Effect, Fiber } from 'effect';
 import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
+/**
+ * Yield to the Node.js event loop using setImmediate for immediate yielding
+ * This is more effective than Effect.sleep(0) which may use setTimeout
+ */
+const yieldToEventLoop = Effect.async<void>((resume) => {
+  setImmediate(() => resume(Effect.void));
+});
+
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
 import { normalizeApexPath } from './PathUtils';
@@ -404,6 +412,18 @@ export class ResourceLoader {
   }
 
   /**
+   * Reset the singleton instance (for testing purposes only)
+   * This allows tests to create fresh instances without singleton reuse
+   */
+  public static resetInstance(): void {
+    if (ResourceLoader.instance) {
+      ResourceLoader.instance.interruptCompilation();
+    }
+    ResourceLoader.instance = null as any;
+    ResourceLoader.loadModeUpdateLogged = false;
+  }
+
+  /**
    * Set the ZIP buffer directly and extract files.
    * This is the preferred method for providing the standard library ZIP data.
    *
@@ -585,10 +605,16 @@ export class ResourceLoader {
         const pathParts = originalPath.split(/[\/\\]/);
         const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
 
+        const listener = new ApexSymbolCollectorListener(undefined, 'full');
+        listener.setCurrentFileUri(originalPath);
+        if (namespace) {
+          listener.setProjectNamespace(namespace);
+        }
+
         filesToCompile.push({
           content,
           fileName: originalPath, // Use original path to preserve namespace structure
-          listener: new ApexSymbolCollectorListener(),
+          listener,
           options: {
             projectNamespace: namespace,
             includeComments: true,
@@ -625,6 +651,11 @@ export class ResourceLoader {
 
       const self = this;
       const processResultsEffect = Effect.gen(function* () {
+        // Yield interval to reduce setImmediate overhead for large batches
+        // Yields every N results instead of every result to minimize callback queue buildup
+        const YIELD_INTERVAL = 10;
+        let processedCount = 0;
+
         for (const result of results) {
           // Process the result
           if (result.result) {
@@ -654,9 +685,17 @@ export class ResourceLoader {
             );
           }
 
-          // Yield after processing each result to allow other tasks to run
-          // Use sleep with 0ms to yield control without adding delay
-          yield* Effect.sleep(0);
+          processedCount++;
+
+          // Yield to event loop every YIELD_INTERVAL results (except last) to allow other tasks to run
+          // Reduced frequency minimizes setImmediate callback overhead for large batches
+          // This matches the pattern used in DocumentProcessingService and compileMultipleWithConfigs
+          if (
+            processedCount % YIELD_INTERVAL === 0 &&
+            processedCount < results.length
+          ) {
+            yield* yieldToEventLoop;
+          }
         }
       });
 
@@ -664,8 +703,9 @@ export class ResourceLoader {
       this.compilationFiber = Effect.runFork(processResultsEffect);
 
       // Wait for the fiber to complete and handle any errors
+      const fiberToAwait = this.compilationFiber; // Store reference before clearing
       try {
-        await Effect.runPromise(Fiber.await(this.compilationFiber));
+        await Effect.runPromise(Fiber.await(fiberToAwait));
       } catch (error) {
         // Re-throw compilation errors
         throw error;
@@ -682,9 +722,17 @@ export class ResourceLoader {
           `Parallel compilation completed in ${duration.toFixed(2)}s: ` +
           `${compiledCount} files compiled, ${errorCount} files with errors`,
       );
+
+      // Allow all pending setImmediate callbacks from yieldToEventLoop to complete
+      // Use a small delay to ensure all Effect operations and their callbacks finish
+      // This follows the pattern used in other tests (e.g., extractGraphData.test.ts)
+      await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
       this.logger.error(() => 'Failed to compile artifacts:');
       throw error;
+    } finally {
+      // Clear the compilation promise after completion to prevent hanging
+      this.compilationPromise = null;
     }
   }
 
@@ -708,13 +756,31 @@ export class ResourceLoader {
    */
   public async waitForCompilation(): Promise<void> {
     if (this.compilationPromise) {
-      await this.compilationPromise;
+      try {
+        await this.compilationPromise;
+      } catch (error) {
+        // Compilation failed, but we still want to clean up
+        this.logger.debug(() => `Compilation failed: ${error}`);
+      } finally {
+        // Clear promise reference after waiting
+        this.compilationPromise = null;
+      }
     }
     // Also wait for the fiber if it exists
     if (this.compilationFiber) {
-      await Effect.runPromise(Fiber.await(this.compilationFiber));
-      this.compilationFiber = null;
+      try {
+        await Effect.runPromise(Fiber.await(this.compilationFiber));
+      } catch (error) {
+        // Fiber might be interrupted or failed, that's okay
+        this.logger.debug(() => `Fiber await failed: ${error}`);
+      } finally {
+        this.compilationFiber = null;
+      }
     }
+
+    // Allow all pending setImmediate callbacks from Effect operations to complete
+    // Use a small delay to ensure all Effect operations finish (following pattern from other tests)
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
   /**
@@ -732,12 +798,16 @@ export class ResourceLoader {
   public interruptCompilation(): void {
     if (this.compilationFiber) {
       try {
+        // Interrupt the fiber synchronously - Fiber.interrupt returns an Effect that can be run
+        // We use runSync here because we want immediate interruption, not async
         Effect.runSync(Fiber.interrupt(this.compilationFiber));
       } catch (_error) {
-        // Fiber might already be interrupted, ignore
+        // Fiber might already be interrupted or completed, ignore
       }
       this.compilationFiber = null;
     }
+    // Clear promise reference (promise itself can't be cancelled, but we stop tracking it)
+    // This prevents waitForCompilation() from hanging on an already-resolved promise
     this.compilationPromise = null;
   }
 
@@ -965,11 +1035,15 @@ export class ResourceLoader {
       const namespace = namespaces ? Array.from(namespaces)[0] : undefined;
 
       // Compile the single class
-      const symbolTable = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(symbolTable);
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
 
       // Convert className to proper URI scheme
       const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${className}`;
+
+      listener.setCurrentFileUri(fileUri);
+      if (namespace) {
+        listener.setProjectNamespace(namespace);
+      }
 
       const result = this.compilerService.compile(
         content,
