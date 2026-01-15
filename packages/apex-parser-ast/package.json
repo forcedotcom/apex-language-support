@@ -39,7 +39,7 @@
     "generate:stdlib-cache": {
       "command": "node scripts/generate-stdlib-cache.mjs",
       "dependencies": [
-        "compile"
+        "compile:tsc"
       ],
       "output": [
         "resources/apex-stdlib-v*.pb",
@@ -65,7 +65,7 @@
         "src/**/*.cls"
       ]
     },
-    "compile": {
+    "compile:tsc": {
       "command": "tsc --build",
       "clean": "if-file-deleted",
       "dependencies": [
@@ -78,6 +78,18 @@
         "src/**/*.ts",
         "tsconfig*.json",
         "../../tsconfig.base.json"
+      ]
+    },
+    "compile": {
+      "command": "echo 'Compile complete'",
+      "dependencies": [
+        "compile:tsc",
+        "generate:stdlib-cache"
+      ],
+      "output": [
+        "out/**",
+        "resources/apex-stdlib-v*.pb",
+        "resources/apex-stdlib-v*.sha256"
       ]
     },
     "bundle": {
