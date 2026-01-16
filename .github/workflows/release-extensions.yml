@@ -331,7 +331,7 @@ jobs:
       pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
 
   determine-publish-matrix:
-    needs: [determine-changes, calculate-artifact-name]
+    needs: [determine-changes, calculate-artifact-name, determine-build-type]
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -352,8 +352,15 @@ jobs:
         env:
           REGISTRIES: ${{ inputs.registries }}
           SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
+          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
         run: |
-          npx tsx .github/scripts/index.ts ext-publish-matrix
+          # Skip marketplace publishing for nightly builds
+          if [ "$IS_NIGHTLY" = "true" ]; then
+            echo "Nightly build detected - skipping marketplace publishing"
+            echo 'matrix=[]' >> $GITHUB_OUTPUT
+          else
+            npx tsx .github/scripts/index.ts ext-publish-matrix
+          fi
 
   publish:
     needs:
@@ -362,9 +369,10 @@ jobs:
         package,
         calculate-artifact-name,
         determine-publish-matrix,
+        determine-build-type,
       ]
     runs-on: ubuntu-latest
-    if: needs.determine-publish-matrix.outputs.matrix != '[]'
+    if: needs.determine-publish-matrix.outputs.matrix != '[]' && needs.determine-build-type.outputs.is-nightly != 'true'
     strategy:
       matrix:
         include: ${{ fromJson(needs.determine-publish-matrix.outputs.matrix) }}
@@ -478,6 +486,38 @@ jobs:
             echo "[$TIMESTAMP] RELEASE_FAILURE: actor=$ACTOR, repo=$REPO, run_id=$RUN_ID, branch=$BRANCH, registry=${{ matrix.registry }}, marketplace=${{ matrix.marketplace }}" >> "$AUDIT_LOG"
             echo "❌ AUDIT: Release failed - $TIMESTAMP"
           fi
+
+  create-github-releases:
+    name: Create GitHub Releases
+    needs: [package, determine-changes, determine-build-type, calculate-artifact-name, publish]
+    runs-on: ubuntu-latest
+    if: needs.package.result == 'success' && needs.determine-changes.outputs.selected-extensions != '' && github.event_name != 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+          token: ${{ secrets.IDEE_GH_TOKEN }}
+
+      - name: Download VSIX artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
+          path: ./vsix-artifacts
+
+      - name: Create GitHub releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
+          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+          PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
+          VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
+          DRY_RUN: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
+          BRANCH: ${{ inputs.branch || github.ref_name }}
+          VSIX_ARTIFACTS_PATH: ./vsix-artifacts
+        run: |
+          npx tsx .github/scripts/index.ts ext-github-releases
 
   slack-notify:
     name: Slack Notification
