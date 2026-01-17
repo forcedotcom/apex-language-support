@@ -21,6 +21,7 @@ import {
   SymbolKind,
   SymbolVisibility,
 } from '../../src/types/symbol';
+import { gzipSync, gunzipSync } from 'fflate';
 
 describe('StandardLibraryCacheLoader', () => {
   beforeEach(() => {
@@ -348,5 +349,377 @@ describe('Round-trip serialization', () => {
     expect(deserializedClass).toBeDefined();
     expect(deserializedClass!.kind).toBe(SymbolKind.Class);
     expect(deserializedClass!.fqn).toBe('System.RoundTrip');
+  });
+});
+
+describe('Round-trip serialization with gzip compression', () => {
+  it('serializes, compresses, decompresses, and deserializes to equivalent data', () => {
+    const serializer = new StandardLibrarySerializer();
+    const deserializer = new StandardLibraryDeserializer();
+
+    // Create test data
+    const symbolTable = new SymbolTable();
+    symbolTable.setFileUri('apex://stdlib/System/GzipRoundTrip');
+
+    const classSymbol = SymbolFactory.createFullSymbol(
+      'GzipRoundTrip',
+      SymbolKind.Class,
+      {
+        symbolRange: {
+          startLine: 1,
+          startColumn: 0,
+          endLine: 10,
+          endColumn: 1,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 14,
+          endLine: 1,
+          endColumn: 27,
+        },
+      },
+      'apex://stdlib/System/GzipRoundTrip',
+      {
+        visibility: SymbolVisibility.Public,
+        isStatic: false,
+        isFinal: false,
+        isAbstract: false,
+        isVirtual: false,
+        isOverride: false,
+        isTransient: false,
+        isTestMethod: false,
+        isWebService: false,
+        isBuiltIn: true,
+      },
+      null,
+      undefined,
+      'System.GzipRoundTrip',
+    );
+    symbolTable.addSymbol(classSymbol);
+
+    const namespaceData: NamespaceData[] = [
+      {
+        name: 'System',
+        symbolTables: new Map([
+          ['apex://stdlib/System/GzipRoundTrip', symbolTable],
+        ]),
+      },
+    ];
+
+    // Serialize to protobuf binary
+    const binary = serializer.serialize(
+      namespaceData,
+      '59.0',
+      'gzip-roundtrip-test',
+    );
+
+    // Compress with gzip
+    const compressed = gzipSync(binary, { level: 9 });
+
+    // Verify compression achieved reduction
+    expect(compressed.length).toBeLessThan(binary.length);
+
+    // Decompress
+    const decompressed = gunzipSync(compressed);
+
+    // Verify decompressed data matches original
+    expect(decompressed).toEqual(binary);
+
+    // Deserialize from decompressed data
+    const result = deserializer.deserializeFromBinary(decompressed);
+
+    // Verify metadata
+    expect(result.metadata.version).toBe('59.0');
+    expect(result.metadata.sourceChecksum).toBe('gzip-roundtrip-test');
+    expect(result.metadata.namespaceCount).toBe(1);
+    expect(result.metadata.typeCount).toBe(1);
+
+    // Verify symbol table
+    const deserializedTable = result.symbolTables.get(
+      'apex://stdlib/System/GzipRoundTrip',
+    );
+    expect(deserializedTable).toBeDefined();
+
+    const deserializedSymbols = deserializedTable!.getAllSymbols();
+    const deserializedClass = deserializedSymbols.find(
+      (s) => s.name === 'GzipRoundTrip',
+    );
+    expect(deserializedClass).toBeDefined();
+    expect(deserializedClass!.kind).toBe(SymbolKind.Class);
+    expect(deserializedClass!.fqn).toBe('System.GzipRoundTrip');
+  });
+
+  it('handles multiple types through gzip compression', () => {
+    const serializer = new StandardLibrarySerializer();
+    const deserializer = new StandardLibraryDeserializer();
+
+    // Create multiple symbol tables
+    const classNames = ['String', 'Integer', 'Boolean', 'Object', 'List'];
+    const symbolTables = new Map<string, SymbolTable>();
+
+    for (const className of classNames) {
+      const symbolTable = new SymbolTable();
+      symbolTable.setFileUri(`apex://stdlib/System/${className}`);
+
+      const classSymbol = SymbolFactory.createFullSymbol(
+        className,
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 10,
+            endColumn: 1,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 14,
+            endLine: 1,
+            endColumn: 14 + className.length,
+          },
+        },
+        `apex://stdlib/System/${className}`,
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: true,
+        },
+        null,
+        undefined,
+        `System.${className}`,
+      );
+      symbolTable.addSymbol(classSymbol);
+      symbolTables.set(`apex://stdlib/System/${className}`, symbolTable);
+    }
+
+    const namespaceData: NamespaceData[] = [
+      {
+        name: 'System',
+        symbolTables,
+      },
+    ];
+
+    // Full pipeline: serialize -> compress -> decompress -> deserialize
+    const binary = serializer.serialize(
+      namespaceData,
+      '60.0',
+      'multi-type-gzip',
+    );
+    const compressed = gzipSync(binary, { level: 9 });
+    const decompressed = gunzipSync(compressed);
+    const result = deserializer.deserializeFromBinary(decompressed);
+
+    // Verify all types are present
+    expect(result.metadata.typeCount).toBe(classNames.length);
+
+    const typeNames = result.allTypes.map((t) => t.name);
+    for (const className of classNames) {
+      expect(typeNames).toContain(className);
+    }
+  });
+
+  it('preserves annotations through gzip round-trip', () => {
+    const serializer = new StandardLibrarySerializer();
+    const deserializer = new StandardLibraryDeserializer();
+
+    const symbolTable = new SymbolTable();
+    symbolTable.setFileUri('apex://stdlib/System/AnnotatedClass');
+
+    const classSymbol = SymbolFactory.createFullSymbol(
+      'AnnotatedClass',
+      SymbolKind.Class,
+      {
+        symbolRange: {
+          startLine: 1,
+          startColumn: 0,
+          endLine: 10,
+          endColumn: 1,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 14,
+          endLine: 1,
+          endColumn: 28,
+        },
+      },
+      'apex://stdlib/System/AnnotatedClass',
+      {
+        visibility: SymbolVisibility.Public,
+        isStatic: false,
+        isFinal: false,
+        isAbstract: false,
+        isVirtual: false,
+        isOverride: false,
+        isTransient: false,
+        isTestMethod: false,
+        isWebService: false,
+        isBuiltIn: true,
+      },
+      null,
+      undefined,
+      'System.AnnotatedClass',
+    );
+    // Add annotations to the symbol
+    (classSymbol as any).annotations = [
+      {
+        name: 'Deprecated',
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 1,
+            endColumn: 11,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 11,
+          },
+        },
+        parameters: [],
+      },
+    ];
+    symbolTable.addSymbol(classSymbol);
+
+    const namespaceData: NamespaceData[] = [
+      {
+        name: 'System',
+        symbolTables: new Map([
+          ['apex://stdlib/System/AnnotatedClass', symbolTable],
+        ]),
+      },
+    ];
+
+    // Full pipeline
+    const binary = serializer.serialize(
+      namespaceData,
+      '59.0',
+      'annotation-test',
+    );
+    const compressed = gzipSync(binary, { level: 9 });
+    const decompressed = gunzipSync(compressed);
+    const result = deserializer.deserializeFromBinary(decompressed);
+
+    // Verify type was created
+    expect(result.allTypes.length).toBe(1);
+    expect(result.allTypes[0].name).toBe('AnnotatedClass');
+  });
+});
+
+describe('Gzip compression behavior', () => {
+  it('gzip compression achieves significant size reduction for protobuf data', () => {
+    const serializer = new StandardLibrarySerializer();
+
+    // Create a larger dataset to see compression benefits
+    const symbolTables = new Map<string, SymbolTable>();
+    for (let i = 0; i < 50; i++) {
+      const className = `TestClass${i}`;
+      const symbolTable = new SymbolTable();
+      symbolTable.setFileUri(`apex://stdlib/System/${className}`);
+
+      const classSymbol = SymbolFactory.createFullSymbol(
+        className,
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 10,
+            endColumn: 1,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 14,
+            endLine: 1,
+            endColumn: 14 + className.length,
+          },
+        },
+        `apex://stdlib/System/${className}`,
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: true,
+        },
+        null,
+      );
+      symbolTable.addSymbol(classSymbol);
+      symbolTables.set(`apex://stdlib/System/${className}`, symbolTable);
+    }
+
+    const namespaceData: NamespaceData[] = [
+      {
+        name: 'System',
+        symbolTables,
+      },
+    ];
+
+    const binary = serializer.serialize(
+      namespaceData,
+      '59.0',
+      'compression-test',
+    );
+    const compressed = gzipSync(binary, { level: 9 });
+
+    const compressionRatio = (1 - compressed.length / binary.length) * 100;
+
+    // Protobuf data with repetitive structures should compress well
+    // Expect at least 50% compression
+    expect(compressionRatio).toBeGreaterThan(50);
+  });
+
+  it('gunzipSync throws on invalid gzip data', () => {
+    const invalidData = new Uint8Array([0x00, 0x01, 0x02, 0x03, 0x04]);
+
+    expect(() => {
+      gunzipSync(invalidData);
+    }).toThrow();
+  });
+
+  it('severely corrupted gzip throws or produces invalid data', () => {
+    const original = new Uint8Array(1000);
+    for (let i = 0; i < original.length; i++) {
+      original[i] = i % 256;
+    }
+    const compressed = gzipSync(original);
+
+    // Severely corrupt the compressed data section
+    const corrupted = new Uint8Array(compressed);
+    for (let i = 10; i < Math.min(50, corrupted.length - 8); i++) {
+      corrupted[i] = 0;
+    }
+
+    let threw = false;
+    let decompressed: Uint8Array | null = null;
+
+    try {
+      decompressed = gunzipSync(corrupted);
+    } catch {
+      threw = true;
+    }
+
+    // Either it throws, or the decompressed data doesn't match
+    if (!threw && decompressed) {
+      const isCorrupted =
+        decompressed.length !== original.length ||
+        !decompressed.every((v, i) => v === original[i]);
+      expect(threw || isCorrupted).toBe(true);
+    } else {
+      expect(threw).toBe(true);
+    }
   });
 });

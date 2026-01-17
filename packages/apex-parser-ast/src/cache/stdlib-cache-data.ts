@@ -14,7 +14,6 @@
  * will fall back to disk loading.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const embeddedData = require('../../resources/apex-stdlib-v59.0.pb.gz');
 
 /**
