@@ -11,6 +11,7 @@
  * Provides automatic fallback to ZIP-based loading if the cache is unavailable.
  */
 
+import { gunzipSync } from 'fflate';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
   StandardLibraryDeserializer,
@@ -54,23 +55,14 @@ let cachedProtobufBuffer: Uint8Array | null = null;
  */
 let embeddedProtobufDataUrl: string | undefined;
 
-// Try to import the protobuf cache file
-// In bundled builds, this will be a data URL string
-// In unbundled builds, this will fail
+// Try to import the embedded data module
+// In bundled builds, the data will be embedded as a data URL
+// In unbundled builds, this module may fail to load
 try {
-  // Dynamic require to prevent TypeScript from complaining
-  // The .pb file is transformed by esbuild to a base64 data URL
-  const imported = require('../../resources/apex-stdlib-v59.0.pb');
-  if (typeof imported === 'string' && imported.startsWith('data:')) {
-    embeddedProtobufDataUrl = imported;
-  } else if (
-    typeof imported?.default === 'string' &&
-    imported.default.startsWith('data:')
-  ) {
-    embeddedProtobufDataUrl = imported.default;
-  }
+  const { getEmbeddedDataUrl } = require('./stdlib-cache-data');
+  embeddedProtobufDataUrl = getEmbeddedDataUrl();
 } catch {
-  // Expected in unbundled environments
+  // Expected in unbundled environments - will fall back to disk loading
   embeddedProtobufDataUrl = undefined;
 }
 
@@ -93,15 +85,15 @@ function loadProtobufFromDisk(): Uint8Array | undefined {
     // - dist/cache/ (if bundled)
     const possiblePaths = [
       // From out/cache/ -> ../../resources/
-      path.resolve(__dirname, '../../resources/apex-stdlib-v59.0.pb'),
+      path.resolve(__dirname, '../../resources/apex-stdlib-v59.0.pb.gz'),
       // From out/cache/ -> ../../../resources/ (if nested deeper)
-      path.resolve(__dirname, '../../../resources/apex-stdlib-v59.0.pb'),
+      path.resolve(__dirname, '../../../resources/apex-stdlib-v59.0.pb.gz'),
       // From src/cache/ -> ../../resources/
-      path.resolve(__dirname, '../../resources/apex-stdlib-v59.0.pb'),
+      path.resolve(__dirname, '../../resources/apex-stdlib-v59.0.pb.gz'),
       // From dist/ -> resources/
-      path.resolve(__dirname, '../resources/apex-stdlib-v59.0.pb'),
+      path.resolve(__dirname, '../resources/apex-stdlib-v59.0.pb.gz'),
       // Absolute path based on process.cwd() for test environments
-      path.resolve(process.cwd(), 'resources/apex-stdlib-v59.0.pb'),
+      path.resolve(process.cwd(), 'resources/apex-stdlib-v59.0.pb.gz'),
     ];
 
     for (const pbPath of possiblePaths) {
@@ -122,10 +114,22 @@ function loadProtobufFromDisk(): Uint8Array | undefined {
 }
 
 /**
- * Get the embedded protobuf cache as a Uint8Array
+ * Decompress gzipped data to get the raw protobuf bytes
+ */
+function decompressGzipData(compressedData: Uint8Array): Uint8Array {
+  try {
+    return gunzipSync(compressedData);
+  } catch (error) {
+    console.error('Failed to decompress gzipped protobuf cache:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get the embedded protobuf cache as a Uint8Array (decompressed)
  */
 function getEmbeddedProtobufCache(): Uint8Array | undefined {
-  // Return cached buffer if available
+  // Return cached buffer if available (already decompressed)
   if (cachedProtobufBuffer) {
     return cachedProtobufBuffer;
   }
@@ -141,7 +145,8 @@ function getEmbeddedProtobufCache(): Uint8Array | undefined {
         }
       }
 
-      // Decode base64 to Uint8Array
+      // Decode base64 to Uint8Array (this is still gzipped)
+      let compressedBytes: Uint8Array | undefined;
       if (typeof atob === 'function') {
         // Browser environment
         const binaryString = atob(base64Data);
@@ -149,15 +154,15 @@ function getEmbeddedProtobufCache(): Uint8Array | undefined {
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i);
         }
-        cachedProtobufBuffer = bytes;
+        compressedBytes = bytes;
       } else if (typeof Buffer !== 'undefined') {
         // Node.js environment
-        cachedProtobufBuffer = new Uint8Array(
-          Buffer.from(base64Data, 'base64'),
-        );
+        compressedBytes = new Uint8Array(Buffer.from(base64Data, 'base64'));
       }
 
-      if (cachedProtobufBuffer) {
+      // Decompress the gzipped data
+      if (compressedBytes) {
+        cachedProtobufBuffer = decompressGzipData(compressedBytes);
         return cachedProtobufBuffer;
       }
     } catch (error) {
@@ -168,7 +173,8 @@ function getEmbeddedProtobufCache(): Uint8Array | undefined {
   // Fall back to loading from disk (development mode)
   const diskBuffer = loadProtobufFromDisk();
   if (diskBuffer) {
-    cachedProtobufBuffer = diskBuffer;
+    // Disk buffer is also gzipped, decompress it
+    cachedProtobufBuffer = decompressGzipData(diskBuffer);
     return cachedProtobufBuffer;
   }
 

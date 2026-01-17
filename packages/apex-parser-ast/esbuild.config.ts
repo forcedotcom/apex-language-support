@@ -21,10 +21,10 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     outExtension: { '.js': '.js' },
     external: [],
-    // Bundle the Standard Apex Library ZIP and protobuf cache as base64 data URLs
+    // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs
     loader: {
       '.zip': 'dataurl',
-      '.pb': 'dataurl',
+      '.gz': 'dataurl',
     },
     plugins: [
       copy({
@@ -35,9 +35,10 @@ const builds: BuildOptions[] = [
             from: ['out/resources/**/*'],
             to: ['./dist/resources'],
           },
-          // Copy protobuf cache files to dist/resources/
+          // Copy gzipped protobuf cache files to dist/resources/
+          // Note: .sha256 is only used for build-time cache invalidation, not needed at runtime
           {
-            from: ['resources/*.pb', 'resources/*.sha256'],
+            from: ['resources/*.pb.gz'],
             to: ['./dist/resources'],
           },
           // Copy type definitions from out/ to dist/
@@ -59,10 +60,10 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     outExtension: { '.js': '.mjs' },
     external: [],
-    // Bundle the Standard Apex Library ZIP and protobuf cache as base64 data URLs
+    // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs
     loader: {
       '.zip': 'dataurl',
-      '.pb': 'dataurl',
+      '.gz': 'dataurl',
     },
   },
 ];

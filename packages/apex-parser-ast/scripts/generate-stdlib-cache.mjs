@@ -30,6 +30,7 @@ import {
 } from 'fs';
 import { dirname, join, basename } from 'path';
 import { fileURLToPath } from 'url';
+import { gzipSync } from 'fflate';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
@@ -41,7 +42,7 @@ const BUILTINS_DIR = join(projectRoot, 'src', 'resources', 'builtins');
 const OUTPUT_DIR = join(projectRoot, 'resources');
 
 // Output file names
-const CACHE_FILE = join(OUTPUT_DIR, `apex-stdlib-v${STDLIB_VERSION}.pb`);
+const CACHE_FILE = join(OUTPUT_DIR, `apex-stdlib-v${STDLIB_VERSION}.pb.gz`);
 const CHECKSUM_FILE = join(OUTPUT_DIR, `apex-stdlib-v${STDLIB_VERSION}.sha256`);
 
 // List of builtin classes that should be loaded from builtins/ folder
@@ -327,9 +328,15 @@ async function main() {
   );
   console.log(`   Serialized size: ${(binaryData.length / 1024 / 1024).toFixed(2)} MB`);
 
+  // Gzip the protobuf data
+  console.log('\n6. Compressing with gzip...');
+  const compressedData = gzipSync(binaryData, { level: 9 });
+  const compressionRatio = ((1 - compressedData.length / binaryData.length) * 100).toFixed(1);
+  console.log(`   Compressed size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB (${compressionRatio}% reduction)`);
+
   // Write output files
-  console.log('\n6. Writing output files...');
-  writeFileSync(CACHE_FILE, binaryData);
+  console.log('\n7. Writing output files...');
+  writeFileSync(CACHE_FILE, compressedData);
   writeFileSync(CHECKSUM_FILE, sourceChecksum);
   console.log(`   ✅ ${CACHE_FILE}`);
   console.log(`   ✅ ${CHECKSUM_FILE}`);
@@ -339,7 +346,8 @@ async function main() {
   console.log('\n=== Generation Complete ===');
   console.log(`   Total time: ${elapsed}s`);
   console.log(`   Classes processed: ${parsedCount}`);
-  console.log(`   Output size: ${(binaryData.length / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`   Uncompressed size: ${(binaryData.length / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`   Compressed size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB`);
   console.log(`   Checksum: ${sourceChecksum}`);
 }
 

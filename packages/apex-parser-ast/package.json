@@ -41,8 +41,9 @@
       "dependencies": [
         "compile:tsc"
       ],
+      "clean": "if-file-deleted",
       "output": [
-        "resources/apex-stdlib-v*.pb",
+        "resources/apex-stdlib-v*.pb.gz",
         "resources/apex-stdlib-v*.sha256"
       ],
       "files": [
@@ -87,9 +88,7 @@
         "generate:stdlib-cache"
       ],
       "output": [
-        "out/**",
-        "resources/apex-stdlib-v*.pb",
-        "resources/apex-stdlib-v*.sha256"
+        "out/**"
       ]
     },
     "bundle": {
@@ -105,7 +104,8 @@
         "src/**/*.ts",
         "esbuild.config.ts",
         "out/resources/**",
-        "out/index.d.ts"
+        "out/index.d.ts",
+        "resources/apex-stdlib-v*.pb.gz"
       ]
     },
     "test": {

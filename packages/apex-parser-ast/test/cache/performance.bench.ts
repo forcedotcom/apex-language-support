@@ -119,13 +119,14 @@ describe('Performance Benchmarks', () => {
         return;
       }
 
-      // Read the protobuf binary directly
+      // Read the gzipped protobuf binary directly
       const fs = require('fs');
       const path = require('path');
+      const { gunzipSync } = require('fflate');
 
       const pbPath = path.resolve(
         __dirname,
-        '../../resources/apex-stdlib-v59.0.pb',
+        '../../resources/apex-stdlib-v59.0.pb.gz',
       );
 
       if (!fs.existsSync(pbPath)) {
@@ -133,7 +134,8 @@ describe('Performance Benchmarks', () => {
         return;
       }
 
-      const pbBuffer = fs.readFileSync(pbPath);
+      const compressedBuffer = fs.readFileSync(pbPath);
+      const pbBuffer = gunzipSync(new Uint8Array(compressedBuffer));
       const deserializer = new StandardLibraryDeserializer();
 
       const { avgTimeMs, result } = await measureTime(

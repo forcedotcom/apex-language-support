@@ -109,10 +109,10 @@ const builds: BuildOptions[] = [
     banner: undefined,
     footer: undefined,
     keepNames: true,
-    // Bundle the Standard Apex Library ZIP and protobuf cache as base64 data URLs
+    // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs
     loader: {
       '.zip': 'dataurl',
-      '.pb': 'dataurl',
+      '.gz': 'dataurl',
     },
     plugins: [
       copy({
@@ -201,10 +201,10 @@ const builds: BuildOptions[] = [
     define: { global: 'globalThis' },
     alias: NODE_POLYFILLS,
     keepNames: true,
-    // Bundle the Standard Apex Library ZIP and protobuf cache as base64 data URLs
+    // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs
     loader: {
       '.zip': 'dataurl',
-      '.pb': 'dataurl',
+      '.gz': 'dataurl',
     },
   },
   {
