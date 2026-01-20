@@ -339,8 +339,9 @@ async function createWebLanguageClient(
           configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
         },
         initializationOptions: initOptions,
-        // Don't pass outputChannel to web worker as it may contain non-serializable objects
-        // Web worker logging is handled via window/logMessage notifications
+        // Use our consolidated worker/server output channel to prevent LanguageClient
+        // from creating its own default output channel (which causes duplicate tabs)
+        outputChannel: getWorkerServerOutputChannel() || undefined,
       },
       worker,
     );
@@ -417,8 +418,9 @@ async function createWebLanguageClient(
     throw error;
   }
 
-  // Note: Output channels are handled via the window/logMessage notification handler below
-  // The LanguageClient's outputChannel property is read-only, so we can't set it directly
+  // Output channels: We pass our custom outputChannel to prevent LanguageClient
+  // from creating a default one. Server logs are handled via window/logMessage notifications
+  // which write to the same outputChannel, ensuring all logs go to a single tab.
 
   // Set up window/logMessage handler for worker/server logs
   languageClient.onNotification('window/logMessage', (params: any) => {
