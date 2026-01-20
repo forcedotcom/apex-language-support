@@ -308,6 +308,22 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Add a symbol to the symbol table with the detail level set.
+   * This ensures that symbols from ApexSymbolCollectorListener have _detailLevel
+   * set, which is required for proper deduplication in SymbolTable.addSymbol().
+   * @param symbol The symbol to add
+   * @param currentScope The current scope (null when at file level)
+   */
+  protected addSymbolWithDetailLevel(
+    symbol: ApexSymbol,
+    currentScope?: ScopeSymbol | null,
+  ): void {
+    // Set detail level on symbol to enable proper enrichment/deduplication
+    symbol._detailLevel = this.detailLevel;
+    this.symbolTable.addSymbol(symbol, currentScope);
+  }
+
+  /**
    * Get the current scope symbol without removing it
    * @returns The current scope symbol (ScopeSymbol), or null if stack is empty
    */
@@ -800,7 +816,7 @@ export class ApexSymbolCollectorListener
     );
 
     // Add block symbol to symbol table
-    this.symbolTable.addSymbol(blockSymbol, parentScope ?? null);
+    this.addSymbolWithDetailLevel(blockSymbol, parentScope ?? null);
 
     return blockSymbol;
   }
@@ -1037,7 +1053,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Add symbol to current scope (null when stack is empty = file level)
-      this.symbolTable.addSymbol(classSymbol, this.getCurrentScopeSymbol());
+      this.addSymbolWithDetailLevel(classSymbol, this.getCurrentScopeSymbol());
 
       // Parent property removed - parentId is set during symbol creation
 
@@ -1153,7 +1169,10 @@ export class ApexSymbolCollectorListener
       }
 
       // Add symbol to current scope (null when stack is empty = file level)
-      this.symbolTable.addSymbol(interfaceSymbol, this.getCurrentScopeSymbol());
+      this.addSymbolWithDetailLevel(
+        interfaceSymbol,
+        this.getCurrentScopeSymbol(),
+      );
 
       // Create interface block symbol directly (stack-only scope tracking)
       const location = this.getLocation(ctx);
@@ -1337,7 +1356,10 @@ export class ApexSymbolCollectorListener
 
         // Add method symbol to current scope (null when stack is empty = file level)
         // Note: addSymbol will NOT override parentId if it's already set to a non-null value
-        this.symbolTable.addSymbol(methodSymbol, this.getCurrentScopeSymbol());
+        this.addSymbolWithDetailLevel(
+          methodSymbol,
+          this.getCurrentScopeSymbol(),
+        );
       }
 
       // Create method block symbol for scope tracking (needed for block content)
@@ -1497,7 +1519,7 @@ export class ApexSymbolCollectorListener
           constructorSymbol.parentId = classBlock.id;
         }
 
-        this.symbolTable.addSymbol(
+        this.addSymbolWithDetailLevel(
           constructorSymbol,
           this.getCurrentScopeSymbol(),
         );
@@ -1615,7 +1637,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Add method symbol to current scope (null when stack is empty = file level)
-      this.symbolTable.addSymbol(methodSymbol, this.getCurrentScopeSymbol());
+      this.addSymbolWithDetailLevel(methodSymbol, this.getCurrentScopeSymbol());
 
       // Create method block symbol directly (stack-only scope tracking)
       const location = this.getLocation(ctx);
@@ -1687,7 +1709,7 @@ export class ApexSymbolCollectorListener
       if (currentMethod) {
         currentMethod.parameters.push(paramSymbol);
       }
-      this.symbolTable.addSymbol(paramSymbol, this.getCurrentScopeSymbol());
+      this.addSymbolWithDetailLevel(paramSymbol, this.getCurrentScopeSymbol());
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in parameter: ${errorMessage}`, ctx);
@@ -1791,7 +1813,10 @@ export class ApexSymbolCollectorListener
         SymbolKind.Property,
         type,
       );
-      this.symbolTable.addSymbol(propertySymbol, this.getCurrentScopeSymbol());
+      this.addSymbolWithDetailLevel(
+        propertySymbol,
+        this.getCurrentScopeSymbol(),
+      );
 
       // Capture the property name as a type reference
       const propertyNameNode = ctx.id?.();
@@ -2166,7 +2191,7 @@ export class ApexSymbolCollectorListener
         modifiers,
       );
 
-      this.symbolTable.addSymbol(enumSymbol, this.getCurrentScopeSymbol());
+      this.addSymbolWithDetailLevel(enumSymbol, this.getCurrentScopeSymbol());
       const location = this.getLocation(ctx);
       const parentScope = this.getCurrentScopeSymbol();
       const blockName = this.generateBlockName('class');
@@ -2216,7 +2241,10 @@ export class ApexSymbolCollectorListener
         );
 
         enumSymbol.values.push(valueSymbol);
-        this.symbolTable.addSymbol(valueSymbol, this.getCurrentScopeSymbol());
+        this.addSymbolWithDetailLevel(
+          valueSymbol,
+          this.getCurrentScopeSymbol(),
+        );
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -2442,7 +2470,10 @@ export class ApexSymbolCollectorListener
       );
 
       // Add symbol to current scope (null when stack is empty = file level)
-      this.symbolTable.addSymbol(triggerSymbol, this.getCurrentScopeSymbol());
+      this.addSymbolWithDetailLevel(
+        triggerSymbol,
+        this.getCurrentScopeSymbol(),
+      );
 
       // Create trigger block symbol directly (stack-only scope tracking)
       const location = this.getLocation(ctx);
@@ -2504,7 +2535,10 @@ export class ApexSymbolCollectorListener
       );
 
       // Add symbol to current scope (null when stack is empty = file level)
-      this.symbolTable.addSymbol(triggerSymbol, this.getCurrentScopeSymbol());
+      this.addSymbolWithDetailLevel(
+        triggerSymbol,
+        this.getCurrentScopeSymbol(),
+      );
 
       // Create trigger block symbol directly (stack-only scope tracking)
       const location = this.getLocation(ctx);
@@ -4348,7 +4382,10 @@ export class ApexSymbolCollectorListener
         type,
       );
 
-      this.symbolTable.addSymbol(variableSymbol, this.getCurrentScopeSymbol());
+      this.addSymbolWithDetailLevel(
+        variableSymbol,
+        this.getCurrentScopeSymbol(),
+      );
 
       // Create VARIABLE_DECLARATION reference for the variable/field declaration
       const identifierLocation = this.getIdentifierLocation(ctx);

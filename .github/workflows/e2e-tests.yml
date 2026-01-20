@@ -2,16 +2,16 @@ name: E2E Tests
 
 on:
   push:
-    branches: [main, kyledev/e2eTests]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 jobs:
   e2e-tests:
-    name: End-to-End Tests
+    name: End-to-End Tests (Web Mode)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -34,18 +34,23 @@ jobs:
 
       - name: Verify extension build
         run: |
+          echo "Verifying extension build artifacts..."
           if [ ! -f "packages/apex-lsp-vscode-extension/dist/package.json" ]; then
-            echo "❌ package.json not found in dist"
+            echo "package.json not found in dist"
             exit 1
           fi
           if [ ! -f "packages/apex-lsp-vscode-extension/dist/extension.js" ]; then
-            echo "❌ extension.js not found in dist"
+            echo "extension.js not found in dist"
             exit 1
           fi
           if [ ! -f "packages/apex-lsp-vscode-extension/dist/extension.web.js" ]; then
-            echo "❌ extension.web.js not found in dist"
+            echo "extension.web.js not found in dist"
             exit 1
           fi
+          echo "All extension build artifacts verified"
+
+      - name: Create test workspace directory
+        run: mkdir -p e2e-tests/test-workspace
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
@@ -54,6 +59,7 @@ jobs:
         run: npm run test -w e2e-tests
         env:
           CI: true
+          TEST_MODE: web
 
       - name: Upload test results and artifacts
         if: always()

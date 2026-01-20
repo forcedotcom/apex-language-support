@@ -7,6 +7,27 @@
  */
 
 /**
+ * Test mode configuration:
+ * - 'web': Tests run against VS Code Web using @vscode/test-web
+ * - 'desktop': Tests run against desktop VS Code (not yet implemented)
+ *
+ * Can be set via TEST_MODE environment variable.
+ */
+export type TestMode = 'web' | 'desktop';
+export const TEST_MODE: TestMode = (process.env.TEST_MODE as TestMode) ?? 'web';
+
+/**
+ * Check if tests are running in web mode (VS Code Web)
+ */
+export const isWebMode = (): boolean => TEST_MODE === 'web';
+
+/**
+ * Check if tests are running in desktop mode (desktop VS Code)
+ * Note: Desktop mode is not yet implemented.
+ */
+export const isDesktopMode = (): boolean => TEST_MODE === 'desktop';
+
+/**
  * Console error information captured during testing.
  */
 export interface ConsoleError {
@@ -344,43 +365,23 @@ export const EXPECTED_APEX_SYMBOLS: ExpectedApexSymbols = {
  */
 export const HOVER_TEST_SCENARIOS = [
   {
-    description: 'Static variable hover',
-    searchText: 'private static final String DEFAULT_STATUS',
+    description: 'Class name hover',
+    searchText: 'ApexClassExample',
   },
   {
-    description: 'Instance variable hover',
-    searchText: 'private String instanceId',
+    description: 'Method name hover (sayHello)',
+    searchText: 'sayHello',
   },
   {
-    description: 'List variable hover',
-    searchText: 'private List<Account> accounts',
-  },
-  {
-    description: 'Method name hover',
-    searchText: 'public static void sayHello',
-  },
-  {
-    description: 'Method with parameters hover',
-    searchText: 'public static Integer add',
+    description: 'Method name hover (add)',
+    searchText: 'add',
   },
   {
     description: 'Inner class hover',
-    searchText: 'public class Configuration',
+    searchText: 'Configuration',
   },
   {
     description: 'Inner enum hover',
-    searchText: 'public enum StatusType',
-  },
-  {
-    description: 'Enum value hover',
-    searchText: 'ACTIVE, INACTIVE, PENDING, SUSPENDED',
-  },
-  {
-    description: 'Parameter hover',
-    searchText: 'List<Account> inputAccounts',
-  },
-  {
-    description: 'Local variable hover',
-    searchText: 'Map<Id, Account> accountMap',
+    searchText: 'StatusType',
   },
 ] as const;

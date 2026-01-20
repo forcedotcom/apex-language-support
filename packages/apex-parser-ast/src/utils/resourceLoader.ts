@@ -16,11 +16,15 @@ import {
 import type { DeserializationResult } from '../cache/stdlib-deserializer';
 
 /**
- * Yield to the Node.js event loop using setImmediate for immediate yielding
- * This is more effective than Effect.sleep(0) which may use setTimeout
+ * Yield to the event loop for immediate yielding.
+ * Uses setImmediate in Node.js (more effective) or setTimeout(0) in browsers.
  */
 const yieldToEventLoop = Effect.async<void>((resume) => {
-  setImmediate(() => resume(Effect.void));
+  if (typeof setImmediate !== 'undefined') {
+    setImmediate(() => resume(Effect.void));
+  } else {
+    setTimeout(() => resume(Effect.void), 0);
+  }
 });
 
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';

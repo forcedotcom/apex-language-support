@@ -248,8 +248,16 @@ function processQueuedItem<A, E, R>(
   });
 }
 
+/**
+ * Yield to the event loop for immediate yielding.
+ * Uses setImmediate in Node.js (more effective) or setTimeout(0) in browsers.
+ */
 const yieldToEventLoop = Effect.async<void>((resume) => {
-  setImmediate(() => resume(Effect.void));
+  if (typeof setImmediate !== 'undefined') {
+    setImmediate(() => resume(Effect.void));
+  } else {
+    setTimeout(() => resume(Effect.void), 0);
+  }
 });
 
 function controllerLoop(

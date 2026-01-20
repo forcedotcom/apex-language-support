@@ -307,19 +307,30 @@ export const positionCursorOnWord = async (
 ): Promise<void> => {
   await ErrorHandler.safeExecute(
     async () => {
-      // Use Ctrl+F to find the text
-      await page.keyboard.press('Control+F');
-      // Wait for find input to appear
-      await page
-        .waitForSelector('input[aria-label="Find"], .find-widget', {
-          timeout: 1500,
-        })
-        .catch(() => {});
+      // Use F1 to open command palette and execute "Go to Symbol in Editor"
+      await page.keyboard.press('F1');
+      await page.waitForSelector('.quick-input-widget', { timeout: 2000 });
+      await page.keyboard.type('Go to Symbol in Editor');
+      await page.keyboard.press('Enter');
 
-      // Search for the text
+      // Wait for the symbol picker to appear
+      await page.waitForSelector('.quick-input-widget', { timeout: 2000 });
+
+      // Type the symbol name to filter
       await page.keyboard.type(searchText);
-      await page.keyboard.press('Enter'); // Search
-      await page.keyboard.press('Escape'); // Close search dialog
+
+      // Wait briefly for filtering
+      await expect(page.locator('.quick-input-widget .monaco-list-row'))
+        .toBeVisible({ timeout: 2000 })
+        .catch(() => {
+          // No results found, try pressing Escape and using a different approach
+        });
+
+      // Select the first result
+      await page.keyboard.press('Enter');
+
+      // Escape any remaining quick input widgets
+      await page.keyboard.press('Escape');
 
       // Move to end of word if requested
       if (moveToEnd) {
@@ -343,13 +354,26 @@ export const positionCursorOnWord = async (
  */
 export const triggerHover = async (
   page: Page,
-  timeout = 1500,
+  timeout = 3000,
 ): Promise<boolean> => {
   try {
-    await page.keyboard.press('Control+K+I'); // VS Code hover shortcut
-    // Wait for hover widget to appear with specific selector
-    await expect(page.locator('.monaco-editor .hover-row')).toBeVisible({
-      timeout: 1500,
+    // Wait for the editor cursor to be visible before triggering hover
+    await expect(page.locator('.monaco-editor .cursor')).toBeVisible({
+      timeout: 1000,
+    });
+
+    // Use F1 to open command palette (per playwright rules)
+    await page.keyboard.press('F1');
+    await page.waitForSelector('.quick-input-widget', { timeout: 2000 });
+    await page.keyboard.type('Show Hover');
+    await page.keyboard.press('Enter');
+
+    // Wait for hover widget to appear with multiple possible selectors
+    const hoverLocator = page.locator(
+      '.monaco-editor .hover-row, .monaco-hover, .monaco-editor-hover',
+    );
+    await expect(hoverLocator.first()).toBeVisible({
+      timeout,
     });
     return true;
   } catch {

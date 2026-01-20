@@ -8,10 +8,22 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
+ * Test mode configuration:
+ * - 'web': Tests run against VS Code Web using @vscode/test-web (default)
+ * - 'desktop': Tests would run against desktop VS Code using @vscode/test-electron
+ *              (not yet implemented - requires different test infrastructure)
+ *
+ * Set TEST_MODE environment variable to control the test mode.
+ */
+const TEST_MODE = (process.env.TEST_MODE as 'web' | 'desktop') ?? 'web';
+
+/**
  * Playwright configuration for Apex Language Server Extension e2e tests.
  *
- * Configures test execution for VS Code Web environment with proper
+ * Currently configures test execution for VS Code Web environment with proper
  * browser settings, timeouts, and CI/CD integration.
+ *
+ * Future: Will support both web and desktop modes through TEST_MODE env var.
  */
 export default defineConfig({
   testDir: './tests',
