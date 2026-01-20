@@ -3,7 +3,7 @@
  * Namespace: System
  * @see https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm
  */
-public class Map<K, V> {
+public class Map {
 	/**
 	 * Removes all of the key-value mappings from the map.
 	 */

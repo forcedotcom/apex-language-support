@@ -605,7 +605,12 @@ export class ResourceLoader {
         const pathParts = originalPath.split(/[\/\\]/);
         const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
 
-        const listener = new ApexSymbolCollectorListener(undefined, 'full');
+        // Standard Apex library classes only expose public API with empty method bodies
+        // So 'public-api' detail level is sufficient - no need for BlockContentListener
+        const listener = new ApexSymbolCollectorListener(
+          undefined,
+          'public-api',
+        );
         listener.setCurrentFileUri(originalPath);
         if (namespace) {
           listener.setProjectNamespace(namespace);
@@ -620,6 +625,8 @@ export class ResourceLoader {
             includeComments: true,
             includeSingleLineComments: false,
             associateComments: true,
+            collectReferences: true, // Enable reference collection
+            resolveReferences: true, // Enable reference resolution
           },
         });
       }
@@ -1035,7 +1042,9 @@ export class ResourceLoader {
       const namespace = namespaces ? Array.from(namespaces)[0] : undefined;
 
       // Compile the single class
-      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      // Standard Apex library classes only expose public API with empty method bodies
+      // So 'public-api' detail level is sufficient - no need for BlockContentListener
+      const listener = new ApexSymbolCollectorListener(undefined, 'public-api');
 
       // Convert className to proper URI scheme
       const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${className}`;
@@ -1054,6 +1063,8 @@ export class ResourceLoader {
           includeComments: false,
           includeSingleLineComments: false,
           associateComments: false,
+          collectReferences: true, // Enable reference collection
+          resolveReferences: true, // Enable reference resolution
         }, // Minimal compilation for performance
       );
 
