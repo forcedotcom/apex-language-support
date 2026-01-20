@@ -69,11 +69,11 @@ on:
           - 'true'
           - 'false'
 
-  # schedule:
-  #   # Nightly pre-release build at 2 AM UTC for main branch
-  #   - cron: '0 2 * * *'
-  #   # Nightly pre-release build at 2:30 AM UTC for td26/main branch
-  #   - cron: '30 2 * * *'
+  schedule:
+    # Nightly pre-release build at 2 AM UTC for main branch
+    - cron: '0 2 * * *'
+    # Nightly pre-release build at 2:30 AM UTC for tdx26/main branch
+    - cron: '30 2 * * *'
   # push:
   #   branches:
   #     - main
@@ -99,8 +99,22 @@ jobs:
       - name: Determine target branch
         id: determine-branch
         run: |
+          # For scheduled runs, determine branch based on cron schedule time
           # For manual dispatch, use input or default to main
-          TARGET_BRANCH="${{ github.event.inputs.branch || github.ref_name || 'main' }}"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            # Get current UTC time
+            CURRENT_MINUTE=$(date -u +%M)
+            # If minute is 0-29, use main branch (2:00 AM schedule)
+            # If minute is 30-59, use tdx26/main branch (2:30 AM schedule)
+            if [ "$CURRENT_MINUTE" -lt 30 ]; then
+              TARGET_BRANCH="main"
+            else
+              TARGET_BRANCH="tdx26/main"
+            fi
+            echo "Scheduled build detected, using branch: $TARGET_BRANCH"
+          else
+            TARGET_BRANCH="${{ github.event.inputs.branch || github.ref_name || 'main' }}"
+          fi
           echo "branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
           echo "Building from branch: $TARGET_BRANCH"
 
@@ -140,14 +154,14 @@ jobs:
 
   release-extensions:
     needs: get-packages
-    if: (github.event.inputs.extensions != 'none' && github.event.inputs.extensions != '') || (needs.get-packages.outputs.extensions != '')
+    if: (github.event.inputs.extensions != 'none' && github.event.inputs.extensions != '') || (github.event_name == 'schedule') || (needs.get-packages.outputs.extensions != '')
     uses: ./.github/workflows/release-extensions.yml
     with:
       branch: ${{ needs.get-packages.outputs.target-branch }}
       registries: ${{ github.event.inputs.registries || 'all' }}
       dry-run: ${{ github.event.inputs.dry-run || 'false' }}
-      pre-release: ${{ github.event.inputs.pre-release || 'false' }}
+      pre-release: ${{ github.event.inputs.pre-release || (github.event_name == 'schedule' && 'true') || 'false' }}
       version-bump: ${{ github.event.inputs.version-bump || 'auto' }}
-      extensions: ${{ github.event.inputs.extensions || 'none' }}
+      extensions: ${{ github.event.inputs.extensions || (github.event_name == 'schedule' && 'changed') || 'none' }}
       available-extensions: ${{ needs.get-packages.outputs.extensions }}
     secrets: inherit
