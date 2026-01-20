@@ -196,8 +196,10 @@ graph LR
 **Triggers:**
 
 - Manual dispatch (primary)
+- Scheduled nightly builds:
+  - `main` branch: Daily at 2:00 AM UTC (`0 2 * * *`)
+  - `tdx26/main` branch: Daily at 2:30 AM UTC (`30 2 * * *`)
 - ~~Push to main (commented out)~~
-- ~~Nightly schedule (commented out)~~
 
 **Jobs:**
 
@@ -220,7 +222,15 @@ graph TB
 - Uses composite action `get-packages` to dynamically identify packages
 - Supports manual input for branch, packages, dry-run, pre-release, etc.
 - Determines build type (nightly vs regular)
+- **Nightly builds**: Automatically runs scheduled builds for `main` and `tdx26/main` branches as pre-releases
 - ~~NPM release workflow is commented out~~
+
+**Nightly Build Behavior:**
+
+- Scheduled runs automatically use `pre-release: true`
+- Branch selection is determined by the cron schedule time (minutes 0-29 = main, minutes 30-59 = tdx26/main)
+- Only changed extensions are built and released
+- All registries are targeted by default
 
 ### 3. Extension Release Workflow (`release-extensions.yml`)
 
@@ -479,6 +489,7 @@ sequenceDiagram
 - **Name**: `vsix-packages`
 - **Purpose**: PR-specific packaging
 - **Retention**: 5 days
+- **Contents**: VSIX files, MD5 checksum files (`.vsix.md5`), and `checksums.md5`
 
 ### Release Artifacts
 
@@ -486,6 +497,38 @@ sequenceDiagram
 - **Purpose**: Release packaging with run isolation
 - **Retention**: 5 days
 - **Pattern**: `{base_name}-{run_number}-{mode}` where mode is `release` or `dry-run`
+- **Contents**: VSIX files, MD5 checksum files (`.vsix.md5`), `checksums.md5`, and `checksums.json`
+
+### MD5 Checksums
+
+All VSIX extension files include MD5 checksums for verification:
+
+- **Individual checksums**: Each VSIX file has a corresponding `.vsix.md5` file alongside it
+  - Format: `{hash}  {filename}` (standard MD5 checksum format)
+  - Example: `apex-lsp-vscode-extension-0.5.0.vsix.md5`
+
+- **Combined checksums file**: `checksums.md5` contains all checksums in one file
+  - Located at `packages/checksums.md5` in artifacts
+  - Format: `{hash}  {relative-path}`
+
+- **JSON checksums file**: `checksums.json` contains structured checksum data
+  - Located at `packages/checksums.json` in artifacts
+  - Format: JSON array with `file`, `md5`, and `size` fields
+  - Used for workflow summary generation
+
+- **Workflow Summary**: MD5 checksums are displayed in the workflow summary as a formatted table
+  - Shows extension name, MD5 checksum (truncated), and file size
+  - Accessible from the workflow run page
+
+**Verification:**
+
+To verify a VSIX file using its MD5 checksum:
+
+```bash
+# Download the VSIX and its .md5 file
+# Verify using md5sum
+md5sum -c extension-name.vsix.md5
+```
 
 ## Safety Features
 
@@ -602,11 +645,13 @@ gh workflow run release-extensions.yml --field pre-release=false
 ### Active Features
 
 1. **Extension Releases**: Fully functional with manual triggers
-2. **NPM Package Releases**: Fully functional with manual triggers
-3. **Performance Benchmarks**: Active monitoring and alerting
-4. **PR Validation**: Active validation for develop branch
-5. **Automerge**: Active for labeled PRs
-6. **Stale Management**: Active cleanup of stale issues/PRs
+2. **Nightly Builds**: Active scheduled builds for `main` and `tdx26/main` branches (pre-releases)
+3. **MD5 Checksums**: Automatic MD5 checksum generation for all VSIX files
+4. **NPM Package Releases**: Fully functional with manual triggers
+5. **Performance Benchmarks**: Active monitoring and alerting
+6. **PR Validation**: Active validation for develop branch
+7. **Automerge**: Active for labeled PRs
+8. **Stale Management**: Active cleanup of stale issues/PRs
 
 ### Composite Actions Benefits
 
@@ -627,8 +672,8 @@ gh workflow run release-extensions.yml --field pre-release=false
 ### Future Enhancements
 
 1. **Re-enable Automatic Releases**: When ready, uncomment push triggers
-2. **Re-enable Nightly Builds**: When needed, uncomment scheduled builds
-3. **Versioning**: Composite actions can be versioned independently if needed
-4. **Testing**: Add dedicated tests for composite actions and scripts
-5. **Documentation**: Expand documentation for each action and script
-6. **Validation**: Add input validation to composite actions and scripts
+2. **Versioning**: Composite actions can be versioned independently if needed
+3. **Testing**: Add dedicated tests for composite actions and scripts
+4. **Documentation**: Expand documentation for each action and script
+5. **Validation**: Add input validation to composite actions and scripts
+6. **Additional Checksums**: Consider adding SHA256 checksums alongside MD5

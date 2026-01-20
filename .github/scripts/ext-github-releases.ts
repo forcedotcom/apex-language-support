@@ -159,14 +159,18 @@ function createGitHubRelease(
   let releaseTag = `v${currentVersion}`;
   let releaseTitle = `${extension} v${currentVersion}`;
 
-  // For nightly builds, add timestamp to tag and title
+  // For nightly builds, add timestamp and branch to tag and title
   if (isNightly === 'true') {
     const nightlyDate = new Date()
       .toISOString()
       .split('T')[0]
       .replace(/-/g, '');
-    releaseTag = `v${currentVersion}-nightly.${nightlyDate}`;
-    releaseTitle = `${extension} v${currentVersion} (Nightly ${nightlyDate})`;
+    const branch = process.env.BRANCH || 'main';
+    // Format branch name: main -> no suffix, tdx26/main -> .tdx26-main
+    const branchSuffix =
+      branch === 'main' ? '' : `.${branch.replace(/\//g, '-')}`;
+    releaseTag = `v${currentVersion}-nightly${branchSuffix}.${nightlyDate}`;
+    releaseTitle = `${extension} v${currentVersion} (Nightly ${branch} ${nightlyDate})`;
   }
 
   if (dryRun) {
