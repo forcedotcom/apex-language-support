@@ -171,7 +171,7 @@ describe('Integration with stdlib-cache-loader', () => {
     const result = await loader.load();
 
     expect(result.success).toBe(true);
-    expect(['protobuf', 'fallback']).toContain(result.loadMethod);
+    expect(result.loadMethod).toBe('protobuf');
   });
 
   it('isProtobufCacheAvailable returns boolean', () => {

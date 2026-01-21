@@ -35,8 +35,7 @@ import { STANDARD_APEX_LIBRARY_URI } from './ResourceUtils';
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
   preloadStdClasses?: boolean;
-  zipBuffer?: Uint8Array; // Direct ZIP buffer to use
-  forceZipFallback?: boolean; // Force using ZIP instead of protobuf cache
+  zipBuffer?: Uint8Array; // Direct ZIP buffer to use (for testing)
 }
 
 interface CompiledArtifact {
@@ -103,7 +102,6 @@ export class ResourceLoader {
   private zipFiles: CaseInsensitivePathMap<Uint8Array> | null = null; // Will be initialized in extractZipFiles
   private protobufCacheLoaded = false; // Track if protobuf cache was used
   private protobufCacheData: DeserializationResult | null = null; // Cached protobuf data
-  private forceZipFallback = false; // Force using ZIP instead of protobuf cache
 
   private constructor(options?: ResourceLoaderOptions) {
     this.logger.debug(
@@ -115,9 +113,6 @@ export class ResourceLoader {
     }
     if (options?.preloadStdClasses) {
       this.preloadStdClasses = options.preloadStdClasses;
-    }
-    if (options?.forceZipFallback) {
-      this.forceZipFallback = options.forceZipFallback;
     }
 
     this.compilerService = new CompilerService();
@@ -575,7 +570,7 @@ export class ResourceLoader {
 
   /**
    * Initialize method for compatibility.
-   * Attempts to load from protobuf cache first, falls back to ZIP if unavailable.
+   * Loads from protobuf cache unless a ZIP buffer was explicitly provided.
    */
   public async initialize(): Promise<void> {
     if (!this.initialized) {
@@ -585,33 +580,26 @@ export class ResourceLoader {
       );
     }
 
-    // Try to load from protobuf cache first (unless forcing ZIP fallback or explicit ZIP buffer provided)
-    // If a ZIP buffer was explicitly provided, skip protobuf cache to use the provided ZIP
-    if (
-      !this.forceZipFallback &&
-      !this.protobufCacheLoaded &&
-      !this.zipBuffer
-    ) {
+    // Load from protobuf cache (unless explicit ZIP buffer was provided for testing)
+    if (!this.protobufCacheLoaded && !this.zipBuffer) {
       await this.tryLoadFromProtobufCache();
     }
   }
 
   /**
-   * Attempt to load standard library from protobuf cache.
-   * Returns true if successful, false if fallback to ZIP is needed.
+   * Load standard library from protobuf cache.
+   * Returns true if successful.
    */
   private async tryLoadFromProtobufCache(): Promise<boolean> {
     // Check if protobuf cache is available
     if (!isProtobufCacheAvailable()) {
-      this.logger.debug('Protobuf cache not available, using ZIP fallback');
+      this.logger.error('Protobuf cache not available');
       return false;
     }
 
     try {
       const loader = StandardLibraryCacheLoader.getInstance();
-      const result = await loader.load({
-        forceZipFallback: this.forceZipFallback,
-      });
+      const result = await loader.load();
 
       if (result.success && result.loadMethod === 'protobuf' && result.data) {
         this.protobufCacheLoaded = true;
@@ -628,16 +616,13 @@ export class ResourceLoader {
         return true;
       }
 
-      this.logger.debug(
-        () =>
-          `Protobuf cache load returned method=${result.loadMethod}, using ZIP fallback`,
+      this.logger.error(
+        () => `Protobuf cache load failed: ${result.error || 'unknown error'}`,
       );
       return false;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        () => `Protobuf cache load failed: ${errorMsg}, using ZIP fallback`,
-      );
+      this.logger.error(() => `Protobuf cache load failed: ${errorMsg}`);
       return false;
     }
   }

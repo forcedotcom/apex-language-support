@@ -263,16 +263,6 @@ describe('Protobuf vs ZIP equivalence', () => {
     });
   });
 
-  describe('fallback behavior', () => {
-    it('falls back to ZIP when forceZipFallback is set', async () => {
-      const loader = StandardLibraryCacheLoader.getInstance();
-      const result = await loader.load({ forceZipFallback: true });
-
-      expect(result.success).toBe(true);
-      expect(result.loadMethod).toBe('fallback');
-    });
-  });
-
   describe('ResourceLoader integration', () => {
     it('ResourceLoader reports correct protobuf cache status', async () => {
       if (skipIfNoCacheAvailable) {

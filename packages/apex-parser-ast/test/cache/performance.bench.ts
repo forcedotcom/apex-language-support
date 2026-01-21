@@ -153,63 +153,6 @@ describe('Performance Benchmarks', () => {
     });
   });
 
-  describe('ZIP fallback loading performance', () => {
-    it('measures ZIP fallback load time', async () => {
-      StandardLibraryCacheLoader.clearCache();
-
-      const { result, avgTimeMs } = await measureTime(async () =>
-        loadStandardLibraryCache({ forceZipFallback: true }),
-      );
-
-      console.log('\n📊 ZIP Fallback Load Performance:');
-      console.log(`   Load time: ${avgTimeMs.toFixed(2)}ms`);
-      console.log(`   Load method: ${result.loadMethod}`);
-
-      expect(result.success).toBe(true);
-      expect(result.loadMethod).toBe('fallback');
-    });
-  });
-
-  describe('Comparison metrics', () => {
-    it('compares protobuf vs ZIP loading times', async () => {
-      if (skipIfNoCacheAvailable) {
-        console.log('Skipping: protobuf cache not available');
-        return;
-      }
-
-      // Measure protobuf load
-      StandardLibraryCacheLoader.clearCache();
-      const { avgTimeMs: pbTime, result: pbResult } = await measureTime(
-        async () => loadStandardLibraryCache(),
-      );
-
-      // Measure ZIP fallback load
-      StandardLibraryCacheLoader.clearCache();
-      const { avgTimeMs: zipTime, result: zipResult } = await measureTime(
-        async () => loadStandardLibraryCache({ forceZipFallback: true }),
-      );
-
-      console.log('\n📊 Loading Method Comparison:');
-      console.log(`   Protobuf cache: ${pbTime.toFixed(2)}ms`);
-      console.log(`   ZIP fallback: ${zipTime.toFixed(2)}ms`);
-
-      if (
-        pbResult.loadMethod === 'protobuf' &&
-        zipResult.loadMethod === 'fallback'
-      ) {
-        const speedup = zipTime / pbTime;
-        console.log(`   Speedup: ${speedup.toFixed(1)}x faster with protobuf`);
-
-        // Protobuf should be faster than ZIP fallback initialization
-        // Note: The ZIP fallback just returns immediately and doesn't do full parsing
-        // The real speedup is in subsequent symbol lookups which avoid parsing
-      }
-
-      expect(pbResult.success).toBe(true);
-      expect(zipResult.success).toBe(true);
-    });
-  });
-
   describe('Symbol lookup performance', () => {
     it('measures symbol table access time after protobuf load', async () => {
       if (skipIfNoCacheAvailable) {

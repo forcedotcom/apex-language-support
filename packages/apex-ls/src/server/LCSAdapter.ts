@@ -85,7 +85,6 @@ import {
   ApexSymbolProcessingManager,
   startQueueStateNotificationTask,
   SchedulerMetrics,
-  getEmbeddedStandardLibraryZip,
   SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
 import type { Fiber } from 'effect';
@@ -185,12 +184,12 @@ export class LCSAdapter {
   }
 
   /**
-   * Initialize the ResourceLoader singleton with the standard library ZIP.
+   * Initialize the ResourceLoader singleton with the standard library protobuf cache.
    *
    * Loading Strategy:
-   * - Uses embedded ZIP bundled directly in the worker/server
+   * - Uses embedded protobuf cache bundled directly in the worker/server
    * - No client/server communication needed for standard library
-   * - ZIP is embedded at build time via esbuild
+   * - Protobuf cache is embedded at build time via esbuild
    * - Load mode determined from settings (apex.resources.loadMode)
    */
   private async initializeResourceLoader(): Promise<void> {
@@ -211,20 +210,8 @@ export class LCSAdapter {
         preloadStdClasses: true,
       });
 
-      // Use the embedded ZIP bundled directly in the worker
-      const embeddedZip = getEmbeddedStandardLibraryZip();
-      if (!embeddedZip) {
-        throw new Error(
-          'Embedded Standard Apex Library ZIP not available. ' +
-            'This typically means the build did not properly bundle the ZIP resource.',
-        );
-      }
-
-      this.logger.debug(
-        () =>
-          `📦 Using embedded Standard Apex Library ZIP (${embeddedZip.length} bytes)`,
-      );
-      resourceLoader.setZipBuffer(embeddedZip);
+      // Initialize will load from embedded protobuf cache
+      await resourceLoader.initialize();
 
       const stats = resourceLoader.getDirectoryStatistics();
       this.logger.debug(
@@ -233,7 +220,6 @@ export class LCSAdapter {
           `${stats.totalFiles} files across ${stats.namespaces.length} namespaces`,
       );
 
-      await resourceLoader.initialize();
       this.logger.debug('✅ ResourceLoader initialization complete');
     } catch (error) {
       this.handleResourceLoaderError(error);

@@ -8,7 +8,6 @@
 
 /**
  * Runtime loader for the Standard Apex Library protobuf cache.
- * Provides automatic fallback to ZIP-based loading if the cache is unavailable.
  */
 
 import { gunzipSync } from 'fflate';
@@ -25,12 +24,12 @@ import type { SymbolTable, TypeSymbol } from '../types/symbol';
 export interface CacheLoadResult {
   /** Whether loading succeeded */
   success: boolean;
-  /** Deserialized data (if successful via protobuf) */
+  /** Deserialized data (if successful) */
   data?: DeserializationResult;
   /** Error message (if failed) */
   error?: string;
   /** Which loading method was used */
-  loadMethod: 'protobuf' | 'fallback' | 'none';
+  loadMethod: 'protobuf' | 'none';
   /** Time taken to load in milliseconds */
   loadTimeMs: number;
 }
@@ -39,8 +38,6 @@ export interface CacheLoadResult {
  * Options for the cache loader
  */
 export interface CacheLoaderOptions {
-  /** Force fallback to ZIP even if protobuf cache is available */
-  forceZipFallback?: boolean;
   /** Skip checksum validation */
   skipValidation?: boolean;
 }
@@ -62,7 +59,7 @@ try {
   const { getEmbeddedDataUrl } = require('./stdlib-cache-data');
   embeddedProtobufDataUrl = getEmbeddedDataUrl();
 } catch {
-  // Expected in unbundled environments - will fall back to disk loading
+  // Expected in unbundled environments - will try to load from disk
   embeddedProtobufDataUrl = undefined;
 }
 
@@ -223,7 +220,7 @@ export class StandardLibraryCacheLoader {
     const startTime = performance.now();
 
     // Return cached result if available
-    if (StandardLibraryCacheLoader.cachedResult && !options?.forceZipFallback) {
+    if (StandardLibraryCacheLoader.cachedResult) {
       return {
         success: true,
         data: StandardLibraryCacheLoader.cachedResult,
@@ -232,18 +229,18 @@ export class StandardLibraryCacheLoader {
       };
     }
 
-    // Skip protobuf and go straight to fallback if requested
-    if (options?.forceZipFallback) {
-      this.logger.info('Forcing ZIP fallback (forceZipFallback=true)');
-      return this.loadWithFallback(startTime);
-    }
-
-    // Try protobuf cache first
+    // Load protobuf cache
     try {
       const pbBuffer = getEmbeddedProtobufCache();
       if (!pbBuffer) {
-        this.logger.debug('Protobuf cache not available, falling back to ZIP');
-        return this.loadWithFallback(startTime);
+        const loadTimeMs = performance.now() - startTime;
+        this.logger.error('Protobuf cache not available');
+        return {
+          success: false,
+          error: 'Protobuf cache not available',
+          loadMethod: 'none',
+          loadTimeMs,
+        };
       }
 
       this.logger.debug(
@@ -254,10 +251,14 @@ export class StandardLibraryCacheLoader {
 
       // Validate the result
       if (!options?.skipValidation && !this.validateResult(result)) {
-        this.logger.warn(
-          'Protobuf cache validation failed, falling back to ZIP',
-        );
-        return this.loadWithFallback(startTime);
+        const loadTimeMs = performance.now() - startTime;
+        this.logger.error('Protobuf cache validation failed');
+        return {
+          success: false,
+          error: 'Protobuf cache validation failed',
+          loadMethod: 'none',
+          loadTimeMs,
+        };
       }
 
       // Cache the result
@@ -279,11 +280,14 @@ export class StandardLibraryCacheLoader {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        () =>
-          `Protobuf cache load failed: ${errorMessage}, falling back to ZIP`,
-      );
-      return this.loadWithFallback(startTime);
+      const loadTimeMs = performance.now() - startTime;
+      this.logger.error(() => `Protobuf cache load failed: ${errorMessage}`);
+      return {
+        success: false,
+        error: errorMessage,
+        loadMethod: 'none',
+        loadTimeMs,
+      };
     }
   }
 
@@ -326,24 +330,6 @@ export class StandardLibraryCacheLoader {
     }
 
     return true;
-  }
-
-  /**
-   * Load using the fallback mechanism (ZIP + parse)
-   */
-  private async loadWithFallback(startTime: number): Promise<CacheLoadResult> {
-    // The fallback mechanism uses the existing ResourceLoader
-    // which loads from the ZIP file and parses on demand
-    // We return a 'fallback' result to indicate this path was taken
-    const loadTimeMs = performance.now() - startTime;
-
-    this.logger.info('Using ZIP-based fallback loading');
-
-    return {
-      success: true,
-      loadMethod: 'fallback',
-      loadTimeMs,
-    };
   }
 
   /**

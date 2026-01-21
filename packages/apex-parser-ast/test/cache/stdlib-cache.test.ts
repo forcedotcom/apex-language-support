@@ -43,7 +43,7 @@ describe('StandardLibraryCacheLoader', () => {
 
       expect(result).toBeDefined();
       expect(typeof result.success).toBe('boolean');
-      expect(['protobuf', 'fallback', 'none']).toContain(result.loadMethod);
+      expect(['protobuf', 'none']).toContain(result.loadMethod);
       expect(typeof result.loadTimeMs).toBe('number');
       expect(result.loadTimeMs).toBeGreaterThanOrEqual(0);
     });
@@ -61,14 +61,6 @@ describe('StandardLibraryCacheLoader', () => {
       expect(result2.loadMethod).toBe(result1.loadMethod);
       // Cached load should be very fast
       expect(result2.loadTimeMs).toBeLessThanOrEqual(result1.loadTimeMs + 10);
-    });
-
-    it('forces ZIP fallback when forceZipFallback option is true', async () => {
-      const loader = StandardLibraryCacheLoader.getInstance();
-      const result = await loader.load({ forceZipFallback: true });
-
-      expect(result.success).toBe(true);
-      expect(result.loadMethod).toBe('fallback');
     });
   });
 
