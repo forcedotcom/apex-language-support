@@ -45,6 +45,9 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   },
 }));
 
+// Mock embedded ZIP buffer
+const mockEmbeddedZip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // ZIP magic bytes
+
 // Mock the apex-parser-ast package with protobuf cache support
 jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
   ResourceLoader: {
@@ -54,9 +57,11 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
         namespaces: ['System', 'Database', 'Schema'],
       })),
       initialize: jest.fn().mockResolvedValue(undefined),
+      setZipBuffer: jest.fn(),
       isProtobufCacheLoaded: jest.fn(() => true),
     })),
   },
+  getEmbeddedStandardLibraryZip: jest.fn(() => mockEmbeddedZip),
   ApexSymbolManager: class MockApexSymbolManager {},
   ApexSymbolProcessingManager: class MockApexSymbolProcessingManager {
     static getInstance() {
@@ -153,7 +158,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       });
     });
 
-    it('should call initialize on ResourceLoader to load protobuf cache', async () => {
+    it('should call initialize and setZipBuffer on ResourceLoader', async () => {
       const { ResourceLoader } = await import(
         '@salesforce/apex-lsp-parser-ast'
       );
@@ -163,6 +168,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
           namespaces: ['System'],
         })),
         initialize: jest.fn().mockResolvedValue(undefined),
+        setZipBuffer: jest.fn(),
         isProtobufCacheLoaded: jest.fn(() => true),
       };
 
@@ -172,8 +178,10 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
       await (adapter as any).initializeResourceLoader();
 
-      // Verify initialize was called
+      // Verify initialize was called for protobuf cache
       expect(mockResourceLoader.initialize).toHaveBeenCalled();
+      // Verify setZipBuffer was called for source content
+      expect(mockResourceLoader.setZipBuffer).toHaveBeenCalled();
       expect(mockResourceLoader.getDirectoryStatistics).toHaveBeenCalled();
     });
 
@@ -281,6 +289,54 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         loadMode: 'lazy',
         preloadStdClasses: true,
       });
+    });
+
+    it('should continue with protobuf symbols even if ZIP loading fails', async () => {
+      const mockLogger = {
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      };
+
+      const adapterWithLogger = new (LCSAdapter as any)({
+        connection: mockConnection as Connection,
+        logger: mockLogger,
+      });
+
+      const { ResourceLoader } = await import(
+        '@salesforce/apex-lsp-parser-ast'
+      );
+      const mockResourceLoader = {
+        getDirectoryStatistics: jest.fn(() => ({
+          totalFiles: 100,
+          namespaces: ['System'],
+        })),
+        initialize: jest.fn().mockResolvedValue(undefined),
+        setZipBuffer: jest.fn().mockImplementation(() => {
+          throw new Error('ZIP extraction failed');
+        }),
+        isProtobufCacheLoaded: jest.fn(() => true),
+      };
+
+      (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
+        mockResourceLoader,
+      );
+
+      // Should not throw - ZIP failure should be isolated
+      await expect(
+        (adapterWithLogger as any).initializeResourceLoader(),
+      ).resolves.not.toThrow();
+
+      // Protobuf cache was loaded
+      expect(mockResourceLoader.initialize).toHaveBeenCalled();
+      expect(mockResourceLoader.isProtobufCacheLoaded).toHaveBeenCalled();
+
+      // ZIP loading was attempted but failed
+      expect(mockResourceLoader.setZipBuffer).toHaveBeenCalled();
+
+      // Warning was logged about ZIP failure
+      expect(mockLogger.warn).toHaveBeenCalled();
     });
   });
 });
