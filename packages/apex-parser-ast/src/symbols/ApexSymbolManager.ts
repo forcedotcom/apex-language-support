@@ -1957,15 +1957,30 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           targetSymbol.name,
         );
 
+        // Capture targetSymbol in a const to help TypeScript narrow the type
+        // (needed because it will be used in closures below)
+        const resolvedTargetSymbol = targetSymbol;
+
+        // Find source symbol in graph - only match by fileUri if available
+        // If fileUri is not set, we can't reliably match, so skip
         const sourceInGraph = sourceSymbol.fileUri
           ? sourceSymbolsInGraph.find((s) => s.fileUri === sourceSymbol.fileUri)
-          : sourceSymbolsInGraph[0];
+          : sourceSymbolsInGraph.length === 1
+            ? sourceSymbolsInGraph[0]
+            : undefined;
 
-        const targetInGraph = targetSymbol.fileUri
-          ? targetSymbolsInGraph.find((s) => s.fileUri === targetSymbol.fileUri)
-          : targetSymbolsInGraph[0];
+        // Find target symbol in graph - only match by fileUri if available
+        // If fileUri is not set, we can't reliably match, so skip
+        const targetInGraph = resolvedTargetSymbol.fileUri
+          ? targetSymbolsInGraph.find(
+              (s) => s.fileUri === resolvedTargetSymbol.fileUri,
+            )
+          : targetSymbolsInGraph.length === 1
+            ? targetSymbolsInGraph[0]
+            : undefined;
 
         if (!sourceInGraph || !targetInGraph) {
+          // Can't reliably match symbols without fileUri when multiple symbols exist
           return;
         }
 
@@ -7009,7 +7024,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         this.logger.debug(
           () =>
-            `resolveEntireChain for "${typeReference.name}" returned: ${resolvedChain ? `chain with ${resolvedChain.length} members` : 'null'}`,
+            `resolveEntireChain for "${typeReference.name}" returned: ${
+              resolvedChain
+                ? `chain with ${resolvedChain.length} members`
+                : 'null'
+            }`,
         );
         if (resolvedChain) {
           resolvedChain.forEach((ctx, idx) => {
@@ -7037,7 +7056,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           this.logger.debug(
             () =>
-              `Chain member at position ${position.line}:${position.character}: ${chainMember ? `index=${chainMember.index}, name=${chainMember.member.name}` : 'null'}`,
+              `Chain member at position ${position.line}:${position.character}: ${
+                chainMember
+                  ? `index=${chainMember.index}, name=${chainMember.member.name}`
+                  : 'null'
+              }`,
           );
 
           if (chainMember) {
@@ -7469,7 +7492,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (contextFile) {
         this.logger.debug(
           () =>
-            `resolveMemberInContext: Looking for member "${memberName}" (${memberType}) in class "${contextSymbol.name}" (fileUri: ${contextFile})`,
+            `resolveMemberInContext: Looking for member "${memberName}" (${memberType}) ` +
+            `in class "${contextSymbol.name}" (fileUri: ${contextFile})`,
         );
         let symbolTable = this.symbolGraph.getSymbolTableForFile(contextFile);
         this.logger.debug(
@@ -7648,7 +7672,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   if (standardClassSymbol) {
                     this.logger.debug(
                       () =>
-                        `Resolved built-in type "${baseTypeName}" to class symbol: ${standardClassSymbol.name} (fileUri: ${standardClassSymbol.fileUri})`,
+                        `Resolved built-in type "${baseTypeName}" to class symbol: ` +
+                        `${standardClassSymbol.name} (fileUri: ${standardClassSymbol.fileUri})`,
                     );
                     // Recursively resolve the member on the standard class
                     const resolvedMember = await this.resolveMemberInContext(
@@ -7666,7 +7691,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     }
                     this.logger.debug(
                       () =>
-                        `Member "${memberName}" not found on "${baseTypeName}" class symbol, trying to load class and retry`,
+                        `Member "${memberName}" not found on "${baseTypeName}" ` +
+                        'class symbol, trying to load class and retry',
                     );
                     // If null, try to ensure the class is loaded and retry
                     if (
@@ -7738,13 +7764,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     } else {
                       this.logger.debug(
                         () =>
-                          `Cannot load class: fileUri=${standardClassSymbol.fileUri}, isStandardApexUri=${standardClassSymbol.fileUri ? isStandardApexUri(standardClassSymbol.fileUri) : false}, hasResourceLoader=${!!this.resourceLoader}`,
+                          `Cannot load class: fileUri=${standardClassSymbol.fileUri}, ` +
+                          `isStandardApexUri=${
+                            standardClassSymbol.fileUri
+                              ? isStandardApexUri(standardClassSymbol.fileUri)
+                              : false
+                          }, hasResourceLoader=${!!this.resourceLoader}`,
                       );
                     }
                   } else {
                     this.logger.debug(
                       () =>
-                        `Could not resolve built-in type "${baseTypeName}" as standard Apex class - resolveStandardApexClass returned null`,
+                        `Could not resolve built-in type "${baseTypeName}" ` +
+                        'as standard Apex class - resolveStandardApexClass returned null',
                     );
                   }
                 }
@@ -8065,18 +8097,24 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   `Class symbol IDs: ${classSymbols.map((s) => s.id).join(', ')}`,
               );
             } else {
+              // Capture classBlock in a const to help TypeScript narrow the type
+              const resolvedClassBlock = classBlock;
               this.logger.debug(
                 () =>
-                  `Class block lookup for "${contextSymbol.name}": found (id: ${classBlock.id})`,
+                  `Class block lookup for "${contextSymbol.name}": found (id: ${resolvedClassBlock.id})`,
               );
             }
 
             if (classBlock) {
+              // Capture classBlock in a const to help TypeScript narrow the type
+              // (needed because it will be used in closures below)
+              const resolvedClassBlock = classBlock;
+
               // Get all symbols in the class block scope
               // Note: getSymbolsInScope only returns direct children, not nested symbols
               // So we also need to check getAllSymbols() for symbols that belong to this class
               const directScopeMembers = symbolTable.getSymbolsInScope(
-                classBlock.id,
+                resolvedClassBlock.id,
               );
               const allSymbols = symbolTable.getAllSymbols();
               // Find all symbols that belong to this class (either directly in scope or with classBlock as ancestor)
@@ -8085,7 +8123,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 (s) =>
                   !isBlockSymbol(s) &&
                   s.fileUri === contextSymbol.fileUri &&
-                  (s.parentId === classBlock.id ||
+                  (s.parentId === resolvedClassBlock.id ||
                     directScopeMembers.some((ds) => ds.id === s.parentId) ||
                     // Check if symbol's parent chain leads to classBlock
                     (() => {
@@ -8093,7 +8131,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                       const visited = new Set<string>();
                       while (currentParentId && !visited.has(currentParentId)) {
                         visited.add(currentParentId);
-                        if (currentParentId === classBlock.id) {
+                        if (currentParentId === resolvedClassBlock.id) {
                           return true;
                         }
                         const parent = allSymbols.find(
@@ -8107,7 +8145,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               );
               this.logger.debug(
                 () =>
-                  `Looking for member "${memberName}" (${memberType}) in class "${contextSymbol.name}" (fileUri: ${contextSymbol.fileUri}), classBlock.id: ${classBlock.id}, found ${classMembers.length} class members (direct scope: ${directScopeMembers.length}). Sample members: ${classMembers
+                  `Looking for member "${memberName}" (${memberType}) in class ` +
+                  `"${contextSymbol.name}" (fileUri: ${contextSymbol.fileUri}), ` +
+                  `classBlock.id: ${resolvedClassBlock.id}, found ${classMembers.length} ` +
+                  `class members (direct scope: ${directScopeMembers.length}). ` +
+                  `Sample members: ${classMembers
                     .slice(0, 5)
                     .map((s) => `${s.name || 'unnamed'} (${s.kind})`)
                     .join(', ')}`,
@@ -8124,7 +8166,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               );
               this.logger.debug(
                 () =>
-                  `After filtering: found ${matchingMembers.length} matching members. Filter criteria: name=${memberName}, kind=${memberType}, fileUri=${contextSymbol.fileUri}, parentId=${classBlock.id}`,
+                  `After filtering: found ${matchingMembers.length} matching members. ` +
+                  `Filter criteria: name=${memberName}, kind=${memberType}, ` +
+                  `fileUri=${contextSymbol.fileUri}, parentId=${resolvedClassBlock.id}`,
               );
               if (matchingMembers.length === 0) {
                 // Debug: show what methods we did find
@@ -8142,13 +8186,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 );
                 this.logger.debug(
                   () =>
-                    `No matching members found. Methods with name "${memberName}": ${methodsWithName.length}, Methods with kind "${memberType}": ${methodsWithKind.length}, All methods: ${allMethods.map((m) => m.name).join(', ')}, Members named "size": ${membersWithSizeName.map((m) => `${m.name} (${m.kind})`).join(', ')}`,
+                    `No matching members found. Methods with name "${memberName}": ` +
+                    `${methodsWithName.length}, Methods with kind "${memberType}": ` +
+                    `${methodsWithKind.length}, All methods: ${allMethods
+                      .map((m) => m.name)
+                      .join(', ')}, Members named "size": ${membersWithSizeName
+                      .map((m) => `${m.name} (${m.kind})`)
+                      .join(', ')}`,
                 );
                 if (methodsWithName.length > 0) {
                   methodsWithName.forEach((m, idx) => {
                     this.logger.debug(
                       () =>
-                        `  Method ${idx}: name=${m.name}, kind=${m.kind}, fileUri=${m.fileUri}, parentId=${m.parentId}, contextSymbol.fileUri=${contextSymbol.fileUri}`,
+                        `  Method ${idx}: name=${m.name}, kind=${m.kind}, ` +
+                        `fileUri=${m.fileUri}, parentId=${m.parentId}, ` +
+                        `contextSymbol.fileUri=${contextSymbol.fileUri}, ` +
+                        `classBlock.id=${resolvedClassBlock.id}`,
                     );
                   });
                 }

@@ -11,6 +11,7 @@ import * as path from 'path';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { VariableSymbol } from '../../src/types/symbol';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import {
   initialize as schedulerInitialize,
@@ -67,8 +68,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
   beforeEach(() => {
     // Enable console logging with debug level for tests
     enableConsoleLogging();
-    setLogLevel('debug'); // Set to 'debug' to see logger.debug messages
-
+    setLogLevel('error');
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
   });
@@ -531,20 +531,6 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         character: integerIndex,
       };
 
-      // Debug: Check what references exist at this position
-      const referencesAtPosition = symbolManager.getReferencesAtPosition(
-        'file:///test/TestListOperations.cls',
-        position,
-      );
-      console.log(
-        `[DEBUG] Found ${referencesAtPosition.length} references at position ${position.line}:${position.character}`,
-      );
-      referencesAtPosition.forEach((ref, idx) => {
-        console.log(
-          `[DEBUG] Reference ${idx}: name="${ref.name}", context=${ref.context}, location=${ref.location.identifierRange.startLine}:${ref.location.identifierRange.startColumn}-${ref.location.identifierRange.endLine}:${ref.location.identifierRange.endColumn}`,
-        );
-      });
-
       const symbol = await symbolManager.getSymbolAtPosition(
         'file:///test/TestListOperations.cls',
         position,
@@ -587,23 +573,19 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       expect(symbol?.kind).toBe('variable');
       expect(symbol?.name).toBe('numbers');
       // Verify the variable's type is System.List<System.Integer>
-      expect(symbol?.type?.name).toBeDefined();
-      const typeName = symbol?.type?.name || '';
-      const originalTypeString =
-        (symbol?.type as any)?.originalTypeString || '';
+      const variableSymbol = symbol as VariableSymbol;
+      expect(variableSymbol.type?.name).toBeDefined();
+      const typeName = variableSymbol.type?.name || '';
+      const originalTypeString = variableSymbol.type?.originalTypeString || '';
       // Type name might be just "List" but originalTypeString should contain "List<Integer>"
       expect(typeName).toBe('List');
-      // Check if generic types are present in originalTypeString or genericTypes
-      const genericTypes = (symbol?.type as any)?.genericTypes || [];
+      // Check if generic types are present in originalTypeString or typeParameters
+      const typeParameters = variableSymbol.type?.typeParameters || [];
       const hasIntegerGeneric =
         originalTypeString.includes('Integer') ||
-        genericTypes.some(
-          (gt: any) => gt?.name === 'Integer' || gt === 'Integer',
+        typeParameters.some(
+          (tp) => tp.name === 'Integer' || tp.originalTypeString === 'Integer',
         );
-      // Log actual type for verification
-      console.log(
-        `[INFO] numbers variable has type: name=${typeName}, originalTypeString=${originalTypeString}, genericTypes=${JSON.stringify(genericTypes)}`,
-      );
       expect(hasIntegerGeneric).toBe(true);
     });
 
@@ -625,88 +607,10 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         character: sizeIndex,
       };
 
-      // Debug: Check what references exist at this position
-      const referencesAtPosition = symbolManager.getReferencesAtPosition(
-        'file:///test/TestListOperations.cls',
-        position,
-      );
-      console.log(
-        `[DEBUG] Found ${referencesAtPosition.length} references at position ${position.line}:${position.character} for 'size'`,
-      );
-      referencesAtPosition.forEach((ref, idx) => {
-        console.log(
-          `[DEBUG] Reference ${idx}: name="${ref.name}", context=${ref.context}, location=${ref.location.identifierRange.startLine}:${ref.location.identifierRange.startColumn}-${ref.location.identifierRange.endLine}:${ref.location.identifierRange.endColumn}`,
-        );
-        if ((ref as any).chainNodes) {
-          console.log(
-            `[DEBUG]   Chain nodes: ${JSON.stringify((ref as any).chainNodes.map((n: any) => n.name))}`,
-          );
-        }
-      });
-
-      // Debug: Check if List type can be resolved in the variable declaration
-      // Find "List" in "List<Integer> numbers = ..." (line 3, 0-based index 2)
-      const listDeclLine = 2; // 0-based index, line 3 in file
-      const listDeclLineText = lines[listDeclLine];
-      const listIndex = listDeclLineText.indexOf('List');
-      expect(listIndex).toBeGreaterThanOrEqual(0);
-
-      const listTypePosition = {
-        line: listDeclLine + 1, // 1-based line number
-        character: listIndex, // Position at "List"
-      };
-
-      const listTypeSymbol = await symbolManager.getSymbolAtPosition(
-        'file:///test/TestListOperations.cls',
-        listTypePosition,
-        'precise',
-      );
-
-      console.log(
-        `[DEBUG] List type resolution: ${listTypeSymbol ? `${listTypeSymbol.name} (${listTypeSymbol.kind}, fileUri=${listTypeSymbol.fileUri})` : 'null'}`,
-      );
-
-      // Debug: Check what the numbers variable resolves to and its type
-      const numbersRefs = symbolManager.getReferencesAtPosition(
-        'file:///test/TestListOperations.cls',
-        {
-          line: sizeCallLine + 1,
-          character: sizeCallLineText.indexOf('numbers'),
-        },
-      );
-      if (numbersRefs.length > 0) {
-        const numbersSymbol = await symbolManager.getSymbolAtPosition(
-          'file:///test/TestListOperations.cls',
-          {
-            line: sizeCallLine + 1,
-            character: sizeCallLineText.indexOf('numbers'),
-          },
-        );
-        if (numbersSymbol && numbersSymbol.kind === 'variable') {
-          const varType = (numbersSymbol as any).type;
-          console.log(
-            `[DEBUG] numbers variable type: name=${varType?.name}, isBuiltIn=${varType?.isBuiltIn}, resolvedSymbol=${varType?.resolvedSymbol?.name || 'null'}`,
-          );
-        }
-      }
-
-      // Debug: Check which reference gets selected
-      const allRefs = symbolManager.getReferencesAtPosition(
-        'file:///test/TestListOperations.cls',
-        position,
-      );
-      console.log(
-        `[DEBUG] All references at position: ${allRefs.map((r) => `${r.name} (${r.context})`).join(', ')}`,
-      );
-
       const symbol = await symbolManager.getSymbolAtPosition(
         'file:///test/TestListOperations.cls',
         position,
         'precise', // Use precise strategy for method calls
-      );
-
-      console.log(
-        `[DEBUG] Resolved symbol: ${symbol ? `${symbol.name} (${symbol.kind})` : 'null'}`,
       );
 
       // Should resolve to the 'size' method on System.List
@@ -747,14 +651,6 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
 
       // Find List symbols to determine the correct file URI
       const listSymbols = symbolManager.findSymbolByName('List');
-      console.log(
-        `\n[INSPECT] Found ${listSymbols.length} symbols named 'List'`,
-      );
-      listSymbols.forEach((s, idx) => {
-        console.log(
-          `[INSPECT]   List symbol ${idx}: fileUri=${s.fileUri}, kind=${s.kind}`,
-        );
-      });
 
       // Try to find List.cls symbol table using the fileUri from the symbol
       const listSymbol = listSymbols.find((s) =>
@@ -763,58 +659,13 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       const listFileUri =
         listSymbol?.fileUri ||
         'apexlib://resources/StandardApexLibrary/System/List.cls';
-      console.log(
-        `[INSPECT] Looking for List.cls symbol table at: ${listFileUri}`,
-      );
 
       const listSymbolTable = (
         symbolManager as any
       ).symbolGraph.getSymbolTableForFile(listFileUri);
 
       if (listSymbolTable) {
-        const allListSymbols = listSymbolTable.getAllSymbols();
-        const sizeSymbols = allListSymbols.filter(
-          (s: any) => s.name === 'size',
-        );
-
-        console.log('\n[INSPECT] List.cls symbol table:');
-        console.log(`[INSPECT] Total symbols: ${allListSymbols.length}`);
-        console.log(`[INSPECT] Symbols named 'size': ${sizeSymbols.length}`);
-        sizeSymbols.forEach((s: any, idx: number) => {
-          console.log(
-            `[INSPECT]   size symbol ${idx}: kind=${s.kind}, id=${s.id}, parentId=${s.parentId}, fileUri=${s.fileUri}`,
-          );
-        });
-
-        // Check all method symbols
-        const methodSymbols = allListSymbols.filter(
-          (s: any) => s.kind === 'method',
-        );
-        console.log(
-          `[INSPECT] Method symbols in List.cls: ${methodSymbols.length}`,
-        );
-        methodSymbols.slice(0, 5).forEach((m: any) => {
-          console.log(
-            `[INSPECT]   Method: ${m.name} (id=${m.id}, parentId=${m.parentId})`,
-          );
-        });
-
-        // Check all variable symbols
-        const variableSymbols = allListSymbols.filter(
-          (s: any) => s.kind === 'variable',
-        );
-        console.log(
-          `[INSPECT] Variable symbols in List.cls: ${variableSymbols.length}`,
-        );
-        variableSymbols.slice(0, 5).forEach((v: any) => {
-          console.log(
-            `[INSPECT]   Variable: ${v.name} (id=${v.id}, parentId=${v.parentId})`,
-          );
-        });
-      } else {
-        console.log(
-          `[INSPECT] List.cls symbol table not found at ${listFileUri}`,
-        );
+        // Symbol table loaded successfully
       }
 
       // Inspect TestListOperations.cls symbol table
@@ -824,45 +675,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       ).symbolGraph.getSymbolTableForFile(testFileUri);
 
       if (testSymbolTable) {
-        const allTestSymbols = testSymbolTable.getAllSymbols();
-        const numbersSymbols = allTestSymbols.filter(
-          (s: any) => s.name === 'numbers',
-        );
-        const sizeRefs = testSymbolTable
-          .getAllReferences()
-          .filter((r: any) => r.name === 'size');
-
-        console.log('\n[INSPECT] TestListOperations.cls symbol table:');
-        console.log(`[INSPECT] Total symbols: ${allTestSymbols.length}`);
-        console.log(
-          `[INSPECT] Symbols named 'numbers': ${numbersSymbols.length}`,
-        );
-        numbersSymbols.forEach((s: any, idx: number) => {
-          console.log(
-            `[INSPECT]   numbers symbol ${idx}: kind=${s.kind}, id=${s.id}, parentId=${s.parentId}`,
-          );
-          if (s.kind === 'variable' && (s as any).type) {
-            const type = (s as any).type;
-            console.log(
-              `[INSPECT]     type: name=${type.name}, resolvedSymbol=${type.resolvedSymbol?.name || 'null'}`,
-            );
-          }
-        });
-
-        console.log(`[INSPECT] References named 'size': ${sizeRefs.length}`);
-        sizeRefs.forEach((r: any, idx: number) => {
-          console.log(
-            `[INSPECT]   size reference ${idx}: context=${r.context}, location=${r.location.identifierRange.startLine}:${r.location.identifierRange.startColumn}`,
-          );
-          if (r.resolvedSymbolId) {
-            const resolved = testSymbolTable.getSymbolById(r.resolvedSymbolId);
-            console.log(
-              `[INSPECT]     resolved to: ${resolved ? `${resolved.name} (${resolved.kind})` : 'null'}`,
-            );
-          }
-        });
-      } else {
-        console.log('[INSPECT] TestListOperations.cls symbol table not found');
+        // Symbol table loaded successfully
       }
     });
 
@@ -942,14 +755,6 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
 
       // Find String symbols to determine the correct file URI
       const stringSymbols = symbolManager.findSymbolByName('String');
-      console.log(
-        `\n[INSPECT] Found ${stringSymbols.length} symbols named 'String'`,
-      );
-      stringSymbols.forEach((s, idx) => {
-        console.log(
-          `[INSPECT]   String symbol ${idx}: fileUri=${s.fileUri}, kind=${s.kind}`,
-        );
-      });
 
       const stringSymbol = stringSymbols.find((s) =>
         s.fileUri?.includes('String.cls'),
@@ -957,71 +762,12 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       const stringFileUri =
         stringSymbol?.fileUri ||
         'apexlib://resources/StandardApexLibrary/System/String.cls';
-
-      console.log(
-        `[INSPECT] Looking for String.cls symbol table at: ${stringFileUri}`,
-      );
       const stringSymbolTable = (
         symbolManager as any
       ).symbolGraph.getSymbolTableForFile(stringFileUri);
 
       if (stringSymbolTable) {
-        const allStringSymbols = stringSymbolTable.getAllSymbols();
-        const lengthSymbols = allStringSymbols.filter(
-          (s: any) => s.name === 'length',
-        );
-        const substringSymbols = allStringSymbols.filter(
-          (s: any) => s.name === 'substring',
-        );
-
-        console.log('[INSPECT] String.cls symbol table:');
-        console.log(`[INSPECT] Total symbols: ${allStringSymbols.length}`);
-        console.log(
-          `[INSPECT] Symbols named 'length': ${lengthSymbols.length}`,
-        );
-        lengthSymbols.forEach((s: any, idx: number) => {
-          console.log(
-            `[INSPECT]   length symbol ${idx}: kind=${s.kind}, id=${s.id}, parentId=${s.parentId}`,
-          );
-        });
-        console.log(
-          `[INSPECT] Symbols named 'substring': ${substringSymbols.length}`,
-        );
-        substringSymbols.slice(0, 2).forEach((s: any, idx: number) => {
-          console.log(
-            `[INSPECT]   substring symbol ${idx}: kind=${s.kind}, id=${s.id}`,
-          );
-        });
-
-        // Check all method symbols
-        const methodSymbols = allStringSymbols.filter(
-          (s: any) => s.kind === 'method',
-        );
-        console.log(
-          `[INSPECT] Method symbols in String.cls: ${methodSymbols.length}`,
-        );
-
-        // Check all variable symbols
-        const variableSymbols = allStringSymbols.filter(
-          (s: any) => s.kind === 'variable',
-        );
-        console.log(
-          `[INSPECT] Variable symbols in String.cls: ${variableSymbols.length}`,
-        );
-        const methodNamesAsVariables = variableSymbols
-          .filter((v: any) =>
-            ['length', 'substring', 'toLowerCase', 'toUpperCase'].includes(
-              v.name,
-            ),
-          )
-          .slice(0, 5);
-        methodNamesAsVariables.forEach((v: any) => {
-          console.log(
-            `[INSPECT]   Variable with method name: ${v.name} (id=${v.id})`,
-          );
-        });
-      } else {
-        console.log('[INSPECT] String.cls symbol table not found');
+        // Symbol table loaded successfully
       }
 
       // Check Map and Set (both are generic classes like List)
@@ -1034,26 +780,11 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         ).symbolGraph.getSymbolTableForFile(mapFileUri);
         if (mapSymbolTable) {
           const allMapSymbols = mapSymbolTable.getAllSymbols();
-          const mapMethodSymbols = allMapSymbols.filter(
-            (s: any) => s.kind === 'method',
-          );
           const mapVariableSymbols = allMapSymbols.filter(
             (s: any) => s.kind === 'variable',
           );
-          console.log(
-            `\n[INSPECT] Map.cls: Methods=${mapMethodSymbols.length}, Variables=${mapVariableSymbols.length}`,
-          );
           if (mapVariableSymbols.length > 0) {
-            const methodNamesAsVars = mapVariableSymbols
-              .filter((v: any) =>
-                ['clear', 'clone', 'containsKey', 'size'].includes(v.name),
-              )
-              .slice(0, 3);
-            methodNamesAsVars.forEach((v: any) => {
-              console.log(
-                `[INSPECT]   Map variable with method name: ${v.name} (kind=${v.kind})`,
-              );
-            });
+            // Variables found
           }
         }
       }
@@ -1067,24 +798,11 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         ).symbolGraph.getSymbolTableForFile(setFileUri);
         if (setSymbolTable) {
           const allSetSymbols = setSymbolTable.getAllSymbols();
-          const setMethodSymbols = allSetSymbols.filter(
-            (s: any) => s.kind === 'method',
-          );
           const setVariableSymbols = allSetSymbols.filter(
             (s: any) => s.kind === 'variable',
           );
-          console.log(
-            `\n[INSPECT] Set.cls: Methods=${setMethodSymbols.length}, Variables=${setVariableSymbols.length}`,
-          );
           if (setVariableSymbols.length > 0) {
-            const methodNamesAsVars = setVariableSymbols
-              .filter((v: any) => ['add', 'addAll', 'size'].includes(v.name))
-              .slice(0, 3);
-            methodNamesAsVars.forEach((v: any) => {
-              console.log(
-                `[INSPECT]   Set variable with method name: ${v.name} (kind=${v.kind})`,
-              );
-            });
+            // Variables found
           }
         }
       }
