@@ -11,7 +11,11 @@ import type {
   LogMessageType,
   LoggerFactory as ILoggerFactory,
 } from '../index';
-import { getLogNotificationHandler, shouldLog } from '../index';
+import {
+  getLogNotificationHandler,
+  shouldLog,
+  logMessageTypeToLspNumber,
+} from '../index';
 import type { Connection } from 'vscode-languageserver';
 
 // =============================================================================
@@ -53,24 +57,6 @@ export class LoggingUtils {
   static generateCorrelationId(): string {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
-
-  /**
-   * Formats message with environment context
-   * @deprecated Environment prefixes are now handled by the client-side formatter.
-   * This method now returns the message unchanged for backward compatibility.
-   */
-  static formatMessage(message: string, context?: string): string {
-    // No longer add environment prefixes - formatting is handled by client
-    return message;
-  }
-
-  /**
-   * Gets the log message type for LSP
-   */
-  static getLogMessageType(messageType: string): string {
-    // Map debug to log for LSP compatibility
-    return messageType === 'debug' ? 'log' : messageType;
-  }
 }
 
 // =============================================================================
@@ -106,8 +92,7 @@ export class UniversalLogger implements LoggerInterface {
       return;
     }
 
-    // Fallback to console only if no other method worked
-    LoggingUtils.logToConsole(messageType, msg);
+    // No connection or handler available - silently ignore (no console fallback)
   }
 
   private sendViaConnection(
@@ -116,21 +101,17 @@ export class UniversalLogger implements LoggerInterface {
   ): void {
     try {
       if (this.connection) {
-        // Convert 'debug' to 'log' for LSP compatibility (LSP doesn't support 'debug' type)
-        const lspMessageType = LoggingUtils.getLogMessageType(messageType);
+        // Convert to numeric LSP MessageType for proper protocol compliance
+        // VS Code's built-in handler will add timestamp and log level prefix
+        const lspMessageType = logMessageTypeToLspNumber(messageType);
         this.connection.sendNotification('window/logMessage', {
           type: lspMessageType,
           message,
         });
-      } else {
-        LoggingUtils.logToConsole(messageType, message);
       }
-    } catch (error) {
-      // Fallback to console if connection fails
-      console.error(
-        'Failed to send log via connection, using console fallback:',
-        error,
-      );
+      // No connection - silently ignore (no console fallback)
+    } catch (_error) {
+      // Connection failed - silently ignore (no console fallback)
     }
   }
 
@@ -161,6 +142,10 @@ export class UniversalLogger implements LoggerInterface {
 
   error(message: string | (() => string)): void {
     this.log('error', message);
+  }
+
+  alwaysLog(message: string | (() => string)): void {
+    this.log('log', message);
   }
 
   startTimer(name: string): void {
@@ -195,19 +180,29 @@ export class UniversalLoggerFactory implements ILoggerFactory {
 
   /**
    * Creates a logger instance appropriate for the current environment
+   * If an instance already exists, update its connection
    */
   createLogger(connection?: Connection): LoggerInterface {
     if (!UniversalLoggerFactory.instance) {
       UniversalLoggerFactory.instance = new UniversalLogger(connection);
+    } else if (connection) {
+      // Update connection on existing instance
+      (UniversalLoggerFactory.instance as any).connection = connection;
     }
     return UniversalLoggerFactory.instance;
   }
 
   /**
    * Gets a logger instance (implements LoggerFactory interface)
+   * IMPORTANT: createLogger(connection) must be called first to initialize the logger
    */
   getLogger(): LoggerInterface {
-    return UniversalLoggerFactory.instance ?? new UniversalLogger();
+    if (!UniversalLoggerFactory.instance) {
+      // Logger not initialized yet - create a logger without connection
+      // Messages will be silently ignored until connection is set
+      return new UniversalLogger();
+    }
+    return UniversalLoggerFactory.instance;
   }
 
   /**

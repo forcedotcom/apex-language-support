@@ -4,16 +4,14 @@ module.exports = {
   ...baseConfig,
   // Only include .test.ts files for unit tests
   // Performance tests (.perf.ts) are run separately via test:perf command
-  testMatch: [
-    '**/test/**/*.test.ts',
-  ],
+  // Integration tests are run separately via test:integration command
+  testMatch: ['**/test/**/*.test.ts'],
   testPathIgnorePatterns: [
     ...(baseConfig.testPathIgnorePatterns || []),
     '/node_modules/',
+    '<rootDir>/test/integration/', // Exclude integration tests from unit test runs
   ],
-  modulePathIgnorePatterns: [
-    '<rootDir>/test-artifacts/',
-  ],
+  modulePathIgnorePatterns: ['<rootDir>/test-artifacts/'],
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,
     '^@salesforce/apex-lsp-shared$':
@@ -24,8 +22,7 @@ module.exports = {
       '<rootDir>/../lsp-compliant-services/src/index.ts',
     '^@salesforce/apex-lsp-custom-services$':
       '<rootDir>/../custom-services/src/index.ts',
-    '^@salesforce/apex-ls$':
-      '<rootDir>/../apex-ls/src/index.ts',
+    '^@salesforce/apex-ls$': '<rootDir>/../apex-ls/src/index.ts',
     '^@salesforce/apex-lsp-testbed$': '<rootDir>/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },

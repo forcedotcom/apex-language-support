@@ -16,14 +16,9 @@ import {
   TransportKind,
 } from 'vscode-languageclient/lib/node/main';
 import { getDebugConfig, getWorkspaceSettings } from './configuration';
-import {
-  logServerMessage,
-  getWorkerServerOutputChannel,
-  createFormattedOutputChannel,
-  logToOutputChannel,
-} from './logging';
+import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
 import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
-import { determineServerMode } from './utils/serverUtils';
+import { ServerMode } from './utils/serverUtils';
 import { getDocumentSelectorsFromSettings } from '@salesforce/apex-lsp-shared';
 
 /**
@@ -33,19 +28,6 @@ import { getDocumentSelectorsFromSettings } from '@salesforce/apex-lsp-shared';
 export const getDebugOptions = (): string[] | undefined => {
   const debugConfig = getDebugConfig();
 
-  // Force debug mode for development builds when in development environment
-  const isDevelopment =
-    process?.env?.APEX_LS_MODE === 'development' ||
-    process?.env?.NODE_ENV === 'development';
-
-  if (isDevelopment && debugConfig.mode === 'off') {
-    logServerMessage(
-      'Development mode detected - forcing debug mode on',
-      'info',
-    );
-    return [DEBUG_CONFIG.NOLAZY_FLAG, `--inspect=${debugConfig.port}`];
-  }
-
   if (debugConfig.mode === 'off') {
     return undefined;
   }
@@ -53,7 +35,7 @@ export const getDebugOptions = (): string[] | undefined => {
   // Determine debug flags based on mode
   let debugFlags: string[];
   if (debugConfig.mode === DEBUG_CONFIG.INSPECT_BRK_MODE) {
-    logServerMessage(
+    logToOutputChannel(
       `Enabling debug mode with break on port ${debugConfig.port}`,
       'info',
     );
@@ -63,7 +45,10 @@ export const getDebugOptions = (): string[] | undefined => {
     ];
   } else {
     // Default to 'inspect' mode
-    logServerMessage(`Enabling debug mode on port ${debugConfig.port}`, 'info');
+    logToOutputChannel(
+      `Enabling debug mode on port ${debugConfig.port}`,
+      'info',
+    );
     debugFlags = [DEBUG_CONFIG.NOLAZY_FLAG, `--inspect=${debugConfig.port}`];
   }
 
@@ -108,12 +93,15 @@ const getProfilingFlags = (
   }
 
   if (flags.length > 0) {
-    logServerMessage(
+    logToOutputChannel(
       `Profiling enabled: ${profilingType} (flags: ${flags.join(', ')})`,
       'info',
     );
-    logServerMessage(`Profile files will be written to: ${outputDir}`, 'info');
-    logServerMessage(
+    logToOutputChannel(
+      `Profile files will be written to: ${outputDir}`,
+      'info',
+    );
+    logToOutputChannel(
       'CPU profiles: CPU.*.cpuprofile, Heap profiles: *.heapsnapshot',
       'info',
     );
@@ -149,7 +137,7 @@ const getHeapSizeFlag = (runtimePlatform: 'desktop' | 'web'): string[] => {
   if (jsHeapSizeGB !== undefined && jsHeapSizeGB > 0) {
     // Enforce upper bound
     if (jsHeapSizeGB > MAX_HEAP_SIZE_GB) {
-      logServerMessage(
+      logToOutputChannel(
         `JavaScript heap size ${jsHeapSizeGB} GB exceeds maximum of ` +
           `${MAX_HEAP_SIZE_GB} GB. Using ${MAX_HEAP_SIZE_GB} GB instead.`,
         'warning',
@@ -161,7 +149,7 @@ const getHeapSizeFlag = (runtimePlatform: 'desktop' | 'web'): string[] => {
 
     // Convert GB to MB (Node.js expects MB)
     const heapSizeMB = Math.round(jsHeapSizeGB * 1024);
-    logServerMessage(
+    logToOutputChannel(
       `Setting JavaScript heap size to ${jsHeapSizeGB} GB (${heapSizeMB} MB)`,
       'info',
     );
@@ -174,10 +162,12 @@ const getHeapSizeFlag = (runtimePlatform: 'desktop' | 'web'): string[] => {
 /**
  * Creates server options for the language server
  * @param context The extension context
+ * @param serverMode The server mode (already determined to avoid duplicate logging)
  * @returns Server options configuration
  */
 export const createServerOptions = (
   context: vscode.ExtensionContext,
+  serverMode: ServerMode,
 ): ServerOptions => {
   // Check if we're running in development mode (from project) or production (installed)
   const isDevelopment =
@@ -192,41 +182,38 @@ export const createServerOptions = (
   const useIndividualFiles =
     isDevelopment && process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES !== 'false';
 
-  logServerMessage(
+  logToOutputChannel(
     `APEX_LS_DEBUG_USE_INDIVIDUAL_FILES = "${process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES}"`,
     'debug',
   );
-  logServerMessage(`isDevelopment = ${isDevelopment}`, 'debug');
-  logServerMessage(`useIndividualFiles = ${useIndividualFiles}`, 'debug');
+  logToOutputChannel(`isDevelopment = ${isDevelopment}`, 'debug');
+  logToOutputChannel(`useIndividualFiles = ${useIndividualFiles}`, 'debug');
 
   let serverModule: string;
   if (useIndividualFiles && isDevelopment) {
     // Use individual compiled files for better debugging (CommonJS version)
     serverModule = context.asAbsolutePath('../apex-ls/out/node/server.node.js');
-    logServerMessage(
+    logToOutputChannel(
       `Using individual files for debugging: ${serverModule}`,
       'debug',
     );
   } else if (isDevelopment) {
     serverModule = context.asAbsolutePath('../apex-ls/dist/server.node.js');
-    logServerMessage(
+    logToOutputChannel(
       `Using bundled files for development: ${serverModule}`,
       'debug',
     );
   } else {
     // In production, files are packaged at the root (package command runs from dist/)
     serverModule = context.asAbsolutePath('server.node.js');
-    logServerMessage(`Using production files: ${serverModule}`, 'debug');
+    logToOutputChannel(`Using production files: ${serverModule}`, 'debug');
   }
 
-  logServerMessage(`Server module path: ${serverModule}`, 'debug');
-  logServerMessage(
+  logToOutputChannel(`Server module path: ${serverModule}`, 'debug');
+  logToOutputChannel(
     `Running in ${isDevelopment ? 'development' : 'production'} mode`,
     'debug',
   );
-
-  // Determine server mode using shared utility
-  const serverMode = determineServerMode(context);
 
   // Get debug options for the return value
   const debugOptions = getDebugOptions();
@@ -312,15 +299,9 @@ export const createClientOptions = (
     ),
     configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
   },
-  // Use our consolidated worker/server output channel with formatting wrapper
-  // This intercepts server stdout/stderr and formats messages with timestamps
-  ...(getWorkerServerOutputChannel()
-    ? {
-        outputChannel: createFormattedOutputChannel(
-          getWorkerServerOutputChannel()!,
-        ),
-      }
-    : {}),
+  // Provide outputChannel for built-in window/logMessage handler
+  // Server sends raw messages; VS Code adds timestamp and log level prefix
+  outputChannel: getWorkerServerOutputChannel(),
   // Add error handling with proper retry logic
   errorHandler: {
     error: handleClientError,
@@ -381,12 +362,12 @@ const handleClientError = (
   message: any,
   _count: number | undefined,
 ): { action: ErrorAction } => {
-  logServerMessage(
+  logToOutputChannel(
     `LSP Error: ${message?.toString() ?? 'Unknown error'}`,
     'error',
   );
   if (error) {
-    logServerMessage(`Error details: ${error}`, 'debug');
+    logToOutputChannel(`Error details: ${error}`, 'debug');
   }
   // Always continue on errors, we handle retries separately
   return { action: ErrorAction.Continue };
@@ -397,7 +378,7 @@ const handleClientError = (
  * @returns Close action to take
  */
 const handleClientClosed = (): { action: CloseAction } => {
-  logServerMessage(
+  logToOutputChannel(
     `Connection to server closed - ${new Date().toISOString()}`,
     'info',
   );

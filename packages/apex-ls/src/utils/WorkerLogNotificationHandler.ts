@@ -7,6 +7,7 @@
  */
 
 import type { LogMessageParams } from '@salesforce/apex-lsp-shared';
+import { logMessageTypeToLspNumber } from '@salesforce/apex-lsp-shared';
 import type { Connection } from 'vscode-languageserver/browser';
 
 /**
@@ -38,28 +39,20 @@ export class WorkerLogNotificationHandler {
   }
 
   /**
-   * Sends a log message to the client
+   * Sends a log message to the client using standard LSP window/logMessage
    */
   sendLogMessage(params: LogMessageParams): void {
-    // Send raw message - formatting will be handled by client-side handler
+    // Convert to numeric LSP MessageType
+    // VS Code's built-in handler will add timestamp and log level prefix
+    const lspMessageType = logMessageTypeToLspNumber(params.type);
+
+    // Send raw message - VS Code will format it
     if (this.connection) {
-      this.connection.sendNotification('$/logMessage', {
-        type: params.type,
+      this.connection.sendNotification('window/logMessage', {
+        type: lspMessageType,
         message: params.message,
       });
     }
-    switch (params.type) {
-      case 'error':
-        console.error(params.message);
-        break;
-      case 'warning':
-        console.warn(params.message);
-        break;
-      case 'info':
-        console.info(params.message);
-        break;
-      default:
-        console.log(params.message);
-    }
+    // No console fallback - rely solely on LSP window/logMessage
   }
 }

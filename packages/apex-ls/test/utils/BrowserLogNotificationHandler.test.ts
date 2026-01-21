@@ -66,7 +66,7 @@ describe('LogNotificationHandler (Browser Context)', () => {
       expect(mockConnection.sendNotification).toHaveBeenCalledWith(
         'window/logMessage',
         {
-          type: 'error',
+          type: 1, // MessageType.Error
           message: 'Test error message',
         },
       );
@@ -83,7 +83,7 @@ describe('LogNotificationHandler (Browser Context)', () => {
       expect(mockConnection.sendNotification).toHaveBeenCalledWith(
         'window/logMessage',
         {
-          type: 'warning',
+          type: 2, // MessageType.Warning
           message: 'Test warning message',
         },
       );
@@ -100,7 +100,7 @@ describe('LogNotificationHandler (Browser Context)', () => {
       expect(mockConnection.sendNotification).toHaveBeenCalledWith(
         'window/logMessage',
         {
-          type: 'info',
+          type: 3, // MessageType.Info
           message: 'Test info message',
         },
       );
@@ -117,7 +117,7 @@ describe('LogNotificationHandler (Browser Context)', () => {
       expect(mockConnection.sendNotification).toHaveBeenCalledWith(
         'window/logMessage',
         {
-          type: 'log', // Debug maps to Log for backward compatibility
+          type: 5, // Debug maps to MessageType.Debug (5) for LSP
           message: 'Test debug message',
         },
       );
@@ -134,7 +134,7 @@ describe('LogNotificationHandler (Browser Context)', () => {
       expect(mockConnection.sendNotification).toHaveBeenCalledWith(
         'window/logMessage',
         {
-          type: 'unknown', // Unknown types are passed through
+          type: 3, // Unknown types default to Info (3)
           message: 'Test unknown message',
         },
       );

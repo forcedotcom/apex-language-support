@@ -8,6 +8,7 @@
 
 // Export the test utilities
 export * from './RequestResponseCapturingMiddleware';
+export * from './NotificationCapturingMiddleware';
 export * from './LspTestFixture';
 export * from './LspTestRunner';
 

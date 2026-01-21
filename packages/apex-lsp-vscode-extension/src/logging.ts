@@ -95,9 +95,9 @@ export const logToWorkerServerOutputChannel = (
 };
 
 /**
- * Logs a message to the worker/server output channel with [WORKER] prefix
+ * Logs a message to the worker/server output channel
  * @param message The message to log
- * @param messageType The type of log message
+ * @param messageType The type of log message (for filtering only)
  */
 export const logWorkerMessage = (
   message: string,
@@ -105,14 +105,14 @@ export const logWorkerMessage = (
 ): void => {
   if (!shouldLog(messageType)) return;
 
-  const formattedMessage = formatLogMessageWithTimestamp(message, messageType);
-  workerServerOutputChannel.appendLine(formattedMessage);
+  // Write raw message - no formatting (consistent with server LSP logs)
+  workerServerOutputChannel.appendLine(message);
 };
 
 /**
- * Logs a message to the worker/server output channel with [SERVER] prefix
+ * Logs a message to the worker/server output channel
  * @param message The message to log
- * @param messageType The type of log message
+ * @param messageType The type of log message (for filtering only)
  */
 export const logServerMessage = (
   message: string,
@@ -120,154 +120,119 @@ export const logServerMessage = (
 ): void => {
   if (!shouldLog(messageType)) return;
 
-  const formattedMessage = formatLogMessageWithTimestamp(message, messageType);
-  workerServerOutputChannel.appendLine(formattedMessage);
+  // Write raw message - no formatting (consistent with server LSP logs)
+  workerServerOutputChannel.appendLine(message);
 };
 
 /**
- * Formats a timestamp in ISO format (local timezone)
- * @returns Formatted timestamp string in format YYYY-MM-DDTHH:mm:ss.SSS
+ * Formats a timestamp using locale-aware formatting based on VS Code's UI locale
+ * Combines discoverable data points: VS Code locale, system timezone, and locale preferences
+ * @returns Formatted timestamp string respecting locale conventions while maintaining parseability
  */
-const formatTimestampISO = (): string => {
+const formatTimestampVSCodeStyle = (): string => {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}`;
-};
 
-/**
- * Maps log message type to display string
- * @param messageType The log message type
- * @returns Uppercase log level string
- */
-const getLogLevelString = (messageType: LogMessageType): string => {
-  switch (messageType) {
-    case 'error':
-      return 'ERROR';
-    case 'warning':
-      return 'WARNING';
-    case 'info':
-      return 'INFO';
-    case 'log':
-      // 'log' is used as a proxy for 'debug' in LSP (since LSP doesn't support 'debug' type)
-      // Display it as DEBUG to match the original intent
-      return 'DEBUG';
-    case 'debug':
-      return 'DEBUG';
-    default:
-      return 'INFO';
+  // Get VS Code's UI locale (e.g., "en", "es", "fr", "zh-cn")
+  const locale = vscode.env.language || 'en';
+
+  // Detect system timezone and other locale preferences
+  const resolvedOptions = Intl.DateTimeFormat().resolvedOptions();
+  const timeZone = resolvedOptions.timeZone;
+
+  try {
+    // Use Intl.DateTimeFormat with locale-aware options
+    // Extract individual parts to maintain control over formatting
+    const dateFormatter = new Intl.DateTimeFormat(locale, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false, // Use 24-hour format for consistency in logs
+      timeZone,
+    });
+
+    // Get formatted parts
+    const parts = dateFormatter.formatToParts(now);
+
+    // Extract date/time components (respecting locale for values, but using standard structure)
+    const year =
+      parts.find((p) => p.type === 'year')?.value || String(now.getFullYear());
+    const month =
+      parts.find((p) => p.type === 'month')?.value.padStart(2, '0') ||
+      String(now.getMonth() + 1).padStart(2, '0');
+    const day =
+      parts.find((p) => p.type === 'day')?.value.padStart(2, '0') ||
+      String(now.getDate()).padStart(2, '0');
+    const hour =
+      parts.find((p) => p.type === 'hour')?.value.padStart(2, '0') ||
+      String(now.getHours()).padStart(2, '0');
+    const minute =
+      parts.find((p) => p.type === 'minute')?.value.padStart(2, '0') ||
+      String(now.getMinutes()).padStart(2, '0');
+    const second =
+      parts.find((p) => p.type === 'second')?.value.padStart(2, '0') ||
+      String(now.getSeconds()).padStart(2, '0');
+
+    // Milliseconds are not part of Intl.DateTimeFormat standard options,
+    // so we get them directly from the Date object
+    // The timezone conversion is already handled by Intl.DateTimeFormat above
+    const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+
+    // Construct timestamp: YYYY-MM-DD HH:mm:ss.SSS
+    // Uses locale-aware date/time values but maintains consistent structure for log parsing
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}.${milliseconds}`;
+  } catch (_error) {
+    // Fallback to default format if locale formatting fails
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
   }
 };
 
 /**
- * Formats a log message with timestamp and log level prefix
- * Format: [<ISO timestamp>][<log level>] <message>
+ * Maps log message type to display string matching VS Code's LogOutputChannel format
+ * @param messageType The log message type
+ * @returns Lowercase log level string (matches LogOutputChannel)
+ */
+const getLogLevelString = (messageType: LogMessageType): string => {
+  switch (messageType) {
+    case 'error':
+      return 'error';
+    case 'warning':
+      return 'warning';
+    case 'info':
+      return 'info';
+    case 'log':
+      // 'log' is used as a proxy for 'debug' in LSP (since LSP doesn't support 'debug' type)
+      // Display it as debug to match the original intent
+      return 'debug';
+    case 'debug':
+      return 'debug';
+    default:
+      return 'info';
+  }
+};
+
+/**
+ * Formats a log message with timestamp and log level prefix to match VS Code's LogOutputChannel
+ * Format: YYYY-MM-DD HH:mm:ss.SSS [level] message
  * @param message The message to format
  * @param messageType The log message type
- * @returns Formatted message string
+ * @returns Formatted message string matching LogOutputChannel format
  */
 export const formatLogMessageWithTimestamp = (
   message: string,
   messageType: LogMessageType,
 ): string => {
-  const timestamp = formatTimestampISO();
+  const timestamp = formatTimestampVSCodeStyle();
   const logLevel = getLogLevelString(messageType);
-  return `[${timestamp}][${logLevel}] ${message}`;
+  return `${timestamp} [${logLevel}] ${message}`;
 };
-
-/**
- * Cleans a message by removing [NODE] or [BROWSER] prefixes
- * Also removes old-format timestamps like [5:56:44 AM] [INFO] [SERVER]
- * @param message The message to clean
- * @returns Cleaned message without environment prefix and old format timestamps
- */
-const cleanMessagePrefix = (message: string): string => {
-  // Remove [NODE] or [BROWSER] prefix
-  if (message.startsWith('[NODE] ')) {
-    message = message.substring(7); // Remove '[NODE] '
-  } else if (message.startsWith('[BROWSER] ')) {
-    message = message.substring(10); // Remove '[BROWSER] '
-  }
-
-  // Remove old format timestamps like [5:56:44 AM] [INFO] [SERVER] or [5:56:44 AM] [INFO]
-  // Pattern: [HH:MM:SS AM/PM] [LEVEL] [SERVER/WORKER]? <actual message>
-  const oldFormatPattern =
-    /^\[\d{1,2}:\d{2}:\d{2}\s(AM|PM)\]\s\[(ERROR|WARNING|INFO|DEBUG|TRACE)\]\s(\[SERVER\]|\[WORKER\])?\s*/i;
-  message = message.replace(oldFormatPattern, '');
-
-  return message;
-};
-
-/**
- * Detects log level from a message line
- * Attempts to infer log level from common patterns
- * @param message The message to analyze
- * @returns Detected log level or 'info' as default
- */
-const detectLogLevelFromMessage = (message: string): LogMessageType => {
-  const upperMessage = message.toUpperCase();
-  if (upperMessage.includes('ERROR') || upperMessage.includes('❌')) {
-    return 'error';
-  }
-  if (
-    upperMessage.includes('WARNING') ||
-    upperMessage.includes('WARN') ||
-    upperMessage.includes('⚠️')
-  ) {
-    return 'warning';
-  }
-  if (upperMessage.includes('DEBUG') || upperMessage.includes('🔍')) {
-    return 'debug';
-  }
-  return 'info';
-};
-
-/**
- * Creates a formatted output channel wrapper that intercepts messages
- * and formats them with timestamps
- * @param baseChannel The base output channel to wrap
- * @returns A new OutputChannel that formats messages
- */
-export const createFormattedOutputChannel = (
-  baseChannel: vscode.OutputChannel,
-): vscode.OutputChannel => ({
-  name: baseChannel.name,
-  append: (value: string) => {
-    // For append, we don't format individual chunks
-    // Only format on appendLine
-    baseChannel.append(value);
-  },
-  appendLine: (value: string) => {
-    // Clean message of [NODE] or [BROWSER] prefix
-    const cleanMessage = cleanMessagePrefix(value);
-    // Detect log level from message content
-    const logLevel = detectLogLevelFromMessage(cleanMessage);
-    // Check if message should be logged based on current log level
-    if (!shouldLog(logLevel)) {
-      return; // Don't log if below current log level
-    }
-    // Format with timestamp
-    const formatted = formatLogMessageWithTimestamp(cleanMessage, logLevel);
-    baseChannel.appendLine(formatted);
-  },
-  replace: (value: string) => baseChannel.replace(value),
-  clear: () => baseChannel.clear(),
-  show: (
-    columnOrPreserveFocus?: vscode.ViewColumn | boolean,
-    preserveFocus?: boolean,
-  ) => {
-    // Handle both overloads: show(preserveFocus?) and show(column?, preserveFocus?)
-    if (typeof columnOrPreserveFocus === 'boolean') {
-      baseChannel.show(columnOrPreserveFocus);
-    } else {
-      baseChannel.show(columnOrPreserveFocus, preserveFocus);
-    }
-  },
-  hide: () => baseChannel.hide(),
-  dispose: () => baseChannel.dispose(),
-});

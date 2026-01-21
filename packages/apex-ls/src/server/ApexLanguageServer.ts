@@ -146,9 +146,13 @@ export class ApexLanguageServer {
    * Gracefully shuts down the server
    */
   async dispose(): Promise<void> {
-    // Environment-specific cleanup
-    if (this.environment === 'node') {
-      this.connection.dispose();
+    // Dispose connection in all environments
+    if (this.connection && typeof this.connection.dispose === 'function') {
+      try {
+        this.connection.dispose();
+      } catch (_error) {
+        // Ignore disposal errors
+      }
     }
     // Common cleanup logic
   }

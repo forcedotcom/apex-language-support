@@ -11,7 +11,6 @@ import type {
   ApexLanguageServerSettings,
   ClientInterface,
   RuntimePlatform,
-  LogMessageType,
   RequestWorkspaceLoadParams,
 } from '@salesforce/apex-lsp-shared';
 import {
@@ -20,11 +19,7 @@ import {
 } from '@salesforce/apex-lsp-shared';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import type { BaseLanguageClient } from 'vscode-languageclient';
-import {
-  logToOutputChannel,
-  getWorkerServerOutputChannel,
-  formatLogMessageWithTimestamp,
-} from './logging';
+import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
 import { handleFindMissingArtifact } from './missing-artifact-handler';
 import {
@@ -46,6 +41,7 @@ import { EXTENSION_CONSTANTS } from './constants';
 import {
   determineServerMode,
   getStdApexClassesPathFromContext,
+  ServerMode,
 } from './utils/serverUtils';
 
 /**
@@ -83,14 +79,15 @@ function detectEnvironment(): 'desktop' | 'web' {
  * Creates enhanced initialization options that incorporate benefits from server-config.ts.
  * @param context - VS Code extension context
  * @param runtimePlatform - The detected environment (desktop or web)
+ * @param serverMode - The server mode (already determined to avoid duplicate logging)
  * @returns Enhanced initialization options
  */
 const createEnhancedInitializationOptions = (
   context: vscode.ExtensionContext,
   runtimePlatform: RuntimePlatform,
+  serverMode: ServerMode,
 ): ApexLanguageServerSettings => {
   const settings = getWorkspaceSettings();
-  const serverMode = determineServerMode(context);
 
   // Get standard Apex library path
   const standardApexLibraryPath =
@@ -127,16 +124,15 @@ const createEnhancedInitializationOptions = (
  * Create initialization parameters.
  * @param context - VS Code extension context
  * @param environment - The detected environment (desktop or web)
+ * @param serverMode - The server mode (already determined to avoid duplicate logging)
  * @returns LSP initialization parameters
  */
 export const createInitializeParams = (
   context: vscode.ExtensionContext,
   environment: 'desktop' | 'web',
+  serverMode: ServerMode,
 ): InitializeParams => {
   const workspaceFolders = vscode.workspace.workspaceFolders;
-
-  // Determine server mode
-  const serverMode = determineServerMode(context);
 
   // Get mode-appropriate client capabilities
   const clientCapabilities = getClientCapabilitiesForMode(serverMode);
@@ -163,6 +159,7 @@ export const createInitializeParams = (
     initializationOptions: createEnhancedInitializationOptions(
       context,
       environment,
+      serverMode,
     ),
     workspaceFolders:
       workspaceFolders?.map((folder: vscode.WorkspaceFolder) => ({
@@ -252,6 +249,9 @@ async function createWebLanguageClient(
   context: vscode.ExtensionContext,
   environment: 'desktop' | 'web',
 ): Promise<void> {
+  // Determine server mode once to avoid duplicate logging
+  const serverMode = determineServerMode(context);
+
   // Import web-worker package and browser language client dynamically in parallel
   const [{ default: Worker }, { LanguageClient }] = await Promise.all([
     import('web-worker'),
@@ -319,7 +319,11 @@ async function createWebLanguageClient(
   logToOutputChannel('🔗 Creating Language Client for web...', 'info');
 
   // Create initialization options with debugging
-  const initOptions = createEnhancedInitializationOptions(context, environment);
+  const initOptions = createEnhancedInitializationOptions(
+    context,
+    environment,
+    serverMode,
+  );
   logToOutputChannel('Initialization options created', 'debug');
 
   let languageClient: any;
@@ -418,69 +422,9 @@ async function createWebLanguageClient(
     throw error;
   }
 
-  // Output channels: We pass our custom outputChannel to prevent LanguageClient
-  // from creating a default one. Server logs are handled via window/logMessage notifications
-  // which write to the same outputChannel, ensuring all logs go to a single tab.
-
-  // Set up window/logMessage handler for worker/server logs
-  languageClient.onNotification('window/logMessage', (params: any) => {
-    logToOutputChannel(
-      `📨 Received window/logMessage: ${params.message || 'No message'}`,
-      'debug',
-    );
-    const { message, type } = params;
-
-    // Format message with timestamp and log level prefix
-    // Remove [NODE] or [BROWSER] prefix if present, then format
-    let cleanMessage = message;
-    if (cleanMessage.startsWith('[NODE] ')) {
-      cleanMessage = cleanMessage.substring(7); // Remove '[NODE] '
-    } else if (cleanMessage.startsWith('[BROWSER] ')) {
-      cleanMessage = cleanMessage.substring(10); // Remove '[BROWSER] '
-    }
-
-    // Convert LSP MessageType (number enum) to LogMessageType (string)
-    // LSP MessageType: Error=1, Warning=2, Info=3, Log=4
-    // Our LogMessageType: 'error' | 'warning' | 'info' | 'log' | 'debug'
-    let logMessageType: LogMessageType = 'info';
-    if (typeof type === 'number') {
-      switch (type) {
-        case 1: // MessageType.Error
-          logMessageType = 'error';
-          break;
-        case 2: // MessageType.Warning
-          logMessageType = 'warning';
-          break;
-        case 3: // MessageType.Info
-          logMessageType = 'info';
-          break;
-        case 4: // MessageType.Log
-          logMessageType = 'log';
-          break;
-        default:
-          logMessageType = 'info';
-      }
-    } else if (typeof type === 'string') {
-      // Already a string, use it directly (should be one of our LogMessageType values)
-      logMessageType = (type as LogMessageType) || 'info';
-    }
-
-    // Format with timestamp and log level
-    const formattedMessage = formatLogMessageWithTimestamp(
-      cleanMessage,
-      logMessageType,
-    );
-
-    const channel = getWorkerServerOutputChannel();
-    if (channel) {
-      channel.appendLine(formattedMessage);
-    } else {
-      logToOutputChannel(
-        `❌ No worker/server output channel available for message: ${message}`,
-        'error',
-      );
-    }
-  });
+  // Server formats log messages with timestamps and log levels before sending
+  // The built-in window/logMessage handler writes them to the outputChannel as-is
+  // No custom notification handler needed
 
   // Set up configuration change handler to manually trigger updates
   languageClient.onNotification(
@@ -501,39 +445,7 @@ async function createWebLanguageClient(
     },
   );
 
-  // Also listen for $/logMessage (alternative notification method)
-  languageClient.onNotification('$/logMessage', (params: any) => {
-    logToOutputChannel(
-      `📨 Received $/logMessage: ${params.message || 'No message'}`,
-      'debug',
-    );
-    const { message, type } = params;
-
-    // Format message with timestamp and log level prefix
-    // Remove [NODE] or [BROWSER] prefix if present, then format
-    let cleanMessage = message;
-    if (cleanMessage.startsWith('[NODE] ')) {
-      cleanMessage = cleanMessage.substring(7); // Remove '[NODE] '
-    } else if (cleanMessage.startsWith('[BROWSER] ')) {
-      cleanMessage = cleanMessage.substring(10); // Remove '[BROWSER] '
-    }
-
-    // Format with timestamp and log level
-    const formattedMessage = formatLogMessageWithTimestamp(
-      cleanMessage,
-      type || 'info',
-    );
-
-    const channel = getWorkerServerOutputChannel();
-    if (channel) {
-      channel.appendLine(formattedMessage);
-    } else {
-      logToOutputChannel(
-        `❌ No worker/server output channel available for $/logMessage: ${message}`,
-        'error',
-      );
-    }
-  });
+  // Note: Removed $/logMessage handler - all contexts now use standard window/logMessage
 
   // Add more notification handlers for debugging
   languageClient.onNotification('$/logTrace', (params: any) => {
@@ -854,7 +766,7 @@ async function createWebLanguageClient(
 
   let initParams: InitializeParams;
   try {
-    initParams = createInitializeParams(context, environment);
+    initParams = createInitializeParams(context, environment, serverMode);
     logToOutputChannel(
       'Initialization parameters created successfully',
       'debug',
@@ -891,6 +803,9 @@ async function createDesktopLanguageClient(
   context: vscode.ExtensionContext,
   environment: 'desktop' | 'web',
 ): Promise<void> {
+  // Determine server mode once to avoid duplicate logging
+  const serverMode = determineServerMode(context);
+
   logToOutputChannel(
     '🖥️ Creating desktop language client with Node.js server...',
     'info',
@@ -904,9 +819,9 @@ async function createDesktopLanguageClient(
   const { LanguageClient } = clientModule;
 
   // Create server and client options
-  const serverOptions = createServerOptions(context);
+  const serverOptions = createServerOptions(context, serverMode);
   const clientOptions = createClientOptions(
-    createEnhancedInitializationOptions(context, environment),
+    createEnhancedInitializationOptions(context, environment, serverMode),
   );
 
   logToOutputChannel(

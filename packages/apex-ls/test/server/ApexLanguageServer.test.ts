@@ -48,6 +48,7 @@ class MockMessageConnection {
 describe('ApexLanguageServer', () => {
   let mockConnection: MessageConnection;
   let serverConfig: ServerConfig;
+  const createdServers: ApexLanguageServer[] = [];
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -61,9 +62,25 @@ describe('ApexLanguageServer', () => {
     };
   });
 
+  afterEach(async () => {
+    // Dispose all created servers
+    for (const server of createdServers) {
+      try {
+        await server.dispose();
+      } catch (_error) {
+        // Ignore disposal errors
+      }
+    }
+    createdServers.length = 0;
+
+    // Wait for any pending async operations to complete
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+
   describe('Constructor and Environment Validation', () => {
     it('should create server with valid configuration', () => {
       const server = new ApexLanguageServer(serverConfig);
+      createdServers.push(server);
       expect(server).toBeDefined();
     });
 
@@ -71,7 +88,9 @@ describe('ApexLanguageServer', () => {
       const { isBrowserEnvironment } = require('@salesforce/apex-lsp-shared');
       isBrowserEnvironment.mockReturnValue(true);
 
-      expect(() => new ApexLanguageServer(serverConfig)).not.toThrow();
+      const server = new ApexLanguageServer(serverConfig);
+      createdServers.push(server);
+      expect(server).toBeDefined();
       expect(isBrowserEnvironment).toHaveBeenCalled();
     });
 
@@ -80,7 +99,9 @@ describe('ApexLanguageServer', () => {
       isNodeEnvironment.mockReturnValue(true);
 
       const nodeConfig = { ...serverConfig, environment: 'node' as const };
-      expect(() => new ApexLanguageServer(nodeConfig)).not.toThrow();
+      const server = new ApexLanguageServer(nodeConfig);
+      createdServers.push(server);
+      expect(server).toBeDefined();
       expect(isNodeEnvironment).toHaveBeenCalled();
     });
 
@@ -92,7 +113,9 @@ describe('ApexLanguageServer', () => {
         ...serverConfig,
         environment: 'webworker' as const,
       };
-      expect(() => new ApexLanguageServer(workerConfig)).not.toThrow();
+      const server = new ApexLanguageServer(workerConfig);
+      createdServers.push(server);
+      expect(server).toBeDefined();
       expect(isWorkerEnvironment).toHaveBeenCalled();
     });
 
@@ -123,6 +146,7 @@ describe('ApexLanguageServer', () => {
       isBrowserEnvironment.mockReturnValue(true);
 
       const server = new ApexLanguageServer(serverConfig);
+      createdServers.push(server);
       await expect(server.initialize()).resolves.not.toThrow();
     });
 
@@ -139,6 +163,7 @@ describe('ApexLanguageServer', () => {
       isBrowserEnvironment.mockReturnValue(true);
 
       const server = new ApexLanguageServer(serverConfig);
+      createdServers.push(server);
       await server.initialize();
 
       // With the new registry pattern, storage is created directly without factory mocks
@@ -156,6 +181,7 @@ describe('ApexLanguageServer', () => {
       };
 
       const server = new ApexLanguageServer(configWithoutStorage);
+      createdServers.push(server);
       await expect(server.initialize()).resolves.not.toThrow();
     });
   });
@@ -180,6 +206,7 @@ describe('ApexLanguageServer', () => {
       };
 
       const server = new ApexLanguageServer(browserConfig);
+      createdServers.push(server);
       await server.initialize();
 
       // With the new registry pattern, storage config is handled appropriately
@@ -200,6 +227,7 @@ describe('ApexLanguageServer', () => {
       // The refactored storage system provides better error handling and fallbacks
       // Storage creation should succeed even when preferred storage types fail
       const server = new ApexLanguageServer(serverConfig);
+      createdServers.push(server);
       await expect(server.initialize()).resolves.not.toThrow();
     });
   });
