@@ -3,7 +3,7 @@
  * Namespace: System
  * @see https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm
  */
-public class Set<T> {
+public class Set {
 	/**
 	 * Adds an element to the set if it is not already present.
 	 * @param element The element to add

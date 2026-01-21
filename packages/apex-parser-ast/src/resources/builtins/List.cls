@@ -3,7 +3,7 @@
  * Namespace: System
  * @see https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm
  */
-public class List<T> {
+public class List {
 	/**
 	 * Adds an element to the end of the list.
 	 * @param element The element to add
