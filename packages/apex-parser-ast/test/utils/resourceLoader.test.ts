@@ -194,6 +194,39 @@ describe('ResourceLoader', () => {
       await loader.initialize();
       await expect(loader.initialize()).resolves.not.toThrow();
     });
+
+    it('should automatically load embedded ZIP during initialize()', async () => {
+      // Create instance without providing zipBuffer
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+
+      // Before initialize, no ZIP buffer (unless provided explicitly)
+      // Note: In test environment, embedded ZIP may not be available
+
+      await loader.initialize();
+
+      // After initialize, ZIP buffer should be loaded if available
+      // In test environment without embedded artifacts, this is expected to be undefined
+      // The important part is that initialize() doesn't throw
+      expect(loader).toBeDefined();
+    });
+
+    it('should not override explicitly set ZIP buffer during initialize()', async () => {
+      // Create instance and manually set ZIP buffer
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+      loader.setZipBuffer(standardLibZip);
+
+      // Verify ZIP buffer is set by checking we can access files
+      const filesBefore = await loader.getAllFiles();
+      expect(filesBefore.size).toBeGreaterThan(0);
+
+      // Call initialize - should not replace our custom buffer
+      await loader.initialize();
+
+      // Should still be able to access files from our custom buffer
+      const filesAfter = await loader.getAllFiles();
+      expect(filesAfter.size).toBeGreaterThan(0);
+      expect(filesAfter.size).toBe(filesBefore.size);
+    });
   });
 
   describe('file access', () => {

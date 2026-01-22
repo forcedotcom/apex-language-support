@@ -14,6 +14,7 @@ import {
   isProtobufCacheAvailable,
 } from '../cache/stdlib-cache-loader';
 import type { DeserializationResult } from '../cache/stdlib-deserializer';
+import { getEmbeddedStandardLibraryZip } from './embeddedStandardLibrary';
 
 /**
  * Yield to the Node.js event loop using setImmediate for immediate yielding
@@ -580,10 +581,19 @@ export class ResourceLoader {
       );
     }
 
-    // Load from protobuf cache (unless explicit ZIP buffer was provided for testing)
+    // Load protobuf cache first (fast path for symbols)
     if (!this.protobufCacheLoaded && !this.zipBuffer) {
       await this.tryLoadFromProtobufCache();
     }
+
+    // Load ZIP buffer for source code (unless explicitly provided via setZipBuffer)
+    // This check prevents double-loading in tests that inject ZIP buffers
+    if (!this.zipBuffer) {
+      await this.loadEmbeddedZipBuffer();
+    }
+
+    // Log statistics after both artifacts loaded
+    this.logLoadingStatistics();
   }
 
   /**
@@ -624,6 +634,63 @@ export class ResourceLoader {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(() => `Protobuf cache load failed: ${errorMsg}`);
       return false;
+    }
+  }
+
+  /**
+   * Load embedded ZIP buffer for source code access
+   * Handles errors gracefully - ZIP loading failure should not prevent symbol usage
+   */
+  private async loadEmbeddedZipBuffer(): Promise<void> {
+    try {
+      this.logger.debug('📦 Loading embedded Standard Apex Library ZIP...');
+
+      const embeddedZip = getEmbeddedStandardLibraryZip();
+      if (embeddedZip) {
+        this.logger.debug(
+          () => `📦 Embedded ZIP available (${embeddedZip.length} bytes)`,
+        );
+        this.setZipBuffer(embeddedZip);
+      } else {
+        this.logger.warn(
+          '⚠️ Embedded Standard Apex Library ZIP not available. ' +
+            'Goto definition for standard library classes may not work.',
+        );
+      }
+    } catch (zipError) {
+      // ZIP loading failure should not prevent symbols from being available
+      this.logger.warn(
+        `⚠️ Failed to load ZIP for source content: ${zipError}. ` +
+          'Symbols are still available from protobuf cache.',
+      );
+    }
+  }
+
+  /**
+   * Log statistics about loaded resources
+   */
+  private logLoadingStatistics(): void {
+    try {
+      const stats = this.getDirectoryStatistics();
+      this.logger.debug(
+        () =>
+          '✅ Standard library resources loaded successfully: ' +
+          `${stats.totalFiles} files across ${stats.namespaces.length} namespaces`,
+      );
+
+      // Log which artifacts are available
+      const artifacts: string[] = [];
+      if (this.protobufCacheLoaded) artifacts.push('protobuf cache');
+      if (this.zipBuffer) artifacts.push('ZIP buffer');
+
+      this.logger.debug(
+        () => `📦 Available artifacts: ${artifacts.join(', ') || 'none'}`,
+      );
+    } catch (error) {
+      this.logger.debug(
+        () =>
+          `Could not log statistics: ${error instanceof Error ? error.message : error}`,
+      );
     }
   }
 

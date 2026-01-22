@@ -55,7 +55,6 @@
       "command": "node scripts/generate-proto.mjs && node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs",
       "output": [
         "src/generated/**",
-        "out/resources/**",
         "resources/StandardApexLibrary.zip"
       ],
       "files": [
@@ -86,16 +85,13 @@
       "dependencies": [
         "compile:tsc",
         "generate:stdlib-cache"
-      ],
-      "output": [
-        "out/**"
       ]
     },
     "bundle": {
       "command": "tsx esbuild.config.ts",
       "dependencies": [
-        "precompile",
-        "compile"
+        "compile:tsc",
+        "generate:stdlib-cache"
       ],
       "output": [
         "dist/**"
@@ -103,7 +99,6 @@
       "files": [
         "src/**/*.ts",
         "esbuild.config.ts",
-        "out/resources/**",
         "out/index.d.ts",
         "resources/apex-stdlib-v*.pb.gz"
       ]

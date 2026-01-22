@@ -86,7 +86,6 @@ import {
   startQueueStateNotificationTask,
   SchedulerMetrics,
   SchedulerInitializationService,
-  getEmbeddedStandardLibraryZip,
 } from '@salesforce/apex-lsp-parser-ast';
 import type { Fiber } from 'effect';
 import { Effect } from 'effect';
@@ -187,10 +186,9 @@ export class LCSAdapter {
   /**
    * Initialize the ResourceLoader singleton with the standard library.
    *
-   * Loading Strategy:
-   * - Uses embedded protobuf cache for fast symbol loading (hover, completion, etc.)
-   * - Uses embedded ZIP for source file content (goto definition viewing)
-   * - Both are embedded at build time via esbuild
+   * ResourceLoader handles all artifact loading internally:
+   * - Protobuf cache for fast symbol loading (hover, completion, etc.)
+   * - ZIP buffer for source file content (goto definition viewing)
    * - Load mode determined from settings (apex.resources.loadMode)
    */
   private async initializeResourceLoader(): Promise<void> {
@@ -211,43 +209,8 @@ export class LCSAdapter {
         preloadStdClasses: true,
       });
 
-      // Initialize will load symbols from embedded protobuf cache
+      // Initialize will load both protobuf cache and ZIP buffer
       await resourceLoader.initialize();
-
-      // Check if protobuf cache loaded successfully
-      const protobufLoaded = resourceLoader.isProtobufCacheLoaded();
-      this.logger.debug(() => `📦 Protobuf cache loaded: ${protobufLoaded}`);
-
-      // Also load the ZIP for source file content access (needed for goto definition)
-      // This is separate from symbol loading - ZIP provides source code for viewing
-      try {
-        const embeddedZip = getEmbeddedStandardLibraryZip();
-        if (embeddedZip) {
-          this.logger.debug(
-            () =>
-              `📦 Loading embedded Standard Apex Library ZIP for source content (${embeddedZip.length} bytes)`,
-          );
-          resourceLoader.setZipBuffer(embeddedZip);
-        } else {
-          this.logger.warn(
-            '⚠️ Embedded Standard Apex Library ZIP not available. ' +
-              'Goto definition for standard library classes may not work.',
-          );
-        }
-      } catch (zipError) {
-        // ZIP loading failure should not prevent symbols from being available
-        this.logger.warn(
-          `⚠️ Failed to load ZIP for source content: ${zipError}. ` +
-            'Symbols are still available from protobuf cache.',
-        );
-      }
-
-      const stats = resourceLoader.getDirectoryStatistics();
-      this.logger.debug(
-        () =>
-          '✅ Standard library resources loaded successfully: ' +
-          `${stats.totalFiles} files across ${stats.namespaces.length} namespaces`,
-      );
 
       this.logger.debug('✅ ResourceLoader initialization complete');
     } catch (error) {
