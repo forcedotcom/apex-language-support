@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch to release from'
+        description: "Branch to release from"
         required: false
-        default: 'main'
+        default: "main"
         type: string
       packages:
-        description: 'NPM packages to release'
+        description: "NPM packages to release"
         required: false
-        default: 'none'
+        default: "none"
         type: choice
         options:
           - none
@@ -24,9 +24,9 @@ on:
           - custom-services
           - apex-lsp-testbed
       extensions:
-        description: 'VS Code extensions to release'
+        description: "VS Code extensions to release"
         required: false
-        default: 'none'
+        default: "none"
         type: choice
         options:
           - none
@@ -34,17 +34,17 @@ on:
           - changed
           - apex-lsp-vscode-extension
       pre-release:
-        description: 'Publish as pre-release version'
+        description: "Publish as pre-release version"
         required: false
-        default: 'false'
+        default: "false"
         type: choice
         options:
-          - 'true'
-          - 'false'
+          - "true"
+          - "false"
       version-bump:
-        description: 'Version bump type (auto, patch, minor, major)'
+        description: "Version bump type (auto, patch, minor, major)"
         required: false
-        default: 'auto'
+        default: "auto"
         type: choice
         options:
           - auto
@@ -52,28 +52,28 @@ on:
           - minor
           - major
       registries:
-        description: 'Registries to publish to'
+        description: "Registries to publish to"
         required: false
-        default: 'all'
+        default: "all"
         type: choice
         options:
           - all
           - vsce
           - ovsx
       dry-run:
-        description: 'Run in dry-run mode (no actual publishing)'
+        description: "Run in dry-run mode (no actual publishing)"
         required: false
-        default: 'false'
+        default: "false"
         type: choice
         options:
-          - 'true'
-          - 'false'
+          - "true"
+          - "false"
 
   schedule:
-    # Nightly pre-release build at 2 AM UTC for main branch
-    - cron: '0 2 * * *'
-    # Nightly pre-release build at 3 AM UTC for tdx26/main branch
-    - cron: '0 3 * * *'
+    # Nightly pre-release build at 3 AM UTC for main branch
+    - cron: "0 3 * * *"
+    # Nightly pre-release build at 4 AM UTC for tdx26/main branch
+    - cron: "0 4 * * *"
   # push:
   #   branches:
   #     - main
@@ -104,14 +104,14 @@ jobs:
           if [ "${{ github.event_name }}" = "schedule" ]; then
             # Get current UTC time
             CURRENT_HOUR=$(date -u +%H)
-            # Hour 2 = main branch (2:00 AM schedule)
-            # Hour 3 = tdx26/main branch (3:00 AM schedule)
-            if [ "$CURRENT_HOUR" = "02" ]; then
+            # Hour 3 = main branch (3:00 AM schedule)
+            # Hour 4 = tdx26/main branch (4:00 AM schedule)
+            if [ "$CURRENT_HOUR" = "03" ]; then
               TARGET_BRANCH="main"
-              echo "Scheduled build for main branch (triggered at 2:00 AM UTC)"
-            elif [ "$CURRENT_HOUR" = "03" ]; then
+              echo "Scheduled build for main branch (triggered at 3:00 AM UTC)"
+            elif [ "$CURRENT_HOUR" = "04" ]; then
               TARGET_BRANCH="tdx26/main"
-              echo "Scheduled build for tdx26/main branch (triggered at 3:00 AM UTC)"
+              echo "Scheduled build for tdx26/main branch (triggered at 4:00 AM UTC)"
             else
               echo "Warning: Scheduled run detected at unexpected hour: $CURRENT_HOUR UTC"
               echo "Defaulting to main branch"
@@ -132,7 +132,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: "20.x"
 
       - name: Install dependencies
         uses: ./.github/actions/npm-install-with-retries
