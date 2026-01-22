@@ -32,17 +32,17 @@ import { IdentifierValidator } from '../IdentifierValidator';
  * @see SEMANTIC_SYMBOL_RULES.md:445-449
  * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #3
  */
-export class EnumConstantNamingValidator implements Validator {
-  readonly id = 'enum-constant-naming';
-  readonly name = 'Enum Constant Naming Validator';
-  readonly tier = ValidationTier.IMMEDIATE;
-  readonly priority = 1;
+export const EnumConstantNamingValidator: Validator = {
+  id: 'enum-constant-naming',
+  name: 'Enum Constant Naming Validator',
+  tier: ValidationTier.IMMEDIATE,
+  priority: 1,
 
-  validate(
+  validate: (
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<ValidationResult, ValidationError> {
-    return Effect.gen(function* () {
+  ): Effect.Effect<ValidationResult, ValidationError> =>
+    Effect.gen(function* () {
       const errors: string[] = [];
       const warnings: string[] = [];
 
@@ -102,9 +102,8 @@ export class EnumConstantNamingValidator implements Validator {
         errors,
         warnings,
       };
-    });
-  }
-}
+    }),
+};
 
 /**
  * Find the parent enum for an enum constant symbol.

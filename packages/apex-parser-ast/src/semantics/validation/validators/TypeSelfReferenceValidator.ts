@@ -38,17 +38,17 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
  * @see SEMANTIC_SYMBOL_RULES.md:137-140
  * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #10
  */
-export class TypeSelfReferenceValidator implements Validator {
-  readonly id = 'type-self-reference';
-  readonly name = 'Type Self-Reference Validator';
-  readonly tier = ValidationTier.IMMEDIATE;
-  readonly priority = 1;
+export const TypeSelfReferenceValidator: Validator = {
+  id: 'type-self-reference',
+  name: 'Type Self-Reference Validator',
+  tier: ValidationTier.IMMEDIATE,
+  priority: 1,
 
-  validate(
+  validate: (
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<ValidationResult, ValidationError> {
-    return Effect.gen(function* () {
+  ): Effect.Effect<ValidationResult, ValidationError> =>
+    Effect.gen(function* () {
       const errors: string[] = [];
       const warnings: string[] = [];
 
@@ -117,6 +117,5 @@ export class TypeSelfReferenceValidator implements Validator {
         errors,
         warnings,
       };
-    });
-  }
-}
+    }),
+};

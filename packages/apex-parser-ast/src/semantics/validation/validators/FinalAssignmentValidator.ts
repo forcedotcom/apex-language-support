@@ -41,17 +41,17 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
  * @see SEMANTIC_SYMBOL_RULES.md:314-318
  * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #8
  */
-export class FinalAssignmentValidator implements Validator {
-  readonly id = 'final-assignment';
-  readonly name = 'Final Assignment Validator';
-  readonly tier = ValidationTier.IMMEDIATE;
-  readonly priority = 1;
+export const FinalAssignmentValidator: Validator = {
+  id: 'final-assignment',
+  name: 'Final Assignment Validator',
+  tier: ValidationTier.IMMEDIATE,
+  priority: 1,
 
-  validate(
+  validate: (
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<ValidationResult, ValidationError> {
-    return Effect.gen(function* () {
+  ): Effect.Effect<ValidationResult, ValidationError> =>
+    Effect.gen(function* () {
       const errors: string[] = [];
       const warnings: string[] = [];
 
@@ -127,6 +127,5 @@ export class FinalAssignmentValidator implements Validator {
         errors,
         warnings,
       };
-    });
-  }
-}
+    }),
+};

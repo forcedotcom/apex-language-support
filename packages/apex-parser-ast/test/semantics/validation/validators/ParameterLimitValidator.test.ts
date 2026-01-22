@@ -16,25 +16,22 @@ import {
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 
 describe('ParameterLimitValidator', () => {
-  let validator: ParameterLimitValidator;
   const TEST_FILE_URI = 'file:///test.cls';
 
-  beforeEach(() => {
-    validator = new ParameterLimitValidator();
-  });
-
   it('should have correct metadata', () => {
-    expect(validator.id).toBe('parameter-limit');
-    expect(validator.name).toBe('Method Parameter Limit Validator');
-    expect(validator.tier).toBe(ValidationTier.IMMEDIATE);
-    expect(validator.priority).toBe(1);
+    expect(ParameterLimitValidator.id).toBe('parameter-limit');
+    expect(ParameterLimitValidator.name).toBe(
+      'Method Parameter Limit Validator',
+    );
+    expect(ParameterLimitValidator.tier).toBe(ValidationTier.IMMEDIATE);
+    expect(ParameterLimitValidator.priority).toBe(1);
   });
 
   it('should pass validation for method with 32 parameters', async () => {
     const symbolTable = createSymbolTableWithMethod('validMethod', 32);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ParameterLimitValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -51,7 +48,7 @@ describe('ParameterLimitValidator', () => {
     const symbolTable = createSymbolTableWithMethod('invalidMethod', 33);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ParameterLimitValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -71,7 +68,7 @@ describe('ParameterLimitValidator', () => {
     const symbolTable = createSymbolTableWithConstructor('MyClass', 33);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ParameterLimitValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -91,7 +88,7 @@ describe('ParameterLimitValidator', () => {
     const symbolTable = createSymbolTableWithMethod('noParamsMethod', 0);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ParameterLimitValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -159,7 +156,7 @@ describe('ParameterLimitValidator', () => {
     }
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ParameterLimitValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,

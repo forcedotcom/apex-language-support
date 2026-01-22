@@ -21,18 +21,15 @@ import { ValidationTier } from '../../../../src/semantics/validation/ValidationT
 import { createPrimitiveType } from '../../../../src/types/typeInfo';
 
 describe('InterfaceHierarchyValidator', () => {
-  let validator: InterfaceHierarchyValidator;
   const TEST_FILE_URI = 'file:///test.cls';
 
-  beforeEach(() => {
-    validator = new InterfaceHierarchyValidator();
-  });
-
   it('should have correct metadata', () => {
-    expect(validator.id).toBe('interface-hierarchy');
-    expect(validator.name).toBe('Interface Hierarchy Validator');
-    expect(validator.tier).toBe(ValidationTier.THOROUGH);
-    expect(validator.priority).toBe(1);
+    expect(InterfaceHierarchyValidator.id).toBe('interface-hierarchy');
+    expect(InterfaceHierarchyValidator.name).toBe(
+      'Interface Hierarchy Validator',
+    );
+    expect(InterfaceHierarchyValidator.tier).toBe(ValidationTier.THOROUGH);
+    expect(InterfaceHierarchyValidator.priority).toBe(1);
   });
 
   it('should pass validation for valid interface hierarchy', async () => {
@@ -78,7 +75,7 @@ describe('InterfaceHierarchyValidator', () => {
     symbolTable.addSymbol(ifaceB, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      InterfaceHierarchyValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -134,7 +131,7 @@ describe('InterfaceHierarchyValidator', () => {
     symbolTable.addSymbol(ifaceB, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      InterfaceHierarchyValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -216,7 +213,7 @@ describe('InterfaceHierarchyValidator', () => {
     symbolTable.addSymbol(ifaceC, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      InterfaceHierarchyValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -273,7 +270,7 @@ describe('InterfaceHierarchyValidator', () => {
     symbolTable.addSymbol(ifaceB, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      InterfaceHierarchyValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -354,7 +351,7 @@ describe('InterfaceHierarchyValidator', () => {
     symbolTable.addSymbol(ifaceC, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      InterfaceHierarchyValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -437,7 +434,7 @@ describe('InterfaceHierarchyValidator', () => {
     symbolTable.addSymbol(cls, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      InterfaceHierarchyValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -554,7 +551,7 @@ describe('InterfaceHierarchyValidator', () => {
     symbolTable.addSymbol(classMethod, cls);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      InterfaceHierarchyValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -649,7 +646,7 @@ describe('InterfaceHierarchyValidator', () => {
     symbolTable.addSymbol(cls, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      InterfaceHierarchyValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -811,7 +808,7 @@ describe('InterfaceHierarchyValidator', () => {
     symbolTable.addSymbol(classMethod, cls);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      InterfaceHierarchyValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -968,7 +965,7 @@ describe('InterfaceHierarchyValidator', () => {
     symbolTable.addSymbol(classMethod, cls);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      InterfaceHierarchyValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,

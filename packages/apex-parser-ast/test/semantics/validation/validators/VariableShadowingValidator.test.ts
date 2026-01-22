@@ -16,18 +16,15 @@ import {
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 
 describe('VariableShadowingValidator', () => {
-  let validator: VariableShadowingValidator;
   const TEST_FILE_URI = 'file:///test.cls';
 
-  beforeEach(() => {
-    validator = new VariableShadowingValidator();
-  });
-
   it('should have correct metadata', () => {
-    expect(validator.id).toBe('variable-shadowing');
-    expect(validator.name).toBe('Variable Shadowing Validator');
-    expect(validator.tier).toBe(ValidationTier.IMMEDIATE);
-    expect(validator.priority).toBe(1);
+    expect(VariableShadowingValidator.id).toBe('variable-shadowing');
+    expect(VariableShadowingValidator.name).toBe(
+      'Variable Shadowing Validator',
+    );
+    expect(VariableShadowingValidator.tier).toBe(ValidationTier.IMMEDIATE);
+    expect(VariableShadowingValidator.priority).toBe(1);
   });
 
   it('should pass validation for variables with different names', async () => {
@@ -104,7 +101,7 @@ describe('VariableShadowingValidator', () => {
     symbolTable.addSymbol(localVarSymbol, methodSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      VariableShadowingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -186,7 +183,7 @@ describe('VariableShadowingValidator', () => {
     symbolTable.addSymbol(localVarSymbol, methodSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      VariableShadowingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -292,7 +289,7 @@ describe('VariableShadowingValidator', () => {
     symbolTable.addSymbol(forLoopVarSymbol, forLoopBlock);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      VariableShadowingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -416,7 +413,7 @@ describe('VariableShadowingValidator', () => {
     symbolTable.addSymbol(innerVar, innerBlock);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      VariableShadowingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -522,7 +519,7 @@ describe('VariableShadowingValidator', () => {
     symbolTable.addSymbol(catchVar, catchBlock);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      VariableShadowingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -624,7 +621,7 @@ describe('VariableShadowingValidator', () => {
     symbolTable.addSymbol(localVar, methodSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      VariableShadowingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -660,7 +657,7 @@ describe('VariableShadowingValidator', () => {
     symbolTable.addSymbol(methodSymbol, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      VariableShadowingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -742,7 +739,7 @@ describe('VariableShadowingValidator', () => {
     symbolTable.addSymbol(localVarSymbol, methodSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      VariableShadowingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -866,7 +863,7 @@ describe('VariableShadowingValidator', () => {
     symbolTable.addSymbol(innerForVar, innerForLoop);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      VariableShadowingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -993,7 +990,7 @@ describe('VariableShadowingValidator', () => {
     symbolTable.addSymbol(innerForVar, innerForLoop);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      VariableShadowingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,

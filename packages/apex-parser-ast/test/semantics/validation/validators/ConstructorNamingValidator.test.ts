@@ -16,25 +16,22 @@ import {
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 
 describe('ConstructorNamingValidator', () => {
-  let validator: ConstructorNamingValidator;
   const TEST_FILE_URI = 'file:///test.cls';
 
-  beforeEach(() => {
-    validator = new ConstructorNamingValidator();
-  });
-
   it('should have correct metadata', () => {
-    expect(validator.id).toBe('constructor-naming');
-    expect(validator.name).toBe('Constructor Naming Validator');
-    expect(validator.tier).toBe(ValidationTier.IMMEDIATE);
-    expect(validator.priority).toBe(1);
+    expect(ConstructorNamingValidator.id).toBe('constructor-naming');
+    expect(ConstructorNamingValidator.name).toBe(
+      'Constructor Naming Validator',
+    );
+    expect(ConstructorNamingValidator.tier).toBe(ValidationTier.IMMEDIATE);
+    expect(ConstructorNamingValidator.priority).toBe(1);
   });
 
   it('should pass validation for constructor with matching name', async () => {
     const symbolTable = createClassWithConstructor('MyClass', 'MyClass');
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ConstructorNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -51,7 +48,7 @@ describe('ConstructorNamingValidator', () => {
     const symbolTable = createClassWithConstructor('MyClass', 'myclass');
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ConstructorNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -68,7 +65,7 @@ describe('ConstructorNamingValidator', () => {
     const symbolTable = createClassWithConstructor('MyClass', 'MYCLASS');
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ConstructorNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -85,7 +82,7 @@ describe('ConstructorNamingValidator', () => {
     const symbolTable = createClassWithConstructor('MyClass', 'WrongName');
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ConstructorNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -128,7 +125,7 @@ describe('ConstructorNamingValidator', () => {
     symbolTable.addSymbol(classSymbol, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ConstructorNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -218,7 +215,7 @@ describe('ConstructorNamingValidator', () => {
     symbolTable.addSymbol(constructor2, classSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ConstructorNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -330,7 +327,7 @@ describe('ConstructorNamingValidator', () => {
     symbolTable.addSymbol(constructor2, class2);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ConstructorNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -350,7 +347,7 @@ describe('ConstructorNamingValidator', () => {
     const symbolTable = createClassWithConstructor('MyClass', 'MyClas'); // Missing 's'
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ConstructorNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,

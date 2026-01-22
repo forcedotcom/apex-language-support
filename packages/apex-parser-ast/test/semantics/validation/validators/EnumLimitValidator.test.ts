@@ -16,25 +16,20 @@ import {
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 
 describe('EnumLimitValidator', () => {
-  let validator: EnumLimitValidator;
   const TEST_FILE_URI = 'file:///test.cls';
 
-  beforeEach(() => {
-    validator = new EnumLimitValidator();
-  });
-
   it('should have correct metadata', () => {
-    expect(validator.id).toBe('enum-limit');
-    expect(validator.name).toBe('Enum Constant Limit Validator');
-    expect(validator.tier).toBe(ValidationTier.IMMEDIATE);
-    expect(validator.priority).toBe(1);
+    expect(EnumLimitValidator.id).toBe('enum-limit');
+    expect(EnumLimitValidator.name).toBe('Enum Constant Limit Validator');
+    expect(EnumLimitValidator.tier).toBe(ValidationTier.IMMEDIATE);
+    expect(EnumLimitValidator.priority).toBe(1);
   });
 
   it('should pass validation for enum with 100 constants', async () => {
     const symbolTable = createSymbolTableWithEnum('ValidEnum', 100);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      EnumLimitValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -51,7 +46,7 @@ describe('EnumLimitValidator', () => {
     const symbolTable = createSymbolTableWithEnum('InvalidEnum', 101);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      EnumLimitValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -71,7 +66,7 @@ describe('EnumLimitValidator', () => {
     const symbolTable = createSymbolTableWithEnum('HugeEnum', 150);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      EnumLimitValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -90,7 +85,7 @@ describe('EnumLimitValidator', () => {
     const symbolTable = createSymbolTableWithEnum('SmallEnum', 1);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      EnumLimitValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -107,7 +102,7 @@ describe('EnumLimitValidator', () => {
     const symbolTable = createSymbolTableWithEnum('EmptyEnum', 0);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      EnumLimitValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -165,7 +160,7 @@ describe('EnumLimitValidator', () => {
     }
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      EnumLimitValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,

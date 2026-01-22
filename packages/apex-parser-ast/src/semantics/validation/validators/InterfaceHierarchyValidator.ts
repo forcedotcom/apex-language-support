@@ -14,12 +14,13 @@ import type {
   MethodSymbol,
 } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
-import type { ValidationResult } from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
-import { ValidationError, type Validator } from '../ValidatorRegistry';
-import { ArtifactLoadingHelper } from '../ArtifactLoadingHelper';
-import type { ISymbolManager } from '../../../types/ISymbolManager';
+import type { Validator } from '../ValidatorRegistry';
+import {
+  ArtifactLoadingHelper,
+  ISymbolManager,
+} from '../ArtifactLoadingHelper';
 
 /**
  * Validates interface hierarchy correctness.
@@ -45,17 +46,14 @@ import type { ISymbolManager } from '../../../types/ISymbolManager';
  * @see SEMANTIC_SYMBOL_RULES.md (interface hierarchy rules)
  * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #9
  */
-export class InterfaceHierarchyValidator implements Validator {
-  readonly id = 'interface-hierarchy';
-  readonly name = 'Interface Hierarchy Validator';
-  readonly tier = ValidationTier.THOROUGH;
-  readonly priority = 1;
+export const InterfaceHierarchyValidator: Validator = {
+  id: 'interface-hierarchy',
+  name: 'Interface Hierarchy Validator',
+  tier: ValidationTier.THOROUGH,
+  priority: 1,
 
-  validate(
-    symbolTable: SymbolTable,
-    _options: ValidationOptions,
-  ): Effect.Effect<ValidationResult, ValidationError> {
-    return Effect.gen(function* () {
+  validate: (symbolTable: SymbolTable, _options: ValidationOptions) =>
+    Effect.gen(function* () {
       const errors: string[] = [];
       const warnings: string[] = [];
 
@@ -125,21 +123,21 @@ export class InterfaceHierarchyValidator implements Validator {
             'attempting to load from symbol manager',
         );
 
-        const symbolManager = _options.symbolManager as ISymbolManager;
-        const helper = new ArtifactLoadingHelper(symbolManager);
+        const helper = yield* ArtifactLoadingHelper;
         const loadResult = yield* helper.loadMissingArtifacts(
           missingInterfaces,
           _options,
         );
 
         // Get loaded interfaces from symbol manager
+        const symbolManager = yield* ISymbolManager;
         for (const typeName of [
           ...loadResult.loaded,
           ...loadResult.alreadyLoaded,
         ]) {
           const symbols = symbolManager.findSymbolByName(typeName);
           const ifaceSymbol = symbols.find(
-            (s) => s.kind === SymbolKind.Interface,
+            (s: ApexSymbol) => s.kind === SymbolKind.Interface,
           ) as TypeSymbol | undefined;
 
           if (ifaceSymbol) {
@@ -215,9 +213,8 @@ export class InterfaceHierarchyValidator implements Validator {
         errors,
         warnings,
       };
-    });
-  }
-}
+    }),
+};
 
 /**
  * Detect circular inheritance in interface hierarchy.

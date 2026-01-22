@@ -30,17 +30,17 @@ const MAX_ENUM_CONSTANTS = 100;
  * @see SEMANTIC_SYMBOL_RULES.md:378
  * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #2
  */
-export class EnumLimitValidator implements Validator {
-  readonly id = 'enum-limit';
-  readonly name = 'Enum Constant Limit Validator';
-  readonly tier = ValidationTier.IMMEDIATE;
-  readonly priority = 1;
+export const EnumLimitValidator: Validator = {
+  id: 'enum-limit',
+  name: 'Enum Constant Limit Validator',
+  tier: ValidationTier.IMMEDIATE,
+  priority: 1,
 
-  validate(
+  validate: (
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<ValidationResult, ValidationError> {
-    return Effect.gen(function* () {
+  ): Effect.Effect<ValidationResult, ValidationError> =>
+    Effect.gen(function* () {
       const errors: string[] = [];
       const warnings: string[] = [];
 
@@ -72,9 +72,8 @@ export class EnumLimitValidator implements Validator {
         errors,
         warnings,
       };
-    });
-  }
-}
+    }),
+};
 
 /**
  * Count the number of enum constants for an enum symbol.

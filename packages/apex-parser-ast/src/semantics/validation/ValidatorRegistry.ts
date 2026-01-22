@@ -47,11 +47,12 @@ export interface Validator {
   /**
    * Validate a symbol table
    * Returns an Effect that produces ValidationResult or ValidationError
+   * May have requirements (e.g., ArtifactLoadingHelper) that must be satisfied by providing layers
    */
   validate(
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<ValidationResult, ValidationError>;
+  ): Effect.Effect<ValidationResult, ValidationError, any>;
 }
 
 /**
@@ -92,12 +93,13 @@ export interface ValidatorRegistryService {
 
   /**
    * Run validators for a specific tier
+   * May have requirements from validators that must be satisfied by providing layers
    */
   readonly runValidatorsForTier: (
     tier: ValidationTier,
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ) => Effect.Effect<ReadonlyArray<ValidationResult>, ValidationError>;
+  ) => Effect.Effect<ReadonlyArray<ValidationResult>, ValidationError, any>;
 }
 
 /**
@@ -165,7 +167,7 @@ class ValidatorRegistryImpl implements ValidatorRegistryService {
     tier: ValidationTier,
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<ReadonlyArray<ValidationResult>, ValidationError> {
+  ): Effect.Effect<ReadonlyArray<ValidationResult>, ValidationError, any> {
     return Effect.gen(this, function* () {
       const validators = yield* this.getValidatorsByTier(tier);
 
@@ -240,6 +242,7 @@ export const getValidatorsByTier = (
 
 /**
  * Helper to run validators for a tier
+ * May have requirements from validators that must be satisfied by providing layers
  */
 export const runValidatorsForTier = (
   tier: ValidationTier,
@@ -248,7 +251,7 @@ export const runValidatorsForTier = (
 ): Effect.Effect<
   ReadonlyArray<ValidationResult>,
   ValidationError,
-  ValidatorRegistry
+  ValidatorRegistry | any
 > =>
   Effect.gen(function* () {
     const registry = yield* ValidatorRegistry;

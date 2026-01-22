@@ -17,18 +17,15 @@ import {
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 
 describe('EnumConstantNamingValidator', () => {
-  let validator: EnumConstantNamingValidator;
   const TEST_FILE_URI = 'file:///test.cls';
 
-  beforeEach(() => {
-    validator = new EnumConstantNamingValidator();
-  });
-
   it('should have correct metadata', () => {
-    expect(validator.id).toBe('enum-constant-naming');
-    expect(validator.name).toBe('Enum Constant Naming Validator');
-    expect(validator.tier).toBe(ValidationTier.IMMEDIATE);
-    expect(validator.priority).toBe(1);
+    expect(EnumConstantNamingValidator.id).toBe('enum-constant-naming');
+    expect(EnumConstantNamingValidator.name).toBe(
+      'Enum Constant Naming Validator',
+    );
+    expect(EnumConstantNamingValidator.tier).toBe(ValidationTier.IMMEDIATE);
+    expect(EnumConstantNamingValidator.priority).toBe(1);
   });
 
   it('should pass validation for valid enum constant names', async () => {
@@ -41,7 +38,7 @@ describe('EnumConstantNamingValidator', () => {
     ]);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      EnumConstantNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -63,7 +60,7 @@ describe('EnumConstantNamingValidator', () => {
     ]);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      EnumConstantNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -83,7 +80,7 @@ describe('EnumConstantNamingValidator', () => {
     ]);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      EnumConstantNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -107,7 +104,7 @@ describe('EnumConstantNamingValidator', () => {
     ]);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      EnumConstantNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -172,7 +169,7 @@ describe('EnumConstantNamingValidator', () => {
     symbolTable.addSymbol(constant2Invalid, enum2);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      EnumConstantNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -191,7 +188,7 @@ describe('EnumConstantNamingValidator', () => {
     const symbolTable = createEnumWithConstants('EmptyEnum', []);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      EnumConstantNamingValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,

@@ -40,17 +40,17 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
  * @see SEMANTIC_SYMBOL_RULES.md:265-286
  * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #5
  */
-export class MethodSignatureEquivalenceValidator implements Validator {
-  readonly id = 'method-signature-equivalence';
-  readonly name = 'Method Signature Equivalence Validator';
-  readonly tier = ValidationTier.THOROUGH;
-  readonly priority = 1;
+export const MethodSignatureEquivalenceValidator: Validator = {
+  id: 'method-signature-equivalence',
+  name: 'Method Signature Equivalence Validator',
+  tier: ValidationTier.THOROUGH,
+  priority: 1,
 
-  validate(
+  validate: (
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<ValidationResult, ValidationError> {
-    return Effect.gen(function* () {
+  ): Effect.Effect<ValidationResult, ValidationError> =>
+    Effect.gen(function* () {
       const errors: string[] = [];
       const warnings: string[] = [];
 
@@ -114,9 +114,8 @@ export class MethodSignatureEquivalenceValidator implements Validator {
         errors,
         warnings,
       };
-    });
-  }
-}
+    }),
+};
 
 /**
  * Check if two methods have equivalent signatures.

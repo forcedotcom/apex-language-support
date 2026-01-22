@@ -30,17 +30,17 @@ const MAX_PARAMETERS = 32;
  * @see SEMANTIC_SYMBOL_RULES.md:167
  * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #1
  */
-export class ParameterLimitValidator implements Validator {
-  readonly id = 'parameter-limit';
-  readonly name = 'Method Parameter Limit Validator';
-  readonly tier = ValidationTier.IMMEDIATE;
-  readonly priority = 1;
+export const ParameterLimitValidator: Validator = {
+  id: 'parameter-limit',
+  name: 'Method Parameter Limit Validator',
+  tier: ValidationTier.IMMEDIATE,
+  priority: 1,
 
-  validate(
+  validate: (
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<ValidationResult, ValidationError> {
-    return Effect.gen(function* () {
+  ): Effect.Effect<ValidationResult, ValidationError> =>
+    Effect.gen(function* () {
       const errors: string[] = [];
       const warnings: string[] = [];
 
@@ -76,9 +76,8 @@ export class ParameterLimitValidator implements Validator {
         errors,
         warnings,
       };
-    });
-  }
-}
+    }),
+};
 
 /**
  * Count the number of parameters for a method or constructor symbol.

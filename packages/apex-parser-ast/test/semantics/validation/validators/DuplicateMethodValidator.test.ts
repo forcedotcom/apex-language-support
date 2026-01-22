@@ -16,18 +16,13 @@ import {
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 
 describe('DuplicateMethodValidator', () => {
-  let validator: DuplicateMethodValidator;
   const TEST_FILE_URI = 'file:///test.cls';
 
-  beforeEach(() => {
-    validator = new DuplicateMethodValidator();
-  });
-
   it('should have correct metadata', () => {
-    expect(validator.id).toBe('duplicate-method');
-    expect(validator.name).toBe('Duplicate Method Validator');
-    expect(validator.tier).toBe(ValidationTier.IMMEDIATE);
-    expect(validator.priority).toBe(1);
+    expect(DuplicateMethodValidator.id).toBe('duplicate-method');
+    expect(DuplicateMethodValidator.name).toBe('Duplicate Method Validator');
+    expect(DuplicateMethodValidator.tier).toBe(ValidationTier.IMMEDIATE);
+    expect(DuplicateMethodValidator.priority).toBe(1);
   });
 
   it('should pass validation for class with unique method names', async () => {
@@ -38,7 +33,7 @@ describe('DuplicateMethodValidator', () => {
     ]);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      DuplicateMethodValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -59,7 +54,7 @@ describe('DuplicateMethodValidator', () => {
     ]);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      DuplicateMethodValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -79,7 +74,7 @@ describe('DuplicateMethodValidator', () => {
     const symbolTable = createClassWithMethods('MyClass', ['doWork', 'DoWork']);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      DuplicateMethodValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -107,7 +102,7 @@ describe('DuplicateMethodValidator', () => {
     ]);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      DuplicateMethodValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -216,7 +211,7 @@ describe('DuplicateMethodValidator', () => {
     symbolTable.addSymbol(method2, class2);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      DuplicateMethodValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -233,7 +228,7 @@ describe('DuplicateMethodValidator', () => {
     const symbolTable = createClassWithMethods('MyClass', ['singleMethod']);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      DuplicateMethodValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -250,7 +245,7 @@ describe('DuplicateMethodValidator', () => {
     const symbolTable = createClassWithMethods('EmptyClass', []);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      DuplicateMethodValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -402,7 +397,7 @@ describe('DuplicateMethodValidator', () => {
     symbolTable.addSymbol(method2b, class2);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      DuplicateMethodValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -490,7 +485,7 @@ describe('DuplicateMethodValidator', () => {
     symbolTable.addSymbol(method2, interfaceSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      DuplicateMethodValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,

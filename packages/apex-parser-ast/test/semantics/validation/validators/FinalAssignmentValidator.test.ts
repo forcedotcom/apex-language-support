@@ -18,18 +18,13 @@ import type { SymbolReference } from '../../../../src/types/symbolReference';
 import { ReferenceContext } from '../../../../src/types/symbolReference';
 
 describe('FinalAssignmentValidator', () => {
-  let validator: FinalAssignmentValidator;
   const TEST_FILE_URI = 'file:///test.cls';
 
-  beforeEach(() => {
-    validator = new FinalAssignmentValidator();
-  });
-
   it('should have correct metadata', () => {
-    expect(validator.id).toBe('final-assignment');
-    expect(validator.name).toBe('Final Assignment Validator');
-    expect(validator.tier).toBe(ValidationTier.IMMEDIATE);
-    expect(validator.priority).toBe(1);
+    expect(FinalAssignmentValidator.id).toBe('final-assignment');
+    expect(FinalAssignmentValidator.name).toBe('Final Assignment Validator');
+    expect(FinalAssignmentValidator.tier).toBe(ValidationTier.IMMEDIATE);
+    expect(FinalAssignmentValidator.priority).toBe(1);
   });
 
   it('should pass validation for final variable assigned once', async () => {
@@ -98,7 +93,7 @@ describe('FinalAssignmentValidator', () => {
     symbolTable.addTypeReference(reference);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      FinalAssignmentValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -195,7 +190,7 @@ describe('FinalAssignmentValidator', () => {
     symbolTable.addTypeReference(reference2);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      FinalAssignmentValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -286,7 +281,7 @@ describe('FinalAssignmentValidator', () => {
     symbolTable.addTypeReference(reference);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      FinalAssignmentValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -377,7 +372,7 @@ describe('FinalAssignmentValidator', () => {
     symbolTable.addTypeReference(reference);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      FinalAssignmentValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -461,7 +456,7 @@ describe('FinalAssignmentValidator', () => {
     symbolTable.addTypeReference(reference);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      FinalAssignmentValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -568,7 +563,7 @@ describe('FinalAssignmentValidator', () => {
     symbolTable.addTypeReference(reference2);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      FinalAssignmentValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -666,7 +661,7 @@ describe('FinalAssignmentValidator', () => {
     symbolTable.addTypeReference(reference2);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      FinalAssignmentValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -734,7 +729,7 @@ describe('FinalAssignmentValidator', () => {
     // No references - valid (assigned in declaration)
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      FinalAssignmentValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -831,7 +826,7 @@ describe('FinalAssignmentValidator', () => {
     symbolTable.addTypeReference(reference2);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      FinalAssignmentValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,

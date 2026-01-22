@@ -31,17 +31,17 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
  * @see SEMANTIC_SYMBOL_RULES.md:475-479
  * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #4
  */
-export class DuplicateMethodValidator implements Validator {
-  readonly id = 'duplicate-method';
-  readonly name = 'Duplicate Method Validator';
-  readonly tier = ValidationTier.IMMEDIATE;
-  readonly priority = 1;
+export const DuplicateMethodValidator: Validator = {
+  id: 'duplicate-method',
+  name: 'Duplicate Method Validator',
+  tier: ValidationTier.IMMEDIATE,
+  priority: 1,
 
-  validate(
+  validate: (
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<ValidationResult, ValidationError> {
-    return Effect.gen(function* () {
+  ): Effect.Effect<ValidationResult, ValidationError> =>
+    Effect.gen(function* () {
       const errors: string[] = [];
       const warnings: string[] = [];
 
@@ -110,6 +110,5 @@ export class DuplicateMethodValidator implements Validator {
         errors,
         warnings,
       };
-    });
-  }
-}
+    }),
+};

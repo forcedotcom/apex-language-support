@@ -17,18 +17,15 @@ import {
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 
 describe('TypeSelfReferenceValidator', () => {
-  let validator: TypeSelfReferenceValidator;
   const TEST_FILE_URI = 'file:///test.cls';
 
-  beforeEach(() => {
-    validator = new TypeSelfReferenceValidator();
-  });
-
   it('should have correct metadata', () => {
-    expect(validator.id).toBe('type-self-reference');
-    expect(validator.name).toBe('Type Self-Reference Validator');
-    expect(validator.tier).toBe(ValidationTier.IMMEDIATE);
-    expect(validator.priority).toBe(1);
+    expect(TypeSelfReferenceValidator.id).toBe('type-self-reference');
+    expect(TypeSelfReferenceValidator.name).toBe(
+      'Type Self-Reference Validator',
+    );
+    expect(TypeSelfReferenceValidator.tier).toBe(ValidationTier.IMMEDIATE);
+    expect(TypeSelfReferenceValidator.priority).toBe(1);
   });
 
   it('should pass validation for class extending different class', async () => {
@@ -55,7 +52,7 @@ describe('TypeSelfReferenceValidator', () => {
     symbolTable.addSymbol(classSymbol, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      TypeSelfReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -92,7 +89,7 @@ describe('TypeSelfReferenceValidator', () => {
     symbolTable.addSymbol(classSymbol, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      TypeSelfReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -131,7 +128,7 @@ describe('TypeSelfReferenceValidator', () => {
     symbolTable.addSymbol(classSymbol, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      TypeSelfReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -167,7 +164,7 @@ describe('TypeSelfReferenceValidator', () => {
     symbolTable.addSymbol(interfaceSymbol, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      TypeSelfReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -203,7 +200,7 @@ describe('TypeSelfReferenceValidator', () => {
     symbolTable.addSymbol(interfaceSymbol, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      TypeSelfReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -241,7 +238,7 @@ describe('TypeSelfReferenceValidator', () => {
     symbolTable.addSymbol(classSymbol, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      TypeSelfReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -277,7 +274,7 @@ describe('TypeSelfReferenceValidator', () => {
     symbolTable.addSymbol(classSymbol, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      TypeSelfReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -315,7 +312,7 @@ describe('TypeSelfReferenceValidator', () => {
     symbolTable.addSymbol(classSymbol, null);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      TypeSelfReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,

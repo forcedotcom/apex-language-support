@@ -18,18 +18,13 @@ import type { SymbolReference } from '../../../../src/types/symbolReference';
 import { ReferenceContext } from '../../../../src/types/symbolReference';
 
 describe('ForwardReferenceValidator', () => {
-  let validator: ForwardReferenceValidator;
   const TEST_FILE_URI = 'file:///test.cls';
 
-  beforeEach(() => {
-    validator = new ForwardReferenceValidator();
-  });
-
   it('should have correct metadata', () => {
-    expect(validator.id).toBe('forward-reference');
-    expect(validator.name).toBe('Forward Reference Validator');
-    expect(validator.tier).toBe(ValidationTier.IMMEDIATE);
-    expect(validator.priority).toBe(1);
+    expect(ForwardReferenceValidator.id).toBe('forward-reference');
+    expect(ForwardReferenceValidator.name).toBe('Forward Reference Validator');
+    expect(ForwardReferenceValidator.tier).toBe(ValidationTier.IMMEDIATE);
+    expect(ForwardReferenceValidator.priority).toBe(1);
   });
 
   it('should pass validation when variable is declared before use', async () => {
@@ -98,7 +93,7 @@ describe('ForwardReferenceValidator', () => {
     symbolTable.addTypeReference(reference);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ForwardReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -177,7 +172,7 @@ describe('ForwardReferenceValidator', () => {
     symbolTable.addTypeReference(reference);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ForwardReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -269,7 +264,7 @@ describe('ForwardReferenceValidator', () => {
     symbolTable.addTypeReference(reference);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ForwardReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -330,7 +325,7 @@ describe('ForwardReferenceValidator', () => {
     symbolTable.addSymbol(varSymbol, methodSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ForwardReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -411,7 +406,7 @@ describe('ForwardReferenceValidator', () => {
     symbolTable.addTypeReference(reference);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ForwardReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -508,7 +503,7 @@ describe('ForwardReferenceValidator', () => {
     symbolTable.addTypeReference(reference2);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ForwardReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -640,7 +635,7 @@ describe('ForwardReferenceValidator', () => {
     symbolTable.addTypeReference(ref2);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ForwardReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -726,7 +721,7 @@ describe('ForwardReferenceValidator', () => {
     symbolTable.addTypeReference(reference);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      ForwardReferenceValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,

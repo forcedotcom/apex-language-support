@@ -38,17 +38,17 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
  * @see SEMANTIC_SYMBOL_RULES.md:176-182
  * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #12
  */
-export class AbstractMethodBodyValidator implements Validator {
-  readonly id = 'abstract-method-body';
-  readonly name = 'Abstract Method Body Validator';
-  readonly tier = ValidationTier.IMMEDIATE;
-  readonly priority = 1;
+export const AbstractMethodBodyValidator: Validator = {
+  id: 'abstract-method-body',
+  name: 'Abstract Method Body Validator',
+  tier: ValidationTier.IMMEDIATE,
+  priority: 1,
 
-  validate(
+  validate: (
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<ValidationResult, ValidationError> {
-    return Effect.gen(function* () {
+  ): Effect.Effect<ValidationResult, ValidationError> =>
+    Effect.gen(function* () {
       const errors: string[] = [];
       const warnings: string[] = [];
 
@@ -130,6 +130,5 @@ export class AbstractMethodBodyValidator implements Validator {
         errors,
         warnings,
       };
-    });
-  }
-}
+    }),
+};

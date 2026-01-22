@@ -21,18 +21,19 @@ import { ValidationTier } from '../../../../src/semantics/validation/ValidationT
 import { createPrimitiveType } from '../../../../src/types/typeInfo';
 
 describe('MethodSignatureEquivalenceValidator', () => {
-  let validator: MethodSignatureEquivalenceValidator;
   const TEST_FILE_URI = 'file:///test.cls';
 
-  beforeEach(() => {
-    validator = new MethodSignatureEquivalenceValidator();
-  });
-
   it('should have correct metadata', () => {
-    expect(validator.id).toBe('method-signature-equivalence');
-    expect(validator.name).toBe('Method Signature Equivalence Validator');
-    expect(validator.tier).toBe(ValidationTier.THOROUGH);
-    expect(validator.priority).toBe(1);
+    expect(MethodSignatureEquivalenceValidator.id).toBe(
+      'method-signature-equivalence',
+    );
+    expect(MethodSignatureEquivalenceValidator.name).toBe(
+      'Method Signature Equivalence Validator',
+    );
+    expect(MethodSignatureEquivalenceValidator.tier).toBe(
+      ValidationTier.THOROUGH,
+    );
+    expect(MethodSignatureEquivalenceValidator.priority).toBe(1);
   });
 
   it('should pass validation for methods with same name but different parameter types', async () => {
@@ -164,7 +165,7 @@ describe('MethodSignatureEquivalenceValidator', () => {
     symbolTable.addSymbol(method2, classSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      MethodSignatureEquivalenceValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -304,7 +305,7 @@ describe('MethodSignatureEquivalenceValidator', () => {
     symbolTable.addSymbol(method2, classSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      MethodSignatureEquivalenceValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -446,7 +447,7 @@ describe('MethodSignatureEquivalenceValidator', () => {
     symbolTable.addSymbol(method2, classSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      MethodSignatureEquivalenceValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -609,7 +610,7 @@ describe('MethodSignatureEquivalenceValidator', () => {
     symbolTable.addSymbol(method2, classSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      MethodSignatureEquivalenceValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -749,7 +750,7 @@ describe('MethodSignatureEquivalenceValidator', () => {
     symbolTable.addSymbol(method2, classSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      MethodSignatureEquivalenceValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -842,7 +843,7 @@ describe('MethodSignatureEquivalenceValidator', () => {
     }
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      MethodSignatureEquivalenceValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -1001,7 +1002,7 @@ describe('MethodSignatureEquivalenceValidator', () => {
     symbolTable.addSymbol(method2, class2);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      MethodSignatureEquivalenceValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -1098,7 +1099,7 @@ describe('MethodSignatureEquivalenceValidator', () => {
     symbolTable.addSymbol(method2, classSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      MethodSignatureEquivalenceValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -1238,7 +1239,7 @@ describe('MethodSignatureEquivalenceValidator', () => {
     symbolTable.addSymbol(method2, interfaceSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      MethodSignatureEquivalenceValidator.validate(symbolTable, {
         tier: ValidationTier.THOROUGH,
         allowArtifactLoading: false,
         maxDepth: 1,

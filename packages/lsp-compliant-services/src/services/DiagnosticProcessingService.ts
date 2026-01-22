@@ -20,7 +20,7 @@ import {
   SymbolTable,
   VisibilitySymbolListener,
   ApexSymbolProcessingManager,
-  ISymbolManager,
+  type ISymbolManager,
   type CompilationResult,
   type CompilationResultWithComments,
   type CompilationResultWithAssociations,
@@ -29,8 +29,11 @@ import {
   ARTIFACT_LOADING_LIMITS,
   ValidatorRegistryLive,
   runValidatorsForTier,
+  EffectLspLoggerLive,
+  ArtifactLoadingHelperLive,
+  ISymbolManagerTag,
 } from '@salesforce/apex-lsp-parser-ast';
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 
 import {
   getDiagnosticsFromErrors,
@@ -577,8 +580,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     tier: ValidationTier,
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<Diagnostic[], never> {
-    return Effect.gen(function* () {
+  ): Effect.Effect<Diagnostic[], never, never> {
+    const effect = Effect.gen(function* () {
       try {
         // Run validators for this tier
         const results = yield* runValidatorsForTier(
@@ -640,7 +643,37 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         );
         return [];
       }
-    }).pipe(Effect.provide(ValidatorRegistryLive));
+    });
+
+    // Build layer stack conditionally based on whether symbolManager is available
+    if (options.symbolManager) {
+      // When symbolManager is available, provide all layers including ArtifactLoadingHelper
+      const symbolManagerLayer = Layer.succeed(
+        ISymbolManagerTag,
+        options.symbolManager,
+      );
+      const artifactHelperLayer = Layer.provide(
+        ArtifactLoadingHelperLive,
+        symbolManagerLayer,
+      );
+      const fullLayer = Layer.merge(
+        Layer.merge(ValidatorRegistryLive, EffectLspLoggerLive),
+        artifactHelperLayer,
+      );
+      return effect.pipe(Effect.provide(fullLayer)) as Effect.Effect<
+        Diagnostic[],
+        never,
+        never
+      >;
+    } else {
+      // When symbolManager is not available, just provide base layers
+      const baseLayer = Layer.merge(ValidatorRegistryLive, EffectLspLoggerLive);
+      return effect.pipe(Effect.provide(baseLayer)) as Effect.Effect<
+        Diagnostic[],
+        never,
+        never
+      >;
+    }
   }
 
   /**

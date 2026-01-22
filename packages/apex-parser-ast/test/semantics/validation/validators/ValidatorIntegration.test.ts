@@ -12,6 +12,7 @@ import {
   registerValidator,
   runValidatorsForTier,
 } from '../../../../src/semantics/validation/ValidatorRegistry';
+import { EffectTestLoggerLive } from '../../../../src/utils/EffectLspLoggerLayer';
 import { ParameterLimitValidator } from '../../../../src/semantics/validation/validators/ParameterLimitValidator';
 import { EnumLimitValidator } from '../../../../src/semantics/validation/validators/EnumLimitValidator';
 // eslint-disable-next-line max-len
@@ -47,20 +48,20 @@ describe('Validator Integration Tests', () => {
       // Register all twelve validators (10 TIER 1, 2 TIER 2)
 
       // TIER 1 (IMMEDIATE) validators
-      yield* registerValidator(new ParameterLimitValidator());
-      yield* registerValidator(new EnumLimitValidator());
-      yield* registerValidator(new EnumConstantNamingValidator());
-      yield* registerValidator(new DuplicateMethodValidator());
-      yield* registerValidator(new ConstructorNamingValidator());
-      yield* registerValidator(new TypeSelfReferenceValidator());
-      yield* registerValidator(new AbstractMethodBodyValidator());
-      yield* registerValidator(new VariableShadowingValidator());
-      yield* registerValidator(new ForwardReferenceValidator());
-      yield* registerValidator(new FinalAssignmentValidator());
+      yield* registerValidator(ParameterLimitValidator);
+      yield* registerValidator(EnumLimitValidator);
+      yield* registerValidator(EnumConstantNamingValidator);
+      yield* registerValidator(DuplicateMethodValidator);
+      yield* registerValidator(ConstructorNamingValidator);
+      yield* registerValidator(TypeSelfReferenceValidator);
+      yield* registerValidator(AbstractMethodBodyValidator);
+      yield* registerValidator(VariableShadowingValidator);
+      yield* registerValidator(ForwardReferenceValidator);
+      yield* registerValidator(FinalAssignmentValidator);
 
       // TIER 2 (THOROUGH) validators
-      yield* registerValidator(new MethodSignatureEquivalenceValidator());
-      yield* registerValidator(new InterfaceHierarchyValidator());
+      yield* registerValidator(MethodSignatureEquivalenceValidator);
+      yield* registerValidator(InterfaceHierarchyValidator);
 
       return 'Validators registered';
     }).pipe(Effect.provide(ValidatorRegistryLive));
@@ -102,7 +103,10 @@ describe('Validator Integration Tests', () => {
         maxDepth: 1,
         maxArtifacts: 5,
         timeout: 5000,
-      }).pipe(Effect.provide(ValidatorRegistryLive)),
+      }).pipe(
+        Effect.provide(ValidatorRegistryLive),
+        Effect.provide(EffectTestLoggerLive),
+      ),
     );
 
     // Should have 10 TIER 1 validators run
@@ -125,7 +129,10 @@ describe('Validator Integration Tests', () => {
         maxDepth: 1,
         maxArtifacts: 5,
         timeout: 5000,
-      }).pipe(Effect.provide(ValidatorRegistryLive)),
+      }).pipe(
+        Effect.provide(ValidatorRegistryLive),
+        Effect.provide(EffectTestLoggerLive),
+      ),
     );
 
     // Find the ParameterLimitValidator result
@@ -148,7 +155,10 @@ describe('Validator Integration Tests', () => {
         maxDepth: 1,
         maxArtifacts: 5,
         timeout: 5000,
-      }).pipe(Effect.provide(ValidatorRegistryLive)),
+      }).pipe(
+        Effect.provide(ValidatorRegistryLive),
+        Effect.provide(EffectTestLoggerLive),
+      ),
     );
 
     // Find the EnumLimitValidator result
@@ -171,7 +181,10 @@ describe('Validator Integration Tests', () => {
         maxDepth: 1,
         maxArtifacts: 5,
         timeout: 5000,
-      }).pipe(Effect.provide(ValidatorRegistryLive)),
+      }).pipe(
+        Effect.provide(ValidatorRegistryLive),
+        Effect.provide(EffectTestLoggerLive),
+      ),
     );
 
     // Find the EnumConstantNamingValidator result
@@ -194,7 +207,10 @@ describe('Validator Integration Tests', () => {
         maxDepth: 1,
         maxArtifacts: 5,
         timeout: 5000,
-      }).pipe(Effect.provide(ValidatorRegistryLive)),
+      }).pipe(
+        Effect.provide(ValidatorRegistryLive),
+        Effect.provide(EffectTestLoggerLive),
+      ),
     );
 
     // Find the DuplicateMethodValidator result
@@ -217,7 +233,10 @@ describe('Validator Integration Tests', () => {
         maxDepth: 1,
         maxArtifacts: 5,
         timeout: 5000,
-      }).pipe(Effect.provide(ValidatorRegistryLive)),
+      }).pipe(
+        Effect.provide(ValidatorRegistryLive),
+        Effect.provide(EffectTestLoggerLive),
+      ),
     );
 
     // Find the ConstructorNamingValidator result
@@ -292,7 +311,10 @@ describe('Validator Integration Tests', () => {
         maxDepth: 1,
         maxArtifacts: 5,
         timeout: 5000,
-      }).pipe(Effect.provide(ValidatorRegistryLive)),
+      }).pipe(
+        Effect.provide(ValidatorRegistryLive),
+        Effect.provide(EffectTestLoggerLive),
+      ),
     );
 
     // Should have at least 2 validators report errors
@@ -336,7 +358,10 @@ describe('Validator Integration Tests', () => {
         maxDepth: 1,
         maxArtifacts: 5,
         timeout: 5000,
-      }).pipe(Effect.provide(ValidatorRegistryLive)),
+      }).pipe(
+        Effect.provide(ValidatorRegistryLive),
+        Effect.provide(EffectTestLoggerLive),
+      ),
     );
 
     // Should have 2 TIER 2 validators run (MethodSignatureEquivalence, InterfaceHierarchy)

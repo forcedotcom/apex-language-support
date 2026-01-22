@@ -115,6 +115,21 @@ export type {
   ValidatorRegistration,
   ValidatorRegistryService,
 } from './semantics/validation/ValidatorRegistry';
+// Artifact Loading Helper
+export {
+  ArtifactLoadingHelper,
+  ArtifactLoadingHelperLive,
+  ISymbolManager as ISymbolManagerTag,
+} from './semantics/validation/ArtifactLoadingHelper';
+export type {
+  ArtifactLoadingHelperService,
+  LoadResult,
+} from './semantics/validation/ArtifactLoadingHelper';
+// Effect Logger Layer for bridging Effect logging to LSP logger
+export {
+  EffectLspLoggerLive,
+  EffectTestLoggerLive,
+} from './utils/EffectLspLoggerLayer';
 // Validator implementations
 export { ParameterLimitValidator } from './semantics/validation/validators/ParameterLimitValidator';
 export { EnumLimitValidator } from './semantics/validation/validators/EnumLimitValidator';

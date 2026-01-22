@@ -18,18 +18,15 @@ import {
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 
 describe('AbstractMethodBodyValidator', () => {
-  let validator: AbstractMethodBodyValidator;
   const TEST_FILE_URI = 'file:///test.cls';
 
-  beforeEach(() => {
-    validator = new AbstractMethodBodyValidator();
-  });
-
   it('should have correct metadata', () => {
-    expect(validator.id).toBe('abstract-method-body');
-    expect(validator.name).toBe('Abstract Method Body Validator');
-    expect(validator.tier).toBe(ValidationTier.IMMEDIATE);
-    expect(validator.priority).toBe(1);
+    expect(AbstractMethodBodyValidator.id).toBe('abstract-method-body');
+    expect(AbstractMethodBodyValidator.name).toBe(
+      'Abstract Method Body Validator',
+    );
+    expect(AbstractMethodBodyValidator.tier).toBe(ValidationTier.IMMEDIATE);
+    expect(AbstractMethodBodyValidator.priority).toBe(1);
   });
 
   it('should pass validation for abstract method without body', async () => {
@@ -86,7 +83,7 @@ describe('AbstractMethodBodyValidator', () => {
     symbolTable.addSymbol(methodSymbol, classSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      AbstractMethodBodyValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -166,7 +163,7 @@ describe('AbstractMethodBodyValidator', () => {
     symbolTable.addSymbol(blockSymbol, methodSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      AbstractMethodBodyValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -235,7 +232,7 @@ describe('AbstractMethodBodyValidator', () => {
     symbolTable.addSymbol(methodSymbol, classSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      AbstractMethodBodyValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -319,7 +316,7 @@ describe('AbstractMethodBodyValidator', () => {
     symbolTable.addSymbol(blockSymbol, methodSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      AbstractMethodBodyValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -380,7 +377,7 @@ describe('AbstractMethodBodyValidator', () => {
     symbolTable.addSymbol(methodSymbol, interfaceSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      AbstractMethodBodyValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -441,7 +438,7 @@ describe('AbstractMethodBodyValidator', () => {
     symbolTable.addSymbol(methodSymbol, interfaceSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      AbstractMethodBodyValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -551,7 +548,7 @@ describe('AbstractMethodBodyValidator', () => {
     symbolTable.addSymbol(blockSymbol, concreteMethod);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      AbstractMethodBodyValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
@@ -619,7 +616,7 @@ describe('AbstractMethodBodyValidator', () => {
     symbolTable.addSymbol(methodSymbol, classSymbol);
 
     const result = await Effect.runPromise(
-      validator.validate(symbolTable, {
+      AbstractMethodBodyValidator.validate(symbolTable, {
         tier: ValidationTier.IMMEDIATE,
         allowArtifactLoading: false,
         maxDepth: 1,
