@@ -284,7 +284,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           this.enhanceDiagnosticsWithGraphAnalysisEffect(
             cached.diagnostics,
             params.textDocument.uri,
-            [],
           ),
         );
 
@@ -415,7 +414,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         this.enhanceDiagnosticsWithGraphAnalysisEffect(
           diagnostics,
           params.textDocument.uri,
-          result.errors,
         ),
       );
 
@@ -494,29 +492,11 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
   }
 
   /**
-   * Enhance diagnostics with cross-file analysis using ApexSymbolManager
-   */
-  private async enhanceDiagnosticsWithGraphAnalysis(
-    diagnostics: Diagnostic[],
-    documentUri: string,
-    parsingErrors: any[],
-  ): Promise<Diagnostic[]> {
-    return await Effect.runPromise(
-      this.enhanceDiagnosticsWithGraphAnalysisEffect(
-        diagnostics,
-        documentUri,
-        parsingErrors,
-      ),
-    );
-  }
-
-  /**
    * Enhance diagnostics with cross-file analysis using ApexSymbolManager (Effect-based with yielding)
    */
   private enhanceDiagnosticsWithGraphAnalysisEffect(
     diagnostics: Diagnostic[],
     documentUri: string,
-    parsingErrors: any[],
   ): Effect.Effect<Diagnostic[], never, never> {
     const self = this;
     return Effect.gen(function* () {
