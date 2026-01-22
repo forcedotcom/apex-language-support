@@ -1,0 +1,93 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+import { Effect } from 'effect';
+import type { SymbolTable, ApexSymbol } from '../../../types/symbol';
+import type { ValidationResult } from '../ValidationResult';
+import type { ValidationOptions } from '../ValidationTier';
+import { ValidationTier } from '../ValidationTier';
+import { ValidationError, type Validator } from '../ValidatorRegistry';
+
+/**
+ * Maximum number of constants allowed in an enum
+ * Per Apex Jorje semantic rules: SEMANTIC_SYMBOL_RULES.md:378
+ */
+const MAX_ENUM_CONSTANTS = 100;
+
+/**
+ * Validates that enums do not exceed the constant limit.
+ *
+ * Apex enforces a maximum of 100 constants per enum.
+ * This is a TIER 1 (IMMEDIATE) validation - fast, same-file only.
+ *
+ * Error: "Enum '{name}' has {count} constants, but the maximum is 100"
+ *
+ * @see SEMANTIC_SYMBOL_RULES.md:378
+ * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #2
+ */
+export class EnumLimitValidator implements Validator {
+  readonly id = 'enum-limit';
+  readonly name = 'Enum Constant Limit Validator';
+  readonly tier = ValidationTier.IMMEDIATE;
+  readonly priority = 1;
+
+  validate(
+    symbolTable: SymbolTable,
+    options: ValidationOptions,
+  ): Effect.Effect<ValidationResult, ValidationError> {
+    return Effect.gen(function* () {
+      const errors: string[] = [];
+      const warnings: string[] = [];
+
+      // Get all symbols from the table
+      const allSymbols = symbolTable.getAllSymbols();
+
+      // Filter to enums
+      const enums = allSymbols.filter((symbol) => symbol.kind === 'enum');
+
+      // Check constant count for each enum
+      for (const enumSymbol of enums) {
+        const constantCount = countEnumConstants(enumSymbol, allSymbols);
+
+        if (constantCount > MAX_ENUM_CONSTANTS) {
+          errors.push(
+            `Enum '${enumSymbol.name}' has ${constantCount} constants, ` +
+              `but the maximum is ${MAX_ENUM_CONSTANTS}`,
+          );
+        }
+      }
+
+      yield* Effect.logDebug(
+        `EnumLimitValidator: checked ${enums.length} enums, ` +
+          `found ${errors.length} violations`,
+      );
+
+      return {
+        isValid: errors.length === 0,
+        errors,
+        warnings,
+      };
+    });
+  }
+}
+
+/**
+ * Count the number of enum constants for an enum symbol.
+ * Enum constants are child symbols with kind 'enumValue'.
+ */
+function countEnumConstants(
+  enumSymbol: ApexSymbol,
+  allSymbols: ApexSymbol[],
+): number {
+  // Find children with kind 'enumValue'
+  const constants = allSymbols.filter(
+    (symbol) =>
+      symbol.parentId === enumSymbol.id && symbol.kind === 'enumValue',
+  );
+  return constants.length;
+}

@@ -89,6 +89,43 @@ export * from './symbols/ApexSymbolProcessingManager';
 // Export semantic validators
 export * from './semantics/modifiers/index';
 export * from './semantics/annotations/index';
+// Export validation tier types (selective to avoid conflicts)
+export {
+  ValidationTier,
+  ARTIFACT_LOADING_LIMITS,
+} from './semantics/validation/ValidationTier';
+export type {
+  ArtifactLoadingOptions,
+  ValidationOptions,
+} from './semantics/validation/ValidationTier';
+export type {
+  ValidationResult,
+  ValidationScope,
+} from './semantics/validation/ValidationResult';
+export {
+  ValidatorRegistry,
+  ValidatorRegistryLive,
+  registerValidator,
+  getValidatorsByTier,
+  runValidatorsForTier,
+  ValidationError,
+} from './semantics/validation/ValidatorRegistry';
+export type {
+  Validator,
+  ValidatorRegistration,
+  ValidatorRegistryService,
+} from './semantics/validation/ValidatorRegistry';
+// Validator implementations
+export { ParameterLimitValidator } from './semantics/validation/validators/ParameterLimitValidator';
+export { EnumLimitValidator } from './semantics/validation/validators/EnumLimitValidator';
+export { EnumConstantNamingValidator } from './semantics/validation/validators/EnumConstantNamingValidator';
+export { DuplicateMethodValidator } from './semantics/validation/validators/DuplicateMethodValidator';
+export { ConstructorNamingValidator } from './semantics/validation/validators/ConstructorNamingValidator';
+export { TypeSelfReferenceValidator } from './semantics/validation/validators/TypeSelfReferenceValidator';
+export { AbstractMethodBodyValidator } from './semantics/validation/validators/AbstractMethodBodyValidator';
+export { VariableShadowingValidator } from './semantics/validation/validators/VariableShadowingValidator';
+export { ForwardReferenceValidator } from './semantics/validation/validators/ForwardReferenceValidator';
+export { FinalAssignmentValidator } from './semantics/validation/validators/FinalAssignmentValidator';
 
 // Export protocol handler utilities
 export * from './types/ProtocolHandler';

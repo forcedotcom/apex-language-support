@@ -6,8 +6,15 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Diagnostic, DocumentDiagnosticParams } from 'vscode-languageserver';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  Diagnostic,
+  DocumentDiagnosticParams,
+  DiagnosticSeverity,
+} from 'vscode-languageserver';
+import {
+  LoggerInterface,
+  ApexSettingsManager,
+} from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,
   SymbolTable,
@@ -17,6 +24,11 @@ import {
   type CompilationResult,
   type CompilationResultWithComments,
   type CompilationResultWithAssociations,
+  ValidationTier,
+  ValidationOptions,
+  ARTIFACT_LOADING_LIMITS,
+  ValidatorRegistryLive,
+  runValidatorsForTier,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
@@ -261,13 +273,65 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           );
         }
         // Convert cached errors to diagnostics and enhance (with yielding)
-        return await Effect.runPromise(
+        const enhancedCachedDiagnostics = await Effect.runPromise(
           this.enhanceDiagnosticsWithGraphAnalysisEffect(
             cached.diagnostics,
             params.textDocument.uri,
             [],
           ),
         );
+
+        // Run layered semantic validation if enabled (new system)
+        if (this.isLayeredDiagnosticsEnabled()) {
+          this.logger.debug(
+            () =>
+              `Running layered semantic validation for cached result: ${params.textDocument.uri}`,
+          );
+
+          // Get SymbolTable from ApexSymbolManager
+          const cachedTable = this.symbolManager.getSymbolTableForFile(
+            params.textDocument.uri,
+          );
+
+          if (cachedTable) {
+            // Get settings for artifact loading
+            const settings = ApexSettingsManager.getInstance().getSettings();
+            const allowArtifactLoading =
+              settings.apex.findMissingArtifact.enabled ?? false;
+
+            // Build validation options
+            const validationOptions: ValidationOptions = {
+              tier: ValidationTier.THOROUGH,
+              allowArtifactLoading,
+              maxDepth: ARTIFACT_LOADING_LIMITS.maxDepth,
+              maxArtifacts: ARTIFACT_LOADING_LIMITS.maxArtifacts,
+              timeout: ARTIFACT_LOADING_LIMITS.timeout,
+              progressToken: params.workDoneToken,
+            };
+
+            // Run validators
+            const immediateResults = await this.runSemanticValidators(
+              ValidationTier.IMMEDIATE,
+              cachedTable,
+              { ...validationOptions, tier: ValidationTier.IMMEDIATE },
+            );
+
+            const thoroughResults = await this.runSemanticValidators(
+              ValidationTier.THOROUGH,
+              cachedTable,
+              validationOptions,
+            );
+
+            // Combine all diagnostics
+            return [
+              ...enhancedCachedDiagnostics,
+              ...immediateResults,
+              ...thoroughResults,
+            ];
+          }
+        }
+
+        return enhancedCachedDiagnostics;
       }
 
       // Create a symbol collector listener
@@ -345,6 +409,62 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           result.errors,
         ),
       );
+
+      // Run layered semantic validation if enabled (new system)
+      if (this.isLayeredDiagnosticsEnabled() && table) {
+        this.logger.debug(
+          () =>
+            `Running layered semantic validation for: ${params.textDocument.uri}`,
+        );
+
+        // Get settings for artifact loading
+        const settings = ApexSettingsManager.getInstance().getSettings();
+        const allowArtifactLoading =
+          settings.apex.findMissingArtifact.enabled ?? false;
+
+        // Build validation options
+        const validationOptions: ValidationOptions = {
+          tier: ValidationTier.THOROUGH, // Pull diagnostics = thorough
+          allowArtifactLoading,
+          maxDepth: ARTIFACT_LOADING_LIMITS.maxDepth,
+          maxArtifacts: ARTIFACT_LOADING_LIMITS.maxArtifacts,
+          timeout: ARTIFACT_LOADING_LIMITS.timeout,
+          progressToken: params.workDoneToken,
+        };
+
+        // Run validators (both IMMEDIATE and THOROUGH for pull diagnostics)
+        const immediateResults = await this.runSemanticValidators(
+          ValidationTier.IMMEDIATE,
+          table,
+          { ...validationOptions, tier: ValidationTier.IMMEDIATE },
+        );
+
+        const thoroughResults = await this.runSemanticValidators(
+          ValidationTier.THOROUGH,
+          table,
+          validationOptions,
+        );
+
+        this.logger.debug(
+          () =>
+            `Layered validation produced ${immediateResults.length} immediate ` +
+            ` ${thoroughResults.length} thorough diagnostics`,
+        );
+
+        // Combine all diagnostics
+        const allDiagnostics = [
+          ...enhancedDiagnostics,
+          ...immediateResults,
+          ...thoroughResults,
+        ];
+
+        this.logger.debug(
+          () =>
+            `Returning ${allDiagnostics.length} total diagnostics for: ${params.textDocument.uri}`,
+        );
+        return allDiagnostics;
+      }
+
       this.logger.debug(
         () =>
           `Returning ${enhancedDiagnostics.length} diagnostics for: ${params.textDocument.uri}`,
@@ -455,5 +575,108 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         return diagnostics; // Return original diagnostics on error
       }
     });
+  }
+
+  /**
+   * Run semantic validators for a specific tier (Effect-based)
+   * This is the new layered validation system using ValidatorRegistry
+   */
+  private runSemanticValidatorsEffect(
+    tier: ValidationTier,
+    symbolTable: SymbolTable,
+    options: ValidationOptions,
+  ): Effect.Effect<Diagnostic[], never> {
+    return Effect.gen(function* () {
+      try {
+        // Run validators for this tier
+        const results = yield* runValidatorsForTier(
+          tier,
+          symbolTable,
+          options,
+        ).pipe(
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              yield* Effect.logError(
+                `Error running validators for tier ${tier}: ${error.message}`,
+              );
+              return []; // Return empty results on error
+            }),
+          ),
+        );
+
+        // Convert ValidationResult[] to Diagnostic[]
+        const diagnostics: Diagnostic[] = [];
+
+        for (const result of results) {
+          // Add errors
+          for (const error of result.errors) {
+            diagnostics.push({
+              range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 0 },
+              },
+              message: error,
+              severity: DiagnosticSeverity.Error,
+              code: 'SEMANTIC_ERROR',
+              source: 'apex-semantic-validator',
+            });
+          }
+
+          // Add warnings
+          for (const warning of result.warnings) {
+            diagnostics.push({
+              range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 0 },
+              },
+              message: warning,
+              severity: DiagnosticSeverity.Warning,
+              code: 'SEMANTIC_WARNING',
+              source: 'apex-semantic-validator',
+            });
+          }
+        }
+
+        yield* Effect.logDebug(
+          `Tier ${tier} validation produced ${diagnostics.length} diagnostics`,
+        );
+
+        return diagnostics;
+      } catch (error) {
+        yield* Effect.logError(
+          `Unexpected error in semantic validation: ${error}`,
+        );
+        return [];
+      }
+    }).pipe(Effect.provide(ValidatorRegistryLive));
+  }
+
+  /**
+   * Run semantic validators for a specific tier (async wrapper)
+   */
+  private async runSemanticValidators(
+    tier: ValidationTier,
+    symbolTable: SymbolTable,
+    options: ValidationOptions,
+  ): Promise<Diagnostic[]> {
+    return await Effect.runPromise(
+      this.runSemanticValidatorsEffect(tier, symbolTable, options),
+    );
+  }
+
+  /**
+   * Check if layered diagnostics feature is enabled
+   */
+  private isLayeredDiagnosticsEnabled(): boolean {
+    try {
+      const settings = ApexSettingsManager.getInstance().getSettings();
+      // Feature flag for layered diagnostics (default: false during rollout)
+      return settings.apex?.validation?.layeredDiagnostics?.enabled ?? false;
+    } catch (error) {
+      this.logger.debug(
+        () => `Error checking layered diagnostics setting: ${error}`,
+      );
+      return false;
+    }
   }
 }

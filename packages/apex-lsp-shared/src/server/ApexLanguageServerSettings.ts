@@ -251,6 +251,17 @@ export interface SchedulerSettings {
 }
 
 /**
+ * Validation settings
+ */
+export interface ValidationSettings {
+  /** Layered diagnostics settings */
+  layeredDiagnostics?: {
+    /** Enable layered diagnostics (PublishDiagnostics + Pull Diagnostics) */
+    enabled: boolean;
+  };
+}
+
+/**
  * Complete Apex Language Server settings
  */
 export interface ApexLanguageServerSettings {
@@ -281,6 +292,9 @@ export interface ApexLanguageServerSettings {
 
     /** Deferred reference processing settings */
     deferredReferenceProcessing?: DeferredReferenceProcessingSettings;
+
+    /** Validation settings */
+    validation?: ValidationSettings;
 
     /** Server version for compatibility checks */
     version?: string;
