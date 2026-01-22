@@ -126,6 +126,9 @@ export { AbstractMethodBodyValidator } from './semantics/validation/validators/A
 export { VariableShadowingValidator } from './semantics/validation/validators/VariableShadowingValidator';
 export { ForwardReferenceValidator } from './semantics/validation/validators/ForwardReferenceValidator';
 export { FinalAssignmentValidator } from './semantics/validation/validators/FinalAssignmentValidator';
+// eslint-disable-next-line max-len
+export { MethodSignatureEquivalenceValidator } from './semantics/validation/validators/MethodSignatureEquivalenceValidator';
+export { InterfaceHierarchyValidator } from './semantics/validation/validators/InterfaceHierarchyValidator';
 
 // Export protocol handler utilities
 export * from './types/ProtocolHandler';

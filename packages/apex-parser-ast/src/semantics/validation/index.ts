@@ -60,6 +60,8 @@ export { AbstractMethodBodyValidator } from './validators/AbstractMethodBodyVali
 export { VariableShadowingValidator } from './validators/VariableShadowingValidator';
 export { ForwardReferenceValidator } from './validators/ForwardReferenceValidator';
 export { FinalAssignmentValidator } from './validators/FinalAssignmentValidator';
+export { MethodSignatureEquivalenceValidator } from './validators/MethodSignatureEquivalenceValidator';
+export { InterfaceHierarchyValidator } from './validators/InterfaceHierarchyValidator';
 export type {
   TypeInfo,
   TypeValidationResult,
