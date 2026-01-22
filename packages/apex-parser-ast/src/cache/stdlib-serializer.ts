@@ -58,13 +58,11 @@ export interface NamespaceData {
  */
 export class StandardLibrarySerializer {
   /**
-   * Serialize the entire standard library to protobuf format
+   * Serialize the entire standard library to protobuf format.
+   * Note: version is intentionally omitted - the library is updated manually
+   * by external processes and the source checksum provides integrity verification.
    */
-  serialize(
-    namespaces: NamespaceData[],
-    version: string,
-    sourceChecksum: string,
-  ): Uint8Array {
+  serialize(namespaces: NamespaceData[], sourceChecksum: string): Uint8Array {
     const protoNamespaces: ProtoNamespace[] = [];
 
     for (const ns of namespaces) {
@@ -84,7 +82,6 @@ export class StandardLibrarySerializer {
     }
 
     const stdlib = StandardLibrary.create({
-      version,
       generatedAt: new Date().toISOString(),
       sourceChecksum,
       namespaces: protoNamespaces,

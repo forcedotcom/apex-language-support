@@ -54,7 +54,6 @@ export interface DeserializationResult {
   allTypes: TypeSymbol[];
   /** Metadata about the cache */
   metadata: {
-    version: string;
     generatedAt: string;
     sourceChecksum: string;
     namespaceCount: number;
@@ -101,7 +100,6 @@ export class StandardLibraryDeserializer {
       symbolTables,
       allTypes,
       metadata: {
-        version: proto.version,
         generatedAt: proto.generatedAt,
         sourceChecksum: proto.sourceChecksum,
         namespaceCount: proto.namespaces.length,

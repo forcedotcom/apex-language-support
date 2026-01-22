@@ -82,15 +82,15 @@ function loadProtobufFromDisk(): Uint8Array | undefined {
     // - dist/cache/ (if bundled)
     const possiblePaths = [
       // From out/cache/ -> ../../resources/
-      path.resolve(__dirname, '../../resources/apex-stdlib-v59.0.pb.gz'),
+      path.resolve(__dirname, '../../resources/apex-stdlib.pb.gz'),
       // From out/cache/ -> ../../../resources/ (if nested deeper)
-      path.resolve(__dirname, '../../../resources/apex-stdlib-v59.0.pb.gz'),
+      path.resolve(__dirname, '../../../resources/apex-stdlib.pb.gz'),
       // From src/cache/ -> ../../resources/
-      path.resolve(__dirname, '../../resources/apex-stdlib-v59.0.pb.gz'),
+      path.resolve(__dirname, '../../resources/apex-stdlib.pb.gz'),
       // From dist/ -> resources/
-      path.resolve(__dirname, '../resources/apex-stdlib-v59.0.pb.gz'),
+      path.resolve(__dirname, '../resources/apex-stdlib.pb.gz'),
       // Absolute path based on process.cwd() for test environments
-      path.resolve(process.cwd(), 'resources/apex-stdlib-v59.0.pb.gz'),
+      path.resolve(process.cwd(), 'resources/apex-stdlib.pb.gz'),
     ];
 
     for (const pbPath of possiblePaths) {
@@ -295,9 +295,9 @@ export class StandardLibraryCacheLoader {
    * Validate the deserialization result
    */
   private validateResult(result: DeserializationResult): boolean {
-    // Check metadata is present
-    if (!result.metadata.version || !result.metadata.sourceChecksum) {
-      this.logger.warn('Protobuf cache missing version or checksum');
+    // Check metadata is present (version is intentionally not required)
+    if (!result.metadata.sourceChecksum) {
+      this.logger.warn('Protobuf cache missing checksum');
       return false;
     }
 

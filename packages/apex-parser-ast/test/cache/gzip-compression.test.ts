@@ -114,7 +114,6 @@ describe('Gzip Compression', () => {
 
       const protobufBinary = serializer.serialize(
         namespaceData,
-        '59.0',
         'test-checksum',
       );
 
@@ -222,7 +221,6 @@ describe('Gzip Compression', () => {
 
       const protobufBinary = serializer.serialize(
         namespaceData,
-        '59.0',
         'test-checksum',
       );
 
@@ -267,7 +265,6 @@ describe('Gzip Compression', () => {
       // Serialize to protobuf
       const protobufBinary = serializer.serialize(
         namespaceData,
-        '59.0',
         'round-trip-checksum',
       );
 
@@ -281,7 +278,6 @@ describe('Gzip Compression', () => {
       const result = deserializer.deserializeFromBinary(decompressed);
 
       // Verify data integrity
-      expect(result.metadata.version).toBe('59.0');
       expect(result.metadata.sourceChecksum).toBe('round-trip-checksum');
       expect(result.metadata.namespaceCount).toBe(1);
       expect(result.metadata.typeCount).toBe(1);
@@ -312,7 +308,7 @@ describe('Gzip Compression', () => {
       ];
 
       // Full pipeline
-      const binary = serializer.serialize(namespaceData, '60.0', 'multi-type');
+      const binary = serializer.serialize(namespaceData, 'multi-type');
       const compressed = gzipSync(binary, { level: 9 });
       const decompressed = gunzipSync(compressed);
       const result = deserializer.deserializeFromBinary(decompressed);
@@ -340,15 +336,13 @@ describe('Gzip Compression', () => {
         },
       ];
 
-      const version = '61.0';
       const checksum = 'metadata-integrity-test-12345';
 
-      const binary = serializer.serialize(namespaceData, version, checksum);
+      const binary = serializer.serialize(namespaceData, checksum);
       const compressed = gzipSync(binary);
       const decompressed = gunzipSync(compressed);
       const result = deserializer.deserializeFromBinary(decompressed);
 
-      expect(result.metadata.version).toBe(version);
       expect(result.metadata.sourceChecksum).toBe(checksum);
       expect(result.metadata.generatedAt).toBeDefined();
     });
@@ -382,11 +376,7 @@ describe('Gzip Compression', () => {
         },
       ];
 
-      const protobufBinary = serializer.serialize(
-        namespaceData,
-        '59.0',
-        'base64-test',
-      );
+      const protobufBinary = serializer.serialize(namespaceData, 'base64-test');
 
       // Compress
       const compressed = gzipSync(protobufBinary, { level: 9 });

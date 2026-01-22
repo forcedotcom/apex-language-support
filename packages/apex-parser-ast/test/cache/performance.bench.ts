@@ -126,7 +126,7 @@ describe('Performance Benchmarks', () => {
 
       const pbPath = path.resolve(
         __dirname,
-        '../../resources/apex-stdlib-v59.0.pb.gz',
+        '../../resources/apex-stdlib.pb.gz',
       );
 
       if (!fs.existsSync(pbPath)) {

@@ -91,7 +91,7 @@ export function createTestProtobufData(): Uint8Array {
     },
   ];
 
-  return serializer.serialize(namespaceData, '59.0', 'test-checksum');
+  return serializer.serialize(namespaceData, 'test-checksum');
 }
 
 /**
@@ -292,19 +292,13 @@ export function createTestParameterSymbol(
  */
 export function createTestStandardLibraryProto(
   options: {
-    version?: string;
     sourceChecksum?: string;
     namespaces?: { name: string; types: TypeSymbol[] }[];
   } = {},
 ): StandardLibrary {
-  const {
-    version = '59.0',
-    sourceChecksum = 'test-checksum',
-    namespaces = [],
-  } = options;
+  const { sourceChecksum = 'test-checksum', namespaces = [] } = options;
 
   return StandardLibrary.create({
-    version,
     generatedAt: new Date().toISOString(),
     sourceChecksum,
     namespaces: namespaces.map((ns) => ({

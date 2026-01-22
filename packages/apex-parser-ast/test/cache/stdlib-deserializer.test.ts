@@ -85,7 +85,6 @@ describe('StandardLibraryDeserializer', () => {
   describe('Basic Deserialization', () => {
     it('deserializes from binary buffer', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'test-checksum',
         namespaces: [],
@@ -95,13 +94,11 @@ describe('StandardLibraryDeserializer', () => {
       const result = deserializer.deserializeFromBinary(binary);
 
       expect(result).toBeDefined();
-      expect(result.metadata.version).toBe('59.0');
       expect(result.metadata.sourceChecksum).toBe('test-checksum');
     });
 
     it('deserializes empty library', () => {
       const proto = StandardLibrary.create({
-        version: '60.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'empty-checksum',
         namespaces: [],
@@ -118,7 +115,6 @@ describe('StandardLibraryDeserializer', () => {
     it('deserializes with metadata validation', () => {
       const generatedAt = '2025-01-16T12:00:00.000Z';
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt,
         sourceChecksum: 'abc123',
         namespaces: [
@@ -141,7 +137,6 @@ describe('StandardLibraryDeserializer', () => {
 
       const result = deserializer.deserialize(proto);
 
-      expect(result.metadata.version).toBe('59.0');
       expect(result.metadata.generatedAt).toBe(generatedAt);
       expect(result.metadata.sourceChecksum).toBe('abc123');
       expect(result.metadata.namespaceCount).toBe(1);
@@ -152,7 +147,6 @@ describe('StandardLibraryDeserializer', () => {
   describe('Type Symbol Deserialization', () => {
     it('deserializes to correct SymbolKind for Class', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [
@@ -182,7 +176,6 @@ describe('StandardLibraryDeserializer', () => {
 
     it('deserializes to correct SymbolKind for Interface', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [
@@ -209,7 +202,6 @@ describe('StandardLibraryDeserializer', () => {
 
     it('deserializes to correct SymbolKind for Enum', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [
@@ -236,7 +228,6 @@ describe('StandardLibraryDeserializer', () => {
 
     it('deserializes to correct SymbolKind for Trigger', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [
@@ -263,7 +254,6 @@ describe('StandardLibraryDeserializer', () => {
 
     it('preserves FQN and file URI', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [
@@ -293,7 +283,6 @@ describe('StandardLibraryDeserializer', () => {
 
     it('handles missing optional fields', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [
@@ -327,7 +316,6 @@ describe('StandardLibraryDeserializer', () => {
   describe('Method Symbol Deserialization', () => {
     it('reconstructs method signatures', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [
@@ -383,7 +371,6 @@ describe('StandardLibraryDeserializer', () => {
 
     it('handles constructors correctly', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [
@@ -436,7 +423,6 @@ describe('StandardLibraryDeserializer', () => {
 
       for (const { proto: protoVis, expected } of visibilityTests) {
         const proto = StandardLibrary.create({
-          version: '59.0',
           generatedAt: new Date().toISOString(),
           sourceChecksum: 'checksum',
           namespaces: [
@@ -464,7 +450,6 @@ describe('StandardLibraryDeserializer', () => {
 
     it('preserves all modifier flags', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [
@@ -538,7 +523,6 @@ describe('StandardLibraryDeserializer', () => {
     it('handles corrupted protobuf gracefully', () => {
       // Start with valid data and corrupt it
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [],
@@ -566,7 +550,6 @@ describe('StandardLibraryDeserializer', () => {
   describe('Edge Cases', () => {
     it('handles proto with empty namespaces', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [
@@ -586,7 +569,6 @@ describe('StandardLibraryDeserializer', () => {
 
     it('handles multiple types in same namespace', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [
@@ -624,7 +606,6 @@ describe('StandardLibraryDeserializer', () => {
 
     it('handles type with empty name', () => {
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'checksum',
         namespaces: [

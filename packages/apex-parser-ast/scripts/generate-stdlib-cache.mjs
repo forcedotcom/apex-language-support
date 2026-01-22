@@ -36,14 +36,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
 
 // Configuration
-const STDLIB_VERSION = '59.0';
 const SOURCE_DIR = join(projectRoot, 'src', 'resources', 'StandardApexLibrary');
 const BUILTINS_DIR = join(projectRoot, 'src', 'resources', 'builtins');
 const OUTPUT_DIR = join(projectRoot, 'resources');
 
-// Output file names
-const CACHE_FILE = join(OUTPUT_DIR, `apex-stdlib-v${STDLIB_VERSION}.pb.gz`);
-const CHECKSUM_FILE = join(OUTPUT_DIR, `apex-stdlib-v${STDLIB_VERSION}.sha256`);
+// Output file names (no version - library is updated manually by external processes)
+const CACHE_FILE = join(OUTPUT_DIR, 'apex-stdlib.pb.gz');
+const CHECKSUM_FILE = join(OUTPUT_DIR, 'apex-stdlib.sha256');
 
 // List of builtin classes that should be loaded from builtins/ folder
 const BUILTIN_CLASSES = new Set([
@@ -208,7 +207,6 @@ async function main() {
   const forceRegenerate = process.argv.includes('--force');
 
   console.log('=== Standard Library Protobuf Cache Generator ===');
-  console.log(`Version: ${STDLIB_VERSION}`);
   console.log(`Source: ${SOURCE_DIR}`);
   console.log(`Output: ${OUTPUT_DIR}`);
 
@@ -323,7 +321,6 @@ async function main() {
   const serializer = new StandardLibrarySerializer();
   const binaryData = serializer.serialize(
     namespaceData,
-    STDLIB_VERSION,
     sourceChecksum,
   );
   console.log(`   Serialized size: ${(binaryData.length / 1024 / 1024).toFixed(2)} MB`);

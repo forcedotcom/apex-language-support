@@ -297,7 +297,6 @@ describe('Corruption handling', () => {
 
     // Create valid data then truncate it
     const valid = StandardLibrary.create({
-      version: '59.0',
       generatedAt: new Date().toISOString(),
       sourceChecksum: 'test',
       namespaces: [],
@@ -319,7 +318,6 @@ describe('Corruption handling', () => {
 
     // Empty data should parse to default values (not throw)
     const result = StandardLibrary.fromBinary(empty);
-    expect(result.version).toBe('');
     expect(result.namespaces.length).toBe(0);
   });
 });

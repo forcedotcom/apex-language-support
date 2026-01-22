@@ -11,7 +11,6 @@ package apex.stdlib;
 
 // Root message containing the entire standard library
 message StandardLibrary {
-  string version = 1;              // e.g., "59.0"
   string generated_at = 2;         // ISO timestamp
   string source_checksum = 3;      // SHA256 of source .cls files
   repeated Namespace namespaces = 4;

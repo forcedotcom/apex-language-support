@@ -74,14 +74,13 @@ describe('StandardLibrarySerializer', () => {
 
   describe('Basic Serialization', () => {
     it('serializes empty namespace array', () => {
-      const binary = serializer.serialize([], '59.0', 'test-checksum');
+      const binary = serializer.serialize([], 'test-checksum');
 
       expect(binary).toBeInstanceOf(Uint8Array);
       expect(binary.length).toBeGreaterThan(0);
 
       // Verify it can be deserialized
       const proto = StandardLibrary.fromBinary(binary);
-      expect(proto.version).toBe('59.0');
       expect(proto.sourceChecksum).toBe('test-checksum');
       expect(proto.namespaces.length).toBe(0);
     });
@@ -109,7 +108,7 @@ describe('StandardLibrarySerializer', () => {
         },
       ];
 
-      const binary = serializer.serialize(namespaceData, '59.0', 'checksum');
+      const binary = serializer.serialize(namespaceData, 'checksum');
       const proto = StandardLibrary.fromBinary(binary);
 
       expect(proto.namespaces.length).toBe(1);
@@ -158,7 +157,7 @@ describe('StandardLibrarySerializer', () => {
         },
       ];
 
-      const binary = serializer.serialize(namespaceData, '59.0', 'checksum');
+      const binary = serializer.serialize(namespaceData, 'checksum');
       const proto = StandardLibrary.fromBinary(binary);
 
       expect(proto.namespaces.length).toBe(2);
@@ -203,7 +202,7 @@ describe('StandardLibrarySerializer', () => {
         },
       ];
 
-      const binary = serializer.serialize(namespaceData, '59.0', 'checksum');
+      const binary = serializer.serialize(namespaceData, 'checksum');
       const proto = StandardLibrary.fromBinary(binary);
 
       const type = proto.namespaces[0].types[0];
@@ -239,7 +238,7 @@ describe('StandardLibrarySerializer', () => {
         },
       ];
 
-      const binary = serializer.serialize(namespaceData, '59.0', 'checksum');
+      const binary = serializer.serialize(namespaceData, 'checksum');
       const proto = StandardLibrary.fromBinary(binary);
 
       expect(proto.namespaces[0].types[0].kind).toBe(TypeKind.INTERFACE);
@@ -268,7 +267,7 @@ describe('StandardLibrarySerializer', () => {
         },
       ];
 
-      const binary = serializer.serialize(namespaceData, '59.0', 'checksum');
+      const binary = serializer.serialize(namespaceData, 'checksum');
       const proto = StandardLibrary.fromBinary(binary);
 
       expect(proto.namespaces[0].types[0].kind).toBe(TypeKind.ENUM);
@@ -297,7 +296,7 @@ describe('StandardLibrarySerializer', () => {
         },
       ];
 
-      const binary = serializer.serialize(namespaceData, '59.0', 'checksum');
+      const binary = serializer.serialize(namespaceData, 'checksum');
       const proto = StandardLibrary.fromBinary(binary);
 
       expect(proto.namespaces[0].types[0].kind).toBe(TypeKind.TRIGGER);
@@ -336,7 +335,7 @@ describe('StandardLibrarySerializer', () => {
           },
         ];
 
-        const binary = serializer.serialize(namespaceData, '59.0', 'checksum');
+        const binary = serializer.serialize(namespaceData, 'checksum');
         const proto = StandardLibrary.fromBinary(binary);
 
         expect(proto.namespaces[0].types[0].modifiers?.visibility).toBe(
@@ -379,7 +378,7 @@ describe('StandardLibrarySerializer', () => {
         },
       ];
 
-      const binary = serializer.serialize(namespaceData, '59.0', 'checksum');
+      const binary = serializer.serialize(namespaceData, 'checksum');
       const proto = StandardLibrary.fromBinary(binary);
 
       const modifiers = proto.namespaces[0].types[0].modifiers!;
@@ -434,7 +433,7 @@ describe('StandardLibrarySerializer', () => {
         },
       ];
 
-      const binary = serializer.serialize(namespaceData, '59.0', 'checksum');
+      const binary = serializer.serialize(namespaceData, 'checksum');
       const proto = StandardLibrary.fromBinary(binary);
 
       const location = proto.namespaces[0].types[0].location!;
@@ -448,11 +447,10 @@ describe('StandardLibrarySerializer', () => {
   });
 
   describe('Metadata Serialization', () => {
-    it('includes version, timestamp, and checksum', () => {
-      const binary = serializer.serialize([], '60.0', 'my-checksum-123');
+    it('includes timestamp and checksum', () => {
+      const binary = serializer.serialize([], 'my-checksum-123');
       const proto = StandardLibrary.fromBinary(binary);
 
-      expect(proto.version).toBe('60.0');
       expect(proto.sourceChecksum).toBe('my-checksum-123');
       expect(proto.generatedAt).toBeDefined();
       // generatedAt should be a valid ISO timestamp
@@ -484,7 +482,7 @@ describe('StandardLibrarySerializer', () => {
         },
       ];
 
-      const binary = serializer.serialize(namespaceData, '59.0', 'checksum');
+      const binary = serializer.serialize(namespaceData, 'checksum');
       const proto = StandardLibrary.fromBinary(binary);
 
       expect(proto.namespaces[0].types[0].name).toBe('');
@@ -513,7 +511,7 @@ describe('StandardLibrarySerializer', () => {
         },
       ];
 
-      const binary = serializer.serialize(namespaceData, '59.0', 'checksum');
+      const binary = serializer.serialize(namespaceData, 'checksum');
       const proto = StandardLibrary.fromBinary(binary);
 
       const type = proto.namespaces[0].types[0];
@@ -560,7 +558,7 @@ describe('StandardLibrarySerializer', () => {
         },
       ];
 
-      const binary = serializer.serialize(namespaceData, '59.0', 'checksum');
+      const binary = serializer.serialize(namespaceData, 'checksum');
       const proto = StandardLibrary.fromBinary(binary);
 
       expect(proto.namespaces[0].types.length).toBe(2);

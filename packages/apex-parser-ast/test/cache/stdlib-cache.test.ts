@@ -82,7 +82,6 @@ describe('StandardLibraryDeserializer', () => {
       // Create a minimal proto message using the generated type
       const { StandardLibrary } = require('../../src/generated/apex-stdlib');
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'abc123',
         namespaces: [],
@@ -92,7 +91,6 @@ describe('StandardLibraryDeserializer', () => {
 
       expect(result.symbolTables.size).toBe(0);
       expect(result.allTypes.length).toBe(0);
-      expect(result.metadata.version).toBe('59.0');
       expect(result.metadata.sourceChecksum).toBe('abc123');
       expect(result.metadata.namespaceCount).toBe(0);
       expect(result.metadata.typeCount).toBe(0);
@@ -107,7 +105,6 @@ describe('StandardLibraryDeserializer', () => {
         Visibility,
       } = require('../../src/generated/apex-stdlib');
       const proto = StandardLibrary.create({
-        version: '59.0',
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'test123',
         namespaces: [
@@ -145,7 +142,6 @@ describe('StandardLibraryDeserializer', () => {
 
       expect(result.symbolTables.size).toBe(1);
       expect(result.allTypes.length).toBe(1);
-      expect(result.metadata.version).toBe('59.0');
       expect(result.metadata.namespaceCount).toBe(1);
       expect(result.metadata.typeCount).toBe(1);
 
@@ -170,7 +166,7 @@ describe('StandardLibrarySerializer', () => {
     it('serializes empty namespace data', () => {
       const serializer = new StandardLibrarySerializer();
 
-      const binary = serializer.serialize([], '59.0', 'checksum123');
+      const binary = serializer.serialize([], 'checksum123');
 
       expect(binary).toBeInstanceOf(Uint8Array);
       expect(binary.length).toBeGreaterThan(0);
@@ -179,7 +175,6 @@ describe('StandardLibrarySerializer', () => {
       const { StandardLibrary } = require('../../src/generated/apex-stdlib');
       const proto = StandardLibrary.fromBinary(binary);
 
-      expect(proto.version).toBe('59.0');
       expect(proto.sourceChecksum).toBe('checksum123');
       expect(proto.namespaces.length).toBe(0);
     });
@@ -234,11 +229,7 @@ describe('StandardLibrarySerializer', () => {
         },
       ];
 
-      const binary = serializer.serialize(
-        namespaceData,
-        '59.0',
-        'test-checksum',
-      );
+      const binary = serializer.serialize(namespaceData, 'test-checksum');
 
       expect(binary).toBeInstanceOf(Uint8Array);
       expect(binary.length).toBeGreaterThan(0);
@@ -247,7 +238,6 @@ describe('StandardLibrarySerializer', () => {
       const { StandardLibrary } = require('../../src/generated/apex-stdlib');
       const proto = StandardLibrary.fromBinary(binary);
 
-      expect(proto.version).toBe('59.0');
       expect(proto.namespaces.length).toBe(1);
       expect(proto.namespaces[0].name).toBe('System');
       expect(proto.namespaces[0].types.length).toBe(1);
@@ -311,17 +301,12 @@ describe('Round-trip serialization', () => {
     ];
 
     // Serialize
-    const binary = serializer.serialize(
-      namespaceData,
-      '59.0',
-      'roundtrip-test',
-    );
+    const binary = serializer.serialize(namespaceData, 'roundtrip-test');
 
     // Deserialize
     const result = deserializer.deserializeFromBinary(binary);
 
     // Verify metadata
-    expect(result.metadata.version).toBe('59.0');
     expect(result.metadata.sourceChecksum).toBe('roundtrip-test');
     expect(result.metadata.namespaceCount).toBe(1);
     expect(result.metadata.typeCount).toBe(1);
@@ -399,11 +384,7 @@ describe('Round-trip serialization with gzip compression', () => {
     ];
 
     // Serialize to protobuf binary
-    const binary = serializer.serialize(
-      namespaceData,
-      '59.0',
-      'gzip-roundtrip-test',
-    );
+    const binary = serializer.serialize(namespaceData, 'gzip-roundtrip-test');
 
     // Compress with gzip
     const compressed = gzipSync(binary, { level: 9 });
@@ -421,7 +402,6 @@ describe('Round-trip serialization with gzip compression', () => {
     const result = deserializer.deserializeFromBinary(decompressed);
 
     // Verify metadata
-    expect(result.metadata.version).toBe('59.0');
     expect(result.metadata.sourceChecksum).toBe('gzip-roundtrip-test');
     expect(result.metadata.namespaceCount).toBe(1);
     expect(result.metadata.typeCount).toBe(1);
@@ -591,11 +571,7 @@ describe('Round-trip serialization with gzip compression', () => {
     ];
 
     // Full pipeline
-    const binary = serializer.serialize(
-      namespaceData,
-      '59.0',
-      'annotation-test',
-    );
+    const binary = serializer.serialize(namespaceData, 'annotation-test');
     const compressed = gzipSync(binary, { level: 9 });
     const decompressed = gunzipSync(compressed);
     const result = deserializer.deserializeFromBinary(decompressed);
@@ -660,11 +636,7 @@ describe('Gzip compression behavior', () => {
       },
     ];
 
-    const binary = serializer.serialize(
-      namespaceData,
-      '59.0',
-      'compression-test',
-    );
+    const binary = serializer.serialize(namespaceData, 'compression-test');
     const compressed = gzipSync(binary, { level: 9 });
 
     const compressionRatio = (1 - compressed.length / binary.length) * 100;

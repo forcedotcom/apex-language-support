@@ -32,7 +32,7 @@ describe('stdlib-cache-data module', () => {
 
     it('returns undefined in unbundled environment', () => {
       // Mock the module to simulate unbundled environment
-      jest.doMock('../../resources/apex-stdlib-v59.0.pb.gz', () => {
+      jest.doMock('../../resources/apex-stdlib.pb.gz', () => {
         throw new Error('Module not found');
       });
 
@@ -53,7 +53,7 @@ describe('stdlib-cache-data module', () => {
     it('handles string data URL format', () => {
       // Mock the module to return a data URL string
       jest.doMock(
-        '../../resources/apex-stdlib-v59.0.pb.gz',
+        '../../resources/apex-stdlib.pb.gz',
         () => 'data:application/x-gzip;base64,H4sIAAAAAAAA...',
         { virtual: true },
       );
@@ -77,7 +77,7 @@ describe('stdlib-cache-data module', () => {
     it('handles default export format', () => {
       // Mock the module to return an object with default property
       jest.doMock(
-        '../../resources/apex-stdlib-v59.0.pb.gz',
+        '../../resources/apex-stdlib.pb.gz',
         () => ({
           default: 'data:application/x-gzip;base64,H4sIAAAAAAAA...',
         }),
@@ -103,7 +103,7 @@ describe('stdlib-cache-data module', () => {
     it('returns undefined for non-data-URL values', () => {
       // Mock the module to return something that's not a data URL
       jest.doMock(
-        '../../resources/apex-stdlib-v59.0.pb.gz',
+        '../../resources/apex-stdlib.pb.gz',
         () => ({ someOtherFormat: 'not a data url' }),
         { virtual: true },
       );

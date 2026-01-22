@@ -43,8 +43,8 @@
       ],
       "clean": "if-file-deleted",
       "output": [
-        "resources/apex-stdlib-v*.pb.gz",
-        "resources/apex-stdlib-v*.sha256"
+        "resources/apex-stdlib.pb.gz",
+        "resources/apex-stdlib.sha256"
       ],
       "files": [
         "src/resources/StandardApexLibrary/**/*.cls",
@@ -100,7 +100,7 @@
         "src/**/*.ts",
         "esbuild.config.ts",
         "out/index.d.ts",
-        "resources/apex-stdlib-v*.pb.gz"
+        "resources/apex-stdlib.pb.gz"
       ]
     },
     "test": {

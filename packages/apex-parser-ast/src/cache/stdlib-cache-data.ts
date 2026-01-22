@@ -14,7 +14,7 @@
  * will fall back to disk loading.
  */
 
-const embeddedData = require('../../resources/apex-stdlib-v59.0.pb.gz');
+const embeddedData = require('../../resources/apex-stdlib.pb.gz');
 
 /**
  * Get the embedded protobuf cache data URL.
