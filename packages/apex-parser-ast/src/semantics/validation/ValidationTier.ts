@@ -65,6 +65,12 @@ export interface ArtifactLoadingOptions {
    * Progress token for reporting progress (TIER 2 only)
    */
   progressToken?: string | number;
+
+  /**
+   * Symbol manager for cross-file symbol lookup (TIER 2 only)
+   * Optional - validators can use this to load missing artifacts
+   */
+  symbolManager?: any; // ISymbolManager - using any to avoid circular dependency
 }
 
 /**

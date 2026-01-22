@@ -18,6 +18,17 @@ import { EnumLimitValidator } from '../../../../src/semantics/validation/validat
 import { EnumConstantNamingValidator } from '../../../../src/semantics/validation/validators/EnumConstantNamingValidator';
 import { DuplicateMethodValidator } from '../../../../src/semantics/validation/validators/DuplicateMethodValidator';
 import { ConstructorNamingValidator } from '../../../../src/semantics/validation/validators/ConstructorNamingValidator';
+
+import { TypeSelfReferenceValidator } from '../../../../src/semantics/validation/validators/TypeSelfReferenceValidator';
+// eslint-disable-next-line max-len
+import { AbstractMethodBodyValidator } from '../../../../src/semantics/validation/validators/AbstractMethodBodyValidator';
+import { VariableShadowingValidator } from '../../../../src/semantics/validation/validators/VariableShadowingValidator';
+import { ForwardReferenceValidator } from '../../../../src/semantics/validation/validators/ForwardReferenceValidator';
+import { FinalAssignmentValidator } from '../../../../src/semantics/validation/validators/FinalAssignmentValidator';
+// eslint-disable-next-line max-len
+import { MethodSignatureEquivalenceValidator } from '../../../../src/semantics/validation/validators/MethodSignatureEquivalenceValidator';
+// eslint-disable-next-line max-len
+import { InterfaceHierarchyValidator } from '../../../../src/semantics/validation/validators/InterfaceHierarchyValidator';
 import {
   SymbolTable,
   SymbolFactory,
@@ -33,12 +44,23 @@ describe('Validator Integration Tests', () => {
    */
   function createTestProgram() {
     return Effect.gen(function* () {
-      // Register all five validators
+      // Register all twelve validators (10 TIER 1, 2 TIER 2)
+
+      // TIER 1 (IMMEDIATE) validators
       yield* registerValidator(new ParameterLimitValidator());
       yield* registerValidator(new EnumLimitValidator());
       yield* registerValidator(new EnumConstantNamingValidator());
       yield* registerValidator(new DuplicateMethodValidator());
       yield* registerValidator(new ConstructorNamingValidator());
+      yield* registerValidator(new TypeSelfReferenceValidator());
+      yield* registerValidator(new AbstractMethodBodyValidator());
+      yield* registerValidator(new VariableShadowingValidator());
+      yield* registerValidator(new ForwardReferenceValidator());
+      yield* registerValidator(new FinalAssignmentValidator());
+
+      // TIER 2 (THOROUGH) validators
+      yield* registerValidator(new MethodSignatureEquivalenceValidator());
+      yield* registerValidator(new InterfaceHierarchyValidator());
 
       return 'Validators registered';
     }).pipe(Effect.provide(ValidatorRegistryLive));
@@ -83,8 +105,8 @@ describe('Validator Integration Tests', () => {
       }).pipe(Effect.provide(ValidatorRegistryLive)),
     );
 
-    // Should have 5 validators run (ParameterLimit, EnumLimit, EnumConstantNaming, DuplicateMethod, ConstructorNaming)
-    expect(results).toHaveLength(5);
+    // Should have 10 TIER 1 validators run
+    expect(results).toHaveLength(10);
 
     // All should pass since we have valid code
     for (const result of results) {
@@ -281,6 +303,50 @@ describe('Validator Integration Tests', () => {
     const allErrors = results.flatMap((r) => r.errors);
     expect(allErrors.some((e) => e.includes('33 parameters'))).toBe(true);
     expect(allErrors.some((e) => e.includes('BAD@NAME'))).toBe(true);
+  });
+
+  it('should run THOROUGH tier validators successfully', async () => {
+    const symbolTable = new SymbolTable();
+    symbolTable.setFileUri(TEST_FILE_URI);
+
+    // Create a simple class with a method
+    const classSymbol = SymbolFactory.createMinimalSymbol(
+      'TestClass',
+      SymbolKind.Class,
+      { line: 1, column: 0, endLine: 10, endColumn: 0 },
+      TEST_FILE_URI,
+      null,
+    );
+    symbolTable.addSymbol(classSymbol, null);
+
+    const methodSymbol = SymbolFactory.createMinimalSymbol(
+      'testMethod',
+      SymbolKind.Method,
+      { line: 2, column: 2, endLine: 4, endColumn: 2 },
+      TEST_FILE_URI,
+      classSymbol.id,
+    );
+    symbolTable.addSymbol(methodSymbol, classSymbol);
+
+    // Run all THOROUGH tier validators
+    const results = await Effect.runPromise(
+      runValidatorsForTier(ValidationTier.THOROUGH, symbolTable, {
+        tier: ValidationTier.THOROUGH,
+        allowArtifactLoading: false,
+        maxDepth: 1,
+        maxArtifacts: 5,
+        timeout: 5000,
+      }).pipe(Effect.provide(ValidatorRegistryLive)),
+    );
+
+    // Should have 2 TIER 2 validators run (MethodSignatureEquivalence, InterfaceHierarchy)
+    expect(results).toHaveLength(2);
+
+    // All should pass since we have valid code
+    for (const result of results) {
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    }
   });
 
   // Helper functions to create test symbol tables

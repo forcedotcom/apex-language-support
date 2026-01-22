@@ -18,6 +18,8 @@ import type { ValidationResult } from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
+import { ArtifactLoadingHelper } from '../ArtifactLoadingHelper';
+import type { ISymbolManager } from '../../../types/ISymbolManager';
 
 /**
  * Validates interface hierarchy correctness.
@@ -96,6 +98,63 @@ export class InterfaceHierarchyValidator implements Validator {
       }
 
       // Check 3: Class interface implementation
+      // First pass: identify missing interfaces
+      const missingInterfaces: string[] = [];
+      for (const cls of classes) {
+        if (cls.modifiers.isAbstract) {
+          continue;
+        }
+
+        const implementedInterfaces = cls.interfaces || [];
+        for (const ifaceName of implementedInterfaces) {
+          const iface = interfaces.find(
+            (i) => i.name.toLowerCase() === ifaceName.toLowerCase(),
+          );
+
+          if (!iface && !missingInterfaces.includes(ifaceName)) {
+            missingInterfaces.push(ifaceName);
+          }
+        }
+      }
+
+      // Try to load missing interfaces if artifact loading is available
+      let loadedInterfaces: TypeSymbol[] = [];
+      if (missingInterfaces.length > 0 && _options.symbolManager) {
+        yield* Effect.logDebug(
+          `Found ${missingInterfaces.length} missing interfaces, ` +
+            'attempting to load from symbol manager',
+        );
+
+        const symbolManager = _options.symbolManager as ISymbolManager;
+        const helper = new ArtifactLoadingHelper(symbolManager);
+        const loadResult = yield* helper.loadMissingArtifacts(
+          missingInterfaces,
+          _options,
+        );
+
+        // Get loaded interfaces from symbol manager
+        for (const typeName of [
+          ...loadResult.loaded,
+          ...loadResult.alreadyLoaded,
+        ]) {
+          const symbols = symbolManager.findSymbolByName(typeName);
+          const ifaceSymbol = symbols.find(
+            (s) => s.kind === SymbolKind.Interface,
+          ) as TypeSymbol | undefined;
+
+          if (ifaceSymbol) {
+            loadedInterfaces.push(ifaceSymbol);
+            yield* Effect.logDebug(
+              `Loaded interface '${typeName}' from symbol manager`,
+            );
+          }
+        }
+      }
+
+      // Combine local and loaded interfaces for validation
+      const allInterfaces = [...interfaces, ...loadedInterfaces];
+
+      // Second pass: validate with potentially loaded interfaces
       for (const cls of classes) {
         // Skip abstract classes (they can have unimplemented methods)
         if (cls.modifiers.isAbstract) {
@@ -104,17 +163,16 @@ export class InterfaceHierarchyValidator implements Validator {
 
         const implementedInterfaces = cls.interfaces || [];
         for (const ifaceName of implementedInterfaces) {
-          // Find the interface
-          const iface = interfaces.find(
+          // Find the interface (check both local and loaded)
+          const iface = allInterfaces.find(
             (i) => i.name.toLowerCase() === ifaceName.toLowerCase(),
           );
 
           if (!iface) {
-            // Interface not found - could be in another file
-            // For now, we'll add a warning rather than error
+            // Interface not found even after attempting to load
             warnings.push(
               `Interface '${ifaceName}' implemented by class '${cls.name}' ` +
-                'not found in current file',
+                'not found in current file or symbol manager',
             );
             continue;
           }
@@ -122,7 +180,7 @@ export class InterfaceHierarchyValidator implements Validator {
           // Get all methods required by the interface (including inherited)
           const requiredMethods = getAllInterfaceMethods(
             iface,
-            interfaces,
+            allInterfaces,
             allSymbols,
           );
 

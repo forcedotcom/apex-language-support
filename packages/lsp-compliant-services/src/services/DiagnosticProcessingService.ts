@@ -307,6 +307,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
               maxArtifacts: ARTIFACT_LOADING_LIMITS.maxArtifacts,
               timeout: ARTIFACT_LOADING_LIMITS.timeout,
               progressToken: params.workDoneToken,
+              symbolManager: this.symbolManager,
             };
 
             // Run validators
@@ -430,6 +431,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           maxArtifacts: ARTIFACT_LOADING_LIMITS.maxArtifacts,
           timeout: ARTIFACT_LOADING_LIMITS.timeout,
           progressToken: params.workDoneToken,
+          symbolManager: this.symbolManager,
         };
 
         // Run validators (both IMMEDIATE and THOROUGH for pull diagnostics)

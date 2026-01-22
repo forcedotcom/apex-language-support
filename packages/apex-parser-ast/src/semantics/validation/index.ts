@@ -35,6 +35,10 @@ export type {
   ArtifactLoadingOptions,
   ValidationOptions,
 } from './ValidationTier';
+
+// Export artifact loading helper
+export { ArtifactLoadingHelper } from './ArtifactLoadingHelper';
+export type { LoadResult } from './ArtifactLoadingHelper';
 export {
   ValidatorRegistry,
   ValidatorRegistryLive,
