@@ -39,8 +39,7 @@
       "command": "npm-run-all --parallel compile:browser compile:worker compile:node",
       "clean": "if-file-deleted",
       "dependencies": [
-        "../apex-parser-ast:precompile",
-        "../apex-parser-ast:compile",
+        "../apex-parser-ast:compile:tsc",
         "../lsp-compliant-services:compile"
       ],
       "output": [
@@ -68,7 +67,8 @@
         "compile",
         "../esbuild-presets:compile",
         "../lsp-compliant-services:compile",
-        "../apex-parser-ast:compile"
+        "../apex-parser-ast:compile:tsc",
+        "../apex-parser-ast:generate:stdlib-cache"
       ],
       "output": [
         "dist/**"
