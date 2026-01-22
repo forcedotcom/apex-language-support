@@ -71,6 +71,20 @@ export interface ArtifactLoadingOptions {
    * Optional - validators can use this to load missing artifacts
    */
   symbolManager?: any; // ISymbolManager - using any to avoid circular dependency
+
+  /**
+   * Optional callback to load missing artifacts (TIER 2 only)
+   * Called when artifacts are not found in symbolManager
+   * Returns file URIs of successfully loaded artifacts
+   *
+   * @param typeNames - Names of types to load
+   * @param contextFile - File URI that triggered the loading (for context)
+   * @returns Promise<string[]> - URIs of files that were loaded
+   */
+  loadArtifactCallback?: (
+    typeNames: string[],
+    contextFile?: string,
+  ) => Promise<string[]>;
 }
 
 /**

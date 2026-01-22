@@ -42,6 +42,10 @@ import {
   isWorkspaceLoading,
   isWorkspaceLoaded,
 } from './WorkspaceLoadCoordinator';
+import {
+  createMissingArtifactResolutionService,
+  type MissingArtifactResolutionService,
+} from './MissingArtifactResolutionService';
 
 /**
  * Interface for diagnostic processing functionality to make handlers more testable.
@@ -87,6 +91,7 @@ export interface IDiagnosticProcessor {
 export class DiagnosticProcessingService implements IDiagnosticProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
+  private readonly artifactResolutionService: MissingArtifactResolutionService;
 
   /**
    * Creates a new DiagnosticProcessingService instance.
@@ -96,6 +101,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+    this.artifactResolutionService =
+      createMissingArtifactResolutionService(logger);
   }
 
   /**
@@ -281,55 +288,56 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           ),
         );
 
-        // Run layered semantic validation if enabled (new system)
-        if (this.isLayeredDiagnosticsEnabled()) {
-          this.logger.debug(
-            () =>
-              `Running layered semantic validation for cached result: ${params.textDocument.uri}`,
+        // Run semantic validation (always enabled)
+        this.logger.debug(
+          () =>
+            `Running semantic validation for cached result: ${params.textDocument.uri}`,
+        );
+
+        // Get SymbolTable from ApexSymbolManager
+        const cachedTable = this.symbolManager.getSymbolTableForFile(
+          params.textDocument.uri,
+        );
+
+        if (cachedTable) {
+          // Get settings for artifact loading
+          const settings = ApexSettingsManager.getInstance().getSettings();
+          const allowArtifactLoading =
+            settings.apex.findMissingArtifact.enabled ?? false;
+
+          // Build validation options
+          const validationOptions: ValidationOptions = {
+            tier: ValidationTier.THOROUGH,
+            allowArtifactLoading,
+            maxDepth: ARTIFACT_LOADING_LIMITS.maxDepth,
+            maxArtifacts: ARTIFACT_LOADING_LIMITS.maxArtifacts,
+            timeout: ARTIFACT_LOADING_LIMITS.timeout,
+            progressToken: params.workDoneToken,
+            symbolManager: this.symbolManager,
+            loadArtifactCallback: allowArtifactLoading
+              ? this.createLoadArtifactCallback(params.textDocument.uri)
+              : undefined,
+          };
+
+          // Run validators
+          const immediateResults = await this.runSemanticValidators(
+            ValidationTier.IMMEDIATE,
+            cachedTable,
+            { ...validationOptions, tier: ValidationTier.IMMEDIATE },
           );
 
-          // Get SymbolTable from ApexSymbolManager
-          const cachedTable = this.symbolManager.getSymbolTableForFile(
-            params.textDocument.uri,
+          const thoroughResults = await this.runSemanticValidators(
+            ValidationTier.THOROUGH,
+            cachedTable,
+            validationOptions,
           );
 
-          if (cachedTable) {
-            // Get settings for artifact loading
-            const settings = ApexSettingsManager.getInstance().getSettings();
-            const allowArtifactLoading =
-              settings.apex.findMissingArtifact.enabled ?? false;
-
-            // Build validation options
-            const validationOptions: ValidationOptions = {
-              tier: ValidationTier.THOROUGH,
-              allowArtifactLoading,
-              maxDepth: ARTIFACT_LOADING_LIMITS.maxDepth,
-              maxArtifacts: ARTIFACT_LOADING_LIMITS.maxArtifacts,
-              timeout: ARTIFACT_LOADING_LIMITS.timeout,
-              progressToken: params.workDoneToken,
-              symbolManager: this.symbolManager,
-            };
-
-            // Run validators
-            const immediateResults = await this.runSemanticValidators(
-              ValidationTier.IMMEDIATE,
-              cachedTable,
-              { ...validationOptions, tier: ValidationTier.IMMEDIATE },
-            );
-
-            const thoroughResults = await this.runSemanticValidators(
-              ValidationTier.THOROUGH,
-              cachedTable,
-              validationOptions,
-            );
-
-            // Combine all diagnostics
-            return [
-              ...enhancedCachedDiagnostics,
-              ...immediateResults,
-              ...thoroughResults,
-            ];
-          }
+          // Combine all diagnostics
+          return [
+            ...enhancedCachedDiagnostics,
+            ...immediateResults,
+            ...thoroughResults,
+          ];
         }
 
         return enhancedCachedDiagnostics;
@@ -411,11 +419,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         ),
       );
 
-      // Run layered semantic validation if enabled (new system)
-      if (this.isLayeredDiagnosticsEnabled() && table) {
+      // Run semantic validation (always enabled)
+      if (table) {
         this.logger.debug(
-          () =>
-            `Running layered semantic validation for: ${params.textDocument.uri}`,
+          () => `Running semantic validation for: ${params.textDocument.uri}`,
         );
 
         // Get settings for artifact loading
@@ -432,6 +439,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           timeout: ARTIFACT_LOADING_LIMITS.timeout,
           progressToken: params.workDoneToken,
           symbolManager: this.symbolManager,
+          loadArtifactCallback: allowArtifactLoading
+            ? this.createLoadArtifactCallback(params.textDocument.uri)
+            : undefined,
         };
 
         // Run validators (both IMMEDIATE and THOROUGH for pull diagnostics)
@@ -449,8 +459,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
         this.logger.debug(
           () =>
-            `Layered validation produced ${immediateResults.length} immediate ` +
-            ` ${thoroughResults.length} thorough diagnostics`,
+            `Semantic validation produced ${immediateResults.length} immediate ` +
+            `+ ${thoroughResults.length} thorough diagnostics`,
         );
 
         // Combine all diagnostics
@@ -667,18 +677,66 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
   }
 
   /**
-   * Check if layered diagnostics feature is enabled
+   * Create a callback for loading missing artifacts during validation
+   *
+   * This callback is passed to validators via ValidationOptions and allows
+   * them to trigger artifact loading using the existing MissingArtifactResolutionService.
+   *
+   * @param contextFile - The file URI that triggered validation (for context)
+   * @returns Callback function that loads artifacts and returns loaded file URIs
    */
-  private isLayeredDiagnosticsEnabled(): boolean {
-    try {
-      const settings = ApexSettingsManager.getInstance().getSettings();
-      // Feature flag for layered diagnostics (default: false during rollout)
-      return settings.apex?.validation?.layeredDiagnostics?.enabled ?? false;
-    } catch (error) {
+  private createLoadArtifactCallback(
+    contextFile: string,
+  ): (typeNames: string[]) => Promise<string[]> {
+    return async (typeNames: string[]): Promise<string[]> => {
       this.logger.debug(
-        () => `Error checking layered diagnostics setting: ${error}`,
+        () =>
+          `Validator requesting to load ${typeNames.length} missing types: ${typeNames.join(', ')}`,
       );
-      return false;
-    }
+
+      const loadedUris: string[] = [];
+
+      // Try to load each type using the artifact resolution service
+      for (const typeName of typeNames) {
+        try {
+          const result = await this.artifactResolutionService.resolveBlocking({
+            identifier: typeName,
+            origin: {
+              uri: contextFile,
+              requestKind: 'references', // Validation needs type references
+            },
+            mode: 'blocking',
+            // Use shorter timeout for validator-triggered loads
+            timeoutMsHint: 2000,
+          });
+
+          if (result === 'resolved') {
+            // Type was successfully loaded
+            // The resolution service will have already added symbols to the manager
+            this.logger.debug(
+              () => `Successfully loaded artifact for type: ${typeName}`,
+            );
+            // Note: We don't have the exact file URI from resolveBlocking,
+            // but the type should now be available in symbolManager
+            loadedUris.push(typeName); // Use type name as placeholder
+          } else {
+            this.logger.debug(
+              () => `Failed to load artifact for type '${typeName}': ${result}`,
+            );
+          }
+        } catch (error) {
+          this.logger.debug(
+            () => `Error loading artifact for type '${typeName}': ${error}`,
+          );
+        }
+      }
+
+      this.logger.debug(
+        () =>
+          `Artifact loading callback completed: ${loadedUris.length}/${typeNames.length} types loaded`,
+      );
+
+      return loadedUris;
+    };
   }
 }

@@ -142,32 +142,66 @@ export class ArtifactLoadingHelper {
       }
 
       // Load missing types (with timeout)
-      // Note: Actual artifact loading implementation would go here
-      // For now, this is a placeholder that marks all as failed
-      // Real implementation would integrate with workspace symbol loading
-      for (const typeName of toLoad) {
-        // Check timeout
-        const elapsed = Date.now() - startTime;
-        if (elapsed >= options.timeout) {
-          yield* Effect.logDebug(
-            `Timeout reached (${options.timeout}ms), ` +
-              `skipping remaining ${toLoad.length - loaded.length - failed.length} types`,
-          );
-          skipped.push(...toLoad.slice(loaded.length + failed.length));
-          break;
-        }
-
-        // TODO: Implement actual artifact loading
-        // This would involve:
-        // 1. Resolving type name to file URI
-        // 2. Loading and parsing the file if not already in workspace
-        // 3. Adding SymbolTable to ApexSymbolManager
-        //
-        // For now, mark as failed to maintain safe behavior
+      if (toLoad.length > 0 && options.loadArtifactCallback) {
         yield* Effect.logDebug(
-          `Artifact loading not yet implemented for '${typeName}'`,
+          `Attempting to load ${toLoad.length} missing types via callback`,
         );
-        failed.push(typeName);
+
+        try {
+          // Call the provided loading callback
+          // This is typically provided by the LSP server layer and uses
+          // MissingArtifactResolutionService to actually load files
+          const loadedUris = yield* Effect.promise(() =>
+            options.loadArtifactCallback!(toLoad),
+          );
+
+          yield* Effect.logDebug(
+            `Callback returned ${loadedUris.length} loaded file URIs`,
+          );
+
+          // Check which types were successfully loaded
+          for (const typeName of toLoad) {
+            // Check timeout
+            const elapsed = Date.now() - startTime;
+            if (elapsed >= options.timeout) {
+              yield* Effect.logDebug(
+                `Timeout reached (${options.timeout}ms), ` +
+                  'skipping remaining type checks',
+              );
+              const remaining = toLoad.filter(
+                (t) => !loaded.includes(t) && !failed.includes(t),
+              );
+              skipped.push(...remaining);
+              break;
+            }
+
+            // Verify the type is now available in symbol manager
+            const nowAvailable = self.findTypeSymbol(typeName);
+            if (nowAvailable) {
+              loaded.push(typeName);
+              yield* Effect.logDebug(`Successfully loaded type '${typeName}'`);
+            } else {
+              failed.push(typeName);
+              yield* Effect.logDebug(
+                `Type '${typeName}' still not available after callback`,
+              );
+            }
+          }
+        } catch (error) {
+          yield* Effect.logError(
+            `Error loading artifacts via callback: ${error}`,
+          );
+          // Mark all remaining as failed
+          failed.push(...toLoad);
+        }
+      } else {
+        // No loading callback provided - mark all as failed
+        if (toLoad.length > 0) {
+          yield* Effect.logDebug(
+            `No loadArtifactCallback provided, marking ${toLoad.length} types as failed`,
+          );
+          failed.push(...toLoad);
+        }
       }
 
       const timeMs = Date.now() - startTime;
