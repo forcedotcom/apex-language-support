@@ -16,8 +16,6 @@ export type RuntimePlatform = 'desktop' | 'web';
  */
 export type ServerMode = 'production' | 'development';
 
-export type ResourceLoadMode = 'lazy' | 'full';
-
 /**
  * Comment collection settings for different LSP operations
  */
@@ -116,9 +114,6 @@ export interface EnvironmentSettings {
  * Resource loading settings
  */
 export interface ResourceSettings {
-  /** Resource loading mode (default: 'full' for Node.js, 'lazy' for browser) */
-  loadMode: ResourceLoadMode;
-
   /** Standard Apex Library path */
   standardApexLibraryPath?: string;
 }

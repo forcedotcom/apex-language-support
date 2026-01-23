@@ -47,9 +47,7 @@ export interface WorkspaceSettings {
       profilingMode: 'none' | 'full' | 'interactive';
       profilingType: 'cpu' | 'heap' | 'both';
     };
-    resources: {
-      loadMode: 'lazy' | 'full';
-    };
+    resources: Record<string, never>;
     custom: Record<string, any>;
     logLevel: string;
     worker: {

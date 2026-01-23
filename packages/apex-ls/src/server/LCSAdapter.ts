@@ -189,23 +189,13 @@ export class LCSAdapter {
    * ResourceLoader handles all artifact loading internally:
    * - Protobuf cache for fast symbol loading (hover, completion, etc.)
    * - ZIP buffer for source file content (goto definition viewing)
-   * - Load mode determined from settings (apex.resources.loadMode)
+   * - Lazy loading: classes are loaded on-demand from protobuf cache
    */
   private async initializeResourceLoader(): Promise<void> {
     try {
       this.logger.debug('📦 Initializing ResourceLoader singleton...');
 
-      // Get load mode from settings
-      const configManager = LSPConfigurationManager.getInstance();
-      const settingsManager = configManager.getSettingsManager();
-      const loadMode = settingsManager.getResourceLoadMode();
-
-      this.logger.debug(
-        () => `📦 Using ResourceLoader loadMode: ${loadMode} (from settings)`,
-      );
-
       const resourceLoader = ResourceLoader.getInstance({
-        loadMode,
         preloadStdClasses: true,
       });
 

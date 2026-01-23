@@ -36,7 +36,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
   beforeAll(async () => {
     // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
-    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+    await initializeResourceLoaderForTests();
 
     // Initialize scheduler before all tests
     await Effect.runPromise(

@@ -7,34 +7,23 @@
  */
 
 import { unzipSync } from 'fflate';
-import { Effect, Fiber } from 'effect';
-import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
   StandardLibraryCacheLoader,
   isProtobufCacheAvailable,
 } from '../cache/stdlib-cache-loader';
 import type { DeserializationResult } from '../cache/stdlib-deserializer';
 import { getEmbeddedStandardLibraryZip } from './embeddedStandardLibrary';
-
-/**
- * Yield to the Node.js event loop using setImmediate for immediate yielding
- * This is more effective than Effect.sleep(0) which may use setTimeout
- */
-const yieldToEventLoop = Effect.async<void>((resume) => {
-  setImmediate(() => resume(Effect.void));
-});
-
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
 import { normalizeApexPath } from './PathUtils';
-import { CompilerService, CompilationOptions } from '../parser/compilerService';
+import { CompilerService } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
 import { STANDARD_APEX_LIBRARY_URI } from './ResourceUtils';
 
 export interface ResourceLoaderOptions {
-  loadMode?: 'lazy' | 'full';
   preloadStdClasses?: boolean;
   zipBuffer?: Uint8Array; // Direct ZIP buffer to use (for testing)
 }
@@ -60,7 +49,7 @@ interface CompiledArtifact {
  *
  * @example
  * ```typescript
- * const loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+ * const loader = ResourceLoader.getInstance();
  *
  * // Set ZIP buffer (typically from language server)
  * const zipData = new Uint8Array([...]); // ZIP file bytes
@@ -76,9 +65,6 @@ export class ResourceLoader {
   private compiledArtifacts: CaseInsensitivePathMap<CompiledArtifact> =
     new CaseInsensitivePathMap();
   private initialized = false;
-  private compilationPromise: Promise<void> | null = null;
-  private compilationFiber: Fiber.RuntimeFiber<void, Error> | null = null;
-  private loadMode: 'lazy' | 'full' = 'full';
   private preloadStdClasses: boolean = false;
   private readonly logger = getLogger();
   private compilerService: CompilerService;
@@ -109,9 +95,6 @@ export class ResourceLoader {
       () =>
         `🚀 ResourceLoader constructor called with options: ${JSON.stringify(options)}`,
     );
-    if (options?.loadMode) {
-      this.loadMode = options.loadMode;
-    }
     if (options?.preloadStdClasses) {
       this.preloadStdClasses = options.preloadStdClasses;
     }
@@ -127,12 +110,6 @@ export class ResourceLoader {
       this.zipBuffer = options.zipBuffer;
       this.extractZipFiles();
       this.initialized = true;
-
-      // Start compilation if loadMode is 'full'
-      if (this.loadMode === 'full') {
-        this.logger.debug(() => '🚀 Starting full compilation mode...');
-        this.compilationPromise = this.compileAllArtifacts();
-      }
     } else {
       // Wait for setZipBuffer() to be called
       this.logger.debug(
@@ -359,62 +336,9 @@ export class ResourceLoader {
     return content;
   }
 
-  private static loadModeUpdateLogged = false;
-
-  /**
-   * Get loadMode from settings if not explicitly provided in options.
-   * Falls back to 'full' if settings are not available.
-   */
-  private static getLoadModeFromSettings(): 'lazy' | 'full' {
-    try {
-      const settingsManager = ApexSettingsManager.getInstance();
-      return settingsManager.getResourceLoadMode();
-    } catch (_error) {
-      // Settings not available yet - use default
-      return 'full';
-    }
-  }
-
   public static getInstance(options?: ResourceLoaderOptions): ResourceLoader {
-    // If loadMode not provided, fetch from settings
-    const effectiveOptions: ResourceLoaderOptions | undefined = options
-      ? {
-          ...options,
-          loadMode:
-            options.loadMode ?? ResourceLoader.getLoadModeFromSettings(),
-        }
-      : {
-          loadMode: ResourceLoader.getLoadModeFromSettings(),
-        };
-
     if (!ResourceLoader.instance) {
-      ResourceLoader.instance = new ResourceLoader(effectiveOptions);
-    } else if (effectiveOptions) {
-      // Instance already exists - warn if options differ and update loadMode if ZIP buffer not set yet
-      const instance = ResourceLoader.instance;
-      if (
-        effectiveOptions.loadMode &&
-        effectiveOptions.loadMode !== instance.loadMode
-      ) {
-        // Only log once to avoid spam during parallel compilation
-        if (!ResourceLoader.loadModeUpdateLogged) {
-          instance.logger.debug(
-            () =>
-              `ResourceLoader instance already exists with loadMode: ${instance.loadMode}. ` +
-              `Requested loadMode: ${effectiveOptions.loadMode}. ` +
-              'Will use existing loadMode unless ZIP buffer not yet set.',
-          );
-        }
-        // Allow updating loadMode if ZIP buffer hasn't been set yet
-        if (!instance.zipBuffer) {
-          instance.logger.debug(
-            () =>
-              `Updating loadMode from ${instance.loadMode} to ${effectiveOptions.loadMode} before ZIP buffer is set`,
-          );
-          instance.loadMode = effectiveOptions.loadMode;
-          ResourceLoader.loadModeUpdateLogged = true;
-        }
-      }
+      ResourceLoader.instance = new ResourceLoader(options);
     }
     return ResourceLoader.instance;
   }
@@ -424,11 +348,7 @@ export class ResourceLoader {
    * This allows tests to create fresh instances without singleton reuse
    */
   public static resetInstance(): void {
-    if (ResourceLoader.instance) {
-      ResourceLoader.instance.interruptCompilation();
-    }
     ResourceLoader.instance = null as any;
-    ResourceLoader.loadModeUpdateLogged = false;
   }
 
   /**
@@ -441,28 +361,12 @@ export class ResourceLoader {
     this.logger.debug(
       () => `📦 Setting ZIP buffer directly (${buffer.length} bytes)`,
     );
-    this.logger.debug(
-      () =>
-        `📦 Current loadMode when setting ZIP buffer: ${this.loadMode} ` +
-        `(will ${this.loadMode === 'full' ? 'start' : 'skip'} full compilation)`,
-    );
     this.zipBuffer = buffer;
     this.extractZipFiles();
     this.logger.debug(
       () =>
         `✅ ZIP buffer loaded: ${this.fileIndex.size} classes, ${this.namespaces.size} namespaces`,
     );
-
-    // Start compilation if loadMode is 'full'
-    if (this.loadMode === 'full') {
-      this.logger.debug(() => '🚀 Starting full compilation mode...');
-      this.compilationPromise = this.compileAllArtifacts();
-    } else {
-      this.logger.debug(
-        () =>
-          `⏭️ Skipping full compilation (loadMode is '${this.loadMode}', not 'full')`,
-      );
-    }
   }
 
   /**
@@ -817,175 +721,6 @@ export class ResourceLoader {
   }
 
   /**
-   * Compile all artifacts and store results
-   * @private
-   */
-  private async compileAllArtifacts(): Promise<void> {
-    this.logger.debug(
-      () =>
-        'Starting parallel compilation of all artifacts using CompilerService...',
-    );
-
-    const startTime = Date.now();
-
-    // Prepare files for compilation with their namespaces
-    const filesToCompile: Array<{
-      content: string;
-      fileName: string;
-      listener: ApexSymbolCollectorListener;
-      options: CompilationOptions;
-    }> = [];
-
-    // Get all files for compilation
-    // Use originalPaths directly to preserve namespace structure
-    const pathsToCompile = [...this.originalPaths.values()];
-
-    for (const originalPath of pathsToCompile) {
-      const content = await this.getFile(originalPath);
-      if (content) {
-        // Extract namespace from parent folder path
-        const pathParts = originalPath.split(/[\/\\]/);
-        const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
-
-        // Standard Apex library classes only expose public API with empty method bodies
-        // So 'public-api' detail level is sufficient - no need for BlockContentListener
-        const listener = new ApexSymbolCollectorListener(
-          undefined,
-          'public-api',
-        );
-        listener.setCurrentFileUri(originalPath);
-        if (namespace) {
-          listener.setProjectNamespace(namespace);
-        }
-
-        filesToCompile.push({
-          content,
-          fileName: originalPath, // Use original path to preserve namespace structure
-          listener,
-          options: {
-            projectNamespace: namespace,
-            includeComments: true,
-            includeSingleLineComments: false,
-            associateComments: true,
-            collectReferences: true, // Enable reference collection
-            resolveReferences: true, // Enable reference resolution
-          },
-        });
-      }
-    }
-
-    this.logger.debug(() => `Found ${filesToCompile.length} files to compile`);
-
-    if (filesToCompile.length === 0) {
-      this.logger.debug(() => 'No files to compile');
-      return;
-    }
-
-    try {
-      this.logger.debug(
-        () => 'Calling compileMultipleWithConfigs with parallel processing',
-      );
-
-      const results = await Effect.runPromise(
-        this.compilerService.compileMultipleWithConfigs(filesToCompile, 50),
-      );
-
-      this.logger.debug(
-        () => `CompileMultipleWithConfigs returned ${results.length} results`,
-      );
-
-      // Process and store results using Effect fiber with yielding
-      let compiledCount = 0;
-      let errorCount = 0;
-
-      const self = this;
-      const processResultsEffect = Effect.gen(function* () {
-        // Yield interval to reduce setImmediate overhead for large batches
-        // Yields every N results instead of every result to minimize callback queue buildup
-        const YIELD_INTERVAL = 10;
-        let processedCount = 0;
-
-        for (const result of results) {
-          // Process the result
-          if (result.result) {
-            const compilationResult =
-              result as CompilationResultWithAssociations<SymbolTable>;
-
-            // Use result.fileName directly - it should match what we passed in filesToCompile
-            // which comes from originalPaths, preserving namespace structure
-            const storedPath = result.fileName;
-
-            // Store in compiledArtifacts for backward compatibility
-            // Normalize the key for lookup, but preserve the original path in the artifact
-            const normalizedKey = self.normalizePath(storedPath);
-            self.compiledArtifacts.set(normalizedKey, {
-              path: storedPath, // Preserve namespace structure (e.g., "System/System.cls")
-              compilationResult,
-            });
-            compiledCount++;
-
-            if (result.errors.length > 0) {
-              errorCount++;
-            }
-          } else {
-            errorCount++;
-            self.logger.debug(
-              () => `Compilation failed for ${result.fileName}:`,
-            );
-          }
-
-          processedCount++;
-
-          // Yield to event loop every YIELD_INTERVAL results (except last) to allow other tasks to run
-          // Reduced frequency minimizes setImmediate callback overhead for large batches
-          // This matches the pattern used in DocumentProcessingService and compileMultipleWithConfigs
-          if (
-            processedCount % YIELD_INTERVAL === 0 &&
-            processedCount < results.length
-          ) {
-            yield* yieldToEventLoop;
-          }
-        }
-      });
-
-      // Run the Effect as a fiber so we can interrupt it if needed
-      this.compilationFiber = Effect.runFork(processResultsEffect);
-
-      // Wait for the fiber to complete and handle any errors
-      const fiberToAwait = this.compilationFiber; // Store reference before clearing
-      try {
-        await Effect.runPromise(Fiber.await(fiberToAwait));
-      } catch (error) {
-        // Re-throw compilation errors
-        throw error;
-      } finally {
-        // Clear the fiber reference after completion
-        this.compilationFiber = null;
-      }
-
-      const endTime = Date.now();
-      const duration = (endTime - startTime) / 1000;
-
-      this.logger.debug(
-        () =>
-          `Parallel compilation completed in ${duration.toFixed(2)}s: ` +
-          `${compiledCount} files compiled, ${errorCount} files with errors`,
-      );
-
-      // Allow all pending setImmediate callbacks from yieldToEventLoop to complete
-      // Use a small delay to ensure all Effect operations and their callbacks finish
-      // This follows the pattern used in other tests (e.g., extractGraphData.test.ts)
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    } catch (error) {
-      this.logger.error(() => 'Failed to compile artifacts:');
-      throw error;
-    } finally {
-      // Clear the compilation promise after completion to prevent hanging
-      this.compilationPromise = null;
-    }
-  }
-
-  /**
    * Get all compiled artifacts
    * @returns Map of all compiled artifacts
    */
@@ -1000,67 +735,6 @@ export class ResourceLoader {
   }
 
   /**
-   * Wait for compilation to complete (only applicable when loadMode is 'full')
-   * @returns Promise that resolves when compilation is complete
-   */
-  public async waitForCompilation(): Promise<void> {
-    if (this.compilationPromise) {
-      try {
-        await this.compilationPromise;
-      } catch (error) {
-        // Compilation failed, but we still want to clean up
-        this.logger.debug(() => `Compilation failed: ${error}`);
-      } finally {
-        // Clear promise reference after waiting
-        this.compilationPromise = null;
-      }
-    }
-    // Also wait for the fiber if it exists
-    if (this.compilationFiber) {
-      try {
-        await Effect.runPromise(Fiber.await(this.compilationFiber));
-      } catch (error) {
-        // Fiber might be interrupted or failed, that's okay
-        this.logger.debug(() => `Fiber await failed: ${error}`);
-      } finally {
-        this.compilationFiber = null;
-      }
-    }
-
-    // Allow all pending setImmediate callbacks from Effect operations to complete
-    // Use a small delay to ensure all Effect operations finish (following pattern from other tests)
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-
-  /**
-   * Check if compilation is in progress
-   * @returns true if compilation is currently running
-   */
-  public isCompiling(): boolean {
-    return this.compilationPromise !== null || this.compilationFiber !== null;
-  }
-
-  /**
-   * Interrupt any ongoing compilation
-   * Useful for cleanup and preventing resource leaks
-   */
-  public interruptCompilation(): void {
-    if (this.compilationFiber) {
-      try {
-        // Interrupt the fiber synchronously - Fiber.interrupt returns an Effect that can be run
-        // We use runSync here because we want immediate interruption, not async
-        Effect.runSync(Fiber.interrupt(this.compilationFiber));
-      } catch (_error) {
-        // Fiber might already be interrupted or completed, ignore
-      }
-      this.compilationFiber = null;
-    }
-    // Clear promise reference (promise itself can't be cancelled, but we stop tracking it)
-    // This prevents waitForCompilation() from hanging on an already-resolved promise
-    this.compilationPromise = null;
-  }
-
-  /**
    * Get enhanced statistics about loaded and compiled resources
    * @returns Statistics object
    */
@@ -1068,7 +742,6 @@ export class ResourceLoader {
     totalFiles: number;
     loadedFiles: number;
     compiledFiles: number;
-    loadMode: string;
     directoryStructure: {
       totalFiles: number;
       totalSize: number;
@@ -1099,7 +772,6 @@ export class ResourceLoader {
       totalFiles,
       loadedFiles: this.accessCount, // Use access count as loaded files
       compiledFiles,
-      loadMode: this.loadMode,
       directoryStructure: {
         totalFiles,
         totalSize: this.totalSize,
@@ -1175,9 +847,6 @@ export class ResourceLoader {
    * Reset the ResourceLoader and clear all data
    */
   public reset(): void {
-    // Interrupt any ongoing compilation fiber
-    this.interruptCompilation();
-
     this.fileIndex.clear();
     this.originalPaths.clear();
     this.normalizedToZipPath.clear();
@@ -1187,7 +856,6 @@ export class ResourceLoader {
     this.namespaces.clear();
     this.compiledArtifacts.clear();
     this.initialized = false;
-    this.compilationPromise = null;
 
     // Re-extract ZIP and rebuild file index if buffer is available
     if (this.zipBuffer) {

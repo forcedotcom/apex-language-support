@@ -33,12 +33,10 @@ export function loadStandardLibraryZip(): Uint8Array {
  * @returns Initialized ResourceLoader instance
  */
 export async function initializeResourceLoaderForTests(options?: {
-  loadMode?: 'lazy' | 'full';
   preloadStdClasses?: boolean;
 }): Promise<ResourceLoader> {
   const standardLibZip = loadStandardLibraryZip();
   const resourceLoader = ResourceLoader.getInstance({
-    loadMode: options?.loadMode || 'lazy',
     preloadStdClasses: options?.preloadStdClasses,
     zipBuffer: standardLibZip,
   });

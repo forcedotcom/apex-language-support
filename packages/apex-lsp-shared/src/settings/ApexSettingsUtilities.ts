@@ -42,7 +42,6 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     },
 
     resources: {
-      loadMode: 'lazy',
       standardApexLibraryPath: undefined,
     },
 

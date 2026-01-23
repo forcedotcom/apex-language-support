@@ -83,17 +83,8 @@ export async function createClientOptions(
           protocol2Code: protocol2CodeConverter,
         },
         code2ProtocolConverter: code2ProtocolConverter,
-        // Add lazy loading setting to improve startup performance
-        resources: {
-          loadMode: 'lazy',
-        },
       }
-    : {
-        // Even without workspace, add lazy loading setting
-        resources: {
-          loadMode: 'lazy',
-        },
-      };
+    : {};
 
   // Find the root of the repository to use for absolute paths
   const repoRoot = findRepoRoot(process.cwd());

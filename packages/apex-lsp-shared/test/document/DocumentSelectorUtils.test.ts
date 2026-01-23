@@ -222,9 +222,7 @@ describe('DocumentSelectorUtils', () => {
             useAsyncCommentProcessing: true,
             documentChangeDebounceMs: 300,
           },
-          resources: {
-            loadMode: 'lazy',
-          },
+          resources: {},
           findMissingArtifact: {
             enabled: false,
             blockingWaitTimeoutMs: 2000,

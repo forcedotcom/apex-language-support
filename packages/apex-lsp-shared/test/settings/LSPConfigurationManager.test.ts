@@ -67,9 +67,7 @@ describe('LSPConfigurationManager', () => {
         profilingType: 'cpu',
         commentCollectionLogLevel: 'info',
       },
-      resources: {
-        loadMode: 'full',
-      },
+      resources: {},
       findMissingArtifact: {
         enabled: true,
         maxCandidatesToOpen: 3,
@@ -155,7 +153,6 @@ describe('LSPConfigurationManager', () => {
       isPerformanceProfilingEnabled: jest.fn().mockReturnValue(false),
       getDocumentChangeDebounceMs: jest.fn().mockReturnValue(300),
       shouldUseAsyncCommentProcessing: jest.fn().mockReturnValue(true),
-      getResourceLoadMode: jest.fn().mockReturnValue('full'),
       getCompilationOptions: jest.fn().mockReturnValue({
         includeComments: true,
         includeSingleLineComments: false,
@@ -426,13 +423,6 @@ describe('LSPConfigurationManager', () => {
         mockSettingsManager.shouldUseAsyncCommentProcessing,
       ).toHaveBeenCalled();
       expect(shouldUse).toBe(true);
-    });
-
-    it('should get resource load mode', () => {
-      const mode = configurationManager.getResourceLoadMode();
-
-      expect(mockSettingsManager.getResourceLoadMode).toHaveBeenCalled();
-      expect(mode).toBe('full');
     });
   });
 

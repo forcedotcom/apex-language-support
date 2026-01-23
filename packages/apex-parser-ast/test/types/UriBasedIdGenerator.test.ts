@@ -25,7 +25,7 @@ import {
 describe('UriBasedIdGenerator', () => {
   beforeAll(async () => {
     // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
-    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+    await initializeResourceLoaderForTests();
   });
 
   afterAll(() => {

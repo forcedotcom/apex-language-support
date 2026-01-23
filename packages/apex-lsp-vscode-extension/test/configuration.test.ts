@@ -100,7 +100,6 @@ describe('Configuration Module', () => {
           if (key === 'performance.documentChangeDebounceMs') return 300;
           if (key === 'environment.profilingMode') return 'none';
           if (key === 'environment.profilingType') return 'cpu';
-          if (key === 'resources.loadMode') return 'lazy';
           if (key === 'findMissingArtifact.enabled') return false;
           if (key === 'findMissingArtifact.blockingWaitTimeoutMs') return 2000;
           if (key === 'findMissingArtifact.indexingBarrierPollMs') return 100;
@@ -167,7 +166,6 @@ describe('Configuration Module', () => {
             commentCollectionLogLevel: 'info',
           },
           resources: {
-            loadMode: 'lazy',
             standardApexLibraryPath: undefined,
           },
           scheduler: {
@@ -385,9 +383,7 @@ describe('Configuration Module', () => {
             profilingMode: 'none',
             profilingType: 'cpu',
           },
-          resources: {
-            loadMode: 'lazy',
-          },
+          resources: {},
           worker: {
             logLevel: 'info',
           },

@@ -33,7 +33,7 @@ describe('System.debug Resolution Bug Fix', () => {
         idleSleepMs: 1,
       }),
     );
-    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+    await initializeResourceLoaderForTests();
 
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();

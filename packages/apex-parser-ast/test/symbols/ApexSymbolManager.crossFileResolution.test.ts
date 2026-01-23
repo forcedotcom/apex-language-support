@@ -39,7 +39,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       }),
     );
     // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
-    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+    await initializeResourceLoaderForTests();
   });
 
   beforeEach(() => {

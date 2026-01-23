@@ -33,7 +33,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
 
   beforeAll(async () => {
     // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
-    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+    await initializeResourceLoaderForTests();
   });
 
   beforeEach(() => {
