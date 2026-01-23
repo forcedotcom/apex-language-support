@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -30,6 +30,8 @@ import { FinalAssignmentValidator } from '../../../../src/semantics/validation/v
 import { MethodSignatureEquivalenceValidator } from '../../../../src/semantics/validation/validators/MethodSignatureEquivalenceValidator';
 // eslint-disable-next-line max-len
 import { InterfaceHierarchyValidator } from '../../../../src/semantics/validation/validators/InterfaceHierarchyValidator';
+import { ClassHierarchyValidator } from '../../../../src/semantics/validation/validators/ClassHierarchyValidator';
+import { TypeAssignmentValidator } from '../../../../src/semantics/validation/validators/TypeAssignmentValidator';
 import {
   SymbolTable,
   SymbolFactory,
@@ -39,6 +41,12 @@ import { ValidationTier } from '../../../../src/semantics/validation/ValidationT
 
 describe('Validator Integration Tests', () => {
   const TEST_FILE_URI = 'file:///test.cls';
+
+  // Helper to extract error/warning message (handles both string and object formats)
+  const getMessage = (errorOrWarning: string | { message: string }): string =>
+    typeof errorOrWarning === 'string'
+      ? errorOrWarning
+      : errorOrWarning.message;
 
   /**
    * Create a program that registers all validators and runs them
@@ -62,6 +70,8 @@ describe('Validator Integration Tests', () => {
       // TIER 2 (THOROUGH) validators
       yield* registerValidator(MethodSignatureEquivalenceValidator);
       yield* registerValidator(InterfaceHierarchyValidator);
+      yield* registerValidator(ClassHierarchyValidator);
+      yield* registerValidator(TypeAssignmentValidator);
 
       return 'Validators registered';
     }).pipe(Effect.provide(ValidatorRegistryLive));
@@ -137,7 +147,10 @@ describe('Validator Integration Tests', () => {
 
     // Find the ParameterLimitValidator result
     const parameterResult = results.find(
-      (r) => !r.isValid && r.errors[0]?.includes('33 parameters'),
+      (r) =>
+        !r.isValid &&
+        r.errors.length > 0 &&
+        getMessage(r.errors[0]).includes('33 parameters'),
     );
 
     expect(parameterResult).toBeDefined();
@@ -163,7 +176,10 @@ describe('Validator Integration Tests', () => {
 
     // Find the EnumLimitValidator result
     const enumLimitResult = results.find(
-      (r) => !r.isValid && r.errors[0]?.includes('101 constants'),
+      (r) =>
+        !r.isValid &&
+        r.errors.length > 0 &&
+        getMessage(r.errors[0]).includes('101 constants'),
     );
 
     expect(enumLimitResult).toBeDefined();
@@ -189,7 +205,10 @@ describe('Validator Integration Tests', () => {
 
     // Find the EnumConstantNamingValidator result
     const namingResult = results.find(
-      (r) => !r.isValid && r.errors[0]?.includes('INVALID@NAME'),
+      (r) =>
+        !r.isValid &&
+        r.errors.length > 0 &&
+        getMessage(r.errors[0]).includes('INVALID@NAME'),
     );
 
     expect(namingResult).toBeDefined();
@@ -215,7 +234,10 @@ describe('Validator Integration Tests', () => {
 
     // Find the DuplicateMethodValidator result
     const duplicateResult = results.find(
-      (r) => !r.isValid && r.errors[0]?.includes('Duplicate method'),
+      (r) =>
+        !r.isValid &&
+        r.errors.length > 0 &&
+        getMessage(r.errors[0]).includes('Duplicate method'),
     );
 
     expect(duplicateResult).toBeDefined();
@@ -241,7 +263,10 @@ describe('Validator Integration Tests', () => {
 
     // Find the ConstructorNamingValidator result
     const constructorResult = results.find(
-      (r) => !r.isValid && r.errors[0]?.includes('Constructor name'),
+      (r) =>
+        !r.isValid &&
+        r.errors.length > 0 &&
+        getMessage(r.errors[0]).includes('Constructor name'),
     );
 
     expect(constructorResult).toBeDefined();
@@ -323,8 +348,12 @@ describe('Validator Integration Tests', () => {
 
     // Check for specific error messages
     const allErrors = results.flatMap((r) => r.errors);
-    expect(allErrors.some((e) => e.includes('33 parameters'))).toBe(true);
-    expect(allErrors.some((e) => e.includes('BAD@NAME'))).toBe(true);
+    expect(allErrors.some((e) => getMessage(e).includes('33 parameters'))).toBe(
+      true,
+    );
+    expect(allErrors.some((e) => getMessage(e).includes('BAD@NAME'))).toBe(
+      true,
+    );
   });
 
   it('should run THOROUGH tier validators successfully', async () => {
@@ -364,8 +393,9 @@ describe('Validator Integration Tests', () => {
       ),
     );
 
-    // Should have 2 TIER 2 validators run (MethodSignatureEquivalence, InterfaceHierarchy)
-    expect(results).toHaveLength(2);
+    // Should have 4 TIER 2 validators run
+    // (MethodSignatureEquivalence, InterfaceHierarchy, ClassHierarchy, TypeAssignment)
+    expect(results).toHaveLength(4);
 
     // All should pass since we have valid code
     for (const result of results) {

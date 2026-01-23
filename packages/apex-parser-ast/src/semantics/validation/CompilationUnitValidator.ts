@@ -168,13 +168,17 @@ export class CompilationUnitValidator {
     // Validate file size
     const sizeResult = this.validateFileSize(content, unitType, scope);
     if (!sizeResult.isValid) {
-      errors.push(...sizeResult.errors);
+      for (const error of sizeResult.errors) {
+        errors.push(typeof error === 'string' ? error : error.message);
+      }
     }
 
     // Validate characters
     const charResult = this.validateCharacters(content, scope);
     if (!charResult.isValid) {
-      errors.push(...charResult.errors);
+      for (const error of charResult.errors) {
+        errors.push(typeof error === 'string' ? error : error.message);
+      }
     }
 
     return {

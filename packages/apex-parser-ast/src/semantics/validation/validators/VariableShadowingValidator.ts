@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -9,7 +9,11 @@
 import { Effect } from 'effect';
 import type { SymbolTable, ApexSymbol } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
-import type { ValidationResult } from '../ValidationResult';
+import type {
+  ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+} from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
@@ -55,8 +59,8 @@ export const VariableShadowingValidator: Validator = {
     options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError> =>
     Effect.gen(function* () {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const errors: ValidationErrorInfo[] = [];
+      const warnings: ValidationWarningInfo[] = [];
 
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
@@ -93,9 +97,13 @@ export const VariableShadowingValidator: Validator = {
             allSymbols.find((s) => s.id === shadowedVariable.parentId) ?? null,
           );
 
-          errors.push(
-            `Variable '${variable.name}' in ${scopeDescription} shadows variable in outer ${outerScopeDescription}`,
-          );
+          errors.push({
+            message:
+              `Variable '${variable.name}' in ${scopeDescription} shadows variable in outer ` +
+              `${outerScopeDescription}`,
+            location: variable.location,
+            code: 'VARIABLE_SHADOWING',
+          });
         }
       }
 

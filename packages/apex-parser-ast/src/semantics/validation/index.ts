@@ -29,7 +29,12 @@ export { VariableExpressionValidator } from './VariableExpressionValidator';
 export { ConstructorExpressionValidator } from './ConstructorExpressionValidator';
 export { ExpressionValidator } from './ExpressionValidator';
 
-export type { ValidationResult, ValidationScope } from './ValidationResult';
+export type {
+  ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+  ValidationScope,
+} from './ValidationResult';
 export { ValidationTier, ARTIFACT_LOADING_LIMITS } from './ValidationTier';
 export type {
   ArtifactLoadingOptions,
@@ -66,6 +71,14 @@ export { ForwardReferenceValidator } from './validators/ForwardReferenceValidato
 export { FinalAssignmentValidator } from './validators/FinalAssignmentValidator';
 export { MethodSignatureEquivalenceValidator } from './validators/MethodSignatureEquivalenceValidator';
 export { InterfaceHierarchyValidator } from './validators/InterfaceHierarchyValidator';
+export { ClassHierarchyValidator } from './validators/ClassHierarchyValidator';
+export { TypeAssignmentValidator } from './validators/TypeAssignmentValidator';
+
+// Validator initialization
+export {
+  initializeValidators,
+  getValidatorCounts,
+} from './ValidatorInitialization';
 export type {
   TypeInfo,
   TypeValidationResult,

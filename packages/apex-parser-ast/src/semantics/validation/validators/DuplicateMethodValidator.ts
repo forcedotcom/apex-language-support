@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -8,7 +8,11 @@
 
 import { Effect } from 'effect';
 import type { SymbolTable, ApexSymbol } from '../../../types/symbol';
-import type { ValidationResult } from '../ValidationResult';
+import type {
+  ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+} from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
@@ -42,8 +46,8 @@ export const DuplicateMethodValidator: Validator = {
     options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError> =>
     Effect.gen(function* () {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const errors: ValidationErrorInfo[] = [];
+      const warnings: ValidationWarningInfo[] = [];
 
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
@@ -89,12 +93,14 @@ export const DuplicateMethodValidator: Validator = {
             for (let i = 1; i < methodList.length; i++) {
               const duplicateMethod = methodList[i];
               const firstMethod = methodList[0];
-              const firstLine = firstMethod.location.symbolRange.startLine;
-              errors.push(
-                `Duplicate method '${duplicateMethod.name}' in ` +
+              errors.push({
+                message:
+                  `Duplicate method '${duplicateMethod.name}' in ` +
                   `${parentType} '${parent.name}' (case-insensitive ` +
-                  `match with '${firstMethod.name}' at line ${firstLine})`,
-              );
+                  `match with '${firstMethod.name}')`,
+                location: duplicateMethod.location,
+                code: 'DUPLICATE_METHOD',
+              });
             }
           }
         }

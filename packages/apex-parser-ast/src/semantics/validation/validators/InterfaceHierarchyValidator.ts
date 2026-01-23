@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -14,6 +14,10 @@ import type {
   MethodSymbol,
 } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
+import type {
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+} from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import type { Validator } from '../ValidatorRegistry';
@@ -54,8 +58,8 @@ export const InterfaceHierarchyValidator: Validator = {
 
   validate: (symbolTable: SymbolTable, _options: ValidationOptions) =>
     Effect.gen(function* () {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const errors: ValidationErrorInfo[] = [];
+      const warnings: ValidationWarningInfo[] = [];
 
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
@@ -78,10 +82,13 @@ export const InterfaceHierarchyValidator: Validator = {
           new Set(),
         );
         if (circularPath) {
-          errors.push(
-            `Interface '${iface.name}' has circular inheritance hierarchy: ` +
+          errors.push({
+            message:
+              `Interface '${iface.name}' has circular inheritance hierarchy: ` +
               circularPath.join(' -> '),
-          );
+            location: iface.location,
+            code: 'CIRCULAR_INHERITANCE',
+          });
         }
       }
 
@@ -89,9 +96,11 @@ export const InterfaceHierarchyValidator: Validator = {
       for (const iface of interfaces) {
         const duplicates = findDuplicateExtends(iface);
         for (const dup of duplicates) {
-          errors.push(
-            `Interface '${iface.name}' extends '${dup}' multiple times`,
-          );
+          errors.push({
+            message: `Interface '${iface.name}' extends '${dup}' multiple times`,
+            location: iface.location,
+            code: 'DUPLICATE_EXTENDS',
+          });
         }
       }
 
@@ -168,10 +177,13 @@ export const InterfaceHierarchyValidator: Validator = {
 
           if (!iface) {
             // Interface not found even after attempting to load
-            warnings.push(
-              `Interface '${ifaceName}' implemented by class '${cls.name}' ` +
+            warnings.push({
+              message:
+                `Interface '${ifaceName}' implemented by class '${cls.name}' ` +
                 'not found in current file or symbol manager',
-            );
+              location: cls.location,
+              code: 'MISSING_INTERFACE',
+            });
             continue;
           }
 
@@ -194,10 +206,13 @@ export const InterfaceHierarchyValidator: Validator = {
             );
 
             if (!implemented) {
-              errors.push(
-                `Class '${cls.name}' does not implement method ` +
+              errors.push({
+                message:
+                  `Class '${cls.name}' does not implement method ` +
                   `'${requiredMethod.name}' from interface '${ifaceName}'`,
-              );
+                location: cls.location,
+                code: 'MISSING_INTERFACE_METHOD',
+              });
             }
           }
         }

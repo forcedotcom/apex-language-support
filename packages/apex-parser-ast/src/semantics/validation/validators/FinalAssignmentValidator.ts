@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -9,7 +9,11 @@
 import { Effect } from 'effect';
 import type { SymbolTable } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
-import type { ValidationResult } from '../ValidationResult';
+import type {
+  ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+} from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
@@ -52,8 +56,8 @@ export const FinalAssignmentValidator: Validator = {
     options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError> =>
     Effect.gen(function* () {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const errors: ValidationErrorInfo[] = [];
+      const warnings: ValidationWarningInfo[] = [];
 
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
@@ -97,9 +101,11 @@ export const FinalAssignmentValidator: Validator = {
 
         // Rule 1: Final parameters cannot be reassigned (0 assignments is OK, >0 is error)
         if (finalSymbol.kind === SymbolKind.Parameter && assignmentCount > 0) {
-          errors.push(
-            `Final parameter '${finalSymbol.name}' cannot be reassigned`,
-          );
+          errors.push({
+            message: `Final parameter '${finalSymbol.name}' cannot be reassigned`,
+            location: finalSymbol.location,
+            code: 'FINAL_PARAMETER_REASSIGNMENT',
+          });
         }
 
         // Rule 2: Final variables/fields cannot be assigned more than once
@@ -110,10 +116,13 @@ export const FinalAssignmentValidator: Validator = {
             finalSymbol.kind === SymbolKind.Field) &&
           assignmentCount > 1
         ) {
-          errors.push(
-            `Final ${finalSymbol.kind} '${finalSymbol.name}' cannot be ` +
+          errors.push({
+            message:
+              `Final ${finalSymbol.kind} '${finalSymbol.name}' cannot be ` +
               `assigned more than once (found ${assignmentCount} assignments)`,
-          );
+            location: finalSymbol.location,
+            code: 'FINAL_MULTIPLE_ASSIGNMENT',
+          });
         }
       }
 

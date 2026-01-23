@@ -77,7 +77,14 @@ export class AdvancedValidator {
       { ...scope, isTestContext: scope.isTestContext },
     );
     if (!compilationResult.isValid) {
-      errors.push(...compilationResult.errors);
+      // Handle both string[] and ValidationErrorInfo[] formats
+      for (const error of compilationResult.errors) {
+        if (typeof error === 'string') {
+          errors.push(error);
+        } else {
+          errors.push(error.message);
+        }
+      }
     }
 
     // Note: In a real implementation, this would also:
@@ -296,12 +303,17 @@ export class AdvancedValidator {
     const result = this.validateCompilationUnit(content, unitType, scope);
 
     // Categorize errors (simplified)
-    const compilationUnitErrors = result.errors.filter(
+    // Normalize errors to strings for filtering
+    const errorMessages = result.errors.map((e) =>
+      typeof e === 'string' ? e : e.message,
+    );
+
+    const compilationUnitErrors = errorMessages.filter(
       (e) =>
         e.includes('script.too.large') || e.includes('expression.too.long'),
     ).length;
 
-    const statementErrors = result.errors.filter(
+    const statementErrors = errorMessages.filter(
       (e) =>
         e.includes('incompatible.types') ||
         e.includes('incompatible.switch.types') ||
@@ -309,22 +321,32 @@ export class AdvancedValidator {
         e.includes('incompatible.assignment'),
     ).length;
 
-    const visibilityErrors = result.errors.filter(
+    const visibilityErrors = errorMessages.filter(
       (e) => e.includes('not.visible') || e.includes('static.'),
     ).length;
 
-    const characterErrors = result.errors.filter(
+    const characterErrors = errorMessages.filter(
       (e) =>
         e.includes('Invalid control character') ||
         e.includes('Invalid symbol') ||
         e.includes('Invalid identifier'),
     ).length;
 
+    // Normalize errors and warnings to strings for summary compatibility
+    const normalizedErrors = result.errors.map((e) =>
+      typeof e === 'string' ? e : e.message,
+    );
+    const normalizedWarnings = result.warnings.map((w) =>
+      typeof w === 'string' ? w : w.message,
+    );
+
     return {
-      ...result,
+      isValid: result.isValid,
+      errors: normalizedErrors,
+      warnings: normalizedWarnings,
       summary: {
-        totalErrors: result.errors.length,
-        totalWarnings: result.warnings.length,
+        totalErrors: normalizedErrors.length,
+        totalWarnings: normalizedWarnings.length,
         compilationUnitErrors,
         statementErrors,
         visibilityErrors,

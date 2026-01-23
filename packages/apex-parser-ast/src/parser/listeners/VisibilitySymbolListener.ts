@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -125,7 +125,9 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
 
         if (!validationResult.isValid) {
           validationResult.errors.forEach((error) => {
-            this.addError(error, ctx);
+            const errorMessage =
+              typeof error === 'string' ? error : error.message;
+            this.addError(errorMessage, ctx);
           });
         }
 

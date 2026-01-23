@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -8,7 +8,11 @@
 
 import { Effect } from 'effect';
 import type { SymbolTable, TypeSymbol } from '../../../types/symbol';
-import type { ValidationResult } from '../ValidationResult';
+import type {
+  ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+} from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
@@ -49,8 +53,8 @@ export const TypeSelfReferenceValidator: Validator = {
     options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError> =>
     Effect.gen(function* () {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const errors: ValidationErrorInfo[] = [];
+      const warnings: ValidationWarningInfo[] = [];
 
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
@@ -70,7 +74,11 @@ export const TypeSelfReferenceValidator: Validator = {
         if (typeSymbol.kind === 'class' && typeSymbol.superClass) {
           const superClassName = typeSymbol.superClass.toLowerCase();
           if (superClassName === typeName) {
-            errors.push(`Class '${typeSymbol.name}' cannot extend itself`);
+            errors.push({
+              message: `Class '${typeSymbol.name}' cannot extend itself`,
+              location: typeSymbol.location,
+              code: 'CLASS_EXTENDS_SELF',
+            });
           }
         }
 
@@ -83,9 +91,11 @@ export const TypeSelfReferenceValidator: Validator = {
           for (const extendedInterface of typeSymbol.interfaces) {
             const extendedName = extendedInterface.toLowerCase();
             if (extendedName === typeName) {
-              errors.push(
-                `Interface '${typeSymbol.name}' cannot extend itself`,
-              );
+              errors.push({
+                message: `Interface '${typeSymbol.name}' cannot extend itself`,
+                location: typeSymbol.location,
+                code: 'INTERFACE_EXTENDS_SELF',
+              });
               break; // Only report once per interface
             }
           }
@@ -100,7 +110,11 @@ export const TypeSelfReferenceValidator: Validator = {
           for (const implementedInterface of typeSymbol.interfaces) {
             const implementedName = implementedInterface.toLowerCase();
             if (implementedName === typeName) {
-              errors.push(`Class '${typeSymbol.name}' cannot implement itself`);
+              errors.push({
+                message: `Class '${typeSymbol.name}' cannot implement itself`,
+                location: typeSymbol.location,
+                code: 'CLASS_IMPLEMENTS_SELF',
+              });
               break; // Only report once per class
             }
           }

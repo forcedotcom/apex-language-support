@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -8,7 +8,11 @@
 
 import { Effect } from 'effect';
 import type { SymbolTable } from '../../../types/symbol';
-import type { ValidationResult } from '../ValidationResult';
+import type {
+  ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+} from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
@@ -43,8 +47,8 @@ export const ConstructorNamingValidator: Validator = {
     options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError> =>
     Effect.gen(function* () {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const errors: ValidationErrorInfo[] = [];
+      const warnings: ValidationWarningInfo[] = [];
 
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
@@ -68,9 +72,11 @@ export const ConstructorNamingValidator: Validator = {
 
         if (!parentClass) {
           // No parent class found - could be in an interface or other invalid context
-          warnings.push(
-            `Constructor '${constructor.name}' found without a parent class`,
-          );
+          warnings.push({
+            message: `Constructor '${constructor.name}' found without a parent class`,
+            location: constructor.location,
+            code: 'CONSTRUCTOR_NO_PARENT',
+          });
           continue;
         }
 
@@ -79,9 +85,13 @@ export const ConstructorNamingValidator: Validator = {
         const classNameLower = parentClass.name.toLowerCase();
 
         if (constructorNameLower !== classNameLower) {
-          errors.push(
-            `Constructor name '${constructor.name}' must match class name '${parentClass.name}' (case-insensitive)`,
-          );
+          errors.push({
+            message:
+              `Constructor name '${constructor.name}' must match class name '${parentClass.name}' ` +
+              '(case-insensitive)',
+            location: constructor.location,
+            code: 'CONSTRUCTOR_NAME_MISMATCH',
+          });
         }
       }
 

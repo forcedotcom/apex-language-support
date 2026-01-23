@@ -521,6 +521,7 @@ export interface VariableSymbol extends ApexSymbol {
     | SymbolKind.EnumValue;
   type: TypeInfo;
   initialValue?: string;
+  initializerType?: TypeInfo; // Type of the initializer expression (if present)
 }
 
 /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -9,7 +9,11 @@
 import { Effect } from 'effect';
 import type { SymbolTable } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
-import type { ValidationResult } from '../ValidationResult';
+import type {
+  ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+} from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
@@ -53,8 +57,8 @@ export const ForwardReferenceValidator: Validator = {
     options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError> =>
     Effect.gen(function* () {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const errors: ValidationErrorInfo[] = [];
+      const warnings: ValidationWarningInfo[] = [];
 
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
@@ -90,10 +94,11 @@ export const ForwardReferenceValidator: Validator = {
 
         // Check if reference comes before declaration
         if (referenceLine < declarationLine) {
-          errors.push(
-            `Variable '${reference.name}' is referenced at line ` +
-              `${referenceLine} before it is declared at line ${declarationLine}`,
-          );
+          errors.push({
+            message: `Variable '${reference.name}' is referenced before it is declared`,
+            location: reference.location,
+            code: 'FORWARD_REFERENCE',
+          });
         }
       }
 

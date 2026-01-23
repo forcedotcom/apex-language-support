@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -9,7 +9,11 @@
 import { Effect } from 'effect';
 import type { SymbolTable, MethodSymbol } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
-import type { ValidationResult } from '../ValidationResult';
+import type {
+  ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+} from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
@@ -51,8 +55,8 @@ export const MethodSignatureEquivalenceValidator: Validator = {
     options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError> =>
     Effect.gen(function* () {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const errors: ValidationErrorInfo[] = [];
+      const warnings: ValidationWarningInfo[] = [];
 
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
@@ -91,13 +95,14 @@ export const MethodSignatureEquivalenceValidator: Validator = {
             if (areSignaturesEquivalent(method1, method2)) {
               const parentType =
                 parent.kind === SymbolKind.Class ? 'class' : 'interface';
-              const line1 = method1.location.symbolRange.startLine;
 
-              errors.push(
-                `Method '${method2.name}' in ${parentType} '${parent.name}' ` +
-                  `has equivalent signature to method '${method1.name}' ` +
-                  `at line ${line1}`,
-              );
+              errors.push({
+                message:
+                  `Method '${method2.name}' in ${parentType} '${parent.name}' ` +
+                  `has equivalent signature to method '${method1.name}'`,
+                location: method2.location,
+                code: 'DUPLICATE_METHOD_SIGNATURE',
+              });
             }
           }
         }

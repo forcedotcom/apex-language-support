@@ -77,7 +77,9 @@ export class TypeValidator {
       scope,
     );
     if (!visibilityResult.isValid) {
-      errors.push(...visibilityResult.errors);
+      for (const error of visibilityResult.errors) {
+        errors.push(typeof error === 'string' ? error : error.message);
+      }
     }
 
     return {

@@ -273,7 +273,9 @@ export class SObjectRecalculateFormulasValidator {
     // Validate the method call
     const callResult = this.validateRecalculateFormulasCall(callInfo, scope);
     if (!callResult.isValid) {
-      errors.push(...callResult.errors);
+      for (const error of callResult.errors) {
+        errors.push(typeof error === 'string' ? error : error.message);
+      }
     }
 
     // Validate the return type
@@ -282,7 +284,9 @@ export class SObjectRecalculateFormulasValidator {
       scope,
     );
     if (!resultValidation.isValid) {
-      errors.push(...resultValidation.errors);
+      for (const error of resultValidation.errors) {
+        errors.push(typeof error === 'string' ? error : error.message);
+      }
     }
 
     return {

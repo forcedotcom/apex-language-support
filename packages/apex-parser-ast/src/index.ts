@@ -100,6 +100,8 @@ export type {
 } from './semantics/validation/ValidationTier';
 export type {
   ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
   ValidationScope,
 } from './semantics/validation/ValidationResult';
 export {
@@ -110,6 +112,10 @@ export {
   runValidatorsForTier,
   ValidationError,
 } from './semantics/validation/ValidatorRegistry';
+export {
+  initializeValidators,
+  getValidatorCounts,
+} from './semantics/validation/ValidatorInitialization';
 export type {
   Validator,
   ValidatorRegistration,

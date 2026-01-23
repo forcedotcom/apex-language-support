@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -9,7 +9,11 @@
 import { Effect } from 'effect';
 import type { SymbolTable, ApexSymbol } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
-import type { ValidationResult } from '../ValidationResult';
+import type {
+  ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+} from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
@@ -43,8 +47,8 @@ export const EnumConstantNamingValidator: Validator = {
     options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError> =>
     Effect.gen(function* () {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const errors: ValidationErrorInfo[] = [];
+      const warnings: ValidationWarningInfo[] = [];
 
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
@@ -76,9 +80,13 @@ export const EnumConstantNamingValidator: Validator = {
           const enumName = parentEnum ? parentEnum.name : 'unknown';
 
           for (const error of validationResult.errors) {
-            errors.push(
-              `Enum '${enumName}' constant '${constant.name}': ${error}`,
-            );
+            const errorMessage =
+              typeof error === 'string' ? error : error.message;
+            errors.push({
+              message: `Enum '${enumName}' constant '${constant.name}': ${errorMessage}`,
+              location: constant.location,
+              code: 'INVALID_ENUM_CONSTANT_NAME',
+            });
           }
         }
 
@@ -86,9 +94,13 @@ export const EnumConstantNamingValidator: Validator = {
         for (const warning of validationResult.warnings) {
           const parentEnum = findParentEnum(constant, allSymbols);
           const enumName = parentEnum ? parentEnum.name : 'unknown';
-          warnings.push(
-            `Enum '${enumName}' constant '${constant.name}': ${warning}`,
-          );
+          const warningMessage =
+            typeof warning === 'string' ? warning : warning.message;
+          warnings.push({
+            message: `Enum '${enumName}' constant '${constant.name}': ${warningMessage}`,
+            location: constant.location,
+            code: 'ENUM_CONSTANT_NAMING_WARNING',
+          });
         }
       }
 

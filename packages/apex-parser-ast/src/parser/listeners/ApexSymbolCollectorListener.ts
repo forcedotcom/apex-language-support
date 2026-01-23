@@ -949,7 +949,9 @@ export class ApexSymbolCollectorListener
 
       if (!validationResult.isValid) {
         validationResult.errors.forEach((error) => {
-          this.addError(error, ctx);
+          const errorMessage =
+            typeof error === 'string' ? error : error.message;
+          this.addError(errorMessage, ctx);
         });
         // Continue symbol creation to maximize collection robustness even with invalid identifiers
       }
@@ -1101,7 +1103,9 @@ export class ApexSymbolCollectorListener
 
       if (!validationResult.isValid) {
         validationResult.errors.forEach((error) => {
-          this.addError(error, ctx);
+          const errorMessage =
+            typeof error === 'string' ? error : error.message;
+          this.addError(errorMessage, ctx);
         });
         // Continue symbol creation to maximize collection robustness even with invalid identifiers
       }
@@ -1231,7 +1235,9 @@ export class ApexSymbolCollectorListener
 
       if (!validationResult.isValid) {
         validationResult.errors.forEach((error) => {
-          this.addError(error, ctx);
+          const errorMessage =
+            typeof error === 'string' ? error : error.message;
+          this.addError(errorMessage, ctx);
         });
         // Continue symbol creation to maximize collection robustness even with invalid identifiers
       }
@@ -4336,7 +4342,9 @@ export class ApexSymbolCollectorListener
 
       if (!validationResult.isValid) {
         validationResult.errors.forEach((error) => {
-          this.addError(error, ctx);
+          const errorMessage =
+            typeof error === 'string' ? error : error.message;
+          this.addError(errorMessage, ctx);
         });
       }
 
@@ -4347,6 +4355,15 @@ export class ApexSymbolCollectorListener
         kind,
         type,
       );
+
+      // Extract initializer type if present
+      const expression = ctx.expression();
+      if (expression) {
+        const initializerType = this.extractInitializerType(expression);
+        if (initializerType) {
+          variableSymbol.initializerType = initializerType;
+        }
+      }
 
       this.symbolTable.addSymbol(variableSymbol, this.getCurrentScopeSymbol());
 
@@ -4364,6 +4381,409 @@ export class ApexSymbolCollectorListener
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in variable: ${errorMessage}`, ctx);
     }
+  }
+
+  /**
+   * Extract the type of an initializer expression
+   * @param ctx The expression context from VariableDeclaratorContext
+   * @returns TypeInfo if type can be determined, null otherwise
+   */
+  private extractInitializerType(ctx: ParserRuleContext): TypeInfo | null {
+    try {
+      const location = this.getLocation(ctx);
+      let typeInfo: TypeInfo | null = null;
+      let expectedContext: ReferenceContext | null = null;
+
+      // Check for new expression (constructor calls)
+      if (isContextType(ctx, NewExpressionContext)) {
+        typeInfo = this.extractTypeFromNewExpression(
+          ctx as NewExpressionContext,
+        );
+        expectedContext = ReferenceContext.CONSTRUCTOR_CALL;
+      }
+      // Check for literal expressions
+      else if (isContextType(ctx, PrimaryExpressionContext)) {
+        const primaryExpr = ctx as PrimaryExpressionContext;
+        const primary = primaryExpr.primary();
+        if (primary) {
+          // Check for literal using type guard
+          if (isContextType(primary, LiteralContext)) {
+            typeInfo = this.extractTypeFromLiteralExpression(
+              primary as LiteralContext,
+            );
+            expectedContext = ReferenceContext.LITERAL;
+          }
+          // Check for variable references (same-file only)
+          else if (isContextType(primary, IdPrimaryContext)) {
+            typeInfo = this.extractTypeFromVariableReference(
+              primary as IdPrimaryContext,
+            );
+            expectedContext = ReferenceContext.VARIABLE_USAGE;
+          }
+        }
+      }
+      // Check for method calls (same-file only)
+      else if (isContextType(ctx, MethodCallExpressionContext)) {
+        typeInfo = this.extractTypeFromMethodCall(
+          ctx as MethodCallExpressionContext,
+        );
+        expectedContext = ReferenceContext.METHOD_CALL;
+      }
+
+      // For other expression types, we can't determine the type during parsing
+      // Mark as needing resolution for TIER 2 validation
+      if (!typeInfo) {
+        return {
+          name: 'Object',
+          isArray: false,
+          isCollection: false,
+          isPrimitive: false,
+          originalTypeString: this.getTextFromContext(ctx),
+          needsNamespaceResolution: true,
+          getNamespace: () => null,
+        };
+      }
+
+      // Link the TypeInfo to its SymbolReference if we have an expected context
+      // Primitives and built-ins don't need references
+      if (
+        expectedContext &&
+        !typeInfo.isPrimitive &&
+        !typeInfo.isBuiltIn &&
+        typeInfo.name !== 'null'
+      ) {
+        this.linkInitializerTypeToReference(
+          typeInfo,
+          location,
+          expectedContext,
+        );
+      }
+
+      return typeInfo;
+    } catch (e) {
+      this.logger.warn(
+        () =>
+          `Error extracting initializer type: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Link an initializer TypeInfo to its SymbolReference
+   * This allows validators to check resolution status via resolvedSymbolId
+   */
+  private linkInitializerTypeToReference(
+    typeInfo: TypeInfo,
+    location: SymbolLocation,
+    expectedContext: ReferenceContext,
+  ): void {
+    try {
+      // Find existing reference at this location
+      // References are created by captureConstructorCallReference() or ApexReferenceCollectorListener
+      const refs = this.symbolTable.getReferencesAtPosition({
+        line: location.identifierRange.startLine,
+        character: location.identifierRange.startColumn,
+      });
+
+      if (refs.length === 0) {
+        // Reference might not exist yet (shouldn't happen for constructor calls)
+        // Log debug but continue - reference may be created later
+        this.logger.debug(
+          () =>
+            'No reference found for initializer expression at ' +
+            `${location.identifierRange.startLine}:${location.identifierRange.startColumn}`,
+        );
+        return;
+      }
+
+      // Find matching reference by context and name
+      // For constructor calls, match CONSTRUCTOR_CALL context
+      // For method calls, match METHOD_CALL context
+      // For variable references, match VARIABLE_USAGE context
+      const matchingRef = refs.find(
+        (ref) => ref.context === expectedContext && ref.name === typeInfo.name,
+      );
+
+      // Also check for collection types where the reference name might be "List", "Set", or "Map"
+      // but the typeInfo.name might include generics like "List<String>"
+      if (!matchingRef && typeInfo.isCollection) {
+        const baseCollectionName = typeInfo.name.split('<')[0]; // Extract "List" from "List<String>"
+        const collectionRef = refs.find(
+          (ref) =>
+            ref.context === expectedContext && ref.name === baseCollectionName,
+        );
+        if (collectionRef) {
+          // Generate the reference ID using same format as declared types
+          const refId =
+            `${this.currentFilePath}:${collectionRef.location.identifierRange.startLine}:` +
+            `${collectionRef.location.identifierRange.startColumn}:${collectionRef.name}:` +
+            `${ReferenceContext[collectionRef.context]}`;
+          typeInfo.typeReferenceId = refId;
+          this.logger.debug(
+            () =>
+              `[linkInitializerTypeToReference] Linked collection type "${typeInfo.name}" to reference ID: ${refId}`,
+          );
+          return;
+        }
+      }
+
+      if (matchingRef) {
+        // Generate the reference ID using same format as declared types
+        const refId =
+          `${this.currentFilePath}:${matchingRef.location.identifierRange.startLine}:` +
+          `${matchingRef.location.identifierRange.startColumn}:${matchingRef.name}:` +
+          `${ReferenceContext[matchingRef.context]}`;
+        typeInfo.typeReferenceId = refId;
+        this.logger.debug(
+          () =>
+            `[linkInitializerTypeToReference] Linked type "${typeInfo.name}" to reference ID: ${refId}`,
+        );
+      } else {
+        // Reference exists but doesn't match - log debug but continue
+        this.logger.debug(
+          () =>
+            `No matching reference found for initializer type "${typeInfo.name}" ` +
+            `(expected context: ${ReferenceContext[expectedContext]}) at ` +
+            `${location.identifierRange.startLine}:${location.identifierRange.startColumn}`,
+        );
+      }
+    } catch (e) {
+      this.logger.warn(
+        () =>
+          `Error linking initializer type to reference: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  /**
+   * Extract type from a new expression (constructor call)
+   * Handles: new List<String>(), new Account(), etc.
+   */
+  private extractTypeFromNewExpression(ctx: NewExpressionContext): TypeInfo {
+    const creator = ctx.creator();
+    if (!creator) {
+      return createTypeInfo('Object');
+    }
+
+    const createdName = creator.createdName();
+    if (!createdName) {
+      return createTypeInfo('Object');
+    }
+
+    // Handle collection types (List, Set, Map)
+    let createdNameTypeName = (createdName as any).typeName?.();
+    let pairTypeName: any = null;
+
+    if (createdNameTypeName) {
+      const listToken = createdNameTypeName.LIST?.();
+      const setToken = createdNameTypeName.SET?.();
+      const mapToken = createdNameTypeName.MAP?.();
+
+      if (listToken || setToken || mapToken) {
+        const collectionType = listToken ? 'List' : setToken ? 'Set' : 'Map';
+        const typeArguments = createdNameTypeName.typeArguments();
+        const typeList = typeArguments?.typeList();
+        const genericTypeRefs = typeList?.typeRef() || [];
+
+        if (genericTypeRefs.length > 0) {
+          const typeParameters = genericTypeRefs.map((tr: TypeRefContext) =>
+            this.createTypeInfoFromTypeRef(tr),
+          );
+
+          if (mapToken && typeParameters.length >= 2) {
+            return createMapTypeInfo(typeParameters[0], typeParameters[1]);
+          }
+
+          if (listToken || setToken) {
+            return createCollectionTypeInfo(collectionType, typeParameters);
+          }
+        }
+
+        return createCollectionTypeInfo(collectionType);
+      }
+    }
+
+    // Check idCreatedNamePair structure for non-collection types
+    const idCreatedNamePairs = createdName.idCreatedNamePair();
+    if (idCreatedNamePairs && idCreatedNamePairs.length > 0) {
+      const firstPair = idCreatedNamePairs[0];
+      pairTypeName = (firstPair as any).typeName?.();
+
+      if (pairTypeName) {
+        const listToken = pairTypeName.LIST?.();
+        const setToken = pairTypeName.SET?.();
+        const mapToken = pairTypeName.MAP?.();
+
+        if (listToken || setToken || mapToken) {
+          const collectionType = listToken ? 'List' : setToken ? 'Set' : 'Map';
+          const typeArguments = pairTypeName.typeArguments();
+          const typeList = typeArguments?.typeList();
+          const genericTypeRefs = typeList?.typeRef() || [];
+
+          if (genericTypeRefs.length > 0) {
+            const typeParameters = genericTypeRefs.map((tr: TypeRefContext) =>
+              this.createTypeInfoFromTypeRef(tr),
+            );
+
+            if (mapToken && typeParameters.length >= 2) {
+              return createMapTypeInfo(typeParameters[0], typeParameters[1]);
+            }
+
+            if (listToken || setToken) {
+              return createCollectionTypeInfo(collectionType, typeParameters);
+            }
+          }
+
+          return createCollectionTypeInfo(collectionType);
+        }
+      }
+
+      // Handle regular class constructor calls
+      const anyId = firstPair.anyId();
+      if (anyId) {
+        const typeName = anyId.text;
+
+        // Build qualified name if there are multiple pairs
+        if (idCreatedNamePairs.length > 1) {
+          const parts: string[] = [typeName];
+          for (let i = 1; i < idCreatedNamePairs.length; i++) {
+            const pair = idCreatedNamePairs[i];
+            const pairId = pair.anyId();
+            if (pairId) {
+              parts.push(pairId.text);
+            }
+          }
+          return createTypeInfo(parts.join('.'));
+        }
+
+        return createTypeInfo(typeName);
+      }
+    }
+
+    return createTypeInfo('Object');
+  }
+
+  /**
+   * Extract type from a literal expression
+   * Handles: 123, "string", true, false, null
+   */
+  private extractTypeFromLiteralExpression(ctx: LiteralContext): TypeInfo {
+    if (ctx.IntegerLiteral()) {
+      return createPrimitiveType('Integer');
+    }
+    if (ctx.LongLiteral()) {
+      return createPrimitiveType('Long');
+    }
+    if (ctx.NumberLiteral()) {
+      return createPrimitiveType('Decimal');
+    }
+    if (ctx.StringLiteral()) {
+      return createPrimitiveType('String');
+    }
+    if (ctx.BooleanLiteral()) {
+      return createPrimitiveType('Boolean');
+    }
+    if (ctx.NULL()) {
+      return {
+        name: 'null',
+        isArray: false,
+        isCollection: false,
+        isPrimitive: true,
+        isBuiltIn: true,
+        originalTypeString: 'null',
+        getNamespace: () => null,
+      };
+    }
+
+    return createTypeInfo('Object');
+  }
+
+  /**
+   * Extract type from a variable reference
+   * Only works for same-file variables
+   */
+  private extractTypeFromVariableReference(
+    ctx: IdPrimaryContext,
+  ): TypeInfo | null {
+    const id = ctx.id();
+    if (!id) {
+      return null;
+    }
+
+    const varName = id.text;
+    const currentScope = this.getCurrentScopeSymbol();
+
+    // Look up variable in symbol table (same-file only)
+    const variableSymbol = this.symbolTable.findSymbolInCurrentScope(
+      varName,
+      currentScope,
+    );
+
+    if (variableSymbol && 'type' in variableSymbol) {
+      return (variableSymbol as any).type as TypeInfo;
+    }
+
+    // Variable not found - mark as needing resolution
+    return {
+      name: 'Object',
+      isArray: false,
+      isCollection: false,
+      isPrimitive: false,
+      originalTypeString: varName,
+      needsNamespaceResolution: true,
+      getNamespace: () => null,
+    };
+  }
+
+  /**
+   * Extract return type from a method call
+   * Only works for same-file methods
+   */
+  private extractTypeFromMethodCall(
+    ctx: MethodCallExpressionContext,
+  ): TypeInfo | null {
+    // Try to find the method being called
+    const methodCall = ctx.methodCall();
+    if (!methodCall) {
+      return null;
+    }
+
+    // Extract method name
+    // MethodCallContext has id() method directly
+    const idNode = methodCall.id();
+    const methodName = idNode?.text;
+
+    if (!methodName) {
+      return null;
+    }
+
+    // Look up method in symbol table (same-file only)
+    const currentScope = this.getCurrentScopeSymbol();
+    const methodSymbol = this.symbolTable.findSymbolInCurrentScope(
+      methodName,
+      currentScope,
+    );
+
+    if (
+      methodSymbol &&
+      (methodSymbol.kind === SymbolKind.Method ||
+        methodSymbol.kind === SymbolKind.Constructor)
+    ) {
+      const method = methodSymbol as MethodSymbol;
+      return method.returnType;
+    }
+
+    // Method not found - mark as needing resolution
+    return {
+      name: 'Object',
+      isArray: false,
+      isCollection: false,
+      isPrimitive: false,
+      originalTypeString: methodName,
+      needsNamespaceResolution: true,
+      getNamespace: () => null,
+    };
   }
 
   /**

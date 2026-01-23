@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -7,8 +7,12 @@
  */
 
 import { Effect } from 'effect';
-import type { SymbolTable, ApexSymbol } from '../../../types/symbol';
-import type { ValidationResult } from '../ValidationResult';
+import type { SymbolTable, ApexSymbol, EnumSymbol } from '../../../types/symbol';
+import type {
+  ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+} from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
@@ -41,8 +45,8 @@ export const EnumLimitValidator: Validator = {
     options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError> =>
     Effect.gen(function* () {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const errors: ValidationErrorInfo[] = [];
+      const warnings: ValidationWarningInfo[] = [];
 
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
@@ -52,13 +56,25 @@ export const EnumLimitValidator: Validator = {
 
       // Check constant count for each enum
       for (const enumSymbol of enums) {
-        const constantCount = countEnumConstants(enumSymbol, allSymbols);
+        // EnumSymbol has a values property - use that if available
+        let constantCount = 0;
+        if ('values' in enumSymbol && Array.isArray((enumSymbol as EnumSymbol).values)) {
+          constantCount = (enumSymbol as EnumSymbol).values.length;
+        }
+        
+        // Fallback: count child enumValue symbols if values property not available
+        if (constantCount === 0) {
+          constantCount = countEnumConstants(enumSymbol, allSymbols);
+        }
 
         if (constantCount > MAX_ENUM_CONSTANTS) {
-          errors.push(
-            `Enum '${enumSymbol.name}' has ${constantCount} constants, ` +
+          errors.push({
+            message:
+              `Enum '${enumSymbol.name}' has ${constantCount} constants, ` +
               `but the maximum is ${MAX_ENUM_CONSTANTS}`,
-          );
+            location: enumSymbol.location,
+            code: 'ENUM_LIMIT_EXCEEDED',
+          });
         }
       }
 

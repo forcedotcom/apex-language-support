@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -8,7 +8,11 @@
 
 import { Effect } from 'effect';
 import type { SymbolTable } from '../../../types/symbol';
-import type { ValidationResult } from '../ValidationResult';
+import type {
+  ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+} from '../ValidationResult';
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
@@ -49,8 +53,8 @@ export const AbstractMethodBodyValidator: Validator = {
     options: ValidationOptions,
   ): Effect.Effect<ValidationResult, ValidationError> =>
     Effect.gen(function* () {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const errors: ValidationErrorInfo[] = [];
+      const warnings: ValidationWarningInfo[] = [];
 
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
@@ -82,10 +86,13 @@ export const AbstractMethodBodyValidator: Validator = {
 
         // Rule 1: Abstract methods must not have a body
         if (isAbstract && hasChildBlocks) {
-          errors.push(
-            `Abstract method '${method.name}' in ${parent.kind} ` +
+          errors.push({
+            message:
+              `Abstract method '${method.name}' in ${parent.kind} ` +
               `'${parent.name}' must not have a body`,
-          );
+            location: method.location,
+            code: 'ABSTRACT_METHOD_HAS_BODY',
+          });
         }
 
         // Rule 2: Non-abstract methods in concrete classes must have a body
@@ -97,26 +104,35 @@ export const AbstractMethodBodyValidator: Validator = {
           !method.modifiers.isBuiltIn
         ) {
           // Only warn for now, as symbol table may not capture block scopes
-          warnings.push(
-            `Non-abstract method '${method.name}' in class '${parent.name}' ` +
+          warnings.push({
+            message:
+              `Non-abstract method '${method.name}' in class '${parent.name}' ` +
               'appears to lack a body (this may be a symbol table limitation)',
-          );
+            location: method.location,
+            code: 'MISSING_METHOD_BODY',
+          });
         }
 
         // Rule 3: Abstract methods only in abstract classes or interfaces
         if (isAbstract && isInConcreteClass) {
-          errors.push(
-            `Abstract method '${method.name}' cannot be declared in ` +
+          errors.push({
+            message:
+              `Abstract method '${method.name}' cannot be declared in ` +
               `non-abstract class '${parent.name}'`,
-          );
+            location: method.location,
+            code: 'ABSTRACT_IN_CONCRETE_CLASS',
+          });
         }
 
         // Rule 4: Interface methods don't need abstract modifier (implicit)
         if (isInInterface && isAbstract) {
-          warnings.push(
-            `Method '${method.name}' in interface '${parent.name}' ` +
+          warnings.push({
+            message:
+              `Method '${method.name}' in interface '${parent.name}' ` +
               "does not need 'abstract' modifier (it is implicit)",
-          );
+            location: method.location,
+            code: 'REDUNDANT_ABSTRACT_MODIFIER',
+          });
         }
       }
 

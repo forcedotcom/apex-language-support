@@ -10,6 +10,7 @@ import {
   Diagnostic,
   DocumentDiagnosticParams,
   DiagnosticSeverity,
+  Position,
 } from 'vscode-languageserver';
 import {
   LoggerInterface,
@@ -32,6 +33,7 @@ import {
   EffectLspLoggerLive,
   ArtifactLoadingHelperLive,
   ISymbolManagerTag,
+  initializeValidators,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect, Layer } from 'effect';
 
@@ -39,6 +41,7 @@ import {
   getDiagnosticsFromErrors,
   shouldSuppressDiagnostics,
 } from '../utils/handlerUtil';
+import { transformParserToLspPosition } from '../utils/positionUtils';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { getDocumentStateCache } from './DocumentStateCache';
 import {
@@ -95,6 +98,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private readonly artifactResolutionService: MissingArtifactResolutionService;
+  private static validatorsInitialized = false;
 
   /**
    * Creates a new DiagnosticProcessingService instance.
@@ -106,6 +110,30 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
     this.artifactResolutionService =
       createMissingArtifactResolutionService(logger);
+
+    // Initialize validators once (static initialization)
+    if (!DiagnosticProcessingService.validatorsInitialized) {
+      DiagnosticProcessingService.validatorsInitialized = true;
+      // Initialize validators asynchronously (fire and forget)
+      // This ensures validators are registered before first use
+      Effect.runPromise(
+        initializeValidators().pipe(
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              logger.warn(
+                () =>
+                  `Failed to initialize validators: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }),
+          ),
+        ),
+      ).catch((error) => {
+        logger.warn(
+          () =>
+            `Error initializing validators: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    }
   }
 
   /**
@@ -603,30 +631,110 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         const diagnostics: Diagnostic[] = [];
 
         for (const result of results) {
-          // Add errors
+          // Add errors (handle both string[] and ValidationError[] formats)
           for (const error of result.errors) {
-            diagnostics.push({
-              range: {
+            const errorMessage =
+              typeof error === 'string' ? error : error.message;
+            const errorCode =
+              typeof error === 'string'
+                ? 'SEMANTIC_ERROR'
+                : error.code || 'SEMANTIC_ERROR';
+            const errorLocation =
+              typeof error === 'string' ? undefined : error.location;
+
+            // Convert SymbolLocation to LSP Range if available
+            let range: { start: Position; end: Position };
+            if (errorLocation?.identifierRange) {
+              // Use identifierRange for precise positioning
+              range = {
+                start: transformParserToLspPosition({
+                  line: errorLocation.identifierRange.startLine,
+                  character: errorLocation.identifierRange.startColumn,
+                }),
+                end: transformParserToLspPosition({
+                  line: errorLocation.identifierRange.endLine,
+                  character: errorLocation.identifierRange.endColumn,
+                }),
+              };
+            } else if (errorLocation?.symbolRange) {
+              // Fallback to symbolRange
+              range = {
+                start: transformParserToLspPosition({
+                  line: errorLocation.symbolRange.startLine,
+                  character: errorLocation.symbolRange.startColumn,
+                }),
+                end: transformParserToLspPosition({
+                  line: errorLocation.symbolRange.endLine,
+                  character: errorLocation.symbolRange.endColumn,
+                }),
+              };
+            } else {
+              // No location available - default to line 0
+              range = {
                 start: { line: 0, character: 0 },
                 end: { line: 0, character: 0 },
-              },
-              message: error,
+              };
+            }
+
+            diagnostics.push({
+              range,
+              message: errorMessage,
               severity: DiagnosticSeverity.Error,
-              code: 'SEMANTIC_ERROR',
+              code: errorCode,
               source: 'apex-semantic-validator',
             });
           }
 
-          // Add warnings
+          // Add warnings (handle both string[] and ValidationWarning[] formats)
           for (const warning of result.warnings) {
-            diagnostics.push({
-              range: {
+            const warningMessage =
+              typeof warning === 'string' ? warning : warning.message;
+            const warningCode =
+              typeof warning === 'string'
+                ? 'SEMANTIC_WARNING'
+                : warning.code || 'SEMANTIC_WARNING';
+            const warningLocation =
+              typeof warning === 'string' ? undefined : warning.location;
+
+            // Convert SymbolLocation to LSP Range if available
+            let range: { start: Position; end: Position };
+            if (warningLocation?.identifierRange) {
+              // Use identifierRange for precise positioning
+              range = {
+                start: transformParserToLspPosition({
+                  line: warningLocation.identifierRange.startLine,
+                  character: warningLocation.identifierRange.startColumn,
+                }),
+                end: transformParserToLspPosition({
+                  line: warningLocation.identifierRange.endLine,
+                  character: warningLocation.identifierRange.endColumn,
+                }),
+              };
+            } else if (warningLocation?.symbolRange) {
+              // Fallback to symbolRange
+              range = {
+                start: transformParserToLspPosition({
+                  line: warningLocation.symbolRange.startLine,
+                  character: warningLocation.symbolRange.startColumn,
+                }),
+                end: transformParserToLspPosition({
+                  line: warningLocation.symbolRange.endLine,
+                  character: warningLocation.symbolRange.endColumn,
+                }),
+              };
+            } else {
+              // No location available - default to line 0
+              range = {
                 start: { line: 0, character: 0 },
                 end: { line: 0, character: 0 },
-              },
-              message: warning,
+              };
+            }
+
+            diagnostics.push({
+              range,
+              message: warningMessage,
               severity: DiagnosticSeverity.Warning,
-              code: 'SEMANTIC_WARNING',
+              code: warningCode,
               source: 'apex-semantic-validator',
             });
           }
