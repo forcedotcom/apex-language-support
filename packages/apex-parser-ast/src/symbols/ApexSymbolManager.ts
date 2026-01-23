@@ -310,7 +310,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (!symbol.key.kind) {
         symbol.key.kind = symbol.kind;
       }
-      symbol.key.unifiedId = generateUnifiedId(symbol.key, properUri);
+      symbol.key.unifiedId = generateUnifiedId(
+        symbol.key,
+        properUri,
+        symbol.location,
+      );
       // Synchronize id with key.unifiedId to avoid duplication
       symbol.id = symbol.key.unifiedId;
       // Ensure key.fileUri is set and synchronized
@@ -455,6 +459,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Find a symbol by its fully qualified name
+   * Returns first match if duplicates exist (backward compatible)
    */
   findSymbolByFQN(fqn: string): ApexSymbol | null {
     const cacheKey = `symbol_fqn_${fqn}`;
@@ -466,6 +471,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const symbol = this.symbolGraph.findSymbolByFQN(fqn);
     this.unifiedCache.set(cacheKey, symbol, 'fqn_lookup');
     return symbol || null;
+  }
+
+  /**
+   * Find all symbols with the same FQN (for duplicate detection)
+   * @param fqn The fully qualified name to search for
+   * @returns Array of all symbols with this FQN (empty if not found)
+   */
+  findSymbolsByFQN(fqn: string): ApexSymbol[] {
+    return this.symbolGraph.findSymbolsByFQN(fqn);
   }
 
   /**

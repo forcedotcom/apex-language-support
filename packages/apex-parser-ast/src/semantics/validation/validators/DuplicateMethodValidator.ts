@@ -59,7 +59,11 @@ export const DuplicateMethodValidator: Validator = {
         (symbol) => symbol.kind === 'method',
       ) as MethodSymbol[];
 
-      // Group methods by parent (class or interface)
+      // Track processed unifiedIds to avoid duplicate checks
+      const processedIds = new Set<string>();
+
+      // Group methods by parent and check for duplicates within each parent
+      // This ensures we only compare methods within the same class/interface
       const methodsByParent = new Map<string, MethodSymbol[]>();
       for (const method of methods) {
         if (!method.parentId) {
@@ -79,31 +83,55 @@ export const DuplicateMethodValidator: Validator = {
           continue;
         }
 
-        // Compare each method with every other method for identical signatures
-        for (let i = 0; i < parentMethods.length; i++) {
-          for (let j = i + 1; j < parentMethods.length; j++) {
-            const method1 = parentMethods[i];
-            const method2 = parentMethods[j];
+        // Group methods by name (case-insensitive) to find potential duplicates
+        const methodsByName = new Map<string, MethodSymbol[]>();
+        for (const method of parentMethods) {
+          const nameKey = method.name.toLowerCase();
+          if (!methodsByName.has(nameKey)) {
+            methodsByName.set(nameKey, []);
+          }
+          methodsByName.get(nameKey)!.push(method);
+        }
 
-            if (
-              areMethodSignaturesIdentical(method1, method2, options.tier)
-            ) {
-              const parentType = parent.kind === 'class' ? 'class' : 'interface';
-              errors.push({
-                message:
-                  `Duplicate method '${method2.name}' in ${parentType} '${parent.name}' ` +
-                  `(identical signature to '${method1.name}')`,
-                location: method2.location,
-                code: 'DUPLICATE_METHOD',
-              });
+        // Check each method name group for duplicate signatures
+        for (const [nameKey, methodsWithSameName] of methodsByName) {
+          if (methodsWithSameName.length <= 1) {
+            continue; // No duplicates for this name
+          }
+
+          // Compare each method with every other method for identical signatures
+          for (let i = 0; i < methodsWithSameName.length; i++) {
+            for (let j = i + 1; j < methodsWithSameName.length; j++) {
+              const method1 = methodsWithSameName[i];
+              const method2 = methodsWithSameName[j];
+
+              // Skip if comparing the same symbol (shouldn't happen, but be safe)
+              if (method1.id === method2.id) {
+                continue;
+              }
+
+              if (
+                areMethodSignaturesIdentical(method1, method2, options.tier)
+              ) {
+                const parentType =
+                  parent.kind === 'class' ? 'class' : 'interface';
+
+                errors.push({
+                  message:
+                    `Duplicate method '${method2.name}' in ${parentType} '${parent.name}' ` +
+                    `(identical signature to '${method1.name}')`,
+                  location: method2.location,
+                  code: 'DUPLICATE_METHOD',
+                });
+              }
             }
           }
         }
       }
 
       yield* Effect.logDebug(
-        `DuplicateMethodValidator: checked ${methods.length} methods across ` +
-          `${methodsByParent.size} types, found ${errors.length} violations`,
+        `DuplicateMethodValidator: checked ${methods.length} methods, ` +
+          `found ${errors.length} duplicate signature violations`,
       );
 
       return {

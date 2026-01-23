@@ -252,10 +252,10 @@ export class ApexSymbolGraph {
   /**
    * Maps fully qualified names to symbol IDs for hierarchical lookups
    * Key: Fully qualified name (e.g., "MyNamespace.MyClass.myMethod") - case-insensitive for Apex
-   * Value: Symbol ID
+   * Value: Array of symbol IDs (supports duplicate declarations)
    * Used by: findSymbolByFQN(), hierarchical symbol resolution, namespace-aware lookups
    */
-  private fqnIndex: CaseInsensitiveHashMap<string> =
+  private fqnIndex: CaseInsensitiveHashMap<string[]> =
     new CaseInsensitiveHashMap();
 
   /**
@@ -967,11 +967,6 @@ export class ApexSymbolGraph {
     const normalizedFileUri = extractFilePathFromUri(fileUri);
     const symbolId = this.getSymbolId(symbol, normalizedFileUri);
 
-    // Check if symbol already exists to prevent duplicates
-    if (this.symbolIds.has(symbolId)) {
-      return;
-    }
-
     // OPTIMIZED: Register SymbolTable immediately for delegation
     let targetSymbolTable: SymbolTable;
     if (symbolTable) {
@@ -986,14 +981,17 @@ export class ApexSymbolGraph {
       targetSymbolTable = this.fileToSymbolTable.get(normalizedFileUri)!;
     }
 
-    // Add the symbol to the SymbolTable
+    // Add the symbol to the SymbolTable (handles duplicates via union type)
     targetSymbolTable.addSymbol(symbol);
 
-    // OPTIMIZED: Only track existence, don't store full symbol
-    this.symbolIds.add(symbolId);
-
-    // Add to symbolIdIndex for O(1) lookups by ID
-    this.symbolIdIndex.set(symbolId, symbol);
+    // Track symbolId (duplicates will have same symbolId, but that's okay)
+    // symbolIds Set tracks which IDs have been seen, not individual symbol instances
+    const isNewSymbolId = !this.symbolIds.has(symbolId);
+    if (isNewSymbolId) {
+      this.symbolIds.add(symbolId);
+      // Add to symbolIdIndex for O(1) lookups by ID (store first symbol for this ID)
+      this.symbolIdIndex.set(symbolId, symbol);
+    }
 
     // Add to indexes for fast lookups (use normalized URI)
     this.symbolFileMap.set(symbolId, normalizedFileUri);
@@ -1041,7 +1039,11 @@ export class ApexSymbolGraph {
 
     // Exclude scope symbols from FQN index (they're structural, not semantic)
     if (fqnToUse && !isBlockSymbol(symbol)) {
-      this.fqnIndex.set(fqnToUse, symbolId);
+      const existing = this.fqnIndex.get(fqnToUse) || [];
+      if (!existing.includes(symbolId)) {
+        existing.push(symbolId);
+        this.fqnIndex.set(fqnToUse, existing);
+      }
     }
 
     // Exclude scope symbols from name index (users shouldn't search for "block1" or "if_2")
@@ -1284,14 +1286,27 @@ export class ApexSymbolGraph {
 
   /**
    * OPTIMIZED: Find symbol by FQN by delegating to SymbolTable
+   * Returns first match if duplicates exist (backward compatible)
    */
   findSymbolByFQN(fqn: string): ApexSymbol | null {
-    const symbolId = this.fqnIndex.get(fqn);
-    if (!symbolId) {
+    const symbolIds = this.fqnIndex.get(fqn);
+    if (!symbolIds || symbolIds.length === 0) {
       return null;
     }
 
-    return this.getSymbol(symbolId);
+    return this.getSymbol(symbolIds[0]); // Return first match
+  }
+
+  /**
+   * Find all symbols with the same FQN (for duplicate detection)
+   * @param fqn The fully qualified name to search for
+   * @returns Array of all symbols with this FQN (empty if not found)
+   */
+  findSymbolsByFQN(fqn: string): ApexSymbol[] {
+    const symbolIds = this.fqnIndex.get(fqn) || [];
+    return symbolIds
+      .map((id) => this.getSymbol(id))
+      .filter((s): s is ApexSymbol => s !== null);
   }
 
   /**
@@ -2515,7 +2530,11 @@ export class ApexSymbolGraph {
 
     // Add to FQN index
     if (virtualSymbol.fqn) {
-      this.fqnIndex.set(virtualSymbol.fqn, virtualSymbolId);
+      const existing = this.fqnIndex.get(virtualSymbol.fqn) || [];
+      if (!existing.includes(virtualSymbolId)) {
+        existing.push(virtualSymbolId);
+        this.fqnIndex.set(virtualSymbol.fqn, existing);
+      }
     }
 
     // Create a lightweight node for the graph
