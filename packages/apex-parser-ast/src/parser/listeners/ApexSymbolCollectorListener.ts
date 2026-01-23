@@ -118,6 +118,7 @@ import {
   ErrorReporter,
 } from '../../semantics/modifiers/index';
 import { IdentifierValidator } from '../../semantics/validation/IdentifierValidator';
+import { doesMethodSignatureMatch } from '../../semantics/validation/utils/methodSignatureUtils';
 import {
   hasIdMethod,
   isEnumSymbol,
@@ -1271,16 +1272,15 @@ export class ApexSymbolCollectorListener
       }
 
       // Check for duplicate method in the same scope
+      // Use shared validation logic to ensure consistency with DuplicateMethodValidator
       if (currentType) {
         // Use the type's scope (not current scope) to find methods
         const typeScope = this.getTypeScope();
         if (!typeScope) {
           return;
         }
-        // Use getSymbolsInScope to find methods with the same name (more efficient)
-        const existingMethods = this.symbolTable
-          .getSymbolsInScope(typeScope.id)
-          .filter((s) => s.name === name);
+        // Get all methods in the type's scope
+        const existingMethods = this.symbolTable.getSymbolsInScope(typeScope.id);
 
         // Get the parameter types for the current method being checked
         const currentParamTypes =
@@ -1288,21 +1288,12 @@ export class ApexSymbolCollectorListener
             .formalParameters()
             ?.formalParameterList()
             ?.formalParameter()
-            ?.map((param) => this.getTextFromContext(param.typeRef()))
-            .join(',') || '';
+            ?.map((param) => this.getTextFromContext(param.typeRef())) || [];
 
-        // Check for duplicate by name and parameter signature
-        const duplicateMethod = existingMethods.find((s: ApexSymbol) => {
-          if (!isMethodSymbol(s)) {
-            return false;
-          }
-          // Compare parameter types - both should have same parameter signature
-          const existingParamTypes =
-            s.parameters
-              ?.map((param) => param.type.originalTypeString)
-              .join(',') || '';
-          return existingParamTypes === currentParamTypes;
-        });
+        // Check for duplicate using shared validation logic (case-insensitive)
+        const duplicateMethod = existingMethods.find((s: ApexSymbol) =>
+          doesMethodSignatureMatch(s, name, currentParamTypes),
+        );
 
         if (duplicateMethod) {
           this.addError(`Duplicate method declaration: ${name}`, ctx);
