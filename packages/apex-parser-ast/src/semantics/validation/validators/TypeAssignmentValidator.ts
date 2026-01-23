@@ -95,7 +95,8 @@ export const TypeAssignmentValidator: Validator = {
           variable.initializerType.name === 'Object' &&
           variable.initializerType.needsNamespaceResolution
         ) {
-          const literalValue = variable.initializerType.originalTypeString.trim();
+          const literalValue =
+            variable.initializerType.originalTypeString.trim();
           // Check if it's a string literal
           if (
             (literalValue.startsWith("'") && literalValue.endsWith("'")) ||

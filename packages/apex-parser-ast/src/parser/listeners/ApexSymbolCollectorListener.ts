@@ -1298,8 +1298,11 @@ export class ApexSymbolCollectorListener
         );
 
         if (duplicateMethod) {
+          // Report the error but continue to add the duplicate symbol
+          // This allows duplicates to appear in the outline (like TypeScript)
+          // so developers can see the actual file state
           this.addError(`Duplicate method declaration: ${name}`, ctx);
-          return;
+          // Don't return - continue to add the duplicate symbol to the table
         }
       }
 

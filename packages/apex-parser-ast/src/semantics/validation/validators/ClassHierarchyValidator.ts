@@ -69,49 +69,7 @@ export const ClassHierarchyValidator: Validator = {
         (symbol) => symbol.kind === SymbolKind.Class,
       ) as TypeSymbol[];
 
-      // Get classes from symbol manager for cross-file circular detection
-      let allClassesForCircularCheck = [...classes];
-      if (options.symbolManager) {
-        const symbolManager = yield* ISymbolManager;
-        // Get all symbols from symbol manager and filter to classes
-        // Use getAllSymbolsForCompletion() which is available on ISymbolManager interface
-        const allSymbolsFromManager =
-          symbolManager.getAllSymbolsForCompletion();
-        const managerClasses = allSymbolsFromManager.filter(
-          (s: ApexSymbol) => s.kind === SymbolKind.Class,
-        ) as TypeSymbol[];
-
-        // Merge with current classes, avoiding duplicates
-        const classNames = new Set(classes.map((c) => c.name.toLowerCase()));
-        for (const mgrClass of managerClasses) {
-          if (!classNames.has(mgrClass.name.toLowerCase())) {
-            allClassesForCircularCheck.push(mgrClass);
-            classNames.add(mgrClass.name.toLowerCase());
-          }
-        }
-      }
-
-      // Check 1: Circular inheritance in class hierarchies
-      // Check each local class for circular inheritance (using allClassesForCircularCheck for cross-file detection)
-      for (const cls of classes) {
-        const circularPath = detectCircularInheritance(
-          cls,
-          allClassesForCircularCheck,
-          [],
-          new Set(),
-        );
-        if (circularPath) {
-          errors.push({
-            message:
-              `Class '${cls.name}' has circular inheritance hierarchy: ` +
-              circularPath.join(' -> '),
-            location: cls.location,
-            code: 'CIRCULAR_INHERITANCE',
-          });
-        }
-      }
-
-      // Check 2: Missing superclasses and invalid types
+      // Check 1: Missing superclasses and invalid types (first pass)
       const missingSuperclasses: string[] = [];
       for (const cls of classes) {
         if (!cls.superClass) {
@@ -188,6 +146,49 @@ export const ClassHierarchyValidator: Validator = {
 
       // Combine local and loaded classes for validation
       const allClasses = [...classes, ...loadedClasses];
+
+      // Get classes from symbol manager for cross-file circular detection
+      let allClassesForCircularCheck = [...allClasses];
+      if (options.symbolManager) {
+        const symbolManager = yield* ISymbolManager;
+        // Get all symbols from symbol manager and filter to classes
+        // Use getAllSymbolsForCompletion() which is available on ISymbolManager interface
+        const allSymbolsFromManager =
+          symbolManager.getAllSymbolsForCompletion();
+        const managerClasses = allSymbolsFromManager.filter(
+          (s: ApexSymbol) => s.kind === SymbolKind.Class,
+        ) as TypeSymbol[];
+
+        // Merge with current classes, avoiding duplicates
+        const classNames = new Set(allClasses.map((c) => c.name.toLowerCase()));
+        for (const mgrClass of managerClasses) {
+          if (!classNames.has(mgrClass.name.toLowerCase())) {
+            allClassesForCircularCheck.push(mgrClass);
+            classNames.add(mgrClass.name.toLowerCase());
+          }
+        }
+      }
+
+      // Check 2: Circular inheritance in class hierarchies
+      // Check AFTER artifact loading so we have all classes available
+      // Check each local class for circular inheritance (using allClassesForCircularCheck for cross-file detection)
+      for (const cls of classes) {
+        const circularPath = detectCircularInheritance(
+          cls,
+          allClassesForCircularCheck,
+          [],
+          new Set(),
+        );
+        if (circularPath) {
+          errors.push({
+            message:
+              `Class '${cls.name}' has circular inheritance hierarchy: ` +
+              circularPath.join(' -> '),
+            location: cls.location,
+            code: 'CIRCULAR_INHERITANCE',
+          });
+        }
+      }
 
       // Second pass: validate with potentially loaded classes
       for (const cls of classes) {
@@ -292,6 +293,10 @@ function detectCircularInheritance(
         return cycle;
       }
     }
+    // If superclass is not found in allClasses, we can't continue the cycle detection
+    // This is expected when classes are missing (not compiled yet)
+    // The cycle detection will be incomplete, but that's okay - we can only detect
+    // cycles for classes that are available
   }
 
   // Remove from visited (backtrack)

@@ -59,9 +59,6 @@ export const DuplicateMethodValidator: Validator = {
         (symbol) => symbol.kind === 'method',
       ) as MethodSymbol[];
 
-      // Track processed unifiedIds to avoid duplicate checks
-      const processedIds = new Set<string>();
-
       // Group methods by parent and check for duplicates within each parent
       // This ensures we only compare methods within the same class/interface
       const methodsByParent = new Map<string, MethodSymbol[]>();
@@ -94,7 +91,7 @@ export const DuplicateMethodValidator: Validator = {
         }
 
         // Check each method name group for duplicate signatures
-        for (const [nameKey, methodsWithSameName] of methodsByName) {
+        for (const methodsWithSameName of methodsByName.values()) {
           if (methodsWithSameName.length <= 1) {
             continue; // No duplicates for this name
           }

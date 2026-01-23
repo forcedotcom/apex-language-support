@@ -508,9 +508,62 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       });
 
       // Should parse valid classes correctly
+      // NOTE: If there are duplicate declarations, they should all be shown (like TypeScript)
+      // to reflect the actual file state in the outline
       expect(result).not.toBeNull();
-      expect(result).toHaveLength(1);
-      expect(result![0].name).toBe('ErrorClass');
+      expect(result!.length).toBeGreaterThanOrEqual(1);
+      expect(result!.some((s) => s.name === 'ErrorClass')).toBe(true);
+    });
+
+    it('shows duplicate method declarations in document symbols', async () => {
+      const docUri = 'file:///DuplicateMethodClass.cls';
+      const content = [
+        'public class DuplicateMethodClass {',
+        '  public void doWork() {',
+        '    // First implementation',
+        '  }',
+        '',
+        '  public void doWork() {',
+        '    // Duplicate method with same signature',
+        '  }',
+        '}',
+      ].join('\n');
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThanOrEqual(1);
+
+      // Find the class symbol
+      const classSymbol = result!.find(
+        (s) => s.name === 'DuplicateMethodClass',
+      );
+      expect(classSymbol).toBeDefined();
+      expect(classSymbol!.children).toBeDefined();
+
+      // Method names are formatted as "methodName(paramTypes) : ReturnType"
+      // For void doWork() with no params, it should be "doWork() : void"
+      const methods = (classSymbol!.children as DocumentSymbol[]).filter((s) =>
+        s.name.startsWith('doWork('),
+      );
+
+      // Verify both duplicate methods are shown in the outline (like TypeScript)
+      // This confirms that duplicate declarations are not filtered out
+      expect(methods.length).toBeGreaterThanOrEqual(2);
+
+      // Both should have the same formatted name
+      expect(methods[0].name).toBe('doWork() : void');
+      expect(methods[1].name).toBe('doWork() : void');
+
+      // Verify they have different ranges (different line numbers)
+      // This confirms they are distinct symbols, not the same symbol duplicated
+      expect(methods[0].range.start.line).not.toBe(methods[1].range.start.line);
+      expect(methods[0].range.start.line).toBe(1); // First method at line 1 (0-indexed)
+      expect(methods[1].range.start.line).toBe(5); // Second method at line 5 (0-indexed)
     });
 
     it('handles complex class with fields, methods, and inner classes', async () => {

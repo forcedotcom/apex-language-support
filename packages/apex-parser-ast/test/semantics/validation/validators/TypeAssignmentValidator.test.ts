@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TypeAssignmentValidator } from '../../../../src/semantics/validation/validators/TypeAssignmentValidator';
+import { TypeAssignmentValidator } from '../../../../src/semantics/validation/validators';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
@@ -66,7 +66,10 @@ describe('TypeAssignmentValidator', () => {
     );
 
     if (!result.isValid && result.errors.length > 0) {
-      console.log('Validation errors:', result.errors.map(e => getMessage(e)));
+      console.log(
+        'Validation errors:',
+        result.errors.map((e) => getMessage(e)),
+      );
     }
 
     expect(result.isValid).toBe(true);

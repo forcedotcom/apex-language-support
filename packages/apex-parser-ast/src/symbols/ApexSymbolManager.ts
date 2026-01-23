@@ -364,9 +364,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
     }
 
-    // Always add symbol to the SymbolTable
-    // TODO: This is a hack to add the symbol to the SymbolTable
-    tempSymbolTable!.addSymbol(symbol);
+    // Add symbol to the SymbolTable only if it doesn't already exist
+    // This prevents duplicates when addSymbolTable is called after registerSymbolTable
+    // which may have already merged symbols into the table
+    const symbolKey = symbol.key?.unifiedId || symbol.id;
+    const existingInTable = symbolKey
+      ? tempSymbolTable!.getAllSymbolsById(symbolKey)
+      : [];
+    if (existingInTable.length === 0) {
+      tempSymbolTable!.addSymbol(symbol);
+    }
 
     // Add to symbol graph (it has its own duplicate detection)
     this.symbolGraph.addSymbol(symbol, properUri, tempSymbolTable);
@@ -1716,11 +1723,26 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Register SymbolTable once for the entire file before processing symbols
       // This avoids redundant registration calls for each symbol
+      // NOTE: registerSymbolTable may merge symbols from an existing table, modifying symbolTable
+      const hadExistingTable =
+        !!self.symbolGraph.getSymbolTableForFile(normalizedUri);
       self.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
 
-      // Add all symbols from the symbol table
-      const symbols = symbolTable.getAllSymbols
-        ? symbolTable.getAllSymbols()
+      // After registerSymbolTable, get the final symbol table (may have been merged)
+      const finalSymbolTable =
+        self.symbolGraph.getSymbolTableForFile(normalizedUri);
+      if (!finalSymbolTable) {
+        self.logger.warn(
+          () =>
+            `[addSymbolTable] SymbolTable not found after registration for ${normalizedUri}`,
+        );
+        return;
+      }
+
+      // Add all symbols from the symbol table to the graph
+      // Only add symbols that aren't already in the graph to avoid duplicates
+      const symbols = finalSymbolTable.getAllSymbols
+        ? finalSymbolTable.getAllSymbols()
         : [];
 
       // Update all symbols to use the normalized URI
@@ -1732,9 +1754,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const symbol = symbols[i];
         // Update the symbol's fileUri to match the normalized URI
         symbol.fileUri = normalizedUri;
-        // Pass undefined for symbolTable since it's already registered above
-        // addSymbol() will use the registered SymbolTable via ensureSymbolTableForFile()
-        self.addSymbol(symbol, normalizedUri, undefined);
+
+        // Only add to graph if not already present (registerSymbolTable already handled SymbolTable)
+        // Pass the registered SymbolTable to avoid creating a new one
+        self.addSymbol(symbol, normalizedUri, finalSymbolTable);
         symbolNamesAdded.add(symbol.name);
 
         // Yield every batchSize symbols to allow other tasks to run

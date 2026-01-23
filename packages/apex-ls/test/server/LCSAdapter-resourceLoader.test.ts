@@ -9,6 +9,7 @@
 import { LCSAdapter } from '../../src/server/LCSAdapter';
 import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
 import { Connection } from 'vscode-languageserver/browser';
+import { ServerCapabilities } from 'vscode-languageserver-protocol';
 
 // Mock the dependencies
 jest.mock('@salesforce/apex-lsp-shared', () => ({
@@ -117,8 +118,9 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       mockConfigManager,
     );
 
-    // Create adapter instance (using any to access private constructor)
-    adapter = new (LCSAdapter as any)({
+    // Create adapter instance
+    // @ts-expect-error - LCSAdapter is not exported from the package
+    adapter = new LCSAdapter({
       connection: mockConnection as Connection,
     });
   });
@@ -180,7 +182,8 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         error: jest.fn(),
       };
 
-      const adapterWithLogger = new (LCSAdapter as any)({
+      // @ts-expect-error - LCSAdapter is not exported from the package
+      const adapterWithLogger = new LCSAdapter({
         connection: mockConnection as Connection,
         logger: mockLogger,
       });
@@ -215,7 +218,8 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         error: jest.fn(),
       };
 
-      const adapterWithLogger = new (LCSAdapter as any)({
+      // @ts-expect-error - LCSAdapter is not exported from the package
+      const adapterWithLogger = new LCSAdapter({
         connection: mockConnection as Connection,
         logger: mockLogger,
       });
@@ -234,8 +238,42 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         isProtobufCacheLoaded: jest.fn(() => false),
       };
 
-      (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
-        mockResourceLoader,
+      // Verify the embedded ZIP message was logged
+      const debugCall = mockLogger.debug.mock.calls.find((call: any[]) => {
+        const logFn = call[0];
+        return (
+          typeof logFn === 'function' &&
+          logFn().includes('Using embedded Standard Apex Library ZIP')
+        );
+      });
+
+      expect(debugCall).toBeDefined();
+    });
+  });
+
+  describe('Integration with LCSAdapter lifecycle', () => {
+    it('should call initializeResourceLoader during handleInitialized', async () => {
+      // Mock the capabilities to avoid errors in registerDynamicCapabilities
+      // Using Partial<ServerCapabilities> since we're only providing a subset for testing
+      mockConfigManager.getCapabilities.mockReturnValue({
+        documentSymbolProvider: { resolveProvider: false },
+        hoverProvider: true,
+        foldingRangeProvider: { rangeLimit: 5000, lineFoldingOnly: true },
+        diagnosticProvider: {
+          identifier: 'apex-ls-ts',
+          interFileDependencies: true,
+          workspaceDiagnostics: false,
+        },
+        completionProvider: {
+          triggerCharacters: ['.'],
+          resolveProvider: false,
+        },
+      } as Partial<ServerCapabilities> as ServerCapabilities);
+
+      // Spy on the private method
+      const initResourceLoaderSpy = jest.spyOn(
+        adapter as any,
+        'initializeResourceLoader',
       );
 
       // Should not throw, but should log warning
@@ -255,7 +293,8 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         error: jest.fn(),
       };
 
-      const adapterWithLogger = new (LCSAdapter as any)({
+      // @ts-expect-error - LCSAdapter is not exported from the package
+      const adapterWithLogger = new LCSAdapter({
         connection: mockConnection as Connection,
         logger: mockLogger,
       });

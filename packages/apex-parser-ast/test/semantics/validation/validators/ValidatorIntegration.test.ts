@@ -13,25 +13,22 @@ import {
   runValidatorsForTier,
 } from '../../../../src/semantics/validation/ValidatorRegistry';
 import { EffectTestLoggerLive } from '../../../../src/utils/EffectLspLoggerLayer';
-import { ParameterLimitValidator } from '../../../../src/semantics/validation/validators/ParameterLimitValidator';
-import { EnumLimitValidator } from '../../../../src/semantics/validation/validators/EnumLimitValidator';
-// eslint-disable-next-line max-len
-import { EnumConstantNamingValidator } from '../../../../src/semantics/validation/validators/EnumConstantNamingValidator';
-import { DuplicateMethodValidator } from '../../../../src/semantics/validation/validators/DuplicateMethodValidator';
-import { ConstructorNamingValidator } from '../../../../src/semantics/validation/validators/ConstructorNamingValidator';
-
-import { TypeSelfReferenceValidator } from '../../../../src/semantics/validation/validators/TypeSelfReferenceValidator';
-// eslint-disable-next-line max-len
-import { AbstractMethodBodyValidator } from '../../../../src/semantics/validation/validators/AbstractMethodBodyValidator';
-import { VariableShadowingValidator } from '../../../../src/semantics/validation/validators/VariableShadowingValidator';
-import { ForwardReferenceValidator } from '../../../../src/semantics/validation/validators/ForwardReferenceValidator';
-import { FinalAssignmentValidator } from '../../../../src/semantics/validation/validators/FinalAssignmentValidator';
-// eslint-disable-next-line max-len
-import { MethodSignatureEquivalenceValidator } from '../../../../src/semantics/validation/validators/MethodSignatureEquivalenceValidator';
-// eslint-disable-next-line max-len
-import { InterfaceHierarchyValidator } from '../../../../src/semantics/validation/validators/InterfaceHierarchyValidator';
-import { ClassHierarchyValidator } from '../../../../src/semantics/validation/validators/ClassHierarchyValidator';
-import { TypeAssignmentValidator } from '../../../../src/semantics/validation/validators/TypeAssignmentValidator';
+import {
+  ParameterLimitValidator,
+  EnumLimitValidator,
+  EnumConstantNamingValidator,
+  DuplicateMethodValidator,
+  ConstructorNamingValidator,
+  TypeSelfReferenceValidator,
+  AbstractMethodBodyValidator,
+  VariableShadowingValidator,
+  ForwardReferenceValidator,
+  FinalAssignmentValidator,
+  MethodSignatureEquivalenceValidator,
+  InterfaceHierarchyValidator,
+  ClassHierarchyValidator,
+  TypeAssignmentValidator,
+} from '../../../../src/semantics/validation/validators';
 import {
   SymbolTable,
   SymbolFactory,

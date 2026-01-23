@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ClassHierarchyValidator } from '../../../../src/semantics/validation/validators/ClassHierarchyValidator';
+import { ClassHierarchyValidator } from '../../../../src/semantics/validation/validators';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
@@ -70,9 +70,11 @@ describe('ClassHierarchyValidator', () => {
   });
 
   it('should detect simple circular inheritance', async () => {
-    // Compile both classes that form a circular dependency
+    // Compile all classes that form a circular dependency
+    // ClassA extends ClassB, ClassB extends ClassC, ClassC extends ClassA
     await compileFixtureForValidator('CircularA.cls');
-    const symbolTable = await compileFixtureForValidator('CircularB.cls');
+    await compileFixtureForValidator('CircularB.cls');
+    const symbolTable = await compileFixtureForValidator('CircularC.cls');
 
     const result = await runValidator(
       ClassHierarchyValidator.validate(

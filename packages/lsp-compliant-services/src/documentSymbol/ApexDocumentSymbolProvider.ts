@@ -195,6 +195,7 @@ export class DefaultApexDocumentSymbolProvider
       // Filter for only top-level symbols (classes, interfaces, enums, triggers)
       // Top-level symbols have parentId === null, while inner classes have parentId pointing to their containing class
       // With proper hierarchy maintenance, parentId is the source of truth - no need for location-based filtering
+      // NOTE: Do NOT deduplicate - duplicates should be shown in outline to reflect actual file state (like TypeScript)
       const topLevelSymbols = allSymbols.filter(
         (symbol) => inTypeSymbolGroup(symbol) && symbol.parentId === null,
       );

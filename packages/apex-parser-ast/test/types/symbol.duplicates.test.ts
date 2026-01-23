@@ -15,18 +15,15 @@ import {
   FieldSymbol,
   SymbolFactory,
 } from '../../src/types/symbol';
-import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 
 describe('SymbolTable Duplicate Handling', () => {
   let symbolTable: SymbolTable;
-  let compilerService: CompilerService;
   let symbolManager: ApexSymbolManager;
 
   beforeEach(() => {
     symbolTable = new SymbolTable();
     symbolTable.setFileUri('file:///test/TestClass.cls');
-    compilerService = new CompilerService();
     symbolManager = new ApexSymbolManager();
   });
 

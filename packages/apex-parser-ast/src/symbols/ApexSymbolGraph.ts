@@ -2009,9 +2009,36 @@ export class ApexSymbolGraph {
           symbolTable.addSymbol(symbol);
           symbolsPreserved++;
         } else {
-          // Symbol exists in both - let addSymbol handle detail level enrichment
+          // Symbol exists in both - only merge if enrichment is needed
           // This ensures higher detail level symbols (private/full) enrich lower ones (public-api)
-          symbolTable.addSymbol(symbol);
+          // BUT: If both symbols are the same detail level, skip to avoid duplicates!
+          const existingInNew = newSymbols.find(
+            (s) => keyToString(s.key) === symbolKey,
+          );
+          if (existingInNew) {
+            // Check if enrichment is needed (new symbol has higher detail level)
+            const detailLevelOrder: Record<string, number> = {
+              'public-api': 1,
+              protected: 2,
+              private: 3,
+              full: 4,
+            };
+            const existingLevel = detailLevelOrder[existingInNew._detailLevel || ''] || 0;
+            const newLevel = detailLevelOrder[symbol._detailLevel || ''] || 0;
+            const needsEnrichment = newLevel > existingLevel;
+
+            if (needsEnrichment) {
+              // Different detail levels and new is higher - let addSymbol handle enrichment
+              symbolTable.addSymbol(symbol);
+            }
+            // Otherwise skip to avoid duplicates (same detail level or new is not higher)
+          } else {
+            // Should not happen - symbolKey matched but symbol not found
+            this.logger.warn(
+              () =>
+                `[DEBUG-DUP] registerSymbolTable: Symbol key matched but symbol not found in newSymbols`,
+            );
+          }
         }
       }
       if (symbolsPreserved > 0) {
