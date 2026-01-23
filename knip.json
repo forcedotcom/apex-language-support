@@ -2,10 +2,7 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
     ".": {
-      "entry": [
-        ".github/scripts/**/*.{js,ts,mjs}",
-        "scripts/test-web-ext.js"
-      ]
+      "entry": [".github/scripts/**/*.{js,ts,mjs}", "scripts/test-web-ext.js"]
     },
     "packages/apex-ls": {
       "entry": [
@@ -98,6 +95,8 @@
     "out/**",
     "node_modules/**",
     ".wireit/**",
+    "**/.wireit/**",
+    ".wireit",
     "**/*.tsbuildinfo",
     "**/*.config.{js,cjs,mjs}",
     "**/jest.config*.{js,cjs,mjs}",

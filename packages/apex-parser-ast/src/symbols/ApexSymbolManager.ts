@@ -1957,15 +1957,30 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           targetSymbol.name,
         );
 
+        // Capture targetSymbol in a const to help TypeScript narrow the type
+        // (needed because it will be used in closures below)
+        const resolvedTargetSymbol = targetSymbol;
+
+        // Find source symbol in graph - only match by fileUri if available
+        // If fileUri is not set, we can't reliably match, so skip
         const sourceInGraph = sourceSymbol.fileUri
           ? sourceSymbolsInGraph.find((s) => s.fileUri === sourceSymbol.fileUri)
-          : sourceSymbolsInGraph[0];
+          : sourceSymbolsInGraph.length === 1
+            ? sourceSymbolsInGraph[0]
+            : undefined;
 
-        const targetInGraph = targetSymbol.fileUri
-          ? targetSymbolsInGraph.find((s) => s.fileUri === targetSymbol.fileUri)
-          : targetSymbolsInGraph[0];
+        // Find target symbol in graph - only match by fileUri if available
+        // If fileUri is not set, we can't reliably match, so skip
+        const targetInGraph = resolvedTargetSymbol.fileUri
+          ? targetSymbolsInGraph.find(
+              (s) => s.fileUri === resolvedTargetSymbol.fileUri,
+            )
+          : targetSymbolsInGraph.length === 1
+            ? targetSymbolsInGraph[0]
+            : undefined;
 
         if (!sourceInGraph || !targetInGraph) {
+          // Can't reliably match symbols without fileUri when multiple symbols exist
           return;
         }
 
@@ -3939,6 +3954,30 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           }
           return classCandidates[0];
         }
+
+        // If no class candidates found, try built-in type resolution
+        // This handles cases like Integer, String, etc. in GENERIC_PARAMETER_TYPE references
+        const builtInSymbol = await this.resolveBuiltInType(typeReference);
+        if (builtInSymbol) {
+          this.logger.debug(
+            () =>
+              `Resolved GENERIC_PARAMETER_TYPE "${typeReference.name}" to built-in type: ${builtInSymbol.name}`,
+          );
+          return builtInSymbol;
+        }
+
+        // Also try standard Apex class resolution as fallback
+        const standardClass = await this.resolveStandardApexClass(
+          typeReference.name,
+        );
+        if (standardClass) {
+          this.logger.debug(
+            () =>
+              `Resolved GENERIC_PARAMETER_TYPE "${typeReference.name}" to standard Apex class: ${standardClass.name}`,
+          );
+          return standardClass;
+        }
+
         return null;
       }
 
@@ -4176,7 +4215,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
       }
 
-      // Step 3: Check other built-in types (scalar, collection, etc.)
+      // Step 3: For unqualified names, try to find FQN even if isStandardApexClass returned false
+      // This handles wrapper types like Integer, String, etc. that are in System namespace
+      if (!name.includes('.')) {
+        const fqn = this.findFQNForStandardClass(name);
+        if (fqn) {
+          const standardClass = await this.resolveStandardApexClass(fqn);
+          if (standardClass) {
+            return standardClass;
+          }
+        }
+      }
+
+      // Step 4: Check other built-in types (scalar, collection, etc.)
       const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
       if (builtInType) {
         return {
@@ -6971,12 +7022,45 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           fileUri,
         );
 
+        this.logger.debug(
+          () =>
+            `resolveEntireChain for "${typeReference.name}" returned: ${
+              resolvedChain
+                ? `chain with ${resolvedChain.length} members`
+                : 'null'
+            }`,
+        );
+        if (resolvedChain) {
+          resolvedChain.forEach((ctx, idx) => {
+            if (ctx) {
+              const name =
+                ctx.type === 'symbol'
+                  ? ctx.symbol?.name || 'N/A'
+                  : ctx.type === 'namespace'
+                    ? ctx.name
+                    : 'N/A';
+              this.logger.debug(
+                () => `  Chain member ${idx}: type=${ctx.type}, name=${name}`,
+              );
+            }
+          });
+        }
+
         // If position is provided, find the specific chain member and return its resolved symbol
         if (position) {
           // Find the chain member at the position (if not already found above)
           const chainMember = this.findChainMemberAtPosition(
             typeReference,
             position,
+          );
+
+          this.logger.debug(
+            () =>
+              `Chain member at position ${position.line}:${position.character}: ${
+                chainMember
+                  ? `index=${chainMember.index}, name=${chainMember.member.name}`
+                  : 'null'
+              }`,
           );
 
           if (chainMember) {
@@ -7406,7 +7490,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const contextSymbol = context.symbol;
       const contextFile = contextSymbol.fileUri;
       if (contextFile) {
+        this.logger.debug(
+          () =>
+            `resolveMemberInContext: Looking for member "${memberName}" (${memberType}) ` +
+            `in class "${contextSymbol.name}" (fileUri: ${contextFile})`,
+        );
         let symbolTable = this.symbolGraph.getSymbolTableForFile(contextFile);
+        this.logger.debug(
+          () =>
+            `resolveMemberInContext: Symbol table for "${contextSymbol.name}": ${symbolTable ? 'found' : 'not found'}`,
+        );
 
         // If symbol table not found, try alternative URI formats before loading
         if (!symbolTable) {
@@ -7570,9 +7663,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 // to ensure we get the correct built-in type definition
                 if (typeInfo.isBuiltIn) {
                   // For built-in types, use standard Apex class resolution first
+                  this.logger.debug(
+                    () =>
+                      `Attempting to resolve built-in type "${baseTypeName}" as standard Apex class`,
+                  );
                   const standardClassSymbol =
                     await this.resolveStandardApexClass(baseTypeName);
                   if (standardClassSymbol) {
+                    this.logger.debug(
+                      () =>
+                        `Resolved built-in type "${baseTypeName}" to class symbol: ` +
+                        `${standardClassSymbol.name} (fileUri: ${standardClassSymbol.fileUri})`,
+                    );
                     // Recursively resolve the member on the standard class
                     const resolvedMember = await this.resolveMemberInContext(
                       { type: 'symbol', symbol: standardClassSymbol },
@@ -7581,8 +7683,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     );
                     // If resolution succeeded, return it
                     if (resolvedMember) {
+                      this.logger.debug(
+                        () =>
+                          `Resolved member "${memberName}" on built-in type "${baseTypeName}": ${resolvedMember.name}`,
+                      );
                       return resolvedMember;
                     }
+                    this.logger.debug(
+                      () =>
+                        `Member "${memberName}" not found on "${baseTypeName}" ` +
+                        'class symbol, trying to load class and retry',
+                    );
                     // If null, try to ensure the class is loaded and retry
                     if (
                       standardClassSymbol.fileUri &&
@@ -7594,6 +7705,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                       );
                       if (classPath) {
                         try {
+                          this.logger.debug(
+                            () =>
+                              `Loading class from path: ${classPath} for member resolution`,
+                          );
                           const artifact =
                             await this.resourceLoader.loadAndCompileClass(
                               classPath,
@@ -7605,6 +7720,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                                 standardClassSymbol.fileUri,
                               ),
                             );
+                            this.logger.debug(
+                              () =>
+                                `Class loaded, retrying member resolution for "${memberName}"`,
+                            );
                             // Retry resolution after loading
                             const retryResult =
                               await this.resolveMemberInContext(
@@ -7613,14 +7732,52 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                                 memberType,
                               );
                             if (retryResult) {
+                              this.logger.debug(
+                                () =>
+                                  `Successfully resolved member "${memberName}" after loading class`,
+                              );
                               return retryResult;
+                            } else {
+                              this.logger.debug(
+                                () =>
+                                  `Member "${memberName}" still not found after loading class`,
+                              );
                             }
+                          } else {
+                            this.logger.debug(
+                              () =>
+                                `Failed to load class from path: ${classPath}`,
+                            );
                           }
-                        } catch (_error) {
+                        } catch (error) {
+                          this.logger.debug(
+                            () => `Error loading class ${classPath}: ${error}`,
+                          );
                           // Error loading, continue to other strategies
                         }
+                      } else {
+                        this.logger.debug(
+                          () =>
+                            `Could not extract class path from fileUri: ${standardClassSymbol.fileUri}`,
+                        );
                       }
+                    } else {
+                      this.logger.debug(
+                        () =>
+                          `Cannot load class: fileUri=${standardClassSymbol.fileUri}, ` +
+                          `isStandardApexUri=${
+                            standardClassSymbol.fileUri
+                              ? isStandardApexUri(standardClassSymbol.fileUri)
+                              : false
+                          }, hasResourceLoader=${!!this.resourceLoader}`,
+                      );
                     }
+                  } else {
+                    this.logger.debug(
+                      () =>
+                        `Could not resolve built-in type "${baseTypeName}" ` +
+                        'as standard Apex class - resolveStandardApexClass returned null',
+                    );
                   }
                 }
 
@@ -7891,16 +8048,112 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           ) {
             // Find the class block (scope symbol with scopeType === 'class' and parentId === classSymbol.id)
             const allSymbols = symbolTable.getAllSymbols();
-            const classBlock = allSymbols.find(
+            // First, try to find the class symbol in the symbol table to get the correct ID
+            // This is important for standard library classes where the ID might not match
+            const classSymbolInTable = allSymbols.find(
+              (s) =>
+                s.kind === SymbolKind.Class &&
+                s.name === contextSymbol.name &&
+                s.fileUri === contextSymbol.fileUri,
+            );
+            const classSymbolId = classSymbolInTable?.id || contextSymbol.id;
+            // Try to find class block by parentId match
+            let classBlock = allSymbols.find(
               (s) =>
                 isBlockSymbol(s) &&
                 s.scopeType === 'class' &&
-                s.parentId === contextSymbol.id,
+                (s.parentId === classSymbolId ||
+                  s.parentId === contextSymbol.id),
             );
+            // If not found and we have a class symbol in the table, try finding block by matching fileUri
+            // This handles cases where parentId might be empty or mismatched
+            if (!classBlock && classSymbolInTable) {
+              classBlock = allSymbols.find(
+                (s) =>
+                  isBlockSymbol(s) &&
+                  s.scopeType === 'class' &&
+                  s.fileUri === contextSymbol.fileUri &&
+                  (!s.parentId ||
+                    s.parentId === '' ||
+                    s.parentId === classSymbolId),
+              );
+            }
+            if (!classBlock) {
+              // Debug: show what class blocks we have
+              const allClassBlocks = allSymbols.filter(
+                (s) => isBlockSymbol(s) && s.scopeType === 'class',
+              );
+              const classSymbols = allSymbols.filter(
+                (s) =>
+                  s.kind === SymbolKind.Class && s.name === contextSymbol.name,
+              );
+              this.logger.debug(
+                () =>
+                  `Class block lookup for "${contextSymbol.name}": not found. ` +
+                  `contextSymbol.id: "${contextSymbol.id}", ` +
+                  `Found ${allClassBlocks.length} class blocks, ` +
+                  `Found ${classSymbols.length} class symbols with name "${contextSymbol.name}". ` +
+                  `Class block parentIds: ${allClassBlocks.map((b) => b.parentId).join(', ')}. ` +
+                  `Class symbol IDs: ${classSymbols.map((s) => s.id).join(', ')}`,
+              );
+            } else {
+              // Capture classBlock in a const to help TypeScript narrow the type
+              const resolvedClassBlock = classBlock;
+              this.logger.debug(
+                () =>
+                  `Class block lookup for "${contextSymbol.name}": found (id: ${resolvedClassBlock.id})`,
+              );
+            }
 
             if (classBlock) {
+              // Capture classBlock in a const to help TypeScript narrow the type
+              // (needed because it will be used in closures below)
+              const resolvedClassBlock = classBlock;
+
               // Get all symbols in the class block scope
-              const classMembers = symbolTable.getSymbolsInScope(classBlock.id);
+              // Note: getSymbolsInScope only returns direct children, not nested symbols
+              // So we also need to check getAllSymbols() for symbols that belong to this class
+              const directScopeMembers = symbolTable.getSymbolsInScope(
+                resolvedClassBlock.id,
+              );
+              const allSymbols = symbolTable.getAllSymbols();
+              // Find all symbols that belong to this class (either directly in scope or with classBlock as ancestor)
+              // Methods are typically nested in blocks within the class block
+              const classMembers = allSymbols.filter(
+                (s) =>
+                  !isBlockSymbol(s) &&
+                  s.fileUri === contextSymbol.fileUri &&
+                  (s.parentId === resolvedClassBlock.id ||
+                    directScopeMembers.some((ds) => ds.id === s.parentId) ||
+                    // Check if symbol's parent chain leads to classBlock
+                    (() => {
+                      let currentParentId = s.parentId;
+                      const visited = new Set<string>();
+                      while (currentParentId && !visited.has(currentParentId)) {
+                        visited.add(currentParentId);
+                        if (currentParentId === resolvedClassBlock.id) {
+                          return true;
+                        }
+                        const parent = allSymbols.find(
+                          (sym) => sym.id === currentParentId,
+                        );
+                        if (!parent) break;
+                        currentParentId = parent.parentId;
+                      }
+                      return false;
+                    })()),
+              );
+              this.logger.debug(
+                () =>
+                  `Looking for member "${memberName}" (${memberType}) in class ` +
+                  `"${contextSymbol.name}" (fileUri: ${contextSymbol.fileUri}), ` +
+                  `classBlock.id: ${resolvedClassBlock.id}, found ${classMembers.length} ` +
+                  `class members (direct scope: ${directScopeMembers.length}). ` +
+                  `Sample members: ${classMembers
+                    .slice(0, 5)
+                    .map((s) => `${s.name || 'unnamed'} (${s.kind})`)
+                    .join(', ')}`,
+              );
               // Filter by name and kind, excluding block symbols
               // CRITICAL: Also verify that the member's fileUri matches the class's fileUri
               // This ensures we only get methods from the correct class file
@@ -7909,9 +8162,50 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   !isBlockSymbol(s) &&
                   s.name === memberName &&
                   s.kind === memberType &&
-                  s.fileUri === contextSymbol.fileUri &&
-                  s.parentId === classBlock.id,
+                  s.fileUri === contextSymbol.fileUri,
               );
+              this.logger.debug(
+                () =>
+                  `After filtering: found ${matchingMembers.length} matching members. ` +
+                  `Filter criteria: name=${memberName}, kind=${memberType}, ` +
+                  `fileUri=${contextSymbol.fileUri}, parentId=${resolvedClassBlock.id}`,
+              );
+              if (matchingMembers.length === 0) {
+                // Debug: show what methods we did find
+                const methodsWithName = classMembers.filter(
+                  (s) => !isBlockSymbol(s) && s.name === memberName,
+                );
+                const methodsWithKind = classMembers.filter(
+                  (s) => !isBlockSymbol(s) && s.kind === memberType,
+                );
+                const allMethods = classMembers.filter(
+                  (s) => !isBlockSymbol(s) && s.kind === 'method',
+                );
+                const membersWithSizeName = classMembers.filter(
+                  (s) => !isBlockSymbol(s) && s.name === 'size',
+                );
+                this.logger.debug(
+                  () =>
+                    `No matching members found. Methods with name "${memberName}": ` +
+                    `${methodsWithName.length}, Methods with kind "${memberType}": ` +
+                    `${methodsWithKind.length}, All methods: ${allMethods
+                      .map((m) => m.name)
+                      .join(', ')}, Members named "size": ${membersWithSizeName
+                      .map((m) => `${m.name} (${m.kind})`)
+                      .join(', ')}`,
+                );
+                if (methodsWithName.length > 0) {
+                  methodsWithName.forEach((m, idx) => {
+                    this.logger.debug(
+                      () =>
+                        `  Method ${idx}: name=${m.name}, kind=${m.kind}, ` +
+                        `fileUri=${m.fileUri}, parentId=${m.parentId}, ` +
+                        `contextSymbol.fileUri=${contextSymbol.fileUri}, ` +
+                        `classBlock.id=${resolvedClassBlock.id}`,
+                    );
+                  });
+                }
+              }
 
               if (matchingMembers.length > 0) {
                 // Return the first exact match (should be the only one for a given class)
@@ -7924,14 +8218,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   const methodParentBlock = symbolTable
                     .getAllSymbols()
                     .find((s) => s.id === method.parentId && isBlockSymbol(s));
-                  if (
+                  const parentChainMatches =
                     methodParentBlock &&
-                    methodParentBlock.parentId === contextSymbol.id
-                  ) {
+                    (methodParentBlock.parentId === contextSymbol.id ||
+                      methodParentBlock.parentId === classSymbolId);
+                  if (parentChainMatches) {
                     return method;
                   }
-                  // If parent chain doesn't match, continue searching or return null
-                  // This prevents picking methods from the wrong class
                   this.logger.debug(
                     () =>
                       `Method ${memberName} found but parent chain doesn't match context class ${contextSymbol.name}`,
