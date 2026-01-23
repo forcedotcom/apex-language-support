@@ -75,11 +75,12 @@ export const ClassHierarchyValidator: Validator = {
         const symbolManager = yield* ISymbolManager;
         // Get all symbols from symbol manager and filter to classes
         // Use getAllSymbolsForCompletion() which is available on ISymbolManager interface
-        const allSymbolsFromManager = symbolManager.getAllSymbolsForCompletion();
+        const allSymbolsFromManager =
+          symbolManager.getAllSymbolsForCompletion();
         const managerClasses = allSymbolsFromManager.filter(
           (s: ApexSymbol) => s.kind === SymbolKind.Class,
         ) as TypeSymbol[];
-        
+
         // Merge with current classes, avoiding duplicates
         const classNames = new Set(classes.map((c) => c.name.toLowerCase()));
         for (const mgrClass of managerClasses) {
@@ -91,6 +92,7 @@ export const ClassHierarchyValidator: Validator = {
       }
 
       // Check 1: Circular inheritance in class hierarchies
+      // Check each local class for circular inheritance (using allClassesForCircularCheck for cross-file detection)
       for (const cls of classes) {
         const circularPath = detectCircularInheritance(
           cls,

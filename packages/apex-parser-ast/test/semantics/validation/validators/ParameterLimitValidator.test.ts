@@ -55,7 +55,9 @@ describe('ParameterLimitValidator', () => {
   });
 
   it('should pass validation for method with 32 parameters', async () => {
-    const symbolTable = await compileFixtureForValidator('MethodWith32Params.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'MethodWith32Params.cls',
+    );
 
     const result = await runValidator(
       ParameterLimitValidator.validate(
@@ -73,7 +75,9 @@ describe('ParameterLimitValidator', () => {
   });
 
   it('should fail validation for method with 33 parameters', async () => {
-    const symbolTable = await compileFixtureForValidator('MethodWith33Params.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'MethodWith33Params.cls',
+    );
 
     const result = await runValidator(
       ParameterLimitValidator.validate(
@@ -118,7 +122,9 @@ describe('ParameterLimitValidator', () => {
   });
 
   it('should pass validation for method with no parameters', async () => {
-    const symbolTable = await compileFixtureForValidator('MethodWithNoParams.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'MethodWithNoParams.cls',
+    );
 
     const result = await runValidator(
       ParameterLimitValidator.validate(

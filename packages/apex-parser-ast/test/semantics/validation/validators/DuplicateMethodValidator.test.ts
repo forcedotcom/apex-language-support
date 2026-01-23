@@ -67,7 +67,10 @@ describe('DuplicateMethodValidator', () => {
     );
 
     if (!result.isValid && result.errors.length > 0) {
-      console.log('Validation errors:', result.errors.map(e => getMessage(e)));
+      console.log(
+        'Validation errors:',
+        result.errors.map((e) => getMessage(e)),
+      );
     }
 
     expect(result.isValid).toBe(true);
@@ -79,7 +82,9 @@ describe('DuplicateMethodValidator', () => {
     // (identical signatures) during compilation and returns early, so the duplicate
     // method never makes it into the symbol table. The validator cannot check what
     // isn't in the symbol table, so this test is skipped.
-    const symbolTable = await compileFixtureForValidator('DuplicateExactName.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'DuplicateExactName.cls',
+    );
 
     const result = await runValidator(
       DuplicateMethodValidator.validate(
@@ -105,7 +110,9 @@ describe('DuplicateMethodValidator', () => {
     // (case-insensitive matching) during compilation and returns early, so the duplicate
     // method never makes it into the symbol table. The validator cannot check what
     // isn't in the symbol table, so this test is skipped.
-    const symbolTable = await compileFixtureForValidator('DuplicateDifferentCase.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'DuplicateDifferentCase.cls',
+    );
 
     const result = await runValidator(
       DuplicateMethodValidator.validate(
@@ -200,7 +207,9 @@ describe('DuplicateMethodValidator', () => {
     //
     // The fix in areMethodSignaturesIdentical() ensures consistency with the listener's
     // doesMethodSignatureMatch() function, which also uses originalTypeString first.
-    const symbolTable = await compileFixtureForValidator('UnresolvedTypeDup.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'UnresolvedTypeDup.cls',
+    );
 
     const result = await runValidator(
       DuplicateMethodValidator.validate(

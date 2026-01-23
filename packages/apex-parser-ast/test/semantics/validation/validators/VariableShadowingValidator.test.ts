@@ -73,7 +73,9 @@ describe('VariableShadowingValidator', () => {
   });
 
   it('should fail validation for variable shadowing parameter', async () => {
-    const symbolTable = await compileFixtureForValidator('ShadowingParameter.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'ShadowingParameter.cls',
+    );
 
     const result = await runValidator(
       VariableShadowingValidator.validate(

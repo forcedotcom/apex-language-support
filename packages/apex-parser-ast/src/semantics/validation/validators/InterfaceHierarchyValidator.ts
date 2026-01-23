@@ -64,8 +64,8 @@ export const InterfaceHierarchyValidator: Validator = {
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
 
-      // Filter to interface and class symbols
-      const interfaces = allSymbols.filter(
+      // Filter to interface and class symbols from current file
+      const localInterfaces = allSymbols.filter(
         (symbol) => symbol.kind === SymbolKind.Interface,
       ) as TypeSymbol[];
 
@@ -73,11 +73,34 @@ export const InterfaceHierarchyValidator: Validator = {
         (symbol) => symbol.kind === SymbolKind.Class,
       ) as TypeSymbol[];
 
+      // For TIER 2 validation, also get interfaces from symbol manager for cross-file detection
+      let allInterfaces = [...localInterfaces];
+      if (_options.symbolManager) {
+        const symbolManager = yield* ISymbolManager;
+        // Get all symbols from symbol manager and filter to interfaces
+        // Use getAllSymbolsForCompletion() which is available on ISymbolManager interface
+        const allSymbolsFromManager =
+          symbolManager.getAllSymbolsForCompletion();
+        const crossFileInterfaces = allSymbolsFromManager.filter(
+          (s: ApexSymbol) => s.kind === SymbolKind.Interface,
+        ) as TypeSymbol[];
+
+        // Merge with current interfaces, avoiding duplicates by ID
+        const interfaceIds = new Set(localInterfaces.map((i) => i.id));
+        for (const iface of crossFileInterfaces) {
+          if (!interfaceIds.has(iface.id)) {
+            allInterfaces.push(iface);
+            interfaceIds.add(iface.id);
+          }
+        }
+      }
+
       // Check 1: Circular inheritance in interfaces
-      for (const iface of interfaces) {
+      // Check each local interface for circular inheritance (using allInterfaces for cross-file detection)
+      for (const iface of localInterfaces) {
         const circularPath = detectCircularInheritance(
           iface,
-          interfaces,
+          allInterfaces,
           [],
           new Set(),
         );
@@ -92,8 +115,8 @@ export const InterfaceHierarchyValidator: Validator = {
         }
       }
 
-      // Check 2: Duplicate extends
-      for (const iface of interfaces) {
+      // Check 2: Duplicate extends (only check local interfaces)
+      for (const iface of localInterfaces) {
         const duplicates = findDuplicateExtends(iface);
         for (const dup of duplicates) {
           errors.push({
@@ -114,7 +137,7 @@ export const InterfaceHierarchyValidator: Validator = {
 
         const implementedInterfaces = cls.interfaces || [];
         for (const ifaceName of implementedInterfaces) {
-          const iface = interfaces.find(
+          const iface = allInterfaces.find(
             (i) => i.name.toLowerCase() === ifaceName.toLowerCase(),
           );
 
@@ -158,8 +181,30 @@ export const InterfaceHierarchyValidator: Validator = {
         }
       }
 
-      // Combine local and loaded interfaces for validation
-      const allInterfaces = [...interfaces, ...loadedInterfaces];
+      // Combine with loaded interfaces (avoid duplicates)
+      const loadedInterfaceIds = new Set(allInterfaces.map((i) => i.id));
+      for (const loadedIface of loadedInterfaces) {
+        if (!loadedInterfaceIds.has(loadedIface.id)) {
+          allInterfaces.push(loadedIface);
+          loadedInterfaceIds.add(loadedIface.id);
+        }
+      }
+
+      // Get all methods from symbol manager for cross-file validation
+      let allMethodsForValidation = [...allSymbols];
+      if (_options.symbolManager) {
+        const symbolManager = yield* ISymbolManager;
+        const allSymbolsFromManager =
+          symbolManager.getAllSymbolsForCompletion();
+        // Merge with current symbols, avoiding duplicates by ID
+        const symbolIds = new Set(allSymbols.map((s) => s.id));
+        for (const sym of allSymbolsFromManager) {
+          if (!symbolIds.has(sym.id)) {
+            allMethodsForValidation.push(sym);
+            symbolIds.add(sym.id);
+          }
+        }
+      }
 
       // Second pass: validate with potentially loaded interfaces
       for (const cls of classes) {
@@ -187,17 +232,49 @@ export const InterfaceHierarchyValidator: Validator = {
             continue;
           }
 
+          yield* Effect.logDebug(
+            `Found interface '${ifaceName}' with id '${iface.id}' for class '${cls.name}'`,
+          );
+
           // Get all methods required by the interface (including inherited)
           const requiredMethods = getAllInterfaceMethods(
             iface,
             allInterfaces,
-            allSymbols,
+            allMethodsForValidation,
+          );
+
+          yield* Effect.logDebug(
+            `Checking class '${cls.name}' implements interface '${ifaceName}': ` +
+              `found ${requiredMethods.length} required methods ` +
+              `(${requiredMethods.map((m) => m.name).join(', ')})`,
           );
 
           // Get all methods implemented by the class
-          const classMethods = allSymbols.filter(
-            (s) => s.kind === SymbolKind.Method && s.parentId === cls.id,
-          ) as MethodSymbol[];
+          // Methods may have parentId pointing to class block or class itself
+          // Find class block first (if it exists)
+          const classBlock = allMethodsForValidation.find(
+            (s) =>
+              s.kind === SymbolKind.Block &&
+              s.parentId === cls.id &&
+              (s as any).scopeType === 'class',
+          );
+          const classBlockId = classBlock?.id;
+
+          const classMethods = allMethodsForValidation.filter((s) => {
+            if (s.kind !== SymbolKind.Method) {
+              return false;
+            }
+            // Check if method belongs to this class (direct or via block)
+            return (
+              s.parentId === cls.id ||
+              (classBlockId && s.parentId === classBlockId)
+            );
+          }) as MethodSymbol[];
+
+          yield* Effect.logDebug(
+            `Class '${cls.name}' has ${classMethods.length} methods: ` +
+              classMethods.map((m) => m.name).join(', '),
+          );
 
           // Check each required method is implemented
           for (const requiredMethod of requiredMethods) {
@@ -219,7 +296,7 @@ export const InterfaceHierarchyValidator: Validator = {
       }
 
       yield* Effect.logDebug(
-        `InterfaceHierarchyValidator: checked ${interfaces.length} interfaces ` +
+        `InterfaceHierarchyValidator: checked ${allInterfaces.length} interfaces ` +
           `and ${classes.length} classes, found ${errors.length} violations`,
       );
 
@@ -335,9 +412,27 @@ function getAllInterfaceMethods(
     visited.add(ifaceName);
 
     // Add methods from this interface (stored as child symbols)
-    const ifaceMethods = allSymbols.filter(
-      (s) => s.kind === SymbolKind.Method && s.parentId === currentIface.id,
-    ) as MethodSymbol[];
+    // Methods may have parentId pointing to interface block or interface itself
+    // Find interface block first (if it exists) - interface blocks use 'class' scopeType
+    const interfaceBlock = allSymbols.find(
+      (s) =>
+        s.kind === SymbolKind.Block &&
+        s.parentId === currentIface.id &&
+        (s as any).scopeType === 'class',
+    );
+    const interfaceBlockId = interfaceBlock?.id;
+
+    // Look for methods with parentId matching interface or interface block
+    const ifaceMethods = allSymbols.filter((s) => {
+      if (s.kind !== SymbolKind.Method) {
+        return false;
+      }
+      // Check if method belongs to this interface (direct or via block)
+      return (
+        s.parentId === currentIface.id ||
+        (interfaceBlockId && s.parentId === interfaceBlockId)
+      );
+    }) as MethodSymbol[];
 
     for (const method of ifaceMethods) {
       // Use method signature as key to avoid duplicates

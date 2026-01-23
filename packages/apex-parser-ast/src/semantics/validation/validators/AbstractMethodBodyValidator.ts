@@ -67,9 +67,33 @@ export const AbstractMethodBodyValidator: Validator = {
         const isAbstract = method.modifiers.isAbstract;
 
         // Find parent class/interface
-        const parent = method.parentId
+        // Methods may have parentId pointing to class block or class itself
+        // Find class block first (if it exists)
+        const classBlock = allSymbols.find(
+          (s) =>
+            s.kind === 'block' &&
+            s.parentId === method.parentId &&
+            (s as any).scopeType === 'class',
+        );
+        const classBlockId = classBlock?.id;
+
+        // Find parent by checking both method.parentId and class block parentId
+        let parent = method.parentId
           ? allSymbols.find((s) => s.id === method.parentId)
           : null;
+
+        // If parent is a block, find the actual class/interface
+        if (parent && parent.kind === 'block' && parent.parentId) {
+          parent = allSymbols.find((s) => s.id === parent!.parentId) || null;
+        }
+
+        // Also check if method.parentId points to a class block directly
+        if (!parent && classBlockId) {
+          parent = allSymbols.find((s) => s.id === classBlockId) || null;
+          if (parent && parent.kind === 'block' && parent.parentId) {
+            parent = allSymbols.find((s) => s.id === parent!.parentId) || null;
+          }
+        }
 
         if (!parent) {
           continue; // Skip orphaned methods
@@ -80,9 +104,23 @@ export const AbstractMethodBodyValidator: Validator = {
           parent.kind === 'class' && !parent.modifiers.isAbstract;
 
         // Check for child block scopes (indicates method has body)
-        const hasChildBlocks = allSymbols.some(
+        // Note: Method blocks are created for scope tracking even for abstract methods
+        // We need to check if there are child blocks OTHER than the method's own scope block
+        // Abstract methods should only have their own scope block, not content blocks
+        const childBlocks = allSymbols.filter(
           (s) => s.parentId === method.id && s.kind === 'block',
         );
+        
+        // Filter out the method's own scope block (scopeType === 'method')
+        // If there are other blocks (like statement blocks), the method has a body
+        const hasBodyBlocks = childBlocks.some(
+          (block) => (block as any).scopeType !== 'method',
+        );
+        
+        // For abstract methods, even having their own scope block might indicate a body was parsed
+        // But we need to be more lenient - if only the scope block exists, it's likely fine
+        // The real check is: does the method have statement blocks or other content blocks?
+        const hasChildBlocks = hasBodyBlocks;
 
         // Rule 1: Abstract methods must not have a body
         if (isAbstract && hasChildBlocks) {

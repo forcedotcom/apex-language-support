@@ -7,7 +7,11 @@
  */
 
 import { Effect } from 'effect';
-import type { SymbolTable, ApexSymbol, MethodSymbol } from '../../../types/symbol';
+import type {
+  SymbolTable,
+  ApexSymbol,
+  MethodSymbol,
+} from '../../../types/symbol';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -67,7 +71,7 @@ export const ParameterLimitValidator: Validator = {
           const methodSymbol = symbol as MethodSymbol;
           parameterCount = methodSymbol.parameters?.length || 0;
         }
-        
+
         // Fallback: count child parameter symbols if parameters property not available
         if (parameterCount === 0) {
           parameterCount = countParameters(symbol, allSymbols);

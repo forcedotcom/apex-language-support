@@ -158,7 +158,9 @@ describe('ConstructorNamingValidator', () => {
 
   it.skip('should validate multiple constructors in same class', async () => {
     // Parser catches case mismatches before validator runs
-    const symbolTable = await compileFixtureForValidator('MultipleConstructors.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'MultipleConstructors.cls',
+    );
 
     const result = await runValidator(
       ConstructorNamingValidator.validate(

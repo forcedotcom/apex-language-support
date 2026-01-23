@@ -53,7 +53,9 @@ describe('ForwardReferenceValidator', () => {
   });
 
   it('should pass validation when variable is declared before use', async () => {
-    const symbolTable = await compileFixtureForValidator('DeclaredBeforeUse.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'DeclaredBeforeUse.cls',
+    );
 
     const result = await runValidator(
       ForwardReferenceValidator.validate(
@@ -71,7 +73,9 @@ describe('ForwardReferenceValidator', () => {
   });
 
   it('should fail validation for forward reference', async () => {
-    const symbolTable = await compileFixtureForValidator('ForwardReference.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'ForwardReference.cls',
+    );
 
     const result = await runValidator(
       ForwardReferenceValidator.validate(
@@ -88,6 +92,8 @@ describe('ForwardReferenceValidator', () => {
     expect(result.errors.length).toBeGreaterThan(0);
     const errorMessage = getMessage(result.errors[0]);
     expect(errorMessage).toContain('x');
-    expect(errorMessage).toMatch(/forward reference|referenced before.*declared/);
+    expect(errorMessage).toMatch(
+      /forward reference|referenced before.*declared/,
+    );
   });
 });

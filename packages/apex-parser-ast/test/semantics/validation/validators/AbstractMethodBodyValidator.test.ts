@@ -55,7 +55,9 @@ describe('AbstractMethodBodyValidator', () => {
   });
 
   it('should pass validation for abstract method without body', async () => {
-    const symbolTable = await compileFixtureForValidator('AbstractMethodNoBody.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'AbstractMethodNoBody.cls',
+    );
 
     const result = await runValidator(
       AbstractMethodBodyValidator.validate(
@@ -68,12 +70,18 @@ describe('AbstractMethodBodyValidator', () => {
       symbolManager,
     );
 
+    if (!result.isValid && result.errors.length > 0) {
+      console.log('Validation errors:', result.errors.map(e => getMessage(e)));
+    }
+
     expect(result.isValid).toBe(true);
     expect(result.errors).toHaveLength(0);
   });
 
   it('should fail validation for abstract method with body', async () => {
-    const symbolTable = await compileFixtureForValidator('AbstractMethodWithBody.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'AbstractMethodWithBody.cls',
+    );
 
     const result = await runValidator(
       AbstractMethodBodyValidator.validate(

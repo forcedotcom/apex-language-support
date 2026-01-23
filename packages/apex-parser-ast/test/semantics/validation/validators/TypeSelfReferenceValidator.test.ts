@@ -98,7 +98,9 @@ describe('TypeSelfReferenceValidator', () => {
   });
 
   it('should fail validation for class implementing itself', async () => {
-    const symbolTable = await compileFixtureForValidator('SelfImplementing.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'SelfImplementing.cls',
+    );
 
     const result = await runValidator(
       TypeSelfReferenceValidator.validate(

@@ -119,7 +119,9 @@ describe('InterfaceHierarchyValidator', () => {
   it('should detect duplicate extends', async () => {
     // Compile interface A first, then interface B with duplicate extends
     await compileFixtureForValidator('InterfaceA.cls');
-    const symbolTable = await compileFixtureForValidator('DuplicateExtends.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'DuplicateExtends.cls',
+    );
 
     const result = await runValidator(
       InterfaceHierarchyValidator.validate(
@@ -178,7 +180,9 @@ describe('InterfaceHierarchyValidator', () => {
   it('should pass validation for class implementing all interface methods', async () => {
     // Compile interface and class that implements the method
     await compileFixtureForValidator('MyInterface.cls');
-    const symbolTable = await compileFixtureForValidator('MyClassWithMethod.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'MyClassWithMethod.cls',
+    );
 
     const result = await runValidator(
       InterfaceHierarchyValidator.validate(

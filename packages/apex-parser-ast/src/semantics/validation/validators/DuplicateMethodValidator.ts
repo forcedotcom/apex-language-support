@@ -7,7 +7,7 @@
  */
 
 import { Effect } from 'effect';
-import type { SymbolTable, ApexSymbol, MethodSymbol } from '../../../types/symbol';
+import type { SymbolTable, MethodSymbol } from '../../../types/symbol';
 import type {
   ValidationResult,
   ValidationErrorInfo,

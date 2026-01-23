@@ -53,7 +53,9 @@ describe('FinalAssignmentValidator', () => {
   });
 
   it('should pass validation for final variable assigned once', async () => {
-    const symbolTable = await compileFixtureForValidator('SingleAssignment.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'SingleAssignment.cls',
+    );
 
     const result = await runValidator(
       FinalAssignmentValidator.validate(
@@ -71,7 +73,9 @@ describe('FinalAssignmentValidator', () => {
   });
 
   it('should fail validation for final variable assigned multiple times', async () => {
-    const symbolTable = await compileFixtureForValidator('MultipleAssignments.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'MultipleAssignments.cls',
+    );
 
     const result = await runValidator(
       FinalAssignmentValidator.validate(

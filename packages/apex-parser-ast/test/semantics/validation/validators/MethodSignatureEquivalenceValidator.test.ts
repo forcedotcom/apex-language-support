@@ -77,7 +77,9 @@ describe('MethodSignatureEquivalenceValidator', () => {
 
   it.skip('should fail validation for duplicate method signatures', async () => {
     // Parser catches duplicate method signatures before validator runs
-    const symbolTable = await compileFixtureForValidator('DuplicateSignature.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'DuplicateSignature.cls',
+    );
 
     const result = await runValidator(
       MethodSignatureEquivalenceValidator.validate(

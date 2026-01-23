@@ -82,13 +82,12 @@ export const createServicesLayer = (
   typeof ISymbolManager | typeof ArtifactLoadingHelperLive,
   never,
   never
-> => {
-  return Layer.mergeAll(
+> =>
+  Layer.mergeAll(
     Layer.succeed(ISymbolManager, symbolManager),
     ArtifactLoadingHelperLive,
     EffectTestLoggerLive,
   );
-};
 
 /**
  * Helper to run a validator Effect with all required services
@@ -117,9 +116,7 @@ export const runValidator = async <T>(
 export const getMessage = (
   errorOrWarning: string | { message: string },
 ): string =>
-  typeof errorOrWarning === 'string'
-    ? errorOrWarning
-    : errorOrWarning.message;
+  typeof errorOrWarning === 'string' ? errorOrWarning : errorOrWarning.message;
 
 /**
  * Create default validation options for tests
@@ -127,14 +124,12 @@ export const getMessage = (
 export const createValidationOptions = (
   symbolManager: ApexSymbolManager,
   overrides?: Partial<ValidationOptions>,
-): ValidationOptions => {
-  return {
-    tier: ValidationTier.THOROUGH,
-    allowArtifactLoading: true,
-    maxDepth: 1,
-    maxArtifacts: 5,
-    timeout: 5000,
-    symbolManager,
-    ...overrides,
-  };
-};
+): ValidationOptions => ({
+  tier: ValidationTier.THOROUGH,
+  allowArtifactLoading: true,
+  maxDepth: 1,
+  maxArtifacts: 5,
+  timeout: 5000,
+  symbolManager,
+  ...overrides,
+});

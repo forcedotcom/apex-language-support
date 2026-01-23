@@ -96,7 +96,9 @@ describe('EnumConstantNamingValidator', () => {
   it.skip('should fail validation for enum constant with invalid characters', async () => {
     // Invalid characters (e.g., hyphens) are caught by the parser as syntax errors
     // before the validator can check them, so this test cannot be executed
-    const symbolTable = await compileFixtureForValidator('InvalidCharacters.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'InvalidCharacters.cls',
+    );
 
     const result = await runValidator(
       EnumConstantNamingValidator.validate(

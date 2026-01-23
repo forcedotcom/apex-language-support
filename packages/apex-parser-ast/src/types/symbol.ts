@@ -272,7 +272,13 @@ export class SymbolFactory {
       identifierRange: location.symbolRange, // Same as symbolRange for blocks
     };
 
-    const id = this.generateId(name, fileUri, scopePath, 'block', blockLocation);
+    const id = this.generateId(
+      name,
+      fileUri,
+      scopePath,
+      'block',
+      blockLocation,
+    );
     const key: SymbolKey = {
       prefix: 'block',
       name,
@@ -361,7 +367,8 @@ export class SymbolFactory {
     const effectiveLocation = scopeType === 'file' ? location : blockLocation;
 
     // Ensure unifiedId is set - generate it if missing, including location for duplicate detection
-    const id = key.unifiedId || generateUnifiedId(key, fileUri, effectiveLocation);
+    const id =
+      key.unifiedId || generateUnifiedId(key, fileUri, effectiveLocation);
 
     // Create a single ScopeSymbol instance with the specified scopeType
     return new ScopeSymbol(
@@ -910,7 +917,9 @@ export class SymbolTable {
         // Update map with enriched symbol
         this.symbolMap.set(symbolKey, symbolToAdd);
         // Update array
-        const index = this.symbolArray.findIndex((s) => s.id === symbolToAdd.id);
+        const index = this.symbolArray.findIndex(
+          (s) => s.id === symbolToAdd.id,
+        );
         if (index !== -1) {
           this.symbolArray[index] = symbolToAdd;
         }
@@ -964,7 +973,6 @@ export class SymbolTable {
 
     // Update roots array if needed
     this.updateRootsArray(symbolToAdd, previousParentId);
-
   }
 
   /**
@@ -1005,7 +1013,13 @@ export class SymbolTable {
     parentId: string | null,
     scopePath?: string[],
   ): ScopeSymbol {
-    const id = SymbolFactory.generateId(name, fileUri, scopePath, 'block', location);
+    const id = SymbolFactory.generateId(
+      name,
+      fileUri,
+      scopePath,
+      'block',
+      location,
+    );
     const key: SymbolKey = {
       prefix: scopeType,
       name,
@@ -1231,7 +1245,9 @@ export class SymbolTable {
       hierarchy.unshift(current);
       if (current.parentId) {
         const parentResult = this.symbolMap.get(current.parentId);
-        const parent = Array.isArray(parentResult) ? parentResult[0] : parentResult;
+        const parent = Array.isArray(parentResult)
+          ? parentResult[0]
+          : parentResult;
         if (parent && parent.kind === SymbolKind.Block) {
           current = parent as ScopeSymbol;
         } else {
@@ -1284,7 +1300,9 @@ export class SymbolTable {
       }
       if (current.parentId) {
         const parentResult = this.symbolMap.get(current.parentId);
-        const parent = Array.isArray(parentResult) ? parentResult[0] : parentResult;
+        const parent = Array.isArray(parentResult)
+          ? parentResult[0]
+          : parentResult;
         if (parent && parent.kind === SymbolKind.Block) {
           current = parent as ScopeSymbol;
         } else {
@@ -1306,7 +1324,9 @@ export class SymbolTable {
   getParentScope(scope: ScopeSymbol): ScopeSymbol | null {
     if (scope.parentId) {
       const parentResult = this.symbolMap.get(scope.parentId);
-      const parent = Array.isArray(parentResult) ? parentResult[0] : parentResult;
+      const parent = Array.isArray(parentResult)
+        ? parentResult[0]
+        : parentResult;
       if (parent && parent.kind === SymbolKind.Block) {
         return parent as ScopeSymbol;
       }
@@ -1394,7 +1414,9 @@ export class SymbolTable {
       // Navigate to parent using symbolMap
       if (scope.parentId) {
         const parentResult = this.symbolMap.get(scope.parentId);
-        const parent = Array.isArray(parentResult) ? parentResult[0] : parentResult;
+        const parent = Array.isArray(parentResult)
+          ? parentResult[0]
+          : parentResult;
         if (parent && parent.kind === SymbolKind.Block) {
           scope = parent as ScopeSymbol;
         } else {

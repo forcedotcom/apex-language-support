@@ -1280,7 +1280,9 @@ export class ApexSymbolCollectorListener
           return;
         }
         // Get all methods in the type's scope
-        const existingMethods = this.symbolTable.getSymbolsInScope(typeScope.id);
+        const existingMethods = this.symbolTable.getSymbolsInScope(
+          typeScope.id,
+        );
 
         // Get the parameter types for the current method being checked
         const currentParamTypes =

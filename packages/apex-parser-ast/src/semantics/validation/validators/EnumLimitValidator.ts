@@ -7,7 +7,11 @@
  */
 
 import { Effect } from 'effect';
-import type { SymbolTable, ApexSymbol, EnumSymbol } from '../../../types/symbol';
+import type {
+  SymbolTable,
+  ApexSymbol,
+  EnumSymbol,
+} from '../../../types/symbol';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -58,10 +62,13 @@ export const EnumLimitValidator: Validator = {
       for (const enumSymbol of enums) {
         // EnumSymbol has a values property - use that if available
         let constantCount = 0;
-        if ('values' in enumSymbol && Array.isArray((enumSymbol as EnumSymbol).values)) {
+        if (
+          'values' in enumSymbol &&
+          Array.isArray((enumSymbol as EnumSymbol).values)
+        ) {
           constantCount = (enumSymbol as EnumSymbol).values.length;
         }
-        
+
         // Fallback: count child enumValue symbols if values property not available
         if (constantCount === 0) {
           constantCount = countEnumConstants(enumSymbol, allSymbols);

@@ -241,7 +241,9 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
       let allSymbols: ApexSymbol[] = [symbol];
       if (symbol.key?.unifiedId) {
         // Try to find duplicates by getting all symbols in the file and checking for same unifiedId
-        const fileSymbols = this.symbolManager.findSymbolsInFile(symbol.fileUri);
+        const fileSymbols = this.symbolManager.findSymbolsInFile(
+          symbol.fileUri,
+        );
         const duplicates = fileSymbols.filter(
           (s) => s.key?.unifiedId === symbol.key.unifiedId,
         );

@@ -82,10 +82,67 @@ export const TypeAssignmentValidator: Validator = {
         }
 
         // Convert TypeInfo to StatementExpressionType for compatibility checking
-        const declaredType = convertTypeInfoToExpressionType(variable.type);
-        const initializerType = convertTypeInfoToExpressionType(
+        let declaredType = convertTypeInfoToExpressionType(variable.type);
+        let initializerType = convertTypeInfoToExpressionType(
           variable.initializerType,
         );
+
+        // Handle case where initializerType has literal value in originalTypeString
+        // but name is Object (extractInitializerType couldn't determine type)
+        // Infer type from literal value if possible
+        if (
+          variable.initializerType.originalTypeString &&
+          variable.initializerType.name === 'Object' &&
+          variable.initializerType.needsNamespaceResolution
+        ) {
+          const literalValue = variable.initializerType.originalTypeString.trim();
+          // Check if it's a string literal
+          if (
+            (literalValue.startsWith("'") && literalValue.endsWith("'")) ||
+            (literalValue.startsWith('"') && literalValue.endsWith('"'))
+          ) {
+            // Infer String type for string literals
+            initializerType = {
+              kind: 'primitive',
+              name: 'string',
+              isNullable: false,
+              isArray: false,
+              isPrimitive: true,
+            };
+          }
+          // Check if it's a numeric literal
+          else if (/^-?\d+$/.test(literalValue)) {
+            // Infer Integer type for integer literals
+            initializerType = {
+              kind: 'primitive',
+              name: 'integer',
+              isNullable: false,
+              isArray: false,
+              isPrimitive: true,
+            };
+          }
+          // Check if it's a boolean literal
+          else if (literalValue === 'true' || literalValue === 'false') {
+            // Infer Boolean type for boolean literals
+            initializerType = {
+              kind: 'primitive',
+              name: 'boolean',
+              isNullable: false,
+              isArray: false,
+              isPrimitive: true,
+            };
+          }
+          // Check if it's null
+          else if (literalValue === 'null') {
+            initializerType = {
+              kind: 'primitive',
+              name: 'null',
+              isNullable: true,
+              isArray: false,
+              isPrimitive: true,
+            };
+          }
+        }
 
         // For TIER 2, try to resolve types that need namespace resolution
         if (options.tier === ValidationTier.THOROUGH && options.symbolManager) {

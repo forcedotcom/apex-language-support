@@ -13,7 +13,6 @@ import {
   MethodSymbol,
   VariableSymbol,
   FieldSymbol,
-  ApexSymbol,
   SymbolFactory,
 } from '../../src/types/symbol';
 import { CompilerService } from '../../src/parser/compilerService';
@@ -463,9 +462,9 @@ describe('SymbolTable Duplicate Handling', () => {
 
       const allMethods = symbolTable.getAllSymbolsById(method1.key.unifiedId!);
       expect(allMethods.length).toBe(3);
-      expect(allMethods.map((m) => m.location.identifierRange.startLine)).toEqual([
-        10, 15, 20,
-      ]);
+      expect(
+        allMethods.map((m) => m.location.identifierRange.startLine),
+      ).toEqual([10, 15, 20]);
     });
   });
 
