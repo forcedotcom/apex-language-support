@@ -2023,7 +2023,8 @@ export class ApexSymbolGraph {
               private: 3,
               full: 4,
             };
-            const existingLevel = detailLevelOrder[existingInNew._detailLevel || ''] || 0;
+            const existingLevel =
+              detailLevelOrder[existingInNew._detailLevel || ''] || 0;
             const newLevel = detailLevelOrder[symbol._detailLevel || ''] || 0;
             const needsEnrichment = newLevel > existingLevel;
 
@@ -2036,7 +2037,7 @@ export class ApexSymbolGraph {
             // Should not happen - symbolKey matched but symbol not found
             this.logger.warn(
               () =>
-                `[DEBUG-DUP] registerSymbolTable: Symbol key matched but symbol not found in newSymbols`,
+                '[DEBUG-DUP] registerSymbolTable: Symbol key matched but symbol not found in newSymbols',
             );
           }
         }

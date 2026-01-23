@@ -543,13 +543,13 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
         (s) => s.name === 'DuplicateMethodClass',
       );
       expect(classSymbol).toBeDefined();
-      expect(classSymbol!.children).toBeDefined();
+      expect((classSymbol as DocumentSymbol).children).toBeDefined();
 
       // Method names are formatted as "methodName(paramTypes) : ReturnType"
       // For void doWork() with no params, it should be "doWork() : void"
-      const methods = (classSymbol!.children as DocumentSymbol[]).filter((s) =>
-        s.name.startsWith('doWork('),
-      );
+      const methods = (
+        (classSymbol as DocumentSymbol).children as DocumentSymbol[]
+      ).filter((s) => s.name.startsWith('doWork('));
 
       // Verify both duplicate methods are shown in the outline (like TypeScript)
       // This confirms that duplicate declarations are not filtered out

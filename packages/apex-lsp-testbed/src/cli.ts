@@ -17,7 +17,6 @@ const {
   registerWorkspaceCleanup,
 } = require('./utils/workspaceUtils');
 const { createClient } = require('./utils/clientFactory');
-const { startInteractiveMode } = require('./utils/interactiveMode');
 
 /**
  * Run node server tests
@@ -242,8 +241,14 @@ async function main(): Promise<void> {
 
     // Handle different server types and modes
     if (options.serverType === 'nodeServer' && options.interactive) {
-      // Start interactive mode for node server
-      await startInteractiveMode(client);
+      // Interactive mode removed - use non-interactive mode instead
+      console.log(
+        'Interactive mode is no longer supported. Running tests instead.',
+      );
+      await runNodeServerTests(client, logger);
+      await client.stop();
+      console.log('Node server tests completed and server stopped');
+      process.exit(0);
     } else if (options.serverType === 'nodeServer' && !options.interactive) {
       // Run node server tests in non-interactive mode
       await runNodeServerTests(client, logger);
@@ -253,8 +258,18 @@ async function main(): Promise<void> {
       console.log('Node server tests completed and server stopped');
       process.exit(0);
     } else if (options.interactive) {
-      // Start interactive mode if requested for other server types
-      await startInteractiveMode(client);
+      // Interactive mode removed - show capabilities instead
+      console.log(
+        'Interactive mode is no longer supported. Showing capabilities instead.',
+      );
+      const capabilities = client.getServerCapabilities();
+      console.log(
+        'Server capabilities:',
+        JSON.stringify(capabilities, null, 2),
+      );
+      await client.stop();
+      console.log('Server stopped');
+      process.exit(0);
     } else {
       // Non-interactive mode: Just show server capabilities and exit
       const capabilities = client.getServerCapabilities();
