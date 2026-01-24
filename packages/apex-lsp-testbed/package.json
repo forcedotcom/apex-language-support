@@ -19,6 +19,7 @@
     "compile": "wireit",
     "bundle": "echo 'Bundle is not needed for testbed'",
     "test": "wireit",
+    "test:integration": "wireit",
     "test:quality": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
@@ -54,7 +55,7 @@
       ]
     },
     "test": {
-      "command": "jest --testMatch \"**/test/**/*.test.ts\" --json --outputFile=.wireit/test-results.json",
+      "command": "jest --testMatch \"**/test/**/*.test.ts\" --testPathIgnorePatterns=\"integration\" --json --outputFile=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],
@@ -64,6 +65,21 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
+        "**/jest.config.cjs"
+      ]
+    },
+    "test:integration": {
+      "command": "jest --testMatch \"**/test/integration/**/*.test.ts\" --testPathIgnorePatterns=\"/node_modules/\" --json --outputFile=.wireit/test-results-integration.json",
+      "dependencies": [
+        "compile",
+        "../apex-ls:bundle"
+      ],
+      "output": [
+        ".wireit/test-results-integration.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/integration/**/*.ts",
         "**/jest.config.cjs"
       ]
     },

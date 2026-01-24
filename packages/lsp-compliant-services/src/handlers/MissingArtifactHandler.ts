@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LoggerInterface, Priority } from '@salesforce/apex-lsp-shared';
+import {
+  LoggerInterface,
+  Priority,
+  getLogger,
+} from '@salesforce/apex-lsp-shared';
 import type {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
@@ -244,31 +248,6 @@ export function createMissingArtifactHandler(
 export async function processApexFindMissingArtifact(
   params: FindMissingArtifactParams,
 ): Promise<FindMissingArtifactResult> {
-  const handler = createMissingArtifactHandler(
-    // Use a simple console logger for now
-    {
-      debug: (message: string | (() => string)) => {
-        const msg = typeof message === 'function' ? message() : message;
-        console.debug(`[MissingArtifact] ${msg}`);
-      },
-      info: (message: string | (() => string)) => {
-        const msg = typeof message === 'function' ? message() : message;
-        console.info(`[MissingArtifact] ${msg}`);
-      },
-      warn: (message: string | (() => string)) => {
-        const msg = typeof message === 'function' ? message() : message;
-        console.warn(`[MissingArtifact] ${msg}`);
-      },
-      error: (message: string | (() => string)) => {
-        const msg = typeof message === 'function' ? message() : message;
-        console.error(`[MissingArtifact] ${msg}`);
-      },
-      log: (messageType: any, message: string | (() => string)) => {
-        const msg = typeof message === 'function' ? message() : message;
-        console.log(`[MissingArtifact] ${messageType}: ${msg}`);
-      },
-    },
-  );
-
+  const handler = createMissingArtifactHandler(getLogger());
   return handler.handleFindMissingArtifact(params);
 }

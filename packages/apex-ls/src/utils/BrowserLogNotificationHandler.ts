@@ -11,7 +11,10 @@ import type {
   LogNotificationHandler as ILogNotificationHandler,
   LogMessageParams,
 } from '@salesforce/apex-lsp-shared';
-import { shouldLog, LoggingUtils } from '@salesforce/apex-lsp-shared';
+import {
+  shouldLog,
+  logMessageTypeToLspNumber,
+} from '@salesforce/apex-lsp-shared';
 
 /**
  * Log notification handler that works in both browser and web worker contexts
@@ -87,8 +90,11 @@ export class LogNotificationHandler implements ILogNotificationHandler {
     }
 
     try {
+      // Convert to numeric LSP MessageType
+      // VS Code's built-in handler will add timestamp and log level prefix
+      const lspMessageType = logMessageTypeToLspNumber(params.type);
       this.connection.sendNotification('window/logMessage', {
-        type: LoggingUtils.getLogMessageType(params.type),
+        type: lspMessageType,
         message: params.message,
       });
     } catch {

@@ -10,12 +10,14 @@ import { LogMessageType } from './notification';
 
 /**
  * Priority mapping for log levels (higher number = higher priority)
+ * Note: 'log' has highest priority (6) to ensure critical messages always appear
+ * regardless of user's log level setting. Use alwaysLog() for must-show messages.
  */
 const LOG_LEVEL_PRIORITY: Record<LogMessageType, number> = {
+  log: 6, // Highest - always shows (uses MessageType 4, raw output in VS Code)
   error: 5,
   warning: 4,
   info: 3,
-  log: 2,
   debug: 1,
 };
 
@@ -78,6 +80,34 @@ export const shouldLog = (messageType: LogMessageType): boolean => {
     LOG_LEVEL_PRIORITY[messageType] || LOG_LEVEL_PRIORITY.log;
   const currentPriority = LOG_LEVEL_PRIORITY[currentLogLevel];
   return messagePriority >= currentPriority;
+};
+
+/**
+ * Convert LogMessageType to LSP MessageType number
+ * LSP MessageType: Error=1, Warning=2, Info=3, Log=4, Debug=5
+ * Note: VS Code's LanguageClient 9.0.1+ handles MessageType.Debug (5) properly,
+ * but does NOT format MessageType.Log (4) - it falls through to raw appendLine.
+ * Therefore, we map 'debug' to 5 (Debug) for proper formatting.
+ * @param messageType The log message type
+ * @returns LSP MessageType number
+ */
+export const logMessageTypeToLspNumber = (
+  messageType: LogMessageType,
+): number => {
+  switch (messageType) {
+    case 'error':
+      return 1; // MessageType.Error
+    case 'warning':
+      return 2; // MessageType.Warning
+    case 'info':
+      return 3; // MessageType.Info
+    case 'log':
+      return 4; // MessageType.Log (not formatted by VS Code client)
+    case 'debug':
+      return 5; // MessageType.Debug (formatted by VS Code client 9.0.1+)
+    default:
+      return 3; // Default to Info
+  }
 };
 
 /**
@@ -146,6 +176,21 @@ export interface LoggerInterface {
    * @param messageProvider - Function that returns the message to log
    */
   error(messageProvider: () => string): void;
+
+  /**
+   * Log a message that always appears regardless of log level setting
+   * Uses MessageType 4 (Log) which has highest priority and bypasses log level filtering.
+   * Use for critical messages that must always be visible (initialization, status, critical notifications).
+   * Note: Outputs as raw text in VS Code (no formatting prefix like [Debug - ...]).
+   * @param message - The message to log
+   */
+  alwaysLog(message: string): void;
+
+  /**
+   * Log a message that always appears regardless of log level setting (with lazy evaluation)
+   * @param messageProvider - Function that returns the message to log
+   */
+  alwaysLog(messageProvider: () => string): void;
 }
 
 /**
@@ -165,23 +210,27 @@ class NoOpLogger implements LoggerInterface {
     messageType: LogMessageType,
     message: string | (() => string),
   ): void {
-    // No-op implementation - does nothing
+    // No-op - but poisoned for debugging
   }
 
   public debug(message: string | (() => string)): void {
-    // No-op implementation - does nothing
+    // No-op - but poisoned for debugging
   }
 
   public info(message: string | (() => string)): void {
-    // No-op implementation - does nothing
+    // No-op - but poisoned for debugging
   }
 
   public warn(message: string | (() => string)): void {
-    // No-op implementation - does nothing
+    // No-op - but poisoned for debugging
   }
 
   public error(message: string | (() => string)): void {
-    // No-op implementation - does nothing
+    // No-op - but poisoned for debugging
+  }
+
+  public alwaysLog(message: string | (() => string)): void {
+    // No-op - but poisoned for debugging
   }
 }
 
@@ -260,6 +309,10 @@ class ConsoleLogger implements LoggerInterface {
 
   public error(message: string | (() => string)): void {
     this.log('error', message);
+  }
+
+  public alwaysLog(message: string | (() => string)): void {
+    this.log('log', message);
   }
 }
 

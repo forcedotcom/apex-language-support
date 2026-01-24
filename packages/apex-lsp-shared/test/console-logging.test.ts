@@ -139,6 +139,55 @@ describe('Console Logging', () => {
         ),
       );
     });
+
+    it('should handle alwaysLog method', () => {
+      enableConsoleLogging();
+      const logger = getLogger();
+
+      logger.alwaysLog('Always visible message');
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[LOG\] Always visible message/,
+        ),
+      );
+    });
+
+    it('should display alwaysLog even when log level is error', () => {
+      enableConsoleLogging();
+      setLogLevel('error');
+      const logger = getLogger();
+
+      // These should be filtered out
+      logger.debug('Debug message');
+      logger.info('Info message');
+
+      // This should always appear
+      logger.alwaysLog('Critical status message');
+
+      expect(debugSpy).not.toHaveBeenCalled();
+      expect(infoSpy).not.toHaveBeenCalled();
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[LOG\] Critical status message/,
+        ),
+      );
+    });
+
+    it('should handle alwaysLog with lazy evaluation', () => {
+      enableConsoleLogging();
+      const logger = getLogger();
+      const messageProvider = jest.fn(() => 'Always visible lazy message');
+
+      logger.alwaysLog(messageProvider);
+
+      expect(messageProvider).toHaveBeenCalled();
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[LOG\] Always visible lazy message/,
+        ),
+      );
+    });
   });
 
   describe('disableLogging', () => {

@@ -18,6 +18,10 @@ import {
   SettingsChangeListener,
 } from './ApexSettingsManager';
 import {
+  generateStartupSummary,
+  generateChangeSummary,
+} from './ConfigurationSummary';
+import {
   mergeWithDefaults,
   validateApexSettings,
 } from './ApexSettingsUtilities';
@@ -503,6 +507,16 @@ export class LSPConfigurationManager {
         this.logger.debug('Initial settings applied - no changes detected');
       }
 
+      // Generate and log startup summary using alwaysLog
+      const currentSettings = this.settingsManager.getSettings();
+      const serverMode =
+        currentSettings.apex.environment?.serverMode || 'production';
+      const startupSummary = generateStartupSummary(
+        currentSettings,
+        serverMode,
+      );
+      getLogger().alwaysLog(startupSummary);
+
       return true;
     } catch (error) {
       this.logger.error(`Failed to set initial settings: ${error}`);
@@ -556,20 +570,31 @@ export class LSPConfigurationManager {
   public updateFromLSPConfiguration(
     config: DidChangeConfigurationParams,
   ): boolean {
-    getLogger().error('Updating Apex Language Server settings');
-
     // Handle null or undefined settings
     if (!config || config.settings === null || config.settings === undefined) {
       getLogger().warn('Received null or undefined settings, skipping update');
       return false;
     }
 
+    // Capture previous settings for comparison
+    const previousSettings = this.settingsManager.getSettings();
+
     const result = this.settingsManager.updateFromLSPConfiguration(
       config.settings,
     );
+
     if (result) {
+      // Generate configuration change summary
+      const currentSettings = this.settingsManager.getSettings();
+      const changeSummary = generateChangeSummary(
+        previousSettings,
+        currentSettings,
+      );
+      getLogger().alwaysLog(changeSummary);
+
       this.syncCapabilitiesWithSettings();
     }
+
     return result;
   }
 
