@@ -8,6 +8,7 @@
 
 import * as vscode from 'vscode';
 import { createServerOptions, createClientOptions } from '../src/server-config';
+import { determineServerMode } from '../src/utils/serverUtils';
 
 // Mock vscode.Uri.joinPath
 jest.mock('vscode', () => ({
@@ -81,6 +82,69 @@ jest.mock('vscode-languageclient/lib/node/main', () => ({
   },
 }));
 
+/**
+ * Type-safe helper to extract the run module path from ServerOptions
+ */
+function getRunModule(serverOptions: any): string {
+  return serverOptions.run.module;
+}
+
+/**
+ * Type-safe helper to extract the debug module path from ServerOptions
+ */
+function getDebugModule(serverOptions: any): string {
+  return serverOptions.debug.module;
+}
+
+/**
+ * Type-safe helper to extract the APEX_LS_MODE environment variable from run options
+ */
+function getRunApexLsMode(serverOptions: any): string | undefined {
+  return serverOptions.run.options?.env?.APEX_LS_MODE;
+}
+
+/**
+ * Type-safe helper to extract the APEX_LS_MODE environment variable from debug options
+ */
+function getDebugApexLsMode(serverOptions: any): string | undefined {
+  return serverOptions.debug.options?.env?.APEX_LS_MODE;
+}
+
+/**
+ * Type-safe helper to extract execArgv from run options
+ */
+function getRunExecArgv(serverOptions: any): string[] | undefined {
+  return serverOptions.run.options?.execArgv;
+}
+
+/**
+ * Type-safe helper to extract execArgv from debug options
+ */
+function getDebugExecArgv(serverOptions: any): string[] | undefined {
+  return serverOptions.debug.options?.execArgv;
+}
+
+/**
+ * Type-safe helper to check if debug options are defined
+ */
+function hasDebugOptions(serverOptions: any): boolean {
+  return serverOptions.debug.options !== undefined;
+}
+
+/**
+ * Type-safe helper to extract the run transport type
+ */
+function getRunTransport(serverOptions: any): string {
+  return serverOptions.run.transport;
+}
+
+/**
+ * Type-safe helper to extract the debug transport type
+ */
+function getDebugTransport(serverOptions: any): string {
+  return serverOptions.debug.transport;
+}
+
 describe('Server Config Module', () => {
   let mockContext: vscode.ExtensionContext;
 
@@ -136,19 +200,19 @@ describe('Server Config Module', () => {
 
   describe('createServerOptions', () => {
     it('should create server options with correct module path', () => {
-      const serverOptions = createServerOptions(mockContext) as any;
+      const serverOptions = createServerOptions(mockContext, 'development');
 
       expect(mockContext.asAbsolutePath).toHaveBeenCalledWith(
         '../apex-ls/out/node/server.node.js',
       );
-      expect(serverOptions.run.module).toBe(
+      expect(getRunModule(serverOptions)).toBe(
         '/mock/path/../apex-ls/out/node/server.node.js',
       );
-      expect(serverOptions.run.transport).toBe('ipc');
-      expect(serverOptions.debug.module).toBe(
+      expect(getRunTransport(serverOptions)).toBe('ipc');
+      expect(getDebugModule(serverOptions)).toBe(
         '/mock/path/../apex-ls/out/node/server.node.js',
       );
-      expect(serverOptions.debug.transport).toBe('ipc');
+      expect(getDebugTransport(serverOptions)).toBe('ipc');
     });
 
     it('should use bundled files when APEX_LS_DEBUG_USE_INDIVIDUAL_FILES is false', () => {
@@ -159,15 +223,15 @@ describe('Server Config Module', () => {
         // Set environment variable to disable individual files
         process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES = 'false';
 
-        const serverOptions = createServerOptions(mockContext) as any;
+        const serverOptions = createServerOptions(mockContext, 'development');
 
         expect(mockContext.asAbsolutePath).toHaveBeenCalledWith(
           '../apex-ls/dist/server.node.js',
         );
-        expect(serverOptions.run.module).toBe(
+        expect(getRunModule(serverOptions)).toBe(
           '/mock/path/../apex-ls/dist/server.node.js',
         );
-        expect(serverOptions.debug.module).toBe(
+        expect(getDebugModule(serverOptions)).toBe(
           '/mock/path/../apex-ls/dist/server.node.js',
         );
       } finally {
@@ -182,23 +246,26 @@ describe('Server Config Module', () => {
         extensionMode: vscode.ExtensionMode.Production,
       } as vscode.ExtensionContext;
 
-      const serverOptions = createServerOptions(productionContext) as any;
+      const serverOptions = createServerOptions(
+        productionContext,
+        'production',
+      );
 
       expect(productionContext.asAbsolutePath).toHaveBeenCalledWith(
         'server.node.js',
       );
-      expect(serverOptions.run.module).toBe('/mock/path/server.node.js');
-      expect(serverOptions.debug.module).toBe('/mock/path/server.node.js');
+      expect(getRunModule(serverOptions)).toBe('/mock/path/server.node.js');
+      expect(getDebugModule(serverOptions)).toBe('/mock/path/server.node.js');
     });
 
     it('should include debug options when debug is enabled', () => {
       const { getDebugConfig } = require('../src/configuration');
       getDebugConfig.mockReturnValue({ mode: 'inspect', port: 6009 });
 
-      const serverOptions = createServerOptions(mockContext) as any;
+      const serverOptions = createServerOptions(mockContext, 'development');
 
-      expect(serverOptions.debug.options).toBeDefined();
-      expect(serverOptions.debug.options.execArgv).toContain('--inspect=6009');
+      expect(hasDebugOptions(serverOptions)).toBe(true);
+      expect(getDebugExecArgv(serverOptions)).toContain('--inspect=6009');
     });
 
     it('should override extension mode with APEX_LS_MODE environment variable', () => {
@@ -209,11 +276,12 @@ describe('Server Config Module', () => {
         // Set environment variable to override extension mode
         process.env.APEX_LS_MODE = 'production';
 
-        const serverOptions = createServerOptions(mockContext) as any;
+        const serverMode = determineServerMode(mockContext);
+        const serverOptions = createServerOptions(mockContext, serverMode);
 
         // Should use environment variable instead of extension mode
-        expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('production');
-        expect(serverOptions.debug.options.env.APEX_LS_MODE).toBe('production');
+        expect(getRunApexLsMode(serverOptions)).toBe('production');
+        expect(getDebugApexLsMode(serverOptions)).toBe('production');
       } finally {
         // Restore original environment
         process.env.APEX_LS_MODE = originalEnv;
@@ -228,13 +296,12 @@ describe('Server Config Module', () => {
         // Clear environment variable
         delete process.env.APEX_LS_MODE;
 
-        const serverOptions = createServerOptions(mockContext) as any;
+        const serverMode = determineServerMode(mockContext);
+        const serverOptions = createServerOptions(mockContext, serverMode);
 
         // Should use extension mode (development)
-        expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('development');
-        expect(serverOptions.debug.options.env.APEX_LS_MODE).toBe(
-          'development',
-        );
+        expect(getRunApexLsMode(serverOptions)).toBe('development');
+        expect(getDebugApexLsMode(serverOptions)).toBe('development');
       } finally {
         // Restore original environment
         process.env.APEX_LS_MODE = originalEnv;
@@ -247,9 +314,10 @@ describe('Server Config Module', () => {
         extensionMode: vscode.ExtensionMode.Test,
       } as vscode.ExtensionContext;
 
-      const serverOptions = createServerOptions(testContext) as any;
+      const serverMode = determineServerMode(testContext);
+      const serverOptions = createServerOptions(testContext, serverMode);
 
-      expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('development');
+      expect(getRunApexLsMode(serverOptions)).toBe('development');
     });
 
     it('should add heap size flag when jsHeapSizeGB is set', () => {
@@ -262,12 +330,12 @@ describe('Server Config Module', () => {
         },
       });
 
-      const serverOptions = createServerOptions(mockContext) as any;
+      const serverOptions = createServerOptions(mockContext, 'development');
 
-      expect(serverOptions.run.options.execArgv).toContain(
+      expect(getRunExecArgv(serverOptions)).toContain(
         '--max-old-space-size=4096',
       );
-      expect(serverOptions.debug.options.execArgv).toContain(
+      expect(getDebugExecArgv(serverOptions)).toContain(
         '--max-old-space-size=4096',
       );
     });
@@ -280,15 +348,15 @@ describe('Server Config Module', () => {
         },
       });
 
-      const serverOptions = createServerOptions(mockContext) as any;
+      const serverOptions = createServerOptions(mockContext, 'development');
 
-      if (serverOptions.run.options.execArgv) {
-        expect(serverOptions.run.options.execArgv).not.toContain(
+      if (getRunExecArgv(serverOptions)) {
+        expect(getRunExecArgv(serverOptions)).not.toContain(
           '--max-old-space-size',
         );
       }
-      if (serverOptions.debug.options.execArgv) {
-        expect(serverOptions.debug.options.execArgv).not.toContain(
+      if (getDebugExecArgv(serverOptions)) {
+        expect(getDebugExecArgv(serverOptions)).not.toContain(
           '--max-old-space-size',
         );
       }
@@ -304,10 +372,10 @@ describe('Server Config Module', () => {
         },
       });
 
-      const serverOptions = createServerOptions(mockContext) as any;
+      const serverOptions = createServerOptions(mockContext, 'development');
 
-      if (serverOptions.run.options.execArgv) {
-        expect(serverOptions.run.options.execArgv).not.toContain(
+      if (getRunExecArgv(serverOptions)) {
+        expect(getRunExecArgv(serverOptions)).not.toContain(
           '--max-old-space-size',
         );
       }
@@ -323,10 +391,10 @@ describe('Server Config Module', () => {
         },
       });
 
-      const serverOptions = createServerOptions(mockContext) as any;
+      const serverOptions = createServerOptions(mockContext, 'development');
 
-      if (serverOptions.run.options.execArgv) {
-        expect(serverOptions.run.options.execArgv).not.toContain(
+      if (getRunExecArgv(serverOptions)) {
+        expect(getRunExecArgv(serverOptions)).not.toContain(
           '--max-old-space-size',
         );
       }
@@ -342,9 +410,9 @@ describe('Server Config Module', () => {
         },
       });
 
-      const serverOptions = createServerOptions(mockContext) as any;
+      const serverOptions = createServerOptions(mockContext, 'development');
 
-      expect(serverOptions.run.options.execArgv).toContain(
+      expect(getRunExecArgv(serverOptions)).toContain(
         '--max-old-space-size=2560',
       );
     });
@@ -365,10 +433,10 @@ describe('Server Config Module', () => {
         },
       });
 
-      const serverOptions = createServerOptions(mockContext) as any;
+      const serverOptions = createServerOptions(mockContext, 'development');
 
-      if (serverOptions.run.options.execArgv) {
-        expect(serverOptions.run.options.execArgv).not.toContain(
+      if (getRunExecArgv(serverOptions)) {
+        expect(getRunExecArgv(serverOptions)).not.toContain(
           '--max-old-space-size',
         );
       }
@@ -390,19 +458,19 @@ describe('Server Config Module', () => {
         },
       });
 
-      const { logServerMessage } = require('../src/logging');
-      const serverOptions = createServerOptions(mockContext) as any;
+      const { logToOutputChannel } = require('../src/logging');
+      const serverOptions = createServerOptions(mockContext, 'development');
 
       // Should use 32GB (32768 MB) instead of 64GB
-      expect(serverOptions.run.options.execArgv).toContain(
+      expect(getRunExecArgv(serverOptions)).toContain(
         '--max-old-space-size=32768',
       );
-      expect(serverOptions.debug.options.execArgv).toContain(
+      expect(getDebugExecArgv(serverOptions)).toContain(
         '--max-old-space-size=32768',
       );
 
       // Should log a warning
-      expect(logServerMessage).toHaveBeenCalledWith(
+      expect(logToOutputChannel).toHaveBeenCalledWith(
         expect.stringContaining('exceeds maximum of 32 GB'),
         'warning',
       );
@@ -418,9 +486,9 @@ describe('Server Config Module', () => {
         },
       });
 
-      const serverOptions = createServerOptions(mockContext) as any;
+      const serverOptions = createServerOptions(mockContext, 'development');
 
-      expect(serverOptions.run.options.execArgv).toContain(
+      expect(getRunExecArgv(serverOptions)).toContain(
         '--max-old-space-size=32768',
       );
     });
@@ -449,13 +517,12 @@ describe('Server Config Module', () => {
           }),
         } as unknown as vscode.WorkspaceConfiguration);
 
-        const serverOptions = createServerOptions(prodContext) as any;
+        const serverMode = determineServerMode(prodContext);
+        const serverOptions = createServerOptions(prodContext, serverMode);
 
         // Should use workspace settings (development) over extension mode (production)
-        expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('development');
-        expect(serverOptions.debug.options.env.APEX_LS_MODE).toBe(
-          'development',
-        );
+        expect(getRunApexLsMode(serverOptions)).toBe('development');
+        expect(getDebugApexLsMode(serverOptions)).toBe('development');
       } finally {
         // Restore original environment
         process.env.APEX_LS_MODE = originalEnv;
@@ -480,11 +547,12 @@ describe('Server Config Module', () => {
           }),
         } as unknown as vscode.WorkspaceConfiguration);
 
-        const serverOptions = createServerOptions(mockContext) as any;
+        const serverMode = determineServerMode(mockContext);
+        const serverOptions = createServerOptions(mockContext, serverMode);
 
         // Should use environment variable (production) over workspace settings (development)
-        expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('production');
-        expect(serverOptions.debug.options.env.APEX_LS_MODE).toBe('production');
+        expect(getRunApexLsMode(serverOptions)).toBe('production');
+        expect(getDebugApexLsMode(serverOptions)).toBe('production');
       } finally {
         // Restore original environment
         process.env.APEX_LS_MODE = originalEnv;

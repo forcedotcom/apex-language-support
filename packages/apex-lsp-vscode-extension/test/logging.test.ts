@@ -6,6 +6,15 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+// Mock vscode with locale support
+jest.mock('vscode', () => ({
+  ...jest.requireActual('vscode'),
+  env: {
+    uiKind: 1, // UIKind.Desktop (1), UIKind.Web (2)
+    language: 'en', // Default locale for tests
+  },
+}));
+
 import * as vscode from 'vscode';
 
 // Mock the logging module before importing the module under test
@@ -85,7 +94,7 @@ describe('Logging Module', () => {
       initializeExtensionLogging(mockContext);
     });
 
-    it('should log message with timestamp and type', () => {
+    it('should log message with timestamp and type matching LogOutputChannel format', () => {
       const message = 'Test message';
       const messageType = 'info';
 
@@ -93,37 +102,56 @@ describe('Logging Module', () => {
 
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\]\[INFO\] Test message/,
+          /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} \[info\] Test message/,
         ),
       );
     });
 
-    it('should use Info as default message type', () => {
+    it('should use info as default message type', () => {
       const message = 'Test message';
 
       logToOutputChannel(message);
 
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
-        expect.stringMatching(/\[INFO\] Test message/),
+        expect.stringMatching(/\[info\] Test message/),
       );
     });
 
-    it('should handle different message types', () => {
+    it('should handle different message types with lowercase levels', () => {
       const message = 'Test message';
 
       logToOutputChannel(message, 'error' as any);
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
-        expect.stringMatching(/\[ERROR\] Test message/),
+        expect.stringMatching(/\[error\] Test message/),
       );
 
       logToOutputChannel(message, 'warning' as any);
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
-        expect.stringMatching(/\[WARNING\] Test message/),
+        expect.stringMatching(/\[warning\] Test message/),
       );
 
       logToOutputChannel(message, 'debug' as any);
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
-        expect.stringMatching(/\[DEBUG\] Test message/),
+        expect.stringMatching(/\[debug\] Test message/),
+      );
+    });
+
+    it('should format "log" type (LSP MessageType 4) as [debug], not [info]', () => {
+      // This is the critical test for the bug fix:
+      // LSP MessageType 4 (Log) is converted to 'log' string
+      // which should display as [debug], not [info]
+      const message = '[WORKSPACE-LOAD] Batch processing completed';
+
+      logToOutputChannel(message, 'log' as any);
+
+      expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /\[debug\] \[WORKSPACE-LOAD\] Batch processing completed/,
+        ),
+      );
+      // Ensure it's NOT formatted as info
+      expect(mockOutputChannel.appendLine).not.toHaveBeenCalledWith(
+        expect.stringMatching(/\[info\] \[WORKSPACE-LOAD\]/),
       );
     });
   });

@@ -26,11 +26,21 @@ class MockWorker {
   listeners = new Map<string, Array<(event: Event) => void>>();
 
   postMessage(data: any): void {
-    setTimeout(() => {
-      if (this.onmessage) {
-        this.onmessage(new MessageEvent('message', { data }));
-      }
-    }, 0);
+    // Use setImmediate or process.nextTick for synchronous-like behavior in tests
+    // This prevents timers from keeping the process alive
+    if (typeof setImmediate !== 'undefined') {
+      setImmediate(() => {
+        if (this.onmessage) {
+          this.onmessage(new MessageEvent('message', { data }));
+        }
+      });
+    } else {
+      setTimeout(() => {
+        if (this.onmessage) {
+          this.onmessage(new MessageEvent('message', { data }));
+        }
+      }, 0);
+    }
   }
 
   addEventListener(type: string, listener: (event: Event) => void): void {
@@ -60,9 +70,17 @@ class MockWorkerGlobalScope {
   listeners = new Map<string, Array<(event: Event) => void>>();
 
   postMessage(data: any): void {
-    setTimeout(() => {
-      // Would send to main thread
-    }, 0);
+    // Use setImmediate or process.nextTick for synchronous-like behavior in tests
+    // This prevents timers from keeping the process alive
+    if (typeof setImmediate !== 'undefined') {
+      setImmediate(() => {
+        // Would send to main thread
+      });
+    } else {
+      setTimeout(() => {
+        // Would send to main thread
+      }, 0);
+    }
   }
 
   addEventListener(type: string, listener: (event: Event) => void): void {
@@ -119,12 +137,22 @@ class MockIDBDatabase {
 (global as any).indexedDB = {
   open: jest.fn(() => {
     const request = new MockIDBRequest();
-    setTimeout(() => {
-      request.result = new MockIDBDatabase();
-      if (request.onsuccess) {
-        request.onsuccess(new Event('success'));
-      }
-    }, 0);
+    // Use setImmediate for synchronous-like behavior in tests
+    if (typeof setImmediate !== 'undefined') {
+      setImmediate(() => {
+        request.result = new MockIDBDatabase();
+        if (request.onsuccess) {
+          request.onsuccess(new Event('success'));
+        }
+      });
+    } else {
+      setTimeout(() => {
+        request.result = new MockIDBDatabase();
+        if (request.onsuccess) {
+          request.onsuccess(new Event('success'));
+        }
+      }, 0);
+    }
     return request;
   }),
 };
@@ -132,11 +160,38 @@ class MockIDBDatabase {
 describe('Split Architecture Regression Tests', () => {
   let mockWorker: MockWorker;
   let mockWorkerScope: MockWorkerGlobalScope;
+  const createdConnections: MessageConnection[] = [];
+  const createdServers: ApexLanguageServer[] = [];
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockWorker = new MockWorker();
     mockWorkerScope = new MockWorkerGlobalScope();
+  });
+
+  afterEach(async () => {
+    // Dispose all created servers
+    for (const server of createdServers) {
+      try {
+        await server.dispose();
+      } catch (_error) {
+        // Ignore disposal errors
+      }
+    }
+    createdServers.length = 0;
+
+    // Dispose all created connections
+    for (const connection of createdConnections) {
+      try {
+        connection.dispose();
+      } catch (_error) {
+        // Ignore disposal errors
+      }
+    }
+    createdConnections.length = 0;
+
+    // Wait for any pending async operations to complete
+    await new Promise((resolve) => setTimeout(resolve, 50));
   });
 
   describe('Complete Architecture Integration', () => {
@@ -145,6 +200,7 @@ describe('Split Architecture Regression Tests', () => {
       const connection = BrowserMessageBridge.forWorkerClient(
         mockWorker as any,
       );
+      createdConnections.push(connection);
 
       expect(connection).toBeDefined();
       expect(typeof connection.sendRequest).toBe('function');
@@ -158,6 +214,7 @@ describe('Split Architecture Regression Tests', () => {
       const connection = WorkerMessageBridge.forWorkerServer(
         mockWorkerScope as any,
       );
+      createdConnections.push(connection);
 
       expect(connection).toBeDefined();
       expect(typeof connection.sendRequest).toBe('function');
@@ -178,7 +235,7 @@ describe('Split Architecture Regression Tests', () => {
           worker: mockWorker as any,
         },
       );
-
+      createdConnections.push(browserConnection);
       expect(browserConnection).toBeDefined();
 
       // Test worker connection factory - mock worker environment
@@ -194,7 +251,7 @@ describe('Split Architecture Regression Tests', () => {
 
       const workerFactory = new WorkerConnectionFactory();
       const workerConnection = await workerFactory.createConnection({});
-
+      createdConnections.push(workerConnection);
       expect(workerConnection).toBeDefined();
 
       // Clean up global mock
@@ -249,6 +306,7 @@ describe('Split Architecture Regression Tests', () => {
       };
 
       const server = new ApexLanguageServer(serverConfig);
+      createdServers.push(server);
       expect(server).toBeDefined();
 
       // Should not throw during initialization
@@ -308,6 +366,7 @@ describe('Split Architecture Regression Tests', () => {
         const worker = new MockWorker();
         const connection = BrowserMessageBridge.forWorkerClient(worker as any);
         connections.push(connection);
+        createdConnections.push(connection);
       }
 
       // All connections should be valid
@@ -380,9 +439,10 @@ describe('Split Architecture Regression Tests', () => {
 
       const startTime = performance.now();
 
-      await BrowserConnectionFactory.createConnection({
+      const connection = await BrowserConnectionFactory.createConnection({
         worker: mockWorker as any,
       });
+      createdConnections.push(connection);
 
       const endTime = performance.now();
       const duration = endTime - startTime;
@@ -395,6 +455,7 @@ describe('Split Architecture Regression Tests', () => {
       const connection = BrowserMessageBridge.forWorkerClient(
         mockWorker as any,
       );
+      createdConnections.push(connection);
 
       // Should handle sequential message sending without errors
       for (let i = 0; i < 10; i++) {
