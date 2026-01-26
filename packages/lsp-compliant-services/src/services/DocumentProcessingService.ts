@@ -16,6 +16,7 @@ import {
   SymbolTable,
   type CompilationResult,
   ApexSymbolManager,
+  yieldToEventLoop,
 } from '@salesforce/apex-lsp-parser-ast';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { getDocumentStateCache } from './DocumentStateCache';
@@ -29,14 +30,6 @@ import {
 } from './DocumentOpenBatcher';
 import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
-
-/**
- * Yield to the Node.js event loop using setImmediate for immediate yielding
- * This is more effective than Effect.sleep(0) which may use setTimeout
- */
-const yieldToEventLoop = Effect.async<void>((resume) => {
-  setImmediate(() => resume(Effect.void));
-});
 
 /**
  * Service for processing document open events
