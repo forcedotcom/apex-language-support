@@ -1021,6 +1021,21 @@ export class ApexSymbolCollectorListener
         SymbolKind.Class,
         modifiers,
       );
+
+      // Log when creating class symbols to track duplicate declarations
+      if (isTopLevel) {
+        const location = this.getLocation(ctx);
+        this.logger.debug(
+          () =>
+            `[ApexSymbolCollectorListener.enterClassDeclaration] Creating class symbol: ${name}, ` +
+            `ctx.start.line=${ctx.start?.line}, ctx.start.charPositionInLine=${ctx.start?.charPositionInLine}, ` +
+            `ctx.stop.line=${ctx.stop?.line}, ctx.stop.charPositionInLine=${ctx.stop?.charPositionInLine}, ` +
+            `location=${location.identifierRange.startLine}:${location.identifierRange.startColumn}, ` +
+            `symbolObjectId=${classSymbol.id}, ` +
+            `existingInTable=${this.symbolTable.getSymbolById(classSymbol.id) ? 'yes' : 'no'}`,
+        );
+      }
+
       // CRITICAL: Explicitly set parentId to null for top-level classes BEFORE adding to symbol table
       // This ensures they are added to root scope correctly in addSymbol()
       // Use stack.isEmpty() as the definitive check for top-level classes
@@ -1072,9 +1087,10 @@ export class ApexSymbolCollectorListener
   /**
    * Called when exiting a class declaration
    */
-  exitClassDeclaration(): void {
-    // No-op - stack handles scope exit
-    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
+  exitClassDeclaration(ctx: ClassDeclarationContext): void {
+    // Update top-level class range to use actual closure point
+    // This fixes parser-extended ranges when multiple top-level types exist
+    this.updateTopLevelTypeRange(SymbolKind.Class, ctx);
 
     // Pop from stack and validate it's a class scope
     const popped = this.scopeStack.pop();
@@ -1188,9 +1204,10 @@ export class ApexSymbolCollectorListener
   /**
    * Called when exiting an interface declaration
    */
-  exitInterfaceDeclaration(): void {
-    // No-op - stack handles scope exit
-    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
+  exitInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
+    // Update top-level interface range to use actual closure point
+    // This fixes parser-extended ranges when multiple top-level types exist
+    this.updateTopLevelTypeRange(SymbolKind.Interface, ctx);
 
     // Pop from stack and validate it's a class scope
     const popped = this.scopeStack.pop();
@@ -2263,9 +2280,10 @@ export class ApexSymbolCollectorListener
   /**
    * Called when exiting an enum declaration
    */
-  exitEnumDeclaration(): void {
-    // No-op - stack handles scope exit
-    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
+  exitEnumDeclaration(ctx: EnumDeclarationContext): void {
+    // Update top-level enum range to use actual closure point
+    // This fixes parser-extended ranges when multiple top-level types exist
+    this.updateTopLevelTypeRange(SymbolKind.Enum, ctx);
 
     // Pop from stack and validate it's a class scope
     const popped = this.scopeStack.pop();
@@ -4803,6 +4821,102 @@ export class ApexSymbolCollectorListener
       symbolRange: fullRange,
       identifierRange: identifierRange,
     };
+  }
+
+  /**
+   * Update the range of a top-level type symbol to use the actual closure point
+   * from the exit method instead of the parser-extended range.
+   *
+   * This fixes the issue where the parser extends ranges beyond proper closure
+   * when multiple top-level types exist (parser only recognizes one per file).
+   *
+   * @param kind The symbol kind (Class, Interface, or Enum)
+   * @param closureCtx The parser context from the exit method, containing the actual closure point
+   */
+  private updateTopLevelTypeRange(
+    kind: SymbolKind.Class | SymbolKind.Interface | SymbolKind.Enum,
+    closureCtx: ParserRuleContext,
+  ): void {
+    // Only process if we have a valid closure point
+    if (!closureCtx.stop) {
+      const kindName =
+        kind === SymbolKind.Class
+          ? 'Class'
+          : kind === SymbolKind.Interface
+            ? 'Interface'
+            : 'Enum';
+      this.logger.warn(
+        () =>
+          `[updateTopLevelTypeRange] Missing closure point for ${kindName} - malformed source`,
+      );
+      return;
+    }
+
+    // Get top-level symbols (symbols with parentId === null)
+    // Only one top-level type can be parsed per file, so roots should contain at most one type
+    const roots = this.symbolTable.getRoots();
+
+    // Since only one top-level type exists, get the first (and only) root matching our kind
+    if (roots.length === 0) {
+      // No root symbol - this shouldn't happen for a properly parsed file
+      return;
+    }
+
+    // Get the root symbol - should be the only one
+    const rootSymbol = roots[0];
+    if (rootSymbol.kind !== kind) {
+      // Not the type we're exiting (shouldn't happen, but defensive check)
+      return;
+    }
+
+    const symbol = rootSymbol as TypeSymbol | EnumSymbol;
+
+    // Capture the actual closure point from ctx.stop
+    const closureLine = closureCtx.stop.line;
+    const closureColumn =
+      closureCtx.stop.charPositionInLine + (closureCtx.stop.text?.length ?? 0);
+
+    // Create corrected symbol range using actual closure point
+    // Keep identifierRange unchanged (it's already correct)
+    const correctedLocation: SymbolLocation = {
+      symbolRange: {
+        startLine: symbol.location.symbolRange.startLine,
+        startColumn: symbol.location.symbolRange.startColumn,
+        endLine: closureLine,
+        endColumn: closureColumn,
+      },
+      identifierRange: symbol.location.identifierRange, // Keep identifier range unchanged
+    };
+
+    // Update the symbol's location
+    symbol.location = correctedLocation;
+
+    // Detect EOF errors to confirm parser extended beyond closure
+    if (this.errorListener) {
+      const syntaxErrors = this.errorListener.getSyntaxErrors();
+      const eofErrors = syntaxErrors.filter(
+        (e) =>
+          e.message.includes('expecting <EOF>') ||
+          e.message.includes("Missing '<EOF>'"),
+      );
+
+      for (const eofError of eofErrors) {
+        // Check if error occurs after the closure point
+        if (eofError.line >= closureLine) {
+          const kindName =
+            kind === SymbolKind.Class
+              ? 'Class'
+              : kind === SymbolKind.Interface
+                ? 'Interface'
+                : 'Enum';
+          this.logger.debug(
+            () =>
+              `[updateTopLevelTypeRange] Parser extended beyond ${kindName} closure: ` +
+              `closure at line ${closureLine}, EOF error at line ${eofError.line}`,
+          );
+        }
+      }
+    }
   }
 
   /**

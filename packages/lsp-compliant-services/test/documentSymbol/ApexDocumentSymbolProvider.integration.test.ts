@@ -729,6 +729,103 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       expect(rootLevelInnerClass).toBeUndefined();
     });
 
+    it('should deduplicate top-level class symbols if duplicates exist in symbol table', async () => {
+      // This test verifies that if duplicate top-level class symbols somehow exist
+      // in the symbol table (due to bugs in symbol collection), they are deduplicated
+      // and only one instance appears in the document outline
+      const docUri = 'file:///FileUtilitiesTest.cls';
+      const content = `@isTest
+private with sharing class FileUtilitiesTest {
+    @isTest
+    static void createFileSucceedsWhenCorrectInput() {
+        // Test implementation
+    }
+
+    @isTest
+    static void createFileFailsWhenIncorrectRecordId() {
+        // Test implementation
+    }
+}`;
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).not.toBeNull();
+      // Should only have one top-level symbol (FileUtilitiesTest)
+      // Even if the symbol table somehow contains duplicates, they should be deduplicated
+      expect(result).toHaveLength(1);
+      expect(result![0].name).toBe('FileUtilitiesTest');
+      expect(result![0].kind).toBe(5); // SymbolKind.Class
+
+      // Verify the class has children (the test methods)
+      const classSymbol = result![0] as DocumentSymbol;
+      expect(classSymbol.children).toBeDefined();
+      expect(classSymbol.children!.length).toBeGreaterThan(0);
+
+      // Verify all children are methods
+      const methodNames = (classSymbol.children as DocumentSymbol[]).map(
+        (child) => child.name,
+      );
+      // Method names are formatted with parameters and return types, so check for partial matches
+      expect(
+        methodNames.some((name) =>
+          name.includes('createFileSucceedsWhenCorrectInput'),
+        ),
+      ).toBe(true);
+      expect(
+        methodNames.some((name) =>
+          name.includes('createFileFailsWhenIncorrectRecordId'),
+        ),
+      ).toBe(true);
+    });
+
+    it('should deduplicate symbols with the same ID even if they are different objects', async () => {
+      // This test verifies that if the same class symbol appears multiple times
+      // in the symbol table (same ID, possibly different object references due to
+      // enrichment or re-parsing), only one instance is shown in the outline
+      const docUri = 'file:///FileUtilities.cls';
+      const content = `public with sharing class FileUtilities {
+    @AuraEnabled
+    public static String createFile(
+        String base64data,
+        String filename,
+        String recordId
+    ) {
+        return 'test';
+    }
+}`;
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).not.toBeNull();
+      // Should only have one top-level symbol (FileUtilities)
+      // Even if the symbol table contains multiple symbol objects with the same ID,
+      // they should be deduplicated
+      expect(result).toHaveLength(1);
+      expect(result![0].name).toBe('FileUtilities');
+      expect(result![0].kind).toBe(5); // SymbolKind.Class
+
+      // Verify the class has children (the createFile method)
+      const classSymbol = result![0] as DocumentSymbol;
+      expect(classSymbol.children).toBeDefined();
+      expect(classSymbol.children!.length).toBeGreaterThan(0);
+
+      // Verify the method is present
+      const methodNames = (classSymbol.children as DocumentSymbol[]).map(
+        (child) => child.name,
+      );
+      expect(
+        methodNames.some((name) => name.includes('createFile')),
+      ).toBe(true);
+    });
+
     it('handles trigger symbols correctly', async () => {
       const docUri = 'file:///TestTrigger.trigger';
       const content = [

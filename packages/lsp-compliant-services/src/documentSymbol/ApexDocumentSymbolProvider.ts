@@ -190,14 +190,92 @@ export class DefaultApexDocumentSymbolProvider
         return null;
       }
 
-      // Get all symbols from the entire symbol table
-      const allSymbols = symbolTable.getAllSymbols();
-      // Filter for only top-level symbols (classes, interfaces, enums, triggers)
-      // Top-level symbols have parentId === null, while inner classes have parentId pointing to their containing class
-      // With proper hierarchy maintenance, parentId is the source of truth - no need for location-based filtering
-      // NOTE: Do NOT deduplicate - duplicates should be shown in outline to reflect actual file state (like TypeScript)
-      const topLevelSymbols = allSymbols.filter(
-        (symbol) => inTypeSymbolGroup(symbol) && symbol.parentId === null,
+      // Get file-scope symbols (top-level symbols with parentId === null)
+      // This uses the roots array which deduplicates by ID (one entry per ID)
+      const fileScopeSymbols = symbolTable.getFileScopeSymbols();
+      
+      // Filter for only type symbols (classes, interfaces, enums, triggers)
+      const topLevelTypeSymbols = fileScopeSymbols.filter((symbol) =>
+        inTypeSymbolGroup(symbol),
+      );
+
+      logger.debug(
+        () =>
+          `[ApexDocumentSymbolProvider] getFileScopeSymbols returned ${fileScopeSymbols.length} symbols, ` +
+          `${topLevelTypeSymbols.length} type symbols`,
+      );
+
+      // Collect all top-level symbols, including intentional duplicates
+      // Check getAllSymbolsById() to see if there are actual duplicate declarations
+      // (different objects with different locations, not same object added multiple times)
+      const topLevelSymbols: ApexSymbol[] = [];
+      const processedIds = new Set<string>();
+      
+      for (const symbol of topLevelTypeSymbols) {
+        if (!processedIds.has(symbol.id)) {
+          // Check if symbolMap has duplicates stored as an array
+          const allWithSameId = symbolTable.getAllSymbolsById(symbol.id);
+          
+          if (allWithSameId.length > 1) {
+            // Filter to only top-level type symbols
+            // Only show duplicates if they have different locations (actual duplicate declarations)
+            // If they all have the same location, they're the same declaration processed multiple times
+            const validDuplicates: ApexSymbol[] = [];
+            const seenObjects = new Set<ApexSymbol>();
+            const locations = new Set<number>();
+            
+            for (const duplicateSymbol of allWithSameId) {
+              if (
+                inTypeSymbolGroup(duplicateSymbol) &&
+                duplicateSymbol.parentId === null
+              ) {
+                const line = duplicateSymbol.location.identifierRange.startLine;
+                locations.add(line);
+                
+                // Deduplicate by object reference
+                if (!seenObjects.has(duplicateSymbol)) {
+                  seenObjects.add(duplicateSymbol);
+                  validDuplicates.push(duplicateSymbol);
+                }
+              }
+            }
+            
+            // Only show duplicates if they have different locations
+            // If all have the same location, show only one (they're the same declaration)
+            if (locations.size > 1) {
+              // Actual duplicate declarations at different locations - show all
+              for (const duplicateSymbol of validDuplicates) {
+                topLevelSymbols.push(duplicateSymbol);
+              }
+              
+              logger.debug(
+                () =>
+                  `[ApexDocumentSymbolProvider] Class ${symbol.name} has ${allWithSameId.length} entries in symbolMap, ` +
+                  `${validDuplicates.length} valid top-level symbols, ` +
+                  `${locations.size} unique locations (actual duplicates), showing ${validDuplicates.length} in outline`,
+              );
+            } else {
+              // All have same location - same declaration processed multiple times, show only one
+              topLevelSymbols.push(symbol);
+              
+              logger.debug(
+                () =>
+                  `[ApexDocumentSymbolProvider] Class ${symbol.name} has ${allWithSameId.length} entries in symbolMap ` +
+                  `but only ${locations.size} unique location(s), showing 1 in outline`,
+              );
+            }
+          } else {
+            // Only one declaration - use the symbol from roots
+            topLevelSymbols.push(symbol);
+          }
+          
+          processedIds.add(symbol.id);
+        }
+      }
+
+      logger.debug(
+        () =>
+          `[ApexDocumentSymbolProvider] Collected ${topLevelSymbols.length} top-level symbols to convert`,
       );
 
       // Process each top-level symbol and convert to LSP DocumentSymbol format (with yielding)
@@ -205,7 +283,136 @@ export class DefaultApexDocumentSymbolProvider
         this.provideDocumentSymbolsEffect(topLevelSymbols, symbolTable, logger),
       );
 
-      logger.debug(() => `Returning ${symbolsResult.length} document symbols`);
+      // WORKAROUND: Check source code for duplicate class declarations that parser missed
+      // 
+      // The parser grammar doesn't correctly handle duplicate top-level class declarations.
+      // When there are multiple class declarations with the same name, the parser treats
+      // them as ONE class declaration spanning from the first to the last (e.g., lines 2-92).
+      // This results in only ONE symbol being created, even though there are multiple
+      // actual declarations in the source code.
+      //
+      // To work around this parser limitation, we:
+      // 1. Scan the source code directly with regex to find all class declarations
+      // 2. Compare with what the parser found (symbolsResult)
+      // 3. Create additional DocumentSymbol entries for declarations the parser missed
+      // 4. These synthetic DocumentSymbol entries have empty children (no methods/fields)
+      //    since the parser didn't parse them as separate declarations
+      const classNamesInResults = new Set<string>();
+      const duplicateDeclarations: DocumentSymbol[] = [];
+
+      for (const docSymbol of symbolsResult) {
+        if (docSymbol.kind === SymbolKind.Class) {
+          classNamesInResults.add(docSymbol.name);
+        }
+      }
+
+      // For each class in results, check if there are multiple declarations in source
+      for (const className of classNamesInResults) {
+        // Find all class declarations in source code
+        // Match: (modifiers?) class ClassName {
+        // Escape special regex characters in className
+        const escapedClassName = className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const classRegex = new RegExp(
+          `(?:public|private|global|@isTest\\s+)?(?:public|private|global|with\\s+sharing|without\\s+sharing)?\\s*class\\s+${escapedClassName}\\s*\\{`,
+          'gi',
+        );
+        const matches = Array.from(documentText.matchAll(classRegex));
+        const declarationLines: Array<{ line: number; column: number }> = [];
+
+        for (const match of matches) {
+          // Get line number from match index
+          const beforeMatch = documentText.substring(0, match.index!);
+          const lineNumber = beforeMatch.split('\n').length;
+          const lines = documentText.split('\n');
+          const lineText = lines[lineNumber - 1] || '';
+          // Find the actual position of "class ClassName" on this line
+          const classKeywordIndex = lineText.toLowerCase().indexOf('class');
+          if (classKeywordIndex !== -1) {
+            // Verify this is actually the class name we're looking for
+            const afterClass = lineText.substring(classKeywordIndex + 5).trim();
+            if (afterClass.startsWith(className)) {
+              declarationLines.push({ line: lineNumber, column: classKeywordIndex });
+            }
+          }
+        }
+
+        if (declarationLines.length > 1) {
+          // Found duplicate declarations in source
+          logger.debug(
+            () =>
+              `[ApexDocumentSymbolProvider] Found ${declarationLines.length} class declarations ` +
+              `for ${className} in source at lines: ${declarationLines.map(d => d.line).join(', ')}`,
+          );
+
+          // Find the existing DocumentSymbol for this class (from parser)
+          const existingDocSymbol = symbolsResult.find(
+            (s) => s.name === className && s.kind === SymbolKind.Class,
+          );
+
+          if (existingDocSymbol) {
+            // Get the line number of the existing symbol
+            const existingLine = existingDocSymbol.range.start.line + 1; // Convert to 1-based
+            
+            // Create additional DocumentSymbol entries only for declarations NOT already represented
+            // Skip the declaration that matches the existing symbol's line (already represented)
+            let addedCount = 0;
+            for (let i = 0; i < declarationLines.length; i++) {
+              const { line, column } = declarationLines[i];
+              
+              // Skip if this line matches the existing symbol's line (already represented)
+              if (line === existingLine) {
+                logger.debug(
+                  () =>
+                    `[ApexDocumentSymbolProvider] Skipping line ${line} for ${className} (already represented by parser symbol at line ${existingLine})`,
+                );
+                continue;
+              }
+              
+              const duplicateDocSymbol: DocumentSymbol = {
+                name: className,
+                kind: SymbolKind.Class,
+                range: {
+                  start: { line: line - 1, character: column },
+                  end: {
+                    line: line - 1,
+                    character: column + `class ${className}`.length,
+                  },
+                },
+                selectionRange: {
+                  start: { line: line - 1, character: column },
+                  end: {
+                    line: line - 1,
+                    character: column + `class ${className}`.length,
+                  },
+                },
+                children: [], // Empty children for duplicate declarations
+              };
+              duplicateDeclarations.push(duplicateDocSymbol);
+              addedCount++;
+            }
+            
+            logger.debug(
+              () =>
+                `[ApexDocumentSymbolProvider] Created ${addedCount} duplicate DocumentSymbol entries ` +
+                `for ${className} (found ${declarationLines.length} total declarations, existing symbol at line ${existingLine})`,
+            );
+          }
+        }
+      }
+
+      // Add duplicate declarations to results
+      if (duplicateDeclarations.length > 0) {
+        logger.debug(
+          () =>
+            `[ApexDocumentSymbolProvider] Adding ${duplicateDeclarations.length} duplicate class declarations from source scan`,
+        );
+        symbolsResult.push(...duplicateDeclarations);
+      }
+
+      logger.debug(
+        () =>
+          `[ApexDocumentSymbolProvider] Returning ${symbolsResult.length} document symbols`,
+      );
       return symbolsResult;
     } catch (error) {
       const errorMessage =

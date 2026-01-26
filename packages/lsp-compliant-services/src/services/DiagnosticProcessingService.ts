@@ -383,8 +383,19 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         this.compileDocumentEffect(document, listener),
       );
 
+      this.logger.debug(
+        () =>
+          `Compilation result for ${document.uri}: ${result.errors.length} errors, ` +
+          `${result.warnings.length} warnings`,
+      );
+
       // Get diagnostics from errors
       const diagnostics = getDiagnosticsFromErrors(result.errors);
+
+      this.logger.debug(
+        () =>
+          `Converted ${result.errors.length} errors to ${diagnostics.length} diagnostics for ${document.uri}`,
+      );
 
       // Add SymbolTable to manager if not already present
       const existingSymbols = this.symbolManager.findSymbolsInFile(
@@ -449,62 +460,73 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       );
 
       // Run semantic validation (always enabled)
+      // Wrap in try-catch to ensure syntax errors are still returned even if validators fail
+      let validatorDiagnostics: Diagnostic[] = [];
       if (table) {
-        this.logger.debug(
-          () => `Running semantic validation for: ${params.textDocument.uri}`,
-        );
+        try {
+          this.logger.debug(
+            () => `Running semantic validation for: ${params.textDocument.uri}`,
+          );
 
-        // Get settings for artifact loading
-        const settings = ApexSettingsManager.getInstance().getSettings();
-        const allowArtifactLoading =
-          settings.apex.findMissingArtifact.enabled ?? false;
+          // Get settings for artifact loading
+          const settings = ApexSettingsManager.getInstance().getSettings();
+          const allowArtifactLoading =
+            settings.apex.findMissingArtifact.enabled ?? false;
 
-        // Build validation options
-        const validationOptions: ValidationOptions = {
-          tier: ValidationTier.THOROUGH, // Pull diagnostics = thorough
-          allowArtifactLoading,
-          maxDepth: ARTIFACT_LOADING_LIMITS.maxDepth,
-          maxArtifacts: ARTIFACT_LOADING_LIMITS.maxArtifacts,
-          timeout: ARTIFACT_LOADING_LIMITS.timeout,
-          progressToken: params.workDoneToken,
-          symbolManager: this.symbolManager,
-          loadArtifactCallback: allowArtifactLoading
-            ? this.createLoadArtifactCallback(params.textDocument.uri)
-            : undefined,
-        };
+          // Build validation options
+          const validationOptions: ValidationOptions = {
+            tier: ValidationTier.THOROUGH, // Pull diagnostics = thorough
+            allowArtifactLoading,
+            maxDepth: ARTIFACT_LOADING_LIMITS.maxDepth,
+            maxArtifacts: ARTIFACT_LOADING_LIMITS.maxArtifacts,
+            timeout: ARTIFACT_LOADING_LIMITS.timeout,
+            progressToken: params.workDoneToken,
+            symbolManager: this.symbolManager,
+            loadArtifactCallback: allowArtifactLoading
+              ? this.createLoadArtifactCallback(params.textDocument.uri)
+              : undefined,
+          };
 
-        // Run validators (both IMMEDIATE and THOROUGH for pull diagnostics)
-        const immediateResults = await this.runSemanticValidators(
-          ValidationTier.IMMEDIATE,
-          table,
-          { ...validationOptions, tier: ValidationTier.IMMEDIATE },
-        );
+          // Run validators (both IMMEDIATE and THOROUGH for pull diagnostics)
+          const immediateResults = await this.runSemanticValidators(
+            ValidationTier.IMMEDIATE,
+            table,
+            { ...validationOptions, tier: ValidationTier.IMMEDIATE },
+          );
 
-        const thoroughResults = await this.runSemanticValidators(
-          ValidationTier.THOROUGH,
-          table,
-          validationOptions,
-        );
+          const thoroughResults = await this.runSemanticValidators(
+            ValidationTier.THOROUGH,
+            table,
+            validationOptions,
+          );
 
-        this.logger.debug(
-          () =>
-            `Semantic validation produced ${immediateResults.length} immediate ` +
-            `+ ${thoroughResults.length} thorough diagnostics`,
-        );
+          this.logger.debug(
+            () =>
+              `Semantic validation produced ${immediateResults.length} immediate ` +
+              `+ ${thoroughResults.length} thorough diagnostics`,
+          );
 
-        // Combine all diagnostics
-        const allDiagnostics = [
-          ...enhancedDiagnostics,
-          ...immediateResults,
-          ...thoroughResults,
-        ];
-
-        this.logger.debug(
-          () =>
-            `Returning ${allDiagnostics.length} total diagnostics for: ${params.textDocument.uri}`,
-        );
-        return allDiagnostics;
+          validatorDiagnostics = [...immediateResults, ...thoroughResults];
+        } catch (error) {
+          // Log error but continue - syntax errors should still be returned
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            () =>
+              `Error running semantic validators for ${params.textDocument.uri}: ${errorMessage}`,
+          );
+          // Continue with empty validator diagnostics - syntax errors will still be returned
+        }
       }
+
+      // Combine all diagnostics (syntax errors + validator diagnostics)
+      const allDiagnostics = [...enhancedDiagnostics, ...validatorDiagnostics];
+
+      this.logger.debug(
+        () =>
+          `Returning ${allDiagnostics.length} total diagnostics for: ${params.textDocument.uri}`,
+      );
+      return allDiagnostics;
 
       this.logger.debug(
         () =>
@@ -612,6 +634,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     const effect = Effect.gen(function* () {
       try {
         // Run validators for this tier
+        yield* Effect.logDebug(
+          `Starting validators for tier ${tier} with ${options.symbolManager ? 'symbolManager' : 'no symbolManager'}`,
+        );
         const results = yield* runValidatorsForTier(
           tier,
           symbolTable,
@@ -619,12 +644,21 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         ).pipe(
           Effect.catchAll((error) =>
             Effect.gen(function* () {
+              const errorMessage =
+                error instanceof Error ? error.message : String(error);
               yield* Effect.logError(
-                `Error running validators for tier ${tier}: ${error.message}`,
+                `Error running validators for tier ${tier}: ${errorMessage}`,
               );
+              // Log stack trace for debugging
+              if (error instanceof Error && error.stack) {
+                yield* Effect.logError(`Stack: ${error.stack}`);
+              }
               return []; // Return empty results on error
             }),
           ),
+        );
+        yield* Effect.logDebug(
+          `Validators for tier ${tier} completed with ${results.length} results`,
         );
 
         // Convert ValidationResult[] to Diagnostic[]
@@ -753,35 +787,23 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       }
     });
 
-    // Build layer stack conditionally based on whether symbolManager is available
-    if (options.symbolManager) {
-      // When symbolManager is available, provide all layers including ArtifactLoadingHelper
-      const symbolManagerLayer = Layer.succeed(
-        ISymbolManagerTag,
-        options.symbolManager,
-      );
-      const artifactHelperLayer = Layer.provide(
-        ArtifactLoadingHelperLive,
-        symbolManagerLayer,
-      );
-      const fullLayer = Layer.merge(
-        Layer.merge(ValidatorRegistryLive, EffectLspLoggerLive),
-        artifactHelperLayer,
-      );
-      return effect.pipe(Effect.provide(fullLayer)) as Effect.Effect<
-        Diagnostic[],
-        never,
-        never
-      >;
-    } else {
-      // When symbolManager is not available, just provide base layers
-      const baseLayer = Layer.merge(ValidatorRegistryLive, EffectLspLoggerLive);
-      return effect.pipe(Effect.provide(baseLayer)) as Effect.Effect<
-        Diagnostic[],
-        never,
-        never
-      >;
-    }
+    // Symbol manager is always required - use instance symbolManager
+    // Create base layer with ISymbolManager, ValidatorRegistry, and Logger
+    const baseLayer = Layer.mergeAll(
+      Layer.succeed(ISymbolManagerTag, this.symbolManager),
+      ValidatorRegistryLive,
+      EffectLspLoggerLive,
+    );
+    // Provide base layer to ArtifactLoadingHelperLive (which requires ISymbolManager)
+    // This explicitly resolves the ISymbolManager dependency
+    const artifactHelperLayer = Layer.provide(ArtifactLoadingHelperLive, baseLayer);
+    // Merge base layer with artifact helper layer to get complete layer stack
+    const fullLayer = Layer.mergeAll(baseLayer, artifactHelperLayer);
+    return effect.pipe(Effect.provide(fullLayer)) as Effect.Effect<
+      Diagnostic[],
+      never,
+      never
+    >;
   }
 
   /**

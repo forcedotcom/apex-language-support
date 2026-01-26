@@ -756,7 +756,7 @@ export const getUnifiedId = (key: SymbolKey, fileUri?: string): string => {
  * Maintains a hierarchy of scopes and provides symbol lookup functionality.
  */
 export class SymbolTable {
-  private roots: ApexSymbol[] = []; // Track all symbols with parentId === null (top-level symbols)
+  private root: ApexSymbol | null = null; // Track the single top-level symbol (parentId === null)
   // Union type: single symbol (common case) or array (duplicates)
   // Optimistic approach: duplicates are rare and short-lived
   private symbolMap: HashMap<string, ApexSymbol | ApexSymbol[]> = new HashMap();
@@ -774,7 +774,8 @@ export class SymbolTable {
    */
   constructor() {
     // No root node needed - SymbolTable instance is the file container
-    // Top-level symbols (parentId === null) are tracked in roots array
+    // Top-level symbol (parentId === null) is tracked in root field
+    // Only one top-level type can exist per file
   }
 
   /**
@@ -864,14 +865,27 @@ export class SymbolTable {
     // Track previous parentId for roots array maintenance
     const previousParentId = existingSymbol?.parentId;
 
+    // Logging for duplicate debugging
+    const logger = getLogger();
+    if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+      logger.debug(
+        () =>
+          `[SymbolTable.addSymbol] Top-level class: ${symbol.name}, ` +
+          `id=${symbolKey}, existing=${existing ? 'yes' : 'no'}, ` +
+          `isDuplicate=${isDuplicate}, ` +
+          `location=${symbol.location.identifierRange.startLine}:${symbol.location.identifierRange.startColumn}`,
+      );
+    }
+
     // Layered compilation: enrich existing symbol if it has lower detail level
     // Skip enrichment for duplicates (they're errors, not enrichment candidates)
+    // Also skip if both symbols are the same object (already enriched)
     let symbolToAdd = symbol;
     if (
       existingSymbol &&
       !isDuplicate &&
-      symbol._detailLevel &&
-      existingSymbol._detailLevel
+      existingSymbol !== symbol && // Don't enrich if it's the same object
+      symbol._detailLevel // New symbol must have detail level for enrichment
     ) {
       const detailLevelOrder: Record<string, number> = {
         'public-api': 1,
@@ -879,11 +893,23 @@ export class SymbolTable {
         private: 3,
         full: 4,
       };
-      const existingLevel = detailLevelOrder[existingSymbol._detailLevel] || 0;
+      const existingLevel = existingSymbol._detailLevel
+        ? detailLevelOrder[existingSymbol._detailLevel] || 0
+        : 0; // If existing has no detail level, treat as 0 (lowest)
       const newLevel = detailLevelOrder[symbol._detailLevel] || 0;
 
       // If new symbol has higher detail level, enrich the existing symbol
-      if (newLevel > existingLevel) {
+      // Also enrich if existing has no detail level (undefined) and new has one
+      if (newLevel > existingLevel || (!existingSymbol._detailLevel && symbol._detailLevel)) {
+        if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+          logger.debug(
+            () =>
+              `[SymbolTable.addSymbol] ENRICHMENT: ${symbol.name}, ` +
+              `existingLevel=${existingSymbol._detailLevel}, newLevel=${symbol._detailLevel}, ` +
+              `existingLocation=${existingSymbol.location.identifierRange.startLine}, ` +
+              `newLocation=${symbol.location.identifierRange.startLine}`,
+          );
+        }
         // Merge properties from new symbol into existing symbol
         // Preserve existing properties, add new ones
         Object.assign(existingSymbol, {
@@ -906,7 +932,6 @@ export class SymbolTable {
         }
         // Validate that unifiedId exists (should always be true)
         if (!existingSymbol.key.unifiedId) {
-          const logger = getLogger();
           logger.warn(
             () =>
               `Symbol ${existingSymbol.name} missing unifiedId after enrichment - this should not happen`,
@@ -916,13 +941,17 @@ export class SymbolTable {
         symbolToAdd = existingSymbol;
         // Update map with enriched symbol
         this.symbolMap.set(symbolKey, symbolToAdd);
-        // Update array
-        const index = this.symbolArray.findIndex(
-          (s) => s.id === symbolToAdd.id,
-        );
-        if (index !== -1) {
-          this.symbolArray[index] = symbolToAdd;
+        // Update array - remove ALL occurrences with this ID and add the enriched symbol once
+        // This prevents duplicates if the same symbol was added multiple times
+        let i = this.symbolArray.length - 1;
+        while (i >= 0) {
+          if (this.symbolArray[i].id === symbolToAdd.id) {
+            this.symbolArray.splice(i, 1);
+          }
+          i--;
         }
+        // Add the enriched symbol once
+        this.symbolArray.push(symbolToAdd);
         // Update roots array if needed
         this.updateRootsArray(symbolToAdd, previousParentId);
         return;
@@ -936,6 +965,13 @@ export class SymbolTable {
     // Handle duplicates: convert single symbol to array when duplicate detected
     if (!existing) {
       // First symbol - store as single symbol (optimistic approach)
+      if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+        logger.debug(
+          () =>
+            `[SymbolTable.addSymbol] FIRST ADD: ${symbol.name}, ` +
+            `location=${symbol.location.identifierRange.startLine}`,
+        );
+      }
       this.symbolMap.set(symbolKey, symbolToAdd);
       // Add to array (check by object reference to avoid duplicates with same id)
       if (!this.symbolArray.includes(symbolToAdd)) {
@@ -943,6 +979,14 @@ export class SymbolTable {
       }
     } else if (isDuplicate) {
       // Already have duplicates - add to array
+      if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+        logger.debug(
+          () =>
+            `[SymbolTable.addSymbol] ADDING TO EXISTING DUPLICATES: ${symbol.name}, ` +
+            `existingCount=${existing.length}, ` +
+            `location=${symbol.location.identifierRange.startLine}`,
+        );
+      }
       // Check if this symbol is already in the duplicate array (by object reference)
       if (!existing.includes(symbolToAdd)) {
         existing.push(symbolToAdd);
@@ -953,6 +997,29 @@ export class SymbolTable {
       }
     } else if (existingSymbol) {
       // Second duplicate detected - convert to array
+      // BUT: if it's the same object, don't create a duplicate array entry
+      if (existingSymbol === symbolToAdd) {
+        if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+          logger.debug(
+            () =>
+              `[SymbolTable.addSymbol] SAME OBJECT - skipping duplicate: ${symbol.name}, ` +
+              `location=${symbol.location.identifierRange.startLine}`,
+          );
+        }
+        // Same object - don't add as duplicate, just return
+        return;
+      }
+      if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+        logger.debug(
+          () =>
+            `[SymbolTable.addSymbol] DUPLICATE DETECTED (converting to array): ${symbol.name}, ` +
+            `existingLocation=${existingSymbol.location.identifierRange.startLine}, ` +
+            `newLocation=${symbol.location.identifierRange.startLine}, ` +
+            `existingDetailLevel=${existingSymbol._detailLevel}, ` +
+            `newDetailLevel=${symbol._detailLevel}, ` +
+            `sameObject=${existingSymbol === symbolToAdd}`,
+        );
+      }
       this.symbolMap.set(symbolKey, [existingSymbol, symbolToAdd]);
       // Add to symbolArray (check by object reference)
       if (!this.symbolArray.includes(symbolToAdd)) {
@@ -964,6 +1031,13 @@ export class SymbolTable {
       }
     } else {
       // Fallback: should not happen, but handle gracefully
+      if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+        logger.warn(
+          () =>
+            `[SymbolTable.addSymbol] FALLBACK: ${symbol.name}, ` +
+            `existing=${existing}, existingSymbol=${existingSymbol}`,
+        );
+      }
       this.symbolMap.set(symbolKey, symbolToAdd);
       // Add to array (check by object reference)
       if (!this.symbolArray.includes(symbolToAdd)) {
@@ -983,20 +1057,43 @@ export class SymbolTable {
     symbol: ApexSymbol,
     previousParentId: string | null | undefined,
   ): void {
-    // Maintain roots array: track symbols with parentId === null
-    // If parentId changed from null to non-null, remove from roots
+    const logger = getLogger();
+    // Maintain root: track the single symbol with parentId === null
+    // If parentId changed from null to non-null, clear root if it matches
     if (previousParentId === null && symbol.parentId !== null) {
-      const rootsIndex = this.roots.findIndex((s) => s.id === symbol.id);
-      if (rootsIndex !== -1) {
-        this.roots.splice(rootsIndex, 1);
+      if (this.root && this.root.id === symbol.id) {
+        if (symbol.kind === SymbolKind.Class) {
+          logger.debug(
+            () =>
+              `[SymbolTable.updateRootsArray] REMOVING root: ${symbol.name}, ` +
+              `parentId changed from null to ${symbol.parentId}`,
+          );
+        }
+        this.root = null;
       }
     }
-    // If parentId is null (top-level), add to roots array
+    // If parentId is null (top-level), set as root
+    // Only one top-level type can exist per file, so simple assignment
     if (symbol.parentId === null) {
-      const rootsIndex = this.roots.findIndex((s) => s.id === symbol.id);
-      if (rootsIndex === -1) {
-        this.roots.push(symbol);
+      if (this.root && this.root.id !== symbol.id) {
+        // Defensive check: if root exists with different ID, log warning
+        // (shouldn't happen since parser only recognizes one top-level type)
+        const existingRootName = this.root.name;
+        logger.warn(
+          () =>
+            `[SymbolTable.updateRootsArray] Replacing root ${existingRootName} ` +
+            `with ${symbol.name} - multiple roots detected`,
+        );
       }
+      if (symbol.kind === SymbolKind.Class) {
+        logger.debug(
+          () =>
+            `[SymbolTable.updateRootsArray] SETTING root: ${symbol.name}, ` +
+            `location=${symbol.location.identifierRange.startLine}`,
+        );
+      }
+      // Replace root with current symbol (handles enrichment scenarios)
+      this.root = symbol;
     }
   }
 
@@ -1271,10 +1368,11 @@ export class SymbolTable {
 
   /**
    * Get all top-level symbols (symbols with parentId === null).
-   * @returns Array of all root symbols
+   * Only one top-level type can exist per file, so returns array with at most one element.
+   * @returns Array containing the root symbol, or empty array if none exists
    */
   getRoots(): ApexSymbol[] {
-    return this.roots;
+    return this.root ? [this.root] : [];
   }
 
   /**
@@ -1340,9 +1438,10 @@ export class SymbolTable {
    * @returns Array of all symbols in the scope
    */
   getSymbolsInScope(scopeId: string | null): ApexSymbol[] {
-    // For file level, use roots array for efficient lookup
+    // For file level, return all symbols with parentId === null
+    // This includes the root (top-level type) and any other symbols manually added with parentId: null
     if (scopeId === null) {
-      return this.roots;
+      return this.symbolArray.filter((s) => s.parentId === null);
     }
     // For other scopes, symbols with parentId === scopeId belong here
     return this.symbolArray.filter((s) => s.parentId === scopeId);

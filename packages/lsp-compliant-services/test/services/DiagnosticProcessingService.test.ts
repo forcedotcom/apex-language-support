@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { DocumentSymbolParams } from 'vscode-languageserver';
+import { DocumentDiagnosticParams } from 'vscode-languageserver';
 import {
   LoggerInterface,
   getLogger,
@@ -61,7 +61,7 @@ describe('DiagnosticProcessingService', () => {
 
   describe('processDiagnostic', () => {
     it('should return empty array when document not found', async () => {
-      const params: DocumentSymbolParams = {
+      const params: DocumentDiagnosticParams = {
         textDocument: { uri: 'file:///test.cls' },
       };
 
@@ -78,7 +78,7 @@ describe('DiagnosticProcessingService', () => {
       const syntaxErrorPath = join(fixturesDir, 'SyntaxErrorClass.cls');
       const syntaxErrorContent = readFileSync(syntaxErrorPath, 'utf8');
 
-      const params: DocumentSymbolParams = {
+      const params: DocumentDiagnosticParams = {
         textDocument: { uri: 'file:///SyntaxErrorClass.cls' },
       };
 
@@ -90,6 +90,9 @@ describe('DiagnosticProcessingService', () => {
       );
 
       mockStorage.getDocument.mockResolvedValue(document);
+
+      // Wait for validators to initialize
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       const result = await service.processDiagnostic(params);
 
@@ -106,7 +109,7 @@ describe('DiagnosticProcessingService', () => {
       const testClassPath = join(fixturesDir, 'TestClass.cls');
       const testClassContent = readFileSync(testClassPath, 'utf8');
 
-      const params: DocumentSymbolParams = {
+      const params: DocumentDiagnosticParams = {
         textDocument: { uri: 'file:///TestClass.cls' },
       };
 
@@ -135,7 +138,7 @@ describe('DiagnosticProcessingService', () => {
       const syntaxErrorPath = join(fixturesDir, 'SyntaxErrorClass.cls');
       const syntaxErrorContent = readFileSync(syntaxErrorPath, 'utf8');
 
-      const params: DocumentSymbolParams = {
+      const params: DocumentDiagnosticParams = {
         textDocument: { uri: 'file:///SyntaxErrorClass.cls' },
       };
 
@@ -156,7 +159,7 @@ describe('DiagnosticProcessingService', () => {
     });
 
     it('should suppress diagnostics for standard Apex library URIs', async () => {
-      const params: DocumentSymbolParams = {
+      const params: DocumentDiagnosticParams = {
         textDocument: {
           uri: 'apexlib://resources/StandardApexLibrary/System/System.cls',
         },
@@ -182,7 +185,7 @@ describe('DiagnosticProcessingService', () => {
       const syntaxErrorPath = join(fixturesDir, 'SyntaxErrorClass.cls');
       const syntaxErrorContent = readFileSync(syntaxErrorPath, 'utf8');
 
-      const params: DocumentSymbolParams = {
+      const params: DocumentDiagnosticParams = {
         textDocument: { uri: 'file:///Users/test/SyntaxErrorClass.cls' },
       };
 
@@ -194,6 +197,9 @@ describe('DiagnosticProcessingService', () => {
       );
 
       mockStorage.getDocument.mockResolvedValue(document);
+
+      // Wait for validators to initialize
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       const result = await service.processDiagnostic(params);
 

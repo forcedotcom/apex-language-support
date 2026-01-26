@@ -20,11 +20,12 @@
  * 8. didOpen processing compiles artifact and adds to SymbolManager
  * 9. Validator re-checks and resolves the type
  *
- * NOTE: These tests currently have issues with queue/scheduler mocking and may need
- * further work to properly test the async queue processing flow.
+ * NOTE: These tests use real services (CompilerService, ApexStorageManager, SymbolManager)
+ * and only mock external dependencies (LSP client connection, settings). This ensures
+ * we test the actual compilation and symbol collection behavior.
  */
 
-import { DocumentSymbolParams } from 'vscode-languageserver';
+import { DocumentDiagnosticParams } from 'vscode-languageserver';
 import {
   LoggerInterface,
   getLogger,
@@ -38,19 +39,15 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { DiagnosticProcessingService } from '../../src/services/DiagnosticProcessingService';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
-import {
-  ApexSymbolManager,
-  CompilerService,
-  FullSymbolCollectorListener,
-  SymbolTable,
-} from '@salesforce/apex-lsp-parser-ast';
-import { Effect } from 'effect';
+import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { LSPQueueManager } from '../../src/queue/LSPQueueManager';
 import { MissingArtifactProcessingService } from '../../src/services/MissingArtifactProcessingService';
 import { GenericRequestHandler } from '../../src/registry/GenericRequestHandler';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
-// Mock implementations
-jest.mock('../../src/storage/ApexStorageManager');
+// Minimal mocks - only mock external LSP client connection and settings
+// Use real services for compilation, symbol management, and storage
 jest.mock('@salesforce/apex-lsp-shared', () => {
   const actual = jest.requireActual('@salesforce/apex-lsp-shared');
   return {
@@ -64,32 +61,14 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
   };
 });
 
-// Mock scheduler to prevent it from actually running
-jest.mock('@salesforce/apex-lsp-parser-ast', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
-  return {
-    ...actual,
-    SchedulerInitializationService: {
-      ...actual.SchedulerInitializationService,
-      getInstance: jest.fn(() => ({
-        ensureInitialized: jest.fn(() => Promise.resolve()),
-        isInitialized: jest.fn(() => true),
-        resetInstance: jest.fn(),
-      })),
-      resetInstance: jest.fn(),
-    },
-  };
-});
-
 describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
   let logger: LoggerInterface;
-  let mockStorage: any;
+  let storageManager: ApexStorageManager;
   let symbolManager: ApexSymbolManager;
   let service: DiagnosticProcessingService;
   let mockConnection: any;
   let mockConfigManager: any;
   let mockSettingsManager: any;
-  let compilerService: CompilerService;
   let queueManager: LSPQueueManager;
   let missingArtifactService: MissingArtifactProcessingService;
 
@@ -103,21 +82,15 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
 
     logger = getLogger();
 
-    // Setup mock storage
-    mockStorage = {
-      getDocument: jest.fn(),
-    };
+    // Use real storage manager - it will store documents we provide
+    storageManager = ApexStorageManager.getInstance();
 
-    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
-      getStorage: jest.fn().mockReturnValue(mockStorage),
-    });
-
-    // Setup mock connection
+    // Setup mock connection (external LSP client)
     mockConnection = {
       sendRequest: jest.fn(),
     };
 
-    // Setup mock config manager
+    // Setup mock config manager (provides LSP connection)
     mockConfigManager = {
       getConnection: jest.fn().mockReturnValue(mockConnection),
     };
@@ -127,7 +100,7 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       mockConfigManager,
     );
 
-    // Setup mock settings manager
+    // Setup mock settings manager (only for settings, not compilation)
     mockSettingsManager = {
       getSettings: jest.fn().mockReturnValue({
         apex: {
@@ -142,9 +115,8 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       mockSettingsManager,
     );
 
-    // Use real symbol manager
+    // Use real symbol manager and compiler service
     symbolManager = new ApexSymbolManager();
-    compilerService = new CompilerService();
 
     // Initialize queue manager and missing artifact service
     queueManager = LSPQueueManager.getInstance();
@@ -161,6 +133,24 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
     );
     queueManager['serviceRegistry'].register(handler);
 
+    // Verify handler is registered
+    const registeredHandler = queueManager['serviceRegistry'].getHandler(
+      'findMissingArtifact',
+    );
+    if (!registeredHandler) {
+      throw new Error(
+        'Failed to register findMissingArtifact handler in test setup',
+      );
+    }
+
+    // Ensure scheduler is initialized so queue can submit requests
+    // Use real scheduler initialization (it's safe in tests)
+    const {
+      SchedulerInitializationService,
+    } = require('@salesforce/apex-lsp-parser-ast');
+    const schedulerService = SchedulerInitializationService.getInstance();
+    await schedulerService.ensureInitialized();
+
     // Clear the document state cache to avoid test interference
     const {
       getDocumentStateCache,
@@ -168,7 +158,24 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
     const cache = getDocumentStateCache();
     cache.clear();
 
+    // Create service with real symbol manager
     service = new DiagnosticProcessingService(logger, symbolManager);
+
+    // Verify handler is registered (should still be from earlier registration)
+    const handlerCheck = queueManager['serviceRegistry'].getHandler(
+      'findMissingArtifact',
+    );
+    if (!handlerCheck) {
+      // Re-register if needed
+      const handler = new GenericRequestHandler(
+        'findMissingArtifact',
+        missingArtifactService,
+        Priority.High,
+        2000,
+        0,
+      );
+      queueManager['serviceRegistry'].register(handler);
+    }
 
     // Wait for validators to initialize (they're initialized asynchronously in constructor)
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -177,21 +184,21 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
   describe('TIER 2 Validation with Missing Artifact Loading', () => {
     it('should load missing artifact via client request when TIER 2 validator needs cross-file type', async () => {
       // Test scenario: A class extends a missing superclass that needs to be loaded
-      // ClassA.cls: public class ClassA extends MissingSuperClass { }
-      // MissingSuperClass.cls: public class MissingSuperClass { }
+      // Read fixtures from test/fixtures/classes directory
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const classAPath = join(fixturesDir, 'ClassA.cls');
+      const missingSuperClassPath = join(fixturesDir, 'MissingSuperClass.cls');
 
-      const classAContent = `public class ClassA extends MissingSuperClass {
-        public ClassA() { }
-      }`;
-
-      const missingSuperClassContent = `public class MissingSuperClass {
-        public MissingSuperClass() { }
-      }`;
+      const classAContent = readFileSync(classAPath, 'utf8');
+      const missingSuperClassContent = readFileSync(
+        missingSuperClassPath,
+        'utf8',
+      );
 
       const classAUri = 'file:///ClassA.cls';
       const missingSuperClassUri = 'file:///MissingSuperClass.cls';
 
-      // Create documents
+      // Create documents from fixture content
       const classADocument = TextDocument.create(
         classAUri,
         'apex',
@@ -206,10 +213,11 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
         missingSuperClassContent,
       );
 
-      // Setup storage to return ClassA initially, MissingClass after loading
-      mockStorage.getDocument
-        .mockResolvedValueOnce(classADocument) // First call for ClassA
-        .mockResolvedValueOnce(mockStorage.getDocument); // Subsequent calls
+      // Store documents in real storage manager
+      // DiagnosticProcessingService will use real storage to get documents
+      const storage = storageManager.getStorage();
+      await storage.setDocument(classAUri, classADocument);
+      // MissingSuperClass will be added when client responds
 
       // Mock the client response: client finds and opens MissingSuperClass
       mockConnection.sendRequest.mockImplementation(
@@ -217,24 +225,28 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
           if (method === 'apex/findMissingArtifact') {
             // Simulate client finding the missing artifact
             // In real scenario, client would open the file and trigger didOpen
-            // For this test, we'll simulate the response and manually process didOpen
+            // For this test, we'll simulate the response and add the document to storage
+            // DiagnosticProcessingService will then compile it using real services
             const result: FindMissingArtifactResult = {
               opened: [missingSuperClassUri],
             };
 
             // Simulate the didOpen processing that happens when client opens file
-            // This is what happens in real flow: client opens file → didOpen notification → server compiles
+            // Add the document to storage so DiagnosticProcessingService can compile it
             setTimeout(async () => {
-              const symbolTable = new SymbolTable();
-              const listener = new FullSymbolCollectorListener(symbolTable);
-              compilerService.compile(
-                missingSuperClassContent,
+              const missingSuperClassDoc = TextDocument.create(
                 missingSuperClassUri,
-                listener,
+                'apex',
+                1,
+                missingSuperClassContent,
               );
-              await Effect.runPromise(
-                symbolManager.addSymbolTable(symbolTable, missingSuperClassUri),
+              await storage.setDocument(
+                missingSuperClassUri,
+                missingSuperClassDoc,
               );
+
+              // DiagnosticProcessingService will compile this using real CompilerService
+              // when it processes the document, so we don't need to manually compile here
             }, 10);
 
             return result;
@@ -243,8 +255,25 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
         },
       );
 
+      // Ensure handler is registered (should already be from beforeEach)
+      const currentQueueManager = LSPQueueManager.getInstance();
+      if (
+        !currentQueueManager['serviceRegistry'].hasHandler(
+          'findMissingArtifact',
+        )
+      ) {
+        const testHandler = new GenericRequestHandler(
+          'findMissingArtifact',
+          missingArtifactService,
+          Priority.High,
+          2000,
+          0,
+        );
+        currentQueueManager['serviceRegistry'].register(testHandler);
+      }
+
       // Process diagnostics for ClassA - this should trigger TIER 2 validation
-      const params: DocumentSymbolParams = {
+      const params: DocumentDiagnosticParams = {
         textDocument: { uri: classAUri },
       };
 
@@ -290,11 +319,16 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
     });
 
     it('should handle missing artifact not found scenario', async () => {
-      const classAContent = `public class ClassA extends NonExistentSuperClass {
-        public ClassA() { }
-      }`;
+      // Read fixture from test/fixtures/classes directory
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const classAPath = join(
+        fixturesDir,
+        'ClassAWithNonExistentSuperClass.cls',
+      );
 
-      const classAUri = 'file:///ClassA.cls';
+      const classAContent = readFileSync(classAPath, 'utf8');
+
+      const classAUri = 'file:///ClassAWithNonExistentSuperClass.cls';
       const classADocument = TextDocument.create(
         classAUri,
         'apex',
@@ -302,14 +336,16 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
         classAContent,
       );
 
-      mockStorage.getDocument.mockResolvedValue(classADocument);
+      // Store document in real storage manager
+      const storage = storageManager.getStorage();
+      await storage.setDocument(classAUri, classADocument);
 
       // Mock client response: artifact not found
       mockConnection.sendRequest.mockResolvedValue({
         notFound: true,
       });
 
-      const params: DocumentSymbolParams = {
+      const params: DocumentDiagnosticParams = {
         textDocument: { uri: classAUri },
       };
 
@@ -333,9 +369,11 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
     });
 
     it('should respect artifact loading disabled setting', async () => {
-      const classAContent = `public class ClassA extends MissingSuperClass {
-        public ClassA() { }
-      }`;
+      // Read fixture from test/fixtures/classes directory
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const classAPath = join(fixturesDir, 'ClassA.cls');
+
+      const classAContent = readFileSync(classAPath, 'utf8');
 
       const classAUri = 'file:///ClassA.cls';
       const classADocument = TextDocument.create(
@@ -345,7 +383,9 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
         classAContent,
       );
 
-      mockStorage.getDocument.mockResolvedValue(classADocument);
+      // Store document in real storage manager
+      const storage = storageManager.getStorage();
+      await storage.setDocument(classAUri, classADocument);
 
       // Disable artifact loading
       mockSettingsManager.getSettings.mockReturnValue({
@@ -356,7 +396,7 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
         },
       });
 
-      const params: DocumentSymbolParams = {
+      const params: DocumentDiagnosticParams = {
         textDocument: { uri: classAUri },
       };
 
@@ -375,19 +415,17 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
 
     it('should handle multiple missing artifacts in sequence', async () => {
       // ClassA extends MissingClass1, which extends MissingClass2
-      const classAContent = `public class ClassA extends MissingClass1 {
-        public ClassA() { }
-      }`;
+      // Read fixtures from test/fixtures/classes directory
+      const fixturesDir = join(__dirname, '../fixtures/classes');
+      const classAPath = join(fixturesDir, 'ClassAWithMissingClass1.cls');
+      const missingClass1Path = join(fixturesDir, 'MissingClass1.cls');
+      const missingClass2Path = join(fixturesDir, 'MissingClass2.cls');
 
-      const missingClass1Content = `public class MissingClass1 extends MissingClass2 {
-        public MissingClass1() { }
-      }`;
+      const classAContent = readFileSync(classAPath, 'utf8');
+      const missingClass1Content = readFileSync(missingClass1Path, 'utf8');
+      const missingClass2Content = readFileSync(missingClass2Path, 'utf8');
 
-      const missingClass2Content = `public class MissingClass2 {
-        public MissingClass2() { }
-      }`;
-
-      const classAUri = 'file:///ClassA.cls';
+      const classAUri = 'file:///ClassAWithMissingClass1.cls';
       const missingClass1Uri = 'file:///MissingClass1.cls';
       const missingClass2Uri = 'file:///MissingClass2.cls';
 
@@ -398,7 +436,9 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
         classAContent,
       );
 
-      mockStorage.getDocument.mockResolvedValue(classADocument);
+      // Store document in real storage manager
+      const storage = storageManager.getStorage();
+      await storage.setDocument(classAUri, classADocument);
 
       let _callCount = 0;
       mockConnection.sendRequest.mockImplementation(
@@ -408,34 +448,32 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
             const identifier = params.identifier;
 
             if (identifier === 'MissingClass1') {
-              // First artifact found
+              // First artifact found - add to storage so DiagnosticProcessingService can compile it
               setTimeout(async () => {
-                const symbolTable = new SymbolTable();
-                const listener = new FullSymbolCollectorListener(symbolTable);
-                compilerService.compile(
-                  missingClass1Content,
+                const missingClass1Doc = TextDocument.create(
                   missingClass1Uri,
-                  listener,
+                  'apex',
+                  1,
+                  missingClass1Content,
                 );
-                await Effect.runPromise(
-                  symbolManager.addSymbolTable(symbolTable, missingClass1Uri),
-                );
+                const storage = storageManager.getStorage();
+                await storage.setDocument(missingClass1Uri, missingClass1Doc);
+                // DiagnosticProcessingService will compile using real CompilerService
               }, 10);
 
               return { opened: [missingClass1Uri] };
             } else if (identifier === 'MissingClass2') {
-              // Second artifact found (when MissingClass1 is validated and needs MissingClass2)
+              // Second artifact found - add to storage so DiagnosticProcessingService can compile it
               setTimeout(async () => {
-                const symbolTable = new SymbolTable();
-                const listener = new FullSymbolCollectorListener(symbolTable);
-                compilerService.compile(
-                  missingClass2Content,
+                const missingClass2Doc = TextDocument.create(
                   missingClass2Uri,
-                  listener,
+                  'apex',
+                  1,
+                  missingClass2Content,
                 );
-                await Effect.runPromise(
-                  symbolManager.addSymbolTable(symbolTable, missingClass2Uri),
-                );
+                const storage = storageManager.getStorage();
+                await storage.setDocument(missingClass2Uri, missingClass2Doc);
+                // DiagnosticProcessingService will compile using real CompilerService
               }, 10);
 
               return { opened: [missingClass2Uri] };
@@ -447,7 +485,7 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
         },
       );
 
-      const params: DocumentSymbolParams = {
+      const params: DocumentDiagnosticParams = {
         textDocument: { uri: classAUri },
       };
 
