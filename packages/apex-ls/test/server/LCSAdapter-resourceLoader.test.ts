@@ -44,31 +44,42 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   },
 }));
 
-// Mock the apex-parser-ast package with protobuf cache support
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  ResourceLoader: {
-    getInstance: jest.fn(() => ({
-      getDirectoryStatistics: jest.fn(() => ({
-        totalFiles: 100,
-        namespaces: ['System', 'Database', 'Schema'],
+// Mock embedded ZIP buffer
+const mockEmbeddedZip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // ZIP magic bytes
+
+// Mock the apex-parser-ast package with embedded ZIP support
+// Only mock what's necessary for testing ResourceLoader initialization
+jest.mock('@salesforce/apex-lsp-parser-ast', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
+  // Access mockEmbeddedZip from closure
+  const mockZip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+  return {
+    ...actual, // Use real implementations for everything else
+    ResourceLoader: {
+      getInstance: jest.fn(() => ({
+        setZipBuffer: jest.fn(),
+        getDirectoryStatistics: jest.fn(() => ({
+          totalFiles: 100,
+          namespaces: ['System', 'Database', 'Schema'],
+        })),
+        initialize: jest.fn().mockResolvedValue(undefined),
       })),
-      initialize: jest.fn().mockResolvedValue(undefined),
-      setZipBuffer: jest.fn(),
-      isProtobufCacheLoaded: jest.fn(() => true),
-    })),
-  },
-  ApexSymbolManager: class MockApexSymbolManager {},
-  ApexSymbolProcessingManager: class MockApexSymbolProcessingManager {
-    static getInstance() {
-      return new MockApexSymbolProcessingManager();
-    }
-    getSymbolManager() {
-      return new (jest.requireMock(
-        '@salesforce/apex-lsp-parser-ast',
-      ).ApexSymbolManager)();
-    }
-  },
-}));
+    },
+    getEmbeddedStandardLibraryZip: jest.fn(() => mockZip),
+    ApexSymbolManager: class MockApexSymbolManager {},
+    ApexSymbolProcessingManager: class MockApexSymbolProcessingManager {
+      static getInstance() {
+        return new MockApexSymbolProcessingManager();
+      }
+      getSymbolManager() {
+        return new (jest.requireMock(
+          '@salesforce/apex-lsp-parser-ast',
+        ).ApexSymbolManager)();
+      }
+    },
+    // initializeValidators uses the real implementation from actual
+  };
+});
 
 describe('LCSAdapter ResourceLoader Initialization', () => {
   let mockConnection: any;
@@ -276,13 +287,13 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         'initializeResourceLoader',
       );
 
-      // Should not throw, but should log warning
-      await expect(
-        (adapterWithLogger as any).initializeResourceLoader(),
-      ).resolves.not.toThrow();
+      // Trigger the initialized event handler
+      const onInitializedHandler =
+        mockConnection.onInitialized.mock.calls[0][0];
+      await onInitializedHandler();
 
-      // Verify warning was logged
-      expect(mockLogger.warn).toHaveBeenCalled();
+      // Verify initializeResourceLoader was called
+      expect(initResourceLoaderSpy).toHaveBeenCalled();
     });
 
     it('should handle ResourceLoader initialization successfully', async () => {

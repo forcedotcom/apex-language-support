@@ -900,7 +900,10 @@ export class SymbolTable {
 
       // If new symbol has higher detail level, enrich the existing symbol
       // Also enrich if existing has no detail level (undefined) and new has one
-      if (newLevel > existingLevel || (!existingSymbol._detailLevel && symbol._detailLevel)) {
+      if (
+        newLevel > existingLevel ||
+        (!existingSymbol._detailLevel && symbol._detailLevel)
+      ) {
         if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
           logger.debug(
             () =>

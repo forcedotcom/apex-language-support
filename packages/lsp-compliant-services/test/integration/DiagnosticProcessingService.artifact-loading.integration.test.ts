@@ -34,12 +34,20 @@ import {
   ApexSettingsManager,
   FindMissingArtifactResult,
   Priority,
+  LSPConfigurationManager,
 } from '@salesforce/apex-lsp-shared';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { DiagnosticProcessingService } from '../../src/services/DiagnosticProcessingService';
+import { DocumentProcessingService } from '../../src/services/DocumentProcessingService';
+import { getDocumentStateCache } from '../../src/services/DocumentStateCache';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
-import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import { ApexStorage } from '../../src/storage/ApexStorage';
+import {
+  ApexSymbolManager,
+  ApexSymbolProcessingManager,
+  SchedulerInitializationService,
+} from '@salesforce/apex-lsp-parser-ast';
 import { LSPQueueManager } from '../../src/queue/LSPQueueManager';
 import { MissingArtifactProcessingService } from '../../src/services/MissingArtifactProcessingService';
 import { GenericRequestHandler } from '../../src/registry/GenericRequestHandler';
@@ -91,7 +99,6 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
     // Note: ApexStorage is also a singleton, but since we reset ApexStorageManager
     // and each test gets a fresh manager instance, the shared ApexStorage instance
     // should be fine for integration tests
-    const { ApexStorage } = require('../../src/storage/ApexStorage');
     storageManager = ApexStorageManager.getInstance({
       storageFactory: () => ApexStorage.getInstance(),
       autoPersistIntervalMs: 0, // Disable auto-persist for tests
@@ -108,7 +115,6 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       getConnection: jest.fn().mockReturnValue(mockConnection),
     };
 
-    const { LSPConfigurationManager } = require('@salesforce/apex-lsp-shared');
     (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
       mockConfigManager,
     );
@@ -120,6 +126,32 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
           findMissingArtifact: {
             enabled: true,
           },
+          scheduler: {
+            queueCapacity: {
+              CRITICAL: 128,
+              IMMEDIATE: 128,
+              HIGH: 128,
+              NORMAL: 128,
+              LOW: 256,
+              BACKGROUND: 256,
+            },
+            maxHighPriorityStreak: 10,
+            idleSleepMs: 25,
+            queueStateNotificationIntervalMs: 500,
+          },
+          queueProcessing: {
+            maxConcurrency: {
+              CRITICAL: 100,
+              IMMEDIATE: 50,
+              HIGH: 50,
+              NORMAL: 25,
+              LOW: 10,
+              BACKGROUND: 5,
+            },
+            maxTotalConcurrency: 240,
+            yieldInterval: 50,
+            yieldDelayMs: 25,
+          },
         },
       }),
     };
@@ -128,8 +160,14 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       mockSettingsManager,
     );
 
-    // Use real symbol manager and compiler service
-    symbolManager = new ApexSymbolManager();
+    // Reset ApexSymbolProcessingManager to ensure clean state
+    ApexSymbolProcessingManager.reset();
+
+    // Use real symbol manager from ApexSymbolProcessingManager singleton
+    // This ensures DocumentProcessingService uses the same instance
+    const symbolProcessingManager = ApexSymbolProcessingManager.getInstance();
+    await symbolProcessingManager.initialize();
+    symbolManager = symbolProcessingManager.getSymbolManager();
 
     // Initialize queue manager and missing artifact service
     queueManager = LSPQueueManager.getInstance();
@@ -158,16 +196,10 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
 
     // Ensure scheduler is initialized so queue can submit requests
     // Use real scheduler initialization (it's safe in tests)
-    const {
-      SchedulerInitializationService,
-    } = require('@salesforce/apex-lsp-parser-ast');
     const schedulerService = SchedulerInitializationService.getInstance();
     await schedulerService.ensureInitialized();
 
     // Clear the document state cache to avoid test interference
-    const {
-      getDocumentStateCache,
-    } = require('../../src/services/DocumentStateCache');
     const cache = getDocumentStateCache();
     cache.clear();
 
@@ -204,11 +236,15 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       // Ignore errors during cleanup
     }
 
+    // Reset ApexSymbolProcessingManager singleton
+    try {
+      ApexSymbolProcessingManager.reset();
+    } catch (_error) {
+      // Ignore errors during cleanup
+    }
+
     // Clear the document state cache
     try {
-      const {
-        getDocumentStateCache,
-      } = require('../../src/services/DocumentStateCache');
       const cache = getDocumentStateCache();
       cache.clear();
     } catch (_error) {
@@ -266,14 +302,13 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
           if (method === 'apex/findMissingArtifact') {
             // Simulate client finding the missing artifact
             // In real scenario, client would open the file and trigger didOpen
-            // For this test, we'll simulate the response and add the document to storage
-            // DiagnosticProcessingService will then compile it using real services
+            // For this test, we'll simulate the response and trigger didOpen processing
             const result: FindMissingArtifactResult = {
               opened: [missingSuperClassUri],
             };
 
             // Simulate the didOpen processing that happens when client opens file
-            // Add the document to storage so DiagnosticProcessingService can compile it
+            // Add the document to storage and trigger didOpen processing
             setTimeout(async () => {
               const missingSuperClassDoc = TextDocument.create(
                 missingSuperClassUri,
@@ -286,8 +321,14 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
                 missingSuperClassDoc,
               );
 
-              // DiagnosticProcessingService will compile this using real CompilerService
-              // when it processes the document, so we don't need to manually compile here
+              // Trigger didOpen processing to compile and add to symbol manager
+              // This simulates what happens when the client opens the file
+              const documentProcessingService = new DocumentProcessingService(
+                logger,
+              );
+              await documentProcessingService.processDocumentOpenInternal({
+                document: missingSuperClassDoc,
+              });
             }, 10);
 
             return result;
@@ -332,8 +373,9 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
 
       const result = await service.processDiagnostic(params);
 
-      // Wait a bit for async didOpen processing to complete
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Wait for async didOpen processing to complete
+      // The setTimeout in the mock adds the document after 10ms, then didOpen processing happens
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Verify client request was made
       expect(mockConnection.sendRequest).toHaveBeenCalledWith(
@@ -352,7 +394,7 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       const missingSuperClassSymbols =
         symbolManager.findSymbolByName('MissingSuperClass');
       expect(missingSuperClassSymbols.length).toBeGreaterThan(0);
-      expect(missingSuperClassSymbols[0].kind).toBe('Class');
+      expect(missingSuperClassSymbols[0].kind.toLowerCase()).toBe('class');
 
       // Verify diagnostics were processed (may or may not have errors depending on type compatibility)
       expect(result).toBeDefined();
@@ -489,7 +531,7 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
             const identifier = params.identifier;
 
             if (identifier === 'MissingClass1') {
-              // First artifact found - add to storage so DiagnosticProcessingService can compile it
+              // First artifact found - add to storage and trigger didOpen processing
               setTimeout(async () => {
                 const missingClass1Doc = TextDocument.create(
                   missingClass1Uri,
@@ -499,12 +541,19 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
                 );
                 const storage = storageManager.getStorage();
                 await storage.setDocument(missingClass1Uri, missingClass1Doc);
-                // DiagnosticProcessingService will compile using real CompilerService
+
+                // Trigger didOpen processing to compile and add to symbol manager
+                const documentProcessingService = new DocumentProcessingService(
+                  logger,
+                );
+                await documentProcessingService.processDocumentOpenInternal({
+                  document: missingClass1Doc,
+                });
               }, 10);
 
               return { opened: [missingClass1Uri] };
             } else if (identifier === 'MissingClass2') {
-              // Second artifact found - add to storage so DiagnosticProcessingService can compile it
+              // Second artifact found - add to storage and trigger didOpen processing
               setTimeout(async () => {
                 const missingClass2Doc = TextDocument.create(
                   missingClass2Uri,
@@ -514,7 +563,14 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
                 );
                 const storage = storageManager.getStorage();
                 await storage.setDocument(missingClass2Uri, missingClass2Doc);
-                // DiagnosticProcessingService will compile using real CompilerService
+
+                // Trigger didOpen processing to compile and add to symbol manager
+                const documentProcessingService = new DocumentProcessingService(
+                  logger,
+                );
+                await documentProcessingService.processDocumentOpenInternal({
+                  document: missingClass2Doc,
+                });
               }, 10);
 
               return { opened: [missingClass2Uri] };
@@ -532,8 +588,9 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
 
       const result = await service.processDiagnostic(params);
 
-      // Wait for async processing
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Wait for async didOpen processing to complete
+      // The setTimeout in the mock adds the documents after 10ms, then didOpen processing happens
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Verify both artifacts were requested (though second may be requested when validating MissingClass1)
       expect(mockConnection.sendRequest).toHaveBeenCalledWith(

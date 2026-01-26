@@ -399,10 +399,6 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         'file:///test/QualifiedTestClass.cls',
       );
 
-      const allSymbols = symbolManager.getAllSymbols();
-      const allReferences = symbolManager.getAllReferencesInFile(
-        'file:///test/QualifiedTestClass.cls',
-      );
       const result = await symbolManager.getSymbolAtPosition(
         'file:///test/QualifiedTestClass.cls',
         { line: 3, character: 20 }, // Position on "FileUtilities"
