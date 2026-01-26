@@ -85,7 +85,6 @@ import {
   ApexSymbolProcessingManager,
   startQueueStateNotificationTask,
   SchedulerMetrics,
-  getEmbeddedStandardLibraryZip,
   SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
 import type { Fiber } from 'effect';
@@ -185,12 +184,11 @@ export class LCSAdapter {
   }
 
   /**
-   * Initialize the ResourceLoader singleton with the standard library ZIP.
+   * Initialize the ResourceLoader singleton with the standard library.
    *
-   * Loading Strategy:
-   * - Uses embedded ZIP bundled directly in the worker/server
-   * - No client/server communication needed for standard library
-   * - ZIP is embedded at build time via esbuild
+   * ResourceLoader handles all artifact loading internally:
+   * - Protobuf cache for fast symbol loading (hover, completion, etc.)
+   * - ZIP buffer for source file content (goto definition viewing)
    * - Load mode determined from settings (apex.resources.loadMode)
    */
   private async initializeResourceLoader(): Promise<void> {
@@ -211,29 +209,9 @@ export class LCSAdapter {
         preloadStdClasses: true,
       });
 
-      // Use the embedded ZIP bundled directly in the worker
-      const embeddedZip = getEmbeddedStandardLibraryZip();
-      if (!embeddedZip) {
-        throw new Error(
-          'Embedded Standard Apex Library ZIP not available. ' +
-            'This typically means the build did not properly bundle the ZIP resource.',
-        );
-      }
-
-      this.logger.debug(
-        () =>
-          `📦 Using embedded Standard Apex Library ZIP (${embeddedZip.length} bytes)`,
-      );
-      resourceLoader.setZipBuffer(embeddedZip);
-
-      const stats = resourceLoader.getDirectoryStatistics();
-      this.logger.debug(
-        () =>
-          '✅ Standard library resources loaded successfully: ' +
-          `${stats.totalFiles} files across ${stats.namespaces.length} namespaces`,
-      );
-
+      // Initialize will load both protobuf cache and ZIP buffer
       await resourceLoader.initialize();
+
       this.logger.debug('✅ ResourceLoader initialization complete');
     } catch (error) {
       this.handleResourceLoaderError(error);

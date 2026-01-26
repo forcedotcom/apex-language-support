@@ -9,6 +9,12 @@
 import { unzipSync } from 'fflate';
 import { Effect, Fiber } from 'effect';
 import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
+import {
+  StandardLibraryCacheLoader,
+  isProtobufCacheAvailable,
+} from '../cache/stdlib-cache-loader';
+import type { DeserializationResult } from '../cache/stdlib-deserializer';
+import { getEmbeddedStandardLibraryZip } from './embeddedStandardLibrary';
 
 /**
  * Yield to the Node.js event loop using setImmediate for immediate yielding
@@ -30,7 +36,7 @@ import { STANDARD_APEX_LIBRARY_URI } from './ResourceUtils';
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
   preloadStdClasses?: boolean;
-  zipBuffer?: Uint8Array; // Direct ZIP buffer to use
+  zipBuffer?: Uint8Array; // Direct ZIP buffer to use (for testing)
 }
 
 interface CompiledArtifact {
@@ -95,6 +101,8 @@ export class ResourceLoader {
     new CaseInsensitivePathMap(); // Track access counts per artifact to reduce log spam
   private zipBuffer?: Uint8Array; // Will be initialized via setZipBuffer
   private zipFiles: CaseInsensitivePathMap<Uint8Array> | null = null; // Will be initialized in extractZipFiles
+  private protobufCacheLoaded = false; // Track if protobuf cache was used
+  private protobufCacheData: DeserializationResult | null = null; // Cached protobuf data
 
   private constructor(options?: ResourceLoaderOptions) {
     this.logger.debug(
@@ -563,7 +571,7 @@ export class ResourceLoader {
 
   /**
    * Initialize method for compatibility.
-   * Note: ResourceLoader is automatically initialized during construction.
+   * Loads from protobuf cache unless a ZIP buffer was explicitly provided.
    */
   public async initialize(): Promise<void> {
     if (!this.initialized) {
@@ -572,6 +580,240 @@ export class ResourceLoader {
           'Initialize called but ResourceLoader should already be initialized',
       );
     }
+
+    // Load protobuf cache first (fast path for symbols)
+    if (!this.protobufCacheLoaded && !this.zipBuffer) {
+      await this.tryLoadFromProtobufCache();
+    }
+
+    // Load ZIP buffer for source code (unless explicitly provided via setZipBuffer)
+    // This check prevents double-loading in tests that inject ZIP buffers
+    if (!this.zipBuffer) {
+      await this.loadEmbeddedZipBuffer();
+    }
+
+    // Log statistics after both artifacts loaded
+    this.logLoadingStatistics();
+  }
+
+  /**
+   * Load standard library from protobuf cache.
+   * Returns true if successful.
+   */
+  private async tryLoadFromProtobufCache(): Promise<boolean> {
+    // Check if protobuf cache is available
+    if (!isProtobufCacheAvailable()) {
+      this.logger.error('Protobuf cache not available');
+      return false;
+    }
+
+    try {
+      const loader = StandardLibraryCacheLoader.getInstance();
+      const result = await loader.load();
+
+      if (result.success && result.loadMethod === 'protobuf' && result.data) {
+        this.protobufCacheLoaded = true;
+        this.protobufCacheData = result.data;
+
+        // Populate namespace index from protobuf data
+        this.populateFromProtobufCache(result.data);
+
+        this.logger.info(
+          () =>
+            `✅ Loaded stdlib from protobuf cache in ${result.loadTimeMs.toFixed(1)}ms ` +
+            `(${result.data!.metadata.typeCount} types)`,
+        );
+        return true;
+      }
+
+      this.logger.error(
+        () => `Protobuf cache load failed: ${result.error || 'unknown error'}`,
+      );
+      return false;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(() => `Protobuf cache load failed: ${errorMsg}`);
+      return false;
+    }
+  }
+
+  /**
+   * Load embedded ZIP buffer for source code access
+   * Handles errors gracefully - ZIP loading failure should not prevent symbol usage
+   */
+  private async loadEmbeddedZipBuffer(): Promise<void> {
+    try {
+      this.logger.debug('📦 Loading embedded Standard Apex Library ZIP...');
+
+      const embeddedZip = getEmbeddedStandardLibraryZip();
+      if (embeddedZip) {
+        this.logger.debug(
+          () => `📦 Embedded ZIP available (${embeddedZip.length} bytes)`,
+        );
+        this.setZipBuffer(embeddedZip);
+      } else {
+        this.logger.warn(
+          '⚠️ Embedded Standard Apex Library ZIP not available. ' +
+            'Goto definition for standard library classes may not work.',
+        );
+      }
+    } catch (zipError) {
+      // ZIP loading failure should not prevent symbols from being available
+      this.logger.warn(
+        `⚠️ Failed to load ZIP for source content: ${zipError}. ` +
+          'Symbols are still available from protobuf cache.',
+      );
+    }
+  }
+
+  /**
+   * Log statistics about loaded resources
+   */
+  private logLoadingStatistics(): void {
+    try {
+      const stats = this.getDirectoryStatistics();
+      this.logger.debug(
+        () =>
+          '✅ Standard library resources loaded successfully: ' +
+          `${stats.totalFiles} files across ${stats.namespaces.length} namespaces`,
+      );
+
+      // Log which artifacts are available
+      const artifacts: string[] = [];
+      if (this.protobufCacheLoaded) artifacts.push('protobuf cache');
+      if (this.zipBuffer) artifacts.push('ZIP buffer');
+
+      this.logger.debug(
+        () => `📦 Available artifacts: ${artifacts.join(', ') || 'none'}`,
+      );
+    } catch (error) {
+      this.logger.debug(
+        () =>
+          `Could not log statistics: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+  }
+
+  /**
+   * Populate ResourceLoader data structures from protobuf cache data.
+   * This sets up namespace indexes and file mappings from the cached data.
+   */
+  private populateFromProtobufCache(data: DeserializationResult): void {
+    // Populate namespace index from cached data
+    for (const [fileUri, _symbolTable] of data.symbolTables) {
+      // Extract namespace from file URI (format: apex://stdlib/{namespace}/{className})
+      const match = fileUri.match(/apex:\/\/stdlib\/([^/]+)\/([^/]+)/);
+      if (match) {
+        const namespace = match[1];
+        const className = match[2];
+
+        // Add to namespace index
+        const namespaceLower = namespace.toLowerCase();
+        if (!this.namespaceIndex.has(namespaceLower)) {
+          this.namespaceIndex.set(namespaceLower, namespace);
+        }
+
+        // Add to namespaces map
+        if (!this.namespaces.has(namespace)) {
+          this.namespaces.set(namespace, []);
+        }
+        this.namespaces.get(namespace)!.push(CIS.from(`${className}.cls`));
+
+        // Add to file index
+        const filePath = `${namespace}/${className}.cls`;
+        this.fileIndex.set(filePath, true);
+        this.originalPaths.set(filePath, filePath);
+
+        // Add to classNameToNamespace
+        const existingNamespaces = this.classNameToNamespace.get(className);
+        if (existingNamespaces) {
+          existingNamespaces.add(namespace);
+        } else {
+          this.classNameToNamespace.set(className, new Set([namespace]));
+        }
+      }
+    }
+
+    this.logger.debug(
+      () =>
+        `Populated from protobuf cache: ${this.namespaces.size} namespaces, ` +
+        `${this.fileIndex.size} files indexed`,
+    );
+  }
+
+  /**
+   * Check if the protobuf cache was used for loading
+   */
+  public isProtobufCacheLoaded(): boolean {
+    return this.protobufCacheLoaded;
+  }
+
+  /**
+   * Get the protobuf cache data if loaded
+   */
+  public getProtobufCacheData(): DeserializationResult | null {
+    return this.protobufCacheData;
+  }
+
+  /**
+   * Get a compiled artifact from the protobuf cache.
+   * Converts cached SymbolTable to CompiledArtifact format.
+   */
+  private getArtifactFromProtobufCache(
+    className: string,
+  ): CompiledArtifact | null {
+    if (!this.protobufCacheData) {
+      return null;
+    }
+
+    // Try to find the symbol table for this class
+    // Handle various path formats:
+    // - "System/String.cls" -> "apex://stdlib/System/String"
+    // - "String" -> "apex://stdlib/System/String"
+
+    // Normalize the class name
+    let searchUri: string | null = null;
+    const normalizedClassName = className.replace(/\.cls$/i, '');
+
+    // Check if it includes a namespace
+    const pathParts = normalizedClassName.split(/[\/\\]/);
+    if (pathParts.length >= 2) {
+      const namespace = pathParts[0];
+      const classNameOnly = pathParts[pathParts.length - 1];
+      searchUri = `apex://stdlib/${namespace}/${classNameOnly}`;
+    } else {
+      // Try to find by class name only - check all namespaces
+      for (const [uri, _symbolTable] of this.protobufCacheData.symbolTables) {
+        if (uri.endsWith(`/${normalizedClassName}`)) {
+          searchUri = uri;
+          break;
+        }
+      }
+    }
+
+    if (!searchUri) {
+      return null;
+    }
+
+    const symbolTable = this.protobufCacheData.symbolTables.get(searchUri);
+    if (!symbolTable) {
+      return null;
+    }
+
+    // Convert SymbolTable to CompiledArtifact
+    const artifact: CompiledArtifact = {
+      path: className,
+      compilationResult: {
+        result: symbolTable,
+        errors: [],
+        warnings: [],
+        fileName: searchUri,
+        comments: [],
+        commentAssociations: [],
+      },
+    };
+
+    return artifact;
   }
 
   /**
@@ -1009,6 +1251,16 @@ export class ResourceLoader {
           );
         }
         return cachedArtifact;
+      }
+    }
+
+    // Check protobuf cache for pre-compiled symbol tables
+    if (this.protobufCacheLoaded && this.protobufCacheData) {
+      const artifact = this.getArtifactFromProtobufCache(className);
+      if (artifact) {
+        // Cache it for future lookups
+        this.compiledArtifacts.set(normalizedPath, artifact);
+        return artifact;
       }
     }
 

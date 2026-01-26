@@ -86,10 +86,11 @@ const builds: BuildOptions[] = [
     // Ensure Node.js resolution for vscode-languageserver packages
     conditions: ['node', 'require', 'default'],
     mainFields: ['main', 'module'],
-    // Bundle the Standard Apex Library ZIP as a base64 data URL
-    // This embeds the ZIP directly into the server bundle
+    // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs
+    // This embeds the ZIP and gzipped protobuf cache directly into the server bundle
     loader: {
       '.zip': 'dataurl',
+      '.gz': 'dataurl',
     },
     plugins: [
       copy({
@@ -134,10 +135,11 @@ const builds: BuildOptions[] = [
     treeShaking: true,
     conditions: ['browser', 'worker', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],
-    // Bundle the Standard Apex Library ZIP as a base64 data URL
-    // This embeds the ZIP directly into the worker bundle
+    // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs
+    // This embeds the ZIP and gzipped protobuf cache directly into the worker bundle
     loader: {
       '.zip': 'dataurl',
+      '.gz': 'dataurl',
     },
   },
 ];

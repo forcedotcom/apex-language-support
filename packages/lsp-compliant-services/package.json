@@ -47,7 +47,8 @@
       "dependencies": [
         "compile",
         "../esbuild-presets:compile",
-        "../apex-parser-ast:compile"
+        "../apex-parser-ast:compile:tsc",
+        "../apex-parser-ast:generate:stdlib-cache"
       ],
       "output": [
         "dist/**"

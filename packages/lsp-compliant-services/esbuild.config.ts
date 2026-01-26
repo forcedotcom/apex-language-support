@@ -7,7 +7,11 @@
  */
 
 import type { BuildOptions } from 'esbuild';
-import { nodeBaseConfig, runBuilds } from '@salesforce/esbuild-presets';
+import {
+  nodeBaseConfig,
+  runBuilds,
+  INTERNAL_PACKAGES,
+} from '@salesforce/esbuild-presets';
 
 /**
  * External dependencies for lsp-compliant-services.
@@ -19,6 +23,7 @@ import { nodeBaseConfig, runBuilds } from '@salesforce/esbuild-presets';
  * Include all path variants (base, /node, /browser) to ensure consistent resolution.
  */
 const external = [
+  ...INTERNAL_PACKAGES,
   'vscode-languageserver',
   'vscode-languageserver/node',
   'vscode-languageserver/browser',
@@ -38,9 +43,10 @@ const builds: BuildOptions[] = [
     format: 'cjs',
     outExtension: { '.js': '.js' },
     external,
-    // Bundle the Standard Apex Library ZIP as a base64 data URL
+    // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs
     loader: {
       '.zip': 'dataurl',
+      '.gz': 'dataurl',
     },
   },
   {
@@ -50,9 +56,10 @@ const builds: BuildOptions[] = [
     format: 'esm',
     outExtension: { '.js': '.mjs' },
     external,
-    // Bundle the Standard Apex Library ZIP as a base64 data URL
+    // Bundle the Standard Apex Library ZIP and gzipped protobuf cache as base64 data URLs
     loader: {
       '.zip': 'dataurl',
+      '.gz': 'dataurl',
     },
   },
 ];
