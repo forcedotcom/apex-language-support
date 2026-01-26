@@ -16,15 +16,8 @@ import {
 import type { DeserializationResult } from '../cache/stdlib-deserializer';
 import { getEmbeddedStandardLibraryZip } from './embeddedStandardLibrary';
 
-/**
- * Yield to the Node.js event loop using setImmediate for immediate yielding
- * This is more effective than Effect.sleep(0) which may use setTimeout
- */
-const yieldToEventLoop = Effect.async<void>((resume) => {
-  setImmediate(() => resume(Effect.void));
-});
-
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
+import { yieldToEventLoop } from './effectUtils';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
 import { normalizeApexPath } from './PathUtils';
 import { CompilerService, CompilationOptions } from '../parser/compilerService';

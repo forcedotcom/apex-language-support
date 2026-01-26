@@ -149,8 +149,31 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
         );
         return [];
       }
+
+      // Deduplicate symbols by name + kind + line number to prevent duplicate code lenses
+      // This handles cases where multiple parse passes add the same symbol with different IDs
+      const seenSymbols = new Set<string>();
+      const uniqueSymbols = symbols.filter((symbol) => {
+        const line = symbol.location?.symbolRange?.startLine ?? 0;
+        const key = `${symbol.name}:${symbol.kind}:${line}`;
+        if (seenSymbols.has(key)) {
+          this.logger.debug(
+            () =>
+              `🔍 [CodeLens] Skipping duplicate symbol: ${symbol.name} at line ${line}`,
+          );
+          return false;
+        }
+        seenSymbols.add(key);
+        return true;
+      });
+
+      this.logger.debug(
+        () =>
+          `🔍 [CodeLens] Found ${symbols.length} symbols, ${uniqueSymbols.length} unique`,
+      );
+
       // Find test classes and methods
-      const codeLenses: CodeLens[] = symbols.flatMap((symbol) => {
+      const codeLenses: CodeLens[] = uniqueSymbols.flatMap((symbol) => {
         this.logger.debug(
           () =>
             `🔍 [CodeLens] Checking symbol: ${symbol.name} (kind: ${symbol.kind})`,
