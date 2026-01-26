@@ -2345,12 +2345,10 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Clear the graph indexes for a file without removing the SymbolTable.
-   * This is used when re-adding symbols to prevent duplicates while preserving
-   * the SymbolTable for lookups and merging.
-   * Normalizes URI to ensure consistent lookup.
+   * Remove a file's symbols from the graph
+   * Normalizes URI to ensure consistent lookup
    */
-  clearFileIndex(fileUri: string): void {
+  removeFile(fileUri: string): void {
     const normalizedUri = extractFilePathFromUri(fileUri);
     const symbolIds = this.fileIndex.get(normalizedUri) || [];
 
@@ -2385,23 +2383,10 @@ export class ApexSymbolGraph {
     // Remove from file index (use normalized URI)
     this.fileIndex.delete(normalizedUri);
 
-    // NOTE: Do NOT remove SymbolTable - keep it for lookups and future merging
-    // this.fileToSymbolTable.delete(normalizedUri);
+    // Remove SymbolTable reference (use normalized URI)
+    this.fileToSymbolTable.delete(normalizedUri);
 
     this.memoryStats.totalSymbols -= symbolIds.length;
-  }
-
-  /**
-   * Remove a file's symbols from the graph
-   * Normalizes URI to ensure consistent lookup
-   */
-  removeFile(fileUri: string): void {
-    // Clear indexes first
-    this.clearFileIndex(fileUri);
-
-    // Also remove SymbolTable reference
-    const normalizedUri = extractFilePathFromUri(fileUri);
-    this.fileToSymbolTable.delete(normalizedUri);
   }
 
   /**

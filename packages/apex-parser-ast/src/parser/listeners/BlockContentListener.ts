@@ -51,7 +51,6 @@ import { Stack } from 'data-structure-typed';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { ApexReferenceCollectorListener } from './ApexReferenceCollectorListener';
-import { DetailLevel } from './LayeredSymbolListenerBase';
 import {
   SymbolReferenceFactory,
   ReferenceContext,
@@ -125,29 +124,9 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   private scopeStack: Stack<ApexSymbol> = new Stack<ApexSymbol>();
   private blockCounter: number = 0;
 
-  // Detail level for layered compilation
-  private detailLevel: DetailLevel;
-
-  constructor(symbolTable: SymbolTable, detailLevel: DetailLevel = 'full') {
+  constructor(symbolTable: SymbolTable) {
     super();
     this.symbolTable = symbolTable;
-    this.detailLevel = detailLevel;
-  }
-
-  /**
-   * Add a symbol to the symbol table with the detail level set.
-   * This ensures that symbols from BlockContentListener have _detailLevel
-   * set, which is required for proper deduplication in SymbolTable.addSymbol().
-   * @param symbol The symbol to add
-   * @param currentScope The current scope (null when at file level)
-   */
-  private addSymbolWithDetailLevel(
-    symbol: ApexSymbol,
-    currentScope?: ScopeSymbol | null,
-  ): void {
-    // Set detail level on symbol to enable proper enrichment/deduplication
-    symbol._detailLevel = this.detailLevel;
-    this.symbolTable.addSymbol(symbol, currentScope);
   }
 
   setCurrentFileUri(fileUri: string): void {
@@ -1152,7 +1131,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
           type,
         );
 
-        this.addSymbolWithDetailLevel(
+        this.symbolTable.addSymbol(
           variableSymbol,
           this.getCurrentScopeSymbol(),
         );
@@ -1978,7 +1957,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       modifiers,
     );
 
-    this.addSymbolWithDetailLevel(blockSymbol, parentScope ?? null);
+    this.symbolTable.addSymbol(blockSymbol, parentScope ?? null);
 
     return blockSymbol;
   }

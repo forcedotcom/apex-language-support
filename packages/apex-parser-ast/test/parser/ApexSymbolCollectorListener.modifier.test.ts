@@ -288,15 +288,13 @@ public class ConstructorTestClass {
       const symbols = symbolTable.getAllSymbols();
 
       const constructors = symbols.filter((s) => (s as any).isConstructor);
-      // Note: Currently only 1 constructor is processed due to ID generation limitations.
-      // Overloaded constructors share the same ID (parameter signatures aren't included),
-      // so only the first one is retained when symbols have the same detail level.
-      // This tests the modifier isolation functionality - the specific visibility doesn't matter.
+      // Note: Currently only 1 constructor is processed due to listener limitations
+      // This tests the modifier isolation functionality
       expect(constructors).toHaveLength(1);
 
-      // Verify the constructor has correct modifiers (first constructor is public)
+      // Verify the constructor has correct modifiers
       const constructor = constructors[0];
-      expect(constructor?.modifiers.visibility).toBe('public');
+      expect(constructor?.modifiers.visibility).toBe('protected');
       expect(constructor?.modifiers.isStatic).toBe(false);
     });
   });
