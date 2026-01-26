@@ -403,8 +403,6 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       const allReferences = symbolManager.getAllReferencesInFile(
         'file:///test/QualifiedTestClass.cls',
       );
-      console.log(allSymbols);
-      console.log(allReferences);
       const result = await symbolManager.getSymbolAtPosition(
         'file:///test/QualifiedTestClass.cls',
         { line: 3, character: 20 }, // Position on "FileUtilities"
@@ -640,9 +638,6 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         if (result) {
           expect(result?.name).toBe('List');
           expect(result?.kind).toBe('class');
-        } else {
-          // Log for debugging
-          console.log('List in constructor call not resolved');
         }
       });
 
@@ -668,9 +663,6 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         if (result) {
           expect(result?.name).toBe('Map');
           expect(result?.kind).toBe('class');
-        } else {
-          // Log for debugging
-          console.log('Map in variable declaration not resolved');
         }
       });
 
@@ -696,9 +688,6 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         if (result) {
           expect(result?.name).toBe('Map');
           expect(result?.kind).toBe('class');
-        } else {
-          // Log for debugging
-          console.log('Map in constructor call not resolved');
         }
       });
 
@@ -724,9 +713,6 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         if (result) {
           expect(result?.name).toBe('Set');
           expect(result?.kind).toBe('class');
-        } else {
-          // Log for debugging
-          console.log('Set in variable declaration not resolved');
         }
       });
     });

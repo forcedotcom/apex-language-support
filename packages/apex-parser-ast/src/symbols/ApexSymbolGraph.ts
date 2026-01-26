@@ -1843,10 +1843,22 @@ export class ApexSymbolGraph {
     try {
       // Clear all active retry timers
       // Interrupt all active retry fibers
-      for (const fiber of this.activeRetryFibers) {
-        // Interrupt the fiber - this is async but we run it synchronously
-        // The interrupt will cancel the fiber's execution
-        Effect.runSync(Fiber.interrupt(fiber).pipe(Effect.asVoid));
+      // Note: Daemon fibers created with Effect.forkDaemon don't get cleaned up
+      // automatically when scopes close, so we must explicitly interrupt them here.
+      // We use runSync to wait for the interruption to complete synchronously.
+      const fibersToInterrupt = Array.from(this.activeRetryFibers);
+      for (const fiber of fibersToInterrupt) {
+        try {
+          // Interrupt the fiber and wait for it to complete
+          // Fiber.interrupt returns an Effect that waits for the interruption to complete
+          Effect.runSync(Fiber.interrupt(fiber).pipe(Effect.asVoid));
+        } catch (interruptError) {
+          // Fiber might already be interrupted or completed - ignore
+          this.logger.debug(
+            () =>
+              `Error interrupting retry fiber (may already be done): ${interruptError}`,
+          );
+        }
       }
       this.activeRetryFibers.clear();
       this.pendingRetrySymbols.clear();

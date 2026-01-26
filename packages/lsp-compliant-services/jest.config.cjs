@@ -21,4 +21,7 @@ module.exports = {
   globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
   // Increase test timeout to allow cleanup of setTimeout-based monitoring tasks
   testTimeout: 30000,
+  // Enable open handle detection when DETECT_OPEN_HANDLES env var is set to 'true'
+  // This can be very verbose, so it's opt-in for debugging purposes
+  detectOpenHandles: process.env.DETECT_OPEN_HANDLES === 'true',
 };

@@ -43,6 +43,7 @@ import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { LSPQueueManager } from '../../src/queue/LSPQueueManager';
 import { MissingArtifactProcessingService } from '../../src/services/MissingArtifactProcessingService';
 import { GenericRequestHandler } from '../../src/registry/GenericRequestHandler';
+import { cleanupTestResources } from '../helpers/test-cleanup';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -179,6 +180,34 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
 
     // Wait for validators to initialize (they're initialized asynchronously in constructor)
     await new Promise((resolve) => setTimeout(resolve, 100));
+  });
+
+  afterEach(async () => {
+    // Clean up per-test resources
+    try {
+      if (symbolManager) {
+        symbolManager.clear();
+      }
+    } catch (_error) {
+      // Ignore errors during cleanup
+    }
+
+    // Clear the document state cache
+    try {
+      const {
+        getDocumentStateCache,
+      } = require('../../src/services/DocumentStateCache');
+      const cache = getDocumentStateCache();
+      cache.clear();
+    } catch (_error) {
+      // Ignore errors - cache might not be available
+    }
+  });
+
+  afterAll(async () => {
+    // Clean up all test resources that may leave open handles
+    // This shuts down the scheduler, LSPQueueManager, and other services
+    await cleanupTestResources();
   });
 
   describe('TIER 2 Validation with Missing Artifact Loading', () => {

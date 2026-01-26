@@ -61,4 +61,7 @@ module.exports = {
     },
   },
   globalTeardown: teardownPath,
+  // Enable open handle detection when DETECT_OPEN_HANDLES env var is set to 'true'
+  // This can be very verbose, so it's opt-in for debugging purposes
+  detectOpenHandles: process.env.DETECT_OPEN_HANDLES === 'true',
 };
