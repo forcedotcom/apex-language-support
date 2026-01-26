@@ -11,6 +11,7 @@ import type {
   SymbolTable,
   VariableSymbol,
   TypeSymbol,
+  MethodSymbol,
 } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
 import type { TypeInfo } from '../../../types/typeInfo';
@@ -147,8 +148,21 @@ export const TypeAssignmentValidator: Validator = {
 
         // For TIER 2, try to resolve types that need namespace resolution
         if (options.tier === ValidationTier.THOROUGH && options.symbolManager) {
+          const variableName = variable.name;
+          const variableLocation = variable.location
+            ? `${variable.location.identifierRange?.startLine ?? '?'}:${
+                variable.location.identifierRange?.startColumn ?? '?'
+              }`
+            : 'unknown';
+
           // If types need resolution, try to resolve them using symbolManager
           if (variable.type.needsNamespaceResolution) {
+            yield* Effect.logDebug(
+              `[TYPE-VALIDATOR] Resolving declared type for variable '${variableName}' ` +
+                `at ${variableLocation}: type=${variable.type.name}, ` +
+                `originalTypeString=${variable.type.originalTypeString}, ` +
+                `needsResolution=${true}`,
+            );
             // Try to resolve the declared type using typeReferenceId/resolvedSymbolId
             const resolvedDeclaredType = yield* resolveTypeIfNeeded(
               variable.type,
@@ -156,14 +170,30 @@ export const TypeAssignmentValidator: Validator = {
               symbolTable,
             );
             if (resolvedDeclaredType) {
+              const beforeType = declaredType.name;
               Object.assign(
                 declaredType,
                 convertTypeInfoToExpressionType(resolvedDeclaredType),
+              );
+              yield* Effect.logDebug(
+                `[TYPE-VALIDATOR] Resolved declared type for '${variableName}': ` +
+                  `${beforeType} -> ${resolvedDeclaredType.name}`,
+              );
+            } else {
+              yield* Effect.logDebug(
+                `[TYPE-VALIDATOR] Failed to resolve declared type for '${variableName}': ` +
+                  `type=${variable.type.name} remains unresolved`,
               );
             }
           }
 
           if (variable.initializerType.needsNamespaceResolution) {
+            yield* Effect.logDebug(
+              `[TYPE-VALIDATOR] Resolving initializer type for variable '${variableName}' ` +
+                `at ${variableLocation}: type=${variable.initializerType.name}, ` +
+                `originalTypeString=${variable.initializerType.originalTypeString}, ` +
+                `needsResolution=${true}`,
+            );
             // Try to resolve the initializer type using typeReferenceId/resolvedSymbolId
             const resolvedInitializerType = yield* resolveTypeIfNeeded(
               variable.initializerType,
@@ -171,9 +201,19 @@ export const TypeAssignmentValidator: Validator = {
               symbolTable,
             );
             if (resolvedInitializerType) {
+              const beforeType = initializerType.name;
               Object.assign(
                 initializerType,
                 convertTypeInfoToExpressionType(resolvedInitializerType),
+              );
+              yield* Effect.logDebug(
+                `[TYPE-VALIDATOR] Resolved initializer type for '${variableName}': ` +
+                  `${beforeType} -> ${resolvedInitializerType.name}`,
+              );
+            } else {
+              yield* Effect.logDebug(
+                `[TYPE-VALIDATOR] Failed to resolve initializer type for '${variableName}': ` +
+                  `type=${variable.initializerType.name} remains unresolved`,
               );
             }
           }
@@ -196,6 +236,24 @@ export const TypeAssignmentValidator: Validator = {
           const initializerTypeName =
             variable.initializerType.originalTypeString ||
             variable.initializerType.name;
+          const variableLocation = variable.location
+            ? `${variable.location.identifierRange?.startLine ?? '?'}:${
+                variable.location.identifierRange?.startColumn ?? '?'
+              }`
+            : 'unknown';
+          const tierName =
+            options.tier === ValidationTier.THOROUGH ? 'TIER 2' : 'TIER 1';
+
+          yield* Effect.logDebug(
+            `[TYPE-VALIDATOR] Type mismatch detected for variable '${variable.name}' ` +
+              `at ${variableLocation}: ` +
+              `cannot assign '${initializerTypeName}' (resolved: ${initializerType.name}, ` +
+              `needsResolution: ${variable.initializerType.needsNamespaceResolution}) ` +
+              `to '${declaredTypeName}' (resolved: ${declaredType.name}, ` +
+              `needsResolution: ${variable.type.needsNamespaceResolution}), ` +
+              `tier=${tierName}`,
+          );
+
           errors.push({
             message: `Type mismatch: cannot assign '${initializerTypeName}' to '${declaredTypeName}'`,
             location: variable.location,
@@ -261,18 +319,83 @@ function resolveTypeIfNeeded(
     }
 
     // Step 1: Try to use typeReferenceId to find the SymbolReference
-    if (typeInfo.typeReferenceId) {
-      const typeRef = findSymbolReferenceById(
-        typeInfo.typeReferenceId,
-        symbolTable,
+    yield* Effect.logInfo(
+      `[RESOLVE-TYPE] Resolving type: name=${typeInfo.name}, ` +
+        `originalTypeString=${typeInfo.originalTypeString}, ` +
+        `typeReferenceId=${typeInfo.typeReferenceId ? 'set' : 'NOT SET'}`,
+    );
+
+    const typeRef = typeInfo.typeReferenceId
+      ? findSymbolReferenceById(typeInfo.typeReferenceId, symbolTable)
+      : undefined;
+
+    if (!typeRef) {
+      yield* Effect.logInfo(
+        `[RESOLVE-TYPE] No typeRef found for ${typeInfo.name} ` +
+          `(typeReferenceId: ${typeInfo.typeReferenceId ? 'set but not found' : 'not set'})`,
       );
-      if (typeRef) {
-        // Step 2: Check if the reference is already resolved
-        if (typeRef.resolvedSymbolId) {
-          const resolvedSymbol = symbolManager.getSymbol(
-            typeRef.resolvedSymbolId,
-          );
-          if (resolvedSymbol && isTypeSymbol(resolvedSymbol)) {
+    }
+
+    if (typeRef) {
+      yield* Effect.logInfo(
+        `[RESOLVE-TYPE] Found typeRef: name=${typeRef.name}, ` +
+          `context=${ReferenceContext[typeRef.context]}, ` +
+          `resolvedSymbolId=${typeRef.resolvedSymbolId ? 'set' : 'NOT SET'}`,
+      );
+
+      // Step 2: Check if the reference is already resolved
+      if (typeRef.resolvedSymbolId) {
+        const resolvedSymbol = symbolManager.getSymbol(
+          typeRef.resolvedSymbolId,
+        );
+        yield* Effect.logInfo(
+          `[RESOLVE-TYPE] Resolved symbol: ${resolvedSymbol ? `kind=${resolvedSymbol.kind}, name=${resolvedSymbol.name}` : 'NOT FOUND'}`,
+        );
+        if (resolvedSymbol) {
+          // Handle METHOD_CALL context - extract return type from MethodSymbol
+          if (typeRef.context === ReferenceContext.METHOD_CALL) {
+            if (isMethodSymbol(resolvedSymbol)) {
+              const methodSymbol = resolvedSymbol as MethodSymbol;
+              // Get the returnType, preserving original type info
+              const returnTypeInfo = convertMethodReturnTypeToTypeInfo(
+                methodSymbol.returnType,
+                typeInfo,
+              );
+              // If the return type still needs resolution, recursively resolve it
+              if (returnTypeInfo.needsNamespaceResolution) {
+                const recursivelyResolved = yield* resolveTypeIfNeeded(
+                  returnTypeInfo,
+                  symbolManager,
+                  symbolTable,
+                );
+                return recursivelyResolved || returnTypeInfo;
+              }
+              return returnTypeInfo;
+            }
+          }
+          // Handle FIELD_ACCESS context - extract type from VariableSymbol
+          else if (typeRef.context === ReferenceContext.FIELD_ACCESS) {
+            if (isVariableSymbol(resolvedSymbol)) {
+              const variableSymbol = resolvedSymbol as VariableSymbol;
+              // Get the type, preserving original type info
+              const variableTypeInfo = convertVariableTypeToTypeInfo(
+                variableSymbol.type,
+                typeInfo,
+              );
+              // If the variable type still needs resolution, recursively resolve it
+              if (variableTypeInfo.needsNamespaceResolution) {
+                const recursivelyResolved = yield* resolveTypeIfNeeded(
+                  variableTypeInfo,
+                  symbolManager,
+                  symbolTable,
+                );
+                return recursivelyResolved || variableTypeInfo;
+              }
+              return variableTypeInfo;
+            }
+          }
+          // Handle TYPE references - use existing TypeSymbol logic
+          else if (isTypeSymbol(resolvedSymbol)) {
             // Convert TypeSymbol to TypeInfo
             return convertTypeSymbolToTypeInfo(
               resolvedSymbol as TypeSymbol,
@@ -345,6 +468,28 @@ function isTypeSymbol(symbol: any): boolean {
 }
 
 /**
+ * Check if a symbol is a method symbol (Method or Constructor)
+ */
+function isMethodSymbol(symbol: any): boolean {
+  return (
+    symbol.kind === SymbolKind.Method || symbol.kind === SymbolKind.Constructor
+  );
+}
+
+/**
+ * Check if a symbol is a variable symbol (Property, Field, Variable, Parameter, or EnumValue)
+ */
+function isVariableSymbol(symbol: any): boolean {
+  return (
+    symbol.kind === SymbolKind.Property ||
+    symbol.kind === SymbolKind.Field ||
+    symbol.kind === SymbolKind.Variable ||
+    symbol.kind === SymbolKind.Parameter ||
+    symbol.kind === SymbolKind.EnumValue
+  );
+}
+
+/**
  * Convert a TypeSymbol to TypeInfo, preserving original type information
  */
 function convertTypeSymbolToTypeInfo(
@@ -357,5 +502,51 @@ function convertTypeSymbolToTypeInfo(
     needsNamespaceResolution: false,
     resolvedSymbol: typeSymbol,
     resolutionConfidence: 1.0,
+  };
+}
+
+/**
+ * Convert a method's return type to TypeInfo, preserving original type information
+ * If the return type needs resolution, it will be resolved recursively
+ */
+function convertMethodReturnTypeToTypeInfo(
+  returnType: TypeInfo,
+  originalTypeInfo: TypeInfo,
+): TypeInfo {
+  return {
+    ...originalTypeInfo,
+    name: returnType.name,
+    needsNamespaceResolution: returnType.needsNamespaceResolution,
+    originalTypeString: returnType.originalTypeString || returnType.name,
+    typeReferenceId: returnType.typeReferenceId,
+    resolvedSymbol: returnType.resolvedSymbol,
+    resolutionConfidence: returnType.resolutionConfidence || 1.0,
+    isPrimitive: returnType.isPrimitive,
+    isArray: returnType.isArray,
+    isCollection: returnType.isCollection,
+    typeParameters: returnType.typeParameters,
+  };
+}
+
+/**
+ * Convert a variable's type to TypeInfo, preserving original type information
+ * If the type needs resolution, it will be resolved recursively
+ */
+function convertVariableTypeToTypeInfo(
+  variableType: TypeInfo,
+  originalTypeInfo: TypeInfo,
+): TypeInfo {
+  return {
+    ...originalTypeInfo,
+    name: variableType.name,
+    needsNamespaceResolution: variableType.needsNamespaceResolution,
+    originalTypeString: variableType.originalTypeString || variableType.name,
+    typeReferenceId: variableType.typeReferenceId,
+    resolvedSymbol: variableType.resolvedSymbol,
+    resolutionConfidence: variableType.resolutionConfidence || 1.0,
+    isPrimitive: variableType.isPrimitive,
+    isArray: variableType.isArray,
+    isCollection: variableType.isCollection,
+    typeParameters: variableType.typeParameters,
   };
 }

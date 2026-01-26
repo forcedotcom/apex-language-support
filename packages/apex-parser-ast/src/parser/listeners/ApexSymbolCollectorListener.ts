@@ -4446,8 +4446,9 @@ export class ApexSymbolCollectorListener
 
       // For other expression types, we can't determine the type during parsing
       // Mark as needing resolution for TIER 2 validation
+      // BUT: Still try to link to a SymbolReference if one exists in the symbol table
       if (!typeInfo) {
-        return {
+        const fallbackTypeInfo: TypeInfo = {
           name: 'Object',
           isArray: false,
           isCollection: false,
@@ -4456,6 +4457,72 @@ export class ApexSymbolCollectorListener
           needsNamespaceResolution: true,
           getNamespace: () => null,
         };
+
+        // Log ALL references in the symbol table to debug
+        const allRefs = this.symbolTable.getAllReferences();
+        this.logger.info(
+          () =>
+            `[extractInitializerType-FALLBACK] Total refs in table: ${allRefs.length}, ` +
+            `looking at position ${location.identifierRange.startLine}:${location.identifierRange.startColumn}. ` +
+            `All refs: ${allRefs.map((r) => `${r.name}@${r.location.identifierRange.startLine}:${r.location.identifierRange.startColumn}:${ReferenceContext[r.context]}`).join(', ')}`,
+        );
+
+        // Try to link to any reference within this expression's range (METHOD_CALL or FIELD_ACCESS)
+        // References are created at specific identifier positions, which may be within the expression range
+        const startLine = location.symbolRange.startLine;
+        const endLine = location.symbolRange.endLine;
+        const startCol = location.symbolRange.startColumn;
+        const endCol = location.symbolRange.endColumn;
+
+        // For chained expressions, find the CHAINED_TYPE reference that spans this range
+        // and link to a METHOD_CALL or FIELD_ACCESS chain node
+        let methodOrFieldRef: SymbolReference | undefined;
+
+        // Find CHAINED_TYPE references that overlap with this expression
+        const chainedRefs = allRefs.filter(
+          (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+        );
+
+        for (const ref of chainedRefs) {
+          const chainedRef = ref as any;
+          if (chainedRef.chainNodes && Array.isArray(chainedRef.chainNodes)) {
+            // Find METHOD_CALL or FIELD_ACCESS node in the chain
+            const targetNode = chainedRef.chainNodes.find(
+              (node: SymbolReference) =>
+                node.context === ReferenceContext.METHOD_CALL ||
+                node.context === ReferenceContext.FIELD_ACCESS,
+            );
+            if (targetNode) {
+              methodOrFieldRef = targetNode;
+              this.logger.info(
+                () =>
+                  `[extractInitializerType-FALLBACK] Found chained ref "${ref.name}" with target node: ${targetNode.name}:${ReferenceContext[targetNode.context]}`,
+              );
+              break;
+            }
+          }
+        }
+
+        if (methodOrFieldRef) {
+          // Link to this reference
+          const refId =
+            `${this.currentFilePath}:${methodOrFieldRef.location.identifierRange.startLine}:` +
+            `${methodOrFieldRef.location.identifierRange.startColumn}:${methodOrFieldRef.name}:` +
+            `${ReferenceContext[methodOrFieldRef.context]}`;
+          fallbackTypeInfo.typeReferenceId = refId;
+          this.logger.info(
+            () =>
+              `[extractInitializerType] Linked fallback type to reference ID: ${refId} ` +
+              `(context: ${ReferenceContext[methodOrFieldRef.context]})`,
+          );
+        } else {
+          this.logger.info(
+            () =>
+              `[extractInitializerType-FALLBACK] No METHOD_CALL or FIELD_ACCESS reference found at position`,
+          );
+        }
+
+        return fallbackTypeInfo;
       }
 
       // Link the TypeInfo to its SymbolReference if we have an expected context
@@ -4515,8 +4582,23 @@ export class ApexSymbolCollectorListener
       // For constructor calls, match CONSTRUCTOR_CALL context
       // For method calls, match METHOD_CALL context
       // For variable references, match VARIABLE_USAGE context
+      // When typeInfo.name is 'Object', use originalTypeString for matching
+      let nameToMatch = typeInfo.name;
+      if (typeInfo.name === 'Object' && typeInfo.originalTypeString) {
+        // For dotted expressions like "property.Id", extract the last part
+        // For method calls like "FileUtilities.createFile(...)", extract method name without args
+        let cleanedString = typeInfo.originalTypeString;
+        // Remove method arguments if present
+        const parenIndex = cleanedString.indexOf('(');
+        if (parenIndex !== -1) {
+          cleanedString = cleanedString.substring(0, parenIndex);
+        }
+        // Extract last part after dot
+        const parts = cleanedString.split('.');
+        nameToMatch = parts[parts.length - 1];
+      }
       const matchingRef = refs.find(
-        (ref) => ref.context === expectedContext && ref.name === typeInfo.name,
+        (ref) => ref.context === expectedContext && ref.name === nameToMatch,
       );
 
       // Also check for collection types where the reference name might be "List", "Set", or "Map"
@@ -4549,17 +4631,18 @@ export class ApexSymbolCollectorListener
           `${matchingRef.location.identifierRange.startColumn}:${matchingRef.name}:` +
           `${ReferenceContext[matchingRef.context]}`;
         typeInfo.typeReferenceId = refId;
-        this.logger.debug(
+        this.logger.info(
           () =>
             `[linkInitializerTypeToReference] Linked type "${typeInfo.name}" to reference ID: ${refId}`,
         );
       } else {
-        // Reference exists but doesn't match - log debug but continue
-        this.logger.debug(
+        // Reference exists but doesn't match - log info but continue
+        this.logger.info(
           () =>
-            `No matching reference found for initializer type "${typeInfo.name}" ` +
-            `(expected context: ${ReferenceContext[expectedContext]}) at ` +
-            `${location.identifierRange.startLine}:${location.identifierRange.startColumn}`,
+            `[linkInitializerTypeToReference-FAIL] No matching reference for type "${typeInfo.name}" ` +
+            `(nameToMatch: ${nameToMatch}, expected context: ${ReferenceContext[expectedContext]}) at ` +
+            `${location.identifierRange.startLine}:${location.identifierRange.startColumn}, ` +
+            `found ${refs.length} refs: ${refs.map((r) => `${r.name}:${ReferenceContext[r.context]}`).join(', ')}`,
         );
       }
     } catch (e) {

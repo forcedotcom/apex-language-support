@@ -51,7 +51,10 @@ export const compileFixture = async (
   const content = loadFixture(validatorCategory, filename);
   const uri = fileUri || `file:///test/${filename}`;
   const listener = new ApexSymbolCollectorListener(undefined, 'full');
-  const result = compilerService.compile(content, uri, listener);
+  const result = compilerService.compile(content, uri, listener, {
+    collectReferences: true,
+    resolveReferences: true,
+  });
 
   if (result.errors.length > 0) {
     throw new Error(

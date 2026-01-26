@@ -6,16 +6,22 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { Effect } from 'effect';
 import { TypeAssignmentValidator } from '../../../../src/semantics/validation/validators';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
+import { ApexSymbolCollectorListener } from '../../../../src/parser/listeners/ApexSymbolCollectorListener';
+import { ErrorType } from '../../../../src/parser/listeners/ApexErrorListener';
+import { EffectTestLoggerLive } from '../../../../src/utils/EffectLspLoggerLayer';
 import {
   compileFixture,
   getMessage,
   runValidator,
   createValidationOptions,
+  loadFixture,
 } from './helpers/validation-test-helpers';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('TypeAssignmentValidator', () => {
   let symbolManager: ApexSymbolManager;
@@ -24,6 +30,8 @@ describe('TypeAssignmentValidator', () => {
   beforeEach(() => {
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
+    enableConsoleLogging();
+    setLogLevel('info');
   });
 
   afterEach(() => {
@@ -189,5 +197,141 @@ describe('TypeAssignmentValidator', () => {
     expect(result.errors.length).toBeGreaterThan(0);
     const errorMessage = getMessage(result.errors[0]);
     expect(errorMessage).toContain('Type mismatch');
+  });
+
+  describe('Cross-file method call assignments', () => {
+    it('should pass validation for cross-file method call returning String', async () => {
+      // First compile the dependency files
+      await compileFixtureForValidator(
+        'FileUtilities.cls',
+        'file:///FileUtilities.cls',
+      );
+      await compileFixtureForValidator('Property.cls', 'file:///Property.cls');
+
+      // Then compile the test file that uses cross-file references
+      const symbolTable = await compileFixtureForValidator(
+        'CrossFileMethodCall.cls',
+        'file:///CrossFileMethodCall.cls',
+      );
+
+      // Resolve cross-file references before validation
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          'file:///CrossFileMethodCall.cls',
+        ),
+      );
+
+      // Wait for cross-file resolution to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const result = await runValidator(
+        TypeAssignmentValidator.validate(
+          symbolTable,
+          createValidationOptions(symbolManager, {
+            allowArtifactLoading: false,
+            tier: ValidationTier.THOROUGH,
+          }),
+        ),
+        symbolManager,
+      );
+
+      if (!result.isValid && result.errors.length > 0) {
+        console.log(
+          '[TEST] Validation errors (should be empty for valid code):',
+          result.errors.map((e) => getMessage(e)),
+        );
+      }
+
+      // After fixing cross-file type resolution for method calls and property access,
+      // this test should pass validation correctly
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('should detect false positives when syntax errors are present', async () => {
+      // First compile the dependency files
+      await compileFixtureForValidator(
+        'FileUtilities.cls',
+        'file:///FileUtilities.cls',
+      );
+      await compileFixtureForValidator('Property.cls', 'file:///Property.cls');
+
+      // Compile the test file with syntax error (trailing "public")
+      // We need to compile manually to allow syntax errors
+      const content = loadFixture(
+        'type-assignment',
+        'CrossFileMethodCallWithSyntaxError.cls',
+      );
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      const compileResult = compilerService.compile(
+        content,
+        'file:///CrossFileMethodCallWithSyntaxError.cls',
+        listener,
+        {
+          collectReferences: true,
+          resolveReferences: true,
+        },
+      );
+
+      const hasSyntaxErrors = compileResult.errors.some(
+        (e) => e.type === ErrorType.Syntax,
+      );
+
+      expect(hasSyntaxErrors).toBe(true);
+
+      // Even with syntax errors, we should still get a symbol table (may be partial)
+      if (!compileResult.result) {
+        throw new Error(
+          'Failed to compile CrossFileMethodCallWithSyntaxError.cls',
+        );
+      }
+
+      const symbolTable = compileResult.result;
+
+      // Add to symbol manager even with syntax errors
+      await Effect.runPromise(
+        symbolManager
+          .addSymbolTable(
+            symbolTable,
+            'file:///CrossFileMethodCallWithSyntaxError.cls',
+          )
+          .pipe(Effect.provide(EffectTestLoggerLive)),
+      );
+
+      // Resolve cross-file references before validation
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          'file:///CrossFileMethodCallWithSyntaxError.cls',
+        ),
+      );
+
+      const result = await runValidator(
+        TypeAssignmentValidator.validate(
+          symbolTable,
+          createValidationOptions(symbolManager, {
+            allowArtifactLoading: false,
+            tier: ValidationTier.THOROUGH,
+          }),
+        ),
+        symbolManager,
+      );
+
+      // Log the results for debugging
+      console.log(
+        `[TEST] Syntax errors present: ${hasSyntaxErrors}, ` +
+          `Validation errors: ${result.errors.length}, ` +
+          `Errors: ${result.errors.map((e) => getMessage(e)).join(', ')}`,
+      );
+
+      // Verify syntax errors are present (this is expected for this test)
+      expect(hasSyntaxErrors).toBe(true);
+
+      // After fixing cross-file type resolution, validation should pass correctly
+      // even when syntax errors are present (as long as the cross-file references are resolved)
+      // Note: Syntax errors may prevent some resolution, but if references are resolved,
+      // type validation should work correctly
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
   });
 });

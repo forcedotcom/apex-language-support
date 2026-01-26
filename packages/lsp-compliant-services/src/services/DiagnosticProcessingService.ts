@@ -34,6 +34,7 @@ import {
   ArtifactLoadingHelperLive,
   ISymbolManagerTag,
   initializeValidators,
+  ErrorType,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect, Layer } from 'effect';
 
@@ -318,6 +319,28 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           ),
         );
 
+        // Check for syntax errors in cached diagnostics
+        const cachedSyntaxErrors = enhancedCachedDiagnostics.filter(
+          (diagnostic) => diagnostic.code === 'SYNTAX_ERROR',
+        );
+        const hasCachedSyntaxErrors = cachedSyntaxErrors.length > 0;
+
+        if (hasCachedSyntaxErrors) {
+          this.logger.debug(() => {
+            const errorDetails = cachedSyntaxErrors
+              .map(
+                (d) =>
+                  `[${d.range.start.line}:${d.range.start.character}] ${d.message}`,
+              )
+              .join(', ');
+            return (
+              '[VALIDATION-DEBUG] Syntax errors detected in cached diagnostics ' +
+              `for ${params.textDocument.uri}: ${cachedSyntaxErrors.length} ` +
+              `syntax error(s). Errors: ${errorDetails}`
+            );
+          });
+        }
+
         // Run semantic validation (always enabled)
         this.logger.debug(
           () =>
@@ -330,6 +353,17 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         );
 
         if (cachedTable) {
+          // Check enrichment level before validation
+          const detailLevel =
+            (this.symbolManager as any).getDetailLevelForFile?.(
+              params.textDocument.uri,
+            ) ?? null;
+          this.logger.debug(
+            () =>
+              `[VALIDATION-DEBUG] Running semantic validation for cached result ${params.textDocument.uri}: ` +
+              `syntaxErrors=${hasCachedSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
+              `symbolTableSize=${cachedTable.getAllSymbols().length}`,
+          );
           // Get settings for artifact loading
           const settings = ApexSettingsManager.getInstance().getSettings();
           const allowArtifactLoading =
@@ -388,6 +422,25 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           `Compilation result for ${document.uri}: ${result.errors.length} errors, ` +
           `${result.warnings.length} warnings`,
       );
+
+      // Check for syntax errors before semantic validation
+      const syntaxErrors = result.errors.filter(
+        (error) => error.type === ErrorType.Syntax,
+      );
+      const hasSyntaxErrors = syntaxErrors.length > 0;
+
+      if (hasSyntaxErrors) {
+        this.logger.debug(() => {
+          const errorDetails = syntaxErrors
+            .map((e) => `[${e.line}:${e.column}] ${e.message}`)
+            .join(', ');
+          return (
+            '[VALIDATION-DEBUG] Syntax errors detected before semantic ' +
+            `validation for ${document.uri}: ${syntaxErrors.length} ` +
+            `syntax error(s). Errors: ${errorDetails}`
+          );
+        });
+      }
 
       // Get diagnostics from errors
       const diagnostics = getDiagnosticsFromErrors(result.errors);
@@ -464,6 +517,17 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       let validatorDiagnostics: Diagnostic[] = [];
       if (table) {
         try {
+          // Check enrichment level before validation
+          const detailLevel =
+            (this.symbolManager as any).getDetailLevelForFile?.(document.uri) ??
+            null;
+          this.logger.debug(
+            () =>
+              `[VALIDATION-DEBUG] Running semantic validation for ${params.textDocument.uri}: ` +
+              `syntaxErrors=${hasSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
+              `symbolTableSize=${table.getAllSymbols().length}`,
+          );
+
           this.logger.debug(
             () => `Running semantic validation for: ${params.textDocument.uri}`,
           );
@@ -634,8 +698,13 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     const effect = Effect.gen(function* () {
       try {
         // Run validators for this tier
+        const tierName =
+          tier === ValidationTier.IMMEDIATE ? 'TIER 1' : 'TIER 2';
+        const hasSymbolManager = !!options.symbolManager;
         yield* Effect.logDebug(
-          `Starting validators for tier ${tier} with ${options.symbolManager ? 'symbolManager' : 'no symbolManager'}`,
+          `[VALIDATION-DEBUG] Starting validators for tier ${tier} (${tierName}) ` +
+            `with ${hasSymbolManager ? 'symbolManager' : 'no symbolManager'} ` +
+            `for ${hasSymbolManager ? 'enrichment' : 'no enrichment'}`,
         );
         const results = yield* runValidatorsForTier(
           tier,
