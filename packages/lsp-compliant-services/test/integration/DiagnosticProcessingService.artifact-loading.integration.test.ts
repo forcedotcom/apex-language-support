@@ -83,8 +83,20 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
 
     logger = getLogger();
 
-    // Use real storage manager - it will store documents we provide
-    storageManager = ApexStorageManager.getInstance();
+    // Reset storage manager singleton to ensure clean state
+    ApexStorageManager.reset();
+
+    // Use real storage manager with in-memory storage factory
+    // This creates a real ApexStorage instance for testing
+    // Note: ApexStorage is also a singleton, but since we reset ApexStorageManager
+    // and each test gets a fresh manager instance, the shared ApexStorage instance
+    // should be fine for integration tests
+    const { ApexStorage } = require('../../src/storage/ApexStorage');
+    storageManager = ApexStorageManager.getInstance({
+      storageFactory: () => ApexStorage.getInstance(),
+      autoPersistIntervalMs: 0, // Disable auto-persist for tests
+    });
+    await storageManager.initialize();
 
     // Setup mock connection (external LSP client)
     mockConnection = {
