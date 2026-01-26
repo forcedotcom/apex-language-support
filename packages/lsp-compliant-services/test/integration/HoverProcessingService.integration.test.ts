@@ -73,7 +73,6 @@ describe('HoverProcessingService Integration Tests', () => {
     (ResourceLoader as any).instance = null;
     const standardLibZip = loadStandardLibraryZip();
     resourceLoader = ResourceLoader.getInstance({
-      loadMode: 'lazy',
       preloadStdClasses: true,
       zipBuffer: standardLibZip,
     });
@@ -103,7 +102,6 @@ describe('HoverProcessingService Integration Tests', () => {
       const standardLibZip = loadStandardLibraryZip();
       (ResourceLoader as any).instance = null;
       resourceLoader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         preloadStdClasses: true,
         zipBuffer: standardLibZip,
       });

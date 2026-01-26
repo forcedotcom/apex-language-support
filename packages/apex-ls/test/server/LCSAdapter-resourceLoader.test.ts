@@ -39,9 +39,7 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
     })),
   },
   ApexSettingsManager: {
-    getInstance: jest.fn(() => ({
-      getResourceLoadMode: jest.fn(() => 'full'),
-    })),
+    getInstance: jest.fn(() => ({})),
   },
 }));
 
@@ -112,9 +110,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
     // Mock LSPConfigurationManager
     mockConfigManager = {
       getInstance: jest.fn(),
-      getSettingsManager: jest.fn(() => ({
-        getResourceLoadMode: jest.fn(() => 'full'),
-      })),
+      getSettingsManager: jest.fn(() => ({})),
     } as unknown as jest.Mocked<LSPConfigurationManager>;
 
     (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
@@ -149,7 +145,6 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
       // Verify ResourceLoader.getInstance was called with correct options
       expect(ResourceLoader.getInstance).toHaveBeenCalledWith({
-        loadMode: 'full',
         preloadStdClasses: true,
       });
     });
@@ -250,37 +245,6 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
       // Verify warning was logged
       expect(mockLogger.warn).toHaveBeenCalled();
-    });
-
-    it('should respect loadMode from settings', async () => {
-      // Update mock to return 'lazy' mode
-      mockConfigManager.getSettingsManager = jest.fn(() => ({
-        getResourceLoadMode: jest.fn(() => 'lazy'),
-      }));
-
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
-      const mockResourceLoader = {
-        getDirectoryStatistics: jest.fn(() => ({
-          totalFiles: 100,
-          namespaces: ['System'],
-        })),
-        initialize: jest.fn().mockResolvedValue(undefined),
-        isProtobufCacheLoaded: jest.fn(() => true),
-      };
-
-      (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
-        mockResourceLoader,
-      );
-
-      await (adapter as any).initializeResourceLoader();
-
-      // Verify ResourceLoader was called with lazy mode
-      expect(ResourceLoader.getInstance).toHaveBeenCalledWith({
-        loadMode: 'lazy',
-        preloadStdClasses: true,
-      });
     });
 
     it('should handle ResourceLoader initialization successfully', async () => {

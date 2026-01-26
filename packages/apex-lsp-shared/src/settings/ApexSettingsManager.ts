@@ -10,7 +10,6 @@ import { formattedError } from '../utils/ErrorUtils';
 import { getLogger, setLogLevel } from '../index';
 import type {
   ApexLanguageServerSettings,
-  ResourceLoadMode,
   RuntimePlatform,
   ServerMode,
 } from '../server/ApexLanguageServerSettings';
@@ -531,13 +530,6 @@ export class ApexSettingsManager {
     return this.currentSettings.apex.performance.useAsyncCommentProcessing;
   }
 
-  /**
-   * Get the resource loading mode
-   */
-  public getResourceLoadMode(): ResourceLoadMode {
-    return this.currentSettings.apex.resources.loadMode ?? 'lazy';
-  }
-
   private notifyListeners(settings: ApexLanguageServerSettings): void {
     this.changeListeners.forEach((listener) => {
       try {
@@ -606,16 +598,6 @@ export class ApexSettingsManager {
     ) {
       changes.push(
         `max file size: ${prevPerf.commentCollectionMaxFileSize} → ${currPerf.commentCollectionMaxFileSize}`,
-      );
-    }
-
-    // Check resource changes
-    const prevResources = previous.apex.resources;
-    const currResources = current.apex.resources;
-
-    if (prevResources.loadMode !== currResources.loadMode) {
-      changes.push(
-        `resource load mode: ${prevResources.loadMode} → ${currResources.loadMode}`,
       );
     }
 

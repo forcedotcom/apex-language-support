@@ -26,7 +26,7 @@ describe('ApexSymbolCollectorListener - StandardApexLibrary FQN Tests', () => {
 
   beforeAll(async () => {
     // Initialize ResourceLoader with StandardApexLibrary.zip
-    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+    await initializeResourceLoaderForTests();
     resourceLoader = ResourceLoader.getInstance();
     enableConsoleLogging();
     setLogLevel('error');

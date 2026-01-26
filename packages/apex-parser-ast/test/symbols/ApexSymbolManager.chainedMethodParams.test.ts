@@ -38,7 +38,7 @@ describe('ApexSymbolManager - Chained Method Calls in Parameters', () => {
 
   beforeAll(async () => {
     // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
-    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+    await initializeResourceLoaderForTests();
 
     // Initialize scheduler before all tests
     await Effect.runPromise(

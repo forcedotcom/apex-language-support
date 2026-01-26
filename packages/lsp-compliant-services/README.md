@@ -504,25 +504,6 @@ The server looks for configuration in these sections (in order of precedence):
   
   **Note**: If you attempt to add or exclude immutable schemes (like `"file"`), the server will log warnings but continue to operate with the default behavior. Check the server logs for validation warnings.
 
-#### Resource Settings
-
-```json
-{
-  "apex": {
-    "resources": {
-      "loadMode": "full"
-    }
-  }
-}
-```
-
-##### Options:
-
-- **`loadMode`** (string, default: `"full"` for Node.js, `"lazy"` for browser)
-  - Resource loading strategy for Apex standard library files.
-  - `"full"`: Load all resources immediately during initialization (faster access, higher memory usage)
-  - `"lazy"`: Load resources on-demand when accessed (lower memory usage, slight access delay)
-
 ### Environment-Specific Defaults
 
 The language server automatically applies different defaults based on the runtime environment:
@@ -532,14 +513,12 @@ The language server automatically applies different defaults based on the runtim
 - Higher file size limits (100KB)
 - Shorter debounce delays (300ms)
 - Comment association enabled by default for document operations
-- Resource loading mode: `"full"` (loads all resources immediately)
 
 #### Browser Environment
 
 - Lower file size limits (50KB) for better performance
 - Longer debounce delays (500ms)
 - More conservative defaults for memory usage
-- Resource loading mode: `"lazy"` (loads resources on-demand)
 
 ### Client Configuration Examples
 
@@ -552,8 +531,7 @@ The language server automatically applies different defaults based on the runtim
   "apex.commentCollection.associateCommentsWithSymbols": true,
   "apex.performance.commentCollectionMaxFileSize": 200000,
   "apex.environment.profilingMode": "full",
-  "apex.environment.profilingType": "both",
-  "apex.resources.loadMode": "full"
+  "apex.environment.profilingType": "both"
 }
 ```
 
@@ -572,9 +550,6 @@ lspconfig.apex_ls.setup({
       },
       performance = {
         commentCollectionMaxFileSize = 150000,
-      },
-      resources = {
-        loadMode = "lazy",
       }
     }
   }
@@ -590,9 +565,7 @@ lspconfig.apex_ls.setup({
             :includeSingleLineComments nil
             :associateCommentsWithSymbols t)
            :performance
-           (:commentCollectionMaxFileSize 150000)
-           :resources
-           (:loadMode "lazy"))))
+           (:commentCollectionMaxFileSize 150000))))
 ```
 
 ### Performance Recommendations
@@ -602,21 +575,18 @@ lspconfig.apex_ls.setup({
 - Keep `enableForDocumentSymbols` and `enableForFoldingRanges` disabled
 - Set a reasonable `commentCollectionMaxFileSize` limit
 - Use longer debounce delays to reduce processing frequency
-- Consider using `"lazy"` resource loading mode to reduce initial memory usage
 
 #### For Enhanced Features
 
 - Enable `associateCommentsWithSymbols` for better documentation support
 - Enable `includeSingleLineComments` for comprehensive comment analysis
 - Enable performance logging to monitor impact
-- Use `"full"` resource loading mode for faster access to standard library resources
 
 #### For Browser/Web Environments
 
 - Use the browser-optimized defaults
 - Consider disabling comment collection for very large files
 - Monitor memory usage and adjust limits accordingly
-- Use `"lazy"` resource loading mode to minimize initial memory footprint
 
 ### Troubleshooting
 

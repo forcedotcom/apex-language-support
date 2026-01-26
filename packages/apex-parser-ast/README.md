@@ -744,7 +744,7 @@ src/resources/StandardApexLibrary/
 import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
 
 // Get the singleton instance
-const resourceLoader = ResourceLoader.getInstance({ loadMode: 'full' });
+const resourceLoader = ResourceLoader.getInstance();
 
 // Wait for initialization and compilation
 await resourceLoader.initialize();

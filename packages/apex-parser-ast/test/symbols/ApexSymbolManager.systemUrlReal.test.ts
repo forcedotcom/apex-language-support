@@ -32,7 +32,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
 
   beforeAll(async () => {
     // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
-    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+    await initializeResourceLoaderForTests();
   });
 
   beforeEach(() => {

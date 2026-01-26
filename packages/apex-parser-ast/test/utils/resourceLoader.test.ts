@@ -41,54 +41,23 @@ describe('ResourceLoader', () => {
   });
 
   afterEach(async () => {
-    // Wait for any ongoing compilation to complete before resetting
-    const instance = ResourceLoader.getInstance({ loadMode: 'lazy' });
-    if (instance) {
-      let timeoutId: NodeJS.Timeout | null = null;
-      try {
-        // First check if compilation is in progress
-        if (instance.isCompiling()) {
-          await Promise.race([
-            instance.waitForCompilation(),
-            new Promise<void>((resolve) => {
-              timeoutId = setTimeout(resolve, 2000); // 2 second timeout
-            }),
-          ]);
-        } else {
-          // Even if not compiling, wait briefly to ensure all Effect operations complete
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-      } catch (_error) {
-        // Ignore errors during cleanup
-      } finally {
-        // Clear the timeout if it's still pending
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        // Interrupt any remaining compilation to ensure clean shutdown
-        instance.interruptCompilation();
-      }
-    }
     ResourceLoader.resetInstance();
-    // Final delay to ensure all cleanup completes (following pattern from other tests)
-    await new Promise((resolve) => setTimeout(resolve, 100));
   });
 
   describe('getInstance', () => {
     it('should return the same instance on multiple calls', () => {
-      const instance1 = ResourceLoader.getInstance({ loadMode: 'lazy' });
-      const instance2 = ResourceLoader.getInstance({ loadMode: 'lazy' });
+      const instance1 = ResourceLoader.getInstance();
+      const instance2 = ResourceLoader.getInstance();
       expect(instance1).toBe(instance2);
     });
 
     it('should accept loading options', () => {
-      const instance = ResourceLoader.getInstance({ loadMode: 'lazy' });
+      const instance = ResourceLoader.getInstance();
       expect(instance).toBeDefined();
     });
 
     it('should accept preloadCommonClasses option', () => {
       const instance = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         preloadStdClasses: true,
       });
       expect(instance).toBeDefined();
@@ -98,7 +67,6 @@ describe('ResourceLoader', () => {
   describe('immediate structure availability', () => {
     it('should provide directory structure immediately after construction', async () => {
       loader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         zipBuffer: standardLibZip,
       });
 
@@ -113,7 +81,6 @@ describe('ResourceLoader', () => {
 
     it('should provide namespace structure immediately', () => {
       loader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         zipBuffer: standardLibZip,
       });
 
@@ -127,7 +94,6 @@ describe('ResourceLoader', () => {
 
     it('should check class existence without loading content', () => {
       loader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         zipBuffer: standardLibZip,
       });
 
@@ -137,7 +103,6 @@ describe('ResourceLoader', () => {
 
     it('should provide directory statistics immediately', () => {
       loader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         zipBuffer: standardLibZip,
       });
 
@@ -150,7 +115,6 @@ describe('ResourceLoader', () => {
 
     it('should handle Windows-style paths correctly', () => {
       loader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         zipBuffer: standardLibZip,
       });
 
@@ -170,7 +134,6 @@ describe('ResourceLoader', () => {
   describe('initialization', () => {
     it('should be initialized immediately after construction', async () => {
       loader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         zipBuffer: standardLibZip,
       });
       // Structure is available immediately, no need to call initialize()
@@ -180,7 +143,6 @@ describe('ResourceLoader', () => {
 
     it('should handle initialize() for backward compatibility', async () => {
       loader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         zipBuffer: standardLibZip,
       });
       await expect(loader.initialize()).resolves.not.toThrow();
@@ -188,7 +150,6 @@ describe('ResourceLoader', () => {
 
     it('should not initialize twice', async () => {
       loader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         zipBuffer: standardLibZip,
       });
       await loader.initialize();
@@ -197,7 +158,7 @@ describe('ResourceLoader', () => {
 
     it('should automatically load embedded ZIP during initialize()', async () => {
       // Create instance without providing zipBuffer
-      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+      loader = ResourceLoader.getInstance();
 
       // Before initialize, no ZIP buffer (unless provided explicitly)
       // Note: In test environment, embedded ZIP may not be available
@@ -212,7 +173,7 @@ describe('ResourceLoader', () => {
 
     it('should not override explicitly set ZIP buffer during initialize()', async () => {
       // Create instance and manually set ZIP buffer
-      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+      loader = ResourceLoader.getInstance();
       loader.setZipBuffer(standardLibZip);
 
       // Verify ZIP buffer is set by checking we can access files
@@ -232,7 +193,6 @@ describe('ResourceLoader', () => {
   describe('file access', () => {
     beforeEach(async () => {
       loader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         zipBuffer: standardLibZip,
       });
       await loader.initialize();
@@ -308,10 +268,9 @@ describe('ResourceLoader', () => {
     });
   });
 
-  describe('loading modes', () => {
-    it('should load files lazily in lazy mode', async () => {
+  describe('lazy loading', () => {
+    it('should load files lazily on demand', async () => {
       loader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         zipBuffer: standardLibZip,
       });
       await loader.initialize();
@@ -326,19 +285,6 @@ describe('ResourceLoader', () => {
       expect(content2).toBe(content1);
     });
 
-    it('should load all files immediately in full mode', async () => {
-      loader = ResourceLoader.getInstance({
-        loadMode: 'full',
-        zipBuffer: standardLibZip,
-      });
-      await loader.initialize();
-
-      // Content should be immediately available
-      const content = await loader.getFile(TEST_FILE);
-      expect(content).toBeDefined();
-      expect(content).toContain('global class System');
-    });
-
     it.skip('should preload common classes when requested', async () => {
       // TODO: Re-enable this test once preloadStdClasses is implemented
       // The preloadStdClasses option is defined in ResourceLoaderOptions but
@@ -346,7 +292,6 @@ describe('ResourceLoader', () => {
       // Once implemented, this test should verify that classes are preloaded immediately
       // when preloadStdClasses: true is set, increasing loadedEntries count.
       loader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         preloadStdClasses: true,
         zipBuffer: standardLibZip,
       });
@@ -363,7 +308,6 @@ describe('ResourceLoader', () => {
       // Ensure singleton is reset before creating new instance
       ResourceLoader.resetInstance();
       loader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         zipBuffer: standardLibZip,
       });
       await loader.initialize();
@@ -373,7 +317,6 @@ describe('ResourceLoader', () => {
       expect(stats.totalFiles).toBeGreaterThan(0);
       expect(stats.loadedFiles).toBe(0); // Initially no files loaded
       expect(stats.compiledFiles).toBe(0); // Initially no files compiled
-      expect(stats.loadMode).toBe('lazy');
       expect(stats.directoryStructure).toBeDefined();
       expect(stats.lazyFileStats).toBeDefined();
 
@@ -386,169 +329,63 @@ describe('ResourceLoader', () => {
   });
 });
 
-describe('ResourceLoader Compilation', () => {
+describe('ResourceLoader On-Demand Compilation', () => {
   let resourceLoader: ResourceLoader;
-  let sharedCompiledLoader: ResourceLoader | null = null;
   let standardLibZip: Uint8Array;
 
-  beforeAll(
-    async () => {
-      // Set up a shared compiled loader once for all tests in this describe block
-      standardLibZip = loadStandardLibraryZip();
-
-      // Reset the singleton to ensure we get a fresh instance
-      ResourceLoader.resetInstance();
-
-      sharedCompiledLoader = ResourceLoader.getInstance({
-        loadMode: 'full',
-        zipBuffer: standardLibZip,
-      });
-
-      await sharedCompiledLoader.initialize();
-      await sharedCompiledLoader.waitForCompilation();
-    },
-    // Increase timeout for CI environments where compilation can be slower
-    process.env.CI ? 300000 : 180000, // 5 min for CI, 3 min for local
-  );
+  beforeAll(() => {
+    standardLibZip = loadStandardLibraryZip();
+  });
 
   beforeEach(() => {
-    // Use the shared compiled loader for tests that need it
-    resourceLoader = sharedCompiledLoader!;
-  });
-
-  afterAll(async () => {
-    // Wait for any ongoing compilation to complete before cleanup
-    // Use a timeout to prevent hanging if compilation is stuck
-    if (sharedCompiledLoader) {
-      let timeoutId: NodeJS.Timeout | null = null;
-      try {
-        await Promise.race([
-          sharedCompiledLoader.waitForCompilation(),
-          new Promise<void>((resolve) => {
-            timeoutId = setTimeout(resolve, 10000); // 10 second timeout
-          }),
-        ]);
-      } catch (_error) {
-        // Ignore errors during cleanup
-      } finally {
-        // Clear the timeout if it's still pending
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        // Interrupt any remaining compilation to ensure clean shutdown
-        sharedCompiledLoader.interruptCompilation();
-      }
-    }
-    // Clean up the shared instance
+    // Reset the singleton to ensure we get a fresh instance
     ResourceLoader.resetInstance();
-    sharedCompiledLoader = null;
-  });
-
-  // Shared setup for tests that need compiled artifacts
-  const setupCompiledLoader = async () =>
-    // Return the shared loader instead of creating a new one
-    sharedCompiledLoader!;
-
-  it('should not compile artifacts when loadMode is lazy', async () => {
-    // Create a separate lazy loader instance for this test
-    // We need to temporarily reset the singleton to test lazy mode properly
-    ResourceLoader.resetInstance();
-
-    const lazyLoader = ResourceLoader.getInstance({
-      loadMode: 'lazy',
+    resourceLoader = ResourceLoader.getInstance({
       zipBuffer: standardLibZip,
     });
-    await lazyLoader.initialize();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    const compiledArtifacts = lazyLoader.getAllCompiledArtifacts();
+  });
+
+  afterAll(() => {
+    ResourceLoader.resetInstance();
+  });
+
+  it('should not have pre-compiled artifacts initially', async () => {
+    await resourceLoader.initialize();
+    const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
     expect(compiledArtifacts.size).toBe(0);
   });
 
-  it('should get compiled artifact for specific file', async () => {
-    resourceLoader = await setupCompiledLoader();
-    const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
-    const firstArtifact = Array.from(compiledArtifacts.values())[0];
+  it('should compile and get artifact for specific file on demand', async () => {
+    await resourceLoader.initialize();
 
-    if (firstArtifact) {
-      const fileName = firstArtifact.path;
-      const compiledArtifact =
-        await resourceLoader.getCompiledArtifact(fileName);
+    // Initially no artifacts
+    const initialArtifacts = resourceLoader.getAllCompiledArtifacts();
+    expect(initialArtifacts.size).toBe(0);
 
-      expect(compiledArtifact).toBeDefined();
-      expect(compiledArtifact!.path).toBe(fileName);
-      expect(compiledArtifact!.compilationResult).toBeDefined();
-      expect(compiledArtifact!.compilationResult.comments).toBeDefined();
-      expect(
-        compiledArtifact!.compilationResult.commentAssociations,
-      ).toBeDefined();
-    }
+    // Load and compile on demand
+    const compiledArtifact =
+      await resourceLoader.getCompiledArtifact('System/System.cls');
+
+    expect(compiledArtifact).toBeDefined();
+    expect(compiledArtifact!.compilationResult).toBeDefined();
+    expect(compiledArtifact!.compilationResult.result).toBeDefined();
   }, 30000);
 
   it('should compile files with correct namespace from parent folder', async () => {
-    resourceLoader = await setupCompiledLoader();
+    await resourceLoader.initialize();
 
-    const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
-
-    // Test System namespace (which actually exists)
+    // Test System namespace
     const systemArtifact =
-      await resourceLoader.getCompiledArtifact('System/System.cls');
-    if (systemArtifact) {
-      expect(systemArtifact.compilationResult.result).toBeDefined();
-    } else {
-      // If not compiled in full mode, try to compile it now
       await resourceLoader.loadAndCompileClass('System/System.cls');
-      const reloadedArtifact =
-        await resourceLoader.getCompiledArtifact('System/System.cls');
-      expect(reloadedArtifact).toBeDefined();
-      expect(reloadedArtifact!.compilationResult.result).toBeDefined();
-    }
+    expect(systemArtifact).toBeDefined();
+    expect(systemArtifact!.compilationResult.result).toBeDefined();
 
-    // Test ApexPages namespace (which actually exists)
-    const actionArtifact = await resourceLoader.getCompiledArtifact(
+    // Test ApexPages namespace
+    const actionArtifact = await resourceLoader.loadAndCompileClass(
       'ApexPages/Action.cls',
     );
-    if (actionArtifact) {
-      expect(actionArtifact.compilationResult.result).toBeDefined();
-    } else {
-      // If not compiled in full mode, try to compile it now
-      await resourceLoader.loadAndCompileClass('ApexPages/Action.cls');
-      const reloadedArtifact = await resourceLoader.getCompiledArtifact(
-        'ApexPages/Action.cls',
-      );
-      expect(reloadedArtifact).toBeDefined();
-      expect(reloadedArtifact!.compilationResult.result).toBeDefined();
-    }
-
-    // Verify namespace distribution
-    const artifacts = Array.from(compiledArtifacts.values());
-    const namespaceMap = new Map<string, number>();
-
-    artifacts.forEach((artifact) => {
-      const pathParts = artifact.path.split(/[\/\\]/);
-      const namespace = pathParts.length > 1 ? pathParts[0] : '(root)';
-      namespaceMap.set(namespace, (namespaceMap.get(namespace) || 0) + 1);
-    });
-
-    expect(namespaceMap.size).toBeGreaterThan(1);
-    expect(namespaceMap.has('System')).toBe(true);
-    expect(namespaceMap.get('System')).toBeGreaterThan(0);
-  }, 30000);
-
-  it('should handle root-level files without namespace', async () => {
-    resourceLoader = await setupCompiledLoader();
-    const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
-    const artifacts = Array.from(compiledArtifacts.values());
-
-    const rootFiles = artifacts.filter(
-      (artifact) =>
-        !artifact.path.includes('/') && !artifact.path.includes('\\'),
-    );
-
-    if (rootFiles.length > 0) {
-      const rootFile = rootFiles[0];
-      expect(rootFile.compilationResult.result).toBeDefined();
-      expect(rootFile.compilationResult.errors.length).toBe(0);
-    }
+    expect(actionArtifact).toBeDefined();
+    expect(actionArtifact!.compilationResult.result).toBeDefined();
   }, 30000);
 });
 
@@ -565,21 +402,11 @@ describe('ResourceLoader Lazy Loading', () => {
     // Reset singleton for each test
     ResourceLoader.resetInstance();
     loader = ResourceLoader.getInstance({
-      loadMode: 'lazy',
       zipBuffer: standardLibZip,
     });
   });
 
-  afterEach(async () => {
-    // Wait for any ongoing compilation to complete before resetting
-    const instance = ResourceLoader.getInstance({ loadMode: 'lazy' });
-    if (instance) {
-      try {
-        await instance.waitForCompilation();
-      } catch (_error) {
-        // Ignore errors during cleanup
-      }
-    }
+  afterEach(() => {
     ResourceLoader.resetInstance();
   });
 
@@ -778,7 +605,6 @@ describe('ResourceLoader Compilation Quality Analysis', () => {
     standardLibZip = loadStandardLibraryZip();
     ResourceLoader.resetInstance();
     singleClassLoader = ResourceLoader.getInstance({
-      loadMode: 'lazy',
       zipBuffer: standardLibZip,
     });
     await singleClassLoader.initialize();
@@ -804,29 +630,7 @@ describe('ResourceLoader Compilation Quality Analysis', () => {
     resourceLoader = singleClassLoader!;
   });
 
-  afterAll(async () => {
-    // Wait for any ongoing compilation to complete before cleanup
-    // Use a timeout to prevent hanging if compilation is stuck
-    if (singleClassLoader) {
-      let timeoutId: NodeJS.Timeout | null = null;
-      try {
-        await Promise.race([
-          singleClassLoader.waitForCompilation(),
-          new Promise<void>((resolve) => {
-            timeoutId = setTimeout(resolve, 10000); // 10 second timeout
-          }),
-        ]);
-      } catch (_error) {
-        // Ignore errors during cleanup
-      } finally {
-        // Clear the timeout if it's still pending
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        // Interrupt any remaining compilation to ensure clean shutdown
-        singleClassLoader.interruptCompilation();
-      }
-    }
+  afterAll(() => {
     ResourceLoader.resetInstance();
     singleClassLoader = null;
   });

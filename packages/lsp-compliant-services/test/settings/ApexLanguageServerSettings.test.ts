@@ -29,9 +29,7 @@ describe('ApexLanguageServerSettings Validation', () => {
           profilingMode: 'none',
           profilingType: 'cpu',
         },
-        resources: {
-          loadMode: 'lazy' as const,
-        },
+        resources: {},
         logLevel: 'info',
       };
 
@@ -156,7 +154,7 @@ describe('ApexLanguageServerSettings Validation', () => {
         commentCollection: { enableCommentCollection: true },
         performance: { commentCollectionMaxFileSize: 100 },
         environment: { profilingMode: 'none', profilingType: 'cpu' },
-        resources: { loadMode: 'full' },
+        resources: {},
         version: '1.0.0',
         logLevel: 'debug',
       };
@@ -204,14 +202,12 @@ describe('ApexLanguageServerSettings Validation', () => {
       expect(result.apex.performance.commentCollectionMaxFileSize).toBe(50000);
       expect(result.apex.performance.useAsyncCommentProcessing).toBe(true); // From defaults
       expect(result.apex.commentCollection.enableCommentCollection).toBe(true); // From defaults
-      expect(result.apex.resources.loadMode).toBe('lazy'); // From defaults for desktop
     });
 
     it('should use browser defaults when environment is browser', () => {
       const result = mergeWithDefaults({}, 'web');
 
       expect(result.apex.environment.runtimePlatform).toBe('web');
-      expect(result.apex.resources.loadMode).toBe('lazy'); // Browser default
       expect(result.apex.performance.commentCollectionMaxFileSize).toBe(51200); // Browser default
     });
   });
@@ -221,7 +217,7 @@ describe('ApexLanguageServerSettings Validation', () => {
       const existingSettings = mergeWithDefaults(
         {
           apex: {
-            resources: { loadMode: 'lazy' },
+            resources: {},
             logLevel: 'info',
             commentCollection: {
               enableCommentCollection: true,
@@ -269,7 +265,6 @@ describe('ApexLanguageServerSettings Validation', () => {
       const result = mergeWithExisting(existingSettings, partialUpdate);
 
       expect(result.apex.logLevel).toBe('debug'); // Updated
-      expect(result.apex.resources.loadMode).toBe('lazy'); // Preserved from existing
       expect(result.apex.commentCollection.enableCommentCollection).toBe(true); // From existing (which had defaults)
     });
 
@@ -282,7 +277,7 @@ describe('ApexLanguageServerSettings Validation', () => {
               useAsyncCommentProcessing: false,
               documentChangeDebounceMs: 300,
             },
-            resources: { loadMode: 'lazy' },
+            resources: {},
           },
         } as Partial<ApexLanguageServerSettings>,
         'desktop',
@@ -300,7 +295,6 @@ describe('ApexLanguageServerSettings Validation', () => {
 
       expect(result.apex.performance.commentCollectionMaxFileSize).toBe(75000); // Updated
       expect(result.apex.performance.useAsyncCommentProcessing).toBe(false); // Preserved from existing
-      expect(result.apex.resources.loadMode).toBe('lazy'); // Preserved from existing
     });
   });
 
@@ -311,10 +305,10 @@ describe('ApexLanguageServerSettings Validation', () => {
     });
 
     it('should preserve user settings during partial configuration updates', () => {
-      // Initialize with user setting for lazy loading
+      // Initialize with user settings
       const initialSettings = {
         apex: {
-          resources: { loadMode: 'lazy' as const },
+          resources: {},
           logLevel: 'info',
           commentCollection: {
             enableCommentCollection: true,
@@ -357,7 +351,6 @@ describe('ApexLanguageServerSettings Validation', () => {
       );
 
       // Verify initial state
-      expect(manager.getResourceLoadMode()).toBe('lazy');
       expect(manager.getSettings().apex.logLevel).toBe('info');
 
       // Simulate a partial configuration update (like changing only log level)
@@ -367,15 +360,14 @@ describe('ApexLanguageServerSettings Validation', () => {
         },
       } as Partial<ApexLanguageServerSettings>);
 
-      // The user's lazy loading setting should be preserved
-      expect(manager.getResourceLoadMode()).toBe('lazy');
+      // The user's settings should be updated
       expect(manager.getSettings().apex.logLevel).toBe('debug');
     });
 
-    it('should allow updating resource settings while preserving other user settings', () => {
+    it('should preserve other user settings when updating partial settings', () => {
       const initialSettings = {
         apex: {
-          resources: { loadMode: 'lazy' as const },
+          resources: {},
           performance: {
             commentCollectionMaxFileSize: 50000,
             useAsyncCommentProcessing: true,
@@ -390,19 +382,18 @@ describe('ApexLanguageServerSettings Validation', () => {
         'desktop',
       );
 
-      // Update just the resource loading mode
+      // Update just the log level
       manager.updateSettings({
         apex: {
-          resources: { loadMode: 'full' },
+          logLevel: 'debug',
         },
       } as Partial<ApexLanguageServerSettings>);
 
-      // Resource mode should be updated, but other user settings preserved
-      expect(manager.getResourceLoadMode()).toBe('full');
+      // Other user settings should be preserved
       expect(
         manager.getSettings().apex.performance.commentCollectionMaxFileSize,
       ).toBe(50000);
-      expect(manager.getSettings().apex.logLevel).toBe('info');
+      expect(manager.getSettings().apex.logLevel).toBe('debug');
     });
   });
 });

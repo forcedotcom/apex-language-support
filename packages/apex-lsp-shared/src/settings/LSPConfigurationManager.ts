@@ -28,7 +28,6 @@ import {
 import { getLogger } from '../index';
 import type {
   ApexLanguageServerSettings,
-  ResourceLoadMode,
   RuntimePlatform,
   ServerMode,
 } from '../server/ApexLanguageServerSettings';
@@ -371,22 +370,6 @@ export class LSPConfigurationManager {
             hasChanges = true;
           }
         }
-
-        // Load mode
-        if (resourceSettings.loadMode !== undefined) {
-          const currentMode =
-            this.settingsManager.getSettings().apex.resources.loadMode;
-          if (currentMode !== resourceSettings.loadMode) {
-            this.settingsManager.updateSettings({
-              apex: {
-                resources: {
-                  loadMode: resourceSettings.loadMode,
-                },
-              },
-            } as Partial<ApexLanguageServerSettings>);
-            hasChanges = true;
-          }
-        }
       }
 
       // Check and set log levels
@@ -708,14 +691,6 @@ export class LSPConfigurationManager {
    */
   public shouldUseAsyncCommentProcessing(): boolean {
     return this.settingsManager.shouldUseAsyncCommentProcessing();
-  }
-
-  /**
-   * Get the resource loading mode
-   * @returns The resource loading mode
-   */
-  public getResourceLoadMode(): ResourceLoadMode {
-    return this.settingsManager.getResourceLoadMode();
   }
 
   /**

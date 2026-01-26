@@ -260,15 +260,6 @@
           "default": [],
           "description": "%configuration.apex-ls-ts.environment.additionalDocumentSchemes.description%"
         },
-        "apex.resources.loadMode": {
-          "type": "string",
-          "enum": [
-            "lazy",
-            "full"
-          ],
-          "default": "lazy",
-          "description": "%configuration.apex-ls-ts.resources.loadMode.description%"
-        },
         "apex.logLevel": {
           "type": "string",
           "enum": [
