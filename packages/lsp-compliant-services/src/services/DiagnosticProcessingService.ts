@@ -796,7 +796,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     );
     // Provide base layer to ArtifactLoadingHelperLive (which requires ISymbolManager)
     // This explicitly resolves the ISymbolManager dependency
-    const artifactHelperLayer = Layer.provide(ArtifactLoadingHelperLive, baseLayer);
+    const artifactHelperLayer = Layer.provide(
+      ArtifactLoadingHelperLive,
+      baseLayer,
+    );
     // Merge base layer with artifact helper layer to get complete layer stack
     const fullLayer = Layer.mergeAll(baseLayer, artifactHelperLayer);
     return effect.pipe(Effect.provide(fullLayer)) as Effect.Effect<

@@ -821,9 +821,9 @@ private with sharing class FileUtilitiesTest {
       const methodNames = (classSymbol.children as DocumentSymbol[]).map(
         (child) => child.name,
       );
-      expect(
-        methodNames.some((name) => name.includes('createFile')),
-      ).toBe(true);
+      expect(methodNames.some((name) => name.includes('createFile'))).toBe(
+        true,
+      );
     });
 
     it('handles trigger symbols correctly', async () => {
