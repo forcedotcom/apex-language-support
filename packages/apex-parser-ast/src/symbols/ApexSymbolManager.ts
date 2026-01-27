@@ -15,13 +15,7 @@ import {
   DEFAULT_APEX_SETTINGS,
 } from '@salesforce/apex-lsp-shared';
 
-/**
- * Yield to the Node.js event loop using setImmediate for immediate yielding
- * This is more effective than Effect.sleep(0) which may use setTimeout
- */
-const yieldToEventLoop = Effect.async<void>((resume) => {
-  setImmediate(() => resume(Effect.void));
-});
+import { yieldToEventLoop } from '../utils/effectUtils';
 import {
   ApexSymbol,
   SymbolKind,

@@ -35,6 +35,7 @@ import {
   Critical,
   AllPrioritiesWithCritical,
 } from '../types/queue';
+import { yieldToEventLoop } from '../utils/effectUtils';
 
 /**
  * Compare two SchedulerMetrics objects to detect if there are meaningful changes.
@@ -247,10 +248,6 @@ function processQueuedItem<A, E, R>(
     );
   });
 }
-
-const yieldToEventLoop = Effect.async<void>((resume) => {
-  setImmediate(() => resume(Effect.void));
-});
 
 function controllerLoop(
   state: SchedulerInternalState,
