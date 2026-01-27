@@ -55,6 +55,11 @@ export const InterfaceHierarchyValidator: Validator = {
   name: 'Interface Hierarchy Validator',
   tier: ValidationTier.THOROUGH,
   priority: 1,
+  prerequisites: {
+    requiredDetailLevel: 'public-api',
+    requiresReferences: true,
+    requiresCrossFileResolution: true,
+  },
 
   validate: (symbolTable: SymbolTable, _options: ValidationOptions) =>
     Effect.gen(function* () {

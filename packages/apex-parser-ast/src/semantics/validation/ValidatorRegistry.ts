@@ -10,6 +10,8 @@ import { Context, Effect, Layer, Data } from 'effect';
 import type { SymbolTable } from '../../types/symbol';
 import type { ValidationResult } from './ValidationResult';
 import type { ValidationOptions, ValidationTier } from './ValidationTier';
+import type { ValidatorPrerequisites } from '../../prerequisites/OperationPrerequisites';
+import { DetailLevel } from '../../parser/listeners/LayeredSymbolListenerBase';
 
 /**
  * Error types for validation operations
@@ -43,6 +45,12 @@ export interface Validator {
    * Priority within tier (lower = runs first)
    */
   readonly priority: number;
+
+  /**
+   * Prerequisites this validator requires (parser-ast concern, not LSP)
+   * Validators declare what they need to run successfully
+   */
+  readonly prerequisites: ValidatorPrerequisites;
 
   /**
    * Validate a symbol table
@@ -111,6 +119,68 @@ export class ValidatorRegistry extends Context.Tag('ValidatorRegistry')<
 >() {}
 
 /**
+ * Helper function to check if validator prerequisites are met
+ */
+function checkValidatorPrerequisites(
+  prerequisites: ValidatorPrerequisites,
+  symbolTable: SymbolTable,
+  options: ValidationOptions,
+): boolean {
+  // Check detail level requirement
+  if (prerequisites.requiredDetailLevel !== null) {
+    const currentDetailLevel = symbolTable.getDetailLevel();
+    
+    // If no detail level is set, allow validators that only need 'public-api'
+    // (the minimum level) to run, as they can work with basic symbol tables
+    if (!currentDetailLevel) {
+      if (prerequisites.requiredDetailLevel === 'public-api') {
+        return true; // Allow 'public-api' validators to run even without detail level
+      }
+      return false; // Higher detail levels require explicit detail level
+    }
+
+    const levelOrder: Record<DetailLevel, number> = {
+      'public-api': 1,
+      protected: 2,
+      private: 3,
+      full: 4,
+    };
+
+    const currentOrder = levelOrder[currentDetailLevel] || 0;
+    const requiredOrder = levelOrder[prerequisites.requiredDetailLevel] || 0;
+
+    if (currentOrder < requiredOrder) {
+      return false; // Current level is lower than required
+    }
+  }
+
+  // Check references requirement
+  if (prerequisites.requiresReferences && !symbolTable.hasReferences()) {
+    return false; // References required but not present
+  }
+
+  // Check cross-file resolution requirement
+  if (prerequisites.requiresCrossFileResolution) {
+    // Check if symbolManager is available (needed for cross-file resolution)
+    if (!options.symbolManager) {
+      return false; // Cross-file resolution requires symbolManager
+    }
+
+    // Check if references have been resolved (have resolvedSymbolId)
+    const refs = symbolTable.getAllReferences();
+    const hasResolvedRefs = refs.some(
+      (ref) => ref.resolvedSymbolId !== undefined,
+    );
+    if (!hasResolvedRefs && refs.length > 0) {
+      // References exist but haven't been resolved
+      return false;
+    }
+  }
+
+  return true; // All prerequisites met
+}
+
+/**
  * Implementation of ValidatorRegistry
  */
 class ValidatorRegistryImpl implements ValidatorRegistryService {
@@ -175,11 +245,62 @@ class ValidatorRegistryImpl implements ValidatorRegistryService {
         `Running ${validators.length} validators for tier ${tier}`,
       );
 
+      // Determine maximum prerequisites needed across all validators
+      // This helps optimize prerequisite fulfillment
+      let maxRequiredDetailLevel: DetailLevel | null = null;
+      let maxDetailOrder = 0;
+      const levelOrder: Record<DetailLevel, number> = {
+        'public-api': 1,
+        protected: 2,
+        private: 3,
+        full: 4,
+      };
+
+      for (const validator of validators) {
+        if (validator.prerequisites.requiredDetailLevel) {
+          const order =
+            levelOrder[validator.prerequisites.requiredDetailLevel] || 0;
+          if (order > maxDetailOrder) {
+            maxDetailOrder = order;
+            maxRequiredDetailLevel =
+              validator.prerequisites.requiredDetailLevel;
+          }
+        }
+      }
+
+      if (maxRequiredDetailLevel) {
+        yield* Effect.logDebug(
+          `Maximum detail level required for tier ${tier}: ${maxRequiredDetailLevel}`,
+        );
+      }
+
       // Run all validators, collecting results
       // Use Effect.all to run them in sequence (could be parallel if needed)
       const results = yield* Effect.all(
         validators.map((validator) =>
           Effect.gen(function* () {
+            // Check if prerequisites are met
+            const prerequisitesMet = checkValidatorPrerequisites(
+              validator.prerequisites,
+              symbolTable,
+              options,
+            );
+
+            if (!prerequisitesMet) {
+              yield* Effect.logDebug(
+                `Skipping validator ${validator.name} - prerequisites not met ` +
+                  `(requiredDetailLevel: ${validator.prerequisites.requiredDetailLevel}, ` +
+                  `requiresReferences: ${validator.prerequisites.requiresReferences}, ` +
+                  `requiresCrossFileResolution: ${validator.prerequisites.requiresCrossFileResolution})`,
+              );
+              // Return empty result when prerequisites not met
+              return {
+                isValid: true,
+                errors: [],
+                warnings: [],
+              } as ValidationResult;
+            }
+
             yield* Effect.logDebug(`Running validator: ${validator.name}`);
 
             // Wrap validator execution with error handling

@@ -68,6 +68,13 @@ describe('FinalAssignmentValidator', () => {
       symbolManager,
     );
 
+    if (!result.isValid && result.errors.length > 0) {
+      console.log(
+        '[TEST] FinalAssignmentValidator errors:',
+        result.errors.map((e) => getMessage(e)),
+      );
+    }
+
     expect(result.isValid).toBe(true);
     expect(result.errors).toHaveLength(0);
   });

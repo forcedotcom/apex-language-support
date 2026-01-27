@@ -800,6 +800,9 @@ export class ApexSymbolCollectorListener
       modifiers,
     );
 
+    // Set detail level on symbol before adding
+    blockSymbol._detailLevel = this.detailLevel;
+
     // Add block symbol to symbol table
     this.symbolTable.addSymbol(blockSymbol, parentScope ?? null);
 
@@ -1055,6 +1058,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Add symbol to current scope (null when stack is empty = file level)
+      classSymbol._detailLevel = this.detailLevel;
       this.symbolTable.addSymbol(classSymbol, this.getCurrentScopeSymbol());
 
       // Parent property removed - parentId is set during symbol creation
@@ -1174,6 +1178,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Add symbol to current scope (null when stack is empty = file level)
+      interfaceSymbol._detailLevel = this.detailLevel;
       this.symbolTable.addSymbol(interfaceSymbol, this.getCurrentScopeSymbol());
 
       // Create interface block symbol directly (stack-only scope tracking)
@@ -1354,6 +1359,9 @@ export class ApexSymbolCollectorListener
           methodSymbol.parentId = currentType.id;
         }
 
+        // Set detail level on symbol before adding
+        methodSymbol._detailLevel = this.detailLevel;
+
         // Add method symbol to current scope (null when stack is empty = file level)
         // Note: addSymbol will NOT override parentId if it's already set to a non-null value
         this.symbolTable.addSymbol(methodSymbol, this.getCurrentScopeSymbol());
@@ -1516,6 +1524,7 @@ export class ApexSymbolCollectorListener
           constructorSymbol.parentId = classBlock.id;
         }
 
+        constructorSymbol._detailLevel = this.detailLevel;
         this.symbolTable.addSymbol(
           constructorSymbol,
           this.getCurrentScopeSymbol(),
@@ -1633,6 +1642,9 @@ export class ApexSymbolCollectorListener
         methodSymbol.annotations = annotations;
       }
 
+      // Set detail level on symbol before adding
+      methodSymbol._detailLevel = this.detailLevel;
+
       // Add method symbol to current scope (null when stack is empty = file level)
       this.symbolTable.addSymbol(methodSymbol, this.getCurrentScopeSymbol());
 
@@ -1706,6 +1718,7 @@ export class ApexSymbolCollectorListener
       if (currentMethod) {
         currentMethod.parameters.push(paramSymbol);
       }
+      paramSymbol._detailLevel = this.detailLevel;
       this.symbolTable.addSymbol(paramSymbol, this.getCurrentScopeSymbol());
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -1810,6 +1823,7 @@ export class ApexSymbolCollectorListener
         SymbolKind.Property,
         type,
       );
+      propertySymbol._detailLevel = this.detailLevel;
       this.symbolTable.addSymbol(propertySymbol, this.getCurrentScopeSymbol());
 
       // Capture the property name as a type reference
@@ -2185,6 +2199,7 @@ export class ApexSymbolCollectorListener
         modifiers,
       );
 
+      enumSymbol._detailLevel = this.detailLevel;
       this.symbolTable.addSymbol(enumSymbol, this.getCurrentScopeSymbol());
       const location = this.getLocation(ctx);
       const parentScope = this.getCurrentScopeSymbol();
@@ -2235,6 +2250,7 @@ export class ApexSymbolCollectorListener
         );
 
         enumSymbol.values.push(valueSymbol);
+        valueSymbol._detailLevel = this.detailLevel;
         this.symbolTable.addSymbol(valueSymbol, this.getCurrentScopeSymbol());
       }
     } catch (e) {
@@ -2461,6 +2477,9 @@ export class ApexSymbolCollectorListener
         modifiers,
       );
 
+      // Set detail level on symbol before adding
+      triggerSymbol._detailLevel = this.detailLevel;
+
       // Add symbol to current scope (null when stack is empty = file level)
       this.symbolTable.addSymbol(triggerSymbol, this.getCurrentScopeSymbol());
 
@@ -2522,6 +2541,9 @@ export class ApexSymbolCollectorListener
         SymbolKind.Trigger,
         modifiers,
       );
+
+      // Set detail level on symbol before adding
+      triggerSymbol._detailLevel = this.detailLevel;
 
       // Add symbol to current scope (null when stack is empty = file level)
       this.symbolTable.addSymbol(triggerSymbol, this.getCurrentScopeSymbol());
@@ -4379,6 +4401,7 @@ export class ApexSymbolCollectorListener
         }
       }
 
+      variableSymbol._detailLevel = this.detailLevel;
       this.symbolTable.addSymbol(variableSymbol, this.getCurrentScopeSymbol());
 
       // Create VARIABLE_DECLARATION reference for the variable/field declaration
@@ -4464,29 +4487,57 @@ export class ApexSymbolCollectorListener
           () =>
             `[extractInitializerType-FALLBACK] Total refs in table: ${allRefs.length}, ` +
             `looking at position ${location.identifierRange.startLine}:${location.identifierRange.startColumn}. ` +
-            `All refs: ${allRefs.map((r) => `${r.name}@${r.location.identifierRange.startLine}:${r.location.identifierRange.startColumn}:${ReferenceContext[r.context]}`).join(', ')}`,
+            `All refs: ${allRefs
+              .map((r) => {
+                const line = r.location.identifierRange.startLine;
+                const col = r.location.identifierRange.startColumn;
+                const ctx = ReferenceContext[r.context];
+                return `${r.name}@${line}:${col}:${ctx}`;
+              })
+              .join(', ')}`,
         );
 
-        // Try to link to any reference within this expression's range (METHOD_CALL or FIELD_ACCESS)
-        // References are created at specific identifier positions, which may be within the expression range
-        const startLine = location.symbolRange.startLine;
-        const endLine = location.symbolRange.endLine;
-        const startCol = location.symbolRange.startColumn;
-        const endCol = location.symbolRange.endColumn;
+        // Try to link to any reference within this expression's range
+        // (METHOD_CALL or FIELD_ACCESS)
+        // References are created at specific identifier positions,
+        // which may be within the expression range
+        // Note: Range variables are kept for potential future use in range-based matching
+        const _startLine = location.symbolRange.startLine;
+        const _endLine = location.symbolRange.endLine;
+        const _startCol = location.symbolRange.startColumn;
+        const _endCol = location.symbolRange.endColumn;
 
         // For chained expressions, find the CHAINED_TYPE reference that spans this range
         // and link to a METHOD_CALL or FIELD_ACCESS chain node
         let methodOrFieldRef: SymbolReference | undefined;
 
-        // Find CHAINED_TYPE references that overlap with this expression
-        const chainedRefs = allRefs.filter(
+        // Find CHAINED_TYPE references that match the expression text
+        // First try by name match (more reliable than position overlap)
+        const expressionText = fallbackTypeInfo.originalTypeString || '';
+        const chainedRefsByName = allRefs.filter(
+          (ref) =>
+            ref.context === ReferenceContext.CHAINED_TYPE &&
+            ref.name === expressionText,
+        );
+
+        // If not found by name, try position overlap
+        const chainedRefsByPosition = allRefs.filter(
           (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
         );
 
-        for (const ref of chainedRefs) {
+        this.logger.info(
+          () =>
+            `[extractInitializerType-FALLBACK] Expression: "${expressionText}", ` +
+            `Found ${chainedRefsByName.length} CHAINED_TYPE refs by name, ` +
+            `${chainedRefsByPosition.length} by position, ` +
+            `expression at ${location.symbolRange.startLine}:${location.symbolRange.startColumn}-` +
+            `${location.symbolRange.endLine}:${location.symbolRange.endColumn}`,
+        );
+
+        // Try name match first (more reliable)
+        for (const ref of chainedRefsByName) {
           const chainedRef = ref as any;
           if (chainedRef.chainNodes && Array.isArray(chainedRef.chainNodes)) {
-            // Find METHOD_CALL or FIELD_ACCESS node in the chain
             const targetNode = chainedRef.chainNodes.find(
               (node: SymbolReference) =>
                 node.context === ReferenceContext.METHOD_CALL ||
@@ -4496,9 +4547,59 @@ export class ApexSymbolCollectorListener
               methodOrFieldRef = targetNode;
               this.logger.info(
                 () =>
-                  `[extractInitializerType-FALLBACK] Found chained ref "${ref.name}" with target node: ${targetNode.name}:${ReferenceContext[targetNode.context]}`,
+                  '[extractInitializerType-FALLBACK] Found chained ref ' +
+                  `'${ref.name}' by name match with target node: ` +
+                  `${targetNode.name}:${ReferenceContext[targetNode.context]}`,
               );
               break;
+            }
+          }
+        }
+
+        // If not found by name, try position overlap
+        if (!methodOrFieldRef) {
+          for (const ref of chainedRefsByPosition) {
+            const chainedRef = ref as any;
+            // Check if this CHAINED_TYPE reference overlaps with the expression
+            const refStartLine = ref.location.identifierRange.startLine;
+            const refEndLine = ref.location.identifierRange.endLine;
+            const refStartCol = ref.location.identifierRange.startColumn;
+            const refEndCol = ref.location.identifierRange.endColumn;
+            const exprStartLine = location.symbolRange.startLine;
+            const exprEndLine = location.symbolRange.endLine;
+            const exprStartCol = location.symbolRange.startColumn;
+            const exprEndCol = location.symbolRange.endColumn;
+
+            // Check overlap: ref overlaps if it starts before or at expr end and ends after or at expr start
+            const refStartsBeforeExprEnds =
+              refStartLine < exprEndLine ||
+              (refStartLine === exprEndLine && refStartCol <= exprEndCol);
+            const refEndsAfterExprStarts =
+              refEndLine > exprStartLine ||
+              (refEndLine === exprStartLine && refEndCol >= exprStartCol);
+
+            if (
+              refStartsBeforeExprEnds &&
+              refEndsAfterExprStarts &&
+              chainedRef.chainNodes &&
+              Array.isArray(chainedRef.chainNodes)
+            ) {
+              const targetNode = chainedRef.chainNodes.find(
+                (node: SymbolReference) =>
+                  node.context === ReferenceContext.METHOD_CALL ||
+                  node.context === ReferenceContext.FIELD_ACCESS,
+              );
+              if (targetNode) {
+                methodOrFieldRef = targetNode;
+                this.logger.info(
+                  () =>
+                    `[extractInitializerType-FALLBACK] Found chained ref "${ref.name}" ` +
+                    `at ${refStartLine}:${refStartCol} overlapping expression at ` +
+                    `${exprStartLine}:${exprStartCol} with target node: ` +
+                    `${targetNode.name}:${ReferenceContext[targetNode.context]}`,
+                );
+                break;
+              }
             }
           }
         }
@@ -4510,15 +4611,22 @@ export class ApexSymbolCollectorListener
             `${methodOrFieldRef.location.identifierRange.startColumn}:${methodOrFieldRef.name}:` +
             `${ReferenceContext[methodOrFieldRef.context]}`;
           fallbackTypeInfo.typeReferenceId = refId;
+          const contextStr = ReferenceContext[methodOrFieldRef.context];
           this.logger.info(
             () =>
               `[extractInitializerType] Linked fallback type to reference ID: ${refId} ` +
-              `(context: ${ReferenceContext[methodOrFieldRef.context]})`,
+              `(context: ${contextStr})`,
+          );
+          // Also try to link using the standard method (in case references are added later)
+          this.linkInitializerTypeToReference(
+            fallbackTypeInfo,
+            location,
+            methodOrFieldRef.context,
           );
         } else {
           this.logger.info(
             () =>
-              `[extractInitializerType-FALLBACK] No METHOD_CALL or FIELD_ACCESS reference found at position`,
+              '[extractInitializerType-FALLBACK] No METHOD_CALL or FIELD_ACCESS reference found at position',
           );
         }
 

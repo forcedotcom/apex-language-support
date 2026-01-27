@@ -45,14 +45,13 @@ import {
 import { transformParserToLspPosition } from '../utils/positionUtils';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { getDocumentStateCache } from './DocumentStateCache';
-import {
-  isWorkspaceLoading,
-  isWorkspaceLoaded,
-} from './WorkspaceLoadCoordinator';
+
 import {
   createMissingArtifactResolutionService,
   type MissingArtifactResolutionService,
 } from './MissingArtifactResolutionService';
+import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
 
 /**
  * Interface for diagnostic processing functionality to make handlers more testable.
@@ -99,6 +98,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private readonly artifactResolutionService: MissingArtifactResolutionService;
+  private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
+    null;
   private static validatorsInitialized = false;
 
   /**
@@ -111,6 +112,12 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
     this.artifactResolutionService =
       createMissingArtifactResolutionService(logger);
+    this.prerequisiteOrchestrationService =
+      new PrerequisiteOrchestrationService(
+        logger,
+        this.symbolManager,
+        new LayerEnrichmentService(logger, this.symbolManager),
+      );
 
     // Initialize validators once (static initialization)
     if (!DiagnosticProcessingService.validatorsInitialized) {
@@ -279,37 +286,21 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           () =>
             `Using cached parse result for diagnostics ${document.uri} (version ${document.version})`,
         );
-        // Skip cross-file resolution during workspace load to remain lazy and responsive
-        // Only resolve cross-file references if workspace is fully loaded
-        // This prevents deferred reference processing during initial workspace load
-        const workspaceLoading = isWorkspaceLoading();
-        const workspaceLoaded = isWorkspaceLoaded();
-
-        if (!workspaceLoading && workspaceLoaded) {
-          // Workspace is loaded - safe to resolve cross-file references for enhanced diagnostics
+        // Run prerequisites for diagnostics request
+        if (this.prerequisiteOrchestrationService) {
           try {
-            await Effect.runPromise(
-              this.symbolManager.resolveCrossFileReferencesForFile(
-                params.textDocument.uri,
-              ),
-            );
-            this.logger.debug(
-              () =>
-                `Resolved cross-file references for ${params.textDocument.uri} (cached) before computing diagnostics`,
+            await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+              'diagnostics',
+              params.textDocument.uri,
+              { workDoneToken: params.workDoneToken },
             );
           } catch (error) {
             this.logger.debug(
               () =>
-                `Error resolving cross-file references for ${params.textDocument.uri} (cached): ${error}`,
+                `Error running prerequisites for diagnostics ${params.textDocument.uri}: ${error}`,
             );
-            // Continue with diagnostics even if cross-file resolution fails
+            // Continue with diagnostics even if prerequisites fail
           }
-        } else {
-          this.logger.debug(
-            () =>
-              `Skipping cross-file resolution for ${params.textDocument.uri} ` +
-              `(workspace loading: ${workspaceLoading}, loaded: ${workspaceLoaded})`,
-          );
         }
         // Convert cached errors to diagnostics and enhance (with yielding)
         const enhancedCachedDiagnostics = await Effect.runPromise(
@@ -471,37 +462,21 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         documentLength: document.getText().length,
       });
 
-      // Skip cross-file resolution during workspace load to remain lazy and responsive
-      // Only resolve cross-file references if workspace is fully loaded
-      // This prevents deferred reference processing during initial workspace load
-      const workspaceLoading = isWorkspaceLoading();
-      const workspaceLoaded = isWorkspaceLoaded();
-
-      if (!workspaceLoading && workspaceLoaded) {
-        // Workspace is loaded - safe to resolve cross-file references for enhanced diagnostics
+      // Run prerequisites for diagnostics request
+      if (this.prerequisiteOrchestrationService) {
         try {
-          await Effect.runPromise(
-            this.symbolManager.resolveCrossFileReferencesForFile(
-              params.textDocument.uri,
-            ),
-          );
-          this.logger.debug(
-            () =>
-              `Resolved cross-file references for ${params.textDocument.uri} before computing diagnostics`,
+          await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+            'diagnostics',
+            params.textDocument.uri,
+            { workDoneToken: params.workDoneToken },
           );
         } catch (error) {
           this.logger.debug(
             () =>
-              `Error resolving cross-file references for ${params.textDocument.uri}: ${error}`,
+              `Error running prerequisites for diagnostics ${params.textDocument.uri}: ${error}`,
           );
-          // Continue with diagnostics even if cross-file resolution fails
+          // Continue with diagnostics even if prerequisites fail
         }
-      } else {
-        this.logger.debug(
-          () =>
-            `Skipping cross-file resolution for ${params.textDocument.uri} ` +
-            `(workspace loading: ${workspaceLoading}, loaded: ${workspaceLoaded})`,
-        );
       }
 
       // Enhance diagnostics with cross-file analysis using ApexSymbolManager (with yielding)

@@ -46,11 +46,17 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
  * @see SEMANTIC_SYMBOL_RULES.md:307-310
  * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #7
  */
+
 export const ForwardReferenceValidator: Validator = {
   id: 'forward-reference',
   name: 'Forward Reference Validator',
   tier: ValidationTier.IMMEDIATE,
   priority: 1,
+  prerequisites: {
+    requiredDetailLevel: 'full',
+    requiresReferences: true,
+    requiresCrossFileResolution: false,
+  },
 
   validate: (
     symbolTable: SymbolTable,

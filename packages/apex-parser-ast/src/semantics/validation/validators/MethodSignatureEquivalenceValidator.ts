@@ -49,6 +49,11 @@ export const MethodSignatureEquivalenceValidator: Validator = {
   name: 'Method Signature Equivalence Validator',
   tier: ValidationTier.THOROUGH,
   priority: 1,
+  prerequisites: {
+    requiredDetailLevel: 'public-api',
+    requiresReferences: false,
+    requiresCrossFileResolution: true,
+  },
 
   validate: (
     symbolTable: SymbolTable,

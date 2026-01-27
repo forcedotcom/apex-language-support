@@ -31,6 +31,8 @@ import {
 
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
+import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
 
 /**
  * Context information for definition processing
@@ -67,6 +69,8 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
   // Remove the missingArtifactService field - MissingArtifactUtils will create it on-demand
   private readonly missingArtifactUtils: MissingArtifactUtils;
+  private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
+    null;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
@@ -86,12 +90,42 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
    * @param params The definition parameters
    * @returns Definition locations for the requested symbol
    */
+  /**
+   * Set the layer enrichment service (for prerequisite orchestration)
+   */
+  setLayerEnrichmentService(service: LayerEnrichmentService): void {
+    if (!this.prerequisiteOrchestrationService) {
+      this.prerequisiteOrchestrationService =
+        new PrerequisiteOrchestrationService(
+          this.logger,
+          this.symbolManager,
+          service,
+        );
+    }
+  }
+
   public async processDefinition(
     params: DefinitionParams,
   ): Promise<Location[] | null> {
     this.logger.debug(
       () => `Processing definition request for: ${params.textDocument.uri}`,
     );
+
+    // Run prerequisites for definition request
+    if (this.prerequisiteOrchestrationService) {
+      try {
+        await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+          'definition',
+          params.textDocument.uri,
+        );
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error running prerequisites for definition ${params.textDocument.uri}: ${error}`,
+        );
+        // Continue with definition even if prerequisites fail
+      }
+    }
 
     try {
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)

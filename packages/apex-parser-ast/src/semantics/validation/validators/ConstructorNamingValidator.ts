@@ -41,6 +41,11 @@ export const ConstructorNamingValidator: Validator = {
   name: 'Constructor Naming Validator',
   tier: ValidationTier.IMMEDIATE,
   priority: 1,
+  prerequisites: {
+    requiredDetailLevel: 'public-api',
+    requiresReferences: false,
+    requiresCrossFileResolution: false,
+  },
 
   validate: (
     symbolTable: SymbolTable,

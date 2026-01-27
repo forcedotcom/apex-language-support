@@ -16,6 +16,7 @@ import {
 import { SymbolReference, ReferenceContext } from './symbolReference';
 import { generateSymbolId } from './UriBasedIdGenerator';
 import { HierarchicalReference } from './hierarchicalReference';
+import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 
 /**
  * Types of symbols that can be defined in Apex code
@@ -586,6 +587,7 @@ export class ScopeSymbol implements ApexSymbol {
   identifierLocation?: SymbolLocation;
   _isLoaded: boolean;
   _loadPromise?: Promise<void>;
+  _detailLevel?: 'public-api' | 'protected' | 'private' | 'full';
   modifiers: SymbolModifiers;
 
   // ScopeSymbol-specific properties
@@ -1647,6 +1649,48 @@ export class SymbolTable {
    */
   getAllReferences(): SymbolReference[] {
     return [...this.references]; // Return a copy to prevent external modification
+  }
+
+  /**
+   * Check if the symbol table has any references
+   * @returns True if there are any references
+   */
+  hasReferences(): boolean {
+    return this.references.length > 0;
+  }
+
+  /**
+   * Get the detail level of this symbol table
+   * Returns the highest detail level found in any symbol, or null if no symbols
+   * @returns The detail level or null
+   */
+  getDetailLevel(): DetailLevel | null {
+    const symbols = this.getAllSymbols();
+    if (symbols.length === 0) {
+      return null;
+    }
+
+    const levelOrder: Record<DetailLevel, number> = {
+      'public-api': 1,
+      protected: 2,
+      private: 3,
+      full: 4,
+    };
+
+    let maxLevel: DetailLevel | null = null;
+    let maxOrder = 0;
+
+    for (const symbol of symbols) {
+      if (symbol._detailLevel) {
+        const order = levelOrder[symbol._detailLevel] || 0;
+        if (order > maxOrder) {
+          maxOrder = order;
+          maxLevel = symbol._detailLevel;
+        }
+      }
+    }
+
+    return maxLevel;
   }
 
   /**

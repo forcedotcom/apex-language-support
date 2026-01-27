@@ -48,11 +48,17 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
  * @see SEMANTIC_SYMBOL_RULES.md:149-155
  * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #6
  */
+
 export const VariableShadowingValidator: Validator = {
   id: 'variable-shadowing',
   name: 'Variable Shadowing Validator',
   tier: ValidationTier.IMMEDIATE,
   priority: 1,
+  prerequisites: {
+    requiredDetailLevel: 'full',
+    requiresReferences: false,
+    requiresCrossFileResolution: false,
+  },
 
   validate: (
     symbolTable: SymbolTable,

@@ -43,6 +43,11 @@ export const EnumLimitValidator: Validator = {
   name: 'Enum Constant Limit Validator',
   tier: ValidationTier.IMMEDIATE,
   priority: 1,
+  prerequisites: {
+    requiredDetailLevel: 'public-api',
+    requiresReferences: false,
+    requiresCrossFileResolution: false,
+  },
 
   validate: (
     symbolTable: SymbolTable,

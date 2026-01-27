@@ -9,6 +9,7 @@
 import { Effect } from 'effect';
 import type { SymbolTable } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
+import { ReferenceContext } from '../../../types/symbolReference';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -45,11 +46,17 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
  * @see SEMANTIC_SYMBOL_RULES.md:314-318
  * @see APEX_SEMANTIC_VALIDATION_IMPLEMENTATION_PLAN.md Gap #8
  */
+
 export const FinalAssignmentValidator: Validator = {
   id: 'final-assignment',
   name: 'Final Assignment Validator',
   tier: ValidationTier.IMMEDIATE,
   priority: 1,
+  prerequisites: {
+    requiredDetailLevel: 'full',
+    requiresReferences: true,
+    requiresCrossFileResolution: false,
+  },
 
   validate: (
     symbolTable: SymbolTable,
@@ -77,6 +84,11 @@ export const FinalAssignmentValidator: Validator = {
       // Track assignments to each final symbol
       const assignmentCounts = new Map<string, number>();
 
+      // Get VARIABLE_DECLARATION references to identify declaration locations
+      const declarationRefs = allReferences.filter(
+        (ref) => ref.context === ReferenceContext.VARIABLE_DECLARATION,
+      );
+
       // Count write/readwrite references to final symbols
       for (const reference of allReferences) {
         // Only count write or readwrite references
@@ -90,8 +102,24 @@ export const FinalAssignmentValidator: Validator = {
           : null;
 
         if (referencedSymbol) {
-          const currentCount = assignmentCounts.get(referencedSymbol.id) || 0;
-          assignmentCounts.set(referencedSymbol.id, currentCount + 1);
+          // Skip if this write reference is at the same location as a VARIABLE_DECLARATION
+          // (this is the initialization in the declaration, not a reassignment)
+          const isDeclarationInitialization = declarationRefs.some((declRef) => {
+            if (declRef.name !== reference.name) {
+              return false;
+            }
+            const declLine = declRef.location.identifierRange.startLine;
+            const declCol = declRef.location.identifierRange.startColumn;
+            const refLine = reference.location.identifierRange.startLine;
+            const refCol = reference.location.identifierRange.startColumn;
+            // Same line and column means it's the declaration initialization
+            return declLine === refLine && declCol === refCol;
+          });
+
+          if (!isDeclarationInitialization) {
+            const currentCount = assignmentCounts.get(referencedSymbol.id) || 0;
+            assignmentCounts.set(referencedSymbol.id, currentCount + 1);
+          }
         }
       }
 

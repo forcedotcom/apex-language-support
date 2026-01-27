@@ -12,6 +12,7 @@ import type {
   VariableSymbol,
   TypeSymbol,
   MethodSymbol,
+  ApexSymbol,
 } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
 import type { TypeInfo } from '../../../types/typeInfo';
@@ -51,6 +52,11 @@ export const TypeAssignmentValidator: Validator = {
   name: 'Type Assignment Validator',
   tier: ValidationTier.THOROUGH,
   priority: 10,
+  prerequisites: {
+    requiredDetailLevel: 'full',
+    requiresReferences: true,
+    requiresCrossFileResolution: true,
+  },
 
   validate: (
     symbolTable: SymbolTable,
@@ -329,79 +335,297 @@ function resolveTypeIfNeeded(
       ? findSymbolReferenceById(typeInfo.typeReferenceId, symbolTable)
       : undefined;
 
+    // If typeRef is a CHAINED_TYPE, extract the target METHOD_CALL or FIELD_ACCESS node
+    let targetRef: SymbolReference | undefined = typeRef;
+
     if (!typeRef) {
       yield* Effect.logInfo(
         `[RESOLVE-TYPE] No typeRef found for ${typeInfo.name} ` +
           `(typeReferenceId: ${typeInfo.typeReferenceId ? 'set but not found' : 'not set'})`,
       );
+      // If typeReferenceId is not set but we have originalTypeString, try to find CHAINED_TYPE by name
+      if (
+        !typeInfo.typeReferenceId &&
+        typeInfo.originalTypeString &&
+        typeInfo.originalTypeString.includes('.')
+      ) {
+        // Look for CHAINED_TYPE reference with matching name
+        // For method calls, remove parameters: "FileUtilities.createFile(...)" -> "FileUtilities.createFile"
+        let nameToMatch = typeInfo.originalTypeString;
+        const parenIndex = nameToMatch.indexOf('(');
+        if (parenIndex !== -1) {
+          nameToMatch = nameToMatch.substring(0, parenIndex);
+        }
+        const allRefs = symbolTable.getAllReferences();
+        const chainedRef = allRefs.find(
+          (ref) =>
+            ref.context === ReferenceContext.CHAINED_TYPE &&
+            ref.name === nameToMatch,
+        );
+        if (chainedRef) {
+          const chainedRefAny = chainedRef as any;
+          if (
+            chainedRefAny.chainNodes &&
+            Array.isArray(chainedRefAny.chainNodes)
+          ) {
+            const targetNode = chainedRefAny.chainNodes.find(
+              (node: SymbolReference) =>
+                node.context === ReferenceContext.METHOD_CALL ||
+                node.context === ReferenceContext.FIELD_ACCESS,
+            );
+            if (targetNode) {
+              yield* Effect.logInfo(
+                `[RESOLVE-TYPE] Found CHAINED_TYPE "${chainedRef.name}" by name ` +
+                  `(matched "${nameToMatch}"), using target node: ` +
+                  `${targetNode.name}:${ReferenceContext[targetNode.context]}`,
+              );
+              // Use the target node as the reference
+              targetRef = targetNode;
+            }
+          }
+        }
+      }
+    }
+    if (
+      typeRef &&
+      typeRef.context === ReferenceContext.CHAINED_TYPE &&
+      (typeRef as any).chainNodes
+    ) {
+      // Parse the typeReferenceId to find which node in the chain it refers to
+      const refIdParts = typeInfo.typeReferenceId?.split(':');
+      if (refIdParts && refIdParts.length >= 5) {
+        const targetName = refIdParts[3];
+        const targetContextStr = refIdParts.slice(4).join(':');
+        // Find the matching node in the chain
+        const chainedRef = typeRef as any;
+        targetRef = chainedRef.chainNodes?.find(
+          (node: SymbolReference) =>
+            node.name === targetName &&
+            ReferenceContext[node.context] === targetContextStr,
+        );
+        if (!targetRef) {
+          // Fallback: find any METHOD_CALL or FIELD_ACCESS node
+          targetRef = chainedRef.chainNodes?.find(
+            (node: SymbolReference) =>
+              node.context === ReferenceContext.METHOD_CALL ||
+              node.context === ReferenceContext.FIELD_ACCESS,
+          );
+        }
+      }
     }
 
-    if (typeRef) {
+    if (targetRef) {
       yield* Effect.logInfo(
-        `[RESOLVE-TYPE] Found typeRef: name=${typeRef.name}, ` +
-          `context=${ReferenceContext[typeRef.context]}, ` +
-          `resolvedSymbolId=${typeRef.resolvedSymbolId ? 'set' : 'NOT SET'}`,
+        `[RESOLVE-TYPE] Found typeRef: name=${targetRef.name}, ` +
+          `context=${ReferenceContext[targetRef.context]}, ` +
+          `resolvedSymbolId=${targetRef.resolvedSymbolId ? 'set' : 'NOT SET'}`,
       );
 
-      // Step 2: Check if the reference is already resolved
-      if (typeRef.resolvedSymbolId) {
-        const resolvedSymbol = symbolManager.getSymbol(
-          typeRef.resolvedSymbolId,
-        );
-        yield* Effect.logInfo(
-          `[RESOLVE-TYPE] Resolved symbol: ${resolvedSymbol ? `kind=${resolvedSymbol.kind}, name=${resolvedSymbol.name}` : 'NOT FOUND'}`,
-        );
-        if (resolvedSymbol) {
-          // Handle METHOD_CALL context - extract return type from MethodSymbol
-          if (typeRef.context === ReferenceContext.METHOD_CALL) {
-            if (isMethodSymbol(resolvedSymbol)) {
-              const methodSymbol = resolvedSymbol as MethodSymbol;
-              // Get the returnType, preserving original type info
-              const returnTypeInfo = convertMethodReturnTypeToTypeInfo(
-                methodSymbol.returnType,
-                typeInfo,
+      // Step 2: Try to resolve the reference if not already resolved
+      let resolvedSymbol: ApexSymbol | null = null;
+      if (targetRef.resolvedSymbolId) {
+        resolvedSymbol = symbolManager.getSymbol(targetRef.resolvedSymbolId);
+      } else {
+        // Reference not resolved yet - try to resolve it using symbolManager
+        // For METHOD_CALL and FIELD_ACCESS, we need to find the symbol
+        if (
+          targetRef.context === ReferenceContext.METHOD_CALL ||
+          targetRef.context === ReferenceContext.FIELD_ACCESS
+        ) {
+          // For chained references, check chainNodes
+          const chainedRef = targetRef as any;
+          if (chainedRef.chainNodes && Array.isArray(chainedRef.chainNodes)) {
+            // Find the METHOD_CALL or FIELD_ACCESS node in the chain
+            const targetNode = chainedRef.chainNodes.find(
+              (node: SymbolReference) =>
+                node.context === ReferenceContext.METHOD_CALL ||
+                node.context === ReferenceContext.FIELD_ACCESS,
+            );
+            if (targetNode && targetNode.resolvedSymbolId) {
+              resolvedSymbol = symbolManager.getSymbol(
+                targetNode.resolvedSymbolId,
               );
-              // If the return type still needs resolution, recursively resolve it
-              if (returnTypeInfo.needsNamespaceResolution) {
-                const recursivelyResolved = yield* resolveTypeIfNeeded(
-                  returnTypeInfo,
-                  symbolManager,
-                  symbolTable,
+            } else if (targetNode && chainedRef.chainNodes.length >= 2) {
+              // Chained reference: resolve qualifier first, then find member
+              const firstNode = chainedRef.chainNodes[0];
+              let qualifierSymbol: ApexSymbol | null = null;
+
+              // Resolve the qualifier (first node)
+              if (firstNode.resolvedSymbolId) {
+                qualifierSymbol = symbolManager.getSymbol(
+                  firstNode.resolvedSymbolId,
                 );
-                return recursivelyResolved || returnTypeInfo;
+              } else {
+                const qualifierSymbols =
+                  symbolManager.findSymbolByName(firstNode.name);
+                qualifierSymbol =
+                  qualifierSymbols.find((s) => isTypeSymbol(s)) || null;
+                if (!qualifierSymbol) {
+                  // Try as variable (for cases like "property.Id")
+                  qualifierSymbol =
+                    qualifierSymbols.find((s) => isVariableSymbol(s)) || null;
+                }
               }
-              return returnTypeInfo;
+
+              if (qualifierSymbol) {
+                // Find the member (targetNode) in the qualifier's class
+                if (isTypeSymbol(qualifierSymbol)) {
+                  // Qualifier is a class - find method/field in that class
+                  // Use findSymbolByName to search for the member
+                  if (targetNode.context === ReferenceContext.METHOD_CALL) {
+                    const methodSymbols = symbolManager.findSymbolByName(
+                      targetNode.name,
+                    );
+                    resolvedSymbol =
+                      methodSymbols.find(
+                        (s: ApexSymbol) =>
+                          s.kind === SymbolKind.Method &&
+                          s.name === targetNode.name &&
+                          s.parentId === qualifierSymbol.id,
+                      ) || null;
+                  } else if (
+                    targetNode.context === ReferenceContext.FIELD_ACCESS
+                  ) {
+                    const fieldSymbols = symbolManager.findSymbolByName(
+                      targetNode.name,
+                    );
+                    resolvedSymbol =
+                      fieldSymbols.find(
+                        (s: ApexSymbol) =>
+                          (s.kind === SymbolKind.Field ||
+                            s.kind === SymbolKind.Property) &&
+                          s.name === targetNode.name &&
+                          s.parentId === qualifierSymbol.id,
+                      ) || null;
+                  }
+                } else if (isVariableSymbol(qualifierSymbol)) {
+                  // Qualifier is a variable - get its type and find member in that type
+                  const variableSymbol = qualifierSymbol as VariableSymbol;
+                  const qualifierType = variableSymbol.type;
+                  if (qualifierType.resolvedSymbol) {
+                    const typeSymbol = qualifierType.resolvedSymbol;
+                    if (targetNode.context === ReferenceContext.METHOD_CALL) {
+                      const methodSymbols = symbolManager.findSymbolByName(
+                        targetNode.name,
+                      );
+                      resolvedSymbol =
+                        methodSymbols.find(
+                          (s: ApexSymbol) =>
+                            s.kind === SymbolKind.Method &&
+                            s.name === targetNode.name &&
+                            s.parentId === typeSymbol.id,
+                        ) || null;
+                    } else if (
+                      targetNode.context === ReferenceContext.FIELD_ACCESS
+                    ) {
+                      const fieldSymbols = symbolManager.findSymbolByName(
+                        targetNode.name,
+                      );
+                      resolvedSymbol =
+                        fieldSymbols.find(
+                          (s: ApexSymbol) =>
+                            (s.kind === SymbolKind.Field ||
+                              s.kind === SymbolKind.Property) &&
+                            s.name === targetNode.name &&
+                            s.parentId === typeSymbol.id,
+                        ) || null;
+                    }
+                  }
+                }
+              }
+            } else if (targetNode) {
+              // Single node or no qualifier - try to resolve by name
+              const symbols = symbolManager.findSymbolByName(targetNode.name);
+              if (targetRef.context === ReferenceContext.METHOD_CALL) {
+                resolvedSymbol =
+                  symbols.find((s: ApexSymbol) => isMethodSymbol(s)) || null;
+              } else if (targetRef.context === ReferenceContext.FIELD_ACCESS) {
+                resolvedSymbol =
+                  symbols.find(
+                    (s: ApexSymbol) =>
+                      isVariableSymbol(s) &&
+                      (s.kind === SymbolKind.Field ||
+                        s.kind === SymbolKind.Property),
+                  ) || null;
+              }
+            }
+          } else {
+            // Not a chained reference - try to resolve by name
+            const symbols = symbolManager.findSymbolByName(targetRef.name);
+            if (targetRef.context === ReferenceContext.METHOD_CALL) {
+              resolvedSymbol =
+                symbols.find((s: ApexSymbol) => isMethodSymbol(s)) || null;
+            } else if (targetRef.context === ReferenceContext.FIELD_ACCESS) {
+              resolvedSymbol =
+                symbols.find(
+                  (s: ApexSymbol) =>
+                    isVariableSymbol(s) &&
+                    (s.kind === SymbolKind.Field ||
+                      s.kind === SymbolKind.Property),
+                ) || null;
             }
           }
-          // Handle FIELD_ACCESS context - extract type from VariableSymbol
-          else if (typeRef.context === ReferenceContext.FIELD_ACCESS) {
-            if (isVariableSymbol(resolvedSymbol)) {
-              const variableSymbol = resolvedSymbol as VariableSymbol;
-              // Get the type, preserving original type info
-              const variableTypeInfo = convertVariableTypeToTypeInfo(
-                variableSymbol.type,
-                typeInfo,
-              );
-              // If the variable type still needs resolution, recursively resolve it
-              if (variableTypeInfo.needsNamespaceResolution) {
-                const recursivelyResolved = yield* resolveTypeIfNeeded(
-                  variableTypeInfo,
-                  symbolManager,
-                  symbolTable,
-                );
-                return recursivelyResolved || variableTypeInfo;
-              }
-              return variableTypeInfo;
-            }
-          }
-          // Handle TYPE references - use existing TypeSymbol logic
-          else if (isTypeSymbol(resolvedSymbol)) {
-            // Convert TypeSymbol to TypeInfo
-            return convertTypeSymbolToTypeInfo(
-              resolvedSymbol as TypeSymbol,
+        }
+      }
+
+      yield* Effect.logInfo(
+        `[RESOLVE-TYPE] Resolved symbol: ${
+          resolvedSymbol
+            ? `kind=${resolvedSymbol.kind}, name=${resolvedSymbol.name}`
+            : 'NOT FOUND'
+        }`,
+      );
+
+      if (resolvedSymbol) {
+        // Handle METHOD_CALL context - extract return type from MethodSymbol
+        if (targetRef.context === ReferenceContext.METHOD_CALL) {
+          if (isMethodSymbol(resolvedSymbol)) {
+            const methodSymbol = resolvedSymbol as MethodSymbol;
+            // Get the returnType, preserving original type info
+            const returnTypeInfo = convertMethodReturnTypeToTypeInfo(
+              methodSymbol.returnType,
               typeInfo,
             );
+            // If the return type still needs resolution, recursively resolve it
+            if (returnTypeInfo.needsNamespaceResolution) {
+              const recursivelyResolved = yield* resolveTypeIfNeeded(
+                returnTypeInfo,
+                symbolManager,
+                symbolTable,
+              );
+              return recursivelyResolved || returnTypeInfo;
+            }
+            return returnTypeInfo;
           }
+        }
+        // Handle FIELD_ACCESS context - extract type from VariableSymbol
+        else if (targetRef.context === ReferenceContext.FIELD_ACCESS) {
+          if (isVariableSymbol(resolvedSymbol)) {
+            const variableSymbol = resolvedSymbol as VariableSymbol;
+            // Get the type, preserving original type info
+            const variableTypeInfo = convertVariableTypeToTypeInfo(
+              variableSymbol.type,
+              typeInfo,
+            );
+            // If the variable type still needs resolution, recursively resolve it
+            if (variableTypeInfo.needsNamespaceResolution) {
+              const recursivelyResolved = yield* resolveTypeIfNeeded(
+                variableTypeInfo,
+                symbolManager,
+                symbolTable,
+              );
+              return recursivelyResolved || variableTypeInfo;
+            }
+            return variableTypeInfo;
+          }
+        }
+        // Handle TYPE references - use existing TypeSymbol logic
+        else if (isTypeSymbol(resolvedSymbol)) {
+          // Convert TypeSymbol to TypeInfo
+          return convertTypeSymbolToTypeInfo(
+            resolvedSymbol as TypeSymbol,
+            typeInfo,
+          );
         }
       }
     }
