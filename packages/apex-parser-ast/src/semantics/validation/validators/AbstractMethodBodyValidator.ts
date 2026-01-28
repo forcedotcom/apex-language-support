@@ -48,7 +48,7 @@ export const AbstractMethodBodyValidator: Validator = {
   tier: ValidationTier.IMMEDIATE,
   priority: 1,
   prerequisites: {
-    requiredDetailLevel: 'public-api',
+    requiredDetailLevel: 'full',
     requiresReferences: false,
     requiresCrossFileResolution: false,
   },
@@ -152,22 +152,27 @@ export const AbstractMethodBodyValidator: Validator = {
         }
 
         // Rule 2: Non-abstract methods in concrete classes must have a body
-        // (We can only detect missing bodies if we have block scope information)
-        if (
-          isInConcreteClass &&
-          !isAbstract &&
-          !hasChildBlocks &&
-          !method.modifiers.isBuiltIn
-        ) {
-          // Only warn for now, as symbol table may not capture block scopes
-          warnings.push({
-            message:
-              `Non-abstract method '${method.name}' in class '${parent.name}' ` +
-              'appears to lack a body (this may be a symbol table limitation)',
-            location: method.location,
-            code: 'MISSING_METHOD_BODY',
-          });
-        }
+        // NOTE: Disabled because symbol-table-based detection produces too many false positives.
+        // Simple methods (with just a return statement) may not create detectable child blocks.
+        // Full AST analysis would be required for reliable detection.
+        // TODO: Implement AST-based body detection using cached parse tree from ValidationOptions
+        // The parse tree is now available via enrichment, allowing reliable detection via:
+        // - Check if MethodDeclarationContext has block() child node
+        // - Interface methods (InterfaceMethodDeclarationContext) never have bodies
+        // if (
+        //   isInConcreteClass &&
+        //   !isAbstract &&
+        //   !hasChildBlocks &&
+        //   !method.modifiers.isBuiltIn
+        // ) {
+        //   warnings.push({
+        //     message:
+        //       `Non-abstract method '${method.name}' in class '${parent.name}' ` +
+        //       'appears to lack a body (this may be a symbol table limitation)',
+        //     location: method.location,
+        //     code: 'MISSING_METHOD_BODY',
+        //   });
+        // }
 
         // Rule 3: Abstract methods only in abstract classes or interfaces
         if (isAbstract && isInConcreteClass) {

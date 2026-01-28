@@ -335,6 +335,16 @@ export class LayerEnrichmentService {
           const existingSymbolTable =
             self.symbolManager.getSymbolTableForFile(uri);
 
+          // Try to get cached parse tree for reuse
+          const cachedParseTree = cache.getParseTree(uri, version);
+
+          if (cachedParseTree) {
+            self.logger.debug(
+              () =>
+                `Found cached parse tree for ${uri}, will reuse for enrichment`,
+            );
+          }
+
           // Compile with additional layers
           const result = self.compilerService.compileLayered(
             document.getText(),
@@ -345,6 +355,7 @@ export class LayerEnrichmentService {
               collectReferences: true,
               resolveReferences: true,
             },
+            cachedParseTree || undefined,
           );
 
           if (result?.result) {

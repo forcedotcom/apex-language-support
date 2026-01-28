@@ -355,6 +355,20 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
               `syntaxErrors=${hasCachedSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
               `symbolTableSize=${cachedTable.getAllSymbols().length}`,
           );
+
+          // Verify detail level meets validator requirements after prerequisites
+          // For THOROUGH tier diagnostics, we expect 'full' detail level
+          const expectedDetailLevel = 'full';
+          const actualDetailLevel = cachedTable.getDetailLevel();
+          if (actualDetailLevel !== expectedDetailLevel) {
+            this.logger.warn(
+              () =>
+                `[VALIDATION-WARNING] Symbol table for ${params.textDocument.uri} has detail level ` +
+                `'${actualDetailLevel ?? 'unknown'}' but validators may require '${expectedDetailLevel}'. ` +
+                'Some validators may be skipped.',
+            );
+          }
+
           // Get settings for artifact loading
           const settings = ApexSettingsManager.getInstance().getSettings();
           const allowArtifactLoading =
@@ -506,6 +520,19 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           this.logger.debug(
             () => `Running semantic validation for: ${params.textDocument.uri}`,
           );
+
+          // Verify detail level meets validator requirements after prerequisites
+          // For THOROUGH tier diagnostics, we expect 'full' detail level
+          const expectedDetailLevel = 'full';
+          const actualDetailLevel = table.getDetailLevel();
+          if (actualDetailLevel !== expectedDetailLevel) {
+            this.logger.warn(
+              () =>
+                `[VALIDATION-WARNING] Symbol table for ${params.textDocument.uri} has detail level ` +
+                `'${actualDetailLevel ?? 'unknown'}' but validators may require '${expectedDetailLevel}'. ` +
+                'Some validators may be skipped.',
+            );
+          }
 
           // Get settings for artifact loading
           const settings = ApexSettingsManager.getInstance().getSettings();

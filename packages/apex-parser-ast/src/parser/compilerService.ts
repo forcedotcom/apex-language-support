@@ -493,6 +493,7 @@ export class CompilerService {
     layers: DetailLevel[],
     existingSymbolTable?: SymbolTable,
     options: LayeredCompilationOptions = {},
+    cachedParseTree?: ParseTreeResult,
   ): CompilationResult<SymbolTable> {
     this.logger.debug(
       () =>
@@ -512,10 +513,13 @@ export class CompilerService {
       );
 
       // Create or reuse parse tree
-      const { parseTree, errorListener } = this.createParseTree(
-        fileContent,
-        fileName,
-      );
+      const parseTreeResult =
+        cachedParseTree || this.createParseTree(fileContent, fileName);
+      const { parseTree, errorListener } = parseTreeResult;
+
+      if (cachedParseTree) {
+        this.logger.debug(() => `Reusing cached parse tree for ${fileName}`);
+      }
 
       // Start with existing SymbolTable or create new one
       const symbolTable = existingSymbolTable || new SymbolTable();

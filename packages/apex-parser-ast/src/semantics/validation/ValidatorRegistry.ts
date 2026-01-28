@@ -284,7 +284,7 @@ class ValidatorRegistryImpl implements ValidatorRegistryService {
             );
 
             if (!prerequisitesMet) {
-              yield* Effect.logDebug(
+              yield* Effect.logWarning(
                 `Skipping validator ${validator.name} - prerequisites not met ` +
                   `(requiredDetailLevel: ${validator.prerequisites.requiredDetailLevel}, ` +
                   `requiresReferences: ${validator.prerequisites.requiresReferences}, ` +
