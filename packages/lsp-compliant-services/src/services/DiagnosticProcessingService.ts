@@ -338,7 +338,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             `Running semantic validation for cached result: ${params.textDocument.uri}`,
         );
 
-        // Get SymbolTable from ApexSymbolManager
+        // CRITICAL: Get SymbolTable AFTER prerequisites complete (including enrichment)
+        // to ensure we have the enriched symbol table, not a stale reference
         const cachedTable = this.symbolManager.getSymbolTableForFile(
           params.textDocument.uri,
         );
@@ -504,7 +505,13 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       // Run semantic validation (always enabled)
       // Wrap in try-catch to ensure syntax errors are still returned even if validators fail
       let validatorDiagnostics: Diagnostic[] = [];
-      if (table) {
+
+      // CRITICAL: Re-fetch symbol table AFTER prerequisites complete (including enrichment)
+      // to ensure we have the enriched symbol table, not the original public-api one
+      const enrichedTable =
+        this.symbolManager.getSymbolTableForFile(document.uri) || table;
+
+      if (enrichedTable) {
         try {
           // Check enrichment level before validation
           const detailLevel =
@@ -514,7 +521,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             () =>
               `[VALIDATION-DEBUG] Running semantic validation for ${params.textDocument.uri}: ` +
               `syntaxErrors=${hasSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
-              `symbolTableSize=${table.getAllSymbols().length}`,
+              `symbolTableSize=${enrichedTable.getAllSymbols().length}`,
           );
 
           this.logger.debug(
@@ -524,7 +531,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           // Verify detail level meets validator requirements after prerequisites
           // For THOROUGH tier diagnostics, we expect 'full' detail level
           const expectedDetailLevel = 'full';
-          const actualDetailLevel = table.getDetailLevel();
+          const actualDetailLevel = enrichedTable.getDetailLevel();
           if (actualDetailLevel !== expectedDetailLevel) {
             this.logger.warn(
               () =>
@@ -556,13 +563,13 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           // Run validators (both IMMEDIATE and THOROUGH for pull diagnostics)
           const immediateResults = await this.runSemanticValidators(
             ValidationTier.IMMEDIATE,
-            table,
+            enrichedTable,
             { ...validationOptions, tier: ValidationTier.IMMEDIATE },
           );
 
           const thoroughResults = await this.runSemanticValidators(
             ValidationTier.THOROUGH,
-            table,
+            enrichedTable,
             validationOptions,
           );
 
