@@ -1692,6 +1692,13 @@ export class SymbolTable {
       }
     }
 
+    // 'private' level is equivalent to 'full' in the layered compilation system
+    // since 'full' means all layers (public-api + protected + private) are applied
+    // and there is no separate 'full' layer listener
+    if (maxLevel === 'private') {
+      return 'full';
+    }
+
     return maxLevel;
   }
 
