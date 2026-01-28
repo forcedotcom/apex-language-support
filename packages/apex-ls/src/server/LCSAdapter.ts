@@ -285,6 +285,83 @@ export class LCSAdapter {
   }
 
   /**
+   * Ensures a document is loaded in storage before processing requests.
+   * If document is missing, requests it from client via window/showDocument.
+   * This handles the VSCode session restore issue where diagnostic requests
+   * arrive before didOpen notifications.
+   * @param uri - Document URI
+   * @returns true if document is available, false otherwise
+   */
+  private async ensureDocumentLoaded(uri: string): Promise<boolean> {
+    const storage = ApexStorageManager.getInstance().getStorage();
+    let doc = await storage.getDocument(uri);
+
+    if (doc) {
+      return true; // Already loaded
+    }
+
+    // Document not in storage - request it from client
+    try {
+      this.logger.debug(
+        () =>
+          `Document ${uri} not in storage, requesting via window/showDocument`,
+      );
+
+      // Use window/showDocument to trigger didOpen without taking focus
+      await this.connection.window.showDocument({
+        uri,
+        external: false,
+        takeFocus: false, // CRITICAL: Don't disrupt user's focus
+      });
+
+      // Give a brief moment for didOpen to be processed
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Check if document is now loaded
+      doc = await storage.getDocument(uri);
+      if (doc) {
+        this.logger.debug(
+          () => `Successfully loaded document ${uri} via showDocument`,
+        );
+        return true;
+      }
+
+      this.logger.warn(
+        () => `Document ${uri} still not available after showDocument request`,
+      );
+      return false;
+    } catch (error) {
+      this.logger.error(() => `Failed to request document ${uri}: ${error}`);
+      return false;
+    }
+  }
+
+  /**
+   * Wraps a document-based request handler to ensure document is loaded first.
+   * @param handler - The actual request handler
+   * @param emptyResult - Value to return if document unavailable
+   */
+  private wrapWithDocumentLoader<
+    TParams extends { textDocument: { uri: string } },
+    TResult,
+  >(
+    handler: (params: TParams) => Promise<TResult>,
+    emptyResult: TResult,
+  ): (params: TParams) => Promise<TResult> {
+    return async (params: TParams): Promise<TResult> => {
+      const isLoaded = await this.ensureDocumentLoaded(params.textDocument.uri);
+      if (!isLoaded) {
+        this.logger.debug(
+          () =>
+            `Returning empty result for ${params.textDocument.uri} - document not loaded`,
+        );
+        return emptyResult;
+      }
+      return await handler(params);
+    };
+  }
+
+  /**
    * LSP protocol handlers (hover, diagnostics, etc.)
    */
   private setupProtocolHandlers(): void {
@@ -293,20 +370,26 @@ export class LCSAdapter {
 
     // Only register document symbol handler if the capability is enabled
     if (capabilities.documentSymbolProvider) {
-      this.connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
-        this.logger.debug(
-          () =>
-            `🔍 Document symbol request for URI: ${params.textDocument.uri}`,
-        );
-        try {
-          return await dispatchProcessOnDocumentSymbol(params);
-        } catch (error) {
-          this.logger.error(
-            () => `Error processing document symbols: ${formattedError(error)}`,
-          );
-          return [];
-        }
-      });
+      this.connection.onDocumentSymbol(
+        this.wrapWithDocumentLoader(
+          async (params: DocumentSymbolParams) => {
+            this.logger.debug(
+              () =>
+                `🔍 Document symbol request for URI: ${params.textDocument.uri}`,
+            );
+            try {
+              return await dispatchProcessOnDocumentSymbol(params);
+            } catch (error) {
+              this.logger.error(
+                () =>
+                  `Error processing document symbols: ${formattedError(error)}`,
+              );
+              return [];
+            }
+          },
+          [], // Return empty array if document not loaded
+        ),
+      );
       this.logger.debug('✅ Document symbol handler registered');
     } else {
       this.logger.debug(
@@ -317,21 +400,24 @@ export class LCSAdapter {
     // Only register definition handler if the capability is enabled
     if (capabilities.definitionProvider) {
       this.connection.onDefinition(
-        async (params: DefinitionParams): Promise<Location[] | null> => {
-          this.logger.debug(
-            () =>
-              `🔍 Definition request for URI: ${params.textDocument.uri} ` +
-              `at ${params.position.line}:${params.position.character}`,
-          );
-          try {
-            return await dispatchProcessOnDefinition(params);
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing definition: ${formattedError(error)}`,
+        this.wrapWithDocumentLoader(
+          async (params: DefinitionParams): Promise<Location[] | null> => {
+            this.logger.debug(
+              () =>
+                `🔍 Definition request for URI: ${params.textDocument.uri} ` +
+                `at ${params.position.line}:${params.position.character}`,
             );
-            return null;
-          }
-        },
+            try {
+              return await dispatchProcessOnDefinition(params);
+            } catch (error) {
+              this.logger.error(
+                () => `Error processing definition: ${formattedError(error)}`,
+              );
+              return null;
+            }
+          },
+          null, // Return null if document not loaded
+        ),
       );
       this.logger.debug('✅ Definition handler registered');
     } else {
@@ -343,21 +429,25 @@ export class LCSAdapter {
     // Only register implementation handler if the capability is enabled (development mode only)
     if (capabilities.implementationProvider) {
       this.connection.onImplementation(
-        async (params: ImplementationParams): Promise<Location[] | null> => {
-          this.logger.debug(
-            () =>
-              `🔍 Implementation request for URI: ${params.textDocument.uri} ` +
-              `at ${params.position.line}:${params.position.character}`,
-          );
-          try {
-            return await dispatchProcessOnImplementation(params);
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing implementation: ${formattedError(error)}`,
+        this.wrapWithDocumentLoader(
+          async (params: ImplementationParams): Promise<Location[] | null> => {
+            this.logger.debug(
+              () =>
+                `🔍 Implementation request for URI: ${params.textDocument.uri} ` +
+                `at ${params.position.line}:${params.position.character}`,
             );
-            return null;
-          }
-        },
+            try {
+              return await dispatchProcessOnImplementation(params);
+            } catch (error) {
+              this.logger.error(
+                () =>
+                  `Error processing implementation: ${formattedError(error)}`,
+              );
+              return null;
+            }
+          },
+          null, // Return null if document not loaded
+        ),
       );
       this.logger.debug('✅ Implementation handler registered');
     } else {
@@ -369,21 +459,24 @@ export class LCSAdapter {
     // Only register references handler if the capability is enabled
     if (capabilities.referencesProvider) {
       this.connection.onReferences(
-        async (params: ReferenceParams): Promise<Location[] | null> => {
-          this.logger.debug(
-            () =>
-              `🔍 References request for URI: ${params.textDocument.uri} ` +
-              `at ${params.position.line}:${params.position.character}`,
-          );
-          try {
-            return await dispatchProcessOnReferences(params);
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing references: ${formattedError(error)}`,
+        this.wrapWithDocumentLoader(
+          async (params: ReferenceParams): Promise<Location[] | null> => {
+            this.logger.debug(
+              () =>
+                `🔍 References request for URI: ${params.textDocument.uri} ` +
+                `at ${params.position.line}:${params.position.character}`,
             );
-            return null;
-          }
-        },
+            try {
+              return await dispatchProcessOnReferences(params);
+            } catch (error) {
+              this.logger.error(
+                () => `Error processing references: ${formattedError(error)}`,
+              );
+              return null;
+            }
+          },
+          null, // Return null if document not loaded
+        ),
       );
       this.logger.debug('✅ References handler registered');
     } else {
@@ -402,6 +495,18 @@ export class LCSAdapter {
           params: DocumentDiagnosticParams,
         ): Promise<DocumentDiagnosticReport> => {
           try {
+            // Ensure document is loaded first (handles session restore)
+            const isLoaded = await this.ensureDocumentLoaded(
+              params.textDocument.uri,
+            );
+            if (!isLoaded) {
+              this.logger.debug(
+                () =>
+                  `Returning empty diagnostics for ${params.textDocument.uri} - document not loaded`,
+              );
+              return { kind: DocumentDiagnosticReportKind.Full, items: [] };
+            }
+
             const diagnostics =
               await this.diagnosticProcessor.processDiagnostic(params);
             return {
@@ -426,21 +531,25 @@ export class LCSAdapter {
     // Only register folding range handler if the capability is enabled
     if (capabilities.foldingRangeProvider) {
       this.connection.languages.foldingRange.on(
-        async (params: FoldingRangeParams) => {
-          this.logger.debug(
-            () =>
-              `🔍 Folding range request for URI: ${params.textDocument.uri}`,
-          );
-          try {
-            const storage = ApexStorageManager.getInstance().getStorage();
-            return await dispatchProcessOnFoldingRange(params, storage);
-          } catch (error) {
-            this.logger.error(
-              () => `Error processing folding ranges: ${formattedError(error)}`,
+        this.wrapWithDocumentLoader(
+          async (params: FoldingRangeParams) => {
+            this.logger.debug(
+              () =>
+                `🔍 Folding range request for URI: ${params.textDocument.uri}`,
             );
-            return [];
-          }
-        },
+            try {
+              const storage = ApexStorageManager.getInstance().getStorage();
+              return await dispatchProcessOnFoldingRange(params, storage);
+            } catch (error) {
+              this.logger.error(
+                () =>
+                  `Error processing folding ranges: ${formattedError(error)}`,
+              );
+              return [];
+            }
+          },
+          [], // Return empty array if document not loaded
+        ),
       );
       this.logger.debug('✅ Folding range handler registered');
     } else {
@@ -460,23 +569,29 @@ export class LCSAdapter {
 
     // Only register code lens handler if the capability is enabled
     if (capabilities.codeLensProvider) {
-      this.connection.onCodeLens(async (params: CodeLensParams) => {
-        this.logger.debug(
-          () => `CodeLens request received for URI: ${params.textDocument.uri}`,
-        );
-        try {
-          const result = await dispatchProcessOnCodeLens(params);
-          this.logger.debug(
-            `Returning ${result.length} code lenses for ${params.textDocument.uri}`,
-          );
-          return result;
-        } catch (error) {
-          this.logger.error(
-            () => `Error processing code lens: ${formattedError(error)}`,
-          );
-          return [];
-        }
-      });
+      this.connection.onCodeLens(
+        this.wrapWithDocumentLoader(
+          async (params: CodeLensParams) => {
+            this.logger.debug(
+              () =>
+                `CodeLens request received for URI: ${params.textDocument.uri}`,
+            );
+            try {
+              const result = await dispatchProcessOnCodeLens(params);
+              this.logger.debug(
+                `Returning ${result.length} code lenses for ${params.textDocument.uri}`,
+              );
+              return result;
+            } catch (error) {
+              this.logger.error(
+                () => `Error processing code lens: ${formattedError(error)}`,
+              );
+              return [];
+            }
+          },
+          [], // Return empty array if document not loaded
+        ),
+      );
       this.logger.debug('CodeLens handler registered');
     } else {
       this.logger.debug(
@@ -1719,32 +1834,35 @@ export class LCSAdapter {
     }
 
     this.connection.onHover(
-      async (params: HoverParams): Promise<Hover | null> => {
-        const requestStartTime = Date.now();
-        this.logger.debug(
-          `🔍 [LCSAdapter] Hover request received for ${params.textDocument.uri}` +
-            ` at ${params.position.line}:${params.position.character} ` +
-            `[time: ${requestStartTime}]`,
-        );
-        try {
-          const dispatchStartTime = Date.now();
-          const result = await dispatchProcessOnHover(params);
-          const totalTime = Date.now() - requestStartTime;
-          const dispatchTime = Date.now() - dispatchStartTime;
+      this.wrapWithDocumentLoader(
+        async (params: HoverParams): Promise<Hover | null> => {
+          const requestStartTime = Date.now();
           this.logger.debug(
-            '✅ [LCSAdapter] Hover request completed: ' +
-              `total=${totalTime}ms, dispatch=${dispatchTime}ms, ` +
-              `result=${result ? 'success' : 'null'}`,
+            `🔍 [LCSAdapter] Hover request received for ${params.textDocument.uri}` +
+              ` at ${params.position.line}:${params.position.character} ` +
+              `[time: ${requestStartTime}]`,
           );
-          return result;
-        } catch (error) {
-          const totalTime = Date.now() - requestStartTime;
-          this.logger.error(
-            `Error processing hover after ${totalTime}ms: ${error}`,
-          );
-          return null;
-        }
-      },
+          try {
+            const dispatchStartTime = Date.now();
+            const result = await dispatchProcessOnHover(params);
+            const totalTime = Date.now() - requestStartTime;
+            const dispatchTime = Date.now() - dispatchStartTime;
+            this.logger.debug(
+              '✅ [LCSAdapter] Hover request completed: ' +
+                `total=${totalTime}ms, dispatch=${dispatchTime}ms, ` +
+                `result=${result ? 'success' : 'null'}`,
+            );
+            return result;
+          } catch (error) {
+            const totalTime = Date.now() - requestStartTime;
+            this.logger.error(
+              `Error processing hover after ${totalTime}ms: ${error}`,
+            );
+            return null;
+          }
+        },
+        null, // Return null if document not loaded
+      ),
     );
 
     this.hoverHandlerRegistered = true;
