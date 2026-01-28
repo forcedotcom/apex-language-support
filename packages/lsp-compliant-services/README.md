@@ -105,6 +105,179 @@ interface CacheStats {
 7. **Graph Analysis**: Update cross-file reference graph
 8. **Response**: Return processed results to client
 
+## Request Prerequisite Orchestration
+
+The language server uses a sophisticated prerequisite system to ensure all LSP requests have the required data and enrichment level before processing. This system is managed by the `PrerequisiteOrchestrationService`.
+
+### Detail Levels
+
+Symbol tables are progressively enriched through layered compilation with four detail levels:
+
+- **`'public-api'`**: Fast, public-only symbol collection for immediate feedback
+- **`'protected'`**: Adds protected members for inheritance analysis
+- **`'private'`**: Adds private members (full visibility)
+- **`'full'`**: Equivalent to 'private' - all layers applied, complete symbol information
+
+### Prerequisite Requirements by Request Type
+
+Different LSP requests require different levels of symbol enrichment:
+
+| Request Type     | Required Detail Level | Rationale                                      |
+| ---------------- | --------------------- | ---------------------------------------------- |
+| `documentSymbol` | `'public-api'`        | Public outline sufficient for navigation       |
+| `hover`          | `'public-api'`        | Public information sufficient for quick info   |
+| `completion`     | `'protected'`         | Need protected members for inheritance context |
+| `diagnostics`    | `'full'`              | Need all members for complete validation       |
+| `references`     | `'full'`              | Need all members to find all references        |
+| `definition`     | `'full'`              | Need all members for accurate navigation       |
+
+### Prerequisite Orchestration Flow
+
+The `PrerequisiteOrchestrationService` ensures prerequisites are met before service execution:
+
+```typescript
+async runPrerequisitesForLspRequestType(
+  requestType: LSPRequestType,
+  documentUri: string
+): Promise<PrerequisiteResult> {
+  // 1. Verify document exists in storage
+  const document = await storage.getDocument(documentUri);
+  if (!document) {
+    throw new Error(`Document not found: ${documentUri}`);
+  }
+
+  // 2. Get or compile symbol table
+  let symbolTable = symbolManager.getSymbolTableForFile(documentUri);
+  if (!symbolTable) {
+    // Compile with public-api layer for initial processing
+    const result = await compilerService.compileLayered(
+      document.getText(),
+      documentUri,
+      ['public-api']
+    );
+    symbolTable = result.result;
+    symbolManager.addSymbolTable(documentUri, symbolTable);
+  }
+
+  // 3. Check if enrichment is needed
+  const requiredLevel = getRequiredDetailLevel(requestType);
+  const currentLevel = symbolTable.getDetailLevel();
+
+  if (needsEnrichment(currentLevel, requiredLevel)) {
+    // 4. Enrich to required level (reuses cached parse tree!)
+    await layerEnrichmentService.enrichToDetailLevel(
+      symbolTable,
+      requiredLevel,
+      documentUri
+    );
+  }
+
+  return { symbolTable, document };
+}
+```
+
+### Layered Enrichment Process
+
+When enrichment is needed, the system progressively applies visibility layers without re-parsing:
+
+1. **Check Current Level**: Determine what layers have been applied
+   - Symbol table tracks detail level via `symbol._detailLevel` property
+   - `symbolTable.getDetailLevel()` returns highest level achieved
+
+2. **Calculate Missing Layers**: Determine which layers to apply
+   - From 'public-api' to 'protected': Apply `ProtectedSymbolListener`
+   - From 'protected' to 'private': Apply `PrivateSymbolListener`
+   - From 'public-api' to 'full': Apply both listeners sequentially
+
+3. **Reuse Parse Tree**: No re-parsing required
+   - Parse tree is cached during initial compilation
+   - Same parse tree is walked again with new listeners
+   - Dramatically faster than re-parsing (milliseconds vs. hundreds of milliseconds)
+
+4. **Apply Listeners**: Walk parse tree with missing layer listeners
+   - Each listener collects symbols for its visibility level
+   - New symbols are added to existing symbol table
+   - Existing symbols may have properties updated
+
+5. **Update Detail Level**: Mark all symbols as enriched
+   - After applying private layer, set `symbol._detailLevel = 'full'`
+   - Ensures `symbolTable.getDetailLevel()` reports correct level
+   - Prevents redundant enrichment on subsequent requests
+
+### Performance Characteristics
+
+The prerequisite system is designed for minimal overhead:
+
+- **Cache First**: Checks for existing symbol tables before compiling
+- **Lazy Enrichment**: Only enriches when request requires higher detail level
+- **Parse Tree Reuse**: Enrichment reuses cached parse tree (no re-parsing)
+- **Single Pass**: Each layer is applied at most once per file
+- **Detail Level Tracking**: Prevents redundant enrichment checks
+
+### Example: Diagnostic Request Flow
+
+```typescript
+// Client requests diagnostics
+Client → textDocument/diagnostic
+
+// Queue routes to DiagnosticProcessingService
+LSPQueueManager → DiagnosticProcessingService.processDiagnostic()
+
+// Service requests prerequisites
+DiagnosticProcessingService → PrerequisiteOrchestrationService.runPrerequisitesForLspRequestType('diagnostics')
+
+// Prerequisite service checks detail level
+PrerequisiteOrchestrationService:
+  - Get symbol table for file
+  - Current level: 'public-api' (from didOpen)
+  - Required level: 'full' (for validation)
+  - Needs enrichment: true
+
+// Enrich to full detail level
+PrerequisiteOrchestrationService → LayerEnrichmentService.enrichToDetailLevel(table, 'full')
+
+LayerEnrichmentService:
+  - Retrieve cached parse tree (no re-parsing!)
+  - Apply ProtectedSymbolListener → Add protected symbols
+  - Apply PrivateSymbolListener → Add private symbols
+  - Update all symbols._detailLevel = 'full'
+  - Return enriched symbol table
+
+// Prerequisites complete, run validation
+DiagnosticProcessingService:
+  - Receive fully enriched symbol table
+  - Run TIER 1 validators (10 validators)
+  - Run TIER 2 validators (4 validators)
+  - Return diagnostics to client
+```
+
+### Integration with Services
+
+All LSP request processing services automatically benefit from prerequisite orchestration:
+
+```typescript
+export class DiagnosticProcessingService {
+  async processDiagnostic(
+    params: DocumentDiagnosticParams,
+  ): Promise<Diagnostic[]> {
+    // Prerequisites handled automatically before this method is called
+    const prerequisites =
+      await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+        'diagnostics',
+        params.textDocument.uri,
+      );
+
+    // Symbol table is guaranteed to be at 'full' detail level
+    const symbolTable = prerequisites.symbolTable;
+
+    // Run validation with fully enriched symbols
+    const results = await this.runValidation(symbolTable);
+
+    return this.mapToLspDiagnostics(results);
+  }
+}
+```
+
 ### Symbol Table and Graph Management
 
 The document synchronization system maintains a global symbol table and cross-file reference graph that gets updated with each document change:
@@ -455,31 +628,31 @@ The server looks for configuration in these sections (in order of precedence):
   - Each entry is an object with:
     - **`scheme`** (string, required): The URI scheme name (e.g., `"my-custom-scheme"`).
     - **`excludeCapabilities`** (array of strings, optional): List of LSP capabilities to exclude this scheme from. Valid values: `"documentSymbol"`, `"hover"`, `"foldingRange"`, `"diagnostic"`, `"completion"`, `"definition"`, `"codeLens"`, `"executeCommand"`.
-  
+
   **Important Constraints:**
   - **Immutable Schemes**: The default schemes (`"file"`, `"apexlib"`, `"vscode-test-web"`) are always included and cannot be added or excluded. Attempts to configure these schemes will result in warnings in the server logs.
   - **Immutable Languages**: The languages (`"apex"`, `"apex-anon"`) are always included and cannot be modified.
   - **Default Behavior**: Additional schemes apply to all capabilities by default unless explicitly excluded via `excludeCapabilities`.
-  - **Capability-Specific Defaults**: 
+  - **Capability-Specific Defaults**:
     - Most capabilities (documentSymbol, hover, foldingRange, diagnostic, completion, definition) include: `"file"`, `"apexlib"`, `"vscode-test-web"`.
     - CodeLens excludes `"apexlib"` by default and only includes: `"file"`, `"vscode-test-web"`.
 
   **Examples:**
-  
+
   Add a custom scheme for all capabilities:
+
   ```json
   {
     "apex": {
       "environment": {
-        "additionalDocumentSchemes": [
-          { "scheme": "orgtest" }
-        ]
+        "additionalDocumentSchemes": [{ "scheme": "orgtest" }]
       }
     }
   }
   ```
-  
+
   Add a custom scheme only for CodeLens (exclude all other capabilities):
+
   ```json
   {
     "apex": {
@@ -501,7 +674,7 @@ The server looks for configuration in these sections (in order of precedence):
     }
   }
   ```
-  
+
   **Note**: If you attempt to add or exclude immutable schemes (like `"file"`), the server will log warnings but continue to operate with the default behavior. Check the server logs for validation warnings.
 
 ### Environment-Specific Defaults
@@ -682,32 +855,6 @@ connection.onShutdown(async () => {
   await ApexStorageManager.getInstance().shutdown();
 });
 ```
-
-## Recent Changes
-
-- **Per-Listener Parse Result Cache:**  
-  Implemented a unified caching system that supports multiple listener types (ApexSymbolCollectorListener and ApexFoldingRangeListener) in a single cache structure. This dramatically improves performance by avoiding redundant parsing operations across document lifecycle events.
-
-- **Intelligent Cache Merging:**  
-  Added cache merge functionality that allows different listener results to coexist in the same cache entry, preventing cache key collisions and ensuring optimal cache utilization.
-
-- **Type-Safe Cache Access:**  
-  Introduced specialized getter methods (`getSymbolResult()`, `getFoldingRangeResult()`) for type-safe cache retrieval, eliminating runtime type errors and improving code reliability.
-
-- **Enhanced Document Synchronization:**  
-  All document lifecycle events (didOpen, didChange, didSave, didClose) now benefit from intelligent caching, providing faster response times and reduced CPU usage. The system maintains a global symbol table and cross-file reference graph that gets updated with each document change, enabling advanced language features like go-to-definition, find-references, and cross-file code completion.
-
-- **Cache Performance Monitoring:**  
-  Added comprehensive cache statistics tracking including hit rates, misses, invalidations, and evictions for performance monitoring and optimization.
-
-- **Removed Babel References:**  
-  All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.
-
-- **TypeScript Improvements:**  
-  Explicit types have been added to test files to resolve TypeScript errors. For example, in `apex-lsp-testbed/test/performance/lsp-benchmarks.test.ts`, variables and parameters now have explicit `any` types.
-
-- **Jest Configuration:**  
-  Jest configurations have been streamlined. Each package now uses a single Jest configuration file (`jest.config.cjs`), and the `"jest"` key has been removed from `package.json` files to avoid conflicts.
 
 ## Development
 

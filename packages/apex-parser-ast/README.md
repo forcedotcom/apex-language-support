@@ -362,7 +362,7 @@ import { Effect } from 'effect';
 
 // Initialize validators (typically done automatically)
 await Effect.runPromise(
-  initializeValidators().pipe(Effect.provide(ValidatorRegistryLive))
+  initializeValidators().pipe(Effect.provide(ValidatorRegistryLive)),
 );
 
 // Run TIER 1 validators (fast, same-file only)
@@ -373,7 +373,7 @@ const immediateResults = await Effect.runPromise(
     maxDepth: 1,
     maxArtifacts: 5,
     timeout: 5000,
-  })
+  }),
 );
 
 // Process validation results
@@ -383,7 +383,9 @@ for (const result of immediateResults) {
       const message = typeof error === 'string' ? error : error.message;
       const location = typeof error === 'string' ? undefined : error.location;
       const code = typeof error === 'string' ? undefined : error.code;
-      console.log(`Error [${code}]: ${message} at ${location?.symbolRange.startLine}`);
+      console.log(
+        `Error [${code}]: ${message} at ${location?.symbolRange.startLine}`,
+      );
     }
   }
 }
@@ -391,9 +393,9 @@ for (const result of immediateResults) {
 
 ## Features
 
-### Enhanced Reference Capture (Phase 2 Complete) ✅
+### Reference Capture
 
-The package now provides **comprehensive reference capture** with 95%+ coverage of all identifier usage in Apex code:
+The package provides **comprehensive reference capture** with 95%+ coverage of all identifier usage in Apex code:
 
 #### **Complete Expression Coverage**
 
@@ -409,13 +411,13 @@ The package now provides **comprehensive reference capture** with 95%+ coverage 
 - **Conditional expressions**: Ternary operators like `a ? b : c`
 - **Instanceof expressions**: Type checking like `a instanceof String`
 
-#### **Enhanced LSP Features**
+#### **LSP Features**
 
 - **Go to Definition**: Works for all variable usage, not just declarations
 - **Find References**: Captures all usages including parameters and operands
 - **Hover**: Rich information for all identifier references
 - **Rename**: Comprehensive reference tracking for accurate renaming
-- **Code Completion**: Enhanced context awareness for all expression types
+- **Code Completion**: Context-aware suggestions for all expression types
 
 #### **Performance**
 
@@ -425,7 +427,7 @@ The package now provides **comprehensive reference capture** with 95%+ coverage 
 
 #### **Separated Reference Collection and Resolution Architecture**
 
-The package now provides a **modular reference processing system** that separates reference collection from resolution, enabling flexible and reusable reference handling across different symbol collection strategies:
+The package provides a **modular reference processing system** that separates reference collection from resolution, enabling flexible and reusable reference handling across different symbol collection strategies:
 
 ##### **Components**
 
@@ -463,7 +465,7 @@ const layeredResult = compilerService.compileLayered(
   fileName,
   ['public-api', 'protected'],
   undefined,
-  { collectReferences: true, resolveReferences: true }
+  { collectReferences: true, resolveReferences: true },
 );
 
 // Option 3: Collect references separately
@@ -485,6 +487,7 @@ resolver.resolveSameFileReferences(symbolTable, fileName);
 ##### **Reference Collection**
 
 The `ApexReferenceCollectorListener` captures all types of references:
+
 - Method calls (qualified and unqualified)
 - Constructor calls
 - Type references (declarations, parameters, return types)
@@ -496,33 +499,34 @@ The `ApexReferenceCollectorListener` captures all types of references:
 ##### **Reference Resolution**
 
 The `ApexReferenceResolver` provides:
+
 - **Context Correction**: Fixes misclassified references (e.g., VARIABLE_USAGE → CLASS_REFERENCE)
 - **Same-File Resolution**: Resolves references to their symbol definitions within the same file
 - **Scope-Aware Lookup**: Uses scope hierarchy for accurate symbol resolution
 - **Chain Resolution**: Resolves chained expressions to their final targets
 
-#### **Variable Declaration Enhancements**
+#### **Variable Declaration**
 
-The package now provides **comprehensive variable declaration handling**:
+The package provides **comprehensive variable declaration handling**:
 
 - **Accurate Duplicate Detection**: Properly handles multiple variables in single statements (e.g., `Integer x = 1, y = 2, z = 3;`) while preventing true duplicates
 - **For Loop Variable Support**: Captures variables declared in traditional for loops (e.g., `for (Integer i = 0; i < 5; i++)`)
-- **Enhanced For Loop Support**: Captures variables in enhanced for loops (e.g., `for (String item : items)`)
+- **For-Each Loop Support**: Captures variables in enhanced for loops (e.g., `for (String item : items)`)
 - **No Double Processing**: Variables are processed exactly once with proper context
 - **Proper Scope Management**: Variables are placed in correct scopes with accurate location information
 
-### Enhanced Error Handling
+### Error Handling
 
-The package now provides comprehensive error handling:
+The package provides comprehensive error handling:
 
 - **Syntax Errors**: Captures and reports syntax errors during parsing
 - **Semantic Errors**: Detects and reports semantic issues in the code
 - **Warning System**: Supports both errors and warnings with different severity levels
 - **Structured Error Reporting**: Errors include file path, line number, column, and detailed messages
 
-### Improved Symbol Collection
+### Symbol Collection
 
-Enhanced symbol collection and scope management:
+Comprehensive symbol collection and scope management:
 
 - **Hierarchical Scopes**: Maintains a tree of symbol scopes for accurate symbol resolution
 - **Symbol Lookup**: Efficient symbol lookup through nested scopes
@@ -619,8 +623,8 @@ Validators return structured results with location information:
 ```typescript
 interface ValidationErrorInfo {
   message: string;
-  location?: SymbolLocation;  // Precise source location
-  code?: string;              // Error code for categorization
+  location?: SymbolLocation; // Precise source location
+  code?: string; // Error code for categorization
 }
 
 interface ValidationWarningInfo {
@@ -631,9 +635,9 @@ interface ValidationWarningInfo {
 
 interface ValidationResult {
   isValid: boolean;
-  errors: ValidationErrorInfo[] | string[];  // Supports both formats
+  errors: ValidationErrorInfo[] | string[]; // Supports both formats
   warnings: ValidationWarningInfo[] | string[];
-  type?: any;  // For expression validation only
+  type?: any; // For expression validation only
 }
 ```
 
@@ -665,7 +669,7 @@ import {
 
 // Initialize validators (done automatically in DiagnosticProcessingService)
 await Effect.runPromise(
-  initializeValidators().pipe(Effect.provide(ValidatorRegistryLive))
+  initializeValidators().pipe(Effect.provide(ValidatorRegistryLive)),
 );
 
 // Run validators for a specific tier
@@ -679,7 +683,7 @@ const options: ValidationOptions = {
 };
 
 const results = await Effect.runPromise(
-  runValidatorsForTier(ValidationTier.IMMEDIATE, symbolTable, options)
+  runValidatorsForTier(ValidationTier.IMMEDIATE, symbolTable, options),
 );
 
 // Process results
@@ -697,66 +701,85 @@ for (const result of results) {
 
 ### Sequence Diagram: Document Open → 2-Tier Semantic Validation
 
-The following sequence diagram illustrates the complete flow from client opening a document through 2-tier semantic validation:
+The following sequence diagram illustrates the complete flow from client opening a document through 2-tier semantic validation with queue-based processing and layered enrichment:
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant LCSAdapter
-    participant DidOpenDocumentHandler
+    participant LSPQueueManager
     participant DocumentProcessingService
     participant CompilerService
     participant DiagnosticProcessingService
+    participant PrerequisiteOrchestrationService
+    participant LayerEnrichmentService
     participant ValidatorRegistry
     participant TIER1Validators as TIER 1 Validators<br/>(10 validators)
     participant TIER2Validators as TIER 2 Validators<br/>(4 validators)
     participant ArtifactLoadingHelper
     participant MissingArtifactResolutionService
-    participant LSPQueueManager
     participant MissingArtifactProcessingService
     participant SymbolManager
 
     Client->>LCSAdapter: textDocument/didOpen
-    LCSAdapter->>DidOpenDocumentHandler: handleDocumentOpen()
-    
-    DidOpenDocumentHandler->>DocumentProcessingService: processDocumentOpenInternal()
-    
-    DocumentProcessingService->>CompilerService: compile(document, listener)
-    CompilerService->>CompilerService: Parse → SymbolTable
-    CompilerService-->>DocumentProcessingService: CompilationResult<SymbolTable>
-    
-    Note over DocumentProcessingService: Cache SymbolTable<br/>Trigger enrichment
-    
+    LCSAdapter->>LSPQueueManager: submitRequest('documentOpen', params)
+    LSPQueueManager->>DocumentProcessingService: processDocumentOpenInternal()
+
+    DocumentProcessingService->>CompilerService: compileLayered(['public-api'])
+    CompilerService->>CompilerService: Lexer → Parser → Parse Tree
+    CompilerService->>CompilerService: Apply PublicAPISymbolListener
+    CompilerService-->>DocumentProcessingService: SymbolTable (detailLevel: 'public-api')
+
+    Note over DocumentProcessingService: Cache SymbolTable + Parse Tree<br/>Fast initial processing complete
+
     Client->>LCSAdapter: textDocument/diagnostic (pull)
-    LCSAdapter->>DiagnosticProcessingService: processDiagnostic()
-    
+    LCSAdapter->>LSPQueueManager: submitRequest('diagnostics', params, {priority: Normal})
+    LSPQueueManager->>DiagnosticProcessingService: processDiagnostic()
+
     Note over DiagnosticProcessingService: Initialize validators<br/>(static, one-time)
     DiagnosticProcessingService->>ValidatorRegistry: initializeValidators()
     ValidatorRegistry->>ValidatorRegistry: Register 14 validators
-    
-    DiagnosticProcessingService->>DiagnosticProcessingService: Get cached SymbolTable
-    
+
+    DiagnosticProcessingService->>PrerequisiteOrchestrationService: runPrerequisitesForLspRequestType('diagnostics')
+
+    PrerequisiteOrchestrationService->>PrerequisiteOrchestrationService: Verify document in storage
+    PrerequisiteOrchestrationService->>PrerequisiteOrchestrationService: Get cached SymbolTable
+    PrerequisiteOrchestrationService->>PrerequisiteOrchestrationService: Check table.getDetailLevel()
+
+    alt detailLevel < 'full'
+        Note over PrerequisiteOrchestrationService: Need enrichment for validation
+        PrerequisiteOrchestrationService->>LayerEnrichmentService: enrichToDetailLevel(table, 'full')
+        LayerEnrichmentService->>LayerEnrichmentService: Reuse cached parse tree (no re-parsing!)
+        LayerEnrichmentService->>CompilerService: Apply ProtectedSymbolListener
+        LayerEnrichmentService->>CompilerService: Apply PrivateSymbolListener
+        LayerEnrichmentService->>LayerEnrichmentService: Update all symbols._detailLevel = 'full'
+        LayerEnrichmentService-->>PrerequisiteOrchestrationService: Enriched SymbolTable
+    end
+
+    PrerequisiteOrchestrationService-->>DiagnosticProcessingService: Prerequisites complete
+    DiagnosticProcessingService->>DiagnosticProcessingService: Fetch enriched SymbolTable
+
     rect rgb(200, 230, 255)
         Note over DiagnosticProcessingService,TIER1Validators: TIER 1: IMMEDIATE Validation<br/>(<500ms, same-file only)
         DiagnosticProcessingService->>ValidatorRegistry: runValidatorsForTier(IMMEDIATE, table, options)
         ValidatorRegistry->>TIER1Validators: Execute 10 validators
-        
+
         loop For each TIER 1 validator
             TIER1Validators->>TIER1Validators: Validate symbols<br/>(ParameterLimit, EnumLimit, etc.)
             TIER1Validators-->>ValidatorRegistry: ValidationResult[]
         end
-        
+
         ValidatorRegistry-->>DiagnosticProcessingService: immediateResults[]
     end
-    
+
     rect rgb(255, 230, 200)
         Note over DiagnosticProcessingService,TIER2Validators: TIER 2: THOROUGH Validation<br/>(2-5s, may load artifacts)
         DiagnosticProcessingService->>ValidatorRegistry: runValidatorsForTier(THOROUGH, table, options)
         ValidatorRegistry->>TIER2Validators: Execute 4 validators
-        
+
         loop For each TIER 2 validator
             TIER2Validators->>TIER2Validators: Check if types need resolution
-            
+
             alt Type needs resolution
                 TIER2Validators->>TIER2Validators: Check typeReferenceId
                 alt Already resolved (resolvedSymbolId exists)
@@ -779,9 +802,9 @@ sequenceDiagram
                             Client->>Client: openTextDocument(fileUri)<br/>(opens file)
                             Note over Client: Opening file triggers<br/>textDocument/didOpen<br/>(processed by server)
                             Client->>LCSAdapter: textDocument/didOpen<br/>(notification, async)
-                            LCSAdapter->>DidOpenDocumentHandler: handleDocumentOpen()
-                            DidOpenDocumentHandler->>DocumentProcessingService: processDocumentOpenInternal()
-                            DocumentProcessingService->>CompilerService: compile(artifactFile)
+                            LCSAdapter->>LSPQueueManager: submitRequest('documentOpen', params)
+                            LSPQueueManager->>DocumentProcessingService: processDocumentOpenInternal()
+                            DocumentProcessingService->>CompilerService: compileLayered(['public-api'])
                             CompilerService-->>DocumentProcessingService: SymbolTable
                             DocumentProcessingService->>SymbolManager: addSymbolTable(artifactFile, table)
                             SymbolManager-->>SymbolManager: Index symbols
@@ -797,14 +820,14 @@ sequenceDiagram
                     end
                 end
             end
-            
+
             TIER2Validators->>TIER2Validators: Validate with resolved types<br/>(TypeAssignment, ClassHierarchy, etc.)
             TIER2Validators-->>ValidatorRegistry: ValidationResult[]
         end
-        
+
         ValidatorRegistry-->>DiagnosticProcessingService: thoroughResults[]
     end
-    
+
     DiagnosticProcessingService->>DiagnosticProcessingService: Map ValidationErrorInfo<br/>to LSP Diagnostic<br/>(with SymbolLocation → Range)
     DiagnosticProcessingService-->>Client: Diagnostic[]<br/>(with correct ranges)
 ```
@@ -839,17 +862,6 @@ Common error codes returned by validators:
 - `FINAL_PARAMETER_REASSIGNMENT`: Reassigning final parameter
 - `VARIABLE_SHADOWING`: Variable shadows outer scope
 - `FORWARD_REFERENCE`: Variable used before declaration
-
-## Recent Changes
-
-- **Removed Babel References:**  
-  All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.
-
-- **TypeScript Improvements:**  
-  Explicit types have been added to test files to resolve TypeScript errors. For example, in `apex-lsp-testbed/test/performance/lsp-benchmarks.test.ts`, variables and parameters now have explicit `any` types.
-
-- **Jest Configuration:**  
-  Jest configurations have been streamlined. Each package now uses a single Jest configuration file (`jest.config.cjs`), and the `"jest"` key has been removed from `package.json` files to avoid conflicts.
 
 ## Development
 
@@ -1095,7 +1107,7 @@ console.log(
 
 #### Integration with ApexSymbolManager
 
-The `ApexSymbolManager` automatically integrates with the ResourceLoader to provide enhanced symbol resolution:
+The `ApexSymbolManager` automatically integrates with the ResourceLoader to provide comprehensive symbol resolution:
 
 ```typescript
 import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
@@ -1112,7 +1124,7 @@ const standardClasses = symbolManager.getAvailableStandardClasses();
 
 ## Symbol and Type Reference Support
 
-This package now includes first-class symbol and type reference modeling that powers advanced navigation, refactoring, and analysis scenarios. The system is built around a lightweight reference graph layered over `SymbolTable` data, plus a type resolution pipeline.
+This package includes first-class symbol and type reference modeling that powers advanced navigation, refactoring, and analysis scenarios. The system is built around a lightweight reference graph layered over `SymbolTable` data, plus a type resolution pipeline.
 
 ### Reference Graph and Query APIs
 
