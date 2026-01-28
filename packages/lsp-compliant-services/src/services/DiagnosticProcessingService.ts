@@ -707,6 +707,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
         // Convert ValidationResult[] to Diagnostic[]
         const diagnostics: Diagnostic[] = [];
+        // Track seen diagnostics to deduplicate (same code + location + message)
+        const seenDiagnostics = new Set<string>();
 
         for (const result of results) {
           // Add errors (handle both string[] and ValidationError[] formats)
@@ -753,6 +755,17 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
                 end: { line: 0, character: 0 },
               };
             }
+
+            // Create a unique key for deduplication: code + range + message
+            const rangeStr = `${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}`;
+            const diagnosticKey = `${errorCode}|${rangeStr}|${errorMessage}`;
+
+            // Skip if we've already seen this exact diagnostic
+            if (seenDiagnostics.has(diagnosticKey)) {
+              continue;
+            }
+
+            seenDiagnostics.add(diagnosticKey);
 
             diagnostics.push({
               range,
@@ -807,6 +820,17 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
                 end: { line: 0, character: 0 },
               };
             }
+
+            // Create a unique key for deduplication: code + range + message
+            const rangeStr = `${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}`;
+            const diagnosticKey = `${warningCode}|${rangeStr}|${warningMessage}`;
+
+            // Skip if we've already seen this exact diagnostic
+            if (seenDiagnostics.has(diagnosticKey)) {
+              continue;
+            }
+
+            seenDiagnostics.add(diagnosticKey);
 
             diagnostics.push({
               range,

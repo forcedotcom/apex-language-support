@@ -960,11 +960,13 @@ export class SymbolTable {
         // Update roots array if needed
         this.updateRootsArray(symbolToAdd, previousParentId);
         return;
-      } else if (newLevel <= existingLevel) {
-        // Existing symbol has same or higher detail level, skip enrichment
-        // Keep existing symbol
+      } else if (newLevel < existingLevel) {
+        // Existing symbol has higher detail level, skip enrichment
+        // Keep existing symbol and return early (no duplicate detection needed)
         return;
       }
+      // If newLevel === existingLevel, fall through to duplicate detection
+      // This allows duplicates with the same detail level to be stored
     }
 
     // Handle duplicates: convert single symbol to array when duplicate detected

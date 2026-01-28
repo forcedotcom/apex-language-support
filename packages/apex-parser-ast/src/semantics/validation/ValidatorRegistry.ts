@@ -9,6 +9,7 @@
 import { Context, Effect, Layer, Data } from 'effect';
 import type { SymbolTable } from '../../types/symbol';
 import type { ValidationResult } from './ValidationResult';
+import { deduplicateValidationResult } from './ValidationResult';
 import type { ValidationOptions, ValidationTier } from './ValidationTier';
 import type { ValidatorPrerequisites } from '../../prerequisites/OperationPrerequisites';
 import { DetailLevel } from '../../parser/listeners/LayeredSymbolListenerBase';
@@ -129,7 +130,7 @@ function checkValidatorPrerequisites(
   // Check detail level requirement
   if (prerequisites.requiredDetailLevel !== null) {
     const currentDetailLevel = symbolTable.getDetailLevel();
-    
+
     // If no detail level is set, allow validators that only need 'public-api'
     // (the minimum level) to run, as they can work with basic symbol tables
     if (!currentDetailLevel) {
@@ -166,15 +167,11 @@ function checkValidatorPrerequisites(
       return false; // Cross-file resolution requires symbolManager
     }
 
-    // Check if references have been resolved (have resolvedSymbolId)
-    const refs = symbolTable.getAllReferences();
-    const hasResolvedRefs = refs.some(
-      (ref) => ref.resolvedSymbolId !== undefined,
-    );
-    if (!hasResolvedRefs && refs.length > 0) {
-      // References exist but haven't been resolved
-      return false;
-    }
+    // Note: We don't require all references to be resolved here.
+    // Validators with requiresCrossFileResolution need to run even when
+    // some references are unresolved, so they can trigger artifact loading
+    // for missing types via loadArtifactCallback.
+    // The validator itself will handle cases where types are missing.
   }
 
   return true; // All prerequisites met
@@ -320,7 +317,9 @@ class ValidatorRegistryImpl implements ValidatorRegistryService {
               ),
             );
 
-            return result;
+            // Deduplicate errors and warnings before returning
+            // This prevents duplicate diagnostics when duplicate symbols exist
+            return deduplicateValidationResult(result);
           }),
         ),
         { concurrency: 'unbounded' }, // Run sequentially for now

@@ -35,6 +35,11 @@ export type {
   ValidationWarningInfo,
   ValidationScope,
 } from './ValidationResult';
+export {
+  deduplicateValidationErrors,
+  deduplicateValidationWarnings,
+  deduplicateValidationResult,
+} from './ValidationResult';
 export { ValidationTier, ARTIFACT_LOADING_LIMITS } from './ValidationTier';
 export type {
   ArtifactLoadingOptions,

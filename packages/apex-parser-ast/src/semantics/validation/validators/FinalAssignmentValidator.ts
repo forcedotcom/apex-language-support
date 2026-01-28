@@ -104,17 +104,19 @@ export const FinalAssignmentValidator: Validator = {
         if (referencedSymbol) {
           // Skip if this write reference is at the same location as a VARIABLE_DECLARATION
           // (this is the initialization in the declaration, not a reassignment)
-          const isDeclarationInitialization = declarationRefs.some((declRef) => {
-            if (declRef.name !== reference.name) {
-              return false;
-            }
-            const declLine = declRef.location.identifierRange.startLine;
-            const declCol = declRef.location.identifierRange.startColumn;
-            const refLine = reference.location.identifierRange.startLine;
-            const refCol = reference.location.identifierRange.startColumn;
-            // Same line and column means it's the declaration initialization
-            return declLine === refLine && declCol === refCol;
-          });
+          const isDeclarationInitialization = declarationRefs.some(
+            (declRef) => {
+              if (declRef.name !== reference.name) {
+                return false;
+              }
+              const declLine = declRef.location.identifierRange.startLine;
+              const declCol = declRef.location.identifierRange.startColumn;
+              const refLine = reference.location.identifierRange.startLine;
+              const refCol = reference.location.identifierRange.startColumn;
+              // Same line and column means it's the declaration initialization
+              return declLine === refLine && declCol === refCol;
+            },
+          );
 
           if (!isDeclarationInitialization) {
             const currentCount = assignmentCounts.get(referencedSymbol.id) || 0;

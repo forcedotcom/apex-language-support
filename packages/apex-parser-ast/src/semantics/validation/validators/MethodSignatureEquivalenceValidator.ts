@@ -67,9 +67,21 @@ export const MethodSignatureEquivalenceValidator: Validator = {
       const allSymbols = symbolTable.getAllSymbols();
 
       // Filter to method symbols only (not constructors)
-      const methods = allSymbols.filter(
+      const allMethods = allSymbols.filter(
         (symbol) => symbol.kind === SymbolKind.Method,
       ) as MethodSymbol[];
+
+      // Deduplicate methods: for each unique unifiedId, keep only one method
+      // This prevents duplicate error reports when duplicate methods are stored
+      const methodsByUnifiedId = new Map<string, MethodSymbol>();
+      for (const method of allMethods) {
+        const unifiedId = method.key.unifiedId || method.id;
+        // Keep the first occurrence of each unique method (by unifiedId)
+        if (!methodsByUnifiedId.has(unifiedId)) {
+          methodsByUnifiedId.set(unifiedId, method);
+        }
+      }
+      const methods = Array.from(methodsByUnifiedId.values());
 
       // Group methods by parent (class or interface)
       const methodsByParent = new Map<string, MethodSymbol[]>();

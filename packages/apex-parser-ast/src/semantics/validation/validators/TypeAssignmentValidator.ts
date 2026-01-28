@@ -95,20 +95,20 @@ export const TypeAssignmentValidator: Validator = {
         );
 
         // Handle case where initializerType has literal value in originalTypeString
-        // but name is Object (extractInitializerType couldn't determine type)
-        // Infer type from literal value if possible
-        if (
-          variable.initializerType.originalTypeString &&
-          variable.initializerType.name === 'Object' &&
-          variable.initializerType.needsNamespaceResolution
-        ) {
+        // Infer type from literal value if possible (regardless of current name)
+        // This handles cases where extractInitializerType couldn't determine type correctly
+        if (variable.initializerType.originalTypeString) {
           const literalValue =
             variable.initializerType.originalTypeString.trim();
-          // Check if it's a string literal
-          if (
-            (literalValue.startsWith("'") && literalValue.endsWith("'")) ||
-            (literalValue.startsWith('"') && literalValue.endsWith('"'))
-          ) {
+
+          // Check if it's a string literal (starts and ends with quotes)
+          // Handle both single and double quotes, and multi-line strings
+          const isStringLiteral =
+            ((literalValue.startsWith("'") && literalValue.endsWith("'")) ||
+              (literalValue.startsWith('"') && literalValue.endsWith('"'))) &&
+            literalValue.length >= 2; // At least 2 chars for empty string ''
+
+          if (isStringLiteral) {
             // Infer String type for string literals
             initializerType = {
               kind: 'primitive',
@@ -118,8 +118,13 @@ export const TypeAssignmentValidator: Validator = {
               isPrimitive: true,
             };
           }
-          // Check if it's a numeric literal
-          else if (/^-?\d+$/.test(literalValue)) {
+          // Check if it's a numeric literal (only if not already recognized)
+          else if (
+            /^-?\d+$/.test(literalValue) &&
+            initializerType.name !== 'integer' &&
+            initializerType.name !== 'long' &&
+            initializerType.name !== 'decimal'
+          ) {
             // Infer Integer type for integer literals
             initializerType = {
               kind: 'primitive',
@@ -223,6 +228,50 @@ export const TypeAssignmentValidator: Validator = {
               );
             }
           }
+        }
+
+        // Check if we detected a string literal - if so, it's always assignable to String
+        const isStringLiteralDetected =
+          variable.initializerType.originalTypeString &&
+          ((variable.initializerType.originalTypeString
+            .trim()
+            .startsWith("'") &&
+            variable.initializerType.originalTypeString.trim().endsWith("'")) ||
+            (variable.initializerType.originalTypeString
+              .trim()
+              .startsWith('"') &&
+              variable.initializerType.originalTypeString
+                .trim()
+                .endsWith('"'))) &&
+          variable.initializerType.originalTypeString.trim().length >= 2;
+
+        // Skip validation if types couldn't be resolved and we can't determine compatibility
+        // Exception: If we detected a string literal and declared type is String, allow it
+        const declaredTypeIsString =
+          declaredType.name === 'string' ||
+          variable.type.name.toLowerCase() === 'string';
+
+        // If we have a string literal and declared type is String, skip validation (always valid)
+        if (isStringLiteralDetected && declaredTypeIsString) {
+          yield* Effect.logDebug(
+            `[TYPE-VALIDATOR] Skipping validation for variable '${variable.name}': ` +
+              'string literal assigned to String (always valid)',
+          );
+          continue; // Skip to next variable
+        }
+
+        // Skip validation if initializer type couldn't be resolved (except for literals we detected)
+        if (
+          variable.initializerType.needsNamespaceResolution &&
+          initializerType.name === 'object' &&
+          !isStringLiteralDetected
+        ) {
+          yield* Effect.logDebug(
+            `[TYPE-VALIDATOR] Skipping validation for variable '${variable.name}': ` +
+              `initializer type unresolved (${variable.initializerType.name}), ` +
+              `originalTypeString=${variable.initializerType.originalTypeString}`,
+          );
+          continue; // Skip to next variable
         }
 
         // Validate type compatibility
@@ -456,8 +505,9 @@ function resolveTypeIfNeeded(
                   firstNode.resolvedSymbolId,
                 );
               } else {
-                const qualifierSymbols =
-                  symbolManager.findSymbolByName(firstNode.name);
+                const qualifierSymbols = symbolManager.findSymbolByName(
+                  firstNode.name,
+                );
                 qualifierSymbol =
                   qualifierSymbols.find((s) => isTypeSymbol(s)) || null;
                 if (!qualifierSymbol) {

@@ -686,8 +686,45 @@ export class DefaultApexDocumentSymbolProvider
           `Collecting children for ${parentKind} (scopeId: ${scopeId}): ${childSymbols.length} semantic symbols found`,
       );
 
-      for (let i = 0; i < childSymbols.length; i++) {
-        const childSymbol = childSymbols[i];
+      // Debug: log all child symbols to see what we have
+      const childSymbolsByName = new Map<string, ApexSymbol[]>();
+      for (const childSymbol of childSymbols) {
+        if (!childSymbolsByName.has(childSymbol.name)) {
+          childSymbolsByName.set(childSymbol.name, []);
+        }
+        childSymbolsByName.get(childSymbol.name)!.push(childSymbol);
+      }
+      for (const [name, symbols] of childSymbolsByName.entries()) {
+        if (symbols.length > 1) {
+          logger.debug(
+            () =>
+              `Found ${symbols.length} symbols with name '${name}' in childSymbols: ` +
+              `IDs=[${symbols.map((s) => s.id).join(', ')}], ` +
+              `unifiedIds=[${symbols.map((s) => s.key.unifiedId || 'none').join(', ')}], ` +
+              `lines=[${symbols.map((s) => s.location.identifierRange.startLine).join(', ')}]`,
+          );
+        }
+      }
+
+      // Also check if getAllSymbolsById returns duplicates for methods we found
+      for (const [name, symbols] of childSymbolsByName.entries()) {
+        if (symbols.length > 0) {
+          const firstSymbol = symbols[0];
+          const unifiedId = firstSymbol.key.unifiedId || firstSymbol.id;
+          const allWithSameId = symbolTable.getAllSymbolsById(unifiedId);
+          if (allWithSameId.length > symbols.length) {
+            logger.debug(
+              () =>
+                `Symbol '${name}' has ${allWithSameId.length} entries in symbolMap ` +
+                `but only ${symbols.length} in childSymbols`,
+            );
+          }
+        }
+      }
+
+      // Handle duplicates similar to top-level symbols
+      // First, filter out interface non-methods
+      const filteredChildSymbols = childSymbols.filter((childSymbol) => {
         // For interfaces, only include methods (Apex interfaces can only contain method signatures)
         if (
           parentKind.toLowerCase() === 'interface' &&
@@ -697,8 +734,119 @@ export class DefaultApexDocumentSymbolProvider
             () =>
               `Skipping non-method symbol '${childSymbol.name}' in interface`,
           );
-          continue;
+          return false;
         }
+        return true;
+      });
+
+      // Collect all child symbols, handling duplicates
+      // Strategy: Process all symbols from filteredChildSymbols, but for each unique unifiedId,
+      // use getAllSymbolsById to get all duplicates from symbolMap (even if not in filteredChildSymbols)
+      // This ensures we catch duplicates that might not both appear in getAllSymbols()
+      // Include all duplicates that are children of this scope and have different locations
+      // This matches the approach used for top-level class duplicates (lines 208-277)
+      // Note: Duplicate methods have the same unifiedId (same name, scope, kind) but different locations
+      const finalChildSymbols: ApexSymbol[] = [];
+      const seenObjects = new Set<ApexSymbol>();
+      const unifiedIdsToProcess = new Set<string>();
+      for (const childSymbol of filteredChildSymbols) {
+        const unifiedId = childSymbol.key.unifiedId || childSymbol.id;
+        unifiedIdsToProcess.add(unifiedId);
+      }
+
+      // Also check getAllSymbols() for any symbols we might have missed
+      // (in case duplicates aren't both in filteredChildSymbols)
+      for (const symbol of allSymbols) {
+        const isChildOfScope = symbol.parentId === scopeId;
+        const isInnerType =
+          parentTypeId &&
+          inTypeSymbolGroup(symbol) &&
+          symbol.parentId === parentTypeId;
+
+        if ((isChildOfScope || isInnerType) && !isBlockSymbol(symbol)) {
+          // For interfaces, skip non-methods
+          if (
+            parentKind.toLowerCase() === 'interface' &&
+            !isMethodSymbol(symbol)
+          ) {
+            continue;
+          }
+          // Exclude variable and parameter symbols
+          if (
+            symbol.kind === ApexSymbolKind.Variable ||
+            symbol.kind === ApexSymbolKind.Parameter
+          ) {
+            continue;
+          }
+          const unifiedId = symbol.key.unifiedId || symbol.id;
+          unifiedIdsToProcess.add(unifiedId);
+        }
+      }
+
+      // Process each unique unifiedId and get all duplicates from symbolMap
+      for (const unifiedId of unifiedIdsToProcess) {
+        // Get all symbols with this unifiedId from symbolMap (includes duplicates)
+        // This is the key: getAllSymbolsById returns all duplicates stored in the map
+        const allWithSameId = symbolTable.getAllSymbolsById(unifiedId);
+
+        // Filter to only symbols that are children of this scope
+        const validDuplicates: ApexSymbol[] = [];
+        const locations = new Set<number>();
+
+        for (const duplicateSymbol of allWithSameId) {
+          // Verify this duplicate is still a child of the scope
+          const isChildOfScope = duplicateSymbol.parentId === scopeId;
+          const isInnerType =
+            parentTypeId &&
+            inTypeSymbolGroup(duplicateSymbol) &&
+            duplicateSymbol.parentId === parentTypeId;
+
+          if (isChildOfScope || isInnerType) {
+            // For interfaces, skip non-methods
+            if (
+              parentKind.toLowerCase() === 'interface' &&
+              !isMethodSymbol(duplicateSymbol)
+            ) {
+              continue;
+            }
+            // Exclude variable and parameter symbols
+            if (
+              duplicateSymbol.kind === ApexSymbolKind.Variable ||
+              duplicateSymbol.kind === ApexSymbolKind.Parameter
+            ) {
+              continue;
+            }
+
+            const line = duplicateSymbol.location.identifierRange.startLine;
+            locations.add(line);
+
+            // Deduplicate by object reference (avoid showing same object twice)
+            if (!seenObjects.has(duplicateSymbol)) {
+              seenObjects.add(duplicateSymbol);
+              validDuplicates.push(duplicateSymbol);
+            }
+          }
+        }
+
+        // Show all duplicates with different locations (like TypeScript outline)
+        if (locations.size > 1) {
+          // Actual duplicate declarations at different locations - show all
+          for (const duplicateSymbol of validDuplicates) {
+            finalChildSymbols.push(duplicateSymbol);
+          }
+        } else if (validDuplicates.length > 0) {
+          // Same location or only one - just add one
+          finalChildSymbols.push(validDuplicates[0]);
+        }
+      }
+
+      logger.debug(
+        () =>
+          `After duplicate handling: ${finalChildSymbols.length} child symbols to process`,
+      );
+
+      for (let i = 0; i < finalChildSymbols.length; i++) {
+        const childSymbol = finalChildSymbols[i];
 
         const childDocumentSymbol = self.createDocumentSymbol(childSymbol);
 
