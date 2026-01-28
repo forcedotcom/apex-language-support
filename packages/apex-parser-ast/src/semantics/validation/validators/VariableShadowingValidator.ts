@@ -80,6 +80,12 @@ export const VariableShadowingValidator: Validator = {
 
       // Check each variable for shadowing
       for (const variable of variables) {
+        // Skip method parameters - they are at the top of method scope
+        // and cannot shadow variables from outer (class) scopes
+        if (variable.kind === SymbolKind.Parameter) {
+          continue;
+        }
+
         // Get the parent symbol (method, block, or other scope)
         const parent = variable.parentId
           ? allSymbols.find((s) => s.id === variable.parentId)
@@ -178,6 +184,10 @@ function getScopeDescription(
 
   switch (variable.kind) {
     case SymbolKind.Parameter:
+      // Parameters can have block parents (method blocks) - skip to actual method
+      if (parent.kind === SymbolKind.Block) {
+        return 'parameter';
+      }
       return `method '${parent.name}'`;
     case SymbolKind.Variable:
       if (parent.kind === SymbolKind.Block) {
