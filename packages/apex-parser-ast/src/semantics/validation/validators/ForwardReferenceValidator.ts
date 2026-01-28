@@ -9,6 +9,7 @@
 import { Effect } from 'effect';
 import type { SymbolTable } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
+import { ReferenceContext } from '../../../types/symbolReference';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -74,6 +75,11 @@ export const ForwardReferenceValidator: Validator = {
 
       // Check each reference to ensure it comes after the declaration
       for (const reference of allReferences) {
+        // Skip VARIABLE_DECLARATION context - these are declarations, not usages
+        if (reference.context === ReferenceContext.VARIABLE_DECLARATION) {
+          continue;
+        }
+
         // Find the declaration for this reference
         // We need to look in the reference's scope and parent scopes
         const refSymbol = reference.resolvedSymbolId
@@ -92,19 +98,36 @@ export const ForwardReferenceValidator: Validator = {
           continue;
         }
 
-        // Get the declaration line for this variable
-        const declarationLine = refSymbol.location.symbolRange.startLine;
+        // Get the declaration line for this variable (use identifierRange for precise location)
+        const declarationLine = refSymbol.location.identifierRange.startLine;
 
-        // Get the reference line
-        const referenceLine = reference.location.symbolRange.startLine;
+        // Get the reference line (use identifierRange for precise location)
+        const referenceLine = reference.location.identifierRange.startLine;
 
         // Check if reference comes before declaration
+        // Note: If they're on the same line, we need to check columns too
         if (referenceLine < declarationLine) {
           errors.push({
             message: `Variable '${reference.name}' is referenced before it is declared`,
             location: reference.location,
             code: 'FORWARD_REFERENCE',
           });
+        } else if (referenceLine === declarationLine) {
+          // Same line - check columns to ensure reference doesn't come before declaration
+          const declarationColumn =
+            refSymbol.location.identifierRange.startColumn;
+          const referenceColumn =
+            reference.location.identifierRange.startColumn;
+
+          // Only flag as error if reference column is before declaration column
+          // (i.e., the reference appears to the left of the declaration on the same line)
+          if (referenceColumn < declarationColumn) {
+            errors.push({
+              message: `Variable '${reference.name}' is referenced before it is declared`,
+              location: reference.location,
+              code: 'FORWARD_REFERENCE',
+            });
+          }
         }
       }
 
