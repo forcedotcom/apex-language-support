@@ -4634,13 +4634,21 @@ export class ApexSymbolCollectorListener
       }
 
       // Link the TypeInfo to its SymbolReference if we have an expected context
-      // Primitives and built-ins don't need references
-      if (
+      // Primitives and built-ins don't need references, EXCEPT for LITERAL context
+      if (expectedContext && expectedContext === ReferenceContext.LITERAL) {
+        // Always link literals to their SymbolReference
+        this.linkInitializerTypeToReference(
+          typeInfo,
+          location,
+          expectedContext,
+        );
+      } else if (
         expectedContext &&
         !typeInfo.isPrimitive &&
         !typeInfo.isBuiltIn &&
         typeInfo.name !== 'null'
       ) {
+        // For non-literals, skip primitives/built-ins
         this.linkInitializerTypeToReference(
           typeInfo,
           location,
@@ -4690,24 +4698,32 @@ export class ApexSymbolCollectorListener
       // For constructor calls, match CONSTRUCTOR_CALL context
       // For method calls, match METHOD_CALL context
       // For variable references, match VARIABLE_USAGE context
-      // When typeInfo.name is 'Object', use originalTypeString for matching
-      let nameToMatch = typeInfo.name;
-      if (typeInfo.name === 'Object' && typeInfo.originalTypeString) {
-        // For dotted expressions like "property.Id", extract the last part
-        // For method calls like "FileUtilities.createFile(...)", extract method name without args
-        let cleanedString = typeInfo.originalTypeString;
-        // Remove method arguments if present
-        const parenIndex = cleanedString.indexOf('(');
-        if (parenIndex !== -1) {
-          cleanedString = cleanedString.substring(0, parenIndex);
+      // For LITERAL references, match by context only (name is literal value, not type name)
+      let matchingRef: SymbolReference | undefined;
+      if (expectedContext === ReferenceContext.LITERAL) {
+        // For literals, match by context only since ref.name is the literal value
+        // (e.g., 'hello') while typeInfo.name is the type name (e.g., 'String')
+        matchingRef = refs.find((ref) => ref.context === expectedContext);
+      } else {
+        // For other contexts, match by both context and name
+        let nameToMatch = typeInfo.name;
+        if (typeInfo.name === 'Object' && typeInfo.originalTypeString) {
+          // For dotted expressions like "property.Id", extract the last part
+          // For method calls like "FileUtilities.createFile(...)", extract method name without args
+          let cleanedString = typeInfo.originalTypeString;
+          // Remove method arguments if present
+          const parenIndex = cleanedString.indexOf('(');
+          if (parenIndex !== -1) {
+            cleanedString = cleanedString.substring(0, parenIndex);
+          }
+          // Extract last part after dot
+          const parts = cleanedString.split('.');
+          nameToMatch = parts[parts.length - 1];
         }
-        // Extract last part after dot
-        const parts = cleanedString.split('.');
-        nameToMatch = parts[parts.length - 1];
+        matchingRef = refs.find(
+          (ref) => ref.context === expectedContext && ref.name === nameToMatch,
+        );
       }
-      const matchingRef = refs.find(
-        (ref) => ref.context === expectedContext && ref.name === nameToMatch,
-      );
 
       // Also check for collection types where the reference name might be "List", "Set", or "Map"
       // but the typeInfo.name might include generics like "List<String>"
@@ -4745,10 +4761,16 @@ export class ApexSymbolCollectorListener
         );
       } else {
         // Reference exists but doesn't match - log info but continue
+        const nameToMatchForLog =
+          expectedContext === ReferenceContext.LITERAL
+            ? 'N/A (LITERAL)'
+            : typeInfo.name === 'Object' && typeInfo.originalTypeString
+              ? typeInfo.originalTypeString.split('.').pop() || typeInfo.name
+              : typeInfo.name;
         this.logger.info(
           () =>
             `[linkInitializerTypeToReference-FAIL] No matching reference for type "${typeInfo.name}" ` +
-            `(nameToMatch: ${nameToMatch}, expected context: ${ReferenceContext[expectedContext]}) at ` +
+            `(nameToMatch: ${nameToMatchForLog}, expected context: ${ReferenceContext[expectedContext]}) at ` +
             `${location.identifierRange.startLine}:${location.identifierRange.startColumn}, ` +
             `found ${refs.length} refs: ${refs.map((r) => `${r.name}:${ReferenceContext[r.context]}`).join(', ')}`,
         );
@@ -4875,19 +4897,39 @@ export class ApexSymbolCollectorListener
    */
   private extractTypeFromLiteralExpression(ctx: LiteralContext): TypeInfo {
     if (ctx.IntegerLiteral()) {
-      return createPrimitiveType('Integer');
+      const text = ctx.IntegerLiteral()!.text;
+      const typeInfo = createPrimitiveType('Integer');
+      // Preserve the actual literal value in originalTypeString
+      typeInfo.originalTypeString = text;
+      return typeInfo;
     }
     if (ctx.LongLiteral()) {
-      return createPrimitiveType('Long');
+      const text = ctx.LongLiteral()!.text;
+      const typeInfo = createPrimitiveType('Long');
+      // Preserve the actual literal value in originalTypeString
+      typeInfo.originalTypeString = text;
+      return typeInfo;
     }
     if (ctx.NumberLiteral()) {
-      return createPrimitiveType('Decimal');
+      const text = ctx.NumberLiteral()!.text;
+      const typeInfo = createPrimitiveType('Decimal');
+      // Preserve the actual literal value in originalTypeString
+      typeInfo.originalTypeString = text;
+      return typeInfo;
     }
     if (ctx.StringLiteral()) {
-      return createPrimitiveType('String');
+      const text = ctx.StringLiteral()!.text;
+      const typeInfo = createPrimitiveType('String');
+      // Preserve the actual literal value (with quotes) in originalTypeString
+      typeInfo.originalTypeString = text;
+      return typeInfo;
     }
     if (ctx.BooleanLiteral()) {
-      return createPrimitiveType('Boolean');
+      const text = ctx.BooleanLiteral()!.text.toLowerCase();
+      const typeInfo = createPrimitiveType('Boolean');
+      // Preserve the actual literal value in originalTypeString
+      typeInfo.originalTypeString = text;
+      return typeInfo;
     }
     if (ctx.NULL()) {
       return {

@@ -3793,6 +3793,38 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     position?: { line: number; character: number },
   ): Promise<ApexSymbol | null> {
     try {
+      // Handle LITERAL references by resolving to built-in type using literalType
+      if (typeReference.context === ReferenceContext.LITERAL) {
+        if (
+          !typeReference.literalType ||
+          typeReference.literalType === 'Null'
+        ) {
+          return null; // null literals don't resolve to a type
+        }
+
+        // Create a temporary reference with the literalType name for resolution
+        const builtInTypeRef: SymbolReference = {
+          name: typeReference.literalType, // e.g., 'String', 'Integer'
+          location: typeReference.location,
+          context: ReferenceContext.CLASS_REFERENCE, // Use CLASS_REFERENCE for type resolution
+        };
+
+        // Resolve using the literalType name
+        const builtInSymbol = await this.resolveBuiltInType(builtInTypeRef);
+        if (builtInSymbol) {
+          // Store the resolved symbol ID in the original LITERAL reference
+          typeReference.resolvedSymbolId = builtInSymbol.id;
+          this.logger.debug(
+            () =>
+              `Resolved LITERAL reference "${typeReference.name}" ` +
+              `(type: ${typeReference.literalType}) to built-in type: ${builtInSymbol.name}`,
+          );
+          return builtInSymbol;
+        }
+
+        return null;
+      }
+
       // Step 0: Fast path - if already resolved by listener second-pass, use the ID directly
       // This provides O(1) lookup for same-file refs, avoiding expensive resolution chains
       if (typeReference.resolvedSymbolId) {
