@@ -19,6 +19,7 @@ import {
 } from '@salesforce/apex-lsp-shared';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import type { BaseLanguageClient } from 'vscode-languageclient';
+import { Trace } from 'vscode-languageclient';
 import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
 import { handleFindMissingArtifact } from './missing-artifact-handler';
@@ -36,6 +37,7 @@ import {
 import {
   getWorkspaceSettings,
   registerConfigurationChangeListener,
+  getTraceServerConfig,
 } from './configuration';
 import { EXTENSION_CONSTANTS } from './constants';
 import {
@@ -476,6 +478,17 @@ async function createWebLanguageClient(
         await languageClient.start();
         logToOutputChannel('✅ Language client started successfully', 'info');
 
+        // Set trace level based on configuration
+        const traceConfig = getTraceServerConfig();
+        const traceLevel =
+          traceConfig === 'verbose'
+            ? Trace.Verbose
+            : traceConfig === 'messages'
+              ? Trace.Messages
+              : Trace.Off;
+        await languageClient.setTrace(traceLevel);
+        logToOutputChannel(`🔍 Trace level set to: ${traceConfig}`, 'debug');
+
         // If configured, trigger workspace load on startup via service (web)
         try {
           const settings = getWorkspaceSettings();
@@ -894,6 +907,17 @@ async function createDesktopLanguageClient(
 
   // Start the client and language server
   await nodeClient.start();
+
+  // Set trace level based on configuration
+  const traceConfig = getTraceServerConfig();
+  const traceLevel =
+    traceConfig === 'verbose'
+      ? Trace.Verbose
+      : traceConfig === 'messages'
+        ? Trace.Messages
+        : Trace.Off;
+  await nodeClient.setTrace(traceLevel);
+  logToOutputChannel(`🔍 Trace level set to: ${traceConfig}`, 'debug');
 
   // Store raw LanguageClient instance for extension API
   LanguageClientInstance = nodeClient;

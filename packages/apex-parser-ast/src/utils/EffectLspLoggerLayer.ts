@@ -6,8 +6,29 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Logger, Layer, Effect } from 'effect';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { Logger, Layer, Effect, LogLevel } from 'effect';
+import { getLogger, getLogLevel } from '@salesforce/apex-lsp-shared';
+
+/**
+ * Convert LSP log level to Effect LogLevel
+ * @param lspLevel The LSP log level string
+ * @returns Effect LogLevel
+ */
+const lspLevelToEffectLevel = (lspLevel: string): LogLevel.LogLevel => {
+  switch (lspLevel.toLowerCase()) {
+    case 'error':
+      return LogLevel.Error;
+    case 'warn':
+    case 'warning':
+      return LogLevel.Warning;
+    case 'info':
+      return LogLevel.Info;
+    case 'debug':
+      return LogLevel.Debug;
+    default:
+      return LogLevel.Info;
+  }
+};
 
 /**
  * Creates an Effect Logger Layer that forwards all Effect logging
@@ -20,6 +41,10 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
  * The global logger is configured at server startup via setLoggerFactory()
  * and connects to the LSP connection for sending log messages to the client.
  *
+ * This layer also configures Effect's minimum log level based on the LSP
+ * log level setting, ensuring that Effect doesn't emit logs below the
+ * configured threshold.
+ *
  * @returns Effect Logger Layer that can be provided to Effects
  *
  * @example
@@ -31,10 +56,14 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
  * ```
  */
 export const EffectLspLoggerLive: Layer.Layer<never, never, never> =
-  Layer.effectDiscard(
+  Layer.unwrapEffect(
     Effect.sync(() => {
       // Get the current global logger (set up at server startup)
       const lspLogger = getLogger();
+
+      // Get the current LSP log level and convert to Effect LogLevel
+      const currentLspLevel = getLogLevel();
+      const effectMinLevel = lspLevelToEffectLevel(currentLspLevel);
 
       // Create a custom Effect Logger that forwards to LSP logger
       const lspEffectLogger = Logger.make(({ logLevel, message }) => {
@@ -64,7 +93,14 @@ export const EffectLspLoggerLive: Layer.Layer<never, never, never> =
       });
 
       // Replace the default Effect logger with our custom LSP logger
-      return Logger.replace(Logger.defaultLogger, lspEffectLogger);
+      // and combine with minimum log level layer
+      const loggerReplacement = Logger.replace(
+        Logger.defaultLogger,
+        lspEffectLogger,
+      );
+      const minimumLogLevel = Logger.minimumLogLevel(effectMinLevel);
+
+      return Layer.merge(loggerReplacement, minimumLogLevel);
     }),
   );
 

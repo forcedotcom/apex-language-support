@@ -374,7 +374,7 @@ function resolveTypeIfNeeded(
     }
 
     // Step 1: Try to use typeReferenceId to find the SymbolReference
-    yield* Effect.logInfo(
+    yield* Effect.logDebug(
       `[RESOLVE-TYPE] Resolving type: name=${typeInfo.name}, ` +
         `originalTypeString=${typeInfo.originalTypeString}, ` +
         `typeReferenceId=${typeInfo.typeReferenceId ? 'set' : 'NOT SET'}`,
@@ -388,7 +388,7 @@ function resolveTypeIfNeeded(
     let targetRef: SymbolReference | undefined = typeRef;
 
     if (!typeRef) {
-      yield* Effect.logInfo(
+      yield* Effect.logDebug(
         `[RESOLVE-TYPE] No typeRef found for ${typeInfo.name} ` +
           `(typeReferenceId: ${typeInfo.typeReferenceId ? 'set but not found' : 'not set'})`,
       );
@@ -423,7 +423,7 @@ function resolveTypeIfNeeded(
                 node.context === ReferenceContext.FIELD_ACCESS,
             );
             if (targetNode) {
-              yield* Effect.logInfo(
+              yield* Effect.logDebug(
                 `[RESOLVE-TYPE] Found CHAINED_TYPE "${chainedRef.name}" by name ` +
                   `(matched "${nameToMatch}"), using target node: ` +
                   `${targetNode.name}:${ReferenceContext[targetNode.context]}`,
@@ -464,7 +464,7 @@ function resolveTypeIfNeeded(
     }
 
     if (targetRef) {
-      yield* Effect.logInfo(
+      yield* Effect.logDebug(
         `[RESOLVE-TYPE] Found typeRef: name=${targetRef.name}, ` +
           `context=${ReferenceContext[targetRef.context]}, ` +
           `resolvedSymbolId=${targetRef.resolvedSymbolId ? 'set' : 'NOT SET'}`,
@@ -618,7 +618,7 @@ function resolveTypeIfNeeded(
         }
       }
 
-      yield* Effect.logInfo(
+      yield* Effect.logDebug(
         `[RESOLVE-TYPE] Resolved symbol: ${
           resolvedSymbol
             ? `kind=${resolvedSymbol.kind}, name=${resolvedSymbol.name}`
