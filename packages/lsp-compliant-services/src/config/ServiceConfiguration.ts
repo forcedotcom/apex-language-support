@@ -67,7 +67,13 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
     serviceFactory: (deps) =>
       deps.serviceFactory.createDocumentProcessingService(),
   },
-
+  {
+    requestType: 'documentLoad',
+    priority: Priority.High,
+    timeout: 2000,
+    maxRetries: 1,
+    serviceFactory: (deps) => deps.serviceFactory.createDocumentLoadService(),
+  },
   {
     requestType: 'findMissingArtifact',
     priority: Priority.Low,

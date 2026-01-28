@@ -77,6 +77,7 @@ export * from './handlers/ExecuteCommandHandler';
 export * from './services/DocumentProcessingService';
 // DocumentOpenBatcher exports are handled via DocumentProcessingService
 // to avoid duplicate exports
+export * from './services/DocumentLoadProcessingService';
 export * from './services/DocumentSaveProcessingService';
 export * from './services/DocumentStateCache';
 export * from './services/DocumentCloseProcessingService';
