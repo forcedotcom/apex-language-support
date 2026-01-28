@@ -296,20 +296,15 @@ export class LCSAdapter {
     const storage = ApexStorageManager.getInstance().getStorage();
     let doc = await storage.getDocument(uri);
 
-    this.logger.error(
-      () =>
-        `[DIAGNOSTIC] ensureDocumentLoaded called for ${uri}, found: ${doc ? 'YES' : 'NO'}`,
-    );
-
     if (doc) {
       return true; // Already loaded
     }
 
     // Document not in storage - request it from client
     try {
-      this.logger.error(
+      this.logger.debug(
         () =>
-          `[DIAGNOSTIC] Document ${uri} not in storage, requesting via window/showDocument`,
+          `Document ${uri} not in storage, requesting via window/showDocument`,
       );
 
       // Use window/showDocument to trigger didOpen without taking focus
@@ -319,32 +314,24 @@ export class LCSAdapter {
         takeFocus: false, // CRITICAL: Don't disrupt user's focus
       });
 
-      this.logger.error(
-        () => `[DIAGNOSTIC] window/showDocument request sent for ${uri}`,
-      );
-
       // Give a brief moment for didOpen to be processed
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Check if document is now loaded
       doc = await storage.getDocument(uri);
       if (doc) {
-        this.logger.error(
-          () =>
-            `[DIAGNOSTIC] Successfully loaded document ${uri} via showDocument`,
+        this.logger.debug(
+          () => `Successfully loaded document ${uri} via showDocument`,
         );
         return true;
       }
 
-      this.logger.error(
-        () =>
-          `[DIAGNOSTIC] Document ${uri} still not available after showDocument request`,
+      this.logger.warn(
+        () => `Document ${uri} still not available after showDocument request`,
       );
       return false;
     } catch (error) {
-      this.logger.error(
-        () => `[DIAGNOSTIC] Failed to request document ${uri}: ${error}`,
-      );
+      this.logger.error(() => `Failed to request document ${uri}: ${error}`);
       return false;
     }
   }
