@@ -25,6 +25,7 @@ import { AbstractMethodBodyValidator } from './validators/AbstractMethodBodyVali
 import { VariableShadowingValidator } from './validators/VariableShadowingValidator';
 import { ForwardReferenceValidator } from './validators/ForwardReferenceValidator';
 import { FinalAssignmentValidator } from './validators/FinalAssignmentValidator';
+import { DuplicateFieldValidator } from './validators/DuplicateFieldValidator';
 
 // TIER 2 (THOROUGH) validators
 import { MethodSignatureEquivalenceValidator } from './validators/MethodSignatureEquivalenceValidator';
@@ -47,6 +48,7 @@ const ALL_VALIDATORS: readonly Validator[] = [
   VariableShadowingValidator,
   ForwardReferenceValidator,
   FinalAssignmentValidator,
+  DuplicateFieldValidator,
 
   // TIER 2 (THOROUGH) validators
   MethodSignatureEquivalenceValidator,
@@ -58,7 +60,7 @@ const ALL_VALIDATORS: readonly Validator[] = [
 /**
  * Initialize and register all validators in the ValidatorRegistry
  *
- * This function registers all 14 validators (10 TIER 1, 4 TIER 2) with the
+ * This function registers all 15 validators (11 TIER 1, 4 TIER 2) with the
  * ValidatorRegistry. It should be called once during server initialization.
  *
  * @returns Effect that completes when all validators are registered

@@ -16,6 +16,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Validates that types (classes and interfaces) do not reference themselves.
@@ -80,9 +82,12 @@ export const TypeSelfReferenceValidator: Validator = {
           const superClassName = typeSymbol.superClass.toLowerCase();
           if (superClassName === typeName) {
             errors.push({
-              message: `Class '${typeSymbol.name}' cannot extend itself`,
+              message: I18nSupport.getLabel(
+                ErrorCodes.CLASS_EXTENDS_SELF,
+                typeSymbol.name,
+              ),
               location: typeSymbol.location,
-              code: 'CLASS_EXTENDS_SELF',
+              code: ErrorCodes.CLASS_EXTENDS_SELF,
             });
           }
         }
@@ -97,9 +102,12 @@ export const TypeSelfReferenceValidator: Validator = {
             const extendedName = extendedInterface.toLowerCase();
             if (extendedName === typeName) {
               errors.push({
-                message: `Interface '${typeSymbol.name}' cannot extend itself`,
+                message: I18nSupport.getLabel(
+                  ErrorCodes.INTERFACE_EXTENDS_SELF,
+                  typeSymbol.name,
+                ),
                 location: typeSymbol.location,
-                code: 'INTERFACE_EXTENDS_SELF',
+                code: ErrorCodes.INTERFACE_EXTENDS_SELF,
               });
               break; // Only report once per interface
             }
@@ -116,9 +124,12 @@ export const TypeSelfReferenceValidator: Validator = {
             const implementedName = implementedInterface.toLowerCase();
             if (implementedName === typeName) {
               errors.push({
-                message: `Class '${typeSymbol.name}' cannot implement itself`,
+                message: I18nSupport.getLabel(
+                  ErrorCodes.CLASS_IMPLEMENTS_SELF,
+                  typeSymbol.name,
+                ),
                 location: typeSymbol.location,
-                code: 'CLASS_IMPLEMENTS_SELF',
+                code: ErrorCodes.CLASS_IMPLEMENTS_SELF,
               });
               break; // Only report once per class
             }

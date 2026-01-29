@@ -119,6 +119,8 @@ import {
 } from '../../semantics/modifiers/index';
 import { IdentifierValidator } from '../../semantics/validation/IdentifierValidator';
 import { doesMethodSignatureMatch } from '../../semantics/validation/utils/methodSignatureUtils';
+import { ErrorCodes } from '../../semantics/validation/ErrorCodes';
+import { I18nSupport } from '../../i18n/I18nSupport';
 import {
   hasIdMethod,
   isEnumSymbol,
@@ -188,6 +190,7 @@ export class ApexSymbolCollectorListener
   protected projectNamespace: string | undefined = undefined; // NEW: Store project namespace
   private blockCounter: number = 0; // Counter for unique block names
   private currentModifiers: SymbolModifiers = this.createDefaultModifiers();
+  private seenModifiers: Set<string> = new Set(); // Track modifiers for duplicate detection
   private currentAnnotations: Annotation[] = [];
   private currentFilePath: string = '';
   private semanticErrors: SemanticError[] = [];
@@ -885,6 +888,16 @@ export class ApexSymbolCollectorListener
   enterModifier(ctx: ModifierContext): void {
     try {
       const modifier = ctx.text.toLowerCase();
+
+      // Check for duplicate modifiers (e.g., "public public", "static static")
+      if (this.seenModifiers.has(modifier)) {
+        this.addError(
+          I18nSupport.getLabel(ErrorCodes.DUPLICATE_MODIFIER, modifier),
+          ctx,
+        );
+        return; // Don't apply duplicate modifier
+      }
+      this.seenModifiers.add(modifier);
 
       // Check for modifiers in interface methods
       const currentType = this.getCurrentType();
@@ -2059,7 +2072,7 @@ export class ApexSymbolCollectorListener
         ).length;
         if (nameCount > 1) {
           this.addError(
-            `Duplicate variable declaration: '${name}' is already declared in this statement`,
+            I18nSupport.getLabel(ErrorCodes.DUPLICATE_VARIABLE, name),
             ctx,
           );
           return; // Skip processing this duplicate variable
@@ -2073,7 +2086,7 @@ export class ApexSymbolCollectorListener
       );
       if (existingSymbol) {
         this.addError(
-          `Duplicate variable declaration: '${name}' is already declared in this scope`,
+          I18nSupport.getLabel(ErrorCodes.DUPLICATE_VARIABLE, name),
           ctx,
         );
         return; // Skip processing this duplicate variable
@@ -2157,7 +2170,7 @@ export class ApexSymbolCollectorListener
           if (name) {
             if (names.has(name)) {
               this.addError(
-                `Duplicate variable declaration: '${name}' is already declared in this statement`,
+                I18nSupport.getLabel(ErrorCodes.DUPLICATE_VARIABLE, name),
                 declarator,
               );
             } else {
@@ -4253,6 +4266,7 @@ export class ApexSymbolCollectorListener
 
   private resetModifiers(): void {
     this.currentModifiers = this.createDefaultModifiers();
+    this.seenModifiers.clear(); // Reset duplicate modifier tracking
   }
 
   /**
@@ -4332,7 +4346,7 @@ export class ApexSymbolCollectorListener
           );
           if (existingSymbol) {
             this.addError(
-              `Duplicate variable declaration: '${name}' is already declared in this scope`,
+              I18nSupport.getLabel(ErrorCodes.DUPLICATE_VARIABLE, name),
               declarator,
             );
             continue; // Skip processing this duplicate variable

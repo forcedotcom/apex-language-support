@@ -21,3 +21,4 @@ export { ParameterLimitValidator } from './ParameterLimitValidator';
 export { TypeAssignmentValidator } from './TypeAssignmentValidator';
 export { TypeSelfReferenceValidator } from './TypeSelfReferenceValidator';
 export { VariableShadowingValidator } from './VariableShadowingValidator';
+export { DuplicateFieldValidator } from './DuplicateFieldValidator';

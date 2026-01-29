@@ -18,6 +18,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Validates that variables are declared before they are referenced.
@@ -108,9 +110,12 @@ export const ForwardReferenceValidator: Validator = {
         // Note: If they're on the same line, we need to check columns too
         if (referenceLine < declarationLine) {
           errors.push({
-            message: `Variable '${reference.name}' is referenced before it is declared`,
+            message: I18nSupport.getLabel(
+              ErrorCodes.FORWARD_REFERENCE,
+              reference.name,
+            ),
             location: reference.location,
-            code: 'FORWARD_REFERENCE',
+            code: ErrorCodes.FORWARD_REFERENCE,
           });
         } else if (referenceLine === declarationLine) {
           // Same line - check columns to ensure reference doesn't come before declaration
@@ -123,9 +128,12 @@ export const ForwardReferenceValidator: Validator = {
           // (i.e., the reference appears to the left of the declaration on the same line)
           if (referenceColumn < declarationColumn) {
             errors.push({
-              message: `Variable '${reference.name}' is referenced before it is declared`,
+              message: I18nSupport.getLabel(
+                ErrorCodes.FORWARD_REFERENCE,
+                reference.name,
+              ),
               location: reference.location,
-              code: 'FORWARD_REFERENCE',
+              code: ErrorCodes.FORWARD_REFERENCE,
             });
           }
         }

@@ -17,6 +17,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Validates that no two methods have equivalent signatures.
@@ -110,15 +112,15 @@ export const MethodSignatureEquivalenceValidator: Validator = {
             const method2 = parentMethods[j];
 
             if (areSignaturesEquivalent(method1, method2)) {
-              const parentType =
-                parent.kind === SymbolKind.Class ? 'class' : 'interface';
-
               errors.push({
-                message:
-                  `Method '${method2.name}' in ${parentType} '${parent.name}' ` +
-                  `has equivalent signature to method '${method1.name}'`,
+                message: I18nSupport.getLabel(
+                  ErrorCodes.DUPLICATE_METHOD_SIGNATURE,
+                  method2.name,
+                  '', // Empty for second parameter
+                  parent.name,
+                ),
                 location: method2.location,
-                code: 'DUPLICATE_METHOD_SIGNATURE',
+                code: ErrorCodes.DUPLICATE_METHOD_SIGNATURE,
               });
             }
           }

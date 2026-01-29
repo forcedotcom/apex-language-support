@@ -20,6 +20,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Maximum number of parameters allowed for methods and constructors
@@ -83,14 +85,13 @@ export const ParameterLimitValidator: Validator = {
         }
 
         if (parameterCount > MAX_PARAMETERS) {
-          const kindLabel =
-            symbol.kind === 'constructor' ? 'Constructor' : 'Method';
           errors.push({
-            message:
-              `${kindLabel} '${symbol.name}' has ${parameterCount} parameters, ` +
-              `but the maximum is ${MAX_PARAMETERS}`,
+            message: I18nSupport.getLabel(
+              ErrorCodes.PARAMETER_LIMIT_EXCEEDED,
+              MAX_PARAMETERS,
+            ),
             location: symbol.location,
-            code: 'PARAMETER_LIMIT_EXCEEDED',
+            code: ErrorCodes.PARAMETER_LIMIT_EXCEEDED,
           });
         }
       }

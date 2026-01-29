@@ -16,6 +16,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Validates that constructor names match their containing class name.
@@ -91,11 +93,12 @@ export const ConstructorNamingValidator: Validator = {
 
         if (constructorNameLower !== classNameLower) {
           errors.push({
-            message:
-              `Constructor name '${constructor.name}' must match class name '${parentClass.name}' ` +
-              '(case-insensitive)',
+            message: I18nSupport.getLabel(
+              ErrorCodes.CONSTRUCTOR_NAME_MISMATCH,
+              constructor.name,
+            ),
             location: constructor.location,
-            code: 'CONSTRUCTOR_NAME_MISMATCH',
+            code: ErrorCodes.CONSTRUCTOR_NAME_MISMATCH,
           });
         }
       }

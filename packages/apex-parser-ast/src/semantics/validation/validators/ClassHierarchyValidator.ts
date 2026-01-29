@@ -24,6 +24,8 @@ import {
   ArtifactLoadingHelper,
   ISymbolManager,
 } from '../ArtifactLoadingHelper';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Validates class hierarchy correctness.
@@ -95,9 +97,12 @@ export const ClassHierarchyValidator: Validator = {
           // Check 3: Cannot extend final class
           if (superClass.modifiers.isFinal) {
             errors.push({
-              message: `Class '${cls.name}' cannot extend final class '${superClass.name}'`,
+              message: I18nSupport.getLabel(
+                ErrorCodes.INVALID_FINAL_SUPER_TYPE,
+                superClass.name,
+              ),
               location: cls.location,
-              code: 'EXTEND_FINAL_CLASS',
+              code: ErrorCodes.INVALID_FINAL_SUPER_TYPE,
             });
           }
 
@@ -186,11 +191,12 @@ export const ClassHierarchyValidator: Validator = {
         );
         if (circularPath) {
           errors.push({
-            message:
-              `Class '${cls.name}' has circular inheritance hierarchy: ` +
-              circularPath.join(' -> '),
+            message: I18nSupport.getLabel(
+              ErrorCodes.CIRCULAR_INHERITANCE,
+              cls.name,
+            ),
             location: cls.location,
-            code: 'CIRCULAR_INHERITANCE',
+            code: ErrorCodes.CIRCULAR_INHERITANCE,
           });
         }
       }
@@ -221,9 +227,12 @@ export const ClassHierarchyValidator: Validator = {
         // Check final class extension (re-check with loaded classes)
         if (superClass.modifiers.isFinal) {
           errors.push({
-            message: `Class '${cls.name}' cannot extend final class '${superClass.name}'`,
+            message: I18nSupport.getLabel(
+              ErrorCodes.INVALID_FINAL_SUPER_TYPE,
+              superClass.name,
+            ),
             location: cls.location,
-            code: 'EXTEND_FINAL_CLASS',
+            code: ErrorCodes.INVALID_FINAL_SUPER_TYPE,
           });
         }
 

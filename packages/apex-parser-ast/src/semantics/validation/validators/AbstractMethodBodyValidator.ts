@@ -16,6 +16,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Validates abstract method body consistency.
@@ -143,11 +145,12 @@ export const AbstractMethodBodyValidator: Validator = {
         // Rule 1: Abstract methods must not have a body
         if (isAbstract && hasChildBlocks) {
           errors.push({
-            message:
-              `Abstract method '${method.name}' in ${parent.kind} ` +
-              `'${parent.name}' must not have a body`,
+            message: I18nSupport.getLabel(
+              ErrorCodes.ABSTRACT_METHOD_HAS_BODY,
+              method.name,
+            ),
             location: method.location,
-            code: 'ABSTRACT_METHOD_HAS_BODY',
+            code: ErrorCodes.ABSTRACT_METHOD_HAS_BODY,
           });
         }
 

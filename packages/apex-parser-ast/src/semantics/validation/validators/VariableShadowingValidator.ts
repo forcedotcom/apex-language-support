@@ -17,6 +17,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Validates that variables do not shadow variables in outer scopes.
@@ -103,18 +105,13 @@ export const VariableShadowingValidator: Validator = {
         );
 
         if (shadowedVariable) {
-          const scopeDescription = getScopeDescription(variable, parent);
-          const outerScopeDescription = getScopeDescription(
-            shadowedVariable,
-            allSymbols.find((s) => s.id === shadowedVariable.parentId) ?? null,
-          );
-
           errors.push({
-            message:
-              `Variable '${variable.name}' in ${scopeDescription} shadows variable in outer ` +
-              `${outerScopeDescription}`,
+            message: I18nSupport.getLabel(
+              ErrorCodes.VARIABLE_SHADOWING,
+              variable.name,
+            ),
             location: variable.location,
-            code: 'VARIABLE_SHADOWING',
+            code: ErrorCodes.VARIABLE_SHADOWING,
           });
         }
       }
@@ -169,34 +166,4 @@ function findShadowedVariable(
   }
 
   return null;
-}
-
-/**
- * Get a human-readable description of the scope
- */
-function getScopeDescription(
-  variable: ApexSymbol,
-  parent: ApexSymbol | null,
-): string {
-  if (!parent) {
-    return variable.kind;
-  }
-
-  switch (variable.kind) {
-    case SymbolKind.Parameter:
-      // Parameters can have block parents (method blocks) - skip to actual method
-      if (parent.kind === SymbolKind.Block) {
-        return 'parameter';
-      }
-      return `method '${parent.name}'`;
-    case SymbolKind.Variable:
-      if (parent.kind === SymbolKind.Block) {
-        return 'block';
-      } else if (parent.kind === SymbolKind.Method) {
-        return `method '${parent.name}'`;
-      }
-      return parent.kind;
-    default:
-      return variable.kind;
-  }
 }

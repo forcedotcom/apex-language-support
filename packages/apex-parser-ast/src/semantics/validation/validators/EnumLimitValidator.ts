@@ -20,6 +20,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Maximum number of constants allowed in an enum
@@ -81,11 +83,12 @@ export const EnumLimitValidator: Validator = {
 
         if (constantCount > MAX_ENUM_CONSTANTS) {
           errors.push({
-            message:
-              `Enum '${enumSymbol.name}' has ${constantCount} constants, ` +
-              `but the maximum is ${MAX_ENUM_CONSTANTS}`,
+            message: I18nSupport.getLabel(
+              ErrorCodes.ENUM_LIMIT_EXCEEDED,
+              MAX_ENUM_CONSTANTS,
+            ),
             location: enumSymbol.location,
-            code: 'ENUM_LIMIT_EXCEEDED',
+            code: ErrorCodes.ENUM_LIMIT_EXCEEDED,
           });
         }
       }

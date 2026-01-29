@@ -18,6 +18,8 @@ import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { IdentifierValidator } from '../IdentifierValidator';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Validates that enum constants follow proper naming conventions.
@@ -80,19 +82,15 @@ export const EnumConstantNamingValidator: Validator = {
         );
 
         if (!validationResult.isValid) {
-          // Add parent enum name to the error for better context
-          const parentEnum = findParentEnum(constant, allSymbols);
-          const enumName = parentEnum ? parentEnum.name : 'unknown';
-
-          for (const error of validationResult.errors) {
-            const errorMessage =
-              typeof error === 'string' ? error : error.message;
-            errors.push({
-              message: `Enum '${enumName}' constant '${constant.name}': ${errorMessage}`,
-              location: constant.location,
-              code: 'INVALID_ENUM_CONSTANT_NAME',
-            });
-          }
+          // Use jorje message format if it matches identifier validation
+          errors.push({
+            message: I18nSupport.getLabel(
+              ErrorCodes.INVALID_CHARACTER_IDENTIFIER,
+              constant.name,
+            ),
+            location: constant.location,
+            code: ErrorCodes.INVALID_ENUM_CONSTANT_NAME,
+          });
         }
 
         // Add warnings if any

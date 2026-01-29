@@ -25,6 +25,8 @@ import {
   ArtifactLoadingHelper,
   ISymbolManager,
 } from '../ArtifactLoadingHelper';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Validates interface hierarchy correctness.
@@ -111,11 +113,12 @@ export const InterfaceHierarchyValidator: Validator = {
         );
         if (circularPath) {
           errors.push({
-            message:
-              `Interface '${iface.name}' has circular inheritance hierarchy: ` +
-              circularPath.join(' -> '),
+            message: I18nSupport.getLabel(
+              ErrorCodes.CIRCULAR_INHERITANCE,
+              iface.name,
+            ),
             location: iface.location,
-            code: 'CIRCULAR_INHERITANCE',
+            code: ErrorCodes.CIRCULAR_INHERITANCE,
           });
         }
       }
@@ -125,15 +128,15 @@ export const InterfaceHierarchyValidator: Validator = {
         const duplicates = findDuplicateExtends(iface);
         for (const dup of duplicates) {
           errors.push({
-            message: `Interface '${iface.name}' extends '${dup}' multiple times`,
+            message: I18nSupport.getLabel(ErrorCodes.DUPLICATE_EXTENDS, dup),
             location: iface.location,
-            code: 'DUPLICATE_EXTENDS',
+            code: ErrorCodes.DUPLICATE_EXTENDS,
           });
         }
       }
 
       // Check 3: Class interface implementation
-      // First pass: identify missing interfaces
+      // First pass: identify missing interfaces and check for duplicates
       const missingInterfaces: string[] = [];
       for (const cls of classes) {
         if (cls.modifiers.isAbstract) {
@@ -141,13 +144,43 @@ export const InterfaceHierarchyValidator: Validator = {
         }
 
         const implementedInterfaces = cls.interfaces || [];
+        const seenInterfaces = new Set<string>();
         for (const ifaceName of implementedInterfaces) {
+          const ifaceKey = ifaceName.toLowerCase();
+
+          // Check for duplicate interface implementation
+          if (seenInterfaces.has(ifaceKey)) {
+            errors.push({
+              message: I18nSupport.getLabel(
+                ErrorCodes.INTERFACE_ALREADY_IMPLEMENTED,
+                ifaceName,
+              ),
+              location: cls.location,
+              code: ErrorCodes.INTERFACE_ALREADY_IMPLEMENTED,
+            });
+            continue;
+          }
+          seenInterfaces.add(ifaceKey);
+
           const iface = allInterfaces.find(
-            (i) => i.name.toLowerCase() === ifaceName.toLowerCase(),
+            (i) => i.name.toLowerCase() === ifaceKey,
           );
 
           if (!iface && !missingInterfaces.includes(ifaceName)) {
             missingInterfaces.push(ifaceName);
+          } else if (iface) {
+            // Check if interface type is valid (not array ref, is interface, not Java type)
+            // This matches jorje's ParentTypeResolver.java checks
+            if (iface.kind !== SymbolKind.Interface) {
+              errors.push({
+                message: I18nSupport.getLabel(
+                  ErrorCodes.INVALID_INTERFACE,
+                  ifaceName,
+                ),
+                location: cls.location,
+                code: ErrorCodes.INVALID_INTERFACE,
+              });
+            }
           }
         }
       }
@@ -219,10 +252,27 @@ export const InterfaceHierarchyValidator: Validator = {
         }
 
         const implementedInterfaces = cls.interfaces || [];
+        const seenInterfaces = new Set<string>();
         for (const ifaceName of implementedInterfaces) {
+          const ifaceKey = ifaceName.toLowerCase();
+
+          // Check for duplicate interface implementation (re-check with loaded interfaces)
+          if (seenInterfaces.has(ifaceKey)) {
+            errors.push({
+              message: I18nSupport.getLabel(
+                ErrorCodes.INTERFACE_ALREADY_IMPLEMENTED,
+                ifaceName,
+              ),
+              location: cls.location,
+              code: ErrorCodes.INTERFACE_ALREADY_IMPLEMENTED,
+            });
+            continue;
+          }
+          seenInterfaces.add(ifaceKey);
+
           // Find the interface (check both local and loaded)
           const iface = allInterfaces.find(
-            (i) => i.name.toLowerCase() === ifaceName.toLowerCase(),
+            (i) => i.name.toLowerCase() === ifaceKey,
           );
 
           if (!iface) {
@@ -233,6 +283,20 @@ export const InterfaceHierarchyValidator: Validator = {
                 'not found in current file or symbol manager',
               location: cls.location,
               code: 'MISSING_INTERFACE',
+            });
+            continue;
+          }
+
+          // Check if interface type is valid (not array ref, is interface, not Java type)
+          // This matches jorje's ParentTypeResolver.java checks
+          if (iface.kind !== SymbolKind.Interface) {
+            errors.push({
+              message: I18nSupport.getLabel(
+                ErrorCodes.INVALID_INTERFACE,
+                ifaceName,
+              ),
+              location: cls.location,
+              code: ErrorCodes.INVALID_INTERFACE,
             });
             continue;
           }
@@ -289,11 +353,13 @@ export const InterfaceHierarchyValidator: Validator = {
 
             if (!implemented) {
               errors.push({
-                message:
-                  `Class '${cls.name}' does not implement method ` +
-                  `'${requiredMethod.name}' from interface '${ifaceName}'`,
+                message: I18nSupport.getLabel(
+                  ErrorCodes.MISSING_INTERFACE_METHOD,
+                  cls.name,
+                  requiredMethod.name,
+                ),
                 location: cls.location,
-                code: 'MISSING_INTERFACE_METHOD',
+                code: ErrorCodes.MISSING_INTERFACE_METHOD,
               });
             }
           }

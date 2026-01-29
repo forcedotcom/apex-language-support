@@ -10,6 +10,7 @@ import { ParameterLimitValidator } from '../../../../src/semantics/validation/va
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
+import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
 import {
   compileFixture,
   getMessage,
@@ -92,10 +93,10 @@ describe('ParameterLimitValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors).toHaveLength(1);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('invalidMethod');
-    expect(errorMessage).toContain('33 parameters');
-    expect(errorMessage).toContain('maximum is 32');
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.PARAMETER_LIMIT_EXCEEDED);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('32');
   });
 
   it('should fail validation for constructor with 33 parameters', async () => {
@@ -116,9 +117,10 @@ describe('ParameterLimitValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors).toHaveLength(1);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('MyClass');
-    expect(errorMessage).toContain('33 parameters');
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.PARAMETER_LIMIT_EXCEEDED);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('32');
   });
 
   it('should pass validation for method with no parameters', async () => {

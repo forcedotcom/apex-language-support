@@ -17,6 +17,8 @@ import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { areMethodSignaturesIdentical } from '../utils/methodSignatureUtils';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Validates that no two methods have identical signatures within a class/interface.
@@ -115,15 +117,15 @@ export const DuplicateMethodValidator: Validator = {
               if (
                 areMethodSignaturesIdentical(method1, method2, options.tier)
               ) {
-                const parentType =
-                  parent.kind === 'class' ? 'class' : 'interface';
-
                 errors.push({
-                  message:
-                    `Duplicate method '${method2.name}' in ${parentType} '${parent.name}' ` +
-                    `(identical signature to '${method1.name}')`,
+                  message: I18nSupport.getLabel(
+                    ErrorCodes.DUPLICATE_METHOD,
+                    method2.name,
+                    '', // Empty string for second parameter (signature info)
+                    parent.name,
+                  ),
                   location: method2.location,
-                  code: 'DUPLICATE_METHOD',
+                  code: ErrorCodes.DUPLICATE_METHOD,
                 });
               }
             }

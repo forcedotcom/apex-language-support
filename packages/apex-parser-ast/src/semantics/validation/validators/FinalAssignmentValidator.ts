@@ -18,6 +18,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
+import { ErrorCodes } from '../ErrorCodes';
+import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
  * Validates that final variables are assigned exactly once.
@@ -132,9 +134,12 @@ export const FinalAssignmentValidator: Validator = {
         // Rule 1: Final parameters cannot be reassigned (0 assignments is OK, >0 is error)
         if (finalSymbol.kind === SymbolKind.Parameter && assignmentCount > 0) {
           errors.push({
-            message: `Final parameter '${finalSymbol.name}' cannot be reassigned`,
+            message: I18nSupport.getLabel(
+              ErrorCodes.FINAL_PARAMETER_REASSIGNMENT,
+              finalSymbol.name,
+            ),
             location: finalSymbol.location,
-            code: 'FINAL_PARAMETER_REASSIGNMENT',
+            code: ErrorCodes.FINAL_PARAMETER_REASSIGNMENT,
           });
         }
 
@@ -147,11 +152,12 @@ export const FinalAssignmentValidator: Validator = {
           assignmentCount > 1
         ) {
           errors.push({
-            message:
-              `Final ${finalSymbol.kind} '${finalSymbol.name}' cannot be ` +
-              `assigned more than once (found ${assignmentCount} assignments)`,
+            message: I18nSupport.getLabel(
+              ErrorCodes.FINAL_MULTIPLE_ASSIGNMENT,
+              finalSymbol.name,
+            ),
             location: finalSymbol.location,
-            code: 'FINAL_MULTIPLE_ASSIGNMENT',
+            code: ErrorCodes.FINAL_MULTIPLE_ASSIGNMENT,
           });
         }
       }
