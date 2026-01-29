@@ -226,4 +226,125 @@ public class ApexTestExample {
       expect(result.length).toBe(0);
     });
   });
+
+  describe('Symbol Deduplication', () => {
+    it('should deduplicate symbols by name, kind, and line to prevent duplicate code lenses', async () => {
+      // Create a test class
+      const testClassContent = `@isTest
+public class DuplicateTestClass {
+    @isTest
+    static void testMethod1() {
+        System.assertEquals(1, 1);
+    }
+}`;
+
+      const testClassUri = 'file:///test/DuplicateTestClass.cls';
+
+      // Parse the same file twice to simulate multiple parse passes
+      const compilerService = new CompilerService();
+
+      // First parse
+      const symbolCollector1 = new FullSymbolCollectorListener();
+      compilerService.compile(
+        testClassContent,
+        testClassUri,
+        symbolCollector1,
+        { collectReferences: true, resolveReferences: true },
+      );
+      const symbolTable1 = symbolCollector1.getResult();
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable1, testClassUri),
+      );
+
+      // Second parse (simulating re-parse during layered compilation)
+      const symbolCollector2 = new FullSymbolCollectorListener();
+      compilerService.compile(
+        testClassContent,
+        testClassUri,
+        symbolCollector2,
+        { collectReferences: true, resolveReferences: true },
+      );
+      const symbolTable2 = symbolCollector2.getResult();
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable2, testClassUri),
+      );
+
+      // Wait for async processing
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const params: CodeLensParams = {
+        textDocument: { uri: testClassUri },
+      };
+
+      const result = await codeLensService.processCodeLens(params);
+
+      // Should have exactly 4 code lenses (2 for class, 2 for method)
+      // NOT 8 (which would happen if duplicates weren't filtered)
+      expect(result.length).toBe(4);
+
+      // Verify we have the correct code lenses
+      const runAllTests = result.filter(
+        (lens) => lens.command?.title === 'Run All Tests',
+      );
+      const debugAllTests = result.filter(
+        (lens) => lens.command?.title === 'Debug All Tests',
+      );
+      const runTest = result.filter(
+        (lens) => lens.command?.title === 'Run Test',
+      );
+      const debugTest = result.filter(
+        (lens) => lens.command?.title === 'Debug Test',
+      );
+
+      expect(runAllTests.length).toBe(1);
+      expect(debugAllTests.length).toBe(1);
+      expect(runTest.length).toBe(1);
+      expect(debugTest.length).toBe(1);
+    });
+
+    it('should not deduplicate symbols with different names on the same line', async () => {
+      // Create a test class with methods that have different names but hypothetically same line
+      // In practice, this tests that the key includes name
+      const testClassContent = `@isTest
+public class MultiMethodTest {
+    @isTest
+    static void testMethodA() { System.assertEquals(1, 1); }
+
+    @isTest
+    static void testMethodB() { System.assertEquals(2, 2); }
+}`;
+
+      const testClassUri = 'file:///test/MultiMethodTest.cls';
+
+      const compilerService = new CompilerService();
+      const symbolCollector = new FullSymbolCollectorListener();
+
+      compilerService.compile(testClassContent, testClassUri, symbolCollector, {
+        collectReferences: true,
+        resolveReferences: true,
+      });
+      const symbolTable = symbolCollector.getResult();
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(symbolTable, testClassUri),
+      );
+
+      // Wait for async processing
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const params: CodeLensParams = {
+        textDocument: { uri: testClassUri },
+      };
+
+      const result = await codeLensService.processCodeLens(params);
+
+      // Should have 6 code lenses (2 for class, 2 for each of 2 methods)
+      expect(result.length).toBe(6);
+
+      // Verify we have Run Test lenses for both methods
+      const runTestLenses = result.filter(
+        (lens) => lens.command?.title === 'Run Test',
+      );
+      expect(runTestLenses.length).toBe(2);
+    });
+  });
 });

@@ -288,44 +288,37 @@ public class ConstructorTestClass {
       const symbols = symbolTable.getAllSymbols();
 
       const constructors = symbols.filter((s) => (s as any).isConstructor);
-      // With duplicate handling, all constructors are now stored
-      // Verify we have all 3 constructors (public, private, protected)
-      expect(constructors.length).toBeGreaterThanOrEqual(1);
+      // With parameter signatures in IDs, all three overloaded constructors are retained
+      expect(constructors).toHaveLength(3);
 
-      // Find constructors by their modifiers to verify each one
-      const publicConstructor = constructors.find(
-        (c) => c.modifiers.visibility === 'public',
+      // Verify first constructor has correct modifiers (public with no params)
+      const constructor1 = constructors.find(
+        (c) => (c as any).parameters.length === 0,
       );
-      const privateConstructor = constructors.find(
-        (c) => c.modifiers.visibility === 'private',
+      expect(constructor1).toBeDefined();
+      expect(constructor1?.modifiers.visibility).toBe('public');
+      expect(constructor1?.modifiers.isStatic).toBe(false);
+
+      // Verify second constructor exists (private with String param)
+      const constructor2Priv = constructors.find(
+        (c) =>
+          (c as any).parameters.length === 1 &&
+          c.modifiers.visibility === 'private',
       );
-      const protectedConstructor = constructors.find(
-        (c) => c.modifiers.visibility === 'protected',
+      expect(constructor2Priv).toBeDefined();
+
+      // Verify third constructor exists (protected with Integer param)
+      const constructor3Prot = constructors.find(
+        (c) =>
+          (c as any).parameters.length === 1 &&
+          c.modifiers.visibility === 'protected',
       );
+      expect(constructor3Prot).toBeDefined();
 
-      // Verify public constructor
-      if (publicConstructor) {
-        expect(publicConstructor.modifiers.visibility).toBe('public');
-        expect(publicConstructor.modifiers.isStatic).toBe(false);
-      }
-
-      // Verify private constructor
-      if (privateConstructor) {
-        expect(privateConstructor.modifiers.visibility).toBe('private');
-        expect(privateConstructor.modifiers.isStatic).toBe(false);
-      }
-
-      // Verify protected constructor (this was the original test expectation)
-      if (protectedConstructor) {
-        expect(protectedConstructor.modifiers.visibility).toBe('protected');
-        expect(protectedConstructor.modifiers.isStatic).toBe(false);
-      }
-
-      // At minimum, verify we have at least one constructor with correct modifiers
-      // (original test was checking for protected constructor)
-      const constructor = protectedConstructor || constructors[0];
-      expect(constructor).toBeDefined();
-      expect(constructor?.modifiers.isStatic).toBe(false);
+      // Verify all three have unique IDs due to parameter signatures
+      const ids = constructors.map((c) => c.id);
+      const uniqueIds = new Set(ids);
+      expect(uniqueIds.size).toBe(3); // All IDs should be unique
     });
   });
 

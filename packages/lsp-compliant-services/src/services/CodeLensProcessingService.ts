@@ -149,11 +149,14 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
         );
         return [];
       }
+
+      this.logger.debug(() => `[CodeLens] Found ${symbols.length} symbols`);
+
       // Find test classes and methods
       const codeLenses: CodeLens[] = symbols.flatMap((symbol) => {
         this.logger.debug(
           () =>
-            `🔍 [CodeLens] Checking symbol: ${symbol.name} (kind: ${symbol.kind})`,
+            `[CodeLens] Checking symbol: ${symbol.name} (kind: ${symbol.kind})`,
         );
 
         if (this.isTest(symbol)) {

@@ -135,6 +135,18 @@ export class StandardLibraryDeserializer {
         );
         symbolTable.addSymbol(paramSymbol);
       }
+
+      // Regenerate method ID with parameter signatures for consistency with parsed symbols.
+      // Without this, cached methods have IDs like "myMethod" while parsed methods
+      // have "myMethod(String,Integer)", causing duplicates when both are loaded.
+      const oldId = methodSymbol.id;
+      SymbolFactory.regenerateMethodId(methodSymbol);
+      const newId = methodSymbol.id;
+
+      // Update the symbol ID in the SymbolTable if it changed
+      if (oldId !== newId) {
+        symbolTable.updateSymbolId(oldId, newId);
+      }
     }
 
     // Add fields
@@ -181,6 +193,25 @@ export class StandardLibraryDeserializer {
     for (const protoMethod of protoType.methods) {
       const methodSymbol = this.convertMethodSymbol(protoMethod, typeSymbol.id);
       symbolTable.addSymbol(methodSymbol);
+
+      // Add parameters as symbols
+      for (const protoParam of protoMethod.parameters) {
+        const paramSymbol = this.convertParameterToVariableSymbol(
+          protoParam,
+          methodSymbol.id,
+        );
+        symbolTable.addSymbol(paramSymbol);
+      }
+
+      // Regenerate method ID with parameter signatures for consistency with parsed symbols
+      const oldId = methodSymbol.id;
+      SymbolFactory.regenerateMethodId(methodSymbol);
+      const newId = methodSymbol.id;
+
+      // Update the symbol ID in the SymbolTable if it changed
+      if (oldId !== newId) {
+        symbolTable.updateSymbolId(oldId, newId);
+      }
     }
 
     // Add fields
@@ -275,6 +306,10 @@ export class StandardLibraryDeserializer {
     );
     symbol.isConstructor = proto.isConstructor;
     symbol.hasBody = proto.hasBody ?? true; // Default true for backward compatibility
+
+    // NOTE: We'll regenerate the method ID with parameter signatures AFTER adding
+    // the method and parameters to the SymbolTable (see createSymbolTableForType)
+    // This ensures parameter parentIds are correctly updated by updateSymbolId
 
     return symbol;
   }

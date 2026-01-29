@@ -85,6 +85,20 @@ export const SymbolKindValues = {
 } as const;
 
 /**
+ * Generate a parameter signature string from a method's parameters
+ * @param parameters Array of parameter symbols
+ * @returns Parameter signature string (e.g., "String,Integer" or "String,List<Integer>")
+ */
+export const generateParameterSignature = (
+  parameters: VariableSymbol[],
+): string => {
+  if (!parameters || parameters.length === 0) {
+    return '';
+  }
+  return parameters.map((p) => p.type?.name || 'Unknown').join(',');
+};
+
+/**
  * Factory for creating unified ApexSymbol instances
  */
 export class SymbolFactory {
@@ -100,7 +114,7 @@ export class SymbolFactory {
     modifiers: SymbolModifiers = this.createDefaultModifiers(),
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, fileUri, scopePath, kind, location);
+    const id = this.generateId(name, fileUri, scopePath, kind);
     const key: SymbolKey = {
       prefix: kind,
       name,
@@ -159,7 +173,7 @@ export class SymbolFactory {
     parentSymbol?: ApexSymbol, // Optional parent symbol (for future use)
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, fileUri, scopePath, kind, location);
+    const id = this.generateId(name, fileUri, scopePath, kind);
     const key: SymbolKey = {
       prefix: kind,
       name,
@@ -202,7 +216,7 @@ export class SymbolFactory {
     annotations?: Annotation[],
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, fileUri, scopePath, kind, location);
+    const id = this.generateId(name, fileUri, scopePath, kind);
 
     // Calculate FQN if namespace is provided (case-insensitive for Apex)
     // For top-level symbols, this gives us the full FQN immediately.
@@ -273,13 +287,7 @@ export class SymbolFactory {
       identifierRange: location.symbolRange, // Same as symbolRange for blocks
     };
 
-    const id = this.generateId(
-      name,
-      fileUri,
-      scopePath,
-      'block',
-      blockLocation,
-    );
+    const id = this.generateId(name, fileUri, scopePath, 'block');
     const key: SymbolKey = {
       prefix: 'block',
       name,
@@ -318,8 +326,8 @@ export class SymbolFactory {
    * @param name The symbol name
    * @param fileUri The file path
    * @param scopePath Optional scope path for uniqueness (e.g., ["TestClass", "method1", "block1"])
-   * @param prefix Optional symbol prefix/kind for uniqueness
-   * @param location Optional symbol location for including line numbers in ID
+   * @param prefix Optional symbol prefix/kind
+   * @param paramSignature Optional parameter signature for method/constructor overloading
    * @returns URI-based symbol ID
    */
   static generateId(
@@ -327,14 +335,61 @@ export class SymbolFactory {
     fileUri: string,
     scopePath?: string[],
     prefix?: string,
-    location?: SymbolLocation,
+    paramSignature?: string,
   ): string {
     // Use the new unified URI-based ID generator
     // Include prefix to ensure uniqueness between semantic symbols and their block scopes
-    // NOTE: Option 2A - IDs remain stable (no line numbers) to preserve cross-file reference stability
-    // Duplicates are handled via union type (ApexSymbol | ApexSymbol[]) in symbolMap
-    // Do NOT include line numbers - keep IDs stable
-    return generateSymbolId(name, fileUri, scopePath, undefined, prefix);
+    return generateSymbolId(
+      name,
+      fileUri,
+      scopePath,
+      undefined,
+      prefix,
+      paramSignature,
+    );
+  }
+
+  /**
+   * Regenerate the ID for a method/constructor symbol with parameter signature
+   * This should be called after all parameters have been collected
+   * @param symbol The method/constructor symbol to update
+   */
+  static regenerateMethodId(symbol: MethodSymbol): void {
+    if (
+      symbol.kind !== SymbolKind.Method &&
+      symbol.kind !== SymbolKind.Constructor
+    ) {
+      return;
+    }
+
+    // Generate parameter signature from the method's parameters
+    const paramSignature = generateParameterSignature(symbol.parameters);
+
+    // ALWAYS append parentheses for methods/constructors, even with no parameters
+    // This ensures no-param methods have ID ending in () and are never confused with the base ID
+    // For example: myMethod() vs myMethod(String) - both are unique
+
+    // Modify the existing ID by appending parameter signature to the method name
+    // The existing ID has format: ...prefix:name or ...prefix:name:lineNumber
+    // We need to change it to: ...prefix:name(params) or ...prefix:name(params):lineNumber
+    const oldId = symbol.id;
+    const parts = oldId.split(':');
+
+    // Find the method name part (should be after the prefix, which is the symbol kind)
+    // Walk backwards to find the name (it's the last part before lineNumber, or the last part)
+    let nameIndex = parts.length - 1;
+    // Check if last part is a line number
+    if (/^\d+$/.test(parts[parts.length - 1])) {
+      nameIndex = parts.length - 2;
+    }
+
+    // Add parameter signature to the name
+    parts[nameIndex] = `${parts[nameIndex]}(${paramSignature})`;
+    const newId = parts.join(':');
+
+    // Update symbol ID and key
+    symbol.id = newId;
+    symbol.key.unifiedId = newId;
   }
 
   /**
@@ -479,7 +534,7 @@ export interface ApexSymbol {
   _loadPromise?: Promise<void>;
 
   // Layered compilation support - tracks what level of detail has been captured
-  _detailLevel?: 'public-api' | 'protected' | 'private' | 'full';
+  detailLevel?: 'public-api' | 'protected' | 'private' | 'full';
 
   modifiers: SymbolModifiers;
 }
@@ -589,7 +644,7 @@ export class ScopeSymbol implements ApexSymbol {
   identifierLocation?: SymbolLocation;
   _isLoaded: boolean;
   _loadPromise?: Promise<void>;
-  _detailLevel?: 'public-api' | 'protected' | 'private' | 'full';
+  detailLevel?: 'public-api' | 'protected' | 'private' | 'full';
   modifiers: SymbolModifiers;
 
   // ScopeSymbol-specific properties
@@ -809,6 +864,40 @@ export class SymbolTable {
   }
 
   /**
+   * Update a symbol's ID in all internal data structures
+   * This is needed when a symbol's ID changes (e.g., after collecting parameters for methods)
+   * @param oldId The old symbol ID
+   * @param newId The new symbol ID
+   */
+  updateSymbolId(oldId: string, newId: string): void {
+    // Get the symbol with the old ID
+    const symbol = this.symbolMap.get(oldId);
+    if (!symbol) {
+      return; // Symbol not found, nothing to update
+    }
+
+    // Remove old entry from symbolMap
+    this.symbolMap.delete(oldId);
+
+    // Update symbol ID and key
+    symbol.id = newId;
+    symbol.key.unifiedId = newId;
+
+    // Add back to symbolMap with new ID
+    this.symbolMap.set(newId, symbol);
+
+    // CRITICAL: Update all child symbols' parentId to point to the new ID
+    // This ensures parent-child relationships remain intact after ID regeneration
+    const children = this.symbolArray.filter((s) => s.parentId === oldId);
+    for (const child of children) {
+      child.parentId = newId;
+    }
+
+    // symbolArray references are maintained (same object, just ID changed)
+    // roots array references are also maintained
+  }
+
+  /**
    * Add a symbol to the current scope.
    * @param symbol The symbol to add
    * @param currentScope The current scope (null when at file level)
@@ -869,50 +958,35 @@ export class SymbolTable {
     // Track previous parentId for roots array maintenance
     const previousParentId = existingSymbol?.parentId;
 
-    // Logging for duplicate debugging
+    // Logger for duplicate debugging
     const logger = getLogger();
-    if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
-      logger.debug(
-        () =>
-          `[SymbolTable.addSymbol] Top-level class: ${symbol.name}, ` +
-          `id=${symbolKey}, existing=${existing ? 'yes' : 'no'}, ` +
-          `isDuplicate=${isDuplicate}, ` +
-          `location=${symbol.location.identifierRange.startLine}:${symbol.location.identifierRange.startColumn}`,
-      );
-    }
 
-    // Layered compilation: enrich existing symbol if it has lower detail level
-    // Skip enrichment for duplicates (they're errors, not enrichment candidates)
-    // Also skip if both symbols are the same object (already enriched)
+    // Layered compilation: enrich existing symbol if it has lower detail level.
+    // Always run enrichment logic, treating missing detailLevel as 'full'.
     let symbolToAdd = symbol;
-    if (
-      existingSymbol &&
-      !isDuplicate &&
-      existingSymbol !== symbol && // Don't enrich if it's the same object
-      symbol._detailLevel // New symbol must have detail level for enrichment
-    ) {
+    if (existingSymbol) {
       const detailLevelOrder: Record<string, number> = {
         'public-api': 1,
         protected: 2,
         private: 3,
         full: 4,
       };
-      const existingLevel = existingSymbol._detailLevel
-        ? detailLevelOrder[existingSymbol._detailLevel] || 0
-        : 0; // If existing has no detail level, treat as 0 (lowest)
-      const newLevel = detailLevelOrder[symbol._detailLevel] || 0;
+      // Default to 'full' (level 4) if detailLevel is missing
+      const existingLevel =
+        detailLevelOrder[existingSymbol.detailLevel ?? 'full'] || 4;
+      const newLevel = detailLevelOrder[symbol.detailLevel ?? 'full'] || 4;
 
       // If new symbol has higher detail level, enrich the existing symbol
       // Also enrich if existing has no detail level (undefined) and new has one
       if (
         newLevel > existingLevel ||
-        (!existingSymbol._detailLevel && symbol._detailLevel)
+        (!existingSymbol.detailLevel && symbol.detailLevel)
       ) {
         if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
           logger.debug(
             () =>
               `[SymbolTable.addSymbol] ENRICHMENT: ${symbol.name}, ` +
-              `existingLevel=${existingSymbol._detailLevel}, newLevel=${symbol._detailLevel}, ` +
+              `existingLevel=${existingSymbol.detailLevel}, newLevel=${symbol.detailLevel}, ` +
               `existingLocation=${existingSymbol.location.identifierRange.startLine}, ` +
               `newLocation=${symbol.location.identifierRange.startLine}`,
           );
@@ -1024,8 +1098,8 @@ export class SymbolTable {
             `[SymbolTable.addSymbol] DUPLICATE DETECTED (converting to array): ${symbol.name}, ` +
             `existingLocation=${existingSymbol.location.identifierRange.startLine}, ` +
             `newLocation=${symbol.location.identifierRange.startLine}, ` +
-            `existingDetailLevel=${existingSymbol._detailLevel}, ` +
-            `newDetailLevel=${symbol._detailLevel}, ` +
+            `existingDetailLevel=${existingSymbol.detailLevel}, ` +
+            `newDetailLevel=${symbol.detailLevel}, ` +
             `sameObject=${existingSymbol === symbolToAdd}`,
         );
       }
@@ -1119,13 +1193,7 @@ export class SymbolTable {
     parentId: string | null,
     scopePath?: string[],
   ): ScopeSymbol {
-    const id = SymbolFactory.generateId(
-      name,
-      fileUri,
-      scopePath,
-      'block',
-      location,
-    );
+    const id = SymbolFactory.generateId(name, fileUri, scopePath, 'block');
     const key: SymbolKey = {
       prefix: scopeType,
       name,
@@ -1685,11 +1753,11 @@ export class SymbolTable {
     let maxOrder = 0;
 
     for (const symbol of symbols) {
-      if (symbol._detailLevel) {
-        const order = levelOrder[symbol._detailLevel] || 0;
+      if (symbol.detailLevel) {
+        const order = levelOrder[symbol.detailLevel] || 0;
         if (order > maxOrder) {
           maxOrder = order;
-          maxLevel = symbol._detailLevel;
+          maxLevel = symbol.detailLevel;
         }
       }
     }

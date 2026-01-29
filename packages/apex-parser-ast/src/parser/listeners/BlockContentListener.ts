@@ -51,6 +51,7 @@ import { Stack } from 'data-structure-typed';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { ApexReferenceCollectorListener } from './ApexReferenceCollectorListener';
+import { DetailLevel } from './LayeredSymbolListenerBase';
 import {
   SymbolReferenceFactory,
   ReferenceContext,
@@ -124,9 +125,29 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   private scopeStack: Stack<ApexSymbol> = new Stack<ApexSymbol>();
   private blockCounter: number = 0;
 
-  constructor(symbolTable: SymbolTable) {
+  // Detail level for layered compilation
+  private detailLevel: DetailLevel;
+
+  constructor(symbolTable: SymbolTable, detailLevel: DetailLevel = 'full') {
     super();
     this.symbolTable = symbolTable;
+    this.detailLevel = detailLevel;
+  }
+
+  /**
+   * Add a symbol to the symbol table with the detail level set.
+   * This ensures that symbols from BlockContentListener have detailLevel
+   * set, which is required for proper deduplication in SymbolTable.addSymbol().
+   * @param symbol The symbol to add
+   * @param currentScope The current scope (null when at file level)
+   */
+  private addSymbolWithDetailLevel(
+    symbol: ApexSymbol,
+    currentScope?: ScopeSymbol | null,
+  ): void {
+    // Set detail level on symbol to enable proper enrichment/deduplication
+    symbol.detailLevel = this.detailLevel;
+    this.symbolTable.addSymbol(symbol, currentScope);
   }
 
   setCurrentFileUri(fileUri: string): void {
@@ -1144,7 +1165,10 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
           type,
         );
 
-        this.symbolTable.addSymbol(variableSymbol, currentScope);
+        this.addSymbolWithDetailLevel(
+          variableSymbol,
+          this.getCurrentScopeSymbol(),
+        );
       }
 
       // Delegate reference collection to reference collector
@@ -2003,7 +2027,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       modifiers,
     );
 
-    this.symbolTable.addSymbol(blockSymbol, parentScope ?? null);
+    this.addSymbolWithDetailLevel(blockSymbol, parentScope ?? null);
 
     return blockSymbol;
   }
