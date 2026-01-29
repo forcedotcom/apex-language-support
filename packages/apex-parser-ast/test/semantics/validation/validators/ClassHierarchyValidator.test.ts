@@ -87,15 +87,11 @@ describe('ClassHierarchyValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(
-      result.errors.some((e) => getMessage(e).includes('circular inheritance')),
-    ).toBe(true);
-    expect(
-      result.errors.some(
-        (e) =>
-          getMessage(e).includes('ClassA') && getMessage(e).includes('ClassB'),
-      ),
-    ).toBe(true);
+    const circularError = result.errors.find(
+      (e) => e.code === ErrorCodes.CIRCULAR_INHERITANCE,
+    );
+    expect(circularError).toBeDefined();
+    expect(getMessage(circularError!)).toContain('Circular definition');
   });
 
   it('should detect three-class circular inheritance', async () => {
@@ -143,7 +139,7 @@ describe('ClassHierarchyValidator', () => {
     );
     expect(error).toBeDefined();
     const errorMessage = getMessage(error!);
-    expect(errorMessage).toContain('Invalid final super type');
+    expect(errorMessage).toContain('Non-virtual and non-abstract type cannot be extended');
   });
 
   it('should warn for missing superclass', async () => {

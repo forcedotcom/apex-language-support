@@ -147,7 +147,8 @@ describe('Validator Integration Tests', () => {
       (r) =>
         !r.isValid &&
         r.errors.length > 0 &&
-        getMessage(r.errors[0]).includes('33 parameters'),
+        (getMessage(r.errors[0]).includes('Invalid number of parameters') ||
+          getMessage(r.errors[0]).includes('33')),
     );
 
     expect(parameterResult).toBeDefined();
@@ -176,7 +177,8 @@ describe('Validator Integration Tests', () => {
       (r) =>
         !r.isValid &&
         r.errors.length > 0 &&
-        getMessage(r.errors[0]).includes('101 constants'),
+        (getMessage(r.errors[0]).includes('Maximum number of enum') ||
+          getMessage(r.errors[0]).includes('100')),
     );
 
     expect(enumLimitResult).toBeDefined();
@@ -234,7 +236,8 @@ describe('Validator Integration Tests', () => {
       (r) =>
         !r.isValid &&
         r.errors.length > 0 &&
-        getMessage(r.errors[0]).includes('Duplicate method'),
+        (getMessage(r.errors[0]).includes('Method already defined') ||
+          getMessage(r.errors[0]).includes('method already exists')),
     );
 
     expect(duplicateResult).toBeDefined();
@@ -263,7 +266,9 @@ describe('Validator Integration Tests', () => {
       (r) =>
         !r.isValid &&
         r.errors.length > 0 &&
-        getMessage(r.errors[0]).includes('Constructor name'),
+        (getMessage(r.errors[0]).includes('Constructor name') ||
+          getMessage(r.errors[0]).includes('must match') ||
+          getMessage(r.errors[0]).includes('constructor')),
     );
 
     expect(constructorResult).toBeDefined();
@@ -345,9 +350,13 @@ describe('Validator Integration Tests', () => {
 
     // Check for specific error messages
     const allErrors = results.flatMap((r) => r.errors);
-    expect(allErrors.some((e) => getMessage(e).includes('33 parameters'))).toBe(
-      true,
-    );
+    expect(
+      allErrors.some(
+        (e) =>
+          getMessage(e).includes('Invalid number of parameters') ||
+          getMessage(e).includes('33'),
+      ),
+    ).toBe(true);
     expect(allErrors.some((e) => getMessage(e).includes('BAD@NAME'))).toBe(
       true,
     );

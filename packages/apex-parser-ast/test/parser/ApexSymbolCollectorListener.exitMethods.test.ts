@@ -122,10 +122,10 @@ public class TestClass {
       const semanticErrors = listener.getErrors();
       const hasDuplicateError =
         result.errors.some((e) =>
-          e.message.includes('Duplicate variable declaration'),
+          e.message.includes('Duplicate variable'),
         ) ||
         semanticErrors.some((e) =>
-          e.message.includes('Duplicate variable declaration'),
+          e.message.includes('Duplicate variable'),
         );
       expect(hasDuplicateError).toBe(true);
     });

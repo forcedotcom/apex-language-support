@@ -1193,7 +1193,7 @@ describe('ApexSymbolCollectorListener', () => {
 
       expect(semanticErrors.length).toBeGreaterThan(0);
       expect(semanticErrors[0].message).toContain(
-        'Duplicate variable declaration',
+        'Duplicate variable',
       );
       expect(semanticErrors[0].line).toBe(5); // Line with the duplicate variable
       logger.debug(

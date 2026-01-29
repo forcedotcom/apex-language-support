@@ -113,9 +113,11 @@ describe('InterfaceHierarchyValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors.some((e) => getMessage(e).includes('circular'))).toBe(
-      true,
+    const circularError = result.errors.find(
+      (e) => e.code === ErrorCodes.CIRCULAR_INHERITANCE,
     );
+    expect(circularError).toBeDefined();
+    expect(getMessage(circularError!)).toContain('Circular definition');
   });
 
   it('should detect duplicate extends', async () => {

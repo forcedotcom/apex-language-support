@@ -11,10 +11,7 @@ import { I18nSupport } from '../../src/i18n/I18nSupport';
 describe('I18nSupport', () => {
   describe('getLabel', () => {
     it('should return formatted message with single parameter', () => {
-      const result = I18nSupport.getLabel(
-        'invalid.number.parameters',
-        32,
-      );
+      const result = I18nSupport.getLabel('invalid.number.parameters', 32);
       expect(result).toBe('Invalid number of parameters exceeds: 32');
     });
 
@@ -25,7 +22,9 @@ describe('I18nSupport', () => {
         '',
         'MyClass',
       );
-      expect(result).toBe('Method already defined: doWork  from the type MyClass');
+      expect(result).toBe(
+        'Method already defined: doWork  from the type MyClass',
+      );
     });
 
     it('should return formatted message with zero parameter', () => {
