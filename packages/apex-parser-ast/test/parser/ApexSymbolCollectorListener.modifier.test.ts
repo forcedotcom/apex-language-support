@@ -288,14 +288,37 @@ public class ConstructorTestClass {
       const symbols = symbolTable.getAllSymbols();
 
       const constructors = symbols.filter((s) => (s as any).isConstructor);
-      // Note: Currently only 1 constructor is processed due to listener limitations
-      // This tests the modifier isolation functionality
-      expect(constructors).toHaveLength(1);
+      // With parameter signatures in IDs, all three overloaded constructors are retained
+      expect(constructors).toHaveLength(3);
 
-      // Verify the constructor has correct modifiers
-      const constructor = constructors[0];
-      expect(constructor?.modifiers.visibility).toBe('protected');
-      expect(constructor?.modifiers.isStatic).toBe(false);
+      // Verify first constructor has correct modifiers (public with no params)
+      const constructor1 = constructors.find(
+        (c) => (c as any).parameters.length === 0,
+      );
+      expect(constructor1).toBeDefined();
+      expect(constructor1?.modifiers.visibility).toBe('public');
+      expect(constructor1?.modifiers.isStatic).toBe(false);
+
+      // Verify second constructor exists (private with String param)
+      const constructor2Priv = constructors.find(
+        (c) =>
+          (c as any).parameters.length === 1 &&
+          c.modifiers.visibility === 'private',
+      );
+      expect(constructor2Priv).toBeDefined();
+
+      // Verify third constructor exists (protected with Integer param)
+      const constructor3Prot = constructors.find(
+        (c) =>
+          (c as any).parameters.length === 1 &&
+          c.modifiers.visibility === 'protected',
+      );
+      expect(constructor3Prot).toBeDefined();
+
+      // Verify all three have unique IDs due to parameter signatures
+      const ids = constructors.map((c) => c.id);
+      const uniqueIds = new Set(ids);
+      expect(uniqueIds.size).toBe(3); // All IDs should be unique
     });
   });
 

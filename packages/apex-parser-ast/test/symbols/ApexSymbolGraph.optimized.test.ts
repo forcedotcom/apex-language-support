@@ -895,4 +895,162 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       );
     });
   });
+
+  describe('clearFileIndex', () => {
+    it('should clear file indexes without removing the SymbolTable', () => {
+      const fileUri = 'file:///test/TestClass.cls';
+
+      // Compile TestClass to get real symbol
+      const compiledTable = compileFixture('TestClass.cls', fileUri);
+      expect(compiledTable).toBeDefined();
+
+      if (!compiledTable) {
+        return;
+      }
+
+      const testClassSymbol = compiledTable
+        .getAllSymbols()
+        .find((s) => s.name === 'TestClass' && s.kind === SymbolKind.Class);
+      expect(testClassSymbol).toBeDefined();
+
+      if (!testClassSymbol) {
+        return;
+      }
+
+      // Register SymbolTable and add symbol
+      symbolGraph.registerSymbolTable(compiledTable, fileUri);
+      symbolGraph.addSymbol(testClassSymbol, fileUri, compiledTable);
+
+      // Verify symbol exists in graph before clearing
+      const symbolsBeforeClear = symbolGraph.getSymbolsInFile(fileUri);
+      expect(symbolsBeforeClear.length).toBeGreaterThan(0);
+
+      // Verify SymbolTable is registered
+      const tableBeforeClear = symbolGraph.getSymbolTableForFile(fileUri);
+      expect(tableBeforeClear).toBe(compiledTable);
+
+      // Clear the file index
+      symbolGraph.clearFileIndex(fileUri);
+
+      // Verify file index is cleared (no symbols in graph)
+      const symbolsAfterClear = symbolGraph.getSymbolsInFile(fileUri);
+      expect(symbolsAfterClear.length).toBe(0);
+
+      // Verify SymbolTable is still registered (NOT removed)
+      const tableAfterClear = symbolGraph.getSymbolTableForFile(fileUri);
+      expect(tableAfterClear).toBe(compiledTable);
+    });
+
+    it('should allow re-adding symbols after clearFileIndex', () => {
+      const fileUri = 'file:///test/TestClass.cls';
+
+      // Compile TestClass to get real symbol
+      const compiledTable = compileFixture('TestClass.cls', fileUri);
+      expect(compiledTable).toBeDefined();
+
+      if (!compiledTable) {
+        return;
+      }
+
+      const testClassSymbol = compiledTable
+        .getAllSymbols()
+        .find((s) => s.name === 'TestClass' && s.kind === SymbolKind.Class);
+      expect(testClassSymbol).toBeDefined();
+
+      if (!testClassSymbol) {
+        return;
+      }
+
+      // Register SymbolTable and add symbol
+      symbolGraph.registerSymbolTable(compiledTable, fileUri);
+      symbolGraph.addSymbol(testClassSymbol, fileUri, compiledTable);
+
+      // Clear the file index
+      symbolGraph.clearFileIndex(fileUri);
+
+      // Re-add the symbol
+      symbolGraph.addSymbol(testClassSymbol, fileUri, compiledTable);
+
+      // Verify symbol is accessible again
+      const symbolsAfterReadd = symbolGraph.getSymbolsInFile(fileUri);
+      expect(symbolsAfterReadd.length).toBeGreaterThan(0);
+      expect(symbolsAfterReadd[0].name).toBe('TestClass');
+    });
+
+    it('should clear all index types for a file', () => {
+      const fileUri = 'file:///test/TestClass.cls';
+
+      // Compile TestClass to get real symbol
+      const compiledTable = compileFixture('TestClass.cls', fileUri);
+      expect(compiledTable).toBeDefined();
+
+      if (!compiledTable) {
+        return;
+      }
+
+      const testClassSymbol = compiledTable
+        .getAllSymbols()
+        .find((s) => s.name === 'TestClass' && s.kind === SymbolKind.Class);
+      expect(testClassSymbol).toBeDefined();
+
+      if (!testClassSymbol) {
+        return;
+      }
+
+      // Register SymbolTable and add symbol
+      symbolGraph.registerSymbolTable(compiledTable, fileUri);
+      symbolGraph.addSymbol(testClassSymbol, fileUri, compiledTable);
+
+      // Verify symbol is findable by name before clearing
+      const byNameBefore = symbolGraph.findSymbolByName('TestClass');
+      expect(byNameBefore.length).toBeGreaterThan(0);
+
+      // Clear the file index
+      symbolGraph.clearFileIndex(fileUri);
+
+      // Verify symbol is NOT findable by name after clearing
+      const byNameAfter = symbolGraph.findSymbolByName('TestClass');
+      expect(byNameAfter.length).toBe(0);
+    });
+
+    it('should be called by removeFile and also remove SymbolTable', () => {
+      const fileUri = 'file:///test/TestClass.cls';
+
+      // Compile TestClass to get real symbol
+      const compiledTable = compileFixture('TestClass.cls', fileUri);
+      expect(compiledTable).toBeDefined();
+
+      if (!compiledTable) {
+        return;
+      }
+
+      const testClassSymbol = compiledTable
+        .getAllSymbols()
+        .find((s) => s.name === 'TestClass' && s.kind === SymbolKind.Class);
+      expect(testClassSymbol).toBeDefined();
+
+      if (!testClassSymbol) {
+        return;
+      }
+
+      // Register SymbolTable and add symbol
+      symbolGraph.registerSymbolTable(compiledTable, fileUri);
+      symbolGraph.addSymbol(testClassSymbol, fileUri, compiledTable);
+
+      // Verify SymbolTable is registered before removal
+      const tableBefore = symbolGraph.getSymbolTableForFile(fileUri);
+      expect(tableBefore).toBe(compiledTable);
+
+      // Remove the file (should clear indexes AND remove SymbolTable)
+      symbolGraph.removeFile(fileUri);
+
+      // Verify file index is cleared
+      const symbolsAfterRemove = symbolGraph.getSymbolsInFile(fileUri);
+      expect(symbolsAfterRemove.length).toBe(0);
+
+      // Verify SymbolTable is also removed (unlike clearFileIndex)
+      const tableAfter = symbolGraph.getSymbolTableForFile(fileUri);
+      expect(tableAfter).toBeUndefined();
+    });
+  });
 });

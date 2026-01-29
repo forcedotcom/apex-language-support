@@ -84,6 +84,20 @@ export const SymbolKindValues = {
 } as const;
 
 /**
+ * Generate a parameter signature string from a method's parameters
+ * @param parameters Array of parameter symbols
+ * @returns Parameter signature string (e.g., "String,Integer" or "String,List<Integer>")
+ */
+export const generateParameterSignature = (
+  parameters: VariableSymbol[],
+): string => {
+  if (!parameters || parameters.length === 0) {
+    return '';
+  }
+  return parameters.map((p) => p.type?.name || 'Unknown').join(',');
+};
+
+/**
  * Factory for creating unified ApexSymbol instances
  */
 export class SymbolFactory {
@@ -311,6 +325,8 @@ export class SymbolFactory {
    * @param name The symbol name
    * @param fileUri The file path
    * @param scopePath Optional scope path for uniqueness (e.g., ["TestClass", "method1", "block1"])
+   * @param prefix Optional symbol prefix/kind
+   * @param paramSignature Optional parameter signature for method/constructor overloading
    * @returns URI-based symbol ID
    */
   static generateId(
@@ -318,10 +334,61 @@ export class SymbolFactory {
     fileUri: string,
     scopePath?: string[],
     prefix?: string,
+    paramSignature?: string,
   ): string {
     // Use the new unified URI-based ID generator
     // Include prefix to ensure uniqueness between semantic symbols and their block scopes
-    return generateSymbolId(name, fileUri, scopePath, undefined, prefix);
+    return generateSymbolId(
+      name,
+      fileUri,
+      scopePath,
+      undefined,
+      prefix,
+      paramSignature,
+    );
+  }
+
+  /**
+   * Regenerate the ID for a method/constructor symbol with parameter signature
+   * This should be called after all parameters have been collected
+   * @param symbol The method/constructor symbol to update
+   */
+  static regenerateMethodId(symbol: MethodSymbol): void {
+    if (
+      symbol.kind !== SymbolKind.Method &&
+      symbol.kind !== SymbolKind.Constructor
+    ) {
+      return;
+    }
+
+    // Generate parameter signature from the method's parameters
+    const paramSignature = generateParameterSignature(symbol.parameters);
+
+    // ALWAYS append parentheses for methods/constructors, even with no parameters
+    // This ensures no-param methods have ID ending in () and are never confused with the base ID
+    // For example: myMethod() vs myMethod(String) - both are unique
+
+    // Modify the existing ID by appending parameter signature to the method name
+    // The existing ID has format: ...prefix:name or ...prefix:name:lineNumber
+    // We need to change it to: ...prefix:name(params) or ...prefix:name(params):lineNumber
+    const oldId = symbol.id;
+    const parts = oldId.split(':');
+
+    // Find the method name part (should be after the prefix, which is the symbol kind)
+    // Walk backwards to find the name (it's the last part before lineNumber, or the last part)
+    let nameIndex = parts.length - 1;
+    // Check if last part is a line number
+    if (/^\d+$/.test(parts[parts.length - 1])) {
+      nameIndex = parts.length - 2;
+    }
+
+    // Add parameter signature to the name
+    parts[nameIndex] = `${parts[nameIndex]}(${paramSignature})`;
+    const newId = parts.join(':');
+
+    // Update symbol ID and key
+    symbol.id = newId;
+    symbol.key.unifiedId = newId;
   }
 
   /**
@@ -776,6 +843,40 @@ export class SymbolTable {
   }
 
   /**
+   * Update a symbol's ID in all internal data structures
+   * This is needed when a symbol's ID changes (e.g., after collecting parameters for methods)
+   * @param oldId The old symbol ID
+   * @param newId The new symbol ID
+   */
+  updateSymbolId(oldId: string, newId: string): void {
+    // Get the symbol with the old ID
+    const symbol = this.symbolMap.get(oldId);
+    if (!symbol) {
+      return; // Symbol not found, nothing to update
+    }
+
+    // Remove old entry from symbolMap
+    this.symbolMap.delete(oldId);
+
+    // Update symbol ID and key
+    symbol.id = newId;
+    symbol.key.unifiedId = newId;
+
+    // Add back to symbolMap with new ID
+    this.symbolMap.set(newId, symbol);
+
+    // CRITICAL: Update all child symbols' parentId to point to the new ID
+    // This ensures parent-child relationships remain intact after ID regeneration
+    const children = this.symbolArray.filter((s) => s.parentId === oldId);
+    for (const child of children) {
+      child.parentId = newId;
+    }
+
+    // symbolArray references are maintained (same object, just ID changed)
+    // roots array references are also maintained
+  }
+
+  /**
    * Add a symbol to the current scope.
    * @param symbol The symbol to add
    * @param currentScope The current scope (null when at file level)
@@ -832,17 +933,20 @@ export class SymbolTable {
     // Track previous parentId for roots array maintenance
     const previousParentId = existingSymbol?.parentId;
 
-    // Layered compilation: enrich existing symbol if it has lower detail level
+    // Layered compilation: enrich existing symbol if it has lower detail level.
+    // Always run enrichment logic, treating missing _detailLevel as 'full'.
     let symbolToAdd = symbol;
-    if (existingSymbol && symbol._detailLevel && existingSymbol._detailLevel) {
+    if (existingSymbol) {
       const detailLevelOrder: Record<string, number> = {
         'public-api': 1,
         protected: 2,
         private: 3,
         full: 4,
       };
-      const existingLevel = detailLevelOrder[existingSymbol._detailLevel] || 0;
-      const newLevel = detailLevelOrder[symbol._detailLevel] || 0;
+      // Default to 'full' (level 4) if _detailLevel is missing
+      const existingLevel =
+        detailLevelOrder[existingSymbol._detailLevel ?? 'full'] || 4;
+      const newLevel = detailLevelOrder[symbol._detailLevel ?? 'full'] || 4;
 
       // If new symbol has higher detail level, enrich the existing symbol
       if (newLevel > existingLevel) {

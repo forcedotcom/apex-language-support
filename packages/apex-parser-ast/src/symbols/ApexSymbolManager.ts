@@ -1700,9 +1700,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // This ensures that fileIndex lookups will find the symbols
       const normalizedUri = extractFilePathFromUri(properUri);
 
-      // Register SymbolTable once for the entire file before processing symbols
-      // This avoids redundant registration calls for each symbol
+      // Register SymbolTable once for the entire file before processing symbols.
+      // This avoids redundant registration calls and merges symbols from any existing table.
       self.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
+
+      // Clear fileIndex to remove old symbol IDs before adding new ones.
+      // Method/constructor IDs include parameter signatures, so old IDs need removal
+      // before adding updated IDs. The SymbolTable merge has already preserved needed symbols.
+      self.symbolGraph.clearFileIndex(normalizedUri);
 
       // Add all symbols from the symbol table
       const symbols = symbolTable.getAllSymbols

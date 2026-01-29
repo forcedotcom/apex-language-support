@@ -47,7 +47,6 @@ import {
   SymbolVisibility,
   SymbolLocation,
   SymbolKind,
-  keyToString,
 } from '../types/symbol';
 import { isBlockSymbol } from '../utils/symbolNarrowing';
 import { calculateFQN } from '../utils/FQNUtils';
@@ -1060,6 +1059,19 @@ export class ApexSymbolGraph {
       this.fileIndex.set(normalizedFileUri, fileSymbols);
     }
 
+    // Development telemetry: detect duplicate symbols to identify ID generation issues
+    if (process.env.NODE_ENV === 'development' || process.env.DEBUG_SYMBOLS) {
+      const existingSymbolCount = fileSymbols.length;
+      const uniqueSymbolCount = new Set(fileSymbols).size;
+      if (existingSymbolCount !== uniqueSymbolCount) {
+        this.logger.warn(
+          () =>
+            `[DEDUP] Duplicate symbol IDs detected for ${normalizedFileUri}: ` +
+            `${existingSymbolCount} total, ${uniqueSymbolCount} unique`,
+        );
+      }
+    }
+
     // OPTIMIZED: Add lightweight node to graph
     const referenceNode: ReferenceNode = {
       symbolId,
@@ -1984,19 +1996,33 @@ export class ApexSymbolGraph {
       // Preserve symbols from the old SymbolTable that aren't in the new one
       // This is critical for private/protected symbols that won't be in PublicAPISymbolListener results
       // The addSymbol method will handle detail level enrichment automatically
+      //
+      // IMPORTANT: Compare by name+kind+line rather than ID, because IDs may have changed
+      // (e.g., parameter signatures added to method IDs). A method "testFoo" at line 10
+      // should be recognized as the same symbol whether its ID is "testFoo" or "testFoo()"
       let symbolsPreserved = 0;
-      const newSymbolKeys = new Set(newSymbols.map((s) => keyToString(s.key)));
+      const newSymbolMap = new Map(
+        newSymbols.map((s) => {
+          const line = s.location?.symbolRange?.startLine ?? 0;
+          const key = `${s.name}:${s.kind}:${line}`;
+          return [key, s];
+        }),
+      );
+
       for (const symbol of existingSymbols) {
-        const symbolKey = keyToString(symbol.key);
-        if (!newSymbolKeys.has(symbolKey)) {
+        const line = symbol.location?.symbolRange?.startLine ?? 0;
+        const stableKey = `${symbol.name}:${symbol.kind}:${line}`;
+
+        if (!newSymbolMap.has(stableKey)) {
           // Symbol doesn't exist in new SymbolTable - preserve it
           // Use addSymbol which handles detail level enrichment
           symbolTable.addSymbol(symbol);
           symbolsPreserved++;
         } else {
-          // Symbol exists in both - let addSymbol handle detail level enrichment
-          // This ensures higher detail level symbols (private/full) enrich lower ones (public-api)
-          symbolTable.addSymbol(symbol);
+          // Symbol exists in both (same name, kind, line) - skip to avoid duplicates.
+          // Method IDs include parameter signatures, so old and new may have different IDs
+          // (e.g., "testAddition" vs "testAddition()"). The new symbol is already in
+          // the table with all necessary information.
         }
       }
       if (symbolsPreserved > 0) {
@@ -2345,10 +2371,12 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Remove a file's symbols from the graph
-   * Normalizes URI to ensure consistent lookup
+   * Clear the graph indexes for a file without removing the SymbolTable.
+   * This is used when re-adding symbols to prevent duplicates while preserving
+   * the SymbolTable for lookups and merging.
+   * Normalizes URI to ensure consistent lookup.
    */
-  removeFile(fileUri: string): void {
+  clearFileIndex(fileUri: string): void {
     const normalizedUri = extractFilePathFromUri(fileUri);
     const symbolIds = this.fileIndex.get(normalizedUri) || [];
 
@@ -2383,10 +2411,22 @@ export class ApexSymbolGraph {
     // Remove from file index (use normalized URI)
     this.fileIndex.delete(normalizedUri);
 
-    // Remove SymbolTable reference (use normalized URI)
-    this.fileToSymbolTable.delete(normalizedUri);
+    // SymbolTable is intentionally preserved for lookups and future merging
 
     this.memoryStats.totalSymbols -= symbolIds.length;
+  }
+
+  /**
+   * Remove a file's symbols from the graph
+   * Normalizes URI to ensure consistent lookup
+   */
+  removeFile(fileUri: string): void {
+    // Clear indexes first
+    this.clearFileIndex(fileUri);
+
+    // Also remove SymbolTable reference
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    this.fileToSymbolTable.delete(normalizedUri);
   }
 
   /**
