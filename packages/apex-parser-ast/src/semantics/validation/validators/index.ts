@@ -19,6 +19,7 @@ export { InterfaceHierarchyValidator } from './InterfaceHierarchyValidator';
 export { MethodSignatureEquivalenceValidator } from './MethodSignatureEquivalenceValidator';
 export { ParameterLimitValidator } from './ParameterLimitValidator';
 export { TypeAssignmentValidator } from './TypeAssignmentValidator';
+export { SourceSizeValidator } from './SourceSizeValidator';
 export { TypeSelfReferenceValidator } from './TypeSelfReferenceValidator';
 export { VariableShadowingValidator } from './VariableShadowingValidator';
 export { DuplicateFieldValidator } from './DuplicateFieldValidator';

@@ -95,6 +95,12 @@ export interface ValidationOptions extends ArtifactLoadingOptions {
    * Validation tier (determines timing and capabilities)
    */
   tier: ValidationTier;
+
+  /**
+   * Optional source file content for validators that need raw source text
+   * (e.g., source size validation)
+   */
+  sourceContent?: string;
 }
 
 /**

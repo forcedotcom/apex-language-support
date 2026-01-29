@@ -387,13 +387,18 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             loadArtifactCallback: allowArtifactLoading
               ? this.createLoadArtifactCallback(params.textDocument.uri)
               : undefined,
+            sourceContent: document.getText(), // Provide source content for SourceSizeValidator
           };
 
           // Run validators
           const immediateResults = await this.runSemanticValidators(
             ValidationTier.IMMEDIATE,
             cachedTable,
-            { ...validationOptions, tier: ValidationTier.IMMEDIATE },
+            {
+              ...validationOptions,
+              tier: ValidationTier.IMMEDIATE,
+              sourceContent: document.getText(), // Provide source content for SourceSizeValidator
+            },
           );
 
           const thoroughResults = await this.runSemanticValidators(
@@ -568,7 +573,11 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           const immediateResults = await this.runSemanticValidators(
             ValidationTier.IMMEDIATE,
             enrichedTable,
-            { ...validationOptions, tier: ValidationTier.IMMEDIATE },
+            {
+              ...validationOptions,
+              tier: ValidationTier.IMMEDIATE,
+              sourceContent: document.getText(), // Provide source content for SourceSizeValidator
+            },
           );
 
           const thoroughResults = await this.runSemanticValidators(

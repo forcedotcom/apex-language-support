@@ -79,6 +79,9 @@ export const MISSING_SUPERCLASS = 'invalid.super.type'; // For missing superclas
 // Type Assignment
 export const TYPE_MISMATCH = 'illegal.assignment'; // For type mismatches
 
+// Source Size Validation
+export const SCRIPT_TOO_LARGE = 'script.too.large'; // File exceeds maximum size limit
+
 /**
  * Namespace export for convenience (allows import { ErrorCodes } from './ErrorCodes')
  * All error code constants are also available as named exports
@@ -140,4 +143,7 @@ export const ErrorCodes = {
 
   // Type Assignment
   TYPE_MISMATCH,
+
+  // Source Size Validation
+  SCRIPT_TOO_LARGE,
 } as const;

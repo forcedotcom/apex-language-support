@@ -15,6 +15,7 @@ import {
 } from './ValidatorRegistry';
 
 // TIER 1 (IMMEDIATE) validators
+import { SourceSizeValidator } from './validators/SourceSizeValidator';
 import { ParameterLimitValidator } from './validators/ParameterLimitValidator';
 import { EnumLimitValidator } from './validators/EnumLimitValidator';
 import { EnumConstantNamingValidator } from './validators/EnumConstantNamingValidator';
@@ -38,6 +39,7 @@ import { TypeAssignmentValidator } from './validators/TypeAssignmentValidator';
  */
 const ALL_VALIDATORS: readonly Validator[] = [
   // TIER 1 (IMMEDIATE) validators
+  SourceSizeValidator, // Highest priority (runs first)
   ParameterLimitValidator,
   EnumLimitValidator,
   EnumConstantNamingValidator,
@@ -60,7 +62,7 @@ const ALL_VALIDATORS: readonly Validator[] = [
 /**
  * Initialize and register all validators in the ValidatorRegistry
  *
- * This function registers all 15 validators (11 TIER 1, 4 TIER 2) with the
+ * This function registers all 16 validators (12 TIER 1, 4 TIER 2) with the
  * ValidatorRegistry. It should be called once during server initialization.
  *
  * @returns Effect that completes when all validators are registered

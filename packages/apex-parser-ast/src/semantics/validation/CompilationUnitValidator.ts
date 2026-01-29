@@ -7,6 +7,8 @@
  */
 
 import type { ValidationResult, ValidationScope } from './ValidationResult';
+import { ErrorCodes } from './ErrorCodes';
+import { I18nSupport } from '../../i18n/I18nSupport';
 
 /**
  * Extended validation scope for compilation unit validation
@@ -75,7 +77,8 @@ export class CompilationUnitValidator {
 
     // Check if content exceeds the size limit
     if (content.length > sizeLimit) {
-      errors.push('script.too.large');
+      const preview = content.substring(0, 100);
+      errors.push(I18nSupport.getLabel(ErrorCodes.SCRIPT_TOO_LARGE, preview));
       return { isValid: false, errors, warnings };
     }
 
