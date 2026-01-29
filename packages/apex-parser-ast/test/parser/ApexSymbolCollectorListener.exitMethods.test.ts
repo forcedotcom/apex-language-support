@@ -121,12 +121,8 @@ public class TestClass {
       // Check both compilation errors and semantic errors from listener
       const semanticErrors = listener.getErrors();
       const hasDuplicateError =
-        result.errors.some((e) =>
-          e.message.includes('Duplicate variable'),
-        ) ||
-        semanticErrors.some((e) =>
-          e.message.includes('Duplicate variable'),
-        );
+        result.errors.some((e) => e.message.includes('Duplicate variable')) ||
+        semanticErrors.some((e) => e.message.includes('Duplicate variable'));
       expect(hasDuplicateError).toBe(true);
     });
   });

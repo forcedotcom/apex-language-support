@@ -139,7 +139,9 @@ describe('ClassHierarchyValidator', () => {
     );
     expect(error).toBeDefined();
     const errorMessage = getMessage(error!);
-    expect(errorMessage).toContain('Non-virtual and non-abstract type cannot be extended');
+    expect(errorMessage).toContain(
+      'Non-virtual and non-abstract type cannot be extended',
+    );
   });
 
   it('should warn for missing superclass', async () => {
