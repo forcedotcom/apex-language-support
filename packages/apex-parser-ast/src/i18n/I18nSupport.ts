@@ -17,7 +17,7 @@ import { messages } from '../generated/messages_en_US';
  * - Returns !key! for missing keys (matching jorje behavior)
  *
  * Messages are loaded from a TypeScript module generated at build time from
- * resources/messages_en_US.properties (copied from Jorje) and placed in
+ * src/resources/messages/messages_en_US.properties (copied from Jorje) and placed in
  * src/generated/messages_en_US.ts for browser/web worker compatibility.
  */
 export class I18nSupport {

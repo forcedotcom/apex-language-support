@@ -224,7 +224,9 @@ async function generateMessages() {
 
     const propertiesPath = path.join(
       packageRoot,
+      'src',
       'resources',
+      'messages',
       'messages_en_US.properties',
     );
     const outputPath = path.join(
