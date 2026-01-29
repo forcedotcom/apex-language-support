@@ -10,6 +10,7 @@ import { ForwardReferenceValidator } from '../../../../src/semantics/validation/
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
+import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
 import {
   compileFixture,
   getMessage,
@@ -90,10 +91,9 @@ describe('ForwardReferenceValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('x');
-    expect(errorMessage).toMatch(
-      /forward reference|referenced before.*declared/,
-    );
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.FORWARD_REFERENCE);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('Illegal forward reference');
   });
 });

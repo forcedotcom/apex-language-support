@@ -10,6 +10,7 @@ import { ClassHierarchyValidator } from '../../../../src/semantics/validation/va
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
+import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
 import {
   compileFixture,
   getMessage,
@@ -113,9 +114,11 @@ describe('ClassHierarchyValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(
-      result.errors.some((e) => getMessage(e).includes('circular inheritance')),
-    ).toBe(true);
+    const circularError = result.errors.find(
+      (e) => e.code === ErrorCodes.CIRCULAR_INHERITANCE,
+    );
+    expect(circularError).toBeDefined();
+    expect(getMessage(circularError!)).toContain('Circular definition');
   });
 
   it('should detect extending final class', async () => {
@@ -135,16 +138,12 @@ describe('ClassHierarchyValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(
-      result.errors.some((e) => {
-        const msg = getMessage(e);
-        return (
-          msg.includes('cannot extend final class') &&
-          msg.includes('ChildClass') &&
-          msg.includes('FinalParent')
-        );
-      }),
-    ).toBe(true);
+    const error = result.errors.find(
+      (e) => e.code === ErrorCodes.INVALID_FINAL_SUPER_TYPE,
+    );
+    expect(error).toBeDefined();
+    const errorMessage = getMessage(error!);
+    expect(errorMessage).toContain('Invalid final super type');
   });
 
   it('should warn for missing superclass', async () => {

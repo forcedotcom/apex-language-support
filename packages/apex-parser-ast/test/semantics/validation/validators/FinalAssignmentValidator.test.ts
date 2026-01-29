@@ -10,6 +10,7 @@ import { FinalAssignmentValidator } from '../../../../src/semantics/validation/v
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
+import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
 import {
   compileFixture,
   getMessage,
@@ -97,9 +98,9 @@ describe('FinalAssignmentValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('x');
-    expect(errorMessage).toContain('Final');
-    expect(errorMessage).toMatch(/cannot be assigned|more than once/);
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.FINAL_MULTIPLE_ASSIGNMENT);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('Final members can only be assigned');
   });
 });

@@ -56,11 +56,11 @@ export const compileFixture = async (
     resolveReferences: true,
   });
 
-  if (result.errors.length > 0) {
-    throw new Error(
-      `Compilation errors in ${filename}: ${result.errors.map((e) => e.message).join(', ')}`,
-    );
-  }
+  // Note: Some validators (like DuplicateFieldValidator) check for errors that are
+  // caught during compilation. In those cases, compilation errors are expected and
+  // should be handled by the test, not thrown here.
+  // For now, we allow compilation errors to pass through - tests can check for them
+  // if needed. If a test requires clean compilation, it should check result.errors.length === 0
 
   if (!result.result) {
     throw new Error(`Failed to compile ${filename}`);

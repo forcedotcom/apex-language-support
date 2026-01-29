@@ -954,6 +954,8 @@ export class ApexSymbolCollectorListener
    */
   enterClassDeclaration(ctx: ClassDeclarationContext): void {
     try {
+      // Reset modifiers at start of class declaration to track duplicates within this declaration only
+      this.seenModifiers.clear();
       const name = ctx.id()?.text ?? 'unknownClass';
 
       // Validate identifier
@@ -1125,6 +1127,8 @@ export class ApexSymbolCollectorListener
    */
   enterInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
     try {
+      // Reset modifiers at start of interface declaration to track duplicates within this declaration only
+      this.seenModifiers.clear();
       const name = ctx.id()?.text ?? 'unknownInterface';
 
       // Validate identifier
@@ -1245,6 +1249,8 @@ export class ApexSymbolCollectorListener
    */
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     try {
+      // Reset modifiers at start of method declaration to track duplicates within this declaration only
+      this.seenModifiers.clear();
       // Enhanced debug logging for method name extraction
       const idNode = ctx.id();
       let name = idNode?.text ?? 'unknownMethod';
@@ -1433,6 +1439,8 @@ export class ApexSymbolCollectorListener
    */
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
     try {
+      // Reset modifiers at start of constructor declaration to track duplicates within this declaration only
+      this.seenModifiers.clear();
       // Extract constructor name from the qualified name in the context
       const qualifiedName = ctx.qualifiedName();
       const ids = qualifiedName?.id();
@@ -1799,6 +1807,8 @@ export class ApexSymbolCollectorListener
    */
   enterPropertyDeclaration(ctx: PropertyDeclarationContext): void {
     try {
+      // Reset modifiers at start of property declaration to track duplicates within this declaration only
+      this.seenModifiers.clear();
       const typeRef = ctx.typeRef();
       if (!typeRef) {
         this.addError('Property declaration missing type reference', ctx);
@@ -1886,6 +1896,8 @@ export class ApexSymbolCollectorListener
    */
   enterFieldDeclaration(ctx: FieldDeclarationContext): void {
     try {
+      // Reset modifiers at start of field declaration to track duplicates within this declaration only
+      this.seenModifiers.clear();
       const typeRef = ctx.typeRef();
       if (!typeRef) {
         this.addError('Field declaration missing type reference', ctx);
@@ -2191,6 +2203,8 @@ export class ApexSymbolCollectorListener
    */
   enterEnumDeclaration(ctx: EnumDeclarationContext): void {
     try {
+      // Reset modifiers at start of enum declaration to track duplicates within this declaration only
+      this.seenModifiers.clear();
       const name = ctx.id()?.text ?? 'unknownEnum';
 
       // Validate enum in interface

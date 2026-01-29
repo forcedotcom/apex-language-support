@@ -10,6 +10,7 @@ import { TypeSelfReferenceValidator } from '../../../../src/semantics/validation
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
+import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
 import {
   compileFixture,
   getMessage,
@@ -92,9 +93,10 @@ describe('TypeSelfReferenceValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('SelfExtending');
-    expect(errorMessage).toContain('cannot extend itself');
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.CLASS_EXTENDS_SELF);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('Circular definition');
   });
 
   it('should fail validation for class implementing itself', async () => {
@@ -115,9 +117,10 @@ describe('TypeSelfReferenceValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('SelfImplementing');
-    expect(errorMessage).toContain('cannot implement itself');
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.CLASS_IMPLEMENTS_SELF);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('Circular definition');
   });
 
   it('should fail validation for interface extending itself', async () => {
@@ -138,8 +141,9 @@ describe('TypeSelfReferenceValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('InterfaceSelfExtending');
-    expect(errorMessage).toContain('cannot extend itself');
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.INTERFACE_EXTENDS_SELF);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('Circular definition');
   });
 });

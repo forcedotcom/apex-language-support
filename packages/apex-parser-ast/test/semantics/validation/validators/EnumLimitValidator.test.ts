@@ -10,6 +10,7 @@ import { EnumLimitValidator } from '../../../../src/semantics/validation/validat
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
+import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
 import {
   compileFixture,
   getMessage,
@@ -86,10 +87,10 @@ describe('EnumLimitValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors).toHaveLength(1);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('InvalidEnum');
-    expect(errorMessage).toContain('101 constants');
-    expect(errorMessage).toContain('maximum is 100');
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.ENUM_LIMIT_EXCEEDED);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('100');
   });
 
   it('should fail validation for enum with 150 constants', async () => {
@@ -108,9 +109,10 @@ describe('EnumLimitValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors).toHaveLength(1);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('HugeEnum');
-    expect(errorMessage).toContain('150 constants');
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.ENUM_LIMIT_EXCEEDED);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('100');
   });
 
   it('should pass validation for enum with 1 constant', async () => {

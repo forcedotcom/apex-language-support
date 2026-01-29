@@ -10,6 +10,7 @@ import { InterfaceHierarchyValidator } from '../../../../src/semantics/validatio
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
+import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
 import {
   compileFixture,
   getMessage,
@@ -88,9 +89,10 @@ describe('InterfaceHierarchyValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('circular');
-    expect(errorMessage).toContain('inheritance');
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.CIRCULAR_INHERITANCE);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('Circular definition');
   });
 
   it('should detect longer circular inheritance chain', async () => {
@@ -133,8 +135,10 @@ describe('InterfaceHierarchyValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('multiple times');
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.DUPLICATE_EXTENDS);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('Generic Interface already implemented');
   });
 
   it('should pass validation for interface extending multiple interfaces', async () => {
@@ -172,9 +176,10 @@ describe('InterfaceHierarchyValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('does not implement');
-    expect(errorMessage).toContain('doSomething');
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.MISSING_INTERFACE_METHOD);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('must implement the method');
   });
 
   it('should pass validation for class implementing all interface methods', async () => {

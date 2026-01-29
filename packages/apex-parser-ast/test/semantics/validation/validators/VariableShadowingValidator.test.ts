@@ -10,6 +10,7 @@ import { VariableShadowingValidator } from '../../../../src/semantics/validation
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
+import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
 import {
   compileFixture,
   getMessage,
@@ -90,8 +91,9 @@ describe('VariableShadowingValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('param1');
-    expect(errorMessage).toContain('shadow');
+    const error = result.errors[0];
+    expect(error.code).toBe(ErrorCodes.VARIABLE_SHADOWING);
+    const errorMessage = getMessage(error);
+    expect(errorMessage).toContain('Duplicate variable');
   });
 });
