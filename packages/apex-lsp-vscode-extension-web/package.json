@@ -2,7 +2,7 @@
   "name": "apex-language-server-extension-web",
   "displayName": "Apex Language Server (Web)",
   "description": "VSCode web extension for Apex Language Server",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
