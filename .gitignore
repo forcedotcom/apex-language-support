@@ -63,6 +63,8 @@ test-workspace
 
 /packages/apex-parser-ast/test/generator/test-files
 /packages/apex-parser-ast/src/generated
+# But track messages_en_US.ts (generated from resources)
+!/packages/apex-parser-ast/src/generated/messages_en_US.ts
 
 # Extension directory
 extension/
@@ -84,4 +86,6 @@ e2e-tests/.playwright/
 test-results/
 playwright-report/
 /packages/apex-parser-ast/resources
+# But track messages_en_US.properties (source from Jorje)
+!/packages/apex-parser-ast/resources/messages_en_US.properties
 /.graph
