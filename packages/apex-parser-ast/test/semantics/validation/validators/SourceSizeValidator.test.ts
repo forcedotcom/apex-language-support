@@ -70,7 +70,7 @@ describe('SourceSizeValidator', () => {
     // Create a class that exceeds 1M character limit
     // Note: Using a smaller size for test performance (still exceeds limit)
     const largeClass =
-      'public class LargeClass { ' + 'a'.repeat(1000001) + ' }';
+      'public class LargeClass { ' + 'a'.repeat(1_000_001) + ' }';
 
     // Compile a small class first to get a valid symbol table structure
     const baseSymbolTable = await compileFixture(
