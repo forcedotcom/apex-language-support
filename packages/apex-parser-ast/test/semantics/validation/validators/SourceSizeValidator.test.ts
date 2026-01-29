@@ -10,6 +10,11 @@ import { Effect } from 'effect';
 import { SourceSizeValidator } from '../../../../src/semantics/validation/validators/SourceSizeValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
+import type {
+  ValidationResult,
+  ValidationErrorInfo,
+} from '../../../../src/semantics/validation/ValidationResult';
+import type { ValidationError } from '../../../../src/semantics/validation/ValidatorRegistry';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
 import {
@@ -54,7 +59,7 @@ describe('SourceSizeValidator', () => {
       }).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<ValidationResult, ValidationError, never>,
     );
 
     expect(result.isValid).toBe(true);
@@ -64,8 +69,9 @@ describe('SourceSizeValidator', () => {
   it('should detect class exceeding size limit', async () => {
     // Create a class that exceeds 1M character limit
     // Note: Using a smaller size for test performance (still exceeds limit)
-    const largeClass = 'public class LargeClass { ' + 'a'.repeat(1000001) + ' }';
-    
+    const largeClass =
+      'public class LargeClass { ' + 'a'.repeat(1000001) + ' }';
+
     // Compile a small class first to get a valid symbol table structure
     const baseSymbolTable = await compileFixture(
       VALIDATOR_CATEGORY,
@@ -85,13 +91,22 @@ describe('SourceSizeValidator', () => {
       }).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<ValidationResult, ValidationError, never>,
     );
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors[0].code).toBe(ErrorCodes.SCRIPT_TOO_LARGE);
-    expect(result.errors[0].message).toContain('Script too large');
+    const firstError = result.errors[0];
+    if (typeof firstError === 'string') {
+      expect(firstError).toContain('Script too large');
+    } else {
+      expect((firstError as ValidationErrorInfo).code).toBe(
+        ErrorCodes.SCRIPT_TOO_LARGE,
+      );
+      expect((firstError as ValidationErrorInfo).message).toContain(
+        'Script too large',
+      );
+    }
   });
 
   it('should pass validation for interface within size limit', async () => {
@@ -114,7 +129,7 @@ describe('SourceSizeValidator', () => {
       }).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<ValidationResult, ValidationError, never>,
     );
 
     expect(result.isValid).toBe(true);
@@ -141,7 +156,7 @@ describe('SourceSizeValidator', () => {
       }).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<ValidationResult, ValidationError, never>,
     );
 
     expect(result.isValid).toBe(true);
@@ -167,7 +182,7 @@ describe('SourceSizeValidator', () => {
       }).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<ValidationResult, ValidationError, never>,
     );
 
     // Should pass when sourceContent is not available
@@ -178,8 +193,9 @@ describe('SourceSizeValidator', () => {
   it('should handle anonymous block size limit', async () => {
     // Anonymous blocks have 32K limit
     const smallAnonymous = 'System.debug("test");';
-    const symbolTable = new (await import('../../../../src/types/symbol'))
-      .SymbolTable();
+    const symbolTable = new (
+      await import('../../../../src/types/symbol')
+    ).SymbolTable();
 
     const result = await Effect.runPromise(
       SourceSizeValidator.validate(symbolTable, {
@@ -191,7 +207,7 @@ describe('SourceSizeValidator', () => {
       }).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<ValidationResult, ValidationError, never>,
     );
 
     expect(result.isValid).toBe(true);
@@ -201,8 +217,9 @@ describe('SourceSizeValidator', () => {
   it('should detect anonymous block exceeding size limit', async () => {
     // Create anonymous block exceeding 32K limit
     const largeAnonymous = 'System.debug("' + 'a'.repeat(32001) + '");';
-    const symbolTable = new (await import('../../../../src/types/symbol'))
-      .SymbolTable();
+    const symbolTable = new (
+      await import('../../../../src/types/symbol')
+    ).SymbolTable();
 
     const result = await Effect.runPromise(
       SourceSizeValidator.validate(symbolTable, {
@@ -214,11 +231,18 @@ describe('SourceSizeValidator', () => {
       }).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<ValidationResult, ValidationError, never>,
     );
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors[0].code).toBe(ErrorCodes.SCRIPT_TOO_LARGE);
+    const firstError = result.errors[0];
+    if (typeof firstError === 'string') {
+      expect(firstError).toContain('Script too large');
+    } else {
+      expect((firstError as ValidationErrorInfo).code).toBe(
+        ErrorCodes.SCRIPT_TOO_LARGE,
+      );
+    }
   });
 });
