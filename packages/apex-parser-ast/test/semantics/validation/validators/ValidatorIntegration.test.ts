@@ -29,7 +29,6 @@ import {
   ClassHierarchyValidator,
   TypeAssignmentValidator,
 } from '../../../../src/semantics/validation/validators';
-import { SymbolTable } from '../../../../src/types/symbol';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
@@ -389,5 +388,4 @@ describe('Validator Integration Tests', () => {
       expect(result.errors).toHaveLength(0);
     }
   });
-
 });
