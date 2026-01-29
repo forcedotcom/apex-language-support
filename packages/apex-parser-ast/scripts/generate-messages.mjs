@@ -203,14 +203,14 @@ ${entries.join(',\n')}
  *
  * Source: The messages_en_US.properties file should be manually copied from Jorje:
  *   Source: /path/to/apex-jorje/apex-jorje-services/src/main/resources/messages_en_US.properties
- *   Destination: packages/apex-parser-ast/src/i18n/messages_en_US.properties
+ *   Destination: packages/apex-parser-ast/resources/messages_en_US.properties
  *
  * To sync with Jorje:
  *   1. Ensure apex-jorje repository is cloned locally
  *   2. Copy the file manually:
  *      cp /path/to/apex-jorje/apex-jorje-services/src/main/resources/messages_en_US.properties \
- *         packages/apex-parser-ast/src/i18n/messages_en_US.properties
- *   3. Run this script to regenerate messages_en_US.ts
+ *         packages/apex-parser-ast/resources/messages_en_US.properties
+ *   3. Run this script to regenerate messages_en_US.ts in src/generated/
  *
  * Note: This script only reads from the local .properties file and generates TypeScript.
  * It does NOT automatically copy from Jorje - that must be done manually to maintain
@@ -224,14 +224,13 @@ async function generateMessages() {
 
     const propertiesPath = path.join(
       packageRoot,
-      'src',
-      'i18n',
+      'resources',
       'messages_en_US.properties',
     );
     const outputPath = path.join(
       packageRoot,
       'src',
-      'i18n',
+      'generated',
       'messages_en_US.ts',
     );
 

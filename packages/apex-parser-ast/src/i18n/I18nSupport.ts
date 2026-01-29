@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { messages } from './messages_en_US';
+import { messages } from '../generated/messages_en_US';
 
 /**
  * Minimal I18nSupport for loading English error messages from jorje's messages_en_US.properties
@@ -17,7 +17,8 @@ import { messages } from './messages_en_US';
  * - Returns !key! for missing keys (matching jorje behavior)
  *
  * Messages are loaded from a TypeScript module generated at build time from
- * messages_en_US.properties for browser/web worker compatibility.
+ * resources/messages_en_US.properties (copied from Jorje) and placed in
+ * src/generated/messages_en_US.ts for browser/web worker compatibility.
  */
 export class I18nSupport {
   /**
@@ -38,7 +39,7 @@ export class I18nSupport {
     }
 
     // Simple substitution: replace {0}, {1}, etc. with args[0], args[1], etc.
-    return template.replace(/\{(\d+)\}/g, (match, indexStr) => {
+    return template.replace(/\{(\d+)\}/g, (match: string, indexStr: string) => {
       const argIndex = parseInt(indexStr, 10);
       if (args[argIndex] != null) {
         return String(args[argIndex]);

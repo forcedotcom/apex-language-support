@@ -31,7 +31,7 @@
     "test": "wireit",
     "test:one": "wireit",
     "test:coverage": "wireit",
-    "clean": "rimraf out resourcesdist .wireit coverage src/generated tsconfig.tsbuildinfo",
+    "clean": "rimraf out dist resources .wireit coverage src/generated tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "wireit"
   },
@@ -52,7 +52,7 @@
       ]
     },
     "precompile": {
-      "command": "node scripts/generate-proto.mjs && node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs",
+      "command": "node scripts/generate-proto.mjs && node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs && node scripts/generate-messages.mjs",
       "output": [
         "src/generated/**",
         "resources/StandardApexLibrary.zip"
@@ -61,6 +61,7 @@
         "scripts/generate-proto.mjs",
         "scripts/generate-keywords.mjs",
         "scripts/generate-zip.mjs",
+        "scripts/generate-messages.mjs",
         "proto/apex-stdlib.proto",
         "src/**/*.cls"
       ]
