@@ -1197,6 +1197,9 @@ export class ApexJsonRpcClient {
             rename: {
               dynamicRegistration: true,
             },
+            diagnostic: {
+              dynamicRegistration: true,
+            },
           },
           workspace: {
             applyEdit: true,

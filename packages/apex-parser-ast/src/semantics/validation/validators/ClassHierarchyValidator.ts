@@ -39,7 +39,8 @@ import { I18nSupport } from '../../../i18n/I18nSupport';
  * Examples:
  * - Circular: `class A extends B { }` and `class B extends A { }`
  * - Missing: `class Child extends NonExistentParent { }`
- * - Final: `final class Parent { }` and `class Child extends Parent { }` → Error
+ * - Final: `class Parent { }` (final by default) and `class Child extends Parent { }` → Error
+ * - Virtual: `virtual class Parent { }` and `class Child extends Parent { }` → Valid
  * - Invalid: `class Child extends SomeInterface { }` → Error
  *
  * This is a TIER 2 (THOROUGH) validation that may require artifact loading
@@ -94,8 +95,13 @@ export const ClassHierarchyValidator: Validator = {
             missingSuperclasses.push(cls.superClass);
           }
         } else {
-          // Check 3: Cannot extend final class
-          if (superClass.modifiers.isFinal) {
+          // Check 3: Cannot extend non-virtual (final-by-default) class
+          // In Apex, classes are final by default. Only virtual or abstract classes can be extended.
+          // Note: The 'final' keyword cannot be used on classes in Apex.
+          if (
+            !superClass.modifiers.isVirtual &&
+            !superClass.modifiers.isAbstract
+          ) {
             errors.push({
               message: I18nSupport.getLabel(
                 ErrorCodes.INVALID_FINAL_SUPER_TYPE,
@@ -120,45 +126,69 @@ export const ClassHierarchyValidator: Validator = {
         }
       }
 
-      // Try to load missing superclasses if artifact loading is available
+      // Try to find missing superclasses in symbol manager first (from opened documents)
       let loadedClasses: TypeSymbol[] = [];
       if (missingSuperclasses.length > 0 && options.symbolManager) {
-        yield* Effect.logDebug(
-          `Found ${missingSuperclasses.length} missing superclasses, ` +
-            'attempting to load from symbol manager',
-        );
-
-        const helper = yield* ArtifactLoadingHelper;
-        const loadResult = yield* helper.loadMissingArtifacts(
-          missingSuperclasses,
-          options,
-        );
-
-        // Get loaded classes from symbol manager
         const symbolManager = yield* ISymbolManager;
-        for (const typeName of [
-          ...loadResult.loaded,
-          ...loadResult.alreadyLoaded,
-        ]) {
+
+        // First, check if classes are already in symbol manager (from opened documents)
+        const foundInManager: TypeSymbol[] = [];
+        const stillMissing: string[] = [];
+
+        for (const typeName of missingSuperclasses) {
           const symbols = symbolManager.findSymbolByName(typeName);
           const classSymbol = symbols.find(
             (s: ApexSymbol) => s.kind === SymbolKind.Class,
           ) as TypeSymbol | undefined;
 
           if (classSymbol) {
-            loadedClasses.push(classSymbol);
+            foundInManager.push(classSymbol);
             yield* Effect.logDebug(
-              `Loaded class '${typeName}' from symbol manager`,
+              `Found class '${typeName}' already in symbol manager`,
             );
+          } else {
+            stillMissing.push(typeName);
+          }
+        }
+
+        loadedClasses.push(...foundInManager);
+
+        // Only attempt artifact loading for classes not found in symbol manager
+        if (stillMissing.length > 0) {
+          yield* Effect.logDebug(
+            `Found ${stillMissing.length} missing superclasses, ` +
+              'attempting to load from artifact loader',
+          );
+
+          const helper = yield* ArtifactLoadingHelper;
+          const loadResult = yield* helper.loadMissingArtifacts(
+            stillMissing,
+            options,
+          );
+
+          // Get newly loaded classes from symbol manager
+          for (const typeName of [
+            ...loadResult.loaded,
+            ...loadResult.alreadyLoaded,
+          ]) {
+            const symbols = symbolManager.findSymbolByName(typeName);
+            const classSymbol = symbols.find(
+              (s: ApexSymbol) => s.kind === SymbolKind.Class,
+            ) as TypeSymbol | undefined;
+
+            if (classSymbol && !foundInManager.includes(classSymbol)) {
+              loadedClasses.push(classSymbol);
+              yield* Effect.logDebug(
+                `Loaded class '${typeName}' from artifact loader`,
+              );
+            }
           }
         }
       }
 
       // Combine local and loaded classes for validation
-      const allClasses = [...classes, ...loadedClasses];
-
-      // Get classes from symbol manager for cross-file circular detection
-      let allClassesForCircularCheck = [...allClasses];
+      // Also include classes already in symbol manager (from opened documents)
+      let allClasses = [...classes, ...loadedClasses];
       if (options.symbolManager) {
         const symbolManager = yield* ISymbolManager;
         // Get all symbols from symbol manager and filter to classes
@@ -173,11 +203,14 @@ export const ClassHierarchyValidator: Validator = {
         const classNames = new Set(allClasses.map((c) => c.name.toLowerCase()));
         for (const mgrClass of managerClasses) {
           if (!classNames.has(mgrClass.name.toLowerCase())) {
-            allClassesForCircularCheck.push(mgrClass);
+            allClasses.push(mgrClass);
             classNames.add(mgrClass.name.toLowerCase());
           }
         }
       }
+
+      // Get classes from symbol manager for cross-file circular detection
+      const allClassesForCircularCheck = [...allClasses];
 
       // Check 2: Circular inheritance in class hierarchies
       // Check AFTER artifact loading so we have all classes available
@@ -225,7 +258,12 @@ export const ClassHierarchyValidator: Validator = {
         }
 
         // Check final class extension (re-check with loaded classes)
-        if (superClass.modifiers.isFinal) {
+        // In Apex, classes are final by default. Only virtual or abstract classes can be extended.
+        // Note: The 'final' keyword cannot be used on classes in Apex.
+        if (
+          !superClass.modifiers.isVirtual &&
+          !superClass.modifiers.isAbstract
+        ) {
           errors.push({
             message: I18nSupport.getLabel(
               ErrorCodes.INVALID_FINAL_SUPER_TYPE,

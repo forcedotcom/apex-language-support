@@ -54,6 +54,11 @@ import {
 } from '../../types/symbol';
 import { IdentifierValidator } from '../../semantics/validation/IdentifierValidator';
 import { isBlockSymbol, isEnumSymbol } from '../../utils/symbolNarrowing';
+import {
+  ClassModifierValidator,
+  MethodModifierValidator,
+} from '../../semantics/modifiers/index';
+import { ErrorReporter } from '../../utils/ErrorReporter';
 
 /**
  * Consolidated listener for visibility-based symbol collection.
@@ -65,7 +70,10 @@ import { isBlockSymbol, isEnumSymbol } from '../../utils/symbolNarrowing';
  * - 'protected': Protected/default visibility symbols (enriches existing symbols)
  * - 'private': Private symbols (enriches existing symbols)
  */
-export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
+export class VisibilitySymbolListener
+  extends LayeredSymbolListenerBase
+  implements ErrorReporter
+{
   private readonly detailLevel: DetailLevel;
   private scopeStack: Stack<ApexSymbol> = new Stack<ApexSymbol>();
   private blockCounter: number = 0;
@@ -130,6 +138,18 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
             this.addError(errorMessage, ctx);
           });
         }
+
+        // Validate class modifiers using ClassModifierValidator
+        const currentType = this.getCurrentType();
+        ClassModifierValidator.validateClassVisibilityModifiers(
+          name,
+          modifiers,
+          ctx,
+          !!currentType, // isInnerClass
+          currentType,
+          this.currentAnnotations,
+          this,
+        );
 
         // Get superclass and interfaces
         const superclass = ctx.typeRef()?.text;
@@ -407,6 +427,16 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
     try {
       const name = ctx.id()?.text ?? 'unknownMethod';
       const modifiers = this.getCurrentModifiers();
+
+      // Validate method modifiers using MethodModifierValidator
+      const currentType = this.getCurrentType();
+      MethodModifierValidator.validateMethodModifiers(
+        name,
+        modifiers,
+        ctx,
+        currentType,
+        this,
+      );
 
       // Only process methods matching this listener's visibility
       if (!this.shouldProcessSymbol(modifiers.visibility)) {
@@ -1835,6 +1865,22 @@ export class VisibilitySymbolListener extends LayeredSymbolListenerBase {
         modifiers.isWebService = true;
         break;
     }
+  }
+
+  /**
+   * Implement ErrorReporter interface - make addError/addWarning public
+   */
+  public addError(
+    message: string,
+    context:
+      | ParserRuleContext
+      | { line: number; column: number; endLine?: number; endColumn?: number },
+  ): void {
+    super.addError(message, context);
+  }
+
+  public addWarning(message: string, context?: ParserRuleContext): void {
+    super.addWarning(message, context);
   }
 
   /**

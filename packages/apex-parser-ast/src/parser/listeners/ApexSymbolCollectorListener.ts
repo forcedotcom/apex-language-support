@@ -112,6 +112,7 @@ import {
 } from '../../types/symbol';
 import {
   ClassModifierValidator,
+  MethodModifierValidator,
   FieldModifierValidator,
   PropertyModifierValidator,
   InterfaceBodyValidator,
@@ -1288,20 +1289,22 @@ export class ApexSymbolCollectorListener
       const modifiers = this.getCurrentModifiers();
       const annotations = this.getCurrentAnnotations();
 
-      // Check for conflicting modifiers
-      if (modifiers.isAbstract && modifiers.isFinal) {
-        this.addError('Method cannot be both abstract and final', ctx);
-      }
+      // Get the current type symbol for validation
+      const currentType = this.getCurrentType();
 
-      if (modifiers.isAbstract && modifiers.isStatic) {
-        this.addError('Method cannot be both abstract and static', ctx);
-      }
+      // Validate method modifiers using MethodModifierValidator
+      MethodModifierValidator.validateMethodModifiers(
+        name,
+        modifiers,
+        ctx,
+        currentType,
+        this,
+      );
 
       // Get the return type
       const returnType = this.getReturnType(ctx);
 
       // Check for method override
-      const currentType = this.getCurrentType();
       if (modifiers.isOverride) {
         const parentClass = currentType ? this.getParent(currentType) : null;
         if (!parentClass) {

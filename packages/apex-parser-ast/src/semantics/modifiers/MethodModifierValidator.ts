@@ -48,6 +48,19 @@ export class MethodModifierValidator {
       errorReporter,
     );
 
+    // 'final' keyword is not allowed on methods in Apex
+    // Methods are final by default and cannot use the 'final' keyword
+    if (modifiers.isFinal) {
+      errorReporter.addError(
+        `The 'final' keyword cannot be used on method declarations. ` +
+          `Methods are final by default in Apex. Use 'virtual' to make a method overridable.`,
+        ctx,
+      );
+      // Remove the invalid modifier to prevent further conflicts
+      modifiers.isFinal = false;
+      return; // Early return since final is invalid regardless of other modifiers
+    }
+
     // Check for conflicting modifiers
     if (modifiers.isAbstract && modifiers.isVirtual) {
       errorReporter.addError(

@@ -79,6 +79,10 @@ export const MISSING_SUPERCLASS = 'invalid.super.type'; // For missing superclas
 // Type Assignment
 export const TYPE_MISMATCH = 'illegal.assignment'; // For type mismatches
 
+// Modifier Validation
+export const FINAL_KEYWORD_ON_CLASS = 'modifier.is.not.allowed'; // 'final' keyword not allowed on classes
+export const FINAL_KEYWORD_ON_METHOD = 'modifier.is.not.allowed'; // 'final' keyword not allowed on methods
+
 // Source Size Validation
 export const SCRIPT_TOO_LARGE = 'script.too.large'; // File exceeds maximum size limit
 
@@ -143,6 +147,10 @@ export const ErrorCodes = {
 
   // Type Assignment
   TYPE_MISMATCH,
+
+  // Modifier Validation
+  FINAL_KEYWORD_ON_CLASS,
+  FINAL_KEYWORD_ON_METHOD,
 
   // Source Size Validation
   SCRIPT_TOO_LARGE,

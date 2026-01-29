@@ -67,6 +67,18 @@ Fast, same-file validations that run on every keystroke:
     - Error Code: `invalid.final.field.assignment`
     - Validator: FinalAssignmentValidator
 
+11. **FinalKeywordOnClass.cls** - Invalid use of 'final' keyword on class declaration
+    - Error Code: `modifier.is.not.allowed`
+    - Validator: ClassModifierValidator
+    - **Note**: In Apex, classes are final by default and cannot use the 'final' keyword.
+      The 'final' keyword can only be used for variables (to prevent reassignment).
+
+12. **FinalKeywordOnMethod.cls** - Invalid use of 'final' keyword on method declaration
+    - Error Code: `modifier.is.not.allowed`
+    - Validator: MethodModifierValidator
+    - **Note**: In Apex, methods are final by default and cannot use the 'final' keyword.
+      The 'final' keyword can only be used for variables (to prevent reassignment).
+
 ### TIER 2 (THOROUGH) Validators
 
 Comprehensive validations that may require cross-file analysis:
@@ -84,10 +96,13 @@ Comprehensive validations that may require cross-file analysis:
    - Validator: InterfaceHierarchyValidator
    - These two interfaces form a circular dependency (A extends B, B extends A)
 
-3. **ClassHierarchyIssue.cls** - Class extends final class
+3. **ClassHierarchyIssue.cls** - Class extends non-virtual (final-by-default) class
    - Error Code: `invalid.final.super.type`
    - Validator: ClassHierarchyValidator
-   - Requires **FinalBaseClass.cls** to be present (final class that cannot be extended)
+   - Requires **FinalBaseClass.cls** to be present (non-virtual class that cannot be extended)
+   - **Note**: In Apex, classes and methods are final by default and cannot use the `final` keyword.
+     To make a class or method extensible/overridable, use the `virtual` keyword instead.
+     The `final` keyword can only be used for variables (to prevent reassignment).
 
 4. **TypeAssignmentMismatch.cls** - Type mismatch assignments
    - Error Code: `type.mismatch`
@@ -137,3 +152,30 @@ The `.vscode/settings.json` file configures:
 - Errors are semantic in nature (violations of Apex language rules)
 - Each class focuses on demonstrating ONE primary error type for clarity
 - Source size validation is excluded as it requires generating very large files
+
+## Apex Language Rules
+
+### Final and Virtual Keywords
+
+In Apex:
+
+- **Classes and methods are final by default** - they cannot be extended/overridden
+- **Cannot use `final` keyword** on classes or methods (syntax error)
+- **Use `virtual` keyword** to make classes/methods extensible/overridable
+- **`final` keyword** can only be used for variables (to prevent reassignment)
+
+Example:
+
+```apex
+// Correct: Normal class (final by default, cannot be extended)
+public class MyClass { }
+
+// Incorrect: Cannot use 'final' keyword on classes
+public final class MyClass { }  // Syntax error!
+
+// Correct: Virtual class (can be extended)
+public virtual class MyClass { }
+
+// Correct: Final variable (can only be assigned once)
+public final Integer count = 5;
+```
