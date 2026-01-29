@@ -10,7 +10,6 @@ import { EnumConstantNamingValidator } from '../../../../src/semantics/validatio
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
-import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
 import {
   compileFixture,
   getMessage,

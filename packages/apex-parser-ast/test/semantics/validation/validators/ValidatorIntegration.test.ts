@@ -11,6 +11,7 @@ import {
   ValidatorRegistryLive,
   registerValidator,
   runValidatorsForTier,
+  type ValidationError,
 } from '../../../../src/semantics/validation/ValidatorRegistry';
 import { EffectTestLoggerLive } from '../../../../src/utils/EffectLspLoggerLayer';
 import {
@@ -32,6 +33,10 @@ import {
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
+import type {
+  ValidationResult,
+  ValidationErrorInfo,
+} from '../../../../src/semantics/validation/ValidationResult';
 import {
   compileFixture,
   getMessage,
@@ -108,7 +113,7 @@ describe('Validator Integration Tests', () => {
       ).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<readonly ValidationResult[], ValidationError, never>,
     );
 
     // Should have 10 TIER 1 validators run
@@ -141,7 +146,7 @@ describe('Validator Integration Tests', () => {
       ).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<readonly ValidationResult[], ValidationError, never>,
     );
 
     // Find the ParameterLimitValidator result
@@ -178,7 +183,7 @@ describe('Validator Integration Tests', () => {
       ).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<readonly ValidationResult[], ValidationError, never>,
     );
 
     // Find the EnumLimitValidator result
@@ -218,7 +223,7 @@ describe('Validator Integration Tests', () => {
       ).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<readonly ValidationResult[], ValidationError, never>,
     );
 
     // Find the EnumConstantNamingValidator result
@@ -254,7 +259,7 @@ describe('Validator Integration Tests', () => {
       ).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<readonly ValidationResult[], ValidationError, never>,
     );
 
     // Find the DuplicateMethodValidator result
@@ -293,7 +298,7 @@ describe('Validator Integration Tests', () => {
       ).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<readonly ValidationResult[], ValidationError, never>,
     );
 
     // Find the ConstructorNamingValidator result
@@ -336,7 +341,7 @@ describe('Validator Integration Tests', () => {
       ).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<readonly ValidationResult[], ValidationError, never>,
     );
 
     // Should have at least 2 validators report errors
@@ -344,7 +349,16 @@ describe('Validator Integration Tests', () => {
     expect(failedValidators.length).toBeGreaterThanOrEqual(2);
 
     // Check for specific error messages
-    const allErrors = results.flatMap((r) => r.errors);
+    // Filter to only ValidationErrorInfo[] (not string[])
+    const allErrors: ValidationErrorInfo[] = results.flatMap((r) => {
+      if (r.errors.length > 0 && typeof r.errors[0] === 'string') {
+        // Convert legacy string[] format to ValidationErrorInfo[]
+        return (r.errors as string[]).map(
+          (msg): ValidationErrorInfo => ({ message: msg }),
+        );
+      }
+      return r.errors as ValidationErrorInfo[];
+    });
     expect(
       allErrors.some(
         (e) =>
@@ -375,7 +389,7 @@ describe('Validator Integration Tests', () => {
       ).pipe(
         Effect.provide(ValidatorRegistryLive),
         Effect.provide(EffectTestLoggerLive),
-      ),
+      ) as Effect.Effect<readonly ValidationResult[], ValidationError, never>,
     );
 
     // Should have 4 TIER 2 validators run
