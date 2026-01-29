@@ -79,6 +79,12 @@ Fast, same-file validations that run on every keystroke:
     - **Note**: In Apex, methods are final by default and cannot use the 'final' keyword.
       The 'final' keyword can only be used for variables (to prevent reassignment).
 
+13. **InterfaceMethodWithAbstract.cls** - Invalid use of 'abstract' keyword on interface method
+    - Error Code: `modifier.is.not.allowed` (via "Modifiers are not allowed on interface methods")
+    - Validator: MethodModifierValidator.validateInterfaceMethodModifiers
+    - **Note**: In Apex, interface methods are implicitly abstract and cannot have explicit modifiers.
+      The 'abstract' keyword (and all other modifiers) are not allowed on interface methods.
+
 ### TIER 2 (THOROUGH) Validators
 
 Comprehensive validations that may require cross-file analysis:

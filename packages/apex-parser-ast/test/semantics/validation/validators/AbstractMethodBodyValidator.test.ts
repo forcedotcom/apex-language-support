@@ -11,6 +11,7 @@ import { ValidationTier } from '../../../../src/semantics/validation/ValidationT
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
 import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
+import { ApexSymbolCollectorListener } from '../../../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
   compileFixture,
   getMessage,
@@ -104,5 +105,64 @@ describe('AbstractMethodBodyValidator', () => {
     expect(error.code).toBe(ErrorCodes.ABSTRACT_METHOD_HAS_BODY);
     const errorMessage = getMessage(error);
     expect(errorMessage).toContain('Abstract methods cannot have a body');
+  });
+
+  it('should pass validation for interface methods without explicit abstract keyword', async () => {
+    // Interface methods are implicitly abstract and should not trigger
+    // REDUNDANT_ABSTRACT_MODIFIER warnings when no abstract keyword is present
+    const symbolTable = await compileFixtureForValidator(
+      'InterfaceMethodNoAbstract.cls',
+    );
+
+    const result = await runValidator(
+      AbstractMethodBodyValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        }),
+      ),
+      symbolManager,
+    );
+
+    // Should pass validation with no errors or warnings
+    // Interface methods are implicitly abstract, so isAbstract will be true,
+    // but we should NOT warn about redundant abstract modifier since no
+    // explicit abstract keyword was present
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  it('should detect error when abstract keyword is used on interface method', () => {
+    // When abstract keyword is explicitly used on interface method,
+    // MethodModifierValidator should catch it during compilation
+    // This test verifies the error is reported during compilation
+    const fileContent = `
+      public interface TestInterface {
+        abstract void methodWithAbstract();
+      }
+    `;
+
+    const listener = new ApexSymbolCollectorListener();
+    const result = compilerService.compile(
+      fileContent,
+      'TestInterface.cls',
+      listener,
+    );
+
+    // Should have semantic error for abstract modifier on interface method
+    const semanticErrors = result.errors.filter(
+      (e) => e.type === 'semantic' && e.severity === 'error',
+    );
+
+    expect(semanticErrors.length).toBeGreaterThan(0);
+    const abstractError = semanticErrors.find((e) =>
+      e.message.includes('Modifiers are not allowed on interface methods'),
+    );
+    expect(abstractError).toBeDefined();
+    expect(abstractError?.message).toContain(
+      'Modifiers are not allowed on interface methods',
+    );
   });
 });

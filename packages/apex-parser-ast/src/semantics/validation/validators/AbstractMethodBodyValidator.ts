@@ -189,15 +189,10 @@ export const AbstractMethodBodyValidator: Validator = {
         }
 
         // Rule 4: Interface methods don't need abstract modifier (implicit)
-        if (isInInterface && isAbstract) {
-          warnings.push({
-            message:
-              `Method '${method.name}' in interface '${parent.name}' ` +
-              "does not need 'abstract' modifier (it is implicit)",
-            location: method.location,
-            code: 'REDUNDANT_ABSTRACT_MODIFIER',
-          });
-        }
+        // NOTE: This check is removed because interface methods are always implicitly abstract
+        // and the abstract keyword is not allowed on interface methods anyway (validated by
+        // MethodModifierValidator.validateInterfaceMethodModifiers). Checking isAbstract
+        // here would always be true for interface methods, causing false positives.
       }
 
       yield* Effect.logDebug(
