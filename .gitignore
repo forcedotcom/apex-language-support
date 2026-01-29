@@ -64,6 +64,8 @@ test-workspace
 /packages/apex-parser-ast/test/generator/test-files
 /packages/apex-parser-ast/src/generated
 # Exception: track messages_en_US.ts (generated from resources)
+# Must un-ignore parent directories first for exceptions to work
+!/packages/apex-parser-ast/src/generated/
 !/packages/apex-parser-ast/src/generated/messages_en_US.ts
 
 # Extension directory
@@ -87,5 +89,7 @@ test-results/
 playwright-report/
 /packages/apex-parser-ast/resources
 # Exception: track messages_en_US.properties (source from Jorje)
+# Must un-ignore parent directories first for exceptions to work
+!/packages/apex-parser-ast/resources/
 !/packages/apex-parser-ast/resources/messages_en_US.properties
 /.graph
