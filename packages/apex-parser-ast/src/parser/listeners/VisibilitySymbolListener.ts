@@ -1110,6 +1110,52 @@ export class VisibilitySymbolListener
 
   // Helper methods
 
+  /**
+   * Find the root symbol (class/interface/enum/trigger) for a given scope
+   * Traverses up the parentId chain to find the top-level type
+   * @param startingScope The scope to start from (can be null for file level)
+   * @returns The root type symbol, or null if not found
+   */
+  private findRootSymbol(startingScope: ScopeSymbol | null): ApexSymbol | null {
+    if (!startingScope) {
+      // At file level, find the most recent root symbol
+      const roots = this.symbolTable.getRoots();
+      // Return the most recently added root (last in array)
+      return roots.length > 0 ? roots[roots.length - 1] : null;
+    }
+
+    // Traverse up the parentId chain to find the root
+    let current: ApexSymbol | null = startingScope;
+    const visited = new Set<string>();
+
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
+
+      // If this symbol is a root (parentId === null) and is a type, return it
+      if (
+        current.parentId === null &&
+        (current.kind === SymbolKind.Class ||
+          current.kind === SymbolKind.Interface ||
+          current.kind === SymbolKind.Enum ||
+          current.kind === SymbolKind.Trigger)
+      ) {
+        return current;
+      }
+
+      // Move to parent
+      if (current.parentId) {
+        const allSymbols = this.symbolTable.getAllSymbols();
+        current = allSymbols.find((s) => s.id === current!.parentId) || null;
+      } else {
+        current = null;
+      }
+    }
+
+    // Fallback: if we didn't find a root by traversing, check roots array
+    const roots = this.symbolTable.getRoots();
+    return roots.length > 0 ? roots[roots.length - 1] : null;
+  }
+
   private getCurrentScopeSymbol(ctx?: ParserRuleContext): ScopeSymbol | null {
     // First try scope stack (fast path)
     const peeked = this.scopeStack.peek();
@@ -1435,7 +1481,18 @@ export class VisibilitySymbolListener
         ? currentScope.id
         : parent?.id || null;
 
-    const scopePath = this.symbolTable.getCurrentScopePath(currentScope);
+    // Get current scope path for unique symbol ID
+    // Include root symbol's prefix and name in scopePath to match ApexSymbolCollectorListener format
+    // This ensures methods created by different listeners have the same unifiedId
+    const baseScopePath = this.symbolTable.getCurrentScopePath(currentScope);
+    const rootSymbol = this.findRootSymbol(currentScope);
+    let scopePath: string[] = baseScopePath;
+    if (rootSymbol) {
+      // Include the root symbol's prefix (kind) and name to match the class ID format
+      // e.g., ['class', 'MyClass', 'block1'] instead of ['MyClass', 'block1']
+      const rootPrefix = rootSymbol.kind; // e.g., 'class', 'interface', 'enum', 'trigger'
+      scopePath = [rootPrefix, rootSymbol.name, ...baseScopePath];
+    }
 
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,

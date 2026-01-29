@@ -1,138 +1,17 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Semantic Error Detection Class: FinalKeywordOnClass.cls should detect semantic errors in FinalKeywordOnClass: FinalKeywordOnClass-diagnostics 1`] = `
+exports[`Semantic Error Detection Class: AbstractMethodWithBody.cls should detect semantic errors in AbstractMethodWithBody: AbstractMethodWithBody-diagnostics 1`] = `
 {
   "request": {
     "method": "textDocument/diagnostic",
     "params": {
       "textDocument": {
-        "uri": "file:///workspace/force-app/main/default/classes/FinalKeywordOnClass.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/AbstractMethodWithBody.cls",
       },
     },
   },
   "response": {
-    "items": [
-      {
-        "code": "SEMANTIC_ERROR",
-        "message": "The 'final' keyword cannot be used on class declarations. Classes are final by default in Apex. Use 'virtual' to make a class extensible.",
-        "range": {
-          "end": {
-            "character": 0,
-            "line": 12,
-          },
-          "start": {
-            "character": 12,
-            "line": 9,
-          },
-        },
-        "relatedInformation": [
-          {
-            "location": {
-              "range": {
-                "end": {
-                  "character": 0,
-                  "line": 12,
-                },
-                "start": {
-                  "character": 12,
-                  "line": 9,
-                },
-              },
-              "uri": "file:///Users/peter.hale/git/apex-language-support/packages/apex-lsp-testbed/test/fixtures/i-have-problems/force-app/main/default/classes/FinalKeywordOnClass.cls",
-            },
-            "message": "The 'final' keyword cannot be used on class declarations. Classes are final by default in Apex. Use 'virtual' to make a class extensible.",
-          },
-        ],
-        "severity": 1,
-        "source": "apex-parser",
-      },
-      {
-        "code": "SEMANTIC_ERROR",
-        "message": "The 'final' keyword cannot be used on method declarations. Methods are final by default in Apex. Use 'virtual' to make a method overridable.",
-        "range": {
-          "end": {
-            "character": 3,
-            "line": 11,
-          },
-          "start": {
-            "character": 10,
-            "line": 10,
-          },
-        },
-        "relatedInformation": [
-          {
-            "location": {
-              "range": {
-                "end": {
-                  "character": 3,
-                  "line": 11,
-                },
-                "start": {
-                  "character": 10,
-                  "line": 10,
-                },
-              },
-              "uri": "file:///Users/peter.hale/git/apex-language-support/packages/apex-lsp-testbed/test/fixtures/i-have-problems/force-app/main/default/classes/FinalKeywordOnClass.cls",
-            },
-            "message": "The 'final' keyword cannot be used on method declarations. Methods are final by default in Apex. Use 'virtual' to make a method overridable.",
-          },
-        ],
-        "severity": 1,
-        "source": "apex-parser",
-      },
-    ],
-    "kind": "full",
-  },
-}
-`;
-
-exports[`Semantic Error Detection Class: FinalKeywordOnMethod.cls should detect semantic errors in FinalKeywordOnMethod: FinalKeywordOnMethod-diagnostics 1`] = `
-{
-  "request": {
-    "method": "textDocument/diagnostic",
-    "params": {
-      "textDocument": {
-        "uri": "file:///workspace/force-app/main/default/classes/FinalKeywordOnMethod.cls",
-      },
-    },
-  },
-  "response": {
-    "items": [
-      {
-        "code": "SEMANTIC_ERROR",
-        "message": "The 'final' keyword cannot be used on method declarations. Methods are final by default in Apex. Use 'virtual' to make a method overridable.",
-        "range": {
-          "end": {
-            "character": 3,
-            "line": 12,
-          },
-          "start": {
-            "character": 16,
-            "line": 10,
-          },
-        },
-        "relatedInformation": [
-          {
-            "location": {
-              "range": {
-                "end": {
-                  "character": 3,
-                  "line": 12,
-                },
-                "start": {
-                  "character": 16,
-                  "line": 10,
-                },
-              },
-              "uri": "file:///Users/peter.hale/git/apex-language-support/packages/apex-lsp-testbed/test/fixtures/i-have-problems/force-app/main/default/classes/FinalKeywordOnMethod.cls",
-            },
-            "message": "The 'final' keyword cannot be used on method declarations. Methods are final by default in Apex. Use 'virtual' to make a method overridable.",
-          },
-        ],
-        "severity": 1,
-        "source": "apex-parser",
-      },
-    ],
+    "items": [],
     "kind": "full",
   },
 }

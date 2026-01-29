@@ -14,6 +14,7 @@ import {
   SymbolKind,
   SymbolVisibility,
   ApexSymbol,
+  getUnifiedId,
 } from '../../../src/types/symbol';
 import { isBlockSymbol } from '../../../src/utils/symbolNarrowing';
 import { TestLogger } from '../../utils/testLogger';
@@ -745,6 +746,91 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       // not by individual layered listeners, so layered compilation will have fewer symbols.
       // The difference is expected and acceptable - it represents local variables and block scopes.
       expect(fullSemanticCount).toBeGreaterThanOrEqual(layeredSemanticCount);
+    });
+  });
+
+  describe('Method Symbol ID Consistency', () => {
+    const fileContent = `
+      public class TestClass {
+        public void publicMethod() {
+          System.debug("test");
+        }
+      }
+    `;
+
+    it('should generate same unifiedId for methods created by different listeners', () => {
+      // Create method using ApexSymbolCollectorListener
+      const fullTable = new SymbolTable();
+      const fullListener = new ApexSymbolCollectorListener(fullTable, 'full');
+      const fullResult = compilerService.compile(
+        fileContent,
+        'TestClass.cls',
+        fullListener,
+      );
+      // Note: Validation errors may occur, but we're testing ID consistency, not validation
+      const fullSymbols = fullTable.getAllSymbols();
+      const fullMethod = fullSymbols.find(
+        (s) => s.name === 'publicMethod' && s.kind === SymbolKind.Method,
+      );
+      expect(fullMethod).toBeDefined();
+
+      // Create method using VisibilitySymbolListener
+      const layeredTable = new SymbolTable();
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        layeredTable,
+      );
+      const layeredResult = compilerService.compile(
+        fileContent,
+        'TestClass.cls',
+        publicListener,
+      );
+      // Allow for validation errors (e.g., from modifier validators)
+      if (layeredResult.errors.length > 0) {
+        console.log('Layered listener errors:', layeredResult.errors);
+      }
+      const layeredSymbols = layeredTable.getAllSymbols();
+      const layeredMethod = layeredSymbols.find(
+        (s) => s.name === 'publicMethod' && s.kind === SymbolKind.Method,
+      );
+      expect(layeredMethod).toBeDefined();
+
+      // Both methods should have the same unifiedId
+      // This ensures SymbolTable.addSymbol() correctly recognizes them as the same symbol
+      // and enriches instead of creating duplicates
+      if (fullMethod && layeredMethod) {
+        const fullUnifiedId = getUnifiedId(fullMethod.key, fullMethod.fileUri);
+        const layeredUnifiedId = getUnifiedId(
+          layeredMethod.key,
+          layeredMethod.fileUri,
+        );
+        expect(fullUnifiedId).toBe(layeredUnifiedId);
+        expect(fullMethod.id).toBe(layeredMethod.id);
+      }
+    });
+
+    it('should prevent duplicate method errors when enriching from public-api to full', () => {
+      // Start with public-api detail level
+      const symbolTable = new SymbolTable();
+      const publicListener = new VisibilitySymbolListener(
+        'public-api',
+        symbolTable,
+      );
+      compilerService.compile(fileContent, 'TestClass.cls', publicListener);
+
+      // Enrich to full detail level
+      const fullListener = new ApexSymbolCollectorListener(symbolTable, 'full');
+      compilerService.compile(fileContent, 'TestClass.cls', fullListener);
+
+      // Should only have one method symbol (enriched, not duplicated)
+      const allSymbols = symbolTable.getAllSymbols();
+      const methods = allSymbols.filter(
+        (s) => s.name === 'publicMethod' && s.kind === SymbolKind.Method,
+      );
+      expect(methods.length).toBe(1);
+
+      // The method should be enriched (have full detail level)
+      expect(methods[0]._detailLevel).toBe('full');
     });
   });
 });
