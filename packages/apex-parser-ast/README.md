@@ -676,9 +676,20 @@ The new TypeScript-based Language Server maintains **error code parity** with th
   - Used for both diagnostic codes (LSP `diagnostic.code`) and message lookup keys
 
 - **Message Parity**: Error messages come from Jorje's `messages_en_US.properties`
-  - Messages are copied to `src/i18n/messages_en_US.properties`
-  - Converted to TypeScript at build time via `scripts/generate-messages.mjs`
-  - `I18nSupport.getLabel()` performs parameter substitution (`{0}`, `{1}`, etc.)
+  - **Source Location**: `apex-jorje/apex-jorje-services/src/main/resources/messages_en_US.properties`
+  - **Local Copy**: Messages are manually copied to `src/i18n/messages_en_US.properties`
+  - **Generation**: Converted to TypeScript at build time via `scripts/generate-messages.mjs`
+  - **Usage**: `I18nSupport.getLabel()` performs parameter substitution (`{0}`, `{1}`, etc.)
+
+  **Syncing with Jorje**: To update messages from Jorje:
+  ```bash
+  # Copy from Jorje repository (adjust path as needed)
+  cp /path/to/apex-jorje/apex-jorje-services/src/main/resources/messages_en_US.properties \
+     packages/apex-parser-ast/src/i18n/messages_en_US.properties
+  
+  # Regenerate TypeScript module
+  node packages/apex-parser-ast/scripts/generate-messages.mjs
+  ```
 
 #### Maintaining Alignment
 
@@ -690,6 +701,8 @@ When adding new validators or error codes:
    export const NEW_ERROR_CODE = 'jorje.error.code.key';
    ```
 3. **Add Message**: Copy the message from Jorje's `messages_en_US.properties` to `src/i18n/messages_en_US.properties`
+   - **Jorje Source**: `apex-jorje/apex-jorje-services/src/main/resources/messages_en_US.properties`
+   - **Local Destination**: `packages/apex-parser-ast/src/i18n/messages_en_US.properties`
 4. **Regenerate Messages**: Run the message generation script to update `messages_en_US.ts`:
    ```bash
    node scripts/generate-messages.mjs

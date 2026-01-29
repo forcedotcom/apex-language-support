@@ -200,6 +200,21 @@ ${entries.join(',\n')}
 
 /**
  * Main function to generate messages TypeScript module
+ *
+ * Source: The messages_en_US.properties file should be manually copied from Jorje:
+ *   Source: /path/to/apex-jorje/apex-jorje-services/src/main/resources/messages_en_US.properties
+ *   Destination: packages/apex-parser-ast/src/i18n/messages_en_US.properties
+ *
+ * To sync with Jorje:
+ *   1. Ensure apex-jorje repository is cloned locally
+ *   2. Copy the file manually:
+ *      cp /path/to/apex-jorje/apex-jorje-services/src/main/resources/messages_en_US.properties \
+ *         packages/apex-parser-ast/src/i18n/messages_en_US.properties
+ *   3. Run this script to regenerate messages_en_US.ts
+ *
+ * Note: This script only reads from the local .properties file and generates TypeScript.
+ * It does NOT automatically copy from Jorje - that must be done manually to maintain
+ * control over which messages are included and to handle any necessary modifications.
  */
 async function generateMessages() {
   try {
@@ -221,6 +236,9 @@ async function generateMessages() {
     );
 
     console.log(`Reading properties file: ${propertiesPath}`);
+    console.log(
+      `ℹ️  Note: This file should be manually synced from Jorje's messages_en_US.properties`,
+    );
     const content = await readFile(propertiesPath, 'utf-8');
 
     console.log('Parsing properties file...');
