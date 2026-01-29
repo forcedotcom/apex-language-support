@@ -18,7 +18,6 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { ErrorCodes } from '../ErrorCodes';
 import { I18nSupport } from '../../../i18n/I18nSupport';
-import { CompilationUnitValidator } from '../CompilationUnitValidator';
 
 /**
  * File size limits for different compilation unit types

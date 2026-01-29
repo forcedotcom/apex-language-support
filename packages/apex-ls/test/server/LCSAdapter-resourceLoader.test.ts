@@ -10,6 +10,7 @@ import { LCSAdapter } from '../../src/server/LCSAdapter';
 import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
 import { Connection } from 'vscode-languageserver/browser';
 import { ServerCapabilities } from 'vscode-languageserver-protocol';
+import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
 
 // Mock the dependencies
 jest.mock('@salesforce/apex-lsp-shared', () => ({
@@ -44,14 +45,11 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   },
 }));
 
-// Mock embedded ZIP buffer
-const mockEmbeddedZip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // ZIP magic bytes
-
 // Mock the apex-parser-ast package with embedded ZIP support
 // Only mock what's necessary for testing ResourceLoader initialization
 jest.mock('@salesforce/apex-lsp-parser-ast', () => {
   const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
-  // Access mockEmbeddedZip from closure
+  // Create mock ZIP buffer (ZIP magic bytes)
   const mockZip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
   return {
     ...actual, // Use real implementations for everything else
@@ -110,6 +108,8 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       },
       workspace: {
         getConfiguration: jest.fn().mockResolvedValue({}),
+        onDidChangeWorkspaceFolders: jest.fn(),
+        onDidDeleteFiles: jest.fn(),
       },
       console: {
         log: jest.fn(),
@@ -123,6 +123,12 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
     mockConfigManager = {
       getInstance: jest.fn(),
       getSettingsManager: jest.fn(() => ({})),
+      getCapabilities: jest.fn(),
+      getSettings: jest.fn(() => ({})),
+      getCapabilitiesManager: jest.fn(() => ({
+        getMode: jest.fn(() => 'production'),
+      })),
+      getExtendedServerCapabilities: jest.fn(() => ({})),
     } as unknown as jest.Mocked<LSPConfigurationManager>;
 
     (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
@@ -138,9 +144,6 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
   describe('initializeResourceLoader', () => {
     it('should initialize ResourceLoader with protobuf cache', async () => {
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
       const mockResourceLoader = {
         getDirectoryStatistics: jest.fn(() => ({
           totalFiles: 100,
@@ -163,9 +166,6 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
     });
 
     it('should call initialize on ResourceLoader', async () => {
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
       const mockResourceLoader = {
         getDirectoryStatistics: jest.fn(() => ({
           totalFiles: 100,
@@ -199,9 +199,6 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         logger: mockLogger,
       });
 
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
       const mockResourceLoader = {
         getDirectoryStatistics: jest.fn(() => ({
           totalFiles: 100,
@@ -235,9 +232,6 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         logger: mockLogger,
       });
 
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
       const mockResourceLoader = {
         getDirectoryStatistics: jest.fn(() => ({
           totalFiles: 0,
@@ -249,16 +243,17 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         isProtobufCacheLoaded: jest.fn(() => false),
       };
 
-      // Verify the embedded ZIP message was logged
-      const debugCall = mockLogger.debug.mock.calls.find((call: any[]) => {
-        const logFn = call[0];
-        return (
-          typeof logFn === 'function' &&
-          logFn().includes('Using embedded Standard Apex Library ZIP')
-        );
-      });
+      (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
+        mockResourceLoader,
+      );
 
-      expect(debugCall).toBeDefined();
+      // Should not throw, but should log warning
+      await expect(
+        (adapterWithLogger as any).initializeResourceLoader(),
+      ).resolves.not.toThrow();
+
+      // Verify warning was logged
+      expect(mockLogger.warn).toHaveBeenCalled();
     });
   });
 
@@ -310,9 +305,6 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         logger: mockLogger,
       });
 
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
       const mockResourceLoader = {
         initialize: jest.fn().mockResolvedValue(undefined),
       };
