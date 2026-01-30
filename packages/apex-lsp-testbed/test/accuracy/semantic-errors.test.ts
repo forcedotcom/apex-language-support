@@ -49,6 +49,38 @@ function normalizeUriForSnapshot(
   return uri;
 }
 
+/**
+ * Recursively normalize all URIs in a diagnostic response object
+ * This ensures snapshots are portable across different environments
+ */
+function normalizeResponseUris(obj: any, workspaceRootUri: string): any {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  if (typeof obj === 'string') {
+    // If it's a URI string, normalize it
+    if (obj.startsWith('file://')) {
+      return normalizeUriForSnapshot(obj, workspaceRootUri);
+    }
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => normalizeResponseUris(item, workspaceRootUri));
+  }
+
+  if (typeof obj === 'object') {
+    const normalized: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      normalized[key] = normalizeResponseUris(value, workspaceRootUri);
+    }
+    return normalized;
+  }
+
+  return obj;
+}
+
 describe('Semantic Error Detection', () => {
   const targetServer: ServerType = 'nodeServer';
   let serverContext: Awaited<ReturnType<typeof createTestServer>>;
@@ -204,9 +236,13 @@ describe('Semantic Error Detection', () => {
       }
 
       // Normalize URI for snapshot
-      const normalizedUri = normalizeUriForSnapshot(
-        uri,
-        serverContext.workspace?.rootUri || '',
+      const workspaceRootUri = serverContext.workspace?.rootUri || '';
+      const normalizedUri = normalizeUriForSnapshot(uri, workspaceRootUri);
+
+      // Normalize all URIs in the response (including relatedInformation)
+      const normalizedResponse = normalizeResponseUris(
+        diagnosticResponse,
+        workspaceRootUri,
       );
 
       const snapshotData = {
@@ -216,7 +252,7 @@ describe('Semantic Error Detection', () => {
             textDocument: { uri: normalizedUri },
           },
         },
-        response: diagnosticResponse,
+        response: normalizedResponse,
       };
 
       expect(snapshotData).toMatchSnapshot(`${baseName}-diagnostics`);

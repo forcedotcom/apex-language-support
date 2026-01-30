@@ -513,7 +513,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
       // CRITICAL: Re-fetch symbol table AFTER prerequisites complete (including enrichment)
       // to ensure we have the enriched symbol table, not the original public-api one
-      this.logger.error(
+      this.logger.debug(
         () =>
           `[DEBUG-FETCH] About to fetch symbol table for URI: ${document.uri}`,
       );
