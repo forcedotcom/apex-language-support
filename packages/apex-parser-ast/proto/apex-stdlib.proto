@@ -53,6 +53,7 @@ message MethodSymbol {
   Modifiers modifiers = 7;
   repeated Annotation annotations = 8;
   string parent_id = 9;
+  bool has_body = 10;  // Whether the method has a body (false for abstract methods and interface methods)
 }
 
 // Represents a property, field, variable, parameter, or enum value
@@ -65,6 +66,7 @@ message VariableSymbol {
   SymbolLocation location = 6;
   Modifiers modifiers = 7;
   string parent_id = 8;
+  TypeReference initializer_type = 9;  // Type of the initializer expression (if present)
 }
 
 // Represents a method/constructor parameter
