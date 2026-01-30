@@ -11,7 +11,24 @@ exports[`Semantic Error Detection Class: AbstractMethodWithBody.cls should detec
     },
   },
   "response": {
-    "items": [],
+    "items": [
+      {
+        "code": "abstract.methods.cannot.have.body",
+        "message": "Abstract methods cannot have a body",
+        "range": {
+          "end": {
+            "character": 39,
+            "line": 6,
+          },
+          "start": {
+            "character": 25,
+            "line": 6,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+    ],
     "kind": "full",
   },
 }
