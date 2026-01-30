@@ -50,6 +50,77 @@ function normalizeUriForSnapshot(
 }
 
 /**
+ * Filter diagnostics to only include those relevant to the requested file
+ * This prevents cross-file diagnostics from appearing in snapshots
+ */
+function filterDiagnosticsForFile(response: any, requestedUri: string): any {
+  if (!response || !response.items || !Array.isArray(response.items)) {
+    return response;
+  }
+
+  // Extract the file path from the requested URI (normalize for cross-platform)
+  const requestedPath = requestedUri
+    .replace(/^file:\/\//, '')
+    .replace(/\\/g, '/') // Normalize Windows backslashes
+    .toLowerCase();
+
+  // Extract the class name from the file path for matching
+  const fileName = requestedPath
+    .split('/')
+    .pop()
+    ?.replace(/\.cls$/, '')
+    .toLowerCase();
+
+  // Filter diagnostics to only include those for the requested file
+  const filteredItems = response.items.filter((item: any) => {
+    // Include diagnostics that have relatedInformation pointing to the requested file
+    if (item.relatedInformation && Array.isArray(item.relatedInformation)) {
+      const hasRelatedToRequestedFile = item.relatedInformation.some(
+        (related: any) => {
+          const relatedPath = related.location?.uri
+            ?.replace(/^file:\/\//, '')
+            .replace(/\\/g, '/') // Normalize Windows backslashes
+            .toLowerCase();
+          return relatedPath === requestedPath;
+        },
+      );
+      if (hasRelatedToRequestedFile) {
+        return true;
+      }
+    }
+
+    // Include diagnostics that don't have relatedInformation (file-level errors)
+    // But exclude workspace-level warnings like CIRCULAR_DEPENDENCY that aren't file-specific
+    if (!item.relatedInformation || item.relatedInformation.length === 0) {
+      // Include semantic errors (severity 1) - these are file-specific
+      if (item.severity === 1) {
+        return true;
+      }
+      // For warnings (severity 2), only include if they're file-specific
+      if (item.severity === 2 && item.code === 'CIRCULAR_DEPENDENCY') {
+        // Only include CIRCULAR_DEPENDENCY warnings if the message mentions
+        // the class name from the requested file
+        if (fileName && item.message?.toLowerCase().includes(fileName)) {
+          return true;
+        }
+        // Exclude workspace-level circular dependency warnings for other files
+        return false;
+      }
+      // Include other warnings by default
+      return true;
+    }
+
+    // Exclude diagnostics with relatedInformation that doesn't point to requested file
+    return false;
+  });
+
+  return {
+    ...response,
+    items: filteredItems,
+  };
+}
+
+/**
  * Recursively normalize all URIs in a diagnostic response object
  * This ensures snapshots are portable across different environments
  */
@@ -239,9 +310,16 @@ describe('Semantic Error Detection', () => {
       const workspaceRootUri = serverContext.workspace?.rootUri || '';
       const normalizedUri = normalizeUriForSnapshot(uri, workspaceRootUri);
 
+      // Filter diagnostics to only include those for the requested file
+      // This prevents cross-file diagnostics from appearing in snapshots
+      const filteredResponse = filterDiagnosticsForFile(
+        diagnosticResponse,
+        uri,
+      );
+
       // Normalize all URIs in the response (including relatedInformation)
       const normalizedResponse = normalizeResponseUris(
-        diagnosticResponse,
+        filteredResponse,
         workspaceRootUri,
       );
 
