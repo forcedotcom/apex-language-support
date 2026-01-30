@@ -290,10 +290,14 @@ public class TestClass {
       const semanticErrors = listener.getErrors();
       const hasFinalError =
         result.errors.some((e) =>
-          e.message.includes("The 'final' keyword cannot be used on method declarations"),
+          e.message.includes(
+            "The 'final' keyword cannot be used on method declarations",
+          ),
         ) ||
         semanticErrors.some((e) =>
-          e.message.includes("The 'final' keyword cannot be used on method declarations"),
+          e.message.includes(
+            "The 'final' keyword cannot be used on method declarations",
+          ),
         );
       expect(hasFinalError).toBe(true);
     });

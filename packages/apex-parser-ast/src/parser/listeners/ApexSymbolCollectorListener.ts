@@ -968,7 +968,7 @@ export class ApexSymbolCollectorListener
         // Methods are easier to detect reliably than classes (due to parse tree structure)
         let parent: ParserRuleContext | undefined = ctx.parent;
         let depth = 0;
-        
+
         while (parent && depth < 10) {
           // If we find a valid context first, 'final' is allowed
           if (
@@ -979,7 +979,7 @@ export class ApexSymbolCollectorListener
             // Found valid context - 'final' is allowed
             break;
           }
-          
+
           // If we're in a method declaration, reject 'final' early
           if (
             parent instanceof MethodDeclarationContext ||
@@ -993,11 +993,11 @@ export class ApexSymbolCollectorListener
             );
             return; // Don't apply the modifier - prevents isFinal from being set
           }
-          
+
           parent = parent.parent;
           depth++;
         }
-        
+
         // For class declarations, ClassModifierValidator will catch and sanitize
         // (Early detection is complex due to parse tree structure where class modifiers
         // and field modifiers both appear under ClassDeclarationContext)
@@ -2005,7 +2005,7 @@ export class ApexSymbolCollectorListener
       // in the parse tree (part of classBodyDeclaration), so they're applied BEFORE enterFieldDeclaration
       // is called. Resetting here would clear modifiers that were already applied.
       this.seenModifiers.clear();
-      
+
       const typeRef = ctx.typeRef();
       if (!typeRef) {
         this.addError('Field declaration missing type reference', ctx);
@@ -2119,7 +2119,7 @@ export class ApexSymbolCollectorListener
       // Validators may mutate modifiers for sanitization, which is desired behavior
       // (Option 2: Sanitize to Semantic Correctness)
       const modifiers = this.getCurrentModifiers();
-      
+
       // Validate field modifiers if this is a field (modifiers have been applied by now)
       if (isField && fieldDeclContext) {
         const currentType = this.getCurrentType();
@@ -2131,7 +2131,7 @@ export class ApexSymbolCollectorListener
             currentType,
             this,
           );
-          
+
           // Validate field modifier visibility (may mutate modifiers for sanitization)
           FieldModifierValidator.validateFieldVisibilityModifiers(
             modifiers,
@@ -2141,7 +2141,7 @@ export class ApexSymbolCollectorListener
           );
         }
       }
-      
+
       // Note: We do NOT reset modifiers here because:
       // 1. Multiple variable declarators in the same field declaration (e.g., "private Integer a, b;")
       //    need to share the same modifiers
