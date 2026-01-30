@@ -17,6 +17,7 @@ import {
   DeserializationResult,
 } from './stdlib-deserializer';
 import type { SymbolTable, TypeSymbol } from '../types/symbol';
+import { getEmbeddedDataUrl } from './stdlib-cache-data';
 
 /**
  * Result of loading the standard library cache
@@ -49,19 +50,10 @@ let cachedProtobufBuffer: Uint8Array | null = null;
 
 /**
  * Embedded protobuf cache data URL (set by esbuild at bundle time)
+ * In bundled builds, the data will be embedded as a data URL
+ * In unbundled builds, this will be undefined and we'll fall back to disk loading
  */
-let embeddedProtobufDataUrl: string | undefined;
-
-// Try to import the embedded data module
-// In bundled builds, the data will be embedded as a data URL
-// In unbundled builds, this module may fail to load
-try {
-  const { getEmbeddedDataUrl } = require('./stdlib-cache-data');
-  embeddedProtobufDataUrl = getEmbeddedDataUrl();
-} catch {
-  // Expected in unbundled environments - will try to load from disk
-  embeddedProtobufDataUrl = undefined;
-}
+const embeddedProtobufDataUrl: string | undefined = getEmbeddedDataUrl();
 
 /**
  * Load the protobuf cache from disk (for unbundled/development environments)
