@@ -66,6 +66,7 @@ export const CONSTRUCTOR_NO_PARENT = 'invalid.constructor.name'; // May need sep
 export const ABSTRACT_METHOD_HAS_BODY = 'abstract.methods.cannot.have.body';
 export const ABSTRACT_IN_CONCRETE_CLASS = 'abstract.methods.cannot.have.body'; // May need separate code
 export const REDUNDANT_ABSTRACT_MODIFIER = 'abstract.methods.cannot.have.body'; // May need separate code
+export const METHOD_MUST_HAVE_BODY = 'method.must.have.body';
 
 // Enum Constant Naming
 export const INVALID_ENUM_CONSTANT_NAME = 'invalid.character.identifier'; // Uses same as identifier validation
@@ -135,6 +136,7 @@ export const ErrorCodes = {
   ABSTRACT_METHOD_HAS_BODY,
   ABSTRACT_IN_CONCRETE_CLASS,
   REDUNDANT_ABSTRACT_MODIFIER,
+  METHOD_MUST_HAVE_BODY,
 
   // Enum Constant Naming
   INVALID_ENUM_CONSTANT_NAME,

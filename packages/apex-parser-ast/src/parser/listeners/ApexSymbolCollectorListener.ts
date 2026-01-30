@@ -1400,6 +1400,10 @@ export class ApexSymbolCollectorListener
           returnType,
         );
 
+        // Check if method has a body block
+        // MethodDeclarationContext has block() child node if body exists
+        methodSymbol.hasBody = ctx.block() !== null && ctx.block() !== undefined;
+
         // Add annotations to the method symbol
         if (annotations.length > 0) {
           methodSymbol.annotations = annotations;
@@ -1696,6 +1700,9 @@ export class ApexSymbolCollectorListener
         implicitModifiers,
         returnType,
       );
+
+      // Interface methods never have bodies (they end with ';' not '{...}')
+      methodSymbol.hasBody = false;
 
       // Add annotations to the method symbol
       if (annotations.length > 0) {

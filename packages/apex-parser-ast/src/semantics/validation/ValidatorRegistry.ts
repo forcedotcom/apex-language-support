@@ -13,6 +13,7 @@ import { deduplicateValidationResult } from './ValidationResult';
 import type { ValidationOptions, ValidationTier } from './ValidationTier';
 import type { ValidatorPrerequisites } from '../../prerequisites/OperationPrerequisites';
 import { DetailLevel } from '../../parser/listeners/LayeredSymbolListenerBase';
+import { isStandardApexUri } from '../../types/ProtocolHandler';
 
 /**
  * Error types for validation operations
@@ -118,6 +119,21 @@ export class ValidatorRegistry extends Context.Tag('ValidatorRegistry')<
   ValidatorRegistry,
   ValidatorRegistryService
 >() {}
+
+/**
+ * Check if a symbol table is for a standard Apex library file
+ * These files are controlled stubs and don't need validation
+ *
+ * Note: Built-in classes (String, Integer, List, etc.) are stored in builtins/ folder
+ * but are merged into StandardApexLibrary/System/ during ZIP creation, so they
+ * get apexlib:// URIs when parsed, not built-in:// URIs.
+ * The built-in://apex URIs are only used for synthetic symbols (void, null, sObjects)
+ * from BuiltInTypeTables, which are not in symbol tables.
+ */
+function isStandardLibrary(symbolTable: SymbolTable): boolean {
+  const fileUri = symbolTable.getFileUri();
+  return isStandardApexUri(fileUri);
+}
 
 /**
  * Helper function to check if validator prerequisites are met
@@ -236,6 +252,16 @@ class ValidatorRegistryImpl implements ValidatorRegistryService {
     options: ValidationOptions,
   ): Effect.Effect<ReadonlyArray<ValidationResult>, ValidationError, any> {
     return Effect.gen(this, function* () {
+      // Short-circuit: Skip validation for standard library files
+      // Built-in classes (String, Integer, etc.) are merged into StandardApexLibrary
+      // and get apexlib:// URIs, so they're covered by isStandardApexUri()
+      if (isStandardLibrary(symbolTable)) {
+        yield* Effect.logDebug(
+          `Skipping validation for standard library file: ${symbolTable.getFileUri()}`,
+        );
+        return [];
+      }
+
       const validators = yield* this.getValidatorsByTier(tier);
 
       yield* Effect.logDebug(

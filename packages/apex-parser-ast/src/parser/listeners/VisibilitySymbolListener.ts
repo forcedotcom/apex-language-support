@@ -453,6 +453,10 @@ export class VisibilitySymbolListener
         returnType,
       );
 
+      // Check if method has a body block
+      // MethodDeclarationContext has block() child node if body exists
+      methodSymbol.hasBody = ctx.block() !== null && ctx.block() !== undefined;
+
       methodSymbol.parameters = parameters;
 
       if (this.currentAnnotations.length > 0) {
@@ -560,6 +564,9 @@ export class VisibilitySymbolListener
         implicitModifiers,
         returnType,
       );
+
+      // Interface methods never have bodies (they end with ';' not '{...}')
+      methodSymbol.hasBody = false;
 
       methodSymbol.parameters = parameters;
 

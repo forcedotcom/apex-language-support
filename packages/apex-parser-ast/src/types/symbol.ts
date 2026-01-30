@@ -521,6 +521,8 @@ export interface MethodSymbol extends ApexSymbol {
   isConstructor?: boolean;
   /** Annotations for this method */
   annotations?: Annotation[];
+  /** Whether the method has a body block (false for abstract methods and interface methods) */
+  hasBody?: boolean;
 }
 
 /**

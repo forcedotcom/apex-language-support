@@ -7,7 +7,8 @@
  */
 
 import { Effect } from 'effect';
-import type { SymbolTable } from '../../../types/symbol';
+import type { SymbolTable, MethodSymbol } from '../../../types/symbol';
+import { isMethodSymbol } from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -28,12 +29,12 @@ import { I18nSupport } from '../../../i18n/I18nSupport';
  * - Interface methods are implicitly abstract and don't need the abstract modifier
  *
  * This validator checks that:
- * 1. Methods marked as abstract don't have child block scopes (indicating no body)
- * 2. Methods in abstract classes follow proper abstract rules
- * 3. Interface methods are correctly defined
+ * 1. Methods marked as abstract don't have a body
+ * 2. Non-abstract methods in concrete classes have a body
+ * 3. Abstract methods are only in abstract classes or interfaces
  *
- * Note: Full body presence detection requires AST-level analysis. This validator
- * performs symbol-table level checks by examining child scope relationships.
+ * Body detection uses the hasBody property set during parsing, which checks
+ * if MethodDeclarationContext has a block() child node.
  *
  * This is a TIER 1 (IMMEDIATE) validation - fast, same-file only.
  *
@@ -67,7 +68,10 @@ export const AbstractMethodBodyValidator: Validator = {
       const allSymbols = symbolTable.getAllSymbols();
 
       // Filter to method symbols only (not constructors)
-      const methods = allSymbols.filter((symbol) => symbol.kind === 'method');
+      const methods = allSymbols.filter(
+        (symbol): symbol is MethodSymbol =>
+          symbol.kind === 'method' && isMethodSymbol(symbol),
+      );
 
       // Check each method
       for (const method of methods) {
@@ -106,44 +110,33 @@ export const AbstractMethodBodyValidator: Validator = {
           continue; // Skip orphaned methods
         }
 
-        const isInInterface = parent.kind === 'interface';
         const isInConcreteClass =
           parent.kind === 'class' && !parent.modifiers.isAbstract;
 
-        // Check for child block scopes (indicates method has body)
-        // Method blocks are created for scope tracking even for abstract methods
-        // We need to check if there are content blocks (statement blocks, etc.) inside the method
-        // OR if the method block itself has children (indicating body content)
-        const childBlocks = allSymbols.filter(
-          (s) => s.parentId === method.id && s.kind === 'block',
-        );
-
-        // Find the method's own scope block
-        const methodBlock = childBlocks.find(
-          (block) => (block as any).scopeType === 'method',
-        );
-
-        // Check if method block has children (indicating body content)
-        let hasBodyContent = false;
-        if (methodBlock) {
-          // Check if method block has any child blocks (statements, etc.)
-          const methodBlockChildren = allSymbols.filter(
-            (s) => s.parentId === methodBlock.id && s.kind === 'block',
-          );
-          hasBodyContent = methodBlockChildren.length > 0;
-        }
-
-        // Also check for content blocks directly under the method (not under method block)
-        const contentBlocks = childBlocks.filter(
-          (block) => (block as any).scopeType !== 'method',
-        );
-
-        // For abstract methods: any content blocks OR body content in method block indicates a body (invalid)
-        // For non-abstract methods: content blocks are expected (method has body)
-        const hasChildBlocks = contentBlocks.length > 0 || hasBodyContent;
+        // Use hasBody property set during parsing (checks MethodDeclarationContext.block())
+        // If hasBody is undefined, fall back to checking child blocks for backward compatibility
+        const hasBody =
+          method.hasBody !== undefined
+            ? method.hasBody
+            : // Fallback: check for child blocks (for symbols created before hasBody was added)
+              (() => {
+                const childBlocks = allSymbols.filter(
+                  (s) => s.parentId === method.id && s.kind === 'block',
+                );
+                const methodBlock = childBlocks.find(
+                  (block) => (block as any).scopeType === 'method',
+                );
+                if (methodBlock) {
+                  const methodBlockChildren = allSymbols.filter(
+                    (s) => s.parentId === methodBlock.id && s.kind === 'block',
+                  );
+                  return methodBlockChildren.length > 0;
+                }
+                return false;
+              })();
 
         // Rule 1: Abstract methods must not have a body
-        if (isAbstract && hasChildBlocks) {
+        if (isAbstract && hasBody) {
           errors.push({
             message: I18nSupport.getLabel(
               ErrorCodes.ABSTRACT_METHOD_HAS_BODY,
@@ -155,27 +148,17 @@ export const AbstractMethodBodyValidator: Validator = {
         }
 
         // Rule 2: Non-abstract methods in concrete classes must have a body
-        // NOTE: Disabled because symbol-table-based detection produces too many false positives.
-        // Simple methods (with just a return statement) may not create detectable child blocks.
-        // Full AST analysis would be required for reliable detection.
-        // TODO: Implement AST-based body detection using cached parse tree from ValidationOptions
-        // The parse tree is now available via enrichment, allowing reliable detection via:
-        // - Check if MethodDeclarationContext has block() child node
-        // - Interface methods (InterfaceMethodDeclarationContext) never have bodies
-        // if (
-        //   isInConcreteClass &&
-        //   !isAbstract &&
-        //   !hasChildBlocks &&
-        //   !method.modifiers.isBuiltIn
-        // ) {
-        //   warnings.push({
-        //     message:
-        //       `Non-abstract method '${method.name}' in class '${parent.name}' ` +
-        //       'appears to lack a body (this may be a symbol table limitation)',
-        //     location: method.location,
-        //     code: 'MISSING_METHOD_BODY',
-        //   });
-        // }
+        if (isInConcreteClass && !isAbstract && !hasBody) {
+          errors.push({
+            message: I18nSupport.getLabel(
+              ErrorCodes.METHOD_MUST_HAVE_BODY,
+              method.name,
+              parent.name,
+            ),
+            location: method.location,
+            code: ErrorCodes.METHOD_MUST_HAVE_BODY,
+          });
+        }
 
         // Rule 3: Abstract methods only in abstract classes or interfaces
         if (isAbstract && isInConcreteClass) {
