@@ -33,7 +33,8 @@
     "test:coverage": "wireit",
     "clean": "rimraf out dist resources .wireit coverage src/generated tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "wireit"
+    "lint": "wireit",
+    "check:error-codes": "node scripts/check-error-code-coverage.mjs"
   },
   "wireit": {
     "generate:stdlib-cache": {
