@@ -257,7 +257,7 @@ export class StandardLibraryCacheLoader {
       StandardLibraryCacheLoader.cachedResult = result;
 
       const loadTimeMs = performance.now() - startTime;
-      this.logger.info(
+      this.logger.alwaysLog(
         () =>
           `Loaded stdlib from protobuf cache in ${loadTimeMs.toFixed(1)}ms ` +
           `(${result.metadata.typeCount} types, ${result.metadata.namespaceCount} namespaces)`,

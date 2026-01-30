@@ -72,6 +72,7 @@ export * from './handlers/CodeLensHandler';
 export * from './handlers/QueueStateHandler';
 export * from './handlers/GraphDataHandler';
 export * from './handlers/ExecuteCommandHandler';
+export * from './handlers/WorkspaceSymbolHandler';
 
 // Export services
 export * from './services/DocumentProcessingService';
@@ -89,6 +90,7 @@ export * from './services/HoverProcessingService';
 export * from './services/BackgroundProcessingInitializationService';
 export * from './services/CompletionProcessingService';
 export * from './services/ReferencesProcessingService';
+export * from './services/WorkspaceSymbolProcessingService';
 export * from './services/WorkspaceLoadCoordinator';
 export * from './services/MissingArtifactResolutionService';
 export * from './services/IndexingObserver';
