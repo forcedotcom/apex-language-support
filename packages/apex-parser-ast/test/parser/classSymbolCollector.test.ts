@@ -1201,6 +1201,38 @@ describe('ApexSymbolCollectorListener', () => {
       );
     });
 
+    it('should NOT report error when variable shadows parameter (validator handles it)', () => {
+      // This test verifies that the listener does NOT report parameter shadowing
+      // Parameter shadowing is handled by VariableShadowingValidator, not the listener
+      // This prevents duplicate error reporting
+      const fileContent = `
+        public class ShadowingClass {
+          public void myMethod(String param1) {
+            String param1 = 'shadow'; // Variable shadows parameter
+          }
+        }
+      `;
+
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'ShadowingClass.cls',
+        listener,
+      );
+
+      // The listener should NOT report an error for parameter shadowing
+      // (that's the validator's job). Only true duplicate variables should be reported.
+      const listenerErrors = result.errors.filter(
+        (e) =>
+          e.type === ErrorType.Semantic &&
+          e.severity === ErrorSeverity.Error &&
+          e.message.includes('Duplicate variable') &&
+          e.message.includes('param1'),
+      );
+
+      // Should have no errors from listener for parameter shadowing
+      expect(listenerErrors.length).toBe(0);
+    });
+
     it('should capture semantic errors for conflicting method modifiers', () => {
       logger.debug(
         'Starting test: capture semantic errors for conflicting method modifiers',

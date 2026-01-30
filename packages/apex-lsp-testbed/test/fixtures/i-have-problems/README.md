@@ -37,7 +37,7 @@ Fast, same-file validations that run on every keystroke:
 
 3. **DuplicateField.cls** - Class with duplicate field names
    - Error Code: `duplicate.field`
-   - Validator: DuplicateFieldValidator
+   - Validator: DuplicateSymbolValidator
 
 4. **DuplicateMethod.cls** - Class with duplicate method signatures
    - Error Code: `method.already.exists`
@@ -55,9 +55,11 @@ Fast, same-file validations that run on every keystroke:
    - Error Code: `abstract.methods.cannot.have.body`
    - Validator: AbstractMethodBodyValidator
 
-8. **VariableShadowing.cls** - Variable shadows parameter/field
+8. **DuplicateVariable.cls** - Duplicate variable (parameter and local variable in same scope)
    - Error Code: `duplicate.variable`
-   - Validator: VariableShadowingValidator
+   - Validator: DuplicateSymbolValidator (TIER 1)
+   - **Note**: Same-scope duplicates (variable shadowing parameter in same method) are handled by DuplicateSymbolValidator as ERRORS.
+     Cross-scope shadowing (variable shadowing class field) is handled by VariableShadowingValidator as WARNINGS.
 
 9. **ForwardReference.cls** - Variable used before declaration
    - Error Code: `illegal.forward.reference`

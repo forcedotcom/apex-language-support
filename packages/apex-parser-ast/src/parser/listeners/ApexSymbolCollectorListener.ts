@@ -745,6 +745,42 @@ export class ApexSymbolCollectorListener
       parentScope,
     );
 
+    // Check if a block symbol already exists for this scope (from a previous listener walk)
+    // Match by parentId, scopeType, fileUri, and overlapping location range
+    // This prevents duplicate blocks when multiple listeners process the same scope
+    if (parentId !== null && parentId !== undefined) {
+      const allSymbols = this.symbolTable.getAllSymbols();
+      const existingBlock = allSymbols.find((s) => {
+        if (
+          !isBlockSymbol(s) ||
+          s.scopeType !== scopeType ||
+          s.parentId !== parentId ||
+          s.fileUri !== fileUri
+        ) {
+          return false;
+        }
+        // Check if location ranges overlap (same start line and similar column range)
+        const existingRange = s.location?.symbolRange;
+        const newRange = location.symbolRange;
+        if (
+          existingRange &&
+          newRange &&
+          existingRange.startLine === newRange.startLine &&
+          Math.abs(existingRange.startColumn - newRange.startColumn) <= 10 && // Allow small column differences
+          Math.abs(existingRange.endColumn - newRange.endColumn) <= 10
+        ) {
+          return true;
+        }
+        return false;
+      }) as ScopeSymbol | undefined;
+
+      if (existingBlock) {
+        // Block already exists, return it instead of creating a duplicate
+        // This ensures we reuse the same block instance across listener walks
+        return existingBlock;
+      }
+    }
+
     // Create the block symbol ID
     // Ensure fileUri is normalized (has file:// prefix) for consistent ID format
     // For method blocks, we want the ID to append directly to the method symbol's path
@@ -2095,11 +2131,14 @@ export class ApexSymbolCollectorListener
       }
 
       // Check for duplicate variable declaration in the current scope (from previous statements)
+      // Note: Only check for variables, not parameters. Parameter shadowing is handled by VariableShadowingValidator.
+      // This prevents duplicate error reporting (listener + validator) for the same shadowing issue.
       const existingSymbol = this.symbolTable.findSymbolInCurrentScope(
         name,
         this.getCurrentScopeSymbol(),
       );
-      if (existingSymbol) {
+      if (existingSymbol && existingSymbol.kind === SymbolKind.Variable) {
+        // Only report if it's a true duplicate variable (not a parameter shadowing case)
         this.addError(
           I18nSupport.getLabel(ErrorCodes.DUPLICATE_VARIABLE, name),
           ctx,
@@ -4357,11 +4396,14 @@ export class ApexSymbolCollectorListener
           statementVariableNames.add(name);
 
           // Check for duplicate variable declaration in the current scope (from previous statements)
+          // Note: Only check for variables, not parameters. Parameter shadowing is handled by VariableShadowingValidator.
+          // This prevents duplicate error reporting (listener + validator) for the same shadowing issue.
           const existingSymbol = this.symbolTable.findSymbolInCurrentScope(
             name,
             this.getCurrentScopeSymbol(),
           );
-          if (existingSymbol) {
+          if (existingSymbol && existingSymbol.kind === SymbolKind.Variable) {
+            // Only report if it's a true duplicate variable (not a parameter shadowing case)
             this.addError(
               I18nSupport.getLabel(ErrorCodes.DUPLICATE_VARIABLE, name),
               declarator,

@@ -56,7 +56,7 @@ export const compileFixture = async (
     resolveReferences: true,
   });
 
-  // Note: Some validators (like DuplicateFieldValidator) check for errors that are
+  // Note: Some validators (like DuplicateSymbolValidator) check for errors that are
   // caught during compilation. In those cases, compilation errors are expected and
   // should be handled by the test, not thrown here.
   // For now, we allow compilation errors to pass through - tests can check for them

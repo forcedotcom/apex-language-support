@@ -1123,18 +1123,28 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
           continue;
         }
 
+        // Check if variable already exists (from ApexSymbolCollectorListener)
+        // to prevent duplicate variable symbols
+        const currentScope = this.getCurrentScopeSymbol();
+        const existingVariable = this.symbolTable.findSymbolInCurrentScope(
+          name,
+          currentScope,
+        );
+        if (existingVariable && existingVariable.kind === SymbolKind.Variable) {
+          // Variable already exists, skip creating a duplicate
+          continue;
+        }
+
+        // Use declarator context (not ctx) for correct location range
         const variableSymbol = this.createVariableSymbol(
-          ctx,
+          declarator,
           modifiers,
           name,
           SymbolKind.Variable,
           type,
         );
 
-        this.symbolTable.addSymbol(
-          variableSymbol,
-          this.getCurrentScopeSymbol(),
-        );
+        this.symbolTable.addSymbol(variableSymbol, currentScope);
       }
 
       // Delegate reference collection to reference collector
@@ -1927,6 +1937,42 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       }
     } else if (parentScope) {
       parentId = parentScope.id;
+    }
+
+    // Check if a block symbol already exists for this scope (from a previous listener walk)
+    // Match by parentId, scopeType, fileUri, and overlapping location range
+    // This prevents duplicate blocks when multiple listeners process the same scope
+    if (parentId !== null && parentId !== undefined) {
+      const allSymbols = this.symbolTable.getAllSymbols();
+      const existingBlock = allSymbols.find((s) => {
+        if (
+          !isBlockSymbol(s) ||
+          s.scopeType !== scopeType ||
+          s.parentId !== parentId ||
+          s.fileUri !== fileUri
+        ) {
+          return false;
+        }
+        // Check if location ranges overlap (same start line and similar column range)
+        const existingRange = s.location?.symbolRange;
+        const newRange = location.symbolRange;
+        if (
+          existingRange &&
+          newRange &&
+          existingRange.startLine === newRange.startLine &&
+          Math.abs(existingRange.startColumn - newRange.startColumn) <= 10 && // Allow small column differences
+          Math.abs(existingRange.endColumn - newRange.endColumn) <= 10
+        ) {
+          return true;
+        }
+        return false;
+      }) as ScopeSymbol | undefined;
+
+      if (existingBlock) {
+        // Block already exists, return it instead of creating a duplicate
+        // This ensures we reuse the same block instance across listener walks
+        return existingBlock;
+      }
     }
 
     const id = SymbolFactory.generateId(name, fileUri, scopePath, 'block');

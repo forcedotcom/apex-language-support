@@ -11,6 +11,7 @@ import { ValidationTier } from '../../../../src/semantics/validation/ValidationT
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
 import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
+import { ApexSymbolCollectorListener } from '../../../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
   compileFixture,
   getMessage,
@@ -71,9 +72,56 @@ describe('VariableShadowingValidator', () => {
 
     expect(result.isValid).toBe(true);
     expect(result.errors).toHaveLength(0);
+    expect(result.warnings).toHaveLength(0);
   });
 
-  it('should fail validation for variable shadowing parameter', async () => {
+  it('should report warning for variable shadowing class field (cross-scope)', async () => {
+    // Create a test case where a local variable shadows a class field
+    const apexCode = `
+public class TestClass {
+    public String myField;
+    
+    public void myMethod() {
+        String myField = 'shadow'; // Local variable shadows class field
+    }
+}
+    `;
+
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
+    compilerService.compile(apexCode, 'TestClass.cls', listener);
+    const symbolTable = listener.getResult();
+
+    // Add to symbol manager
+    await symbolManager.addSymbolTable(
+      symbolTable,
+      'file:///test/TestClass.cls',
+    );
+
+    const validationResult = await runValidator(
+      VariableShadowingValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        }),
+      ),
+      symbolManager,
+    );
+
+    // Should have no errors (duplicates are handled by DuplicateSymbolValidator)
+    expect(validationResult.isValid).toBe(true);
+    expect(validationResult.errors).toHaveLength(0);
+    // Should have a warning for cross-scope shadowing
+    expect(validationResult.warnings.length).toBeGreaterThan(0);
+    const warning = validationResult.warnings[0];
+    expect(warning.code).toBe(ErrorCodes.VARIABLE_SHADOWING);
+    const warningMessage = getMessage(warning);
+    expect(warningMessage).toContain('Duplicate variable');
+  });
+
+  it('should not report error for variable shadowing parameter (same scope - handled by DuplicateSymbolValidator)', async () => {
+    // This test verifies that VariableShadowingValidator does NOT report
+    // same-scope duplicates (those are handled by DuplicateSymbolValidator)
     const symbolTable = await compileFixtureForValidator(
       'ShadowingParameter.cls',
     );
@@ -89,11 +137,10 @@ describe('VariableShadowingValidator', () => {
       symbolManager,
     );
 
-    expect(result.isValid).toBe(false);
-    expect(result.errors.length).toBeGreaterThan(0);
-    const error = result.errors[0];
-    expect(error.code).toBe(ErrorCodes.VARIABLE_SHADOWING);
-    const errorMessage = getMessage(error);
-    expect(errorMessage).toContain('Duplicate variable');
+    // Should have no errors (same-scope duplicates are handled by DuplicateSymbolValidator)
+    // Should have no warnings (parameter shadowing is same-scope, not cross-scope)
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+    expect(result.warnings).toHaveLength(0);
   });
 });

@@ -21,7 +21,14 @@ import { ErrorCodes } from '../ErrorCodes';
 import { I18nSupport } from '../../../i18n/I18nSupport';
 
 /**
- * Validates that no duplicate fields exist within the same class/type.
+ * Validates that no duplicate fields or variables exist within the same scope.
+ *
+ * **Key Distinction: Duplicate vs Shadowing**
+ * - **Duplicate (same scope)**: A symbol declared with the same name as another
+ *   symbol in the SAME scope. This is an ERROR.
+ *   - Fields: Two fields with the same name in the same class
+ *   - Variables: A local variable with the same name as a parameter in the same method
+ * - **Shadowing (different scopes)**: Handled by VariableShadowingValidator as WARNINGS
  *
  * In Apex, fields must have unique names within a class (case-insensitive).
  * However, Apex allows static and non-static fields to share the same name
@@ -31,24 +38,35 @@ import { I18nSupport } from '../../../i18n/I18nSupport';
  * - Duplicate static fields are not allowed
  * - Duplicate non-static fields are not allowed
  *
+ * For variables:
+ * - Local variables cannot have the same name as parameters in the same method
+ * - Multiple variables with the same name in the same block scope are not allowed
+ *
  * This validator checks for:
  * 1. Duplicate field names within same class (case-insensitive)
- * 2. Handles static/non-static distinction per jorje rules
+ * 2. Duplicate variable names within same scope (method/block)
+ * 3. Handles static/non-static distinction per jorje rules
+ *
+ * Prerequisites:
+ * - Requires 'full' detail level if variables exist (for variable duplicate detection)
+ * - Requires 'public-api' detail level if only fields exist (for field duplicate detection)
  *
  * This is a TIER 1 (IMMEDIATE) validation - fast, same-file only.
  *
- * Error: "Duplicate field: {name}"
+ * Error Messages:
+ * - "Duplicate field: {name}" (for duplicate fields)
+ * - "Duplicate variable: {name}" (for duplicate variables)
  *
  * @see MultipleFieldTable.java and StandardFieldTable.java in jorje
- * @see SEMANTIC_SYMBOL_RULES.md (field naming rules)
+ * @see SEMANTIC_SYMBOL_RULES.md (field and variable naming rules)
  */
-export const DuplicateFieldValidator: Validator = {
-  id: 'duplicate-field',
-  name: 'Duplicate Field Validator',
+export const DuplicateSymbolValidator: Validator = {
+  id: 'duplicate-symbol',
+  name: 'Duplicate Symbol Validator',
   tier: ValidationTier.IMMEDIATE,
   priority: 1,
   prerequisites: {
-    requiredDetailLevel: 'public-api',
+    requiredDetailLevel: 'full', // Required for variable duplicate detection
     requiresReferences: false,
     requiresCrossFileResolution: false,
   },
@@ -64,7 +82,7 @@ export const DuplicateFieldValidator: Validator = {
       // Get all symbols from the table
       const allSymbols = symbolTable.getAllSymbols();
 
-      // Filter to field symbols
+      // Check for duplicate fields (existing logic)
       const fields = allSymbols.filter(
         (symbol) => symbol.kind === SymbolKind.Field,
       );
@@ -163,8 +181,58 @@ export const DuplicateFieldValidator: Validator = {
         }
       }
 
+      // Check for duplicate variables in the same scope
+      // Filter to variable symbols (parameter and variable kinds)
+      const variables = allSymbols.filter(
+        (symbol) =>
+          symbol.kind === SymbolKind.Parameter ||
+          symbol.kind === SymbolKind.Variable,
+      );
+
+      // Check each variable for duplicates in the same scope
+      for (const variable of variables) {
+        // Skip method parameters - they are at the top of method scope
+        // and cannot duplicate variables from outer (class) scopes
+        if (variable.kind === SymbolKind.Parameter) {
+          continue;
+        }
+
+        // Get the parent symbol (method, block, or other scope)
+        const parent = variable.parentId
+          ? allSymbols.find((s) => s.id === variable.parentId)
+          : null;
+
+        if (!parent) {
+          continue; // Skip orphaned variables
+        }
+
+        // Check for duplicates in the same scope (ERROR)
+        const duplicateVariable = findDuplicateInSameScope(
+          variable,
+          parent,
+          allSymbols,
+        );
+
+        if (duplicateVariable) {
+          yield* Effect.logDebug(
+            `DuplicateSymbolValidator: Reporting ERROR (duplicate) for variable '${variable.name}' ` +
+              `(id=${variable.id}, kind=${variable.kind}) duplicating '${duplicateVariable.name}' ` +
+              `(id=${duplicateVariable.id}, kind=${duplicateVariable.kind}) in same scope.`,
+          );
+
+          errors.push({
+            message: I18nSupport.getLabel(
+              ErrorCodes.DUPLICATE_VARIABLE,
+              variable.name,
+            ),
+            location: variable.location,
+            code: ErrorCodes.DUPLICATE_VARIABLE,
+          });
+        }
+      }
+
       yield* Effect.logDebug(
-        `DuplicateFieldValidator: checked ${fields.length} fields, ` +
+        `DuplicateSymbolValidator: checked ${fields.length} fields and ${variables.length} variables, ` +
           `found ${errors.length} violations`,
       );
 
@@ -175,3 +243,87 @@ export const DuplicateFieldValidator: Validator = {
       };
     }),
 };
+
+/**
+ * Find the method that contains a symbol by walking up the parent chain
+ */
+function findContainingMethod(
+  symbol: ApexSymbol,
+  allSymbols: ApexSymbol[],
+): ApexSymbol | null {
+  let current: ApexSymbol | null = symbol;
+
+  while (current) {
+    // Check if current is a method/constructor
+    if (
+      current.kind === SymbolKind.Method ||
+      current.kind === SymbolKind.Constructor
+    ) {
+      return current;
+    }
+
+    // Check if current's parent is a method/constructor
+    if (current.parentId) {
+      const parent = allSymbols.find((s) => s.id === current!.parentId);
+      if (
+        parent &&
+        (parent.kind === SymbolKind.Method ||
+          parent.kind === SymbolKind.Constructor)
+      ) {
+        return parent;
+      }
+      current = parent ?? null;
+    } else {
+      break;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Find a duplicate variable in the same scope (ERROR case)
+ * This checks if a variable has the same name as a parameter or variable
+ * in the same method scope.
+ */
+function findDuplicateInSameScope(
+  variable: ApexSymbol,
+  currentParent: ApexSymbol,
+  allSymbols: ApexSymbol[],
+): ApexSymbol | null {
+  const variableName = variable.name.toLowerCase();
+
+  // Find the method that contains this variable
+  const containingMethod = findContainingMethod(variable, allSymbols);
+  if (!containingMethod) {
+    // Not in a method, check same parent scope
+    const varsInSameScope = allSymbols.filter(
+      (s) =>
+        s.id !== variable.id && // Don't match self
+        s.parentId === currentParent.id && // Same parent scope
+        (s.kind === SymbolKind.Parameter || s.kind === SymbolKind.Variable) &&
+        s.name.toLowerCase() === variableName,
+    );
+    return varsInSameScope.length > 0 ? varsInSameScope[0] : null;
+  }
+
+  // Check for variables/parameters in the same method scope
+  const methodId = containingMethod.id;
+
+  // Check all parameters and variables in the same method scope
+  const duplicatesInMethod = allSymbols.filter((s) => {
+    if (
+      s.id === variable.id ||
+      (s.kind !== SymbolKind.Parameter && s.kind !== SymbolKind.Variable) ||
+      s.name.toLowerCase() !== variableName
+    ) {
+      return false;
+    }
+
+    // Check if this symbol is in the same method scope
+    const symbolMethod = findContainingMethod(s, allSymbols);
+    return symbolMethod?.id === methodId;
+  });
+
+  return duplicatesInMethod.length > 0 ? duplicatesInMethod[0] : null;
+}

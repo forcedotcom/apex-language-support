@@ -26,7 +26,7 @@ import { AbstractMethodBodyValidator } from './validators/AbstractMethodBodyVali
 import { VariableShadowingValidator } from './validators/VariableShadowingValidator';
 import { ForwardReferenceValidator } from './validators/ForwardReferenceValidator';
 import { FinalAssignmentValidator } from './validators/FinalAssignmentValidator';
-import { DuplicateFieldValidator } from './validators/DuplicateFieldValidator';
+import { DuplicateSymbolValidator } from './validators/DuplicateSymbolValidator';
 
 // TIER 2 (THOROUGH) validators
 import { MethodSignatureEquivalenceValidator } from './validators/MethodSignatureEquivalenceValidator';
@@ -50,7 +50,7 @@ const ALL_VALIDATORS: readonly Validator[] = [
   VariableShadowingValidator,
   ForwardReferenceValidator,
   FinalAssignmentValidator,
-  DuplicateFieldValidator,
+  DuplicateSymbolValidator,
 
   // TIER 2 (THOROUGH) validators
   MethodSignatureEquivalenceValidator,

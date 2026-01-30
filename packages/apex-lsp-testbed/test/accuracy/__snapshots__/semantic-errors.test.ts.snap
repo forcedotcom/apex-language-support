@@ -16,3 +16,697 @@ exports[`Semantic Error Detection Class: AbstractMethodWithBody.cls should detec
   },
 }
 `;
+
+exports[`Semantic Error Detection Class: ClassHierarchyIssue.cls should detect semantic errors in ClassHierarchyIssue: ClassHierarchyIssue-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/ClassHierarchyIssue.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [
+      {
+        "code": "invalid.final.super.type",
+        "message": "Non-virtual and non-abstract type cannot be extended: FinalBaseClass",
+        "range": {
+          "end": {
+            "character": 32,
+            "line": 9,
+          },
+          "start": {
+            "character": 13,
+            "line": 9,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+    ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: ConstructorNamingMismatch.cls should detect semantic errors in ConstructorNamingMismatch: ConstructorNamingMismatch-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/ConstructorNamingMismatch.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [
+      {
+        "code": "SEMANTIC_ERROR",
+        "message": "Invalid constructor declaration: Constructor name 'WrongName' must match the enclosing class name 'ConstructorNamingMismatch'",
+        "range": {
+          "end": {
+            "character": 3,
+            "line": 8,
+          },
+          "start": {
+            "character": 10,
+            "line": 6,
+          },
+        },
+        "relatedInformation": [
+          {
+            "location": {
+              "range": {
+                "end": {
+                  "character": 3,
+                  "line": 8,
+                },
+                "start": {
+                  "character": 10,
+                  "line": 6,
+                },
+              },
+              "uri": "file:///Users/peter.hale/git/apex-language-support/packages/apex-lsp-testbed/test/fixtures/i-have-problems/force-app/main/default/classes/ConstructorNamingMismatch.cls",
+            },
+            "message": "Invalid constructor declaration: Constructor name 'WrongName' must match the enclosing class name 'ConstructorNamingMismatch'",
+          },
+        ],
+        "severity": 1,
+        "source": "apex-parser",
+      },
+    ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: DuplicateField.cls should detect semantic errors in DuplicateField: DuplicateField-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/DuplicateField.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [
+      {
+        "code": "duplicate.field",
+        "message": "Duplicate field: myField",
+        "range": {
+          "end": {
+            "character": 18,
+            "line": 7,
+          },
+          "start": {
+            "character": 11,
+            "line": 7,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+      {
+        "code": "duplicate.field",
+        "message": "Duplicate field: myField",
+        "range": {
+          "end": {
+            "character": 17,
+            "line": 6,
+          },
+          "start": {
+            "character": 11,
+            "line": 6,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+    ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: DuplicateMethod.cls should detect semantic errors in DuplicateMethod: DuplicateMethod-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/DuplicateMethod.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: DuplicateVariable.cls should detect semantic errors in DuplicateVariable: DuplicateVariable-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/DuplicateVariable.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: EnumLimitExceeded.cls should detect semantic errors in EnumLimitExceeded: EnumLimitExceeded-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/EnumLimitExceeded.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [
+      {
+        "code": "max.enums.exceeded",
+        "message": "Maximum number of enum items exceeded: 100",
+        "range": {
+          "end": {
+            "character": 29,
+            "line": 5,
+          },
+          "start": {
+            "character": 12,
+            "line": 5,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+    ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: FinalBaseClass.cls should detect semantic errors in FinalBaseClass: FinalBaseClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/FinalBaseClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: FinalKeywordOnClass.cls should detect semantic errors in FinalKeywordOnClass: FinalKeywordOnClass-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/FinalKeywordOnClass.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [
+      {
+        "code": "SEMANTIC_ERROR",
+        "message": "The 'final' keyword cannot be used on class declarations. Classes are final by default in Apex. Use 'virtual' to make a class extensible.",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 12,
+          },
+          "start": {
+            "character": 12,
+            "line": 9,
+          },
+        },
+        "relatedInformation": [
+          {
+            "location": {
+              "range": {
+                "end": {
+                  "character": 0,
+                  "line": 12,
+                },
+                "start": {
+                  "character": 12,
+                  "line": 9,
+                },
+              },
+              "uri": "file:///Users/peter.hale/git/apex-language-support/packages/apex-lsp-testbed/test/fixtures/i-have-problems/force-app/main/default/classes/FinalKeywordOnClass.cls",
+            },
+            "message": "The 'final' keyword cannot be used on class declarations. Classes are final by default in Apex. Use 'virtual' to make a class extensible.",
+          },
+        ],
+        "severity": 1,
+        "source": "apex-parser",
+      },
+      {
+        "code": "SEMANTIC_ERROR",
+        "message": "The 'final' keyword cannot be used on method declarations. Methods are final by default in Apex. Use 'virtual' to make a method overridable.",
+        "range": {
+          "end": {
+            "character": 3,
+            "line": 11,
+          },
+          "start": {
+            "character": 10,
+            "line": 10,
+          },
+        },
+        "relatedInformation": [
+          {
+            "location": {
+              "range": {
+                "end": {
+                  "character": 3,
+                  "line": 11,
+                },
+                "start": {
+                  "character": 10,
+                  "line": 10,
+                },
+              },
+              "uri": "file:///Users/peter.hale/git/apex-language-support/packages/apex-lsp-testbed/test/fixtures/i-have-problems/force-app/main/default/classes/FinalKeywordOnClass.cls",
+            },
+            "message": "The 'final' keyword cannot be used on method declarations. Methods are final by default in Apex. Use 'virtual' to make a method overridable.",
+          },
+        ],
+        "severity": 1,
+        "source": "apex-parser",
+      },
+    ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: FinalKeywordOnMethod.cls should detect semantic errors in FinalKeywordOnMethod: FinalKeywordOnMethod-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/FinalKeywordOnMethod.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [
+      {
+        "code": "SEMANTIC_ERROR",
+        "message": "The 'final' keyword cannot be used on method declarations. Methods are final by default in Apex. Use 'virtual' to make a method overridable.",
+        "range": {
+          "end": {
+            "character": 3,
+            "line": 12,
+          },
+          "start": {
+            "character": 16,
+            "line": 10,
+          },
+        },
+        "relatedInformation": [
+          {
+            "location": {
+              "range": {
+                "end": {
+                  "character": 3,
+                  "line": 12,
+                },
+                "start": {
+                  "character": 16,
+                  "line": 10,
+                },
+              },
+              "uri": "file:///Users/peter.hale/git/apex-language-support/packages/apex-lsp-testbed/test/fixtures/i-have-problems/force-app/main/default/classes/FinalKeywordOnMethod.cls",
+            },
+            "message": "The 'final' keyword cannot be used on method declarations. Methods are final by default in Apex. Use 'virtual' to make a method overridable.",
+          },
+        ],
+        "severity": 1,
+        "source": "apex-parser",
+      },
+    ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: FinalMultipleAssignment.cls should detect semantic errors in FinalMultipleAssignment: FinalMultipleAssignment-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/FinalMultipleAssignment.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: ForwardReference.cls should detect semantic errors in ForwardReference: ForwardReference-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/ForwardReference.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: InterfaceA.cls should detect semantic errors in InterfaceA: InterfaceA-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/InterfaceA.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: InterfaceB.cls should detect semantic errors in InterfaceB: InterfaceB-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/InterfaceB.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [
+      {
+        "code": "circular.definition",
+        "message": "Circular definition: InterfaceB",
+        "range": {
+          "end": {
+            "character": 27,
+            "line": 4,
+          },
+          "start": {
+            "character": 17,
+            "line": 4,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+    ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: InterfaceHierarchyIssue.cls should detect semantic errors in InterfaceHierarchyIssue: InterfaceHierarchyIssue-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/InterfaceHierarchyIssue.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [
+      {
+        "code": "CIRCULAR_DEPENDENCY",
+        "message": "Circular dependency detected for InterfaceHierarchyIssue",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0,
+          },
+          "start": {
+            "character": 0,
+            "line": 0,
+          },
+        },
+        "severity": 2,
+        "source": "apex-symbol-manager",
+      },
+      {
+        "code": "circular.definition",
+        "message": "Circular definition: InterfaceHierarchyIssue",
+        "range": {
+          "end": {
+            "character": 40,
+            "line": 8,
+          },
+          "start": {
+            "character": 17,
+            "line": 8,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+      {
+        "code": "circular.definition",
+        "message": "Circular definition: InterfaceHierarchyIssue",
+        "range": {
+          "end": {
+            "character": 40,
+            "line": 8,
+          },
+          "start": {
+            "character": 17,
+            "line": 8,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+    ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: InterfaceMethodWithAbstract.cls should detect semantic errors in InterfaceMethodWithAbstract: InterfaceMethodWithAbstract-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/InterfaceMethodWithAbstract.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: MethodSignatureEquivalence.cls should detect semantic errors in MethodSignatureEquivalence: MethodSignatureEquivalence-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/MethodSignatureEquivalence.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: ParameterLimitExceeded.cls should detect semantic errors in ParameterLimitExceeded: ParameterLimitExceeded-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/ParameterLimitExceeded.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [
+      {
+        "code": "invalid.number.parameters",
+        "message": "Invalid number of parameters exceeds: 32",
+        "range": {
+          "end": {
+            "character": 27,
+            "line": 6,
+          },
+          "start": {
+            "character": 16,
+            "line": 6,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+    ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: TypeAssignmentMismatch.cls should detect semantic errors in TypeAssignmentMismatch: TypeAssignmentMismatch-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/TypeAssignmentMismatch.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [
+      {
+        "code": "duplicate.field",
+        "message": "Duplicate field: field",
+        "range": {
+          "end": {
+            "character": 10,
+            "line": 15,
+          },
+          "start": {
+            "character": 4,
+            "line": 15,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+    ],
+    "kind": "full",
+  },
+}
+`;
+
+exports[`Semantic Error Detection Class: TypeSelfReference.cls should detect semantic errors in TypeSelfReference: TypeSelfReference-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/TypeSelfReference.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [
+      {
+        "code": "CIRCULAR_DEPENDENCY",
+        "message": "Circular dependency detected for TypeSelfReference",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0,
+          },
+          "start": {
+            "character": 0,
+            "line": 0,
+          },
+        },
+        "severity": 2,
+        "source": "apex-symbol-manager",
+      },
+      {
+        "code": "circular.definition",
+        "message": "Circular definition: TypeSelfReference",
+        "range": {
+          "end": {
+            "character": 30,
+            "line": 5,
+          },
+          "start": {
+            "character": 13,
+            "line": 5,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+      {
+        "code": "invalid.final.super.type",
+        "message": "Non-virtual and non-abstract type cannot be extended: TypeSelfReference",
+        "range": {
+          "end": {
+            "character": 30,
+            "line": 5,
+          },
+          "start": {
+            "character": 13,
+            "line": 5,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+      {
+        "code": "circular.definition",
+        "message": "Circular definition: TypeSelfReference",
+        "range": {
+          "end": {
+            "character": 30,
+            "line": 5,
+          },
+          "start": {
+            "character": 13,
+            "line": 5,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+    ],
+    "kind": "full",
+  },
+}
+`;

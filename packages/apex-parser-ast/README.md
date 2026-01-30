@@ -610,7 +610,7 @@ Fast, same-file validations that run on every keystroke:
 3. **`EnumLimitValidator`**: Validates enum constant count limits (max 100)
 4. **`EnumConstantNamingValidator`**: Validates enum constant naming conventions
 5. **`DuplicateMethodValidator`**: Detects duplicate method signatures (case-insensitive)
-6. **`DuplicateFieldValidator`**: Detects duplicate field names within the same class (handles static/non-static distinction)
+6. **`DuplicateSymbolValidator`**: Detects duplicate field and variable names within the same scope (handles static/non-static distinction for fields)
 7. **`ConstructorNamingValidator`**: Validates constructor names match class names
 8. **`TypeSelfReferenceValidator`**: Detects self-referencing type declarations
 9. **`AbstractMethodBodyValidator`**: Validates abstract methods have no body
