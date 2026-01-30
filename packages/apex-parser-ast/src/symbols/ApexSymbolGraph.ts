@@ -1062,36 +1062,46 @@ export class ApexSymbolGraph {
       this.fileIndex.set(normalizedFileUri, fileSymbols);
     }
 
-    // OPTIMIZED: Add lightweight node to graph
-    const referenceNode: ReferenceNode = {
-      symbolId,
-      fileUri: fileUri,
-      lastUpdated: Date.now(),
-      referenceCount: 0,
-      nodeId: this.memoryStats.totalVertices + 1,
-    };
+    // OPTIMIZED: Only add vertex to graph for new symbols (not duplicates/enrichments)
+    // This prevents thousands of "Failed to add vertex" warnings when symbols are re-processed
+    if (isNewSymbolId) {
+      const referenceNode: ReferenceNode = {
+        symbolId,
+        fileUri: fileUri,
+        lastUpdated: Date.now(),
+        referenceCount: 0,
+        nodeId: this.memoryStats.totalVertices + 1,
+      };
 
-    // Add vertex to graph
-    const vertexAdded = this.referenceGraph.addVertex(symbolId, referenceNode);
-    if (!vertexAdded) {
-      this.logger.warn(() => `Failed to add vertex to graph: ${symbolId}`);
-      return;
+      // Add vertex to graph
+      const vertexAdded = this.referenceGraph.addVertex(symbolId, referenceNode);
+      if (!vertexAdded) {
+        this.logger.warn(() => `Failed to add vertex to graph: ${symbolId}`);
+        return;
+      }
+
+      // Get the vertex from the graph
+      const vertex = this.referenceGraph.getVertex(symbolId);
+      if (!vertex) {
+        this.logger.warn(
+          () => `Vertex not found in graph after adding: ${symbolId}`,
+        );
+        return;
+      }
+
+      this.symbolToVertex.set(symbolId, vertex);
+
+      // Update memory statistics
+      this.memoryStats.totalSymbols++;
+      this.memoryStats.totalVertices++;
+    } else {
+      // Symbol already exists - vertex should already be in graph
+      // Verify the vertex exists and update symbolToVertex mapping if needed
+      const existingVertex = this.referenceGraph.getVertex(symbolId);
+      if (existingVertex && !this.symbolToVertex.has(symbolId)) {
+        this.symbolToVertex.set(symbolId, existingVertex);
+      }
     }
-
-    // Get the vertex from the graph
-    const vertex = this.referenceGraph.getVertex(symbolId);
-    if (!vertex) {
-      this.logger.warn(
-        () => `Vertex not found in graph after adding: ${symbolId}`,
-      );
-      return;
-    }
-
-    this.symbolToVertex.set(symbolId, vertex);
-
-    // Update memory statistics
-    this.memoryStats.totalSymbols++;
-    this.memoryStats.totalVertices++;
 
     // Invalidate cache for this symbol name (cache might become stale)
     this.symbolCache.delete(symbol.name);
