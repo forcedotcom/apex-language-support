@@ -120,8 +120,8 @@ import {
 } from '../../semantics/modifiers/index';
 import { IdentifierValidator } from '../../semantics/validation/IdentifierValidator';
 import { doesMethodSignatureMatch } from '../../semantics/validation/utils/methodSignatureUtils';
-import { ErrorCodes } from '../../semantics/validation/ErrorCodes';
-import { I18nSupport } from '../../i18n/I18nSupport';
+import { localizeTyped } from '../../i18n/messageInstance';
+import { ErrorCodes } from '../../generated/ErrorCodes';
 import {
   hasIdMethod,
   isEnumSymbol,
@@ -864,7 +864,8 @@ export class ApexSymbolCollectorListener
           ? ids.map((i) => i.text).join('.')
           : (ctx.text || '').replace(/^@/, '');
       // Preserve parameters in the annotation name for compatibility with existing tests
-      const nameWithParams = (ctx.text || '').replace(/^@/, '');
+      // Trim whitespace to handle cases where ctx.text includes leading/trailing whitespace
+      const nameWithParams = (ctx.text || '').replace(/^@/, '').trim();
 
       const parameters: AnnotationParameter[] = [];
 
@@ -926,12 +927,20 @@ export class ApexSymbolCollectorListener
     try {
       const modifier = ctx.text.toLowerCase();
 
+      // If this is the first modifier for a new declaration (seenModifiers is empty),
+      // reset modifiers to clear any stale modifiers from the previous declaration.
+      // This prevents contamination (e.g., class-level 'abstract' leaking into fields).
+      // Note: seenModifiers is cleared in enterFieldDeclaration/enterMethodDeclaration/etc.
+      // to track duplicates within that declaration, so an empty seenModifiers means
+      // we're starting a new declaration.
+      if (this.seenModifiers.size === 0) {
+        this.resetModifiers();
+      }
+
       // Check for duplicate modifiers (e.g., "public public", "static static")
       if (this.seenModifiers.has(modifier)) {
-        this.addError(
-          I18nSupport.getLabel(ErrorCodes.DUPLICATE_MODIFIER, modifier),
-          ctx,
-        );
+        const code = ErrorCodes.DUPLICATE_MODIFIER;
+        this.addError(localizeTyped(code, modifier), ctx);
         return; // Don't apply duplicate modifier
       }
       this.seenModifiers.add(modifier);
@@ -946,6 +955,52 @@ export class ApexSymbolCollectorListener
         modifier
       ) {
         this.addError('Modifiers are not allowed on interface methods', ctx);
+        return; // Don't apply modifier
+      }
+
+      // Validate 'final' keyword usage before applying
+      // In Apex, 'final' is only allowed on variables, parameters, and fields
+      // It is NOT allowed on methods (methods are final by default)
+      // For classes, ClassModifierValidator handles validation (parse tree structure makes early detection complex)
+      // This prevents the catch-22 where isFinal gets set then immediately removed for methods
+      if (modifier === 'final') {
+        // Walk up the parse tree to find if we're in a method declaration
+        // Methods are easier to detect reliably than classes (due to parse tree structure)
+        let parent: ParserRuleContext | undefined = ctx.parent;
+        let depth = 0;
+        
+        while (parent && depth < 10) {
+          // If we find a valid context first, 'final' is allowed
+          if (
+            parent instanceof FieldDeclarationContext ||
+            parent instanceof LocalVariableDeclarationContext ||
+            parent instanceof FormalParameterContext
+          ) {
+            // Found valid context - 'final' is allowed
+            break;
+          }
+          
+          // If we're in a method declaration, reject 'final' early
+          if (
+            parent instanceof MethodDeclarationContext ||
+            parent instanceof ConstructorDeclarationContext ||
+            parent instanceof InterfaceMethodDeclarationContext
+          ) {
+            this.addError(
+              "The 'final' keyword cannot be used on method declarations. " +
+                "Methods are final by default in Apex. Use 'virtual' to make a method overridable.",
+              ctx,
+            );
+            return; // Don't apply the modifier - prevents isFinal from being set
+          }
+          
+          parent = parent.parent;
+          depth++;
+        }
+        
+        // For class declarations, ClassModifierValidator will catch and sanitize
+        // (Early detection is complex due to parse tree structure where class modifiers
+        // and field modifiers both appear under ClassDeclarationContext)
       }
 
       // Apply the modifier to the current modifiers
@@ -958,26 +1013,17 @@ export class ApexSymbolCollectorListener
 
   /**
    * Called when exiting a modifier
-   * Validates modifier combinations and ensures no conflicting modifiers
+   * Note: Modifier conflict validation should be done when modifiers are applied
+   * to specific symbols (fields, methods, classes) rather than at the modifier level,
+   * as modifiers can be valid on different symbol types (e.g., abstract on class vs final on field).
    */
   exitModifier(ctx: ModifierContext): void {
     try {
-      const modifiers = this.getCurrentModifiers();
-
-      // Validate modifier combinations
-      // Note: Visibility is stored as a single enum value, not individual booleans
-      // Multiple visibility modifiers would be caught during parsing/application
-      // The visibility enum ensures only one visibility modifier can be set
-
-      // Check for conflicting access modifiers
-      if (modifiers.isFinal && modifiers.isAbstract) {
-        this.addError(
-          'Conflicting modifiers: final and abstract cannot be used together',
-          ctx,
-        );
-      }
-
-      // Additional modifier validation can be added here
+      // Modifier conflict validation is handled by specific validators:
+      // - FieldModifierValidator for fields
+      // - MethodModifierValidator for methods
+      // - ClassModifierValidator for classes
+      // This prevents false positives when modifiers are valid on different symbol types
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error exiting modifier: ${errorMessage}`, ctx);
@@ -1157,6 +1203,11 @@ export class ApexSymbolCollectorListener
         );
       }
     }
+
+    // Reset modifiers after class declaration to prevent contamination
+    // of class-level modifiers (e.g., abstract) to subsequent members
+    this.resetModifiers();
+    this.resetAnnotations();
   }
 
   /**
@@ -1322,8 +1373,14 @@ export class ApexSymbolCollectorListener
       }
 
       // Get current modifiers and annotations
-      const modifiers = this.getCurrentModifiers();
+      let modifiers = this.getCurrentModifiers();
       const annotations = this.getCurrentAnnotations();
+
+      // Convert @isTest annotation to isTestMethod modifier BEFORE validation
+      // This ensures the validator can check isTestMethod to allow public visibility in private classes
+      if (annotations.some((ann) => ann.name.toLowerCase() === 'istest')) {
+        modifiers = { ...modifiers, isTestMethod: true };
+      }
 
       // Get the current type symbol for validation
       const currentType = this.getCurrentType();
@@ -1402,7 +1459,8 @@ export class ApexSymbolCollectorListener
 
         // Check if method has a body block
         // MethodDeclarationContext has block() child node if body exists
-        methodSymbol.hasBody = ctx.block() !== null && ctx.block() !== undefined;
+        methodSymbol.hasBody =
+          ctx.block() !== null && ctx.block() !== undefined;
 
         // Add annotations to the method symbol
         if (annotations.length > 0) {
@@ -1942,41 +2000,22 @@ export class ApexSymbolCollectorListener
    */
   enterFieldDeclaration(ctx: FieldDeclarationContext): void {
     try {
-      // Reset modifiers at start of field declaration to track duplicates within this declaration only
+      // Clear seen modifiers to track duplicates within this declaration only
+      // Note: We do NOT reset modifiers here because modifiers are siblings of fieldDeclaration
+      // in the parse tree (part of classBodyDeclaration), so they're applied BEFORE enterFieldDeclaration
+      // is called. Resetting here would clear modifiers that were already applied.
       this.seenModifiers.clear();
+      
       const typeRef = ctx.typeRef();
       if (!typeRef) {
         this.addError('Field declaration missing type reference', ctx);
         return;
       }
 
-      // Get current modifiers for validation
-      // Note: We don't reset modifiers here - they're reset in enterVariableDeclarator
-      // This allows enterVariableDeclarator to access them
-      const modifiers = this.getCurrentModifiers();
-
-      // Validate field declaration in interface
-      const currentType = this.getCurrentType();
-      if (currentType) {
-        InterfaceBodyValidator.validateFieldInInterface(
-          modifiers,
-          ctx,
-          currentType,
-          this,
-        );
-
-        // Additional field modifier validations
-        FieldModifierValidator.validateFieldVisibilityModifiers(
-          modifiers,
-          ctx,
-          currentType,
-          this,
-        );
-      }
-
-      // Note: Individual variable declarators are processed by enterVariableDeclarator
-      // which will be called automatically by the parser for each variable declarator
-      // in the variableDeclarators list. Modifiers and annotations are reset there.
+      // Note: Modifiers are already applied via enterModifier calls before this method is called.
+      // Individual variable declarators are processed by enterVariableDeclarator, which will
+      // capture the modifiers that were applied earlier. Modifiers are reset in exitFieldDeclaration
+      // to prevent contamination between different field declarations.
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in field declaration: ${errorMessage}`, ctx);
@@ -2076,8 +2115,38 @@ export class ApexSymbolCollectorListener
         return;
       }
 
+      // Get current modifiers (returns a copy)
+      // Validators may mutate modifiers for sanitization, which is desired behavior
+      // (Option 2: Sanitize to Semantic Correctness)
       const modifiers = this.getCurrentModifiers();
-      this.resetModifiers();
+      
+      // Validate field modifiers if this is a field (modifiers have been applied by now)
+      if (isField && fieldDeclContext) {
+        const currentType = this.getCurrentType();
+        if (currentType) {
+          // Validate field in interface (may mutate modifiers for sanitization)
+          InterfaceBodyValidator.validateFieldInInterface(
+            modifiers,
+            fieldDeclContext,
+            currentType,
+            this,
+          );
+          
+          // Validate field modifier visibility (may mutate modifiers for sanitization)
+          FieldModifierValidator.validateFieldVisibilityModifiers(
+            modifiers,
+            fieldDeclContext,
+            currentType,
+            this,
+          );
+        }
+      }
+      
+      // Note: We do NOT reset modifiers here because:
+      // 1. Multiple variable declarators in the same field declaration (e.g., "private Integer a, b;")
+      //    need to share the same modifiers
+      // 2. Modifiers are properly reset in exitFieldDeclaration and exitLocalVariableDeclaration
+      //    to prevent contamination between different field/variable declarations
 
       // Get the type ref from the parent declaration
       let typeRef: TypeRefContext | undefined;
@@ -2129,10 +2198,8 @@ export class ApexSymbolCollectorListener
           (n) => n === name,
         ).length;
         if (nameCount > 1) {
-          this.addError(
-            I18nSupport.getLabel(ErrorCodes.DUPLICATE_VARIABLE, name),
-            ctx,
-          );
+          const code = ErrorCodes.DUPLICATE_VARIABLE;
+          this.addError(localizeTyped(code, name), ctx);
           return; // Skip processing this duplicate variable
         }
       }
@@ -2146,10 +2213,8 @@ export class ApexSymbolCollectorListener
       );
       if (existingSymbol && existingSymbol.kind === SymbolKind.Variable) {
         // Only report if it's a true duplicate variable (not a parameter shadowing case)
-        this.addError(
-          I18nSupport.getLabel(ErrorCodes.DUPLICATE_VARIABLE, name),
-          ctx,
-        );
+        const code = ErrorCodes.DUPLICATE_VARIABLE;
+        this.addError(localizeTyped(code, name), ctx);
         return; // Skip processing this duplicate variable
       }
 
@@ -2231,7 +2296,7 @@ export class ApexSymbolCollectorListener
           if (name) {
             if (names.has(name)) {
               this.addError(
-                I18nSupport.getLabel(ErrorCodes.DUPLICATE_VARIABLE, name),
+                localizeTyped(ErrorCodes.DUPLICATE_VARIABLE, name),
                 declarator,
               );
             } else {
@@ -4334,9 +4399,22 @@ export class ApexSymbolCollectorListener
 
   /**
    * Get the current modifiers
+   * Returns a deep copy to ensure modifiers aren't affected by mutations
    */
   private getCurrentModifiers(): SymbolModifiers {
-    return { ...this.currentModifiers };
+    // Create a deep copy to ensure mutations don't affect the returned object
+    return {
+      visibility: this.currentModifiers.visibility,
+      isStatic: this.currentModifiers.isStatic,
+      isFinal: this.currentModifiers.isFinal,
+      isAbstract: this.currentModifiers.isAbstract,
+      isVirtual: this.currentModifiers.isVirtual,
+      isOverride: this.currentModifiers.isOverride,
+      isTransient: this.currentModifiers.isTransient,
+      isTestMethod: this.currentModifiers.isTestMethod,
+      isWebService: this.currentModifiers.isWebService,
+      isBuiltIn: this.currentModifiers.isBuiltIn,
+    };
   }
 
   /**
@@ -4403,7 +4481,8 @@ export class ApexSymbolCollectorListener
           statementVariableNames.add(name);
 
           // Check for duplicate variable declaration in the current scope (from previous statements)
-          // Note: Only check for variables, not parameters. Parameter shadowing is handled by VariableShadowingValidator.
+          // Note: Only check for variables, not parameters.
+          // Parameter shadowing is handled by VariableShadowingValidator.
           // This prevents duplicate error reporting (listener + validator) for the same shadowing issue.
           const existingSymbol = this.symbolTable.findSymbolInCurrentScope(
             name,
@@ -4412,7 +4491,7 @@ export class ApexSymbolCollectorListener
           if (existingSymbol && existingSymbol.kind === SymbolKind.Variable) {
             // Only report if it's a true duplicate variable (not a parameter shadowing case)
             this.addError(
-              I18nSupport.getLabel(ErrorCodes.DUPLICATE_VARIABLE, name),
+              localizeTyped(ErrorCodes.DUPLICATE_VARIABLE, name),
               declarator,
             );
             continue; // Skip processing this duplicate variable

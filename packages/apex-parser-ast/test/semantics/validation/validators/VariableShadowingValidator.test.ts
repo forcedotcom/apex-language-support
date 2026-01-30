@@ -10,7 +10,7 @@ import { VariableShadowingValidator } from '../../../../src/semantics/validation
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
-import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
+import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 import { ApexSymbolCollectorListener } from '../../../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
   compileFixture,
@@ -114,12 +114,12 @@ public class TestClass {
     // Should have a warning for cross-scope shadowing
     expect(validationResult.warnings.length).toBeGreaterThan(0);
     const warning = validationResult.warnings[0];
-    expect(warning.code).toBe(ErrorCodes.VARIABLE_SHADOWING);
+    expect(warning.code).toBe(ErrorCodes.DUPLICATE_VARIABLE);
     const warningMessage = getMessage(warning);
     expect(warningMessage).toContain('Duplicate variable');
   });
 
-  it('should not report error for variable shadowing parameter (same scope - handled by DuplicateSymbolValidator)', async () => {
+  it('should not report error for variable shadowing parameter (same scope)', async () => {
     // This test verifies that VariableShadowingValidator does NOT report
     // same-scope duplicates (those are handled by DuplicateSymbolValidator)
     const symbolTable = await compileFixtureForValidator(

@@ -57,8 +57,8 @@ export class ClassModifierValidator {
     // Classes are final by default and cannot use the 'final' keyword
     if (modifiers.isFinal) {
       errorReporter.addError(
-        `The 'final' keyword cannot be used on class declarations. ` +
-          `Classes are final by default in Apex. Use 'virtual' to make a class extensible.`,
+        "The 'final' keyword cannot be used on class declarations. " +
+          "Classes are final by default in Apex. Use 'virtual' to make a class extensible.",
         ctx,
       );
       // Remove the invalid modifier

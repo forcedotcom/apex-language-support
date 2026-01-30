@@ -17,8 +17,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
-import { ErrorCodes } from '../ErrorCodes';
-import { I18nSupport } from '../../../i18n/I18nSupport';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * Validates that no duplicate fields or variables exist within the same scope.
@@ -118,13 +118,11 @@ export const DuplicateSymbolValidator: Validator = {
           if (isStatic) {
             // Check for duplicate static field
             if (staticFields.has(fieldName)) {
+              const code = ErrorCodes.DUPLICATE_FIELD;
               errors.push({
-                message: I18nSupport.getLabel(
-                  ErrorCodes.DUPLICATE_FIELD,
-                  field.name,
-                ),
+                message: localizeTyped(code, field.name),
                 location: field.location,
-                code: ErrorCodes.DUPLICATE_FIELD,
+                code,
               });
             } else {
               staticFields.set(fieldName, field);
@@ -132,13 +130,11 @@ export const DuplicateSymbolValidator: Validator = {
           } else {
             // Check for duplicate non-static field
             if (nonStaticFields.has(fieldName)) {
+              const code = ErrorCodes.DUPLICATE_FIELD;
               errors.push({
-                message: I18nSupport.getLabel(
-                  ErrorCodes.DUPLICATE_FIELD,
-                  field.name,
-                ),
+                message: localizeTyped(code, field.name),
                 location: field.location,
-                code: ErrorCodes.DUPLICATE_FIELD,
+                code,
               });
             } else {
               nonStaticFields.set(fieldName, field);
@@ -167,13 +163,11 @@ export const DuplicateSymbolValidator: Validator = {
 
             if (staticLine < nonStaticLine) {
               // Static field declared before non-static - this is an error
+              const code = ErrorCodes.DUPLICATE_FIELD;
               errors.push({
-                message: I18nSupport.getLabel(
-                  ErrorCodes.DUPLICATE_FIELD,
-                  staticField.name,
-                ),
+                message: localizeTyped(code, staticField.name),
                 location: staticField.location,
-                code: ErrorCodes.DUPLICATE_FIELD,
+                code,
               });
             }
             // If non-static comes first, that's allowed (no error)
@@ -220,13 +214,11 @@ export const DuplicateSymbolValidator: Validator = {
               `(id=${duplicateVariable.id}, kind=${duplicateVariable.kind}) in same scope.`,
           );
 
+          const code = ErrorCodes.DUPLICATE_VARIABLE;
           errors.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.DUPLICATE_VARIABLE,
-              variable.name,
-            ),
+            message: localizeTyped(code, variable.name),
             location: variable.location,
-            code: ErrorCodes.DUPLICATE_VARIABLE,
+            code,
           });
         }
       }

@@ -1,4 +1,4 @@
-public class Grandparent {
+public virtual class Grandparent {
     public void grandparentMethod() {
     }
 }

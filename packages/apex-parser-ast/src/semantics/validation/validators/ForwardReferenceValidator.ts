@@ -18,8 +18,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
-import { ErrorCodes } from '../ErrorCodes';
-import { I18nSupport } from '../../../i18n/I18nSupport';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * Validates that variables are declared before they are referenced.
@@ -109,13 +109,11 @@ export const ForwardReferenceValidator: Validator = {
         // Check if reference comes before declaration
         // Note: If they're on the same line, we need to check columns too
         if (referenceLine < declarationLine) {
+          const code = ErrorCodes.ILLEGAL_FORWARD_REFERENCE;
           errors.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.FORWARD_REFERENCE,
-              reference.name,
-            ),
+            message: localizeTyped(code, reference.name),
             location: reference.location,
-            code: ErrorCodes.FORWARD_REFERENCE,
+            code,
           });
         } else if (referenceLine === declarationLine) {
           // Same line - check columns to ensure reference doesn't come before declaration
@@ -127,13 +125,11 @@ export const ForwardReferenceValidator: Validator = {
           // Only flag as error if reference column is before declaration column
           // (i.e., the reference appears to the left of the declaration on the same line)
           if (referenceColumn < declarationColumn) {
+            const code = ErrorCodes.ILLEGAL_FORWARD_REFERENCE;
             errors.push({
-              message: I18nSupport.getLabel(
-                ErrorCodes.FORWARD_REFERENCE,
-                reference.name,
-              ),
+              message: localizeTyped(code, reference.name),
               location: reference.location,
-              code: ErrorCodes.FORWARD_REFERENCE,
+              code,
             });
           }
         }

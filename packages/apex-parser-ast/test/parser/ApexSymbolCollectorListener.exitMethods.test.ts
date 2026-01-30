@@ -284,15 +284,18 @@ public class TestClass {
       const result = compilerService.compile(apexCode, 'test.cls', listener);
 
       // Check both compilation errors and semantic errors from listener
+      // Note: The 'final' keyword on methods is caught early in enterModifier,
+      // so the error message is "The 'final' keyword cannot be used on method declarations"
+      // rather than "final and abstract cannot be used together"
       const semanticErrors = listener.getErrors();
-      const hasConflictError =
+      const hasFinalError =
         result.errors.some((e) =>
-          e.message.includes('final and abstract cannot be used together'),
+          e.message.includes("The 'final' keyword cannot be used on method declarations"),
         ) ||
         semanticErrors.some((e) =>
-          e.message.includes('final and abstract cannot be used together'),
+          e.message.includes("The 'final' keyword cannot be used on method declarations"),
         );
-      expect(hasConflictError).toBe(true);
+      expect(hasFinalError).toBe(true);
     });
   });
 

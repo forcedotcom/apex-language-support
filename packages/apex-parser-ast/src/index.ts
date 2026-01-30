@@ -86,6 +86,10 @@ export * from './symbols/ApexSymbolGraph';
 export * from './symbols/ApexSymbolIndexingService';
 export * from './symbols/ApexSymbolProcessingManager';
 
+// Export i18n support
+export * from './i18n/messageInstance';
+export * from './generated/ErrorCodes';
+
 // Export semantic validators
 export * from './semantics/modifiers/index';
 export * from './semantics/annotations/index';

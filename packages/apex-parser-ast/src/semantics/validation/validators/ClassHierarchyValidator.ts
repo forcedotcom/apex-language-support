@@ -24,8 +24,8 @@ import {
   ArtifactLoadingHelper,
   ISymbolManager,
 } from '../ArtifactLoadingHelper';
-import { ErrorCodes } from '../ErrorCodes';
-import { I18nSupport } from '../../../i18n/I18nSupport';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * Validates class hierarchy correctness.
@@ -95,20 +95,18 @@ export const ClassHierarchyValidator: Validator = {
             missingSuperclasses.push(cls.superClass);
           }
         } else {
-          // Check 3: Cannot extend non-virtual (final-by-default) class
-          // In Apex, classes are final by default. Only virtual or abstract classes can be extended.
-          // Note: The 'final' keyword cannot be used on classes in Apex.
+          // Check 3: Cannot extend a non-virtual, non-abstract class
+          // In Apex, classes are final by default and cannot be extended unless they are
+          // marked as 'virtual' or 'abstract'. This check validates that rule.
           if (
             !superClass.modifiers.isVirtual &&
             !superClass.modifiers.isAbstract
           ) {
+            const code = ErrorCodes.INVALID_FINAL_SUPER_TYPE;
             errors.push({
-              message: I18nSupport.getLabel(
-                ErrorCodes.INVALID_FINAL_SUPER_TYPE,
-                superClass.name,
-              ),
+              message: localizeTyped(code, superClass.name),
               location: cls.location,
-              code: ErrorCodes.INVALID_FINAL_SUPER_TYPE,
+              code,
             });
           }
 
@@ -223,13 +221,11 @@ export const ClassHierarchyValidator: Validator = {
           new Set(),
         );
         if (circularPath) {
+          const code = ErrorCodes.CIRCULAR_DEFINITION;
           errors.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.CIRCULAR_INHERITANCE,
-              cls.name,
-            ),
+            message: localizeTyped(code, cls.name),
             location: cls.location,
-            code: ErrorCodes.CIRCULAR_INHERITANCE,
+            code,
           });
         }
       }
@@ -257,20 +253,18 @@ export const ClassHierarchyValidator: Validator = {
           continue;
         }
 
-        // Check final class extension (re-check with loaded classes)
-        // In Apex, classes are final by default. Only virtual or abstract classes can be extended.
-        // Note: The 'final' keyword cannot be used on classes in Apex.
+        // Check for final class extension (re-check with loaded classes)
+        // In Apex, classes are final by default and cannot be extended unless they are
+        // marked as 'virtual' or 'abstract'. This check validates that rule.
         if (
           !superClass.modifiers.isVirtual &&
           !superClass.modifiers.isAbstract
         ) {
+          const code = ErrorCodes.INVALID_FINAL_SUPER_TYPE;
           errors.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.INVALID_FINAL_SUPER_TYPE,
-              superClass.name,
-            ),
+            message: localizeTyped(code, superClass.name),
             location: cls.location,
-            code: ErrorCodes.INVALID_FINAL_SUPER_TYPE,
+            code,
           });
         }
 

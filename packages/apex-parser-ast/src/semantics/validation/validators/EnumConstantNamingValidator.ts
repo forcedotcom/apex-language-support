@@ -18,8 +18,8 @@ import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { IdentifierValidator } from '../IdentifierValidator';
-import { ErrorCodes } from '../ErrorCodes';
-import { I18nSupport } from '../../../i18n/I18nSupport';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * Validates that enum constants follow proper naming conventions.
@@ -83,13 +83,11 @@ export const EnumConstantNamingValidator: Validator = {
 
         if (!validationResult.isValid) {
           // Use jorje message format if it matches identifier validation
+          const code = ErrorCodes.INVALID_CHARACTER_IDENTIFIER;
           errors.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.INVALID_CHARACTER_IDENTIFIER,
-              constant.name,
-            ),
+            message: localizeTyped(code, constant.name),
             location: constant.location,
-            code: ErrorCodes.INVALID_ENUM_CONSTANT_NAME,
+            code,
           });
         }
 

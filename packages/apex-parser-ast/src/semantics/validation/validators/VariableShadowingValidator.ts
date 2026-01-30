@@ -17,8 +17,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
-import { ErrorCodes } from '../ErrorCodes';
-import { I18nSupport } from '../../../i18n/I18nSupport';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * Validates that variables do not shadow variables/fields in outer scopes.
@@ -123,13 +123,11 @@ export const VariableShadowingValidator: Validator = {
           );
 
           // Shadowing across scopes is a warning (not an error)
+          const code = ErrorCodes.DUPLICATE_VARIABLE;
           warnings.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.VARIABLE_SHADOWING,
-              variable.name,
-            ),
+            message: localizeTyped(code, variable.name),
             location: variable.location,
-            code: ErrorCodes.VARIABLE_SHADOWING,
+            code,
           });
         }
       }

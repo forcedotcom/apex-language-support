@@ -122,6 +122,17 @@ function unescapeKey(key) {
 }
 
 /**
+ * Transform MessageFormat placeholders ({0}, {1}, etc.) to printf format (%s)
+ * Since Jorje's {n} placeholders don't carry type information, we convert all to %s
+ */
+function transformPlaceholders(message) {
+  // Convert {0} → %s, {1} → %s, etc.
+  // All placeholders become %s since Jorje's {n} format doesn't carry type info
+  // and everything gets converted to string via toString() anyway
+  return message.replace(/\{(\d+)\}/g, '%s');
+}
+
+/**
  * Unescape value (handles \n, \t, \\, \uXXXX, etc.)
  */
 function unescapeValue(value) {
@@ -153,26 +164,101 @@ function unescapeValue(value) {
     }
   });
 
-  return value;
+  // Transform placeholders after unescaping
+  return transformPlaceholders(value);
+}
+
+/**
+ * Convert dot-separated key to UPPER_SNAKE_CASE constant name
+ * Examples:
+ *   'abstract.methods.cannot.have.body' → 'ABSTRACT_METHODS_CANNOT_HAVE_BODY'
+ *   'invalid.number.parameters' → 'INVALID_NUMBER_PARAMETERS'
+ */
+function toConstantName(key) {
+  return key.toUpperCase().replace(/\./g, '_');
+}
+
+/**
+ * Generate ErrorCodes.ts module with all error code constants
+ */
+function generateErrorCodesModule(messages) {
+  const entries = Array.from(messages.entries())
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  // Generate constant declarations
+  const constantDeclarations = entries.map(([key]) => {
+    const constantName = toConstantName(key);
+    const escapedKey = key.replace(/'/g, "\\'");
+    return `export const ${constantName} = '${escapedKey}' as const;`;
+  });
+
+  // Generate namespace object entries
+  const namespaceEntries = entries.map(([key]) => {
+    const constantName = toConstantName(key);
+    return `  ${constantName},`;
+  });
+
+  return `/*
+ * Copyright (c) 2026, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+// This file is auto-generated during build from messages_en_US.properties
+// DO NOT EDIT - This file is generated automatically
+
+/**
+ * Error code constants for use in validators and error reporting.
+ * 
+ * These constants enable linting to detect unused error codes, which helps
+ * identify unimplemented validations. Import individual constants or use
+ * the ErrorCodes namespace object.
+ * 
+ * @example
+ * import { ErrorCodes } from './generated/ErrorCodes';
+ * const code = ErrorCodes.ABSTRACT_METHODS_CANNOT_HAVE_BODY;
+ */
+
+${constantDeclarations.join('\n')}
+
+/**
+ * Namespace object containing all error code constants.
+ * Useful for importing all constants at once or iterating over them.
+ */
+export const ErrorCodes = {
+${namespaceEntries.join('\n')}
+} as const;
+`;
 }
 
 /**
  * Generate TypeScript module from properties Map
+ * Generates Record format for @salesforce/vscode-i18n and ErrorCodeKey union type
  */
 function generateTypeScriptModule(messages) {
   const entries = Array.from(messages.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => {
-      // Escape single quotes and backslashes in value
-      const escapedValue = value
-        .replace(/\\/g, '\\\\')
-        .replace(/'/g, "\\'")
-        .replace(/\n/g, '\\n')
-        .replace(/\r/g, '\\r')
-        .replace(/\t/g, '\\t');
-      // Return as array literal string: ['key', 'value']
-      return `  ['${key}', '${escapedValue}']`;
-    });
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  // Generate Record entries (for @salesforce/vscode-i18n)
+  const recordEntries = entries.map(([key, value]) => {
+    // Escape for TypeScript string literal
+    const escapedKey = key.replace(/'/g, "\\'");
+    const escapedValue = value
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t');
+    return `  '${escapedKey}': '${escapedValue}'`;
+  });
+
+  // Generate ErrorCodeKey union type
+  const errorCodeKeys = entries.map(([key]) => {
+    const escapedKey = key.replace(/'/g, "\\'");
+    return `  | '${escapedKey}'`;
+  });
 
   return `/*
  * Copyright (c) 2026, salesforce.com, inc.
@@ -190,11 +276,26 @@ function generateTypeScriptModule(messages) {
 /**
  * English error messages from jorje's messages_en_US.properties
  * Generated at build time for browser/web worker compatibility
- * Messages use MessageFormat-style placeholders: {0}, {1}, etc.
+ * 
+ * Messages have been transformed from MessageFormat style ({0}, {1}) to printf style (%s)
+ * to be compatible with @salesforce/vscode-i18n. All placeholders are %s since Jorje's
+ * {n} format doesn't carry type information.
  */
-export const messages: Map<string, string> = new Map([
-${entries.join(',\n')}
-]);
+
+/**
+ * Union type of all available error code keys
+ * Provides type safety for error code references
+ */
+export type ErrorCodeKey =
+${errorCodeKeys.join('\n')};
+
+/**
+ * Messages as Record for use with @salesforce/vscode-i18n
+ * Placeholders have been transformed from {n} to %s format
+ */
+export const messages: Record<string, string> = {
+${recordEntries.join(',\n')}
+} as const;
 `;
 }
 
@@ -247,16 +348,29 @@ async function generateMessages() {
 
     console.log(`Found ${messages.size} message entries`);
 
-    console.log('Generating TypeScript module...');
+    console.log('Generating TypeScript modules...');
     const tsContent = generateTypeScriptModule(messages);
+    const errorCodesContent = generateErrorCodesModule(messages);
 
-    console.log(`Writing output file: ${outputPath}`);
+    const errorCodesOutputPath = path.join(
+      packageRoot,
+      'src',
+      'generated',
+      'ErrorCodes.ts',
+    );
+
+    console.log(`Writing messages file: ${outputPath}`);
     await writeFile(outputPath, tsContent, 'utf-8');
+
+    console.log(`Writing error codes file: ${errorCodesOutputPath}`);
+    await writeFile(errorCodesOutputPath, errorCodesContent, 'utf-8');
 
     console.log(
       `✅ Generated messages TypeScript module with ${messages.size} entries`,
     );
-    console.log(`📁 Output file: ${outputPath}`);
+    console.log(`✅ Generated error codes module with ${messages.size} constants`);
+    console.log(`📁 Messages file: ${outputPath}`);
+    console.log(`📁 Error codes file: ${errorCodesOutputPath}`);
 
     return messages;
   } catch (error) {

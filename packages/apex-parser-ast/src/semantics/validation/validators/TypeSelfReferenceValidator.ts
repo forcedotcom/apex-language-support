@@ -16,8 +16,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
-import { ErrorCodes } from '../ErrorCodes';
-import { I18nSupport } from '../../../i18n/I18nSupport';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * Validates that types (classes and interfaces) do not reference themselves.
@@ -81,13 +81,11 @@ export const TypeSelfReferenceValidator: Validator = {
         if (typeSymbol.kind === 'class' && typeSymbol.superClass) {
           const superClassName = typeSymbol.superClass.toLowerCase();
           if (superClassName === typeName) {
+            const code = ErrorCodes.CIRCULAR_DEFINITION;
             errors.push({
-              message: I18nSupport.getLabel(
-                ErrorCodes.CLASS_EXTENDS_SELF,
-                typeSymbol.name,
-              ),
+              message: localizeTyped(code, typeSymbol.name),
               location: typeSymbol.location,
-              code: ErrorCodes.CLASS_EXTENDS_SELF,
+              code,
             });
           }
         }
@@ -101,13 +99,11 @@ export const TypeSelfReferenceValidator: Validator = {
           for (const extendedInterface of typeSymbol.interfaces) {
             const extendedName = extendedInterface.toLowerCase();
             if (extendedName === typeName) {
+              const code = ErrorCodes.CIRCULAR_DEFINITION;
               errors.push({
-                message: I18nSupport.getLabel(
-                  ErrorCodes.INTERFACE_EXTENDS_SELF,
-                  typeSymbol.name,
-                ),
+                message: localizeTyped(code, typeSymbol.name),
                 location: typeSymbol.location,
-                code: ErrorCodes.INTERFACE_EXTENDS_SELF,
+                code,
               });
               break; // Only report once per interface
             }
@@ -123,13 +119,11 @@ export const TypeSelfReferenceValidator: Validator = {
           for (const implementedInterface of typeSymbol.interfaces) {
             const implementedName = implementedInterface.toLowerCase();
             if (implementedName === typeName) {
+              const code = ErrorCodes.CIRCULAR_DEFINITION;
               errors.push({
-                message: I18nSupport.getLabel(
-                  ErrorCodes.CLASS_IMPLEMENTS_SELF,
-                  typeSymbol.name,
-                ),
+                message: localizeTyped(code, typeSymbol.name),
                 location: typeSymbol.location,
-                code: ErrorCodes.CLASS_IMPLEMENTS_SELF,
+                code,
               });
               break; // Only report once per class
             }

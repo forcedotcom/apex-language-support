@@ -10,7 +10,7 @@ import { TypeSelfReferenceValidator } from '../../../../src/semantics/validation
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
-import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
+import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 import {
   compileFixture,
   getMessage,
@@ -94,7 +94,7 @@ describe('TypeSelfReferenceValidator', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
     const error = result.errors[0];
-    expect(error.code).toBe(ErrorCodes.CLASS_EXTENDS_SELF);
+    expect(error.code).toBe(ErrorCodes.CIRCULAR_DEFINITION);
     const errorMessage = getMessage(error);
     expect(errorMessage).toContain('Circular definition');
   });
@@ -118,7 +118,7 @@ describe('TypeSelfReferenceValidator', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
     const error = result.errors[0];
-    expect(error.code).toBe(ErrorCodes.CLASS_IMPLEMENTS_SELF);
+    expect(error.code).toBe(ErrorCodes.CIRCULAR_DEFINITION);
     const errorMessage = getMessage(error);
     expect(errorMessage).toContain('Circular definition');
   });
@@ -142,7 +142,7 @@ describe('TypeSelfReferenceValidator', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
     const error = result.errors[0];
-    expect(error.code).toBe(ErrorCodes.INTERFACE_EXTENDS_SELF);
+    expect(error.code).toBe(ErrorCodes.CIRCULAR_DEFINITION);
     const errorMessage = getMessage(error);
     expect(errorMessage).toContain('Circular definition');
   });

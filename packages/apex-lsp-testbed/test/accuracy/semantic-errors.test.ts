@@ -148,7 +148,7 @@ describe('Semantic Error Detection', () => {
         // This is important for cross-file validation (e.g., ClassHierarchyIssue needs FinalBaseClass)
         // Wait longer to ensure document is fully processed and symbols are indexed
         await new Promise((resolve) => setTimeout(resolve, 2000));
-        
+
         // Also wait a bit after opening before requesting diagnostics
         // This ensures the document is fully processed
       } catch (error) {

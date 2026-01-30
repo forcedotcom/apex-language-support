@@ -290,11 +290,12 @@ const parentScope = variable.parentId
     - `ValidationTier.ts`: Defines IMMEDIATE (TIER 1) and THOROUGH (TIER 2) tiers
     - `ValidationResult.ts`: Structured validation results with location-aware errors
     - `ValidatorInitialization.ts`: Validator registration and initialization
-    - `ErrorCodes.ts`: Centralized error code constants aligned with Jorje (old LS)
     - `ArtifactLoadingHelper.ts`: Cross-file type resolution and artifact loading
     - `validators/`: 16 validator implementations (12 TIER 1, 4 TIER 2)
   - `i18n/`: Internationalization support for error messages:
-    - `I18nSupport.ts`: Message formatting and parameter substitution
+    - `messageInstance.ts`: Message formatting using @salesforce/vscode-i18n
+  - `generated/`: Auto-generated TypeScript modules (ignored by git, do not edit):
+    - `ErrorCodes.ts`: Error code constants for linting detection of unused codes
   - `resources/`: Source data files (tracked in git):
     - `messages/messages_en_US.properties`: Source message file copied from Jorje
   - `generated/`: Auto-generated TypeScript modules (ignored by git, do not edit):
@@ -594,8 +595,8 @@ The validation system consists of:
 - **`ValidatorRegistry`**: Central registry for managing validators with Effect-based execution
 - **`Validator` Interface**: Standard interface all validators implement
 - **`ValidationResult`**: Structured result with location-aware errors and warnings
-- **`ErrorCodes`**: Centralized error code constants maintaining parity with Jorje (old LS)
-- **`I18nSupport`**: Message formatting using Jorje's English messages for consistency
+- **`ErrorCodes`**: Generated error code constants enabling linting detection of unused codes
+- **`localizeTyped`**: Type-safe message formatting using @salesforce/vscode-i18n
 - **`ArtifactLoadingHelper`**: Service for loading missing type definitions across files
 - **16 Validators**: 12 TIER 1 validators + 4 TIER 2 validators
 
@@ -672,17 +673,20 @@ The new TypeScript-based Language Server maintains **error code parity** with th
 
 #### Error Code Management
 
-- **`ErrorCodes.ts`**: Central file defining all semantic error code constants
-  - Constants use semantic names (e.g., `PARAMETER_LIMIT_EXCEEDED`)
+- **`ErrorCodes.ts`**: Auto-generated file with all error code constants
+  - Constants use UPPER_SNAKE_CASE names (e.g., `INVALID_NUMBER_PARAMETERS`)
   - Values are Jorje's original error code strings (e.g., `'invalid.number.parameters'`)
   - Used for both diagnostic codes (LSP `diagnostic.code`) and message lookup keys
+  - **Linting Detection**: Unused constants appear in linting output, indicating unimplemented validations
 
 - **Message Parity**: Error messages come from Jorje's `messages_en_US.properties`
   - **Source Location**: `apex-jorje/apex-jorje-services/src/main/resources/messages_en_US.properties`
   - **Local Copy**: Messages are manually copied to `src/resources/messages/messages_en_US.properties`
   - **Generation**: Converted to TypeScript at build time via `scripts/generate-messages.mjs`
-  - **Output**: Generated TypeScript module written to `src/generated/messages_en_US.ts` (ignored by git)
-  - **Usage**: `I18nSupport.getLabel()` performs parameter substitution (`{0}`, `{1}`, etc.)
+  - **Output**: Generated TypeScript modules written to:
+    - `src/generated/messages_en_US.ts`: Messages with `ErrorCodeKey` union type
+    - `src/generated/ErrorCodes.ts`: Individual constants and namespace object
+  - **Usage**: `localizeTyped()` from `messageInstance.ts` performs parameter substitution (`%s` format)
 
   **Syncing with Jorje**: To update messages from Jorje:
 
@@ -700,31 +704,35 @@ The new TypeScript-based Language Server maintains **error code parity** with th
 When adding new validators or error codes:
 
 1. **Identify Jorje Error Code**: Find the corresponding error code in Jorje's `messages_en_US.properties`
-2. **Add to ErrorCodes.ts**: Create a constant with semantic name and Jorje's error code value:
-   ```typescript
-   export const NEW_ERROR_CODE = 'jorje.error.code.key';
-   ```
-3. **Add Message**: Copy the message from Jorje's `messages_en_US.properties` to `src/resources/messages/messages_en_US.properties`
+2. **Add Message**: Copy the message from Jorje's `messages_en_US.properties` to `src/resources/messages/messages_en_US.properties`
    - **Jorje Source**: `apex-jorje/apex-jorje-services/src/main/resources/messages_en_US.properties`
    - **Local Destination**: `packages/apex-parser-ast/src/resources/messages/messages_en_US.properties`
-4. **Regenerate Messages**: Run the message generation script to update `messages_en_US.ts`:
+3. **Regenerate Files**: Run the message generation script to update both `messages_en_US.ts` and `ErrorCodes.ts`:
    ```bash
    node scripts/generate-messages.mjs
    ```
-5. **Use in Validator**: Use `ErrorCodes.NEW_ERROR_CODE` and `I18nSupport.getLabel()`:
+   This automatically generates:
+   - `src/generated/messages_en_US.ts` with the new message and `ErrorCodeKey` union
+   - `src/generated/ErrorCodes.ts` with the new constant (e.g., `NEW_ERROR_CODE`)
+4. **Use in Validator**: Use `ErrorCodes.NEW_ERROR_CODE` and `localizeTyped()`:
    ```typescript
+   import { localizeTyped } from '../../i18n/messageInstance';
+   import { ErrorCodes } from '../../generated/ErrorCodes';
+
    errors.push({
-     message: I18nSupport.getLabel(ErrorCodes.NEW_ERROR_CODE, param1, param2),
+     message: localizeTyped(ErrorCodes.NEW_ERROR_CODE, param1, param2),
      code: ErrorCodes.NEW_ERROR_CODE,
      location: symbol.location,
    });
    ```
+5. **Linting Detection**: Unused error code constants will appear in linting output, helping identify unimplemented validations
 
 #### Error Code Format
 
-- **Constants**: UPPER_SNAKE_CASE (e.g., `PARAMETER_LIMIT_EXCEEDED`)
+- **Constants**: UPPER_SNAKE_CASE (e.g., `INVALID_NUMBER_PARAMETERS`)
 - **Values**: Dot-separated lowercase matching Jorje format (e.g., `'invalid.number.parameters'`)
-- **Messages**: English messages from Jorje with parameter placeholders (`{0}`, `{1}`, etc.)
+- **Messages**: English messages from Jorje with printf-style placeholders (`%s`) transformed from Jorje's `{n}` format
+- **Linting**: Unused constants are detected by `@typescript-eslint/no-unused-vars`, indicating unimplemented validations
 
 ### Usage
 
@@ -737,7 +745,7 @@ import {
   ValidationOptions,
   ARTIFACT_LOADING_LIMITS,
   ErrorCodes,
-  I18nSupport,
+  localizeTyped,
 } from '@salesforce/apex-lsp-parser-ast';
 
 // Initialize validators (done automatically in DiagnosticProcessingService)

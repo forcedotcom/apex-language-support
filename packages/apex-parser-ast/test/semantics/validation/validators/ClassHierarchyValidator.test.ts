@@ -10,7 +10,7 @@ import { ClassHierarchyValidator } from '../../../../src/semantics/validation/va
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
-import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
+import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 import {
   compileFixture,
   getMessage,
@@ -88,7 +88,7 @@ describe('ClassHierarchyValidator', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
     const circularError = result.errors.find(
-      (e) => e.code === ErrorCodes.CIRCULAR_INHERITANCE,
+      (e) => e.code === ErrorCodes.CIRCULAR_DEFINITION,
     );
     expect(circularError).toBeDefined();
     expect(getMessage(circularError!)).toContain('Circular definition');
@@ -111,7 +111,7 @@ describe('ClassHierarchyValidator', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
     const circularError = result.errors.find(
-      (e) => e.code === ErrorCodes.CIRCULAR_INHERITANCE,
+      (e) => e.code === ErrorCodes.CIRCULAR_DEFINITION,
     );
     expect(circularError).toBeDefined();
     expect(getMessage(circularError!)).toContain('Circular definition');

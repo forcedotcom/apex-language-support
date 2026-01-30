@@ -52,8 +52,8 @@ export class MethodModifierValidator {
     // Methods are final by default and cannot use the 'final' keyword
     if (modifiers.isFinal) {
       errorReporter.addError(
-        `The 'final' keyword cannot be used on method declarations. ` +
-          `Methods are final by default in Apex. Use 'virtual' to make a method overridable.`,
+        "The 'final' keyword cannot be used on method declarations. " +
+          "Methods are final by default in Apex. Use 'virtual' to make a method overridable.",
         ctx,
       );
       // Remove the invalid modifier to prevent further conflicts
@@ -120,6 +120,12 @@ export class MethodModifierValidator {
     currentTypeSymbol: TypeSymbol,
     errorReporter: ErrorReporter,
   ): void {
+    // Exception: @isTest test methods can have public visibility even in private classes
+    // This allows test methods to be accessible for test execution
+    if (modifiers.isTestMethod) {
+      return; // Skip visibility validation for test methods
+    }
+
     // Methods cannot have wider visibility than their containing class
     if (
       // Private class can only have private methods

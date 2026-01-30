@@ -77,7 +77,7 @@ public class TestClass {
 
     it('should handle complex modifier combinations without contamination', () => {
       const apexCode = `
-public class ModifierTestClass {
+public abstract class ModifierTestClass {
   public static final String CONSTANT_VALUE = 'test';
   
   public abstract void abstractMethod();
@@ -90,8 +90,8 @@ public class ModifierTestClass {
     // normal method
   }
   
-  private static final void utilityMethod() {
-    // utility method
+  private static void utilityMethod() {
+    // utility method (removed final - not allowed on methods)
   }
 }`;
 
@@ -129,7 +129,7 @@ public class ModifierTestClass {
       expect(normalMethod?.modifiers.isVirtual).toBe(false);
 
       expect(utilityMethod?.modifiers.isStatic).toBe(true);
-      expect(utilityMethod?.modifiers.isFinal).toBe(true);
+      expect(utilityMethod?.modifiers.isFinal).toBe(false); // final not allowed on methods
       expect(utilityMethod?.modifiers.visibility).toBe('private');
     });
   });

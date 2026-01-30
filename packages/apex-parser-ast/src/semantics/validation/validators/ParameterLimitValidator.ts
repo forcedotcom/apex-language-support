@@ -20,8 +20,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
-import { ErrorCodes } from '../ErrorCodes';
-import { I18nSupport } from '../../../i18n/I18nSupport';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * Maximum number of parameters allowed for methods and constructors
@@ -85,13 +85,11 @@ export const ParameterLimitValidator: Validator = {
         }
 
         if (parameterCount > MAX_PARAMETERS) {
+          const code = ErrorCodes.INVALID_NUMBER_PARAMETERS;
           errors.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.PARAMETER_LIMIT_EXCEEDED,
-              MAX_PARAMETERS,
-            ),
+            message: localizeTyped(code, String(MAX_PARAMETERS)),
             location: symbol.location,
-            code: ErrorCodes.PARAMETER_LIMIT_EXCEEDED,
+            code,
           });
         }
       }

@@ -16,8 +16,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
-import { ErrorCodes } from '../ErrorCodes';
-import { I18nSupport } from '../../../i18n/I18nSupport';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * File size limits for different compilation unit types
@@ -133,10 +133,11 @@ export const SourceSizeValidator: Validator = {
       // Validate file size using CompilationUnitValidator logic
       if (sourceContent.length > sizeLimit) {
         const preview = sourceContent.substring(0, 100);
+        const code = ErrorCodes.SCRIPT_TOO_LARGE;
         errors.push({
-          message: I18nSupport.getLabel(ErrorCodes.SCRIPT_TOO_LARGE, preview),
+          message: localizeTyped(code, preview),
           location: typeSymbols[0]?.location, // Use first type symbol location if available
-          code: ErrorCodes.SCRIPT_TOO_LARGE,
+          code,
         });
       }
 

@@ -1260,8 +1260,10 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       expect(semanticErrors.length).toBeGreaterThan(0);
+      // The 'final' keyword is not allowed on methods in Apex, so the error
+      // is about final not being allowed, not about the conflict
       expect(semanticErrors[0].message).toContain(
-        'final and abstract cannot be used together',
+        "The 'final' keyword cannot be used on method declarations",
       );
       logger.debug(
         () => `Semantic error verified: message=${semanticErrors[0].message}`,

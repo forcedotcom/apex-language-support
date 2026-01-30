@@ -20,8 +20,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
-import { ErrorCodes } from '../ErrorCodes';
-import { I18nSupport } from '../../../i18n/I18nSupport';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * Maximum number of constants allowed in an enum
@@ -82,13 +82,11 @@ export const EnumLimitValidator: Validator = {
         }
 
         if (constantCount > MAX_ENUM_CONSTANTS) {
+          const code = ErrorCodes.MAX_ENUMS_EXCEEDED;
           errors.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.ENUM_LIMIT_EXCEEDED,
-              MAX_ENUM_CONSTANTS,
-            ),
+            message: localizeTyped(code, String(MAX_ENUM_CONSTANTS)),
             location: enumSymbol.location,
-            code: ErrorCodes.ENUM_LIMIT_EXCEEDED,
+            code,
           });
         }
       }

@@ -10,7 +10,7 @@ import { EnumLimitValidator } from '../../../../src/semantics/validation/validat
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
-import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
+import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 import {
   compileFixture,
   getMessage,
@@ -88,7 +88,7 @@ describe('EnumLimitValidator', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors).toHaveLength(1);
     const error = result.errors[0];
-    expect(error.code).toBe(ErrorCodes.ENUM_LIMIT_EXCEEDED);
+    expect(error.code).toBe(ErrorCodes.MAX_ENUMS_EXCEEDED);
     const errorMessage = getMessage(error);
     expect(errorMessage).toContain('100');
   });
@@ -110,7 +110,7 @@ describe('EnumLimitValidator', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors).toHaveLength(1);
     const error = result.errors[0];
-    expect(error.code).toBe(ErrorCodes.ENUM_LIMIT_EXCEEDED);
+    expect(error.code).toBe(ErrorCodes.MAX_ENUMS_EXCEEDED);
     const errorMessage = getMessage(error);
     expect(errorMessage).toContain('100');
   });

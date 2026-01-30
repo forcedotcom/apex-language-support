@@ -762,11 +762,7 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       // Create method using ApexSymbolCollectorListener
       const fullTable = new SymbolTable();
       const fullListener = new ApexSymbolCollectorListener(fullTable, 'full');
-      const fullResult = compilerService.compile(
-        fileContent,
-        'TestClass.cls',
-        fullListener,
-      );
+      compilerService.compile(fileContent, 'TestClass.cls', fullListener);
       // Note: Validation errors may occur, but we're testing ID consistency, not validation
       const fullSymbols = fullTable.getAllSymbols();
       const fullMethod = fullSymbols.find(

@@ -17,8 +17,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
-import { ErrorCodes } from '../ErrorCodes';
-import { I18nSupport } from '../../../i18n/I18nSupport';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * Validates abstract method body consistency.
@@ -137,26 +137,21 @@ export const AbstractMethodBodyValidator: Validator = {
 
         // Rule 1: Abstract methods must not have a body
         if (isAbstract && hasBody) {
+          const code = ErrorCodes.ABSTRACT_METHODS_CANNOT_HAVE_BODY;
           errors.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.ABSTRACT_METHOD_HAS_BODY,
-              method.name,
-            ),
+            message: localizeTyped(code),
             location: method.location,
-            code: ErrorCodes.ABSTRACT_METHOD_HAS_BODY,
+            code,
           });
         }
 
         // Rule 2: Non-abstract methods in concrete classes must have a body
         if (isInConcreteClass && !isAbstract && !hasBody) {
+          const code = ErrorCodes.METHOD_MUST_HAVE_BODY;
           errors.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.METHOD_MUST_HAVE_BODY,
-              method.name,
-              parent.name,
-            ),
+            message: localizeTyped(code),
             location: method.location,
-            code: ErrorCodes.METHOD_MUST_HAVE_BODY,
+            code,
           });
         }
 

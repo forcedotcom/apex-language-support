@@ -448,10 +448,12 @@ describe('Inner Class Validation', () => {
     );
 
     // Verify that the expected errors are present
-    // Syntax error for "virtial" is reported (not as semantic error anymore)
-    expect(virtualFieldErrors.length).toBe(2);
+    // Syntax error for "virtual" is reported (not as semantic error anymore)
+    // Note: There are no virtual fields in the test code, so virtualFieldErrors should be 0
+    // The test code only has a typo "virtial" which is caught as a syntax error
+    expect(virtualFieldErrors.length).toBe(0);
     expect(syntaxErrors.length).toBe(1);
-    expect(result.errors.length).toBe(3);
+    expect(result.errors.length).toBe(1);
 
     // Verify inner class structure is not affected by these errors
     const innerClassErrors = result.errors.filter(

@@ -10,7 +10,7 @@ import { InterfaceHierarchyValidator } from '../../../../src/semantics/validatio
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
-import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
+import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 import {
   compileFixture,
   getMessage,
@@ -90,7 +90,7 @@ describe('InterfaceHierarchyValidator', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
     const error = result.errors[0];
-    expect(error.code).toBe(ErrorCodes.CIRCULAR_INHERITANCE);
+    expect(error.code).toBe(ErrorCodes.CIRCULAR_DEFINITION);
     const errorMessage = getMessage(error);
     expect(errorMessage).toContain('Circular definition');
   });
@@ -114,7 +114,7 @@ describe('InterfaceHierarchyValidator', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
     const circularError = result.errors.find(
-      (e) => e.code === ErrorCodes.CIRCULAR_INHERITANCE,
+      (e) => e.code === ErrorCodes.CIRCULAR_DEFINITION,
     );
     expect(circularError).toBeDefined();
     expect(getMessage(circularError!)).toContain('Circular definition');
@@ -138,7 +138,7 @@ describe('InterfaceHierarchyValidator', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
     const error = result.errors[0];
-    expect(error.code).toBe(ErrorCodes.DUPLICATE_EXTENDS);
+    expect(error.code).toBe(ErrorCodes.GENERIC_INTERFACE_ALREADY_IMPLEMENTED);
     const errorMessage = getMessage(error);
     expect(errorMessage).toContain('Generic Interface already implemented');
   });
@@ -179,7 +179,7 @@ describe('InterfaceHierarchyValidator', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
     const error = result.errors[0];
-    expect(error.code).toBe(ErrorCodes.MISSING_INTERFACE_METHOD);
+    expect(error.code).toBe(ErrorCodes.INTERFACE_IMPLEMENTATION_MISSING_METHOD);
     const errorMessage = getMessage(error);
     expect(errorMessage).toContain('must implement the method');
   });

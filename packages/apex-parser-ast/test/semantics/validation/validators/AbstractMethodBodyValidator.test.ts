@@ -10,7 +10,7 @@ import { AbstractMethodBodyValidator } from '../../../../src/semantics/validatio
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
-import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
+import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 import { ApexSymbolCollectorListener } from '../../../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
   compileFixture,
@@ -102,7 +102,7 @@ describe('AbstractMethodBodyValidator', () => {
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
     const error = result.errors[0];
-    expect(error.code).toBe(ErrorCodes.ABSTRACT_METHOD_HAS_BODY);
+    expect(error.code).toBe(ErrorCodes.ABSTRACT_METHODS_CANNOT_HAVE_BODY);
     const errorMessage = getMessage(error);
     expect(errorMessage).toContain('Abstract methods cannot have a body');
   });

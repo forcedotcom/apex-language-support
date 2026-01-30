@@ -9,7 +9,7 @@
 import { Effect } from 'effect';
 import { SourceSizeValidator } from '../../../../src/semantics/validation/validators/SourceSizeValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
-import { ErrorCodes } from '../../../../src/semantics/validation/ErrorCodes';
+import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 import type {
   ValidationResult,
   ValidationErrorInfo,

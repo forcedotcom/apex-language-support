@@ -18,8 +18,8 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
-import { ErrorCodes } from '../ErrorCodes';
-import { I18nSupport } from '../../../i18n/I18nSupport';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * Validates that final variables are assigned exactly once.
@@ -133,13 +133,11 @@ export const FinalAssignmentValidator: Validator = {
 
         // Rule 1: Final parameters cannot be reassigned (0 assignments is OK, >0 is error)
         if (finalSymbol.kind === SymbolKind.Parameter && assignmentCount > 0) {
+          const code = ErrorCodes.INVALID_FINAL_FIELD_ASSIGNMENT;
           errors.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.FINAL_PARAMETER_REASSIGNMENT,
-              finalSymbol.name,
-            ),
+            message: localizeTyped(code, finalSymbol.name),
             location: finalSymbol.location,
-            code: ErrorCodes.FINAL_PARAMETER_REASSIGNMENT,
+            code,
           });
         }
 
@@ -151,13 +149,11 @@ export const FinalAssignmentValidator: Validator = {
             finalSymbol.kind === SymbolKind.Field) &&
           assignmentCount > 1
         ) {
+          const code = ErrorCodes.INVALID_FINAL_FIELD_ASSIGNMENT;
           errors.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.FINAL_MULTIPLE_ASSIGNMENT,
-              finalSymbol.name,
-            ),
+            message: localizeTyped(code, finalSymbol.name),
             location: finalSymbol.location,
-            code: ErrorCodes.FINAL_MULTIPLE_ASSIGNMENT,
+            code,
           });
         }
       }

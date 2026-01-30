@@ -25,8 +25,8 @@ import {
   ArtifactLoadingHelper,
   ISymbolManager,
 } from '../ArtifactLoadingHelper';
-import { ErrorCodes } from '../ErrorCodes';
-import { I18nSupport } from '../../../i18n/I18nSupport';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * Validates interface hierarchy correctness.
@@ -112,13 +112,11 @@ export const InterfaceHierarchyValidator: Validator = {
           new Set(),
         );
         if (circularPath) {
+          const code = ErrorCodes.CIRCULAR_DEFINITION;
           errors.push({
-            message: I18nSupport.getLabel(
-              ErrorCodes.CIRCULAR_INHERITANCE,
-              iface.name,
-            ),
+            message: localizeTyped(code, iface.name),
             location: iface.location,
-            code: ErrorCodes.CIRCULAR_INHERITANCE,
+            code,
           });
         }
       }
@@ -127,10 +125,11 @@ export const InterfaceHierarchyValidator: Validator = {
       for (const iface of localInterfaces) {
         const duplicates = findDuplicateExtends(iface);
         for (const dup of duplicates) {
+          const code = ErrorCodes.GENERIC_INTERFACE_ALREADY_IMPLEMENTED;
           errors.push({
-            message: I18nSupport.getLabel(ErrorCodes.DUPLICATE_EXTENDS, dup),
+            message: localizeTyped(code, dup),
             location: iface.location,
-            code: ErrorCodes.DUPLICATE_EXTENDS,
+            code,
           });
         }
       }
@@ -150,13 +149,11 @@ export const InterfaceHierarchyValidator: Validator = {
 
           // Check for duplicate interface implementation
           if (seenInterfaces.has(ifaceKey)) {
+            const code = ErrorCodes.INTERFACE_ALREADY_IMPLEMENTED;
             errors.push({
-              message: I18nSupport.getLabel(
-                ErrorCodes.INTERFACE_ALREADY_IMPLEMENTED,
-                ifaceName,
-              ),
+              message: localizeTyped(code, ifaceName),
               location: cls.location,
-              code: ErrorCodes.INTERFACE_ALREADY_IMPLEMENTED,
+              code,
             });
             continue;
           }
@@ -172,13 +169,11 @@ export const InterfaceHierarchyValidator: Validator = {
             // Check if interface type is valid (not array ref, is interface, not Java type)
             // This matches jorje's ParentTypeResolver.java checks
             if (iface.kind !== SymbolKind.Interface) {
+              const code = ErrorCodes.INVALID_INTERFACE;
               errors.push({
-                message: I18nSupport.getLabel(
-                  ErrorCodes.INVALID_INTERFACE,
-                  ifaceName,
-                ),
+                message: localizeTyped(code, ifaceName),
                 location: cls.location,
-                code: ErrorCodes.INVALID_INTERFACE,
+                code,
               });
             }
           }
@@ -258,13 +253,11 @@ export const InterfaceHierarchyValidator: Validator = {
 
           // Check for duplicate interface implementation (re-check with loaded interfaces)
           if (seenInterfaces.has(ifaceKey)) {
+            const code = ErrorCodes.INTERFACE_ALREADY_IMPLEMENTED;
             errors.push({
-              message: I18nSupport.getLabel(
-                ErrorCodes.INTERFACE_ALREADY_IMPLEMENTED,
-                ifaceName,
-              ),
+              message: localizeTyped(code, ifaceName),
               location: cls.location,
-              code: ErrorCodes.INTERFACE_ALREADY_IMPLEMENTED,
+              code,
             });
             continue;
           }
@@ -290,13 +283,11 @@ export const InterfaceHierarchyValidator: Validator = {
           // Check if interface type is valid (not array ref, is interface, not Java type)
           // This matches jorje's ParentTypeResolver.java checks
           if (iface.kind !== SymbolKind.Interface) {
+            const code = ErrorCodes.INVALID_INTERFACE;
             errors.push({
-              message: I18nSupport.getLabel(
-                ErrorCodes.INVALID_INTERFACE,
-                ifaceName,
-              ),
+              message: localizeTyped(code, ifaceName),
               location: cls.location,
-              code: ErrorCodes.INVALID_INTERFACE,
+              code,
             });
             continue;
           }
@@ -352,14 +343,11 @@ export const InterfaceHierarchyValidator: Validator = {
             );
 
             if (!implemented) {
+              const code = ErrorCodes.INTERFACE_IMPLEMENTATION_MISSING_METHOD;
               errors.push({
-                message: I18nSupport.getLabel(
-                  ErrorCodes.MISSING_INTERFACE_METHOD,
-                  cls.name,
-                  requiredMethod.name,
-                ),
+                message: localizeTyped(code, cls.name, requiredMethod.name),
                 location: cls.location,
-                code: ErrorCodes.MISSING_INTERFACE_METHOD,
+                code,
               });
             }
           }

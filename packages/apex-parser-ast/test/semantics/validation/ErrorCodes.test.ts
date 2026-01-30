@@ -6,35 +6,39 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as ErrorCodes from '../../../src/semantics/validation/ErrorCodes';
+import { ErrorCodes } from '../../../src/generated/ErrorCodes';
+import type { ErrorCodeKey } from '../../../src/generated/messages_en_US';
+import { localizeTyped } from '../../../src/i18n/messageInstance';
 
 describe('ErrorCodes', () => {
   describe('error code format', () => {
     it('should use dot-separated lowercase format', () => {
-      expect(ErrorCodes.PARAMETER_LIMIT_EXCEEDED).toBe(
+      expect(ErrorCodes.INVALID_NUMBER_PARAMETERS).toBe(
         'invalid.number.parameters',
       );
-      expect(ErrorCodes.ENUM_LIMIT_EXCEEDED).toBe('max.enums.exceeded');
-      expect(ErrorCodes.DUPLICATE_METHOD).toBe('method.already.exists');
-      expect(ErrorCodes.FORWARD_REFERENCE).toBe('illegal.forward.reference');
+      expect(ErrorCodes.MAX_ENUMS_EXCEEDED).toBe('max.enums.exceeded');
+      expect(ErrorCodes.METHOD_ALREADY_EXISTS).toBe('method.already.exists');
+      expect(ErrorCodes.ILLEGAL_FORWARD_REFERENCE).toBe(
+        'illegal.forward.reference',
+      );
     });
 
     it('should have all constants defined', () => {
       // Verify key error codes exist
-      expect(ErrorCodes.PARAMETER_LIMIT_EXCEEDED).toBeDefined();
-      expect(ErrorCodes.ENUM_LIMIT_EXCEEDED).toBeDefined();
-      expect(ErrorCodes.DUPLICATE_METHOD).toBeDefined();
+      expect(ErrorCodes.INVALID_NUMBER_PARAMETERS).toBeDefined();
+      expect(ErrorCodes.MAX_ENUMS_EXCEEDED).toBeDefined();
+      expect(ErrorCodes.METHOD_ALREADY_EXISTS).toBeDefined();
       expect(ErrorCodes.DUPLICATE_FIELD).toBeDefined();
       expect(ErrorCodes.DUPLICATE_VARIABLE).toBeDefined();
       expect(ErrorCodes.DUPLICATE_MODIFIER).toBeDefined();
-      expect(ErrorCodes.FORWARD_REFERENCE).toBeDefined();
-      expect(ErrorCodes.CIRCULAR_INHERITANCE).toBeDefined();
+      expect(ErrorCodes.ILLEGAL_FORWARD_REFERENCE).toBeDefined();
+      expect(ErrorCodes.CIRCULAR_DEFINITION).toBeDefined();
       expect(ErrorCodes.INVALID_FINAL_SUPER_TYPE).toBeDefined();
       expect(ErrorCodes.INVALID_INTERFACE).toBeDefined();
       expect(ErrorCodes.INTERFACE_ALREADY_IMPLEMENTED).toBeDefined();
-      expect(ErrorCodes.MISSING_INTERFACE_METHOD).toBeDefined();
-      expect(ErrorCodes.CONSTRUCTOR_NAME_MISMATCH).toBeDefined();
-      expect(ErrorCodes.ABSTRACT_METHOD_HAS_BODY).toBeDefined();
+      expect(ErrorCodes.INTERFACE_IMPLEMENTATION_MISSING_METHOD).toBeDefined();
+      expect(ErrorCodes.INVALID_CONSTRUCTOR_NAME).toBeDefined();
+      expect(ErrorCodes.ABSTRACT_METHODS_CANNOT_HAVE_BODY).toBeDefined();
     });
 
     it('should have identifier validation codes', () => {
@@ -54,10 +58,7 @@ describe('ErrorCodes', () => {
     });
 
     it('should have type hierarchy codes', () => {
-      expect(ErrorCodes.CIRCULAR_INHERITANCE).toBe('circular.definition');
-      expect(ErrorCodes.CLASS_EXTENDS_SELF).toBe('circular.definition');
-      expect(ErrorCodes.INTERFACE_EXTENDS_SELF).toBe('circular.definition');
-      expect(ErrorCodes.CLASS_IMPLEMENTS_SELF).toBe('circular.definition');
+      expect(ErrorCodes.CIRCULAR_DEFINITION).toBe('circular.definition');
       expect(ErrorCodes.INVALID_FINAL_SUPER_TYPE).toBe(
         'invalid.final.super.type',
       );
@@ -68,16 +69,13 @@ describe('ErrorCodes', () => {
       expect(ErrorCodes.INTERFACE_ALREADY_IMPLEMENTED).toBe(
         'interface.already.implemented',
       );
-      expect(ErrorCodes.MISSING_INTERFACE_METHOD).toBe(
+      expect(ErrorCodes.INTERFACE_IMPLEMENTATION_MISSING_METHOD).toBe(
         'interface.implementation.missing.method',
       );
     });
 
     it('should have final assignment codes', () => {
-      expect(ErrorCodes.FINAL_PARAMETER_REASSIGNMENT).toBe(
-        'invalid.final.field.assignment',
-      );
-      expect(ErrorCodes.FINAL_MULTIPLE_ASSIGNMENT).toBe(
+      expect(ErrorCodes.INVALID_FINAL_FIELD_ASSIGNMENT).toBe(
         'invalid.final.field.assignment',
       );
     });
@@ -86,13 +84,50 @@ describe('ErrorCodes', () => {
   describe('ErrorCodes namespace export', () => {
     it('should export ErrorCodes object with all constants', () => {
       // ErrorCodes is exported as a namespace object containing all constants
-      expect(ErrorCodes.ErrorCodes).toBeDefined();
-      expect(ErrorCodes.ErrorCodes.PARAMETER_LIMIT_EXCEEDED).toBe(
+      expect(ErrorCodes).toBeDefined();
+      expect(ErrorCodes.INVALID_NUMBER_PARAMETERS).toBe(
         'invalid.number.parameters',
       );
-      expect(ErrorCodes.ErrorCodes.ENUM_LIMIT_EXCEEDED).toBe(
-        'max.enums.exceeded',
-      );
+      expect(ErrorCodes.MAX_ENUMS_EXCEEDED).toBe('max.enums.exceeded');
+    });
+  });
+
+  describe('ErrorCodeKey type safety', () => {
+    it('should have all ErrorCodes constants as valid ErrorCodeKey types', () => {
+      // Type check: All ErrorCodes values should be valid ErrorCodeKey types
+      // This is a compile-time check, but we can verify at runtime that
+      // the values exist in the messages
+      const errorCodeValues = Object.values(ErrorCodes);
+      errorCodeValues.forEach((code) => {
+        // Verify the code can be used with localizeTyped (type-safe)
+        const result = localizeTyped(code as ErrorCodeKey);
+        // Should not return !key! format (meaning key exists)
+        expect(result).not.toMatch(/^![^!]+!$/);
+      });
+    });
+
+    it('should work with localizeTyped for type-safe access', () => {
+      // Verify that ErrorCodes constants work with type-safe wrapper
+      const result = localizeTyped(ErrorCodes.INVALID_NUMBER_PARAMETERS, '255');
+      expect(result).toBe('Invalid number of parameters exceeds: 255');
+    });
+
+    it('should verify ErrorCodes are valid message keys', () => {
+      // Sample check: verify a few key error codes exist in messages
+      const keyCodes = [
+        ErrorCodes.INVALID_NUMBER_PARAMETERS,
+        ErrorCodes.MAX_ENUMS_EXCEEDED,
+        ErrorCodes.ABSTRACT_METHODS_CANNOT_HAVE_BODY,
+        ErrorCodes.METHOD_ALREADY_EXISTS,
+        ErrorCodes.ILLEGAL_FORWARD_REFERENCE,
+      ];
+
+      keyCodes.forEach((code) => {
+        const result = localizeTyped(code as ErrorCodeKey);
+        // Should return a message, not !key! format
+        expect(result).not.toMatch(/^![^!]+!$/);
+        expect(result.length).toBeGreaterThan(0);
+      });
     });
   });
 });
