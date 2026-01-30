@@ -57,7 +57,8 @@
     "test": {
       "command": "jest --testMatch \"**/test/**/*.test.ts\" --testPathIgnorePatterns=\"integration\" --json --outputFile=.wireit/test-results.json",
       "dependencies": [
-        "compile"
+        "compile",
+        "../apex-ls:bundle"
       ],
       "output": [
         ".wireit/test-results.json"
