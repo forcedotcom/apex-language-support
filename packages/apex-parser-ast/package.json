@@ -64,7 +64,8 @@
         "scripts/generate-zip.mjs",
         "scripts/generate-messages.mjs",
         "proto/apex-stdlib.proto",
-        "src/**/*.cls"
+        "src/**/*.cls",
+        "src/resources/messages/messages_en_US.properties"
       ]
     },
     "compile:tsc": {
@@ -83,7 +84,6 @@
       ]
     },
     "compile": {
-      "command": "echo 'Compile complete'",
       "dependencies": [
         "compile:tsc",
         "generate:stdlib-cache"
@@ -117,6 +117,7 @@
         "src/**/*.ts",
         "test/**/*.ts",
         "**/jest.config.cjs",
+        "../../jest.config.cjs",
         "../../scripts/jest-teardown.js"
       ]
     },
@@ -132,6 +133,7 @@
         "src/**/*.ts",
         "test/**/*.ts",
         "**/jest.config.cjs",
+        "../../jest.config.cjs",
         "../../scripts/jest-teardown.js"
       ]
     },
@@ -171,6 +173,7 @@
         "src/**/*.ts",
         "test/**/*.ts",
         "**/jest.config.cjs",
+        "../../jest.config.cjs",
         "../../scripts/jest-teardown.js"
       ]
     }
