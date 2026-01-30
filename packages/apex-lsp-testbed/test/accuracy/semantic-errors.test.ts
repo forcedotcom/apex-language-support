@@ -149,7 +149,8 @@ function normalizeResponseUris(obj: any, workspaceRootUri: string): any {
 }
 
 // Skip semantic error tests on Windows due to platform-specific differences in error detection
-const testSuite = platform() === 'win32' ? describe.skip : describe;
+const isWindows = platform() === 'win32';
+const testSuite = isWindows ? describe.skip : describe;
 
 testSuite('Semantic Error Detection', () => {
   const targetServer: ServerType = 'nodeServer';
@@ -158,6 +159,10 @@ testSuite('Semantic Error Detection', () => {
   const classesDir = join(workspacePath, 'force-app/main/default/classes');
 
   beforeAll(async () => {
+    // Skip setup on Windows to prevent server startup and worker leaks
+    if (isWindows) {
+      return;
+    }
     const options: ServerOptions = {
       serverType: targetServer,
       verbose: false,
@@ -187,6 +192,11 @@ testSuite('Semantic Error Detection', () => {
   });
 
   afterAll(async () => {
+    // Skip cleanup on Windows to prevent any execution
+    if (isWindows) {
+      return;
+    }
+
     if (serverContext) {
       try {
         await serverContext.cleanup();
