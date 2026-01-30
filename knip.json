@@ -73,8 +73,14 @@
         "src/semantics/versions.ts",
         "src/symbols/BackgroundProcessingManager.ts",
         "src/symbols/resolution/index.ts",
+        "src/cache/**/*.ts",
+        "src/utils/resourceLoader.ts",
+        "src/generated/**/*.ts",
         "test/**/*.ts",
         "test/helpers/**/*.ts"
+      ],
+      "ignoreDependencies": [
+        "@protobuf-ts/plugin"
       ]
     },
     "packages/lsp-compliant-services": {
@@ -102,7 +108,8 @@
     "**/jest.config*.{js,cjs,mjs}",
     ".releaserc.json",
     "tsconfig*.json",
-    "packages/apex-lsp-testbed/src/utils/clientFactory.ts"
+    "packages/apex-lsp-testbed/src/utils/clientFactory.ts",
+    "packages/apex-parser-ast/src/generated/zipResourceLoader.ts"
   ],
   "ignoreExportsUsedInFile": false,
   "rules": {
