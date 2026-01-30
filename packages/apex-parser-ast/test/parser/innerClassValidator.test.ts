@@ -428,12 +428,10 @@ describe('Inner Class Validation', () => {
       listener,
     );
 
-    // Check for expected semantic errors
-    const virtialSyntaxErrors = result.errors.filter(
-      (e) =>
-        e.type === ErrorType.Semantic &&
-        e.message.includes('Invalid syntax: virtial'),
-    );
+    // Check for expected errors
+    // Note: "Invalid syntax: virtial" semantic error is no longer reported
+    // because error nodes are already captured as syntax errors and shouldn't
+    // be reported again as semantic errors (prevents duplicate error reporting)
 
     const virtualFieldErrors = result.errors.filter(
       (e) =>
@@ -450,10 +448,12 @@ describe('Inner Class Validation', () => {
     );
 
     // Verify that the expected errors are present
-    expect(virtialSyntaxErrors.length).toBe(1);
-    expect(virtualFieldErrors.length).toBe(2);
+    // Syntax error for "virtual" is reported (not as semantic error anymore)
+    // Note: There are no virtual fields in the test code, so virtualFieldErrors should be 0
+    // The test code only has a typo "virtial" which is caught as a syntax error
+    expect(virtualFieldErrors.length).toBe(0);
     expect(syntaxErrors.length).toBe(1);
-    expect(result.errors.length).toBe(4);
+    expect(result.errors.length).toBe(1);
 
     // Verify inner class structure is not affected by these errors
     const innerClassErrors = result.errors.filter(

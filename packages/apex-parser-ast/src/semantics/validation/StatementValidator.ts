@@ -8,6 +8,7 @@
 
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import type { ExpressionType } from './TypePromotionSystem';
+import { isNonNullablePrimitiveType } from '../../utils/TypeInfoFactory';
 
 /**
  * Extended ExpressionType interface for statement validation
@@ -20,17 +21,16 @@ interface StatementExpressionType extends ExpressionType {
 }
 
 /**
- * Helper function to check if a type is primitive
+ * Helper function to check if a type is a non-nullable primitive
+ * In Apex, only these types are truly primitive (cannot be null):
+ * Integer, Long, Double, Decimal, Boolean
  */
 function isPrimitiveType(type: StatementExpressionType): boolean {
-  // In Apex, only these types are truly primitive (cannot be null)
-  const primitiveTypes = ['Integer', 'Long', 'Double', 'Decimal', 'Boolean'];
-
   if (type.isPrimitive === true || type.kind === 'primitive') {
-    return primitiveTypes.includes(type.name);
+    return isNonNullablePrimitiveType(type.name);
   }
 
-  return primitiveTypes.includes(type.name);
+  return isNonNullablePrimitiveType(type.name);
 }
 
 /**
@@ -218,6 +218,15 @@ export class StatementValidator {
       return true;
     }
 
+    // String is compatible with String (case-insensitive check)
+    // String is a special type in Apex - it's not a true primitive but behaves like one
+    if (
+      (targetType.name === 'string' || targetType.name === 'String') &&
+      (sourceType.name === 'string' || sourceType.name === 'String')
+    ) {
+      return true;
+    }
+
     // Null is compatible with all object types
     if (isNullType(sourceType)) {
       return !isPrimitiveType(targetType);
@@ -263,6 +272,15 @@ export class StatementValidator {
   ): boolean {
     // Same type is always compatible
     if (targetType.name === valueType.name) {
+      return true;
+    }
+
+    // String is compatible with String (case-insensitive check)
+    // String is a special type in Apex - it's not a true primitive but behaves like one
+    if (
+      (targetType.name === 'string' || targetType.name === 'String') &&
+      (valueType.name === 'string' || valueType.name === 'String')
+    ) {
       return true;
     }
 

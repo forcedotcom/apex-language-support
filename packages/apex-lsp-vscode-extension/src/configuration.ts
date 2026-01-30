@@ -97,67 +97,103 @@ export const getTraceServerConfig = (): string => {
 
 /**
  * Registers a listener for configuration changes and notifies the server
- * @param client The client (any client with sendNotification method)
+ * @param client The client (any client with sendNotification method and optional languageClient)
  * @param context The extension context
  */
 export const registerConfigurationChangeListener = (
-  client: { sendNotification: (method: string, params?: any) => void },
+  client: {
+    sendNotification: (method: string, params?: any) => void;
+    languageClient?: { setTrace: (value: any) => Promise<void> };
+  },
   context: vscode.ExtensionContext,
 ): void => {
   // Listen for configuration changes
-  const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
-    if (
-      event.affectsConfiguration(
-        EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
-      )
-    ) {
-      // Get updated settings
-      const settings = getWorkspaceSettings();
-      try {
-        logToOutputChannel(
-          `🔍 Configuration changed: ${JSON.stringify(settings, null, 2)}`,
-          'debug',
-        );
-      } catch (_error) {
-        logToOutputChannel(
-          '🔍 Configuration changed: [unable to serialize settings]',
-          'debug',
-        );
-      }
-      // Notify the server of the configuration change
-      try {
-        logToOutputChannel(
-          'Sending configuration change notification',
-          'debug',
-        );
-        client.sendNotification(
-          'workspace/didChangeConfiguration',
-          createSerializableNotification(settings),
-        );
-        logToOutputChannel(
-          'Successfully sent configuration change notification',
-          'debug',
-        );
-      } catch (_error) {
-        logToOutputChannel(
-          `Failed to send configuration change notification: ${_error}`,
-          'error',
-        );
+  const configListener = vscode.workspace.onDidChangeConfiguration(
+    async (event) => {
+      if (
+        event.affectsConfiguration(
+          EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
+        )
+      ) {
+        // Get updated settings
+        const settings = getWorkspaceSettings();
         try {
           logToOutputChannel(
-            `Configuration settings: ${JSON.stringify(settings, null, 2)}`,
-            'error',
+            `🔍 Configuration changed: ${JSON.stringify(settings, null, 2)}`,
+            'debug',
           );
-        } catch (_jsonError) {
+        } catch (_error) {
           logToOutputChannel(
-            'Configuration settings: [unable to serialize settings]',
-            'error',
+            '🔍 Configuration changed: [unable to serialize settings]',
+            'debug',
           );
         }
-        throw _error;
+
+        // Update trace level if trace.server configuration changed
+        if (
+          event.affectsConfiguration(
+            `${EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION}.trace.server`,
+          ) &&
+          client.languageClient
+        ) {
+          try {
+            const traceConfig = getTraceServerConfig();
+            // Import Trace enum dynamically to avoid circular dependency
+            const { Trace } = await import('vscode-languageclient');
+            const traceLevel =
+              traceConfig === 'verbose'
+                ? Trace.Verbose
+                : traceConfig === 'messages'
+                  ? Trace.Messages
+                  : Trace.Off;
+            await client.languageClient.setTrace(traceLevel);
+            logToOutputChannel(
+              `🔍 Trace level updated to: ${traceConfig}`,
+              'info',
+            );
+          } catch (error) {
+            logToOutputChannel(
+              `Failed to update trace level: ${error}`,
+              'error',
+            );
+          }
+        }
+
+        // Notify the server of the configuration change
+        try {
+          logToOutputChannel(
+            'Sending configuration change notification',
+            'debug',
+          );
+          client.sendNotification(
+            'workspace/didChangeConfiguration',
+            createSerializableNotification(settings),
+          );
+          logToOutputChannel(
+            'Successfully sent configuration change notification',
+            'debug',
+          );
+        } catch (_error) {
+          logToOutputChannel(
+            `Failed to send configuration change notification: ${_error}`,
+            'error',
+          );
+          try {
+            logToOutputChannel(
+              `Configuration settings: ${JSON.stringify(settings, null, 2)}`,
+              'error',
+            );
+          } catch (_jsonError) {
+            logToOutputChannel(
+              'Configuration settings: [unable to serialize settings]',
+              'error',
+            );
+          }
+          throw _error;
+        }
       }
-    }
-  });
+    },
+  );
 
   // Store the listener in the context so it gets disposed properly
   context.subscriptions.push(configListener);

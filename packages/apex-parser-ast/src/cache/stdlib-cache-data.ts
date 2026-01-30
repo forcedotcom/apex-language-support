@@ -8,13 +8,20 @@
 
 /**
  * This module exports the embedded protobuf cache data.
- * The require is at module level (outside try-catch) so esbuild will embed it.
+ * The require is wrapped in try-catch so the module can load even in unbundled
+ * environments. esbuild will still detect the require for bundling purposes.
  *
- * In unbundled environments, this module will fail to load, and the cache loader
- * will fall back to disk loading.
+ * In unbundled environments, the require will fail and return undefined,
+ * and the cache loader will fall back to disk loading.
  */
 
-const embeddedData = require('../../resources/apex-stdlib.pb.gz');
+let embeddedData: string | { default?: string } | undefined;
+try {
+  embeddedData = require('../../resources/apex-stdlib.pb.gz');
+} catch {
+  // Expected in unbundled environments - esbuild will still detect this for bundling
+  embeddedData = undefined;
+}
 
 /**
  * Get the embedded protobuf cache data URL.
@@ -25,7 +32,9 @@ export function getEmbeddedDataUrl(): string | undefined {
     return embeddedData;
   }
   if (
-    typeof embeddedData?.default === 'string' &&
+    embeddedData &&
+    typeof embeddedData === 'object' &&
+    typeof embeddedData.default === 'string' &&
     embeddedData.default.startsWith('data:')
   ) {
     return embeddedData.default;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -335,6 +335,16 @@ export class LayerEnrichmentService {
           const existingSymbolTable =
             self.symbolManager.getSymbolTableForFile(uri);
 
+          // Try to get cached parse tree for reuse
+          const cachedParseTree = cache.getParseTree(uri, version);
+
+          if (cachedParseTree) {
+            self.logger.debug(
+              () =>
+                `Found cached parse tree for ${uri}, will reuse for enrichment`,
+            );
+          }
+
           // Compile with additional layers
           const result = self.compilerService.compileLayered(
             document.getText(),
@@ -345,6 +355,7 @@ export class LayerEnrichmentService {
               collectReferences: true,
               resolveReferences: true,
             },
+            cachedParseTree || undefined,
           );
 
           if (result?.result) {

@@ -252,10 +252,10 @@ export class ApexSymbolGraph {
   /**
    * Maps fully qualified names to symbol IDs for hierarchical lookups
    * Key: Fully qualified name (e.g., "MyNamespace.MyClass.myMethod") - case-insensitive for Apex
-   * Value: Symbol ID
+   * Value: Array of symbol IDs (supports duplicate declarations)
    * Used by: findSymbolByFQN(), hierarchical symbol resolution, namespace-aware lookups
    */
-  private fqnIndex: CaseInsensitiveHashMap<string> =
+  private fqnIndex: CaseInsensitiveHashMap<string[]> =
     new CaseInsensitiveHashMap();
 
   /**
@@ -967,11 +967,6 @@ export class ApexSymbolGraph {
     const normalizedFileUri = extractFilePathFromUri(fileUri);
     const symbolId = this.getSymbolId(symbol, normalizedFileUri);
 
-    // Check if symbol already exists to prevent duplicates
-    if (this.symbolIds.has(symbolId)) {
-      return;
-    }
-
     // OPTIMIZED: Register SymbolTable immediately for delegation
     let targetSymbolTable: SymbolTable;
     if (symbolTable) {
@@ -986,14 +981,17 @@ export class ApexSymbolGraph {
       targetSymbolTable = this.fileToSymbolTable.get(normalizedFileUri)!;
     }
 
-    // Add the symbol to the SymbolTable
+    // Add the symbol to the SymbolTable (handles duplicates via union type)
     targetSymbolTable.addSymbol(symbol);
 
-    // OPTIMIZED: Only track existence, don't store full symbol
-    this.symbolIds.add(symbolId);
-
-    // Add to symbolIdIndex for O(1) lookups by ID
-    this.symbolIdIndex.set(symbolId, symbol);
+    // Track symbolId (duplicates will have same symbolId, but that's okay)
+    // symbolIds Set tracks which IDs have been seen, not individual symbol instances
+    const isNewSymbolId = !this.symbolIds.has(symbolId);
+    if (isNewSymbolId) {
+      this.symbolIds.add(symbolId);
+      // Add to symbolIdIndex for O(1) lookups by ID (store first symbol for this ID)
+      this.symbolIdIndex.set(symbolId, symbol);
+    }
 
     // Add to indexes for fast lookups (use normalized URI)
     this.symbolFileMap.set(symbolId, normalizedFileUri);
@@ -1041,7 +1039,11 @@ export class ApexSymbolGraph {
 
     // Exclude scope symbols from FQN index (they're structural, not semantic)
     if (fqnToUse && !isBlockSymbol(symbol)) {
-      this.fqnIndex.set(fqnToUse, symbolId);
+      const existing = this.fqnIndex.get(fqnToUse) || [];
+      if (!existing.includes(symbolId)) {
+        existing.push(symbolId);
+        this.fqnIndex.set(fqnToUse, existing);
+      }
     }
 
     // Exclude scope symbols from name index (users shouldn't search for "block1" or "if_2")
@@ -1060,36 +1062,49 @@ export class ApexSymbolGraph {
       this.fileIndex.set(normalizedFileUri, fileSymbols);
     }
 
-    // OPTIMIZED: Add lightweight node to graph
-    const referenceNode: ReferenceNode = {
-      symbolId,
-      fileUri: fileUri,
-      lastUpdated: Date.now(),
-      referenceCount: 0,
-      nodeId: this.memoryStats.totalVertices + 1,
-    };
+    // OPTIMIZED: Only add vertex to graph for new symbols (not duplicates/enrichments)
+    // This prevents thousands of "Failed to add vertex" warnings when symbols are re-processed
+    if (isNewSymbolId) {
+      const referenceNode: ReferenceNode = {
+        symbolId,
+        fileUri: fileUri,
+        lastUpdated: Date.now(),
+        referenceCount: 0,
+        nodeId: this.memoryStats.totalVertices + 1,
+      };
 
-    // Add vertex to graph
-    const vertexAdded = this.referenceGraph.addVertex(symbolId, referenceNode);
-    if (!vertexAdded) {
-      this.logger.warn(() => `Failed to add vertex to graph: ${symbolId}`);
-      return;
-    }
-
-    // Get the vertex from the graph
-    const vertex = this.referenceGraph.getVertex(symbolId);
-    if (!vertex) {
-      this.logger.warn(
-        () => `Vertex not found in graph after adding: ${symbolId}`,
+      // Add vertex to graph
+      const vertexAdded = this.referenceGraph.addVertex(
+        symbolId,
+        referenceNode,
       );
-      return;
+      if (!vertexAdded) {
+        this.logger.warn(() => `Failed to add vertex to graph: ${symbolId}`);
+        return;
+      }
+
+      // Get the vertex from the graph
+      const vertex = this.referenceGraph.getVertex(symbolId);
+      if (!vertex) {
+        this.logger.warn(
+          () => `Vertex not found in graph after adding: ${symbolId}`,
+        );
+        return;
+      }
+
+      this.symbolToVertex.set(symbolId, vertex);
+
+      // Update memory statistics
+      this.memoryStats.totalSymbols++;
+      this.memoryStats.totalVertices++;
+    } else {
+      // Symbol already exists - vertex should already be in graph
+      // Verify the vertex exists and update symbolToVertex mapping if needed
+      const existingVertex = this.referenceGraph.getVertex(symbolId);
+      if (existingVertex && !this.symbolToVertex.has(symbolId)) {
+        this.symbolToVertex.set(symbolId, existingVertex);
+      }
     }
-
-    this.symbolToVertex.set(symbolId, vertex);
-
-    // Update memory statistics
-    this.memoryStats.totalSymbols++;
-    this.memoryStats.totalVertices++;
 
     // Invalidate cache for this symbol name (cache might become stale)
     this.symbolCache.delete(symbol.name);
@@ -1284,14 +1299,27 @@ export class ApexSymbolGraph {
 
   /**
    * OPTIMIZED: Find symbol by FQN by delegating to SymbolTable
+   * Returns first match if duplicates exist (backward compatible)
    */
   findSymbolByFQN(fqn: string): ApexSymbol | null {
-    const symbolId = this.fqnIndex.get(fqn);
-    if (!symbolId) {
+    const symbolIds = this.fqnIndex.get(fqn);
+    if (!symbolIds || symbolIds.length === 0) {
       return null;
     }
 
-    return this.getSymbol(symbolId);
+    return this.getSymbol(symbolIds[0]); // Return first match
+  }
+
+  /**
+   * Find all symbols with the same FQN (for duplicate detection)
+   * @param fqn The fully qualified name to search for
+   * @returns Array of all symbols with this FQN (empty if not found)
+   */
+  findSymbolsByFQN(fqn: string): ApexSymbol[] {
+    const symbolIds = this.fqnIndex.get(fqn) || [];
+    return symbolIds
+      .map((id) => this.getSymbol(id))
+      .filter((s): s is ApexSymbol => s !== null);
   }
 
   /**
@@ -1828,10 +1856,22 @@ export class ApexSymbolGraph {
     try {
       // Clear all active retry timers
       // Interrupt all active retry fibers
-      for (const fiber of this.activeRetryFibers) {
-        // Interrupt the fiber - this is async but we run it synchronously
-        // The interrupt will cancel the fiber's execution
-        Effect.runSync(Fiber.interrupt(fiber).pipe(Effect.asVoid));
+      // Note: Daemon fibers created with Effect.forkDaemon don't get cleaned up
+      // automatically when scopes close, so we must explicitly interrupt them here.
+      // We use runSync to wait for the interruption to complete synchronously.
+      const fibersToInterrupt = Array.from(this.activeRetryFibers);
+      for (const fiber of fibersToInterrupt) {
+        try {
+          // Interrupt the fiber and wait for it to complete
+          // Fiber.interrupt returns an Effect that waits for the interruption to complete
+          Effect.runSync(Fiber.interrupt(fiber).pipe(Effect.asVoid));
+        } catch (interruptError) {
+          // Fiber might already be interrupted or completed - ignore
+          this.logger.debug(
+            () =>
+              `Error interrupting retry fiber (may already be done): ${interruptError}`,
+          );
+        }
       }
       this.activeRetryFibers.clear();
       this.pendingRetrySymbols.clear();
@@ -1994,9 +2034,37 @@ export class ApexSymbolGraph {
           symbolTable.addSymbol(symbol);
           symbolsPreserved++;
         } else {
-          // Symbol exists in both - let addSymbol handle detail level enrichment
+          // Symbol exists in both - only merge if enrichment is needed
           // This ensures higher detail level symbols (private/full) enrich lower ones (public-api)
-          symbolTable.addSymbol(symbol);
+          // BUT: If both symbols are the same detail level, skip to avoid duplicates!
+          const existingInNew = newSymbols.find(
+            (s) => keyToString(s.key) === symbolKey,
+          );
+          if (existingInNew) {
+            // Check if enrichment is needed (new symbol has higher detail level)
+            const detailLevelOrder: Record<string, number> = {
+              'public-api': 1,
+              protected: 2,
+              private: 3,
+              full: 4,
+            };
+            const existingLevel =
+              detailLevelOrder[existingInNew._detailLevel || ''] || 0;
+            const newLevel = detailLevelOrder[symbol._detailLevel || ''] || 0;
+            const needsEnrichment = newLevel > existingLevel;
+
+            if (needsEnrichment) {
+              // Different detail levels and new is higher - let addSymbol handle enrichment
+              symbolTable.addSymbol(symbol);
+            }
+            // Otherwise skip to avoid duplicates (same detail level or new is not higher)
+          } else {
+            // Should not happen - symbolKey matched but symbol not found
+            this.logger.warn(
+              () =>
+                '[DEBUG-DUP] registerSymbolTable: Symbol key matched but symbol not found in newSymbols',
+            );
+          }
         }
       }
       if (symbolsPreserved > 0) {
@@ -2515,7 +2583,11 @@ export class ApexSymbolGraph {
 
     // Add to FQN index
     if (virtualSymbol.fqn) {
-      this.fqnIndex.set(virtualSymbol.fqn, virtualSymbolId);
+      const existing = this.fqnIndex.get(virtualSymbol.fqn) || [];
+      if (!existing.includes(virtualSymbolId)) {
+        existing.push(virtualSymbolId);
+        this.fqnIndex.set(virtualSymbol.fqn, existing);
+      }
     }
 
     // Create a lightweight node for the graph

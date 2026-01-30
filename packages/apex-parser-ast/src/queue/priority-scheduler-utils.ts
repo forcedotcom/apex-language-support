@@ -16,6 +16,7 @@ import {
   Duration,
   Chunk,
   Fiber,
+  Exit,
 } from 'effect';
 
 import {
@@ -1280,11 +1281,34 @@ export function shutdown(): Effect.Effect<void, Error, never> {
         ),
       );
     }
-    const { scheduler } = state;
+    const { scheduler, scope } = state;
 
     // Use the pre-built scheduler instance to shutdown
     // The shutdown signal will stop the controller loop
     const shutdownResult = yield* scheduler.shutdown;
+
+    // Wait for the controller loop to detect the shutdown signal and exit gracefully.
+    // This allows the loop to complete its current iteration and check the shutdown signal
+    // before we close the scope. The controller loop checks the signal at the start of
+    // each iteration, so this delay ensures it has time to detect and exit.
+    // We also need time for any active task fibers to complete or be interrupted.
+    yield* Effect.sleep(Duration.millis(300));
+
+    // Close the scope to clean up all fibers and resources
+    // This is critical to prevent open handles in tests
+    // Closing the scope will interrupt any remaining fibers and run finalizers.
+    // Note: Scope.close() waits for finalizers to run, but the actual fiber interruptions
+    // may not complete immediately. The teardown script has additional delays to allow
+    // for full cleanup. If open handles persist, they may be from other resources not
+    // related to the scheduler scope.
+    yield* Scope.close(scope, Exit.void);
+
+    // Give additional time for fiber interruptions and cleanup to fully complete
+    // after the scope is closed. This ensures all Effect resources are fully released.
+    // Even with this delay, some fiber interruptions may still be in progress, which
+    // is why the global teardown script has a longer delay (3000ms) to allow everything
+    // to fully complete.
+    yield* Effect.sleep(Duration.millis(200));
 
     // Clear the initialized state after shutdown
     yield* Ref.set(utilsStateRef, {

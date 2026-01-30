@@ -147,7 +147,8 @@ export interface SchedulerUtilsInitializedState {
   readonly scheduler: PriorityScheduler;
   // Persistent scope that keeps the scheduler alive across calls
   // This ensures singleton behavior for the scoped layer
-  readonly scope: Scope.Scope;
+  // Must be CloseableScope (from Scope.make()) so it can be closed during shutdown
+  readonly scope: Scope.CloseableScope;
 }
 
 export type SchedulerUtilsState =

@@ -31,6 +31,8 @@ import {
 
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
+import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
 
 /**
  * Context information for definition processing
@@ -67,6 +69,8 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
   // Remove the missingArtifactService field - MissingArtifactUtils will create it on-demand
   private readonly missingArtifactUtils: MissingArtifactUtils;
+  private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
+    null;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
@@ -86,12 +90,42 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
    * @param params The definition parameters
    * @returns Definition locations for the requested symbol
    */
+  /**
+   * Set the layer enrichment service (for prerequisite orchestration)
+   */
+  setLayerEnrichmentService(service: LayerEnrichmentService): void {
+    if (!this.prerequisiteOrchestrationService) {
+      this.prerequisiteOrchestrationService =
+        new PrerequisiteOrchestrationService(
+          this.logger,
+          this.symbolManager,
+          service,
+        );
+    }
+  }
+
   public async processDefinition(
     params: DefinitionParams,
   ): Promise<Location[] | null> {
     this.logger.debug(
       () => `Processing definition request for: ${params.textDocument.uri}`,
     );
+
+    // Run prerequisites for definition request
+    if (this.prerequisiteOrchestrationService) {
+      try {
+        await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+          'definition',
+          params.textDocument.uri,
+        );
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error running prerequisites for definition ${params.textDocument.uri}: ${error}`,
+        );
+        // Continue with definition even if prerequisites fail
+      }
+    }
 
     try {
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
@@ -235,15 +269,45 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         wasResolvedFromMissingArtifact,
       };
 
-      // Get definition locations
-      const locations = await this.getDefinitionLocations(symbol, context);
+      // Check for duplicate definitions (same unifiedId)
+      // For duplicate symbols, return all definition locations so users can see all duplicates
+      // This helps users identify duplicate declaration errors
+      let allSymbols: ApexSymbol[] = [symbol];
+      if (symbol.key?.unifiedId) {
+        // Try to find duplicates by getting all symbols in the file and checking for same unifiedId
+        const fileSymbols = this.symbolManager.findSymbolsInFile(
+          symbol.fileUri,
+        );
+        const duplicates = fileSymbols.filter(
+          (s) => s.key?.unifiedId === symbol.key.unifiedId,
+        );
+        if (duplicates.length > 1) {
+          // Found duplicates - include all of them
+          allSymbols = duplicates;
+          this.logger.debug(
+            () =>
+              `Found ${duplicates.length} duplicate definitions for ${symbol.name}, returning all locations`,
+          );
+        }
+      }
+
+      // Get definition locations for all symbols (including duplicates)
+      const locations: Location[] = [];
+      for (const sym of allSymbols) {
+        const symContext: DefinitionContext = {
+          ...context,
+          symbol: sym,
+        };
+        const symLocations = await this.getDefinitionLocations(sym, symContext);
+        locations.push(...symLocations);
+      }
 
       this.logger.debug(
         () =>
-          `Returning ${locations.length} definition locations for: ${symbol?.name ?? 'null'}`,
+          `Returning ${locations.length} definition location(s) for: ${symbol?.name ?? 'null'}`,
       );
 
-      // Return the locations array
+      // Return the locations array (may contain multiple locations for duplicates)
       return locations;
     } catch (error) {
       this.logger.error(() => `Error processing definition request: ${error}`);
@@ -253,8 +317,9 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
   /**
    * Get definition locations for a symbol
-   * For goto definition, we only return the primary definition location
-   * to avoid confusing the user with multiple locations
+   * Returns the primary definition location for the symbol.
+   * Note: Duplicate definitions are handled in processDefinition() which calls
+   * this method for each duplicate, allowing users to see all duplicate declarations.
    */
   private async getDefinitionLocations(
     symbol: ApexSymbol,
@@ -263,15 +328,15 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     const locations: Location[] = [];
 
     try {
-      // Get only the primary definition location for goto definition
+      // Get the definition location for this symbol
       const primaryLocation = this.createLocationFromSymbol(symbol);
       if (primaryLocation) {
         locations.push(primaryLocation);
       }
 
       // Note: For goto definition, we don't include related, interface, or inherited definitions
-      // as this would confuse the user by opening multiple locations. The LSP spec allows
-      // Location[] but for goto definition, users typically expect a single, clear result.
+      // as this would confuse the user by opening multiple locations. However, duplicate
+      // declarations (same unifiedId) are included so users can identify duplicate errors.
     } catch (error) {
       this.logger.debug(() => `Error getting definition locations: ${error}`);
     }

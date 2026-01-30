@@ -377,6 +377,16 @@ export class LSPQueueManager {
   }
 
   /**
+   * Submit a document load request
+   * Requests the client to load a document via window/showDocument
+   */
+  async submitDocumentLoadRequest(params: any): Promise<any> {
+    return this.submitRequest('documentLoad', params, {
+      priority: Priority.High,
+    });
+  }
+
+  /**
    * Submit a generic LSP request
    */
   async submitRequest<T>(

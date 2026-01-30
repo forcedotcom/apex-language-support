@@ -16,6 +16,7 @@ import {
 import { SymbolReference, ReferenceContext } from './symbolReference';
 import { generateSymbolId } from './UriBasedIdGenerator';
 import { HierarchicalReference } from './hierarchicalReference';
+import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 
 /**
  * Types of symbols that can be defined in Apex code
@@ -99,7 +100,7 @@ export class SymbolFactory {
     modifiers: SymbolModifiers = this.createDefaultModifiers(),
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, fileUri, scopePath, kind);
+    const id = this.generateId(name, fileUri, scopePath, kind, location);
     const key: SymbolKey = {
       prefix: kind,
       name,
@@ -158,7 +159,7 @@ export class SymbolFactory {
     parentSymbol?: ApexSymbol, // Optional parent symbol (for future use)
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, fileUri, scopePath, kind);
+    const id = this.generateId(name, fileUri, scopePath, kind, location);
     const key: SymbolKey = {
       prefix: kind,
       name,
@@ -201,7 +202,7 @@ export class SymbolFactory {
     annotations?: Annotation[],
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, fileUri, scopePath, kind);
+    const id = this.generateId(name, fileUri, scopePath, kind, location);
 
     // Calculate FQN if namespace is provided (case-insensitive for Apex)
     // For top-level symbols, this gives us the full FQN immediately.
@@ -272,7 +273,13 @@ export class SymbolFactory {
       identifierRange: location.symbolRange, // Same as symbolRange for blocks
     };
 
-    const id = this.generateId(name, fileUri, scopePath, 'block');
+    const id = this.generateId(
+      name,
+      fileUri,
+      scopePath,
+      'block',
+      blockLocation,
+    );
     const key: SymbolKey = {
       prefix: 'block',
       name,
@@ -311,6 +318,8 @@ export class SymbolFactory {
    * @param name The symbol name
    * @param fileUri The file path
    * @param scopePath Optional scope path for uniqueness (e.g., ["TestClass", "method1", "block1"])
+   * @param prefix Optional symbol prefix/kind for uniqueness
+   * @param location Optional symbol location for including line numbers in ID
    * @returns URI-based symbol ID
    */
   static generateId(
@@ -318,9 +327,13 @@ export class SymbolFactory {
     fileUri: string,
     scopePath?: string[],
     prefix?: string,
+    location?: SymbolLocation,
   ): string {
     // Use the new unified URI-based ID generator
     // Include prefix to ensure uniqueness between semantic symbols and their block scopes
+    // NOTE: Option 2A - IDs remain stable (no line numbers) to preserve cross-file reference stability
+    // Duplicates are handled via union type (ApexSymbol | ApexSymbol[]) in symbolMap
+    // Do NOT include line numbers - keep IDs stable
     return generateSymbolId(name, fileUri, scopePath, undefined, prefix);
   }
 
@@ -354,8 +367,9 @@ export class SymbolFactory {
     // Use file location for file scope, block location for others
     const effectiveLocation = scopeType === 'file' ? location : blockLocation;
 
-    // Ensure unifiedId is set - generate it if missing
-    const id = key.unifiedId || generateUnifiedId(key, fileUri);
+    // Ensure unifiedId is set - generate it if missing, including location for duplicate detection
+    const id =
+      key.unifiedId || generateUnifiedId(key, fileUri, effectiveLocation);
 
     // Create a single ScopeSymbol instance with the specified scopeType
     return new ScopeSymbol(
@@ -507,6 +521,8 @@ export interface MethodSymbol extends ApexSymbol {
   isConstructor?: boolean;
   /** Annotations for this method */
   annotations?: Annotation[];
+  /** Whether the method has a body block (false for abstract methods and interface methods) */
+  hasBody?: boolean;
 }
 
 /**
@@ -521,6 +537,7 @@ export interface VariableSymbol extends ApexSymbol {
     | SymbolKind.EnumValue;
   type: TypeInfo;
   initialValue?: string;
+  initializerType?: TypeInfo; // Type of the initializer expression (if present)
 }
 
 /**
@@ -572,6 +589,7 @@ export class ScopeSymbol implements ApexSymbol {
   identifierLocation?: SymbolLocation;
   _isLoaded: boolean;
   _loadPromise?: Promise<void>;
+  _detailLevel?: 'public-api' | 'protected' | 'private' | 'full';
   modifiers: SymbolModifiers;
 
   // ScopeSymbol-specific properties
@@ -627,17 +645,25 @@ export interface SymbolKey {
  * Generate a unified symbol ID from a SymbolKey using URI-based format
  * @param key The symbol key
  * @param fileUri Optional file path for uniqueness
+ * @param location Optional symbol location for including line numbers in ID
  * @returns URI-based symbol ID string
  */
-export const generateUnifiedId = (key: SymbolKey, fileUri?: string): string => {
+export const generateUnifiedId = (
+  key: SymbolKey,
+  fileUri?: string,
+  location?: SymbolLocation,
+): string => {
   // Use the new unified URI-based ID generator
   // Include prefix/kind to ensure uniqueness between semantic symbols and their block scopes
+  // NOTE: Option 2A - IDs remain stable (no line numbers) to preserve cross-file reference stability
+  // Duplicates are handled via union type (ApexSymbol | ApexSymbol[]) in symbolMap
   const validFileUri = fileUri || key.fileUri || 'unknown';
+  // Do NOT include line numbers - keep IDs stable for cross-file references
   return generateSymbolId(
     key.name,
     validFileUri,
     key.path.length > 0 ? key.path : undefined,
-    undefined, // lineNumber
+    undefined, // No line numbers - stable IDs for Option 2A
     key.prefix, // Include prefix to make IDs unique
   );
 };
@@ -672,8 +698,12 @@ export const createFromSymbol = (
     fileUri: fileUri || symbol.fileUri,
   };
 
-  // Generate unified ID
-  key.unifiedId = generateUnifiedId(key, fileUri || symbol.fileUri);
+  // Generate unified ID with location to include line numbers for duplicate detection
+  key.unifiedId = generateUnifiedId(
+    key,
+    fileUri || symbol.fileUri,
+    symbol.location,
+  );
 
   return key;
 };
@@ -730,8 +760,10 @@ export const getUnifiedId = (key: SymbolKey, fileUri?: string): string => {
  * Maintains a hierarchy of scopes and provides symbol lookup functionality.
  */
 export class SymbolTable {
-  private roots: ApexSymbol[] = []; // Track all symbols with parentId === null (top-level symbols)
-  private symbolMap: HashMap<string, ApexSymbol> = new HashMap();
+  private root: ApexSymbol | null = null; // Track the single top-level symbol (parentId === null)
+  // Union type: single symbol (common case) or array (duplicates)
+  // Optimistic approach: duplicates are rare and short-lived
+  private symbolMap: HashMap<string, ApexSymbol | ApexSymbol[]> = new HashMap();
   // idIndex removed: symbolMap now serves both purposes since keys are always unifiedId
   // and symbol.id is synchronized with key.unifiedId, so symbolMap.get(id) === idIndex.get(id)
   private references: SymbolReference[] = []; // Store symbol references
@@ -746,7 +778,8 @@ export class SymbolTable {
    */
   constructor() {
     // No root node needed - SymbolTable instance is the file container
-    // Top-level symbols (parentId === null) are tracked in roots array
+    // Top-level symbol (parentId === null) is tracked in root field
+    // Only one top-level type can exist per file
   }
 
   /**
@@ -827,25 +860,63 @@ export class SymbolTable {
     const normalizedUnifiedId = getUnifiedId(symbol.key, symbol.fileUri);
     // Always use unifiedId as the map key (never path-based fallback)
     const symbolKey = normalizedUnifiedId;
-    const existingSymbol = this.symbolMap.get(symbolKey);
+    const existing = this.symbolMap.get(symbolKey);
+
+    // Handle union type: existing could be ApexSymbol or ApexSymbol[]
+    const existingSymbol = Array.isArray(existing) ? existing[0] : existing;
+    const isDuplicate = Array.isArray(existing);
 
     // Track previous parentId for roots array maintenance
     const previousParentId = existingSymbol?.parentId;
 
+    // Logging for duplicate debugging
+    const logger = getLogger();
+    if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+      logger.debug(
+        () =>
+          `[SymbolTable.addSymbol] Top-level class: ${symbol.name}, ` +
+          `id=${symbolKey}, existing=${existing ? 'yes' : 'no'}, ` +
+          `isDuplicate=${isDuplicate}, ` +
+          `location=${symbol.location.identifierRange.startLine}:${symbol.location.identifierRange.startColumn}`,
+      );
+    }
+
     // Layered compilation: enrich existing symbol if it has lower detail level
+    // Skip enrichment for duplicates (they're errors, not enrichment candidates)
+    // Also skip if both symbols are the same object (already enriched)
     let symbolToAdd = symbol;
-    if (existingSymbol && symbol._detailLevel && existingSymbol._detailLevel) {
+    if (
+      existingSymbol &&
+      !isDuplicate &&
+      existingSymbol !== symbol && // Don't enrich if it's the same object
+      symbol._detailLevel // New symbol must have detail level for enrichment
+    ) {
       const detailLevelOrder: Record<string, number> = {
         'public-api': 1,
         protected: 2,
         private: 3,
         full: 4,
       };
-      const existingLevel = detailLevelOrder[existingSymbol._detailLevel] || 0;
+      const existingLevel = existingSymbol._detailLevel
+        ? detailLevelOrder[existingSymbol._detailLevel] || 0
+        : 0; // If existing has no detail level, treat as 0 (lowest)
       const newLevel = detailLevelOrder[symbol._detailLevel] || 0;
 
       // If new symbol has higher detail level, enrich the existing symbol
-      if (newLevel > existingLevel) {
+      // Also enrich if existing has no detail level (undefined) and new has one
+      if (
+        newLevel > existingLevel ||
+        (!existingSymbol._detailLevel && symbol._detailLevel)
+      ) {
+        if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+          logger.debug(
+            () =>
+              `[SymbolTable.addSymbol] ENRICHMENT: ${symbol.name}, ` +
+              `existingLevel=${existingSymbol._detailLevel}, newLevel=${symbol._detailLevel}, ` +
+              `existingLocation=${existingSymbol.location.identifierRange.startLine}, ` +
+              `newLocation=${symbol.location.identifierRange.startLine}`,
+          );
+        }
         // Merge properties from new symbol into existing symbol
         // Preserve existing properties, add new ones
         Object.assign(existingSymbol, {
@@ -868,7 +939,6 @@ export class SymbolTable {
         }
         // Validate that unifiedId exists (should always be true)
         if (!existingSymbol.key.unifiedId) {
-          const logger = getLogger();
           logger.warn(
             () =>
               `Symbol ${existingSymbol.name} missing unifiedId after enrichment - this should not happen`,
@@ -876,53 +946,163 @@ export class SymbolTable {
         }
         // Use enriched symbol
         symbolToAdd = existingSymbol;
-      } else if (newLevel <= existingLevel) {
-        // Existing symbol has same or higher detail level, skip enrichment
-        // Keep existing symbol
+        // Update map with enriched symbol
+        this.symbolMap.set(symbolKey, symbolToAdd);
+        // Update array - remove ALL occurrences with this ID and add the enriched symbol once
+        // This prevents duplicates if the same symbol was added multiple times
+        let i = this.symbolArray.length - 1;
+        while (i >= 0) {
+          if (this.symbolArray[i].id === symbolToAdd.id) {
+            this.symbolArray.splice(i, 1);
+          }
+          i--;
+        }
+        // Add the enriched symbol once
+        this.symbolArray.push(symbolToAdd);
+        // Update roots array if needed
+        this.updateRootsArray(symbolToAdd, previousParentId);
+        return;
+      } else if (newLevel < existingLevel) {
+        // Existing symbol has higher detail level, skip enrichment
+        // Keep existing symbol and return early (no duplicate detection needed)
         return;
       }
+      // If newLevel === existingLevel, fall through to duplicate detection
+      // This allows duplicates with the same detail level to be stored
     }
 
-    // Add or update symbol in map
-    this.symbolMap.set(symbolKey, symbolToAdd);
-
-    // Maintain array incrementally to avoid expensive HashMap iterator
-    if (existingSymbol) {
-      // Replace existing symbol in array if key already exists (HashMap overwrites)
-      // Use symbol.id for comparison (more stable than key comparison)
-      // symbol.id is synchronized with key.unifiedId and doesn't change
-      const index = this.symbolArray.findIndex((s) => s.id === symbolToAdd.id);
-      if (index !== -1) {
-        this.symbolArray[index] = symbolToAdd;
-      } else {
-        // Fallback: symbol not found in array, just push (shouldn't happen)
-        // This indicates array/map sync issue - log warning in development
-        const logger = getLogger();
+    // Handle duplicates: convert single symbol to array when duplicate detected
+    if (!existing) {
+      // First symbol - store as single symbol (optimistic approach)
+      if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
         logger.debug(
           () =>
-            `Symbol ${symbolToAdd.id} not found in array but exists in map - array may be out of sync`,
+            `[SymbolTable.addSymbol] FIRST ADD: ${symbol.name}, ` +
+            `location=${symbol.location.identifierRange.startLine}`,
         );
+      }
+      this.symbolMap.set(symbolKey, symbolToAdd);
+      // Add to array (check by object reference to avoid duplicates with same id)
+      if (!this.symbolArray.includes(symbolToAdd)) {
         this.symbolArray.push(symbolToAdd);
       }
+    } else if (isDuplicate) {
+      // Already have duplicates - add to array
+      if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+        logger.debug(
+          () =>
+            `[SymbolTable.addSymbol] ADDING TO EXISTING DUPLICATES: ${symbol.name}, ` +
+            `existingCount=${existing.length}, ` +
+            `location=${symbol.location.identifierRange.startLine}`,
+        );
+      }
+      // Check if this symbol is already in the duplicate array (by object reference)
+      if (!existing.includes(symbolToAdd)) {
+        existing.push(symbolToAdd);
+      }
+      // Add to symbolArray (check by object reference)
+      if (!this.symbolArray.includes(symbolToAdd)) {
+        this.symbolArray.push(symbolToAdd);
+      }
+    } else if (existingSymbol) {
+      // Second duplicate detected - convert to array
+      // BUT: if it's the same object, don't create a duplicate array entry
+      if (existingSymbol === symbolToAdd) {
+        if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+          logger.debug(
+            () =>
+              `[SymbolTable.addSymbol] SAME OBJECT - skipping duplicate: ${symbol.name}, ` +
+              `location=${symbol.location.identifierRange.startLine}`,
+          );
+        }
+        // Same object - don't add as duplicate, just return
+        return;
+      }
+      if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+        logger.debug(
+          () =>
+            `[SymbolTable.addSymbol] DUPLICATE DETECTED (converting to array): ${symbol.name}, ` +
+            `existingLocation=${existingSymbol.location.identifierRange.startLine}, ` +
+            `newLocation=${symbol.location.identifierRange.startLine}, ` +
+            `existingDetailLevel=${existingSymbol._detailLevel}, ` +
+            `newDetailLevel=${symbol._detailLevel}, ` +
+            `sameObject=${existingSymbol === symbolToAdd}`,
+        );
+      }
+      this.symbolMap.set(symbolKey, [existingSymbol, symbolToAdd]);
+      // Add to symbolArray (check by object reference)
+      if (!this.symbolArray.includes(symbolToAdd)) {
+        this.symbolArray.push(symbolToAdd);
+      }
+      // Ensure existingSymbol is also in array
+      if (!this.symbolArray.includes(existingSymbol)) {
+        this.symbolArray.push(existingSymbol);
+      }
     } else {
-      // New symbol, add to array
-      this.symbolArray.push(symbolToAdd);
+      // Fallback: should not happen, but handle gracefully
+      if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+        logger.warn(
+          () =>
+            `[SymbolTable.addSymbol] FALLBACK: ${symbol.name}, ` +
+            `existing=${existing}, existingSymbol=${existingSymbol}`,
+        );
+      }
+      this.symbolMap.set(symbolKey, symbolToAdd);
+      // Add to array (check by object reference)
+      if (!this.symbolArray.includes(symbolToAdd)) {
+        this.symbolArray.push(symbolToAdd);
+      }
     }
 
-    // Maintain roots array: track symbols with parentId === null
-    // If parentId changed from null to non-null, remove from roots
-    if (previousParentId === null && symbolToAdd.parentId !== null) {
-      const rootsIndex = this.roots.findIndex((s) => s.id === symbolToAdd.id);
-      if (rootsIndex !== -1) {
-        this.roots.splice(rootsIndex, 1);
+    // Update roots array if needed
+    this.updateRootsArray(symbolToAdd, previousParentId);
+  }
+
+  /**
+   * Helper method to update roots array when symbol parentId changes
+   * @private
+   */
+  private updateRootsArray(
+    symbol: ApexSymbol,
+    previousParentId: string | null | undefined,
+  ): void {
+    const logger = getLogger();
+    // Maintain root: track the single symbol with parentId === null
+    // If parentId changed from null to non-null, clear root if it matches
+    if (previousParentId === null && symbol.parentId !== null) {
+      if (this.root && this.root.id === symbol.id) {
+        if (symbol.kind === SymbolKind.Class) {
+          logger.debug(
+            () =>
+              `[SymbolTable.updateRootsArray] REMOVING root: ${symbol.name}, ` +
+              `parentId changed from null to ${symbol.parentId}`,
+          );
+        }
+        this.root = null;
       }
     }
-    // If parentId is null (top-level), add to roots array
-    if (symbolToAdd.parentId === null) {
-      const rootsIndex = this.roots.findIndex((s) => s.id === symbolToAdd.id);
-      if (rootsIndex === -1) {
-        this.roots.push(symbolToAdd);
+    // If parentId is null (top-level), set as root
+    // Only one top-level type can exist per file, so simple assignment
+    if (symbol.parentId === null) {
+      if (this.root && this.root.id !== symbol.id) {
+        // Defensive check: if root exists with different ID, log warning
+        // (shouldn't happen since parser only recognizes one top-level type)
+        const existingRootName = this.root.name;
+        logger.warn(
+          () =>
+            `[SymbolTable.updateRootsArray] Replacing root ${existingRootName} ` +
+            `with ${symbol.name} - multiple roots detected`,
+        );
       }
+      if (symbol.kind === SymbolKind.Class) {
+        logger.debug(
+          () =>
+            `[SymbolTable.updateRootsArray] SETTING root: ${symbol.name}, ` +
+            `location=${symbol.location.identifierRange.startLine}`,
+        );
+      }
+      // Replace root with current symbol (handles enrichment scenarios)
+      this.root = symbol;
     }
   }
 
@@ -939,7 +1119,13 @@ export class SymbolTable {
     parentId: string | null,
     scopePath?: string[],
   ): ScopeSymbol {
-    const id = SymbolFactory.generateId(name, fileUri, scopePath, 'block');
+    const id = SymbolFactory.generateId(
+      name,
+      fileUri,
+      scopePath,
+      'block',
+      location,
+    );
     const key: SymbolKey = {
       prefix: scopeType,
       name,
@@ -1164,7 +1350,10 @@ export class SymbolTable {
     while (current) {
       hierarchy.unshift(current);
       if (current.parentId) {
-        const parent = this.symbolMap.get(current.parentId);
+        const parentResult = this.symbolMap.get(current.parentId);
+        const parent = Array.isArray(parentResult)
+          ? parentResult[0]
+          : parentResult;
         if (parent && parent.kind === SymbolKind.Block) {
           current = parent as ScopeSymbol;
         } else {
@@ -1188,10 +1377,11 @@ export class SymbolTable {
 
   /**
    * Get all top-level symbols (symbols with parentId === null).
-   * @returns Array of all root symbols
+   * Only one top-level type can exist per file, so returns array with at most one element.
+   * @returns Array containing the root symbol, or empty array if none exists
    */
   getRoots(): ApexSymbol[] {
-    return this.roots;
+    return this.root ? [this.root] : [];
   }
 
   /**
@@ -1216,7 +1406,10 @@ export class SymbolTable {
         path.unshift(current.name);
       }
       if (current.parentId) {
-        const parent = this.symbolMap.get(current.parentId);
+        const parentResult = this.symbolMap.get(current.parentId);
+        const parent = Array.isArray(parentResult)
+          ? parentResult[0]
+          : parentResult;
         if (parent && parent.kind === SymbolKind.Block) {
           current = parent as ScopeSymbol;
         } else {
@@ -1237,7 +1430,10 @@ export class SymbolTable {
    */
   getParentScope(scope: ScopeSymbol): ScopeSymbol | null {
     if (scope.parentId) {
-      const parent = this.symbolMap.get(scope.parentId);
+      const parentResult = this.symbolMap.get(scope.parentId);
+      const parent = Array.isArray(parentResult)
+        ? parentResult[0]
+        : parentResult;
       if (parent && parent.kind === SymbolKind.Block) {
         return parent as ScopeSymbol;
       }
@@ -1251,9 +1447,10 @@ export class SymbolTable {
    * @returns Array of all symbols in the scope
    */
   getSymbolsInScope(scopeId: string | null): ApexSymbol[] {
-    // For file level, use roots array for efficient lookup
+    // For file level, return all symbols with parentId === null
+    // This includes the root (top-level type) and any other symbols manually added with parentId: null
     if (scopeId === null) {
-      return this.roots;
+      return this.symbolArray.filter((s) => s.parentId === null);
     }
     // For other scopes, symbols with parentId === scopeId belong here
     return this.symbolArray.filter((s) => s.parentId === scopeId);
@@ -1324,7 +1521,10 @@ export class SymbolTable {
       }
       // Navigate to parent using symbolMap
       if (scope.parentId) {
-        const parent = this.symbolMap.get(scope.parentId);
+        const parentResult = this.symbolMap.get(scope.parentId);
+        const parent = Array.isArray(parentResult)
+          ? parentResult[0]
+          : parentResult;
         if (parent && parent.kind === SymbolKind.Block) {
           scope = parent as ScopeSymbol;
         } else {
@@ -1379,7 +1579,10 @@ export class SymbolTable {
    */
   lookupByKey(key: SymbolKey): ApexSymbol | undefined {
     // Use symbol table's fileUri for key normalization
-    return this.symbolMap.get(this.keyToString(key, this.fileUri));
+    const result = this.symbolMap.get(this.keyToString(key, this.fileUri));
+    if (!result) return undefined;
+    // Handle union type: return first match if array, or single symbol
+    return Array.isArray(result) ? result[0] : result;
   }
 
   /**
@@ -1392,13 +1595,29 @@ export class SymbolTable {
 
   /**
    * Get a symbol by its ID using O(1) HashMap lookup.
+   * Returns first match if duplicates exist (backward compatible).
    * @param id The symbol ID to look up
    * @returns The symbol if found, undefined otherwise
    */
   getSymbolById(id: string): ApexSymbol | undefined {
     // Use symbolMap instead of idIndex since map keys are now always unifiedId
     // and symbol.id is synchronized with key.unifiedId
-    return this.symbolMap.get(id);
+    const result = this.symbolMap.get(id);
+    if (!result) return undefined;
+    // Handle union type: return first match if array, or single symbol
+    return Array.isArray(result) ? result[0] : result;
+  }
+
+  /**
+   * Get all symbols with the same unified ID (for duplicate detection).
+   * @param id The symbol ID to look up
+   * @returns Array of all symbols with this ID (empty if not found)
+   */
+  getAllSymbolsById(id: string): ApexSymbol[] {
+    const result = this.symbolMap.get(id);
+    if (!result) return [];
+    // Handle union type: return array as-is, or wrap single symbol in array
+    return Array.isArray(result) ? result : [result];
   }
 
   /**
@@ -1434,6 +1653,55 @@ export class SymbolTable {
    */
   getAllReferences(): SymbolReference[] {
     return [...this.references]; // Return a copy to prevent external modification
+  }
+
+  /**
+   * Check if the symbol table has any references
+   * @returns True if there are any references
+   */
+  hasReferences(): boolean {
+    return this.references.length > 0;
+  }
+
+  /**
+   * Get the detail level of this symbol table
+   * Returns the highest detail level found in any symbol, or null if no symbols
+   * @returns The detail level or null
+   */
+  getDetailLevel(): DetailLevel | null {
+    const symbols = this.getAllSymbols();
+    if (symbols.length === 0) {
+      return null;
+    }
+
+    const levelOrder: Record<DetailLevel, number> = {
+      'public-api': 1,
+      protected: 2,
+      private: 3,
+      full: 4,
+    };
+
+    let maxLevel: DetailLevel | null = null;
+    let maxOrder = 0;
+
+    for (const symbol of symbols) {
+      if (symbol._detailLevel) {
+        const order = levelOrder[symbol._detailLevel] || 0;
+        if (order > maxOrder) {
+          maxOrder = order;
+          maxLevel = symbol._detailLevel;
+        }
+      }
+    }
+
+    // 'private' level is equivalent to 'full' in the layered compilation system
+    // since 'full' means all layers (public-api + protected + private) are applied
+    // and there is no separate 'full' layer listener
+    if (maxLevel === 'private') {
+      return 'full';
+    }
+
+    return maxLevel;
   }
 
   /**
@@ -1609,10 +1877,14 @@ export class SymbolTable {
     const symbolEntries = Array.from(this.symbolMap.entries());
 
     // Create a new object with cleaned symbols
-    const cleanedSymbols = symbolEntries.map(([key, symbol]) => ({
-      key,
-      symbol: symbol ? cleanSymbol(symbol) : undefined,
-    }));
+    // Handle union type: clean first symbol if array, or single symbol
+    const cleanedSymbols = symbolEntries.map(([key, symbol]) => {
+      const symbolToClean = Array.isArray(symbol) ? symbol[0] : symbol;
+      return {
+        key,
+        symbol: symbolToClean ? cleanSymbol(symbolToClean) : undefined,
+      };
+    });
 
     // Get all scope symbols (ScopeSymbols) for scopes array
     const scopeSymbols = this.symbolArray.filter(

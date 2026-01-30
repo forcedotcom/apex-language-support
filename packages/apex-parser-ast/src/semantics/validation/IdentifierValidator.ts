@@ -9,6 +9,8 @@
 import { SymbolKind } from '../../types/symbol';
 import { ValidationResult, ValidationScope } from './ValidationResult';
 import { isApexKeyword } from '../../utils/ApexKeywords';
+import { localizeTyped } from '../../i18n/messageInstance';
+import { ErrorCodes } from '../../generated/ErrorCodes';
 
 /**
  * Validates Apex identifiers according to semantic rules
@@ -88,7 +90,8 @@ export class IdentifierValidator {
 
     // Check 1: Valid characters
     if (!this.hasValidCharacters(name)) {
-      errors.push(`Invalid character in identifier: ${name}`);
+      const code = ErrorCodes.INVALID_CHARACTER_IDENTIFIER;
+      errors.push(localizeTyped(code, name));
       return { isValid: false, errors, warnings };
     }
 
@@ -97,14 +100,16 @@ export class IdentifierValidator {
       type !== SymbolKind.Method &&
       this.RESERVED_NAMES.has(name.toLowerCase())
     ) {
-      errors.push(`Identifier name is reserved: ${name}`);
+      const code = ErrorCodes.INVALID_RESERVED_NAME_IDENTIFIER;
+      errors.push(localizeTyped(code, name));
       return { isValid: false, errors, warnings };
     }
 
     // Check 3: Keywords (methods can use keywords)
     // Use centralized keyword set from ApexKeywords.ts
     if (type !== SymbolKind.Method && isApexKeyword(name)) {
-      errors.push(`Identifier cannot be a keyword: ${name}`);
+      const code = ErrorCodes.INVALID_KEYWORD_IDENTIFIER;
+      errors.push(localizeTyped(code, name));
       return { isValid: false, errors, warnings };
     }
 
@@ -113,14 +118,16 @@ export class IdentifierValidator {
       (type === SymbolKind.Class || type === SymbolKind.Interface) &&
       this.RESERVED_TYPE_NAMES.has(name.toLowerCase())
     ) {
-      errors.push(`Identifier type is reserved: ${name}`);
+      const code = ErrorCodes.INVALID_RESERVED_TYPE_IDENTIFIER;
+      errors.push(localizeTyped(code, name));
       return { isValid: false, errors, warnings };
     }
 
     // Check 5: Length validation
     const maxLength = this.getMaxLength(type, isTopLevel, scope);
     if (name.length > maxLength) {
-      errors.push(`Identifier name is too long: ${name} (max: ${maxLength})`);
+      const code = ErrorCodes.IDENTIFIER_TOO_LONG;
+      errors.push(localizeTyped(code, name));
       return { isValid: false, errors, warnings };
     }
 

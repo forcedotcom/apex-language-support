@@ -430,7 +430,7 @@ describe('IdentifierValidator', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain(
-        `Identifier name is too long: ${longName} (max: 255)`,
+        `Identifier name is too long: ${longName}`,
       );
     });
 
@@ -457,7 +457,7 @@ describe('IdentifierValidator', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain(
-        `Identifier name is too long: ${longClassName} (max: 40)`,
+        `Identifier name is too long: ${longClassName}`,
       );
     });
 
@@ -496,7 +496,7 @@ describe('IdentifierValidator', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain(
-        `Identifier name is too long: ${longInterfaceName} (max: 40)`,
+        `Identifier name is too long: ${longInterfaceName}`,
       );
     });
 
@@ -511,7 +511,7 @@ describe('IdentifierValidator', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain(
-        `Identifier name is too long: ${longEnumName} (max: 40)`,
+        `Identifier name is too long: ${longEnumName}`,
       );
     });
 

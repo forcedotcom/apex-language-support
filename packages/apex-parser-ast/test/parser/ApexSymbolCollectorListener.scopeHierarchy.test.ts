@@ -69,6 +69,15 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     setLogLevel('error');
   });
 
+  afterEach(() => {
+    // Clean up compiler service to prevent memory leaks
+    // This helps prevent SIGSEGV when running full test suite
+    if (compilerService) {
+      // CompilerService doesn't have explicit cleanup, but clearing references helps
+      compilerService = new CompilerService();
+    }
+  });
+
   describe('Integration Test Reproduction', () => {
     it('should create proper scope hierarchy for CommunitiesLandingController', () => {
       // This is the exact Apex code from the failing integration test

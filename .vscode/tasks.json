@@ -42,6 +42,31 @@
       "problemMatcher": [],
       "label": "npm: bundle",
       "detail": "Bundle all packages for development"
+    },
+    {
+      "type": "shell",
+      "command": "open",
+      "args": ["${workspaceFolder}/coverage/lcov-report/index.html"],
+      "label": "Open Coverage Report (Root)",
+      "detail": "Open merged coverage HTML report in browser",
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "type": "shell",
+      "command": "open",
+      "args": ["${workspaceFolder}/packages/${input:packageName}/coverage/lcov-report/index.html"],
+      "label": "Open Coverage Report (Package)",
+      "detail": "Open package-specific coverage HTML report",
+      "problemMatcher": [],
+      "group": "test",
+      "inputs": [
+        {
+          "id": "packageName",
+          "type": "promptString",
+          "description": "Package name (e.g., apex-parser-ast, lsp-compliant-services)"
+        }
+      ]
     }
   ]
 }

@@ -179,8 +179,8 @@ export class ApexFoldingRangeProvider {
     astRanges: FoldingRange[],
   ): LSPFoldingRange[] {
     return astRanges
-      .filter(this.isValidFoldingRange)
-      .map(this.convertToLSPFoldingRange)
+      .filter((range) => this.isValidFoldingRange(range))
+      .map((range) => this.convertToLSPFoldingRange(range))
       .filter((range): range is LSPFoldingRange => range !== null);
   }
 

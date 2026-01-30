@@ -21,6 +21,7 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import { getDocumentStateCache } from './DocumentStateCache';
+import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 
 /**
  * Interface for document symbol processing functionality
@@ -45,6 +46,8 @@ export class DocumentSymbolProcessingService
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private layerEnrichmentService: LayerEnrichmentService | null = null;
+  private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
+    null;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
@@ -58,6 +61,15 @@ export class DocumentSymbolProcessingService
    */
   setLayerEnrichmentService(service: LayerEnrichmentService): void {
     this.layerEnrichmentService = service;
+    // Create prerequisite orchestration service when layer enrichment is set
+    if (!this.prerequisiteOrchestrationService) {
+      this.prerequisiteOrchestrationService =
+        new PrerequisiteOrchestrationService(
+          this.logger,
+          this.symbolManager,
+          service,
+        );
+    }
   }
 
   /**
@@ -72,6 +84,22 @@ export class DocumentSymbolProcessingService
       () =>
         `Common Apex Language Server document symbol handler invoked with: ${params}`,
     );
+
+    // Run prerequisites for documentSymbol request
+    if (this.prerequisiteOrchestrationService) {
+      try {
+        await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+          'documentSymbol',
+          params.textDocument.uri,
+        );
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error running prerequisites for documentSymbol ${params.textDocument.uri}: ${error}`,
+        );
+        // Continue with documentSymbol even if prerequisites fail
+      }
+    }
 
     try {
       // Get the storage manager instance

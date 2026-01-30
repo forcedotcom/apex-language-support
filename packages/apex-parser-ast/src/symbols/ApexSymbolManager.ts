@@ -310,7 +310,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (!symbol.key.kind) {
         symbol.key.kind = symbol.kind;
       }
-      symbol.key.unifiedId = generateUnifiedId(symbol.key, properUri);
+      symbol.key.unifiedId = generateUnifiedId(
+        symbol.key,
+        properUri,
+        symbol.location,
+      );
       // Synchronize id with key.unifiedId to avoid duplication
       symbol.id = symbol.key.unifiedId;
       // Ensure key.fileUri is set and synchronized
@@ -360,9 +364,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
     }
 
-    // Always add symbol to the SymbolTable
-    // TODO: This is a hack to add the symbol to the SymbolTable
-    tempSymbolTable!.addSymbol(symbol);
+    // Add symbol to the SymbolTable only if it doesn't already exist
+    // This prevents duplicates when addSymbolTable is called after registerSymbolTable
+    // which may have already merged symbols into the table
+    const symbolKey = symbol.key?.unifiedId || symbol.id;
+    const existingInTable = symbolKey
+      ? tempSymbolTable!.getAllSymbolsById(symbolKey)
+      : [];
+    if (existingInTable.length === 0) {
+      tempSymbolTable!.addSymbol(symbol);
+    }
 
     // Add to symbol graph (it has its own duplicate detection)
     this.symbolGraph.addSymbol(symbol, properUri, tempSymbolTable);
@@ -455,6 +466,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Find a symbol by its fully qualified name
+   * Returns first match if duplicates exist (backward compatible)
    */
   findSymbolByFQN(fqn: string): ApexSymbol | null {
     const cacheKey = `symbol_fqn_${fqn}`;
@@ -466,6 +478,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const symbol = this.symbolGraph.findSymbolByFQN(fqn);
     this.unifiedCache.set(cacheKey, symbol, 'fqn_lookup');
     return symbol || null;
+  }
+
+  /**
+   * Find all symbols with the same FQN (for duplicate detection)
+   * @param fqn The fully qualified name to search for
+   * @returns Array of all symbols with this FQN (empty if not found)
+   */
+  findSymbolsByFQN(fqn: string): ApexSymbol[] {
+    return this.symbolGraph.findSymbolsByFQN(fqn);
   }
 
   /**
@@ -1702,11 +1723,24 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Register SymbolTable once for the entire file before processing symbols
       // This avoids redundant registration calls for each symbol
+      // NOTE: registerSymbolTable may merge symbols from an existing table, modifying symbolTable
       self.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
 
-      // Add all symbols from the symbol table
-      const symbols = symbolTable.getAllSymbols
-        ? symbolTable.getAllSymbols()
+      // After registerSymbolTable, get the final symbol table (may have been merged)
+      const finalSymbolTable =
+        self.symbolGraph.getSymbolTableForFile(normalizedUri);
+      if (!finalSymbolTable) {
+        self.logger.warn(
+          () =>
+            `[addSymbolTable] SymbolTable not found after registration for ${normalizedUri}`,
+        );
+        return;
+      }
+
+      // Add all symbols from the symbol table to the graph
+      // Only add symbols that aren't already in the graph to avoid duplicates
+      const symbols = finalSymbolTable.getAllSymbols
+        ? finalSymbolTable.getAllSymbols()
         : [];
 
       // Update all symbols to use the normalized URI
@@ -1718,9 +1752,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const symbol = symbols[i];
         // Update the symbol's fileUri to match the normalized URI
         symbol.fileUri = normalizedUri;
-        // Pass undefined for symbolTable since it's already registered above
-        // addSymbol() will use the registered SymbolTable via ensureSymbolTableForFile()
-        self.addSymbol(symbol, normalizedUri, undefined);
+
+        // Only add to graph if not already present (registerSymbolTable already handled SymbolTable)
+        // Pass the registered SymbolTable to avoid creating a new one
+        self.addSymbol(symbol, normalizedUri, finalSymbolTable);
         symbolNamesAdded.add(symbol.name);
 
         // Yield every batchSize symbols to allow other tasks to run
@@ -3758,6 +3793,38 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     position?: { line: number; character: number },
   ): Promise<ApexSymbol | null> {
     try {
+      // Handle LITERAL references by resolving to built-in type using literalType
+      if (typeReference.context === ReferenceContext.LITERAL) {
+        if (
+          !typeReference.literalType ||
+          typeReference.literalType === 'Null'
+        ) {
+          return null; // null literals don't resolve to a type
+        }
+
+        // Create a temporary reference with the literalType name for resolution
+        const builtInTypeRef: SymbolReference = {
+          name: typeReference.literalType, // e.g., 'String', 'Integer'
+          location: typeReference.location,
+          context: ReferenceContext.CLASS_REFERENCE, // Use CLASS_REFERENCE for type resolution
+        };
+
+        // Resolve using the literalType name
+        const builtInSymbol = await this.resolveBuiltInType(builtInTypeRef);
+        if (builtInSymbol) {
+          // Store the resolved symbol ID in the original LITERAL reference
+          typeReference.resolvedSymbolId = builtInSymbol.id;
+          this.logger.debug(
+            () =>
+              `Resolved LITERAL reference "${typeReference.name}" ` +
+              `(type: ${typeReference.literalType}) to built-in type: ${builtInSymbol.name}`,
+          );
+          return builtInSymbol;
+        }
+
+        return null;
+      }
+
       // Step 0: Fast path - if already resolved by listener second-pass, use the ID directly
       // This provides O(1) lookup for same-file refs, avoiding expensive resolution chains
       if (typeReference.resolvedSymbolId) {

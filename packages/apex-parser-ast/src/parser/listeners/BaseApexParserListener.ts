@@ -23,15 +23,13 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
   exitEveryRule?(ctx: ParserRuleContext): void {}
   visitTerminal?(): void {}
   visitErrorNode?(node: ErrorNode): void {
-    if (this.errorListener) {
-      // Extract location information from the error node
-      const token = node.symbol;
-      this.errorListener.semanticError(
-        `Invalid syntax: ${token.text}`,
-        token.line,
-        token.charPositionInLine,
-      );
-    }
+    // Error nodes are created by ANTLR when syntax errors occur.
+    // These errors are already reported via ApexErrorListener.syntaxError(),
+    // so we should not report them again as semantic errors here.
+    // This prevents duplicate error reporting (e.g., both "missing ';' at 'insert'"
+    // and "Invalid syntax: <missing ';'>" for the same syntax error).
+    // Subclasses can override this method if they need to handle error nodes
+    // for recovery or other purposes.
   }
   protected warnings: string[] = [];
   protected errorListener: ApexErrorListener | null = null;

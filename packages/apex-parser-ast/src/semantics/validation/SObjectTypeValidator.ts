@@ -133,7 +133,9 @@ export class SObjectTypeValidator {
     if (type.isCollection) {
       const collectionResult = this.validateSObjectCollectionType(type, scope);
       if (!collectionResult.isValid) {
-        errors.push(...collectionResult.errors);
+        for (const error of collectionResult.errors) {
+          errors.push(typeof error === 'string' ? error : error.message);
+        }
         return { isValid: false, errors, warnings };
       }
       return { isValid: true, errors, warnings };
@@ -168,7 +170,9 @@ export class SObjectTypeValidator {
     // Check 1: Validate SObject type
     const sobjectResult = this.validateSObjectType(sobjectType, scope);
     if (!sobjectResult.isValid) {
-      errors.push(...sobjectResult.errors);
+      for (const error of sobjectResult.errors) {
+        errors.push(typeof error === 'string' ? error : error.message);
+      }
       return { isValid: false, errors, warnings };
     }
 

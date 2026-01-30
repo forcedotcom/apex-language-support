@@ -21,6 +21,30 @@ The language server is built around a web worker architecture that provides:
 - **Isolated Context**: Server runs in its own isolated context for better security and performance
 - **Message-based Communication**: Uses standardized message passing for client-server communication
 
+### Request Processing Architecture
+
+The language server implements a sophisticated request processing system:
+
+- **Queue-Based Processing**: All LSP requests flow through a priority-based queue system built on Effect-TS
+  - Priority levels: Immediate, High, Normal, Low, Background
+  - Automatic timeout and retry handling
+  - Starvation prevention for low-priority tasks
+
+- **Layered Compilation**: Progressive symbol enrichment with three visibility layers
+  - Public API layer: Fast initial processing for immediate feedback
+  - Protected layer: Adds protected members for inheritance analysis
+  - Private layer: Full symbol information for complete validation
+  - Parse tree reuse eliminates redundant parsing during enrichment
+
+- **Prerequisite Orchestration**: Ensures each request has required data
+  - Verifies document exists in storage
+  - Ensures symbol table exists and has required enrichment level
+  - Automatically triggers layered enrichment when needed
+
+- **Two-Tier Semantic Validation**: Split validation for performance
+  - TIER 1 (IMMEDIATE): <500ms, same-file only, runs on every keystroke (10 validators)
+  - TIER 2 (THOROUGH): 2-5s, may load artifacts, runs on save (4 validators)
+
 ### Key Components
 
 #### 1. Web Worker Language Server (`worker.ts`)
@@ -41,11 +65,47 @@ The language server is built around a web worker architecture that provides:
 - Provides temporary storage during worker lifetime
 - Includes synchronization methods for persistent storage
 
-#### 4. Logging System (`utils/`)
+#### 4. LCS Adapter (`server/LCSAdapter.ts`)
+
+- Core adapter that connects LSP protocol handlers to the processing services
+- Registers all LSP request handlers (diagnostics, hover, completion, etc.)
+- Routes requests through LSPQueueManager for priority-based processing
+- Manages server lifecycle and capabilities negotiation
+
+#### 5. Logging System (`utils/`)
 
 - `WebWorkerLoggerFactory`: Creates loggers for web worker environments
 - `WebWorkerLogNotificationHandler`: Handles log notifications via postMessage
 - Sends logs to main thread for display or handling
+
+### Request Flow
+
+When a client sends an LSP request, it flows through the system as follows:
+
+```
+Client (Editor)
+  ↓ LSP Request (e.g., textDocument/diagnostic)
+Web Worker Message Passing
+  ↓
+LCSAdapter.onDiagnostic()
+  ↓
+LSPQueueManager.submitRequest('diagnostics', params, {priority: Normal})
+  ↓ Queue Scheduling (priority-based)
+ServiceRegistry → DiagnosticProcessingService
+  ↓
+PrerequisiteOrchestrationService
+  ├─ Verify document in storage
+  ├─ Get/compile symbol table
+  └─ Enrich to required detail level (if needed)
+  ↓
+DiagnosticProcessingService.processDiagnostic()
+  ├─ TIER 1 Validation (10 validators, <500ms)
+  └─ TIER 2 Validation (4 validators, 2-5s)
+  ↓
+Map to LSP Diagnostic[]
+  ↓
+Return to Client
+```
 
 ## Features
 
@@ -188,15 +248,6 @@ In-memory storage implementation for web worker environments.
 - `clear()`: Clear all storage
 - `syncWithMainThread(data?)`: Sync with main thread
 - `loadFromMainThread(data)`: Load data from main thread
-
-## Recent Changes
-
-- **Web Worker Architecture**: Enhanced with unified web worker-based language server
-- **Platform Independence**: Removed Node.js API dependencies
-- **Client Utilities**: Added comprehensive client utilities for web worker communication
-- **Storage Implementation**: Added in-memory storage for web worker environments
-- **Enhanced Logging**: Web worker-compatible logging system
-- **Multiple Entry Points**: Added `/worker` and `/client` entry points for modular usage
 
 ## Development
 

@@ -53,6 +53,18 @@ export class ClassModifierValidator {
     annotations: Annotation[],
     errorReporter: ErrorReporter,
   ): void {
+    // 'final' keyword is not allowed on classes in Apex
+    // Classes are final by default and cannot use the 'final' keyword
+    if (modifiers.isFinal) {
+      errorReporter.addError(
+        "The 'final' keyword cannot be used on class declarations. " +
+          "Classes are final by default in Apex. Use 'virtual' to make a class extensible.",
+        ctx,
+      );
+      // Remove the invalid modifier
+      modifiers.isFinal = false;
+    }
+
     // webService modifier is not allowed on classes
     if (modifiers.isWebService) {
       errorReporter.addError(

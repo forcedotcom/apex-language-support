@@ -86,9 +86,74 @@ export * from './symbols/ApexSymbolGraph';
 export * from './symbols/ApexSymbolIndexingService';
 export * from './symbols/ApexSymbolProcessingManager';
 
+// Export i18n support
+export * from './i18n/messageInstance';
+export * from './generated/ErrorCodes';
+
 // Export semantic validators
 export * from './semantics/modifiers/index';
 export * from './semantics/annotations/index';
+// Export validation tier types (selective to avoid conflicts)
+export {
+  ValidationTier,
+  ARTIFACT_LOADING_LIMITS,
+} from './semantics/validation/ValidationTier';
+export type {
+  ArtifactLoadingOptions,
+  ValidationOptions,
+} from './semantics/validation/ValidationTier';
+export type {
+  ValidationResult,
+  ValidationErrorInfo,
+  ValidationWarningInfo,
+  ValidationScope,
+} from './semantics/validation/ValidationResult';
+export {
+  ValidatorRegistry,
+  ValidatorRegistryLive,
+  registerValidator,
+  getValidatorsByTier,
+  runValidatorsForTier,
+  ValidationError,
+} from './semantics/validation/ValidatorRegistry';
+export {
+  initializeValidators,
+  getValidatorCounts,
+} from './semantics/validation/ValidatorInitialization';
+export type {
+  Validator,
+  ValidatorRegistration,
+  ValidatorRegistryService,
+} from './semantics/validation/ValidatorRegistry';
+// Artifact Loading Helper
+export {
+  ArtifactLoadingHelper,
+  ArtifactLoadingHelperLive,
+  ISymbolManager as ISymbolManagerTag,
+} from './semantics/validation/ArtifactLoadingHelper';
+export type {
+  ArtifactLoadingHelperService,
+  LoadResult,
+} from './semantics/validation/ArtifactLoadingHelper';
+// Effect Logger Layer for bridging Effect logging to LSP logger
+export {
+  EffectLspLoggerLive,
+  EffectTestLoggerLive,
+} from './utils/EffectLspLoggerLayer';
+// Validator implementations
+export { ParameterLimitValidator } from './semantics/validation/validators/ParameterLimitValidator';
+export { EnumLimitValidator } from './semantics/validation/validators/EnumLimitValidator';
+export { EnumConstantNamingValidator } from './semantics/validation/validators/EnumConstantNamingValidator';
+export { DuplicateMethodValidator } from './semantics/validation/validators/DuplicateMethodValidator';
+export { ConstructorNamingValidator } from './semantics/validation/validators/ConstructorNamingValidator';
+export { TypeSelfReferenceValidator } from './semantics/validation/validators/TypeSelfReferenceValidator';
+export { AbstractMethodBodyValidator } from './semantics/validation/validators/AbstractMethodBodyValidator';
+export { VariableShadowingValidator } from './semantics/validation/validators/VariableShadowingValidator';
+export { ForwardReferenceValidator } from './semantics/validation/validators/ForwardReferenceValidator';
+export { FinalAssignmentValidator } from './semantics/validation/validators/FinalAssignmentValidator';
+// eslint-disable-next-line max-len
+export { MethodSignatureEquivalenceValidator } from './semantics/validation/validators/MethodSignatureEquivalenceValidator';
+export { InterfaceHierarchyValidator } from './semantics/validation/validators/InterfaceHierarchyValidator';
 
 // Export protocol handler utilities
 export * from './types/ProtocolHandler';

@@ -197,8 +197,8 @@ graph LR
 
 - Manual dispatch (primary)
 - Scheduled nightly builds:
-  - `main` branch: Daily at 2:00 AM UTC (`0 2 * * *`)
-  - `tdx26/main` branch: Daily at 2:30 AM UTC (`30 2 * * *`)
+  - `main` branch: Daily at 3:00 AM UTC (`0 3 * * *`)
+  - `tdx26/main` branch: Daily at 4:00 AM UTC (`0 4 * * *`)
 - ~~Push to main (commented out)~~
 
 **Jobs:**
@@ -228,7 +228,7 @@ graph TB
 **Nightly Build Behavior:**
 
 - Scheduled runs automatically use `pre-release: true`
-- Branch selection is determined by the cron schedule time (minutes 0-29 = main, minutes 30-59 = tdx26/main)
+- Branch selection is determined by the cron schedule time (hour 3 = main, hour 4 = tdx26/main)
 - Only changed extensions are built and released
 - All registries are targeted by default
 

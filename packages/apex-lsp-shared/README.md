@@ -1,16 +1,16 @@
 # Apex LSP Shared (`@salesforce/apex-lsp-shared`)
 
-This package provides shared utilities for the Apex Language Server ecosystem, including a unified logging system that supports both LSP-based logging and standalone console logging, and a memory-efficient enum replacement utility.
+This package provides shared utilities for the Apex Language Server ecosystem, including logging, priority definitions, capabilities management, settings management, and custom LSP protocol extensions.
 
 ## Features
 
-- **LSP Integration**: Seamless integration with Language Server Protocol logging
-- **Standalone Console Logging**: Console-based logging for standalone applications
+- **Priority System**: Five-level priority system for queue-based request scheduling
+- **Logging System**: Unified logging with LSP integration and standalone console support
 - **Memory-Efficient Enums**: Type-safe, bidirectional enum replacement with Zod validation
-- **Timestamp Support**: Automatic timestamp formatting for all log messages
-- **Lazy Evaluation**: Support for lazy message evaluation to improve performance
-- **Multiple Log Levels**: Debug, Info, Warning, Error, and custom log levels
-- **Type Safety**: Full TypeScript support with proper typing
+- **Capabilities Management**: Platform-agnostic server capabilities with mode-based optimization
+- **Settings Management**: Configuration management for language server settings
+- **Custom LSP Protocol**: Extensions for artifact resolution and workspace loading
+- **Type Safety**: Full TypeScript support with proper typing across all utilities
 
 ## Installation
 
@@ -19,6 +19,56 @@ npm install @salesforce/apex-lsp-shared
 ```
 
 ## Usage
+
+### Priority System
+
+The package provides a five-level priority system used by the LSP queue for request scheduling:
+
+```typescript
+import { Priority, AllPriorities } from '@salesforce/apex-lsp-shared';
+
+// Priority levels (1 = highest, 5 = lowest)
+Priority.Immediate; // 1 - Critical tasks that must execute immediately
+Priority.High; // 2 - High-priority tasks (e.g., user-facing requests)
+Priority.Normal; // 3 - Standard priority tasks (default for most requests)
+Priority.Low; // 4 - Low-priority tasks (e.g., background analysis)
+Priority.Background; // 5 - Background tasks (e.g., cleanup, maintenance)
+
+// Get all priority values in order
+console.log(AllPriorities);
+// [Priority.Immediate, Priority.High, Priority.Normal, Priority.Low, Priority.Background]
+```
+
+#### Usage in Queue System
+
+The priority system integrates with `LSPQueueManager` for request scheduling:
+
+```typescript
+// Submit a request with specific priority
+await queueManager.submitRequest('diagnostics', params, {
+  priority: Priority.Normal,
+});
+
+// High-priority request for immediate user feedback
+await queueManager.submitRequest('hover', params, {
+  priority: Priority.Immediate,
+});
+
+// Low-priority background indexing
+await queueManager.submitNotification('documentChange', params, {
+  priority: Priority.Low,
+});
+```
+
+#### Priority Assignment Guidelines
+
+| Priority     | Use Case                  | Examples                                  |
+| ------------ | ------------------------- | ----------------------------------------- |
+| `Immediate`  | User-triggered, blocks UI | Hover, completion, signature help         |
+| `High`       | User-facing, high impact  | Document open/save, diagnostics (pull)    |
+| `Normal`     | Standard operations       | Document change, background compilation   |
+| `Low`        | Deferred work             | Background indexing, reference processing |
+| `Background` | Maintenance tasks         | Cache cleanup, statistics collection      |
 
 ### Memory-Efficient Enums
 
@@ -151,6 +201,22 @@ disableLogging();
 
 ## API Reference
 
+### Priority
+
+#### `Priority` (enum)
+
+Five-level priority system for task scheduling:
+
+- `Priority.Immediate = 1`: Critical tasks
+- `Priority.High = 2`: High-priority tasks
+- `Priority.Normal = 3`: Standard priority
+- `Priority.Low = 4`: Low-priority tasks
+- `Priority.Background = 5`: Background tasks
+
+#### `AllPriorities` (constant)
+
+Readonly array of all priority values in order from highest to lowest.
+
 ### Enum Utilities
 
 #### `defineEnum<T>(entries: T)`
@@ -223,6 +289,99 @@ interface LoggerInterface {
 
 ```typescript
 type LogMessageType = 'error' | 'warning' | 'info' | 'log' | 'debug';
+```
+
+## Additional Features
+
+### Capabilities Management
+
+The package provides platform-agnostic capabilities management:
+
+```typescript
+import {
+  ApexCapabilitiesManager,
+  LSPConfigurationManager,
+} from '@salesforce/apex-lsp-shared';
+
+// Get capabilities manager
+const manager = ApexCapabilitiesManager.getInstance();
+
+// Set server mode
+manager.setMode('development'); // or 'production', 'test'
+
+// Get capabilities for current mode
+const capabilities = manager.getCapabilities();
+```
+
+### Settings Management
+
+Unified settings management for language server configuration:
+
+```typescript
+import {
+  ApexSettingsManager,
+  generateStartupSummary,
+} from '@salesforce/apex-lsp-shared';
+
+// Get settings manager
+const settings = ApexSettingsManager.getInstance();
+
+// Update settings
+settings.updateSettings({
+  commentCollection: { enableCommentCollection: true },
+  performance: { documentChangeDebounceMs: 300 },
+});
+
+// Generate configuration summary
+const summary = generateStartupSummary(settings);
+console.log(summary);
+```
+
+### Custom LSP Protocol Extensions
+
+The package defines custom LSP protocol extensions:
+
+#### Missing Artifact Resolution
+
+```typescript
+import type {
+  FindMissingArtifactParams,
+  FindMissingArtifactResult,
+} from '@salesforce/apex-lsp-shared';
+
+// Request to find and load missing type definitions
+const params: FindMissingArtifactParams = {
+  identifier: 'MyCustomClass',
+  origin: {
+    uri: 'file:///workspace/MyFile.cls',
+    requestKind: 'definition',
+  },
+  mode: 'blocking',
+};
+
+// Result from client
+const result: FindMissingArtifactResult = {
+  opened: ['file:///workspace/MyCustomClass.cls'],
+};
+```
+
+#### Workspace Loading
+
+```typescript
+import type {
+  RequestWorkspaceLoadParams,
+  WorkspaceLoadCompleteParams,
+} from '@salesforce/apex-lsp-shared';
+
+// Server requests workspace load
+const request: RequestWorkspaceLoadParams = {
+  workDoneToken: 'workspace-load-123',
+};
+
+// Client notifies completion
+const completion: WorkspaceLoadCompleteParams = {
+  success: true,
+};
 ```
 
 ## Examples

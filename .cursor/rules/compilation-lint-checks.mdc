@@ -1,0 +1,57 @@
+---
+description: Always verify compilation and lint checks after code changes
+alwaysApply: true
+---
+
+# Compilation and Lint Checks
+
+Always verify that code compiles and passes linting after making changes.
+
+## Required Checks
+
+After generating or modifying code, you MUST:
+
+1. **Run compilation check**: Execute `npm run compile` in the workspace root or the specific package being modified
+   - This catches TypeScript errors, type mismatches, and other compilation issues
+   - Fix any compilation errors before considering the task complete
+
+2. **Run linting check**: Execute `npm run lint` or `npm run lint:fix` in the workspace root or the specific package being modified
+   - `npm run lint` checks for linting issues
+   - `npm run lint:fix` automatically fixes fixable linting issues
+   - Address any remaining linting errors manually
+
+## When to Check
+
+- **After creating new files**: Always compile and lint new code
+- **After modifying existing files**: Verify changes don't introduce errors
+- **After refactoring**: Ensure refactored code still compiles and lints cleanly
+- **Before marking tasks complete**: Never consider work done until compilation and linting pass
+
+## Error Handling
+
+If compilation or linting errors are found:
+
+1. **Fix immediately**: Don't leave errors for later
+2. **Check related files**: Errors in one file may indicate issues in related code
+3. **Verify fixes**: Re-run compilation/linting after fixes to ensure they're resolved
+4. **Document pre-existing errors**: If errors existed before your changes, note them but don't introduce new ones
+
+## Example Workflow
+
+```bash
+# After making code changes:
+cd packages/apex-parser-ast
+npm run compile
+npm run lint:fix
+
+# Or from workspace root:
+npm run compile --workspace=packages/apex-parser-ast
+npm run lint:fix --workspace=packages/apex-parser-ast
+```
+
+## Note
+
+Pre-existing errors in other files are acceptable to leave, but you must:
+- Not introduce new compilation or linting errors
+- Fix errors in files you've modified
+- Verify your changes compile and lint cleanly

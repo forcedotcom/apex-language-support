@@ -31,9 +31,10 @@
     "test": "wireit",
     "test:one": "wireit",
     "test:coverage": "wireit",
-    "clean": "rimraf out resourcesdist .wireit coverage src/generated tsconfig.tsbuildinfo",
+    "clean": "rimraf out dist resources .wireit coverage src/generated tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "wireit"
+    "lint": "wireit",
+    "check:error-codes": "node scripts/check-error-code-coverage.mjs"
   },
   "wireit": {
     "generate:stdlib-cache": {
@@ -52,7 +53,7 @@
       ]
     },
     "precompile": {
-      "command": "node scripts/generate-proto.mjs && node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs",
+      "command": "node scripts/generate-proto.mjs && node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs && node scripts/generate-messages.mjs",
       "output": [
         "src/generated/**",
         "resources/StandardApexLibrary.zip"
@@ -61,8 +62,10 @@
         "scripts/generate-proto.mjs",
         "scripts/generate-keywords.mjs",
         "scripts/generate-zip.mjs",
+        "scripts/generate-messages.mjs",
         "proto/apex-stdlib.proto",
-        "src/**/*.cls"
+        "src/**/*.cls",
+        "src/resources/messages/messages_en_US.properties"
       ]
     },
     "compile:tsc": {
@@ -81,7 +84,6 @@
       ]
     },
     "compile": {
-      "command": "echo 'Compile complete'",
       "dependencies": [
         "compile:tsc",
         "generate:stdlib-cache"
@@ -115,6 +117,7 @@
         "src/**/*.ts",
         "test/**/*.ts",
         "**/jest.config.cjs",
+        "../../jest.config.cjs",
         "../../scripts/jest-teardown.js"
       ]
     },
@@ -130,6 +133,7 @@
         "src/**/*.ts",
         "test/**/*.ts",
         "**/jest.config.cjs",
+        "../../jest.config.cjs",
         "../../scripts/jest-teardown.js"
       ]
     },
@@ -169,6 +173,7 @@
         "src/**/*.ts",
         "test/**/*.ts",
         "**/jest.config.cjs",
+        "../../jest.config.cjs",
         "../../scripts/jest-teardown.js"
       ]
     }
@@ -177,6 +182,7 @@
     "@apexdevtools/apex-parser": "4.4.1",
     "@protobuf-ts/runtime": "^2.9.4",
     "@salesforce/apex-lsp-shared": "^1.0.0",
+    "@salesforce/vscode-i18n": "^65.15.2",
     "antlr4ts": "0.5.0-alpha.4",
     "data-structure-typed": "^2.0.4",
     "effect": "^3.18.4",

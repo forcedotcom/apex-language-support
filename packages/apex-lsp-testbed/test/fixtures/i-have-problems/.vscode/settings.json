@@ -1,0 +1,4 @@
+{
+  "apex.trace.server": "verbose",
+  "apex.logLevel": "error"
+}

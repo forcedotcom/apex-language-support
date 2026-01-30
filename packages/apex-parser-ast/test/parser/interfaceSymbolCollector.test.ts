@@ -307,6 +307,35 @@ describe('Interface Symbol Collection and Validation', () => {
       ).toBe(true);
     });
 
+    it('should capture error specifically for abstract modifier on interface method', () => {
+      const fileContent = `
+        public interface TestInterface {
+          abstract void methodWithAbstract();
+        }
+      `;
+
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'TestInterface.cls',
+        listener,
+      );
+
+      // Should have semantic error for abstract modifier
+      const semanticErrors = result.errors.filter(
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+      );
+
+      expect(semanticErrors.length).toBeGreaterThan(0);
+      const abstractError = semanticErrors.find((e) =>
+        e.message.includes('Modifiers are not allowed on interface methods'),
+      );
+      expect(abstractError).toBeDefined();
+      expect(abstractError?.message).toContain(
+        'Modifiers are not allowed on interface methods',
+      );
+    });
+
     it('should successfully parse method with parameter', () => {
       const fileContent = `
         public interface ParameterizedInterface {

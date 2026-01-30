@@ -24,6 +24,7 @@ import { Effect } from 'effect';
 import { toDisplayFQN } from '../utils/displayFQNUtils';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import { getDocumentStateCache } from './DocumentStateCache';
+import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 
 /**
  * Interface for completion processing functionality
@@ -59,6 +60,8 @@ export class CompletionProcessingService implements ICompletionProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private layerEnrichmentService: LayerEnrichmentService | null = null;
+  private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
+    null;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
@@ -72,6 +75,15 @@ export class CompletionProcessingService implements ICompletionProcessor {
    */
   setLayerEnrichmentService(service: LayerEnrichmentService): void {
     this.layerEnrichmentService = service;
+    // Create prerequisite orchestration service when layer enrichment is set
+    if (!this.prerequisiteOrchestrationService) {
+      this.prerequisiteOrchestrationService =
+        new PrerequisiteOrchestrationService(
+          this.logger,
+          this.symbolManager,
+          service,
+        );
+    }
   }
 
   /**
@@ -85,6 +97,22 @@ export class CompletionProcessingService implements ICompletionProcessor {
     this.logger.debug(
       () => `Processing completion request for: ${params.textDocument.uri}`,
     );
+
+    // Run prerequisites for completion request
+    if (this.prerequisiteOrchestrationService) {
+      try {
+        await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+          'completion',
+          params.textDocument.uri,
+        );
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error running prerequisites for completion ${params.textDocument.uri}: ${error}`,
+        );
+        // Continue with completion even if prerequisites fail
+      }
+    }
 
     try {
       // Get the storage manager instance

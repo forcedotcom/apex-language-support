@@ -22,6 +22,7 @@ import { RenameProcessingService } from '../services/RenameProcessingService';
 import { DiagnosticProcessingService } from '../services/DiagnosticProcessingService';
 import { DocumentSymbolProcessingService } from '../services/DocumentSymbolProcessingService';
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
+import { DocumentLoadProcessingService } from '../services/DocumentLoadProcessingService';
 import { WorkspaceSymbolProcessingService } from '../services/WorkspaceSymbolProcessingService';
 import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
 
@@ -185,6 +186,17 @@ export class ServiceFactory {
   createDocumentProcessingService(): DocumentProcessingService {
     const service = new DocumentProcessingService(this.dependencies.logger);
     service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    return service;
+  }
+
+  /**
+   * Create document load processing service
+   */
+  createDocumentLoadService(): DocumentLoadProcessingService {
+    const service = new DocumentLoadProcessingService(this.dependencies.logger);
+    if (this.dependencies.connection) {
+      service.setConnection(this.dependencies.connection);
+    }
     return service;
   }
 

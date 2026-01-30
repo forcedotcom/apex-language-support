@@ -62,7 +62,9 @@ export class SObjectCollectionValidator {
     if (collectionType.name === 'Map') {
       const mapValidation = this.validateSObjectMapTypes(collectionType);
       if (!mapValidation.isValid) {
-        errors.push(...mapValidation.errors);
+        for (const error of mapValidation.errors) {
+          errors.push(typeof error === 'string' ? error : error.message);
+        }
         return { isValid: false, errors, warnings };
       }
     }
@@ -105,7 +107,9 @@ export class SObjectCollectionValidator {
     if (collectionType.name === 'Map') {
       const mapValidation = this.validateSObjectMapTypes(collectionType);
       if (!mapValidation.isValid) {
-        errors.push(...mapValidation.errors);
+        for (const error of mapValidation.errors) {
+          errors.push(typeof error === 'string' ? error : error.message);
+        }
         return { isValid: false, errors, warnings };
       }
     }

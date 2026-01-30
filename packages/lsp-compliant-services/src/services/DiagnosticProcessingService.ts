@@ -6,30 +6,52 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Diagnostic, DocumentDiagnosticParams } from 'vscode-languageserver';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  Diagnostic,
+  DocumentDiagnosticParams,
+  DiagnosticSeverity,
+  Position,
+} from 'vscode-languageserver';
+import {
+  LoggerInterface,
+  ApexSettingsManager,
+} from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,
   SymbolTable,
   VisibilitySymbolListener,
   ApexSymbolProcessingManager,
-  ISymbolManager,
+  type ISymbolManager,
   type CompilationResult,
   type CompilationResultWithComments,
   type CompilationResultWithAssociations,
+  ValidationTier,
+  ValidationOptions,
+  ARTIFACT_LOADING_LIMITS,
+  ValidatorRegistryLive,
+  runValidatorsForTier,
+  EffectLspLoggerLive,
+  ArtifactLoadingHelperLive,
+  ISymbolManagerTag,
+  initializeValidators,
+  ErrorType,
 } from '@salesforce/apex-lsp-parser-ast';
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 
 import {
   getDiagnosticsFromErrors,
   shouldSuppressDiagnostics,
 } from '../utils/handlerUtil';
+import { transformParserToLspPosition } from '../utils/positionUtils';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { getDocumentStateCache } from './DocumentStateCache';
+
 import {
-  isWorkspaceLoading,
-  isWorkspaceLoaded,
-} from './WorkspaceLoadCoordinator';
+  createMissingArtifactResolutionService,
+  type MissingArtifactResolutionService,
+} from './MissingArtifactResolutionService';
+import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
+import { LayerEnrichmentService } from './LayerEnrichmentService';
 
 /**
  * Interface for diagnostic processing functionality to make handlers more testable.
@@ -75,6 +97,10 @@ export interface IDiagnosticProcessor {
 export class DiagnosticProcessingService implements IDiagnosticProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
+  private readonly artifactResolutionService: MissingArtifactResolutionService;
+  private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
+    null;
+  private static validatorsInitialized = false;
 
   /**
    * Creates a new DiagnosticProcessingService instance.
@@ -84,6 +110,38 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+    this.artifactResolutionService =
+      createMissingArtifactResolutionService(logger);
+    this.prerequisiteOrchestrationService =
+      new PrerequisiteOrchestrationService(
+        logger,
+        this.symbolManager,
+        new LayerEnrichmentService(logger, this.symbolManager),
+      );
+
+    // Initialize validators once (static initialization)
+    if (!DiagnosticProcessingService.validatorsInitialized) {
+      DiagnosticProcessingService.validatorsInitialized = true;
+      // Initialize validators asynchronously (fire and forget)
+      // This ensures validators are registered before first use
+      Effect.runPromise(
+        initializeValidators().pipe(
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              logger.warn(
+                () =>
+                  `Failed to initialize validators: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }),
+          ),
+        ),
+      ).catch((error) => {
+        logger.warn(
+          () =>
+            `Error initializing validators: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    }
   }
 
   /**
@@ -228,46 +286,136 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           () =>
             `Using cached parse result for diagnostics ${document.uri} (version ${document.version})`,
         );
-        // Skip cross-file resolution during workspace load to remain lazy and responsive
-        // Only resolve cross-file references if workspace is fully loaded
-        // This prevents deferred reference processing during initial workspace load
-        const workspaceLoading = isWorkspaceLoading();
-        const workspaceLoaded = isWorkspaceLoaded();
-
-        if (!workspaceLoading && workspaceLoaded) {
-          // Workspace is loaded - safe to resolve cross-file references for enhanced diagnostics
+        // Run prerequisites for diagnostics request
+        if (this.prerequisiteOrchestrationService) {
           try {
-            await Effect.runPromise(
-              this.symbolManager.resolveCrossFileReferencesForFile(
-                params.textDocument.uri,
-              ),
-            );
-            this.logger.debug(
-              () =>
-                `Resolved cross-file references for ${params.textDocument.uri} (cached) before computing diagnostics`,
+            await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+              'diagnostics',
+              params.textDocument.uri,
+              { workDoneToken: params.workDoneToken },
             );
           } catch (error) {
             this.logger.debug(
               () =>
-                `Error resolving cross-file references for ${params.textDocument.uri} (cached): ${error}`,
+                `Error running prerequisites for diagnostics ${params.textDocument.uri}: ${error}`,
             );
-            // Continue with diagnostics even if cross-file resolution fails
+            // Continue with diagnostics even if prerequisites fail
           }
-        } else {
-          this.logger.debug(
-            () =>
-              `Skipping cross-file resolution for ${params.textDocument.uri} ` +
-              `(workspace loading: ${workspaceLoading}, loaded: ${workspaceLoaded})`,
-          );
         }
         // Convert cached errors to diagnostics and enhance (with yielding)
-        return await Effect.runPromise(
+        const enhancedCachedDiagnostics = await Effect.runPromise(
           this.enhanceDiagnosticsWithGraphAnalysisEffect(
             cached.diagnostics,
             params.textDocument.uri,
-            [],
           ),
         );
+
+        // Check for syntax errors in cached diagnostics
+        const cachedSyntaxErrors = enhancedCachedDiagnostics.filter(
+          (diagnostic) => diagnostic.code === 'SYNTAX_ERROR',
+        );
+        const hasCachedSyntaxErrors = cachedSyntaxErrors.length > 0;
+
+        if (hasCachedSyntaxErrors) {
+          this.logger.debug(() => {
+            const errorDetails = cachedSyntaxErrors
+              .map(
+                (d) =>
+                  `[${d.range.start.line}:${d.range.start.character}] ${d.message}`,
+              )
+              .join(', ');
+            return (
+              '[VALIDATION-DEBUG] Syntax errors detected in cached diagnostics ' +
+              `for ${params.textDocument.uri}: ${cachedSyntaxErrors.length} ` +
+              `syntax error(s). Errors: ${errorDetails}`
+            );
+          });
+        }
+
+        // Run semantic validation (always enabled)
+        this.logger.debug(
+          () =>
+            `Running semantic validation for cached result: ${params.textDocument.uri}`,
+        );
+
+        // CRITICAL: Get SymbolTable AFTER prerequisites complete (including enrichment)
+        // to ensure we have the enriched symbol table, not a stale reference
+        const cachedTable = this.symbolManager.getSymbolTableForFile(
+          params.textDocument.uri,
+        );
+
+        if (cachedTable) {
+          // Check enrichment level before validation
+          const detailLevel =
+            (this.symbolManager as any).getDetailLevelForFile?.(
+              params.textDocument.uri,
+            ) ?? null;
+          this.logger.debug(
+            () =>
+              `[VALIDATION-DEBUG] Running semantic validation for cached result ${params.textDocument.uri}: ` +
+              `syntaxErrors=${hasCachedSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
+              `symbolTableSize=${cachedTable.getAllSymbols().length}`,
+          );
+
+          // Verify detail level meets validator requirements after prerequisites
+          // For THOROUGH tier diagnostics, we expect 'full' detail level
+          const expectedDetailLevel = 'full';
+          const actualDetailLevel = cachedTable.getDetailLevel();
+          if (actualDetailLevel !== expectedDetailLevel) {
+            this.logger.warn(
+              () =>
+                `[VALIDATION-WARNING] Symbol table for ${params.textDocument.uri} has detail level ` +
+                `'${actualDetailLevel ?? 'unknown'}' but validators may require '${expectedDetailLevel}'. ` +
+                'Some validators may be skipped.',
+            );
+          }
+
+          // Get settings for artifact loading
+          const settings = ApexSettingsManager.getInstance().getSettings();
+          const allowArtifactLoading =
+            settings.apex.findMissingArtifact.enabled ?? false;
+
+          // Build validation options
+          const validationOptions: ValidationOptions = {
+            tier: ValidationTier.THOROUGH,
+            allowArtifactLoading,
+            maxDepth: ARTIFACT_LOADING_LIMITS.maxDepth,
+            maxArtifacts: ARTIFACT_LOADING_LIMITS.maxArtifacts,
+            timeout: ARTIFACT_LOADING_LIMITS.timeout,
+            progressToken: params.workDoneToken,
+            symbolManager: this.symbolManager,
+            loadArtifactCallback: allowArtifactLoading
+              ? this.createLoadArtifactCallback(params.textDocument.uri)
+              : undefined,
+            sourceContent: document.getText(), // Provide source content for SourceSizeValidator
+          };
+
+          // Run validators
+          const immediateResults = await this.runSemanticValidators(
+            ValidationTier.IMMEDIATE,
+            cachedTable,
+            {
+              ...validationOptions,
+              tier: ValidationTier.IMMEDIATE,
+              sourceContent: document.getText(), // Provide source content for SourceSizeValidator
+            },
+          );
+
+          const thoroughResults = await this.runSemanticValidators(
+            ValidationTier.THOROUGH,
+            cachedTable,
+            validationOptions,
+          );
+
+          // Combine all diagnostics
+          return [
+            ...enhancedCachedDiagnostics,
+            ...immediateResults,
+            ...thoroughResults,
+          ];
+        }
+
+        return enhancedCachedDiagnostics;
       }
 
       // Create a symbol collector listener
@@ -280,8 +428,38 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         this.compileDocumentEffect(document, listener),
       );
 
+      this.logger.debug(
+        () =>
+          `Compilation result for ${document.uri}: ${result.errors.length} errors, ` +
+          `${result.warnings.length} warnings`,
+      );
+
+      // Check for syntax errors before semantic validation
+      const syntaxErrors = result.errors.filter(
+        (error) => error.type === ErrorType.Syntax,
+      );
+      const hasSyntaxErrors = syntaxErrors.length > 0;
+
+      if (hasSyntaxErrors) {
+        this.logger.debug(() => {
+          const errorDetails = syntaxErrors
+            .map((e) => `[${e.line}:${e.column}] ${e.message}`)
+            .join(', ');
+          return (
+            '[VALIDATION-DEBUG] Syntax errors detected before semantic ' +
+            `validation for ${document.uri}: ${syntaxErrors.length} ` +
+            `syntax error(s). Errors: ${errorDetails}`
+          );
+        });
+      }
+
       // Get diagnostics from errors
       const diagnostics = getDiagnosticsFromErrors(result.errors);
+
+      this.logger.debug(
+        () =>
+          `Converted ${result.errors.length} errors to ${diagnostics.length} diagnostics for ${document.uri}`,
+      );
 
       // Add SymbolTable to manager if not already present
       const existingSymbols = this.symbolManager.findSymbolsInFile(
@@ -304,37 +482,21 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         documentLength: document.getText().length,
       });
 
-      // Skip cross-file resolution during workspace load to remain lazy and responsive
-      // Only resolve cross-file references if workspace is fully loaded
-      // This prevents deferred reference processing during initial workspace load
-      const workspaceLoading = isWorkspaceLoading();
-      const workspaceLoaded = isWorkspaceLoaded();
-
-      if (!workspaceLoading && workspaceLoaded) {
-        // Workspace is loaded - safe to resolve cross-file references for enhanced diagnostics
+      // Run prerequisites for diagnostics request
+      if (this.prerequisiteOrchestrationService) {
         try {
-          await Effect.runPromise(
-            this.symbolManager.resolveCrossFileReferencesForFile(
-              params.textDocument.uri,
-            ),
-          );
-          this.logger.debug(
-            () =>
-              `Resolved cross-file references for ${params.textDocument.uri} before computing diagnostics`,
+          await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+            'diagnostics',
+            params.textDocument.uri,
+            { workDoneToken: params.workDoneToken },
           );
         } catch (error) {
           this.logger.debug(
             () =>
-              `Error resolving cross-file references for ${params.textDocument.uri}: ${error}`,
+              `Error running prerequisites for diagnostics ${params.textDocument.uri}: ${error}`,
           );
-          // Continue with diagnostics even if cross-file resolution fails
+          // Continue with diagnostics even if prerequisites fail
         }
-      } else {
-        this.logger.debug(
-          () =>
-            `Skipping cross-file resolution for ${params.textDocument.uri} ` +
-            `(workspace loading: ${workspaceLoading}, loaded: ${workspaceLoaded})`,
-        );
       }
 
       // Enhance diagnostics with cross-file analysis using ApexSymbolManager (with yielding)
@@ -342,9 +504,116 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         this.enhanceDiagnosticsWithGraphAnalysisEffect(
           diagnostics,
           params.textDocument.uri,
-          result.errors,
         ),
       );
+
+      // Run semantic validation (always enabled)
+      // Wrap in try-catch to ensure syntax errors are still returned even if validators fail
+      let validatorDiagnostics: Diagnostic[] = [];
+
+      // CRITICAL: Re-fetch symbol table AFTER prerequisites complete (including enrichment)
+      // to ensure we have the enriched symbol table, not the original public-api one
+      this.logger.debug(
+        () =>
+          `[DEBUG-FETCH] About to fetch symbol table for URI: ${document.uri}`,
+      );
+      const enrichedTable =
+        this.symbolManager.getSymbolTableForFile(document.uri) || table;
+
+      if (enrichedTable) {
+        try {
+          // Check enrichment level before validation
+          const detailLevel =
+            (this.symbolManager as any).getDetailLevelForFile?.(document.uri) ??
+            null;
+          this.logger.debug(
+            () =>
+              `[VALIDATION-DEBUG] Running semantic validation for ${params.textDocument.uri}: ` +
+              `syntaxErrors=${hasSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
+              `symbolTableSize=${enrichedTable.getAllSymbols().length}`,
+          );
+
+          this.logger.debug(
+            () => `Running semantic validation for: ${params.textDocument.uri}`,
+          );
+
+          // Verify detail level meets validator requirements after prerequisites
+          // For THOROUGH tier diagnostics, we expect 'full' detail level
+          const expectedDetailLevel = 'full';
+          const actualDetailLevel = enrichedTable.getDetailLevel();
+          if (actualDetailLevel !== expectedDetailLevel) {
+            this.logger.warn(
+              () =>
+                `[VALIDATION-WARNING] Symbol table for ${params.textDocument.uri} has detail level ` +
+                `'${actualDetailLevel ?? 'unknown'}' but validators may require '${expectedDetailLevel}'. ` +
+                'Some validators may be skipped.',
+            );
+          }
+
+          // Get settings for artifact loading
+          const settings = ApexSettingsManager.getInstance().getSettings();
+          const allowArtifactLoading =
+            settings.apex.findMissingArtifact.enabled ?? false;
+
+          // Build validation options
+          const validationOptions: ValidationOptions = {
+            tier: ValidationTier.THOROUGH, // Pull diagnostics = thorough
+            allowArtifactLoading,
+            maxDepth: ARTIFACT_LOADING_LIMITS.maxDepth,
+            maxArtifacts: ARTIFACT_LOADING_LIMITS.maxArtifacts,
+            timeout: ARTIFACT_LOADING_LIMITS.timeout,
+            progressToken: params.workDoneToken,
+            symbolManager: this.symbolManager,
+            loadArtifactCallback: allowArtifactLoading
+              ? this.createLoadArtifactCallback(params.textDocument.uri)
+              : undefined,
+          };
+
+          // Run validators (both IMMEDIATE and THOROUGH for pull diagnostics)
+          const immediateResults = await this.runSemanticValidators(
+            ValidationTier.IMMEDIATE,
+            enrichedTable,
+            {
+              ...validationOptions,
+              tier: ValidationTier.IMMEDIATE,
+              sourceContent: document.getText(), // Provide source content for SourceSizeValidator
+            },
+          );
+
+          const thoroughResults = await this.runSemanticValidators(
+            ValidationTier.THOROUGH,
+            enrichedTable,
+            validationOptions,
+          );
+
+          this.logger.debug(
+            () =>
+              `Semantic validation produced ${immediateResults.length} immediate ` +
+              `+ ${thoroughResults.length} thorough diagnostics`,
+          );
+
+          validatorDiagnostics = [...immediateResults, ...thoroughResults];
+        } catch (error) {
+          // Log error but continue - syntax errors should still be returned
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            () =>
+              `Error running semantic validators for ${params.textDocument.uri}: ${errorMessage}`,
+          );
+          // Continue with empty validator diagnostics - syntax errors will still be returned
+        }
+      }
+
+      // Combine all diagnostics (syntax errors + validator diagnostics)
+      const allDiagnostics = [...enhancedDiagnostics, ...validatorDiagnostics];
+
+      this.logger.debug(
+        () =>
+          `Returning ${allDiagnostics.length} total diagnostics for: ${params.textDocument.uri}`,
+      );
+      return allDiagnostics;
+
       this.logger.debug(
         () =>
           `Returning ${enhancedDiagnostics.length} diagnostics for: ${params.textDocument.uri}`,
@@ -362,29 +631,11 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
   }
 
   /**
-   * Enhance diagnostics with cross-file analysis using ApexSymbolManager
-   */
-  private async enhanceDiagnosticsWithGraphAnalysis(
-    diagnostics: Diagnostic[],
-    documentUri: string,
-    parsingErrors: any[],
-  ): Promise<Diagnostic[]> {
-    return await Effect.runPromise(
-      this.enhanceDiagnosticsWithGraphAnalysisEffect(
-        diagnostics,
-        documentUri,
-        parsingErrors,
-      ),
-    );
-  }
-
-  /**
    * Enhance diagnostics with cross-file analysis using ApexSymbolManager (Effect-based with yielding)
    */
   private enhanceDiagnosticsWithGraphAnalysisEffect(
     diagnostics: Diagnostic[],
     documentUri: string,
-    parsingErrors: any[],
   ): Effect.Effect<Diagnostic[], never, never> {
     const self = this;
     return Effect.gen(function* () {
@@ -455,5 +706,298 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         return diagnostics; // Return original diagnostics on error
       }
     });
+  }
+
+  /**
+   * Run semantic validators for a specific tier (Effect-based)
+   * This is the new layered validation system using ValidatorRegistry
+   */
+  private runSemanticValidatorsEffect(
+    tier: ValidationTier,
+    symbolTable: SymbolTable,
+    options: ValidationOptions,
+  ): Effect.Effect<Diagnostic[], never, never> {
+    const effect = Effect.gen(function* () {
+      try {
+        // Run validators for this tier
+        const tierName =
+          tier === ValidationTier.IMMEDIATE ? 'TIER 1' : 'TIER 2';
+        const hasSymbolManager = !!options.symbolManager;
+        yield* Effect.logDebug(
+          `[VALIDATION-DEBUG] Starting validators for tier ${tier} (${tierName}) ` +
+            `with ${hasSymbolManager ? 'symbolManager' : 'no symbolManager'} ` +
+            `for ${hasSymbolManager ? 'enrichment' : 'no enrichment'}`,
+        );
+        const results = yield* runValidatorsForTier(
+          tier,
+          symbolTable,
+          options,
+        ).pipe(
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              const errorMessage =
+                error instanceof Error ? error.message : String(error);
+              yield* Effect.logError(
+                `Error running validators for tier ${tier}: ${errorMessage}`,
+              );
+              // Log stack trace for debugging
+              if (error instanceof Error && error.stack) {
+                yield* Effect.logError(`Stack: ${error.stack}`);
+              }
+              return []; // Return empty results on error
+            }),
+          ),
+        );
+        yield* Effect.logDebug(
+          `Validators for tier ${tier} completed with ${results.length} results`,
+        );
+
+        // Convert ValidationResult[] to Diagnostic[]
+        const diagnostics: Diagnostic[] = [];
+        // Track seen diagnostics to deduplicate (same code + location + message)
+        const seenDiagnostics = new Set<string>();
+
+        for (const result of results) {
+          // Add errors (handle both string[] and ValidationError[] formats)
+          for (const error of result.errors) {
+            const errorMessage =
+              typeof error === 'string' ? error : error.message;
+            const errorCode =
+              typeof error === 'string'
+                ? 'SEMANTIC_ERROR'
+                : error.code || 'SEMANTIC_ERROR';
+            const errorLocation =
+              typeof error === 'string' ? undefined : error.location;
+
+            // Convert SymbolLocation to LSP Range if available
+            let range: { start: Position; end: Position };
+            if (errorLocation?.identifierRange) {
+              // Use identifierRange for precise positioning
+              range = {
+                start: transformParserToLspPosition({
+                  line: errorLocation.identifierRange.startLine,
+                  character: errorLocation.identifierRange.startColumn,
+                }),
+                end: transformParserToLspPosition({
+                  line: errorLocation.identifierRange.endLine,
+                  character: errorLocation.identifierRange.endColumn,
+                }),
+              };
+            } else if (errorLocation?.symbolRange) {
+              // Fallback to symbolRange
+              range = {
+                start: transformParserToLspPosition({
+                  line: errorLocation.symbolRange.startLine,
+                  character: errorLocation.symbolRange.startColumn,
+                }),
+                end: transformParserToLspPosition({
+                  line: errorLocation.symbolRange.endLine,
+                  character: errorLocation.symbolRange.endColumn,
+                }),
+              };
+            } else {
+              // No location available - default to line 0
+              range = {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 0 },
+              };
+            }
+
+            // Create a unique key for deduplication: code + range + message
+            const rangeStr = `${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}`;
+            const diagnosticKey = `${errorCode}|${rangeStr}|${errorMessage}`;
+
+            // Skip if we've already seen this exact diagnostic
+            if (seenDiagnostics.has(diagnosticKey)) {
+              continue;
+            }
+
+            seenDiagnostics.add(diagnosticKey);
+
+            diagnostics.push({
+              range,
+              message: errorMessage,
+              severity: DiagnosticSeverity.Error,
+              code: errorCode,
+              source: 'apex-semantic-validator',
+            });
+          }
+
+          // Add warnings (handle both string[] and ValidationWarning[] formats)
+          for (const warning of result.warnings) {
+            const warningMessage =
+              typeof warning === 'string' ? warning : warning.message;
+            const warningCode =
+              typeof warning === 'string'
+                ? 'SEMANTIC_WARNING'
+                : warning.code || 'SEMANTIC_WARNING';
+            const warningLocation =
+              typeof warning === 'string' ? undefined : warning.location;
+
+            // Convert SymbolLocation to LSP Range if available
+            let range: { start: Position; end: Position };
+            if (warningLocation?.identifierRange) {
+              // Use identifierRange for precise positioning
+              range = {
+                start: transformParserToLspPosition({
+                  line: warningLocation.identifierRange.startLine,
+                  character: warningLocation.identifierRange.startColumn,
+                }),
+                end: transformParserToLspPosition({
+                  line: warningLocation.identifierRange.endLine,
+                  character: warningLocation.identifierRange.endColumn,
+                }),
+              };
+            } else if (warningLocation?.symbolRange) {
+              // Fallback to symbolRange
+              range = {
+                start: transformParserToLspPosition({
+                  line: warningLocation.symbolRange.startLine,
+                  character: warningLocation.symbolRange.startColumn,
+                }),
+                end: transformParserToLspPosition({
+                  line: warningLocation.symbolRange.endLine,
+                  character: warningLocation.symbolRange.endColumn,
+                }),
+              };
+            } else {
+              // No location available - default to line 0
+              range = {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 0 },
+              };
+            }
+
+            // Create a unique key for deduplication: code + range + message
+            const rangeStr = `${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}`;
+            const diagnosticKey = `${warningCode}|${rangeStr}|${warningMessage}`;
+
+            // Skip if we've already seen this exact diagnostic
+            if (seenDiagnostics.has(diagnosticKey)) {
+              continue;
+            }
+
+            seenDiagnostics.add(diagnosticKey);
+
+            diagnostics.push({
+              range,
+              message: warningMessage,
+              severity: DiagnosticSeverity.Warning,
+              code: warningCode,
+              source: 'apex-semantic-validator',
+            });
+          }
+        }
+
+        yield* Effect.logDebug(
+          `Tier ${tier} validation produced ${diagnostics.length} diagnostics`,
+        );
+
+        return diagnostics;
+      } catch (error) {
+        yield* Effect.logError(
+          `Unexpected error in semantic validation: ${error}`,
+        );
+        return [];
+      }
+    });
+
+    // Symbol manager is always required - use instance symbolManager
+    // Create base layer with ISymbolManager, ValidatorRegistry, and Logger
+    const baseLayer = Layer.mergeAll(
+      Layer.succeed(ISymbolManagerTag, this.symbolManager),
+      ValidatorRegistryLive,
+      EffectLspLoggerLive,
+    );
+    // Provide base layer to ArtifactLoadingHelperLive (which requires ISymbolManager)
+    // This explicitly resolves the ISymbolManager dependency
+    const artifactHelperLayer = Layer.provide(
+      ArtifactLoadingHelperLive,
+      baseLayer,
+    );
+    // Merge base layer with artifact helper layer to get complete layer stack
+    const fullLayer = Layer.mergeAll(baseLayer, artifactHelperLayer);
+    return effect.pipe(Effect.provide(fullLayer)) as Effect.Effect<
+      Diagnostic[],
+      never,
+      never
+    >;
+  }
+
+  /**
+   * Run semantic validators for a specific tier (async wrapper)
+   */
+  private async runSemanticValidators(
+    tier: ValidationTier,
+    symbolTable: SymbolTable,
+    options: ValidationOptions,
+  ): Promise<Diagnostic[]> {
+    return await Effect.runPromise(
+      this.runSemanticValidatorsEffect(tier, symbolTable, options),
+    );
+  }
+
+  /**
+   * Create a callback for loading missing artifacts during validation
+   *
+   * This callback is passed to validators via ValidationOptions and allows
+   * them to trigger artifact loading using the existing MissingArtifactResolutionService.
+   *
+   * @param contextFile - The file URI that triggered validation (for context)
+   * @returns Callback function that loads artifacts and returns loaded file URIs
+   */
+  private createLoadArtifactCallback(
+    contextFile: string,
+  ): (typeNames: string[]) => Promise<string[]> {
+    return async (typeNames: string[]): Promise<string[]> => {
+      this.logger.debug(
+        () =>
+          `Validator requesting to load ${typeNames.length} missing types: ${typeNames.join(', ')}`,
+      );
+
+      const loadedUris: string[] = [];
+
+      // Try to load each type using the artifact resolution service
+      for (const typeName of typeNames) {
+        try {
+          const result = await this.artifactResolutionService.resolveBlocking({
+            identifier: typeName,
+            origin: {
+              uri: contextFile,
+              requestKind: 'references', // Validation needs type references
+            },
+            mode: 'blocking',
+            // Use shorter timeout for validator-triggered loads
+            timeoutMsHint: 2000,
+          });
+
+          if (result === 'resolved') {
+            // Type was successfully loaded
+            // The resolution service will have already added symbols to the manager
+            this.logger.debug(
+              () => `Successfully loaded artifact for type: ${typeName}`,
+            );
+            // Note: We don't have the exact file URI from resolveBlocking,
+            // but the type should now be available in symbolManager
+            loadedUris.push(typeName); // Use type name as placeholder
+          } else {
+            this.logger.debug(
+              () => `Failed to load artifact for type '${typeName}': ${result}`,
+            );
+          }
+        } catch (error) {
+          this.logger.debug(
+            () => `Error loading artifact for type '${typeName}': ${error}`,
+          );
+        }
+      }
+
+      this.logger.debug(
+        () =>
+          `Artifact loading callback completed: ${loadedUris.length}/${typeNames.length} types loaded`,
+      );
+
+      return loadedUris;
+    };
   }
 }

@@ -1,365 +1,737 @@
-# Salesforce Apex Language Server for VSCode
+# Salesforce Apex Language Server Extension
 
-This extension provides Apex language support in Visual Studio Code through the Apex Language Server.
+A Visual Studio Code extension providing comprehensive Apex language support powered by a modern TypeScript-based language server.
 
 ## Features
 
-- **Syntax Highlighting**: Full Apex and SOQL syntax highlighting.
-- **Language Server Integration**: Real-time diagnostics and language features powered by the Apex Language Server.
-- **Configurable Comment Collection**: Fine-tune how comments are parsed and processed.
-- **Performance Optimization**: Adjust settings to optimize for speed and resource usage.
-- **Document Symbols**: Easily navigate your code's structure.
+### Core Language Support
+
+- **Syntax Highlighting**: Full Apex, SOQL, and Anonymous Apex syntax highlighting
+- **Real-time Diagnostics**: Instant error detection and validation as you type
+- **Code Intelligence**: Hover information, go-to-definition, find references, and more
+- **Document Symbols**: Quick navigation through class members and methods
+- **Code Lens**: Inline actionable insights for test methods and class references
+- **Folding Ranges**: Smart code folding based on structure and comments
+- **Auto-completion**: Context-aware code completion (development mode)
+
+### Advanced Features
+
+- **Missing Artifact Resolution**: Automatically finds and loads referenced types when needed
+- **Workspace Loading**: Batch loading of Apex files for comprehensive cross-file analysis
+- **Queue-Based Processing**: Priority-based request handling for responsive editing
+- **Performance Profiling**: Built-in CPU and heap profiling for performance analysis (desktop only)
+
+### Platform Support
+
+- **Desktop**: Full Node.js-based language server
+- **Web**: Browser-based language server for vscode.dev and github.dev
 
 ## Installation
 
-1. Install the extension from the VSCode Marketplace.
-2. Open a workspace containing Apex files (`.cls`, `.trigger`, `.apex`).
-3. The language server will start automatically.
+1. Install from the VS Code Marketplace or Extensions view
+2. Open a workspace containing Apex files (`.cls`, `.trigger`, `.apex`)
+3. The language server starts automatically
 
 ## Configuration
 
-The extension supports extensive configuration through VSCode settings. All settings are prefixed with `apex-ls-ts.`.
+All settings use the `apex.*` prefix. Configure in VS Code Settings (UI or JSON).
 
-### Comment Collection Settings
-
-Control how comments are collected and processed during document parsing:
+### Quick Start: Recommended Settings
 
 ```json
 {
-  "apex-ls-ts.commentCollection.enableCommentCollection": true,
-  "apex-ls-ts.commentCollection.includeSingleLineComments": false,
-  "apex-ls-ts.commentCollection.associateCommentsWithSymbols": true,
-  "apex-ls-ts.commentCollection.enableForDocumentChanges": true,
-  "apex-ls-ts.commentCollection.enableForDocumentOpen": true,
-  "apex-ls-ts.commentCollection.enableForDocumentSymbols": false,
-  "apex-ls-ts.commentCollection.enableForFoldingRanges": true
+  "apex.environment.serverMode": "development",
+  "apex.commentCollection.enableCommentCollection": true,
+  "apex.performance.documentChangeDebounceMs": 300,
+  "apex.logLevel": "info"
 }
 ```
 
-#### Comment Collection Options
+---
 
-- **`enableCommentCollection`** (boolean, default: `true`)
-  - Master switch for comment collection. When disabled, no comments are collected.
+## Settings Reference
 
-- **`includeSingleLineComments`** (boolean, default: `false`)
-  - Include single-line (`//`) comments in addition to block comments (`/* */`).
+### Server Mode
 
-- **`associateCommentsWithSymbols`** (boolean, default: `true`)
-  - Associate comments with nearby symbols for enhanced language features.
-  - ⚠️ May impact performance, especially in large files.
+Control the language server's operational mode and feature set.
 
-- **`enableForDocumentChanges`** (boolean, default: `true`)
-  - Enable comment collection when documents are modified.
+#### `apex.environment.serverMode`
 
-- **`enableForDocumentOpen`** (boolean, default: `true`)
-  - Enable comment collection when documents are opened.
+**Type**: `"production"` | `"development"`  
+**Default**: `"production"`
 
-- **`enableForDocumentSymbols`** (boolean, default: `false`)
-  - Enable comment collection for document symbols.
-  - ⚠️ May impact performance.
+Sets the server's operational mode:
 
-- **`enableForFoldingRanges`** (boolean, default: `true`)
-  - Enable comment collection for folding ranges.
-  - ⚠️ May impact performance.
+- **`production`**: Optimized for performance with minimal features
+  - Disabled: hover, completion resolve, will-save notifications
+  - Full document sync for reliability
+- **`development`**: Full feature set with enhanced diagnostics
+  - Enabled: all features including hover and completion
+  - Incremental document sync for better performance
+
+**Override**: Set `APEX_LS_MODE` environment variable to force a specific mode.
+
+---
+
+### Comment Collection
+
+Configure how comments are parsed and processed during compilation.
+
+#### `apex.commentCollection.enableCommentCollection`
+
+**Type**: `boolean`  
+**Default**: `true`
+
+Master switch for comment collection. When disabled, no comments are collected.
+
+#### `apex.commentCollection.includeSingleLineComments`
+
+**Type**: `boolean`  
+**Default**: `false`
+
+Include single-line (`//`) comments in addition to block comments (`/* */`).
+
+#### `apex.commentCollection.associateCommentsWithSymbols`
+
+**Type**: `boolean`  
+**Default**: `true`
+
+Associate comments with nearby symbols for enhanced features like hover documentation.  
+⚠️ **Performance Impact**: May affect large files.
+
+#### `apex.commentCollection.enableForDocumentChanges`
+
+**Type**: `boolean`  
+**Default**: `true`
+
+Enable comment collection when documents are modified.
+
+#### `apex.commentCollection.enableForDocumentOpen`
+
+**Type**: `boolean`  
+**Default**: `true`
+
+Enable comment collection when documents are opened.
+
+#### `apex.commentCollection.enableForDocumentSymbols`
+
+**Type**: `boolean`  
+**Default**: `false`
+
+Enable comment collection for document symbol requests.  
+⚠️ **Performance Impact**: May affect responsiveness.
+
+#### `apex.commentCollection.enableForFoldingRanges`
+
+**Type**: `boolean`  
+**Default**: `true`
+
+Enable comment collection for folding range requests.  
+⚠️ **Performance Impact**: May affect responsiveness.
+
+---
 
 ### Performance Settings
 
-Optimize language server performance:
+Optimize language server performance for your environment.
 
-```json
-{
-  "apex-ls-ts.performance.commentCollectionMaxFileSize": 102400,
-  "apex-ls-ts.performance.useAsyncCommentProcessing": true,
-  "apex-ls-ts.performance.documentChangeDebounceMs": 300
-}
-```
+#### `apex.performance.commentCollectionMaxFileSize`
 
-#### Performance Options
+**Type**: `number` (bytes)  
+**Default**: `102400` (100KB)
 
-- **`commentCollectionMaxFileSize`** (number, default: `102400`)
-  - Maximum file size (in bytes) for comment collection. Files larger than this will skip comment collection.
+Maximum file size for comment collection. Files larger than this skip comment collection.
 
-- **`useAsyncCommentProcessing`** (boolean, default: `true`)
-  - Use asynchronous comment processing to improve responsiveness.
+#### `apex.performance.useAsyncCommentProcessing`
 
-- **`documentChangeDebounceMs`** (number, default: `300`)
-  - Debounce delay (in milliseconds) for document change processing.
+**Type**: `boolean`  
+**Default**: `true`
+
+Use asynchronous comment processing to improve UI responsiveness.
+
+#### `apex.performance.documentChangeDebounceMs`
+
+**Type**: `number` (milliseconds)  
+**Default**: `300`
+
+Debounce delay for document change processing. Higher values reduce processing frequency.
+
+---
+
+### Logging Settings
+
+Control logging verbosity and output.
+
+#### `apex.logLevel`
+
+**Type**: `"error"` | `"warning"` | `"info"` | `"log"` | `"debug"`  
+**Default**: `"info"`
+
+Extension log level for the main extension process.
+
+#### `apex.worker.logLevel`
+
+**Type**: `"error"` | `"warning"` | `"info"` | `"debug"`  
+**Default**: `"info"`
+
+Log level for the language server worker process.
+
+#### `apex.worker.enablePerformanceLogs`
+
+**Type**: `boolean`  
+**Default**: `false`
+
+Enable detailed performance logging for request processing.
+
+#### `apex.worker.logCategories`
+
+**Type**: `string[]`  
+**Default**: `["STARTUP", "LSP", "SYMBOLS", "COMPLETION", "DIAGNOSTICS"]`  
+**Options**: `"STARTUP"`, `"LSP"`, `"SYMBOLS"`, `"COMPLETION"`, `"DIAGNOSTICS"`, `"PERFORMANCE"`
+
+Filter log output by category.
+
+---
 
 ### Environment Settings
 
-Control logging, debugging, and document scheme configuration:
+Configure runtime environment and profiling.
+
+#### `apex.environment.profilingMode`
+
+**Type**: `"none"` | `"full"` | `"interactive"`  
+**Default**: `"none"`  
+**Desktop Only**
+
+Profiling mode for performance analysis:
+
+- **`none`**: Profiling disabled
+- **`full`**: Continuous profiling from startup (best for test suites)
+- **`interactive`**: Manual start/stop via commands (best for specific events)
+
+#### `apex.environment.profilingType`
+
+**Type**: `"cpu"` | `"heap"` | `"both"`  
+**Default**: `"cpu"`  
+**Desktop Only**
+
+Type of profiling data to collect when profiling is enabled.
+
+#### `apex.environment.profilingTag`
+
+**Type**: `string`  
+**Default**: `""`  
+**Desktop Only**
+
+Optional tag appended to profile filenames for organization.
+
+#### `apex.environment.jsHeapSizeGB`
+
+**Type**: `number` (0.1-32 GB)  
+**Default**: (Node.js default)  
+**Desktop Only**
+
+Set Node.js heap size for large workspaces. Example: `4` for 4GB.
+
+#### `apex.environment.additionalDocumentSchemes`
+
+**Type**: `Array<{ scheme: string, excludeCapabilities?: string[] }>`  
+**Default**: `[]`
+
+Add custom URI schemes for language server support beyond default schemes (`file`, `apexlib`, `vscode-test-web`).
+
+**Example**:
 
 ```json
 {
-  "apex-ls-ts.environment.profilingMode": "none",
-  "apex-ls-ts.environment.profilingType": "cpu",
-  "apex-ls-ts.environment.additionalDocumentSchemes": []
+  "apex.environment.additionalDocumentSchemes": [
+    { "scheme": "orgtest" },
+    {
+      "scheme": "custom",
+      "excludeCapabilities": ["codeLens", "hover"]
+    }
+  ]
 }
 ```
 
-#### Environment Options
+---
 
-- **`profilingMode`** (string, enum: `"none"`, `"full"`, `"interactive"`, default: `"none"`)
-  - Profiling mode for the language server (desktop only).
-  - **`"none"`**: Profiling disabled (default).
-  - **`"full"`**: Continuous profiling from server startup using Node.js flags. Best for performance testing over a test suite of events.
-  - **`"interactive"`**: Manual start/stop control via inspector API. Best for studying particular events where it's convenient to isolate profile collection manually. Automatically starts profiling when enabled to capture server initialization.
-- **`profilingType`** (string, default: `"cpu"`)
-  - Type of profiling to perform when profiling is enabled (desktop only).
-  - Options: `"cpu"` for CPU profiling, `"heap"` for heap profiling, or `"both"` for both.
-  - Shared between both profiling modes.
+### Resource Loading
 
-- **`additionalDocumentSchemes`** (array, default: `[]`)
-  - Additional URI schemes to include for Apex language services.
-  - Allows you to extend language server support to custom document URI schemes beyond the default ones.
-  - Each entry is an object with:
-    - **`scheme`** (string, required): The URI scheme name (e.g., `"my-custom-scheme"`).
-    - **`excludeCapabilities`** (array of strings, optional): List of LSP capabilities to exclude this scheme from. Valid values: `"documentSymbol"`, `"hover"`, `"foldingRange"`, `"diagnostic"`, `"completion"`, `"definition"`, `"codeLens"`, `"executeCommand"`.
-  
-  **Important Constraints:**
-  - **Immutable Schemes**: The default schemes (`"file"`, `"apexlib"`, `"vscode-test-web"`) are always included and cannot be added or excluded. Attempts to configure these schemes will result in warnings.
-  - **Immutable Languages**: The languages (`"apex"`, `"apex-anon"`) are always included and cannot be modified.
-  - **Default Behavior**: Additional schemes apply to all capabilities by default unless explicitly excluded via `excludeCapabilities`.
-  - **Capability-Specific Defaults**: 
-    - Most capabilities (documentSymbol, hover, foldingRange, diagnostic, completion, definition) include: `"file"`, `"apexlib"`, `"vscode-test-web"`.
-    - CodeLens excludes `"apexlib"` by default and only includes: `"file"`, `"vscode-test-web"`.
+Control how standard Apex library is loaded.
 
-  **Examples:**
-  
-  Add a custom scheme for all capabilities:
-  ```json
-  {
-    "apex-ls-ts.environment.additionalDocumentSchemes": [
-      { "scheme": "orgtest" }
-    ]
+#### `apex.resources.loadMode`
+
+**Type**: `"lazy"` | `"full"`  
+**Default**: `"lazy"`
+
+- **`lazy`**: Load standard library types on-demand
+- **`full`**: Load entire standard library at startup
+
+---
+
+### Missing Artifact Resolution
+
+Configure automatic discovery and loading of missing type definitions.
+
+#### `apex.findMissingArtifact.enabled`
+
+**Type**: `boolean`  
+**Default**: `true`
+
+Enable automatic finding and loading of missing artifacts when go-to-definition or hover encounters an unknown type.
+
+#### `apex.findMissingArtifact.blockingWaitTimeoutMs`
+
+**Type**: `number` (milliseconds)  
+**Default**: `2000`
+
+Maximum time to wait for artifact loading before returning partial results.
+
+#### `apex.findMissingArtifact.indexingBarrierPollMs`
+
+**Type**: `number` (milliseconds)  
+**Default**: `100`
+
+Polling interval while waiting for workspace indexing to complete.
+
+#### `apex.findMissingArtifact.maxCandidatesToOpen`
+
+**Type**: `number`  
+**Default**: `3`
+
+Maximum number of candidate files to open when searching for a missing type.
+
+#### `apex.findMissingArtifact.timeoutMsHint`
+
+**Type**: `number` (milliseconds)  
+**Default**: `1500`
+
+Timeout hint for background artifact searches.
+
+#### `apex.findMissingArtifact.enablePerfMarks`
+
+**Type**: `boolean`  
+**Default**: `false`
+
+Enable performance marks for artifact resolution timing analysis.
+
+---
+
+### Workspace Loading
+
+Configure batch loading of workspace files.
+
+#### `apex.loadWorkspace.enabled`
+
+**Type**: `boolean`  
+**Default**: `true`
+
+Enable workspace-wide file loading for comprehensive cross-file analysis.
+
+#### `apex.loadWorkspace.maxConcurrency`
+
+**Type**: `number`  
+**Default**: `50`
+
+Maximum number of files to process concurrently during workspace load.
+
+#### `apex.loadWorkspace.yieldInterval`
+
+**Type**: `number`  
+**Default**: `50`
+
+Number of files to process before yielding control to other tasks.
+
+#### `apex.loadWorkspace.yieldDelayMs`
+
+**Type**: `number` (milliseconds)  
+**Default**: `25`
+
+Delay after yielding to prevent blocking the event loop.
+
+#### `apex.loadWorkspace.batchSize`
+
+**Type**: `number`  
+**Default**: `100`
+
+Number of files per batch when loading workspace.
+
+---
+
+### Queue Processing
+
+Fine-tune the LSP request queue for your workload.
+
+#### `apex.queueProcessing.maxConcurrency`
+
+**Type**: `object`
+
+Maximum concurrent requests per priority level:
+
+- `CRITICAL`: `100` (reserved for future use)
+- `IMMEDIATE`: `50` (hover, completion, signature help)
+- `HIGH`: `50` (document open/save, pull diagnostics)
+- `NORMAL`: `25` (document changes, background compilation)
+- `LOW`: `10` (background indexing, references)
+- `BACKGROUND`: `5` (cleanup, statistics)
+
+**Example**:
+
+```json
+{
+  "apex.queueProcessing.maxConcurrency": {
+    "IMMEDIATE": 100,
+    "HIGH": 50,
+    "NORMAL": 25
   }
-  ```
-  
-  Add a custom scheme only for CodeLens (exclude all other capabilities):
-  ```json
-  {
-    "apex-ls-ts.environment.additionalDocumentSchemes": [
-      {
-        "scheme": "orgtest",
-        "excludeCapabilities": [
-          "documentSymbol",
-          "hover",
-          "foldingRange",
-          "diagnostic",
-          "completion",
-          "definition"
-        ]
-      }
-    ]
-  }
-  ```
-  
-  Add multiple schemes with different capability exclusions:
-  ```json
-  {
-    "apex-ls-ts.environment.additionalDocumentSchemes": [
-      { "scheme": "custom-scheme-1" },
-      {
-        "scheme": "custom-scheme-2",
-        "excludeCapabilities": ["codeLens", "hover"]
-      }
-    ]
-  }
-  ```
-  
-  **Note**: If you attempt to add or exclude immutable schemes (like `"file"`), the server will log warnings but continue to operate with the default behavior. Check the Output panel (View → Output → "Apex Language Server Extension (Worker/Server)") for validation warnings.
+}
+```
+
+#### `apex.queueProcessing.maxTotalConcurrency`
+
+**Type**: `number`  
+**Default**: (sum of all priority levels)
+
+Global limit on total concurrent requests across all priorities.
+
+#### `apex.queueProcessing.yieldInterval`
+
+**Type**: `number`  
+**Default**: `50`
+
+Number of requests to process before yielding.
+
+#### `apex.queueProcessing.yieldDelayMs`
+
+**Type**: `number` (milliseconds)  
+**Default**: `25`
+
+Delay after yielding to prevent event loop blocking.
+
+---
+
+### Scheduler Settings
+
+Configure queue scheduler behavior.
+
+#### `apex.scheduler.queueCapacity`
+
+**Type**: `object`
+
+Maximum queue size per priority level (all default to `200`).
+
+#### `apex.scheduler.maxHighPriorityStreak`
+
+**Type**: `number`  
+**Default**: `50`
+
+Maximum consecutive high-priority requests before processing lower priorities (prevents starvation).
+
+#### `apex.scheduler.idleSleepMs`
+
+**Type**: `number` (milliseconds)  
+**Default**: `1`
+
+Sleep duration when queue is idle.
+
+#### `apex.scheduler.queueStateNotificationIntervalMs`
+
+**Type**: `number` (milliseconds)  
+**Default**: `200`
+
+Interval for queue state notifications (visible in status bar and queue viewer).
+
+---
+
+### Deferred Reference Processing
+
+Configure background processing of type references.
+
+#### `apex.deferredReferenceProcessing.deferredBatchSize`
+
+**Type**: `number`  
+**Default**: `50`
+
+Number of deferred references to process per batch.
+
+#### `apex.deferredReferenceProcessing.initialReferenceBatchSize`
+
+**Type**: `number`  
+**Default**: `50`
+
+Number of references to process synchronously before deferring.
+
+#### `apex.deferredReferenceProcessing.maxRetryAttempts`
+
+**Type**: `number`  
+**Default**: `10`
+
+Maximum retries for failed reference resolution.
+
+#### `apex.deferredReferenceProcessing.retryDelayMs`
+
+**Type**: `number` (milliseconds)  
+**Default**: `100`
+
+Initial delay between retry attempts (increases exponentially).
+
+#### `apex.deferredReferenceProcessing.maxRetryDelayMs`
+
+**Type**: `number` (milliseconds)  
+**Default**: `5000`
+
+Maximum retry delay cap.
+
+#### `apex.deferredReferenceProcessing.queueCapacityThreshold`
+
+**Type**: `number` (percentage)  
+**Default**: `90`
+
+Queue capacity threshold that triggers deferred processing.
+
+#### `apex.deferredReferenceProcessing.queueDrainThreshold`
+
+**Type**: `number` (percentage)  
+**Default**: `75`
+
+Queue capacity threshold below which deferred processing resumes.
+
+#### `apex.deferredReferenceProcessing.circuitBreakerFailureThreshold`
+
+**Type**: `number`  
+**Default**: `5`
+
+Consecutive failures before circuit breaker opens.
+
+#### `apex.deferredReferenceProcessing.circuitBreakerResetThreshold`
+
+**Type**: `number`  
+**Default**: `50`
+
+Successful operations required to close circuit breaker.
+
+#### `apex.deferredReferenceProcessing.maxDeferredTasksPerSecond`
+
+**Type**: `number`  
+**Default**: `10`
+
+Rate limit for deferred task processing.
+
+---
 
 ### Debug Settings
 
-Configure debugging for the language server:
+Configure Node.js debugging (desktop only).
 
-```json
-{
-  "apex-ls-ts.debug": "off",
-  "apex-ls-ts.debugPort": 6009
-}
-```
+#### `apex.debug`
 
-#### Debug Options
+**Type**: `"off"` | `"inspect"` | `"inspect-brk"`  
+**Default**: `"off"`  
+**Desktop Only**
 
-- **`debug`** (string, enum: `"off"`, `"inspect"`, `"inspect-brk"`, default: `"off"`)
-  - **`"off"`**: No debugging enabled
-  - **`"inspect"`**: Enable debugging without breaking on startup
-  - **`"inspect-brk"`**: Enable debugging with break on startup
+Enable Node.js debugging:
 
-- **`debugPort`** (number, default: `6009`)
-  - Port to use for debugging. Set to `6009` to use the default port.
+- **`off`**: No debugging
+- **`inspect`**: Enable debugging without breaking on startup
+- **`inspect-brk`**: Enable debugging with break on startup
+
+#### `apex.debugPort`
+
+**Type**: `number`  
+**Default**: `6009`  
+**Desktop Only**
+
+Port for Node.js debugger.
+
+---
 
 ### Legacy Settings
 
-These settings are for low-level control and compatibility with other tooling:
+#### `apex.enable`
 
-```json
-{
-  "apex-ls-ts.enable": true,
-  "apex-ls-ts.trace.server": "off"
-}
-```
+**Type**: `boolean`  
+**Default**: `true`
 
-## Server Mode Configuration
+Enable/disable the extension.
 
-The Apex Language Server supports different operational modes that affect performance and feature availability:
+#### `apex.trace.server`
 
-### Server Modes
+**Type**: `"off"` | `"messages"` | `"verbose"`  
+**Default**: `"off"`
 
-- **Production Mode**: Optimized for performance and stability
-  - Disabled features: hover provider, completion resolve provider, will-save notifications
-  - Full text document sync for reliability
-  - Minimal diagnostic processing
+LSP message tracing for debugging (logs to "Apex Language Server" output channel).
 
-- **Development Mode**: Full feature set for development workflows
-  - Enabled features: hover provider, completion resolve provider, will-save notifications
-  - Incremental text document sync for better performance
-  - Enhanced diagnostic processing
+#### `apex.custom`
 
-### Mode Determination
+**Type**: `object`  
+**Default**: `{}`
 
-The server mode is determined by the following priority order:
+Reserved for custom configuration (not currently used).
 
-1. **Environment Variable**: `APEX_LS_MODE=production` or `APEX_LS_MODE=development`
-2. **Extension Mode**: Automatically based on VS Code extension mode
-   - Development/Test extension mode → Development server mode
-   - Production extension mode → Production server mode
-3. **NODE_ENV**: Falls back to `NODE_ENV` environment variable
-
-### Environment Variable Override
-
-You can force the server to run in a specific mode regardless of the extension mode:
-
-```bash
-# Force production mode
-export APEX_LS_MODE=production
-
-# Force development mode
-export APEX_LS_MODE=development
-```
-
-This is useful for:
-
-- Testing production behavior during development
-- Debugging with enhanced logging in production environments
-- CI/CD environments requiring specific modes
-
-For detailed information, see [Server Mode Override Documentation](docs/server-mode-override.md).
+---
 
 ## Commands
 
-The extension provides the following commands, which can be accessed from the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`):
+Access commands via Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`).
 
-- **Restart Apex Language Server** (`apex.restart.server`)
-  - Restarts the language server if it becomes unresponsive.
-  - Also available by clicking the status bar item.
+### General Commands
 
-## Workspace Settings Example
+- **Apex: Restart Apex Language Server** (`apex-ls-ts.restart.server`)  
+  Restart the language server if unresponsive. Also available via status bar click.
 
-Create a `.vscode/settings.json` file in your workspace for project-specific settings:
+- **Apex: Show Aggregated Logs** (`apex.showAggregatedLogs`)  
+  View combined logs from extension and language server.
+
+- **Apex: Show Queue State** (`apex-ls-ts.showQueueState`)  
+  Display real-time queue state and processing statistics.
+
+- **Apex: Show Performance Settings** (`apex-ls-ts.showPerformanceSettings`)  
+  View current performance configuration.
+
+- **Apex: Show Dependency Graph** (`apex-ls-ts.showGraph`)  
+  Visualize type dependencies in the workspace.
+
+### Log Level Commands
+
+Quickly change log verbosity without editing settings:
+
+- **Apex: Set Log Level to Error** (`apex-ls-ts.setLogLevel.error`)
+- **Apex: Set Log Level to Warning** (`apex-ls-ts.setLogLevel.warning`)
+- **Apex: Set Log Level to Info** (`apex-ls-ts.setLogLevel.info`)
+- **Apex: Set Log Level to Debug** (`apex-ls-ts.setLogLevel.debug`)
+
+### Profiling Commands (Desktop Only)
+
+Interactive profiling control when `apex.environment.profilingMode` is `"interactive"`:
+
+- **Apex: Start Profiling** (`apex.profiling.start`)  
+  Begin collecting profiling data.
+
+- **Apex: Stop Profiling** (`apex.profiling.stop`)  
+  Stop profiling and save data to file.
+
+- **Apex: Profiling Status** (`apex.profiling.status`)  
+  Check if profiling is currently active.
+
+---
+
+## Views
+
+### Apex Explorer
+
+The extension adds an **Apex Explorer** view in the Activity Bar for quick access to workspace insights and diagnostics.
+
+---
+
+## Usage Examples
+
+### Example 1: Performance-Focused Settings
+
+For large codebases prioritizing speed:
 
 ```json
 {
-  "apex-ls-ts.commentCollection.enableCommentCollection": true,
-  "apex-ls-ts.commentCollection.includeSingleLineComments": true,
-  "apex-ls-ts.commentCollection.associateCommentsWithSymbols": true,
-  "apex-ls-ts.performance.commentCollectionMaxFileSize": 204800
+  "apex.environment.serverMode": "production",
+  "apex.commentCollection.associateCommentsWithSymbols": false,
+  "apex.commentCollection.enableForDocumentSymbols": false,
+  "apex.commentCollection.enableForFoldingRanges": false,
+  "apex.performance.commentCollectionMaxFileSize": 51200,
+  "apex.performance.documentChangeDebounceMs": 500,
+  "apex.queueProcessing.maxConcurrency": {
+    "IMMEDIATE": 100,
+    "HIGH": 50,
+    "NORMAL": 15
+  }
 }
 ```
 
-## User Settings Example
+### Example 2: Development-Focused Settings
 
-Configure global settings in VSCode user settings:
+For active development with full features:
 
 ```json
 {
-  "apex-ls-ts.commentCollection.enableCommentCollection": true,
-  "apex-ls-ts.performance.useAsyncCommentProcessing": true,
-  "apex-ls-ts.performance.documentChangeDebounceMs": 500,
-  "apex-ls-ts.environment.profilingMode": "none",
-  "apex-ls-ts.environment.profilingType": "cpu"
+  "apex.environment.serverMode": "development",
+  "apex.commentCollection.enableCommentCollection": true,
+  "apex.commentCollection.includeSingleLineComments": true,
+  "apex.commentCollection.associateCommentsWithSymbols": true,
+  "apex.performance.documentChangeDebounceMs": 200,
+  "apex.logLevel": "debug",
+  "apex.worker.enablePerformanceLogs": true
 }
 ```
 
-## Performance Recommendations
+### Example 3: Profiling for Performance Analysis (Desktop)
 
-For optimal performance, especially with large codebases:
+```json
+{
+  "apex.environment.profilingMode": "interactive",
+  "apex.environment.profilingType": "both",
+  "apex.environment.profilingTag": "my-test-suite",
+  "apex.worker.enablePerformanceLogs": true,
+  "apex.worker.logCategories": ["STARTUP", "LSP", "PERFORMANCE"]
+}
+```
 
-1. **Disable expensive features** for large files or if not needed:
+Then use **Apex: Start Profiling** and **Apex: Stop Profiling** commands to capture specific scenarios.
 
-   ```json
-   {
-     "apex-ls-ts.commentCollection.associateCommentsWithSymbols": false,
-     "apex-ls-ts.commentCollection.enableForDocumentSymbols": false,
-     "apex-ls-ts.commentCollection.enableForFoldingRanges": false
-   }
-   ```
-
-2. **Adjust file size limit** for comment collection:
-
-   ```json
-   {
-     "apex-ls-ts.performance.commentCollectionMaxFileSize": 51200
-   }
-   ```
-
-3. **Increase debounce** for frequently changing files:
-
-   ```json
-   {
-     "apex-ls-ts.performance.documentChangeDebounceMs": 500
-   }
-   ```
-
-4. **Enable performance profiling** to identify bottlenecks (desktop only):
-
-   For continuous profiling from startup (best for performance testing):
-
-   ```json
-   {
-     "apex-ls-ts.environment.profilingMode": "full",
-     "apex-ls-ts.environment.profilingType": "both"
-   }
-   ```
-
-   For interactive profiling with manual control (best for studying specific events):
-
-   ```json
-   {
-     "apex-ls-ts.environment.profilingMode": "interactive",
-     "apex-ls-ts.environment.profilingType": "both"
-   }
-   ```
+---
 
 ## Troubleshooting
 
 ### Language Server Not Starting
 
-1. Check the **Output** panel (View → Output) and select **Apex Language Server** from the dropdown.
-2. Use the **Restart Apex Language Server** command from the Command Palette.
-3. Verify your workspace contains Apex files (`.cls`, `.trigger`, `.apex`).
-4. Check for conflicting extensions.
+1. **Check Output Panel**: View → Output → "Apex Language Server"
+2. **Restart Server**: Run "Apex: Restart Apex Language Server" command
+3. **Verify Files**: Ensure workspace contains `.cls`, `.trigger`, or `.apex` files
+4. **Check Conflicts**: Disable other Apex extensions
 
 ### Performance Issues
 
-1. Reduce `commentCollectionMaxFileSize` for large files.
-2. Disable `associateCommentsWithSymbols` if not needed.
-3. Increase `documentChangeDebounceMs` for busy editing environments.
-4. Enable performance profiling to identify bottlenecks (desktop only).
+1. **Switch to Production Mode**: Set `"apex.environment.serverMode": "production"`
+2. **Reduce Comment Collection**: Disable expensive comment features:
+   ```json
+   {
+     "apex.commentCollection.associateCommentsWithSymbols": false,
+     "apex.performance.commentCollectionMaxFileSize": 51200
+   }
+   ```
+3. **Increase Debounce**: `"apex.performance.documentChangeDebounceMs": 500`
+4. **Adjust Queue Concurrency**: Lower values for `apex.queueProcessing.maxConcurrency`
+5. **Profile Performance** (desktop): Enable profiling to identify bottlenecks
 
-### Configuration Not Applying
+### High Memory Usage (Desktop)
 
-1. Settings changes are applied immediately. If not, use the **Restart Apex Language Server** command.
-2. Check for typos in setting keys in your `settings.json` file.
-3. Verify the JSON syntax in your settings files is correct.
+1. **Increase Heap Size**: `"apex.environment.jsHeapSizeGB": 4`
+2. **Reduce Concurrency**: Lower `apex.queueProcessing.maxConcurrency` values
+3. **Lazy Loading**: `"apex.resources.loadMode": "lazy"`
 
-## Development
+### Settings Not Applying
 
-For extension development and debugging:
+1. Settings apply immediately (no restart needed)
+2. Check for typos in `settings.json`
+3. Verify JSON syntax
+4. Use Command Palette: "Preferences: Open Settings (JSON)" to edit directly
 
-1. Enable performance profiling:
-   - For full profiling: `"apex-ls-ts.environment.profilingMode": "full"`
-   - For interactive profiling: `"apex-ls-ts.environment.profilingMode": "interactive"`
-2. Set the trace level: `"apex-ls-ts.trace.server": "verbose"`
-3. Enable debugging: `
+### Queue Saturation
+
+If you see queue warnings in the status bar:
+
+1. **View Queue State**: Run "Apex: Show Queue State" command
+2. **Increase Capacity**: Adjust `apex.scheduler.queueCapacity`
+3. **Increase Concurrency**: Raise `apex.queueProcessing.maxConcurrency`
+4. **Check Logs**: Enable performance logs to identify slow operations
+
+---
+
+## Support & Feedback
+
+- **Issues**: [GitHub Issues](https://github.com/forcedotcom/apex-language-support/issues)
+- **Repository**: [apex-language-support](https://github.com/forcedotcom/apex-language-support)
+
+---
+
+## License
+
+BSD-3-Clause

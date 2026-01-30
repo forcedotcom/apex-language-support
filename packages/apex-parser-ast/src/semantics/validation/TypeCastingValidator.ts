@@ -7,26 +7,12 @@
  */
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import type { TypeInfo } from './TypeValidator';
+import { isPrimitiveType } from '../../utils/TypeInfoFactory';
 
 /**
  * Validates type casting operations
  */
 export class TypeCastingValidator {
-  // Primitive type names
-  private static readonly PRIMITIVE_TYPES = new Set([
-    'Boolean',
-    'Integer',
-    'Long',
-    'Double',
-    'Decimal',
-    'String',
-    'Date',
-    'DateTime',
-    'Time',
-    'Blob',
-    'ID',
-  ]);
-
   // Numeric types that can be cast between each other
   private static readonly NUMERIC_TYPES = new Set([
     'Integer',
@@ -108,33 +94,28 @@ export class TypeCastingValidator {
       return true;
     }
 
-    // Handle primitive types
-    if (
-      (this.isPrimitiveType(source.name) || source.isPrimitive) &&
-      (this.isPrimitiveType(target.name) || target.isPrimitive)
-    ) {
-      return this.arePrimitiveTypesCompatible(source.name, target.name);
-    }
-
-    // Handle SObject types
+    // Handle SObject types before Object check
+    // SObject has specific rules (e.g., Object cannot be cast to SObject)
     if (source.isSObject || target.isSObject) {
       return this.areSObjectTypesCompatible(source, target);
     }
 
-    // Handle Object type (can be cast to/from any type)
+    // Handle Object type (can be cast to/from any type except SObject)
+    // This must come before primitive check since Object is now considered a primitive
     if (source.name === 'Object' || target.name === 'Object') {
       return this.isObjectTypeCompatible(source, target);
     }
 
+    // Handle primitive types
+    if (
+      (isPrimitiveType(source.name) || source.isPrimitive) &&
+      (isPrimitiveType(target.name) || target.isPrimitive)
+    ) {
+      return this.arePrimitiveTypesCompatible(source.name, target.name);
+    }
+
     // Handle class hierarchy (simplified - would need actual inheritance info)
     return this.areClassTypesCompatible(source, target);
-  }
-
-  /**
-   * Check if a type is primitive
-   */
-  private static isPrimitiveType(typeName: string): boolean {
-    return this.PRIMITIVE_TYPES.has(typeName);
   }
 
   /**
@@ -165,10 +146,12 @@ export class TypeCastingValidator {
       return false;
     }
 
-    // Blob and ID are not compatible with other primitives
+    // Blob and Id are not compatible with other primitives
     if (
       sourceName === 'Blob' ||
       targetName === 'Blob' ||
+      sourceName === 'Id' ||
+      targetName === 'Id' ||
       sourceName === 'ID' ||
       targetName === 'ID'
     ) {
