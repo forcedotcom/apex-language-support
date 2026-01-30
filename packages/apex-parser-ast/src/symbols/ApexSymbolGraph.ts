@@ -1074,7 +1074,10 @@ export class ApexSymbolGraph {
       };
 
       // Add vertex to graph
-      const vertexAdded = this.referenceGraph.addVertex(symbolId, referenceNode);
+      const vertexAdded = this.referenceGraph.addVertex(
+        symbolId,
+        referenceNode,
+      );
       if (!vertexAdded) {
         this.logger.warn(() => `Failed to add vertex to graph: ${symbolId}`);
         return;
