@@ -8,6 +8,7 @@
 
 import { FoldingRangeParams, FoldingRange } from 'vscode-languageserver';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
 
 import { dispatch } from '../utils/handlerUtil';
 import { ApexFoldingRangeProvider } from '../foldingRange/ApexFoldingRangeProvider';
@@ -39,8 +40,8 @@ export async function processOnFoldingRange(
     );
 
     const provider = new ApexFoldingRangeProvider(storage);
-    const foldingRanges = await provider.getFoldingRanges(
-      params.textDocument.uri,
+    const foldingRanges = await Effect.runPromise(
+      provider.getFoldingRanges(params.textDocument.uri),
     );
 
     if (foldingRanges.length === 0) {

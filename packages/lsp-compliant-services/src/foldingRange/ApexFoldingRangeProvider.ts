@@ -15,6 +15,7 @@ import {
   FoldingRange,
 } from '@salesforce/apex-lsp-parser-ast';
 import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { transformParserToLspPosition } from '../utils/positionUtils';
@@ -33,20 +34,33 @@ export class ApexFoldingRangeProvider {
   }
 
   /**
-   * Get folding ranges for a document
+   * Get folding ranges for a document (Effect pattern)
    * @param documentUri - The URI of the document to analyze
-   * @returns Array of LSP folding ranges
+   * @returns Effect that resolves to array of LSP folding ranges
    */
-  public async getFoldingRanges(
+  public getFoldingRanges(
     documentUri: string,
-  ): Promise<LSPFoldingRange[]> {
-    try {
+  ): Effect.Effect<LSPFoldingRange[], never, never> {
+    const self = this;
+    return Effect.gen(function* () {
       logger.debug(
         () => `Computing folding ranges for document: ${documentUri}`,
       );
 
       // Get the document from storage
-      const document = await this.storage.getDocument(documentUri);
+      const document = yield* Effect.tryPromise({
+        try: () => self.storage.getDocument(documentUri),
+        catch: (error: unknown) => {
+          logger.error(
+            () =>
+              `Storage error for ${documentUri}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return null; // Return null on error
+        },
+      }).pipe(
+        Effect.catchAll(() => Effect.succeed(null)),
+      );
+
       if (!document) {
         logger.debug(() => `Document not found in storage: ${documentUri}`);
         return [];
@@ -64,7 +78,7 @@ export class ApexFoldingRangeProvider {
           () =>
             `Using cached folding ranges for ${documentUri} (version ${document.version})`,
         );
-        return this.convertToLSPFoldingRanges(cached.foldingRanges);
+        return self.convertToLSPFoldingRanges(cached.foldingRanges);
       }
 
       // Create and use the folding range listener
@@ -77,15 +91,38 @@ export class ApexFoldingRangeProvider {
       );
 
       // Parse the document using the compiler service
-      const result = this.compilerService.compile(
-        document.getText(),
-        documentUri,
-        listener,
-        options,
+      const result = yield* Effect.try({
+        try: () =>
+          self.compilerService.compile(
+            document.getText(),
+            documentUri,
+            listener,
+            options,
+          ),
+        catch: (error) => {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          logger.error(
+            () =>
+              `Compiler error for ${documentUri}: ${errorMessage}`,
+          );
+          return new Error(errorMessage);
+        },
+      }).pipe(
+        Effect.catchAll(() => {
+          // Return empty result on compilation error
+          return Effect.succeed({
+            errors: [],
+            warnings: [],
+            result: null,
+          });
+        }),
       );
 
       if (result.errors.length > 0) {
-        logger.debug(() => `Parse errors for ${documentUri}: ${result.errors}`);
+        logger.debug(
+          () => `Parse errors for ${documentUri}: ${result.errors}`,
+        );
         // Continue processing even with errors, as partial folding ranges may still be useful
       }
 
@@ -97,7 +134,7 @@ export class ApexFoldingRangeProvider {
       // Extract block comments and convert them to folding ranges if comments are available
       let blockCommentRanges: FoldingRange[] = [];
       if ('comments' in result && result.comments) {
-        blockCommentRanges = this.convertBlockCommentsToFoldingRanges(
+        blockCommentRanges = self.convertBlockCommentsToFoldingRanges(
           result.comments,
         );
         logger.debug(
@@ -116,21 +153,13 @@ export class ApexFoldingRangeProvider {
       });
 
       // Convert to LSP folding ranges
-      const lspFoldingRanges = this.convertToLSPFoldingRanges(allRanges);
+      const lspFoldingRanges = self.convertToLSPFoldingRanges(allRanges);
 
       logger.debug(
         () => `Converted to ${lspFoldingRanges.length} LSP folding ranges`,
       );
       return lspFoldingRanges;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logger.error(
-        () =>
-          `Error computing folding ranges for ${documentUri}: ${errorMessage}`,
-      );
-      return [];
-    }
+    });
   }
 
   /**

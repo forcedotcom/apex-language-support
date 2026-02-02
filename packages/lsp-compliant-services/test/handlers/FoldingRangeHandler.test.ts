@@ -8,6 +8,7 @@
 
 import { FoldingRangeParams, FoldingRange } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { Effect } from 'effect';
 
 import {
   processOnFoldingRange,
@@ -69,7 +70,7 @@ describe('FoldingRangeHandler', () => {
   describe('processOnFoldingRange', () => {
     it('should return null for non-existent document', async () => {
       // Arrange
-      mockProvider.getFoldingRanges.mockResolvedValue([]);
+      mockProvider.getFoldingRanges.mockReturnValue(Effect.succeed([]));
       const params: FoldingRangeParams = {
         textDocument: { uri: 'file:///nonexistent/file.cls' },
       };
@@ -141,7 +142,7 @@ public class TestClass {
       };
 
       // Mock the ApexFoldingRangeProvider to return expected ranges
-      mockProvider.getFoldingRanges.mockResolvedValue(expectedFoldingRanges);
+      mockProvider.getFoldingRanges.mockReturnValue(Effect.succeed(expectedFoldingRanges));
 
       // Act
       const result = await processOnFoldingRange(params, mockStorage);
@@ -169,7 +170,7 @@ public class TestClass {
       };
 
       // Mock the ApexFoldingRangeProvider to return empty array
-      mockProvider.getFoldingRanges.mockResolvedValue([]);
+      mockProvider.getFoldingRanges.mockReturnValue(Effect.succeed([]));
 
       // Act
       const result = await processOnFoldingRange(params, mockStorage);
@@ -196,9 +197,9 @@ public class TestClass {
         textDocument: { uri: 'file:///error.cls' },
       };
 
-      // Mock the ApexFoldingRangeProvider to throw error
-      mockProvider.getFoldingRanges.mockRejectedValue(
-        new Error('Parser error'),
+      // Mock the ApexFoldingRangeProvider to return a failing Effect
+      mockProvider.getFoldingRanges.mockReturnValue(
+        Effect.fail(new Error('Parser error')),
       );
 
       // Act
@@ -251,7 +252,7 @@ public class TestClass {
       };
 
       // Mock the ApexFoldingRangeProvider
-      mockProvider.getFoldingRanges.mockResolvedValue(expectedFoldingRanges);
+      mockProvider.getFoldingRanges.mockReturnValue(Effect.succeed(expectedFoldingRanges));
 
       // Act
       const result = await processOnFoldingRange(params, mockStorage);
@@ -341,7 +342,7 @@ public class TestClass {
       expect(capturedPromise!).toBeInstanceOf(Promise);
 
       // Verify the promise resolves properly with null (since provider returns empty array)
-      mockProvider.getFoldingRanges.mockResolvedValue([]);
+      mockProvider.getFoldingRanges.mockReturnValue(Effect.succeed([]));
       const result = await capturedPromise!;
       expect(result).toBeNull();
     });
