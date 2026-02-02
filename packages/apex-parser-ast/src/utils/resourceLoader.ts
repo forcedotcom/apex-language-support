@@ -574,8 +574,8 @@ export class ResourceLoader {
         this.protobufCacheLoaded = true;
         this.protobufCacheData = result.data;
 
-        // Populate namespace index from protobuf data
-        this.populateFromProtobufCache(result.data);
+        // Populate namespace index from protobuf data (await to ensure registry is loaded)
+        await this.populateFromProtobufCache(result.data);
 
         this.logger.alwaysLog(
           () =>
@@ -657,7 +657,9 @@ export class ResourceLoader {
    * Populate ResourceLoader data structures from protobuf cache data.
    * This sets up namespace indexes and file mappings from the cached data.
    */
-  private populateFromProtobufCache(data: DeserializationResult): void {
+  private async populateFromProtobufCache(
+    data: DeserializationResult,
+  ): Promise<void> {
     // Populate namespace index from cached data
     for (const [fileUri, _symbolTable] of data.symbolTables) {
       // Extract namespace from file URI (format: apex://stdlib/{namespace}/{className})
@@ -699,8 +701,8 @@ export class ResourceLoader {
         `${this.fileIndex.size} files indexed`,
     );
 
-    // Initialize the GlobalTypeRegistry from pre-built cache
-    void this.initializeTypeRegistry();
+    // Initialize the GlobalTypeRegistry from pre-built cache (await completion)
+    await this.initializeTypeRegistry();
   }
 
   /**

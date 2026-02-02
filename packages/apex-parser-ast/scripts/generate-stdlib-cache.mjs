@@ -206,6 +206,7 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
   const { TypeRegistry, TypeRegistryEntry, TypeKind } = await import('../out/generated/apex-stdlib.js');
   
   const entries = [];
+  let debuggedFirst = false;
   
   // Extract type metadata from each symbol table
   for (const ns of namespaceData) {
@@ -217,17 +218,20 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
       const [, namespace, className] = match;
       const allSymbols = symbolTable.getAllSymbols();
       
-      // Find top-level types only (parentId === null)
+      // Find top-level types only (parentId === 'null' or null)
       for (const symbol of allSymbols) {
-        if (symbol.parentId === null && 
-            (symbol.kind === 'Class' || symbol.kind === 'Interface' || symbol.kind === 'Enum')) {
+        const isTopLevel = symbol.parentId === null || symbol.parentId === 'null';
+        const kindLower = typeof symbol.kind === 'string' ? symbol.kind.toLowerCase() : String(symbol.kind).toLowerCase();
+        const isTypeSymbol = kindLower === 'class' || kindLower === 'interface' || kindLower === 'enum';
+        
+        if (isTopLevel && isTypeSymbol) {
           const fqn = `${namespace}.${symbol.name}`.toLowerCase();
           
-          // Map SymbolKind string to TypeKind enum
+          // Map SymbolKind string to TypeKind enum (case-insensitive)
           let kind = TypeKind.CLASS;
-          if (symbol.kind === 'Interface') {
+          if (kindLower === 'interface') {
             kind = TypeKind.INTERFACE;
-          } else if (symbol.kind === 'Enum') {
+          } else if (kindLower === 'enum') {
             kind = TypeKind.ENUM;
           }
           

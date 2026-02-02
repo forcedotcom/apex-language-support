@@ -65,7 +65,7 @@ describe('Symbol Graph Pre-population Performance', () => {
   beforeAll(async () => {
     // Enable logging to see results
     enableConsoleLogging();
-    setLogLevel('debug');
+    setLogLevel('error');
     logger = getLogger();
 
     // Mock settings manager
