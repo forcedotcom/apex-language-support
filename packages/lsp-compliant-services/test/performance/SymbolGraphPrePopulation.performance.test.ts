@@ -293,21 +293,15 @@ describe('Symbol Graph Pre-population Performance', () => {
     const availableNamespaces = resourceLoader.getStandardNamespaces();
     const allNamespacesRaw = [...availableNamespaces.keys()];
 
-    // Process foundation namespaces first to avoid cascading dependency searches
-    const FOUNDATION_NAMESPACES = ['System', 'Database', 'Schema'];
-    const foundationNs = allNamespacesRaw.filter((ns) =>
-      FOUNDATION_NAMESPACES.includes(ns),
-    );
-    const otherNs = allNamespacesRaw.filter(
-      (ns) => !FOUNDATION_NAMESPACES.includes(ns),
-    );
-    const allNamespaces = [...foundationNs, ...otherNs];
+    // Use dependency-ordered loading from ResourceLoader
+    const allNamespaces = resourceLoader.getNamespaceDependencyOrder();
 
     logger.info('');
-    logger.info(`Available namespaces: ${allNamespacesRaw.join(', ')}`);
+    logger.info(`Available namespaces: ${allNamespacesRaw.length} total`);
     logger.info('');
+    const first10 = allNamespaces.slice(0, 10).join(', ');
     logger.info(
-      `Processing order (foundation-first): ${allNamespaces.join(', ')}`,
+      `Processing order (dependency-ordered): ${first10}... (${allNamespaces.length} total)`,
     );
     logger.info('');
 

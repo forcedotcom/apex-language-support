@@ -23,6 +23,7 @@ import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolColle
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
 import { STANDARD_APEX_LIBRARY_URI } from './ResourceUtils';
+import { NamespaceDependencyAnalyzer } from './NamespaceDependencyAnalyzer';
 
 export interface ResourceLoaderOptions {
   preloadStdClasses?: boolean;
@@ -90,6 +91,7 @@ export class ResourceLoader {
   private zipFiles: CaseInsensitivePathMap<Uint8Array> | null = null; // Will be initialized in extractZipFiles
   private protobufCacheLoaded = false; // Track if protobuf cache was used
   private protobufCacheData: DeserializationResult | null = null; // Cached protobuf data
+  private namespaceDependencyOrder: string[] | null = null; // Cached dependency-sorted namespace order
 
   private constructor(options?: ResourceLoaderOptions) {
     this.logger.debug(
@@ -428,6 +430,52 @@ export class ResourceLoader {
   public getStandardNamespaces(): Map<string, CIS[]> {
     // Return the namespaces map directly since it's already a regular Map
     return this.namespaces;
+  }
+
+  /**
+   * Get namespaces in dependency order (dependencies first)
+   * Cached after first call. Uses topological sort of namespace dependency graph.
+   *
+   * @returns Array of namespace names in optimal load order
+   */
+  public getNamespaceDependencyOrder(): string[] {
+    if (this.namespaceDependencyOrder) {
+      this.logger.debug(
+        `Using cached dependency order: ${this.namespaceDependencyOrder.slice(0, 5).join(', ')}...`,
+      );
+      return this.namespaceDependencyOrder;
+    }
+
+    // Build from protobuf symbol tables if available
+    if (!this.protobufCacheData) {
+      // Fallback: return alphabetical order if protobuf not available
+      this.logger.warn(
+        '⚠️  Protobuf cache not available, using alphabetical namespace order (FALLBACK)',
+      );
+      const fallback = [...this.getStandardNamespaces().keys()];
+      this.logger.warn(
+        `Alphabetical order: ${fallback.slice(0, 10).join(', ')}...`,
+      );
+      return fallback;
+    }
+
+    this.logger.info('Computing namespace dependency order from protobuf...');
+    const deps = NamespaceDependencyAnalyzer.analyzeFromProtobuf(
+      this.protobufCacheData.symbolTables,
+    );
+
+    this.logger.info(`Analyzed ${deps.size} namespaces for dependencies`);
+
+    this.namespaceDependencyOrder =
+      NamespaceDependencyAnalyzer.topologicalSort(deps);
+
+    const first10 = this.namespaceDependencyOrder.slice(0, 10).join(', ');
+    const total = this.namespaceDependencyOrder.length;
+    this.logger.info(
+      `✓ Namespace dependency order computed: ${first10}... (${total} total)`,
+    );
+
+    return this.namespaceDependencyOrder;
   }
 
   /**

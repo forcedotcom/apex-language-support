@@ -252,21 +252,12 @@ export class LCSAdapter {
 
       // Handle special case: "*" means load all available namespaces
       if (namespacesToLoad.includes('*')) {
-        const allNamespaces = [...availableNamespaces.keys()];
-
-        // Process foundation namespaces first to avoid cascading dependency searches
-        // These contain base types (String, Integer, List, Map, Exception, etc.)
-        const FOUNDATION_NAMESPACES = ['System', 'Database', 'Schema'];
-        const foundationNs = allNamespaces.filter((ns) =>
-          FOUNDATION_NAMESPACES.includes(ns),
-        );
-        const otherNs = allNamespaces.filter(
-          (ns) => !FOUNDATION_NAMESPACES.includes(ns),
-        );
-
-        namespacesToLoad = [...foundationNs, ...otherNs];
+        // Use dependency order instead of foundation-first heuristic
+        namespacesToLoad = resourceLoader.getNamespaceDependencyOrder();
+        const first10 = namespacesToLoad.slice(0, 10).join(', ');
+        const total = namespacesToLoad.length;
         this.logger.info(
-          `Pre-populating ALL namespaces (foundation-first): ${namespacesToLoad.join(', ')}`,
+          `Pre-populating ALL namespaces (dependency-ordered): ${first10}... (${total} total)`,
         );
       } else {
         this.logger.info(

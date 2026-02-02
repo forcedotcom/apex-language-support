@@ -441,6 +441,52 @@ Loading all 57 namespaces triggers cascading dependency resolution and "find mis
 
 **This is NOT practical for production use.** Use "\*" only for performance measurement and analysis.
 
+### Dependency-Ordered Loading Investigation (2026-02-02)
+
+**Goal:** Eliminate O(n²) cascading lookups when loading all namespaces by using topological sort to load dependencies before dependents.
+
+**Implementation:**
+
+1. Created `NamespaceDependencyAnalyzer` to extract namespace dependencies from protobuf symbol tables
+2. Implemented topological sort using `DirectedGraph` from `data-structure-typed` library (already in project)
+3. Added `ResourceLoader.getNamespaceDependencyOrder()` to provide optimal loading sequence
+4. Updated `LCSAdapter` to use dependency ordering when `"*"` is specified
+5. Added comprehensive unit tests for dependency analysis
+
+**Results:**
+
+- Dependency ordering correctly computed (System → Database → Schema → ... → ConnectApi)
+- Tests still timeout after 152+ seconds when attempting to load all namespaces
+- ConnectApi namespace alone (3,894 classes) causes extreme slowdown
+
+**Root Cause Analysis:**
+The fundamental issue is in `ApexSymbolManager.resolveStandardApexClass()`:
+
+- When resolving a type reference not in the name index, it iterates through ALL loaded symbol tables
+- Each unresolved type triggers O(n) search where n = number of loaded classes
+- As more classes load, unresolved references become exponentially more expensive
+- ConnectApi has many type references, causing O(n²) behavior even with optimal load order
+
+**Conclusion:**
+
+- Dependency ordering helps but doesn't solve the core O(n²) problem
+- Loading all namespaces is **not feasible** without optimizing `ApexSymbolManager` symbol resolution
+- The `NamespaceDependencyAnalyzer` and dependency-ordered loading infrastructure remain in the codebase for future use when symbol manager is optimized
+
+**Recommended Next Steps** (Future Work):
+
+1. Add O(1) or O(log n) type lookup in `ApexSymbolManager` (e.g., global type index)
+2. Implement incremental symbol loading with lazy evaluation
+3. Cache resolved types to avoid repeated lookups
+4. Re-evaluate all-namespaces loading after optimization
+
+**Files:**
+
+- `packages/apex-parser-ast/src/utils/NamespaceDependencyAnalyzer.ts`
+- `packages/apex-parser-ast/src/utils/resourceLoader.ts` (`getNamespaceDependencyOrder()`)
+- `packages/apex-ls/src/server/LCSAdapter.ts` (uses dependency order for `"*"`)
+- `packages/apex-parser-ast/test/utils/NamespaceDependencyAnalyzer.test.ts`
+
 ### Decision Point
 
 **Implement IF:**
