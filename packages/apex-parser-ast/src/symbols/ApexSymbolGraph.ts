@@ -2024,21 +2024,24 @@ export class ApexSymbolGraph {
       // This is critical for private/protected symbols that won't be in PublicAPISymbolListener results
       // The addSymbol method will handle detail level enrichment automatically
       //
-      // IMPORTANT: Compare by name+kind+line rather than ID, because IDs may have changed
+      // IMPORTANT: Compare by name+kind+line+column rather than ID, because IDs may have changed
       // (e.g., parameter signatures added to method IDs). A method "testFoo" at line 10
       // should be recognized as the same symbol whether its ID is "testFoo" or "testFoo()"
+      // Column is included to handle edge cases where multiple symbols share the same line.
       let symbolsPreserved = 0;
       const newSymbolMap = new Map(
         newSymbols.map((s) => {
           const line = s.location?.symbolRange?.startLine ?? 0;
-          const key = `${s.name}:${s.kind}:${line}`;
+          const column = s.location?.symbolRange?.startColumn ?? 0;
+          const key = `${s.name}:${s.kind}:${line}:${column}`;
           return [key, s];
         }),
       );
 
       for (const symbol of existingSymbols) {
         const line = symbol.location?.symbolRange?.startLine ?? 0;
-        const stableKey = `${symbol.name}:${symbol.kind}:${line}`;
+        const column = symbol.location?.symbolRange?.startColumn ?? 0;
+        const stableKey = `${symbol.name}:${symbol.kind}:${line}:${column}`;
 
         if (!newSymbolMap.has(stableKey)) {
           // Symbol doesn't exist in new SymbolTable - preserve it
@@ -2478,7 +2481,10 @@ export class ApexSymbolGraph {
     // Clear indexes first
     this.clearFileIndex(fileUri);
 
-    // Also remove SymbolTable reference
+    // Remove SymbolTable reference - this allows GC to clean up the SymbolTable
+    // if no other references exist. We don't call pruneOrphanedSymbols here because
+    // the SymbolTable object might be reused by callers (e.g., in tests).
+    // For explicit cleanup, callers can use pruneOrphanedSymbols directly.
     const normalizedUri = extractFilePathFromUri(fileUri);
     this.fileToSymbolTable.delete(normalizedUri);
   }

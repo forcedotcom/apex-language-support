@@ -31,6 +31,7 @@ import {
 
 import {
   generateParameterSignature,
+  appendParamSignatureToId,
   type SymbolTable,
   type ApexSymbol,
   type TypeSymbol,
@@ -227,9 +228,10 @@ export class StandardLibrarySerializer {
       }
     }
 
-    // Generate ID with parameter signature to ensure consistency.
+    // Generate ID with parameter signature using shared utility.
     // This ensures cached symbols have the same ID format as parsed symbols.
-    const methodId = this.generateMethodIdWithParams(symbol);
+    const paramSignature = generateParameterSignature(symbol.parameters || []);
+    const methodId = appendParamSignatureToId(symbol.id, paramSignature);
 
     return ProtoMethodSymbol.create({
       id: methodId,
@@ -243,34 +245,6 @@ export class StandardLibrarySerializer {
       parentId: symbol.parentId || '',
       hasBody: symbol.hasBody ?? true, // Default true for backward compatibility
     });
-  }
-
-  /**
-   * Generate a method ID that includes the parameter signature.
-   * Format: baseId(paramType1,paramType2,...) or baseId() for no params
-   */
-  private generateMethodIdWithParams(symbol: MethodSymbol): string {
-    const paramSignature = generateParameterSignature(symbol.parameters || []);
-    const currentId = symbol.id;
-
-    // Check if ID already has parameter signature (ends with parentheses)
-    if (currentId.match(/\([^)]*\)(:?\d+)?$/)) {
-      return currentId; // Already has params
-    }
-
-    // Find where to insert the parameter signature
-    // ID format: fileUri:scope:prefix:name or fileUri:scope:prefix:name:lineNumber
-    const parts = currentId.split(':');
-    let nameIndex = parts.length - 1;
-
-    // Check if last part is a line number
-    if (/^\d+$/.test(parts[parts.length - 1])) {
-      nameIndex = parts.length - 2;
-    }
-
-    // Add parameter signature to the name part
-    parts[nameIndex] = `${parts[nameIndex]}(${paramSignature})`;
-    return parts.join(':');
   }
 
   /**

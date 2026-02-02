@@ -99,6 +99,35 @@ export const generateParameterSignature = (
 };
 
 /**
+ * Append parameter signature to a method ID.
+ * Handles both formats: ...prefix:name and ...prefix:name:lineNumber
+ * @param methodId The existing method ID
+ * @param paramSignature The parameter signature (e.g., "String,Integer")
+ * @returns The ID with parameter signature appended
+ */
+export const appendParamSignatureToId = (
+  methodId: string,
+  paramSignature: string,
+): string => {
+  // Check if ID already has parameter signature (ends with parentheses)
+  if (methodId.match(/\([^)]*\)(:?\d+)?$/)) {
+    return methodId; // Already has params
+  }
+
+  const parts = methodId.split(':');
+  let nameIndex = parts.length - 1;
+
+  // Check if last part is a line number
+  if (/^\d+$/.test(parts[parts.length - 1])) {
+    nameIndex = parts.length - 2;
+  }
+
+  // Add parameter signature to the name part
+  parts[nameIndex] = `${parts[nameIndex]}(${paramSignature})`;
+  return parts.join(':');
+};
+
+/**
  * Factory for creating unified ApexSymbol instances
  */
 export class SymbolFactory {
@@ -353,30 +382,9 @@ export class SymbolFactory {
       return;
     }
 
-    // Generate parameter signature from the method's parameters
+    // Generate parameter signature and use shared utility to append to ID
     const paramSignature = generateParameterSignature(symbol.parameters);
-
-    // ALWAYS append parentheses for methods/constructors, even with no parameters
-    // This ensures no-param methods have ID ending in () and are never confused with the base ID
-    // For example: myMethod() vs myMethod(String) - both are unique
-
-    // Modify the existing ID by appending parameter signature to the method name
-    // The existing ID has format: ...prefix:name or ...prefix:name:lineNumber
-    // We need to change it to: ...prefix:name(params) or ...prefix:name(params):lineNumber
-    const oldId = symbol.id;
-    const parts = oldId.split(':');
-
-    // Find the method name part (should be after the prefix, which is the symbol kind)
-    // Walk backwards to find the name (it's the last part before lineNumber, or the last part)
-    let nameIndex = parts.length - 1;
-    // Check if last part is a line number
-    if (/^\d+$/.test(parts[parts.length - 1])) {
-      nameIndex = parts.length - 2;
-    }
-
-    // Add parameter signature to the name
-    parts[nameIndex] = `${parts[nameIndex]}(${paramSignature})`;
-    const newId = parts.join(':');
+    const newId = appendParamSignatureToId(symbol.id, paramSignature);
 
     // Update symbol ID and key
     symbol.id = newId;
@@ -817,6 +825,8 @@ export class SymbolTable {
   // Array maintained incrementally to avoid expensive HashMap iterator in getAllSymbols()
   private symbolArray: ApexSymbol[] = [];
   private fileUri: string = 'unknown';
+  // Index for O(1) child lookups by parentId - maps parentId to Set of child symbol IDs
+  private childrenByParentId: Map<string, Set<string>> = new Map();
 
   /**
    * Creates a new symbol table.
@@ -877,15 +887,78 @@ export class SymbolTable {
     // Add back to symbolMap with new ID
     this.symbolMap.set(newId, symbol);
 
-    // CRITICAL: Update all child symbols' parentId to point to the new ID
-    // This ensures parent-child relationships remain intact after ID regeneration
-    const children = this.symbolArray.filter((s) => s.parentId === oldId);
-    for (const child of children) {
-      child.parentId = newId;
+    // O(1) lookup: Get children from index and update their parentId
+    const childIds = this.childrenByParentId.get(oldId);
+    if (childIds) {
+      for (const childId of childIds) {
+        const child = this.symbolMap.get(childId);
+        if (child) {
+          child.parentId = newId;
+        }
+      }
+      // Move children to new parent ID in the index
+      this.childrenByParentId.delete(oldId);
+      this.childrenByParentId.set(newId, childIds);
+    }
+
+    // Update this symbol's entry in its parent's children set (if it has a parent)
+    if (symbol.parentId) {
+      const siblings = this.childrenByParentId.get(symbol.parentId);
+      if (siblings) {
+        siblings.delete(oldId);
+        siblings.add(newId);
+      }
     }
 
     // symbolArray references are maintained (same object, just ID changed)
     // roots array references are also maintained
+  }
+
+  /**
+   * Remove symbols that are no longer referenced in external indexes.
+   * Call this after clearFileIndex() to clean up stale symbols.
+   * @param activeSymbolIds Set of symbol IDs that should be kept (empty = remove all)
+   * @returns Number of symbols removed
+   */
+  pruneOrphanedSymbols(activeSymbolIds: Set<string>): number {
+    const originalCount = this.symbolArray.length;
+
+    // Filter out symbols not in the active set
+    this.symbolArray = this.symbolArray.filter((s) =>
+      activeSymbolIds.has(s.id),
+    );
+
+    // Rebuild symbolMap from filtered array
+    this.symbolMap.clear();
+    for (const symbol of this.symbolArray) {
+      this.symbolMap.set(symbol.id, symbol);
+    }
+
+    // Rebuild roots array
+    this.roots = this.symbolArray.filter((s) => s.parentId === null);
+
+    // Rebuild childrenByParentId index
+    this.rebuildChildrenIndex();
+
+    return originalCount - this.symbolArray.length;
+  }
+
+  /**
+   * Rebuild the childrenByParentId index from the current symbolArray.
+   * Called after pruning or other bulk operations that may invalidate the index.
+   */
+  private rebuildChildrenIndex(): void {
+    this.childrenByParentId.clear();
+    for (const symbol of this.symbolArray) {
+      if (symbol.parentId) {
+        const children = this.childrenByParentId.get(symbol.parentId);
+        if (children) {
+          children.add(symbol.id);
+        } else {
+          this.childrenByParentId.set(symbol.parentId, new Set([symbol.id]));
+        }
+      }
+    }
   }
 
   /**
@@ -1168,6 +1241,34 @@ export class SymbolTable {
       }
       // Replace root with current symbol (handles enrichment scenarios)
       this.root = symbol;
+    }
+
+    // Maintain childrenByParentId index for O(1) child lookups
+    // First, remove from old parent's children if parentId changed
+    if (
+      existingSymbol &&
+      previousParentId != null && // Check for both null and undefined
+      previousParentId !== symbolToAdd.parentId
+    ) {
+      const oldParentChildren = this.childrenByParentId.get(previousParentId);
+      if (oldParentChildren) {
+        oldParentChildren.delete(symbolToAdd.id);
+        if (oldParentChildren.size === 0) {
+          this.childrenByParentId.delete(previousParentId);
+        }
+      }
+    }
+    // Add to new parent's children (parentId must be a non-null string)
+    if (symbolToAdd.parentId != null) {
+      const parentChildren = this.childrenByParentId.get(symbolToAdd.parentId);
+      if (parentChildren) {
+        parentChildren.add(symbolToAdd.id);
+      } else {
+        this.childrenByParentId.set(
+          symbolToAdd.parentId,
+          new Set([symbolToAdd.id]),
+        );
+      }
     }
   }
 
