@@ -148,7 +148,6 @@ const parseSymbolPart = (
  * @param scopePath Optional scope path for uniqueness (e.g., ["TestClass", "method1", "block1"])
  * @param lineNumber Optional line number for additional uniqueness
  * @param prefix Optional symbol prefix/kind for uniqueness (e.g., "class", "block", "method")
- * @param paramSignature Optional parameter signature for method/constructor overloading (e.g., "String,Integer")
  * @returns URI-based symbol ID
  */
 export const generateSymbolId = (
@@ -157,26 +156,21 @@ export const generateSymbolId = (
   scopePath?: string[],
   lineNumber?: number,
   prefix?: string,
-  paramSignature?: string,
 ): string => {
   const uri = convertToUri(fileUri);
 
   // Include prefix in ID to ensure uniqueness between semantic symbols and their block scopes
   const prefixPart = prefix ? `${prefix}:` : '';
 
-  // Include parameter signature for methods/constructors to support overloading
-  // Format: name(paramSignature) e.g., "myMethod(String,Integer)"
-  const nameWithParams = paramSignature ? `${name}(${paramSignature})` : name;
-
   if (scopePath && scopePath.length > 0) {
     // Use colons to join scopePath for consistency across all symbol IDs
-    // Format: fileUri:scopePath:prefix:name(params) where scopePath uses colons
+    // Format: fileUri:scopePath:prefix:name where scopePath uses colons
     const scopeStr = scopePath.join(':');
-    const baseId = `${uri}:${scopeStr}:${prefixPart}${nameWithParams}`;
+    const baseId = `${uri}:${scopeStr}:${prefixPart}${name}`;
     return lineNumber !== undefined ? `${baseId}:${lineNumber}` : baseId;
   }
 
-  const baseId = `${uri}:${prefixPart}${nameWithParams}`;
+  const baseId = `${uri}:${prefixPart}${name}`;
   return lineNumber !== undefined ? `${baseId}:${lineNumber}` : baseId;
 };
 

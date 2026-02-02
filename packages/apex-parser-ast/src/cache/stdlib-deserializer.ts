@@ -285,10 +285,6 @@ export class StandardLibraryDeserializer {
     symbol.isConstructor = proto.isConstructor;
     symbol.hasBody = proto.hasBody ?? true; // Default true for backward compatibility
 
-    // NOTE: We'll regenerate the method ID with parameter signatures AFTER adding
-    // the method and parameters to the SymbolTable (see createSymbolTableForType)
-    // This ensures parameter parentIds are correctly updated by updateSymbolId
-
     return symbol;
   }
 

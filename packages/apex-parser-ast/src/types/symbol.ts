@@ -327,7 +327,6 @@ export class SymbolFactory {
    * @param fileUri The file path
    * @param scopePath Optional scope path for uniqueness (e.g., ["TestClass", "method1", "block1"])
    * @param prefix Optional symbol prefix/kind
-   * @param paramSignature Optional parameter signature for method/constructor overloading
    * @returns URI-based symbol ID
    */
   static generateId(
@@ -335,18 +334,10 @@ export class SymbolFactory {
     fileUri: string,
     scopePath?: string[],
     prefix?: string,
-    paramSignature?: string,
   ): string {
     // Use the new unified URI-based ID generator
     // Include prefix to ensure uniqueness between semantic symbols and their block scopes
-    return generateSymbolId(
-      name,
-      fileUri,
-      scopePath,
-      undefined,
-      prefix,
-      paramSignature,
-    );
+    return generateSymbolId(name, fileUri, scopePath, undefined, prefix);
   }
 
   /**
