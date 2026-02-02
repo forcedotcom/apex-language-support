@@ -9,8 +9,8 @@
 
 | Priority  | Optimization                         | Time Saved   | Complexity    | Risk      | Status       |
 | --------- | ------------------------------------ | ------------ | ------------- | --------- | ------------ |
-| **P0** ⚠️ | Verify ResourceLoader Initialization | **CRITICAL** | ⭐ Low        | 🔴 High   | 📋 Ready     |
-| **P1**    | (Optional) Pre-populate Symbol Graph | **60-80ms**  | ⭐ Low        | 🟢 Low    | 📋 Optional  |
+| **✅**    | GlobalTypeRegistry (O(1) lookups)    | **CRITICAL** | ⭐⭐ Medium   | 🟢 Low    | ✅ Complete  |
+| **P1**    | Pre-populate Symbol Graph            | **60-80ms**  | ⭐ Low        | 🟢 Low    | 📋 Ready     |
 | **P2**    | Effect.sync() Migration              | 0ms\*        | ⭐⭐ Medium   | 🟡 Medium | 📋 Ready     |
 | **P3**    | Browser Performance Testing          | 0ms          | ⭐ Low        | 🟢 Low    | 📋 Ready     |
 | **P4**    | Production Metrics                   | 0ms          | ⭐ Low        | 🟢 Low    | 📋 Ready     |
@@ -18,7 +18,10 @@
 
 \*Enables future optimizations
 
-**Key Finding:** The original "219ms blocking" was due to missing ResourceLoader initialization in tests. With proper initialization, performance is acceptable (~100-120ms first file, non-blocking).
+**Key Findings:** 
+- Original "219ms blocking" was due to missing ResourceLoader initialization **in performance tests only** - production code already initializes correctly
+- O(n²) symbol resolution bottleneck discovered and solved with GlobalTypeRegistry
+- ALL namespaces now load successfully (126s vs timeout)
 
 ---
 
@@ -79,6 +82,7 @@ ApexSymbolManager (O(1) type lookups via Effect.gen)
 ### Performance Results
 
 **Registry Loading:**
+
 ```
 ✅ Initialization: 0.0ms for 5,250 types
 ✅ Registry size: 160 KB (vs 1.8 MB stdlib cache)
@@ -86,6 +90,7 @@ ApexSymbolManager (O(1) type lookups via Effect.gen)
 ```
 
 **Type Lookup Performance:**
+
 ```
 ✅ Average lookup: 0.156ms (O(1))
 ✅ Hit rate: 66.7%
@@ -99,6 +104,7 @@ ApexSymbolManager (O(1) type lookups via Effect.gen)
 ```
 
 **ALL Namespaces Pre-population:**
+
 ```
 Before: Would timeout (10+ minutes estimated)
 After: ✅ 126.4 seconds (2.1 minutes) - COMPLETED SUCCESSFULLY
@@ -107,15 +113,18 @@ After: ✅ 126.4 seconds (2.1 minutes) - COMPLETED SUCCESSFULLY
 ### Implementation Details
 
 **1. Async Loading Fix**
+
 - Made `populateFromProtobufCache()` async to ensure registry loads before use
 - Fixed race condition where tests ran before registry population completed
 
 **2. Symbol Kind Matching Fix**
+
 - Changed from case-sensitive `'Class'` to lowercase `'class'`
 - Handle both `null` and string `'null'` for parentId checks
 - Case-insensitive kind comparison for robustness
 
 **3. Logging Improvements**
+
 - Streamlined to single log line: `Loaded type registry from cache in <1ms (5250 types)`
 - Matches stdlib loading format for consistency
 - Removed duplicate and redundant logging
@@ -148,11 +157,13 @@ After: ✅ 126.4 seconds (2.1 minutes) - COMPLETED SUCCESSFULLY
 ### Impact on Original Priorities
 
 **Priority P1 (Pre-populate Symbol Graph):**
+
 - ✅ Now feasible for ALL namespaces (126s vs timeout)
 - ✅ No longer causes exponential slowdown
 - ✅ Can safely pre-load any combination of namespaces
 
 **Effect on Roadmap:**
+
 - Pre-population strategies now viable
 - Can consider more aggressive pre-loading
 - Foundation for future optimizations
@@ -160,11 +171,13 @@ After: ✅ 126.4 seconds (2.1 minutes) - COMPLETED SUCCESSFULLY
 ### Files Changed
 
 **Created:**
+
 - `src/services/GlobalTypeRegistryService.ts` (215 lines)
 - `src/cache/type-registry-loader.ts` (146 lines)
 - `src/cache/type-registry-data.ts` (29 lines)
 
 **Modified:**
+
 - `proto/apex-stdlib.proto` - Added TypeRegistry messages
 - `scripts/generate-stdlib-cache.mjs` - Generate registry at build time
 - `src/utils/resourceLoader.ts` - Load and initialize registry
@@ -172,9 +185,11 @@ After: ✅ 126.4 seconds (2.1 minutes) - COMPLETED SUCCESSFULLY
 - `src/index.ts` - Export service for public API
 
 **Deleted:**
+
 - `src/symbols/GlobalTypeRegistry.ts` - Old singleton implementation
 
 **Tests:**
+
 - Updated 17 unit tests to use Effect.runPromise pattern
 - Added performance test measuring registry initialization and lookups
 - All tests passing
@@ -188,7 +203,33 @@ After: ✅ 126.4 seconds (2.1 minutes) - COMPLETED SUCCESSFULLY
 
 ---
 
-## Priority 0: Verify ResourceLoader Initialization ⚠️ CRITICAL
+## ~~Priority 0: Verify ResourceLoader Initialization~~ ✅ VERIFIED
+
+### Status: NOT NEEDED - Production Code Already Correct
+
+**Verification Result:** ✅ Production code (`LCSAdapter.ts`) properly initializes ResourceLoader
+
+```typescript
+// From packages/apex-ls/src/server/LCSAdapter.ts
+private async initializeResourceLoader(): Promise<void> {
+  const resourceLoader = ResourceLoader.getInstance({
+    preloadStdClasses: true,  // ✅ Correct
+  });
+  await resourceLoader.initialize();  // ✅ Awaited properly
+  // ...
+}
+```
+
+**Root Cause:** The "219ms blocking" was caused by missing initialization **in performance tests only**. Production LSP server has always initialized correctly.
+
+**Conclusion:** This priority is **not needed**. The issue was test-specific and has been fixed in the test suite.
+
+---
+
+## ~~Priority 0 Implementation Details~~ (Historical - Not Needed)
+
+<details>
+<summary>Click to expand original Priority 0 details (kept for reference)</summary>
 
 ### Impact
 
@@ -199,71 +240,27 @@ After: ✅ 126.4 seconds (2.1 minutes) - COMPLETED SUCCESSFULLY
 
 ### Background
 
-Investigation revealed that the original "219ms blocking" was caused by missing `ResourceLoader.initialize()` in performance tests. Without initialization:
+Investigation revealed that the original "219ms blocking" was caused by missing `ResourceLoader.initialize()` in performance tests. Production code was always correct.
 
-- Protobuf cache is not loaded
-- System falls back to compiling stdlib from source (~198ms)
-- This is NOT the intended behavior
+</details>
 
-With proper initialization:
+---
 
-- Protobuf cache is loaded at startup (~250ms, one-time)
-- Stdlib classes are retrieved pre-compiled from cache
-- First didOpen: ~100-120ms (acceptable, non-blocking)
+## ~~Step 2: Check These Files~~ (Historical - Verification Complete)
 
-### Implementation
+**Verification Results:**
 
-**Step 1: Verify All Server Entry Points**
+- ✅ `packages/apex-ls/src/server/LCSAdapter.ts` - **CORRECT** - Properly initializes ResourceLoader
+- ℹ️ `packages/apex-lsp-vscode-extension/src/extension.ts` - Extension delegates to LCS server
+- ✅ All production entry points verified correct
 
-Check that ALL LSP server initialization paths call `ResourceLoader.initialize()`:
+**No action needed.**
 
-```typescript
-// Required in EVERY server entry point BEFORE accepting requests
+---
 
-export async function initializeServer(): Promise<void> {
-  const logger = getLogger();
+## ~~Step 3: Add Startup Logging~~ (Historical - Already Present)
 
-  // CRITICAL: Initialize ResourceLoader with protobuf cache
-  logger.info('Initializing ResourceLoader...');
-  const resourceLoader = ResourceLoader.getInstance({
-    preloadStdClasses: true,
-  });
-  await resourceLoader.initialize();
-
-  // Verify it loaded correctly
-  if (!resourceLoader.isProtobufCacheLoaded()) {
-    const error =
-      'FATAL: Protobuf cache failed to load - stdlib will be compiled from source!';
-    logger.error(error);
-    throw new Error(error);
-  }
-
-  const protobufData = resourceLoader.getProtobufCacheData();
-  logger.info(
-    `✅ Protobuf cache loaded: ${protobufData?.symbolTables.size} stdlib types`,
-  );
-
-  // Continue with other initialization
-  await SchedulerInitializationService.getInstance().ensureInitialized();
-
-  logger.info('Server initialized successfully');
-}
-```
-
-**Step 2: Check These Files**
-
-Verify `ResourceLoader.initialize()` is called in:
-
-- [ ] `packages/apex-lsp-vscode-extension/src/extension.ts` - VSCode extension
-- [ ] `packages/lsp-compliant-services/src/server/LCSAdapter.ts` - LSP server adapter
-- [ ] Any other server entry points
-
-**Step 3: Add Startup Logging**
-
-Add diagnostic logging to detect initialization issues:
-
-```typescript
-// After initialization, log cache status
+Logging already present in production code:
 const resourceLoader = ResourceLoader.getInstance();
 logger.info(`Protobuf cache status: ${resourceLoader.isProtobufCacheLoaded()}`);
 logger.info(
@@ -1423,10 +1420,10 @@ apex.stdlib.cache.hits (counter)
 ### Clear Path Forward (UPDATED)
 
 1. **✅ COMPLETED: GlobalTypeRegistry** - Solved O(n²) bottleneck, enables all other optimizations
-2. **✅ Implement P0 immediately** - High impact, low effort, low risk
-3. **✅ Implement P1 soon** - NOW VIABLE with GlobalTypeRegistry (was blocked by O(n²))
-4. **✅ Implement P2 & P3** - Validate and monitor
-5. **⚠️ Evaluate P4** - Only if browser main thread requires it
+2. **✅ VERIFIED: ResourceLoader Initialization** - Production code correct, was test-only issue
+3. **📋 READY: Implement P1** - Pre-populate Symbol Graph (NOW VIABLE with GlobalTypeRegistry)
+4. **📋 Optional: P2 & P3** - Validate and monitor
+5. **⚠️ Evaluate P5** - Web Worker (only if browser main thread requires it)
 
 ### Expected Outcome (UPDATED)
 
@@ -1546,6 +1543,7 @@ apex.stdlib.cache.hits (counter)
 ---
 
 **Next Actions:**
+
 1. ✅ **COMPLETED:** GlobalTypeRegistry implementation
 2. **TODO:** Implement Priority 0 (Verify ResourceLoader Initialization in all production entry points)
 3. **TODO:** Implement Priority 1 (Pre-populate Symbol Graph) - now viable with O(1) lookups
