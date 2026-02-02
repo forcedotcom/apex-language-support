@@ -46,6 +46,7 @@ packages/*/coverage/
 # Temporary files
 *.tmp
 *.temp
+slopdocs/
 
 # Benchmark results
 *benchmark*.json
