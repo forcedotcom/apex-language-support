@@ -122,7 +122,7 @@ export class StandardLibraryDeserializer {
     const typeSymbol = this.convertTypeSymbol(protoType, null);
     symbolTable.addSymbol(typeSymbol);
 
-    // Add methods
+    // Add methods (proto IDs already include parameter signatures from serializer)
     for (const protoMethod of protoType.methods) {
       const methodSymbol = this.convertMethodSymbol(protoMethod, typeSymbol.id);
       symbolTable.addSymbol(methodSymbol);
@@ -134,18 +134,6 @@ export class StandardLibraryDeserializer {
           methodSymbol.id,
         );
         symbolTable.addSymbol(paramSymbol);
-      }
-
-      // Regenerate method ID with parameter signatures for consistency with parsed symbols.
-      // Without this, cached methods have IDs like "myMethod" while parsed methods
-      // have "myMethod(String,Integer)", causing duplicates when both are loaded.
-      const oldId = methodSymbol.id;
-      SymbolFactory.regenerateMethodId(methodSymbol);
-      const newId = methodSymbol.id;
-
-      // Update the symbol ID in the SymbolTable if it changed
-      if (oldId !== newId) {
-        symbolTable.updateSymbolId(oldId, newId);
       }
     }
 
@@ -189,7 +177,7 @@ export class StandardLibraryDeserializer {
     const typeSymbol = this.convertTypeSymbol(protoType, parentId);
     symbolTable.addSymbol(typeSymbol);
 
-    // Add methods
+    // Add methods (proto IDs already include parameter signatures from serializer)
     for (const protoMethod of protoType.methods) {
       const methodSymbol = this.convertMethodSymbol(protoMethod, typeSymbol.id);
       symbolTable.addSymbol(methodSymbol);
@@ -201,16 +189,6 @@ export class StandardLibraryDeserializer {
           methodSymbol.id,
         );
         symbolTable.addSymbol(paramSymbol);
-      }
-
-      // Regenerate method ID with parameter signatures for consistency with parsed symbols
-      const oldId = methodSymbol.id;
-      SymbolFactory.regenerateMethodId(methodSymbol);
-      const newId = methodSymbol.id;
-
-      // Update the symbol ID in the SymbolTable if it changed
-      if (oldId !== newId) {
-        symbolTable.updateSymbolId(oldId, newId);
       }
     }
 

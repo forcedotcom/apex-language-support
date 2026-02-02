@@ -29,18 +29,19 @@ import {
   Visibility,
 } from '../generated/apex-stdlib';
 
-import type {
-  SymbolTable,
-  ApexSymbol,
-  TypeSymbol,
-  MethodSymbol,
-  VariableSymbol,
-  SymbolModifiers,
-  SymbolLocation,
-  Range,
-  Annotation,
-  AnnotationParameter,
-  SymbolKind,
+import {
+  generateParameterSignature,
+  type SymbolTable,
+  type ApexSymbol,
+  type TypeSymbol,
+  type MethodSymbol,
+  type VariableSymbol,
+  type SymbolModifiers,
+  type SymbolLocation,
+  type Range,
+  type Annotation,
+  type AnnotationParameter,
+  type SymbolKind,
 } from '../types/symbol';
 
 import type { TypeInfo } from '../types/typeInfo';
@@ -145,9 +146,7 @@ export class StandardLibrarySerializer {
       // Find symbols that belong to this type (by parentId or scope)
       if (this.isChildOf(child, symbol, symbolTable)) {
         if (child.kind === 'method' || child.kind === 'constructor') {
-          methods.push(
-            this.convertMethodSymbol(child as MethodSymbol, symbolTable),
-          );
+          methods.push(this.convertMethodSymbol(child as MethodSymbol));
         } else if (child.kind === 'field') {
           fields.push(this.convertVariableSymbol(child as VariableSymbol));
         } else if (child.kind === 'property') {
@@ -215,12 +214,10 @@ export class StandardLibrarySerializer {
   }
 
   /**
-   * Convert a MethodSymbol to protobuf format
+   * Convert a MethodSymbol to protobuf format.
+   * Ensures the ID includes parameter signature for proper overload support.
    */
-  private convertMethodSymbol(
-    symbol: MethodSymbol,
-    symbolTable: SymbolTable,
-  ): ProtoMethodSymbol {
+  private convertMethodSymbol(symbol: MethodSymbol): ProtoMethodSymbol {
     const parameters: ProtoParameterSymbol[] = [];
 
     // Get parameters from the method symbol
@@ -230,8 +227,12 @@ export class StandardLibrarySerializer {
       }
     }
 
+    // Generate ID with parameter signature to ensure consistency.
+    // This ensures cached symbols have the same ID format as parsed symbols.
+    const methodId = this.generateMethodIdWithParams(symbol);
+
     return ProtoMethodSymbol.create({
-      id: symbol.id,
+      id: methodId,
       name: symbol.name,
       isConstructor: symbol.isConstructor || symbol.kind === 'constructor',
       returnType: this.convertTypeReference(symbol.returnType),
@@ -242,6 +243,34 @@ export class StandardLibrarySerializer {
       parentId: symbol.parentId || '',
       hasBody: symbol.hasBody ?? true, // Default true for backward compatibility
     });
+  }
+
+  /**
+   * Generate a method ID that includes the parameter signature.
+   * Format: baseId(paramType1,paramType2,...) or baseId() for no params
+   */
+  private generateMethodIdWithParams(symbol: MethodSymbol): string {
+    const paramSignature = generateParameterSignature(symbol.parameters || []);
+    const currentId = symbol.id;
+
+    // Check if ID already has parameter signature (ends with parentheses)
+    if (currentId.match(/\([^)]*\)(:?\d+)?$/)) {
+      return currentId; // Already has params
+    }
+
+    // Find where to insert the parameter signature
+    // ID format: fileUri:scope:prefix:name or fileUri:scope:prefix:name:lineNumber
+    const parts = currentId.split(':');
+    let nameIndex = parts.length - 1;
+
+    // Check if last part is a line number
+    if (/^\d+$/.test(parts[parts.length - 1])) {
+      nameIndex = parts.length - 2;
+    }
+
+    // Add parameter signature to the name part
+    parts[nameIndex] = `${parts[nameIndex]}(${paramSignature})`;
+    return parts.join(':');
   }
 
   /**
