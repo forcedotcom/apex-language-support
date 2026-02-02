@@ -45,6 +45,7 @@
       "clean": "if-file-deleted",
       "output": [
         "resources/apex-stdlib.pb.gz",
+        "resources/apex-type-registry.pb.gz",
         "resources/apex-stdlib.sha256"
       ],
       "files": [

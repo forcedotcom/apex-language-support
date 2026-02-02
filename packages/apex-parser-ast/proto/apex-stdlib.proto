@@ -161,3 +161,25 @@ enum Visibility {
   GLOBAL = 4;
   DEFAULT = 5;
 }
+
+// ============================================================================
+// Type Registry Messages (for GlobalTypeRegistry pre-built cache)
+// ============================================================================
+
+// Type registry entry (lightweight metadata for O(1) type lookups)
+message TypeRegistryEntry {
+  string fqn = 1;              // "system.exception" (lowercase normalized)
+  string name = 2;             // "Exception"
+  string namespace = 3;        // "System"
+  TypeKind kind = 4;           // Class/Interface/Enum
+  string symbol_id = 5;        // For O(1) retrieval from symbol graph
+  string file_uri = 6;         // For lazy loading if needed
+  bool is_stdlib = 7;          // Always true for stdlib entries
+}
+
+// Root message for type registry cache
+message TypeRegistry {
+  string generated_at = 1;     // ISO timestamp
+  string source_checksum = 2;  // SHA256 of source .cls files
+  repeated TypeRegistryEntry entries = 3;
+}

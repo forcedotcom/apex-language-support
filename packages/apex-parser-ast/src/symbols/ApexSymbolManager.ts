@@ -72,6 +72,10 @@ import { extractFilePathFromUri } from '../types/UriBasedIdGenerator';
 
 import { ResourceLoader } from '../utils/resourceLoader';
 import { STANDARD_APEX_LIBRARY_URI } from '../utils/ResourceUtils';
+import {
+  GlobalTypeRegistry,
+  GlobalTypeRegistryLive,
+} from '../services/GlobalTypeRegistryService';
 import { isApexKeyword, BUILTIN_TYPE_NAMES } from '../utils/ApexKeywords';
 import type {
   ApexComment,
@@ -3977,40 +3981,76 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             );
           }
 
-          // If still not found, try GlobalTypeRegistry for O(1) lookup
+          // If still not found, try GlobalTypeRegistry for O(1) lookup via Effect service
           // This replaces the O(n²) scan through all symbol tables
           if (classCandidates.length === 0) {
-            const registry =
-              ResourceLoader.getInstance().getGlobalTypeRegistry();
-            // Extract namespace from source file if available
-            const sourceSymbol = sourceSymbolTable
-              ?.getAllSymbols()
-              .find((s) => s.parentId === null);
-            const currentNs = sourceSymbol?.namespace
-              ? String(sourceSymbol.namespace)
-              : undefined;
-            const registryEntry = registry.resolveType(typeReference.name, {
-              currentNamespace: currentNs,
+            // Use Effect service directly
+            const registryLookup = Effect.gen(function* () {
+              const registry = yield* GlobalTypeRegistry;
+
+              // Extract namespace from source file if available
+              const sourceSymbol = sourceSymbolTable
+                ?.getAllSymbols()
+                .find((s) => s.parentId === null);
+              const currentNs = sourceSymbol?.namespace
+                ? String(sourceSymbol.namespace)
+                : undefined;
+
+              return yield* registry.resolveType(typeReference.name, {
+                currentNamespace: currentNs,
+              });
             });
 
-            if (registryEntry) {
-              // Found in registry - get the symbol directly
-              const symbol = this.symbolGraph.getSymbol(registryEntry.symbolId);
-              if (symbol) {
-                classCandidates = [symbol];
+            try {
+              const registryEntry = await Effect.runPromise(
+                registryLookup.pipe(Effect.provide(GlobalTypeRegistryLive)),
+              );
+
+              if (registryEntry) {
+                // Found in registry - get the symbol directly
+                const symbol = this.symbolGraph.getSymbol(
+                  registryEntry.symbolId,
+                );
+                if (symbol) {
+                  classCandidates = [symbol];
+                  this.logger.debug(
+                    () =>
+                      `[GlobalTypeRegistry] Resolved "${typeReference.name}" to ` +
+                      `"${registryEntry.fqn}" via Effect service (O(1))`,
+                  );
+                }
+              } else {
+                // Not in registry - fall back to O(n²) scan for user types
                 this.logger.debug(
                   () =>
-                    `[GlobalTypeRegistry] Resolved "${typeReference.name}" to ` +
-                    `"${registryEntry.fqn}" via registry (O(1))`,
+                    `[GlobalTypeRegistry] Type "${typeReference.name}" not in registry, ` +
+                    'falling back to symbol table scan',
                 );
+                const fileToSymbolTable =
+                  this.symbolGraph.getFileToSymbolTable();
+                for (const [
+                  _fileUri,
+                  symbolTable,
+                ] of fileToSymbolTable.entries()) {
+                  if (!symbolTable) continue;
+                  const allSymbols = symbolTable.getAllSymbols();
+                  const found = allSymbols.filter(
+                    (s: ApexSymbol) =>
+                      s.name === typeReference.name &&
+                      (s.kind === SymbolKind.Class ||
+                        s.kind === SymbolKind.Interface),
+                  );
+                  if (found.length > 0) {
+                    classCandidates = found;
+                    break;
+                  }
+                }
               }
-            } else {
-              // Not in registry - fall back to O(n²) scan for user types
-              // (This path should rarely be hit after registry is fully populated)
+            } catch (error) {
+              // Effect service error - fall back to symbol table scan
               this.logger.debug(
                 () =>
-                  `[GlobalTypeRegistry] Type "${typeReference.name}" not in registry, ` +
-                  'falling back to symbol table scan',
+                  `[GlobalTypeRegistry] Effect service error: ${error}, falling back to scan`,
               );
               const fileToSymbolTable = this.symbolGraph.getFileToSymbolTable();
               for (const [

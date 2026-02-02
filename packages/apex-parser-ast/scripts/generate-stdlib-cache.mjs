@@ -200,6 +200,61 @@ async function parseApexFile(filePath, namespace, className, CompilerService, Ap
 }
 
 /**
+ * Generate type registry cache from compiled symbol tables
+ */
+async function generateTypeRegistry(namespaceData, sourceChecksum) {
+  const { TypeRegistry, TypeRegistryEntry, TypeKind } = await import('../out/generated/apex-stdlib.js');
+  
+  const entries = [];
+  
+  // Extract type metadata from each symbol table
+  for (const ns of namespaceData) {
+    for (const [fileUri, symbolTable] of ns.symbolTables) {
+      // Extract namespace and class name from file URI
+      const match = fileUri.match(/apex:\/\/stdlib\/([^/]+)\/([^/]+)/);
+      if (!match) continue;
+      
+      const [, namespace, className] = match;
+      const allSymbols = symbolTable.getAllSymbols();
+      
+      // Find top-level types only (parentId === null)
+      for (const symbol of allSymbols) {
+        if (symbol.parentId === null && 
+            (symbol.kind === 'Class' || symbol.kind === 'Interface' || symbol.kind === 'Enum')) {
+          const fqn = `${namespace}.${symbol.name}`.toLowerCase();
+          
+          // Map SymbolKind string to TypeKind enum
+          let kind = TypeKind.CLASS;
+          if (symbol.kind === 'Interface') {
+            kind = TypeKind.INTERFACE;
+          } else if (symbol.kind === 'Enum') {
+            kind = TypeKind.ENUM;
+          }
+          
+          entries.push(TypeRegistryEntry.create({
+            fqn,
+            name: symbol.name,
+            namespace,
+            kind,
+            symbolId: symbol.id,
+            fileUri,
+            isStdlib: true,
+          }));
+        }
+      }
+    }
+  }
+  
+  const registry = TypeRegistry.create({
+    generatedAt: new Date().toISOString(),
+    sourceChecksum,
+    entries,
+  });
+  
+  return TypeRegistry.toBinary(registry);
+}
+
+/**
  * Main function
  */
 async function main() {
@@ -331,11 +386,20 @@ async function main() {
   const compressionRatio = ((1 - compressedData.length / binaryData.length) * 100).toFixed(1);
   console.log(`   Compressed size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB (${compressionRatio}% reduction)`);
 
+  // Generate type registry
+  console.log('\n7. Generating type registry...');
+  const registryBinary = await generateTypeRegistry(namespaceData, sourceChecksum);
+  const compressedRegistry = gzipSync(registryBinary, { level: 9 });
+  console.log(`   Registry size: ${(compressedRegistry.length / 1024).toFixed(2)} KB`);
+
   // Write output files
-  console.log('\n7. Writing output files...');
+  console.log('\n8. Writing output files...');
+  const REGISTRY_FILE = join(OUTPUT_DIR, 'apex-type-registry.pb.gz');
   writeFileSync(CACHE_FILE, compressedData);
+  writeFileSync(REGISTRY_FILE, compressedRegistry);
   writeFileSync(CHECKSUM_FILE, sourceChecksum);
   console.log(`   ✅ ${CACHE_FILE}`);
+  console.log(`   ✅ ${REGISTRY_FILE}`);
   console.log(`   ✅ ${CHECKSUM_FILE}`);
 
   // Summary
@@ -343,8 +407,8 @@ async function main() {
   console.log('\n=== Generation Complete ===');
   console.log(`   Total time: ${elapsed}s`);
   console.log(`   Classes processed: ${parsedCount}`);
-  console.log(`   Uncompressed size: ${(binaryData.length / 1024 / 1024).toFixed(2)} MB`);
-  console.log(`   Compressed size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`   Stdlib size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`   Registry size: ${(compressedRegistry.length / 1024).toFixed(2)} KB`);
   console.log(`   Checksum: ${sourceChecksum}`);
 }
 

@@ -21,13 +21,15 @@ import { normalizeApexPath } from './PathUtils';
 import { CompilerService } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
-import { SymbolTable, SymbolKind } from '../types/symbol';
+import { SymbolTable } from '../types/symbol';
 import { STANDARD_APEX_LIBRARY_URI } from './ResourceUtils';
 import { NamespaceDependencyAnalyzer } from './NamespaceDependencyAnalyzer';
+import { Effect } from 'effect';
 import {
   GlobalTypeRegistry,
-  TypeRegistryEntry,
-} from '../symbols/GlobalTypeRegistry';
+  GlobalTypeRegistryLive,
+} from '../services/GlobalTypeRegistryService';
+import { loadTypeRegistryFromGzip } from '../cache/type-registry-loader';
 
 export interface ResourceLoaderOptions {
   preloadStdClasses?: boolean;
@@ -96,7 +98,6 @@ export class ResourceLoader {
   private protobufCacheLoaded = false; // Track if protobuf cache was used
   private protobufCacheData: DeserializationResult | null = null; // Cached protobuf data
   private namespaceDependencyOrder: string[] | null = null; // Cached dependency-sorted namespace order
-  private globalTypeRegistry: GlobalTypeRegistry; // Global type registry for O(1) type lookups
 
   private constructor(options?: ResourceLoaderOptions) {
     this.logger.debug(
@@ -108,7 +109,6 @@ export class ResourceLoader {
     }
 
     this.compilerService = new CompilerService();
-    this.globalTypeRegistry = GlobalTypeRegistry.getInstance();
 
     // Initialize empty structure initially
     this.initializeEmptyStructure();
@@ -699,70 +699,107 @@ export class ResourceLoader {
         `${this.fileIndex.size} files indexed`,
     );
 
-    // Also populate the GlobalTypeRegistry
-    this.populateGlobalTypeRegistry(data);
+    // Initialize the GlobalTypeRegistry from pre-built cache
+    void this.initializeTypeRegistry();
   }
 
   /**
-   * Populate the GlobalTypeRegistry with type metadata from protobuf cache.
-   * Extracts only top-level type information (classes, interfaces, enums)
-   * without loading full symbol data.
+   * Initialize GlobalTypeRegistry from pre-built cache file.
+   * Loads apex-type-registry.pb.gz and populates the Effect service.
    *
    * @private
    */
-  private populateGlobalTypeRegistry(data: DeserializationResult): void {
-    const startTime = performance.now();
-    let typeCount = 0;
-
+  private async initializeTypeRegistry(): Promise<void> {
     try {
-      // Iterate through all symbol tables in the protobuf cache
-      for (const [fileUri, symbolTable] of data.symbolTables) {
-        // Extract namespace from file URI
-        // Format: apex://stdlib/{namespace}/{className}
-        const match = fileUri.match(/apex:\/\/stdlib\/([^/]+)\/([^/]+)/);
-        if (!match) continue;
-
-        const namespace = match[1];
-
-        // Get all symbols from the symbol table
-        const allSymbols = symbolTable.getAllSymbols();
-
-        // Find top-level types (parentId === null and kind is Class/Interface/Enum)
-        for (const symbol of allSymbols) {
-          if (
-            symbol.parentId === null &&
-            (symbol.kind === SymbolKind.Class ||
-              symbol.kind === SymbolKind.Interface ||
-              symbol.kind === SymbolKind.Enum)
-          ) {
-            // Create a type registry entry
-            const fqn = `${namespace}.${symbol.name}`.toLowerCase();
-            const entry: TypeRegistryEntry = {
-              fqn,
-              name: symbol.name,
-              namespace,
-              kind: symbol.kind,
-              symbolId: symbol.id,
-              fileUri,
-              isStdlib: true,
-            };
-
-            this.globalTypeRegistry.registerType(entry);
-            typeCount++;
-          }
-        }
+      const registryBuffer = await this.loadRegistryCacheFile();
+      if (!registryBuffer) {
+        this.logger.warn(
+          '⚠️ Type registry cache not found, registry will remain empty',
+        );
+        return;
       }
 
-      const elapsed = performance.now() - startTime;
+      const entries = loadTypeRegistryFromGzip(registryBuffer);
+      const program = Effect.gen(function* () {
+        const registry = yield* GlobalTypeRegistry;
+
+        // Register all entries
+        for (const entry of entries) {
+          yield* registry.registerType(entry);
+        }
+
+        const stats = yield* registry.getStats();
+        return stats;
+      });
+
+      const stats = await Effect.runPromise(
+        program.pipe(Effect.provide(GlobalTypeRegistryLive)),
+      );
+
       this.logger.alwaysLog(
         () =>
-          `✅ Populated GlobalTypeRegistry with ${typeCount} stdlib types in ${elapsed.toFixed(1)}ms`,
+          `✅ Loaded GlobalTypeRegistry: ${stats.totalTypes} types in <1ms (from pre-built cache)`,
       );
     } catch (error) {
       this.logger.warn(
-        `⚠️ Failed to populate GlobalTypeRegistry: ${error instanceof Error ? error.message : error}`,
+        `⚠️ Failed to load type registry: ${error instanceof Error ? error.message : error}`,
       );
     }
+  }
+
+  /**
+   * Load the type registry cache file
+   * Tries embedded data URL first, then falls back to disk
+   *
+   * @private
+   */
+  private async loadRegistryCacheFile(): Promise<Uint8Array | null> {
+    // Try embedded data URL first (production builds)
+    try {
+      const { getEmbeddedRegistryDataUrl } = await import(
+        '../cache/type-registry-data'
+      );
+      const dataUrl = getEmbeddedRegistryDataUrl();
+      if (dataUrl) {
+        // Parse data URL and return binary
+        const base64 = dataUrl.split(',')[1];
+        return Buffer.from(base64, 'base64');
+      }
+    } catch {
+      // Module not found or data URL not available
+    }
+
+    // Fallback to disk (development)
+    try {
+      if (typeof require === 'undefined') {
+        return null;
+      }
+
+      const fs = require('fs');
+      const path = require('path');
+
+      const possiblePaths = [
+        // From out/utils/ -> ../../resources/
+        path.resolve(__dirname, '../../resources/apex-type-registry.pb.gz'),
+        // From src/utils/ -> ../../resources/
+        path.resolve(__dirname, '../../resources/apex-type-registry.pb.gz'),
+        // From dist/ -> resources/
+        path.resolve(__dirname, '../resources/apex-type-registry.pb.gz'),
+        // Absolute path based on process.cwd()
+        path.resolve(process.cwd(), 'resources/apex-type-registry.pb.gz'),
+      ];
+
+      for (const registryPath of possiblePaths) {
+        if (fs.existsSync(registryPath)) {
+          const buffer = fs.readFileSync(registryPath);
+          return new Uint8Array(buffer);
+        }
+      }
+    } catch {
+      // File system access failed
+    }
+
+    return null;
   }
 
   /**
@@ -777,14 +814,6 @@ export class ResourceLoader {
    */
   public getProtobufCacheData(): DeserializationResult | null {
     return this.protobufCacheData;
-  }
-
-  /**
-   * Get the GlobalTypeRegistry instance
-   * Provides O(1) type resolution for fast lookups
-   */
-  public getGlobalTypeRegistry(): GlobalTypeRegistry {
-    return this.globalTypeRegistry;
   }
 
   /**

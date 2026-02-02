@@ -86,6 +86,9 @@ export * from './symbols/ApexSymbolGraph';
 export * from './symbols/ApexSymbolIndexingService';
 export * from './symbols/ApexSymbolProcessingManager';
 
+// Export GlobalTypeRegistry Effect service
+export * from './services/GlobalTypeRegistryService';
+
 // Export i18n support
 export * from './i18n/messageInstance';
 export * from './generated/ErrorCodes';

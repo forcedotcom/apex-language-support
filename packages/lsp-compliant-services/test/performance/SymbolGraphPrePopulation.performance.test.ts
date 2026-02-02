@@ -401,23 +401,27 @@ describe('Symbol Graph Pre-population Performance', () => {
   }, 30000);
 
   /**
-   * NEW: GlobalTypeRegistry Performance Test
+   * NEW: GlobalTypeRegistry Effect Service Performance Test
    *
-   * This test measures the O(1) type lookup performance of the GlobalTypeRegistry.
-   * Unlike pre-population tests above (which load full symbols), this tests the
-   * registry initialization cost (metadata only) and lookup speed.
+   * This test measures the O(1) type lookup performance of the GlobalTypeRegistry
+   * when loaded from pre-built protobuf cache via Effect service.
    *
    * Expected results:
-   * - Registry initialization: ~10-20ms (1,000 types)
+   * - Registry load from cache: < 1ms (pre-built, just deserialization)
    * - Single type lookup: < 1ms (O(1))
    * - Memory overhead: ~100KB vs ~50MB for full pre-loading
    */
-  it('should measure GlobalTypeRegistry initialization and lookup performance', async () => {
+  it('should measure GlobalTypeRegistry Effect service performance', async () => {
+    const { Effect } = await import('effect');
+    const { GlobalTypeRegistry, GlobalTypeRegistryLive } = await import(
+      '@salesforce/apex-lsp-parser-ast'
+    );
+
     logger.alwaysLog(() => '\n========================================');
-    logger.alwaysLog(() => 'GlobalTypeRegistry Performance Measurement');
+    logger.alwaysLog(() => 'GlobalTypeRegistry Effect Service Performance');
     logger.alwaysLog(() => '========================================');
 
-    // Initialize ResourceLoader to trigger registry population
+    // Initialize ResourceLoader to trigger registry loading from cache
     const initStart = performance.now();
     await resourceLoader.initialize();
     const initEnd = performance.now();
@@ -426,12 +430,16 @@ describe('Symbol Graph Pre-population Performance', () => {
     logger.alwaysLog(
       () =>
         `ResourceLoader initialization: ${initDuration.toFixed(1)}ms ` +
-        '(includes registry population)',
+        '(includes registry cache load)',
     );
 
-    // Get the registry and check statistics
-    const registry = resourceLoader.getGlobalTypeRegistry();
-    const stats = registry.getStats();
+    // Get registry statistics via Effect service
+    const stats = await Effect.runPromise(
+      Effect.gen(function* () {
+        const registry = yield* GlobalTypeRegistry;
+        return yield* registry.getStats();
+      }).pipe(Effect.provide(GlobalTypeRegistryLive)),
+    );
 
     logger.alwaysLog(
       () =>
@@ -459,7 +467,12 @@ describe('Symbol Graph Pre-population Performance', () => {
 
     for (const typeName of lookupTests) {
       const lookupStart = performance.now();
-      const result = registry.resolveType(typeName);
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          return yield* registry.resolveType(typeName);
+        }).pipe(Effect.provide(GlobalTypeRegistryLive)),
+      );
       const lookupEnd = performance.now();
       const lookupDuration = lookupEnd - lookupStart;
 
@@ -483,8 +496,13 @@ describe('Symbol Graph Pre-population Performance', () => {
 
     logger.alwaysLog(() => `\nAverage lookup time: ${avgLookup.toFixed(3)}ms`);
 
-    // Final statistics
-    const finalStats = registry.getStats();
+    // Final statistics via Effect service
+    const finalStats = await Effect.runPromise(
+      Effect.gen(function* () {
+        const registry = yield* GlobalTypeRegistry;
+        return yield* registry.getStats();
+      }).pipe(Effect.provide(GlobalTypeRegistryLive)),
+    );
     logger.alwaysLog(() => '\nRegistry Statistics:');
     logger.alwaysLog(() => `  Total types: ${finalStats.totalTypes}`);
     logger.alwaysLog(() => `  Total lookups: ${finalStats.lookupCount}`);

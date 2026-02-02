@@ -6,27 +6,32 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { Effect } from 'effect';
 import {
   GlobalTypeRegistry,
-  TypeRegistryEntry,
-} from '../../src/symbols/GlobalTypeRegistry';
+  GlobalTypeRegistryLive,
+  type TypeRegistryEntry,
+} from '../../src/services/GlobalTypeRegistryService';
 import { SymbolKind } from '../../src/types/symbol';
 
-describe('GlobalTypeRegistry', () => {
-  let registry: GlobalTypeRegistry;
+describe('GlobalTypeRegistry Effect Service', () => {
+  // Helper to run Effect programs with the registry service
+  const runWithRegistry = <A>(
+    effect: Effect.Effect<A, never, GlobalTypeRegistry>,
+  ) => Effect.runPromise(effect.pipe(Effect.provide(GlobalTypeRegistryLive)));
 
-  beforeEach(() => {
-    // Reset singleton for each test
-    GlobalTypeRegistry.resetInstance();
-    registry = GlobalTypeRegistry.getInstance();
-  });
-
-  afterEach(() => {
-    registry.clear();
+  afterEach(async () => {
+    // Clear registry after each test
+    await runWithRegistry(
+      Effect.gen(function* () {
+        const registry = yield* GlobalTypeRegistry;
+        yield* registry.clear();
+      }),
+    );
   });
 
   describe('registerType', () => {
-    it('should register a single type', () => {
+    it('should register a single type', async () => {
       const entry: TypeRegistryEntry = {
         fqn: 'system.exception',
         name: 'Exception',
@@ -37,14 +42,21 @@ describe('GlobalTypeRegistry', () => {
         isStdlib: true,
       };
 
-      registry.registerType(entry);
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerType(entry);
 
-      expect(registry.size()).toBe(1);
-      expect(registry.hasType('system.exception')).toBe(true);
-      expect(registry.hasType('System.Exception')).toBe(true); // Case-insensitive
+          const exceptionType = yield* registry.getType('system.exception');
+          expect(exceptionType).toBeDefined();
+
+          const exceptionType2 = yield* registry.getType('System.Exception');
+          expect(exceptionType2).toBeDefined(); // Case-insensitive
+        }),
+      );
     });
 
-    it('should handle multiple types in same namespace', () => {
+    it('should handle multiple types in same namespace', async () => {
       const exception: TypeRegistryEntry = {
         fqn: 'system.exception',
         name: 'Exception',
@@ -65,15 +77,19 @@ describe('GlobalTypeRegistry', () => {
         isStdlib: true,
       };
 
-      registry.registerType(exception);
-      registry.registerType(string);
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerType(exception);
+          yield* registry.registerType(string);
 
-      expect(registry.size()).toBe(2);
-      const systemTypes = registry.getTypesInNamespace('System');
-      expect(systemTypes).toHaveLength(2);
+          const systemTypes = yield* registry.getTypesInNamespace('System');
+          expect(systemTypes).toHaveLength(2);
+        }),
+      );
     });
 
-    it('should handle interfaces', () => {
+    it('should handle interfaces', async () => {
       const comparable: TypeRegistryEntry = {
         fqn: 'system.comparable',
         name: 'Comparable',
@@ -84,16 +100,21 @@ describe('GlobalTypeRegistry', () => {
         isStdlib: true,
       };
 
-      registry.registerType(comparable);
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerType(comparable);
 
-      const retrieved = registry.getType('system.comparable');
-      expect(retrieved).toBeDefined();
-      expect(retrieved?.kind).toBe(SymbolKind.Interface);
+          const retrieved = yield* registry.getType('system.comparable');
+          expect(retrieved).toBeDefined();
+          expect(retrieved?.kind).toBe(SymbolKind.Interface);
+        }),
+      );
     });
   });
 
   describe('resolveType', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       // Register some standard types
       const types: TypeRegistryEntry[] = [
         {
@@ -134,64 +155,107 @@ describe('GlobalTypeRegistry', () => {
         },
       ];
 
-      types.forEach((type) => registry.registerType(type));
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          for (const type of types) {
+            yield* registry.registerType(type);
+          }
+        }),
+      );
     });
 
-    it('should resolve fully qualified names', () => {
-      const result = registry.resolveType('System.Exception');
+    it('should resolve fully qualified names', async () => {
+      const result = await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          return yield* registry.resolveType('System.Exception');
+        }),
+      );
       expect(result).toBeDefined();
       expect(result?.fqn).toBe('system.exception');
       expect(result?.name).toBe('Exception');
     });
 
-    it('should resolve unqualified names with System priority', () => {
+    it('should resolve unqualified names with System priority', async () => {
       // Should find System.Exception, not MyApp.Exception
-      const result = registry.resolveType('Exception');
+      const result = await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          return yield* registry.resolveType('Exception');
+        }),
+      );
       expect(result).toBeDefined();
       expect(result?.namespace).toBe('System');
     });
 
-    it('should resolve with current namespace context', () => {
+    it('should resolve with current namespace context', async () => {
       // When in MyApp namespace, should prefer MyApp.Exception
-      const result = registry.resolveType('Exception', {
-        currentNamespace: 'MyApp',
-      });
+      const result = await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          return yield* registry.resolveType('Exception', {
+            currentNamespace: 'MyApp',
+          });
+        }),
+      );
       expect(result).toBeDefined();
       expect(result?.namespace).toBe('MyApp');
     });
 
-    it('should use namespace preference order', () => {
+    it('should use namespace preference order', async () => {
       // Prefer Database over System
-      const result = registry.resolveType('QueryLocator', {
-        namespacePreference: ['Database', 'System'],
-      });
+      const result = await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          return yield* registry.resolveType('QueryLocator', {
+            namespacePreference: ['Database', 'System'],
+          });
+        }),
+      );
       expect(result).toBeDefined();
       expect(result?.namespace).toBe('Database');
     });
 
-    it('should handle case-insensitive lookups', () => {
-      const result1 = registry.resolveType('exception');
-      const result2 = registry.resolveType('EXCEPTION');
-      const result3 = registry.resolveType('Exception');
+    it('should handle case-insensitive lookups', async () => {
+      const [result1, result2, result3] = await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          const r1 = yield* registry.resolveType('exception');
+          const r2 = yield* registry.resolveType('EXCEPTION');
+          const r3 = yield* registry.resolveType('Exception');
+          return [r1, r2, r3];
+        }),
+      );
 
       expect(result1?.fqn).toBe(result2?.fqn);
       expect(result2?.fqn).toBe(result3?.fqn);
     });
 
-    it('should return undefined for non-existent types', () => {
-      const result = registry.resolveType('NonExistentClass');
+    it('should return undefined for non-existent types', async () => {
+      const result = await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          return yield* registry.resolveType('NonExistentClass');
+        }),
+      );
       expect(result).toBeUndefined();
     });
 
-    it('should handle single candidate efficiently', () => {
-      const result = registry.resolveType('String');
+    it('should handle single candidate efficiently', async () => {
+      const result = await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          return yield* registry.resolveType('String');
+        }),
+      );
       expect(result).toBeDefined();
       expect(result?.name).toBe('String');
     });
   });
 
   describe('getType', () => {
-    it('should retrieve type by FQN', () => {
+    it('should retrieve type by FQN', async () => {
       const entry: TypeRegistryEntry = {
         fqn: 'system.exception',
         name: 'Exception',
@@ -202,14 +266,19 @@ describe('GlobalTypeRegistry', () => {
         isStdlib: true,
       };
 
-      registry.registerType(entry);
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerType(entry);
 
-      const result = registry.getType('system.exception');
-      expect(result).toBeDefined();
-      expect(result?.name).toBe('Exception');
+          const result = yield* registry.getType('system.exception');
+          expect(result).toBeDefined();
+          expect(result?.name).toBe('Exception');
+        }),
+      );
     });
 
-    it('should be case-insensitive', () => {
+    it('should be case-insensitive', async () => {
       const entry: TypeRegistryEntry = {
         fqn: 'system.exception',
         name: 'Exception',
@@ -220,15 +289,23 @@ describe('GlobalTypeRegistry', () => {
         isStdlib: true,
       };
 
-      registry.registerType(entry);
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerType(entry);
 
-      expect(registry.getType('System.Exception')).toBeDefined();
-      expect(registry.getType('SYSTEM.EXCEPTION')).toBeDefined();
+          const result1 = yield* registry.getType('System.Exception');
+          expect(result1).toBeDefined();
+
+          const result2 = yield* registry.getType('SYSTEM.EXCEPTION');
+          expect(result2).toBeDefined();
+        }),
+      );
     });
   });
 
   describe('getTypesInNamespace', () => {
-    it('should return all types in a namespace', () => {
+    it('should return all types in a namespace', async () => {
       const types: TypeRegistryEntry[] = [
         {
           fqn: 'system.exception',
@@ -259,20 +336,27 @@ describe('GlobalTypeRegistry', () => {
         },
       ];
 
-      types.forEach((type) => registry.registerType(type));
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          for (const type of types) {
+            yield* registry.registerType(type);
+          }
 
-      const systemTypes = registry.getTypesInNamespace('System');
-      expect(systemTypes).toHaveLength(2);
-      expect(systemTypes.map((t) => t.name).sort()).toEqual([
-        'Exception',
-        'String',
-      ]);
+          const systemTypes = yield* registry.getTypesInNamespace('System');
+          expect(systemTypes).toHaveLength(2);
+          expect(systemTypes.map((t) => t.name).sort()).toEqual([
+            'Exception',
+            'String',
+          ]);
 
-      const databaseTypes = registry.getTypesInNamespace('Database');
-      expect(databaseTypes).toHaveLength(1);
+          const databaseTypes = yield* registry.getTypesInNamespace('Database');
+          expect(databaseTypes).toHaveLength(1);
+        }),
+      );
     });
 
-    it('should be case-insensitive for namespace', () => {
+    it('should be case-insensitive for namespace', async () => {
       const entry: TypeRegistryEntry = {
         fqn: 'system.exception',
         name: 'Exception',
@@ -283,15 +367,23 @@ describe('GlobalTypeRegistry', () => {
         isStdlib: true,
       };
 
-      registry.registerType(entry);
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerType(entry);
 
-      expect(registry.getTypesInNamespace('system')).toHaveLength(1);
-      expect(registry.getTypesInNamespace('SYSTEM')).toHaveLength(1);
+          const systemTypes = yield* registry.getTypesInNamespace('system');
+          expect(systemTypes).toHaveLength(1);
+
+          const systemTypes2 = yield* registry.getTypesInNamespace('SYSTEM');
+          expect(systemTypes2).toHaveLength(1);
+        }),
+      );
     });
   });
 
   describe('getStats', () => {
-    it('should track registration statistics', () => {
+    it('should track registration statistics', async () => {
       const stdlibType: TypeRegistryEntry = {
         fqn: 'system.exception',
         name: 'Exception',
@@ -312,16 +404,21 @@ describe('GlobalTypeRegistry', () => {
         isStdlib: false,
       };
 
-      registry.registerType(stdlibType);
-      registry.registerType(userType);
+      const stats = await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerType(stdlibType);
+          yield* registry.registerType(userType);
+          return yield* registry.getStats();
+        }),
+      );
 
-      const stats = registry.getStats();
       expect(stats.totalTypes).toBe(2);
       expect(stats.stdlibTypes).toBe(1);
       expect(stats.userTypes).toBe(1);
     });
 
-    it('should track lookup statistics', () => {
+    it('should track lookup statistics', async () => {
       const entry: TypeRegistryEntry = {
         fqn: 'system.exception',
         name: 'Exception',
@@ -330,17 +427,22 @@ describe('GlobalTypeRegistry', () => {
         symbolId: 'system-exception-id',
         fileUri: 'apex://stdlib/System/Exception',
         isStdlib: true,
-        isInterface: false,
       };
 
-      registry.registerType(entry);
+      const stats = await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerType(entry);
 
-      // Perform lookups
-      registry.resolveType('Exception'); // Hit
-      registry.resolveType('NonExistent'); // Miss
-      registry.resolveType('Exception'); // Hit
+          // Perform lookups
+          yield* registry.resolveType('Exception'); // Hit
+          yield* registry.resolveType('NonExistent'); // Miss
+          yield* registry.resolveType('Exception'); // Hit
 
-      const stats = registry.getStats();
+          return yield* registry.getStats();
+        }),
+      );
+
       expect(stats.lookupCount).toBe(3);
       expect(stats.hitCount).toBe(2);
       expect(stats.hitRate).toBeCloseTo(0.667, 2);
@@ -348,7 +450,7 @@ describe('GlobalTypeRegistry', () => {
   });
 
   describe('clear', () => {
-    it('should clear all entries and reset statistics', () => {
+    it('should clear all entries and reset statistics', async () => {
       const entry: TypeRegistryEntry = {
         fqn: 'system.exception',
         name: 'Exception',
@@ -359,19 +461,27 @@ describe('GlobalTypeRegistry', () => {
         isStdlib: true,
       };
 
-      registry.registerType(entry);
-      registry.resolveType('Exception');
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerType(entry);
+          yield* registry.resolveType('Exception');
 
-      expect(registry.size()).toBe(1);
+          // Verify entry exists before clear
+          const beforeType = yield* registry.getType('system.exception');
+          expect(beforeType).toBeDefined();
 
-      registry.clear();
+          yield* registry.clear();
 
-      expect(registry.size()).toBe(0);
-      expect(registry.hasType('system.exception')).toBe(false);
+          // Verify entry is cleared
+          const afterType = yield* registry.getType('system.exception');
+          expect(afterType).toBeUndefined();
 
-      const stats = registry.getStats();
-      expect(stats.totalTypes).toBe(0);
-      expect(stats.lookupCount).toBe(0);
+          const stats = yield* registry.getStats();
+          expect(stats.totalTypes).toBe(0);
+          expect(stats.lookupCount).toBe(0);
+        }),
+      );
     });
   });
 });
