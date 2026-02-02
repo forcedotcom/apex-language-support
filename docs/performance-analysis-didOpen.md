@@ -11,21 +11,23 @@ Comprehensive performance analysis of the `textDocument/didOpen` operation ident
 ### Key Findings
 
 🔴 **Critical Issue:** First didOpen blocks event loop for 219ms
+
 - Standard library loading: **146ms (67%)**
 - Compilation overhead: **73ms (33%)**
 
 ✅ **After Warmup:** Performance is excellent
+
 - Subsequent didOpen: **9ms (not blocking)**
 - Compilation: **5ms**
 - No blocking operations
 
 ### Impact Assessment
 
-| Environment | Threshold | First didOpen | Impact | Severity |
-|-------------|-----------|---------------|---------|----------|
-| **Node.js** | 100ms | 219ms | 2.2x over | 🟡 **Moderate** |
-| **Browser Main** | 16ms | 219ms | 13.7x over | 🔴 **Critical** |
-| **Browser Worker** | 100ms | 219ms | 2.2x over | 🟡 **Moderate** |
+| Environment        | Threshold | First didOpen | Impact     | Severity        |
+| ------------------ | --------- | ------------- | ---------- | --------------- |
+| **Node.js**        | 100ms     | 219ms         | 2.2x over  | 🟡 **Moderate** |
+| **Browser Main**   | 16ms      | 219ms         | 13.7x over | 🔴 **Critical** |
+| **Browser Worker** | 100ms     | 219ms         | 2.2x over  | 🟡 **Moderate** |
 
 ### Recommended Solution
 
@@ -37,9 +39,10 @@ await ApexSymbolManager.preloadStandardLibrary();
 ```
 
 **Result:**
+
 - First didOpen: 219ms → **73ms** ✅
 - Node.js: Below 100ms threshold ✅
-- Browser Worker: Below 100ms threshold ✅  
+- Browser Worker: Below 100ms threshold ✅
 - Browser Main: Still above 16ms (may need Web Worker)
 
 ---
@@ -49,6 +52,7 @@ await ApexSymbolManager.preloadStandardLibrary();
 ### 1. Measurement Methodology
 
 **Tools Used:**
+
 - **Performance utilities:** `@salesforce/apex-lsp-shared`
   - `measureSyncBlocking()` - Synchronous operation measurement
   - `measureAsyncBlocking()` - Asynchronous operation measurement
@@ -58,6 +62,7 @@ await ApexSymbolManager.preloadStandardLibrary();
 - **Test fixture:** PerformanceTestClass.cls (2027 bytes, ~100 LOC)
 
 **Blocking Thresholds:**
+
 ```typescript
 getBlockingThreshold(environment):
   - 'node': 100ms     // Event loop responsiveness
@@ -66,6 +71,7 @@ getBlockingThreshold(environment):
 ```
 
 **Metrics Collection:**
+
 - ✅ Duration (ms)
 - ✅ Blocking detection (threshold-based)
 - ✅ Environment identification
@@ -81,10 +87,11 @@ getBlockingThreshold(environment):
 **File:** `lsp-compliant-services/test/performance/DocumentProcessing.performance.integration.test.ts`
 
 **Results:**
+
 ```
 First didOpen:  219ms (BLOCKING ⚠️)
 ├─ Compilation:    151ms
-├─ Symbol upserting: 30ms  
+├─ Symbol upserting: 30ms
 ├─ Reference upserting: 25ms
 └─ Storage updates: 13ms
 
@@ -102,6 +109,7 @@ Statistics:
 ```
 
 **Conclusion:**
+
 - Cold start is the issue (219ms)
 - Warm performance is excellent (9ms)
 - Low variance after warmup
@@ -113,6 +121,7 @@ Statistics:
 **File:** `apex-parser-ast/test/performance/compilerService.performance.test.ts`
 
 **Full Compilation Results:**
+
 ```
 First compile: 209ms (BLOCKING ⚠️)
 
@@ -132,6 +141,7 @@ Statistics:
 ```
 
 **Phase Breakdown (Warm):**
+
 ```
 Compilation Options Comparison:
 ├─ Basic (no references):      6.02ms (baseline)
@@ -142,6 +152,7 @@ Total overhead for full semantic analysis: 1.60ms (26.6%)
 ```
 
 **File Size Scaling:**
+
 ```
 Methods → Duration → ms/method
    5    →  3.43ms  → 0.69ms
@@ -153,6 +164,7 @@ Growth factor: 1.06x (nearly constant time per method)
 ```
 
 **Conclusion:**
+
 - Compilation scales linearly and efficiently
 - Reference collection adds 27% overhead (acceptable)
 - First compile has ~200ms overhead (stdlib loading)
@@ -164,6 +176,7 @@ Growth factor: 1.06x (nearly constant time per method)
 **File:** `apex-parser-ast/test/performance/ApexSymbolManager.memberResolution.performance.test.ts`
 
 **Standard Library Loading:**
+
 ```
 First compile (cold stdlib):  151.64ms (BLOCKING ⚠️)
 Subsequent (cached stdlib):     5.52ms (NOT blocking ✅)
@@ -172,12 +185,14 @@ Standard library loading overhead: 146.12ms (96% of first compile time)
 ```
 
 **Type Resolution Performance:**
+
 ```
 Generic List<T> resolution:  4.39ms (NOT blocking ✅)
 Generic Map<K,V> resolution: 1.55ms (NOT blocking ✅)
 ```
 
 **Cross-File Resolution:**
+
 ```
 Helper class compilation:  3.75ms
 Main class (with ref):     1.07ms
@@ -185,6 +200,7 @@ Total:                     4.82ms (NOT blocking ✅)
 ```
 
 **Conclusion:**
+
 - Standard library loading is 96% of first compile time
 - Symbol resolution after warmup is fast (<5ms)
 - Cross-file resolution is efficient
@@ -196,19 +212,20 @@ Total:                     4.82ms (NOT blocking ✅)
 #### Why Does First didOpen Take 219ms?
 
 **Timeline Breakdown:**
+
 ```
 0ms     ┌─────────────────────────────────────────────────────┐
         │ LSP Handler receives textDocument/didOpen           │
 <1ms    └─────────────────────────────────────────────────────┘
-        
+
 <1ms    ┌─────────────────────────────────────────────────────┐
         │ DocumentProcessingService.processDocumentOpen()      │
 <1ms    └─────────────────────────────────────────────────────┘
-        
+
 0-2ms   ┌─────────────────────────────────────────────────────┐
         │ DocumentOpenBatcher queues request                   │
 2ms     └─────────────────────────────────────────────────────┘
-        
+
 2-221ms ┌─────────────────────────────────────────────────────┐
         │ processDocumentOpenSingle() - BLOCKS HERE ⚠️        │
         │                                                       │
@@ -227,6 +244,7 @@ Total:                     4.82ms (NOT blocking ✅)
 **Root Cause:** Standard library is loaded **on-demand** during first compilation instead of at server startup.
 
 **Why This Happens:**
+
 1. User opens first Apex file
 2. Compiler resolves symbols (e.g., `String.isBlank()`)
 3. Compiler needs `String` class definition
@@ -236,6 +254,7 @@ Total:                     4.82ms (NOT blocking ✅)
 7. Adds to cache for future use
 
 **Why It's Fast After Warmup:**
+
 1. User opens another file (or same file again)
 2. Compiler resolves symbols
 3. `ApexSymbolManager` checks cache → **found!**
@@ -246,37 +265,41 @@ Total:                     4.82ms (NOT blocking ✅)
 #### Why Does Standard Library Loading Take 146ms?
 
 **Standard Library Contents:**
+
 - **~200 Apex classes** (String, List, Map, Set, System, Database, etc.)
 - **Stored as:** Compressed protobuf in memory
 - **Loaded as:** Full symbol tables with methods, properties, fields
 
 **Loading Process:**
+
 ```typescript
 // Pseudocode
 function loadStandardLibraryClass(className: string): SymbolTable {
   // 1. Read compressed protobuf from memory (~1ms)
   const compressed = readFromMemory(className);
-  
+
   // 2. Decompress (CPU-intensive, ~100ms)
-  const protobuf = decompress(compressed);  // 🔴 NO YIELDING
-  
+  const protobuf = decompress(compressed); // 🔴 NO YIELDING
+
   // 3. Parse protobuf to symbol table (CPU-intensive, ~45ms)
-  const symbolTable = parseProtobuf(protobuf);  // 🔴 NO YIELDING
-  
+  const symbolTable = parseProtobuf(protobuf); // 🔴 NO YIELDING
+
   // 4. Add to cache (~1ms)
   this.symbolGraph.addSymbolTable(className, symbolTable);
-  
+
   return symbolTable;
 }
 ```
 
 **Why It's CPU-Intensive:**
+
 - **Decompression:** Compute-intensive (gzip/deflate)
 - **Parsing:** Protobuf deserialization + object construction
 - **No I/O:** Everything in-memory (can't parallelize)
 - **No yielding:** Runs without interruption
 
 **Why 146ms Total:**
+
 - Loads **~8-10 classes** on first compile (String, List, Map, Object, System, etc.)
 - Each class: ~15-20ms
 - Sequential loading: 8 × 18ms ≈ 144ms
@@ -373,11 +396,13 @@ function loadStandardLibraryClass(className: string): SymbolTable {
 ### Performance Utilities (apex-lsp-shared)
 
 **Created:**
+
 - `performance-utils.ts` - Measurement functions
 - `performance-metrics.ts` - Effect metrics integration
 - `README.md` - Documentation and usage examples
 
 **Features:**
+
 - Environment detection (Node.js/browser/worker)
 - Automatic blocking detection
 - Effect.Metric integration for production observability
@@ -385,6 +410,7 @@ function loadStandardLibraryClass(className: string): SymbolTable {
 - OpenTelemetry compatible
 
 **Usage in Production:**
+
 ```typescript
 import { enableMetrics } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
@@ -407,6 +433,7 @@ enableMetrics(Effect);
 **Total Duration:** 219ms
 
 **Phase Breakdown:**
+
 ```
 Compilation:              151ms (69%)  🔴 PRIMARY BLOCKER
 ├─ Parsing:                 3ms (1%)
@@ -428,6 +455,7 @@ Storage updates:           13ms (6%)
 **Total Duration:** 9.21ms (avg)
 
 **Phase Breakdown:**
+
 ```
 Compilation:               5ms (54%)
 ├─ Parsing:                3ms
@@ -447,6 +475,7 @@ Storage updates:           1ms (11%)
 ### Compilation Scaling Characteristics
 
 **Linear Scaling:**
+
 ```
 File Size → Duration → Growth
   890 bytes →  3.43ms → 1.00x (baseline)
@@ -469,6 +498,7 @@ Growth factor: 1.06x (nearly constant per method)
 #### Pattern 1: CPU-Bound Operations
 
 All operations are **CPU-bound** with zero I/O:
+
 - ✅ Parsing: CPU (lexer + parser)
 - ✅ Tree walking: CPU (visitor pattern)
 - ✅ Symbol resolution: CPU (lookup + cache)
@@ -481,16 +511,19 @@ All operations are **CPU-bound** with zero I/O:
 #### Pattern 2: Caching is Highly Effective
 
 **Standard Library:**
+
 - First load: 146ms
 - Cached load: <1ms
 - **Cache speedup: 146x faster**
 
 **Symbol Tables:**
+
 - First compile: 151ms
 - Subsequent: 5ms (cache hit on stdlib)
 - **Speedup: 30x faster**
 
 **Document State:**
+
 - First compile: Full compilation
 - Unchanged file: Skip compilation entirely
 - **Speedup: Infinite (skip work)**
@@ -502,6 +535,7 @@ All operations are **CPU-bound** with zero I/O:
 #### Pattern 3: JIT Warmup Effects
 
 **Observable warmup:**
+
 ```
 Iteration 1: 15.54ms (cold JIT)
 Iteration 2:  8.54ms (warming)
@@ -529,6 +563,7 @@ public async processDocumentOpenSingle(event): Promise<Diagnostic[]> {
 ```
 
 **Characteristics:**
+
 - ❌ Direct synchronous call
 - ❌ No Effect.sync() wrapper
 - ❌ Cannot be interrupted
@@ -549,12 +584,14 @@ public processDiagnostic = Effect.gen(this, function* () {
 ```
 
 **Characteristics:**
+
 - ✅ Wrapped in Effect.sync()
 - ✅ Can be interrupted
 - ✅ Can be combined with yielding
 - ✅ Better integration with Effect scheduler
 
 **Why This Matters:**
+
 - Enables future optimizations
 - Consistency across services
 - Better error handling
@@ -567,10 +604,12 @@ public processDiagnostic = Effect.gen(this, function* () {
 ### Node.js Environment
 
 **Current State:**
+
 - First didOpen: 219ms (2.2x over 100ms threshold)
 - Subsequent: 9ms (well below threshold)
 
 **With Pre-loading:**
+
 - First didOpen: 73ms (below 100ms threshold ✅)
 - Subsequent: 9ms (well below threshold ✅)
 
@@ -581,14 +620,17 @@ public processDiagnostic = Effect.gen(this, function* () {
 ### Browser Main Thread
 
 **Current State:**
+
 - First didOpen: 219ms (13.7x over 16ms threshold)
 - Subsequent: 9ms (below 16ms threshold ✅ barely)
 
 **With Pre-loading:**
+
 - First didOpen: 73ms (4.6x over 16ms threshold)
 - Subsequent: 9ms (below 16ms threshold ✅ barely)
 
 **Recommendations:**
+
 1. ✅ **Pre-load standard library** (reduces to 73ms)
 2. ⚠️ **Move to Web Worker** if 73ms still causes issues
 3. ⚠️ **Chunk compilation with yielding** (max 16ms blocks)
@@ -598,10 +640,12 @@ public processDiagnostic = Effect.gen(this, function* () {
 ### Browser Web Worker
 
 **Current State:**
+
 - First didOpen: 219ms (2.2x over 100ms threshold)
 - Subsequent: 9ms (well below threshold)
 
 **With Pre-loading:**
+
 - First didOpen: 73ms (below 100ms threshold ✅)
 - Subsequent: 9ms (well below threshold ✅)
 
@@ -614,11 +658,13 @@ public processDiagnostic = Effect.gen(this, function* () {
 ### Risk: Pre-loading Standard Library
 
 **Potential Issues:**
+
 - **Startup time:** Adds 146ms to server initialization
 - **Memory usage:** ~200 classes loaded into memory
 - **Lazy loading:** May load classes never used
 
 **Mitigation:**
+
 - ✅ **Startup time acceptable:** One-time cost, not per-file
 - ✅ **Memory already in use:** Stdlib loaded eventually anyway
 - ✅ **Core classes essential:** String, List, Map used in almost all code
@@ -630,11 +676,13 @@ public processDiagnostic = Effect.gen(this, function* () {
 ### Risk: Effect.sync() Migration
 
 **Potential Issues:**
+
 - **Behavior change:** Compilation becomes interruptible
 - **Error handling:** Effect error handling differs from try/catch
 - **Testing:** Need to update tests for Effect patterns
 
 **Mitigation:**
+
 - ✅ **Pattern already used:** DiagnosticProcessingService proves it works
 - ✅ **Backwards compatible:** Functionally equivalent
 - ⚠️ **Test updates needed:** Integration tests may need Effect.runPromise
@@ -646,12 +694,14 @@ public processDiagnostic = Effect.gen(this, function* () {
 ### Risk: Web Worker (Browser Only)
 
 **Potential Issues:**
+
 - **Message passing overhead:** Serialization cost
 - **Shared state complexity:** Symbol manager not shared
 - **Memory duplication:** Separate heap for worker
 - **Debugging difficulty:** Harder to trace execution
 
 **Mitigation:**
+
 - ⚠️ **Only if necessary:** Use only if pre-loading insufficient
 - ⚠️ **Prototype first:** Measure actual improvement
 - ⚠️ **Consider trade-offs:** Complexity vs responsiveness
@@ -686,6 +736,7 @@ public processDiagnostic = Effect.gen(this, function* () {
 ### Recommended Next Measurements
 
 **After implementing pre-loading:**
+
 1. Re-run all performance tests
 2. Verify first didOpen is fast
 3. Add browser performance tests (vscode/test-web)
@@ -706,11 +757,13 @@ public processDiagnostic = Effect.gen(this, function* () {
 ### Primary Recommendation
 
 **Pre-load standard library on server startup:**
+
 ```typescript
 await ApexSymbolManager.preloadStandardLibrary();
 ```
 
 **Impact:**
+
 - ✅ First didOpen: 219ms → 73ms (67% faster)
 - ✅ Node.js: Below 100ms threshold
 - ✅ Browser Worker: Below 100ms threshold

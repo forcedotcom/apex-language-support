@@ -1,127 +1,466 @@
 # Performance Optimization Roadmap: textDocument/didOpen
 
 **Date:** 2026-02-02  
-**Target:** Eliminate 219ms blocking operation on first file open  
-**Status:** Ready for Implementation
+**Updated:** 2026-02-02 (Corrected based on protobuf cache investigation)  
+**Target:** Verify ResourceLoader initialization and optionally enhance first-file UX  
+**Status:** Revised - No blocking operations found
 
-## Quick Reference
+## Quick Reference (UPDATED)
 
-| Priority | Optimization | Time Saved | Complexity | Risk | Status |
-|----------|-------------|------------|------------|------|--------|
-| **P0** 🔥 | Pre-load Standard Library | **146ms** | ⭐ Low | 🟢 Low | 📋 Ready |
-| **P1** | Effect.sync() Migration | 0ms* | ⭐⭐ Medium | 🟡 Medium | 📋 Ready |
-| **P2** | Browser Performance Testing | 0ms | ⭐ Low | 🟢 Low | 📋 Ready |
-| **P3** | Production Metrics | 0ms | ⭐ Low | 🟢 Low | 📋 Ready |
-| **P4** ⚠️ | Web Worker (Browser) | Variable | ⭐⭐⭐⭐ High | 🟡 Medium | ⏸️ If needed |
+| Priority  | Optimization                         | Time Saved   | Complexity    | Risk      | Status       |
+| --------- | ------------------------------------ | ------------ | ------------- | --------- | ------------ |
+| **P0** ⚠️ | Verify ResourceLoader Initialization | **CRITICAL** | ⭐ Low        | 🔴 High   | 📋 Ready     |
+| **P1**    | (Optional) Pre-populate Symbol Graph | **60-80ms**  | ⭐ Low        | 🟢 Low    | 📋 Optional  |
+| **P2**    | Effect.sync() Migration              | 0ms\*        | ⭐⭐ Medium   | 🟡 Medium | 📋 Ready     |
+| **P3**    | Browser Performance Testing          | 0ms          | ⭐ Low        | 🟢 Low    | 📋 Ready     |
+| **P4**    | Production Metrics                   | 0ms          | ⭐ Low        | 🟢 Low    | 📋 Ready     |
+| **P5** ⚠️ | Web Worker (Browser)                 | Variable     | ⭐⭐⭐⭐ High | 🟡 Medium | ⏸️ If needed |
 
-*Enables future optimizations
+\*Enables future optimizations
+
+**Key Finding:** The original "219ms blocking" was due to missing ResourceLoader initialization in tests. With proper initialization, performance is acceptable (~100-120ms first file, non-blocking).
 
 ---
 
-## Priority 0: Pre-load Standard Library 🔥
+## Priority 0: Verify ResourceLoader Initialization ⚠️ CRITICAL
 
 ### Impact
-- **Time Saved:** 146ms (67% reduction in first didOpen)
-- **Result:** 219ms → 73ms
-- **Node.js:** ✅ Below 100ms threshold
-- **Browser Worker:** ✅ Below 100ms threshold
-- **Browser Main:** ⚠️ Still above 16ms (may need P4)
+
+- **Criticality:** FATAL if missing
+- **Problem:** Without ResourceLoader initialization, system falls back to source compilation (198ms penalty)
+- **Time Impact:** 219ms (source) → 100ms (protobuf) = **54% faster**
+- **Risk:** 🔴 High - missing initialization causes fatal performance degradation
+
+### Background
+
+Investigation revealed that the original "219ms blocking" was caused by missing `ResourceLoader.initialize()` in performance tests. Without initialization:
+
+- Protobuf cache is not loaded
+- System falls back to compiling stdlib from source (~198ms)
+- This is NOT the intended behavior
+
+With proper initialization:
+
+- Protobuf cache is loaded at startup (~250ms, one-time)
+- Stdlib classes are retrieved pre-compiled from cache
+- First didOpen: ~100-120ms (acceptable, non-blocking)
 
 ### Implementation
 
-**Step 1: Add Pre-load Method** (if not exists)
+**Step 1: Verify All Server Entry Points**
 
-Check if `ApexSymbolManager` already has a pre-load method:
-
-```typescript
-// Location: apex-parser-ast/src/symbols/ApexSymbolManager.ts
-
-public async preloadStandardLibrary(): Promise<void> {
-  if (!this.resourceLoader) {
-    this.logger.warn('Resource loader not available, skipping stdlib preload');
-    return;
-  }
-
-  this.logger.info('Pre-loading standard library...');
-  const start = performance.now();
-
-  // Load core classes that are used in most code
-  const coreClasses = [
-    'String', 'Integer', 'Long', 'Double', 'Decimal', 'Boolean',
-    'Object', 'List', 'Map', 'Set',
-    'System', 'Database', 'Schema',
-    'Date', 'Datetime', 'Time',
-  ];
-
-  for (const className of coreClasses) {
-    try {
-      const uri = `apex-stdlib:///${className}`;
-      const symbolTable = this.symbolGraph.getSymbolTableForFile(uri);
-      
-      if (!symbolTable) {
-        // Load if not in cache
-        await this.resourceLoader.loadStandardLibraryClass(className, uri);
-      }
-    } catch (error) {
-      this.logger.warn(`Failed to preload stdlib class ${className}: ${error}`);
-    }
-  }
-
-  const duration = performance.now() - start;
-  this.logger.info(`Standard library pre-loaded in ${duration.toFixed(2)}ms`);
-}
-```
-
-**Step 2: Call on Server Initialization**
+Check that ALL LSP server initialization paths call `ResourceLoader.initialize()`:
 
 ```typescript
-// Location: lsp-compliant-services/src/server/LCSAdapter.ts
-// Or: apex-lsp-vscode-extension/src/extension.ts
+// Required in EVERY server entry point BEFORE accepting requests
 
 export async function initializeServer(): Promise<void> {
-  // Existing initialization
+  const logger = getLogger();
+
+  // CRITICAL: Initialize ResourceLoader with protobuf cache
+  logger.info('Initializing ResourceLoader...');
+  const resourceLoader = ResourceLoader.getInstance({
+    preloadStdClasses: true,
+  });
+  await resourceLoader.initialize();
+
+  // Verify it loaded correctly
+  if (!resourceLoader.isProtobufCacheLoaded()) {
+    const error =
+      'FATAL: Protobuf cache failed to load - stdlib will be compiled from source!';
+    logger.error(error);
+    throw new Error(error);
+  }
+
+  const protobufData = resourceLoader.getProtobufCacheData();
+  logger.info(
+    `✅ Protobuf cache loaded: ${protobufData?.symbolTables.size} stdlib types`,
+  );
+
+  // Continue with other initialization
   await SchedulerInitializationService.getInstance().ensureInitialized();
-  
-  // ADD THIS: Pre-load standard library
-  const symbolManager = ApexSymbolProcessingManager
-    .getInstance()
-    .getSymbolManager();
-  
-  await symbolManager.preloadStandardLibrary();
-  
-  logger.info('Server initialized with standard library pre-loaded');
+
+  logger.info('Server initialized successfully');
 }
 ```
 
-**Step 3: Verify with Performance Tests**
+**Step 2: Check These Files**
 
-```bash
-# Run performance tests to verify improvement
-npm test -- --testPathPattern="performance" --maxWorkers=1
+Verify `ResourceLoader.initialize()` is called in:
 
-# Expected results:
-# - First didOpen: 219ms → 73ms ✅
-# - Blocking: YES → NO ✅
+- [ ] `packages/apex-lsp-vscode-extension/src/extension.ts` - VSCode extension
+- [ ] `packages/lsp-compliant-services/src/server/LCSAdapter.ts` - LSP server adapter
+- [ ] Any other server entry points
+
+**Step 3: Add Startup Logging**
+
+Add diagnostic logging to detect initialization issues:
+
+```typescript
+// After initialization, log cache status
+const resourceLoader = ResourceLoader.getInstance();
+logger.info(`Protobuf cache status: ${resourceLoader.isProtobufCacheLoaded()}`);
+logger.info(
+  `Stdlib types available: ${resourceLoader.getProtobufCacheData()?.symbolTables.size ?? 0}`,
+);
+```
+
+**Step 4: Add Automated Tests**
+
+Create test to verify ResourceLoader is initialized:
+
+```typescript
+// In lsp-compliant-services/test/integration/ServerInitialization.test.ts
+describe('Server Initialization', () => {
+  it('should initialize ResourceLoader before accepting didOpen events', async () => {
+    await initializeServer();
+
+    const resourceLoader = ResourceLoader.getInstance();
+    expect(resourceLoader.isProtobufCacheLoaded()).toBe(true);
+
+    const protobufData = resourceLoader.getProtobufCacheData();
+    expect(protobufData).toBeDefined();
+    expect(protobufData?.symbolTables.size).toBeGreaterThan(5000);
+  });
+});
 ```
 
 ### Estimated Effort
-- **Investigation:** 1 hour (check if method exists)
-- **Implementation:** 2 hours (add method + call at startup)
-- **Testing:** 2 hours (verify with performance tests)
-- **Total:** ~5 hours
+
+- **Investigation:** 2 hours (verify all entry points)
+- **Implementation:** 1 hour (add logging + verification)
+- **Testing:** 1 hour (create automated test)
+- **Total:** ~4 hours
 
 ### Acceptance Criteria
-- [ ] First didOpen completes in <100ms (Node.js)
-- [ ] No blocking operations >100ms in Node.js environment
-- [ ] Performance tests pass
-- [ ] Server startup time increased by <200ms
-- [ ] Memory usage increase <50MB
+
+- [ ] ResourceLoader.initialize() is called in ALL server entry points
+- [ ] Startup logging confirms protobuf cache is loaded
+- [ ] Automated test verifies initialization
+- [ ] Performance tests show ~100-120ms first didOpen (NOT 219ms)
+- [ ] Metrics/alerts detect initialization failures in production
 
 ---
 
-## Priority 1: Migrate to Effect.sync() Pattern
+## Priority 1: (Optional) Pre-populate Symbol Graph
 
 ### Impact
+
+- **Time Saved:** 60-80ms from first-file penalty
+- **Result:** First didOpen: ~100-120ms → ~40-60ms (user code only)
+- **Status:** OPTIONAL - current performance is acceptable
+- **Benefit:** Better first-file UX, eliminates symbol graph population cost
+
+### Background
+
+Currently, first file pays ~40-60ms to populate symbol graph with stdlib classes it references. This is a one-time cost per class, and subsequent files reuse the graph.
+
+Pre-populating the graph with common namespaces during server startup eliminates this penalty for most files. This uses a **namespace-based approach** instead of individual class lists, making it more scalable and maintainable.
+
+### Implementation
+
+**Namespace-Based Pre-population Approach:**
+
+Instead of hardcoding individual class names, configure which **namespaces** to pre-populate. The ResourceLoader already provides namespace → class mappings from the protobuf cache.
+
+**Step 1: Add VSCode Configuration**
+
+Add to `packages/apex-lsp-vscode-extension/package.json`:
+
+```json
+"apex.symbolGraph": {
+  "type": "object",
+  "description": "Symbol graph pre-population settings",
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable namespace pre-population at startup"
+    },
+    "preloadNamespaces": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["Database", "System", "Schema", "ConnectApi"]
+      },
+      "default": ["Database", "System"],
+      "description": "Namespaces to pre-populate into symbol graph"
+    }
+  }
+}
+```
+
+**Step 2: Add Settings Interface**
+
+Add to `packages/apex-lsp-shared/src/server/ApexLanguageServerSettings.ts`:
+
+```typescript
+export interface SymbolGraphSettings {
+  enabled: boolean;
+  preloadNamespaces: string[];
+}
+
+// Add to ApexLanguageServerSettings.apex:
+symbolGraph?: SymbolGraphSettings;
+```
+
+**Step 3: Implement Pre-population in LCSAdapter**
+
+Add to `packages/apex-ls/src/server/LCSAdapter.ts`:
+
+```typescript
+private async prePopulateSymbolGraph(): Promise<void> {
+  const settings = ApexSettingsManager.getInstance().getSettings();
+  const symbolGraphSettings = settings.apex.symbolGraph;
+
+  if (!symbolGraphSettings?.enabled) {
+    return;
+  }
+
+  const namespacesToLoad = symbolGraphSettings.preloadNamespaces || [];
+  this.logger.info(
+    `Pre-populating symbol graph with namespaces: ${namespacesToLoad.join(', ')}`
+  );
+
+  const resourceLoader = ResourceLoader.getInstance();
+  const symbolManager = ApexSymbolProcessingManager.getInstance().getSymbolManager();
+  const availableNamespaces = resourceLoader.getStandardNamespaces();
+
+  const startTime = performance.now();
+  let totalClasses = 0;
+  let loadedClasses = 0;
+
+  for (const namespace of namespacesToLoad) {
+    const classFiles = availableNamespaces.get(namespace);
+    if (!classFiles) {
+      this.logger.warn(`Namespace '${namespace}' not found in stdlib`);
+      continue;
+    }
+
+    totalClasses += classFiles.length;
+    for (const classFile of classFiles) {
+      try {
+        const className = classFile.value.replace(/\.cls$/i, '');
+        const fqn = `${namespace}.${className}`;
+        await symbolManager.resolveStandardApexClass(fqn);
+        loadedClasses++;
+      } catch (error) {
+        this.logger.debug(`Failed to pre-populate ${namespace}.${classFile.value}`);
+      }
+    }
+  }
+
+  const duration = performance.now() - startTime;
+  this.logger.info(
+    `✅ Symbol graph pre-populated: ${loadedClasses}/${totalClasses} classes ` +
+    `from ${namespacesToLoad.length} namespaces in ${duration.toFixed(2)}ms`
+  );
+}
+```
+
+Call in `setupEventHandlers()` after `initializeResourceLoader()`:
+
+```typescript
+// Pre-populate symbol graph with configured namespaces
+this.prePopulateSymbolGraph().catch((error) => {
+  this.logger.error(
+    () => `❌ Symbol graph pre-population failed: ${formattedError(error)}`,
+  );
+});
+```
+
+**Step 4: User Configuration**
+
+Users enable via VSCode settings:
+
+```json
+{
+  "apex.symbolGraph.enabled": true,
+  "apex.symbolGraph.preloadNamespaces": ["Database", "System"]
+}
+```
+
+### Performance Characteristics
+
+**Namespace Sizes (approximate):**
+
+- `Database`: ~45 classes (SaveResult, QueryLocator, BatchableContext, etc.)
+- `System`: ~180 classes (Assert, JSON, Test, String, Integer, etc.)
+- `Schema`: ~25 classes (DescribeFieldResult, SObjectType, etc.)
+- `ConnectApi`: ~150 classes (various API wrappers)
+
+**Estimated Startup Cost:**
+
+- Database namespace: ~200-300ms
+- System namespace: ~700-900ms
+- **Both: ~900-1200ms total**
+
+**Estimated Benefit:**
+
+- First file using these namespaces: 0ms penalty (already in graph)
+- Subsequent files: Already fast (existing behavior)
+
+### Performance Measurement (Required Before Implementation)
+
+Before deciding to implement this feature, **measure actual costs** with dedicated performance tests:
+
+**Test 1: Startup Cost Measurement**
+
+Create `packages/apex-ls/test/performance/SymbolGraphPrePopulation.performance.test.ts`:
+
+```typescript
+describe('Symbol Graph Pre-population Performance', () => {
+  test('Measure startup cost - Database namespace only', async () => {
+    const settings = mockSettings({
+      symbolGraph: { enabled: true, preloadNamespaces: ['Database'] },
+    });
+
+    const start = performance.now();
+    await lcsAdapter.prePopulateSymbolGraph();
+    const duration = performance.now() - start;
+
+    console.log(`Database namespace: ${duration.toFixed(2)}ms`);
+  });
+
+  test('Measure startup cost - System namespace only', async () => {
+    const settings = mockSettings({
+      symbolGraph: { enabled: true, preloadNamespaces: ['System'] },
+    });
+
+    const start = performance.now();
+    await lcsAdapter.prePopulateSymbolGraph();
+    const duration = performance.now() - start;
+
+    console.log(`System namespace: ${duration.toFixed(2)}ms`);
+  });
+
+  test('Measure startup cost - Database + System', async () => {
+    const settings = mockSettings({
+      symbolGraph: { enabled: true, preloadNamespaces: ['Database', 'System'] },
+    });
+
+    const start = performance.now();
+    await lcsAdapter.prePopulateSymbolGraph();
+    const duration = performance.now() - start;
+
+    console.log(`Database + System: ${duration.toFixed(2)}ms`);
+  });
+});
+```
+
+**Test 2: First didOpen Improvement**
+
+Extend `BenchmarkSuite.performance.test.ts`:
+
+```typescript
+describe('Benchmark Suite - With Pre-population', () => {
+  beforeAll(async () => {
+    await lcsAdapter.prePopulateSymbolGraph();
+  });
+
+  test('SmallTestClass with pre-populated symbols', async () => {
+    const start = performance.now();
+    await didOpen('SmallTestClass.cls');
+    const duration = performance.now() - start;
+
+    console.log(`First didOpen with pre-population: ${duration.toFixed(2)}ms`);
+    // Compare to baseline: ~100ms without pre-population
+  });
+});
+```
+
+**Decision Criteria Based on Measurements:**
+
+- **Strong YES**: If Database + System < 500ms (low cost, high benefit)
+- **Conditional**: If 500-1000ms (reasonable trade-off)
+- **Reconsider**: If > 1500ms (too expensive for optional feature)
+
+**Run measurements:**
+
+```bash
+npm test -- --testPathPattern="SymbolGraphPrePopulation.performance"
+```
+
+### Estimated Effort
+
+- **Settings + Interface:** 1 hour
+- **Implementation:** 2 hours
+- **Testing:** 1 hour
+- **Total:** ~4 hours
+
+### Acceptance Criteria
+
+- [ ] VSCode settings for enabling feature and selecting namespaces
+- [ ] Namespace-based pre-population in LCSAdapter
+- [ ] Startup logging shows classes loaded per namespace
+- [ ] First didOpen reduced to ~40-60ms for files using pre-populated namespaces
+- [ ] Benchmark suite validates improvement
+
+### Configuration Guidance
+
+**Recommended for most users (DEFAULT):**
+
+```json
+{
+  "apex.symbolGraph.enabled": true,
+  "apex.symbolGraph.preloadNamespaces": ["Database", "System"]
+}
+```
+
+Cost: ~190ms startup | Benefit: Eliminates 60-80ms first-file penalty
+
+**For faster startup (minimal pre-population):**
+
+```json
+{
+  "apex.symbolGraph.enabled": true,
+  "apex.symbolGraph.preloadNamespaces": ["Database"]
+}
+```
+
+Cost: ~18ms startup | Benefit: Partial coverage
+
+**For measurement/testing ONLY (NOT recommended for production):**
+
+```json
+{
+  "apex.symbolGraph.enabled": true,
+  "apex.symbolGraph.preloadNamespaces": ["*"]
+}
+```
+
+Cost: **VERY HIGH** (30+ seconds) | **NOT RECOMMENDED**
+
+**⚠️ Warning About "\*" (All Namespaces):**
+
+Loading all 57 namespaces triggers cascading dependency resolution and "find missing artifacts" searches across the entire stdlib. Performance varies wildly:
+
+- Simple namespaces: ~0.7ms per class (Database)
+- Complex namespaces: ~62ms per class (Slack: 401 classes = 25 seconds!)
+- Total estimated: 30-60+ seconds startup cost
+
+**This is NOT practical for production use.** Use "\*" only for performance measurement and analysis.
+
+### Decision Point
+
+**Implement IF:**
+
+- First-file UX is critical
+- 100-120ms is perceived as slow by users
+- Willing to accept ~900-1200ms startup cost
+
+**Skip IF:**
+
+- 100-120ms first-file is acceptable
+- Want minimal startup time (~250ms protobuf load only)
+- Most users open multiple files (benefit diminishes after first)
+
+---
+
+## Priority 2: Migrate to Effect.sync() Pattern
+
+### Impact
+
 - **Time Saved:** 0ms (enables future optimizations)
 - **Benefit:** Consistency, interruptibility, better error handling
 
@@ -170,7 +509,7 @@ public processDocumentOpenSingle = Effect.gen(
 ```typescript
 // Update calls to use Effect.runPromise
 await Effect.runPromise(
-  documentProcessingService.processDocumentOpenSingle(event)
+  documentProcessingService.processDocumentOpenSingle(event),
 );
 ```
 
@@ -179,17 +518,19 @@ await Effect.runPromise(
 ```typescript
 // Update integration tests
 const result = await Effect.runPromise(
-  service.processDocumentOpenSingle(event)
+  service.processDocumentOpenSingle(event),
 );
 ```
 
 ### Estimated Effort
+
 - **Investigation:** 2 hours (trace all callers)
 - **Implementation:** 4 hours (update service + callers)
 - **Testing:** 4 hours (update tests, verify behavior)
 - **Total:** ~10 hours
 
 ### Acceptance Criteria
+
 - [ ] All calls to compile() wrapped in Effect.sync()
 - [ ] Pattern matches DiagnosticProcessingService
 - [ ] All tests pass
@@ -201,6 +542,7 @@ const result = await Effect.runPromise(
 ## Priority 2: Browser Performance Testing
 
 ### Impact
+
 - **Time Saved:** 0ms (measurement & validation)
 - **Benefit:** Understand real browser performance
 
@@ -216,11 +558,11 @@ import { test, expect } from '@playwright/test';
 test('measures didOpen performance in browser', async ({ page }) => {
   // Load VS Code test web environment
   await page.goto('http://localhost:3000');
-  
+
   // Setup performance observer
   await page.evaluate(() => {
     (window as any).perfData = [];
-    
+
     new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         if (entry.name.startsWith('apex-')) {
@@ -233,20 +575,20 @@ test('measures didOpen performance in browser', async ({ page }) => {
       }
     }).observe({ entryTypes: ['measure'] });
   });
-  
+
   // Open Apex file
   await page.click('text=Open File');
   await page.fill('input[placeholder="File path"]', 'TestClass.cls');
   await page.press('input', 'Enter');
-  
+
   // Wait for processing
   await page.waitForTimeout(5000);
-  
+
   // Get performance data
   const perfData = await page.evaluate(() => (window as any).perfData);
-  
+
   console.log('Browser Performance Data:', JSON.stringify(perfData, null, 2));
-  
+
   // Find didOpen measurement
   const didOpen = perfData.find((e: any) => e.name === 'apex-didOpen');
   expect(didOpen).toBeDefined();
@@ -265,12 +607,14 @@ npm run test:e2e -- --testPathPattern="browser-didOpen-perf"
 ```
 
 ### Estimated Effort
+
 - **Implementation:** 4 hours (create test, setup environment)
 - **Execution:** 1 hour (run tests, collect data)
 - **Analysis:** 2 hours (compare Node.js vs browser)
 - **Total:** ~7 hours
 
 ### Acceptance Criteria
+
 - [ ] Browser performance test runs successfully
 - [ ] Performance data collected via PerformanceObserver
 - [ ] Results compared to Node.js baseline
@@ -281,6 +625,7 @@ npm run test:e2e -- --testPathPattern="browser-didOpen-perf"
 ## Priority 3: Enable Production Metrics
 
 ### Impact
+
 - **Time Saved:** 0ms (monitoring & observability)
 - **Benefit:** Real-world performance data, regression detection
 
@@ -324,18 +669,21 @@ sdk.start();
 **Step 3: Add Dashboards**
 
 Create Grafana/Datadog dashboards for:
+
 - `apex.compile.duration` - P50, P95, P99 latencies
 - `apex.eventloop.blocking` - Count of blocking operations
 - `apex.stdlib.cache.hits` - Cache effectiveness
 - `apex.stdlib.cache.misses` - Cache misses (should be low)
 
 ### Estimated Effort
+
 - **Basic metrics:** 1 hour (enable metrics)
 - **OpenTelemetry:** 4 hours (configure export)
 - **Dashboards:** 4 hours (create visualization)
 - **Total:** ~9 hours (basic) or ~9 hours (full observability)
 
 ### Acceptance Criteria
+
 - [ ] Metrics enabled in production
 - [ ] No performance overhead from metrics
 - [ ] Metrics visible in logs or monitoring system
@@ -346,6 +694,7 @@ Create Grafana/Datadog dashboards for:
 ## Priority 4: Web Worker Migration (Browser Only) ⚠️
 
 ### Impact
+
 - **Time Saved:** Variable (depends on implementation)
 - **Benefit:** True parallelism in browser main thread
 
@@ -356,6 +705,7 @@ Create Grafana/Datadog dashboards for:
 **Step 1: Assess Need**
 
 After implementing P0, measure browser main thread performance:
+
 ```typescript
 const browserMainThreadTime = measure('didOpen');
 
@@ -377,12 +727,12 @@ const compilerService = new CompilerService();
 
 self.onmessage = (event) => {
   const { id, action, code, fileName, options } = event.data;
-  
+
   if (action === 'compile') {
     try {
       const listener = new ApexSymbolCollectorListener(undefined, 'full');
       const result = compilerService.compile(code, fileName, listener, options);
-      
+
       self.postMessage({
         id,
         success: true,
@@ -411,6 +761,7 @@ if (isMainThread && hasWebWorker) {
 ```
 
 ### Estimated Effort
+
 - **Worker implementation:** 8 hours
 - **Message serialization:** 4 hours (SymbolTable serialization)
 - **Integration:** 8 hours (update service, handle errors)
@@ -418,6 +769,7 @@ if (isMainThread && hasWebWorker) {
 - **Total:** ~28 hours
 
 ### Acceptance Criteria
+
 - [ ] Browser main thread didOpen <16ms
 - [ ] Worker compilation produces identical results
 - [ ] Error handling works across worker boundary
@@ -429,21 +781,25 @@ if (isMainThread && hasWebWorker) {
 ## Implementation Timeline
 
 ### Phase A: Quick Win (Priority 0)
+
 **Duration:** 1-2 days  
 **Effort:** 5 hours
 
 **Tasks:**
+
 1. Implement `preloadStandardLibrary()` method
 2. Call at server initialization
 3. Run performance tests to verify
 4. Update documentation
 
 **Deliverables:**
+
 - ✅ First didOpen: 73ms (not blocking in Node.js)
 - ✅ Performance tests showing improvement
 - ✅ Updated baseline report
 
 **Success Criteria:**
+
 ```typescript
 // Performance test assertion
 expect(firstDidOpenTime).toBeLessThan(100); // Node.js threshold
@@ -452,11 +808,13 @@ expect(firstDidOpenTime).toBeLessThan(100); // Node.js threshold
 ---
 
 ### Phase B: Effect Migration (Priority 1)
+
 **Duration:** 3-5 days  
 **Effort:** 10 hours  
 **Depends on:** Phase A complete
 
 **Tasks:**
+
 1. Update DocumentProcessingService to use Effect.gen
 2. Wrap compile() in Effect.sync()
 3. Update all callers
@@ -464,11 +822,13 @@ expect(firstDidOpenTime).toBeLessThan(100); // Node.js threshold
 5. Verify no regressions
 
 **Deliverables:**
+
 - ✅ Consistent Effect pattern across services
 - ✅ All tests passing
 - ✅ No performance regression
 
 **Success Criteria:**
+
 ```typescript
 // Pattern matches DiagnosticProcessingService
 public processDocumentOpenSingle = Effect.gen(this, function* () {
@@ -480,11 +840,13 @@ public processDocumentOpenSingle = Effect.gen(this, function* () {
 ---
 
 ### Phase C: Browser Validation (Priority 2)
+
 **Duration:** 2-3 days  
 **Effort:** 7 hours  
 **Depends on:** Phase A complete
 
 **Tasks:**
+
 1. Create browser performance test (Playwright)
 2. Run in vscode/test-web environment
 3. Measure with PerformanceObserver API
@@ -492,11 +854,13 @@ public processDocumentOpenSingle = Effect.gen(this, function* () {
 5. Document browser-specific findings
 
 **Deliverables:**
+
 - ✅ Browser performance test suite
 - ✅ Comparison report (Node.js vs Browser)
 - ✅ Updated documentation with browser metrics
 
 **Success Criteria:**
+
 ```typescript
 // Web Worker threshold
 expect(browserWorkerDidOpenTime).toBeLessThan(100);
@@ -508,11 +872,13 @@ expect(browserMainDidOpenTime).toBeLessThan(50); // Reasonable target
 ---
 
 ### Phase D: Production Monitoring (Priority 3)
+
 **Duration:** 1-2 days  
 **Effort:** 9 hours  
 **Depends on:** Phase A complete
 
 **Tasks:**
+
 1. Enable Effect metrics at startup
 2. Configure OpenTelemetry (if using)
 3. Create dashboards
@@ -520,12 +886,14 @@ expect(browserMainDidOpenTime).toBeLessThan(50); // Reasonable target
 5. Document metrics for operators
 
 **Deliverables:**
+
 - ✅ Metrics enabled in production
 - ✅ Dashboards (if OpenTelemetry)
 - ✅ Alerting for performance regressions
 - ✅ Operator documentation
 
 **Success Criteria:**
+
 - Metrics visible in monitoring system
 - No performance overhead from instrumentation
 - Alerts fire on regressions
@@ -533,11 +901,13 @@ expect(browserMainDidOpenTime).toBeLessThan(50); // Reasonable target
 ---
 
 ### Phase E: Web Worker (Priority 4) ⚠️ CONDITIONAL
+
 **Duration:** 2-3 weeks  
 **Effort:** 28 hours  
 **Depends on:** Phase C complete, **only if browser main thread >16ms**
 
 **Decision Point:**
+
 ```
 If (browserMainThreadTime after Phase A) > 16ms:
   → Implement Web Worker
@@ -546,6 +916,7 @@ Else:
 ```
 
 **Tasks:**
+
 1. Create compiler worker
 2. Implement message passing
 3. Serialize/deserialize symbol tables
@@ -554,11 +925,13 @@ Else:
 6. Error handling and fallback
 
 **Deliverables:**
+
 - ✅ Web Worker implementation
 - ✅ Browser main thread didOpen <16ms
 - ✅ Fallback for non-worker environments
 
 **Success Criteria:**
+
 - Browser main thread: <16ms (60fps maintained)
 - Identical results (worker vs sync)
 - Graceful fallback if worker unavailable
@@ -569,31 +942,31 @@ Else:
 
 ### Node.js Environment
 
-| Scenario | Before | After P0 | Saved | Impact |
-|----------|--------|----------|-------|--------|
-| **First didOpen** | 219ms | 73ms | **146ms** | 🔥 Major |
-| **Subsequent** | 9ms | 9ms | 0ms | ✅ Already fast |
-| **User perception** | Slow | Fast | ✅ | ⭐⭐⭐⭐⭐ |
+| Scenario            | Before | After P0 | Saved     | Impact          |
+| ------------------- | ------ | -------- | --------- | --------------- |
+| **First didOpen**   | 219ms  | 73ms     | **146ms** | 🔥 Major        |
+| **Subsequent**      | 9ms    | 9ms      | 0ms       | ✅ Already fast |
+| **User perception** | Slow   | Fast     | ✅        | ⭐⭐⭐⭐⭐      |
 
 ---
 
 ### Browser Web Worker
 
-| Scenario | Before | After P0 | Saved | Impact |
-|----------|--------|----------|-------|--------|
-| **First didOpen** | 219ms | 73ms | **146ms** | 🔥 Major |
-| **Subsequent** | 9ms | 9ms | 0ms | ✅ Already fast |
-| **User perception** | Slow | Fast | ✅ | ⭐⭐⭐⭐⭐ |
+| Scenario            | Before | After P0 | Saved     | Impact          |
+| ------------------- | ------ | -------- | --------- | --------------- |
+| **First didOpen**   | 219ms  | 73ms     | **146ms** | 🔥 Major        |
+| **Subsequent**      | 9ms    | 9ms      | 0ms       | ✅ Already fast |
+| **User perception** | Slow   | Fast     | ✅        | ⭐⭐⭐⭐⭐      |
 
 ---
 
 ### Browser Main Thread
 
-| Scenario | Before | After P0 | After P4 | Impact |
-|----------|--------|----------|----------|--------|
-| **First didOpen** | 219ms | 73ms | <16ms | 🔥 Critical |
-| **Subsequent** | 9ms | 9ms | <16ms | ⚠️ Borderline |
-| **Frames dropped** | 13 | 4 | 0 | ⭐⭐⭐⭐⭐ |
+| Scenario           | Before | After P0 | After P4 | Impact        |
+| ------------------ | ------ | -------- | -------- | ------------- |
+| **First didOpen**  | 219ms  | 73ms     | <16ms    | 🔥 Critical   |
+| **Subsequent**     | 9ms    | 9ms      | <16ms    | ⚠️ Borderline |
+| **Frames dropped** | 13     | 4        | 0        | ⭐⭐⭐⭐⭐    |
 
 ---
 
@@ -601,17 +974,18 @@ Else:
 
 ### Risk Matrix
 
-| Priority | Risk Level | Mitigation Strategy |
-|----------|-----------|---------------------|
-| **P0** | 🟢 Low | Startup cost acceptable, stdlib needed anyway |
-| **P1** | 🟡 Medium | Pattern proven in DiagnosticProcessingService |
-| **P2** | 🟢 Low | Read-only testing, no code changes |
-| **P3** | 🟢 Low | Metrics optional, no functional impact |
-| **P4** | 🟡 Medium | Complex, only if needed, prototype first |
+| Priority | Risk Level | Mitigation Strategy                           |
+| -------- | ---------- | --------------------------------------------- |
+| **P0**   | 🟢 Low     | Startup cost acceptable, stdlib needed anyway |
+| **P1**   | 🟡 Medium  | Pattern proven in DiagnosticProcessingService |
+| **P2**   | 🟢 Low     | Read-only testing, no code changes            |
+| **P3**   | 🟢 Low     | Metrics optional, no functional impact        |
+| **P4**   | 🟡 Medium  | Complex, only if needed, prototype first      |
 
 ### Rollback Plan
 
 **If P0 causes issues:**
+
 ```typescript
 // Add flag to disable pre-loading
 if (settings.apex.performance.preloadStdlib !== false) {
@@ -620,6 +994,7 @@ if (settings.apex.performance.preloadStdlib !== false) {
 ```
 
 **If P1 causes issues:**
+
 ```typescript
 // Can revert single commit
 git revert <effect-migration-commit>
@@ -630,17 +1005,20 @@ git revert <effect-migration-commit>
 ## Success Metrics
 
 ### Short-term (After P0)
+
 - [ ] First didOpen <100ms (Node.js) ✅
 - [ ] First didOpen <100ms (Browser Worker) ✅
 - [ ] No blocking operations in Node.js ✅
 - [ ] Performance tests pass ✅
 
 ### Medium-term (After P1-P2)
+
 - [ ] Effect.sync() pattern used consistently
 - [ ] Browser performance measured and documented
 - [ ] Decision made on P4 (Web Worker) based on data
 
 ### Long-term (After P3)
+
 - [ ] Production metrics enabled
 - [ ] Dashboards show real-world performance
 - [ ] No performance regressions in CI
@@ -655,12 +1033,13 @@ git revert <effect-migration-commit>
 **Idea:** Load multiple stdlib classes concurrently
 
 **Why Rejected:**
+
 ```typescript
 // This doesn't help in single-threaded JavaScript
 await Promise.all([
-  loadClass('String'),  // CPU work
-  loadClass('List'),    // CPU work
-  loadClass('Map'),     // CPU work
+  loadClass('String'), // CPU work
+  loadClass('List'), // CPU work
+  loadClass('Map'), // CPU work
 ]);
 
 // Equivalent to sequential execution:
@@ -678,6 +1057,7 @@ await loadClass('Map');
 **Idea:** Only load stdlib classes that are actually referenced
 
 **Why Rejected:**
+
 - **Complexity:** Need dependency tracking
 - **Unpredictable:** First file with `String` still pays 146ms cost
 - **Marginal benefit:** Most code uses String, List, Map anyway
@@ -690,6 +1070,7 @@ await loadClass('Map');
 **Idea:** Use faster decompression (e.g., LZ4 instead of gzip)
 
 **Why Not Primary Focus:**
+
 - **Diminishing returns:** Still CPU-bound
 - **Data format change:** Requires stdlib rebuild
 - **Pre-loading better:** Eliminates decompression from critical path
@@ -702,6 +1083,7 @@ await loadClass('Map');
 ### Performance Test Suite
 
 **Run regularly:**
+
 ```bash
 # All performance tests
 npm test -- --testPathPattern="performance"
@@ -711,11 +1093,12 @@ npm test -- --testPathPattern="DocumentProcessing.performance"
 ```
 
 **Add to CI:**
+
 ```yaml
 # .github/workflows/ci.yml
 - name: Performance Tests
   run: npm test -- --testPathPattern="performance" --maxWorkers=1
-  
+
 - name: Check Performance Thresholds
   run: |
     # Fail if any test shows blocking operations
@@ -725,12 +1108,13 @@ npm test -- --testPathPattern="DocumentProcessing.performance"
 ### Regression Detection
 
 **Set baseline thresholds:**
+
 ```typescript
 // In performance tests
 const THRESHOLDS = {
   didOpen: {
-    first: 100,      // After pre-loading
-    subsequent: 20,   // Allow some variance
+    first: 100, // After pre-loading
+    subsequent: 20, // Allow some variance
   },
   compile: {
     first: 50,
@@ -744,6 +1128,7 @@ expect(firstDidOpen).toBeLessThan(THRESHOLDS.didOpen.first);
 ### Production Metrics
 
 **Key metrics to track:**
+
 ```
 apex.compile.duration (histogram)
 ├─ p50: <10ms
@@ -765,12 +1150,14 @@ apex.stdlib.cache.hits (counter)
 ### Priority 0: Pre-load Standard Library
 
 **Investment:**
+
 - Development: 5 hours
 - Testing: 2 hours
 - Documentation: 1 hour
 - **Total: 8 hours**
 
 **Return:**
+
 - 146ms saved per server startup
 - Eliminates blocking in Node.js/Worker
 - Improved user experience
@@ -783,11 +1170,13 @@ apex.stdlib.cache.hits (counter)
 ### Priority 1: Effect.sync() Migration
 
 **Investment:**
+
 - Development: 10 hours
 - Testing: 4 hours
 - **Total: 14 hours**
 
 **Return:**
+
 - Enables future optimizations
 - Consistency across codebase
 - Better error handling
@@ -800,12 +1189,14 @@ apex.stdlib.cache.hits (counter)
 ### Priority 4: Web Worker
 
 **Investment:**
+
 - Development: 28 hours
 - Testing: 8 hours
 - Maintenance: Ongoing
 - **Total: 36+ hours**
 
 **Return:**
+
 - Browser main thread: 73ms → <16ms
 - Only benefits browser main thread deployments
 - Added complexity
@@ -827,6 +1218,7 @@ apex.stdlib.cache.hits (counter)
 ### Expected Outcome
 
 **After P0 (Pre-loading):**
+
 - Node.js: First didOpen 73ms ✅ (below 100ms threshold)
 - Browser Worker: First didOpen 73ms ✅ (below 100ms threshold)
 - Browser Main: First didOpen 73ms ⚠️ (above 16ms, may need P4)
@@ -846,6 +1238,7 @@ apex.stdlib.cache.hits (counter)
 ### Existing Performance Infrastructure
 
 **Already in codebase:**
+
 - ✅ Benchmark.js for LSP benchmarks
 - ✅ Node.js `--cpu-prof` for profiling
 - ✅ Symbol table caching
@@ -853,6 +1246,7 @@ apex.stdlib.cache.hits (counter)
 - ✅ Type name parsing cache
 
 **What we added:**
+
 - ✅ Blocking detection utilities
 - ✅ Environment-aware thresholds
 - ✅ Effect metrics integration
@@ -862,6 +1256,7 @@ apex.stdlib.cache.hits (counter)
 ### Future Considerations
 
 **Not in scope (but worth considering later):**
+
 - Incremental compilation (only recompile changed portions)
 - Streaming parsing (parse as user types)
 - Predictive pre-loading (preload likely-used symbols)
@@ -870,4 +1265,42 @@ apex.stdlib.cache.hits (counter)
 
 ---
 
-**Next Action:** Implement Priority 0 (Pre-load Standard Library)
+## Key Learnings from Investigation
+
+### What We Discovered
+
+1. **Protobuf cache works correctly** ✅
+   - All 5,250 stdlib types are pre-compiled and loaded at server startup
+   - Loading takes ~250ms but happens during initialization
+   - Cache is permanent for server lifetime
+
+2. **Symbol graph is populated on-demand** ✅
+   - Classes are added to graph only when first referenced
+   - Transfer from protobuf → graph takes ~30-50ms per class
+   - Once in graph, lookups are instant (~5ms)
+
+3. **No stdlib compilation during didOpen** ✅
+   - When ResourceLoader is properly initialized, stdlib classes are NEVER compiled from source
+   - They're retrieved pre-compiled from protobuf cache
+   - "Loading" is actually just cache lookup + graph registration
+
+4. **One-time penalty is per-class, not per-file** ✅
+   - First file pays cost to populate graph with its required stdlib classes
+   - Subsequent files reuse populated graph
+   - Only pay cost again if new stdlib classes are referenced
+
+5. **Test initialization matters critically** ⚠️
+   - Performance tests MUST initialize ResourceLoader before didOpen
+   - Without initialization, system falls back to source compilation (fatal 198ms penalty)
+   - This was the root cause of original "blocking operation" finding
+
+### Previous Misunderstandings
+
+- ❌ **"146ms stdlib loading"** was actually missing ResourceLoader init causing source compilation
+- ❌ **"Decompression during didOpen"** - decompression happens once at server startup
+- ❌ **"Per-file stdlib cost"** - it's per-class-first-use, not per-file; graph is shared across files
+- ❌ **"Need to pre-load stdlib"** - stdlib is already pre-loaded in protobuf; just need proper initialization
+
+---
+
+**Next Action:** Implement Priority 0 (Verify ResourceLoader Initialization in all production entry points)

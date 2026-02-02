@@ -45,6 +45,7 @@ import {
   ApexSymbolManager,
   ApexSymbolProcessingManager,
   SchedulerInitializationService,
+  ResourceLoader,
 } from '@salesforce/apex-lsp-parser-ast';
 import { cleanupTestResources } from '../helpers/test-cleanup';
 import { readFileSync } from 'fs';
@@ -79,9 +80,26 @@ describe('DocumentProcessingService - Performance Tests', () => {
     'utf8',
   );
 
-  beforeAll(() => {
+  beforeAll(async () => {
     enableConsoleLogging();
-    setLogLevel('error'); // Reduce noise in performance tests
+    setLogLevel('info'); // Enable diagnostic logging for protobuf cache investigation
+
+    // Initialize ResourceLoader with protobuf cache BEFORE any tests run
+    const tempLogger = getLogger();
+    tempLogger.info(
+      '\n=== Initializing ResourceLoader with protobuf cache ===',
+    );
+    const resourceLoader = ResourceLoader.getInstance({
+      preloadStdClasses: true,
+    });
+    await resourceLoader.initialize();
+
+    const isProtobufLoaded = resourceLoader.isProtobufCacheLoaded();
+    const protobufData = resourceLoader.getProtobufCacheData();
+    tempLogger.info(`✅ Protobuf cache loaded: ${isProtobufLoaded}`);
+    tempLogger.info(
+      `✅ Protobuf cache contains: ${protobufData ? `${protobufData.symbolTables.size} symbol tables` : 'none'}`,
+    );
   });
 
   beforeEach(async () => {

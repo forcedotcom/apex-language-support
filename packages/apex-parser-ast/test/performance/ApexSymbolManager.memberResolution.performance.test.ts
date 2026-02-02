@@ -69,7 +69,7 @@ public class TestClass {
 
   beforeAll(() => {
     enableConsoleLogging();
-    setLogLevel('error'); // Reduce noise in performance tests
+    setLogLevel('info'); // Enable diagnostic logging for protobuf cache investigation
   });
 
   beforeEach(() => {

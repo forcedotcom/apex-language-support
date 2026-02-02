@@ -110,6 +110,11 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       yieldTimeThresholdMs: 50,
     },
 
+    symbolGraph: {
+      enabled: true, // Enabled by default - only 190ms startup cost for 60-80ms first-file benefit
+      preloadNamespaces: ['Database', 'System'], // Default namespaces
+    },
+
     worker: {
       logLevel: 'info',
     },

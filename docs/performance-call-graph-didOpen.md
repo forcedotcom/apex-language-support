@@ -109,6 +109,7 @@ This document traces the execution path of a `textDocument/didOpen` event from L
 ### Phase 1: LSP Request Handling (ASYNC - Non-Blocking)
 
 **Entry Point:** `LCSAdapter.setupDocumentHandlers()`
+
 ```typescript
 // Location: lsp-compliant-services/src/server/LCSAdapter.ts:428
 private setupDocumentHandlers(): void {
@@ -120,6 +121,7 @@ private setupDocumentHandlers(): void {
 ```
 
 **Characteristics:**
+
 - ✅ **Non-blocking:** Returns immediately
 - ✅ **Async boundary:** Spawns async task
 - ⏱️ **Duration:** <1ms
@@ -130,6 +132,7 @@ private setupDocumentHandlers(): void {
 ### Phase 2: Document Processing Setup (ASYNC - Non-Blocking)
 
 **Entry Point:** `DocumentProcessingService.processDocumentOpen()`
+
 ```typescript
 // Location: lsp-compliant-services/src/services/DocumentProcessingService.ts:75
 public processDocumentOpen(event: TextDocumentChangeEvent<TextDocument>): void {
@@ -142,7 +145,7 @@ public processDocumentOpen(event: TextDocumentChangeEvent<TextDocument>): void {
         );
         this.batcher = service;
       }
-      
+
       // Route through batcher (async)
       await Effect.runPromise(this.batcher.addDocumentOpen(event));  // ✅ Async
     } catch (error) {
@@ -153,6 +156,7 @@ public processDocumentOpen(event: TextDocumentChangeEvent<TextDocument>): void {
 ```
 
 **Characteristics:**
+
 - ✅ **Non-blocking:** Fire-and-forget async
 - ✅ **Effect integration:** Uses Effect.runPromise
 - ⏱️ **Duration:** <1ms
@@ -163,13 +167,14 @@ public processDocumentOpen(event: TextDocumentChangeEvent<TextDocument>): void {
 ### Phase 3: Single Document Processing (MIXED - BLOCKING STARTS)
 
 **Entry Point:** `DocumentProcessingService.processDocumentOpenSingle()`
+
 ```typescript
 // Location: lsp-compliant-services/src/services/DocumentProcessingService.ts:244
 public async processDocumentOpenSingle(
   event: TextDocumentChangeEvent<TextDocument>
 ): Promise<Diagnostic[] | undefined> {
   // ... setup code (async, fast) ...
-  
+
   // 🔴 BLOCKING CALL - No await, no yielding
   const compileResult = compilerService.compile(  // ⚠️ SYNC!
     event.document.getText(),
@@ -180,18 +185,20 @@ public async processDocumentOpenSingle(
       resolveReferences: true,
     }
   );
-  
+
   // ... rest of processing ...
 }
 ```
 
 **Characteristics:**
+
 - ⚠️ **BLOCKING STARTS:** Calls synchronous `compile()`
 - 🔴 **No yielding:** Direct sync call
 - ⏱️ **Duration:** 219ms (first) → 9ms (subsequent)
 - 🎯 **Event Loop:** BLOCKED for entire duration
 
 **Why This Blocks:**
+
 - `compilerService.compile()` is **synchronous**
 - Runs on the same thread as event loop
 - No `await` or `Effect.sync()` wrapper to enable interruption
@@ -202,6 +209,7 @@ public async processDocumentOpenSingle(
 ### Phase 4: Compilation (SYNCHRONOUS - BLOCKING)
 
 **Entry Point:** `CompilerService.compile()`
+
 ```typescript
 // Location: apex-parser-ast/src/parser/compilerService.ts:140
 public compile<T>(
@@ -211,31 +219,31 @@ public compile<T>(
   options: CompilationOptions = {}
 ): CompilationResult<T> | ... {
   this.logger.debug(() => `Starting compilation of ${fileName}`);
-  
+
   try {
     // 1. Parse (SYNC - ~3ms)
     const { parseTree, errorListener, tokenStream } = this.createParseTree(
       fileContent,
       fileName
     );
-    
+
     // 2. Walk tree (SYNC - ~2ms)
     const walker = new ParseTreeWalker();
     walker.walk(listener, parseTree);  // ⚠️ SYNC tree traversal
-    
+
     // 3. Collect references (SYNC - ~1ms)
     if (collectReferences) {
       const referenceCollector = new ApexReferenceCollectorListener(symbolTable);
       walker.walk(referenceCollector, parseTree);  // ⚠️ SYNC
     }
-    
+
     // 4. Resolve deferred references (SYNC - ~146ms FIRST TIME)
     this.namespaceResolutionService.resolveDeferredReferences(
       symbolTable,
       compilationContext,
       symbolProvider
     );  // ⚠️ SYNC - This is where stdlib loads
-    
+
     return baseResult;
   } catch (error) {
     // ...
@@ -246,6 +254,7 @@ public compile<T>(
 **Sub-Operations:**
 
 #### 4.1: Parsing (SYNC - Fast)
+
 ```typescript
 private createParseTree(fileContent: string, fileName: string) {
   const inputStream = CharStreams.fromString(fileContent);
@@ -256,25 +265,30 @@ private createParseTree(fileContent: string, fileName: string) {
   return { parseTree, errorListener, tokenStream };
 }
 ```
+
 - ⏱️ **Duration:** ~3ms
 - 🎯 **Blocks event loop:** Yes, but brief
 
 #### 4.2: Tree Walking (SYNC - Fast)
+
 ```typescript
 const walker = new ParseTreeWalker();
-walker.walk(listener, parseTree);  // ⚠️ SYNC traversal
+walker.walk(listener, parseTree); // ⚠️ SYNC traversal
 ```
+
 - ⏱️ **Duration:** ~2ms (symbol collection) + ~1ms (reference collection)
 - 🎯 **Blocks event loop:** Yes, but brief
 
 #### 4.3: Deferred Reference Resolution (SYNC - SLOW ON FIRST RUN)
+
 ```typescript
 this.namespaceResolutionService.resolveDeferredReferences(
   symbolTable,
   compilationContext,
-  symbolProvider
+  symbolProvider,
 );
 ```
+
 - ⏱️ **Duration:** ~146ms (first) → ~1ms (subsequent)
 - 🎯 **Blocks event loop:** YES - THIS IS THE PROBLEM
 
@@ -283,6 +297,7 @@ this.namespaceResolutionService.resolveDeferredReferences(
 ### Phase 5: Symbol Resolution & Standard Library Loading (ASYNC BUT BLOCKING)
 
 **Entry Point:** `ApexSymbolManager.resolveMemberInContext()`
+
 ```typescript
 // Location: apex-parser-ast/src/symbols/ApexSymbolManager.ts:7544
 private async resolveMemberInContext(
@@ -291,7 +306,7 @@ private async resolveMemberInContext(
   memberType: 'property' | 'method' | 'class'
 ): Promise<ApexSymbol | null> {
   // ... lookup logic ...
-  
+
   // If standard library class and not loaded, load it
   if (!symbolTable && isStandardApexUri(contextFile) && this.resourceLoader) {
     // 🔴 LOADS STANDARD LIBRARY CLASS (CPU-INTENSIVE)
@@ -300,12 +315,13 @@ private async resolveMemberInContext(
       contextFile
     );  // ⚠️ ~146ms on first load (decompresses + parses stdlib)
   }
-  
+
   // ... continue resolution ...
 }
 ```
 
 **Standard Library Loading Process:**
+
 1. **Check cache:** Is stdlib class already loaded?
 2. **If not cached:**
    - Read compressed protobuf from memory
@@ -315,6 +331,7 @@ private async resolveMemberInContext(
 3. **Subsequent calls:** Return cached version (<1ms)
 
 **Why This Blocks Despite Being Async:**
+
 - Method is `async`, but **caller doesn't await properly**
 - Called from synchronous context in `resolveDeferredReferences()`
 - Even if awaited, the work is **CPU-bound** (not I/O-bound)
@@ -322,6 +339,7 @@ private async resolveMemberInContext(
 - JavaScript single-threaded: CPU work blocks event loop
 
 **Characteristics:**
+
 - ⏱️ **Duration:** ~146ms (first load) → <1ms (cached)
 - 🎯 **Event Loop:** BLOCKED (despite async signature)
 - 🔴 **CPU-Bound:** Decompression + parsing is pure CPU work
@@ -333,18 +351,18 @@ private async resolveMemberInContext(
 
 ### Boundary Map
 
-| Component | Async? | Yields? | Blocks? | Duration |
-|-----------|--------|---------|---------|----------|
-| **LSP Handler** | ✅ Yes | ✅ Yes | ❌ No | <1ms |
-| **processDocumentOpen** | ✅ Yes | ✅ Yes | ❌ No | <1ms |
-| **Batcher.addDocumentOpen** | ✅ Yes | ✅ Yes | ❌ No | <1ms |
-| **processDocumentOpenSingle** | ✅ Yes | ❌ **NO** | ⚠️ **YES** | 219ms |
-| **CompilerService.compile** | ❌ **NO** | ❌ **NO** | ⚠️ **YES** | 151ms |
-| **createParseTree** | ❌ No | ❌ No | ⚠️ Yes | 3ms |
-| **ParseTreeWalker.walk** | ❌ No | ❌ No | ⚠️ Yes | 3ms |
-| **resolveDeferredReferences** | ❌ No | ❌ No | ⚠️ Yes | 146ms |
-| **resolveMemberInContext** | ✅ Yes | ❌ **NO** | ⚠️ **YES** | 146ms |
-| **loadStandardLibraryClass** | ✅ Yes | ❌ **NO** | ⚠️ **YES** | 146ms |
+| Component                     | Async?    | Yields?   | Blocks?    | Duration |
+| ----------------------------- | --------- | --------- | ---------- | -------- |
+| **LSP Handler**               | ✅ Yes    | ✅ Yes    | ❌ No      | <1ms     |
+| **processDocumentOpen**       | ✅ Yes    | ✅ Yes    | ❌ No      | <1ms     |
+| **Batcher.addDocumentOpen**   | ✅ Yes    | ✅ Yes    | ❌ No      | <1ms     |
+| **processDocumentOpenSingle** | ✅ Yes    | ❌ **NO** | ⚠️ **YES** | 219ms    |
+| **CompilerService.compile**   | ❌ **NO** | ❌ **NO** | ⚠️ **YES** | 151ms    |
+| **createParseTree**           | ❌ No     | ❌ No     | ⚠️ Yes     | 3ms      |
+| **ParseTreeWalker.walk**      | ❌ No     | ❌ No     | ⚠️ Yes     | 3ms      |
+| **resolveDeferredReferences** | ❌ No     | ❌ No     | ⚠️ Yes     | 146ms    |
+| **resolveMemberInContext**    | ✅ Yes    | ❌ **NO** | ⚠️ **YES** | 146ms    |
+| **loadStandardLibraryClass**  | ✅ Yes    | ❌ **NO** | ⚠️ **YES** | 146ms    |
 
 ### Critical Observations
 
@@ -354,8 +372,9 @@ private async resolveMemberInContext(
    - Need explicit yielding (`Effect.sync()` + `yieldToEventLoop`)
 
 2. **The Blocking Chain**
+
    ```
-   processDocumentOpenSingle (async) 
+   processDocumentOpenSingle (async)
      → compile() (SYNC)
        → resolveDeferredReferences() (SYNC)
          → resolveMemberInContext() (async but blocks)
@@ -375,16 +394,19 @@ private async resolveMemberInContext(
 ### Category 1: Unavoidably Synchronous (But Fast)
 
 **Operations:**
+
 - Parsing (`createParseTree`) - ~3ms
 - Tree walking (`ParseTreeWalker.walk`) - ~3ms
 - Reference collection - ~1ms
 
 **Why They're OK:**
+
 - Below 100ms Node.js threshold
 - Below 16ms browser threshold would require optimization
 - Difficult to make async (tight loops, visitor pattern)
 
 **Optimization Strategy:**
+
 - ✅ **Node.js:** Accept as-is (fast enough)
 - ⚠️ **Browser:** Consider chunking or Web Worker offloading
 
@@ -393,9 +415,11 @@ private async resolveMemberInContext(
 ### Category 2: Should Be Non-Blocking (But Isn't)
 
 **Operations:**
+
 - Standard library loading - ~146ms (FIRST TIME)
 
 **Why It's Problematic:**
+
 - Way above 100ms threshold (Node.js)
 - Way above 16ms threshold (Browser)
 - Could be pre-loaded or chunked
@@ -404,6 +428,7 @@ private async resolveMemberInContext(
 **Optimization Strategies:**
 
 #### Strategy A: Pre-load on Server Startup ✅ BEST
+
 ```typescript
 // On server initialization (before first didOpen)
 await ApexSymbolManager.preloadStandardLibrary();
@@ -411,39 +436,43 @@ await ApexSymbolManager.preloadStandardLibrary();
 ```
 
 #### Strategy B: Lazy Load with Explicit Yielding
+
 ```typescript
 // In ApexSymbolManager
 async loadStandardLibraryClass(className: string): Promise<SymbolTable> {
   // Decompress
   const compressed = getCompressedStdlib(className);
-  
+
   // Yield before CPU-intensive work
   await yieldToEventLoop();
-  
+
   // Decompress (CPU-intensive)
   const decompressed = decompress(compressed);
-  
+
   // Yield again
   await yieldToEventLoop();
-  
+
   // Parse (CPU-intensive)
   const symbolTable = parse(decompressed);
-  
+
   return symbolTable;
 }
 ```
 
 #### Strategy C: Effect.sync() Wrapper for Interruption
+
 ```typescript
 // In DocumentProcessingService.processDocumentOpenSingle
-const compileResult = yield* Effect.sync(() =>
-  compilerService.compile(
-    event.document.getText(),
-    event.document.uri,
-    listener,
-    { collectReferences: true, resolveReferences: true }
-  )
-);
+const compileResult =
+  yield *
+  Effect.sync(() =>
+    compilerService.compile(
+      event.document.getText(),
+      event.document.uri,
+      listener,
+      { collectReferences: true, resolveReferences: true },
+    ),
+  );
 ```
 
 ---
@@ -451,27 +480,33 @@ const compileResult = yield* Effect.sync(() =>
 ## Comparison: DiagnosticProcessingService (Correct Pattern)
 
 **Why DiagnosticProcessingService Doesn't Block:**
+
 ```typescript
 // Location: lsp-compliant-services/src/services/DiagnosticProcessingService.ts
 try {
-  result = yield* Effect.sync(() =>  // ✅ Effect.sync wrapper!
-    compilerService.compile(document.getText(), document.uri, listener, {
-      collectReferences: true,
-      resolveReferences: true,
-    })
-  );
+  result =
+    yield *
+    Effect.sync(() =>
+      // ✅ Effect.sync wrapper!
+      compilerService.compile(document.getText(), document.uri, listener, {
+        collectReferences: true,
+        resolveReferences: true,
+      }),
+    );
 } catch (error) {
   // ...
 }
 ```
 
 **What This Does:**
+
 - Wraps synchronous `compile()` in `Effect.sync()`
 - Makes the operation **interruptible**
 - Can be combined with `yieldToEventLoop` in Effect chain
 - Allows Effect scheduler to manage execution
 
 **Why DocumentProcessingService Doesn't Use This:**
+
 - Historical: Was written before Effect refactor
 - Not yet migrated to Effect-based approach
 - Direct sync call for simplicity
@@ -483,20 +518,23 @@ try {
 ### Priority 1: Pre-load Standard Library (Eliminates 146ms) 🔥
 
 **Implementation:**
+
 ```typescript
 // In server initialization
 export async function initializeServer(): Promise<void> {
   await SchedulerInitializationService.getInstance().ensureInitialized();
-  
+
   // Pre-load standard library BEFORE first didOpen
-  const symbolManager = ApexSymbolProcessingManager.getInstance().getSymbolManager();
+  const symbolManager =
+    ApexSymbolProcessingManager.getInstance().getSymbolManager();
   await symbolManager.preloadStandardLibrary();
-  
+
   logger.info('Standard library pre-loaded');
 }
 ```
 
 **Impact:**
+
 - First didOpen: 219ms → 73ms (146ms saved)
 - Browser: Still above 16ms threshold, but much better
 - Node.js: Below 100ms threshold (acceptable)
@@ -506,14 +544,15 @@ export async function initializeServer(): Promise<void> {
 ### Priority 2: Wrap compile() in Effect.sync()
 
 **Implementation:**
+
 ```typescript
 // In DocumentProcessingService.processDocumentOpenSingle
-const compileResult = yield* Effect.sync(() =>
-  compilerService.compile(/* ... */)
-);
+const compileResult =
+  yield * Effect.sync(() => compilerService.compile(/* ... */));
 ```
 
 **Impact:**
+
 - Makes operation interruptible
 - Enables future optimizations with Effect scheduler
 - Consistency with DiagnosticProcessingService
@@ -523,14 +562,15 @@ const compileResult = yield* Effect.sync(() =>
 ### Priority 3: Add Yielding to Standard Library Loading
 
 **Implementation:**
+
 ```typescript
 // In StandardLibraryLoader
 async loadClass(className: string): Promise<SymbolTable> {
   const classes = ['String', 'List', 'Map', 'Set', /* ... */];
-  
+
   for (let i = 0; i < classes.length; i++) {
     const symbolTable = decompressAndParse(classes[i]);
-    
+
     // Yield every 5 classes
     if ((i + 1) % 5 === 0) {
       await yieldToEventLoop();
@@ -540,6 +580,7 @@ async loadClass(className: string): Promise<SymbolTable> {
 ```
 
 **Impact:**
+
 - Reduces max blocking time
 - Browser: Better responsiveness during load
 - Node.js: Better event loop management
@@ -549,16 +590,19 @@ async loadClass(className: string): Promise<SymbolTable> {
 ## Browser-Specific Considerations
 
 ### Current State (219ms blocking)
+
 - **Main Thread:** Freezes for 219ms
 - **Dropped Frames:** 13 frames @ 60fps
 - **User Experience:** Noticeable freeze
 
 ### With Pre-loading (73ms blocking)
-- **Main Thread:** Freezes for 73ms  
+
+- **Main Thread:** Freezes for 73ms
 - **Dropped Frames:** 4 frames @ 60fps
 - **User Experience:** Still noticeable, but better
 
 ### Ideal State (<16ms per chunk)
+
 - **Option A:** Move compilation to Web Worker
 - **Option B:** Chunk compilation with explicit yielding
 - **Option C:** Lazy JIT compilation (compile methods on-demand)
@@ -609,6 +653,7 @@ textDocument/didOpen (LSP Client)
 ```
 
 **Legend:**
+
 - `[SYNC, Xms]` - Synchronous, blocks for X milliseconds
 - `[ASYNC, Xms]` - Asynchronous, doesn't block (or blocks minimally)
 - `[ASYNC*, Xms]` - Declared async, but actually blocks due to CPU work

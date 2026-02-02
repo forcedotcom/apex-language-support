@@ -668,6 +668,9 @@ export class ResourceLoader {
     className: string,
   ): CompiledArtifact | null {
     if (!this.protobufCacheData) {
+      this.logger.debug(
+        () => '[DIAGNOSTIC] getArtifactFromProtobufCache: no protobufCacheData',
+      );
       return null;
     }
 
@@ -680,30 +683,65 @@ export class ResourceLoader {
     let searchUri: string | null = null;
     const normalizedClassName = className.replace(/\.cls$/i, '');
 
+    this.logger.debug(
+      () =>
+        `[DIAGNOSTIC] getArtifactFromProtobufCache: className="${className}", ` +
+        `normalizedClassName="${normalizedClassName}"`,
+    );
+
     // Check if it includes a namespace
     const pathParts = normalizedClassName.split(/[\/\\]/);
     if (pathParts.length >= 2) {
       const namespace = pathParts[0];
       const classNameOnly = pathParts[pathParts.length - 1];
       searchUri = `apex://stdlib/${namespace}/${classNameOnly}`;
+      this.logger.debug(
+        () =>
+          `[DIAGNOSTIC] Path has namespace: '${namespace}', ` +
+          `className: '${classNameOnly}', searchUri: '${searchUri}'`,
+      );
     } else {
       // Try to find by class name only - check all namespaces
+      const tableCount = this.protobufCacheData!.symbolTables.size;
+      this.logger.debug(
+        () =>
+          '[DIAGNOSTIC] No namespace in path, searching by class name ' +
+          `only in ${tableCount} symbol tables`,
+      );
       for (const [uri, _symbolTable] of this.protobufCacheData.symbolTables) {
         if (uri.endsWith(`/${normalizedClassName}`)) {
           searchUri = uri;
+          this.logger.debug(
+            () => `[DIAGNOSTIC] Found matching URI by suffix: '${searchUri}'`,
+          );
           break;
         }
       }
     }
 
     if (!searchUri) {
+      this.logger.debug(
+        () =>
+          `[DIAGNOSTIC] Could not determine searchUri for className="${className}"`,
+      );
       return null;
     }
 
     const symbolTable = this.protobufCacheData.symbolTables.get(searchUri);
     if (!symbolTable) {
+      this.logger.debug(
+        () =>
+          '[DIAGNOSTIC] No symbol table found for ' +
+          `searchUri='${searchUri}' in protobuf cache`,
+      );
       return null;
     }
+
+    this.logger.debug(
+      () =>
+        '[DIAGNOSTIC] Found symbol table for ' +
+        `searchUri='${searchUri}' in protobuf cache`,
+    );
 
     // Convert SymbolTable to CompiledArtifact
     const artifact: CompiledArtifact = {
@@ -923,12 +961,28 @@ export class ResourceLoader {
       }
     }
 
-    // Check protobuf cache for pre-compiled symbol tables
+    // DIAGNOSTIC: Check protobuf cache for pre-compiled symbol tables
+    this.logger.debug(
+      () =>
+        `[DIAGNOSTIC] loadAndCompileClass("${className}") - ` +
+        `protobufCacheLoaded: ${this.protobufCacheLoaded}, ` +
+        `hasData: ${this.protobufCacheData !== null}, ` +
+        `normalizedPath: "${normalizedPath}"`,
+    );
+
     if (this.protobufCacheLoaded && this.protobufCacheData) {
       const artifact = this.getArtifactFromProtobufCache(className);
+      this.logger.debug(
+        () =>
+          `[DIAGNOSTIC] getArtifactFromProtobufCache("${className}") returned: ${artifact ? 'FOUND' : 'NULL'}`,
+      );
       if (artifact) {
         // Cache it for future lookups
         this.compiledArtifacts.set(normalizedPath, artifact);
+        this.logger.debug(
+          () =>
+            `[DIAGNOSTIC] Returning protobuf-cached artifact for ${className} (no compilation needed)`,
+        );
         return artifact;
       }
     }
