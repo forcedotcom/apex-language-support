@@ -21,9 +21,13 @@ import { normalizeApexPath } from './PathUtils';
 import { CompilerService } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
-import { SymbolTable } from '../types/symbol';
+import { SymbolTable, SymbolKind } from '../types/symbol';
 import { STANDARD_APEX_LIBRARY_URI } from './ResourceUtils';
 import { NamespaceDependencyAnalyzer } from './NamespaceDependencyAnalyzer';
+import {
+  GlobalTypeRegistry,
+  TypeRegistryEntry,
+} from '../symbols/GlobalTypeRegistry';
 
 export interface ResourceLoaderOptions {
   preloadStdClasses?: boolean;
@@ -92,6 +96,7 @@ export class ResourceLoader {
   private protobufCacheLoaded = false; // Track if protobuf cache was used
   private protobufCacheData: DeserializationResult | null = null; // Cached protobuf data
   private namespaceDependencyOrder: string[] | null = null; // Cached dependency-sorted namespace order
+  private globalTypeRegistry: GlobalTypeRegistry; // Global type registry for O(1) type lookups
 
   private constructor(options?: ResourceLoaderOptions) {
     this.logger.debug(
@@ -103,6 +108,7 @@ export class ResourceLoader {
     }
 
     this.compilerService = new CompilerService();
+    this.globalTypeRegistry = GlobalTypeRegistry.getInstance();
 
     // Initialize empty structure initially
     this.initializeEmptyStructure();
@@ -692,6 +698,71 @@ export class ResourceLoader {
         `Populated from protobuf cache: ${this.namespaces.size} namespaces, ` +
         `${this.fileIndex.size} files indexed`,
     );
+
+    // Also populate the GlobalTypeRegistry
+    this.populateGlobalTypeRegistry(data);
+  }
+
+  /**
+   * Populate the GlobalTypeRegistry with type metadata from protobuf cache.
+   * Extracts only top-level type information (classes, interfaces, enums)
+   * without loading full symbol data.
+   *
+   * @private
+   */
+  private populateGlobalTypeRegistry(data: DeserializationResult): void {
+    const startTime = performance.now();
+    let typeCount = 0;
+
+    try {
+      // Iterate through all symbol tables in the protobuf cache
+      for (const [fileUri, symbolTable] of data.symbolTables) {
+        // Extract namespace from file URI
+        // Format: apex://stdlib/{namespace}/{className}
+        const match = fileUri.match(/apex:\/\/stdlib\/([^/]+)\/([^/]+)/);
+        if (!match) continue;
+
+        const namespace = match[1];
+
+        // Get all symbols from the symbol table
+        const allSymbols = symbolTable.getAllSymbols();
+
+        // Find top-level types (parentId === null and kind is Class/Interface/Enum)
+        for (const symbol of allSymbols) {
+          if (
+            symbol.parentId === null &&
+            (symbol.kind === SymbolKind.Class ||
+              symbol.kind === SymbolKind.Interface ||
+              symbol.kind === SymbolKind.Enum)
+          ) {
+            // Create a type registry entry
+            const fqn = `${namespace}.${symbol.name}`.toLowerCase();
+            const entry: TypeRegistryEntry = {
+              fqn,
+              name: symbol.name,
+              namespace,
+              kind: symbol.kind,
+              symbolId: symbol.id,
+              fileUri,
+              isStdlib: true,
+            };
+
+            this.globalTypeRegistry.registerType(entry);
+            typeCount++;
+          }
+        }
+      }
+
+      const elapsed = performance.now() - startTime;
+      this.logger.alwaysLog(
+        () =>
+          `✅ Populated GlobalTypeRegistry with ${typeCount} stdlib types in ${elapsed.toFixed(1)}ms`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `⚠️ Failed to populate GlobalTypeRegistry: ${error instanceof Error ? error.message : error}`,
+      );
+    }
   }
 
   /**
@@ -706,6 +777,14 @@ export class ResourceLoader {
    */
   public getProtobufCacheData(): DeserializationResult | null {
     return this.protobufCacheData;
+  }
+
+  /**
+   * Get the GlobalTypeRegistry instance
+   * Provides O(1) type resolution for fast lookups
+   */
+  public getGlobalTypeRegistry(): GlobalTypeRegistry {
+    return this.globalTypeRegistry;
   }
 
   /**

@@ -3977,22 +3977,58 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             );
           }
 
-          // If still not found, iterate through all registered symbol tables
-          // This ensures we find classes in other files even if nameIndex isn't updated yet
+          // If still not found, try GlobalTypeRegistry for O(1) lookup
+          // This replaces the O(n²) scan through all symbol tables
           if (classCandidates.length === 0) {
-            const fileToSymbolTable = this.symbolGraph.getFileToSymbolTable();
-            for (const [_fileUri, symbolTable] of fileToSymbolTable.entries()) {
-              if (!symbolTable) continue;
-              const allSymbols = symbolTable.getAllSymbols();
-              const found = allSymbols.filter(
-                (s: ApexSymbol) =>
-                  s.name === typeReference.name &&
-                  (s.kind === SymbolKind.Class ||
-                    s.kind === SymbolKind.Interface),
+            const registry =
+              ResourceLoader.getInstance().getGlobalTypeRegistry();
+            // Extract namespace from source file if available
+            const sourceSymbol = sourceSymbolTable
+              ?.getAllSymbols()
+              .find((s) => s.parentId === null);
+            const currentNs = sourceSymbol?.namespace
+              ? String(sourceSymbol.namespace)
+              : undefined;
+            const registryEntry = registry.resolveType(typeReference.name, {
+              currentNamespace: currentNs,
+            });
+
+            if (registryEntry) {
+              // Found in registry - get the symbol directly
+              const symbol = this.symbolGraph.getSymbol(registryEntry.symbolId);
+              if (symbol) {
+                classCandidates = [symbol];
+                this.logger.debug(
+                  () =>
+                    `[GlobalTypeRegistry] Resolved "${typeReference.name}" to ` +
+                    `"${registryEntry.fqn}" via registry (O(1))`,
+                );
+              }
+            } else {
+              // Not in registry - fall back to O(n²) scan for user types
+              // (This path should rarely be hit after registry is fully populated)
+              this.logger.debug(
+                () =>
+                  `[GlobalTypeRegistry] Type "${typeReference.name}" not in registry, ` +
+                  'falling back to symbol table scan',
               );
-              if (found.length > 0) {
-                classCandidates = found;
-                break;
+              const fileToSymbolTable = this.symbolGraph.getFileToSymbolTable();
+              for (const [
+                _fileUri,
+                symbolTable,
+              ] of fileToSymbolTable.entries()) {
+                if (!symbolTable) continue;
+                const allSymbols = symbolTable.getAllSymbols();
+                const found = allSymbols.filter(
+                  (s: ApexSymbol) =>
+                    s.name === typeReference.name &&
+                    (s.kind === SymbolKind.Class ||
+                      s.kind === SymbolKind.Interface),
+                );
+                if (found.length > 0) {
+                  classCandidates = found;
+                  break;
+                }
               }
             }
           }

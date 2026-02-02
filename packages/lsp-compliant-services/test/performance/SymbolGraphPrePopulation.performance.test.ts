@@ -399,4 +399,120 @@ describe('Symbol Graph Pre-population Performance', () => {
     }
     logger.info('');
   }, 30000);
+
+  /**
+   * NEW: GlobalTypeRegistry Performance Test
+   *
+   * This test measures the O(1) type lookup performance of the GlobalTypeRegistry.
+   * Unlike pre-population tests above (which load full symbols), this tests the
+   * registry initialization cost (metadata only) and lookup speed.
+   *
+   * Expected results:
+   * - Registry initialization: ~10-20ms (1,000 types)
+   * - Single type lookup: < 1ms (O(1))
+   * - Memory overhead: ~100KB vs ~50MB for full pre-loading
+   */
+  it('should measure GlobalTypeRegistry initialization and lookup performance', async () => {
+    logger.alwaysLog(() => '\n========================================');
+    logger.alwaysLog(() => 'GlobalTypeRegistry Performance Measurement');
+    logger.alwaysLog(() => '========================================');
+
+    // Initialize ResourceLoader to trigger registry population
+    const initStart = performance.now();
+    await resourceLoader.initialize();
+    const initEnd = performance.now();
+    const initDuration = initEnd - initStart;
+
+    logger.alwaysLog(
+      () =>
+        `ResourceLoader initialization: ${initDuration.toFixed(1)}ms ` +
+        '(includes registry population)',
+    );
+
+    // Get the registry and check statistics
+    const registry = resourceLoader.getGlobalTypeRegistry();
+    const stats = registry.getStats();
+
+    logger.alwaysLog(
+      () =>
+        `Registry populated with ${stats.totalTypes} types ` +
+        `(stdlib: ${stats.stdlibTypes}, user: ${stats.userTypes})`,
+    );
+
+    // Measure lookup performance for common types
+    const lookupTests = [
+      'Exception',
+      'String',
+      'Database.QueryLocator',
+      'System.Exception',
+      'ApexPages.StandardController',
+      'ConnectApi.FeedItem',
+    ];
+
+    logger.alwaysLog(() => '\nType Resolution Performance (O(1) lookups):');
+
+    const lookupResults: Array<{
+      type: string;
+      duration: number;
+      found: boolean;
+    }> = [];
+
+    for (const typeName of lookupTests) {
+      const lookupStart = performance.now();
+      const result = registry.resolveType(typeName);
+      const lookupEnd = performance.now();
+      const lookupDuration = lookupEnd - lookupStart;
+
+      lookupResults.push({
+        type: typeName,
+        duration: lookupDuration,
+        found: result !== undefined,
+      });
+
+      logger.alwaysLog(
+        () =>
+          `  ${typeName}: ${lookupDuration.toFixed(3)}ms ` +
+          `(${result ? `found: ${result.fqn}` : 'not found'})`,
+      );
+    }
+
+    // Calculate average lookup time
+    const avgLookup =
+      lookupResults.reduce((sum, r) => sum + r.duration, 0) /
+      lookupResults.length;
+
+    logger.alwaysLog(() => `\nAverage lookup time: ${avgLookup.toFixed(3)}ms`);
+
+    // Final statistics
+    const finalStats = registry.getStats();
+    logger.alwaysLog(() => '\nRegistry Statistics:');
+    logger.alwaysLog(() => `  Total types: ${finalStats.totalTypes}`);
+    logger.alwaysLog(() => `  Total lookups: ${finalStats.lookupCount}`);
+    logger.alwaysLog(() => `  Cache hits: ${finalStats.hitCount}`);
+    logger.alwaysLog(
+      () => `  Hit rate: ${(finalStats.hitRate * 100).toFixed(1)}%`,
+    );
+
+    logger.alwaysLog(() => '\n========================================');
+    logger.alwaysLog(() => 'Registry Performance Summary:');
+    logger.alwaysLog(
+      () =>
+        `  Initialization: ${initDuration.toFixed(1)}ms for ${stats.totalTypes} types`,
+    );
+    logger.alwaysLog(
+      () =>
+        `  Per-type cost: ${(initDuration / stats.totalTypes).toFixed(3)}ms`,
+    );
+    logger.alwaysLog(() => `  Lookup speed: ${avgLookup.toFixed(3)}ms (O(1))`);
+    logger.alwaysLog(
+      () =>
+        `  Memory estimate: ~${Math.ceil((stats.totalTypes * 100) / 1024)}KB`,
+    );
+    logger.alwaysLog(() => '========================================\n');
+
+    // Assertions
+    expect(stats.totalTypes).toBeGreaterThan(900); // Should have ~1,000 stdlib types
+    expect(avgLookup).toBeLessThan(1); // O(1) lookups should be sub-millisecond
+    expect(initDuration).toBeLessThan(300); // Registry init should be fast
+  }, 60000);
 });
