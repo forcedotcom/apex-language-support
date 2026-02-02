@@ -577,11 +577,7 @@ export class ResourceLoader {
         // Populate namespace index from protobuf data (await to ensure registry is loaded)
         await this.populateFromProtobufCache(result.data);
 
-        this.logger.alwaysLog(
-          () =>
-            `✅ Loaded stdlib from protobuf cache in ${result.loadTimeMs.toFixed(1)}ms ` +
-            `(${result.data!.metadata.typeCount} types)`,
-        );
+        // Note: Detailed loading stats already logged by StandardLibraryCacheLoader
         return true;
       }
 
@@ -740,11 +736,11 @@ export class ResourceLoader {
 
       this.logger.alwaysLog(
         () =>
-          `✅ Loaded GlobalTypeRegistry: ${stats.totalTypes} types in <1ms (from pre-built cache)`,
+          `Loaded type registry from cache in <1ms (${stats.totalTypes} types)`,
       );
     } catch (error) {
       this.logger.warn(
-        `⚠️ Failed to load type registry: ${error instanceof Error ? error.message : error}`,
+        `Failed to load type registry: ${error instanceof Error ? error.message : error}`,
       );
     }
   }

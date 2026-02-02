@@ -183,7 +183,13 @@ function findAllClasses(sourceDir, builtinsDir) {
  * @param {string} namespace - Namespace for the class
  * @param {string} className - Name of the class (without .cls)
  */
-async function parseApexFile(filePath, namespace, className, CompilerService, ApexSymbolCollectorListener) {
+async function parseApexFile(
+  filePath,
+  namespace,
+  className,
+  CompilerService,
+  ApexSymbolCollectorListener,
+) {
   const content = readFileSync(filePath, 'utf8');
   const listener = new ApexSymbolCollectorListener();
   const compiler = new CompilerService(namespace);
@@ -203,30 +209,39 @@ async function parseApexFile(filePath, namespace, className, CompilerService, Ap
  * Generate type registry cache from compiled symbol tables
  */
 async function generateTypeRegistry(namespaceData, sourceChecksum) {
-  const { TypeRegistry, TypeRegistryEntry, TypeKind } = await import('../out/generated/apex-stdlib.js');
-  
+  const { TypeRegistry, TypeRegistryEntry, TypeKind } = await import(
+    '../out/generated/apex-stdlib.js'
+  );
+
   const entries = [];
   let debuggedFirst = false;
-  
+
   // Extract type metadata from each symbol table
   for (const ns of namespaceData) {
     for (const [fileUri, symbolTable] of ns.symbolTables) {
       // Extract namespace and class name from file URI
       const match = fileUri.match(/apex:\/\/stdlib\/([^/]+)\/([^/]+)/);
       if (!match) continue;
-      
+
       const [, namespace, className] = match;
       const allSymbols = symbolTable.getAllSymbols();
-      
+
       // Find top-level types only (parentId === 'null' or null)
       for (const symbol of allSymbols) {
-        const isTopLevel = symbol.parentId === null || symbol.parentId === 'null';
-        const kindLower = typeof symbol.kind === 'string' ? symbol.kind.toLowerCase() : String(symbol.kind).toLowerCase();
-        const isTypeSymbol = kindLower === 'class' || kindLower === 'interface' || kindLower === 'enum';
-        
+        const isTopLevel =
+          symbol.parentId === null || symbol.parentId === 'null';
+        const kindLower =
+          typeof symbol.kind === 'string'
+            ? symbol.kind.toLowerCase()
+            : String(symbol.kind).toLowerCase();
+        const isTypeSymbol =
+          kindLower === 'class' ||
+          kindLower === 'interface' ||
+          kindLower === 'enum';
+
         if (isTopLevel && isTypeSymbol) {
           const fqn = `${namespace}.${symbol.name}`.toLowerCase();
-          
+
           // Map SymbolKind string to TypeKind enum (case-insensitive)
           let kind = TypeKind.CLASS;
           if (kindLower === 'interface') {
@@ -234,27 +249,29 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
           } else if (kindLower === 'enum') {
             kind = TypeKind.ENUM;
           }
-          
-          entries.push(TypeRegistryEntry.create({
-            fqn,
-            name: symbol.name,
-            namespace,
-            kind,
-            symbolId: symbol.id,
-            fileUri,
-            isStdlib: true,
-          }));
+
+          entries.push(
+            TypeRegistryEntry.create({
+              fqn,
+              name: symbol.name,
+              namespace,
+              kind,
+              symbolId: symbol.id,
+              fileUri,
+              isStdlib: true,
+            }),
+          );
         }
       }
     }
   }
-  
+
   const registry = TypeRegistry.create({
     generatedAt: new Date().toISOString(),
     sourceChecksum,
     entries,
   });
-  
+
   return TypeRegistry.toBinary(registry);
 }
 
@@ -318,7 +335,9 @@ async function main() {
   for (const files of namespaceMap.values()) {
     totalClasses += files.length;
   }
-  console.log(`   Found ${totalClasses} classes across ${namespaceMap.size} namespaces`);
+  console.log(
+    `   Found ${totalClasses} classes across ${namespaceMap.size} namespaces`,
+  );
 
   // Parse all classes
   console.log('\n4. Parsing classes...');
@@ -357,7 +376,9 @@ async function main() {
       } catch (error) {
         errorCount++;
         if (errorCount <= 5) {
-          console.warn(`   Warning: Error parsing ${file.path}: ${error.message}`);
+          console.warn(
+            `   Warning: Error parsing ${file.path}: ${error.message}`,
+          );
         }
       }
     }
@@ -378,23 +399,32 @@ async function main() {
   // Serialize to protobuf
   console.log('\n5. Serializing to protobuf...');
   const serializer = new StandardLibrarySerializer();
-  const binaryData = serializer.serialize(
-    namespaceData,
-    sourceChecksum,
+  const binaryData = serializer.serialize(namespaceData, sourceChecksum);
+  console.log(
+    `   Serialized size: ${(binaryData.length / 1024 / 1024).toFixed(2)} MB`,
   );
-  console.log(`   Serialized size: ${(binaryData.length / 1024 / 1024).toFixed(2)} MB`);
 
   // Gzip the protobuf data
   console.log('\n6. Compressing with gzip...');
   const compressedData = gzipSync(binaryData, { level: 9 });
-  const compressionRatio = ((1 - compressedData.length / binaryData.length) * 100).toFixed(1);
-  console.log(`   Compressed size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB (${compressionRatio}% reduction)`);
+  const compressionRatio = (
+    (1 - compressedData.length / binaryData.length) *
+    100
+  ).toFixed(1);
+  console.log(
+    `   Compressed size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB (${compressionRatio}% reduction)`,
+  );
 
   // Generate type registry
   console.log('\n7. Generating type registry...');
-  const registryBinary = await generateTypeRegistry(namespaceData, sourceChecksum);
+  const registryBinary = await generateTypeRegistry(
+    namespaceData,
+    sourceChecksum,
+  );
   const compressedRegistry = gzipSync(registryBinary, { level: 9 });
-  console.log(`   Registry size: ${(compressedRegistry.length / 1024).toFixed(2)} KB`);
+  console.log(
+    `   Registry size: ${(compressedRegistry.length / 1024).toFixed(2)} KB`,
+  );
 
   // Write output files
   console.log('\n8. Writing output files...');
@@ -411,8 +441,12 @@ async function main() {
   console.log('\n=== Generation Complete ===');
   console.log(`   Total time: ${elapsed}s`);
   console.log(`   Classes processed: ${parsedCount}`);
-  console.log(`   Stdlib size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB`);
-  console.log(`   Registry size: ${(compressedRegistry.length / 1024).toFixed(2)} KB`);
+  console.log(
+    `   Stdlib size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB`,
+  );
+  console.log(
+    `   Registry size: ${(compressedRegistry.length / 1024).toFixed(2)} KB`,
+  );
   console.log(`   Checksum: ${sourceChecksum}`);
 }
 
