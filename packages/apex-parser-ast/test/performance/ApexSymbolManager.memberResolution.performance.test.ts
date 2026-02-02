@@ -29,12 +29,15 @@ import {
   measureSyncBlocking,
   measureAsyncBlocking,
   formatTimingResult,
-  disableLogging,
+  getLogger,
+  enableConsoleLogging,
   setLogLevel,
+  type LoggerInterface,
 } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolManager - Member Resolution Performance', () => {
   let compilerService: CompilerService;
+  let logger: LoggerInterface;
 
   // Test code that uses standard library types
   const codeWithStdLibUsage = `
@@ -65,12 +68,12 @@ public class TestClass {
   `.trim();
 
   beforeAll(() => {
-    // Disable logging for accurate performance measurements
-    disableLogging();
-    setLogLevel('error');
+    enableConsoleLogging();
+    setLogLevel('error'); // Reduce noise in performance tests
   });
 
   beforeEach(() => {
+    logger = getLogger();
     compilerService = new CompilerService();
   });
 
@@ -91,23 +94,23 @@ public class TestClass {
         ),
       );
 
-      console.log('\n=== First Compilation (Standard Library Cold Start) ===');
-      console.log(formatTimingResult(timing));
-      console.log(`Duration: ${timing.durationMs.toFixed(2)}ms`);
-      console.log(`Blocking: ${timing.isBlocking ? 'YES ⚠️' : 'NO ✓'}`);
+      logger.info('\n=== First Compilation (Standard Library Cold Start) ===');
+      logger.info(formatTimingResult(timing));
+      logger.info(`Duration: ${timing.durationMs.toFixed(2)}ms`);
+      logger.info(`Blocking: ${timing.isBlocking ? 'YES ⚠️' : 'NO ✓'}`);
 
       expect(timing.result).toBeDefined();
 
       // Log any errors for debugging (but don't fail the performance test)
       if (timing.result.errors.length > 0) {
-        console.log(
+        logger.info(
           `Compilation errors: ${JSON.stringify(timing.result.errors, null, 2)}`,
         );
       }
 
       // Document the standard library loading overhead
       if (timing.isBlocking) {
-        console.warn(
+        logger.warn(
           `⚠️  Standard library loading blocked for ${timing.durationMs.toFixed(2)}ms`,
         );
       }
@@ -140,10 +143,10 @@ public class TestClass {
         ),
       );
 
-      console.log('\n=== Subsequent Compilation (Cached Standard Library) ===');
-      console.log(formatTimingResult(timing));
-      console.log(`Duration: ${timing.durationMs.toFixed(2)}ms`);
-      console.log(`Blocking: ${timing.isBlocking ? 'YES ⚠️' : 'NO ✓'}`);
+      logger.info('\n=== Subsequent Compilation (Cached Standard Library) ===');
+      logger.info(formatTimingResult(timing));
+      logger.info(`Duration: ${timing.durationMs.toFixed(2)}ms`);
+      logger.info(`Blocking: ${timing.isBlocking ? 'YES ⚠️' : 'NO ✓'}`);
 
       expect(timing.result).toBeDefined();
       expect(timing.isBlocking).toBe(false); // Should not block with cached stdlib
@@ -201,17 +204,17 @@ public class TestClass {
       const stdlibLoadingOverhead =
         coldTiming.durationMs - warmTiming.durationMs;
 
-      console.log('\n=== Standard Library Loading Overhead Analysis ===');
+      logger.info('\n=== Standard Library Loading Overhead Analysis ===');
       results.forEach((result) => {
         const blockingStr = result.isBlocking ? 'BLOCKING ⚠️' : 'OK ✓';
-        console.log(
+        logger.info(
           `${result.name}: ${result.durationMs.toFixed(2)}ms (${blockingStr})`,
         );
       });
-      console.log(
+      logger.info(
         `\nStandard Library Loading Overhead: ${stdlibLoadingOverhead.toFixed(2)}ms`,
       );
-      console.log(
+      logger.info(
         `Percentage: ${((stdlibLoadingOverhead / coldTiming.durationMs) * 100).toFixed(1)}%`,
       );
 
@@ -248,9 +251,9 @@ public class TestClass {
           Promise.resolve(symbolTable),
       );
 
-      console.log('\n=== Member Resolution Performance ===');
-      console.log(formatTimingResult(timing));
-      console.log('Note: Member resolution happens during compilation phase');
+      logger.info('\n=== Member Resolution Performance ===');
+      logger.info(formatTimingResult(timing));
+      logger.info('Note: Member resolution happens during compilation phase');
 
       expect(timing.isBlocking).toBe(false); // Should be fast
     });
@@ -277,8 +280,8 @@ public class ListTest {
         }),
       );
 
-      console.log('\n=== Generic List Resolution ===');
-      console.log(formatTimingResult(timing));
+      logger.info('\n=== Generic List Resolution ===');
+      logger.info(formatTimingResult(timing));
 
       expect(timing.result).toBeDefined();
     });
@@ -302,8 +305,8 @@ public class MapTest {
         }),
       );
 
-      console.log('\n=== Generic Map Resolution ===');
-      console.log(formatTimingResult(timing));
+      logger.info('\n=== Generic Map Resolution ===');
+      logger.info(formatTimingResult(timing));
 
       expect(timing.result).toBeDefined();
     });
@@ -346,12 +349,12 @@ public class MainClass {
         }),
       );
 
-      console.log('\n=== Cross-File Reference Resolution ===');
-      console.log(
+      logger.info('\n=== Cross-File Reference Resolution ===');
+      logger.info(
         `Helper compilation: ${helperTiming.durationMs.toFixed(2)}ms`,
       );
-      console.log(`Main compilation: ${mainTiming.durationMs.toFixed(2)}ms`);
-      console.log(
+      logger.info(`Main compilation: ${mainTiming.durationMs.toFixed(2)}ms`);
+      logger.info(
         `Total: ${(helperTiming.durationMs + mainTiming.durationMs).toFixed(2)}ms`,
       );
 
@@ -387,9 +390,9 @@ public class MainClass {
         timestamp: new Date().toISOString(),
       };
 
-      console.log('\n=== Symbol Resolution Performance Baseline ===');
-      console.log(JSON.stringify(baselineData, null, 2));
-      console.log('============================================\n');
+      logger.info('\n=== Symbol Resolution Performance Baseline ===');
+      logger.info(JSON.stringify(baselineData, null, 2));
+      logger.info('============================================\n');
 
       expect(timing.result).toBeDefined();
     });

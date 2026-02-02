@@ -27,10 +27,15 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import {
   measureSyncBlocking,
   formatTimingResult,
+  getLogger,
+  enableConsoleLogging,
+  setLogLevel,
+  type LoggerInterface,
 } from '@salesforce/apex-lsp-shared';
 
 describe('CompilerService - Performance Tests', () => {
   let compilerService: CompilerService;
+  let logger: LoggerInterface;
 
   // Test fixture - use a moderately complex class
   const testClassContent = `
@@ -108,7 +113,13 @@ public class PerformanceTestClass {
 }
   `.trim();
 
+  beforeAll(() => {
+    enableConsoleLogging();
+    setLogLevel('error'); // Reduce noise in performance tests
+  });
+
   beforeEach(() => {
+    logger = getLogger();
     compilerService = new CompilerService();
   });
 
@@ -128,10 +139,10 @@ public class PerformanceTestClass {
         ),
       );
 
-      console.log('\n=== Full Compilation Performance ===');
-      console.log(formatTimingResult(timing));
-      console.log(`Duration: ${timing.durationMs.toFixed(2)}ms`);
-      console.log(`Blocking: ${timing.isBlocking ? 'YES ⚠️' : 'NO ✓'}`);
+      logger.info('\n=== Full Compilation Performance ===');
+      logger.info(formatTimingResult(timing));
+      logger.info(`Duration: ${timing.durationMs.toFixed(2)}ms`);
+      logger.info(`Blocking: ${timing.isBlocking ? 'YES ⚠️' : 'NO ✓'}`);
 
       expect(timing.result).toBeDefined();
       expect(timing.result.errors).toHaveLength(0);
@@ -167,13 +178,13 @@ public class PerformanceTestClass {
           timings.length,
       );
 
-      console.log('\n=== Compilation Performance Statistics ===');
-      console.log(`Iterations: ${iterations}`);
-      console.log(`Average: ${avgTime.toFixed(2)}ms`);
-      console.log(`Min: ${minTime.toFixed(2)}ms`);
-      console.log(`Max: ${maxTime.toFixed(2)}ms`);
-      console.log(`Std Dev: ${stdDev.toFixed(2)}ms`);
-      console.log(
+      logger.info('\n=== Compilation Performance Statistics ===');
+      logger.info(`Iterations: ${iterations}`);
+      logger.info(`Average: ${avgTime.toFixed(2)}ms`);
+      logger.info(`Min: ${minTime.toFixed(2)}ms`);
+      logger.info(`Max: ${maxTime.toFixed(2)}ms`);
+      logger.info(`Std Dev: ${stdDev.toFixed(2)}ms`);
+      logger.info(
         `Variance range: ${maxTime - minTime}ms (${(((maxTime - minTime) / avgTime) * 100).toFixed(1)}%)`,
       );
 
@@ -198,8 +209,8 @@ public class PerformanceTestClass {
         ),
       );
 
-      console.log('\n=== Compilation Without References ===');
-      console.log(formatTimingResult(timing));
+      logger.info('\n=== Compilation Without References ===');
+      logger.info(formatTimingResult(timing));
 
       expect(timing.result).toBeDefined();
     });
@@ -219,8 +230,8 @@ public class PerformanceTestClass {
         ),
       );
 
-      console.log('\n=== Compilation With References (No Resolution) ===');
-      console.log(formatTimingResult(timing));
+      logger.info('\n=== Compilation With References (No Resolution) ===');
+      logger.info(formatTimingResult(timing));
 
       expect(timing.result).toBeDefined();
     });
@@ -261,7 +272,7 @@ public class PerformanceTestClass {
         });
       }
 
-      console.log('\n=== Compilation Options Performance Comparison ===');
+      logger.info('\n=== Compilation Options Performance Comparison ===');
       results.forEach((result, index) => {
         const baseline = results[0].durationMs;
         const overheadMs = (result.durationMs - baseline).toFixed(2);
@@ -272,7 +283,7 @@ public class PerformanceTestClass {
           index > 0
             ? `(+${overheadMs}ms, ${overheadPct}% overhead)`
             : '(baseline)';
-        console.log(
+        logger.info(
           `${result.name}: ${result.durationMs.toFixed(2)}ms ${overhead}`,
         );
       });
@@ -329,11 +340,11 @@ public class PerformanceTestClass {
         });
       }
 
-      console.log('\n=== File Size Impact on Compilation ===');
+      logger.info('\n=== File Size Impact on Compilation ===');
       results.forEach((result) => {
         const msPerMethod = (result.durationMs / result.methods).toFixed(2);
         const duration = result.durationMs.toFixed(2);
-        console.log(
+        logger.info(
           `${result.methods} methods (${result.size} bytes): ${duration}ms ` +
             `(${msPerMethod}ms/method)`,
         );
@@ -346,7 +357,7 @@ public class PerformanceTestClass {
         results[results.length - 1].methods;
       const growthFactor = lastRate / firstRate;
 
-      console.log(`Growth factor: ${growthFactor.toFixed(2)}x`);
+      logger.info(`Growth factor: ${growthFactor.toFixed(2)}x`);
 
       // Growth should be roughly linear (< 2x) due to parser efficiency
       expect(growthFactor).toBeLessThan(2.0);
@@ -382,9 +393,9 @@ public class PerformanceTestClass {
         timestamp: new Date().toISOString(),
       };
 
-      console.log('\n=== Compiler Service Performance Baseline ===');
-      console.log(JSON.stringify(baselineData, null, 2));
-      console.log('===========================================\n');
+      logger.info('\n=== Compiler Service Performance Baseline ===');
+      logger.info(JSON.stringify(baselineData, null, 2));
+      logger.info('===========================================\n');
 
       expect(timing.result).toBeDefined();
     });

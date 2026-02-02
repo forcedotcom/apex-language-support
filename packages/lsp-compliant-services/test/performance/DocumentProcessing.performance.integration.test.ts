@@ -192,17 +192,17 @@ describe('DocumentProcessingService - Performance Tests', () => {
       );
 
       // Log timing
-      console.log(formatTimingResult(timing));
-      console.log(`  Duration: ${timing.durationMs.toFixed(2)}ms`);
-      console.log(`  Environment: ${timing.environment}`);
-      console.log(`  Blocking: ${timing.isBlocking ? 'YES' : 'NO'}`);
+      logger.info(formatTimingResult(timing));
+      logger.info(`  Duration: ${timing.durationMs.toFixed(2)}ms`);
+      logger.info(`  Environment: ${timing.environment}`);
+      logger.info(`  Blocking: ${timing.isBlocking ? 'YES' : 'NO'}`);
 
       // Assertions
       expect(timing.durationMs).toBeGreaterThan(0);
 
       // Warning if blocking (not a hard failure for now - just identify the issue)
       if (timing.isBlocking) {
-        console.warn(
+        logger.warn(
           `⚠️  didOpen blocked event loop for ${timing.durationMs.toFixed(2)}ms`,
         );
       }
@@ -239,7 +239,7 @@ describe('DocumentProcessingService - Performance Tests', () => {
         );
 
         timings.push(timing.durationMs);
-        console.log(
+        logger.info(
           `Iteration ${i + 1}: ${timing.durationMs.toFixed(2)}ms ${timing.isBlocking ? '(BLOCKING)' : ''}`,
         );
       }
@@ -253,11 +253,11 @@ describe('DocumentProcessingService - Performance Tests', () => {
           timings.length,
       );
 
-      console.log('\nPerformance Statistics:');
-      console.log(`  Average: ${avgTime.toFixed(2)}ms`);
-      console.log(`  Min: ${minTime.toFixed(2)}ms`);
-      console.log(`  Max: ${maxTime.toFixed(2)}ms`);
-      console.log(`  Std Dev: ${variance.toFixed(2)}ms`);
+      logger.info('\nPerformance Statistics:');
+      logger.info(`  Average: ${avgTime.toFixed(2)}ms`);
+      logger.info(`  Min: ${minTime.toFixed(2)}ms`);
+      logger.info(`  Max: ${maxTime.toFixed(2)}ms`);
+      logger.info(`  Std Dev: ${variance.toFixed(2)}ms`);
 
       // First iteration is often slower (cold start)
       expect(maxTime).toBeGreaterThanOrEqual(minTime);
@@ -268,7 +268,7 @@ describe('DocumentProcessingService - Performance Tests', () => {
     it('isolates compilation time with blocking detection', () => {
       // This would require instrumenting CompilerService.compile()
       // For now, we note this as a follow-up test to create
-      console.log(
+      logger.info(
         'TODO: Create compiler-specific performance test in apex-parser-ast',
       );
     });
@@ -278,7 +278,7 @@ describe('DocumentProcessingService - Performance Tests', () => {
     it('identifies symbol resolution overhead', () => {
       // This would require instrumenting ApexSymbolManager.resolveMemberInContext()
       // For now, we note this as a follow-up test to create
-      console.log(
+      logger.info(
         'TODO: Create symbol resolution performance test in apex-parser-ast',
       );
     });
@@ -312,9 +312,9 @@ describe('DocumentProcessingService - Performance Tests', () => {
         timestamp: new Date().toISOString(),
       };
 
-      console.log('\n=== Performance Baseline ===');
-      console.log(JSON.stringify(baselineData, null, 2));
-      console.log('===========================\n');
+      logger.info('\n=== Performance Baseline ===');
+      logger.info(JSON.stringify(baselineData, null, 2));
+      logger.info('===========================\n');
 
       expect(timing.result).toBeDefined();
     }, 30000);
