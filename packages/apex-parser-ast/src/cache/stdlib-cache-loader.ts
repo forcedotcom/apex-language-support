@@ -18,6 +18,11 @@ import {
 } from './stdlib-deserializer';
 import type { SymbolTable, TypeSymbol } from '../types/symbol';
 import { getEmbeddedDataUrl } from './stdlib-cache-data';
+import {
+  validateMD5Checksum,
+  ChecksumValidationError,
+  ChecksumFileMissingError,
+} from '../utils/checksum-validator';
 
 /**
  * Result of loading the standard library cache
@@ -58,7 +63,12 @@ const embeddedProtobufDataUrl: string | undefined = getEmbeddedDataUrl();
 /**
  * Load the protobuf cache from disk (for unbundled/development environments)
  */
-function loadProtobufFromDisk(): Uint8Array | undefined {
+function loadProtobufFromDisk():
+  | {
+      data: Uint8Array;
+      checksumContent: string;
+    }
+  | undefined {
   try {
     if (typeof process === 'undefined' || typeof require === 'undefined') {
       return undefined;
@@ -88,16 +98,38 @@ function loadProtobufFromDisk(): Uint8Array | undefined {
     for (const pbPath of possiblePaths) {
       try {
         if (fs.existsSync(pbPath)) {
+          const md5Path = `${pbPath}.md5`;
+          if (!fs.existsSync(md5Path)) {
+            throw new ChecksumFileMissingError('apex-stdlib.pb.gz');
+          }
           const buffer = fs.readFileSync(pbPath);
-          return new Uint8Array(buffer);
+          const checksumContent = fs.readFileSync(md5Path, 'utf8');
+          return {
+            data: new Uint8Array(buffer),
+            checksumContent,
+          };
         }
-      } catch {
-        // Try next path
+      } catch (error) {
+        // Re-throw checksum errors
+        if (
+          error instanceof ChecksumFileMissingError ||
+          error instanceof ChecksumValidationError
+        ) {
+          throw error;
+        }
+        // Try next path for other errors
       }
     }
 
     return undefined;
-  } catch {
+  } catch (error) {
+    // Re-throw checksum errors
+    if (
+      error instanceof ChecksumFileMissingError ||
+      error instanceof ChecksumValidationError
+    ) {
+      throw error;
+    }
     return undefined;
   }
 }
@@ -160,10 +192,16 @@ function getEmbeddedProtobufCache(): Uint8Array | undefined {
   }
 
   // Fall back to loading from disk (development mode)
-  const diskBuffer = loadProtobufFromDisk();
-  if (diskBuffer) {
+  const diskResult = loadProtobufFromDisk();
+  if (diskResult) {
+    // Validate checksum before decompression
+    validateMD5Checksum(
+      'apex-stdlib.pb.gz',
+      diskResult.data,
+      diskResult.checksumContent,
+    );
     // Disk buffer is also gzipped, decompress it
-    cachedProtobufBuffer = decompressGzipData(diskBuffer);
+    cachedProtobufBuffer = decompressGzipData(diskResult.data);
     return cachedProtobufBuffer;
   }
 

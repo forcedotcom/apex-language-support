@@ -155,7 +155,15 @@ export class ResourceLoader {
       throw new Error('ZIP buffer not set. Call setZipBuffer() first.');
     }
 
-    const extractedFiles = unzipSync(this.zipBuffer);
+    let extractedFiles;
+    try {
+      extractedFiles = unzipSync(this.zipBuffer);
+    } catch (error) {
+      throw new Error(
+        `Failed to extract StandardApexLibrary.zip: ${error instanceof Error ? error.message : String(error)}. ` +
+          `The ZIP file may be corrupted. Please rebuild the extension with 'npm run build'.`,
+      );
+    }
     this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
 
     // Convert to CaseInsensitivePathMap and preserve original paths
@@ -708,41 +716,54 @@ export class ResourceLoader {
    * @private
    */
   private async initializeTypeRegistry(): Promise<void> {
-    try {
-      const registryBuffer = await this.loadRegistryCacheFile();
-      if (!registryBuffer) {
-        this.logger.warn(
-          '⚠️ Type registry cache not found, registry will remain empty',
-        );
-        return;
-      }
+    const { validateMD5Checksum } = await import('./checksum-validator');
 
-      const entries = loadTypeRegistryFromGzip(registryBuffer);
-      const program = Effect.gen(function* () {
-        const registry = yield* GlobalTypeRegistry;
-
-        // Register all entries
-        for (const entry of entries) {
-          yield* registry.registerType(entry);
-        }
-
-        const stats = yield* registry.getStats();
-        return stats;
-      });
-
-      const stats = await Effect.runPromise(
-        program.pipe(Effect.provide(GlobalTypeRegistryLive)),
-      );
-
-      this.logger.alwaysLog(
-        () =>
-          `Loaded type registry from cache in <1ms (${stats.totalTypes} types)`,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `Failed to load type registry: ${error instanceof Error ? error.message : error}`,
+    const registryResult = await this.loadRegistryCacheFile();
+    if (!registryResult) {
+      throw new Error(
+        'Type registry cache file not found (apex-type-registry.pb.gz). ' +
+          "This is a required build artifact. Please rebuild the extension with 'npm run build'.",
       );
     }
+
+    // Validate checksum (skip for embedded builds where checksumContent is empty)
+    if (registryResult.checksumContent) {
+      validateMD5Checksum(
+        'apex-type-registry.pb.gz',
+        registryResult.data,
+        registryResult.checksumContent,
+      );
+    }
+
+    const entries = loadTypeRegistryFromGzip(registryResult.data);
+
+    if (entries.length === 0) {
+      throw new Error(
+        'Type registry is empty. The apex-type-registry.pb.gz file may be corrupted. ' +
+          "Please rebuild the extension with 'npm run build'.",
+      );
+    }
+
+    const program = Effect.gen(function* () {
+      const registry = yield* GlobalTypeRegistry;
+
+      // Register all entries
+      for (const entry of entries) {
+        yield* registry.registerType(entry);
+      }
+
+      const stats = yield* registry.getStats();
+      return stats;
+    });
+
+    const stats = await Effect.runPromise(
+      program.pipe(Effect.provide(GlobalTypeRegistryLive)),
+    );
+
+    this.logger.alwaysLog(
+      () =>
+        `Loaded type registry from cache in <1ms (${stats.totalTypes} types)`,
+    );
   }
 
   /**
@@ -751,8 +772,20 @@ export class ResourceLoader {
    *
    * @private
    */
-  private async loadRegistryCacheFile(): Promise<Uint8Array | null> {
+  private async loadRegistryCacheFile(): Promise<{
+    data: Uint8Array;
+    checksumContent: string;
+  } | null> {
+    // Import checksum validator
+    const {
+      validateMD5Checksum,
+      ChecksumFileMissingError,
+      ChecksumValidationError,
+    } = await import('./checksum-validator');
+
     // Try embedded data URL first (production builds)
+    // Note: For embedded builds, checksums should be validated at build time
+    // TODO: Embed checksum in data URL or separate module for production validation
     try {
       const { getEmbeddedRegistryDataUrl } = await import(
         '../cache/type-registry-data'
@@ -761,7 +794,13 @@ export class ResourceLoader {
       if (dataUrl) {
         // Parse data URL and return binary
         const base64 = dataUrl.split(',')[1];
-        return Buffer.from(base64, 'base64');
+        const data = Buffer.from(base64, 'base64');
+        // For embedded builds, we skip checksum validation as files are bundled
+        // The build process should ensure integrity
+        return {
+          data: new Uint8Array(data),
+          checksumContent: '', // Empty string for embedded builds (skip validation)
+        };
       }
     } catch {
       // Module not found or data URL not available
@@ -788,12 +827,42 @@ export class ResourceLoader {
       ];
 
       for (const registryPath of possiblePaths) {
-        if (fs.existsSync(registryPath)) {
-          const buffer = fs.readFileSync(registryPath);
-          return new Uint8Array(buffer);
+        try {
+          if (fs.existsSync(registryPath)) {
+            const md5Path = `${registryPath}.md5`;
+            if (!fs.existsSync(md5Path)) {
+              throw new ChecksumFileMissingError('apex-type-registry.pb.gz');
+            }
+            const buffer = fs.readFileSync(registryPath);
+            const checksumContent = fs.readFileSync(md5Path, 'utf8');
+            return {
+              data: new Uint8Array(buffer),
+              checksumContent,
+            };
+          }
+        } catch (error) {
+          // Re-throw checksum errors
+          if (
+            error instanceof ChecksumFileMissingError ||
+            error instanceof ChecksumValidationError
+          ) {
+            throw error;
+          }
+          // Try next path for other errors
         }
       }
-    } catch {
+    } catch (error) {
+      // Re-throw checksum errors
+      const {
+        ChecksumFileMissingError: ChecksumMissingErr,
+        ChecksumValidationError: ChecksumValidErr,
+      } = await import('./checksum-validator');
+      if (
+        error instanceof ChecksumMissingErr ||
+        error instanceof ChecksumValidErr
+      ) {
+        throw error;
+      }
       // File system access failed
     }
 
@@ -1053,7 +1122,15 @@ export class ResourceLoader {
     // Re-extract ZIP and rebuild file index if buffer is available
     if (this.zipBuffer) {
       const buffer = this.zipBuffer; // Local variable for type narrowing
-      const extractedFiles = unzipSync(buffer);
+      let extractedFiles;
+      try {
+        extractedFiles = unzipSync(buffer);
+      } catch (error) {
+        throw new Error(
+          `Failed to extract StandardApexLibrary.zip during reset: ${error instanceof Error ? error.message : String(error)}. ` +
+            `The ZIP file may be corrupted. Please rebuild the extension with 'npm run build'.`,
+        );
+      }
       this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
 
       // Convert to CaseInsensitivePathMap and preserve original paths

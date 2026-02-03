@@ -40,22 +40,30 @@ export interface RegistryLoadResult {
  * Load and deserialize the type registry from a gzipped protobuf buffer
  * @param buffer Gzipped protobuf binary data
  * @returns Array of type registry entries
+ * @throws Error if decompression or deserialization fails
  */
 export function loadTypeRegistryFromGzip(
   buffer: Uint8Array,
 ): TypeRegistryEntry[] {
-  const decompressed = gunzipSync(buffer);
-  const proto = TypeRegistry.fromBinary(decompressed);
+  try {
+    const decompressed = gunzipSync(buffer);
+    const proto = TypeRegistry.fromBinary(decompressed);
 
-  return proto.entries.map((protoEntry) => ({
-    fqn: protoEntry.fqn,
-    name: protoEntry.name,
-    namespace: protoEntry.namespace,
-    kind: mapProtoKindToSymbolKind(protoEntry.kind),
-    symbolId: protoEntry.symbolId,
-    fileUri: protoEntry.fileUri,
-    isStdlib: protoEntry.isStdlib,
-  }));
+    return proto.entries.map((protoEntry) => ({
+      fqn: protoEntry.fqn,
+      name: protoEntry.name,
+      namespace: protoEntry.namespace,
+      kind: mapProtoKindToSymbolKind(protoEntry.kind),
+      symbolId: protoEntry.symbolId,
+      fileUri: protoEntry.fileUri,
+      isStdlib: protoEntry.isStdlib,
+    }));
+  } catch (error) {
+    throw new Error(
+      `Failed to load type registry from gzip: ${error instanceof Error ? error.message : String(error)}. ` +
+        `The apex-type-registry.pb.gz file may be corrupted. Please rebuild the extension with 'npm run build'.`,
+    );
+  }
 }
 
 /**

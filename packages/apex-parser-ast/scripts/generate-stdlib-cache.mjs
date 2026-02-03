@@ -436,6 +436,24 @@ async function main() {
   console.log(`   ✅ ${REGISTRY_FILE}`);
   console.log(`   ✅ ${CHECKSUM_FILE}`);
 
+  // Generate MD5 checksums for output files
+  console.log('\n9. Generating MD5 checksums...');
+  const cacheFileMD5 = createHash('md5').update(compressedData).digest('hex');
+  const registryFileMD5 = createHash('md5')
+    .update(compressedRegistry)
+    .digest('hex');
+
+  // Write MD5 checksum files in standard format: <hash>  <filename>
+  const CACHE_MD5_FILE = join(OUTPUT_DIR, 'apex-stdlib.pb.gz.md5');
+  const REGISTRY_MD5_FILE = join(OUTPUT_DIR, 'apex-type-registry.pb.gz.md5');
+  writeFileSync(CACHE_MD5_FILE, `${cacheFileMD5}  apex-stdlib.pb.gz\n`);
+  writeFileSync(
+    REGISTRY_MD5_FILE,
+    `${registryFileMD5}  apex-type-registry.pb.gz\n`,
+  );
+  console.log(`   ✅ ${CACHE_MD5_FILE}`);
+  console.log(`   ✅ ${REGISTRY_MD5_FILE}`);
+
   // Summary
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log('\n=== Generation Complete ===');
@@ -447,7 +465,9 @@ async function main() {
   console.log(
     `   Registry size: ${(compressedRegistry.length / 1024).toFixed(2)} KB`,
   );
-  console.log(`   Checksum: ${sourceChecksum}`);
+  console.log(`   Source checksum (SHA256): ${sourceChecksum}`);
+  console.log(`   Stdlib MD5: ${cacheFileMD5}`);
+  console.log(`   Registry MD5: ${registryFileMD5}`);
 }
 
 main().catch((error) => {
