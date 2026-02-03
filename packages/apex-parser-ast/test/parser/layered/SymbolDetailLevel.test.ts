@@ -65,14 +65,14 @@ describe('Symbol Detail Level Tracking', () => {
     );
 
     // Set detail level
-    fieldSymbol._detailLevel = 'public-api';
+    fieldSymbol.detailLevel = 'public-api';
 
     symbolTable.addSymbol(fieldSymbol, null);
 
     const allSymbols = symbolTable.getAllSymbols();
     const retrieved = allSymbols.find((s) => s.id === fieldSymbol.id);
     expect(retrieved).toBeDefined();
-    expect(retrieved?._detailLevel).toBe('public-api');
+    expect(retrieved?.detailLevel).toBe('public-api');
   });
 
   it('should enrich symbols with higher detail levels', () => {
@@ -116,7 +116,7 @@ describe('Symbol Detail Level Tracking', () => {
       [],
       [],
     );
-    fieldSymbol1._detailLevel = 'public-api';
+    fieldSymbol1.detailLevel = 'public-api';
     symbolTable.addSymbol(fieldSymbol1, null);
 
     const id1 = fieldSymbol1.id;
@@ -145,7 +145,7 @@ describe('Symbol Detail Level Tracking', () => {
       [],
       [],
     );
-    fieldSymbol2._detailLevel = 'protected';
+    fieldSymbol2.detailLevel = 'protected';
 
     symbolTable.addSymbol(fieldSymbol2, null);
 
@@ -153,7 +153,7 @@ describe('Symbol Detail Level Tracking', () => {
     const retrieved = allSymbols.find((s) => s.id === id1);
     expect(retrieved).toBeDefined();
     // Should be enriched to protected level
-    expect(retrieved?._detailLevel).toBe('protected');
+    expect(retrieved?.detailLevel).toBe('protected');
     // Should be same symbol (same ID)
     expect(retrieved?.id).toBe(id1);
   });
@@ -199,11 +199,11 @@ describe('Symbol Detail Level Tracking', () => {
       [],
       [],
     );
-    fieldSymbol1._detailLevel = 'protected';
+    fieldSymbol1.detailLevel = 'protected';
     symbolTable.addSymbol(fieldSymbol1, null);
 
     const id1 = fieldSymbol1.id;
-    const detailLevel1 = fieldSymbol1._detailLevel;
+    const detailLevel1 = fieldSymbol1.detailLevel;
 
     // Try to add same symbol with public-api detail level (lower)
     const fieldSymbol2 = SymbolFactory.createFullSymbolWithNamespace(
@@ -229,7 +229,7 @@ describe('Symbol Detail Level Tracking', () => {
       [],
       [],
     );
-    fieldSymbol2._detailLevel = 'public-api';
+    fieldSymbol2.detailLevel = 'public-api';
 
     symbolTable.addSymbol(fieldSymbol2, null);
 
@@ -237,8 +237,8 @@ describe('Symbol Detail Level Tracking', () => {
     const retrieved = allSymbols.find((s) => s.id === id1);
     expect(retrieved).toBeDefined();
     // Should keep original detail level (protected)
-    expect(retrieved?._detailLevel).toBe(detailLevel1);
-    expect(retrieved?._detailLevel).toBe('protected');
+    expect(retrieved?.detailLevel).toBe(detailLevel1);
+    expect(retrieved?.detailLevel).toBe('protected');
   });
 
   it('should not replace symbols with same detail level', () => {
@@ -282,7 +282,7 @@ describe('Symbol Detail Level Tracking', () => {
       [],
       [],
     );
-    fieldSymbol1._detailLevel = 'public-api';
+    fieldSymbol1.detailLevel = 'public-api';
     symbolTable.addSymbol(fieldSymbol1, null);
 
     const id1 = fieldSymbol1.id;
@@ -311,7 +311,7 @@ describe('Symbol Detail Level Tracking', () => {
       [],
       [],
     );
-    fieldSymbol2._detailLevel = 'public-api';
+    fieldSymbol2.detailLevel = 'public-api';
 
     symbolTable.addSymbol(fieldSymbol2, null);
 
@@ -320,6 +320,6 @@ describe('Symbol Detail Level Tracking', () => {
     expect(retrieved).toBeDefined();
     // Should keep original symbol
     expect(retrieved?.id).toBe(id1);
-    expect(retrieved?._detailLevel).toBe('public-api');
+    expect(retrieved?.detailLevel).toBe('public-api');
   });
 });

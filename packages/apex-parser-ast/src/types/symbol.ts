@@ -871,17 +871,40 @@ export class SymbolTable {
    * @param newId The new symbol ID
    */
   updateSymbolId(oldId: string, newId: string): void {
+    const logger = getLogger();
+
     // Get the symbol with the old ID
     const entry = this.symbolMap.get(oldId);
     if (!entry) {
-      return; // Symbol not found, nothing to update
+      logger.warn(
+        () =>
+          `[updateSymbolId] Symbol not found for oldId: ${oldId} (attempted newId: ${newId})`,
+      );
+      return;
     }
 
     // Only handle single symbols, not duplicate arrays
     if (Array.isArray(entry)) {
-      return; // Don't update duplicate arrays
+      logger.debug(
+        () =>
+          `[updateSymbolId] Skipping duplicate array for oldId: ${oldId}`,
+      );
+      return;
     }
     const symbol = entry;
+
+    // Check for ID collision - warn but continue (new symbol replaces old)
+    const existingWithNewId = this.symbolMap.get(newId);
+    if (existingWithNewId && existingWithNewId !== symbol) {
+      logger.warn(
+        () =>
+          `[updateSymbolId] ID collision: ${newId} already exists (oldId: ${oldId})`,
+      );
+    }
+
+    logger.debug(
+      () => `[updateSymbolId] Updated symbol ID: ${oldId} -> ${newId}`,
+    );
 
     // Remove old entry from symbolMap
     this.symbolMap.delete(oldId);
@@ -922,7 +945,7 @@ export class SymbolTable {
 
   /**
    * Remove symbols that are no longer referenced in external indexes.
-   * Call this after clearFileIndex() to clean up stale symbols.
+   * Call this after clearGraphIndexesForFile() to clean up stale symbols.
    * @param activeSymbolIds Set of symbol IDs that should be kept (empty = remove all)
    * @returns Number of symbols removed
    */

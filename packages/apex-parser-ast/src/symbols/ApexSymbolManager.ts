@@ -45,7 +45,7 @@ import {
   isUserCodeUri,
   extractFilePath,
   isStandardApexUri,
-  extractApexLibPath,
+  extractStdlibClassPath,
 } from '../types/ProtocolHandler';
 import { ResolutionRequest, ResolutionResult } from './resolution/types';
 import {
@@ -1721,9 +1721,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // This ensures that fileIndex lookups will find the symbols
       const normalizedUri = extractFilePathFromUri(properUri);
 
-      // Register SymbolTable once for the entire file before processing symbols
-      // This avoids redundant registration calls for each symbol
-      // NOTE: registerSymbolTable may merge symbols from an existing table, modifying symbolTable
+      // Step 1: Clear old indexes FIRST to remove stale symbol IDs.
+      // This must happen before registerSymbolTable() to ensure graph indexes are clean
+      // before the merge. Method/constructor IDs include parameter signatures, so old IDs
+      // need removal before adding updated IDs.
+      self.symbolGraph.clearGraphIndexesForFile(normalizedUri);
+
+      // Step 2: Register the new SymbolTable and merge with any existing symbols.
+      // The merge operates on SymbolTables (not graph indexes), so clearing indexes
+      // first doesn't affect the merge logic. This preserves symbols from previous parses
+      // (e.g., private symbols when doing public-api-only parse).
       self.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
 
       // After registerSymbolTable, get the final symbol table (may have been merged)
@@ -1791,6 +1798,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const normalizedName = symbolName.toLowerCase();
         self.unifiedCache.invalidatePattern(`symbol_name_${normalizedName}`);
       }
+
+      // Mark rebuild as complete - all symbols have been re-added to the graph
+      self.symbolGraph.markFileRebuildComplete(normalizedUri);
 
       // Process same-file references immediately (cheap, synchronous, needed for graph edges)
       // Skip cross-file references to avoid queue pressure - they'll be resolved on-demand
@@ -4438,7 +4448,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Extract relative path from URI for ResourceLoader calls
       let classPath = classSymbol.fileUri;
       if (isStandardApexUri(classPath)) {
-        classPath = extractApexLibPath(classPath);
+        classPath = extractStdlibClassPath(classPath);
       }
 
       if (!this.resourceLoader.isClassCompiled(classPath)) {
@@ -7623,7 +7633,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 this.loadingSymbolTables.add(normalizedUri);
 
                 // Extract the class path from the file path
-                const classPath = extractApexLibPath(contextFile);
+                const classPath = extractStdlibClassPath(contextFile);
 
                 const artifact =
                   await this.resourceLoader.loadAndCompileClass(classPath);
@@ -7682,7 +7692,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   this.resourceLoader
                 ) {
                   // Try to reload the class to ensure symbol table is available
-                  const classPath = extractApexLibPath(typeSymbol.fileUri);
+                  const classPath = extractStdlibClassPath(typeSymbol.fileUri);
                   if (classPath) {
                     try {
                       const artifact =
@@ -7761,7 +7771,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                       isStandardApexUri(standardClassSymbol.fileUri) &&
                       this.resourceLoader
                     ) {
-                      const classPath = extractApexLibPath(
+                      const classPath = extractStdlibClassPath(
                         standardClassSymbol.fileUri,
                       );
                       if (classPath) {
@@ -7867,7 +7877,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     isStandardApexUri(typeClassSymbol.fileUri) &&
                     this.resourceLoader
                   ) {
-                    const classPath = extractApexLibPath(
+                    const classPath = extractStdlibClassPath(
                       typeClassSymbol.fileUri,
                     );
                     if (classPath) {
@@ -7956,7 +7966,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     isStandardApexUri(standardClassSymbol.fileUri) &&
                     this.resourceLoader
                   ) {
-                    const classPath = extractApexLibPath(
+                    const classPath = extractStdlibClassPath(
                       standardClassSymbol.fileUri,
                     );
                     if (classPath) {
@@ -8304,7 +8314,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               isStandardApexUri(contextSymbol.fileUri) &&
               this.resourceLoader
             ) {
-              const classPath = extractApexLibPath(contextSymbol.fileUri);
+              const classPath = extractStdlibClassPath(contextSymbol.fileUri);
               if (classPath) {
                 try {
                   // Check if we're already loading this file to prevent recursive loops
@@ -8579,7 +8589,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           isStandardApexUri(superclassTypeSymbol.fileUri) &&
           this.resourceLoader
         ) {
-          const classPath = extractApexLibPath(superclassTypeSymbol.fileUri);
+          const classPath = extractStdlibClassPath(superclassTypeSymbol.fileUri);
           if (classPath) {
             try {
               const normalizedUri = extractFilePathFromUri(
@@ -8652,7 +8662,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // If not loaded, try to load it
         if (!symbolTable && this.resourceLoader) {
-          const classPath = extractApexLibPath(objectTypeSymbol.fileUri);
+          const classPath = extractStdlibClassPath(objectTypeSymbol.fileUri);
           if (classPath) {
             try {
               const normalizedUri = extractFilePathFromUri(

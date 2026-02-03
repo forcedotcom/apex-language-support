@@ -247,6 +247,9 @@ export class StandardLibraryDeserializer {
     symbol.superClass = proto.superClass || undefined;
     symbol.interfaces = proto.interfaces || [];
 
+    // Standard library symbols are always public API level
+    symbol.detailLevel = 'public-api';
+
     return symbol;
   }
 
@@ -285,6 +288,9 @@ export class StandardLibraryDeserializer {
     symbol.isConstructor = proto.isConstructor;
     symbol.hasBody = proto.hasBody ?? true; // Default true for backward compatibility
 
+    // Standard library symbols are always public API level
+    symbol.detailLevel = 'public-api';
+
     return symbol;
   }
 
@@ -315,6 +321,9 @@ export class StandardLibraryDeserializer {
       ? this.convertTypeReference(proto.initializerType)
       : undefined;
 
+    // Standard library symbols are always public API level
+    symbol.detailLevel = 'public-api';
+
     return symbol;
   }
 
@@ -338,6 +347,9 @@ export class StandardLibraryDeserializer {
     ) as VariableSymbol;
 
     symbol.type = this.convertTypeReference(proto.type);
+
+    // Standard library symbols are always public API level
+    symbol.detailLevel = 'public-api';
 
     return symbol;
   }

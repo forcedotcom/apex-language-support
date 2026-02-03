@@ -67,14 +67,14 @@ describe('Layered Symbol Collection', () => {
       );
       expect(classes.length).toBe(1);
       expect(classes[0].name).toBe('TestClass');
-      expect(classes[0]._detailLevel).toBe('public-api');
+      expect(classes[0].detailLevel).toBe('public-api');
 
       // Should have public field
       const publicField = semanticSymbols.find(
         (s) => s.kind === SymbolKind.Field && s.name === 'publicField',
       );
       expect(publicField).toBeDefined();
-      expect(publicField?._detailLevel).toBe('public-api');
+      expect(publicField?.detailLevel).toBe('public-api');
 
       // Should NOT have protected/private/default fields
       const protectedField = semanticSymbols.find(
@@ -95,14 +95,14 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Method && s.name === 'publicMethod',
       );
       expect(publicMethod).toBeDefined();
-      expect(publicMethod?._detailLevel).toBe('public-api');
+      expect(publicMethod?.detailLevel).toBe('public-api');
 
       // Should have public constructor
       const publicConstructor = semanticSymbols.find(
         (s) => s.kind === SymbolKind.Constructor && s.name === 'TestClass',
       );
       expect(publicConstructor).toBeDefined();
-      expect(publicConstructor?._detailLevel).toBe('public-api');
+      expect(publicConstructor?.detailLevel).toBe('public-api');
 
       // Should NOT have protected/private/default methods
       const protectedMethod = semanticSymbols.find(
@@ -147,14 +147,14 @@ describe('Layered Symbol Collection', () => {
       );
       expect(globalClass).toBeDefined();
       expect(globalClass?.modifiers.visibility).toBe(SymbolVisibility.Global);
-      expect(globalClass?._detailLevel).toBe('public-api');
+      expect(globalClass?.detailLevel).toBe('public-api');
 
       const globalField = semanticSymbols.find(
         (s) => s.kind === SymbolKind.Field && s.name === 'globalField',
       );
       expect(globalField).toBeDefined();
       expect(globalField?.modifiers.visibility).toBe(SymbolVisibility.Global);
-      expect(globalField?._detailLevel).toBe('public-api');
+      expect(globalField?.detailLevel).toBe('public-api');
     });
   });
 
@@ -194,7 +194,7 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Field && s.name === 'protectedField',
       );
       expect(protectedField).toBeDefined();
-      expect(protectedField?._detailLevel).toBe('protected');
+      expect(protectedField?.detailLevel).toBe('protected');
 
       // Should have default field (if it exists - default visibility may not be captured)
       const defaultField = semanticSymbols.find(
@@ -203,7 +203,7 @@ describe('Layered Symbol Collection', () => {
       // Default visibility fields may not be captured by ProtectedSymbolListener
       // depending on how modifiers are parsed - this is acceptable
       if (defaultField) {
-        expect(defaultField?._detailLevel).toBe('protected');
+        expect(defaultField?.detailLevel).toBe('protected');
       }
 
       // Should have protected method
@@ -211,7 +211,7 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Method && s.name === 'protectedMethod',
       );
       expect(protectedMethod).toBeDefined();
-      expect(protectedMethod?._detailLevel).toBe('protected');
+      expect(protectedMethod?.detailLevel).toBe('protected');
 
       // Should have default method (if it exists - default visibility may not be captured)
       const defaultMethod = semanticSymbols.find(
@@ -220,7 +220,7 @@ describe('Layered Symbol Collection', () => {
       // Default visibility methods may not be captured by ProtectedSymbolListener
       // depending on how modifiers are parsed - this is acceptable
       if (defaultMethod) {
-        expect(defaultMethod?._detailLevel).toBe('protected');
+        expect(defaultMethod?.detailLevel).toBe('protected');
       }
 
       // Should NOT have public/private symbols
@@ -281,14 +281,14 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Field && s.name === 'privateField',
       );
       expect(privateField).toBeDefined();
-      expect(privateField?._detailLevel).toBe('private');
+      expect(privateField?.detailLevel).toBe('private');
 
       // Should have private method
       const privateMethod = semanticSymbols.find(
         (s) => s.kind === SymbolKind.Method && s.name === 'privateMethod',
       );
       expect(privateMethod).toBeDefined();
-      expect(privateMethod?._detailLevel).toBe('private');
+      expect(privateMethod?.detailLevel).toBe('private');
 
       // Should NOT have local variables (handled by BlockContentListener, not PrivateSymbolListener)
       const localVar = semanticSymbols.find(
@@ -348,7 +348,7 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Field && s.name === 'publicField',
       );
       expect(publicField).toBeDefined();
-      expect(publicField?._detailLevel).toBe('public-api');
+      expect(publicField?.detailLevel).toBe('public-api');
 
       // Second pass: add protected symbols (should enrich existing symbol table)
       const protectedListener = new VisibilitySymbolListener(
@@ -371,7 +371,7 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Field && s.name === 'publicField',
       );
       expect(publicFieldAfter).toBeDefined();
-      expect(publicFieldAfter?._detailLevel).toBe('public-api');
+      expect(publicFieldAfter?.detailLevel).toBe('public-api');
       expect(publicFieldAfter?.id).toBe(publicField?.id); // Same symbol, enriched
 
       // Protected field should now exist
@@ -379,7 +379,7 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Field && s.name === 'protectedField',
       );
       expect(protectedField).toBeDefined();
-      expect(protectedField?._detailLevel).toBe('protected');
+      expect(protectedField?.detailLevel).toBe('protected');
 
       // Third pass: add private symbols
       const privateListener = new VisibilitySymbolListener(
@@ -411,7 +411,7 @@ describe('Layered Symbol Collection', () => {
       expect(publicFieldFinal).toBeDefined();
       expect(protectedFieldFinal).toBeDefined();
       expect(privateFieldFinal).toBeDefined();
-      expect(privateFieldFinal?._detailLevel).toBe('private');
+      expect(privateFieldFinal?.detailLevel).toBe('private');
     });
 
     it('should not replace symbols with lower detail levels', () => {
@@ -442,7 +442,7 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Field && s.name === 'publicField',
       );
       expect(publicField).toBeDefined();
-      expect(publicField?._detailLevel).toBe('public-api');
+      expect(publicField?.detailLevel).toBe('public-api');
 
       // Try to add same symbol again with same detail level - should be skipped
       const publicListener2 = new VisibilitySymbolListener(
@@ -464,7 +464,7 @@ describe('Layered Symbol Collection', () => {
       );
       expect(publicField2).toBeDefined();
       expect(publicField2?.id).toBe(publicField?.id); // Same symbol
-      expect(publicField2?._detailLevel).toBe('public-api');
+      expect(publicField2?.detailLevel).toBe('public-api');
     });
   });
 
@@ -570,9 +570,9 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Field && s.name === 'privateField',
       );
 
-      expect(publicField?._detailLevel).toBe('public-api');
-      expect(protectedField?._detailLevel).toBe('protected');
-      expect(privateField?._detailLevel).toBe('private');
+      expect(publicField?.detailLevel).toBe('public-api');
+      expect(protectedField?.detailLevel).toBe('protected');
+      expect(privateField?.detailLevel).toBe('private');
     });
   });
 
@@ -590,7 +590,7 @@ describe('Layered Symbol Collection', () => {
       const symbolTable = new SymbolTable();
 
       // Use layered compilation through all visibility layers
-      // This eventually triggers BlockContentListener which sets _detailLevel
+      // This eventually triggers BlockContentListener which sets detailLevel
       const publicListener = new VisibilitySymbolListener(
         'public-api',
         symbolTable,
@@ -614,12 +614,12 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Variable && s.name === 'localInt',
       );
 
-      // Local variables that are captured should have _detailLevel set
+      // Local variables that are captured should have detailLevel set
       if (localVar) {
-        expect(localVar._detailLevel).toBeDefined();
+        expect(localVar.detailLevel).toBeDefined();
       }
       if (localInt) {
-        expect(localInt._detailLevel).toBeDefined();
+        expect(localInt.detailLevel).toBeDefined();
       }
     });
 
@@ -654,10 +654,10 @@ describe('Layered Symbol Collection', () => {
       // Find semantic symbols (non-block symbols)
       const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
-      // Semantic symbols should have _detailLevel set
+      // Semantic symbols should have detailLevel set
       // when created by the layered compilation process
       for (const symbol of semanticSymbols) {
-        expect(symbol._detailLevel).toBeDefined();
+        expect(symbol.detailLevel).toBeDefined();
       }
 
       // Verify we have the expected symbols with detail levels
@@ -674,10 +674,10 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Method && s.name === 'protectedMethod',
       );
 
-      expect(classSymbol?._detailLevel).toBe('public-api');
-      expect(publicField?._detailLevel).toBe('public-api');
-      expect(publicMethod?._detailLevel).toBe('public-api');
-      expect(protectedMethod?._detailLevel).toBe('protected');
+      expect(classSymbol?.detailLevel).toBe('public-api');
+      expect(publicField?.detailLevel).toBe('public-api');
+      expect(publicMethod?.detailLevel).toBe('public-api');
+      expect(protectedMethod?.detailLevel).toBe('protected');
     });
 
     it('should preserve detail level on symbols from ApexSymbolCollectorListener', () => {
@@ -704,7 +704,7 @@ describe('Layered Symbol Collection', () => {
       const allSymbols = (result.result as SymbolTable).getAllSymbols();
       const semanticSymbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
-      // All semantic symbols should have _detailLevel set
+      // All semantic symbols should have detailLevel set
       const classSymbol = semanticSymbols.find(
         (s) => s.kind === SymbolKind.Class && s.name === 'TestClass',
       );
@@ -715,9 +715,9 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Method && s.name === 'publicMethod',
       );
 
-      expect(classSymbol?._detailLevel).toBe('public-api');
-      expect(fieldSymbol?._detailLevel).toBe('public-api');
-      expect(methodSymbol?._detailLevel).toBe('public-api');
+      expect(classSymbol?.detailLevel).toBe('public-api');
+      expect(fieldSymbol?.detailLevel).toBe('public-api');
+      expect(methodSymbol?.detailLevel).toBe('public-api');
     });
   });
 });

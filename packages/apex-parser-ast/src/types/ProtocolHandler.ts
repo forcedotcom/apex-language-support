@@ -110,18 +110,31 @@ export const extractFilePath = (uri: string): string => {
 };
 
 /**
- * Extract the resource path from an apexlib URI
- * @param uri The apexlib URI
- * @returns The resource path
+ * Extract the class path from any standard Apex library URI.
+ * Handles both:
+ * - apexlib://resources/StandardApexLibrary/System/List.cls -> System/List.cls
+ * - apex://stdlib/System/List -> System/List.cls
+ *
+ * @param uri The standard Apex library URI
+ * @returns The class path (e.g., "System/List.cls") or empty string if not extractable
  */
-export const extractApexLibPath = (uri: string): string => {
-  if (!hasProtocol(uri, 'apexlib')) {
-    throw new Error(`Expected apexlib URI, got: ${uri}`);
+export const extractStdlibClassPath = (uri: string): string => {
+  // Try apexlib:// format first
+  if (hasProtocol(uri, 'apexlib')) {
+    const match = uri.match(/apexlib:\/\/resources\/StandardApexLibrary\/(.+)/);
+    if (match) {
+      return match[1];
+    }
   }
-  const match = uri.match(/apexlib:\/\/resources\/StandardApexLibrary\/(.+)/);
-  if (match) {
-    return match[1];
+
+  // Try apex://stdlib/ format
+  if (uri.startsWith('apex://stdlib/')) {
+    // apex://stdlib/System/List -> System/List.cls
+    const pathPart = uri.replace('apex://stdlib/', '');
+    // Add .cls extension if not present
+    return pathPart.endsWith('.cls') ? pathPart : `${pathPart}.cls`;
   }
+
   return '';
 };
 
@@ -138,12 +151,49 @@ export const extractBuiltinType = (uri: string): string => {
 };
 
 /**
+ * Standard library URI prefix for symbols loaded from protobuf cache
+ */
+export const STDLIB_URI_PREFIX = 'apex://stdlib/';
+
+/**
  * Check if a URI represents standard Apex library content
+ * Recognizes both:
+ * - apexlib://resources/StandardApexLibrary/... (resource files)
+ * - apex://stdlib/... (protobuf cache symbols)
+ *
  * @param uri The URI to check
  * @returns True if this is a standard Apex library URI
  */
 export const isStandardApexUri = (uri: string): boolean =>
-  hasProtocol(uri, 'apexlib');
+  hasProtocol(uri, 'apexlib') || uri.startsWith(STDLIB_URI_PREFIX);
+
+/**
+ * Convert a standard library URI to an apexlib:// URI that VSCode can open.
+ * This converts apex://stdlib/... URIs (used internally) to apexlib://... URIs
+ * (registered with VSCode's TextDocumentContentProvider).
+ *
+ * @param uri The URI to convert
+ * @returns The apexlib:// URI, or the original URI if not a stdlib URI
+ */
+export const toApexLibUri = (uri: string): string => {
+  // If already an apexlib URI, return as-is
+  if (hasProtocol(uri, 'apexlib')) {
+    return uri;
+  }
+
+  // Convert apex://stdlib/... to apexlib://resources/StandardApexLibrary/...
+  if (uri.startsWith(STDLIB_URI_PREFIX)) {
+    const pathPart = uri.replace(STDLIB_URI_PREFIX, '');
+    // Add .cls extension if not present
+    const normalizedPath = pathPart.endsWith('.cls')
+      ? pathPart
+      : `${pathPart}.cls`;
+    return `${APEXLIB_RESOURCE_PREFIX}${normalizedPath}`;
+  }
+
+  // Not a stdlib URI, return as-is
+  return uri;
+};
 
 /**
  * Check if a URI represents user code
@@ -196,7 +246,7 @@ export const getFilePathFromUri = (uri: string): string => {
     case 'file':
       return extractFilePath(uri);
     case 'apexlib':
-      return extractApexLibPath(uri);
+      return extractStdlibClassPath(uri);
     case 'builtin':
       return extractBuiltinType(uri);
     case 'other':

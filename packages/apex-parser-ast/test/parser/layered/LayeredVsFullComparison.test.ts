@@ -194,7 +194,7 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       );
       expect(publicField).toBeDefined();
       expect(publicField?.modifiers.visibility).toBe(SymbolVisibility.Public);
-      expect(publicField?._detailLevel).toBe('public-api');
+      expect(publicField?.detailLevel).toBe('public-api');
 
       // Check protected field
       const protectedField = findSymbol(
@@ -206,7 +206,7 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       expect(protectedField?.modifiers.visibility).toBe(
         SymbolVisibility.Protected,
       );
-      expect(protectedField?._detailLevel).toBe('protected');
+      expect(protectedField?.detailLevel).toBe('protected');
 
       // Check private field
       const privateField = findSymbol(
@@ -216,7 +216,7 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       );
       expect(privateField).toBeDefined();
       expect(privateField?.modifiers.visibility).toBe(SymbolVisibility.Private);
-      expect(privateField?._detailLevel).toBe('private');
+      expect(privateField?.detailLevel).toBe('private');
 
       // Check public method
       const publicMethod = findSymbol(
@@ -226,7 +226,7 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       );
       expect(publicMethod).toBeDefined();
       expect(publicMethod?.modifiers.visibility).toBe(SymbolVisibility.Public);
-      expect(publicMethod?._detailLevel).toBe('public-api');
+      expect(publicMethod?.detailLevel).toBe('public-api');
 
       // Check protected method
       const protectedMethod = findSymbol(
@@ -238,7 +238,7 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       expect(protectedMethod?.modifiers.visibility).toBe(
         SymbolVisibility.Protected,
       );
-      expect(protectedMethod?._detailLevel).toBe('protected');
+      expect(protectedMethod?.detailLevel).toBe('protected');
 
       // Check private method
       const privateMethod = findSymbol(
@@ -250,7 +250,7 @@ describe('Layered vs Full Symbol Collection Comparison', () => {
       expect(privateMethod?.modifiers.visibility).toBe(
         SymbolVisibility.Private,
       );
-      expect(privateMethod?._detailLevel).toBe('private');
+      expect(privateMethod?.detailLevel).toBe('private');
 
       // Check constructors
       const publicConstructor = findSymbol(

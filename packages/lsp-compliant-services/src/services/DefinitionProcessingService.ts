@@ -22,6 +22,7 @@ import {
   ApexSymbol,
   inTypeSymbolGroup,
   TypeSymbol,
+  toApexLibUri,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 import {
@@ -534,18 +535,21 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
   /**
    * Get the file URI for a symbol
+   * Converts internal URIs (apex://stdlib/...) to VSCode-compatible URIs (apexlib://...)
    */
   private getSymbolFileUri(symbol: ApexSymbol): string | null {
     // Try to get from symbol's file URI
     if (symbol.fileUri) {
-      return symbol.fileUri;
+      // Convert apex://stdlib/... URIs to apexlib://... URIs that VSCode can open
+      return toApexLibUri(symbol.fileUri);
     }
 
     // Try to find in symbol manager
     try {
       const files = this.symbolManager.findFilesForSymbol(symbol.name);
       if (files.length > 0) {
-        return files[0];
+        // Convert the URI in case it's an internal stdlib URI
+        return toApexLibUri(files[0]);
       }
     } catch (error) {
       this.logger.debug(() => `Error getting symbol file URI: ${error}`);

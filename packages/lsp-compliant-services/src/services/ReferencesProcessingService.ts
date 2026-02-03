@@ -29,6 +29,7 @@ import {
   offer,
   SchedulerInitializationService,
   isApexKeyword,
+  toApexLibUri,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 import { LayerEnrichmentService } from './LayerEnrichmentService';

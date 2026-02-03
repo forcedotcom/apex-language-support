@@ -314,6 +314,9 @@ export class ApexSymbolGraph {
     estimatedMemorySavings: 0,
   };
 
+  // Track files currently being rebuilt to allow queries to know if data may be inconsistent
+  private rebuildingFiles: Set<string> = new Set();
+
   // Deferred reference processing metrics
   private deferredProcessingMetrics = {
     totalBatchesProcessed: 0,
@@ -2024,24 +2027,33 @@ export class ApexSymbolGraph {
       // This is critical for private/protected symbols that won't be in PublicAPISymbolListener results
       // The addSymbol method will handle detail level enrichment automatically
       //
-      // IMPORTANT: Compare by name+kind+line+column rather than ID, because IDs may have changed
+      // IMPORTANT: Compare by parent+name+kind+line+column rather than ID, because IDs may have changed
       // (e.g., parameter signatures added to method IDs). A method "testFoo" at line 10
       // should be recognized as the same symbol whether its ID is "testFoo" or "testFoo()"
       // Column is included to handle edge cases where multiple symbols share the same line.
+      // Parent scope is included to distinguish same-named methods in different inner classes.
+
+      /**
+       * Generate a stable key for symbol comparison during merging.
+       * Includes parent scope to handle same-named methods in different inner classes.
+       */
+      const generateStableKey = (s: ApexSymbol): string => {
+        const line = s.location?.symbolRange?.startLine ?? 0;
+        const column = s.location?.symbolRange?.startColumn ?? 0;
+        // Extract parent scope from parentId (last 2 segments for context)
+        const parentScope = s.parentId
+          ? s.parentId.split(':').slice(-2).join(':')
+          : 'root';
+        return `${parentScope}:${s.name}:${s.kind}:${line}:${column}`;
+      };
+
       let symbolsPreserved = 0;
       const newSymbolMap = new Map(
-        newSymbols.map((s) => {
-          const line = s.location?.symbolRange?.startLine ?? 0;
-          const column = s.location?.symbolRange?.startColumn ?? 0;
-          const key = `${s.name}:${s.kind}:${line}:${column}`;
-          return [key, s];
-        }),
+        newSymbols.map((s) => [generateStableKey(s), s]),
       );
 
       for (const symbol of existingSymbols) {
-        const line = symbol.location?.symbolRange?.startLine ?? 0;
-        const column = symbol.location?.symbolRange?.startColumn ?? 0;
-        const stableKey = `${symbol.name}:${symbol.kind}:${line}:${column}`;
+        const stableKey = generateStableKey(symbol);
 
         if (!newSymbolMap.has(stableKey)) {
           // Symbol doesn't exist in new SymbolTable - preserve it
@@ -2426,13 +2438,28 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Clear the graph indexes for a file without removing the SymbolTable.
-   * This is used when re-adding symbols to prevent duplicates while preserving
-   * the SymbolTable for lookups and merging.
-   * Normalizes URI to ensure consistent lookup.
+   * Clear the graph indexes (fileIndex, nameIndex, fqnIndex, symbolIdIndex) for a file
+   * WITHOUT removing the SymbolTable. This is used when re-adding symbols to prevent
+   * duplicates while preserving the SymbolTable for lookups and merging.
+   *
+   * Use this when you want to refresh a file's symbols but preserve the SymbolTable
+   * for merging with new symbols.
+   *
+   * Use `removeFile()` instead if you want to completely remove a file's presence
+   * from the graph (both indexes AND SymbolTable).
+   *
+   * Note: This marks the file as "rebuilding" - use markFileRebuildComplete()
+   * after all symbols have been re-added to clear the flag.
+   *
+   * @param fileUri The file URI to clear indexes for
+   * @see removeFile For complete file removal
    */
-  clearFileIndex(fileUri: string): void {
+  clearGraphIndexesForFile(fileUri: string): void {
     const normalizedUri = extractFilePathFromUri(fileUri);
+
+    // Mark file as rebuilding - queries can check this flag
+    this.rebuildingFiles.add(normalizedUri);
+
     const symbolIds = this.fileIndex.get(normalizedUri) || [];
 
     for (const symbolId of symbolIds) {
@@ -2477,7 +2504,7 @@ export class ApexSymbolGraph {
    */
   removeFile(fileUri: string): void {
     // Clear indexes first
-    this.clearFileIndex(fileUri);
+    this.clearGraphIndexesForFile(fileUri);
 
     // Remove SymbolTable reference - this allows GC to clean up the SymbolTable
     // if no other references exist. We don't call pruneOrphanedSymbols here because
@@ -2485,6 +2512,30 @@ export class ApexSymbolGraph {
     // For explicit cleanup, callers can use pruneOrphanedSymbols directly.
     const normalizedUri = extractFilePathFromUri(fileUri);
     this.fileToSymbolTable.delete(normalizedUri);
+
+    // Clear rebuild flag since file is fully removed
+    this.rebuildingFiles.delete(normalizedUri);
+  }
+
+  /**
+   * Check if a file is currently being rebuilt.
+   * During rebuild, symbol queries for that file may return incomplete results.
+   * @param fileUri The file URI to check
+   * @returns true if the file is being rebuilt
+   */
+  isFileRebuilding(fileUri: string): boolean {
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    return this.rebuildingFiles.has(normalizedUri);
+  }
+
+  /**
+   * Mark a file's rebuild as complete.
+   * Call this after all symbols have been re-added following clearGraphIndexesForFile().
+   * @param fileUri The file URI to mark as complete
+   */
+  markFileRebuildComplete(fileUri: string): void {
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    this.rebuildingFiles.delete(normalizedUri);
   }
 
   /**

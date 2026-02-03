@@ -120,9 +120,9 @@ describe('CompilerService.compileLayered', () => {
     expect(protectedField).toBeDefined();
     expect(privateField).toBeDefined();
 
-    expect(publicField?._detailLevel).toBe('public-api');
-    expect(protectedField?._detailLevel).toBe('protected');
-    expect(privateField?._detailLevel).toBe('private');
+    expect(publicField?.detailLevel).toBe('public-api');
+    expect(protectedField?.detailLevel).toBe('protected');
+    expect(privateField?.detailLevel).toBe('private');
   });
 
   it('should handle errors gracefully', () => {

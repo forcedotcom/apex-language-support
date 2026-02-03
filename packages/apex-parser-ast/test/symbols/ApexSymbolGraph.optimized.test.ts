@@ -896,7 +896,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
     });
   });
 
-  describe('clearFileIndex', () => {
+  describe('clearGraphIndexesForFile', () => {
     it('should clear file indexes without removing the SymbolTable', () => {
       const fileUri = 'file:///test/TestClass.cls';
 
@@ -930,7 +930,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       expect(tableBeforeClear).toBe(compiledTable);
 
       // Clear the file index
-      symbolGraph.clearFileIndex(fileUri);
+      symbolGraph.clearGraphIndexesForFile(fileUri);
 
       // Verify file index is cleared (no symbols in graph)
       const symbolsAfterClear = symbolGraph.getSymbolsInFile(fileUri);
@@ -941,7 +941,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       expect(tableAfterClear).toBe(compiledTable);
     });
 
-    it('should allow re-adding symbols after clearFileIndex', () => {
+    it('should allow re-adding symbols after clearGraphIndexesForFile', () => {
       const fileUri = 'file:///test/TestClass.cls';
 
       // Compile TestClass to get real symbol
@@ -966,7 +966,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       symbolGraph.addSymbol(testClassSymbol, fileUri, compiledTable);
 
       // Clear the file index
-      symbolGraph.clearFileIndex(fileUri);
+      symbolGraph.clearGraphIndexesForFile(fileUri);
 
       // Re-add the symbol
       symbolGraph.addSymbol(testClassSymbol, fileUri, compiledTable);
@@ -1006,7 +1006,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       expect(byNameBefore.length).toBeGreaterThan(0);
 
       // Clear the file index
-      symbolGraph.clearFileIndex(fileUri);
+      symbolGraph.clearGraphIndexesForFile(fileUri);
 
       // Verify symbol is NOT findable by name after clearing
       const byNameAfter = symbolGraph.findSymbolByName('TestClass');
@@ -1048,7 +1048,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       const symbolsAfterRemove = symbolGraph.getSymbolsInFile(fileUri);
       expect(symbolsAfterRemove.length).toBe(0);
 
-      // Verify SymbolTable is also removed (unlike clearFileIndex)
+      // Verify SymbolTable is also removed (unlike clearGraphIndexesForFile)
       const tableAfter = symbolGraph.getSymbolTableForFile(fileUri);
       expect(tableAfter).toBeUndefined();
     });

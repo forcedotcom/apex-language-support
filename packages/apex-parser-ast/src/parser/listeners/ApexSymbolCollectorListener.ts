@@ -1538,14 +1538,12 @@ export class ApexSymbolCollectorListener
     // No-op - stack handles scope exit
     // this.symbolTable.exitScope(); // Removed - stack handles scope exit
 
-    // Pop from stack and validate it's a method scope
-    const popped = this.scopeStack.pop();
-    if (isBlockSymbol(popped)) {
-      if (popped.scopeType !== 'method') {
-        this.logger.warn(
-          `Expected method scope on exitMethodDeclaration, but got ${popped.scopeType}`,
-        );
-      }
+    // Only pop if we actually pushed a method block in enterMethodDeclaration.
+    // During layered enrichment, we may not have pushed if shouldCollect was false
+    // and detailLevel wasn't 'full'. Unconditionally popping would corrupt the stack.
+    const top = this.scopeStack.peek();
+    if (isBlockSymbol(top) && top.scopeType === 'method') {
+      this.scopeStack.pop();
     }
 
     // Reset modifiers and annotations for the next symbol
@@ -1703,14 +1701,12 @@ export class ApexSymbolCollectorListener
     // No-op - stack handles scope exit
     // this.symbolTable.exitScope(); // Removed - stack handles scope exit
 
-    // Pop from stack and validate it's a method scope
-    const popped = this.scopeStack.pop();
-    if (isBlockSymbol(popped)) {
-      if (popped.scopeType !== 'method') {
-        this.logger.warn(
-          `Expected method scope on exitConstructorDeclaration, but got ${popped.scopeType}`,
-        );
-      }
+    // Only pop if we actually pushed a method block in enterConstructorDeclaration.
+    // During layered enrichment, we may not have pushed if shouldCollect was false
+    // and detailLevel wasn't 'full'. Unconditionally popping would corrupt the stack.
+    const top = this.scopeStack.peek();
+    if (isBlockSymbol(top) && top.scopeType === 'method') {
+      this.scopeStack.pop();
     }
   }
 
