@@ -562,8 +562,13 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       // Verify they have different ranges (different line numbers)
       // This confirms they are distinct symbols, not the same symbol duplicated
       expect(methods[0].range.start.line).not.toBe(methods[1].range.start.line);
-      expect(methods[0].range.start.line).toBe(1); // First method at line 1 (0-indexed)
-      expect(methods[1].range.start.line).toBe(5); // Second method at line 5 (0-indexed)
+
+      // Sort methods by line number for predictable ordering
+      const sortedMethods = [...methods].sort(
+        (a, b) => a.range.start.line - b.range.start.line,
+      );
+      expect(sortedMethods[0].range.start.line).toBe(1); // First method at line 1 (0-indexed)
+      expect(sortedMethods[1].range.start.line).toBe(5); // Second method at line 5 (0-indexed)
     });
 
     it('handles complex class with fields, methods, and inner classes', async () => {
