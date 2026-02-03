@@ -21,7 +21,7 @@ export class ChecksumValidationError extends Error {
       `MD5 checksum validation failed for ${filename}.\n` +
         `Expected: ${expected}\n` +
         `Actual: ${actual}\n` +
-        `The file may be corrupted or tampered with. Please rebuild the extension with 'npm run build'.`,
+        "The file may be corrupted or tampered with. Please rebuild the extension with 'npm run build'.",
     );
     this.name = 'ChecksumValidationError';
   }
@@ -35,7 +35,7 @@ export class ChecksumFileMissingError extends Error {
     super(
       `MD5 checksum file missing for ${filename}.\n` +
         `Expected checksum file: ${filename}.md5\n` +
-        `This is a required build artifact. Please rebuild the extension with 'npm run build'.`,
+        "This is a required build artifact. Please rebuild the extension with 'npm run build'.",
     );
     this.name = 'ChecksumFileMissingError';
   }
@@ -66,7 +66,7 @@ export function parseMD5ChecksumFile(checksumContent: string): string {
   const match = trimmed.match(/^([a-f0-9]{32})\s+(.+)$/i);
   if (!match) {
     throw new Error(
-      `Invalid MD5 checksum file format. Expected format: <hash>  <filename>`,
+      'Invalid MD5 checksum file format. Expected format: <hash>  <filename>',
     );
   }
   return match[1].toLowerCase();

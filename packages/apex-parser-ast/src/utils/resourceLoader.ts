@@ -19,10 +19,8 @@ import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
 import { normalizeApexPath } from './PathUtils';
 import { CompilerService } from '../parser/compilerService';
-import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
-import { STANDARD_APEX_LIBRARY_URI } from './ResourceUtils';
 import { NamespaceDependencyAnalyzer } from './NamespaceDependencyAnalyzer';
 import { Effect } from 'effect';
 import {
@@ -161,7 +159,7 @@ export class ResourceLoader {
     } catch (error) {
       throw new Error(
         `Failed to extract StandardApexLibrary.zip: ${error instanceof Error ? error.message : String(error)}. ` +
-          `The ZIP file may be corrupted. Please rebuild the extension with 'npm run build'.`,
+          "The ZIP file may be corrupted. Please rebuild the extension with 'npm run build'.",
       );
     }
     this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
@@ -777,11 +775,9 @@ export class ResourceLoader {
     checksumContent: string;
   } | null> {
     // Import checksum validator
-    const {
-      validateMD5Checksum,
-      ChecksumFileMissingError,
-      ChecksumValidationError,
-    } = await import('./checksum-validator');
+    const { ChecksumFileMissingError, ChecksumValidationError } = await import(
+      './checksum-validator'
+    );
 
     // Try embedded data URL first (production builds)
     // Note: For embedded builds, checksums should be validated at build time
@@ -1127,8 +1123,9 @@ export class ResourceLoader {
         extractedFiles = unzipSync(buffer);
       } catch (error) {
         throw new Error(
-          `Failed to extract StandardApexLibrary.zip during reset: ${error instanceof Error ? error.message : String(error)}. ` +
-            `The ZIP file may be corrupted. Please rebuild the extension with 'npm run build'.`,
+          'Failed to extract StandardApexLibrary.zip during reset: ' +
+            `${error instanceof Error ? error.message : String(error)}. ` +
+            "The ZIP file may be corrupted. Please rebuild the extension with 'npm run build'.",
         );
       }
       this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
@@ -1160,12 +1157,16 @@ export class ResourceLoader {
   }
 
   /**
-   * Dynamically load and compile a single standard Apex class from ZIP resources.
-   * Enables lazy loading using efficient ZIP extraction.
+   * Load a single standard Apex class by name from the protobuf cache.
+   * This method first checks if the artifact is already loaded and cached.
+   * If not, it attempts to load the class from the protobuf cache.
    * Optimized with early returns and cached lookups for improved performance.
    *
-   * @param className The class name to load and compile
-   * @returns Promise that resolves to the compiled artifact or null if not found
+   * Note: This method no longer compiles from ZIP. The protobuf cache has 100%
+   * coverage of all standard library classes, validated at build time.
+   *
+   * @param className The class name to load
+   * @returns Promise that resolves to the compiled artifact or null if not found in cache
    */
   public async loadAndCompileClass(
     className: string,
@@ -1218,111 +1219,24 @@ export class ResourceLoader {
       }
     }
 
-    // Check if class exists in our known structure
-    if (!this.fileIndex.has(normalizedPath)) {
-      this.logger.debug(
-        () => `Class ${className} not found in standard library`,
-      );
-      return null;
-    }
-
-    try {
-      // Check decodedContentCache directly before calling extractFileFromZip
-      // This avoids method call overhead when content is already cached
-      let content: string | undefined;
-      if (this.decodedContentCache.has(normalizedPath)) {
-        content = this.decodedContentCache.get(normalizedPath);
-        this.accessCount++;
-      } else {
-        // Load the file content from ZIP using our private method
-        content = await this.extractFileFromZip(className);
-      }
-
-      if (!content) {
-        this.logger.warn(() => `Failed to load content for ${className}`);
-        return null;
-      }
-
-      // Get namespace using O(1) lookup from classNameToNamespace index
-      const namespaces = this.classNameToNamespace.get(normalizedPath);
-      const namespace = namespaces ? Array.from(namespaces)[0] : undefined;
-
-      // Compile the single class
-      // Standard Apex library classes only expose public API with empty method bodies
-      // So 'public-api' detail level is sufficient - no need for BlockContentListener
-      const listener = new ApexSymbolCollectorListener(undefined, 'public-api');
-
-      // Convert className to proper URI scheme
-      const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${className}`;
-
-      listener.setCurrentFileUri(fileUri);
-      if (namespace) {
-        listener.setProjectNamespace(namespace);
-      }
-
-      const result = this.compilerService.compile(
-        content,
-        fileUri, // Use proper URI scheme for standard Apex library classes
-        listener,
-        {
-          projectNamespace: namespace,
-          includeComments: false,
-          includeSingleLineComments: false,
-          associateComments: false,
-          collectReferences: true, // Enable reference collection
-          resolveReferences: true, // Enable reference resolution
-        }, // Minimal compilation for performance
-      );
-
-      if (result.errors.length > 0) {
-        this.logger.debug(
-          () =>
-            `Compilation errors for ${className} (expected for stubs): ${result.errors.length} errors`,
-        );
-        // Continue processing despite errors - stubs are expected to have compilation issues
-      }
-
-      // Create compiled artifact - handle different result types
-      let artifact: CompiledArtifact;
-
-      if ('commentAssociations' in result && 'comments' in result) {
-        // This is a CompilationResultWithAssociations
-        artifact = {
-          path: className, // Preserve original className for backward compatibility
-          compilationResult:
-            result as CompilationResultWithAssociations<SymbolTable>,
-        };
-      } else {
-        // This is a regular CompilationResult - we need to convert it
-        // For now, we'll create a minimal artifact
-        artifact = {
-          path: className, // Preserve original className for backward compatibility
-          compilationResult: {
-            ...result,
-            commentAssociations: [],
-            comments: [],
-          } as CompilationResultWithAssociations<SymbolTable>,
-        };
-      }
-
-      // Store in compiled artifacts map using normalized key for consistent lookups
-      this.compiledArtifacts.set(normalizedPath, artifact);
-
-      this.logger.debug(() => `Successfully loaded and compiled ${className}`);
-      return artifact;
-    } catch (error) {
-      this.logger.error(() => `Error loading/compiling ${className}: ${error}`);
-      return null;
-    }
+    // Class not found in protobuf cache - this should not happen
+    // Build validation ensures 100% cache coverage
+    this.logger.debug(
+      () =>
+        `Class ${className} not found in protobuf cache. ` +
+        'This indicates missing or corrupted cache file. ' +
+        'Protobuf cache should have 100% coverage of all standard library classes.',
+    );
+    return null;
   }
 
   /**
-   * Check if a class is available and optionally load it from ZIP resources.
+   * Check if a class is available in the protobuf cache.
    * This is the main entry point for lazy loading of standard Apex classes.
    * Uses normalized path for consistent lookups.
    *
    * @param className The class name to ensure is loaded
-   * @returns Promise that resolves to true if the class was loaded successfully
+   * @returns Promise that resolves to true if the class was loaded successfully from cache
    */
   public async ensureClassLoaded(className: string): Promise<boolean> {
     // Normalize path for consistent lookup
@@ -1333,18 +1247,18 @@ export class ResourceLoader {
       return true;
     }
 
-    // Try to load and compile
+    // Try to load from protobuf cache
     const artifact = await this.loadAndCompileClass(className);
     return artifact !== null;
   }
 
   /**
-   * Get compiled artifact for a class, loading it from ZIP resources if necessary.
-   * Uses lazy loading to compile classes on-demand.
+   * Get compiled artifact for a class from the protobuf cache.
+   * Uses lazy loading to load classes on-demand from cache.
    * Uses normalized path for consistent lookups.
    *
    * @param className The class name to get the compiled artifact for
-   * @returns Promise that resolves to the compiled artifact or null if not found
+   * @returns Promise that resolves to the compiled artifact or null if not found in cache
    */
   public async getCompiledArtifact(
     className: string,

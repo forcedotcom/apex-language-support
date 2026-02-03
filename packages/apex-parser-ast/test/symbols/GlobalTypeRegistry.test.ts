@@ -484,4 +484,319 @@ describe('GlobalTypeRegistry Effect Service', () => {
       );
     });
   });
+
+  describe('registerTypes (bulk registration)', () => {
+    it('should register multiple types at once', async () => {
+      const types: TypeRegistryEntry[] = [
+        {
+          fqn: 'myapp.class1',
+          name: 'Class1',
+          namespace: 'MyApp',
+          kind: SymbolKind.Class,
+          symbolId: 'class1-id',
+          fileUri: 'file:///MyApp/Class1.cls',
+          isStdlib: false,
+        },
+        {
+          fqn: 'myapp.class2',
+          name: 'Class2',
+          namespace: 'MyApp',
+          kind: SymbolKind.Class,
+          symbolId: 'class2-id',
+          fileUri: 'file:///MyApp/Class2.cls',
+          isStdlib: false,
+        },
+        {
+          fqn: 'myapp.interface1',
+          name: 'Interface1',
+          namespace: 'MyApp',
+          kind: SymbolKind.Interface,
+          symbolId: 'interface1-id',
+          fileUri: 'file:///MyApp/Interface1.cls',
+          isStdlib: false,
+        },
+      ];
+
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerTypes(types);
+
+          const stats = yield* registry.getStats();
+          expect(stats.totalTypes).toBe(3);
+          expect(stats.userTypes).toBe(3);
+
+          const type1 = yield* registry.getType('myapp.class1');
+          expect(type1).toBeDefined();
+
+          const type2 = yield* registry.getType('myapp.class2');
+          expect(type2).toBeDefined();
+
+          const type3 = yield* registry.getType('myapp.interface1');
+          expect(type3).toBeDefined();
+        }),
+      );
+    });
+
+    it('should handle empty array', async () => {
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerTypes([]);
+
+          const stats = yield* registry.getStats();
+          expect(stats.totalTypes).toBe(0);
+        }),
+      );
+    });
+  });
+
+  describe('unregisterType', () => {
+    it('should unregister a type by FQN', async () => {
+      const entry: TypeRegistryEntry = {
+        fqn: 'myapp.testclass',
+        name: 'TestClass',
+        namespace: 'MyApp',
+        kind: SymbolKind.Class,
+        symbolId: 'testclass-id',
+        fileUri: 'file:///MyApp/TestClass.cls',
+        isStdlib: false,
+      };
+
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerType(entry);
+
+          // Verify registered
+          const before = yield* registry.getType('myapp.testclass');
+          expect(before).toBeDefined();
+
+          const statsBefore = yield* registry.getStats();
+          expect(statsBefore.totalTypes).toBe(1);
+          expect(statsBefore.userTypes).toBe(1);
+
+          // Unregister
+          yield* registry.unregisterType('myapp.testclass');
+
+          // Verify removed
+          const after = yield* registry.getType('myapp.testclass');
+          expect(after).toBeUndefined();
+
+          const statsAfter = yield* registry.getStats();
+          expect(statsAfter.totalTypes).toBe(0);
+          expect(statsAfter.userTypes).toBe(0);
+        }),
+      );
+    });
+
+    it('should be idempotent (no error if type not registered)', async () => {
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+
+          // Unregister non-existent type - should not throw
+          yield* registry.unregisterType('nonexistent.type');
+
+          const stats = yield* registry.getStats();
+          expect(stats.totalTypes).toBe(0);
+        }),
+      );
+    });
+
+    it('should remove type from name index', async () => {
+      const entry: TypeRegistryEntry = {
+        fqn: 'myapp.testclass',
+        name: 'TestClass',
+        namespace: 'MyApp',
+        kind: SymbolKind.Class,
+        symbolId: 'testclass-id',
+        fileUri: 'file:///MyApp/TestClass.cls',
+        isStdlib: false,
+      };
+
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerType(entry);
+
+          // Verify can resolve by name
+          const before = yield* registry.resolveType('TestClass');
+          expect(before).toBeDefined();
+
+          // Unregister
+          yield* registry.unregisterType('myapp.testclass');
+
+          // Verify cannot resolve by name
+          const after = yield* registry.resolveType('TestClass');
+          expect(after).toBeUndefined();
+        }),
+      );
+    });
+
+    it('should handle multiple types with same name', async () => {
+      const systemException: TypeRegistryEntry = {
+        fqn: 'system.exception',
+        name: 'Exception',
+        namespace: 'System',
+        kind: SymbolKind.Class,
+        symbolId: 'system-exception-id',
+        fileUri: 'apex://stdlib/System/Exception',
+        isStdlib: true,
+      };
+
+      const myAppException: TypeRegistryEntry = {
+        fqn: 'myapp.exception',
+        name: 'Exception',
+        namespace: 'MyApp',
+        kind: SymbolKind.Class,
+        symbolId: 'myapp-exception-id',
+        fileUri: 'file:///MyApp/Exception.cls',
+        isStdlib: false,
+      };
+
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerType(systemException);
+          yield* registry.registerType(myAppException);
+
+          // Unregister user type
+          yield* registry.unregisterType('myapp.exception');
+
+          // System.Exception should still exist
+          const systemStillExists = yield* registry.getType('system.exception');
+          expect(systemStillExists).toBeDefined();
+
+          // MyApp.Exception should be gone
+          const myAppGone = yield* registry.getType('myapp.exception');
+          expect(myAppGone).toBeUndefined();
+
+          // Resolving unqualified should find System.Exception
+          const resolved = yield* registry.resolveType('Exception');
+          expect(resolved?.namespace).toBe('System');
+        }),
+      );
+    });
+  });
+
+  describe('unregisterByFileUri', () => {
+    it('should unregister all types from a file', async () => {
+      const types: TypeRegistryEntry[] = [
+        {
+          fqn: 'myapp.class1',
+          name: 'Class1',
+          namespace: 'MyApp',
+          kind: SymbolKind.Class,
+          symbolId: 'class1-id',
+          fileUri: 'file:///MyApp/MyFile.cls',
+          isStdlib: false,
+        },
+        {
+          fqn: 'myapp.class2',
+          name: 'Class2',
+          namespace: 'MyApp',
+          kind: SymbolKind.Class,
+          symbolId: 'class2-id',
+          fileUri: 'file:///MyApp/MyFile.cls',
+          isStdlib: false,
+        },
+        {
+          fqn: 'myapp.class3',
+          name: 'Class3',
+          namespace: 'MyApp',
+          kind: SymbolKind.Class,
+          symbolId: 'class3-id',
+          fileUri: 'file:///MyApp/OtherFile.cls',
+          isStdlib: false,
+        },
+      ];
+
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerTypes(types);
+
+          const statsBefore = yield* registry.getStats();
+          expect(statsBefore.totalTypes).toBe(3);
+
+          // Unregister types from MyFile.cls
+          const removed = yield* registry.unregisterByFileUri(
+            'file:///MyApp/MyFile.cls',
+          );
+          expect(removed).toHaveLength(2);
+          expect(removed.map((t) => t.name).sort()).toEqual([
+            'Class1',
+            'Class2',
+          ]);
+
+          // Verify Class1 and Class2 are gone
+          const class1 = yield* registry.getType('myapp.class1');
+          expect(class1).toBeUndefined();
+
+          const class2 = yield* registry.getType('myapp.class2');
+          expect(class2).toBeUndefined();
+
+          // Verify Class3 still exists
+          const class3 = yield* registry.getType('myapp.class3');
+          expect(class3).toBeDefined();
+
+          const statsAfter = yield* registry.getStats();
+          expect(statsAfter.totalTypes).toBe(1);
+        }),
+      );
+    });
+
+    it('should be idempotent (no error if file has no types)', async () => {
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+
+          // Unregister from file with no types - should not throw
+          const removed = yield* registry.unregisterByFileUri(
+            'file:///NonExistent/File.cls',
+          );
+          expect(removed).toHaveLength(0);
+        }),
+      );
+    });
+
+    it('should return all removed entries', async () => {
+      const types: TypeRegistryEntry[] = [
+        {
+          fqn: 'myapp.class1',
+          name: 'Class1',
+          namespace: 'MyApp',
+          kind: SymbolKind.Class,
+          symbolId: 'class1-id',
+          fileUri: 'file:///MyApp/MyFile.cls',
+          isStdlib: false,
+        },
+        {
+          fqn: 'myapp.interface1',
+          name: 'Interface1',
+          namespace: 'MyApp',
+          kind: SymbolKind.Interface,
+          symbolId: 'interface1-id',
+          fileUri: 'file:///MyApp/MyFile.cls',
+          isStdlib: false,
+        },
+      ];
+
+      await runWithRegistry(
+        Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          yield* registry.registerTypes(types);
+
+          const removed = yield* registry.unregisterByFileUri(
+            'file:///MyApp/MyFile.cls',
+          );
+
+          expect(removed).toHaveLength(2);
+          expect(removed.find((t) => t.name === 'Class1')).toBeDefined();
+          expect(removed.find((t) => t.name === 'Interface1')).toBeDefined();
+        }),
+      );
+    });
+  });
 });

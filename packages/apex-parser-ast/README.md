@@ -715,6 +715,7 @@ When adding new validators or error codes:
    - `src/generated/messages_en_US.ts` with the new message and `ErrorCodeKey` union
    - `src/generated/ErrorCodes.ts` with the new constant (e.g., `NEW_ERROR_CODE`)
 4. **Use in Validator**: Use `ErrorCodes.NEW_ERROR_CODE` and `localizeTyped()`:
+
    ```typescript
    import { localizeTyped } from '../../i18n/messageInstance';
    import { ErrorCodes } from '../../generated/ErrorCodes';
@@ -725,6 +726,7 @@ When adding new validators or error codes:
      location: symbol.location,
    });
    ```
+
 5. **Linting Detection**: Unused error code constants will appear in linting output, helping identify unimplemented validations
 
 #### Error Code Format
@@ -1061,6 +1063,75 @@ The package includes a `ResourceLoader` that provides access to the Standard Ape
 - **Source Code Access**: Retrieve source code for goto definition and hover information
 - **Namespace Organization**: Properly organized by namespace (System, Database, Schema, etc.)
 - **Statistics and Monitoring**: Comprehensive statistics about loaded resources
+
+#### Protobuf Cache Architecture
+
+The Standard Apex Library uses a **protobuf cache** (`apex-stdlib.pb.gz`) for fast startup performance:
+
+**Build-Time Generation:**
+
+- All `.cls` files from `StandardApexLibrary/` are parsed during build
+- Symbol tables are extracted and serialized to protobuf format
+- Cache is compressed with gzip and distributed with the extension
+- **100% Coverage Guarantee**: Build fails if any class throws an exception during parsing
+- Syntax errors in stub files are expected and included (with partial type information via ANTLR error recovery)
+- MD5 checksums are generated for integrity validation
+
+**Runtime Loading:**
+
+- Protobuf cache is loaded at server startup (~1ms)
+- Classes are loaded on-demand from cache (lazy loading)
+- MD5 checksum validation ensures file integrity
+- **No ZIP Compilation Fallback**: Classes not in cache return null (should never happen)
+- ZIP file is used only for source code extraction (goto definition)
+
+**Key Guarantees:**
+
+- Protobuf cache contains 100% of all standard library classes
+- Build validation ensures completeness (no partial caches)
+- Runtime never encounters missing classes (fail-fast on corrupted cache)
+- Simpler, more predictable behavior than on-demand compilation
+
+**Files:**
+
+- `apex-stdlib.pb.gz` - Compressed protobuf cache of symbol tables
+- `apex-stdlib.pb.gz.md5` - MD5 checksum for integrity validation
+- `apex-type-registry.pb.gz` - Compressed GlobalTypeRegistry cache
+- `apex-type-registry.pb.gz.md5` - MD5 checksum for registry integrity
+- `StandardApexLibrary.zip` - Source code for goto definition
+- `StandardApexLibrary.zip.md5` - MD5 checksum for ZIP integrity
+
+#### GlobalTypeRegistry - O(1) Type Resolution
+
+The `GlobalTypeRegistry` provides O(1) type lookup for standard library types, eliminating O(n²) symbol table scans:
+
+**Build-Time Generation:**
+
+- Top-level types (classes, interfaces, enums) are extracted from protobuf cache
+- Type metadata (FQN, name, namespace, kind, symbolId) is indexed
+- Registry is serialized to protobuf format and compressed
+- **100% Coverage Guarantee**: Same as protobuf cache (all parseable classes)
+- MD5 checksum generated for integrity validation
+
+**Runtime Behavior:**
+
+- Registry is loaded at server startup (<1ms)
+- Provides O(1) lookup by fully qualified name (FQN)
+- Namespace-aware resolution (current → System → Database → first)
+- **Static for stdlib, dynamic for user types** (planned enhancement)
+- Fail-fast on missing/corrupted registry file
+
+**Performance Impact:**
+
+- Without registry: O(n²) scan of all symbol tables (~50-500ms per lookup)
+- With registry: O(1) hash map lookup (<1ms per lookup)
+- Critical for large workspaces with thousands of type references
+
+**Current Scope:**
+
+- Contains ONLY standard library types (`isStdlib: true`)
+- User workspace types currently use O(n²) fallback scan
+- Future enhancement: Dynamic registration of user types for O(1) user type resolution
 
 #### Maintaining the Standard Apex Library
 

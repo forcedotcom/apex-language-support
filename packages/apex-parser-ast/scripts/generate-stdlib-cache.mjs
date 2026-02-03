@@ -343,7 +343,6 @@ async function main() {
   console.log('\n4. Parsing classes...');
   const namespaceData = [];
   let parsedCount = 0;
-  let errorCount = 0;
 
   for (const [namespace, files] of namespaceMap) {
     const symbolTables = new Map();
@@ -368,18 +367,25 @@ async function main() {
             console.log(`   Parsed ${parsedCount}/${totalClasses} classes...`);
           }
         } else {
-          errorCount++;
-          if (errorCount <= 5) {
-            console.warn(`   Warning: Failed to parse ${file.path}`);
-          }
-        }
-      } catch (error) {
-        errorCount++;
-        if (errorCount <= 5) {
-          console.warn(
-            `   Warning: Error parsing ${file.path}: ${error.message}`,
+          // result.result is null - should never happen as parser always returns SymbolTable
+          // This indicates a critical parser failure
+          console.error(
+            `❌ FATAL: Parser returned null result for ${file.path}`,
+          );
+          throw new Error(
+            `Build failed: Parser returned null result for ${file.path}. ` +
+              `This indicates a critical parser bug that must be fixed before release.`,
           );
         }
+      } catch (error) {
+        // Exception during parsing - fail the build
+        console.error(`❌ FATAL: Exception parsing ${file.path}`);
+        console.error(`   Error: ${error.message}`);
+        console.error(`   Stack: ${error.stack}`);
+        throw new Error(
+          `Build failed: Cannot generate cache due to parser exception in ${file.path}. ` +
+            `Parser bugs must be fixed before release.`,
+        );
       }
     }
 
@@ -392,9 +398,6 @@ async function main() {
   }
 
   console.log(`   Parsed ${parsedCount} classes successfully`);
-  if (errorCount > 0) {
-    console.log(`   ${errorCount} classes had errors (skipped)`);
-  }
 
   // Serialize to protobuf
   console.log('\n5. Serializing to protobuf...');

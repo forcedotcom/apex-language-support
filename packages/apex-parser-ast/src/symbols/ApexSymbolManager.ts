@@ -75,6 +75,7 @@ import { STANDARD_APEX_LIBRARY_URI } from '../utils/ResourceUtils';
 import {
   GlobalTypeRegistry,
   GlobalTypeRegistryLive,
+  type TypeRegistryEntry,
 } from '../services/GlobalTypeRegistryService';
 import { isApexKeyword, BUILTIN_TYPE_NAMES } from '../utils/ApexKeywords';
 import type {
@@ -1121,6 +1122,34 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // This ensures consistency with addSymbolTable which uses normalized URIs
     const normalizedUri = extractFilePathFromUri(properUri);
 
+    // Unregister user types from GlobalTypeRegistry before removing symbols
+    // Get symbol table before removal to extract types
+    const symbolTable = this.symbolGraph.getSymbolTableForFile(normalizedUri);
+    if (symbolTable) {
+      try {
+        const unregisterEffect = Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          const removed = yield* registry.unregisterByFileUri(normalizedUri);
+          return removed;
+        });
+
+        const removed = Effect.runSync(
+          unregisterEffect.pipe(Effect.provide(GlobalTypeRegistryLive)),
+        );
+
+        this.logger.debug(
+          () =>
+            `[GlobalTypeRegistry] Unregistered ${removed.length} types from ${normalizedUri}`,
+        );
+      } catch (error) {
+        // Log error but don't fail - registry cleanup is best-effort
+        this.logger.warn(
+          () =>
+            `[GlobalTypeRegistry] Failed to unregister types for ${normalizedUri}: ${error}`,
+        );
+      }
+    }
+
     // Remove from symbol graph (graph will normalize again, but we normalize here for consistency)
     this.symbolGraph.removeFile(normalizedUri);
 
@@ -1807,6 +1836,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // The graph is the source of truth for symbol counts
       const graphStats = self.symbolGraph.getStats();
       self.memoryStats.totalSymbols = graphStats.totalSymbols;
+
+      // Register user types to GlobalTypeRegistry for O(1) lookup
+      const symbolTableForRegistry =
+        self.symbolGraph.getSymbolTableForFile(normalizedUri);
+      if (symbolTableForRegistry) {
+        // Run registry update with GlobalTypeRegistry context
+        const registerEffect = self.registerUserTypesToGlobalRegistry(
+          symbolTableForRegistry,
+          normalizedUri,
+        );
+        yield* Effect.provide(registerEffect, GlobalTypeRegistryLive);
+      }
     });
   }
 
@@ -1825,6 +1866,115 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return Effect.runPromise(
       this.processSameFileReferencesToGraphEffect(symbolTable, fileUri),
     );
+  }
+
+  /**
+   * Register user types from a symbol table to GlobalTypeRegistry.
+   * Extracts top-level types (classes, interfaces, enums) and registers them
+   * for O(1) type resolution.
+   *
+   * @param symbolTable The symbol table containing types to register
+   * @param fileUri The file URI for the types
+   */
+  private registerUserTypesToGlobalRegistry(
+    symbolTable: SymbolTable,
+    fileUri: string,
+  ): Effect.Effect<void, never, GlobalTypeRegistry> {
+    const self = this;
+    return Effect.gen(function* () {
+      // Extract top-level types (parentId === null)
+      const allSymbols = symbolTable.getAllSymbols();
+      const topLevelTypes = allSymbols.filter((symbol) => {
+        const isTopLevel =
+          symbol.parentId === null || symbol.parentId === 'null';
+        const isType =
+          symbol.kind === SymbolKind.Class ||
+          symbol.kind === SymbolKind.Interface ||
+          symbol.kind === SymbolKind.Enum;
+        return isTopLevel && isType;
+      });
+
+      // Skip if no types (e.g., trigger-only file)
+      if (topLevelTypes.length === 0) {
+        return;
+      }
+
+      // Build registry entries
+      const entries: TypeRegistryEntry[] = [];
+      for (const symbol of topLevelTypes) {
+        // Extract namespace first
+        const namespace = self.extractNamespaceForRegistry(symbol, fileUri);
+
+        // Calculate FQN if missing
+        let fqn = symbol.fqn;
+        if (!fqn) {
+          // Build FQN from namespace and name
+          fqn = namespace ? `${namespace}.${symbol.name}` : symbol.name;
+        }
+
+        entries.push({
+          fqn: fqn.toLowerCase(),
+          name: symbol.name,
+          namespace,
+          kind: symbol.kind as
+            | SymbolKind.Class
+            | SymbolKind.Interface
+            | SymbolKind.Enum,
+          symbolId: symbol.id,
+          fileUri,
+          isStdlib: false, // User type
+        });
+      }
+
+      // Register in bulk
+      const registry = yield* GlobalTypeRegistry;
+      yield* registry.registerTypes(entries);
+
+      self.logger.debug(
+        () =>
+          `[GlobalTypeRegistry] Registered ${entries.length} user types for ${fileUri}`,
+      );
+    });
+  }
+
+  /**
+   * Extract namespace for a symbol for GlobalTypeRegistry.
+   * Uses project namespace from settings.
+   *
+   * @param symbol The symbol to extract namespace from
+   * @param fileUri The file URI (for logging)
+   * @returns Namespace string
+   */
+  private extractNamespaceForRegistry(
+    symbol: ApexSymbol,
+    fileUri: string,
+  ): string {
+    // Try symbol.namespace first
+    if (symbol.namespace) {
+      if (typeof symbol.namespace === 'string') {
+        return symbol.namespace;
+      }
+      // namespace object - use toString()
+      if (
+        typeof symbol.namespace === 'object' &&
+        'toString' in symbol.namespace
+      ) {
+        return symbol.namespace.toString();
+      }
+    }
+
+    // Try FQN
+    if (symbol.fqn && symbol.fqn.includes('.')) {
+      const parts = symbol.fqn.split('.');
+      if (parts.length > 1) {
+        return parts.slice(0, -1).join('.');
+      }
+    }
+
+    // TODO: Use project namespace from settings when available
+    // For now, use 'default' namespace for all user types
+    // Future: Extract from ApexSettings.projectNamespace or org metadata
+    return 'default';
   }
 
   /**
@@ -4020,56 +4170,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   );
                 }
               } else {
-                // Not in registry - fall back to O(n²) scan for user types
+                // Not in registry - type doesn't exist or file not yet loaded
                 this.logger.debug(
                   () =>
-                    `[GlobalTypeRegistry] Type "${typeReference.name}" not in registry, ` +
-                    'falling back to symbol table scan',
+                    `[GlobalTypeRegistry] Type "${typeReference.name}" not found in registry. ` +
+                    'Type may not exist or file not yet loaded.',
                 );
-                const fileToSymbolTable =
-                  this.symbolGraph.getFileToSymbolTable();
-                for (const [
-                  _fileUri,
-                  symbolTable,
-                ] of fileToSymbolTable.entries()) {
-                  if (!symbolTable) continue;
-                  const allSymbols = symbolTable.getAllSymbols();
-                  const found = allSymbols.filter(
-                    (s: ApexSymbol) =>
-                      s.name === typeReference.name &&
-                      (s.kind === SymbolKind.Class ||
-                        s.kind === SymbolKind.Interface),
-                  );
-                  if (found.length > 0) {
-                    classCandidates = found;
-                    break;
-                  }
-                }
+                // No fallback - return null (type not found)
               }
             } catch (error) {
-              // Effect service error - fall back to symbol table scan
-              this.logger.debug(
+              // Effect service error - log and return null
+              this.logger.error(
                 () =>
-                  `[GlobalTypeRegistry] Effect service error: ${error}, falling back to scan`,
+                  `[GlobalTypeRegistry] Effect service error: ${error}. ` +
+                  'Type resolution failed.',
               );
-              const fileToSymbolTable = this.symbolGraph.getFileToSymbolTable();
-              for (const [
-                _fileUri,
-                symbolTable,
-              ] of fileToSymbolTable.entries()) {
-                if (!symbolTable) continue;
-                const allSymbols = symbolTable.getAllSymbols();
-                const found = allSymbols.filter(
-                  (s: ApexSymbol) =>
-                    s.name === typeReference.name &&
-                    (s.kind === SymbolKind.Class ||
-                      s.kind === SymbolKind.Interface),
-                );
-                if (found.length > 0) {
-                  classCandidates = found;
-                  break;
-                }
-              }
+              // No fallback - return null (type not found)
             }
           }
         }

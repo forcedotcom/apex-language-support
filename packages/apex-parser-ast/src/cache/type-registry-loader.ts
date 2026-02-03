@@ -61,7 +61,7 @@ export function loadTypeRegistryFromGzip(
   } catch (error) {
     throw new Error(
       `Failed to load type registry from gzip: ${error instanceof Error ? error.message : String(error)}. ` +
-        `The apex-type-registry.pb.gz file may be corrupted. Please rebuild the extension with 'npm run build'.`,
+        "The apex-type-registry.pb.gz file may be corrupted. Please rebuild the extension with 'npm run build'.",
     );
   }
 }
