@@ -548,21 +548,21 @@ export class CompilerService {
         );
       }
 
-      // CRITICAL: After all layers are applied, update all symbols' _detailLevel
+      // CRITICAL: After all layers are applied, update all symbols' detailLevel
       // to reflect the highest layer that was applied. This ensures that even if
       // a symbol was only collected in the public-api layer (because it's public),
-      // its _detailLevel reflects that higher layers (protected, private) were applied.
+      // its detailLevel reflects that higher layers (protected, private) were applied.
       const highestLayer = requestedLayers[requestedLayers.length - 1];
       const targetDetailLevel =
         highestLayer === 'private' ? 'full' : highestLayer;
       for (const symbol of symbolTable.getAllSymbols()) {
-        if (symbol._detailLevel) {
-          symbol._detailLevel = targetDetailLevel as DetailLevel;
+        if (symbol.detailLevel) {
+          symbol.detailLevel = targetDetailLevel as DetailLevel;
         }
       }
       this.logger.debug(
         () =>
-          `Updated all symbols in ${fileName} to _detailLevel=${targetDetailLevel}`,
+          `Updated all symbols in ${fileName} to detailLevel=${targetDetailLevel}`,
       );
 
       // Optionally collect references using dedicated listener

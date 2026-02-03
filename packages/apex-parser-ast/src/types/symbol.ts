@@ -872,10 +872,16 @@ export class SymbolTable {
    */
   updateSymbolId(oldId: string, newId: string): void {
     // Get the symbol with the old ID
-    const symbol = this.symbolMap.get(oldId);
-    if (!symbol) {
+    const entry = this.symbolMap.get(oldId);
+    if (!entry) {
       return; // Symbol not found, nothing to update
     }
+
+    // Only handle single symbols, not duplicate arrays
+    if (Array.isArray(entry)) {
+      return; // Don't update duplicate arrays
+    }
+    const symbol = entry;
 
     // Remove old entry from symbolMap
     this.symbolMap.delete(oldId);
@@ -891,9 +897,9 @@ export class SymbolTable {
     const childIds = this.childrenByParentId.get(oldId);
     if (childIds) {
       for (const childId of childIds) {
-        const child = this.symbolMap.get(childId);
-        if (child) {
-          child.parentId = newId;
+        const childEntry = this.symbolMap.get(childId);
+        if (childEntry && !Array.isArray(childEntry)) {
+          childEntry.parentId = newId;
         }
       }
       // Move children to new parent ID in the index
@@ -934,8 +940,9 @@ export class SymbolTable {
       this.symbolMap.set(symbol.id, symbol);
     }
 
-    // Rebuild roots array
-    this.roots = this.symbolArray.filter((s) => s.parentId === null);
+    // Rebuild root (single top-level symbol)
+    const rootSymbols = this.symbolArray.filter((s) => s.parentId === null);
+    this.root = rootSymbols.length > 0 ? rootSymbols[0] : null;
 
     // Rebuild childrenByParentId index
     this.rebuildChildrenIndex();
@@ -1246,28 +1253,24 @@ export class SymbolTable {
     // Maintain childrenByParentId index for O(1) child lookups
     // First, remove from old parent's children if parentId changed
     if (
-      existingSymbol &&
       previousParentId != null && // Check for both null and undefined
-      previousParentId !== symbolToAdd.parentId
+      previousParentId !== symbol.parentId
     ) {
       const oldParentChildren = this.childrenByParentId.get(previousParentId);
       if (oldParentChildren) {
-        oldParentChildren.delete(symbolToAdd.id);
+        oldParentChildren.delete(symbol.id);
         if (oldParentChildren.size === 0) {
           this.childrenByParentId.delete(previousParentId);
         }
       }
     }
     // Add to new parent's children (parentId must be a non-null string)
-    if (symbolToAdd.parentId != null) {
-      const parentChildren = this.childrenByParentId.get(symbolToAdd.parentId);
+    if (symbol.parentId != null) {
+      const parentChildren = this.childrenByParentId.get(symbol.parentId);
       if (parentChildren) {
-        parentChildren.add(symbolToAdd.id);
+        parentChildren.add(symbol.id);
       } else {
-        this.childrenByParentId.set(
-          symbolToAdd.parentId,
-          new Set([symbolToAdd.id]),
-        );
+        this.childrenByParentId.set(symbol.parentId, new Set([symbol.id]));
       }
     }
   }

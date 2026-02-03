@@ -2052,9 +2052,7 @@ export class ApexSymbolGraph {
           // Symbol exists in both - only merge if enrichment is needed
           // This ensures higher detail level symbols (private/full) enrich lower ones (public-api)
           // BUT: If both symbols are the same detail level, skip to avoid duplicates!
-          const existingInNew = newSymbols.find(
-            (s) => keyToString(s.key) === symbolKey,
-          );
+          const existingInNew = newSymbolMap.get(stableKey);
           if (existingInNew) {
             // Check if enrichment is needed (new symbol has higher detail level)
             const detailLevelOrder: Record<string, number> = {

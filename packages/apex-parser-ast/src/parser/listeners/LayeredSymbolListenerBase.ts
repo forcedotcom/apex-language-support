@@ -108,7 +108,7 @@ export abstract class LayeredSymbolListenerBase extends BaseApexParserListener<S
     currentScope?: ApexSymbol | null,
   ): void {
     // Set detail level on symbol
-    symbol._detailLevel = this.getDetailLevel();
+    symbol.detailLevel = this.getDetailLevel();
 
     // Add to symbol table (which handles enrichment if symbol already exists)
     if (currentScope && 'scopeType' in currentScope) {
@@ -136,7 +136,7 @@ export abstract class LayeredSymbolListenerBase extends BaseApexParserListener<S
       id: existing.id,
       key: existing.key,
       parentId: newData.parentId ?? existing.parentId,
-      _detailLevel: this.getDetailLevel(), // Update detail level
+      detailLevel: this.getDetailLevel(), // Update detail level
     });
 
     return existing;

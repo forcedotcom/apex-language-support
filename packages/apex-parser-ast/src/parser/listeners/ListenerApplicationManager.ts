@@ -170,8 +170,8 @@ export class ListenerApplicationManager {
     if (existingSymbolTable) {
       const symbols = existingSymbolTable.getAllSymbols();
       for (const symbol of symbols) {
-        if (symbol._detailLevel) {
-          existingLevels.add(symbol._detailLevel);
+        if (symbol.detailLevel) {
+          existingLevels.add(symbol.detailLevel);
         }
       }
     }
