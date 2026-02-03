@@ -57,9 +57,7 @@ export class ApexFoldingRangeProvider {
           );
           return null; // Return null on error
         },
-      }).pipe(
-        Effect.catchAll(() => Effect.succeed(null)),
-      );
+      }).pipe(Effect.catchAll(() => Effect.succeed(null)));
 
       if (!document) {
         logger.debug(() => `Document not found in storage: ${documentUri}`);
@@ -103,26 +101,23 @@ export class ApexFoldingRangeProvider {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
           logger.error(
-            () =>
-              `Compiler error for ${documentUri}: ${errorMessage}`,
+            () => `Compiler error for ${documentUri}: ${errorMessage}`,
           );
           return new Error(errorMessage);
         },
       }).pipe(
-        Effect.catchAll(() => {
+        Effect.catchAll(() =>
           // Return empty result on compilation error
-          return Effect.succeed({
+          Effect.succeed({
             errors: [],
             warnings: [],
             result: null,
-          });
-        }),
+          }),
+        ),
       );
 
       if (result.errors.length > 0) {
-        logger.debug(
-          () => `Parse errors for ${documentUri}: ${result.errors}`,
-        );
+        logger.debug(() => `Parse errors for ${documentUri}: ${result.errors}`);
         // Continue processing even with errors, as partial folding ranges may still be useful
       }
 

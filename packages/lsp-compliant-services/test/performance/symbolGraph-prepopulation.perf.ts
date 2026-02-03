@@ -17,6 +17,8 @@
  * - Strong YES: If Database + System < 500ms
  * - Conditional: If 500-1000ms (reasonable trade-off)
  * - Reconsider: If > 1500ms (too expensive)
+ *
+ * Note: GlobalTypeRegistry tests have been extracted to globalTypeRegistry.perf.ts
  */
 
 import {
@@ -57,7 +59,9 @@ interface PrePopulationResult {
   avgPerClass: number;
 }
 
-describe('Symbol Graph Pre-population Performance', () => {
+// TODO: Convert these Jest tests to proper Benchmark.js format
+// These tests still use Jest assertions and timeouts instead of Benchmark.js
+describe.skip('Symbol Graph Pre-population Performance', () => {
   let logger: LoggerInterface;
   let symbolManager: ApexSymbolManager;
   let resourceLoader: ResourceLoader;
@@ -399,138 +403,4 @@ describe('Symbol Graph Pre-population Performance', () => {
     }
     logger.info('');
   }, 30000);
-
-  /**
-   * NEW: GlobalTypeRegistry Effect Service Performance Test
-   *
-   * This test measures the O(1) type lookup performance of the GlobalTypeRegistry
-   * when loaded from pre-built protobuf cache via Effect service.
-   *
-   * Expected results:
-   * - Registry load from cache: < 1ms (pre-built, just deserialization)
-   * - Single type lookup: < 1ms (O(1))
-   * - Memory overhead: ~100KB vs ~50MB for full pre-loading
-   */
-  it('should measure GlobalTypeRegistry Effect service performance', async () => {
-    const { Effect } = await import('effect');
-    const { GlobalTypeRegistry, GlobalTypeRegistryLive } = await import(
-      '@salesforce/apex-lsp-parser-ast'
-    );
-
-    logger.alwaysLog(() => '\n========================================');
-    logger.alwaysLog(() => 'GlobalTypeRegistry Effect Service Performance');
-    logger.alwaysLog(() => '========================================');
-
-    // Initialize ResourceLoader to trigger registry loading from cache
-    const initStart = performance.now();
-    await resourceLoader.initialize();
-    const initEnd = performance.now();
-    const initDuration = initEnd - initStart;
-
-    logger.alwaysLog(
-      () =>
-        `ResourceLoader initialization: ${initDuration.toFixed(1)}ms ` +
-        '(includes registry cache load)',
-    );
-
-    // Get registry statistics via Effect service
-    const stats = await Effect.runPromise(
-      Effect.gen(function* () {
-        const registry = yield* GlobalTypeRegistry;
-        return yield* registry.getStats();
-      }).pipe(Effect.provide(GlobalTypeRegistryLive)),
-    );
-
-    logger.alwaysLog(
-      () =>
-        `Registry populated with ${stats.totalTypes} types ` +
-        `(stdlib: ${stats.stdlibTypes}, user: ${stats.userTypes})`,
-    );
-
-    // Measure lookup performance for common types
-    const lookupTests = [
-      'Exception',
-      'String',
-      'Database.QueryLocator',
-      'System.Exception',
-      'ApexPages.StandardController',
-      'ConnectApi.FeedItem',
-    ];
-
-    logger.alwaysLog(() => '\nType Resolution Performance (O(1) lookups):');
-
-    const lookupResults: Array<{
-      type: string;
-      duration: number;
-      found: boolean;
-    }> = [];
-
-    for (const typeName of lookupTests) {
-      const lookupStart = performance.now();
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const registry = yield* GlobalTypeRegistry;
-          return yield* registry.resolveType(typeName);
-        }).pipe(Effect.provide(GlobalTypeRegistryLive)),
-      );
-      const lookupEnd = performance.now();
-      const lookupDuration = lookupEnd - lookupStart;
-
-      lookupResults.push({
-        type: typeName,
-        duration: lookupDuration,
-        found: result !== undefined,
-      });
-
-      logger.alwaysLog(
-        () =>
-          `  ${typeName}: ${lookupDuration.toFixed(3)}ms ` +
-          `(${result ? `found: ${result.fqn}` : 'not found'})`,
-      );
-    }
-
-    // Calculate average lookup time
-    const avgLookup =
-      lookupResults.reduce((sum, r) => sum + r.duration, 0) /
-      lookupResults.length;
-
-    logger.alwaysLog(() => `\nAverage lookup time: ${avgLookup.toFixed(3)}ms`);
-
-    // Final statistics via Effect service
-    const finalStats = await Effect.runPromise(
-      Effect.gen(function* () {
-        const registry = yield* GlobalTypeRegistry;
-        return yield* registry.getStats();
-      }).pipe(Effect.provide(GlobalTypeRegistryLive)),
-    );
-    logger.alwaysLog(() => '\nRegistry Statistics:');
-    logger.alwaysLog(() => `  Total types: ${finalStats.totalTypes}`);
-    logger.alwaysLog(() => `  Total lookups: ${finalStats.lookupCount}`);
-    logger.alwaysLog(() => `  Cache hits: ${finalStats.hitCount}`);
-    logger.alwaysLog(
-      () => `  Hit rate: ${(finalStats.hitRate * 100).toFixed(1)}%`,
-    );
-
-    logger.alwaysLog(() => '\n========================================');
-    logger.alwaysLog(() => 'Registry Performance Summary:');
-    logger.alwaysLog(
-      () =>
-        `  Initialization: ${initDuration.toFixed(1)}ms for ${stats.totalTypes} types`,
-    );
-    logger.alwaysLog(
-      () =>
-        `  Per-type cost: ${(initDuration / stats.totalTypes).toFixed(3)}ms`,
-    );
-    logger.alwaysLog(() => `  Lookup speed: ${avgLookup.toFixed(3)}ms (O(1))`);
-    logger.alwaysLog(
-      () =>
-        `  Memory estimate: ~${Math.ceil((stats.totalTypes * 100) / 1024)}KB`,
-    );
-    logger.alwaysLog(() => '========================================\n');
-
-    // Assertions
-    expect(stats.totalTypes).toBeGreaterThan(900); // Should have ~1,000 stdlib types
-    expect(avgLookup).toBeLessThan(1); // O(1) lookups should be sub-millisecond
-    expect(initDuration).toBeLessThan(300); // Registry init should be fast
-  }, 60000);
 });

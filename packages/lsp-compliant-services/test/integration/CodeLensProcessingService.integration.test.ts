@@ -30,7 +30,7 @@ describe('CodeLensProcessingService Integration Tests', () => {
   beforeAll(async () => {
     // Enable console logging for debugging
     enableConsoleLogging();
-    setLogLevel('debug');
+    setLogLevel('error');
   });
 
   beforeEach(async () => {

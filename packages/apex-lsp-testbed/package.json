@@ -23,6 +23,7 @@
     "test:quality": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
+    "test:perf:quick": "QUICK=true npm run test:perf",
     "test:perf:eda": "wireit",
     "test:perf:lsp": "wireit",
     "clean": "rimraf out dist .wireit tsconfig.tsbuildinfo coverage test-artifacts",

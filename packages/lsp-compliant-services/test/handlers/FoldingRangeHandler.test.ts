@@ -142,7 +142,9 @@ public class TestClass {
       };
 
       // Mock the ApexFoldingRangeProvider to return expected ranges
-      mockProvider.getFoldingRanges.mockReturnValue(Effect.succeed(expectedFoldingRanges));
+      mockProvider.getFoldingRanges.mockReturnValue(
+        Effect.succeed(expectedFoldingRanges),
+      );
 
       // Act
       const result = await processOnFoldingRange(params, mockStorage);
@@ -252,7 +254,9 @@ public class TestClass {
       };
 
       // Mock the ApexFoldingRangeProvider
-      mockProvider.getFoldingRanges.mockReturnValue(Effect.succeed(expectedFoldingRanges));
+      mockProvider.getFoldingRanges.mockReturnValue(
+        Effect.succeed(expectedFoldingRanges),
+      );
 
       // Act
       const result = await processOnFoldingRange(params, mockStorage);

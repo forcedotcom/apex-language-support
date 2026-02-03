@@ -330,7 +330,7 @@ describe('ApexFoldingRangeProvider', () => {
       // Get the mocked ApexSettingsManager from the top-level mock
       const ApexLspShared = require('@salesforce/apex-lsp-shared');
       const mockGetCompilationOptions = jest.fn().mockReturnValue({});
-      
+
       // Override the mock for this test
       ApexLspShared.ApexSettingsManager.getInstance.mockReturnValueOnce({
         getCompilationOptions: mockGetCompilationOptions,

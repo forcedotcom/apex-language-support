@@ -7,9 +7,18 @@
  */
 
 /**
- * Performance test: Opening multiple DIFFERENT files to determine if first-open penalty is per-file or one-time.
+ * Multi-File Penalty Performance Benchmarks
+ *
+ * This benchmark determines if first-open penalty is per-file or one-time
+ * by opening multiple different files sequentially with the same symbol manager.
+ *
+ * Purpose:
+ * - Track whether subsequent file opens benefit from cached stdlib
+ * - Identify if penalty is one-time setup or per-file compilation cost
+ * - Monitor multi-file performance trends over time
  */
 
+import Benchmark from 'benchmark';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -19,7 +28,6 @@ import {
   setLogLevel,
   ApexSettingsManager,
   LSPConfigurationManager,
-  measureAsyncBlocking,
 } from '@salesforce/apex-lsp-shared';
 
 import { DocumentProcessingService } from '../../src/services/DocumentProcessingService';
@@ -42,7 +50,7 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
   };
 });
 
-describe('Multiple Files - First Open Penalty Analysis', () => {
+describe('Multi-File Penalty Benchmarks', () => {
   let logger: LoggerInterface;
   let storageManager: ApexStorageManager;
   let symbolManager: ApexSymbolManager;
@@ -50,9 +58,18 @@ describe('Multiple Files - First Open Penalty Analysis', () => {
   let mockConfigManager: any;
   let mockSettingsManager: any;
 
+  const isCI = process.env.CI === 'true';
+  const isQuick = process.env.QUICK === 'true';
+  const benchmarkSettings = isCI
+    ? { maxTime: 30, minTime: 10, minSamples: 5, initCount: 1 }
+    : isQuick
+      ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 }
+      : { maxTime: 6, minTime: 2, minSamples: 2, initCount: 1 };
+
   const testFiles = [
     {
       uri: 'file:///workspace/FileA.cls',
+      name: 'FileA',
       content: `public class FileA {
     public void methodA() {
         String s = 'test';
@@ -64,6 +81,7 @@ describe('Multiple Files - First Open Penalty Analysis', () => {
     },
     {
       uri: 'file:///workspace/FileB.cls',
+      name: 'FileB',
       content: `public class FileB {
     public Map<String, Integer> methodB() {
         Map<String, Integer> counts = new Map<String, Integer>();
@@ -74,6 +92,7 @@ describe('Multiple Files - First Open Penalty Analysis', () => {
     },
     {
       uri: 'file:///workspace/FileC.cls',
+      name: 'FileC',
       content: `public class FileC {
     public Boolean methodC(String input) {
         return String.isNotBlank(input) && input.length() > 0;
@@ -84,18 +103,12 @@ describe('Multiple Files - First Open Penalty Analysis', () => {
 
   beforeAll(async () => {
     enableConsoleLogging();
-    setLogLevel('info');
+    setLogLevel('error');
 
-    // Initialize ResourceLoader with protobuf cache
-    const tempLogger = getLogger();
-    tempLogger.info('\n=== Initializing ResourceLoader ===');
     const resourceLoader = ResourceLoader.getInstance({
       preloadStdClasses: true,
     });
     await resourceLoader.initialize();
-
-    const isProtobufLoaded = resourceLoader.isProtobufCacheLoaded();
-    tempLogger.info(`✅ Protobuf cache loaded: ${isProtobufLoaded}`);
   });
 
   beforeEach(async () => {
@@ -160,7 +173,7 @@ describe('Multiple Files - First Open Penalty Analysis', () => {
 
     await SchedulerInitializationService.getInstance().ensureInitialized();
 
-    // Use SAME symbol manager for all files (realistic production scenario)
+    // Use SAME symbol manager for all files
     symbolManager = new ApexSymbolManager();
     const processingManager = ApexSymbolProcessingManager.getInstance();
     // @ts-expect-error - accessing private field for testing
@@ -173,94 +186,62 @@ describe('Multiple Files - First Open Penalty Analysis', () => {
     await cleanupTestResources();
   });
 
-  it('measures first-open penalty across multiple different files', async () => {
-    logger.info(
-      '\n=== Testing: Does each new file have a first-open penalty? ===',
-    );
+  jest.setTimeout(1000 * 60 * 10);
 
-    const results: Array<{
-      file: string;
-      duration: number;
-      isBlocking: boolean;
-    }> = [];
+  // Benchmark each file individually
+  testFiles.forEach((fileData, index) => {
+    it(`benchmarks file ${index + 1} (${fileData.name})`, (done) => {
+      const suite = new Benchmark.Suite();
+      const results: Record<string, Benchmark.Target> = {};
 
-    // Open each file sequentially WITHOUT resetting symbol manager
-    for (const fileData of testFiles) {
       const document = TextDocument.create(
         fileData.uri,
         'apex',
         1,
         fileData.content,
       );
-
       const event: TextDocumentChangeEvent<TextDocument> = { document };
 
-      const timing = await measureAsyncBlocking(
-        `open-${fileData.uri}`,
-        async () => service.processDocumentOpenSingle(event),
-      );
+      suite
+        .add(`Multi-file: ${fileData.name} (position ${index + 1})`, {
+          defer: true,
+          ...benchmarkSettings,
+          fn: (deferred: any) => {
+            service
+              .processDocumentOpenInternal(event)
+              .then(() => deferred.resolve())
+              .catch((err: any) => {
+                console.error(`Error in ${fileData.name}:`, err);
+                deferred.resolve();
+              });
+          },
+        })
+        .on('cycle', (event: any) => {
+          results[event.target.name] = event.target;
+          logger.alwaysLog(String(event.target));
+        })
+        .on('complete', function (this: any) {
+          const fs = require('fs');
+          const path = require('path');
+          const outputPath = path.join(
+            __dirname,
+            '../lsp-compliant-services-benchmark-results.json',
+          );
 
-      results.push({
-        file: fileData.uri,
-        duration: timing.durationMs,
-        isBlocking: timing.isBlocking,
-      });
+          let allResults = results;
+          try {
+            if (fs.existsSync(outputPath)) {
+              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+              allResults = { ...existing, ...results };
+            }
+          } catch (error) {
+            console.warn('Could not read existing results:', error);
+          }
 
-      logger.info(
-        `\n${fileData.uri}:\n  Duration: ${timing.durationMs.toFixed(2)}ms\n` +
-          `  Blocking: ${timing.isBlocking ? 'YES ⚠️' : 'NO ✓'}`,
-      );
-    }
-
-    // Analysis
-    logger.info('\n=== Analysis ===');
-    const [first, second, third] = results;
-
-    logger.info(`First file:  ${first.duration.toFixed(2)}ms`);
-    logger.info(`Second file: ${second.duration.toFixed(2)}ms`);
-    logger.info(`Third file:  ${third.duration.toFixed(2)}ms`);
-
-    const avgSubsequent = (second.duration + third.duration) / 2;
-    const penalty = first.duration - avgSubsequent;
-    const penaltyPercent = (penalty / first.duration) * 100;
-
-    logger.info(
-      `\nFirst-open penalty: ${penalty.toFixed(2)}ms (${penaltyPercent.toFixed(1)}%)`,
-    );
-
-    if (second.duration > first.duration * 0.5) {
-      logger.warn(
-        '⚠️  Second file is >50% of first file duration - may indicate per-file penalty',
-      );
-    } else {
-      logger.info(
-        '✅ Second file is significantly faster - first-open penalty appears to be one-time',
-      );
-    }
-
-    // Document findings
-    logger.info('\n=== Conclusion ===');
-    if (avgSubsequent < first.duration * 0.3) {
-      logger.info(
-        '✅ First-open penalty is ONE-TIME (subsequent files are <30% of first)',
-      );
-      logger.info(
-        '   This means the penalty is from initial symbol manager setup, not per-file compilation.',
-      );
-    } else if (avgSubsequent < first.duration * 0.7) {
-      logger.info(
-        '⚠️  First-open penalty is PARTIALLY per-file (subsequent files are 30-70% of first)',
-      );
-      logger.info(
-        '   Each file incurs some compilation cost, but initial setup also contributes.',
-      );
-    } else {
-      logger.warn(
-        '🔴 First-open penalty is PER-FILE (subsequent files are >70% of first)',
-      );
-      logger.warn(
-        "   Each file appears to pay a similar penalty - investigate why stdlib isn't cached.",
-      );
-    }
-  }, 60000);
+          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+          done();
+        })
+        .run({ async: true });
+    }, 120000);
+  });
 });

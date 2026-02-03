@@ -22,6 +22,8 @@
     "test": "wireit",
     "test:one": "wireit",
     "test:coverage": "wireit",
+    "test:perf": "wireit",
+    "test:perf:quick": "QUICK=true npm run test:perf",
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "wireit"
@@ -126,6 +128,17 @@
         "**/jest.config.cjs",
         "../../scripts/jest-teardown.js"
       ]
+    },
+    "test:perf": {
+      "command": "jest --testMatch \"**/test/**/*.perf.ts\" --runInBand",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.perf.ts",
+        "**/jest.config.cjs"
+      ]
     }
   },
   "dependencies": {
@@ -138,6 +151,8 @@
     "vscode-languageserver-textdocument": "^1.0.12"
   },
   "devDependencies": {
-    "@salesforce/esbuild-presets": "^0.1.0"
+    "@salesforce/esbuild-presets": "^0.1.0",
+    "@types/benchmark": "^2.1.5",
+    "benchmark": "^2.1.4"
   }
 }

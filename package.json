@@ -10,6 +10,7 @@
     "test": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
+    "test:perf:quick": "QUICK=true npm run test:perf",
     "test:quality": "wireit",
     "test:coverage:report": "wireit",
     "test:web": "wireit",
@@ -170,7 +171,9 @@
     "test:perf": {
       "dependencies": [
         "compile",
-        "./packages/apex-lsp-testbed:test:perf"
+        "./packages/apex-lsp-testbed:test:perf",
+        "./packages/apex-parser-ast:test:perf",
+        "./packages/lsp-compliant-services:test:perf"
       ]
     },
     "test:quality": {
