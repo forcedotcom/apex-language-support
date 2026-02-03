@@ -159,10 +159,8 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
       await (adapter as any).initializeResourceLoader();
 
-      // Verify ResourceLoader.getInstance was called with correct options
-      expect(ResourceLoader.getInstance).toHaveBeenCalledWith({
-        preloadStdClasses: true,
-      });
+      // Verify ResourceLoader.getInstance was called
+      expect(ResourceLoader.getInstance).toHaveBeenCalled();
     });
 
     it('should call initialize on ResourceLoader', async () => {
@@ -239,7 +237,9 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         })),
         initialize: jest
           .fn()
-          .mockRejectedValue(new Error('Standard library symbol data cache not available')),
+          .mockRejectedValue(
+            new Error('Standard library symbol data cache not available'),
+          ),
         isStandardLibrarySymbolDataLoaded: jest.fn(() => false),
       };
 

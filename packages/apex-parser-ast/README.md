@@ -1058,9 +1058,9 @@ The package includes a `ResourceLoader` that provides access to the Standard Ape
 
 #### ResourceLoader Features
 
-- **In-Memory File System**: Uses memfs for efficient storage and access to standard Apex classes
-- **Compiled Artifacts**: Pre-compiled symbol tables for all standard classes
-- **Source Code Access**: Retrieve source code for goto definition and hover information
+- **Protobuf Cache**: Fast symbol table loading from pre-built protobuf cache
+- **Global Type Registry**: O(1) type resolution via pre-built type registry from gz file
+- **Ephemeral Docs**: Source code access from ZIP for goto definition and hover information
 - **Namespace Organization**: Properly organized by namespace (System, Database, Schema, etc.)
 - **Statistics and Monitoring**: Comprehensive statistics about loaded resources
 
@@ -1232,30 +1232,27 @@ import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
 // Get the singleton instance
 const resourceLoader = ResourceLoader.getInstance();
 
-// Wait for initialization and compilation
+// Wait for initialization (loads protobuf cache and global registry)
 await resourceLoader.initialize();
-await resourceLoader.waitForCompilation();
 
-// Access compiled artifacts
-const systemClass = resourceLoader.getCompiledArtifact('System/System.cls');
-const databaseClass = resourceLoader.getCompiledArtifact(
-  'Database/Database.cls',
-);
+// Access symbol tables directly from protobuf cache
+const systemSymbolTable = await resourceLoader.getSymbolTable('System/System.cls');
+const databaseSymbolTable = await resourceLoader.getSymbolTable('Database/Database.cls');
 
-// Get source code
+// Get source code from ZIP for ephemeral docs (goto definition)
 const sourceCode = await resourceLoader.getFile('System/System.cls');
 
 // Check available classes
 const availableClasses = resourceLoader.getAvailableClasses();
 const hasSystemClass = resourceLoader.hasClass('System/System.cls');
 
-// Get all files
+// Get all files (source code from ZIP)
 const allFiles = await resourceLoader.getAllFiles();
 
 // Get statistics
 const stats = resourceLoader.getStatistics();
 console.log(
-  `Loaded ${stats.totalFiles} files, ${stats.compiledFiles} compiled`,
+  `Loaded ${stats.totalFiles} files, ${stats.symbolTablesLoaded} symbol tables from cache`,
 );
 ```
 
@@ -1318,8 +1315,10 @@ Type names in variables/parameters are resolved post-parse using `NamespaceResol
 
 Helpful APIs:
 
-- `hasClass(pathOrFqn)`, `getAvailableClasses()`, `getNamespaceStructure()`
-- `ensureClassLoaded(name)`, `getCompiledArtifact(name)` (async), `getCompiledArtifactSync(name)`
+- `hasClass(pathOrFqn)`, `getAvailableClasses()`, `getStandardNamespaces()`
+- `getSymbolTable(name)` (async) - Get symbol table directly from protobuf cache
+- `hasSymbolTable(name)` (async) - Check if symbol table is available
+- `getFile(path)` (async) - Get source code from ZIP for ephemeral docs
 - `couldResolveSymbol(symbolName)`, `getPotentialMatches(partial)`
 
 ### Putting It Together: Typical Usage
@@ -1368,7 +1367,7 @@ const resolved = manager.resolveSymbol('List', { expectedNamespace: 'System' });
 - **Find References**: Use `findReferencesTo` for inbound usages; map results to LSP locations.
 - **Rename**: Combine `findReferencesTo` + `findReferencesFrom` to get a closed set of edits.
 - **Impact Analysis**: Use `analyzeDependencies` to estimate blast radius and `detectCircularDependencies` to surface risks.
-- **Stdlib On-Demand**: Before failing a lookup, call `ResourceLoader.ensureClassLoaded(name)` or let `ApexSymbolManager` leverage it implicitly.
+- **Stdlib On-Demand**: Symbol tables are loaded on-demand from protobuf cache. `ApexSymbolManager` automatically leverages `ResourceLoader.getSymbolTable()` when needed.
 
 ### Notes on Performance and Memory
 

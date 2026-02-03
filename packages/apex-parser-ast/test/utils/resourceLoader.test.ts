@@ -8,6 +8,7 @@
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { CaseInsensitivePathMap } from '../../src/utils/CaseInsensitiveMap';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
+import { SymbolTable } from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -56,9 +57,10 @@ describe('ResourceLoader', () => {
       expect(instance).toBeDefined();
     });
 
-    it('should accept preloadCommonClasses option', () => {
+    it('should accept zipBuffer option', () => {
+      const mockZip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
       const instance = ResourceLoader.getInstance({
-        preloadStdClasses: true,
+        zipBuffer: mockZip,
       });
       expect(instance).toBeDefined();
     });
@@ -287,21 +289,15 @@ describe('ResourceLoader', () => {
       expect(content2).toBe(content1);
     });
 
-    it.skip('should preload common classes when requested', async () => {
-      // TODO: Re-enable this test once preloadStdClasses is implemented
-      // The preloadStdClasses option is defined in ResourceLoaderOptions but
-      // the actual preloading logic is not yet implemented in the new ZIP loading mechanism.
-      // Once implemented, this test should verify that classes are preloaded immediately
-      // when preloadStdClasses: true is set, increasing loadedEntries count.
+    it('should have symbol tables loaded after initialization', async () => {
       loader = ResourceLoader.getInstance({
-        preloadStdClasses: true,
         zipBuffer: standardLibZip,
       });
       await loader.initialize();
 
-      // Common classes should be preloaded
+      // Symbol tables should be loaded from protobuf cache
       const stats = loader.getStatistics();
-      expect(stats.lazyFileStats.loadedEntries).toBeGreaterThan(0);
+      expect(stats.symbolTablesLoaded).toBeGreaterThan(0);
     });
   });
 
@@ -331,8 +327,7 @@ describe('ResourceLoader', () => {
   });
 });
 
-// TODO: Skip until protobuf cache is available in tests
-describe.skip('ResourceLoader On-Demand Loading from Protobuf Cache', () => {
+describe('ResourceLoader On-Demand Loading from Protobuf Cache', () => {
   let resourceLoader: ResourceLoader;
   let standardLibZip: Uint8Array;
 
@@ -352,55 +347,49 @@ describe.skip('ResourceLoader On-Demand Loading from Protobuf Cache', () => {
     ResourceLoader.resetInstance();
   });
 
-  it('should not have pre-loaded artifacts initially', async () => {
+  it('should have symbol tables available after initialization', async () => {
     await resourceLoader.initialize();
-    const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
-    expect(compiledArtifacts.size).toBe(0);
+    const symbolTables = resourceLoader.getAllSymbolTables();
+    expect(symbolTables.size).toBeGreaterThan(0);
   });
 
-  it('should load artifact from protobuf cache on demand', async () => {
+  it('should load symbol table from protobuf cache on demand', async () => {
     await resourceLoader.initialize();
 
-    // Initially no artifacts
-    const initialArtifacts = resourceLoader.getAllCompiledArtifacts();
-    expect(initialArtifacts.size).toBe(0);
-
     // Load from protobuf cache on demand
-    const compiledArtifact =
-      await resourceLoader.getCompiledArtifact('System/System.cls');
+    const symbolTable =
+      await resourceLoader.getSymbolTable('System/System.cls');
 
-    expect(compiledArtifact).toBeDefined();
-    expect(compiledArtifact!.compilationResult).toBeDefined();
-    expect(compiledArtifact!.compilationResult.result).toBeDefined();
+    expect(symbolTable).toBeDefined();
+    expect(symbolTable).toBeInstanceOf(SymbolTable);
   }, 30000);
 
   it('should load files with correct namespace from protobuf cache', async () => {
     await resourceLoader.initialize();
 
     // Test System namespace
-    const systemArtifact =
-      await resourceLoader.loadAndCompileClass('System/System.cls');
-    expect(systemArtifact).toBeDefined();
-    expect(systemArtifact!.compilationResult.result).toBeDefined();
+    const systemSymbolTable =
+      await resourceLoader.getSymbolTable('System/System.cls');
+    expect(systemSymbolTable).toBeDefined();
+    expect(systemSymbolTable).toBeInstanceOf(SymbolTable);
 
     // Test ApexPages namespace
-    const actionArtifact = await resourceLoader.loadAndCompileClass(
+    const actionSymbolTable = await resourceLoader.getSymbolTable(
       'ApexPages/Action.cls',
     );
-    expect(actionArtifact).toBeDefined();
-    expect(actionArtifact!.compilationResult.result).toBeDefined();
+    expect(actionSymbolTable).toBeDefined();
+    expect(actionSymbolTable).toBeInstanceOf(SymbolTable);
   }, 30000);
 
-  it('should return null for classes not in protobuf cache (no ZIP compilation fallback)', async () => {
+  it('should return null for classes not in protobuf cache', async () => {
     await resourceLoader.initialize();
 
-    // This simulates a class that exists in ZIP but not in protobuf cache
-    // With the removal of ZIP compilation fallback, this should return null
+    // This simulates a class that doesn't exist in protobuf cache
     // In practice, this should never happen as build validation ensures 100% cache coverage
-    const artifact = await resourceLoader.loadAndCompileClass(
+    const symbolTable = await resourceLoader.getSymbolTable(
       'NonExistent/Class.cls',
     );
-    expect(artifact).toBeNull();
+    expect(symbolTable).toBeNull();
   });
 });
 
@@ -425,105 +414,106 @@ describe('ResourceLoader Lazy Loading', () => {
     ResourceLoader.resetInstance();
   });
 
-  // TODO: Skip until protobuf cache is available in tests
-  describe.skip('loadAndCompileClass', () => {
-    it('should load a single class from protobuf cache on demand', async () => {
-      const artifact = await loader.loadAndCompileClass(TEST_CLASS);
+  describe('getSymbolTable', () => {
+    beforeEach(async () => {
+      await loader.initialize();
+    });
 
-      expect(artifact).toBeDefined();
-      expect(artifact!.path).toBe(TEST_CLASS);
-      expect(artifact!.compilationResult).toBeDefined();
-      expect(artifact!.compilationResult.result).toBeDefined();
-      expect(artifact!.compilationResult.errors.length).toBe(0);
+    it('should load a single class from protobuf cache on demand', async () => {
+      const symbolTable = await loader.getSymbolTable(TEST_CLASS);
+
+      expect(symbolTable).toBeDefined();
+      expect(symbolTable).toBeInstanceOf(SymbolTable);
+      expect(symbolTable!.getAllSymbols().length).toBeGreaterThan(0);
     });
 
     it('should return null for classes not in protobuf cache', async () => {
-      const artifact = await loader.loadAndCompileClass(
+      const symbolTable = await loader.getSymbolTable(
         'NonExistent/Class.cls',
       );
-      expect(artifact).toBeNull();
+      expect(symbolTable).toBeNull();
     });
 
     it('should handle classes with syntax errors in protobuf cache', async () => {
       // Stub classes may have syntax errors but are still included in protobuf cache
       // with partial type information extracted via ANTLR error recovery
-      const artifact = await loader.loadAndCompileClass(TEST_CLASS);
-      expect(artifact).toBeDefined();
+      const symbolTable = await loader.getSymbolTable(TEST_CLASS);
+      expect(symbolTable).toBeDefined();
     });
 
-    it('should cache loaded artifacts for reuse', async () => {
+    it('should return same symbol table instance for repeated calls', async () => {
       // First load from protobuf cache
-      const artifact1 = await loader.loadAndCompileClass(TEST_CLASS);
-      expect(artifact1).toBeDefined();
+      const symbolTable1 = await loader.getSymbolTable(TEST_CLASS);
+      expect(symbolTable1).toBeDefined();
 
-      // Second load should return cached result
-      const artifact2 = await loader.loadAndCompileClass(TEST_CLASS);
-      expect(artifact2).toBeDefined();
-      // Check that both artifacts have the same path (they should be the same object)
-      expect(artifact2!.path).toBe(artifact1!.path);
+      // Second load should return the same symbol table (from cache)
+      const symbolTable2 = await loader.getSymbolTable(TEST_CLASS);
+      expect(symbolTable2).toBeDefined();
+      // Symbol tables from cache should be the same instance
+      expect(symbolTable2).toBe(symbolTable1);
     });
   });
 
-  // TODO: Skip until protobuf cache is available in tests
-  describe.skip('ensureClassLoaded', () => {
-    it('should return true for already loaded classes', async () => {
-      // First ensure it's loaded from protobuf cache
-      const result1 = await loader.ensureClassLoaded(TEST_CLASS);
+  describe('hasSymbolTable', () => {
+    beforeEach(async () => {
+      await loader.initialize();
+    });
+
+    it('should return true for classes available in cache', async () => {
+      // Check if symbol table is available (should be true after initialization)
+      const result1 = await loader.hasSymbolTable(TEST_CLASS);
       expect(result1).toBe(true);
 
-      // Second call should return true immediately (cached)
-      const result2 = await loader.ensureClassLoaded(TEST_CLASS);
+      // Second call should also return true
+      const result2 = await loader.hasSymbolTable(TEST_CLASS);
       expect(result2).toBe(true);
     });
 
-    it('should load classes from protobuf cache that are not yet loaded', async () => {
-      // Initially no classes should be loaded
-      expect(loader.isClassCompiled(TEST_CLASS)).toBe(false);
+    it('should return true for classes in protobuf cache', async () => {
+      // Initially check if available (sync check)
+      expect(loader.hasSymbolTable(TEST_CLASS)).toBe(true);
 
-      // Ensure class is loaded from protobuf cache
-      const result = await loader.ensureClassLoaded(TEST_CLASS);
+      // Async check should also return true
+      const result = await loader.hasSymbolTable(TEST_CLASS);
       expect(result).toBe(true);
-
-      // Now it should be loaded
-      expect(loader.isClassCompiled(TEST_CLASS)).toBe(true);
     });
 
     it('should return false for classes not in protobuf cache', async () => {
-      const result = await loader.ensureClassLoaded('NonExistent/Class.cls');
+      const result = await loader.hasSymbolTable('NonExistent/Class.cls');
       expect(result).toBe(false);
     });
   });
 
-  // TODO: Skip until protobuf cache is available in tests
-  describe.skip('getCompiledArtifact', () => {
-    it('should return loaded artifact if already available', async () => {
-      // First ensure it's loaded from protobuf cache
-      await loader.ensureClassLoaded(TEST_CLASS);
-
-      // Get the artifact
-      const artifact = await loader.getCompiledArtifact(TEST_CLASS);
-      expect(artifact).toBeDefined();
-      expect(artifact!.path).toBe(TEST_CLASS);
+  describe('getCompiledArtifact (backward compatibility facade)', () => {
+    beforeEach(async () => {
+      await loader.initialize();
     });
 
-    it('should load class from cache if not yet available', async () => {
-      // Initially no artifact should be available
-      expect(loader.isClassCompiled(TEST_CLASS)).toBe(false);
+    it('should return symbol table if available in cache', async () => {
+      // Get the symbol table via facade method
+      const symbolTable = await loader.getCompiledArtifact(TEST_CLASS);
+      expect(symbolTable).toBeDefined();
+      expect(symbolTable).toBeInstanceOf(SymbolTable);
+    });
 
-      // Get the artifact (should trigger loading from protobuf cache)
-      const artifact = await loader.getCompiledArtifact(TEST_CLASS);
-      expect(artifact).toBeDefined();
-      expect(artifact!.path).toBe(TEST_CLASS);
+    it('should load class from cache on demand', async () => {
+      // Initially check if available (sync check)
+      expect(loader.hasSymbolTable(TEST_CLASS)).toBe(true);
 
-      // Now it should be loaded
-      expect(loader.isClassCompiled(TEST_CLASS)).toBe(true);
+      // Get the symbol table (should return from cache)
+      const symbolTable = await loader.getCompiledArtifact(TEST_CLASS);
+      expect(symbolTable).toBeDefined();
+      expect(symbolTable).toBeInstanceOf(SymbolTable);
+
+      // Should still be available
+      expect(loader.hasSymbolTable(TEST_CLASS)).toBe(true);
     });
 
     it('should return null for classes not in protobuf cache', async () => {
-      const artifact = await loader.getCompiledArtifact(
+      const symbolTable = await loader.getCompiledArtifact(
         'NonExistent/Class.cls',
       );
-      expect(artifact).toBeNull();
+      expect(symbolTable).toBeNull();
     });
   });
 
@@ -570,27 +560,22 @@ describe('ResourceLoader Lazy Loading', () => {
     });
   });
 
-  // TODO: These tests need protobuf cache to be loaded in test environment
-  // Currently skipped because protobuf cache is not available in tests (only embedded in production)
-  describe.skip('compilation state tracking', () => {
-    it('should track which classes are loaded from cache', async () => {
-      expect(loader.isClassCompiled(TEST_CLASS)).toBe(false);
-
-      // Load the class from protobuf cache
-      await loader.loadAndCompileClass(TEST_CLASS);
-      expect(loader.isClassCompiled(TEST_CLASS)).toBe(true);
+  describe('symbol table state tracking', () => {
+    beforeEach(async () => {
+      await loader.initialize();
     });
 
-    it('should provide list of loaded class names', async () => {
-      expect(loader.getCompiledClassNames()).toEqual([]);
+    it('should check if symbol table is available in cache', async () => {
+      // Symbol tables are available from cache after initialization
+      expect(loader.hasSymbolTable(TEST_CLASS)).toBe(true);
+    });
 
-      // Load a class from protobuf cache
-      await loader.loadAndCompileClass(TEST_CLASS);
-
-      const compiledNames = loader.getCompiledClassNames();
-      // Check if the loaded class names contain our test class
-      expect(compiledNames.length).toBe(1);
-      expect(compiledNames).toContain(TEST_CLASS);
+    it('should provide list of available class names from cache', async () => {
+      const classNames = loader.getCompiledClassNames();
+      // After initialization, cache should have many classes
+      expect(classNames.length).toBeGreaterThan(0);
+      // Check that class names are file URIs from cache
+      expect(classNames[0]).toMatch(/^apex:\/\/stdlib\//);
     });
   });
 
@@ -600,30 +585,20 @@ describe('ResourceLoader Lazy Loading', () => {
       expect(loader.getCompiledClassNames().length).toBe(0);
     });
 
-    // TODO: Skip until protobuf cache is available in tests
-    it.skip('should load only requested classes', async () => {
-      // Initially no classes loaded
-      expect(loader.getCompiledClassNames().length).toBe(0);
-
-      // Load one specific class from protobuf cache
-      await loader.ensureClassLoaded(TEST_CLASS);
-
-      // Should have exactly one class loaded
-      expect(loader.getCompiledClassNames().length).toBe(1);
-      // The loaded class names should contain the original test class path
-      expect(loader.getCompiledClassNames()).toContain(TEST_CLASS);
+    it('should have all symbol tables available after initialization', async () => {
+      await loader.initialize();
+      // After initialization, all symbol tables from cache should be available
+      const classNames = loader.getCompiledClassNames();
+      expect(classNames.length).toBeGreaterThan(0);
+      // All class names should be file URIs from the protobuf cache
+      classNames.forEach((name) => {
+        expect(name).toMatch(/^apex:\/\/stdlib\//);
+      });
     });
   });
 });
 
-// TODO: These tests need to be updated to work with protobuf cache instead of ZIP compilation
-// The removal of ZIP compilation fallback means these tests no longer load any classes
-// because the protobuf cache is not available in the test environment (it's only embedded in production)
-// These tests should be updated to:
-// 1. Load the protobuf cache from disk in the test environment
-// 2. Or mock the protobuf cache loading
-// 3. Or test the protobuf cache loading behavior directly
-describe.skip('ResourceLoader Compilation Quality Analysis', () => {
+describe('ResourceLoader Symbol Table Quality Analysis', () => {
   let resourceLoader: ResourceLoader;
   let singleClassLoader: ResourceLoader | null = null;
   let standardLibZip: Uint8Array;
@@ -637,19 +612,8 @@ describe.skip('ResourceLoader Compilation Quality Analysis', () => {
     });
     await singleClassLoader.initialize();
 
-    // Load a few classes from protobuf cache for testing
-    const availableClasses = await singleClassLoader.getAllFiles();
-    if (availableClasses.size > 0) {
-      // Try to load a few different classes
-      const classesToTry = [...availableClasses.keys()].slice(0, 5); // Try first 5 classes
-      for (const className of classesToTry) {
-        try {
-          await singleClassLoader.loadAndCompileClass(className.toString());
-        } catch (_error) {
-          // Ignore errors
-        }
-      }
-    }
+    // Initialize to load symbol tables from cache
+    await singleClassLoader!.initialize();
     enableConsoleLogging();
     setLogLevel('error');
   });
@@ -663,136 +627,80 @@ describe.skip('ResourceLoader Compilation Quality Analysis', () => {
     singleClassLoader = null;
   });
 
-  describe('compilation error analysis', () => {
-    it('should categorize compilation errors by type and severity', async () => {
-      const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
+  describe('symbol table analysis', () => {
+    it('should analyze symbol tables from cache', async () => {
+      await resourceLoader.initialize();
+      const symbolTables = resourceLoader.getAllSymbolTables();
 
-      const errorAnalysis = {
-        totalFiles: compiledArtifacts.size,
-        filesWithErrors: 0,
-        filesWithWarnings: 0,
-        errorTypes: new Map<string, number>(),
-        errorSeverities: new Map<string, number>(),
-        errorMessages: [] as string[],
-        warningMessages: [] as string[],
+      const analysis = {
+        totalFiles: symbolTables.size,
+        filesWithSymbols: 0,
+        totalSymbols: 0,
       };
 
-      for (const [path, artifact] of compiledArtifacts.entries()) {
-        const result = artifact?.compilationResult;
-
-        if (result?.errors?.length && result.errors.length > 0) {
-          errorAnalysis.filesWithErrors++;
-          errorAnalysis.errorMessages.push(
-            `${path}: ${result?.errors.map((e) => e.message).join(', ')}`,
-          );
-
-          result.errors.forEach((error) => {
-            // Count error types
-            const typeCount = errorAnalysis.errorTypes.get(error.type) || 0;
-            errorAnalysis.errorTypes.set(error.type, typeCount + 1);
-
-            // Count error severities
-            const severityCount =
-              errorAnalysis.errorSeverities.get(error.severity) || 0;
-            errorAnalysis.errorSeverities.set(
-              error.severity,
-              severityCount + 1,
-            );
-          });
-        }
-
-        if (result?.warnings?.length && result.warnings.length > 0) {
-          errorAnalysis.filesWithWarnings++;
-          errorAnalysis.warningMessages.push(
-            `${path}: ${result?.warnings.join(', ')}`,
-          );
+      for (const [fileUri, symbolTable] of symbolTables.entries()) {
+        if (symbolTable) {
+          analysis.filesWithSymbols++;
+          const symbols = symbolTable.getAllSymbols();
+          analysis.totalSymbols += symbols.length;
         }
       }
 
-      // Log detailed error analysis
-      // Removed console.log calls for cleaner test output
-
-      // Quality assertions - adjusted for stub implementations
-      // Stub implementations are expected to have compilation errors, so we focus on structural quality
-      expect(errorAnalysis.filesWithErrors).toBeLessThan(
-        errorAnalysis.totalFiles * 0.3,
-      ); // Stubs may have up to 30% error rate
-      expect(errorAnalysis.errorTypes.size).toBeLessThanOrEqual(10); // Should have reasonable number of error types
-
-      // Most errors should be semantic, not syntax (stubs may have incomplete implementations)
-      const semanticErrors = errorAnalysis.errorTypes.get('semantic') || 0;
-      const syntaxErrors = errorAnalysis.errorTypes.get('syntax') || 0;
-
-      // Test logic: If we have errors, categorize them properly; if not, that's also valid
-      if (semanticErrors + syntaxErrors > 0) {
-        // If we have errors, ensure they're properly categorized
-        expect(errorAnalysis.errorTypes.size).toBeGreaterThan(0);
-        expect(errorAnalysis.filesWithErrors).toBeGreaterThan(0);
-      } else {
-        // If no errors, ensure the analysis still works correctly
-        expect(errorAnalysis.totalFiles).toBeGreaterThan(0);
-        expect(errorAnalysis.filesWithErrors).toBe(0);
-        console.log(
-          'INFO: All tested classes compiled successfully - no errors to categorize',
-        );
-      }
+      // Quality assertions for symbol tables
+      expect(analysis.totalFiles).toBeGreaterThan(0);
+      expect(analysis.filesWithSymbols).toBeGreaterThan(0);
+      expect(analysis.totalSymbols).toBeGreaterThan(0);
     });
 
-    it('should identify common error patterns in standard classes', async () => {
-      const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
-      const errorPatterns = new Map<
+    it('should identify symbol patterns in standard classes', async () => {
+      await resourceLoader.initialize();
+      const symbolTables = resourceLoader.getAllSymbolTables();
+      const symbolPatterns = new Map<
         string,
         { count: number; files: string[] }
       >();
 
-      for (const [path, artifact] of compiledArtifacts.entries()) {
-        const result = artifact?.compilationResult;
+      for (const [fileUri, symbolTable] of symbolTables.entries()) {
+        if (symbolTable) {
+          const symbols = symbolTable.getAllSymbols();
+          symbols.forEach((symbol) => {
+            // Extract symbol kind pattern
+            const pattern = symbol.kind || 'unknown';
+            const existing = symbolPatterns.get(pattern);
 
-        result?.errors?.forEach((error) => {
-          // Extract error pattern (first few words)
-          const pattern = error.message
-            .split(' ')
-            .slice(0, 3)
-            .join(' ')
-            .toLowerCase();
-          const existing = errorPatterns.get(pattern);
-
-          if (existing) {
-            existing.count++;
-            existing.files.push(path.toString());
-          } else {
-            errorPatterns.set(pattern, { count: 1, files: [path.toString()] });
-          }
-        });
+            if (existing) {
+              existing.count++;
+              if (!existing.files.includes(fileUri)) {
+                existing.files.push(fileUri);
+              }
+            } else {
+              symbolPatterns.set(pattern, {
+                count: 1,
+                files: [fileUri],
+              });
+            }
+          });
+        }
       }
 
-      // Find most common error patterns
-      const sortedPatterns = Array.from(errorPatterns.entries())
+      // Find most common symbol patterns
+      const sortedPatterns = Array.from(symbolPatterns.entries())
         .sort((a, b) => b[1].count - a[1].count)
         .slice(0, 10);
 
-      // Removed console.log calls for cleaner test output
-
-      // Quality check: no single error pattern should dominate
-      // For stubs, we expect some common patterns due to incomplete implementations
-      const topPattern = sortedPatterns[0];
-      if (topPattern && compiledArtifacts.size > 5) {
-        // Only check pattern distribution if we have a reasonable number of compiled files
-        // Stubs may have common patterns in up to 50% of files (more lenient for small samples)
-        expect(topPattern[1].count).toBeLessThan(compiledArtifacts.size * 0.5);
-      }
+      // Quality check: symbol patterns should be distributed
+      expect(symbolPatterns.size).toBeGreaterThan(0);
+      expect(sortedPatterns.length).toBeGreaterThan(0);
     });
   });
 
   describe('symbol quality metrics', () => {
     it('should assess symbol completeness and structure', async () => {
-      const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
-
-      // Debug: Check what we actually compiled
-      // Removed console.log calls - issue identified: symbols missing FQN, namespace, and fileUri
+      await resourceLoader.initialize();
+      const symbolTables = resourceLoader.getAllSymbolTables();
 
       const symbolQualityMetrics = {
-        totalFiles: compiledArtifacts.size,
+        totalFiles: symbolTables.size,
         filesWithSymbols: 0,
         totalSymbols: 0,
         symbolTypes: new Map<string, number>(),
@@ -806,11 +714,8 @@ describe.skip('ResourceLoader Compilation Quality Analysis', () => {
         filesWithInnerClasses: 0,
       };
 
-      for (const [_path, artifact] of compiledArtifacts.entries()) {
-        const result = artifact?.compilationResult;
-        if (!result?.result) continue;
-
-        const symbolTable = result.result;
+      for (const [_fileUri, symbolTable] of symbolTables.entries()) {
+        if (!symbolTable) continue;
         const allSymbols = symbolTable.getAllSymbols();
         // Filter out scope symbols - they don't have FQN and shouldn't be counted
         const symbols = allSymbols.filter((s) => !isBlockSymbol(s));
@@ -878,7 +783,8 @@ describe.skip('ResourceLoader Compilation Quality Analysis', () => {
     });
 
     it('should validate symbol location accuracy', async () => {
-      const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
+      await resourceLoader.initialize();
+      const symbolTables = resourceLoader.getAllSymbolTables();
       const locationQualityMetrics = {
         totalSymbols: 0,
         symbolsWithValidLocation: 0,
@@ -888,11 +794,8 @@ describe.skip('ResourceLoader Compilation Quality Analysis', () => {
         locationIssues: [] as string[],
       };
 
-      for (const [path, artifact] of compiledArtifacts.entries()) {
-        const result = artifact?.compilationResult;
-        if (!result?.result) continue;
-
-        const symbolTable = result.result;
+      for (const [fileUri, symbolTable] of symbolTables.entries()) {
+        if (!symbolTable) continue;
         const symbols = symbolTable.getAllSymbols();
 
         symbols.forEach((symbol) => {
@@ -929,7 +832,7 @@ describe.skip('ResourceLoader Compilation Quality Analysis', () => {
                   start.startColumn > end.endColumn)
               ) {
                 locationQualityMetrics.locationIssues.push(
-                  `${path}:${symbol.name} - Invalid range: ${start.startLine}:${start.startColumn}` +
+                  `${fileUri}:${symbol.name} - Invalid range: ${start.startLine}:${start.startColumn}` +
                     `to ${end.endLine}:${end.endColumn}`,
                 );
               }
@@ -945,7 +848,7 @@ describe.skip('ResourceLoader Compilation Quality Analysis', () => {
             }
           } else {
             locationQualityMetrics.locationIssues.push(
-              `${path}:${symbol.name} - Missing location`,
+              `${fileUri}:${symbol.name} - Missing location`,
             );
           }
         });
@@ -970,117 +873,65 @@ describe.skip('ResourceLoader Compilation Quality Analysis', () => {
     });
   });
 
-  describe('compilation health indicators', () => {
-    it('should provide comprehensive compilation health score', async () => {
-      const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
+  describe('symbol table health indicators', () => {
+    it('should provide comprehensive symbol table health score', async () => {
+      await resourceLoader.initialize();
+      const symbolTables = resourceLoader.getAllSymbolTables();
       const healthMetrics = {
-        totalFiles: compiledArtifacts.size,
-        successfulCompilations: 0,
-        filesWithErrors: 0,
-        filesWithWarnings: 0,
-        averageErrorCount: 0,
-        averageWarningCount: 0,
-        compilationTime: 0,
-        memoryUsage: 0,
+        totalFiles: symbolTables.size,
+        filesWithSymbols: 0,
+        totalSymbols: 0,
         symbolDensity: 0,
-        errorSeverityDistribution: new Map<string, number>(),
-        warningCategories: new Map<string, number>(),
       };
 
-      let totalErrors = 0;
-      let totalWarnings = 0;
-      let totalSymbols = 0;
-
-      for (const [_path, artifact] of compiledArtifacts.entries()) {
-        const result = artifact?.compilationResult;
-
-        if (result?.result) {
-          healthMetrics.successfulCompilations++;
-          const symbols = result.result.getAllSymbols();
-          totalSymbols += symbols.length;
-        }
-
-        if (result?.errors?.length && result.errors.length > 0) {
-          healthMetrics.filesWithErrors++;
-          totalErrors += result.errors.length;
-
-          result.errors.forEach((error) => {
-            const severityCount =
-              healthMetrics.errorSeverityDistribution.get(error.severity) || 0;
-            healthMetrics.errorSeverityDistribution.set(
-              error.severity,
-              severityCount + 1,
-            );
-          });
-        }
-
-        if (result?.warnings?.length && result.warnings.length > 0) {
-          healthMetrics.filesWithWarnings++;
-          totalWarnings += result.warnings.length;
-
-          // Categorize warnings
-          result.warnings.forEach((warning) => {
-            const category = categorizeWarning(warning);
-            const categoryCount =
-              healthMetrics.warningCategories.get(category) || 0;
-            healthMetrics.warningCategories.set(category, categoryCount + 1);
-          });
+      for (const [_fileUri, symbolTable] of symbolTables.entries()) {
+        if (symbolTable) {
+          healthMetrics.filesWithSymbols++;
+          const symbols = symbolTable.getAllSymbols();
+          healthMetrics.totalSymbols += symbols.length;
         }
       }
 
-      healthMetrics.averageErrorCount = totalErrors / healthMetrics.totalFiles;
-      healthMetrics.averageWarningCount =
-        totalWarnings / healthMetrics.totalFiles;
-      healthMetrics.symbolDensity = totalSymbols / healthMetrics.totalFiles;
+      healthMetrics.symbolDensity =
+        healthMetrics.totalSymbols / healthMetrics.totalFiles;
 
-      // Calculate health score (0-100)
-      const errorPenalty =
-        (healthMetrics.filesWithErrors / healthMetrics.totalFiles) * 30;
-      const warningPenalty =
-        (healthMetrics.filesWithWarnings / healthMetrics.totalFiles) * 10;
-      const symbolBonus = Math.min(healthMetrics.symbolDensity / 20, 20); // Cap at 20 points
-      const healthScore = Math.max(
-        0,
-        100 - errorPenalty - warningPenalty + symbolBonus,
-      );
+      // Calculate health score (0-100) based on symbol density
+      const symbolBonus = Math.min(healthMetrics.symbolDensity / 20, 100); // Cap at 100 points
+      const healthScore = Math.max(0, symbolBonus);
 
-      // Removed console.log calls for cleaner test output
-
-      // Health assertions - adjusted for stub implementations
-      // Stubs are expected to have compilation issues, so we focus on structural quality
-      expect(healthScore).toBeGreaterThan(40); // Should have reasonable health score for stubs
-      expect(healthMetrics.successfulCompilations).toBeGreaterThan(
-        healthMetrics.totalFiles * 0.6,
-      ); // At least 60% success rate for stubs
-      expect(healthMetrics.averageErrorCount).toBeLessThan(10); // Should have reasonable error count for stubs
-      expect(healthMetrics.symbolDensity).toBeGreaterThan(2); // Should have some symbol density even in stubs
+      // Health assertions - symbol tables from cache should be healthy
+      expect(healthScore).toBeGreaterThan(0); // Should have some symbols
+      expect(healthMetrics.filesWithSymbols).toBeGreaterThan(
+        healthMetrics.totalFiles * 0.9,
+      ); // At least 90% should have symbols
+      expect(healthMetrics.symbolDensity).toBeGreaterThan(2); // Should have reasonable symbol density
     });
 
-    it('should identify compilation quality trends across namespaces', async () => {
-      const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
+    it('should identify symbol quality trends across namespaces', async () => {
+      await resourceLoader.initialize();
+      const symbolTables = resourceLoader.getAllSymbolTables();
       const namespaceQuality = new Map<
         string,
         {
           fileCount: number;
-          errorCount: number;
-          warningCount: number;
           symbolCount: number;
-          successRate: number;
+          averageSymbolsPerFile: number;
           qualityScore: number;
         }
       >();
 
-      for (const [path, artifact] of compiledArtifacts.entries()) {
-        const result = artifact?.compilationResult;
-        const namespace = path.split('/')[0];
+      for (const [fileUri, symbolTable] of symbolTables.entries()) {
+        if (!symbolTable) continue;
+        // Extract namespace from file URI (format: apex://stdlib/{namespace}/{className})
+        const match = fileUri.match(/apex:\/\/stdlib\/([^/]+)\//);
+        if (!match) continue;
+        const namespace = match[1];
 
         if (!namespaceQuality.has(namespace)) {
           namespaceQuality.set(namespace, {
             fileCount: 0,
-            errorCount: 0,
-            warningCount: 0,
             symbolCount: 0,
-            successRate: 0,
+            averageSymbolsPerFile: 0,
             qualityScore: 0,
           });
         }
@@ -1088,30 +939,17 @@ describe.skip('ResourceLoader Compilation Quality Analysis', () => {
         const nsQuality = namespaceQuality.get(namespace)!;
         nsQuality.fileCount++;
 
-        if (result?.result) {
-          const symbols = result.result.getAllSymbols();
-          nsQuality.symbolCount += symbols.length;
-        } else {
-          nsQuality.errorCount++;
-        }
-
-        nsQuality.errorCount += result?.errors?.length ?? 0;
-        nsQuality.warningCount += result?.warnings?.length ?? 0;
+        const symbols = symbolTable.getAllSymbols();
+        nsQuality.symbolCount += symbols.length;
       }
 
       // Calculate quality metrics for each namespace
-      namespaceQuality.forEach((quality, namespace) => {
-        quality.successRate =
-          ((quality.fileCount - (quality.errorCount > 0 ? 1 : 0)) /
-            quality.fileCount) *
-          100;
-        quality.qualityScore = Math.max(
-          0,
-          100 -
-            quality.errorCount * 5 -
-            quality.warningCount * 2 +
-            quality.symbolCount / quality.fileCount,
-        );
+      namespaceQuality.forEach((quality) => {
+        quality.averageSymbolsPerFile = quality.symbolCount / quality.fileCount;
+        quality.qualityScore = Math.min(
+          100,
+          quality.averageSymbolsPerFile * 10,
+        ); // Score based on symbol density
       });
 
       // Sort by quality score
@@ -1119,50 +957,13 @@ describe.skip('ResourceLoader Compilation Quality Analysis', () => {
         (a, b) => b[1].qualityScore - a[1].qualityScore,
       );
 
-      // Removed console.log calls for cleaner test output
-
-      // Quality assertions - adjusted for stub implementations
-      // Stubs are expected to have compilation issues, so we focus on basic structure
+      // Quality assertions - namespaces should have reasonable symbol density
       const topNamespaces = sortedNamespaces.slice(0, 5);
       topNamespaces.forEach(([namespace, quality]) => {
-        const errorPenalty = quality.errorCount * 5;
-        const warningPenalty = quality.warningCount * 2;
-        const symbolBonus = quality.symbolCount / quality.fileCount;
-        const rawScore = 100 - errorPenalty - warningPenalty + symbolBonus;
-
-        // Diagnostic: Log breakdown for all top namespaces
-        console.log(`\nNamespace "${namespace}" quality breakdown:`);
-        console.log(`  fileCount: ${quality.fileCount}`);
-        console.log(
-          `  errorCount: ${quality.errorCount} (penalty: ${errorPenalty})`,
-        );
-        console.log(
-          `  warningCount: ${quality.warningCount} (penalty: ${warningPenalty})`,
-        );
-        console.log(
-          `  symbolCount: ${quality.symbolCount} (bonus: ${symbolBonus.toFixed(2)})`,
-        );
-        console.log(`  successRate: ${quality.successRate.toFixed(2)}%`);
-        console.log(`  rawScore: ${rawScore.toFixed(2)}`);
-        console.log(`  qualityScore: ${quality.qualityScore}`);
-
-        // Show breakdown in error message if quality score fails
-        if (quality.qualityScore <= 30) {
-          throw new Error(
-            `Quality score too low for namespace "${namespace}": ` +
-              `score=${quality.qualityScore}, ` +
-              `files=${quality.fileCount}, ` +
-              `errors=${quality.errorCount} (penalty=${errorPenalty}), ` +
-              `warnings=${quality.warningCount} (penalty=${warningPenalty}), ` +
-              `symbols=${quality.symbolCount} (bonus=${symbolBonus.toFixed(2)}), ` +
-              `rawScore=${rawScore.toFixed(2)}`,
-          );
-        }
-
-        // Top namespaces should have reasonable success rate for stubs
-        expect(quality.successRate).toBeGreaterThan(40);
-        // Top namespaces should have reasonable quality score for stubs
-        expect(quality.qualityScore).toBeGreaterThan(30);
+        // Top namespaces should have reasonable symbol density
+        expect(quality.averageSymbolsPerFile).toBeGreaterThan(2);
+        // Top namespaces should have reasonable quality score
+        expect(quality.qualityScore).toBeGreaterThan(20);
       });
     });
   });

@@ -31,9 +31,7 @@ describe('Protobuf Cache Diagnostic', () => {
     logger.info('\n=== Starting Protobuf Cache Diagnostic ===');
 
     // Get ResourceLoader instance
-    const resourceLoader = ResourceLoader.getInstance({
-      preloadStdClasses: true,
-    });
+    const resourceLoader = ResourceLoader.getInstance();
 
     // Initialize to load protobuf cache
     logger.info('\n1. Initializing ResourceLoader...');
@@ -65,15 +63,13 @@ describe('Protobuf Cache Diagnostic', () => {
     }
 
     // Test loading a standard library class
-    logger.info('\n3. Testing loadAndCompileClass("System/String.cls")...');
-    const result =
-      await resourceLoader.loadAndCompileClass('System/String.cls');
-    logger.info(`   - Result: ${result ? 'SUCCESS' : 'NULL'}`);
-    if (result) {
-      logger.info(`   - Path: ${result.path}`);
-      logger.info(
-        `   - Symbol table: ${result.compilationResult.result ? 'present' : 'missing'}`,
-      );
+    logger.info('\n3. Testing getSymbolTable("System/String.cls")...');
+    const symbolTable =
+      await resourceLoader.getSymbolTable('System/String.cls');
+    logger.info(`   - Result: ${symbolTable ? 'SUCCESS' : 'NULL'}`);
+    if (symbolTable) {
+      logger.info(`   - Symbol table: present`);
+      logger.info(`   - Symbols count: ${symbolTable.getAllSymbols().length}`);
     }
 
     logger.info('\n=== Diagnostic Complete ===');
@@ -81,6 +77,6 @@ describe('Protobuf Cache Diagnostic', () => {
     // Assert the expected behavior
     expect(isStandardLibrarySymbolDataLoaded).toBe(true);
     expect(standardLibrarySymbolData).not.toBeNull();
-    expect(result).not.toBeNull();
+    expect(symbolTable).not.toBeNull();
   });
 });

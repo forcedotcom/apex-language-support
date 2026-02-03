@@ -196,9 +196,7 @@ export class LCSAdapter {
     try {
       this.logger.debug('📦 Initializing ResourceLoader singleton...');
 
-      const resourceLoader = ResourceLoader.getInstance({
-        preloadStdClasses: true,
-      });
+      const resourceLoader = ResourceLoader.getInstance();
 
       // Initialize will load both protobuf cache and ZIP buffer
       await resourceLoader.initialize();

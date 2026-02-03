@@ -7328,9 +7328,7 @@ export class ApexSymbolCollectorListener
    * This helps identify standard library classes that should be treated as CLASS_REFERENCE
    */
   private isStandardLibraryClassName(name: string): boolean {
-    const resourceLoader = ResourceLoader.getInstance({
-      preloadStdClasses: true,
-    });
+    const resourceLoader = ResourceLoader.getInstance();
 
     // Check if the name could be resolved from the standard library
     return resourceLoader.couldResolveSymbol(name);

@@ -18,8 +18,6 @@ import { getEmbeddedStandardLibraryZip } from './embeddedStandardLibrary';
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
 import { normalizeApexPath } from './PathUtils';
-import { CompilerService } from '../parser/compilerService';
-import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
 import { NamespaceDependencyAnalyzer } from './NamespaceDependencyAnalyzer';
 import { Effect } from 'effect';
@@ -30,50 +28,41 @@ import {
 import { loadTypeRegistryFromGzip } from '../cache/type-registry-loader';
 
 export interface ResourceLoaderOptions {
-  preloadStdClasses?: boolean;
   zipBuffer?: Uint8Array; // Direct ZIP buffer to use (for testing)
 }
 
-interface CompiledArtifact {
-  path: string;
-  compilationResult: CompilationResultWithAssociations<SymbolTable>;
-}
-
 /**
- * ResourceLoader class for loading and compiling standard Apex classes from ZIP resources.
+ * ResourceLoader class for loading standard Apex class symbol tables and serving ephemeral docs.
  *
  * Core Responsibilities:
- * - Receive ZIP buffer via setZipBuffer() method
- * - Extract and index files using fflate for efficient in-memory storage
- * - Provide lazy loading of file contents on-demand
- * - Compile source code using CompilerService when needed
+ * - Load symbol tables from protobuf cache (apex-stdlib.pb.gz)
+ * - Initialize global type registry from gz file (apex-type-registry.pb.gz)
+ * - Serve ephemeral docs (source code) from ZIP for goto definition
  *
  * Resource Loading Strategy:
- * - ZIP buffer is provided directly via setZipBuffer() method
- * - Typically called by the language server after receiving data from client
+ * - Symbol tables are loaded from protobuf cache at initialization
+ * - Global type registry is loaded from gz file at initialization
+ * - ZIP buffer is used only for ephemeral docs (source code viewing)
  * - Works uniformly across all environments (web and desktop)
  *
  * @example
  * ```typescript
  * const loader = ResourceLoader.getInstance();
  *
- * // Set ZIP buffer (typically from language server)
- * const zipData = new Uint8Array([...]); // ZIP file bytes
- * loader.setZipBuffer(zipData);
+ * // Initialize loads protobuf cache and global registry
+ * await loader.initialize();
  *
- * // Content loaded on-demand from ZIP
- * const source = await loader.getFile('System/System.cls');
+ * // Get symbol table directly from cache
+ * const symbolTable = await loader.getSymbolTable('System/String.cls');
+ *
+ * // Get source code from ZIP for ephemeral docs
+ * const source = await loader.getFile('System/String.cls');
  * ```
  */
 export class ResourceLoader {
   private static instance: ResourceLoader;
-  // Store compiled artifacts for backward compatibility
-  private compiledArtifacts: CaseInsensitivePathMap<CompiledArtifact> =
-    new CaseInsensitivePathMap();
   private initialized = false;
-  private preloadStdClasses: boolean = false;
   private readonly logger = getLogger();
-  private compilerService: CompilerService;
   private namespaces: Map<string, CIS[]> = new Map(); // Key is original case namespace
   private fileIndex: CaseInsensitivePathMap<boolean> =
     new CaseInsensitivePathMap(); // Lightweight existence index with case-insensitive keys
@@ -89,8 +78,6 @@ export class ResourceLoader {
     new CaseInsensitivePathMap(); // Reverse index: className -> Set<namespace>
   private totalSize: number = 0; // Total size of all files
   private accessCount: number = 0; // Simple access counter for statistics
-  private artifactAccessCounts: CaseInsensitivePathMap<number> =
-    new CaseInsensitivePathMap(); // Track access counts per artifact to reduce log spam
   private zipBuffer?: Uint8Array; // Will be initialized via setZipBuffer
   private zipFiles: CaseInsensitivePathMap<Uint8Array> | null = null; // Will be initialized in extractZipFiles
   private standardLibrarySymbolDataLoaded = false; // Track if standard library symbol data was loaded
@@ -102,11 +89,6 @@ export class ResourceLoader {
       () =>
         `🚀 ResourceLoader constructor called with options: ${JSON.stringify(options)}`,
     );
-    if (options?.preloadStdClasses) {
-      this.preloadStdClasses = options.preloadStdClasses;
-    }
-
-    this.compilerService = new CompilerService();
 
     // Initialize empty structure initially
     this.initializeEmptyStructure();
@@ -886,16 +868,16 @@ export class ResourceLoader {
   }
 
   /**
-   * Get a compiled artifact from the standard library symbol data cache.
-   * Converts cached SymbolTable to CompiledArtifact format.
+   * Get a symbol table from the standard library symbol data cache.
+   * Handles various path formats and namespace resolution.
+   *
+   * @private
    */
-  private getArtifactFromStandardLibrarySymbolData(
-    className: string,
-  ): CompiledArtifact | null {
+  private getSymbolTableFromCache(className: string): SymbolTable | null {
     if (!this.standardLibrarySymbolData) {
       this.logger.debug(
         () =>
-          '[DIAGNOSTIC] getArtifactFromStandardLibrarySymbolData: no standardLibrarySymbolData',
+          '[DIAGNOSTIC] getSymbolTableFromCache: no standardLibrarySymbolData',
       );
       return null;
     }
@@ -911,7 +893,7 @@ export class ResourceLoader {
 
     this.logger.debug(
       () =>
-        `[DIAGNOSTIC] getArtifactFromStandardLibrarySymbolData: className="${className}", ` +
+        `[DIAGNOSTIC] getSymbolTableFromCache: className="${className}", ` +
         `normalizedClassName="${normalizedClassName}"`,
     );
 
@@ -976,44 +958,35 @@ export class ResourceLoader {
         `searchUri='${searchUri}' in standard library symbol data cache`,
     );
 
-    // Convert SymbolTable to CompiledArtifact
-    const artifact: CompiledArtifact = {
-      path: className,
-      compilationResult: {
-        result: symbolTable,
-        errors: [],
-        warnings: [],
-        fileName: searchUri,
-        comments: [],
-        commentAssociations: [],
-      },
-    };
-
-    return artifact;
+    return symbolTable;
   }
 
   /**
-   * Get all compiled artifacts
-   * @returns Map of all compiled artifacts
+   * Get all symbol tables from the standard library symbol data cache.
+   * @returns Map of all symbol tables (fileUri -> SymbolTable)
    */
-  public getAllCompiledArtifacts(): CaseInsensitivePathMap<CompiledArtifact> {
+  public getAllSymbolTables(): Map<string, SymbolTable> {
     if (!this.initialized) {
       throw new Error(
         'ResourceLoader not initialized. Call initialize() first.',
       );
     }
 
-    return this.compiledArtifacts;
+    if (!this.standardLibrarySymbolData) {
+      return new Map();
+    }
+
+    return this.standardLibrarySymbolData.symbolTables;
   }
 
   /**
-   * Get enhanced statistics about loaded and compiled resources
+   * Get enhanced statistics about loaded resources
    * @returns Statistics object
    */
   public getStatistics(): {
     totalFiles: number;
     loadedFiles: number;
-    compiledFiles: number;
+    symbolTablesLoaded: number;
     directoryStructure: {
       totalFiles: number;
       totalSize: number;
@@ -1022,7 +995,6 @@ export class ResourceLoader {
     lazyFileStats: {
       totalEntries: number;
       loadedEntries: number;
-      compiledEntries: number;
       averageAccessCount: number;
     };
     memfsStats: {
@@ -1031,19 +1003,14 @@ export class ResourceLoader {
     };
   } {
     const totalFiles = this.fileIndex.size;
-    let compiledFiles = 0;
-
-    // Count compiled files
-    for (const [_path, artifact] of this.compiledArtifacts.entries()) {
-      if (artifact) {
-        compiledFiles++;
-      }
-    }
+    const symbolTablesLoaded = this.standardLibrarySymbolData
+      ? this.standardLibrarySymbolData.symbolTables.size
+      : 0;
 
     return {
       totalFiles,
       loadedFiles: this.accessCount, // Use access count as loaded files
-      compiledFiles,
+      symbolTablesLoaded,
       directoryStructure: {
         totalFiles,
         totalSize: this.totalSize,
@@ -1052,7 +1019,6 @@ export class ResourceLoader {
       lazyFileStats: {
         totalEntries: totalFiles,
         loadedEntries: this.accessCount, // Use access count
-        compiledEntries: compiledFiles,
         averageAccessCount:
           this.accessCount > 0 && totalFiles > 0
             ? this.accessCount / totalFiles
@@ -1126,7 +1092,6 @@ export class ResourceLoader {
     this.namespaceIndex.clear();
     this.classNameToNamespace.clear();
     this.namespaces.clear();
-    this.compiledArtifacts.clear();
     this.initialized = false;
 
     // Re-extract ZIP and rebuild file index if buffer is available
@@ -1171,70 +1136,41 @@ export class ResourceLoader {
   }
 
   /**
-   * Load a single standard Apex class by name from the standard library symbol data cache.
-   * This method first checks if the artifact is already loaded and cached.
-   * If not, it attempts to load the class from the standard library symbol data cache.
-   * Optimized with early returns and cached lookups for improved performance.
+   * Get a symbol table for a standard Apex class from the protobuf cache.
+   * The standard library symbol data cache has 100% coverage of all standard library classes,
+   * validated at build time.
    *
-   * Note: This method no longer compiles from ZIP. The standard library symbol data cache has 100%
-   * coverage of all standard library classes, validated at build time.
-   *
-   * @param className The class name to load
-   * @returns Promise that resolves to the compiled artifact or null if not found in cache
+   * @param className The class name to load (e.g., "System/String.cls" or "String")
+   * @returns Promise that resolves to the symbol table or null if not found in cache
    */
-  public async loadAndCompileClass(
+  public async getSymbolTable(
     className: string,
-  ): Promise<CompiledArtifact | null> {
-    // Normalize path once at the start to avoid redundant normalizations
-    const normalizedPath = this.normalizePath(className);
-
-    // Early return: Check if already compiled using normalized path
-    if (this.compiledArtifacts.has(normalizedPath)) {
-      const cachedArtifact = this.compiledArtifacts.get(normalizedPath);
-      if (cachedArtifact) {
-        // Only log cached artifact access occasionally to avoid log spam
-        // Log at most once per 1000 accesses per class
-        const accessCount =
-          (this.artifactAccessCounts.get(normalizedPath) || 0) + 1;
-        this.artifactAccessCounts.set(normalizedPath, accessCount);
-        if (accessCount % 1000 === 0) {
-          this.logger.debug(
-            () =>
-              `Returning cached artifact for ${className} (access ${accessCount})`,
-          );
-        }
-        return cachedArtifact;
-      }
-    }
-
-    // DIAGNOSTIC: Check standard library symbol data cache for pre-compiled symbol tables
+  ): Promise<SymbolTable | null> {
+    // DIAGNOSTIC: Check standard library symbol data cache
     this.logger.debug(
       () =>
-        `[DIAGNOSTIC] loadAndCompileClass("${className}") - ` +
+        `[DIAGNOSTIC] getSymbolTable("${className}") - ` +
         `standardLibrarySymbolDataLoaded: ${this.standardLibrarySymbolDataLoaded}, ` +
-        `hasData: ${this.standardLibrarySymbolData !== null}, ` +
-        `normalizedPath: "${normalizedPath}"`,
+        `hasData: ${this.standardLibrarySymbolData !== null}`,
     );
 
     if (
       this.standardLibrarySymbolDataLoaded &&
       this.standardLibrarySymbolData
     ) {
-      const artifact = this.getArtifactFromStandardLibrarySymbolData(className);
+      const symbolTable = this.getSymbolTableFromCache(className);
       this.logger.debug(
         () =>
-          `[DIAGNOSTIC] getArtifactFromStandardLibrarySymbolData("${className}") ` +
-          `returned: ${artifact ? 'FOUND' : 'NULL'}`,
+          `[DIAGNOSTIC] getSymbolTableFromCache("${className}") ` +
+          `returned: ${symbolTable ? 'FOUND' : 'NULL'}`,
       );
-      if (artifact) {
-        // Cache it for future lookups
-        this.compiledArtifacts.set(normalizedPath, artifact);
+      if (symbolTable) {
         this.logger.debug(
           () =>
-            '[DIAGNOSTIC] Returning standard library symbol data cached artifact ' +
-            `for ${className} (no compilation needed)`,
+            '[DIAGNOSTIC] Returning symbol table from cache ' +
+            `for ${className}`,
         );
-        return artifact;
+        return symbolTable;
       }
     }
 
@@ -1251,47 +1187,16 @@ export class ResourceLoader {
   }
 
   /**
-   * Check if a class is available in the standard library symbol data cache.
-   * This is the main entry point for lazy loading of standard Apex classes.
-   * Uses normalized path for consistent lookups.
+   * Get symbol table for a class from the standard library symbol data cache.
+   * This is an alias for getSymbolTable() for backward compatibility.
    *
-   * @param className The class name to ensure is loaded
-   * @returns Promise that resolves to true if the class was loaded successfully from cache
-   */
-  public async ensureClassLoaded(className: string): Promise<boolean> {
-    // Normalize path for consistent lookup
-    const normalizedPath = this.normalizePath(className);
-
-    // If already compiled, return true
-    if (this.compiledArtifacts.has(normalizedPath)) {
-      return true;
-    }
-
-    // Try to load from standard library symbol data cache
-    const artifact = await this.loadAndCompileClass(className);
-    return artifact !== null;
-  }
-
-  /**
-   * Get compiled artifact for a class from the standard library symbol data cache.
-   * Uses lazy loading to load classes on-demand from cache.
-   * Uses normalized path for consistent lookups.
-   *
-   * @param className The class name to get the compiled artifact for
-   * @returns Promise that resolves to the compiled artifact or null if not found in cache
+   * @param className The class name to get the symbol table for
+   * @returns Promise that resolves to the symbol table or null if not found in cache
    */
   public async getCompiledArtifact(
     className: string,
-  ): Promise<CompiledArtifact | null> {
-    // Normalize path for consistent lookup
-    const normalizedPath = this.normalizePath(className);
-
-    // If not compiled, try to load it
-    if (!this.compiledArtifacts.has(normalizedPath)) {
-      await this.ensureClassLoaded(className);
-    }
-
-    return this.compiledArtifacts.get(normalizedPath) || null;
+  ): Promise<SymbolTable | null> {
+    return this.getSymbolTable(className);
   }
 
   /**
@@ -1350,13 +1255,17 @@ export class ResourceLoader {
   }
 
   /**
-   * Check if a class is already compiled and available in memory.
+   * Check if a symbol table is available in the standard library symbol data cache (synchronous).
    *
    * @param className The class name to check
-   * @returns true if the class is already compiled
+   * @returns true if the symbol table is available in cache
    */
-  public isClassCompiled(className: string): boolean {
-    return this.compiledArtifacts.has(className);
+  public hasSymbolTable(className: string): boolean {
+    if (!this.standardLibrarySymbolData) {
+      return false;
+    }
+    const symbolTable = this.getSymbolTableFromCache(className);
+    return symbolTable !== null;
   }
 
   /**
@@ -1369,12 +1278,15 @@ export class ResourceLoader {
   }
 
   /**
-   * Get all compiled class names currently in memory.
+   * Get all class names available in the standard library symbol data cache.
    *
-   * @returns Array of compiled class names
+   * @returns Array of class names (file URIs from cache)
    */
   public getCompiledClassNames(): string[] {
-    return [...this.compiledArtifacts.keys()].map((key) => key.toString());
+    if (!this.standardLibrarySymbolData) {
+      return [];
+    }
+    return Array.from(this.standardLibrarySymbolData.symbolTables.keys());
   }
 
   /**

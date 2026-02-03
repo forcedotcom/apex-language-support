@@ -373,9 +373,7 @@ export class ApexSymbolGraph {
   constructor(
     deferredReferenceSettings?: Partial<DeferredReferenceProcessingSettings>,
   ) {
-    this.resourceLoader = ResourceLoader.getInstance({
-      preloadStdClasses: false,
-    });
+    this.resourceLoader = ResourceLoader.getInstance();
     // Initialize rate limiter from settings
     if (deferredReferenceSettings?.maxDeferredTasksPerSecond !== undefined) {
       this.deferredTaskRateLimiter.maxPerSecond =

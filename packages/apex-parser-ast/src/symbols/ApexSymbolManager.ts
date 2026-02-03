@@ -261,9 +261,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Initialize ResourceLoader for standard Apex classes (lazy loading from protobuf cache)
     try {
-      this.resourceLoader = ResourceLoader.getInstance({
-        preloadStdClasses: true,
-      });
+      this.resourceLoader = ResourceLoader.getInstance();
     } catch (error) {
       this.logger.warn(() => `Failed to initialize ResourceLoader: ${error}`);
       this.resourceLoader = null;
@@ -4188,15 +4186,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   );
                   if (match) {
                     const classPath = `${match[1]}.cls`;
-                    const artifact =
-                      await this.resourceLoader?.getCompiledArtifact(classPath);
-                    if (artifact?.compilationResult?.result) {
+                    const symbolTable =
+                      await this.resourceLoader?.getSymbolTable(classPath);
+                    if (symbolTable) {
                       // Add to symbol graph
                       await Effect.runPromise(
-                        this.addSymbolTable(
-                          artifact.compilationResult.result,
-                          registryEntry.fileUri,
-                        ),
+                        this.addSymbolTable(symbolTable, registryEntry.fileUri),
                       );
                       // Try to get symbol again
                       symbol = this.symbolGraph.getSymbol(
@@ -4703,16 +4698,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         classPath = extractApexLibPath(classPath);
       }
 
-      if (!this.resourceLoader.isClassCompiled(classPath)) {
-        await this.resourceLoader.ensureClassLoaded(classPath);
-      }
-
-      const artifact = await this.resourceLoader.getCompiledArtifact(classPath);
-      if (artifact && artifact.compilationResult?.result) {
+      const symbolTable = await this.resourceLoader.getSymbolTable(classPath);
+      if (symbolTable) {
         // Convert classPath to proper URI scheme for standard Apex library classes
         const fileUri = this.convertToStandardLibraryUri(classPath);
         await Effect.runPromise(
-          this.addSymbolTable(artifact.compilationResult.result, fileUri),
+          this.addSymbolTable(symbolTable, fileUri),
         );
 
         // Update the class symbol's fileUri to use the new URI scheme
@@ -5471,18 +5462,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           const match = registryEntry.fileUri.match(/apex:\/\/stdlib\/(.+)/);
           if (match) {
             const classPath = `${match[1]}.cls`;
-            const artifact =
-              await this.resourceLoader.getCompiledArtifact(classPath);
-            if (artifact?.compilationResult?.result) {
+            const symbolTable =
+              await this.resourceLoader.getSymbolTable(classPath);
+            if (symbolTable) {
               // Add to symbol graph
               await Effect.runPromise(
-                this.addSymbolTable(
-                  artifact.compilationResult.result,
-                  registryEntry.fileUri,
-                ),
+                this.addSymbolTable(symbolTable, registryEntry.fileUri),
               );
               // Find symbol by name (symbolId might not match)
-              const symbols = artifact.compilationResult.result.getAllSymbols();
+              const symbols = symbolTable.getAllSymbols();
               const foundSymbol = symbols.find(
                 (s) =>
                   s.name?.toLowerCase() === registryEntry.name.toLowerCase() &&
@@ -5503,7 +5491,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             } else {
               this.logger.debug(
                 () =>
-                  `[resolveStandardApexClass] Found registry entry for "${name}" but getCompiledArtifact returned null`,
+                  `[resolveStandardApexClass] Found registry entry for "${name}" but getSymbolTable returned null`,
               );
             }
           } else {
@@ -5686,93 +5674,86 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             `[resolveStandardApexClass] Loading class from ResourceLoader: classPath="${classPath}", fileUri="${fileUri}"`,
         );
 
-        const artifact =
-          await this.resourceLoader.loadAndCompileClass(classPath);
-        if (!artifact) {
+        const symbolTable =
+          await this.resourceLoader.getSymbolTable(classPath);
+        if (!symbolTable) {
           this.logger.debug(
             () =>
               `[resolveStandardApexClass] ResourceLoader returned null for "${classPath}"`,
           );
           return null;
         }
-        if (artifact?.compilationResult?.result) {
-          // Add the symbol table to the symbol manager to get all symbols including methods
-          await Effect.runPromise(
-            this.addSymbolTable(artifact.compilationResult.result, fileUri),
-          );
+        // Add the symbol table to the symbol manager to get all symbols including methods
+        await Effect.runPromise(
+          this.addSymbolTable(symbolTable, fileUri),
+        );
 
-          // Find the class symbol from the loaded symbol table
-          const symbols = artifact.compilationResult.result.getAllSymbols();
-          // Try to find by name first (case-insensitive for Apex)
-          let classSymbol = symbols.find(
-            (s) =>
-              s.name?.toLowerCase() === className.toLowerCase() &&
-              s.kind === SymbolKind.Class,
-          );
+        // Find the class symbol from the loaded symbol table
+        const symbols = symbolTable.getAllSymbols();
+        // Try to find by name first (case-insensitive for Apex)
+        let classSymbol = symbols.find(
+          (s) =>
+            s.name?.toLowerCase() === className.toLowerCase() &&
+            s.kind === SymbolKind.Class,
+        );
 
-          // If not found by name, try to find the first class symbol (for cases where name might be empty)
-          // This can happen with generic types like List<T> where the parser might not extract the name correctly
-          if (!classSymbol) {
-            classSymbol = symbols.find((s) => s.kind === SymbolKind.Class);
-            // If we found a class symbol but it has an empty name, set it from the className we're looking for
-            if (classSymbol && !classSymbol.name) {
-              classSymbol.name = className;
-            }
+        // If not found by name, try to find the first class symbol (for cases where name might be empty)
+        // This can happen with generic types like List<T> where the parser might not extract the name correctly
+        if (!classSymbol) {
+          classSymbol = symbols.find((s) => s.kind === SymbolKind.Class);
+          // If we found a class symbol but it has an empty name, set it from the className we're looking for
+          if (classSymbol && !classSymbol.name) {
+            classSymbol.name = className;
           }
+        }
 
-          if (classSymbol) {
-            // Update the class symbol's fileUri to use the new URI scheme
-            classSymbol.fileUri = fileUri;
-            // Ensure the name is set correctly
-            if (!classSymbol.name || classSymbol.name === '') {
-              classSymbol.name = className;
-            }
-            return classSymbol;
+        if (classSymbol) {
+          // Update the class symbol's fileUri to use the new URI scheme
+          classSymbol.fileUri = fileUri;
+          // Ensure the name is set correctly
+          if (!classSymbol.name || classSymbol.name === '') {
+            classSymbol.name = className;
           }
+          return classSymbol;
+        }
 
-          // If still not found in the loaded symbol table, try finding it from the symbol graph
-          // This handles cases where the symbol was added but might not be immediately available
-          // in the loaded symbol table's getAllSymbols() result
-          const graphSymbols = this.findSymbolByName(className);
-          const graphClassSymbols = graphSymbols.filter(
-            (s) =>
-              s.kind === SymbolKind.Class &&
-              (s.fileUri === fileUri ||
-                s.fileUri?.includes('StandardApexLibrary') ||
-                s.fileUri?.includes('apexlib://')),
+        // If still not found in the loaded symbol table, try finding it from the symbol graph
+        // This handles cases where the symbol was added but might not be immediately available
+        // in the loaded symbol table's getAllSymbols() result
+        const graphSymbols = this.findSymbolByName(className);
+        const graphClassSymbols = graphSymbols.filter(
+          (s) =>
+            s.kind === SymbolKind.Class &&
+            (s.fileUri === fileUri ||
+              s.fileUri?.includes('StandardApexLibrary') ||
+              s.fileUri?.includes('apexlib://')),
+        );
+        if (graphClassSymbols.length > 0) {
+          // Prefer symbols from the file we just loaded
+          const fileSymbol = graphClassSymbols.find(
+            (s) => s.fileUri === fileUri,
           );
-          if (graphClassSymbols.length > 0) {
-            // Prefer symbols from the file we just loaded
-            const fileSymbol = graphClassSymbols.find(
-              (s) => s.fileUri === fileUri,
+          if (fileSymbol) {
+            this.logger.debug(
+              () =>
+                `Found class "${className}" from symbol graph after loading: ${fileSymbol.name}`,
             );
-            if (fileSymbol) {
-              this.logger.debug(
-                () =>
-                  `Found class "${className}" from symbol graph after loading: ${fileSymbol.name}`,
-              );
-              return fileSymbol;
-            }
-            // Fallback to any standard Apex library symbol
-            const standardSymbol = graphClassSymbols.find(
-              (s) =>
-                s.fileUri?.includes('apexlib://') ||
-                s.fileUri?.includes('StandardApexLibrary'),
-            );
-            if (standardSymbol) {
-              this.logger.debug(
-                () =>
-                  `Found class "${className}" from symbol graph (standard): ${standardSymbol.name}`,
-              );
-              return standardSymbol;
-            }
-            return graphClassSymbols[0];
+            return fileSymbol;
           }
-        } else {
-          this.logger.debug(
-            () =>
-              `Compilation result is null for ${classPath} (searched for ${name})`,
+          // Fallback to any standard Apex library symbol
+          const standardSymbol = graphClassSymbols.find(
+            (s) =>
+              s.fileUri?.includes('apexlib://') ||
+              s.fileUri?.includes('StandardApexLibrary'),
           );
+          if (standardSymbol) {
+            this.logger.debug(
+              () =>
+                `Found class "${className}" from symbol graph (standard): ${standardSymbol.name}`,
+            );
+            return standardSymbol;
+          }
+          return graphClassSymbols[0];
         }
         return null;
       } catch (_error) {
@@ -7986,10 +7967,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 // Extract the class path from the file path
                 const classPath = extractApexLibPath(contextFile);
 
-                const artifact =
-                  await this.resourceLoader.loadAndCompileClass(classPath);
-                if (artifact && artifact.compilationResult.result) {
-                  symbolTable = artifact.compilationResult.result;
+                const loadedSymbolTable =
+                  await this.resourceLoader.getSymbolTable(classPath);
+                if (loadedSymbolTable) {
+                  symbolTable = loadedSymbolTable;
 
                   // Add the symbol table to our graph for future use
                   await Effect.runPromise(
@@ -8046,16 +8027,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   const classPath = extractApexLibPath(typeSymbol.fileUri);
                   if (classPath) {
                     try {
-                      const artifact =
-                        await this.resourceLoader.loadAndCompileClass(
-                          classPath,
-                        );
-                      if (artifact?.compilationResult.result) {
+                      const symbolTable =
+                        await this.resourceLoader.getSymbolTable(classPath);
+                      if (symbolTable) {
                         await Effect.runPromise(
-                          this.addSymbolTable(
-                            artifact.compilationResult.result,
-                            typeSymbol.fileUri,
-                          ),
+                          this.addSymbolTable(symbolTable, typeSymbol.fileUri),
                         );
                         // Retry resolution after loading
                         const retryResult = await this.resolveMemberInContext(
@@ -8131,14 +8107,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                             () =>
                               `Loading class from path: ${classPath} for member resolution`,
                           );
-                          const artifact =
-                            await this.resourceLoader.loadAndCompileClass(
-                              classPath,
-                            );
-                          if (artifact?.compilationResult.result) {
+                          const symbolTable =
+                            await this.resourceLoader.getSymbolTable(classPath);
+                          if (symbolTable) {
                             await Effect.runPromise(
                               this.addSymbolTable(
-                                artifact.compilationResult.result,
+                                symbolTable,
                                 standardClassSymbol.fileUri,
                               ),
                             );
@@ -8233,14 +8207,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     );
                     if (classPath) {
                       try {
-                        const artifact =
-                          await this.resourceLoader.loadAndCompileClass(
-                            classPath,
-                          );
-                        if (artifact?.compilationResult.result) {
+                        const symbolTable =
+                          await this.resourceLoader.getSymbolTable(classPath);
+                        if (symbolTable) {
                           await Effect.runPromise(
                             this.addSymbolTable(
-                              artifact.compilationResult.result,
+                              symbolTable,
                               typeClassSymbol.fileUri,
                             ),
                           );
@@ -8322,17 +8294,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     );
                     if (classPath) {
                       try {
-                        const artifact =
-                          await this.resourceLoader.loadAndCompileClass(
-                            classPath,
-                          );
-                        if (artifact?.compilationResult.result) {
-                          await Effect.runPromise(
-                            this.addSymbolTable(
-                              artifact.compilationResult.result,
-                              standardClassSymbol.fileUri,
-                            ),
-                          );
+                      const symbolTable =
+                        await this.resourceLoader.getSymbolTable(classPath);
+                      if (symbolTable) {
+                        await Effect.runPromise(
+                          this.addSymbolTable(
+                            symbolTable,
+                            standardClassSymbol.fileUri,
+                          ),
+                        );
                           // Retry resolution after loading
                           const retryResult = await this.resolveMemberInContext(
                             { type: 'symbol', symbol: standardClassSymbol },
@@ -8676,14 +8646,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     // Mark as loading to prevent recursive calls
                     this.loadingSymbolTables.add(normalizedUri);
                     try {
-                      const artifact =
-                        await this.resourceLoader.loadAndCompileClass(
-                          classPath,
-                        );
-                      if (artifact?.compilationResult.result) {
+                      const symbolTable =
+                        await this.resourceLoader.getSymbolTable(classPath);
+                      if (symbolTable) {
                         await Effect.runPromise(
                           this.addSymbolTable(
-                            artifact.compilationResult.result,
+                            symbolTable,
                             contextSymbol.fileUri,
                           ),
                         );
@@ -8949,12 +8917,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               if (!this.loadingSymbolTables.has(normalizedUri)) {
                 this.loadingSymbolTables.add(normalizedUri);
                 try {
-                  const artifact =
-                    await this.resourceLoader.loadAndCompileClass(classPath);
-                  if (artifact?.compilationResult.result) {
+                  const loadedSymbolTable =
+                    await this.resourceLoader.getSymbolTable(classPath);
+                  if (loadedSymbolTable) {
                     await Effect.runPromise(
                       this.addSymbolTable(
-                        artifact.compilationResult.result,
+                        loadedSymbolTable,
                         superclassTypeSymbol.fileUri,
                       ),
                     );
@@ -9022,12 +8990,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               if (!this.loadingSymbolTables.has(normalizedUri)) {
                 this.loadingSymbolTables.add(normalizedUri);
                 try {
-                  const artifact =
-                    await this.resourceLoader.loadAndCompileClass(classPath);
-                  if (artifact?.compilationResult.result) {
+                  const loadedSymbolTable =
+                    await this.resourceLoader.getSymbolTable(classPath);
+                  if (loadedSymbolTable) {
                     await Effect.runPromise(
                       this.addSymbolTable(
-                        artifact.compilationResult.result,
+                        loadedSymbolTable,
                         objectTypeSymbol.fileUri,
                       ),
                     );
