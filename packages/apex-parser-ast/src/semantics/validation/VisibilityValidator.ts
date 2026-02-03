@@ -248,7 +248,9 @@ export class VisibilityValidator {
       scope,
     );
     if (!typeResult.isValid) {
-      errors.push(...typeResult.errors);
+      for (const error of typeResult.errors) {
+        errors.push(typeof error === 'string' ? error : error.message);
+      }
     }
 
     // Validate method visibility
@@ -256,7 +258,9 @@ export class VisibilityValidator {
       for (const method of classInfo.methods) {
         const methodResult = this.validateMethodVisibility(method, scope);
         if (!methodResult.isValid) {
-          errors.push(...methodResult.errors);
+          for (const error of methodResult.errors) {
+            errors.push(typeof error === 'string' ? error : error.message);
+          }
         }
       }
     }
@@ -266,7 +270,9 @@ export class VisibilityValidator {
       for (const variable of classInfo.variables) {
         const variableResult = this.validateVariableVisibility(variable, scope);
         if (!variableResult.isValid) {
-          errors.push(...variableResult.errors);
+          for (const error of variableResult.errors) {
+            errors.push(typeof error === 'string' ? error : error.message);
+          }
         }
       }
     }

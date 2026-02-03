@@ -30,6 +30,7 @@ import {
 } from './DocumentOpenBatcher';
 import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
+import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 
 /**
  * Service for processing document open events
@@ -40,6 +41,8 @@ export class DocumentProcessingService {
   private batcher: DocumentOpenBatcherService | null = null;
   private batcherShutdown: Effect.Effect<void, never> | null = null;
   private layerEnrichmentService: LayerEnrichmentService | null = null;
+  private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
+    null;
 
   constructor(logger: LoggerInterface) {
     this.logger = logger;
@@ -51,6 +54,17 @@ export class DocumentProcessingService {
    */
   setLayerEnrichmentService(service: LayerEnrichmentService): void {
     this.layerEnrichmentService = service;
+    // Create prerequisite orchestration service when layer enrichment is set
+    if (!this.prerequisiteOrchestrationService) {
+      const symbolManager =
+        ApexSymbolProcessingManager.getInstance().getSymbolManager();
+      this.prerequisiteOrchestrationService =
+        new PrerequisiteOrchestrationService(
+          this.logger,
+          symbolManager,
+          service,
+        );
+    }
   }
 
   /**
@@ -441,6 +455,21 @@ export class DocumentProcessingService {
           symbolsIndexed: false,
           detailLevel: 'public-api', // Initial level, will be enriched
         });
+
+        // Run prerequisites for file-open-single request (async, non-blocking)
+        if (this.prerequisiteOrchestrationService) {
+          this.prerequisiteOrchestrationService
+            .runPrerequisitesForLspRequestType(
+              'file-open-single',
+              event.document.uri,
+            )
+            .catch((error) => {
+              this.logger.debug(
+                () =>
+                  `Error running prerequisites for file-open ${event.document.uri}: ${error}`,
+              );
+            });
+        }
 
         // Add symbols synchronously so they're immediately available for hover/goto definition
         // Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics)

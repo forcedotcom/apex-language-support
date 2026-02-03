@@ -7,6 +7,8 @@
  */
 
 import type { ValidationResult, ValidationScope } from './ValidationResult';
+import { localizeTyped } from '../../i18n/messageInstance';
+import { ErrorCodes } from '../../generated/ErrorCodes';
 
 /**
  * Extended validation scope for compilation unit validation
@@ -75,7 +77,9 @@ export class CompilationUnitValidator {
 
     // Check if content exceeds the size limit
     if (content.length > sizeLimit) {
-      errors.push('script.too.large');
+      const preview = content.substring(0, 100);
+      const code = ErrorCodes.SCRIPT_TOO_LARGE;
+      errors.push(localizeTyped(code, preview));
       return { isValid: false, errors, warnings };
     }
 
@@ -168,13 +172,17 @@ export class CompilationUnitValidator {
     // Validate file size
     const sizeResult = this.validateFileSize(content, unitType, scope);
     if (!sizeResult.isValid) {
-      errors.push(...sizeResult.errors);
+      for (const error of sizeResult.errors) {
+        errors.push(typeof error === 'string' ? error : error.message);
+      }
     }
 
     // Validate characters
     const charResult = this.validateCharacters(content, scope);
     if (!charResult.isValid) {
-      errors.push(...charResult.errors);
+      for (const error of charResult.errors) {
+        errors.push(typeof error === 'string' ? error : error.message);
+      }
     }
 
     return {

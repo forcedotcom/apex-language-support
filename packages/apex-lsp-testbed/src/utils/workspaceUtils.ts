@@ -35,8 +35,6 @@ export async function prepareWorkspace(
     return undefined;
   }
 
-  console.log(`Preparing workspace: ${workspacePath}`);
-
   // Check if the workspace path is a GitHub URL
   const githubUrlRegex = /^https?:\/\/github\.com\/[^\/]+\/[^\/]+\.git$/;
   const isGithubUrl = githubUrlRegex.test(workspacePath);
@@ -89,12 +87,9 @@ export async function cloneGitHubRepository(
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const repoDir = path.join(artifactsDir, `${repoName}-${timestamp}`);
 
-  console.log(`Cloning ${repoUrl} into ${repoDir}...`);
-
   // Clone the repository
   try {
     await executeCommand(`git clone ${repoUrl} ${repoDir}`);
-    console.log(`Successfully cloned repository into ${repoDir}`);
 
     return {
       rootUri: `file://${repoDir}`,
@@ -156,7 +151,6 @@ export function registerWorkspaceCleanup(workspace: WorkspaceConfig): void {
   if (workspace.isTemporary) {
     // Register cleanup handler for temporary workspace
     process.on('exit', () => {
-      console.log(`\nCleaning up temporary workspace: ${workspace.rootPath}`);
       try {
         // Use recursive option only on Node versions that support it
         const nodeVersion = process.versions.node.split('.').map(Number);
@@ -182,7 +176,6 @@ export function registerWorkspaceCleanup(workspace: WorkspaceConfig): void {
           };
           rimrafSync(workspace.rootPath);
         }
-        console.log('Temporary workspace deleted successfully');
       } catch (error) {
         console.error(`Error cleaning up temporary workspace: ${error}`);
       }

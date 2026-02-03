@@ -493,6 +493,7 @@ export class CompilerService {
     layers: DetailLevel[],
     existingSymbolTable?: SymbolTable,
     options: LayeredCompilationOptions = {},
+    cachedParseTree?: ParseTreeResult,
   ): CompilationResult<SymbolTable> {
     this.logger.debug(
       () =>
@@ -512,10 +513,13 @@ export class CompilerService {
       );
 
       // Create or reuse parse tree
-      const { parseTree, errorListener } = this.createParseTree(
-        fileContent,
-        fileName,
-      );
+      const parseTreeResult =
+        cachedParseTree || this.createParseTree(fileContent, fileName);
+      const { parseTree, errorListener } = parseTreeResult;
+
+      if (cachedParseTree) {
+        this.logger.debug(() => `Reusing cached parse tree for ${fileName}`);
+      }
 
       // Start with existing SymbolTable or create new one
       const symbolTable = existingSymbolTable || new SymbolTable();
@@ -543,6 +547,23 @@ export class CompilerService {
             `Applied ${layer} listener to ${fileName}, symbols: ${symbolTable.getAllSymbols().length}`,
         );
       }
+
+      // CRITICAL: After all layers are applied, update all symbols' _detailLevel
+      // to reflect the highest layer that was applied. This ensures that even if
+      // a symbol was only collected in the public-api layer (because it's public),
+      // its _detailLevel reflects that higher layers (protected, private) were applied.
+      const highestLayer = requestedLayers[requestedLayers.length - 1];
+      const targetDetailLevel =
+        highestLayer === 'private' ? 'full' : highestLayer;
+      for (const symbol of symbolTable.getAllSymbols()) {
+        if (symbol._detailLevel) {
+          symbol._detailLevel = targetDetailLevel as DetailLevel;
+        }
+      }
+      this.logger.debug(
+        () =>
+          `Updated all symbols in ${fileName} to _detailLevel=${targetDetailLevel}`,
+      );
 
       // Optionally collect references using dedicated listener
       const collectReferences = options.collectReferences === true;

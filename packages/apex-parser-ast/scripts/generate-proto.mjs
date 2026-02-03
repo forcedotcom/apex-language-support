@@ -44,15 +44,19 @@ try {
   const command = [
     'npx',
     'protoc',
-    '--ts_out', outputDir,
-    '--ts_opt', 'generate_dependencies',
-    '--ts_opt', 'long_type_string',
-    '--proto_path', join(projectRoot, 'proto'),
+    '--ts_out',
+    outputDir,
+    '--ts_opt',
+    'generate_dependencies',
+    '--ts_opt',
+    'long_type_string',
+    '--proto_path',
+    join(projectRoot, 'proto'),
     protoFile,
   ].join(' ');
 
   console.log(`  Running: ${command}`);
-  execSync(command, { 
+  execSync(command, {
     stdio: 'inherit',
     cwd: projectRoot,
   });
@@ -60,12 +64,14 @@ try {
   console.log('✅ Proto generation complete');
 } catch (error) {
   console.error('❌ Proto generation failed:', error.message);
-  
+
   // Provide helpful error message
   console.error('\nTroubleshooting:');
-  console.error('1. Ensure protoc is installed: brew install protobuf (macOS) or apt install protobuf-compiler (Linux)');
+  console.error(
+    '1. Ensure protoc is installed: brew install protobuf (macOS) or apt install protobuf-compiler (Linux)',
+  );
   console.error('2. Ensure @protobuf-ts/plugin is installed: npm install');
   console.error('3. Check that the proto file is valid');
-  
+
   process.exit(1);
 }

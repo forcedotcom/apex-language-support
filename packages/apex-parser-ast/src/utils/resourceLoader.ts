@@ -523,7 +523,7 @@ export class ResourceLoader {
         // Populate namespace index from protobuf data
         this.populateFromProtobufCache(result.data);
 
-        this.logger.info(
+        this.logger.alwaysLog(
           () =>
             `✅ Loaded stdlib from protobuf cache in ${result.loadTimeMs.toFixed(1)}ms ` +
             `(${result.data!.metadata.typeCount} types)`,

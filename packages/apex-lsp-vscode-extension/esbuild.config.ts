@@ -37,7 +37,9 @@ function createVscodeIgnore() {
 }
 
 /**
- * Fix package.json paths for dist directory and remove bundled dependencies
+ * Fix package.json paths for dist directory and remove development-only fields.
+ * The dist/package.json is used for VSIX packaging and should only contain
+ * runtime metadata, not build configuration or dev dependencies.
  */
 function fixPackagePaths() {
   const packagePath = path.resolve(__dirname, 'dist/package.json');
@@ -45,6 +47,7 @@ function fixPackagePaths() {
     const content = fs.readFileSync(packagePath, 'utf8');
     const packageJson = JSON.parse(content);
 
+    // Fix entry point paths (remove ./out/ prefix)
     if (packageJson.main?.includes('./out/')) {
       packageJson.main = packageJson.main.replace('./out/', './');
     }
@@ -58,6 +61,7 @@ function fixPackagePaths() {
         packageJson.contributes.standardApexLibrary.replace('./out/', './');
     }
 
+    // Remove bundled dependencies (they're included in the bundle)
     const bundledDependencies = [
       '@salesforce/apex-lsp-shared',
       'vscode-languageclient',
@@ -72,6 +76,19 @@ function fixPackagePaths() {
         delete packageJson.dependencies;
       }
     }
+
+    // Remove development-only fields not needed in VSIX package
+    const devOnlyFields = [
+      'scripts', // Build scripts not needed in installed extension
+      'devDependencies', // Dev dependencies not needed
+      'wireit', // Build configuration not needed
+    ];
+
+    devOnlyFields.forEach((field) => {
+      if (packageJson[field]) {
+        delete packageJson[field];
+      }
+    });
 
     fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
   } catch (error) {

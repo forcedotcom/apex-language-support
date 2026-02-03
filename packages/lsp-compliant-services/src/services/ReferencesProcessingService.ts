@@ -41,6 +41,7 @@ import {
   isWorkspaceLoaded,
   isWorkspaceLoading,
 } from './WorkspaceLoadCoordinator';
+import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 
 /**
  * Interface for references processing functionality
@@ -61,6 +62,8 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private layerEnrichmentService: LayerEnrichmentService | null = null;
+  private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
+    null;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
@@ -74,6 +77,15 @@ export class ReferencesProcessingService implements IReferencesProcessor {
    */
   setLayerEnrichmentService(service: LayerEnrichmentService): void {
     this.layerEnrichmentService = service;
+    // Create prerequisite orchestration service when layer enrichment is set
+    if (!this.prerequisiteOrchestrationService) {
+      this.prerequisiteOrchestrationService =
+        new PrerequisiteOrchestrationService(
+          this.logger,
+          this.symbolManager,
+          service,
+        );
+    }
   }
 
   /**
@@ -152,6 +164,22 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     this.logger.debug(
       () => `Processing references request for: ${params.textDocument.uri}`,
     );
+
+    // Run prerequisites for references request
+    if (this.prerequisiteOrchestrationService) {
+      try {
+        await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+          'references',
+          params.textDocument.uri,
+        );
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error running prerequisites for references ${params.textDocument.uri}: ${error}`,
+        );
+        // Continue with references even if prerequisites fail
+      }
+    }
 
     try {
       // Request workspace load in background (non-blocking)

@@ -84,6 +84,7 @@ export const NODE_POLYFILLS = {
   events: 'events',
   assert: 'assert',
   util: 'util',
+  'node:util': 'util',
   buffer: 'buffer',
   process: 'process/browser',
   'vscode-languageclient/node': 'vscode-languageclient/browser',

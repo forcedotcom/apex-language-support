@@ -73,6 +73,7 @@ export class GenericRequestHandler<T = any, R = any>
       documentSave: 'processDocumentSave',
       documentChange: 'processDocumentChange',
       documentClose: 'processDocumentClose',
+      documentLoad: 'processDocumentLoad',
       findMissingArtifact: 'processFindMissingArtifact',
       executeCommand: 'processExecuteCommand',
     };

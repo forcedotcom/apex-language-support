@@ -1,7 +1,14 @@
 const baseConfig = require('../../jest.config.cjs');
+const { platform } = require('os');
 
 module.exports = {
   ...baseConfig,
+  // Global setup to clean up snapshots on Windows before tests run
+  // This prevents obsolete snapshot warnings for skipped tests
+  globalSetup:
+    platform() === 'win32'
+      ? '<rootDir>/scripts/jest-setup-windows.js'
+      : baseConfig.globalSetup,
   // Only include .test.ts files for unit tests
   // Performance tests (.perf.ts) are run separately via test:perf command
   // Integration tests are run separately via test:integration command

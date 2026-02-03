@@ -9,6 +9,8 @@
 import { LCSAdapter } from '../../src/server/LCSAdapter';
 import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
 import { Connection } from 'vscode-languageserver/browser';
+import { ServerCapabilities } from 'vscode-languageserver-protocol';
+import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
 
 // Mock the dependencies
 jest.mock('@salesforce/apex-lsp-shared', () => ({
@@ -43,31 +45,39 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   },
 }));
 
-// Mock the apex-parser-ast package with protobuf cache support
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  ResourceLoader: {
-    getInstance: jest.fn(() => ({
-      getDirectoryStatistics: jest.fn(() => ({
-        totalFiles: 100,
-        namespaces: ['System', 'Database', 'Schema'],
+// Mock the apex-parser-ast package with embedded ZIP support
+// Only mock what's necessary for testing ResourceLoader initialization
+jest.mock('@salesforce/apex-lsp-parser-ast', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
+  // Create mock ZIP buffer (ZIP magic bytes)
+  const mockZip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+  return {
+    ...actual, // Use real implementations for everything else
+    ResourceLoader: {
+      getInstance: jest.fn(() => ({
+        setZipBuffer: jest.fn(),
+        getDirectoryStatistics: jest.fn(() => ({
+          totalFiles: 100,
+          namespaces: ['System', 'Database', 'Schema'],
+        })),
+        initialize: jest.fn().mockResolvedValue(undefined),
       })),
-      initialize: jest.fn().mockResolvedValue(undefined),
-      setZipBuffer: jest.fn(),
-      isProtobufCacheLoaded: jest.fn(() => true),
-    })),
-  },
-  ApexSymbolManager: class MockApexSymbolManager {},
-  ApexSymbolProcessingManager: class MockApexSymbolProcessingManager {
-    static getInstance() {
-      return new MockApexSymbolProcessingManager();
-    }
-    getSymbolManager() {
-      return new (jest.requireMock(
-        '@salesforce/apex-lsp-parser-ast',
-      ).ApexSymbolManager)();
-    }
-  },
-}));
+    },
+    getEmbeddedStandardLibraryZip: jest.fn(() => mockZip),
+    ApexSymbolManager: class MockApexSymbolManager {},
+    ApexSymbolProcessingManager: class MockApexSymbolProcessingManager {
+      static getInstance() {
+        return new MockApexSymbolProcessingManager();
+      }
+      getSymbolManager() {
+        return new (jest.requireMock(
+          '@salesforce/apex-lsp-parser-ast',
+        ).ApexSymbolManager)();
+      }
+    },
+    // initializeValidators uses the real implementation from actual
+  };
+});
 
 describe('LCSAdapter ResourceLoader Initialization', () => {
   let mockConnection: any;
@@ -98,6 +108,8 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       },
       workspace: {
         getConfiguration: jest.fn().mockResolvedValue({}),
+        onDidChangeWorkspaceFolders: jest.fn(),
+        onDidDeleteFiles: jest.fn(),
       },
       console: {
         log: jest.fn(),
@@ -111,23 +123,27 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
     mockConfigManager = {
       getInstance: jest.fn(),
       getSettingsManager: jest.fn(() => ({})),
+      getCapabilities: jest.fn(),
+      getSettings: jest.fn(() => ({})),
+      getCapabilitiesManager: jest.fn(() => ({
+        getMode: jest.fn(() => 'production'),
+      })),
+      getExtendedServerCapabilities: jest.fn(() => ({})),
     } as unknown as jest.Mocked<LSPConfigurationManager>;
 
     (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
       mockConfigManager,
     );
 
-    // Create adapter instance (using any to access private constructor)
-    adapter = new (LCSAdapter as any)({
+    // Create adapter instance
+    // @ts-expect-error - LCSAdapter is not exported from the package
+    adapter = new LCSAdapter({
       connection: mockConnection as Connection,
     });
   });
 
   describe('initializeResourceLoader', () => {
     it('should initialize ResourceLoader with protobuf cache', async () => {
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
       const mockResourceLoader = {
         getDirectoryStatistics: jest.fn(() => ({
           totalFiles: 100,
@@ -150,9 +166,6 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
     });
 
     it('should call initialize on ResourceLoader', async () => {
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
       const mockResourceLoader = {
         getDirectoryStatistics: jest.fn(() => ({
           totalFiles: 100,
@@ -180,14 +193,12 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         error: jest.fn(),
       };
 
-      const adapterWithLogger = new (LCSAdapter as any)({
+      // @ts-expect-error - LCSAdapter is not exported from the package
+      const adapterWithLogger = new LCSAdapter({
         connection: mockConnection as Connection,
         logger: mockLogger,
       });
 
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
       const mockResourceLoader = {
         getDirectoryStatistics: jest.fn(() => ({
           totalFiles: 100,
@@ -215,14 +226,12 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         error: jest.fn(),
       };
 
-      const adapterWithLogger = new (LCSAdapter as any)({
+      // @ts-expect-error - LCSAdapter is not exported from the package
+      const adapterWithLogger = new LCSAdapter({
         connection: mockConnection as Connection,
         logger: mockLogger,
       });
 
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
       const mockResourceLoader = {
         getDirectoryStatistics: jest.fn(() => ({
           totalFiles: 0,
@@ -246,6 +255,41 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       // Verify warning was logged
       expect(mockLogger.warn).toHaveBeenCalled();
     });
+  });
+
+  describe('Integration with LCSAdapter lifecycle', () => {
+    it('should call initializeResourceLoader during handleInitialized', async () => {
+      // Mock the capabilities to avoid errors in registerDynamicCapabilities
+      // Using Partial<ServerCapabilities> since we're only providing a subset for testing
+      mockConfigManager.getCapabilities.mockReturnValue({
+        documentSymbolProvider: { resolveProvider: false },
+        hoverProvider: true,
+        foldingRangeProvider: { rangeLimit: 5000, lineFoldingOnly: true },
+        diagnosticProvider: {
+          identifier: 'apex-ls-ts',
+          interFileDependencies: true,
+          workspaceDiagnostics: false,
+        },
+        completionProvider: {
+          triggerCharacters: ['.'],
+          resolveProvider: false,
+        },
+      } as Partial<ServerCapabilities> as ServerCapabilities);
+
+      // Spy on the private method
+      const initResourceLoaderSpy = jest.spyOn(
+        adapter as any,
+        'initializeResourceLoader',
+      );
+
+      // Trigger the initialized event handler
+      const onInitializedHandler =
+        mockConnection.onInitialized.mock.calls[0][0];
+      await onInitializedHandler();
+
+      // Verify initializeResourceLoader was called
+      expect(initResourceLoaderSpy).toHaveBeenCalled();
+    });
 
     it('should handle ResourceLoader initialization successfully', async () => {
       const mockLogger = {
@@ -255,14 +299,12 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         error: jest.fn(),
       };
 
-      const adapterWithLogger = new (LCSAdapter as any)({
+      // @ts-expect-error - LCSAdapter is not exported from the package
+      const adapterWithLogger = new LCSAdapter({
         connection: mockConnection as Connection,
         logger: mockLogger,
       });
 
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
       const mockResourceLoader = {
         initialize: jest.fn().mockResolvedValue(undefined),
       };

@@ -27,6 +27,7 @@ export type LSPRequestType =
   | 'documentSave'
   | 'documentChange'
   | 'documentClose'
+  | 'documentLoad'
   | 'findMissingArtifact'
   | 'executeCommand';
 

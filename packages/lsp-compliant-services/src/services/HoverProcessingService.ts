@@ -40,6 +40,7 @@ import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { calculateDisplayFQN } from '../utils/displayFQNUtils';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
+import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 
 import {
   transformLspToParserPosition,
@@ -75,6 +76,8 @@ export class HoverProcessingService implements IHoverProcessor {
   private readonly capabilitiesManager: ApexCapabilitiesManager;
   private readonly missingArtifactUtils: MissingArtifactUtils;
   private layerEnrichmentService: LayerEnrichmentService | null = null;
+  private prerequisiteOrchestrationService: PrerequisiteOrchestrationService | null =
+    null;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
@@ -100,6 +103,15 @@ export class HoverProcessingService implements IHoverProcessor {
         `[HoverProcessingService] LayerEnrichmentService set: ${service ? 'yes' : 'no'}`,
     );
     this.layerEnrichmentService = service;
+    // Create prerequisite orchestration service when layer enrichment is set
+    if (!this.prerequisiteOrchestrationService) {
+      this.prerequisiteOrchestrationService =
+        new PrerequisiteOrchestrationService(
+          this.logger,
+          this.symbolManager,
+          service,
+        );
+    }
   }
 
   /**
@@ -113,6 +125,22 @@ export class HoverProcessingService implements IHoverProcessor {
       () =>
         `Symbols in file ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
     );
+
+    // Run prerequisites for hover request
+    if (this.prerequisiteOrchestrationService) {
+      try {
+        await this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+          'hover',
+          params.textDocument.uri,
+        );
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error running prerequisites for hover ${params.textDocument.uri}: ${error}`,
+        );
+        // Continue with hover even if prerequisites fail
+      }
+    }
 
     try {
       // Early keyword check: if position is on a keyword, return null immediately

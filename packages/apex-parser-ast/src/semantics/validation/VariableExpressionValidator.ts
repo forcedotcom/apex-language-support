@@ -38,7 +38,9 @@ export class VariableExpressionValidator {
       scope,
     );
     if (!visibilityResult.isValid) {
-      errors.push(...visibilityResult.errors);
+      for (const error of visibilityResult.errors) {
+        errors.push(typeof error === 'string' ? error : error.message);
+      }
       return { isValid: false, errors, warnings };
     }
 

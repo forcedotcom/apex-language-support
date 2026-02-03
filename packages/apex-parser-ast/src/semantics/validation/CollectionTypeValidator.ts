@@ -126,7 +126,10 @@ export class CollectionTypeValidator {
     if (typeInfo.elementType.isSObject) {
       const sobjectResult = this.validateSObjectCollection(typeInfo, scope);
       if (!sobjectResult.isValid) {
-        errors.push(...sobjectResult.errors);
+        // Normalize errors to strings
+        for (const error of sobjectResult.errors) {
+          errors.push(typeof error === 'string' ? error : error.message);
+        }
         return { isValid: false, errors, warnings };
       }
     }
@@ -166,7 +169,10 @@ export class CollectionTypeValidator {
     if (typeInfo.elementType.isSObject) {
       const sobjectResult = this.validateSObjectCollection(typeInfo, scope);
       if (!sobjectResult.isValid) {
-        errors.push(...sobjectResult.errors);
+        // Normalize errors to strings
+        for (const error of sobjectResult.errors) {
+          errors.push(typeof error === 'string' ? error : error.message);
+        }
         return { isValid: false, errors, warnings };
       }
     }
@@ -224,7 +230,10 @@ export class CollectionTypeValidator {
     if (typeInfo.keyType.isSObject || typeInfo.valueType.isSObject) {
       const sobjectResult = this.validateSObjectMap(typeInfo, scope);
       if (!sobjectResult.isValid) {
-        errors.push(...sobjectResult.errors);
+        // Normalize errors to strings
+        for (const error of sobjectResult.errors) {
+          errors.push(typeof error === 'string' ? error : error.message);
+        }
         return { isValid: false, errors, warnings };
       }
     }

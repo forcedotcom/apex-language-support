@@ -274,6 +274,7 @@ export class StandardLibraryDeserializer {
       this.convertParameterToVariableSymbol(p, symbol.id),
     );
     symbol.isConstructor = proto.isConstructor;
+    symbol.hasBody = proto.hasBody ?? true; // Default true for backward compatibility
 
     return symbol;
   }
@@ -301,6 +302,9 @@ export class StandardLibraryDeserializer {
     // Set VariableSymbol-specific properties
     symbol.type = this.convertTypeReference(proto.type);
     symbol.initialValue = proto.initialValue || undefined;
+    symbol.initializerType = proto.initializerType
+      ? this.convertTypeReference(proto.initializerType)
+      : undefined;
 
     return symbol;
   }

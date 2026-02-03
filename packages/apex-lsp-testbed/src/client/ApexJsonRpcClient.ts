@@ -123,6 +123,32 @@ export interface Logger extends VscodeLogger {
 }
 
 /**
+ * Silent logger that discards all log messages
+ * Useful for tests and non-verbose modes
+ */
+export class SilentLogger implements Logger {
+  info(_message: string, ..._args: any[]): void {
+    // Silent - no logging
+  }
+
+  error(_message: string, ..._args: any[]): void {
+    // Silent - no logging
+  }
+
+  debug(_message: string, ..._args: any[]): void {
+    // Silent - no logging
+  }
+
+  warn(_message: string, ..._args: any[]): void {
+    // Silent - no logging
+  }
+
+  log(_message: string, ..._args: any[]): void {
+    // Silent - no logging
+  }
+}
+
+/**
  * Default logger that logs to console
  */
 export class ConsoleLogger implements Logger {
@@ -268,7 +294,7 @@ export class ApexJsonRpcClient {
 
       // Initialize the server
       await this.initializeWithRetry();
-      this.logger.info(
+      this.logger.debug(
         'Web worker server started and initialized successfully',
       );
     } catch (error) {
@@ -282,7 +308,7 @@ export class ApexJsonRpcClient {
    * @private
    */
   private async startChildProcess(): Promise<void> {
-    this.logger.info('Starting server process...');
+    this.logger.debug('Starting server process...');
     this.childProcess = this.startServerProcess();
 
     if (!this.childProcess.stdout || !this.childProcess.stdin) {
@@ -319,7 +345,7 @@ export class ApexJsonRpcClient {
           this.logger.error(`Server stderr output: ${stderrBuffer}`);
         }
       } else {
-        this.logger.info(
+        this.logger.debug(
           `Server process exited with code ${code}, signal ${signal}`,
         );
         if (stderrBuffer && code === 0) {
@@ -362,7 +388,7 @@ export class ApexJsonRpcClient {
 
     // Initialize the server with retry logic
     await this.initializeWithRetry();
-    this.logger.info('Server started and initialized successfully');
+    this.logger.debug('Server started and initialized successfully');
   }
 
   /**
@@ -390,7 +416,7 @@ export class ApexJsonRpcClient {
 
     // Listen for close
     this.connection!.onClose(() => {
-      this.logger.info('Connection closed');
+      this.logger.debug('Connection closed');
       this.cleanup();
     });
   }
@@ -1195,6 +1221,9 @@ export class ApexJsonRpcClient {
               dynamicRegistration: true,
             },
             rename: {
+              dynamicRegistration: true,
+            },
+            diagnostic: {
               dynamicRegistration: true,
             },
           },

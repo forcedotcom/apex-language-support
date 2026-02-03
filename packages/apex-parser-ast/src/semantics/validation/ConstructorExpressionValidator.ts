@@ -8,6 +8,7 @@
 
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import type { ExpressionType } from './TypePromotionSystem';
+import { isPrimitiveType } from '../../utils/TypeInfoFactory';
 
 /**
  * Validator for constructor expressions (new expressions with field initializers)
@@ -53,8 +54,12 @@ export class ConstructorExpressionValidator {
     // Check if target type supports name-value pair syntax
     const nameValuePairResult = this.validateNameValuePairSupport(targetType);
     if (!nameValuePairResult.isValid) {
-      errors.push(...nameValuePairResult.errors);
-      warnings.push(...nameValuePairResult.warnings);
+      for (const error of nameValuePairResult.errors) {
+        errors.push(typeof error === 'string' ? error : error.message);
+      }
+      for (const warning of nameValuePairResult.warnings) {
+        warnings.push(typeof warning === 'string' ? warning : warning.message);
+      }
       return {
         isValid: errors.length === 0,
         errors,
@@ -71,7 +76,9 @@ export class ConstructorExpressionValidator {
           fieldName,
         );
         if (!fieldExistenceResult.isValid) {
-          errors.push(...fieldExistenceResult.errors);
+          for (const error of fieldExistenceResult.errors) {
+            errors.push(typeof error === 'string' ? error : error.message);
+          }
           continue; // Skip type validation if field doesn't exist
         }
 
@@ -84,7 +91,9 @@ export class ConstructorExpressionValidator {
             expressionType,
           );
           if (!typeCompatibilityResult.isValid) {
-            errors.push(...typeCompatibilityResult.errors);
+            for (const error of typeCompatibilityResult.errors) {
+              errors.push(typeof error === 'string' ? error : error.message);
+            }
           }
         } else {
           // If field type is not found, assume it's a String field for test purposes
@@ -100,7 +109,9 @@ export class ConstructorExpressionValidator {
             expressionType,
           );
           if (!typeCompatibilityResult.isValid) {
-            errors.push(...typeCompatibilityResult.errors);
+            for (const error of typeCompatibilityResult.errors) {
+              errors.push(typeof error === 'string' ? error : error.message);
+            }
           }
         }
       }
@@ -210,28 +221,35 @@ export class ConstructorExpressionValidator {
     targetType: ExpressionType,
   ): ValidationResult {
     // Primitive types don't support name-value pair syntax
-    const primitiveTypes = [
-      'String',
-      'Integer',
-      'Long',
-      'Double',
-      'Decimal',
-      'Boolean',
-      'Date',
-      'DateTime',
-      'Time',
-    ];
+    // Normalize type name for case-insensitive comparison
+    // Capitalize first letter and lowercase the rest (e.g., 'string' -> 'String')
+    const normalizedTypeName =
+      targetType.name === 'ID' || targetType.name === 'id'
+        ? 'Id'
+        : targetType.name.charAt(0).toUpperCase() +
+          targetType.name.slice(1).toLowerCase();
 
-    if (
-      primitiveTypes
-        .map((t) => t.toLowerCase())
-        .includes(targetType.name.toLowerCase())
-    ) {
-      return {
-        isValid: false,
-        errors: ['invalid.name.value.pair.constructor'],
-        warnings: [],
-      };
+    if (isPrimitiveType(normalizedTypeName)) {
+      // Only specific primitives that can be constructed don't support name-value pairs
+      // (void, null, Blob, Id, Object don't support constructors, so they're excluded)
+      const primitivesWithoutNameValuePairs = [
+        'String',
+        'Integer',
+        'Long',
+        'Double',
+        'Decimal',
+        'Boolean',
+        'Date',
+        'DateTime',
+        'Time',
+      ];
+      if (primitivesWithoutNameValuePairs.includes(normalizedTypeName)) {
+        return {
+          isValid: false,
+          errors: ['invalid.name.value.pair.constructor'],
+          warnings: [],
+        };
+      }
     }
 
     // SObject types and custom types support name-value pairs

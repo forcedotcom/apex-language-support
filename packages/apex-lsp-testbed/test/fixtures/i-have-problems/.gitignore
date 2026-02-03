@@ -1,0 +1,22 @@
+# Salesforce DX
+.sfdx/
+.localdevserver/
+.sf/
+*.log
+*.zip
+*.swp
+*~
+
+# VS Code
+.vscode/settings.json
+!.vscode/settings.json
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# IDE
+.idea/
+*.iml
