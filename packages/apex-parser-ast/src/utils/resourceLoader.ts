@@ -93,8 +93,8 @@ export class ResourceLoader {
     new CaseInsensitivePathMap(); // Track access counts per artifact to reduce log spam
   private zipBuffer?: Uint8Array; // Will be initialized via setZipBuffer
   private zipFiles: CaseInsensitivePathMap<Uint8Array> | null = null; // Will be initialized in extractZipFiles
-  private protobufCacheLoaded = false; // Track if protobuf cache was used
-  private protobufCacheData: DeserializationResult | null = null; // Cached protobuf data
+  private standardLibrarySymbolDataLoaded = false; // Track if standard library symbol data was loaded
+  private standardLibrarySymbolData: DeserializationResult | null = null; // Cached standard library symbol data
   private namespaceDependencyOrder: string[] | null = null; // Cached dependency-sorted namespace order
 
   private constructor(options?: ResourceLoaderOptions) {
@@ -458,11 +458,11 @@ export class ResourceLoader {
       return this.namespaceDependencyOrder;
     }
 
-    // Build from protobuf symbol tables if available
-    if (!this.protobufCacheData) {
-      // Fallback: return alphabetical order if protobuf not available
+    // Build from standard library symbol tables if available
+    if (!this.standardLibrarySymbolData) {
+      // Fallback: return alphabetical order if standard library symbol data not available
       this.logger.warn(
-        '⚠️  Protobuf cache not available, using alphabetical namespace order (FALLBACK)',
+        '⚠️  Standard library symbol data not available, using alphabetical namespace order (FALLBACK)',
       );
       const fallback = [...this.getStandardNamespaces().keys()];
       this.logger.warn(
@@ -471,9 +471,11 @@ export class ResourceLoader {
       return fallback;
     }
 
-    this.logger.info('Computing namespace dependency order from protobuf...');
+    this.logger.info(
+      'Computing namespace dependency order from standard library symbol data...',
+    );
     const deps = NamespaceDependencyAnalyzer.analyzeFromProtobuf(
-      this.protobufCacheData.symbolTables,
+      this.standardLibrarySymbolData.symbolTables,
     );
 
     this.logger.info(`Analyzed ${deps.size} namespaces for dependencies`);
@@ -536,7 +538,7 @@ export class ResourceLoader {
 
   /**
    * Initialize method for compatibility.
-   * Loads from protobuf cache unless a ZIP buffer was explicitly provided.
+   * Loads from standard library symbol data cache unless a ZIP buffer was explicitly provided.
    */
   public async initialize(): Promise<void> {
     if (!this.initialized) {
@@ -546,9 +548,9 @@ export class ResourceLoader {
       );
     }
 
-    // Load protobuf cache first (fast path for symbols)
-    if (!this.protobufCacheLoaded && !this.zipBuffer) {
-      await this.tryLoadFromProtobufCache();
+    // Load standard library symbol data first (fast path for symbols)
+    if (!this.standardLibrarySymbolDataLoaded && !this.zipBuffer) {
+      await this.tryLoadFromStandardLibrarySymbolData();
     }
 
     // Load ZIP buffer for source code (unless explicitly provided via setZipBuffer)
@@ -562,13 +564,13 @@ export class ResourceLoader {
   }
 
   /**
-   * Load standard library from protobuf cache.
+   * Load standard library symbol data from cache.
    * Returns true if successful.
    */
-  private async tryLoadFromProtobufCache(): Promise<boolean> {
+  private async tryLoadFromStandardLibrarySymbolData(): Promise<boolean> {
     // Check if protobuf cache is available
     if (!isProtobufCacheAvailable()) {
-      this.logger.error('Protobuf cache not available');
+      this.logger.error('Standard library symbol data cache not available');
       return false;
     }
 
@@ -577,23 +579,26 @@ export class ResourceLoader {
       const result = await loader.load();
 
       if (result.success && result.loadMethod === 'protobuf' && result.data) {
-        this.protobufCacheLoaded = true;
-        this.protobufCacheData = result.data;
+        this.standardLibrarySymbolDataLoaded = true;
+        this.standardLibrarySymbolData = result.data;
 
-        // Populate namespace index from protobuf data (await to ensure registry is loaded)
-        await this.populateFromProtobufCache(result.data);
+        // Populate namespace index from standard library symbol data (await to ensure registry is loaded)
+        await this.populateFromStandardLibrarySymbolData(result.data);
 
         // Note: Detailed loading stats already logged by StandardLibraryCacheLoader
         return true;
       }
 
       this.logger.error(
-        () => `Protobuf cache load failed: ${result.error || 'unknown error'}`,
+        () =>
+          `Standard library symbol data load failed: ${result.error || 'unknown error'}`,
       );
       return false;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(() => `Protobuf cache load failed: ${errorMsg}`);
+      this.logger.error(
+        () => `Standard library symbol data load failed: ${errorMsg}`,
+      );
       return false;
     }
   }
@@ -622,7 +627,7 @@ export class ResourceLoader {
       // ZIP loading failure should not prevent symbols from being available
       this.logger.warn(
         `⚠️ Failed to load ZIP for source content: ${zipError}. ` +
-          'Symbols are still available from protobuf cache.',
+          'Symbols are still available from standard library symbol data cache.',
       );
     }
   }
@@ -641,7 +646,8 @@ export class ResourceLoader {
 
       // Log which artifacts are available
       const artifacts: string[] = [];
-      if (this.protobufCacheLoaded) artifacts.push('protobuf cache');
+      if (this.standardLibrarySymbolDataLoaded)
+        artifacts.push('standard library symbol data');
       if (this.zipBuffer) artifacts.push('ZIP buffer');
 
       this.logger.debug(
@@ -656,10 +662,10 @@ export class ResourceLoader {
   }
 
   /**
-   * Populate ResourceLoader data structures from protobuf cache data.
+   * Populate ResourceLoader data structures from standard library symbol data.
    * This sets up namespace indexes and file mappings from the cached data.
    */
-  private async populateFromProtobufCache(
+  private async populateFromStandardLibrarySymbolData(
     data: DeserializationResult,
   ): Promise<void> {
     // Populate namespace index from cached data
@@ -699,7 +705,7 @@ export class ResourceLoader {
 
     this.logger.debug(
       () =>
-        `Populated from protobuf cache: ${this.namespaces.size} namespaces, ` +
+        `Populated from standard library symbol data: ${this.namespaces.size} namespaces, ` +
         `${this.fileIndex.size} files indexed`,
     );
 
@@ -783,10 +789,10 @@ export class ResourceLoader {
     // Note: For embedded builds, checksums should be validated at build time
     // TODO: Embed checksum in data URL or separate module for production validation
     try {
-      const { getEmbeddedRegistryDataUrl } = await import(
-        '../cache/type-registry-data'
+      const { getEmbeddedStandardLibraryTypeRegistryDataUrl } = await import(
+        '../cache/stdlib-type-registry-data'
       );
-      const dataUrl = getEmbeddedRegistryDataUrl();
+      const dataUrl = getEmbeddedStandardLibraryTypeRegistryDataUrl();
       if (dataUrl) {
         // Parse data URL and return binary
         const base64 = dataUrl.split(',')[1];
@@ -866,29 +872,30 @@ export class ResourceLoader {
   }
 
   /**
-   * Check if the protobuf cache was used for loading
+   * Check if the standard library symbol data was loaded
    */
-  public isProtobufCacheLoaded(): boolean {
-    return this.protobufCacheLoaded;
+  public isStandardLibrarySymbolDataLoaded(): boolean {
+    return this.standardLibrarySymbolDataLoaded;
   }
 
   /**
-   * Get the protobuf cache data if loaded
+   * Get the standard library symbol data if loaded
    */
-  public getProtobufCacheData(): DeserializationResult | null {
-    return this.protobufCacheData;
+  public getStandardLibrarySymbolData(): DeserializationResult | null {
+    return this.standardLibrarySymbolData;
   }
 
   /**
-   * Get a compiled artifact from the protobuf cache.
+   * Get a compiled artifact from the standard library symbol data cache.
    * Converts cached SymbolTable to CompiledArtifact format.
    */
-  private getArtifactFromProtobufCache(
+  private getArtifactFromStandardLibrarySymbolData(
     className: string,
   ): CompiledArtifact | null {
-    if (!this.protobufCacheData) {
+    if (!this.standardLibrarySymbolData) {
       this.logger.debug(
-        () => '[DIAGNOSTIC] getArtifactFromProtobufCache: no protobufCacheData',
+        () =>
+          '[DIAGNOSTIC] getArtifactFromStandardLibrarySymbolData: no standardLibrarySymbolData',
       );
       return null;
     }
@@ -904,7 +911,7 @@ export class ResourceLoader {
 
     this.logger.debug(
       () =>
-        `[DIAGNOSTIC] getArtifactFromProtobufCache: className="${className}", ` +
+        `[DIAGNOSTIC] getArtifactFromStandardLibrarySymbolData: className="${className}", ` +
         `normalizedClassName="${normalizedClassName}"`,
     );
 
@@ -921,13 +928,14 @@ export class ResourceLoader {
       );
     } else {
       // Try to find by class name only - check all namespaces
-      const tableCount = this.protobufCacheData!.symbolTables.size;
+      const tableCount = this.standardLibrarySymbolData!.symbolTables.size;
       this.logger.debug(
         () =>
           '[DIAGNOSTIC] No namespace in path, searching by class name ' +
           `only in ${tableCount} symbol tables`,
       );
-      for (const [uri, _symbolTable] of this.protobufCacheData.symbolTables) {
+      for (const [uri, _symbolTable] of this.standardLibrarySymbolData
+        .symbolTables) {
         if (uri.endsWith(`/${normalizedClassName}`)) {
           searchUri = uri;
           this.logger.debug(
@@ -946,12 +954,18 @@ export class ResourceLoader {
       return null;
     }
 
-    const symbolTable = this.protobufCacheData.symbolTables.get(searchUri);
+    const symbolTable =
+      this.standardLibrarySymbolData!.symbolTables.get(searchUri);
     if (!symbolTable) {
+      // Debug: List some example URIs from the cache to help diagnose
+      const sampleUris = Array.from(
+        this.standardLibrarySymbolData!.symbolTables.keys(),
+      ).slice(0, 10);
       this.logger.debug(
         () =>
-          '[DIAGNOSTIC] No symbol table found for ' +
-          `searchUri='${searchUri}' in protobuf cache`,
+          `[DIAGNOSTIC] No symbol table found for searchUri='${searchUri}' in standard library symbol data cache. ` +
+          `Cache has ${this.standardLibrarySymbolData!.symbolTables.size} entries. ` +
+          `Sample URIs: ${sampleUris.join(', ')}`,
       );
       return null;
     }
@@ -959,7 +973,7 @@ export class ResourceLoader {
     this.logger.debug(
       () =>
         '[DIAGNOSTIC] Found symbol table for ' +
-        `searchUri='${searchUri}' in protobuf cache`,
+        `searchUri='${searchUri}' in standard library symbol data cache`,
     );
 
     // Convert SymbolTable to CompiledArtifact
@@ -1157,12 +1171,12 @@ export class ResourceLoader {
   }
 
   /**
-   * Load a single standard Apex class by name from the protobuf cache.
+   * Load a single standard Apex class by name from the standard library symbol data cache.
    * This method first checks if the artifact is already loaded and cached.
-   * If not, it attempts to load the class from the protobuf cache.
+   * If not, it attempts to load the class from the standard library symbol data cache.
    * Optimized with early returns and cached lookups for improved performance.
    *
-   * Note: This method no longer compiles from ZIP. The protobuf cache has 100%
+   * Note: This method no longer compiles from ZIP. The standard library symbol data cache has 100%
    * coverage of all standard library classes, validated at build time.
    *
    * @param className The class name to load
@@ -1193,45 +1207,51 @@ export class ResourceLoader {
       }
     }
 
-    // DIAGNOSTIC: Check protobuf cache for pre-compiled symbol tables
+    // DIAGNOSTIC: Check standard library symbol data cache for pre-compiled symbol tables
     this.logger.debug(
       () =>
         `[DIAGNOSTIC] loadAndCompileClass("${className}") - ` +
-        `protobufCacheLoaded: ${this.protobufCacheLoaded}, ` +
-        `hasData: ${this.protobufCacheData !== null}, ` +
+        `standardLibrarySymbolDataLoaded: ${this.standardLibrarySymbolDataLoaded}, ` +
+        `hasData: ${this.standardLibrarySymbolData !== null}, ` +
         `normalizedPath: "${normalizedPath}"`,
     );
 
-    if (this.protobufCacheLoaded && this.protobufCacheData) {
-      const artifact = this.getArtifactFromProtobufCache(className);
+    if (
+      this.standardLibrarySymbolDataLoaded &&
+      this.standardLibrarySymbolData
+    ) {
+      const artifact = this.getArtifactFromStandardLibrarySymbolData(className);
       this.logger.debug(
         () =>
-          `[DIAGNOSTIC] getArtifactFromProtobufCache("${className}") returned: ${artifact ? 'FOUND' : 'NULL'}`,
+          `[DIAGNOSTIC] getArtifactFromStandardLibrarySymbolData("${className}") ` +
+          `returned: ${artifact ? 'FOUND' : 'NULL'}`,
       );
       if (artifact) {
         // Cache it for future lookups
         this.compiledArtifacts.set(normalizedPath, artifact);
         this.logger.debug(
           () =>
-            `[DIAGNOSTIC] Returning protobuf-cached artifact for ${className} (no compilation needed)`,
+            '[DIAGNOSTIC] Returning standard library symbol data cached artifact ' +
+            `for ${className} (no compilation needed)`,
         );
         return artifact;
       }
     }
 
-    // Class not found in protobuf cache - this should not happen
+    // Class not found in standard library symbol data cache - this should not happen
     // Build validation ensures 100% cache coverage
     this.logger.debug(
       () =>
-        `Class ${className} not found in protobuf cache. ` +
+        `Class ${className} not found in standard library symbol data cache. ` +
         'This indicates missing or corrupted cache file. ' +
-        'Protobuf cache should have 100% coverage of all standard library classes.',
+        'Standard library symbol data cache should have 100% coverage of all ' +
+        'standard library classes.',
     );
     return null;
   }
 
   /**
-   * Check if a class is available in the protobuf cache.
+   * Check if a class is available in the standard library symbol data cache.
    * This is the main entry point for lazy loading of standard Apex classes.
    * Uses normalized path for consistent lookups.
    *
@@ -1247,13 +1267,13 @@ export class ResourceLoader {
       return true;
     }
 
-    // Try to load from protobuf cache
+    // Try to load from standard library symbol data cache
     const artifact = await this.loadAndCompileClass(className);
     return artifact !== null;
   }
 
   /**
-   * Get compiled artifact for a class from the protobuf cache.
+   * Get compiled artifact for a class from the standard library symbol data cache.
    * Uses lazy loading to load classes on-demand from cache.
    * Uses normalized path for consistent lookups.
    *

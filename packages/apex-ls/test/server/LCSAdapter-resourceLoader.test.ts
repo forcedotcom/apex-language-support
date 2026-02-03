@@ -150,7 +150,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
           namespaces: ['System', 'Database', 'Schema'],
         })),
         initialize: jest.fn().mockResolvedValue(undefined),
-        isProtobufCacheLoaded: jest.fn(() => true),
+        isStandardLibrarySymbolDataLoaded: jest.fn(() => true),
       };
 
       (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
@@ -172,7 +172,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
           namespaces: ['System'],
         })),
         initialize: jest.fn().mockResolvedValue(undefined),
-        isProtobufCacheLoaded: jest.fn(() => true),
+        isStandardLibrarySymbolDataLoaded: jest.fn(() => true),
       };
 
       (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
@@ -205,7 +205,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
           namespaces: ['System', 'Database'],
         })),
         initialize: jest.fn().mockResolvedValue(undefined),
-        isProtobufCacheLoaded: jest.fn(() => true),
+        isStandardLibrarySymbolDataLoaded: jest.fn(() => true),
       };
 
       (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
@@ -239,8 +239,8 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         })),
         initialize: jest
           .fn()
-          .mockRejectedValue(new Error('Protobuf cache not available')),
-        isProtobufCacheLoaded: jest.fn(() => false),
+          .mockRejectedValue(new Error('Standard library symbol data cache not available')),
+        isStandardLibrarySymbolDataLoaded: jest.fn(() => false),
       };
 
       (ResourceLoader.getInstance as jest.Mock).mockReturnValue(

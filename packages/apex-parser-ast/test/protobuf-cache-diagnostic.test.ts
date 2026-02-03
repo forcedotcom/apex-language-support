@@ -39,18 +39,28 @@ describe('Protobuf Cache Diagnostic', () => {
     logger.info('\n1. Initializing ResourceLoader...');
     await resourceLoader.initialize();
 
-    // Check protobuf cache status
-    logger.info('\n2. Checking protobuf cache status...');
-    const isProtobufLoaded = resourceLoader.isProtobufCacheLoaded();
-    const protobufData = resourceLoader.getProtobufCacheData();
-    logger.info(`   - Protobuf cache loaded: ${isProtobufLoaded}`);
+    // Check standard library symbol data status
+    logger.info('\n2. Checking standard library symbol data status...');
+    const isStandardLibrarySymbolDataLoaded =
+      resourceLoader.isStandardLibrarySymbolDataLoaded();
+    const standardLibrarySymbolData =
+      resourceLoader.getStandardLibrarySymbolData();
     logger.info(
-      `   - Protobuf cache data: ${protobufData ? `${protobufData.symbolTables.size} symbol tables` : 'null'}`,
+      `   - Standard library symbol data loaded: ${isStandardLibrarySymbolDataLoaded}`,
+    );
+    logger.info(
+      `   - Standard library symbol data: ${
+        standardLibrarySymbolData
+          ? `${standardLibrarySymbolData.symbolTables.size} symbol tables`
+          : 'null'
+      }`,
     );
 
-    if (protobufData) {
+    if (standardLibrarySymbolData) {
       // Show first few URIs
-      const uris = Array.from(protobufData.symbolTables.keys()).slice(0, 5);
+      const uris = Array.from(
+        standardLibrarySymbolData.symbolTables.keys(),
+      ).slice(0, 5);
       logger.info(`   - Sample URIs:\n${JSON.stringify(uris, null, 2)}`);
     }
 
@@ -69,8 +79,8 @@ describe('Protobuf Cache Diagnostic', () => {
     logger.info('\n=== Diagnostic Complete ===');
 
     // Assert the expected behavior
-    expect(isProtobufLoaded).toBe(true);
-    expect(protobufData).not.toBeNull();
+    expect(isStandardLibrarySymbolDataLoaded).toBe(true);
+    expect(standardLibrarySymbolData).not.toBeNull();
     expect(result).not.toBeNull();
   });
 });

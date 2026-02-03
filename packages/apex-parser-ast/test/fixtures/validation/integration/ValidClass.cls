@@ -1,4 +1,4 @@
 public class TestClass {
-    public void testMethod() {
+    public void execute() {
     }
 }

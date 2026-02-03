@@ -7,18 +7,20 @@
  */
 
 /**
- * Accessor for embedded type registry data URL.
+ * Accessor for embedded standard library type registry data URL.
  * The registry is embedded at build time via esbuild's dataurl loader.
  */
 
 /**
- * Get the embedded type registry data URL.
+ * Get the embedded standard library type registry data URL.
  * In bundled builds, returns a data URL with the compressed registry.
  * In unbundled builds, returns undefined (fallback to disk loading).
  *
  * @returns Data URL string or undefined
  */
-export function getEmbeddedRegistryDataUrl(): string | undefined {
+export function getEmbeddedStandardLibraryTypeRegistryDataUrl():
+  | string
+  | undefined {
   try {
     // In bundled builds, esbuild will replace this require with a data URL
     // In unbundled builds, this will fail and we fall back to disk loading

@@ -10,7 +10,7 @@
  * GlobalTypeRegistry Effect Service
  *
  * Provides O(1) type resolution using Effect-TS Context.Tag for dependency injection.
- * Registry is pre-built at compile time and loaded from protobuf cache.
+ * Registry is pre-built at compile time and loaded from standard library symbol data cache.
  */
 
 import { Context, Effect, Layer } from 'effect';
@@ -357,10 +357,17 @@ class GlobalTypeRegistryImpl implements GlobalTypeRegistryService {
 }
 
 /**
+ * Singleton instance of GlobalTypeRegistry
+ * This ensures all Effect contexts share the same registry data
+ */
+const globalRegistryInstance = new GlobalTypeRegistryImpl();
+
+/**
  * Live Layer that provides GlobalTypeRegistry service
+ * Uses singleton instance to ensure data is shared across all Effect contexts
  */
 export const GlobalTypeRegistryLive: Layer.Layer<
   GlobalTypeRegistry,
   never,
   never
-> = Layer.succeed(GlobalTypeRegistry, new GlobalTypeRegistryImpl());
+> = Layer.succeed(GlobalTypeRegistry, globalRegistryInstance);

@@ -273,8 +273,8 @@ describe('Protobuf vs ZIP equivalence', () => {
       const loader = ResourceLoader.getInstance();
       await loader.initialize();
 
-      // The protobuf cache should be loaded if available
-      const isLoaded = loader.isProtobufCacheLoaded();
+      // The standard library symbol data should be loaded if available
+      const isLoaded = loader.isStandardLibrarySymbolDataLoaded();
       expect(typeof isLoaded).toBe('boolean');
     });
   });

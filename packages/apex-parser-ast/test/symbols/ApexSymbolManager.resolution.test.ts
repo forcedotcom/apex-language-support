@@ -69,7 +69,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
     enableConsoleLogging();
-    setLogLevel('error');
+    setLogLevel('debug');
   });
 
   // Helper function to load fixture files

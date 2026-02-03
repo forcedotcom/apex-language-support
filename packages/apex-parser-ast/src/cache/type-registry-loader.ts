@@ -7,7 +7,7 @@
  */
 
 /**
- * Loader for the GlobalTypeRegistry protobuf cache.
+ * Loader for the GlobalTypeRegistry standard library symbol data cache.
  * Deserializes the pre-built type registry from apex-type-registry.pb.gz.
  */
 

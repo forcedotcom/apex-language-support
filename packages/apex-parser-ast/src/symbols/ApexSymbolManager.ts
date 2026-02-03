@@ -3946,6 +3946,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     sourceFile: string,
     position?: { line: number; character: number },
   ): Promise<ApexSymbol | null> {
+    this.logger.debug(
+      () =>
+        `[Resolution] resolveSymbolReferenceToSymbol called for "${typeReference.name}" (context: ${typeReference.context})`,
+    );
+
     try {
       // Handle LITERAL references by resolving to built-in type using literalType
       if (typeReference.context === ReferenceContext.LITERAL) {
@@ -4134,6 +4139,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           // If still not found, try GlobalTypeRegistry for O(1) lookup via Effect service
           // This replaces the O(n²) scan through all symbol tables
           if (classCandidates.length === 0) {
+            this.logger.debug(
+              () =>
+                `[Resolution] Type "${typeReference.name}" not in source file, checking GlobalTypeRegistry`,
+            );
+
             // Use Effect service directly
             const registryLookup = Effect.gen(function* () {
               const registry = yield* GlobalTypeRegistry;
@@ -4158,15 +4168,59 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
               if (registryEntry) {
                 // Found in registry - get the symbol directly
-                const symbol = this.symbolGraph.getSymbol(
-                  registryEntry.symbolId,
+                let symbol = this.symbolGraph.getSymbol(registryEntry.symbolId);
+
+                this.logger.debug(
+                  () =>
+                    `[Resolution] Registry entry found for "${typeReference.name}" (symbolId="${registryEntry.symbolId}"), symbol in graph: ${symbol ? 'YES' : 'NO'}`,
                 );
+
+                // If symbol not in graph yet, try to load it (for stdlib types)
+                if (!symbol && registryEntry.isStdlib) {
+                  this.logger.debug(
+                    () =>
+                      `[Resolution] Loading stdlib class on-demand: ${registryEntry.fileUri}`,
+                  );
+
+                  // Extract class path from fileUri (apex://stdlib/System/String -> System/String.cls)
+                  const match = registryEntry.fileUri.match(
+                    /apex:\/\/stdlib\/(.+)/,
+                  );
+                  if (match) {
+                    const classPath = `${match[1]}.cls`;
+                    const artifact =
+                      await this.resourceLoader?.getCompiledArtifact(classPath);
+                    if (artifact?.compilationResult?.result) {
+                      // Add to symbol graph
+                      await Effect.runPromise(
+                        this.addSymbolTable(
+                          artifact.compilationResult.result,
+                          registryEntry.fileUri,
+                        ),
+                      );
+                      // Try to get symbol again
+                      symbol = this.symbolGraph.getSymbol(
+                        registryEntry.symbolId,
+                      );
+                      this.logger.debug(
+                        () =>
+                          `[Resolution] After loading, symbol in graph: ${symbol ? 'YES' : 'NO'}`,
+                      );
+                    }
+                  }
+                }
+
                 if (symbol) {
                   classCandidates = [symbol];
                   this.logger.debug(
                     () =>
                       `[GlobalTypeRegistry] Resolved "${typeReference.name}" to ` +
                       `"${registryEntry.fqn}" via Effect service (O(1))`,
+                  );
+                } else {
+                  this.logger.debug(
+                    () =>
+                      `[Resolution] Registry entry found but symbol not available for "${typeReference.name}"`,
                   );
                 }
               } else {
@@ -4470,7 +4524,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Step 3: For unqualified names, try to find FQN even if isStandardApexClass returned false
       // This handles wrapper types like Integer, String, etc. that are in System namespace
+      // However, builtin types like String, Integer should be resolved via builtInTypeTables first
+      // Only try standard class resolution if builtin type lookup fails
       if (!name.includes('.')) {
+        // First check builtin types - these take precedence over standard classes
+        const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
+        if (builtInType) {
+          return {
+            ...builtInType,
+            modifiers: {
+              ...builtInType.modifiers,
+              isBuiltIn: true,
+            },
+          };
+        }
+
+        // If not a builtin type, try to find FQN for standard class
         const fqn = this.findFQNForStandardClass(name);
         if (fqn) {
           const standardClass = await this.resolveStandardApexClass(fqn);
@@ -4481,6 +4550,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Step 4: Check other built-in types (scalar, collection, etc.)
+      // This is a fallback for qualified names or if FQN lookup failed
       const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
       if (builtInType) {
         return {
@@ -5372,6 +5442,91 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     try {
+      // First, try GlobalTypeRegistry for O(1) lookup
+      // This is faster and doesn't require loading the class from cache
+      try {
+        const registryLookup = Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          return yield* registry.resolveType(name);
+        });
+
+        const registryEntry = await Effect.runPromise(
+          registryLookup.pipe(Effect.provide(GlobalTypeRegistryLive)),
+        );
+
+        if (registryEntry) {
+          this.logger.debug(
+            () =>
+              `[resolveStandardApexClass] Found "${name}" in GlobalTypeRegistry: ${registryEntry.fqn}`,
+          );
+
+          // Get symbol from graph if already loaded
+          let symbol = this.symbolGraph.getSymbol(registryEntry.symbolId);
+          if (symbol) {
+            return symbol;
+          }
+
+          // Symbol not in graph yet - load from cache using fileUri
+          // Extract class path from fileUri (apex://stdlib/System/String -> System/String.cls)
+          const match = registryEntry.fileUri.match(/apex:\/\/stdlib\/(.+)/);
+          if (match) {
+            const classPath = `${match[1]}.cls`;
+            const artifact =
+              await this.resourceLoader.getCompiledArtifact(classPath);
+            if (artifact?.compilationResult?.result) {
+              // Add to symbol graph
+              await Effect.runPromise(
+                this.addSymbolTable(
+                  artifact.compilationResult.result,
+                  registryEntry.fileUri,
+                ),
+              );
+              // Find symbol by name (symbolId might not match)
+              const symbols = artifact.compilationResult.result.getAllSymbols();
+              const foundSymbol = symbols.find(
+                (s) =>
+                  s.name?.toLowerCase() === registryEntry.name.toLowerCase() &&
+                  s.kind === SymbolKind.Class,
+              );
+              if (foundSymbol) {
+                this.logger.debug(
+                  () =>
+                    `[resolveStandardApexClass] Loaded "${name}" from cache and found in graph`,
+                );
+                return foundSymbol;
+              } else {
+                this.logger.debug(
+                  () =>
+                    `[resolveStandardApexClass] Found registry entry for "${name}" but symbol not found after loading from cache`,
+                );
+              }
+            } else {
+              this.logger.debug(
+                () =>
+                  `[resolveStandardApexClass] Found registry entry for "${name}" but getCompiledArtifact returned null`,
+              );
+            }
+          } else {
+            this.logger.debug(
+              () =>
+                `[resolveStandardApexClass] Found registry entry for "${name}" but fileUri doesn't match apex://stdlib/ pattern: ${registryEntry.fileUri}`,
+            );
+          }
+          // If loading failed, fall through to cache loading below
+        } else {
+          this.logger.debug(
+            () =>
+              `[resolveStandardApexClass] "${name}" not found in GlobalTypeRegistry, falling through to cache loading`,
+          );
+        }
+      } catch (error) {
+        // Registry lookup failed - fall through to cache loading
+        this.logger.debug(
+          () =>
+            `[resolveStandardApexClass] GlobalTypeRegistry lookup failed for "${name}": ${error}`,
+        );
+      }
+
       // Extract namespace and class name
       const parts = name.split('.');
 
@@ -5410,6 +5565,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         namespace = parts[0];
         className = parts[1];
       }
+
+      this.logger.debug(
+        () =>
+          `[resolveStandardApexClass] Resolving "${name}" -> namespace="${namespace}", className="${className}"`,
+      );
 
       // Check if the class exists in ResourceLoader (case-insensitive)
       // Always try to find the correct case from the namespace structure
@@ -5521,9 +5681,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // Mark as loading to prevent recursive calls
         this.loadingSymbolTables.add(fileUri);
 
+        this.logger.debug(
+          () =>
+            `[resolveStandardApexClass] Loading class from ResourceLoader: classPath="${classPath}", fileUri="${fileUri}"`,
+        );
+
         const artifact =
           await this.resourceLoader.loadAndCompileClass(classPath);
         if (!artifact) {
+          this.logger.debug(
+            () =>
+              `[resolveStandardApexClass] ResourceLoader returned null for "${classPath}"`,
+          );
           return null;
         }
         if (artifact?.compilationResult?.result) {
