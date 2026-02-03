@@ -18,7 +18,7 @@ import jsoncParser from 'jsonc-eslint-parser';
 
 export default [
   {
-    // Global configuration that ensures package.json files are always included
+    // Global ignores (applied to all file types)
     ignores: [
       '**/.wireit/**',
       '**/out/**',
@@ -30,7 +30,11 @@ export default [
       '**/server-bundle/**',
       '**/test-artifacts/**',
       '**/src/generated/**',
+      '**/test/fixtures/eda/**',
     ],
+  },
+  {
+    // TypeScript and module files configuration
     files: ['**/*.ts', '**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2021,
