@@ -8589,7 +8589,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           isStandardApexUri(superclassTypeSymbol.fileUri) &&
           this.resourceLoader
         ) {
-          const classPath = extractStdlibClassPath(superclassTypeSymbol.fileUri);
+          const classPath = extractStdlibClassPath(
+            superclassTypeSymbol.fileUri,
+          );
           if (classPath) {
             try {
               const normalizedUri = extractFilePathFromUri(

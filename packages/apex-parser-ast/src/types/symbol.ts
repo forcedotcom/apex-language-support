@@ -886,8 +886,7 @@ export class SymbolTable {
     // Only handle single symbols, not duplicate arrays
     if (Array.isArray(entry)) {
       logger.debug(
-        () =>
-          `[updateSymbolId] Skipping duplicate array for oldId: ${oldId}`,
+        () => `[updateSymbolId] Skipping duplicate array for oldId: ${oldId}`,
       );
       return;
     }
