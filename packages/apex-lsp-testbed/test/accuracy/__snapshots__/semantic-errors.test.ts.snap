@@ -410,6 +410,56 @@ exports[`Semantic Error Detection Class: FinalMultipleAssignment.cls should dete
 }
 `;
 
+exports[`Semantic Error Detection Class: Foo.cls should detect semantic errors in Foo: Foo-diagnostics 1`] = `
+{
+  "request": {
+    "method": "textDocument/diagnostic",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/Foo.cls",
+      },
+    },
+  },
+  "response": {
+    "items": [
+      {
+        "code": "duplicate.field",
+        "message": "Duplicate field: name",
+        "range": {
+          "end": {
+            "character": 17,
+            "line": 1,
+          },
+          "start": {
+            "character": 11,
+            "line": 1,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+      {
+        "code": "duplicate.field",
+        "message": "Duplicate field: age",
+        "range": {
+          "end": {
+            "character": 18,
+            "line": 2,
+          },
+          "start": {
+            "character": 11,
+            "line": 2,
+          },
+        },
+        "severity": 1,
+        "source": "apex-semantic-validator",
+      },
+    ],
+    "kind": "full",
+  },
+}
+`;
+
 exports[`Semantic Error Detection Class: ForwardReference.cls should detect semantic errors in ForwardReference: ForwardReference-diagnostics 1`] = `
 {
   "request": {
