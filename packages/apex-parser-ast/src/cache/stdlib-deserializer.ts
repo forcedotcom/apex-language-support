@@ -93,7 +93,11 @@ export class StandardLibraryDeserializer {
         symbolTables.set(protoType.fileUri, symbolTable);
 
         // Also add to allTypes for quick access
-        const typeSymbol = this.convertTypeSymbol(protoType, null, namespace.name);
+        const typeSymbol = this.convertTypeSymbol(
+          protoType,
+          null,
+          namespace.name,
+        );
         allTypes.push(typeSymbol);
         typeCount++;
       }
@@ -130,11 +134,13 @@ export class StandardLibraryDeserializer {
     for (const protoBlock of protoType.blocks || []) {
       const blockSymbol = this.convertBlockSymbol(protoBlock, namespace);
       symbolTable.addSymbol(blockSymbol);
-      
+
       // Create mapping for parentId normalization
       // If parentId format is ...:class:ClassName:block:blockName, map it to ...:block:blockName
       if (protoBlock.parentId && protoBlock.parentId.includes(':class:')) {
-        const match = protoBlock.parentId.match(/^(.*):class:[^:]+:block:(.+)$/);
+        const match = protoBlock.parentId.match(
+          /^(.*):class:[^:]+:block:(.+)$/,
+        );
         if (match) {
           const normalizedId = `${match[1]}:block:${match[2]}`;
           blockIdMap.set(protoBlock.parentId, normalizedId);
@@ -146,19 +152,27 @@ export class StandardLibraryDeserializer {
     for (const protoMethod of protoType.methods) {
       // Normalize parentId if it has the old format with :class: in it
       let normalizedParentId = protoMethod.parentId;
-      if (normalizedParentId && normalizedParentId.includes(':class:') && normalizedParentId.includes(':block:')) {
+      if (
+        normalizedParentId &&
+        normalizedParentId.includes(':class:') &&
+        normalizedParentId.includes(':block:')
+      ) {
         const match = normalizedParentId.match(/^(.*):class:[^:]+:block:(.+)$/);
         if (match) {
           normalizedParentId = `${match[1]}:block:${match[2]}`;
           // Verify this block exists
-          const blockExists = (protoType.blocks || []).some(b => b.id === normalizedParentId || b.id.endsWith(`:block:${match[2]}`));
+          const blockExists = (protoType.blocks || []).some(
+            (b) =>
+              b.id === normalizedParentId ||
+              b.id.endsWith(`:block:${match[2]}`),
+          );
           if (!blockExists) {
             // Fallback to original if normalization doesn't match
             normalizedParentId = protoMethod.parentId;
           }
         }
       }
-      
+
       const methodSymbol = this.convertMethodSymbol(
         protoMethod,
         typeSymbol.id,
@@ -242,19 +256,27 @@ export class StandardLibraryDeserializer {
     for (const protoMethod of protoType.methods) {
       // Normalize parentId if it has the old format with :class: in it
       let normalizedParentId = protoMethod.parentId;
-      if (normalizedParentId && normalizedParentId.includes(':class:') && normalizedParentId.includes(':block:')) {
+      if (
+        normalizedParentId &&
+        normalizedParentId.includes(':class:') &&
+        normalizedParentId.includes(':block:')
+      ) {
         const match = normalizedParentId.match(/^(.*):class:[^:]+:block:(.+)$/);
         if (match) {
           normalizedParentId = `${match[1]}:block:${match[2]}`;
           // Verify this block exists
-          const blockExists = (protoType.blocks || []).some(b => b.id === normalizedParentId || b.id.endsWith(`:block:${match[2]}`));
+          const blockExists = (protoType.blocks || []).some(
+            (b) =>
+              b.id === normalizedParentId ||
+              b.id.endsWith(`:block:${match[2]}`),
+          );
           if (!blockExists) {
             // Fallback to original if normalization doesn't match
             normalizedParentId = protoMethod.parentId;
           }
         }
       }
-      
+
       const methodSymbol = this.convertMethodSymbol(
         protoMethod,
         typeSymbol.id,
@@ -454,12 +476,12 @@ export class StandardLibraryDeserializer {
       proto.fileUri,
       proto.parentId || null,
     );
-    
+
     // Set namespace if provided
     if (namespace) {
       blockSymbol.namespace = namespace;
     }
-    
+
     return blockSymbol;
   }
 

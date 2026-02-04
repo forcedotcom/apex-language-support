@@ -80,7 +80,9 @@ describe('Block Symbols Verification', () => {
     // Add the symbol table to the manager so getContainingType can work
     // Use the fileUri from the symbol table
     const fileUri = symbolTable!.getFileUri();
-    await Effect.runPromise(symbolManager.addSymbolTable(symbolTable!, fileUri));
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(symbolTable!, fileUri),
+    );
 
     const containingType = symbolManager.getContainingType(urlEncodeMethod!);
     expect(containingType).not.toBeNull();
@@ -101,7 +103,9 @@ describe('Block Symbols Verification', () => {
 
     expect(isNotNullMethod).toBeDefined();
 
-    await Effect.runPromise(symbolManager.addSymbolTable(symbolTable!, symbolTable!.getFileUri()));
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(symbolTable!, symbolTable!.getFileUri()),
+    );
 
     const containingType = symbolManager.getContainingType(isNotNullMethod!);
     expect(containingType).not.toBeNull();

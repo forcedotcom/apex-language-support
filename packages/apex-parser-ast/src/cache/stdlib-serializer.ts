@@ -247,14 +247,20 @@ export class StandardLibrarySerializer {
     // Normalize parentId to match actual block ID format
     // If parentId has format ...:class:ClassName:block:blockName, normalize to ...:block:blockName
     let normalizedParentId = symbol.parentId || '';
-    if (normalizedParentId && normalizedParentId.includes(':class:') && normalizedParentId.includes(':block:')) {
+    if (
+      normalizedParentId &&
+      normalizedParentId.includes(':class:') &&
+      normalizedParentId.includes(':block:')
+    ) {
       const match = normalizedParentId.match(/^(.*):class:[^:]+:block:(.+)$/);
       if (match) {
         const normalized = `${match[1]}:block:${match[2]}`;
         // Verify the normalized block exists
         const allSymbols = symbolTable.getAllSymbols();
         const blockExists = allSymbols.some(
-          s => s.kind === 'block' && (s.id === normalized || s.id.endsWith(`:block:${match[2]}`))
+          (s) =>
+            s.kind === 'block' &&
+            (s.id === normalized || s.id.endsWith(`:block:${match[2]}`)),
         );
         if (blockExists) {
           normalizedParentId = normalized;
@@ -347,7 +353,7 @@ export class StandardLibrarySerializer {
         break;
       }
       visited.add(current.id);
-      
+
       if (current.id === typeId) {
         return true;
       }
@@ -355,7 +361,7 @@ export class StandardLibrarySerializer {
       if (!current.parentId) {
         break;
       }
-      
+
       const parentIdToFind: string = current.parentId;
       const next = allSymbols.find((s) => s.id === parentIdToFind);
       if (!next) {
