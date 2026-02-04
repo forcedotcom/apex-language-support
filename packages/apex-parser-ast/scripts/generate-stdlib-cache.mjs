@@ -220,13 +220,34 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
 
   // Extract type metadata from each symbol table
   for (const ns of namespaceData) {
+    console.log(`[DEBUG] Processing namespace: ${ns.name}, files: ${ns.symbolTables.size}`);
     for (const [fileUri, symbolTable] of ns.symbolTables) {
       // Extract namespace and class name from file URI
-      const match = fileUri.match(/apex:\/\/stdlib\/([^/]+)\/([^/]+)/);
-      if (!match) continue;
+      // Format: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls
+      const match = fileUri.match(
+        /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\/([^/]+)\.cls$/,
+      );
+      if (!match) {
+        console.warn(`[WARN] Skipping file with unmatched URI: ${fileUri}`);
+        continue;
+      }
 
       const [, namespace, className] = match;
+      
+      // Debug List specifically
+      if (className === 'List' || fileUri.includes('List')) {
+        console.log(`[DEBUG] Processing List file: ${fileUri}`);
+      }
+      
       const allSymbols = symbolTable.getAllSymbols();
+      
+      // Debug List specifically
+      if (className === 'List' || fileUri.includes('List')) {
+        console.log(`[DEBUG] List file has ${allSymbols.length} total symbols`);
+        const topLevel = allSymbols.filter(s => s.parentId === null || s.parentId === 'null');
+        console.log(`[DEBUG] List file has ${topLevel.length} top-level symbols:`,
+          topLevel.map(s => `${s.name}(${s.kind})`).join(', '));
+      }
 
       // Find top-level types only (parentId === 'null' or null)
       for (const symbol of allSymbols) {
@@ -242,7 +263,20 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
           kindLower === 'enum';
 
         if (isTopLevel && isTypeSymbol) {
-          const fqn = `${namespace}.${symbol.name}`.toLowerCase();
+          // Workaround: If symbol name is empty or "unknownClass" (parser bug with generic stubs),
+          // use the className from the URI
+          const symbolName = (symbol.name && symbol.name !== 'unknownClass') ? symbol.name : className;
+          
+          if (className === 'List' || className === 'Map' || className === 'Set') {
+            console.log(`[DEBUG] Builtin generic: className=${className}, symbol.name="${symbol.name}", symbolName="${symbolName}"`);
+          }
+          
+          if (!symbolName) {
+            console.warn(`[WARN] Skipping symbol with empty name in ${fileUri}`);
+            continue;
+          }
+          
+          const fqn = `${namespace}.${symbolName}`.toLowerCase();
 
           // Map SymbolKind string to TypeKind enum (case-insensitive)
           let kind = TypeKind.CLASS;
@@ -255,7 +289,7 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
           entries.push(
             TypeRegistryEntry.create({
               fqn,
-              name: symbol.name,
+              name: symbolName,
               namespace,
               kind,
               symbolId: symbol.id,
@@ -363,6 +397,22 @@ async function main() {
           // Import createApexLibUri to use official URI format
           const { createApexLibUri } = await import('../out/types/ProtocolHandler.js');
           const fileUri = createApexLibUri(`${file.namespace}/${file.className}.cls`);
+          
+          // Workaround: Fix class symbol name if it's "unknownClass" for List/Map/Set
+          // This handles the parser bug where LIST/MAP are lexer keywords
+          const symbolTable = result.result;
+          const allSymbols = symbolTable.getAllSymbols();
+          for (const symbol of allSymbols) {
+            if (symbol.kind === 'class' && symbol.name === 'unknownClass' && 
+                (file.className === 'List' || file.className === 'Map' || file.className === 'Set')) {
+              symbol.name = file.className;
+              // Also update the FQN if it exists
+              if (symbol.fqn) {
+                symbol.fqn = symbol.fqn.replace(/\.unknownclass$/i, `.${file.className}`);
+              }
+            }
+          }
+          
           symbolTables.set(fileUri, result.result);
           parsedCount++;
 
