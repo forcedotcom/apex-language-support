@@ -2079,9 +2079,7 @@ public class RecordTypeModel {}`;
 
         const text = systemKeywordTestDocument.getText();
         const lines = text.split('\n');
-        const lineIndex = lines.findIndex((l) =>
-          l.includes('System.debug'),
-        );
+        const lineIndex = lines.findIndex((l) => l.includes('System.debug'));
         expect(lineIndex).toBeGreaterThanOrEqual(0);
         const line = lines[lineIndex];
         const charIndex = line.indexOf('System');
@@ -2110,9 +2108,7 @@ public class RecordTypeModel {}`;
 
         const text = systemKeywordTestDocument.getText();
         const lines = text.split('\n');
-        const lineIndex = lines.findIndex((l) =>
-          l.includes('System.String'),
-        );
+        const lineIndex = lines.findIndex((l) => l.includes('System.String'));
         expect(lineIndex).toBeGreaterThanOrEqual(0);
         const line = lines[lineIndex];
         const charIndex = line.indexOf('System');
@@ -2171,9 +2167,7 @@ public class RecordTypeModel {}`;
 
         const text = systemKeywordTestDocument.getText();
         const lines = text.split('\n');
-        const lineIndex = lines.findIndex((l) =>
-          l.includes('system.runas'),
-        );
+        const lineIndex = lines.findIndex((l) => l.includes('system.runas'));
         expect(lineIndex).toBeGreaterThanOrEqual(0);
         const line = lines[lineIndex];
         const charIndex = line.indexOf('system');
@@ -2185,7 +2179,7 @@ public class RecordTypeModel {}`;
 
         const result = await hoverService.processHover(params);
 
-        // system.runas is a single SYSTEMRUNAS token, so hovering on "system" 
+        // system.runas is a single SYSTEMRUNAS token, so hovering on "system"
         // doesn't create a TypeReference - it's correct that it returns null
         // This verifies keyword filtering works correctly for keyword tokens
         expect(result).toBeNull();

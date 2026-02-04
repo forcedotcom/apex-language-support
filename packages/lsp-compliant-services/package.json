@@ -33,7 +33,7 @@
       "command": "tsc --build",
       "clean": "if-file-deleted",
       "dependencies": [
-        "../apex-parser-ast:precompile"
+        "../apex-parser-ast:compile"
       ],
       "output": [
         "out/**"
