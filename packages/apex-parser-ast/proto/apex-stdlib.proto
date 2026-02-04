@@ -40,6 +40,7 @@ message TypeSymbol {
   repeated VariableSymbol enum_values = 14;  // For enum types
   string file_uri = 15;
   string parent_id = 16;  // For inner types, points to containing type
+  repeated BlockSymbol blocks = 17;  // Block symbols for this type's scope hierarchy
 }
 
 // Represents a method or constructor
@@ -81,6 +82,16 @@ message ParameterSymbol {
   SymbolLocation location = 4;
   Modifiers modifiers = 5;
   string parent_id = 6;
+}
+
+// Represents a scope block (class, method, if, for, etc.)
+message BlockSymbol {
+  string id = 1;
+  string name = 2;                    // e.g., "class_1", "method_2"
+  string scope_type = 3;              // "class", "method", "block", "if", "for", etc.
+  SymbolLocation location = 4;
+  string parent_id = 5;               // Parent block or null for top-level
+  string file_uri = 6;
 }
 
 // Represents a type reference (e.g., return type, parameter type, field type)
