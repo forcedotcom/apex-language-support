@@ -68,7 +68,7 @@ describe('Protobuf Cache Diagnostic', () => {
       await resourceLoader.getSymbolTable('System/String.cls');
     logger.info(`   - Result: ${symbolTable ? 'SUCCESS' : 'NULL'}`);
     if (symbolTable) {
-      logger.info(`   - Symbol table: present`);
+      logger.info('   - Symbol table: present');
       logger.info(`   - Symbols count: ${symbolTable.getAllSymbols().length}`);
     }
 

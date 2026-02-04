@@ -105,9 +105,7 @@ describe('Multi-File Penalty Benchmarks', () => {
     enableConsoleLogging();
     setLogLevel('error');
 
-    const resourceLoader = ResourceLoader.getInstance({
-      preloadStdClasses: true,
-    });
+    const resourceLoader = ResourceLoader.getInstance();
     await resourceLoader.initialize();
   });
 

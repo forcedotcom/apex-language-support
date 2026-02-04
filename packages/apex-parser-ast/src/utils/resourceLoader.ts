@@ -13,7 +13,10 @@ import {
   isProtobufCacheAvailable,
 } from '../cache/stdlib-cache-loader';
 import type { DeserializationResult } from '../cache/stdlib-deserializer';
-import { getEmbeddedStandardLibraryZip } from './embeddedStandardLibrary';
+import {
+  getEmbeddedStandardLibraryZip,
+  clearEmbeddedZipCache,
+} from './embeddedStandardLibrary';
 
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
@@ -27,9 +30,9 @@ import {
 } from '../services/GlobalTypeRegistryService';
 import { loadTypeRegistryFromGzip } from '../cache/type-registry-loader';
 
-export interface ResourceLoaderOptions {
-  zipBuffer?: Uint8Array; // Direct ZIP buffer to use (for testing)
-}
+// ResourceLoaderOptions interface removed - ResourceLoader now always uses
+// embedded archives with disk fallback. Namespace preloading is handled by
+// SymbolGraphSettings.preloadNamespaces in server settings.
 
 /**
  * ResourceLoader class for loading standard Apex class symbol tables and serving ephemeral docs.
@@ -84,28 +87,12 @@ export class ResourceLoader {
   private standardLibrarySymbolData: DeserializationResult | null = null; // Cached standard library symbol data
   private namespaceDependencyOrder: string[] | null = null; // Cached dependency-sorted namespace order
 
-  private constructor(options?: ResourceLoaderOptions) {
-    this.logger.debug(
-      () =>
-        `🚀 ResourceLoader constructor called with options: ${JSON.stringify(options)}`,
-    );
+  private constructor() {
+    this.logger.debug(() => '🚀 ResourceLoader constructor called');
 
     // Initialize empty structure initially
     this.initializeEmptyStructure();
-
-    // If a ZIP buffer is provided directly, use it immediately
-    if (options?.zipBuffer) {
-      this.logger.debug(() => '📦 Using provided ZIP buffer directly');
-      this.zipBuffer = options.zipBuffer;
-      this.extractZipFiles();
-      this.initialized = true;
-    } else {
-      // Wait for setZipBuffer() to be called
-      this.logger.debug(
-        () => '📦 Waiting for ZIP buffer to be provided via setZipBuffer()',
-      );
-      this.initialized = true;
-    }
+    this.initialized = true;
   }
 
   /**
@@ -333,9 +320,9 @@ export class ResourceLoader {
     return content;
   }
 
-  public static getInstance(options?: ResourceLoaderOptions): ResourceLoader {
+  public static getInstance(): ResourceLoader {
     if (!ResourceLoader.instance) {
-      ResourceLoader.instance = new ResourceLoader(options);
+      ResourceLoader.instance = new ResourceLoader();
     }
     return ResourceLoader.instance;
   }
@@ -346,15 +333,20 @@ export class ResourceLoader {
    */
   public static resetInstance(): void {
     ResourceLoader.instance = null as any;
+    // Clear embedded ZIP cache to prevent stale buffer reuse
+    clearEmbeddedZipCache();
+    // Clear protobuf cache as well
+    StandardLibraryCacheLoader.clearCache();
   }
 
   /**
    * Set the ZIP buffer directly and extract files.
-   * This is the preferred method for providing the standard library ZIP data.
+   * Called internally by loadEmbeddedZipBuffer().
    *
    * @param buffer The ZIP file as a Uint8Array buffer
+   * @private
    */
-  public setZipBuffer(buffer: Uint8Array): void {
+  private setZipBuffer(buffer: Uint8Array): void {
     this.logger.debug(
       () => `📦 Setting ZIP buffer directly (${buffer.length} bytes)`,
     );
@@ -531,7 +523,8 @@ export class ResourceLoader {
     }
 
     // Load standard library symbol data first (fast path for symbols)
-    if (!this.standardLibrarySymbolDataLoaded && !this.zipBuffer) {
+    // Always try to load protobuf cache for symbol tables, regardless of zipBuffer
+    if (!this.standardLibrarySymbolDataLoaded) {
       await this.tryLoadFromStandardLibrarySymbolData();
     }
 
@@ -1143,9 +1136,7 @@ export class ResourceLoader {
    * @param className The class name to load (e.g., "System/String.cls" or "String")
    * @returns Promise that resolves to the symbol table or null if not found in cache
    */
-  public async getSymbolTable(
-    className: string,
-  ): Promise<SymbolTable | null> {
+  public async getSymbolTable(className: string): Promise<SymbolTable | null> {
     // DIAGNOSTIC: Check standard library symbol data cache
     this.logger.debug(
       () =>

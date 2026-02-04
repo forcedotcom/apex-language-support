@@ -241,6 +241,8 @@ export class StandardLibrarySerializer {
       annotations: this.convertAnnotations(symbol.annotations || []),
       parentId: symbol.parentId || '',
       hasBody: symbol.hasBody ?? true, // Default true for backward compatibility
+      fqn: symbol.fqn || '',
+      fileUri: symbol.fileUri || '',
     });
   }
 
@@ -260,6 +262,8 @@ export class StandardLibrarySerializer {
       initializerType: symbol.initializerType
         ? this.convertTypeReference(symbol.initializerType)
         : undefined,
+      fqn: symbol.fqn || '',
+      fileUri: symbol.fileUri || '',
     });
   }
 

@@ -38,18 +38,7 @@ jest.mock('../../src/storage/ApexStorageManager', () => ({
   },
 }));
 
-/**
- * Helper function to load the StandardApexLibrary.zip for testing.
- * This simulates the client providing the ZIP buffer to the language server.
- */
-const loadStandardLibraryZip = (): Uint8Array => {
-  const zipPath = path.join(
-    __dirname,
-    '../../../apex-parser-ast/resources/StandardApexLibrary.zip',
-  );
-  const zipBuffer = fs.readFileSync(zipPath);
-  return new Uint8Array(zipBuffer);
-};
+// ResourceLoader now uses embedded archives with disk fallback automatically
 
 describe('HoverProcessingService Integration Tests', () => {
   let hoverService: HoverProcessingService;
@@ -71,11 +60,7 @@ describe('HoverProcessingService Integration Tests', () => {
     // Initialize ResourceLoader for standard library classes once for all tests
     // This ensures standard library classes are available for hover resolution
     (ResourceLoader as any).instance = null;
-    const standardLibZip = loadStandardLibraryZip();
-    resourceLoader = ResourceLoader.getInstance({
-      preloadStdClasses: true,
-      zipBuffer: standardLibZip,
-    });
+    resourceLoader = ResourceLoader.getInstance();
     await resourceLoader.initialize();
 
     // Verify ResourceLoader has the System class in its namespace structure
@@ -99,12 +84,8 @@ describe('HoverProcessingService Integration Tests', () => {
     const currentResourceLoader = ResourceLoader.getInstance();
     if (!currentResourceLoader || currentResourceLoader !== resourceLoader) {
       // If somehow the instance changed, re-initialize it
-      const standardLibZip = loadStandardLibraryZip();
       (ResourceLoader as any).instance = null;
-      resourceLoader = ResourceLoader.getInstance({
-        preloadStdClasses: true,
-        zipBuffer: standardLibZip,
-      });
+      resourceLoader = ResourceLoader.getInstance();
       await resourceLoader.initialize();
     }
 

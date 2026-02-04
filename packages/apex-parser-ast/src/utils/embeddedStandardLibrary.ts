@@ -218,3 +218,12 @@ export function getEmbeddedStandardLibraryZip(): Uint8Array | undefined {
 export function hasEmbeddedStandardLibraryZip(): boolean {
   return getEmbeddedStandardLibraryZip() !== undefined;
 }
+
+/**
+ * Clear the cached ZIP buffer.
+ * This should only be called for testing purposes when resetting ResourceLoader.
+ * @internal
+ */
+export function clearEmbeddedZipCache(): void {
+  cachedZipBuffer = null;
+}

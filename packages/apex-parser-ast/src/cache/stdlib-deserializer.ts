@@ -124,7 +124,11 @@ export class StandardLibraryDeserializer {
 
     // Add methods
     for (const protoMethod of protoType.methods) {
-      const methodSymbol = this.convertMethodSymbol(protoMethod, typeSymbol.id);
+      const methodSymbol = this.convertMethodSymbol(
+        protoMethod,
+        typeSymbol.id,
+        namespace,
+      );
       symbolTable.addSymbol(methodSymbol);
 
       // Add parameters as symbols
@@ -139,13 +143,21 @@ export class StandardLibraryDeserializer {
 
     // Add fields
     for (const protoField of protoType.fields) {
-      const fieldSymbol = this.convertVariableSymbol(protoField, typeSymbol.id);
+      const fieldSymbol = this.convertVariableSymbol(
+        protoField,
+        typeSymbol.id,
+        namespace,
+      );
       symbolTable.addSymbol(fieldSymbol);
     }
 
     // Add properties
     for (const protoProp of protoType.properties) {
-      const propSymbol = this.convertVariableSymbol(protoProp, typeSymbol.id);
+      const propSymbol = this.convertVariableSymbol(
+        protoProp,
+        typeSymbol.id,
+        namespace,
+      );
       symbolTable.addSymbol(propSymbol);
     }
 
@@ -154,13 +166,19 @@ export class StandardLibraryDeserializer {
       const enumValSymbol = this.convertVariableSymbol(
         protoEnumVal,
         typeSymbol.id,
+        namespace,
       );
       symbolTable.addSymbol(enumValSymbol);
     }
 
     // Add inner types recursively
     for (const innerType of protoType.innerTypes) {
-      this.addInnerTypeToSymbolTable(symbolTable, innerType, typeSymbol.id);
+      this.addInnerTypeToSymbolTable(
+        symbolTable,
+        innerType,
+        typeSymbol.id,
+        namespace,
+      );
     }
 
     return symbolTable;
@@ -173,25 +191,38 @@ export class StandardLibraryDeserializer {
     symbolTable: SymbolTable,
     protoType: ProtoTypeSymbol,
     parentId: string,
+    namespace?: string,
   ): void {
     const typeSymbol = this.convertTypeSymbol(protoType, parentId);
     symbolTable.addSymbol(typeSymbol);
 
     // Add methods
     for (const protoMethod of protoType.methods) {
-      const methodSymbol = this.convertMethodSymbol(protoMethod, typeSymbol.id);
+      const methodSymbol = this.convertMethodSymbol(
+        protoMethod,
+        typeSymbol.id,
+        namespace,
+      );
       symbolTable.addSymbol(methodSymbol);
     }
 
     // Add fields
     for (const protoField of protoType.fields) {
-      const fieldSymbol = this.convertVariableSymbol(protoField, typeSymbol.id);
+      const fieldSymbol = this.convertVariableSymbol(
+        protoField,
+        typeSymbol.id,
+        namespace,
+      );
       symbolTable.addSymbol(fieldSymbol);
     }
 
     // Add properties
     for (const protoProp of protoType.properties) {
-      const propSymbol = this.convertVariableSymbol(protoProp, typeSymbol.id);
+      const propSymbol = this.convertVariableSymbol(
+        protoProp,
+        typeSymbol.id,
+        namespace,
+      );
       symbolTable.addSymbol(propSymbol);
     }
 
@@ -200,13 +231,19 @@ export class StandardLibraryDeserializer {
       const enumValSymbol = this.convertVariableSymbol(
         protoEnumVal,
         typeSymbol.id,
+        namespace,
       );
       symbolTable.addSymbol(enumValSymbol);
     }
 
     // Recurse for nested inner types
     for (const innerType of protoType.innerTypes) {
-      this.addInnerTypeToSymbolTable(symbolTable, innerType, typeSymbol.id);
+      this.addInnerTypeToSymbolTable(
+        symbolTable,
+        innerType,
+        typeSymbol.id,
+        namespace,
+      );
     }
   }
 
@@ -247,6 +284,7 @@ export class StandardLibraryDeserializer {
   private convertMethodSymbol(
     proto: ProtoMethodSymbol,
     parentId: string,
+    namespace?: string,
   ): MethodSymbol {
     const kind = proto.isConstructor
       ? SymbolKind.Constructor
@@ -259,12 +297,12 @@ export class StandardLibraryDeserializer {
       proto.name,
       kind,
       location,
-      '', // fileUri will be inherited from parent
+      proto.fileUri || '', // fileUri from protobuf cache
       modifiers,
       proto.parentId || parentId,
       undefined,
-      undefined,
-      undefined,
+      proto.fqn || undefined, // fqn from protobuf cache
+      namespace, // namespace from parent context
       this.convertAnnotations(proto.annotations),
     ) as MethodSymbol;
 
@@ -285,6 +323,7 @@ export class StandardLibraryDeserializer {
   private convertVariableSymbol(
     proto: ProtoVariableSymbol,
     parentId: string,
+    namespace?: string,
   ): VariableSymbol {
     const kind = this.convertVariableKind(proto.kind);
     const modifiers = this.convertModifiers(proto.modifiers);
@@ -294,9 +333,12 @@ export class StandardLibraryDeserializer {
       proto.name,
       kind,
       location,
-      '', // fileUri will be inherited from parent
+      proto.fileUri || '', // fileUri from protobuf cache
       modifiers,
       proto.parentId || parentId,
+      undefined,
+      proto.fqn || undefined, // fqn from protobuf cache
+      namespace, // namespace from parent context
     ) as VariableSymbol;
 
     // Set VariableSymbol-specific properties

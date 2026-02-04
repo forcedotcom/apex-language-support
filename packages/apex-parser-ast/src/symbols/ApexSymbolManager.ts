@@ -3946,7 +3946,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): Promise<ApexSymbol | null> {
     this.logger.debug(
       () =>
-        `[Resolution] resolveSymbolReferenceToSymbol called for "${typeReference.name}" (context: ${typeReference.context})`,
+        '[Resolution] resolveSymbolReferenceToSymbol called for ' +
+        `"${typeReference.name}" (context: ${typeReference.context})`,
     );
 
     try {
@@ -4170,7 +4171,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
                 this.logger.debug(
                   () =>
-                    `[Resolution] Registry entry found for "${typeReference.name}" (symbolId="${registryEntry.symbolId}"), symbol in graph: ${symbol ? 'YES' : 'NO'}`,
+                    `[Resolution] Registry entry found for "${typeReference.name}" ` +
+                    `(symbolId="${registryEntry.symbolId}"), symbol in graph: ${symbol ? 'YES' : 'NO'}`,
                 );
 
                 // If symbol not in graph yet, try to load it (for stdlib types)
@@ -4702,9 +4704,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (symbolTable) {
         // Convert classPath to proper URI scheme for standard Apex library classes
         const fileUri = this.convertToStandardLibraryUri(classPath);
-        await Effect.runPromise(
-          this.addSymbolTable(symbolTable, fileUri),
-        );
+        await Effect.runPromise(this.addSymbolTable(symbolTable, fileUri));
 
         // Update the class symbol's fileUri to use the new URI scheme
         classSymbol.fileUri = fileUri;
@@ -5485,7 +5485,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               } else {
                 this.logger.debug(
                   () =>
-                    `[resolveStandardApexClass] Found registry entry for "${name}" but symbol not found after loading from cache`,
+                    `[resolveStandardApexClass] Found registry entry for "${name}" ` +
+                    'but symbol not found after loading from cache',
                 );
               }
             } else {
@@ -5497,7 +5498,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           } else {
             this.logger.debug(
               () =>
-                `[resolveStandardApexClass] Found registry entry for "${name}" but fileUri doesn't match apex://stdlib/ pattern: ${registryEntry.fileUri}`,
+                `[resolveStandardApexClass] Found registry entry for "${name}" but ` +
+                `fileUri doesn't match apex://stdlib/ pattern: ${registryEntry.fileUri}`,
             );
           }
           // If loading failed, fall through to cache loading below
@@ -5671,11 +5673,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         this.logger.debug(
           () =>
-            `[resolveStandardApexClass] Loading class from ResourceLoader: classPath="${classPath}", fileUri="${fileUri}"`,
+            '[resolveStandardApexClass] Loading class from ResourceLoader: ' +
+            `classPath="${classPath}", fileUri="${fileUri}"`,
         );
 
-        const symbolTable =
-          await this.resourceLoader.getSymbolTable(classPath);
+        const symbolTable = await this.resourceLoader.getSymbolTable(classPath);
         if (!symbolTable) {
           this.logger.debug(
             () =>
@@ -5684,9 +5686,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return null;
         }
         // Add the symbol table to the symbol manager to get all symbols including methods
-        await Effect.runPromise(
-          this.addSymbolTable(symbolTable, fileUri),
-        );
+        await Effect.runPromise(this.addSymbolTable(symbolTable, fileUri));
 
         // Find the class symbol from the loaded symbol table
         const symbols = symbolTable.getAllSymbols();
@@ -8294,15 +8294,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     );
                     if (classPath) {
                       try {
-                      const symbolTable =
-                        await this.resourceLoader.getSymbolTable(classPath);
-                      if (symbolTable) {
-                        await Effect.runPromise(
-                          this.addSymbolTable(
-                            symbolTable,
-                            standardClassSymbol.fileUri,
-                          ),
-                        );
+                        const symbolTable =
+                          await this.resourceLoader.getSymbolTable(classPath);
+                        if (symbolTable) {
+                          await Effect.runPromise(
+                            this.addSymbolTable(
+                              symbolTable,
+                              standardClassSymbol.fileUri,
+                            ),
+                          );
                           // Retry resolution after loading
                           const retryResult = await this.resolveMemberInContext(
                             { type: 'symbol', symbol: standardClassSymbol },

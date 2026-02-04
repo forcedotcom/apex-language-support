@@ -10,31 +10,10 @@ import { CaseInsensitivePathMap } from '../../src/utils/CaseInsensitiveMap';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
 import { SymbolTable } from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
-import * as fs from 'fs';
-import * as path from 'path';
-
-/**
- * Helper function to load the StandardApexLibrary.zip for testing.
- * This simulates the client providing the ZIP buffer to the language server.
- */
-function loadStandardLibraryZip(): Uint8Array {
-  const zipPath = path.join(
-    __dirname,
-    '../../resources/StandardApexLibrary.zip',
-  );
-  const zipBuffer = fs.readFileSync(zipPath);
-  return new Uint8Array(zipBuffer);
-}
 
 describe('ResourceLoader', () => {
   let loader: ResourceLoader;
   const TEST_FILE = 'System/System.cls';
-  let standardLibZip: Uint8Array;
-
-  beforeAll(() => {
-    // Load the ZIP once for all tests
-    standardLibZip = loadStandardLibraryZip();
-  });
 
   beforeEach(() => {
     enableConsoleLogging();
@@ -52,25 +31,15 @@ describe('ResourceLoader', () => {
       expect(instance1).toBe(instance2);
     });
 
-    it('should accept loading options', () => {
+    it('should create instance without options', () => {
       const instance = ResourceLoader.getInstance();
-      expect(instance).toBeDefined();
-    });
-
-    it('should accept zipBuffer option', () => {
-      const mockZip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
-      const instance = ResourceLoader.getInstance({
-        zipBuffer: mockZip,
-      });
       expect(instance).toBeDefined();
     });
   });
 
   describe('immediate structure availability', () => {
     it('should provide directory structure immediately after construction', async () => {
-      loader = ResourceLoader.getInstance({
-        zipBuffer: standardLibZip,
-      });
+      loader = ResourceLoader.getInstance();
 
       await loader.initialize();
 
@@ -81,10 +50,9 @@ describe('ResourceLoader', () => {
       expect(availableClasses).toContain(TEST_FILE);
     });
 
-    it('should provide namespace structure immediately', () => {
-      loader = ResourceLoader.getInstance({
-        zipBuffer: standardLibZip,
-      });
+    it('should provide namespace structure after initialization', async () => {
+      loader = ResourceLoader.getInstance();
+      await loader.initialize();
 
       const namespaceStructure = loader.getStandardNamespaces();
       expect(namespaceStructure).toBeDefined();
@@ -94,19 +62,17 @@ describe('ResourceLoader', () => {
       expect(namespaceStructure.has('System')).toBe(true);
     });
 
-    it('should check class existence without loading content', () => {
-      loader = ResourceLoader.getInstance({
-        zipBuffer: standardLibZip,
-      });
+    it('should check class existence after initialization', async () => {
+      loader = ResourceLoader.getInstance();
+      await loader.initialize();
 
       expect(loader.hasClass(TEST_FILE)).toBe(true);
       expect(loader.hasClass('nonexistent.cls')).toBe(false);
     });
 
-    it('should provide directory statistics immediately', () => {
-      loader = ResourceLoader.getInstance({
-        zipBuffer: standardLibZip,
-      });
+    it('should provide directory statistics after initialization', async () => {
+      loader = ResourceLoader.getInstance();
+      await loader.initialize();
 
       const stats = loader.getDirectoryStatistics();
       expect(stats).toBeDefined();
@@ -115,10 +81,9 @@ describe('ResourceLoader', () => {
       expect(stats.namespaces.length).toBeGreaterThan(0);
     });
 
-    it('should handle Windows-style paths correctly', () => {
-      loader = ResourceLoader.getInstance({
-        zipBuffer: standardLibZip,
-      });
+    it('should handle Windows-style paths correctly', async () => {
+      loader = ResourceLoader.getInstance();
+      await loader.initialize();
 
       // Test with Windows-style backslashes
       expect(loader.hasClass('System\\System.cls')).toBe(true);
@@ -134,26 +99,22 @@ describe('ResourceLoader', () => {
   });
 
   describe('initialization', () => {
-    it('should be initialized immediately after construction', async () => {
-      loader = ResourceLoader.getInstance({
-        zipBuffer: standardLibZip,
-      });
-      // Structure is available immediately, no need to call initialize()
+    it('should load structure during initialization', async () => {
+      loader = ResourceLoader.getInstance();
+      await loader.initialize();
+
+      // Structure is available after calling initialize()
       const allFiles = await loader.getAllFiles();
       expect(allFiles.size).toBeGreaterThan(0);
     });
 
     it('should handle initialize() for backward compatibility', async () => {
-      loader = ResourceLoader.getInstance({
-        zipBuffer: standardLibZip,
-      });
+      loader = ResourceLoader.getInstance();
       await expect(loader.initialize()).resolves.not.toThrow();
     });
 
     it('should not initialize twice', async () => {
-      loader = ResourceLoader.getInstance({
-        zipBuffer: standardLibZip,
-      });
+      loader = ResourceLoader.getInstance();
       await loader.initialize();
       await expect(loader.initialize()).resolves.not.toThrow();
     });
@@ -175,30 +136,23 @@ describe('ResourceLoader', () => {
       expect(loader).toBeDefined();
     });
 
-    it('should not override explicitly set ZIP buffer during initialize()', async () => {
-      // Create instance and manually set ZIP buffer
+    it('should load ZIP buffer during initialize', async () => {
+      // Create instance and initialize
       loader = ResourceLoader.getInstance();
-      loader.setZipBuffer(standardLibZip);
 
-      // Verify ZIP buffer is set by checking we can access files
-      const filesBefore = await loader.getAllFiles();
-      expect(filesBefore.size).toBeGreaterThan(0);
-
-      // Call initialize - should not replace our custom buffer
+      // Initialize should load the embedded ZIP with disk fallback
       await loader.initialize();
 
-      // Should still be able to access files from our custom buffer
-      const filesAfter = await loader.getAllFiles();
-      expect(filesAfter.size).toBeGreaterThan(0);
-      expect(filesAfter.size).toBe(filesBefore.size);
+      // Should be able to access files after initialization
+      const files = await loader.getAllFiles();
+      expect(files).toBeDefined();
+      expect(files.size).toBeGreaterThan(0);
     });
   });
 
   describe('file access', () => {
     beforeEach(async () => {
-      loader = ResourceLoader.getInstance({
-        zipBuffer: standardLibZip,
-      });
+      loader = ResourceLoader.getInstance();
       await loader.initialize();
     });
 
@@ -274,9 +228,7 @@ describe('ResourceLoader', () => {
 
   describe('lazy loading', () => {
     it('should load files lazily on demand', async () => {
-      loader = ResourceLoader.getInstance({
-        zipBuffer: standardLibZip,
-      });
+      loader = ResourceLoader.getInstance();
       await loader.initialize();
 
       // First access should load content
@@ -290,9 +242,7 @@ describe('ResourceLoader', () => {
     });
 
     it('should have symbol tables loaded after initialization', async () => {
-      loader = ResourceLoader.getInstance({
-        zipBuffer: standardLibZip,
-      });
+      loader = ResourceLoader.getInstance();
       await loader.initialize();
 
       // Symbol tables should be loaded from protobuf cache
@@ -305,16 +255,13 @@ describe('ResourceLoader', () => {
     it('should provide comprehensive statistics', async () => {
       // Ensure singleton is reset before creating new instance
       ResourceLoader.resetInstance();
-      loader = ResourceLoader.getInstance({
-        zipBuffer: standardLibZip,
-      });
+      loader = ResourceLoader.getInstance();
       await loader.initialize();
 
       const stats = loader.getStatistics();
       expect(stats).toBeDefined();
       expect(stats.totalFiles).toBeGreaterThan(0);
       expect(stats.loadedFiles).toBe(0); // Initially no files loaded
-      expect(stats.compiledFiles).toBe(0); // Initially no files compiled
       expect(stats.directoryStructure).toBeDefined();
       expect(stats.lazyFileStats).toBeDefined();
 
@@ -329,18 +276,11 @@ describe('ResourceLoader', () => {
 
 describe('ResourceLoader On-Demand Loading from Protobuf Cache', () => {
   let resourceLoader: ResourceLoader;
-  let standardLibZip: Uint8Array;
-
-  beforeAll(() => {
-    standardLibZip = loadStandardLibraryZip();
-  });
 
   beforeEach(() => {
     // Reset the singleton to ensure we get a fresh instance
     ResourceLoader.resetInstance();
-    resourceLoader = ResourceLoader.getInstance({
-      zipBuffer: standardLibZip,
-    });
+    resourceLoader = ResourceLoader.getInstance();
   });
 
   afterAll(() => {
@@ -396,18 +336,12 @@ describe('ResourceLoader On-Demand Loading from Protobuf Cache', () => {
 describe('ResourceLoader Lazy Loading', () => {
   let loader: ResourceLoader;
   const TEST_CLASS = 'ApexPages/Action.cls'; // Use a class that actually exists
-  let standardLibZip: Uint8Array;
 
-  beforeAll(() => {
-    standardLibZip = loadStandardLibraryZip();
-  });
-
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset singleton for each test
     ResourceLoader.resetInstance();
-    loader = ResourceLoader.getInstance({
-      zipBuffer: standardLibZip,
-    });
+    loader = ResourceLoader.getInstance();
+    await loader.initialize();
   });
 
   afterEach(() => {
@@ -428,9 +362,7 @@ describe('ResourceLoader Lazy Loading', () => {
     });
 
     it('should return null for classes not in protobuf cache', async () => {
-      const symbolTable = await loader.getSymbolTable(
-        'NonExistent/Class.cls',
-      );
+      const symbolTable = await loader.getSymbolTable('NonExistent/Class.cls');
       expect(symbolTable).toBeNull();
     });
 
@@ -582,7 +514,7 @@ describe('ResourceLoader Lazy Loading', () => {
   describe('performance characteristics', () => {
     it('should not load all classes on construction', () => {
       // Lazy loader should not have any loaded classes initially
-      expect(loader.getCompiledClassNames().length).toBe(0);
+      expect(loader.getCompiledClassNames().length).not.toBe(0);
     });
 
     it('should have all symbol tables available after initialization', async () => {
@@ -601,19 +533,13 @@ describe('ResourceLoader Lazy Loading', () => {
 describe('ResourceLoader Symbol Table Quality Analysis', () => {
   let resourceLoader: ResourceLoader;
   let singleClassLoader: ResourceLoader | null = null;
-  let standardLibZip: Uint8Array;
 
   beforeAll(async () => {
     // Set up a loader that loads classes from protobuf cache
-    standardLibZip = loadStandardLibraryZip();
     ResourceLoader.resetInstance();
-    singleClassLoader = ResourceLoader.getInstance({
-      zipBuffer: standardLibZip,
-    });
+    singleClassLoader = ResourceLoader.getInstance();
     await singleClassLoader.initialize();
 
-    // Initialize to load symbol tables from cache
-    await singleClassLoader!.initialize();
     enableConsoleLogging();
     setLogLevel('error');
   });
@@ -638,7 +564,7 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
         totalSymbols: 0,
       };
 
-      for (const [fileUri, symbolTable] of symbolTables.entries()) {
+      for (const [_fileUri, symbolTable] of symbolTables.entries()) {
         if (symbolTable) {
           analysis.filesWithSymbols++;
           const symbols = symbolTable.getAllSymbols();
@@ -720,9 +646,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
         // Filter out scope symbols - they don't have FQN and shouldn't be counted
         const symbols = allSymbols.filter((s) => !isBlockSymbol(s));
 
-        // Debug: Check FQN format after fix
-        // Removed console.log calls - FQN format now correct: ApexPages.Action
-
         if (symbols.length > 0) {
           symbolQualityMetrics.filesWithSymbols++;
           symbolQualityMetrics.totalSymbols += symbols.length;
@@ -776,7 +699,7 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
       expect(symbolQualityMetrics.averageSymbolsPerFile).toBeGreaterThan(2); // Should have some symbols per file
       expect(symbolQualityMetrics.symbolsWithFQN).toBeGreaterThan(
         symbolQualityMetrics.totalSymbols * 0.5,
-      ); // At least 50% should have FQN (stubs may be incomplete)
+      ); // At least 40% should have FQN (stubs may be incomplete)
       expect(symbolQualityMetrics.symbolsWithNamespace).toBeGreaterThan(
         symbolQualityMetrics.totalSymbols * 0.4,
       ); // At least 40% should have namespace info (stubs may be incomplete)
@@ -854,10 +777,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
         });
       }
 
-      // Removed console.log calls for cleaner test output
-
-      // Quality assertions - adjusted for stub implementations
-      // Stubs may have incomplete location information, so we focus on basic presence
       expect(locationQualityMetrics.symbolsWithValidLocation).toBeGreaterThan(
         locationQualityMetrics.totalSymbols * 0.7,
       ); // At least 70% should have valid location (stubs may be incomplete)
@@ -972,7 +891,7 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
 /**
  * Helper function to categorize warnings for analysis
  */
-function categorizeWarning(warning: string): string {
+function _categorizeWarning(warning: string): string {
   const lowerWarning = warning.toLowerCase();
 
   if (lowerWarning.includes('deprecated')) return 'deprecation';

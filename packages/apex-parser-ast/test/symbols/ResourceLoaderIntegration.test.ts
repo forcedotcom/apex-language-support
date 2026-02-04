@@ -303,10 +303,10 @@ describe('ResourceLoader Integration', () => {
         await resourceLoader.getCompiledArtifact('System/Assert.cls');
       expect(systemAssertArtifact).toBeDefined();
 
-      // Now should have at least one compiled artifact
-      const allArtifacts = resourceLoader.getAllCompiledArtifacts();
-      expect(allArtifacts).toBeDefined();
-      expect(allArtifacts.size).toBeGreaterThan(0);
+      // Now should have at least one symbol table loaded
+      const allSymbolTables = resourceLoader.getAllSymbolTables();
+      expect(allSymbolTables).toBeDefined();
+      expect(allSymbolTables.size).toBeGreaterThan(0);
     });
 
     it('should provide access statistics', async () => {
@@ -344,10 +344,8 @@ describe('ResourceLoader Integration', () => {
   describe('Preloading Common Classes', () => {
     it('should preload common classes when requested', async () => {
       // Note: preloadStdClasses functionality is not yet fully implemented
-      // but the option should be accepted without errors
-      const preloadLoader = ResourceLoader.getInstance({
-        preloadStdClasses: true,
-      });
+      // ResourceLoader no longer accepts options
+      const preloadLoader = ResourceLoader.getInstance();
       await preloadLoader.initialize();
 
       // Should have structure available even if not all classes preloaded
