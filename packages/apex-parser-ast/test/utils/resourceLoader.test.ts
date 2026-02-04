@@ -507,7 +507,9 @@ describe('ResourceLoader Lazy Loading', () => {
       // After initialization, cache should have many classes
       expect(classNames.length).toBeGreaterThan(0);
       // Check that class names are file URIs from cache
-      expect(classNames[0]).toMatch(/^apex:\/\/stdlib\//);
+      expect(classNames[0]).toMatch(
+        /^apexlib:\/\/resources\/StandardApexLibrary\//,
+      );
     });
   });
 
@@ -524,7 +526,7 @@ describe('ResourceLoader Lazy Loading', () => {
       expect(classNames.length).toBeGreaterThan(0);
       // All class names should be file URIs from the protobuf cache
       classNames.forEach((name) => {
-        expect(name).toMatch(/^apex:\/\/stdlib\//);
+        expect(name).toMatch(/^apexlib:\/\/resources\/StandardApexLibrary\//);
       });
     });
   });
@@ -841,8 +843,10 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
 
       for (const [fileUri, symbolTable] of symbolTables.entries()) {
         if (!symbolTable) continue;
-        // Extract namespace from file URI (format: apex://stdlib/{namespace}/{className})
-        const match = fileUri.match(/apex:\/\/stdlib\/([^/]+)\//);
+        // Extract namespace from file URI (format: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls)
+        const match = fileUri.match(
+          /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\//,
+        );
         if (!match) continue;
         const namespace = match[1];
 

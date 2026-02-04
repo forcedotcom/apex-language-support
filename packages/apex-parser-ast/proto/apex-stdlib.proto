@@ -55,7 +55,7 @@ message MethodSymbol {
   string parent_id = 9;
   bool has_body = 10;  // Whether the method has a body (false for abstract methods and interface methods)
   string fqn = 11;  // Fully qualified name (e.g., "system.string.valueof")
-  string file_uri = 12;  // File URI (e.g., "apex://stdlib/System/String")
+  string file_uri = 12;  // File URI (e.g., "apexlib://resources/StandardApexLibrary/System/String.cls")
 }
 
 // Represents a property, field, variable, parameter, or enum value
@@ -70,7 +70,7 @@ message VariableSymbol {
   string parent_id = 8;
   TypeReference initializer_type = 9;  // Type of the initializer expression (if present)
   string fqn = 10;  // Fully qualified name (e.g., "system.string.empty")
-  string file_uri = 11;  // File URI (e.g., "apex://stdlib/System/String")
+  string file_uri = 11;  // File URI (e.g., "apexlib://resources/StandardApexLibrary/System/String.cls")
 }
 
 // Represents a method/constructor parameter

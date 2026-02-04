@@ -339,9 +339,9 @@ export class StandardLibraryCacheLoader {
 
     // Spot-check a few known standard library classes
     const knownClasses = [
-      'apex://stdlib/System/System',
-      'apex://stdlib/System/String',
-      'apex://stdlib/System/Integer',
+      'apexlib://resources/StandardApexLibrary/System/System.cls',
+      'apexlib://resources/StandardApexLibrary/System/String.cls',
+      'apexlib://resources/StandardApexLibrary/System/Integer.cls',
     ];
 
     let foundCount = 0;

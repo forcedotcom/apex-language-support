@@ -97,9 +97,9 @@ describe('Protobuf vs ZIP equivalence', () => {
 
       // Verify that generic types at least have symbol tables
       const genericTypes = [
-        'apex://stdlib/System/List',
-        'apex://stdlib/System/Map',
-        'apex://stdlib/System/Set',
+        'apexlib://resources/StandardApexLibrary/System/List.cls',
+        'apexlib://resources/StandardApexLibrary/System/Map.cls',
+        'apexlib://resources/StandardApexLibrary/System/Set.cls',
       ];
       for (const genericUri of genericTypes) {
         expect(result.data!.symbolTables.has(genericUri)).toBe(true);

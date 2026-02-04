@@ -42,7 +42,7 @@ export class NamespaceDependencyAnalyzer {
     const deps = new Map<string, NamespaceDependencies>();
 
     for (const [uri, symbolTable] of symbolTables) {
-      // Extract namespace from URI: apex://stdlib/{namespace}/{className}
+      // Extract namespace from URI: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls
       const namespace = this.extractNamespace(uri);
       if (!namespace) continue;
 
@@ -116,10 +116,12 @@ export class NamespaceDependencyAnalyzer {
 
   /**
    * Extract namespace from URI
-   * URI format: apex://stdlib/{namespace}/{className}
+   * URI format: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls
    */
   private static extractNamespace(uri: string): string | null {
-    const match = uri.match(/apex:\/\/stdlib\/([^/]+)\//);
+    const match = uri.match(
+      /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\//,
+    );
     return match ? match[1] : null;
   }
 

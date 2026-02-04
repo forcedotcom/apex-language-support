@@ -47,14 +47,17 @@ describe('NamespaceDependencyAnalyzer', () => {
           endColumn: 0,
         },
       },
-      fileUri: `apex://stdlib/Test/${name}`,
+      fileUri: `apexlib://resources/StandardApexLibrary/Test/${name}.cls`,
       parentId: null,
       key: {
         prefix: SymbolKind.Class,
         name,
-        path: [`apex://stdlib/Test/${name}`, name],
+        path: [
+          `apexlib://resources/StandardApexLibrary/Test/${name}.cls`,
+          name,
+        ],
         unifiedId: `class-${name}`,
-        fileUri: `apex://stdlib/Test/${name}`,
+        fileUri: `apexlib://resources/StandardApexLibrary/Test/${name}.cls`,
         kind: SymbolKind.Class,
       },
       _isLoaded: true,
@@ -183,11 +186,11 @@ describe('NamespaceDependencyAnalyzer', () => {
     it('should extract namespace from URI correctly', () => {
       const symbolTables = new Map([
         [
-          'apex://stdlib/System/Exception.cls',
+          'apexlib://resources/StandardApexLibrary/System/Exception.cls',
           createMockSymbolTable([createClassSymbol('Exception')]),
         ],
         [
-          'apex://stdlib/Database/QueryLocator.cls',
+          'apexlib://resources/StandardApexLibrary/Database/QueryLocator.cls',
           createMockSymbolTable([createClassSymbol('QueryLocator')]),
         ],
       ]);
@@ -204,11 +207,11 @@ describe('NamespaceDependencyAnalyzer', () => {
     it('should detect inheritance dependencies', () => {
       const symbolTables = new Map([
         [
-          'apex://stdlib/System/Exception.cls',
+          'apexlib://resources/StandardApexLibrary/System/Exception.cls',
           createMockSymbolTable([createClassSymbol('Exception')]),
         ],
         [
-          'apex://stdlib/Database/DmlException.cls',
+          'apexlib://resources/StandardApexLibrary/Database/DmlException.cls',
           createMockSymbolTable([
             createClassSymbol('DmlException', 'System.Exception'),
           ]),
@@ -226,11 +229,11 @@ describe('NamespaceDependencyAnalyzer', () => {
     it('should detect interface implementation dependencies', () => {
       const symbolTables = new Map([
         [
-          'apex://stdlib/System/Iterator.cls',
+          'apexlib://resources/StandardApexLibrary/System/Iterator.cls',
           createMockSymbolTable([createClassSymbol('Iterator')]),
         ],
         [
-          'apex://stdlib/Database/QueryLocatorIterator.cls',
+          'apexlib://resources/StandardApexLibrary/Database/QueryLocatorIterator.cls',
           createMockSymbolTable([
             createClassSymbol('QueryLocatorIterator', undefined, [
               'System.Iterator',
@@ -250,11 +253,11 @@ describe('NamespaceDependencyAnalyzer', () => {
     it('should detect method return type dependencies', () => {
       const symbolTables = new Map([
         [
-          'apex://stdlib/System/Exception.cls',
+          'apexlib://resources/StandardApexLibrary/System/Exception.cls',
           createMockSymbolTable([createClassSymbol('Exception')]),
         ],
         [
-          'apex://stdlib/Database/Database.cls',
+          'apexlib://resources/StandardApexLibrary/Database/Database.cls',
           createMockSymbolTable([
             createClassSymbol('Database'),
             createMethodSymbol('query', 'System.Exception'),
@@ -273,11 +276,11 @@ describe('NamespaceDependencyAnalyzer', () => {
     it('should detect method parameter dependencies', () => {
       const symbolTables = new Map([
         [
-          'apex://stdlib/System/Exception.cls',
+          'apexlib://resources/StandardApexLibrary/System/Exception.cls',
           createMockSymbolTable([createClassSymbol('Exception')]),
         ],
         [
-          'apex://stdlib/Database/Database.cls',
+          'apexlib://resources/StandardApexLibrary/Database/Database.cls',
           createMockSymbolTable([
             createClassSymbol('Database'),
             createMethodSymbol('throwException', 'void', [
@@ -298,11 +301,11 @@ describe('NamespaceDependencyAnalyzer', () => {
     it('should not create self-dependencies', () => {
       const symbolTables = new Map([
         [
-          'apex://stdlib/System/Exception.cls',
+          'apexlib://resources/StandardApexLibrary/System/Exception.cls',
           createMockSymbolTable([createClassSymbol('Exception')]),
         ],
         [
-          'apex://stdlib/System/String.cls',
+          'apexlib://resources/StandardApexLibrary/System/String.cls',
           createMockSymbolTable([
             createClassSymbol('String'),
             createMethodSymbol('format', 'System.String'), // Returns same namespace type

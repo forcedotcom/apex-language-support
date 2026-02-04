@@ -194,8 +194,10 @@ async function parseApexFile(
   const listener = new ApexSymbolCollectorListener();
   const compiler = new CompilerService(namespace);
 
-  // Use a consistent URI format for stdlib classes
-  const fileUri = `apex://stdlib/${namespace}/${className}`;
+  // Import createApexLibUri to use official URI format
+  const { createApexLibUri } = await import('../out/types/ProtocolHandler.js');
+  // Use official URI format: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls
+  const fileUri = createApexLibUri(`${namespace}/${className}.cls`);
 
   const result = compiler.compile(content, fileUri, listener, {
     projectNamespace: namespace,
@@ -358,7 +360,9 @@ async function main() {
         );
 
         if (result.result) {
-          const fileUri = `apex://stdlib/${file.namespace}/${file.className}`;
+          // Import createApexLibUri to use official URI format
+          const { createApexLibUri } = await import('../out/types/ProtocolHandler.js');
+          const fileUri = createApexLibUri(`${file.namespace}/${file.className}.cls`);
           symbolTables.set(fileUri, result.result);
           parsedCount++;
 

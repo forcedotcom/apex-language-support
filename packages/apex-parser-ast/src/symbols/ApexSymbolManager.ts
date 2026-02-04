@@ -4182,12 +4182,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                       `[Resolution] Loading stdlib class on-demand: ${registryEntry.fileUri}`,
                   );
 
-                  // Extract class path from fileUri (apex://stdlib/System/String -> System/String.cls)
+                  // Extract class path from fileUri
+                  // (apexlib://resources/StandardApexLibrary/System/String.cls -> System/String.cls)
                   const match = registryEntry.fileUri.match(
-                    /apex:\/\/stdlib\/(.+)/,
+                    /apexlib:\/\/resources\/StandardApexLibrary\/(.+\.cls)$/,
                   );
                   if (match) {
-                    const classPath = `${match[1]}.cls`;
+                    const classPath = match[1];
                     const symbolTable =
                       await this.resourceLoader?.getSymbolTable(classPath);
                     if (symbolTable) {
@@ -5458,10 +5459,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           }
 
           // Symbol not in graph yet - load from cache using fileUri
-          // Extract class path from fileUri (apex://stdlib/System/String -> System/String.cls)
-          const match = registryEntry.fileUri.match(/apex:\/\/stdlib\/(.+)/);
+          // Extract class path from fileUri
+          // (apexlib://resources/StandardApexLibrary/System/String.cls -> System/String.cls)
+          const match = registryEntry.fileUri.match(
+            /apexlib:\/\/resources\/StandardApexLibrary\/(.+\.cls)$/,
+          );
           if (match) {
-            const classPath = `${match[1]}.cls`;
+            const classPath = match[1];
             const symbolTable =
               await this.resourceLoader.getSymbolTable(classPath);
             if (symbolTable) {
@@ -5499,7 +5503,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             this.logger.debug(
               () =>
                 `[resolveStandardApexClass] Found registry entry for "${name}" but ` +
-                `fileUri doesn't match apex://stdlib/ pattern: ${registryEntry.fileUri}`,
+                `fileUri doesn't match apexlib://resources/StandardApexLibrary/ pattern: ${registryEntry.fileUri}`,
             );
           }
           // If loading failed, fall through to cache loading below

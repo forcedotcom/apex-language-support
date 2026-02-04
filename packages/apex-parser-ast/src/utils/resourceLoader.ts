@@ -645,8 +645,10 @@ export class ResourceLoader {
   ): Promise<void> {
     // Populate namespace index from cached data
     for (const [fileUri, _symbolTable] of data.symbolTables) {
-      // Extract namespace from file URI (format: apex://stdlib/{namespace}/{className})
-      const match = fileUri.match(/apex:\/\/stdlib\/([^/]+)\/([^/]+)/);
+      // Extract namespace from file URI (format: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls)
+      const match = fileUri.match(
+        /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\/([^/]+)\.cls$/,
+      );
       if (match) {
         const namespace = match[1];
         const className = match[2];
@@ -877,8 +879,8 @@ export class ResourceLoader {
 
     // Try to find the symbol table for this class
     // Handle various path formats:
-    // - "System/String.cls" -> "apex://stdlib/System/String"
-    // - "String" -> "apex://stdlib/System/String"
+    // - "System/String.cls" -> "apexlib://resources/StandardApexLibrary/System/String.cls"
+    // - "String" -> "apexlib://resources/StandardApexLibrary/System/String.cls"
 
     // Normalize the class name
     let searchUri: string | null = null;
@@ -895,7 +897,7 @@ export class ResourceLoader {
     if (pathParts.length >= 2) {
       const namespace = pathParts[0];
       const classNameOnly = pathParts[pathParts.length - 1];
-      searchUri = `apex://stdlib/${namespace}/${classNameOnly}`;
+      searchUri = `apexlib://resources/StandardApexLibrary/${namespace}/${classNameOnly}.cls`;
       this.logger.debug(
         () =>
           `[DIAGNOSTIC] Path has namespace: '${namespace}', ` +
