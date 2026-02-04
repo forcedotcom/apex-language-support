@@ -8,7 +8,11 @@
 
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  enableConsoleLogging,
+  setLogLevel,
+} from '@salesforce/apex-lsp-shared';
 import { ReferenceContext } from '../../src/types/symbolReference';
 import type { SymbolReference } from '../../src/types/symbolReference';
 import {
@@ -22,6 +26,8 @@ describe('ResourceLoader Integration', () => {
   const logger = getLogger();
 
   beforeAll(async () => {
+    enableConsoleLogging();
+    setLogLevel('error'); // Set to error to avoid busy logs in CI/CD
     // Initialize ResourceLoader with StandardApexLibrary.zip
     resourceLoader = await initializeResourceLoaderForTests();
 

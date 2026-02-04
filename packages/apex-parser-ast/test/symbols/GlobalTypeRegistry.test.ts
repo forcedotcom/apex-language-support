@@ -13,12 +13,18 @@ import {
   type TypeRegistryEntry,
 } from '../../src/services/GlobalTypeRegistryService';
 import { SymbolKind } from '../../src/types/symbol';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('GlobalTypeRegistry Effect Service', () => {
   // Helper to run Effect programs with the registry service
   const runWithRegistry = <A>(
     effect: Effect.Effect<A, never, GlobalTypeRegistry>,
   ) => Effect.runPromise(effect.pipe(Effect.provide(GlobalTypeRegistryLive)));
+
+  beforeAll(() => {
+    enableConsoleLogging();
+    setLogLevel('error'); // Set to error to avoid busy logs in CI/CD
+  });
 
   afterEach(async () => {
     // Clear registry after each test

@@ -17,6 +17,7 @@ import {
 } from '../../src/cache/stdlib-cache-loader';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
 import type { MethodSymbol, VariableSymbol } from '../../src/types/symbol';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 // These tests require the protobuf cache to be generated first
 // Run: npm run generate:stdlib-cache
@@ -25,6 +26,8 @@ describe('Protobuf vs ZIP equivalence', () => {
   const skipIfNoCacheAvailable = !isProtobufCacheAvailable();
 
   beforeAll(() => {
+    enableConsoleLogging();
+    setLogLevel('error'); // Set to error to avoid busy logs in CI/CD
     if (skipIfNoCacheAvailable) {
       console.warn(
         'Skipping equivalence tests: protobuf cache not available. ' +

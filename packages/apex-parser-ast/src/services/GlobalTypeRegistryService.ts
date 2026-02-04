@@ -159,17 +159,17 @@ class GlobalTypeRegistryImpl implements GlobalTypeRegistryService {
 
       // Log milestone when crossing thresholds
       if (beforeCount < 1000 && afterCount >= 1000) {
-        this.logger.info(
+        this.logger.debug(
           () =>
             `[GlobalTypeRegistry] Registry reached 1,000 types (memory: ~${memoryEstimate}KB)`,
         );
       } else if (beforeCount < 5000 && afterCount >= 5000) {
-        this.logger.info(
+        this.logger.debug(
           () =>
             `[GlobalTypeRegistry] Registry reached 5,000 types (memory: ~${memoryEstimate}KB)`,
         );
       } else if (beforeCount < 10000 && afterCount >= 10000) {
-        this.logger.info(
+        this.logger.debug(
           () =>
             `[GlobalTypeRegistry] Registry reached 10,000 types (memory: ~${memoryEstimate}KB)`,
         );

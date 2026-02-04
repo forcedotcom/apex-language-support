@@ -11,12 +11,15 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { SymbolKind } from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 import { Effect } from 'effect';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('Block Symbols Verification', () => {
   let resourceLoader: ResourceLoader;
   let symbolManager: ApexSymbolManager;
 
   beforeAll(async () => {
+    enableConsoleLogging();
+    setLogLevel('error'); // Set to error to avoid busy logs in CI/CD
     resourceLoader = new ResourceLoader();
     await resourceLoader.initialize();
 

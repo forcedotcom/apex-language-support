@@ -23,7 +23,7 @@ describe('Protobuf Cache Diagnostic', () => {
 
   beforeAll(() => {
     enableConsoleLogging();
-    setLogLevel('info'); // Enable diagnostic logging
+    setLogLevel('error'); // Set to error to avoid busy logs in CI/CD
     logger = getLogger();
   });
 

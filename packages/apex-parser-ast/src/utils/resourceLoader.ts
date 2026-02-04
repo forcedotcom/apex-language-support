@@ -445,21 +445,21 @@ export class ResourceLoader {
       return fallback;
     }
 
-    this.logger.info(
+    this.logger.debug(
       'Computing namespace dependency order from standard library symbol data...',
     );
     const deps = NamespaceDependencyAnalyzer.analyzeFromProtobuf(
       this.standardLibrarySymbolData.symbolTables,
     );
 
-    this.logger.info(`Analyzed ${deps.size} namespaces for dependencies`);
+    this.logger.debug(`Analyzed ${deps.size} namespaces for dependencies`);
 
     this.namespaceDependencyOrder =
       NamespaceDependencyAnalyzer.topologicalSort(deps);
 
     const first10 = this.namespaceDependencyOrder.slice(0, 10).join(', ');
     const total = this.namespaceDependencyOrder.length;
-    this.logger.info(
+    this.logger.debug(
       `✓ Namespace dependency order computed: ${first10}... (${total} total)`,
     );
 

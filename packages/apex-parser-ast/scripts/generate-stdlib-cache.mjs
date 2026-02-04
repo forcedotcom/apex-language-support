@@ -220,7 +220,6 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
 
   // Extract type metadata from each symbol table
   for (const ns of namespaceData) {
-    console.log(`[DEBUG] Processing namespace: ${ns.name}, files: ${ns.symbolTables.size}`);
     for (const [fileUri, symbolTable] of ns.symbolTables) {
       // Extract namespace and class name from file URI
       // Format: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls
@@ -234,20 +233,7 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
 
       const [, namespace, className] = match;
       
-      // Debug List specifically
-      if (className === 'List' || fileUri.includes('List')) {
-        console.log(`[DEBUG] Processing List file: ${fileUri}`);
-      }
-      
       const allSymbols = symbolTable.getAllSymbols();
-      
-      // Debug List specifically
-      if (className === 'List' || fileUri.includes('List')) {
-        console.log(`[DEBUG] List file has ${allSymbols.length} total symbols`);
-        const topLevel = allSymbols.filter(s => s.parentId === null || s.parentId === 'null');
-        console.log(`[DEBUG] List file has ${topLevel.length} top-level symbols:`,
-          topLevel.map(s => `${s.name}(${s.kind})`).join(', '));
-      }
 
       // Find top-level types only (parentId === 'null' or null)
       for (const symbol of allSymbols) {
@@ -266,10 +252,6 @@ async function generateTypeRegistry(namespaceData, sourceChecksum) {
           // Workaround: If symbol name is empty or "unknownClass" (parser bug with generic stubs),
           // use the className from the URI
           const symbolName = (symbol.name && symbol.name !== 'unknownClass') ? symbol.name : className;
-          
-          if (className === 'List' || className === 'Map' || className === 'Set') {
-            console.log(`[DEBUG] Builtin generic: className=${className}, symbol.name="${symbol.name}", symbolName="${symbolName}"`);
-          }
           
           if (!symbolName) {
             console.warn(`[WARN] Skipping symbol with empty name in ${fileUri}`);

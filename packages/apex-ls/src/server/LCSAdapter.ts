@@ -254,11 +254,11 @@ export class LCSAdapter {
         namespacesToLoad = resourceLoader.getNamespaceDependencyOrder();
         const first10 = namespacesToLoad.slice(0, 10).join(', ');
         const total = namespacesToLoad.length;
-        this.logger.info(
+        this.logger.debug(
           `Pre-populating ALL namespaces (dependency-ordered): ${first10}... (${total} total)`,
         );
       } else {
-        this.logger.info(
+        this.logger.debug(
           `Pre-populating symbol graph with namespaces: ${namespacesToLoad.join(', ')}`,
         );
       }
@@ -301,7 +301,7 @@ export class LCSAdapter {
       }
 
       const duration = performance.now() - startTime;
-      this.logger.info(
+      this.logger.debug(
         `✅ Symbol graph pre-populated: ${loadedClasses}/${totalClasses} classes ` +
           `from ${namespacesToLoad.length} namespaces in ${duration.toFixed(2)}ms`,
       );
