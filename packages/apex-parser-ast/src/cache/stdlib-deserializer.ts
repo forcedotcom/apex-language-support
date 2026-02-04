@@ -90,7 +90,7 @@ export class StandardLibraryDeserializer {
         symbolTables.set(protoType.fileUri, symbolTable);
 
         // Also add to allTypes for quick access
-        const typeSymbol = this.convertTypeSymbol(protoType, null);
+        const typeSymbol = this.convertTypeSymbol(protoType, null, namespace.name);
         allTypes.push(typeSymbol);
         typeCount++;
       }
@@ -119,7 +119,7 @@ export class StandardLibraryDeserializer {
     symbolTable.setFileUri(protoType.fileUri);
 
     // Add the main type symbol
-    const typeSymbol = this.convertTypeSymbol(protoType, null);
+    const typeSymbol = this.convertTypeSymbol(protoType, null, namespace);
     symbolTable.addSymbol(typeSymbol);
 
     // Add methods
@@ -193,7 +193,7 @@ export class StandardLibraryDeserializer {
     parentId: string,
     namespace?: string,
   ): void {
-    const typeSymbol = this.convertTypeSymbol(protoType, parentId);
+    const typeSymbol = this.convertTypeSymbol(protoType, parentId, namespace);
     symbolTable.addSymbol(typeSymbol);
 
     // Add methods
@@ -253,6 +253,7 @@ export class StandardLibraryDeserializer {
   private convertTypeSymbol(
     proto: ProtoTypeSymbol,
     parentId: string | null,
+    namespace?: string,
   ): TypeSymbol {
     const kind = this.convertTypeKind(proto.kind);
     const modifiers = this.convertModifiers(proto.modifiers);
@@ -267,7 +268,7 @@ export class StandardLibraryDeserializer {
       parentId || proto.parentId || null,
       undefined,
       proto.fqn,
-      undefined,
+      namespace, // Pass namespace to symbol
       this.convertAnnotations(proto.annotations),
     ) as TypeSymbol;
 
