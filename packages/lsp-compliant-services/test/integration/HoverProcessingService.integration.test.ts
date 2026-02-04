@@ -28,8 +28,6 @@ import {
   getLogger,
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
-import * as fs from 'fs';
-import * as path from 'path';
 
 // Mock the storage manager
 jest.mock('../../src/storage/ApexStorageManager', () => ({

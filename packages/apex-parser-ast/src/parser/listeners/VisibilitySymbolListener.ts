@@ -123,10 +123,12 @@ export class VisibilitySymbolListener
         const children = ctx.children || [];
         for (const child of children) {
           const childText = child.text;
-          if (childText && 
-              (childText.toLowerCase() === 'list' || 
-               childText.toLowerCase() === 'map' || 
-               childText.toLowerCase() === 'set')) {
+          if (
+            childText &&
+            (childText.toLowerCase() === 'list' ||
+              childText.toLowerCase() === 'map' ||
+              childText.toLowerCase() === 'set')
+          ) {
             name = childText;
             break;
           }
@@ -135,7 +137,7 @@ export class VisibilitySymbolListener
       if (!name) {
         name = 'unknownClass';
       }
-      
+
       const modifiers = this.getCurrentModifiers();
 
       // Only process symbols matching this listener's visibility

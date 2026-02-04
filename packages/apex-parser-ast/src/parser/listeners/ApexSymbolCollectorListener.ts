@@ -1039,7 +1039,7 @@ export class ApexSymbolCollectorListener
     try {
       // Reset modifiers at start of class declaration to track duplicates within this declaration only
       this.seenModifiers.clear();
-      
+
       // Extract class name - handle special case where LIST, MAP, SET are lexer keywords
       // When the source is "class List", the lexer tokenizes "List" as LIST keyword, not as id
       // So ctx.id() returns undefined. We need to check for these keyword tokens.
@@ -1049,10 +1049,12 @@ export class ApexSymbolCollectorListener
         const children = ctx.children || [];
         for (const child of children) {
           const childText = child.text;
-          if (childText && 
-              (childText.toLowerCase() === 'list' || 
-               childText.toLowerCase() === 'map' || 
-               childText.toLowerCase() === 'set')) {
+          if (
+            childText &&
+            (childText.toLowerCase() === 'list' ||
+              childText.toLowerCase() === 'map' ||
+              childText.toLowerCase() === 'set')
+          ) {
             name = childText;
             break;
           }
