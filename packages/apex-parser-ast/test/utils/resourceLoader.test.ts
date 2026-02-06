@@ -119,8 +119,8 @@ describe('ResourceLoader', () => {
       await expect(loader.initialize()).resolves.not.toThrow();
     });
 
-    // TODO: Skip until protobuf cache is available in tests
-    // This test fails because initialize() tries to load protobuf cache which is not embedded in tests
+    // TODO: Skip until binary cache is available in tests
+    // This test fails because initialize() tries to load binary cache which is not embedded in tests
     it.skip('should automatically load embedded ZIP during initialize()', async () => {
       // Create instance without providing zipBuffer
       loader = ResourceLoader.getInstance();
@@ -245,7 +245,7 @@ describe('ResourceLoader', () => {
       loader = ResourceLoader.getInstance();
       await loader.initialize();
 
-      // Symbol tables should be loaded from protobuf cache
+      // Symbol tables should be loaded from binary cache
       const stats = loader.getStatistics();
       expect(stats.symbolTablesLoaded).toBeGreaterThan(0);
     });
@@ -274,7 +274,7 @@ describe('ResourceLoader', () => {
   });
 });
 
-describe('ResourceLoader On-Demand Loading from Protobuf Cache', () => {
+describe('ResourceLoader On-Demand Loading from Binary Cache', () => {
   let resourceLoader: ResourceLoader;
 
   beforeEach(() => {
@@ -293,10 +293,10 @@ describe('ResourceLoader On-Demand Loading from Protobuf Cache', () => {
     expect(symbolTables.size).toBeGreaterThan(0);
   });
 
-  it('should load symbol table from protobuf cache on demand', async () => {
+  it('should load symbol table from binary cache on demand', async () => {
     await resourceLoader.initialize();
 
-    // Load from protobuf cache on demand
+    // Load from binary cache on demand
     const symbolTable =
       await resourceLoader.getSymbolTable('System/System.cls');
 
@@ -304,7 +304,7 @@ describe('ResourceLoader On-Demand Loading from Protobuf Cache', () => {
     expect(symbolTable).toBeInstanceOf(SymbolTable);
   }, 30000);
 
-  it('should load files with correct namespace from protobuf cache', async () => {
+  it('should load files with correct namespace from binary cache', async () => {
     await resourceLoader.initialize();
 
     // Test System namespace
@@ -321,10 +321,10 @@ describe('ResourceLoader On-Demand Loading from Protobuf Cache', () => {
     expect(actionSymbolTable).toBeInstanceOf(SymbolTable);
   }, 30000);
 
-  it('should return null for classes not in protobuf cache', async () => {
+  it('should return null for classes not in binary cache', async () => {
     await resourceLoader.initialize();
 
-    // This simulates a class that doesn't exist in protobuf cache
+    // This simulates a class that doesn't exist in binary cache
     // In practice, this should never happen as build validation ensures 100% cache coverage
     const symbolTable = await resourceLoader.getSymbolTable(
       'NonExistent/Class.cls',
@@ -353,7 +353,7 @@ describe('ResourceLoader Lazy Loading', () => {
       await loader.initialize();
     });
 
-    it('should load a single class from protobuf cache on demand', async () => {
+    it('should load a single class from binary cache on demand', async () => {
       const symbolTable = await loader.getSymbolTable(TEST_CLASS);
 
       expect(symbolTable).toBeDefined();
@@ -361,20 +361,20 @@ describe('ResourceLoader Lazy Loading', () => {
       expect(symbolTable!.getAllSymbols().length).toBeGreaterThan(0);
     });
 
-    it('should return null for classes not in protobuf cache', async () => {
+    it('should return null for classes not in binary cache', async () => {
       const symbolTable = await loader.getSymbolTable('NonExistent/Class.cls');
       expect(symbolTable).toBeNull();
     });
 
-    it('should handle classes with syntax errors in protobuf cache', async () => {
-      // Stub classes may have syntax errors but are still included in protobuf cache
+    it('should handle classes with syntax errors in binary cache', async () => {
+      // Stub classes may have syntax errors but are still included in binary cache
       // with partial type information extracted via ANTLR error recovery
       const symbolTable = await loader.getSymbolTable(TEST_CLASS);
       expect(symbolTable).toBeDefined();
     });
 
     it('should return same symbol table instance for repeated calls', async () => {
-      // First load from protobuf cache
+      // First load from binary cache
       const symbolTable1 = await loader.getSymbolTable(TEST_CLASS);
       expect(symbolTable1).toBeDefined();
 
@@ -401,7 +401,7 @@ describe('ResourceLoader Lazy Loading', () => {
       expect(result2).toBe(true);
     });
 
-    it('should return true for classes in protobuf cache', async () => {
+    it('should return true for classes in binary cache', async () => {
       // Initially check if available (sync check)
       expect(loader.hasSymbolTable(TEST_CLASS)).toBe(true);
 
@@ -410,7 +410,7 @@ describe('ResourceLoader Lazy Loading', () => {
       expect(result).toBe(true);
     });
 
-    it('should return false for classes not in protobuf cache', async () => {
+    it('should return false for classes not in binary cache', async () => {
       const result = await loader.hasSymbolTable('NonExistent/Class.cls');
       expect(result).toBe(false);
     });
@@ -441,7 +441,7 @@ describe('ResourceLoader Lazy Loading', () => {
       expect(loader.hasSymbolTable(TEST_CLASS)).toBe(true);
     });
 
-    it('should return null for classes not in protobuf cache', async () => {
+    it('should return null for classes not in binary cache', async () => {
       const symbolTable = await loader.getCompiledArtifact(
         'NonExistent/Class.cls',
       );
@@ -524,7 +524,7 @@ describe('ResourceLoader Lazy Loading', () => {
       // After initialization, all symbol tables from cache should be available
       const classNames = loader.getCompiledClassNames();
       expect(classNames.length).toBeGreaterThan(0);
-      // All class names should be file URIs from the protobuf cache
+      // All class names should be file URIs from the binary cache
       classNames.forEach((name) => {
         expect(name).toMatch(/^apexlib:\/\/resources\/StandardApexLibrary\//);
       });
@@ -537,7 +537,7 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
   let singleClassLoader: ResourceLoader | null = null;
 
   beforeAll(async () => {
-    // Set up a loader that loads classes from protobuf cache
+    // Set up a loader that loads classes from binary cache
     ResourceLoader.resetInstance();
     singleClassLoader = ResourceLoader.getInstance();
     await singleClassLoader.initialize();

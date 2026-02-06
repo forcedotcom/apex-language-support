@@ -117,7 +117,7 @@
         "./packages/apex-ls:compile",
         "./packages/apex-lsp-shared:compile",
         "./packages/apex-parser-ast:compile:tsc",
-        "./packages/apex-parser-ast:generate:stdlib-cache",
+        "./packages/apex-parser-ast:generate:binary-cache",
         "./packages/lsp-compliant-services:compile",
         "./packages/custom-services:compile",
         "./packages/apex-lsp-testbed:compile",

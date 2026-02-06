@@ -24,7 +24,7 @@
     "README.md"
   ],
   "scripts": {
-    "generate:stdlib-cache": "wireit",
+    "generate:binary-cache": "wireit",
     "precompile": "wireit",
     "bundle": "wireit",
     "compile": "wireit",
@@ -39,34 +39,31 @@
     "check:error-codes": "node scripts/check-error-code-coverage.mjs"
   },
   "wireit": {
-    "generate:stdlib-cache": {
-      "command": "node scripts/generate-stdlib-cache.mjs",
+    "generate:binary-cache": {
+      "command": "node scripts/generate-binary-cache.mjs",
       "dependencies": [
         "compile:tsc"
       ],
       "clean": "if-file-deleted",
       "output": [
-        "resources/apex-stdlib.pb.gz",
-        "resources/apex-type-registry.pb.gz",
-        "resources/apex-stdlib.sha256"
+        "resources/apex-stdlib.bin.gz",
+        "resources/apex-stdlib.bin.sha256"
       ],
       "files": [
         "src/resources/StandardApexLibrary/**/*.cls",
-        "scripts/generate-stdlib-cache.mjs"
+        "scripts/generate-binary-cache.mjs"
       ]
     },
     "precompile": {
-      "command": "node scripts/generate-proto.mjs && node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs && node scripts/generate-messages.mjs",
+      "command": "node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs && node scripts/generate-messages.mjs",
       "output": [
         "src/generated/**",
         "resources/StandardApexLibrary.zip"
       ],
       "files": [
-        "scripts/generate-proto.mjs",
         "scripts/generate-keywords.mjs",
         "scripts/generate-zip.mjs",
         "scripts/generate-messages.mjs",
-        "proto/apex-stdlib.proto",
         "src/**/*.cls",
         "src/resources/messages/messages_en_US.properties"
       ]
@@ -89,14 +86,14 @@
     "compile": {
       "dependencies": [
         "compile:tsc",
-        "generate:stdlib-cache"
+        "generate:binary-cache"
       ]
     },
     "bundle": {
       "command": "tsx esbuild.config.ts",
       "dependencies": [
         "compile:tsc",
-        "generate:stdlib-cache"
+        "generate:binary-cache"
       ],
       "output": [
         "dist/**"
@@ -105,7 +102,7 @@
         "src/**/*.ts",
         "esbuild.config.ts",
         "out/index.d.ts",
-        "resources/apex-stdlib.pb.gz"
+        "resources/apex-stdlib.bin.gz"
       ]
     },
     "test": {
@@ -194,7 +191,6 @@
   },
   "dependencies": {
     "@apexdevtools/apex-parser": "4.4.1",
-    "@protobuf-ts/runtime": "^2.9.4",
     "@salesforce/apex-lsp-shared": "^1.0.0",
     "@salesforce/vscode-i18n": "^65.15.2",
     "antlr4ts": "0.5.0-alpha.4",
@@ -203,7 +199,6 @@
     "fflate": "^0.8.1"
   },
   "devDependencies": {
-    "@protobuf-ts/plugin": "^2.9.4",
     "@salesforce/esbuild-presets": "^0.1.0",
     "@types/benchmark": "^2.1.5",
     "benchmark": "^2.1.4",

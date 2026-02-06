@@ -7,7 +7,7 @@
  */
 
 /**
- * This module exports the embedded protobuf cache data.
+ * This module exports the embedded binary cache data.
  * The require is wrapped in try-catch so the module can load even in unbundled
  * environments. esbuild will still detect the require for bundling purposes.
  *
@@ -15,29 +15,32 @@
  * and the cache loader will fall back to disk loading.
  */
 
-let embeddedData: string | { default?: string } | undefined;
+let embeddedBinaryData: string | { default?: string } | undefined;
 try {
-  embeddedData = require('../../resources/apex-stdlib.pb.gz');
+  embeddedBinaryData = require('../../resources/apex-stdlib.bin.gz');
 } catch {
   // Expected in unbundled environments - esbuild will still detect this for bundling
-  embeddedData = undefined;
+  embeddedBinaryData = undefined;
 }
 
 /**
- * Get the embedded protobuf cache data URL.
+ * Get the embedded binary cache data URL.
  * Returns the data URL string if available, undefined otherwise.
  */
-export function getEmbeddedDataUrl(): string | undefined {
-  if (typeof embeddedData === 'string' && embeddedData.startsWith('data:')) {
-    return embeddedData;
+export function getEmbeddedBinaryCacheDataUrl(): string | undefined {
+  if (
+    typeof embeddedBinaryData === 'string' &&
+    embeddedBinaryData.startsWith('data:')
+  ) {
+    return embeddedBinaryData;
   }
   if (
-    embeddedData &&
-    typeof embeddedData === 'object' &&
-    typeof embeddedData.default === 'string' &&
-    embeddedData.default.startsWith('data:')
+    embeddedBinaryData &&
+    typeof embeddedBinaryData === 'object' &&
+    typeof embeddedBinaryData.default === 'string' &&
+    embeddedBinaryData.default.startsWith('data:')
   ) {
-    return embeddedData.default;
+    return embeddedBinaryData.default;
   }
   return undefined;
 }

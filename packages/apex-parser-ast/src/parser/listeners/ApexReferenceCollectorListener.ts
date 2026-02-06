@@ -85,6 +85,13 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     SymbolReference
   >();
 
+  // Caches for expensive context lookups
+  private typeDeclarationCache = new WeakMap<ParserRuleContext, boolean>();
+  private contextNameCache = new WeakMap<
+    ParserRuleContext,
+    string | undefined
+  >();
+
   // Context tracking fields set by primary listeners
   private currentMethodName: string | undefined;
   private currentTypeName: string | undefined;
@@ -846,6 +853,12 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       const fieldName = ctx.text || 'unknownField';
       const location = this.getLocation(ctx);
       const parentContext = this.getCurrentMethodName();
+
+      // Skip if parent is a method call - exitDotMethodCall will handle this with METHOD_CALL context
+      // This prevents duplicate chain nodes with conflicting contexts
+      if (ctx.parent instanceof DotMethodCallContext) {
+        return;
+      }
 
       if (this.chainExpressionScope?.isActive) {
         this.chainExpressionScope.chainNodes.push(
@@ -1968,6 +1981,15 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         startLocation,
       );
 
+      // Debug: Log analyzed chain node contexts
+      analyzedChainNodes.forEach((node, idx) => {
+        this.logger.debug(
+          () =>
+            `[CHAIN_ROOT] Analyzed node ${idx}: name="${node.name}", ` +
+            `context=${ReferenceContext[node.context] ?? node.context}`,
+        );
+      });
+
       const fullExpression = `${baseExpression}.${chainNodes.map((s) => s.name).join('.')}`;
       const finalLocation =
         chainNodes.length > 0
@@ -2137,23 +2159,22 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   }
 
   private isTypeDeclarationContext(ctx: TypeRefContext): boolean {
+    // Check cache first
+    const cached = this.typeDeclarationCache.get(ctx);
+    if (cached !== undefined) {
+      return cached;
+    }
+
     let current: ParserRuleContext | undefined = ctx.parent;
     let depth = 0;
-    const parentChain: string[] = [];
     while (current && depth < 15) {
       const name = current.constructor.name;
-      parentChain.push(name);
       if (
         name === 'LocalVariableDeclarationContext' ||
         name === 'FieldDeclarationContext' ||
         name === 'PropertyDeclarationContext'
       ) {
-        this.logger.debug(
-          () =>
-            '[isTypeDeclarationContext] Found type declaration context ' +
-            `at depth ${depth}: ${name}, ` +
-            `parent chain: [${parentChain.join(' -> ')}]`,
-        );
+        this.typeDeclarationCache.set(ctx, true);
         return true;
       }
       if (
@@ -2161,20 +2182,13 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         name === 'ConstructorDeclarationContext' ||
         name === 'InterfaceMethodDeclarationContext'
       ) {
-        this.logger.debug(
-          () =>
-            `[isTypeDeclarationContext] Found method context at depth ${depth}, ` +
-            `stopping search. Parent chain: [${parentChain.join(' -> ')}]`,
-        );
+        this.typeDeclarationCache.set(ctx, false);
         return false;
       }
       current = current.parent;
       depth++;
     }
-    this.logger.debug(
-      () =>
-        `[isTypeDeclarationContext] No type declaration found. Parent chain: [${parentChain.join(' -> ')}]`,
-    );
+    this.typeDeclarationCache.set(ctx, false);
     return false;
   }
 
@@ -2212,6 +2226,12 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       return this.currentTypeName;
     }
 
+    // Check cache for this context node
+    const cached = this.contextNameCache.get(ctx);
+    if (cached !== undefined) {
+      return cached;
+    }
+
     // Fallback path: Only walk parse tree if context not explicitly set (for standalone usage)
     // Traverse up the parse tree to find the appropriate context
     let current: ParserRuleContext | undefined =
@@ -2226,7 +2246,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         name === 'ConstructorDeclarationContext' ||
         name === 'InterfaceMethodDeclarationContext'
       ) {
-        return this.getCurrentMethodName();
+        const result = this.getCurrentMethodName();
+        this.contextNameCache.set(ctx, result);
+        return result;
       }
 
       // Check for field/property/type declaration contexts
@@ -2238,6 +2260,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         // For type declarations, return the method name if in a method, otherwise try to get type name
         const methodName = this.getCurrentMethodName();
         if (methodName) {
+          this.contextNameCache.set(ctx, methodName);
           return methodName;
         }
         // Try to get type name by walking up further
@@ -2248,10 +2271,13 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             typeParent.constructor.name === 'InterfaceDeclarationContext'
           ) {
             const typeId = (typeParent as any).id?.();
-            return typeId?.text;
+            const result = typeId?.text;
+            this.contextNameCache.set(ctx, result);
+            return result;
           }
           typeParent = typeParent.parent;
         }
+        this.contextNameCache.set(ctx, undefined);
         return undefined;
       }
 
@@ -2259,7 +2285,9 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     }
 
     // Fallback to current method context
-    return this.getCurrentMethodName();
+    const finalResult = this.getCurrentMethodName();
+    this.contextNameCache.set(ctx, finalResult);
+    return finalResult;
   }
 
   private extractBaseExpressionFromParser(ctx: DotExpressionContext): string {

@@ -68,7 +68,7 @@
         "../esbuild-presets:compile",
         "../lsp-compliant-services:compile",
         "../apex-parser-ast:compile:tsc",
-        "../apex-parser-ast:generate:stdlib-cache"
+        "../apex-parser-ast:generate:binary-cache"
       ],
       "output": [
         "dist/**"

@@ -163,6 +163,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private loadingSymbolTables: Set<string> = new Set();
   // Cache for isStaticReference results to avoid recomputing
   private readonly isStaticCache = new WeakMap<SymbolReference, boolean>();
+  // Negative resolution cache: fileUri -> Set of "memberName:memberType"
+  private readonly negativeMemberCache: HashMap<string, Set<string>> =
+    new HashMap();
   // Batch size for initial reference processing
   private readonly initialReferenceBatchSize: number;
   // Track detail level per file for enrichment
@@ -259,7 +262,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     );
     this.builtInTypeTables = BuiltInTypeTablesImpl.getInstance();
 
-    // Initialize ResourceLoader for standard Apex classes (lazy loading from protobuf cache)
+    // Initialize ResourceLoader for standard Apex classes (lazy loading from binary cache)
     try {
       this.resourceLoader = ResourceLoader.getInstance();
     } catch (error) {
@@ -1817,6 +1820,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // This ensures that findSymbolsInFile() will see the newly added symbols
       self.unifiedCache.invalidatePattern(`file_symbols_${normalizedUri}`);
 
+      // Invalidate negative member cache for this file
+      self.negativeMemberCache.delete(normalizedUri);
+
       // Also invalidate name-based cache to ensure findSymbolByName works correctly
       for (const symbolName of symbolNamesAdded) {
         const normalizedName = symbolName.toLowerCase();
@@ -1836,15 +1842,24 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       self.memoryStats.totalSymbols = graphStats.totalSymbols;
 
       // Register user types to GlobalTypeRegistry for O(1) lookup
-      const symbolTableForRegistry =
-        self.symbolGraph.getSymbolTableForFile(normalizedUri);
-      if (symbolTableForRegistry) {
-        // Run registry update with GlobalTypeRegistry context
-        const registerEffect = self.registerUserTypesToGlobalRegistry(
-          symbolTableForRegistry,
-          normalizedUri,
-        );
-        yield* Effect.provide(registerEffect, GlobalTypeRegistryLive);
+      // SKIP for standard library types - they're already registered during initialization
+      // from the binary cache with isStdlib: true
+      const isStdlibFile =
+        isStandardApexUri(normalizedUri) ||
+        normalizedUri.includes('StandardApexLibrary') ||
+        normalizedUri.includes('apexlib://');
+
+      if (!isStdlibFile) {
+        const symbolTableForRegistry =
+          self.symbolGraph.getSymbolTableForFile(normalizedUri);
+        if (symbolTableForRegistry) {
+          // Run registry update with GlobalTypeRegistry context
+          const registerEffect = self.registerUserTypesToGlobalRegistry(
+            symbolTableForRegistry,
+            normalizedUri,
+          );
+          yield* Effect.provide(registerEffect, GlobalTypeRegistryLive);
+        }
       }
     });
   }
@@ -6840,6 +6855,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const instanceSymbol = await this.tryResolveAsInstance(
         stepName,
         currentContext,
+        step,
       );
       if (instanceSymbol) {
         resolutions.push({ type: 'symbol', symbol: instanceSymbol });
@@ -7043,6 +7059,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const stepName = step.name;
     const stepContext = step.context;
     const _contextSymbol = currentContext.symbol;
+
+    this.logger.debug(
+      () =>
+        `[tryResolveAsMember] step="${stepName}", context=${ReferenceContext[stepContext] ?? stepContext}, ` +
+        `currentContext.symbol.name="${_contextSymbol?.name}", currentContext.symbol.kind="${_contextSymbol?.kind}"`,
+    );
 
     // Try as method if context suggests it
     if (stepContext === ReferenceContext.METHOD_CALL) {
@@ -7832,8 +7854,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private async tryResolveAsInstance(
     stepName: string,
     currentContext: ChainResolutionContext | undefined,
+    step?: SymbolReference,
   ): Promise<ApexSymbol | null> {
-    // If we have a current context, try to find as a property in that context
+    // Determine memberType based on step context
+    // For METHOD_CALL, we should look for methods; for FIELD_ACCESS, properties
+    // For CHAIN_STEP (ambiguous), default to 'property' for instance resolution
+    // since methods are handled by tryResolveAsMember
+    const memberType: 'property' | 'method' =
+      step?.context === ReferenceContext.METHOD_CALL ? 'method' : 'property';
+
+    // If we have a current context, try to find as a property/method in that context
     // BUT: Don't try property resolution if the context is a Class/Interface/Enum
     // (those should use tryResolveAsMember instead, which handles methods properly)
     if (
@@ -7843,13 +7873,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       currentContext.symbol.kind !== SymbolKind.Interface &&
       currentContext.symbol.kind !== SymbolKind.Enum
     ) {
-      const propertySymbol = await this.resolveMemberInContext(
+      const resolvedSymbol = await this.resolveMemberInContext(
         currentContext,
         stepName,
-        'property',
+        memberType,
       );
-      if (propertySymbol) {
-        return propertySymbol;
+      if (resolvedSymbol) {
+        return resolvedSymbol;
       }
     }
 
@@ -7897,6 +7927,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const contextSymbol = context.symbol;
       const contextFile = contextSymbol.fileUri;
       if (contextFile) {
+        // Check negative cache to avoid redundant expensive lookups for known missing members
+        const fileNegatives = this.negativeMemberCache.get(contextFile);
+        if (fileNegatives?.has(`${memberName}:${memberType}`)) {
+          return null;
+        }
+
         this.logger.debug(
           () =>
             `resolveMemberInContext: Looking for member "${memberName}" (${memberType}) ` +
@@ -8492,6 +8528,25 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   `Class block parentIds: ${allClassBlocks.map((b) => b.parentId).join(', ')}. ` +
                   `Class symbol IDs: ${classSymbols.map((s) => s.id).join(', ')}`,
               );
+
+              // FALLBACK: If no class block found (e.g., stdlib without full symbol structure),
+              // try to find methods directly in the symbol table by matching name, kind, and file
+              // This handles cases where the binary cache doesn't include class blocks or
+              // the parentId chain doesn't match expectations
+              const directMatch = allSymbols.find(
+                (s) =>
+                  !isBlockSymbol(s) &&
+                  s.name === memberName &&
+                  s.kind === memberType,
+              );
+              if (directMatch) {
+                this.logger.debug(
+                  () =>
+                    `Found member "${memberName}" via direct lookup fallback ` +
+                    '(no class block available)',
+                );
+                return directMatch;
+              }
             } else {
               // Capture classBlock in a const to help TypeScript narrow the type
               const resolvedClassBlock = classBlock;
@@ -8539,57 +8594,59 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                       return false;
                     })()),
               );
-              this.logger.debug(
-                () =>
-                  `Looking for member "${memberName}" (${memberType}) in class ` +
-                  `"${contextSymbol.name}" (fileUri: ${contextSymbol.fileUri}), ` +
-                  `classBlock.id: ${resolvedClassBlock.id}, found ${classMembers.length} ` +
-                  `class members (direct scope: ${directScopeMembers.length}). ` +
-                  `Sample members: ${classMembers
-                    .slice(0, 5)
-                    .map((s) => `${s.name || 'unnamed'} (${s.kind})`)
-                    .join(', ')}`,
-              );
+              // this.logger.debug(
+              //   () =>
+              //     `Looking for member "${memberName}" (${memberType}) in class ` +
+              //     `"${contextSymbol.name}" (fileUri: ${contextSymbol.fileUri}), ` +
+              //     `classBlock.id: ${resolvedClassBlock.id}, found ${classMembers.length} ` +
+              //     `class members (direct scope: ${directScopeMembers.length}). ` +
+              //     `Sample members: ${classMembers
+              //       .slice(0, 5)
+              //       .map((s) => `${s.name || 'unnamed'} (${s.kind})`)
+              //       .join(', ')}`,
+              // );
               // Filter by name and kind, excluding block symbols
               // CRITICAL: Also verify that the member's fileUri matches the class's fileUri
               // This ensures we only get methods from the correct class file
+              // For stdlib classes, we relax the fileUri check since normalization may differ
+              const isStdlib = isStandardApexUri(contextSymbol.fileUri || '');
               const matchingMembers = classMembers.filter(
                 (s) =>
                   !isBlockSymbol(s) &&
                   s.name === memberName &&
                   s.kind === memberType &&
-                  s.fileUri === contextSymbol.fileUri,
+                  // For stdlib, skip strict fileUri check as symbols may have normalized URIs
+                  (isStdlib || s.fileUri === contextSymbol.fileUri),
               );
-              this.logger.debug(
-                () =>
-                  `After filtering: found ${matchingMembers.length} matching members. ` +
-                  `Filter criteria: name=${memberName}, kind=${memberType}, ` +
-                  `fileUri=${contextSymbol.fileUri}, parentId=${resolvedClassBlock.id}`,
-              );
+              // this.logger.debug(
+              //   () =>
+              //     `After filtering: found ${matchingMembers.length} matching members. ` +
+              //     `Filter criteria: name=${memberName}, kind=${memberType}, ` +
+              //     `fileUri=${contextSymbol.fileUri}, parentId=${resolvedClassBlock.id}`,
+              // );
               if (matchingMembers.length === 0) {
                 // Debug: show what methods we did find
                 const methodsWithName = classMembers.filter(
                   (s) => !isBlockSymbol(s) && s.name === memberName,
                 );
-                const methodsWithKind = classMembers.filter(
-                  (s) => !isBlockSymbol(s) && s.kind === memberType,
-                );
-                const allMethods = classMembers.filter(
-                  (s) => !isBlockSymbol(s) && s.kind === 'method',
-                );
-                const membersWithSizeName = classMembers.filter(
-                  (s) => !isBlockSymbol(s) && s.name === 'size',
-                );
-                this.logger.debug(
-                  () =>
-                    `No matching members found. Methods with name "${memberName}": ` +
-                    `${methodsWithName.length}, Methods with kind "${memberType}": ` +
-                    `${methodsWithKind.length}, All methods: ${allMethods
-                      .map((m) => m.name)
-                      .join(', ')}, Members named "size": ${membersWithSizeName
-                      .map((m) => `${m.name} (${m.kind})`)
-                      .join(', ')}`,
-                );
+
+                // KIND GUARD: If we found a member with the same name but different kind,
+                // and we're looking for a property but found a method (common in Apex for size/isEmpty/etc),
+                // we can immediately fail and cache the result.
+                if (methodsWithName.length > 0) {
+                  const fileNegatives =
+                    this.negativeMemberCache.get(contextFile) || new Set();
+                  fileNegatives.add(`${memberName}:${memberType}`);
+                  this.negativeMemberCache.set(contextFile, fileNegatives);
+
+                  this.logger.debug(
+                    () =>
+                      `Kind mismatch: found ${methodsWithName.length} members named "${memberName}" ` +
+                      `but none match kind "${memberType}". Applying kind guard and caching failure.`,
+                  );
+                  return null;
+                }
+
                 if (methodsWithName.length > 0) {
                   methodsWithName.forEach((m, idx) => {
                     this.logger.debug(
@@ -8619,6 +8676,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     (methodParentBlock.parentId === contextSymbol.id ||
                       methodParentBlock.parentId === classSymbolId);
                   if (parentChainMatches) {
+                    return method;
+                  }
+                  // FALLBACK: For stdlib classes, the parent chain might not match perfectly
+                  // due to how binary cache stores symbols. If we found a method by name
+                  // in the same file, return it.
+                  if (isStandardApexUri(contextSymbol.fileUri || '')) {
+                    this.logger.debug(
+                      () =>
+                        `Method ${memberName} found in stdlib class ${contextSymbol.name} ` +
+                        '(parent chain mismatch allowed for stdlib)',
+                    );
                     return method;
                   }
                   this.logger.debug(
@@ -8767,6 +8835,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             // If class block lookup failed and we couldn't load the class, return null
             // This prevents falling back to global search which might pick methods from
             // the wrong class (e.g., Email.toString() instead of String.toString())
+            const finalNegatives =
+              this.negativeMemberCache.get(contextFile) || new Set();
+            finalNegatives.add(`${memberName}:${memberType}`);
+            this.negativeMemberCache.set(contextFile, finalNegatives);
             return null;
           }
 

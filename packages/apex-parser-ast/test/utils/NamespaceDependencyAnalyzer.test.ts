@@ -182,7 +182,7 @@ describe('NamespaceDependencyAnalyzer', () => {
     };
   }
 
-  describe('analyzeFromProtobuf', () => {
+  describe('analyzeFromSymbolTables', () => {
     it('should extract namespace from URI correctly', () => {
       const symbolTables = new Map([
         [
@@ -196,7 +196,7 @@ describe('NamespaceDependencyAnalyzer', () => {
       ]);
 
       const deps =
-        NamespaceDependencyAnalyzer.analyzeFromProtobuf(symbolTables);
+        NamespaceDependencyAnalyzer.analyzeFromSymbolTables(symbolTables);
 
       expect(deps.has('System')).toBe(true);
       expect(deps.has('Database')).toBe(true);
@@ -219,7 +219,7 @@ describe('NamespaceDependencyAnalyzer', () => {
       ]);
 
       const deps =
-        NamespaceDependencyAnalyzer.analyzeFromProtobuf(symbolTables);
+        NamespaceDependencyAnalyzer.analyzeFromSymbolTables(symbolTables);
 
       const databaseDeps = deps.get('Database');
       expect(databaseDeps).toBeDefined();
@@ -243,7 +243,7 @@ describe('NamespaceDependencyAnalyzer', () => {
       ]);
 
       const deps =
-        NamespaceDependencyAnalyzer.analyzeFromProtobuf(symbolTables);
+        NamespaceDependencyAnalyzer.analyzeFromSymbolTables(symbolTables);
 
       const databaseDeps = deps.get('Database');
       expect(databaseDeps).toBeDefined();
@@ -266,7 +266,7 @@ describe('NamespaceDependencyAnalyzer', () => {
       ]);
 
       const deps =
-        NamespaceDependencyAnalyzer.analyzeFromProtobuf(symbolTables);
+        NamespaceDependencyAnalyzer.analyzeFromSymbolTables(symbolTables);
 
       const databaseDeps = deps.get('Database');
       expect(databaseDeps).toBeDefined();
@@ -291,7 +291,7 @@ describe('NamespaceDependencyAnalyzer', () => {
       ]);
 
       const deps =
-        NamespaceDependencyAnalyzer.analyzeFromProtobuf(symbolTables);
+        NamespaceDependencyAnalyzer.analyzeFromSymbolTables(symbolTables);
 
       const databaseDeps = deps.get('Database');
       expect(databaseDeps).toBeDefined();
@@ -314,7 +314,7 @@ describe('NamespaceDependencyAnalyzer', () => {
       ]);
 
       const deps =
-        NamespaceDependencyAnalyzer.analyzeFromProtobuf(symbolTables);
+        NamespaceDependencyAnalyzer.analyzeFromSymbolTables(symbolTables);
 
       const systemDeps = deps.get('System');
       expect(systemDeps).toBeDefined();

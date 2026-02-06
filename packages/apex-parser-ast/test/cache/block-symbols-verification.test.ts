@@ -29,7 +29,7 @@ describe('Block Symbols Verification', () => {
     });
   });
 
-  it('should load block symbols from protobuf cache', async () => {
+  it('should load block symbols from binary cache', async () => {
     const encodingUtilUri = 'System/EncodingUtil.cls';
     const symbolTable = await resourceLoader.getSymbolTable(encodingUtilUri);
 
