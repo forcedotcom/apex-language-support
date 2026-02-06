@@ -10,6 +10,7 @@
     "test": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
+    "test:perf:quick": "QUICK=true npm run test:perf",
     "test:quality": "wireit",
     "test:coverage:report": "wireit",
     "test:web": "wireit",
@@ -50,11 +51,11 @@
   },
   "homepage": "https://github.com/forcedotcom/apex-language-support#readme",
   "devDependencies": {
-    "@salesforce/apex-lsp-compliant-services": "1.0.0",
-    "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@commitlint/cli": "^19.2.1",
     "@commitlint/config-conventional": "^19.1.0",
     "@playwright/test": "^1.55.0",
+    "@salesforce/apex-lsp-compliant-services": "1.0.0",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@semantic-release/git": "^10.0.1",
     "@tony.ganchev/eslint-plugin-header": "^3.1.2",
     "@types/benchmark": "^2.1.5",
@@ -63,12 +64,14 @@
     "@types/semver": "^7.7.0",
     "@typescript-eslint/eslint-plugin": "^8.28.0",
     "@typescript-eslint/parser": "^8.28.0",
-    "@vscode/test-web": "^0.0.74",
+    "@vscode/test-web": "^0.0.79",
     "benchmark": "^2.1.4",
     "chalk": "^5.3.0",
     "commander": "^11.1.0",
     "commitizen": "^4.3.1",
     "cz-conventional-changelog": "^3.3.0",
+    "effect": "^3.18.4",
+    "esbuild": "^0.24.0",
     "eslint": "^9.23.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-import": "^2.31.0",
@@ -90,12 +93,10 @@
     "semver": "^7.7.2",
     "simple-git": "^3.22.0",
     "ts-jest": "^29.3.0",
-    "esbuild": "^0.24.0",
     "tsx": "^4.7.0",
     "typescript": "^5.8.2",
     "wireit": "^0.14.12",
-    "zod": "^3.22.4",
-    "effect": "^3.18.4"
+    "zod": "^3.22.4"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.9.0",
@@ -170,7 +171,9 @@
     "test:perf": {
       "dependencies": [
         "compile",
-        "./packages/apex-lsp-testbed:test:perf"
+        "./packages/apex-lsp-testbed:test:perf",
+        "./packages/apex-parser-ast:test:perf",
+        "./packages/lsp-compliant-services:test:perf"
       ]
     },
     "test:quality": {

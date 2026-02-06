@@ -193,9 +193,7 @@ export function isBuiltInType(symbol: any): boolean {
   // This includes wrapper types (String, Integer, etc.) and collection types (List, Set, Map)
   // which are now in StandardApexLibrary/System/ and resolved via ResourceLoader
   const namespace = symbol.namespace || extractNamespace(symbol.name);
-  const resourceLoader = ResourceLoader.getInstance({
-    preloadStdClasses: true,
-  });
+  const resourceLoader = ResourceLoader.getInstance();
   return namespace
     ? [...resourceLoader.getStandardNamespaces().keys()].includes(namespace)
     : false;
@@ -239,9 +237,7 @@ export function extractNamespace(
   defaultNamespace?: string,
 ): string {
   if (!name) return '';
-  const resourceLoader = ResourceLoader.getInstance({
-    preloadStdClasses: true,
-  });
+  const resourceLoader = ResourceLoader.getInstance();
   // If it's a built-in namespace, return the name itself
   if (
     [...resourceLoader.getStandardNamespaces().keys()].includes(name as any)
@@ -290,9 +286,7 @@ export function isGlobalSymbol(symbol: any): boolean {
  */
 export function isBuiltInFQN(fqn: string): boolean {
   if (!fqn) return false;
-  const resourceLoader = ResourceLoader.getInstance({
-    preloadStdClasses: true,
-  });
+  const resourceLoader = ResourceLoader.getInstance();
   // Check if the FQN starts with a built-in namespace
   for (const namespace of [...resourceLoader.getStandardNamespaces().keys()]) {
     if (fqn === namespace.toString() || fqn.startsWith(`${namespace}.`)) {

@@ -21,6 +21,7 @@ import {
   setLogLevel,
   ApexSettingsManager,
 } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
 
 import {
   DefaultApexDocumentSymbolProvider,
@@ -131,8 +132,9 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
       const params: DocumentSymbolParams = { textDocument: { uri: docUri } };
-      const integrationResult =
-        await symbolProvider.provideDocumentSymbols(params);
+      const integrationResult = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols(params),
+      );
 
       expect(integrationResult).not.toBeNull();
       expect(integrationResult).toHaveLength(1);
@@ -215,9 +217,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, complexApex);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).not.toBeNull();
       expect((result![0] as DocumentSymbol).children).toHaveLength(2);
@@ -259,7 +263,9 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
       const params: DocumentSymbolParams = { textDocument: { uri: docUri } };
-      const result = await symbolProvider.provideDocumentSymbols(params);
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols(params),
+      );
 
       const expected = {
         name: 'OuterClass',
@@ -327,9 +333,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       );
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).not.toBeNull();
       expect((result![0] as DocumentSymbol).kind).toBe(11); // SymbolKind.Interface
@@ -360,9 +368,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, enumApex);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).not.toBeNull();
       expect((result![0] as DocumentSymbol).kind).toBe(10); // SymbolKind.Enum
@@ -389,7 +399,9 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const params: DocumentSymbolParams = {
         textDocument: { uri: 'file:///missing.cls' },
       };
-      const result = await symbolProvider.provideDocumentSymbols(params);
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols(params),
+      );
       expect(result).toBeNull();
     });
 
@@ -399,9 +411,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).not.toBeNull();
       expect(result).toHaveLength(1);
@@ -421,9 +435,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).not.toBeNull();
       expect(result).toHaveLength(1);
@@ -442,9 +458,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
       // The parser is resilient and can still parse partial content
       expect(result).not.toBeNull();
       expect(result).toHaveLength(1);
@@ -466,9 +484,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).toHaveLength(1);
       const classSymbol = result![0] as DocumentSymbol;
@@ -484,9 +504,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).toHaveLength(1);
       const symbol = result![0] as DocumentSymbol;
@@ -503,9 +525,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       // Should parse valid classes correctly
       // NOTE: If there are duplicate declarations, they should all be shown (like TypeScript)
@@ -531,9 +555,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).not.toBeNull();
       expect(result!.length).toBeGreaterThanOrEqual(1);
@@ -580,9 +606,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).not.toBeNull();
       const firstSymbol = result![0] as DocumentSymbol;
@@ -604,9 +632,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).not.toBeNull();
       const firstSymbol = result![0] as DocumentSymbol;
@@ -630,9 +660,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).not.toBeNull();
       const enumSymbol = result![0] as DocumentSymbol;
@@ -702,9 +734,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).not.toBeNull();
       // Should only have one root-level symbol (ScopeExample)
@@ -749,9 +783,11 @@ private with sharing class FileUtilitiesTest {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).not.toBeNull();
       // Should only have one top-level symbol (FileUtilitiesTest)
@@ -800,9 +836,11 @@ private with sharing class FileUtilitiesTest {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).not.toBeNull();
       // Should only have one top-level symbol (FileUtilities)
@@ -836,9 +874,11 @@ private with sharing class FileUtilitiesTest {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).toHaveLength(1);
       const triggerSymbol = result![0] as DocumentSymbol;
@@ -860,9 +900,11 @@ private with sharing class FileUtilitiesTest {
       const textDocument = TextDocument.create(docUri, 'apex', 1, invalidApex);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       // The parser is resilient and can still parse partial content
       expect(result).not.toBeNull();
@@ -876,9 +918,11 @@ private with sharing class FileUtilitiesTest {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       // Empty documents return empty arrays
       expect(result).toEqual([]);
@@ -890,9 +934,11 @@ private with sharing class FileUtilitiesTest {
       const textDocument = TextDocument.create(docUri, 'apex', 1, content);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       // Whitespace-only documents return empty arrays
       expect(result).toEqual([]);

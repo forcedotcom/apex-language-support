@@ -13,62 +13,59 @@ import {
   isProtobufCacheAvailable,
 } from '../cache/stdlib-cache-loader';
 import type { DeserializationResult } from '../cache/stdlib-deserializer';
-import { getEmbeddedStandardLibraryZip } from './embeddedStandardLibrary';
+import {
+  getEmbeddedStandardLibraryZip,
+  clearEmbeddedZipCache,
+} from './embeddedStandardLibrary';
 
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
 import { normalizeApexPath } from './PathUtils';
-import { CompilerService } from '../parser/compilerService';
-import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
-import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
-import { STANDARD_APEX_LIBRARY_URI } from './ResourceUtils';
+import { NamespaceDependencyAnalyzer } from './NamespaceDependencyAnalyzer';
+import { Effect } from 'effect';
+import {
+  GlobalTypeRegistry,
+  GlobalTypeRegistryLive,
+} from '../services/GlobalTypeRegistryService';
+import { loadTypeRegistryFromGzip } from '../cache/type-registry-loader';
 
-export interface ResourceLoaderOptions {
-  preloadStdClasses?: boolean;
-  zipBuffer?: Uint8Array; // Direct ZIP buffer to use (for testing)
-}
-
-interface CompiledArtifact {
-  path: string;
-  compilationResult: CompilationResultWithAssociations<SymbolTable>;
-}
+// ResourceLoaderOptions interface removed - ResourceLoader now always uses
+// embedded archives with disk fallback. Namespace preloading is handled by
+// SymbolGraphSettings.preloadNamespaces in server settings.
 
 /**
- * ResourceLoader class for loading and compiling standard Apex classes from ZIP resources.
+ * ResourceLoader class for loading standard Apex class symbol tables and serving ephemeral docs.
  *
  * Core Responsibilities:
- * - Receive ZIP buffer via setZipBuffer() method
- * - Extract and index files using fflate for efficient in-memory storage
- * - Provide lazy loading of file contents on-demand
- * - Compile source code using CompilerService when needed
+ * - Load symbol tables from protobuf cache (apex-stdlib.pb.gz)
+ * - Initialize global type registry from gz file (apex-type-registry.pb.gz)
+ * - Serve ephemeral docs (source code) from ZIP for goto definition
  *
  * Resource Loading Strategy:
- * - ZIP buffer is provided directly via setZipBuffer() method
- * - Typically called by the language server after receiving data from client
+ * - Symbol tables are loaded from protobuf cache at initialization
+ * - Global type registry is loaded from gz file at initialization
+ * - ZIP buffer is used only for ephemeral docs (source code viewing)
  * - Works uniformly across all environments (web and desktop)
  *
  * @example
  * ```typescript
  * const loader = ResourceLoader.getInstance();
  *
- * // Set ZIP buffer (typically from language server)
- * const zipData = new Uint8Array([...]); // ZIP file bytes
- * loader.setZipBuffer(zipData);
+ * // Initialize loads protobuf cache and global registry
+ * await loader.initialize();
  *
- * // Content loaded on-demand from ZIP
- * const source = await loader.getFile('System/System.cls');
+ * // Get symbol table directly from cache
+ * const symbolTable = await loader.getSymbolTable('System/String.cls');
+ *
+ * // Get source code from ZIP for ephemeral docs
+ * const source = await loader.getFile('System/String.cls');
  * ```
  */
 export class ResourceLoader {
   private static instance: ResourceLoader;
-  // Store compiled artifacts for backward compatibility
-  private compiledArtifacts: CaseInsensitivePathMap<CompiledArtifact> =
-    new CaseInsensitivePathMap();
   private initialized = false;
-  private preloadStdClasses: boolean = false;
   private readonly logger = getLogger();
-  private compilerService: CompilerService;
   private namespaces: Map<string, CIS[]> = new Map(); // Key is original case namespace
   private fileIndex: CaseInsensitivePathMap<boolean> =
     new CaseInsensitivePathMap(); // Lightweight existence index with case-insensitive keys
@@ -84,40 +81,18 @@ export class ResourceLoader {
     new CaseInsensitivePathMap(); // Reverse index: className -> Set<namespace>
   private totalSize: number = 0; // Total size of all files
   private accessCount: number = 0; // Simple access counter for statistics
-  private artifactAccessCounts: CaseInsensitivePathMap<number> =
-    new CaseInsensitivePathMap(); // Track access counts per artifact to reduce log spam
   private zipBuffer?: Uint8Array; // Will be initialized via setZipBuffer
   private zipFiles: CaseInsensitivePathMap<Uint8Array> | null = null; // Will be initialized in extractZipFiles
-  private protobufCacheLoaded = false; // Track if protobuf cache was used
-  private protobufCacheData: DeserializationResult | null = null; // Cached protobuf data
+  private standardLibrarySymbolDataLoaded = false; // Track if standard library symbol data was loaded
+  private standardLibrarySymbolData: DeserializationResult | null = null; // Cached standard library symbol data
+  private namespaceDependencyOrder: string[] | null = null; // Cached dependency-sorted namespace order
 
-  private constructor(options?: ResourceLoaderOptions) {
-    this.logger.debug(
-      () =>
-        `🚀 ResourceLoader constructor called with options: ${JSON.stringify(options)}`,
-    );
-    if (options?.preloadStdClasses) {
-      this.preloadStdClasses = options.preloadStdClasses;
-    }
-
-    this.compilerService = new CompilerService();
+  private constructor() {
+    this.logger.debug(() => '🚀 ResourceLoader constructor called');
 
     // Initialize empty structure initially
     this.initializeEmptyStructure();
-
-    // If a ZIP buffer is provided directly, use it immediately
-    if (options?.zipBuffer) {
-      this.logger.debug(() => '📦 Using provided ZIP buffer directly');
-      this.zipBuffer = options.zipBuffer;
-      this.extractZipFiles();
-      this.initialized = true;
-    } else {
-      // Wait for setZipBuffer() to be called
-      this.logger.debug(
-        () => '📦 Waiting for ZIP buffer to be provided via setZipBuffer()',
-      );
-      this.initialized = true;
-    }
+    this.initialized = true;
   }
 
   /**
@@ -147,7 +122,15 @@ export class ResourceLoader {
       throw new Error('ZIP buffer not set. Call setZipBuffer() first.');
     }
 
-    const extractedFiles = unzipSync(this.zipBuffer);
+    let extractedFiles;
+    try {
+      extractedFiles = unzipSync(this.zipBuffer);
+    } catch (error) {
+      throw new Error(
+        `Failed to extract StandardApexLibrary.zip: ${error instanceof Error ? error.message : String(error)}. ` +
+          "The ZIP file may be corrupted. Please rebuild the extension with 'npm run build'.",
+      );
+    }
     this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
 
     // Convert to CaseInsensitivePathMap and preserve original paths
@@ -337,9 +320,9 @@ export class ResourceLoader {
     return content;
   }
 
-  public static getInstance(options?: ResourceLoaderOptions): ResourceLoader {
+  public static getInstance(): ResourceLoader {
     if (!ResourceLoader.instance) {
-      ResourceLoader.instance = new ResourceLoader(options);
+      ResourceLoader.instance = new ResourceLoader();
     }
     return ResourceLoader.instance;
   }
@@ -350,15 +333,20 @@ export class ResourceLoader {
    */
   public static resetInstance(): void {
     ResourceLoader.instance = null as any;
+    // Clear embedded ZIP cache to prevent stale buffer reuse
+    clearEmbeddedZipCache();
+    // Clear protobuf cache as well
+    StandardLibraryCacheLoader.clearCache();
   }
 
   /**
    * Set the ZIP buffer directly and extract files.
-   * This is the preferred method for providing the standard library ZIP data.
+   * Called internally by loadEmbeddedZipBuffer().
    *
    * @param buffer The ZIP file as a Uint8Array buffer
+   * @private
    */
-  public setZipBuffer(buffer: Uint8Array): void {
+  private setZipBuffer(buffer: Uint8Array): void {
     this.logger.debug(
       () => `📦 Setting ZIP buffer directly (${buffer.length} bytes)`,
     );
@@ -431,6 +419,54 @@ export class ResourceLoader {
   }
 
   /**
+   * Get namespaces in dependency order (dependencies first)
+   * Cached after first call. Uses topological sort of namespace dependency graph.
+   *
+   * @returns Array of namespace names in optimal load order
+   */
+  public getNamespaceDependencyOrder(): string[] {
+    if (this.namespaceDependencyOrder) {
+      this.logger.debug(
+        `Using cached dependency order: ${this.namespaceDependencyOrder.slice(0, 5).join(', ')}...`,
+      );
+      return this.namespaceDependencyOrder;
+    }
+
+    // Build from standard library symbol tables if available
+    if (!this.standardLibrarySymbolData) {
+      // Fallback: return alphabetical order if standard library symbol data not available
+      this.logger.warn(
+        '⚠️  Standard library symbol data not available, using alphabetical namespace order (FALLBACK)',
+      );
+      const fallback = [...this.getStandardNamespaces().keys()];
+      this.logger.warn(
+        `Alphabetical order: ${fallback.slice(0, 10).join(', ')}...`,
+      );
+      return fallback;
+    }
+
+    this.logger.debug(
+      'Computing namespace dependency order from standard library symbol data...',
+    );
+    const deps = NamespaceDependencyAnalyzer.analyzeFromProtobuf(
+      this.standardLibrarySymbolData.symbolTables,
+    );
+
+    this.logger.debug(`Analyzed ${deps.size} namespaces for dependencies`);
+
+    this.namespaceDependencyOrder =
+      NamespaceDependencyAnalyzer.topologicalSort(deps);
+
+    const first10 = this.namespaceDependencyOrder.slice(0, 10).join(', ');
+    const total = this.namespaceDependencyOrder.length;
+    this.logger.debug(
+      `✓ Namespace dependency order computed: ${first10}... (${total} total)`,
+    );
+
+    return this.namespaceDependencyOrder;
+  }
+
+  /**
    * Check if a namespace is a standard Apex namespace using case-insensitive lookup.
    * Uses namespaceIndex for O(1) lookup instead of iteration.
    *
@@ -476,7 +512,7 @@ export class ResourceLoader {
 
   /**
    * Initialize method for compatibility.
-   * Loads from protobuf cache unless a ZIP buffer was explicitly provided.
+   * Loads from standard library symbol data cache unless a ZIP buffer was explicitly provided.
    */
   public async initialize(): Promise<void> {
     if (!this.initialized) {
@@ -486,9 +522,10 @@ export class ResourceLoader {
       );
     }
 
-    // Load protobuf cache first (fast path for symbols)
-    if (!this.protobufCacheLoaded && !this.zipBuffer) {
-      await this.tryLoadFromProtobufCache();
+    // Load standard library symbol data first (fast path for symbols)
+    // Always try to load protobuf cache for symbol tables, regardless of zipBuffer
+    if (!this.standardLibrarySymbolDataLoaded) {
+      await this.tryLoadFromStandardLibrarySymbolData();
     }
 
     // Load ZIP buffer for source code (unless explicitly provided via setZipBuffer)
@@ -502,13 +539,13 @@ export class ResourceLoader {
   }
 
   /**
-   * Load standard library from protobuf cache.
+   * Load standard library symbol data from cache.
    * Returns true if successful.
    */
-  private async tryLoadFromProtobufCache(): Promise<boolean> {
+  private async tryLoadFromStandardLibrarySymbolData(): Promise<boolean> {
     // Check if protobuf cache is available
     if (!isProtobufCacheAvailable()) {
-      this.logger.error('Protobuf cache not available');
+      this.logger.error('Standard library symbol data cache not available');
       return false;
     }
 
@@ -517,27 +554,26 @@ export class ResourceLoader {
       const result = await loader.load();
 
       if (result.success && result.loadMethod === 'protobuf' && result.data) {
-        this.protobufCacheLoaded = true;
-        this.protobufCacheData = result.data;
+        this.standardLibrarySymbolDataLoaded = true;
+        this.standardLibrarySymbolData = result.data;
 
-        // Populate namespace index from protobuf data
-        this.populateFromProtobufCache(result.data);
+        // Populate namespace index from standard library symbol data (await to ensure registry is loaded)
+        await this.populateFromStandardLibrarySymbolData(result.data);
 
-        this.logger.alwaysLog(
-          () =>
-            `✅ Loaded stdlib from protobuf cache in ${result.loadTimeMs.toFixed(1)}ms ` +
-            `(${result.data!.metadata.typeCount} types)`,
-        );
+        // Note: Detailed loading stats already logged by StandardLibraryCacheLoader
         return true;
       }
 
       this.logger.error(
-        () => `Protobuf cache load failed: ${result.error || 'unknown error'}`,
+        () =>
+          `Standard library symbol data load failed: ${result.error || 'unknown error'}`,
       );
       return false;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(() => `Protobuf cache load failed: ${errorMsg}`);
+      this.logger.error(
+        () => `Standard library symbol data load failed: ${errorMsg}`,
+      );
       return false;
     }
   }
@@ -566,7 +602,7 @@ export class ResourceLoader {
       // ZIP loading failure should not prevent symbols from being available
       this.logger.warn(
         `⚠️ Failed to load ZIP for source content: ${zipError}. ` +
-          'Symbols are still available from protobuf cache.',
+          'Symbols are still available from standard library symbol data cache.',
       );
     }
   }
@@ -585,7 +621,8 @@ export class ResourceLoader {
 
       // Log which artifacts are available
       const artifacts: string[] = [];
-      if (this.protobufCacheLoaded) artifacts.push('protobuf cache');
+      if (this.standardLibrarySymbolDataLoaded)
+        artifacts.push('standard library symbol data');
       if (this.zipBuffer) artifacts.push('ZIP buffer');
 
       this.logger.debug(
@@ -600,14 +637,18 @@ export class ResourceLoader {
   }
 
   /**
-   * Populate ResourceLoader data structures from protobuf cache data.
+   * Populate ResourceLoader data structures from standard library symbol data.
    * This sets up namespace indexes and file mappings from the cached data.
    */
-  private populateFromProtobufCache(data: DeserializationResult): void {
+  private async populateFromStandardLibrarySymbolData(
+    data: DeserializationResult,
+  ): Promise<void> {
     // Populate namespace index from cached data
     for (const [fileUri, _symbolTable] of data.symbolTables) {
-      // Extract namespace from file URI (format: apex://stdlib/{namespace}/{className})
-      const match = fileUri.match(/apex:\/\/stdlib\/([^/]+)\/([^/]+)/);
+      // Extract namespace from file URI (format: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls)
+      const match = fileUri.match(
+        /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\/([^/]+)\.cls$/,
+      );
       if (match) {
         const namespace = match[1];
         const className = match[2];
@@ -641,108 +682,306 @@ export class ResourceLoader {
 
     this.logger.debug(
       () =>
-        `Populated from protobuf cache: ${this.namespaces.size} namespaces, ` +
+        `Populated from standard library symbol data: ${this.namespaces.size} namespaces, ` +
         `${this.fileIndex.size} files indexed`,
+    );
+
+    // Initialize the GlobalTypeRegistry from pre-built cache (await completion)
+    await this.initializeTypeRegistry();
+  }
+
+  /**
+   * Initialize GlobalTypeRegistry from pre-built cache file.
+   * Loads apex-type-registry.pb.gz and populates the Effect service.
+   *
+   * @private
+   */
+  private async initializeTypeRegistry(): Promise<void> {
+    const { validateMD5Checksum } = await import('./checksum-validator');
+
+    const registryResult = await this.loadRegistryCacheFile();
+    if (!registryResult) {
+      throw new Error(
+        'Type registry cache file not found (apex-type-registry.pb.gz). ' +
+          "This is a required build artifact. Please rebuild the extension with 'npm run build'.",
+      );
+    }
+
+    // Validate checksum (skip for embedded builds where checksumContent is empty)
+    if (registryResult.checksumContent) {
+      validateMD5Checksum(
+        'apex-type-registry.pb.gz',
+        registryResult.data,
+        registryResult.checksumContent,
+      );
+    }
+
+    const entries = loadTypeRegistryFromGzip(registryResult.data);
+
+    if (entries.length === 0) {
+      throw new Error(
+        'Type registry is empty. The apex-type-registry.pb.gz file may be corrupted. ' +
+          "Please rebuild the extension with 'npm run build'.",
+      );
+    }
+
+    const program = Effect.gen(function* () {
+      const registry = yield* GlobalTypeRegistry;
+
+      // Register all entries
+      for (const entry of entries) {
+        yield* registry.registerType(entry);
+      }
+
+      const stats = yield* registry.getStats();
+      return stats;
+    });
+
+    const stats = await Effect.runPromise(
+      program.pipe(Effect.provide(GlobalTypeRegistryLive)),
+    );
+
+    this.logger.alwaysLog(
+      () =>
+        `Loaded type registry from cache in <1ms (${stats.totalTypes} types)`,
     );
   }
 
   /**
-   * Check if the protobuf cache was used for loading
+   * Load the type registry cache file
+   * Tries embedded data URL first, then falls back to disk
+   *
+   * @private
    */
-  public isProtobufCacheLoaded(): boolean {
-    return this.protobufCacheLoaded;
+  private async loadRegistryCacheFile(): Promise<{
+    data: Uint8Array;
+    checksumContent: string;
+  } | null> {
+    // Import checksum validator
+    const { ChecksumFileMissingError, ChecksumValidationError } = await import(
+      './checksum-validator'
+    );
+
+    // Try embedded data URL first (production builds)
+    // Note: For embedded builds, checksums should be validated at build time
+    // TODO: Embed checksum in data URL or separate module for production validation
+    try {
+      const { getEmbeddedStandardLibraryTypeRegistryDataUrl } = await import(
+        '../cache/stdlib-type-registry-data'
+      );
+      const dataUrl = getEmbeddedStandardLibraryTypeRegistryDataUrl();
+      if (dataUrl) {
+        // Parse data URL and return binary
+        const base64 = dataUrl.split(',')[1];
+        const data = Buffer.from(base64, 'base64');
+        // For embedded builds, we skip checksum validation as files are bundled
+        // The build process should ensure integrity
+        return {
+          data: new Uint8Array(data),
+          checksumContent: '', // Empty string for embedded builds (skip validation)
+        };
+      }
+    } catch {
+      // Module not found or data URL not available
+    }
+
+    // Fallback to disk (development)
+    try {
+      if (typeof require === 'undefined') {
+        return null;
+      }
+
+      const fs = require('fs');
+      const path = require('path');
+
+      const possiblePaths = [
+        // From out/utils/ -> ../../resources/
+        path.resolve(__dirname, '../../resources/apex-type-registry.pb.gz'),
+        // From src/utils/ -> ../../resources/
+        path.resolve(__dirname, '../../resources/apex-type-registry.pb.gz'),
+        // From dist/ -> resources/
+        path.resolve(__dirname, '../resources/apex-type-registry.pb.gz'),
+        // Absolute path based on process.cwd()
+        path.resolve(process.cwd(), 'resources/apex-type-registry.pb.gz'),
+      ];
+
+      for (const registryPath of possiblePaths) {
+        try {
+          if (fs.existsSync(registryPath)) {
+            const md5Path = `${registryPath}.md5`;
+            if (!fs.existsSync(md5Path)) {
+              throw new ChecksumFileMissingError('apex-type-registry.pb.gz');
+            }
+            const buffer = fs.readFileSync(registryPath);
+            const checksumContent = fs.readFileSync(md5Path, 'utf8');
+            return {
+              data: new Uint8Array(buffer),
+              checksumContent,
+            };
+          }
+        } catch (error) {
+          // Re-throw checksum errors
+          if (
+            error instanceof ChecksumFileMissingError ||
+            error instanceof ChecksumValidationError
+          ) {
+            throw error;
+          }
+          // Try next path for other errors
+        }
+      }
+    } catch (error) {
+      // Re-throw checksum errors
+      const {
+        ChecksumFileMissingError: ChecksumMissingErr,
+        ChecksumValidationError: ChecksumValidErr,
+      } = await import('./checksum-validator');
+      if (
+        error instanceof ChecksumMissingErr ||
+        error instanceof ChecksumValidErr
+      ) {
+        throw error;
+      }
+      // File system access failed
+    }
+
+    return null;
   }
 
   /**
-   * Get the protobuf cache data if loaded
+   * Check if the standard library symbol data was loaded
    */
-  public getProtobufCacheData(): DeserializationResult | null {
-    return this.protobufCacheData;
+  public isStandardLibrarySymbolDataLoaded(): boolean {
+    return this.standardLibrarySymbolDataLoaded;
   }
 
   /**
-   * Get a compiled artifact from the protobuf cache.
-   * Converts cached SymbolTable to CompiledArtifact format.
+   * Get the standard library symbol data if loaded
    */
-  private getArtifactFromProtobufCache(
-    className: string,
-  ): CompiledArtifact | null {
-    if (!this.protobufCacheData) {
+  public getStandardLibrarySymbolData(): DeserializationResult | null {
+    return this.standardLibrarySymbolData;
+  }
+
+  /**
+   * Get a symbol table from the standard library symbol data cache.
+   * Handles various path formats and namespace resolution.
+   *
+   * @private
+   */
+  private getSymbolTableFromCache(className: string): SymbolTable | null {
+    if (!this.standardLibrarySymbolData) {
+      this.logger.debug(
+        () =>
+          '[DIAGNOSTIC] getSymbolTableFromCache: no standardLibrarySymbolData',
+      );
       return null;
     }
 
     // Try to find the symbol table for this class
     // Handle various path formats:
-    // - "System/String.cls" -> "apex://stdlib/System/String"
-    // - "String" -> "apex://stdlib/System/String"
+    // - "System/String.cls" -> "apexlib://resources/StandardApexLibrary/System/String.cls"
+    // - "String" -> "apexlib://resources/StandardApexLibrary/System/String.cls"
 
     // Normalize the class name
     let searchUri: string | null = null;
     const normalizedClassName = className.replace(/\.cls$/i, '');
+
+    this.logger.debug(
+      () =>
+        `[DIAGNOSTIC] getSymbolTableFromCache: className="${className}", ` +
+        `normalizedClassName="${normalizedClassName}"`,
+    );
 
     // Check if it includes a namespace
     const pathParts = normalizedClassName.split(/[\/\\]/);
     if (pathParts.length >= 2) {
       const namespace = pathParts[0];
       const classNameOnly = pathParts[pathParts.length - 1];
-      searchUri = `apex://stdlib/${namespace}/${classNameOnly}`;
+      searchUri = `apexlib://resources/StandardApexLibrary/${namespace}/${classNameOnly}.cls`;
+      this.logger.debug(
+        () =>
+          `[DIAGNOSTIC] Path has namespace: '${namespace}', ` +
+          `className: '${classNameOnly}', searchUri: '${searchUri}'`,
+      );
     } else {
       // Try to find by class name only - check all namespaces
-      for (const [uri, _symbolTable] of this.protobufCacheData.symbolTables) {
+      const tableCount = this.standardLibrarySymbolData!.symbolTables.size;
+      this.logger.debug(
+        () =>
+          '[DIAGNOSTIC] No namespace in path, searching by class name ' +
+          `only in ${tableCount} symbol tables`,
+      );
+      for (const [uri, _symbolTable] of this.standardLibrarySymbolData
+        .symbolTables) {
         if (uri.endsWith(`/${normalizedClassName}`)) {
           searchUri = uri;
+          this.logger.debug(
+            () => `[DIAGNOSTIC] Found matching URI by suffix: '${searchUri}'`,
+          );
           break;
         }
       }
     }
 
     if (!searchUri) {
+      this.logger.debug(
+        () =>
+          `[DIAGNOSTIC] Could not determine searchUri for className="${className}"`,
+      );
       return null;
     }
 
-    const symbolTable = this.protobufCacheData.symbolTables.get(searchUri);
+    const symbolTable =
+      this.standardLibrarySymbolData!.symbolTables.get(searchUri);
     if (!symbolTable) {
+      // Debug: List some example URIs from the cache to help diagnose
+      const sampleUris = Array.from(
+        this.standardLibrarySymbolData!.symbolTables.keys(),
+      ).slice(0, 10);
+      this.logger.debug(
+        () =>
+          `[DIAGNOSTIC] No symbol table found for searchUri='${searchUri}' in standard library symbol data cache. ` +
+          `Cache has ${this.standardLibrarySymbolData!.symbolTables.size} entries. ` +
+          `Sample URIs: ${sampleUris.join(', ')}`,
+      );
       return null;
     }
 
-    // Convert SymbolTable to CompiledArtifact
-    const artifact: CompiledArtifact = {
-      path: className,
-      compilationResult: {
-        result: symbolTable,
-        errors: [],
-        warnings: [],
-        fileName: searchUri,
-        comments: [],
-        commentAssociations: [],
-      },
-    };
+    this.logger.debug(
+      () =>
+        '[DIAGNOSTIC] Found symbol table for ' +
+        `searchUri='${searchUri}' in standard library symbol data cache`,
+    );
 
-    return artifact;
+    return symbolTable;
   }
 
   /**
-   * Get all compiled artifacts
-   * @returns Map of all compiled artifacts
+   * Get all symbol tables from the standard library symbol data cache.
+   * @returns Map of all symbol tables (fileUri -> SymbolTable)
    */
-  public getAllCompiledArtifacts(): CaseInsensitivePathMap<CompiledArtifact> {
+  public getAllSymbolTables(): Map<string, SymbolTable> {
     if (!this.initialized) {
       throw new Error(
         'ResourceLoader not initialized. Call initialize() first.',
       );
     }
 
-    return this.compiledArtifacts;
+    if (!this.standardLibrarySymbolData) {
+      return new Map();
+    }
+
+    return this.standardLibrarySymbolData.symbolTables;
   }
 
   /**
-   * Get enhanced statistics about loaded and compiled resources
+   * Get enhanced statistics about loaded resources
    * @returns Statistics object
    */
   public getStatistics(): {
     totalFiles: number;
     loadedFiles: number;
-    compiledFiles: number;
+    symbolTablesLoaded: number;
     directoryStructure: {
       totalFiles: number;
       totalSize: number;
@@ -751,7 +990,6 @@ export class ResourceLoader {
     lazyFileStats: {
       totalEntries: number;
       loadedEntries: number;
-      compiledEntries: number;
       averageAccessCount: number;
     };
     memfsStats: {
@@ -760,19 +998,14 @@ export class ResourceLoader {
     };
   } {
     const totalFiles = this.fileIndex.size;
-    let compiledFiles = 0;
-
-    // Count compiled files
-    for (const [_path, artifact] of this.compiledArtifacts.entries()) {
-      if (artifact) {
-        compiledFiles++;
-      }
-    }
+    const symbolTablesLoaded = this.standardLibrarySymbolData
+      ? this.standardLibrarySymbolData.symbolTables.size
+      : 0;
 
     return {
       totalFiles,
       loadedFiles: this.accessCount, // Use access count as loaded files
-      compiledFiles,
+      symbolTablesLoaded,
       directoryStructure: {
         totalFiles,
         totalSize: this.totalSize,
@@ -781,7 +1014,6 @@ export class ResourceLoader {
       lazyFileStats: {
         totalEntries: totalFiles,
         loadedEntries: this.accessCount, // Use access count
-        compiledEntries: compiledFiles,
         averageAccessCount:
           this.accessCount > 0 && totalFiles > 0
             ? this.accessCount / totalFiles
@@ -855,13 +1087,21 @@ export class ResourceLoader {
     this.namespaceIndex.clear();
     this.classNameToNamespace.clear();
     this.namespaces.clear();
-    this.compiledArtifacts.clear();
     this.initialized = false;
 
     // Re-extract ZIP and rebuild file index if buffer is available
     if (this.zipBuffer) {
       const buffer = this.zipBuffer; // Local variable for type narrowing
-      const extractedFiles = unzipSync(buffer);
+      let extractedFiles;
+      try {
+        extractedFiles = unzipSync(buffer);
+      } catch (error) {
+        throw new Error(
+          'Failed to extract StandardApexLibrary.zip during reset: ' +
+            `${error instanceof Error ? error.message : String(error)}. ` +
+            "The ZIP file may be corrupted. Please rebuild the extension with 'npm run build'.",
+        );
+      }
       this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
 
       // Convert to CaseInsensitivePathMap and preserve original paths
@@ -891,188 +1131,65 @@ export class ResourceLoader {
   }
 
   /**
-   * Dynamically load and compile a single standard Apex class from ZIP resources.
-   * Enables lazy loading using efficient ZIP extraction.
-   * Optimized with early returns and cached lookups for improved performance.
+   * Get a symbol table for a standard Apex class from the protobuf cache.
+   * The standard library symbol data cache has 100% coverage of all standard library classes,
+   * validated at build time.
    *
-   * @param className The class name to load and compile
-   * @returns Promise that resolves to the compiled artifact or null if not found
+   * @param className The class name to load (e.g., "System/String.cls" or "String")
+   * @returns Promise that resolves to the symbol table or null if not found in cache
    */
-  public async loadAndCompileClass(
-    className: string,
-  ): Promise<CompiledArtifact | null> {
-    // Normalize path once at the start to avoid redundant normalizations
-    const normalizedPath = this.normalizePath(className);
+  public async getSymbolTable(className: string): Promise<SymbolTable | null> {
+    // DIAGNOSTIC: Check standard library symbol data cache
+    this.logger.debug(
+      () =>
+        `[DIAGNOSTIC] getSymbolTable("${className}") - ` +
+        `standardLibrarySymbolDataLoaded: ${this.standardLibrarySymbolDataLoaded}, ` +
+        `hasData: ${this.standardLibrarySymbolData !== null}`,
+    );
 
-    // Early return: Check if already compiled using normalized path
-    if (this.compiledArtifacts.has(normalizedPath)) {
-      const cachedArtifact = this.compiledArtifacts.get(normalizedPath);
-      if (cachedArtifact) {
-        // Only log cached artifact access occasionally to avoid log spam
-        // Log at most once per 1000 accesses per class
-        const accessCount =
-          (this.artifactAccessCounts.get(normalizedPath) || 0) + 1;
-        this.artifactAccessCounts.set(normalizedPath, accessCount);
-        if (accessCount % 1000 === 0) {
-          this.logger.debug(
-            () =>
-              `Returning cached artifact for ${className} (access ${accessCount})`,
-          );
-        }
-        return cachedArtifact;
-      }
-    }
-
-    // Check protobuf cache for pre-compiled symbol tables
-    if (this.protobufCacheLoaded && this.protobufCacheData) {
-      const artifact = this.getArtifactFromProtobufCache(className);
-      if (artifact) {
-        // Cache it for future lookups
-        this.compiledArtifacts.set(normalizedPath, artifact);
-        return artifact;
-      }
-    }
-
-    // Check if class exists in our known structure
-    if (!this.fileIndex.has(normalizedPath)) {
+    if (
+      this.standardLibrarySymbolDataLoaded &&
+      this.standardLibrarySymbolData
+    ) {
+      const symbolTable = this.getSymbolTableFromCache(className);
       this.logger.debug(
-        () => `Class ${className} not found in standard library`,
+        () =>
+          `[DIAGNOSTIC] getSymbolTableFromCache("${className}") ` +
+          `returned: ${symbolTable ? 'FOUND' : 'NULL'}`,
       );
-      return null;
-    }
-
-    try {
-      // Check decodedContentCache directly before calling extractFileFromZip
-      // This avoids method call overhead when content is already cached
-      let content: string | undefined;
-      if (this.decodedContentCache.has(normalizedPath)) {
-        content = this.decodedContentCache.get(normalizedPath);
-        this.accessCount++;
-      } else {
-        // Load the file content from ZIP using our private method
-        content = await this.extractFileFromZip(className);
-      }
-
-      if (!content) {
-        this.logger.warn(() => `Failed to load content for ${className}`);
-        return null;
-      }
-
-      // Get namespace using O(1) lookup from classNameToNamespace index
-      const namespaces = this.classNameToNamespace.get(normalizedPath);
-      const namespace = namespaces ? Array.from(namespaces)[0] : undefined;
-
-      // Compile the single class
-      // Standard Apex library classes only expose public API with empty method bodies
-      // So 'public-api' detail level is sufficient - no need for BlockContentListener
-      const listener = new ApexSymbolCollectorListener(undefined, 'public-api');
-
-      // Convert className to proper URI scheme
-      const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${className}`;
-
-      listener.setCurrentFileUri(fileUri);
-      if (namespace) {
-        listener.setProjectNamespace(namespace);
-      }
-
-      const result = this.compilerService.compile(
-        content,
-        fileUri, // Use proper URI scheme for standard Apex library classes
-        listener,
-        {
-          projectNamespace: namespace,
-          includeComments: false,
-          includeSingleLineComments: false,
-          associateComments: false,
-          collectReferences: true, // Enable reference collection
-          resolveReferences: true, // Enable reference resolution
-        }, // Minimal compilation for performance
-      );
-
-      if (result.errors.length > 0) {
+      if (symbolTable) {
         this.logger.debug(
           () =>
-            `Compilation errors for ${className} (expected for stubs): ${result.errors.length} errors`,
+            '[DIAGNOSTIC] Returning symbol table from cache ' +
+            `for ${className}`,
         );
-        // Continue processing despite errors - stubs are expected to have compilation issues
+        return symbolTable;
       }
-
-      // Create compiled artifact - handle different result types
-      let artifact: CompiledArtifact;
-
-      if ('commentAssociations' in result && 'comments' in result) {
-        // This is a CompilationResultWithAssociations
-        artifact = {
-          path: className, // Preserve original className for backward compatibility
-          compilationResult:
-            result as CompilationResultWithAssociations<SymbolTable>,
-        };
-      } else {
-        // This is a regular CompilationResult - we need to convert it
-        // For now, we'll create a minimal artifact
-        artifact = {
-          path: className, // Preserve original className for backward compatibility
-          compilationResult: {
-            ...result,
-            commentAssociations: [],
-            comments: [],
-          } as CompilationResultWithAssociations<SymbolTable>,
-        };
-      }
-
-      // Store in compiled artifacts map using normalized key for consistent lookups
-      this.compiledArtifacts.set(normalizedPath, artifact);
-
-      this.logger.debug(() => `Successfully loaded and compiled ${className}`);
-      return artifact;
-    } catch (error) {
-      this.logger.error(() => `Error loading/compiling ${className}: ${error}`);
-      return null;
     }
+
+    // Class not found in standard library symbol data cache - this should not happen
+    // Build validation ensures 100% cache coverage
+    this.logger.debug(
+      () =>
+        `Class ${className} not found in standard library symbol data cache. ` +
+        'This indicates missing or corrupted cache file. ' +
+        'Standard library symbol data cache should have 100% coverage of all ' +
+        'standard library classes.',
+    );
+    return null;
   }
 
   /**
-   * Check if a class is available and optionally load it from ZIP resources.
-   * This is the main entry point for lazy loading of standard Apex classes.
-   * Uses normalized path for consistent lookups.
+   * Get symbol table for a class from the standard library symbol data cache.
+   * This is an alias for getSymbolTable() for backward compatibility.
    *
-   * @param className The class name to ensure is loaded
-   * @returns Promise that resolves to true if the class was loaded successfully
-   */
-  public async ensureClassLoaded(className: string): Promise<boolean> {
-    // Normalize path for consistent lookup
-    const normalizedPath = this.normalizePath(className);
-
-    // If already compiled, return true
-    if (this.compiledArtifacts.has(normalizedPath)) {
-      return true;
-    }
-
-    // Try to load and compile
-    const artifact = await this.loadAndCompileClass(className);
-    return artifact !== null;
-  }
-
-  /**
-   * Get compiled artifact for a class, loading it from ZIP resources if necessary.
-   * Uses lazy loading to compile classes on-demand.
-   * Uses normalized path for consistent lookups.
-   *
-   * @param className The class name to get the compiled artifact for
-   * @returns Promise that resolves to the compiled artifact or null if not found
+   * @param className The class name to get the symbol table for
+   * @returns Promise that resolves to the symbol table or null if not found in cache
    */
   public async getCompiledArtifact(
     className: string,
-  ): Promise<CompiledArtifact | null> {
-    // Normalize path for consistent lookup
-    const normalizedPath = this.normalizePath(className);
-
-    // If not compiled, try to load it
-    if (!this.compiledArtifacts.has(normalizedPath)) {
-      await this.ensureClassLoaded(className);
-    }
-
-    return this.compiledArtifacts.get(normalizedPath) || null;
+  ): Promise<SymbolTable | null> {
+    return this.getSymbolTable(className);
   }
 
   /**
@@ -1131,13 +1248,17 @@ export class ResourceLoader {
   }
 
   /**
-   * Check if a class is already compiled and available in memory.
+   * Check if a symbol table is available in the standard library symbol data cache (synchronous).
    *
    * @param className The class name to check
-   * @returns true if the class is already compiled
+   * @returns true if the symbol table is available in cache
    */
-  public isClassCompiled(className: string): boolean {
-    return this.compiledArtifacts.has(className);
+  public hasSymbolTable(className: string): boolean {
+    if (!this.standardLibrarySymbolData) {
+      return false;
+    }
+    const symbolTable = this.getSymbolTableFromCache(className);
+    return symbolTable !== null;
   }
 
   /**
@@ -1150,12 +1271,15 @@ export class ResourceLoader {
   }
 
   /**
-   * Get all compiled class names currently in memory.
+   * Get all class names available in the standard library symbol data cache.
    *
-   * @returns Array of compiled class names
+   * @returns Array of class names (file URIs from cache)
    */
   public getCompiledClassNames(): string[] {
-    return [...this.compiledArtifacts.keys()].map((key) => key.toString());
+    if (!this.standardLibrarySymbolData) {
+      return [];
+    }
+    return Array.from(this.standardLibrarySymbolData.symbolTables.keys());
   }
 
   /**

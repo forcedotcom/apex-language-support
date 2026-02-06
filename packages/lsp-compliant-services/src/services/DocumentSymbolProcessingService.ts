@@ -12,6 +12,7 @@ import {
   DocumentSymbol,
 } from 'vscode-languageserver';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
 
 import { DefaultApexDocumentSymbolProvider } from '../documentSymbol/ApexDocumentSymbolProvider';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -139,7 +140,9 @@ export class DocumentSymbolProcessingService
       const provider = new DefaultApexDocumentSymbolProvider(storage);
 
       // Get document symbols using the provider
-      const symbols = await provider.provideDocumentSymbols(params);
+      const symbols = await Effect.runPromise(
+        provider.provideDocumentSymbols(params),
+      );
 
       // TODO: Enhance symbols with graph-based information using ApexSymbolManager
       // For now, return the original symbols to avoid type issues

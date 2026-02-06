@@ -143,28 +143,6 @@ export class HoverProcessingService implements IHoverProcessor {
     }
 
     try {
-      // Early keyword check: if position is on a keyword, return null immediately
-      // This prevents hover from processing keywords
-      const keywordCheckStartTime = Date.now();
-      const storage = ApexStorageManager.getInstance().getStorage();
-      const document = await storage.getDocument(params.textDocument.uri);
-      if (document) {
-        const wordAtPosition = this.extractWordAtPosition(
-          document,
-          params.position,
-        );
-        if (wordAtPosition && isApexKeyword(wordAtPosition)) {
-          const keywordCheckTime = Date.now() - keywordCheckStartTime;
-          this.logger.debug(
-            () =>
-              `[HOVER-DIAG] Position is on keyword "${wordAtPosition}", ` +
-              `returning null (keyword check: ${keywordCheckTime}ms)`,
-          );
-          return null;
-        }
-      }
-      const keywordCheckTime = Date.now() - keywordCheckStartTime;
-
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
 
@@ -176,6 +154,32 @@ export class HoverProcessingService implements IHoverProcessor {
         parserPosition,
       );
       const referencesTime = Date.now() - referencesStartTime;
+
+      // Keyword check: if position is on a keyword AND there's no TypeReference,
+      // return null immediately. If there's a TypeReference, it means the parser
+      // recognized it as a valid identifier (e.g., "System" as namespace/class name),
+      // so we should process it even if it matches a keyword.
+      const keywordCheckStartTime = Date.now();
+      if (!references || references.length === 0) {
+        const storage = ApexStorageManager.getInstance().getStorage();
+        const document = await storage.getDocument(params.textDocument.uri);
+        if (document) {
+          const wordAtPosition = this.extractWordAtPosition(
+            document,
+            params.position,
+          );
+          if (wordAtPosition && isApexKeyword(wordAtPosition)) {
+            const keywordCheckTime = Date.now() - keywordCheckStartTime;
+            this.logger.debug(
+              () =>
+                `[HOVER-DIAG] Position is on keyword "${wordAtPosition}", ` +
+                `returning null (keyword check: ${keywordCheckTime}ms)`,
+            );
+            return null;
+          }
+        }
+      }
+      const keywordCheckTime = Date.now() - keywordCheckStartTime;
 
       // Debug: Log all references at position
       if (references && references.length > 0) {

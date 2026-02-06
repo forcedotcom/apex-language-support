@@ -183,13 +183,21 @@ function findAllClasses(sourceDir, builtinsDir) {
  * @param {string} namespace - Namespace for the class
  * @param {string} className - Name of the class (without .cls)
  */
-async function parseApexFile(filePath, namespace, className, CompilerService, ApexSymbolCollectorListener) {
+async function parseApexFile(
+  filePath,
+  namespace,
+  className,
+  CompilerService,
+  ApexSymbolCollectorListener,
+) {
   const content = readFileSync(filePath, 'utf8');
   const listener = new ApexSymbolCollectorListener();
   const compiler = new CompilerService(namespace);
 
-  // Use a consistent URI format for stdlib classes
-  const fileUri = `apex://stdlib/${namespace}/${className}`;
+  // Import createApexLibUri to use official URI format
+  const { createApexLibUri } = await import('../out/types/ProtocolHandler.js');
+  // Use official URI format: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls
+  const fileUri = createApexLibUri(`${namespace}/${className}.cls`);
 
   const result = compiler.compile(content, fileUri, listener, {
     projectNamespace: namespace,
@@ -197,6 +205,92 @@ async function parseApexFile(filePath, namespace, className, CompilerService, Ap
   });
 
   return result;
+}
+
+/**
+ * Generate type registry cache from compiled symbol tables
+ */
+async function generateTypeRegistry(namespaceData, sourceChecksum) {
+  const { TypeRegistry, TypeRegistryEntry, TypeKind } = await import(
+    '../out/generated/apex-stdlib.js'
+  );
+
+  const entries = [];
+  let debuggedFirst = false;
+
+  // Extract type metadata from each symbol table
+  for (const ns of namespaceData) {
+    for (const [fileUri, symbolTable] of ns.symbolTables) {
+      // Extract namespace and class name from file URI
+      // Format: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls
+      const match = fileUri.match(
+        /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\/([^/]+)\.cls$/,
+      );
+      if (!match) {
+        console.warn(`[WARN] Skipping file with unmatched URI: ${fileUri}`);
+        continue;
+      }
+
+      const [, namespace, className] = match;
+      
+      const allSymbols = symbolTable.getAllSymbols();
+
+      // Find top-level types only (parentId === 'null' or null)
+      for (const symbol of allSymbols) {
+        const isTopLevel =
+          symbol.parentId === null || symbol.parentId === 'null';
+        const kindLower =
+          typeof symbol.kind === 'string'
+            ? symbol.kind.toLowerCase()
+            : String(symbol.kind).toLowerCase();
+        const isTypeSymbol =
+          kindLower === 'class' ||
+          kindLower === 'interface' ||
+          kindLower === 'enum';
+
+        if (isTopLevel && isTypeSymbol) {
+          // Workaround: If symbol name is empty or "unknownClass" (parser bug with generic stubs),
+          // use the className from the URI
+          const symbolName = (symbol.name && symbol.name !== 'unknownClass') ? symbol.name : className;
+          
+          if (!symbolName) {
+            console.warn(`[WARN] Skipping symbol with empty name in ${fileUri}`);
+            continue;
+          }
+          
+          const fqn = `${namespace}.${symbolName}`.toLowerCase();
+
+          // Map SymbolKind string to TypeKind enum (case-insensitive)
+          let kind = TypeKind.CLASS;
+          if (kindLower === 'interface') {
+            kind = TypeKind.INTERFACE;
+          } else if (kindLower === 'enum') {
+            kind = TypeKind.ENUM;
+          }
+
+          entries.push(
+            TypeRegistryEntry.create({
+              fqn,
+              name: symbolName,
+              namespace,
+              kind,
+              symbolId: symbol.id,
+              fileUri,
+              isStdlib: true,
+            }),
+          );
+        }
+      }
+    }
+  }
+
+  const registry = TypeRegistry.create({
+    generatedAt: new Date().toISOString(),
+    sourceChecksum,
+    entries,
+  });
+
+  return TypeRegistry.toBinary(registry);
 }
 
 /**
@@ -259,13 +353,14 @@ async function main() {
   for (const files of namespaceMap.values()) {
     totalClasses += files.length;
   }
-  console.log(`   Found ${totalClasses} classes across ${namespaceMap.size} namespaces`);
+  console.log(
+    `   Found ${totalClasses} classes across ${namespaceMap.size} namespaces`,
+  );
 
   // Parse all classes
   console.log('\n4. Parsing classes...');
   const namespaceData = [];
   let parsedCount = 0;
-  let errorCount = 0;
 
   for (const [namespace, files] of namespaceMap) {
     const symbolTables = new Map();
@@ -281,7 +376,25 @@ async function main() {
         );
 
         if (result.result) {
-          const fileUri = `apex://stdlib/${file.namespace}/${file.className}`;
+          // Import createApexLibUri to use official URI format
+          const { createApexLibUri } = await import('../out/types/ProtocolHandler.js');
+          const fileUri = createApexLibUri(`${file.namespace}/${file.className}.cls`);
+          
+          // Workaround: Fix class symbol name if it's "unknownClass" for List/Map/Set
+          // This handles the parser bug where LIST/MAP are lexer keywords
+          const symbolTable = result.result;
+          const allSymbols = symbolTable.getAllSymbols();
+          for (const symbol of allSymbols) {
+            if (symbol.kind === 'class' && symbol.name === 'unknownClass' && 
+                (file.className === 'List' || file.className === 'Map' || file.className === 'Set')) {
+              symbol.name = file.className;
+              // Also update the FQN if it exists
+              if (symbol.fqn) {
+                symbol.fqn = symbol.fqn.replace(/\.unknownclass$/i, `.${file.className}`);
+              }
+            }
+          }
+          
           symbolTables.set(fileUri, result.result);
           parsedCount++;
 
@@ -290,16 +403,25 @@ async function main() {
             console.log(`   Parsed ${parsedCount}/${totalClasses} classes...`);
           }
         } else {
-          errorCount++;
-          if (errorCount <= 5) {
-            console.warn(`   Warning: Failed to parse ${file.path}`);
-          }
+          // result.result is null - should never happen as parser always returns SymbolTable
+          // This indicates a critical parser failure
+          console.error(
+            `❌ FATAL: Parser returned null result for ${file.path}`,
+          );
+          throw new Error(
+            `Build failed: Parser returned null result for ${file.path}. ` +
+              `This indicates a critical parser bug that must be fixed before release.`,
+          );
         }
       } catch (error) {
-        errorCount++;
-        if (errorCount <= 5) {
-          console.warn(`   Warning: Error parsing ${file.path}: ${error.message}`);
-        }
+        // Exception during parsing - fail the build
+        console.error(`❌ FATAL: Exception parsing ${file.path}`);
+        console.error(`   Error: ${error.message}`);
+        console.error(`   Stack: ${error.stack}`);
+        throw new Error(
+          `Build failed: Cannot generate cache due to parser exception in ${file.path}. ` +
+            `Parser bugs must be fixed before release.`,
+        );
       }
     }
 
@@ -312,40 +434,79 @@ async function main() {
   }
 
   console.log(`   Parsed ${parsedCount} classes successfully`);
-  if (errorCount > 0) {
-    console.log(`   ${errorCount} classes had errors (skipped)`);
-  }
 
   // Serialize to protobuf
   console.log('\n5. Serializing to protobuf...');
   const serializer = new StandardLibrarySerializer();
-  const binaryData = serializer.serialize(
-    namespaceData,
-    sourceChecksum,
+  const binaryData = serializer.serialize(namespaceData, sourceChecksum);
+  console.log(
+    `   Serialized size: ${(binaryData.length / 1024 / 1024).toFixed(2)} MB`,
   );
-  console.log(`   Serialized size: ${(binaryData.length / 1024 / 1024).toFixed(2)} MB`);
 
   // Gzip the protobuf data
   console.log('\n6. Compressing with gzip...');
   const compressedData = gzipSync(binaryData, { level: 9 });
-  const compressionRatio = ((1 - compressedData.length / binaryData.length) * 100).toFixed(1);
-  console.log(`   Compressed size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB (${compressionRatio}% reduction)`);
+  const compressionRatio = (
+    (1 - compressedData.length / binaryData.length) *
+    100
+  ).toFixed(1);
+  console.log(
+    `   Compressed size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB (${compressionRatio}% reduction)`,
+  );
+
+  // Generate type registry
+  console.log('\n7. Generating type registry...');
+  const registryBinary = await generateTypeRegistry(
+    namespaceData,
+    sourceChecksum,
+  );
+  const compressedRegistry = gzipSync(registryBinary, { level: 9 });
+  console.log(
+    `   Registry size: ${(compressedRegistry.length / 1024).toFixed(2)} KB`,
+  );
 
   // Write output files
-  console.log('\n7. Writing output files...');
+  console.log('\n8. Writing output files...');
+  const REGISTRY_FILE = join(OUTPUT_DIR, 'apex-type-registry.pb.gz');
   writeFileSync(CACHE_FILE, compressedData);
+  writeFileSync(REGISTRY_FILE, compressedRegistry);
   writeFileSync(CHECKSUM_FILE, sourceChecksum);
   console.log(`   ✅ ${CACHE_FILE}`);
+  console.log(`   ✅ ${REGISTRY_FILE}`);
   console.log(`   ✅ ${CHECKSUM_FILE}`);
+
+  // Generate MD5 checksums for output files
+  console.log('\n9. Generating MD5 checksums...');
+  const cacheFileMD5 = createHash('md5').update(compressedData).digest('hex');
+  const registryFileMD5 = createHash('md5')
+    .update(compressedRegistry)
+    .digest('hex');
+
+  // Write MD5 checksum files in standard format: <hash>  <filename>
+  const CACHE_MD5_FILE = join(OUTPUT_DIR, 'apex-stdlib.pb.gz.md5');
+  const REGISTRY_MD5_FILE = join(OUTPUT_DIR, 'apex-type-registry.pb.gz.md5');
+  writeFileSync(CACHE_MD5_FILE, `${cacheFileMD5}  apex-stdlib.pb.gz\n`);
+  writeFileSync(
+    REGISTRY_MD5_FILE,
+    `${registryFileMD5}  apex-type-registry.pb.gz\n`,
+  );
+  console.log(`   ✅ ${CACHE_MD5_FILE}`);
+  console.log(`   ✅ ${REGISTRY_MD5_FILE}`);
 
   // Summary
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log('\n=== Generation Complete ===');
   console.log(`   Total time: ${elapsed}s`);
   console.log(`   Classes processed: ${parsedCount}`);
-  console.log(`   Uncompressed size: ${(binaryData.length / 1024 / 1024).toFixed(2)} MB`);
-  console.log(`   Compressed size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB`);
-  console.log(`   Checksum: ${sourceChecksum}`);
+  console.log(
+    `   Stdlib size: ${(compressedData.length / 1024 / 1024).toFixed(2)} MB`,
+  );
+  console.log(
+    `   Registry size: ${(compressedRegistry.length / 1024).toFixed(2)} KB`,
+  );
+  console.log(`   Source checksum (SHA256): ${sourceChecksum}`);
+  console.log(`   Stdlib MD5: ${cacheFileMD5}`);
+  console.log(`   Registry MD5: ${registryFileMD5}`);
 }
 
 main().catch((error) => {

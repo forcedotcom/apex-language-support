@@ -45,6 +45,10 @@ export {
 // Export logger functionality
 export * from './logger';
 
+// Export testing and metrics utilities
+export * from './testing/performance-utils';
+export * from './testing/performance-metrics';
+
 // Explicitly export commonly used functions
 export {
   defineEnum,

@@ -37,6 +37,7 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
 import { DocumentSymbolParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
 import {
   ApexDocumentSymbolProvider,
@@ -78,7 +79,9 @@ describe('DefaultApexDocumentSymbolProvider - Unit Tests', () => {
         textDocument: { uri: 'test.apex' },
       };
 
-      const result = await symbolProvider.provideDocumentSymbols(params);
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols(params),
+      );
       expect(result).toBeNull();
       expect(mockLogger.warn).toHaveBeenCalledWith(expect.any(Function));
     });
@@ -89,9 +92,11 @@ describe('DefaultApexDocumentSymbolProvider - Unit Tests', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
       mockStorage.getDocument.mockResolvedValue(textDocument);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       // The parser is resilient and can still parse partial content
       expect(result).not.toBeNull();
@@ -103,9 +108,11 @@ describe('DefaultApexDocumentSymbolProvider - Unit Tests', () => {
       const docUri = 'file:///nonexistent.cls';
       mockStorage.getDocument.mockResolvedValue(null);
 
-      const result = await symbolProvider.provideDocumentSymbols({
-        textDocument: { uri: docUri },
-      });
+      const result = await Effect.runPromise(
+        symbolProvider.provideDocumentSymbols({
+          textDocument: { uri: docUri },
+        }),
+      );
 
       expect(result).toBeNull();
     });

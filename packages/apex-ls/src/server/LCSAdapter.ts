@@ -46,6 +46,7 @@ import {
   PingResponse,
   formattedError,
   getDocumentSelectorsFromSettings,
+  ApexSettingsManager,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -195,9 +196,7 @@ export class LCSAdapter {
     try {
       this.logger.debug('📦 Initializing ResourceLoader singleton...');
 
-      const resourceLoader = ResourceLoader.getInstance({
-        preloadStdClasses: true,
-      });
+      const resourceLoader = ResourceLoader.getInstance();
 
       // Initialize will load both protobuf cache and ZIP buffer
       await resourceLoader.initialize();
@@ -219,6 +218,98 @@ export class LCSAdapter {
     this.logger.debug(
       `Stack trace: ${error instanceof Error ? error.stack : 'N/A'}`,
     );
+  }
+
+  /**
+   * Pre-populate symbol graph with configured namespaces.
+   * Transfers pre-compiled stdlib classes from protobuf cache to symbol graph.
+   * This eliminates first-file compilation penalty for files using these namespaces.
+   * Special handling: "*" loads all available namespaces.
+   */
+  private async prePopulateSymbolGraph(): Promise<void> {
+    try {
+      const settings = ApexSettingsManager.getInstance().getSettings();
+      const symbolGraphSettings = settings.apex.symbolGraph;
+
+      // Check if feature is enabled
+      if (!symbolGraphSettings?.enabled) {
+        this.logger.debug('Symbol graph pre-population disabled');
+        return;
+      }
+
+      let namespacesToLoad = symbolGraphSettings.preloadNamespaces || [];
+      if (namespacesToLoad.length === 0) {
+        this.logger.debug('No namespaces configured for pre-population');
+        return;
+      }
+
+      const resourceLoader = ResourceLoader.getInstance();
+      const symbolManager =
+        ApexSymbolProcessingManager.getInstance().getSymbolManager();
+      const availableNamespaces = resourceLoader.getStandardNamespaces();
+
+      // Handle special case: "*" means load all available namespaces
+      if (namespacesToLoad.includes('*')) {
+        // Use dependency order instead of foundation-first heuristic
+        namespacesToLoad = resourceLoader.getNamespaceDependencyOrder();
+        const first10 = namespacesToLoad.slice(0, 10).join(', ');
+        const total = namespacesToLoad.length;
+        this.logger.debug(
+          `Pre-populating ALL namespaces (dependency-ordered): ${first10}... (${total} total)`,
+        );
+      } else {
+        this.logger.debug(
+          `Pre-populating symbol graph with namespaces: ${namespacesToLoad.join(', ')}`,
+        );
+      }
+
+      const startTime = performance.now();
+      let totalClasses = 0;
+      let loadedClasses = 0;
+
+      for (const namespace of namespacesToLoad) {
+        const classFiles = availableNamespaces.get(namespace);
+
+        if (!classFiles) {
+          this.logger.warn(
+            `Namespace '${namespace}' not found in stdlib. ` +
+              `Available: ${[...availableNamespaces.keys()].join(', ')}`,
+          );
+          continue;
+        }
+
+        this.logger.debug(
+          `Loading ${classFiles.length} classes from ${namespace} namespace`,
+        );
+        totalClasses += classFiles.length;
+
+        for (const classFile of classFiles) {
+          try {
+            // Extract class name (remove .cls extension)
+            const className = classFile.value.replace(/\.cls$/i, '');
+            const fqn = `${namespace}.${className}`;
+
+            // Resolve and populate symbol graph
+            await symbolManager.resolveStandardApexClass(fqn);
+            loadedClasses++;
+          } catch (error) {
+            this.logger.debug(
+              `Failed to pre-populate ${namespace}.${classFile.value}: ${error}`,
+            );
+          }
+        }
+      }
+
+      const duration = performance.now() - startTime;
+      this.logger.debug(
+        `✅ Symbol graph pre-populated: ${loadedClasses}/${totalClasses} classes ` +
+          `from ${namespacesToLoad.length} namespaces in ${duration.toFixed(2)}ms`,
+      );
+    } catch (error) {
+      this.logger.error(
+        () => `Symbol graph pre-population failed: ${formattedError(error)}`,
+      );
+    }
   }
 
   /**
@@ -1309,6 +1400,13 @@ export class LCSAdapter {
       this.logger.error(
         () =>
           `❌ Background ResourceLoader initialization failed: ${formattedError(error)}`,
+      );
+    });
+
+    // Pre-populate symbol graph with configured namespaces
+    this.prePopulateSymbolGraph().catch((error) => {
+      this.logger.error(
+        () => `❌ Symbol graph pre-population failed: ${formattedError(error)}`,
       );
     });
   }

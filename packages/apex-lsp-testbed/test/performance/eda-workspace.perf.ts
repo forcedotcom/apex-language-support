@@ -13,9 +13,7 @@ import { disableLogging } from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,
   ApexSymbolCollectorListener,
-  PublicAPISymbolListener,
-  ProtectedSymbolListener,
-  PrivateSymbolListener,
+  VisibilitySymbolListener,
   SymbolTable,
   type CompilationResult,
 } from '@salesforce/apex-lsp-parser-ast';
@@ -66,15 +64,18 @@ const DEFAULT_CONFIG: TestConfig = {
  * simulating LSP startup behavior. EDA is a large, real-world Salesforce codebase
  * (88% Apex) that provides an excellent test case for measuring listener compilation costs.
  *
- * IMPORTANT: Debug logging is disabled for these tests to ensure accurate
- * performance measurements.
+ * IMPORTANT:
+ * - Debug logging is disabled for accurate measurements
+ * - These are SINGLE-RUN timing tests, NOT statistical benchmarks
+ * - Benchmark.js is only used where file count is very small (< 5 files)
+ * - Large-scale compilation tests use direct timing measurements
  *
  * The test will automatically clone the EDA repository on first run.
  *
  * Usage:
- *   npm run test:perf:eda              # Run full benchmarks
- *   QUICK=true npm run test:perf:eda   # Quick validation (10 files, 1 sample per batch)
- *   CI=true npm run test:perf:eda      # Comprehensive CI benchmarks
+ *   npm run test:perf:eda              # Run full measurements
+ *   QUICK=true npm run test:perf:eda   # Quick validation (3-5 files, skip heavy tests)
+ *   CI=true npm run test:perf:eda      # Comprehensive CI measurements
  */
 describe('EDA Workspace Performance Tests', () => {
   let compilerService: CompilerService;
@@ -117,8 +118,15 @@ describe('EDA Workspace Performance Tests', () => {
   describe('Full Workspace Load', () => {
     const config: TestConfig = {
       ...DEFAULT_CONFIG,
-      // In quick mode, limit files and reduce batch size for faster validation
-      maxFiles: process.env.QUICK === 'true' ? 10 : undefined,
+      // QUICK: 5 files (verify test works)
+      // LOCAL: 50 files (reasonable runtime)
+      // CI: All files (comprehensive analysis)
+      maxFiles:
+        process.env.QUICK === 'true'
+          ? 5
+          : process.env.CI === 'true'
+            ? undefined
+            : 50,
       batchSize: process.env.QUICK === 'true' ? 10 : DEFAULT_CONFIG.batchSize,
     };
 
@@ -396,7 +404,12 @@ describe('EDA Workspace Performance Tests', () => {
   });
 
   describe('Batch Compilation Performance', () => {
-    const config: TestConfig = { ...DEFAULT_CONFIG, maxFiles: 100 };
+    // QUICK: 5 files, LOCAL: 20 files, CI: 100 files
+    const config: TestConfig = {
+      ...DEFAULT_CONFIG,
+      maxFiles:
+        process.env.QUICK === 'true' ? 5 : process.env.CI === 'true' ? 100 : 20,
+    };
 
     it(
       'should measure performance with different batch sizes',
@@ -514,7 +527,12 @@ describe('EDA Workspace Performance Tests', () => {
   });
 
   describe('Incremental Load Performance', () => {
-    const config: TestConfig = { ...DEFAULT_CONFIG, maxFiles: 50 };
+    // QUICK: 3 files (fast), Local: 10 files, CI: 50 files
+    const config: TestConfig = {
+      ...DEFAULT_CONFIG,
+      maxFiles:
+        process.env.QUICK === 'true' ? 3 : process.env.CI === 'true' ? 50 : 10,
+    };
 
     it(
       'should measure cost of adding files incrementally',
@@ -622,7 +640,9 @@ describe('EDA Workspace Performance Tests', () => {
   describe('Layered Listener Performance Comparison', () => {
     const config: TestConfig = {
       ...DEFAULT_CONFIG,
-      maxFiles: process.env.QUICK === 'true' ? 20 : 100,
+      // QUICK: 3 files (can use Benchmark.js), Local: 10 files, CI: 50 files
+      maxFiles:
+        process.env.QUICK === 'true' ? 3 : process.env.CI === 'true' ? 50 : 10,
       batchSize: process.env.QUICK === 'true' ? 10 : DEFAULT_CONFIG.batchSize,
     };
 
@@ -679,7 +699,7 @@ describe('EDA Workspace Performance Tests', () => {
           },
           {
             name: 'Layer 1: Public API Only',
-            createListener: () => new PublicAPISymbolListener(),
+            createListener: () => new VisibilitySymbolListener('public-api'),
             layers: ['public-api'],
           },
           {
@@ -687,8 +707,8 @@ describe('EDA Workspace Performance Tests', () => {
             createListener: () => {
               const table = new SymbolTable();
               return [
-                new PublicAPISymbolListener(table),
-                new ProtectedSymbolListener(table),
+                new VisibilitySymbolListener('public-api', table),
+                new VisibilitySymbolListener('protected', table),
               ];
             },
             layers: ['public-api', 'protected'],
@@ -699,9 +719,9 @@ describe('EDA Workspace Performance Tests', () => {
             createListener: () => {
               const table = new SymbolTable();
               return [
-                new PublicAPISymbolListener(table),
-                new ProtectedSymbolListener(table),
-                new PrivateSymbolListener(table),
+                new VisibilitySymbolListener('public-api', table),
+                new VisibilitySymbolListener('protected', table),
+                new VisibilitySymbolListener('private', table),
               ];
             },
             layers: ['public-api', 'protected', 'private'],
@@ -720,11 +740,8 @@ describe('EDA Workspace Performance Tests', () => {
             fn: async (deferred: { resolve: () => void }) => {
               if (testConfig.multiListener) {
                 // Multi-layer compilation
-                const listeners = testConfig.createListener() as Array<
-                  | PublicAPISymbolListener
-                  | ProtectedSymbolListener
-                  | PrivateSymbolListener
-                >;
+                const listeners =
+                  testConfig.createListener() as Array<VisibilitySymbolListener>;
 
                 // Apply each listener sequentially
                 for (const listener of listeners) {
@@ -748,7 +765,7 @@ describe('EDA Workspace Performance Tests', () => {
                 // Single listener compilation
                 const listener = testConfig.createListener() as
                   | ApexSymbolCollectorListener
-                  | PublicAPISymbolListener;
+                  | VisibilitySymbolListener;
 
                 // Compile all files
                 const compilationConfigs = fileContents.map((file) => ({
@@ -1053,11 +1070,8 @@ describe('EDA Workspace Performance Tests', () => {
           let totalReferences = 0;
 
           if (testConfig.multiListener) {
-            const listeners = testConfig.createListener() as Array<
-              | PublicAPISymbolListener
-              | ProtectedSymbolListener
-              | PrivateSymbolListener
-            >;
+            const listeners =
+              testConfig.createListener() as Array<VisibilitySymbolListener>;
             const symbolTable = listeners[0].getResult();
 
             for (const listener of listeners) {
@@ -1074,7 +1088,7 @@ describe('EDA Workspace Performance Tests', () => {
           } else {
             const listener = testConfig.createListener() as
               | ApexSymbolCollectorListener
-              | PublicAPISymbolListener;
+              | VisibilitySymbolListener;
 
             for (const file of sampleFiles) {
               const result = compilerService.compile(
@@ -1195,7 +1209,12 @@ describe('EDA Workspace Performance Tests', () => {
   });
 
   describe('Layered Listener Incremental Performance', () => {
-    const config: TestConfig = { ...DEFAULT_CONFIG, maxFiles: 30 };
+    // QUICK: 3 files, Local: 5 files, CI: 30 files
+    const config: TestConfig = {
+      ...DEFAULT_CONFIG,
+      maxFiles:
+        process.env.QUICK === 'true' ? 3 : process.env.CI === 'true' ? 30 : 5,
+    };
 
     it(
       'should measure incremental cost of each layer',
@@ -1239,7 +1258,7 @@ describe('EDA Workspace Performance Tests', () => {
           {
             name: 'Layer 1: Public API',
             compile: (file: (typeof fileContents)[0]) => {
-              const listener = new PublicAPISymbolListener();
+              const listener = new VisibilitySymbolListener('public-api');
               return compilerService.compile(
                 file.content,
                 file.filePath,
@@ -1255,8 +1274,14 @@ describe('EDA Workspace Performance Tests', () => {
             name: 'Layer 2: + Protected',
             compile: (file: (typeof fileContents)[0]) => {
               const table = new SymbolTable();
-              const publicListener = new PublicAPISymbolListener(table);
-              const protectedListener = new ProtectedSymbolListener(table);
+              const publicListener = new VisibilitySymbolListener(
+                'public-api',
+                table,
+              );
+              const protectedListener = new VisibilitySymbolListener(
+                'protected',
+                table,
+              );
               compilerService.compile(
                 file.content,
                 file.filePath,
@@ -1281,9 +1306,18 @@ describe('EDA Workspace Performance Tests', () => {
             name: 'Layer 3: + Private',
             compile: (file: (typeof fileContents)[0]) => {
               const table = new SymbolTable();
-              const publicListener = new PublicAPISymbolListener(table);
-              const protectedListener = new ProtectedSymbolListener(table);
-              const privateListener = new PrivateSymbolListener(table);
+              const publicListener = new VisibilitySymbolListener(
+                'public-api',
+                table,
+              );
+              const protectedListener = new VisibilitySymbolListener(
+                'protected',
+                table,
+              );
+              const privateListener = new VisibilitySymbolListener(
+                'private',
+                table,
+              );
               compilerService.compile(
                 file.content,
                 file.filePath,
@@ -1403,7 +1437,9 @@ describe('EDA Workspace Performance Tests', () => {
   describe('Symbol Manager/Graph Addition Cost Analysis', () => {
     const config: TestConfig = {
       ...DEFAULT_CONFIG,
-      maxFiles: process.env.QUICK === 'true' ? 20 : 100,
+      // QUICK: 3 files, Local: 10 files, CI: 50 files
+      maxFiles:
+        process.env.QUICK === 'true' ? 3 : process.env.CI === 'true' ? 50 : 10,
       batchSize: process.env.QUICK === 'true' ? 10 : DEFAULT_CONFIG.batchSize,
     };
 
@@ -1452,7 +1488,7 @@ describe('EDA Workspace Performance Tests', () => {
             name: 'Layer 1: Public API Only',
             createListener: () => {
               const table = new SymbolTable();
-              return [new PublicAPISymbolListener(table)];
+              return [new VisibilitySymbolListener('public-api', table)];
             },
             multiListener: true,
           },
@@ -1461,8 +1497,8 @@ describe('EDA Workspace Performance Tests', () => {
             createListener: () => {
               const table = new SymbolTable();
               return [
-                new PublicAPISymbolListener(table),
-                new ProtectedSymbolListener(table),
+                new VisibilitySymbolListener('public-api', table),
+                new VisibilitySymbolListener('protected', table),
               ];
             },
             multiListener: true,
@@ -1472,9 +1508,9 @@ describe('EDA Workspace Performance Tests', () => {
             createListener: () => {
               const table = new SymbolTable();
               return [
-                new PublicAPISymbolListener(table),
-                new ProtectedSymbolListener(table),
-                new PrivateSymbolListener(table),
+                new VisibilitySymbolListener('public-api', table),
+                new VisibilitySymbolListener('protected', table),
+                new VisibilitySymbolListener('private', table),
               ];
             },
             multiListener: true,
@@ -1501,11 +1537,8 @@ describe('EDA Workspace Performance Tests', () => {
 
           // Create SymbolTables using listeners
           if (testConfig.multiListener) {
-            const listeners = testConfig.createListener() as Array<
-              | PublicAPISymbolListener
-              | ProtectedSymbolListener
-              | PrivateSymbolListener
-            >;
+            const listeners =
+              testConfig.createListener() as Array<VisibilitySymbolListener>;
 
             // Apply listeners to each file using CompilerService
             // This will create parse trees internally, but ensures compatibility
@@ -1517,18 +1550,11 @@ describe('EDA Workspace Performance Tests', () => {
               // Apply each listener sequentially using compile()
               // Each listener will enrich the same symbol table
               for (const listener of listeners) {
-                // Create a new listener instance that uses the fileTable
-                let listenerToUse:
-                  | PublicAPISymbolListener
-                  | ProtectedSymbolListener
-                  | PrivateSymbolListener;
-                if (listener instanceof PublicAPISymbolListener) {
-                  listenerToUse = new PublicAPISymbolListener(fileTable);
-                } else if (listener instanceof ProtectedSymbolListener) {
-                  listenerToUse = new ProtectedSymbolListener(fileTable);
-                } else {
-                  listenerToUse = new PrivateSymbolListener(fileTable);
-                }
+                // Create a new listener instance that uses the fileTable with same detail level
+                const listenerToUse = new VisibilitySymbolListener(
+                  listener.getDetailLevel(),
+                  fileTable,
+                );
 
                 // Compile with this listener (CompilerService handles parse tree walking)
                 compilerService.compile(

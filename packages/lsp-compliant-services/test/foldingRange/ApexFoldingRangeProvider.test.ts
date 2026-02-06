@@ -7,9 +7,11 @@
  */
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { Effect } from 'effect';
 
 import { ApexFoldingRangeProvider } from '../../src/foldingRange/ApexFoldingRangeProvider';
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
+import { getDocumentStateCache } from '../../src/services/DocumentStateCache';
 
 // Mock the dependencies
 jest.mock('@salesforce/apex-lsp-shared', () => ({
@@ -91,7 +93,9 @@ describe('ApexFoldingRangeProvider', () => {
       mockStorage.getDocument.mockResolvedValue(null);
 
       // Act
-      const result = await provider.getFoldingRanges(documentUri);
+      const result = await Effect.runPromise(
+        provider.getFoldingRanges(documentUri),
+      );
 
       // Assert
       expect(result).toEqual([]);
@@ -111,7 +115,9 @@ describe('ApexFoldingRangeProvider', () => {
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
       // Act
-      const result = await provider.getFoldingRanges(documentUri);
+      const result = await Effect.runPromise(
+        provider.getFoldingRanges(documentUri),
+      );
 
       // Assert
       expect(result).toEqual([]);
@@ -124,7 +130,9 @@ describe('ApexFoldingRangeProvider', () => {
       mockStorage.getDocument.mockRejectedValue(new Error('Storage error'));
 
       // Act
-      const result = await provider.getFoldingRanges(documentUri);
+      const result = await Effect.runPromise(
+        provider.getFoldingRanges(documentUri),
+      );
 
       // Assert
       expect(result).toEqual([]);
@@ -157,7 +165,9 @@ describe('ApexFoldingRangeProvider', () => {
       provider = new ApexFoldingRangeProvider(mockStorage);
 
       // Act
-      const result = await provider.getFoldingRanges(documentUri);
+      const result = await Effect.runPromise(
+        provider.getFoldingRanges(documentUri),
+      );
 
       // Assert
       expect(result).toEqual([]);
@@ -176,7 +186,7 @@ describe('ApexFoldingRangeProvider', () => {
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
       // Act
-      await provider.getFoldingRanges(documentUri);
+      await Effect.runPromise(provider.getFoldingRanges(documentUri));
 
       // Assert
       expect(mockStorage.getDocument).toHaveBeenCalledWith(documentUri);
@@ -202,7 +212,9 @@ describe('ApexFoldingRangeProvider', () => {
         mockStorage.getDocument.mockResolvedValue(mockDocument);
 
         // Act
-        const result = await provider.getFoldingRanges(documentUri);
+        const result = await Effect.runPromise(
+          provider.getFoldingRanges(documentUri),
+        );
 
         // Assert
         expect(result).toEqual([]);
@@ -220,7 +232,9 @@ describe('ApexFoldingRangeProvider', () => {
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
       // Act
-      const result = await provider.getFoldingRanges(documentUri);
+      const result = await Effect.runPromise(
+        provider.getFoldingRanges(documentUri),
+      );
 
       // Assert
       expect(result).toEqual([]);
@@ -240,7 +254,9 @@ describe('ApexFoldingRangeProvider', () => {
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
       // Act
-      const result = await provider.getFoldingRanges(documentUri);
+      const result = await Effect.runPromise(
+        provider.getFoldingRanges(documentUri),
+      );
 
       // Assert
       expect(result).toEqual([]);
@@ -281,8 +297,8 @@ describe('ApexFoldingRangeProvider', () => {
 
       // Act
       const [result1, result2] = await Promise.all([
-        provider.getFoldingRanges(documentUri1),
-        provider.getFoldingRanges(documentUri2),
+        Effect.runPromise(provider.getFoldingRanges(documentUri1)),
+        Effect.runPromise(provider.getFoldingRanges(documentUri2)),
       ]);
 
       // Assert
@@ -297,8 +313,8 @@ describe('ApexFoldingRangeProvider', () => {
   describe('provider configuration', () => {
     it('should use ApexSettingsManager for compilation options', async () => {
       // Arrange
-      const documentUri = 'file:///Test.cls';
-      const apexCode = 'public class Test {}';
+      const documentUri = 'file:///TestSettingsManager.cls';
+      const apexCode = 'public class TestSettingsManager {}';
       const mockDocument = TextDocument.create(
         documentUri,
         'apex',
@@ -307,17 +323,26 @@ describe('ApexFoldingRangeProvider', () => {
       );
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const { ApexSettingsManager } = require('@salesforce/apex-lsp-shared');
+      // Clear cache to ensure we go through compilation
+      const cache = getDocumentStateCache();
+      cache.clear();
+
+      // Get the mocked ApexSettingsManager from the top-level mock
+      const ApexLspShared = require('@salesforce/apex-lsp-shared');
       const mockGetCompilationOptions = jest.fn().mockReturnValue({});
-      ApexSettingsManager.getInstance.mockReturnValue({
+
+      // Override the mock for this test
+      ApexLspShared.ApexSettingsManager.getInstance.mockReturnValueOnce({
         getCompilationOptions: mockGetCompilationOptions,
       });
 
-      // Act
-      await provider.getFoldingRanges(documentUri);
+      // Create a new provider instance for this test with the fresh mock
+      const testProvider = new ApexFoldingRangeProvider(mockStorage);
 
-      // Assert
-      expect(ApexSettingsManager.getInstance).toHaveBeenCalled();
+      // Act
+      await Effect.runPromise(testProvider.getFoldingRanges(documentUri));
+
+      // Assert - Verify getCompilationOptions was called with correct parameters
       expect(mockGetCompilationOptions).toHaveBeenCalledWith(
         'foldingRanges',
         apexCode.length,

@@ -8,7 +8,7 @@
  */
 
 public class BuiltinTypesTest {
-    public void testMethod() {
+    public void execute() {
         // Variable declarations with built-in types
         List<Integer> numbers = new List<Integer>();
         Map<String, Object> dataMap = new Map<String, Object>();

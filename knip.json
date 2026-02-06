@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
     ".": {
-      "entry": [".github/scripts/**/*.{js,ts,mjs}", "scripts/test-web-ext.js"]
+      "entry": [".github/scripts/**/*.{js,ts,mjs}"]
     },
     "packages/apex-ls": {
       "entry": [
@@ -84,7 +84,8 @@
     "packages/lsp-compliant-services": {
       "entry": [
         "src/apexlib/manager.ts",
-        "src/handlers/WorkspaceSymbolHandler.ts"
+        "src/handlers/WorkspaceSymbolHandler.ts",
+        "test/**/*.ts"
       ]
     },
     "e2e-tests": {

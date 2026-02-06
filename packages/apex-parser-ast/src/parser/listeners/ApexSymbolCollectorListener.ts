@@ -1039,7 +1039,30 @@ export class ApexSymbolCollectorListener
     try {
       // Reset modifiers at start of class declaration to track duplicates within this declaration only
       this.seenModifiers.clear();
-      const name = ctx.id()?.text ?? 'unknownClass';
+
+      // Extract class name - handle special case where LIST, MAP, SET are lexer keywords
+      // When the source is "class List", the lexer tokenizes "List" as LIST keyword, not as id
+      // So ctx.id() returns undefined. We need to check for these keyword tokens.
+      let name = ctx.id()?.text;
+      if (!name) {
+        // Check if class name is a keyword token (LIST, MAP, SET)
+        const children = ctx.children || [];
+        for (const child of children) {
+          const childText = child.text;
+          if (
+            childText &&
+            (childText.toLowerCase() === 'list' ||
+              childText.toLowerCase() === 'map' ||
+              childText.toLowerCase() === 'set')
+          ) {
+            name = childText;
+            break;
+          }
+        }
+      }
+      if (!name) {
+        name = 'unknownClass';
+      }
 
       // Validate identifier
       const validationResult = IdentifierValidator.validateIdentifier(
@@ -7328,9 +7351,7 @@ export class ApexSymbolCollectorListener
    * This helps identify standard library classes that should be treated as CLASS_REFERENCE
    */
   private isStandardLibraryClassName(name: string): boolean {
-    const resourceLoader = ResourceLoader.getInstance({
-      preloadStdClasses: true,
-    });
+    const resourceLoader = ResourceLoader.getInstance();
 
     // Check if the name could be resolved from the standard library
     return resourceLoader.couldResolveSymbol(name);

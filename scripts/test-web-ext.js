@@ -401,20 +401,26 @@ async function runWebExtensionTests() {
     // Kill any processes running on port 3000 before starting the web server
     await killProcessesOnPort3000();
 
-    const extensionDevelopmentPath = path.resolve(
+    const extensionSourcePath = path.resolve(
       __dirname,
       '../packages/apex-lsp-vscode-extension',
     );
-    const extensionDistPath = path.resolve(extensionDevelopmentPath, 'dist');
-
-    // Use the dist directory for VS Code Web since that's where the bundled files are
-    const extensionPath = extensionDistPath;
+    const extensionDevelopmentPath = path.resolve(extensionSourcePath, 'dist');
     const workspacePath = path.resolve(__dirname, './test-workspace');
 
     // Verify required paths exist
+    if (!fs.existsSync(extensionSourcePath)) {
+      throw new Error(
+        `Extension source path not found: ${extensionSourcePath}`,
+      );
+    }
+
+    // Verify extension is built (dist directory should exist)
+    // For web extensions, VS Code needs to load from the dist directory
+    // where the bundled extension.web.js file is located
     if (!fs.existsSync(extensionDevelopmentPath)) {
       throw new Error(
-        `Extension development path not found: ${extensionDevelopmentPath}`,
+        `Extension dist directory not found: ${extensionDevelopmentPath}. Run 'npm run bundle' first.`,
       );
     }
 
@@ -652,13 +658,13 @@ async function runWebExtensionTests() {
       ensureTestFilesExist(workspacePath);
     }
 
-    // Check if extension is built
-    if (!fs.existsSync(extensionDistPath)) {
+    // Check if extension is built (extensionDevelopmentPath now points to dist)
+    if (!fs.existsSync(extensionDevelopmentPath)) {
       console.log('🔨 Extension not built yet, building...');
       const { execSync } = require('child_process');
       try {
         execSync('npm run compile && npm run bundle', {
-          cwd: extensionDevelopmentPath,
+          cwd: extensionSourcePath,
           stdio: 'inherit',
         });
       } catch (buildError) {
@@ -667,14 +673,14 @@ async function runWebExtensionTests() {
     }
 
     // Worker files should already be in the dist directory from the extension build
-    // Check if worker files exist in dist directory (using correct filename)
+    // Since extensionDevelopmentPath now points to dist, worker files are directly in it
     const workerSrc = path.resolve(
       extensionDevelopmentPath,
-      'dist/worker.global.js',
+      'worker.global.js',
     );
     const workerMapSrc = path.resolve(
       extensionDevelopmentPath,
-      'dist/worker.global.js.map',
+      'worker.global.js.map',
     );
 
     // If worker files don't exist in extension dist, copy them from apex-ls dist
@@ -683,18 +689,13 @@ async function runWebExtensionTests() {
         '⚠️ Worker files not found in extension dist, copying from apex-ls...',
       );
       const apexLsWorkerSrc = path.resolve(
-        extensionDevelopmentPath,
+        extensionSourcePath,
         '../apex-ls/dist/worker.global.js',
       );
       const apexLsWorkerMapSrc = path.resolve(
-        extensionDevelopmentPath,
+        extensionSourcePath,
         '../apex-ls/dist/worker.global.js.map',
       );
-
-      const extensionDistDir = path.resolve(extensionDevelopmentPath, 'dist');
-      if (!fs.existsSync(extensionDistDir)) {
-        fs.mkdirSync(extensionDistDir, { recursive: true });
-      }
 
       if (fs.existsSync(apexLsWorkerSrc)) {
         fs.copyFileSync(apexLsWorkerSrc, workerSrc);
@@ -743,7 +744,8 @@ async function runWebExtensionTests() {
     );
 
     console.log('🌐 Starting VS Code Web Extension Tests...');
-    console.log(`📁 Extension path: ${extensionPath}`);
+    console.log(`📁 Extension development path (dist): ${extensionDevelopmentPath}`);
+    console.log(`📁 Extension source path: ${extensionSourcePath}`);
     console.log(`📂 Workspace path: ${workspacePath}`);
 
     // Setup output file for extension host logs
@@ -759,12 +761,24 @@ async function runWebExtensionTests() {
     console.log(`📝 Extension logs will be saved to: ${outputLogPath}`);
 
     // Run the web extension tests (without test files - just load the extension)
-    const testResult = await runTests({
-      extensionDevelopmentPath: extensionPath,
+    // IMPORTANT: @vscode/test-web requires extensionDevelopmentPath to point to the
+    // extension directory containing package.json. For web extensions, this should be
+    // the dist directory where the bundled extension.web.js file is located, since
+    // VS Code Web reads the package.json from that location to find the browser entry point.
+    //
+    // Note: runTests() starts the VS Code Web server and opens a browser.
+    // If extensionTestsPath is undefined, it will keep the server running.
+    // The function may not resolve until tests complete or the server stops.
+    console.log('🚀 Starting VS Code Web server...');
+    const testPromise = runTests({
+      extensionDevelopmentPath: extensionDevelopmentPath,
       // No extensionTestsPath - just test extension loading and activation
       headless: process.argv.includes('--headless'), // Browser visible by default
       browserType: 'chromium',
       version: 'stable',
+      // Pin to VS Code 1.108.0 (December 2025) to avoid 1.109 breaking changes
+      // Commit hash for 1.108.0: 94e8ae2b28cb5cc932b86e1070569c4463565c37
+      commit: '94e8ae2b28cb5cc932b86e1070569c4463565c37',
       waitForDebugger: process.argv.includes('--debug'),
       printServerLog: true, // Enable server logs for capture
       verbose: true, // Enable verbose logging
@@ -774,6 +788,8 @@ async function runWebExtensionTests() {
       extensionTestsPath: !process.argv.includes('--interactive')
         ? undefined
         : undefined,
+      // Use a fixed port to avoid conflicts (same as e2e tests)
+      port: 3000,
       // Custom launch options to capture console output
       launchOptions: {
         args: [
@@ -786,26 +802,56 @@ async function runWebExtensionTests() {
       },
     });
 
-    // Give the browser some time to load and generate logs
-    const waitTime = process.argv.includes('--headless') ? 5000 : 30000;
-    console.log(
-      `⏳ Waiting for extension activation and logs (${waitTime / 1000}s)...`,
-    );
+    // Give VS Code Web time to start and the browser to open
+    console.log('⏳ Waiting 5 seconds for VS Code Web server to start...');
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
     if (!process.argv.includes('--headless')) {
-      console.log('📋 WHILE WAITING:');
-      console.log('   1. Open VS Code Web that should have launched');
+      console.log('');
+      console.log(
+        '📋 VS Code Web should now be open in your browser at http://localhost:3000',
+      );
+      console.log('');
+      console.log('⚠️  IMPORTANT: Check if VS Code Web loaded successfully');
+      console.log('   - If you see a blank page, VS Code Web failed to load');
+      console.log('   - Check browser console (F12) for 404 errors');
+      console.log(
+        '   - Common issue: workbench.web.main.css, loader.js, etc. returning 404',
+      );
+      console.log('');
+      console.log('📋 If VS Code Web loaded successfully, verify extension:');
+      console.log('   1. You should see the VS Code workbench UI');
       console.log('   2. Go to View → Output');
       console.log(
         '   3. Select "Apex Language Extension (Typescript)" from dropdown',
       );
-      console.log('   4. Watch for any errors in the output');
+      console.log('   4. Watch for extension activation messages');
+      console.log('');
+      console.log(
+        '⏳ Server will keep running. Close the browser when done testing.',
+      );
+      console.log('   (Press Ctrl+C in this terminal to stop the server)');
+      console.log('');
+      console.log(
+        '⏳ Waiting 30 seconds for you to verify (or until you close browser)...',
+      );
+    } else {
+      console.log(
+        '⏳ Running in headless mode, waiting 5 seconds then exiting...',
+      );
     }
 
+    // Wait for user to verify (or timeout in headless mode)
+    // Note: In non-headless mode, the server keeps running until browser closes
+    const waitTime = process.argv.includes('--headless') ? 5000 : 30000;
     await new Promise((resolve) => {
       setTimeout(() => {
         resolve();
       }, waitTime);
     });
+
+    // Note: testPromise may not resolve if extensionTestsPath is undefined
+    // The server keeps running until manually stopped or browser closes
 
     // Try to capture browser console logs using Chrome DevTools Protocol
     if (!process.argv.includes('--headless')) {

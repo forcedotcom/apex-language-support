@@ -114,7 +114,30 @@ export class VisibilitySymbolListener
    */
   enterClassDeclaration(ctx: ClassDeclarationContext): void {
     try {
-      const name = ctx.id()?.text ?? 'unknownClass';
+      // Extract class name - handle special case where LIST, MAP, SET are lexer keywords
+      // When the source is "class List", the lexer tokenizes "List" as LIST keyword, not as id
+      // So ctx.id() returns undefined. We need to check for these keyword tokens.
+      let name = ctx.id()?.text;
+      if (!name) {
+        // Check if class name is a keyword token (LIST, MAP, SET)
+        const children = ctx.children || [];
+        for (const child of children) {
+          const childText = child.text;
+          if (
+            childText &&
+            (childText.toLowerCase() === 'list' ||
+              childText.toLowerCase() === 'map' ||
+              childText.toLowerCase() === 'set')
+          ) {
+            name = childText;
+            break;
+          }
+        }
+      }
+      if (!name) {
+        name = 'unknownClass';
+      }
+
       const modifiers = this.getCurrentModifiers();
 
       // Only process symbols matching this listener's visibility
