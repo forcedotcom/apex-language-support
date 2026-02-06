@@ -7,8 +7,8 @@
  */
 
 /**
- * Diagnostic test for protobuf cache lookup behavior.
- * Tests whether ResourceLoader successfully uses protobuf-cached symbol tables.
+ * Diagnostic test for binary cache lookup behavior.
+ * Tests whether ResourceLoader successfully uses binary-cached symbol tables.
  */
 
 import { ResourceLoader } from '../src/utils/resourceLoader';
@@ -18,7 +18,7 @@ import {
   getLogger,
 } from '@salesforce/apex-lsp-shared';
 
-describe('Protobuf Cache Diagnostic', () => {
+describe('Binary Cache Diagnostic', () => {
   let logger: any;
 
   beforeAll(() => {
@@ -27,13 +27,13 @@ describe('Protobuf Cache Diagnostic', () => {
     logger = getLogger();
   });
 
-  it('should diagnose protobuf cache lookup for standard library classes', async () => {
-    logger.info('\n=== Starting Protobuf Cache Diagnostic ===');
+  it('should diagnose binary cache lookup for standard library classes', async () => {
+    logger.info('\n=== Starting Binary Cache Diagnostic ===');
 
     // Get ResourceLoader instance
     const resourceLoader = ResourceLoader.getInstance();
 
-    // Initialize to load protobuf cache
+    // Initialize to load binary cache
     logger.info('\n1. Initializing ResourceLoader...');
     await resourceLoader.initialize();
 

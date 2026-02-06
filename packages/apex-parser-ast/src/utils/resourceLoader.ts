@@ -6,13 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { unzipSync } from 'fflate';
+import { unzipSync, gunzipSync } from 'fflate';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
-  StandardLibraryCacheLoader,
-  isProtobufCacheAvailable,
-} from '../cache/stdlib-cache-loader';
-import type { DeserializationResult } from '../cache/stdlib-deserializer';
+  BinaryDeserializer,
+  type BinaryDeserializationResult,
+} from '../cache/binary-deserializer';
+import { getEmbeddedBinaryCacheDataUrl } from '../cache/stdlib-binary-cache-data';
 import {
   getEmbeddedStandardLibraryZip,
   clearEmbeddedZipCache,
@@ -21,14 +21,31 @@ import {
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
 import { normalizeApexPath } from './PathUtils';
-import { SymbolTable } from '../types/symbol';
+import { SymbolTable, TypeSymbol } from '../types/symbol';
 import { NamespaceDependencyAnalyzer } from './NamespaceDependencyAnalyzer';
 import { Effect } from 'effect';
 import {
   GlobalTypeRegistry,
   GlobalTypeRegistryLive,
 } from '../services/GlobalTypeRegistryService';
-import { loadTypeRegistryFromGzip } from '../cache/type-registry-loader';
+
+/**
+ * Result of deserializing standard library data
+ * Compatible structure for both binary and legacy formats
+ */
+interface StandardLibraryData {
+  /** Map of file URI to SymbolTable */
+  symbolTables: Map<string, SymbolTable>;
+  /** Flat list of all type symbols for quick access */
+  allTypes: TypeSymbol[];
+  /** Metadata about the cache */
+  metadata: {
+    generatedAt: string;
+    sourceChecksum: string;
+    namespaceCount: number;
+    typeCount: number;
+  };
+}
 
 // ResourceLoaderOptions interface removed - ResourceLoader now always uses
 // embedded archives with disk fallback. Namespace preloading is handled by
@@ -38,13 +55,13 @@ import { loadTypeRegistryFromGzip } from '../cache/type-registry-loader';
  * ResourceLoader class for loading standard Apex class symbol tables and serving ephemeral docs.
  *
  * Core Responsibilities:
- * - Load symbol tables from protobuf cache (apex-stdlib.pb.gz)
- * - Initialize global type registry from gz file (apex-type-registry.pb.gz)
+ * - Load symbol tables from binary cache (apex-stdlib.bin.gz)
+ * - Initialize global type registry from binary cache
  * - Serve ephemeral docs (source code) from ZIP for goto definition
  *
  * Resource Loading Strategy:
- * - Symbol tables are loaded from protobuf cache at initialization
- * - Global type registry is loaded from gz file at initialization
+ * - Symbol tables are loaded from binary cache at initialization
+ * - Global type registry is loaded from binary cache at initialization
  * - ZIP buffer is used only for ephemeral docs (source code viewing)
  * - Works uniformly across all environments (web and desktop)
  *
@@ -52,7 +69,7 @@ import { loadTypeRegistryFromGzip } from '../cache/type-registry-loader';
  * ```typescript
  * const loader = ResourceLoader.getInstance();
  *
- * // Initialize loads protobuf cache and global registry
+ * // Initialize loads binary cache and global registry
  * await loader.initialize();
  *
  * // Get symbol table directly from cache
@@ -84,7 +101,7 @@ export class ResourceLoader {
   private zipBuffer?: Uint8Array; // Will be initialized via setZipBuffer
   private zipFiles: CaseInsensitivePathMap<Uint8Array> | null = null; // Will be initialized in extractZipFiles
   private standardLibrarySymbolDataLoaded = false; // Track if standard library symbol data was loaded
-  private standardLibrarySymbolData: DeserializationResult | null = null; // Cached standard library symbol data
+  private standardLibrarySymbolData: StandardLibraryData | null = null; // Cached standard library symbol data
   private namespaceDependencyOrder: string[] | null = null; // Cached dependency-sorted namespace order
 
   private constructor() {
@@ -335,8 +352,6 @@ export class ResourceLoader {
     ResourceLoader.instance = null as any;
     // Clear embedded ZIP cache to prevent stale buffer reuse
     clearEmbeddedZipCache();
-    // Clear protobuf cache as well
-    StandardLibraryCacheLoader.clearCache();
   }
 
   /**
@@ -448,7 +463,7 @@ export class ResourceLoader {
     this.logger.debug(
       'Computing namespace dependency order from standard library symbol data...',
     );
-    const deps = NamespaceDependencyAnalyzer.analyzeFromProtobuf(
+    const deps = NamespaceDependencyAnalyzer.analyzeFromSymbolTables(
       this.standardLibrarySymbolData.symbolTables,
     );
 
@@ -523,7 +538,7 @@ export class ResourceLoader {
     }
 
     // Load standard library symbol data first (fast path for symbols)
-    // Always try to load protobuf cache for symbol tables, regardless of zipBuffer
+    // Always try to load binary cache for symbol tables, regardless of zipBuffer
     if (!this.standardLibrarySymbolDataLoaded) {
       await this.tryLoadFromStandardLibrarySymbolData();
     }
@@ -539,43 +554,203 @@ export class ResourceLoader {
   }
 
   /**
-   * Load standard library symbol data from cache.
+   * Load standard library symbol data from binary cache.
    * Returns true if successful.
    */
   private async tryLoadFromStandardLibrarySymbolData(): Promise<boolean> {
-    // Check if protobuf cache is available
-    if (!isProtobufCacheAvailable()) {
-      this.logger.error('Standard library symbol data cache not available');
-      return false;
-    }
-
     try {
-      const loader = StandardLibraryCacheLoader.getInstance();
-      const result = await loader.load();
-
-      if (result.success && result.loadMethod === 'protobuf' && result.data) {
-        this.standardLibrarySymbolDataLoaded = true;
-        this.standardLibrarySymbolData = result.data;
-
-        // Populate namespace index from standard library symbol data (await to ensure registry is loaded)
-        await this.populateFromStandardLibrarySymbolData(result.data);
-
-        // Note: Detailed loading stats already logged by StandardLibraryCacheLoader
-        return true;
+      const binaryBuffer = await this.loadBinaryCacheFile();
+      if (!binaryBuffer) {
+        this.logger.error(
+          'Binary cache not available (apex-stdlib.bin.gz). ' +
+            "Please rebuild the extension with 'npm run build'.",
+        );
+        return false;
       }
 
-      this.logger.error(
+      const startTime = performance.now();
+
+      // Decompress gzip
+      const decompressed = gunzipSync(binaryBuffer);
+
+      // Deserialize binary cache
+      const deserializer = new BinaryDeserializer(decompressed);
+      const result = deserializer.deserialize();
+
+      const loadTimeMs = performance.now() - startTime;
+
+      // Store as StandardLibraryData for compatibility
+      this.standardLibrarySymbolData = {
+        symbolTables: result.symbolTables,
+        allTypes: [], // Not needed for binary cache path
+        metadata: {
+          generatedAt: new Date().toISOString(),
+          sourceChecksum: 'binary-cache',
+          namespaceCount: result.metadata.fileCount,
+          typeCount: result.metadata.typeRegistryCount,
+        },
+      };
+      this.standardLibrarySymbolDataLoaded = true;
+
+      // Populate namespace index from symbol tables
+      this.populateNamespaceIndexFromSymbolTables(result.symbolTables);
+
+      // Initialize type registry from binary cache (includes pre-built indexes)
+      await this.initializeTypeRegistryFromBinaryCache(result);
+
+      this.logger.alwaysLog(
         () =>
-          `Standard library symbol data load failed: ${result.error || 'unknown error'}`,
+          `Loaded binary cache in ${loadTimeMs.toFixed(1)}ms ` +
+          `(${result.metadata.symbolCount} symbols, ` +
+          `${result.metadata.typeRegistryCount} types, ` +
+          `${result.metadata.fileCount} files)`,
       );
-      return false;
+
+      return true;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        () => `Standard library symbol data load failed: ${errorMsg}`,
-      );
+      this.logger.error(() => `Binary cache load failed: ${errorMsg}`);
       return false;
     }
+  }
+
+  /**
+   * Load the binary cache file from embedded data URL or disk.
+   */
+  private async loadBinaryCacheFile(): Promise<Uint8Array | null> {
+    // Try embedded data URL first (production builds)
+    const dataUrl = getEmbeddedBinaryCacheDataUrl();
+    if (dataUrl) {
+      try {
+        const base64 = dataUrl.split(',')[1];
+        const data = Buffer.from(base64, 'base64');
+        return new Uint8Array(data);
+      } catch {
+        // Fall through to disk loading
+      }
+    }
+
+    // Try disk loading (development)
+    try {
+      if (typeof require === 'undefined') {
+        return null;
+      }
+
+      const fs = require('fs');
+      const path = require('path');
+
+      const possiblePaths = [
+        // From out/utils/ -> ../../resources/
+        path.resolve(__dirname, '../../resources/apex-stdlib.bin.gz'),
+        // From src/utils/ -> ../../resources/
+        path.resolve(__dirname, '../../resources/apex-stdlib.bin.gz'),
+        // From dist/ -> resources/
+        path.resolve(__dirname, '../resources/apex-stdlib.bin.gz'),
+        // Absolute path based on process.cwd()
+        path.resolve(process.cwd(), 'resources/apex-stdlib.bin.gz'),
+      ];
+
+      for (const binPath of possiblePaths) {
+        try {
+          if (fs.existsSync(binPath)) {
+            const buffer = fs.readFileSync(binPath);
+            return new Uint8Array(buffer);
+          }
+        } catch {
+          // Try next path
+        }
+      }
+    } catch {
+      // File system access failed
+    }
+
+    return null;
+  }
+
+  /**
+   * Populate namespace index and file mappings from symbol tables.
+   */
+  private populateNamespaceIndexFromSymbolTables(
+    symbolTables: Map<string, SymbolTable>,
+  ): void {
+    for (const [fileUri, _symbolTable] of symbolTables) {
+      // Extract namespace from file URI
+      const match = fileUri.match(
+        /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\/([^/]+)\.cls$/,
+      );
+      if (match) {
+        const namespace = match[1];
+        const className = match[2];
+
+        // Add to namespace index
+        const namespaceLower = namespace.toLowerCase();
+        if (!this.namespaceIndex.has(namespaceLower)) {
+          this.namespaceIndex.set(namespaceLower, namespace);
+        }
+
+        // Add to namespaces map
+        if (!this.namespaces.has(namespace)) {
+          this.namespaces.set(namespace, []);
+        }
+        this.namespaces.get(namespace)!.push(CIS.from(`${className}.cls`));
+
+        // Add to file index
+        const filePath = `${namespace}/${className}.cls`;
+        this.fileIndex.set(filePath, true);
+        this.originalPaths.set(filePath, filePath);
+
+        // Add to classNameToNamespace
+        const existingNamespaces = this.classNameToNamespace.get(className);
+        if (existingNamespaces) {
+          existingNamespaces.add(namespace);
+        } else {
+          this.classNameToNamespace.set(className, new Set([namespace]));
+        }
+      }
+    }
+
+    this.logger.debug(
+      () =>
+        `Populated namespace index: ${this.namespaces.size} namespaces, ` +
+        `${this.fileIndex.size} files indexed`,
+    );
+  }
+
+  /**
+   * Initialize type registry from binary cache data.
+   * Uses pre-built indexes for maximum performance.
+   */
+  private async initializeTypeRegistryFromBinaryCache(
+    cacheData: BinaryDeserializationResult,
+  ): Promise<void> {
+    const program = Effect.gen(function* () {
+      const registry = yield* GlobalTypeRegistry;
+
+      // Use hydrateFromCache if available (direct index population)
+      if (registry.hydrateFromCache) {
+        registry.hydrateFromCache(
+          cacheData.typeRegistryEntries,
+          cacheData.preBuiltFqnIndex,
+          cacheData.preBuiltNameIndex,
+          cacheData.preBuiltFileIndex,
+        );
+      } else {
+        // Fallback to registerTypes (slower path)
+        yield* registry.registerTypes(cacheData.typeRegistryEntries);
+      }
+
+      const stats = yield* registry.getStats();
+      return stats;
+    });
+
+    const stats = await Effect.runPromise(
+      program.pipe(Effect.provide(GlobalTypeRegistryLive)),
+    );
+
+    this.logger.debug(
+      () =>
+        `Type registry hydrated from binary cache (${stats.totalTypes} types)`,
+    );
   }
 
   /**
@@ -637,218 +812,6 @@ export class ResourceLoader {
   }
 
   /**
-   * Populate ResourceLoader data structures from standard library symbol data.
-   * This sets up namespace indexes and file mappings from the cached data.
-   */
-  private async populateFromStandardLibrarySymbolData(
-    data: DeserializationResult,
-  ): Promise<void> {
-    // Populate namespace index from cached data
-    for (const [fileUri, _symbolTable] of data.symbolTables) {
-      // Extract namespace from file URI (format: apexlib://resources/StandardApexLibrary/{namespace}/{className}.cls)
-      const match = fileUri.match(
-        /apexlib:\/\/resources\/StandardApexLibrary\/([^/]+)\/([^/]+)\.cls$/,
-      );
-      if (match) {
-        const namespace = match[1];
-        const className = match[2];
-
-        // Add to namespace index
-        const namespaceLower = namespace.toLowerCase();
-        if (!this.namespaceIndex.has(namespaceLower)) {
-          this.namespaceIndex.set(namespaceLower, namespace);
-        }
-
-        // Add to namespaces map
-        if (!this.namespaces.has(namespace)) {
-          this.namespaces.set(namespace, []);
-        }
-        this.namespaces.get(namespace)!.push(CIS.from(`${className}.cls`));
-
-        // Add to file index
-        const filePath = `${namespace}/${className}.cls`;
-        this.fileIndex.set(filePath, true);
-        this.originalPaths.set(filePath, filePath);
-
-        // Add to classNameToNamespace
-        const existingNamespaces = this.classNameToNamespace.get(className);
-        if (existingNamespaces) {
-          existingNamespaces.add(namespace);
-        } else {
-          this.classNameToNamespace.set(className, new Set([namespace]));
-        }
-      }
-    }
-
-    this.logger.debug(
-      () =>
-        `Populated from standard library symbol data: ${this.namespaces.size} namespaces, ` +
-        `${this.fileIndex.size} files indexed`,
-    );
-
-    // Initialize the GlobalTypeRegistry from pre-built cache (await completion)
-    await this.initializeTypeRegistry();
-  }
-
-  /**
-   * Initialize GlobalTypeRegistry from pre-built cache file.
-   * Loads apex-type-registry.pb.gz and populates the Effect service.
-   *
-   * @private
-   */
-  private async initializeTypeRegistry(): Promise<void> {
-    const { validateMD5Checksum } = await import('./checksum-validator');
-
-    const registryResult = await this.loadRegistryCacheFile();
-    if (!registryResult) {
-      throw new Error(
-        'Type registry cache file not found (apex-type-registry.pb.gz). ' +
-          "This is a required build artifact. Please rebuild the extension with 'npm run build'.",
-      );
-    }
-
-    // Validate checksum (skip for embedded builds where checksumContent is empty)
-    if (registryResult.checksumContent) {
-      validateMD5Checksum(
-        'apex-type-registry.pb.gz',
-        registryResult.data,
-        registryResult.checksumContent,
-      );
-    }
-
-    const entries = loadTypeRegistryFromGzip(registryResult.data);
-
-    if (entries.length === 0) {
-      throw new Error(
-        'Type registry is empty. The apex-type-registry.pb.gz file may be corrupted. ' +
-          "Please rebuild the extension with 'npm run build'.",
-      );
-    }
-
-    const program = Effect.gen(function* () {
-      const registry = yield* GlobalTypeRegistry;
-
-      // Register all entries
-      for (const entry of entries) {
-        yield* registry.registerType(entry);
-      }
-
-      const stats = yield* registry.getStats();
-      return stats;
-    });
-
-    const stats = await Effect.runPromise(
-      program.pipe(Effect.provide(GlobalTypeRegistryLive)),
-    );
-
-    this.logger.alwaysLog(
-      () =>
-        `Loaded type registry from cache in <1ms (${stats.totalTypes} types)`,
-    );
-  }
-
-  /**
-   * Load the type registry cache file
-   * Tries embedded data URL first, then falls back to disk
-   *
-   * @private
-   */
-  private async loadRegistryCacheFile(): Promise<{
-    data: Uint8Array;
-    checksumContent: string;
-  } | null> {
-    // Import checksum validator
-    const { ChecksumFileMissingError, ChecksumValidationError } = await import(
-      './checksum-validator'
-    );
-
-    // Try embedded data URL first (production builds)
-    // Note: For embedded builds, checksums should be validated at build time
-    // TODO: Embed checksum in data URL or separate module for production validation
-    try {
-      const { getEmbeddedStandardLibraryTypeRegistryDataUrl } = await import(
-        '../cache/stdlib-type-registry-data'
-      );
-      const dataUrl = getEmbeddedStandardLibraryTypeRegistryDataUrl();
-      if (dataUrl) {
-        // Parse data URL and return binary
-        const base64 = dataUrl.split(',')[1];
-        const data = Buffer.from(base64, 'base64');
-        // For embedded builds, we skip checksum validation as files are bundled
-        // The build process should ensure integrity
-        return {
-          data: new Uint8Array(data),
-          checksumContent: '', // Empty string for embedded builds (skip validation)
-        };
-      }
-    } catch {
-      // Module not found or data URL not available
-    }
-
-    // Fallback to disk (development)
-    try {
-      if (typeof require === 'undefined') {
-        return null;
-      }
-
-      const fs = require('fs');
-      const path = require('path');
-
-      const possiblePaths = [
-        // From out/utils/ -> ../../resources/
-        path.resolve(__dirname, '../../resources/apex-type-registry.pb.gz'),
-        // From src/utils/ -> ../../resources/
-        path.resolve(__dirname, '../../resources/apex-type-registry.pb.gz'),
-        // From dist/ -> resources/
-        path.resolve(__dirname, '../resources/apex-type-registry.pb.gz'),
-        // Absolute path based on process.cwd()
-        path.resolve(process.cwd(), 'resources/apex-type-registry.pb.gz'),
-      ];
-
-      for (const registryPath of possiblePaths) {
-        try {
-          if (fs.existsSync(registryPath)) {
-            const md5Path = `${registryPath}.md5`;
-            if (!fs.existsSync(md5Path)) {
-              throw new ChecksumFileMissingError('apex-type-registry.pb.gz');
-            }
-            const buffer = fs.readFileSync(registryPath);
-            const checksumContent = fs.readFileSync(md5Path, 'utf8');
-            return {
-              data: new Uint8Array(buffer),
-              checksumContent,
-            };
-          }
-        } catch (error) {
-          // Re-throw checksum errors
-          if (
-            error instanceof ChecksumFileMissingError ||
-            error instanceof ChecksumValidationError
-          ) {
-            throw error;
-          }
-          // Try next path for other errors
-        }
-      }
-    } catch (error) {
-      // Re-throw checksum errors
-      const {
-        ChecksumFileMissingError: ChecksumMissingErr,
-        ChecksumValidationError: ChecksumValidErr,
-      } = await import('./checksum-validator');
-      if (
-        error instanceof ChecksumMissingErr ||
-        error instanceof ChecksumValidErr
-      ) {
-        throw error;
-      }
-      // File system access failed
-    }
-
-    return null;
-  }
-
-  /**
    * Check if the standard library symbol data was loaded
    */
   public isStandardLibrarySymbolDataLoaded(): boolean {
@@ -858,7 +821,7 @@ export class ResourceLoader {
   /**
    * Get the standard library symbol data if loaded
    */
-  public getStandardLibrarySymbolData(): DeserializationResult | null {
+  public getStandardLibrarySymbolData(): StandardLibraryData | null {
     return this.standardLibrarySymbolData;
   }
 
@@ -1131,7 +1094,7 @@ export class ResourceLoader {
   }
 
   /**
-   * Get a symbol table for a standard Apex class from the protobuf cache.
+   * Get a symbol table for a standard Apex class from the binary cache.
    * The standard library symbol data cache has 100% coverage of all standard library classes,
    * validated at build time.
    *

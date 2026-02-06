@@ -27,16 +27,16 @@ export interface NamespaceDependencies {
 }
 
 /**
- * Analyzes namespace dependencies from protobuf symbol tables
+ * Analyzes namespace dependencies from symbol tables
  * to enable optimal loading order via topological sort
  */
 export class NamespaceDependencyAnalyzer {
   /**
    * Analyze all symbol tables to build namespace dependency graph
-   * @param symbolTables Map from protobuf deserialization (URI -> SymbolTable)
+   * @param symbolTables Map from binary cache deserialization (URI -> SymbolTable)
    * @returns Namespace dependencies
    */
-  static analyzeFromProtobuf(
+  static analyzeFromSymbolTables(
     symbolTables: Map<string, SymbolTable>,
   ): Map<string, NamespaceDependencies> {
     const deps = new Map<string, NamespaceDependencies>();

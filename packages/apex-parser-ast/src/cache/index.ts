@@ -7,27 +7,33 @@
  */
 
 /**
- * Standard Library Protobuf Cache Module
+ * Standard Library Cache Module
  *
  * This module provides functionality for loading the Apex Standard Library
- * from a pre-compiled Protocol Buffers cache, with automatic fallback to
- * ZIP-based loading if the cache is unavailable.
+ * from pre-compiled binary cache format (apex-stdlib.bin.gz).
  */
 
+// Binary cache format
 export {
-  StandardLibraryCacheLoader,
-  loadStandardLibraryCache,
-  isProtobufCacheAvailable,
-  type CacheLoadResult,
-  type CacheLoaderOptions,
-} from './stdlib-cache-loader';
+  BinarySerializer,
+  type SerializationInput,
+  type SerializationResult,
+} from './binary-serializer';
 
 export {
-  StandardLibraryDeserializer,
-  type DeserializationResult,
-} from './stdlib-deserializer';
+  BinaryDeserializer,
+  type BinaryDeserializationResult,
+} from './binary-deserializer';
+
+export { StringTableBuilder, StringTableReader } from './string-table';
 
 export {
-  StandardLibrarySerializer,
-  type NamespaceData,
-} from './stdlib-serializer';
+  BINARY_FORMAT_MAGIC,
+  BINARY_FORMAT_VERSION,
+  HEADER_SIZE,
+  SYMBOL_RECORD_SIZE,
+  TYPE_ENTRY_RECORD_SIZE,
+  type BinaryHeader,
+} from './binary-format';
+
+export { getEmbeddedBinaryCacheDataUrl } from './stdlib-binary-cache-data';

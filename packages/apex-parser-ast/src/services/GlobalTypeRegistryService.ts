@@ -77,6 +77,16 @@ export interface GlobalTypeRegistryService {
   ) => Effect.Effect<TypeRegistryEntry[], never, never>;
   readonly getStats: () => Effect.Effect<RegistryStats, never, never>;
   readonly clear: () => Effect.Effect<void, never, never>;
+  /**
+   * Hydrate registry from pre-built cache data.
+   * @internal Only for use by binary cache deserializer
+   */
+  readonly hydrateFromCache?: (
+    entries: TypeRegistryEntry[],
+    preBuiltFqnIndex: Map<string, number>,
+    preBuiltNameIndex: Map<string, string[]>,
+    preBuiltFileIndex: Map<string, Set<string>>,
+  ) => void;
 }
 
 /**
@@ -346,6 +356,7 @@ class GlobalTypeRegistryImpl implements GlobalTypeRegistryService {
     Effect.sync(() => {
       this.fqnIndex.clear();
       this.nameIndex.clear();
+      this.fileIndex.clear();
       this.stats = {
         totalTypes: 0,
         stdlibTypes: 0,
@@ -354,6 +365,51 @@ class GlobalTypeRegistryImpl implements GlobalTypeRegistryService {
         hitCount: 0,
       };
     });
+
+  /**
+   * Hydrate registry from pre-built cache data.
+   * Bypasses per-type registerType() overhead for maximum performance.
+   *
+   * @internal Only for use by binary cache deserializer
+   */
+  hydrateFromCache(
+    entries: TypeRegistryEntry[],
+    preBuiltFqnIndex: Map<string, number>,
+    preBuiltNameIndex: Map<string, string[]>,
+    preBuiltFileIndex: Map<string, Set<string>>,
+  ): void {
+    // Clear existing data
+    this.fqnIndex.clear();
+    this.nameIndex.clear();
+    this.fileIndex.clear();
+
+    // Populate fqnIndex from entries
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      this.fqnIndex.set(entry.fqn.toLowerCase(), entry);
+    }
+
+    // Populate nameIndex directly from pre-built data
+    for (const [name, fqns] of preBuiltNameIndex) {
+      this.nameIndex.set(name, fqns);
+    }
+
+    // Populate fileIndex directly from pre-built data
+    for (const [fileUri, fqns] of preBuiltFileIndex) {
+      this.fileIndex.set(fileUri, fqns);
+    }
+
+    // Update stats
+    this.stats.totalTypes = entries.length;
+    this.stats.stdlibTypes = entries.filter((e) => e.isStdlib).length;
+    this.stats.userTypes = entries.filter((e) => !e.isStdlib).length;
+
+    this.logger.debug(
+      () =>
+        `[GlobalTypeRegistry] Hydrated from cache: ${entries.length} types ` +
+        `(${this.stats.stdlibTypes} stdlib, ${this.stats.userTypes} user)`,
+    );
+  }
 }
 
 /**
