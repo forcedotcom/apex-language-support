@@ -4,7 +4,7 @@ Complete guide for end-to-end testing of the Apex Language Server Extension.
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Getting Started](#getting-started)
@@ -50,7 +50,7 @@ The e2e test suite validates the Apex Language Server Extension in real browser 
 - **5 feature-specific test files**
 - **100% LSP feature coverage**
 - **1,750+ lines of test code**
-- **Multiple browser support** (Chromium, Firefox, WebKit)
+- **Multiple browser support** (Chromium, WebKit)
 - **Cross-platform testing** (Linux, macOS, Windows)
 
 ---
@@ -65,7 +65,7 @@ Node.js >= 20.0.0
 npm >= 10.0.0
 
 # Optional (for desktop mode)
-Playwright browsers: chromium, firefox, webkit
+Playwright browsers: chromium, webkit
 ```
 
 ### Installation
@@ -79,7 +79,7 @@ cd apex-language-support
 npm install
 
 # Install Playwright browsers
-npx playwright install chromium firefox webkit --with-deps
+npx playwright install chromium webkit --with-deps
 ```
 
 ### Build Extension
@@ -90,7 +90,6 @@ Before running tests, build the extension:
 # From repository root
 npm run compile
 npm run bundle
-npm run build -w packages/apex-lsp-vscode-extension
 ```
 
 ### Quick Start
@@ -134,7 +133,6 @@ npx playwright test tests/apex-hover.spec.ts
 ```bash
 npm run test:e2e
 npm run test:e2e:web:chromium
-npm run test:e2e:web:firefox
 ```
 
 ### Desktop Mode
@@ -160,7 +158,6 @@ npm run test:e2e:web:firefox
 ```bash
 npm run test:e2e:desktop
 npm run test:e2e:desktop:chromium
-npm run test:e2e:desktop:firefox
 npm run test:e2e:desktop:webkit
 npm run test:e2e:desktop:all-browsers
 ```
@@ -195,11 +192,9 @@ npx playwright test --grep "should navigate"
 ```bash
 # Web mode browsers
 npm run test:e2e:web:chromium
-npm run test:e2e:web:firefox
 
 # Desktop mode browsers
 npm run test:e2e:desktop:chromium
-npm run test:e2e:desktop:firefox
 npm run test:e2e:desktop:webkit
 ```
 
@@ -492,14 +487,14 @@ Then use Chrome DevTools:
 ### GitHub Actions
 
 Tests run automatically on:
-- Push to `main` branch
-- Pull requests to `main`
+- Push to `main`, `tdx26/main`, and `kyledev/e2eTests`
+- Pull requests to `main` and `tdx26/main`
 - Manual workflow dispatch
 
 **Web Mode (Default):**
 - Runs on: `ubuntu-latest`
-- Browsers: `chromium`, `firefox`
-- Parallel execution
+- Browser: `chromium`
+- Parallelized by test file in CI
 
 **Desktop Mode (Manual):**
 - Runs on: `ubuntu-latest`, `macos-latest`, `windows-latest`
@@ -520,9 +515,9 @@ name: E2E Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, tdx26/main, kyledev/e2eTests]
   pull_request:
-    branches: [main]
+    branches: [main, tdx26/main]
   workflow_dispatch:
     inputs:
       test_mode:
@@ -533,8 +528,8 @@ on:
 ### Test Reports
 
 - **HTML Report:** Artifacts → playwright-report
-- **JUnit XML:** Artifacts → test-results/junit.xml
-- **JSON:** Artifacts → test-results/results.json
+- **JUnit XML:** Artifacts → `test-results/<spec-file>/junit.xml`
+- **JSON:** Artifacts → `test-results/<spec-file>/results.json`
 - **Screenshots/Videos:** Artifacts → test-artifacts
 
 ### PR Comments
@@ -632,7 +627,6 @@ Test results automatically posted as PR comments with:
 ```bash
 # Ensure extension is built
 npm run compile && npm run bundle
-npm run build -w packages/apex-lsp-vscode-extension
 
 # Install/update browsers
 npx playwright install --with-deps
@@ -651,7 +645,7 @@ npm run test:e2e
 **Solution:**
 ```bash
 # Install browsers with dependencies
-npx playwright install --with-deps chromium firefox webkit
+npx playwright install --with-deps chromium webkit
 
 # macOS: Grant accessibility permissions
 # System Preferences → Security & Privacy → Privacy → Accessibility
@@ -725,8 +719,6 @@ npm run test:e2e:desktop
 - [README.md](README.md) - Test suite overview
 - [DESKTOP-TESTING.md](DESKTOP-TESTING.md) - Desktop mode guide
 - [PERFORMANCE-BASELINES.md](PERFORMANCE-BASELINES.md) - Performance testing
-- [Page Objects README](pages/README.md) - Page object documentation
-- [Fixtures README](fixtures/README.md) - Fixture usage guide
 - [Test Data README](test-data/README.md) - Sample files guide
 
 ### Test Files
@@ -764,4 +756,4 @@ npm run test:e2e:desktop
 - Review Playwright docs
 - Ask team for help
 
-Happy testing! 🧪
+Happy testing.

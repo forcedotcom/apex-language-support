@@ -4,7 +4,7 @@ Comprehensive guide for running e2e tests in Desktop mode with enhanced native O
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Desktop vs Web Mode](#desktop-vs-web-mode)
@@ -96,7 +96,6 @@ npm run test:e2e:desktop:chromium
 # From repository root
 npm run compile
 npm run bundle
-npm run build -w packages/apex-lsp-vscode-extension
 ```
 
 ### 2. Run Desktop Tests
@@ -134,7 +133,6 @@ Desktop mode includes several pre-configured projects:
 
 **Cross-Platform Projects:**
 - `chromium-desktop` - Chromium with desktop features
-- `firefox-desktop` - Firefox with desktop features
 - `webkit-desktop` - WebKit (Safari) with desktop features
 
 **OS-Specific Projects:**
@@ -181,13 +179,10 @@ npm run test:e2e:desktop
 # Chromium (recommended - most stable)
 npm run test:e2e:desktop:chromium
 
-# Firefox
-npm run test:e2e:desktop:firefox
-
 # WebKit (Safari)
 npm run test:e2e:desktop:webkit
 
-# All browsers
+# All configured desktop browsers
 npm run test:e2e:desktop:all-browsers
 ```
 
@@ -197,8 +192,8 @@ npm run test:e2e:desktop:all-browsers
 # Debug with Chromium (headed, slow motion)
 npm run test:e2e:desktop:debug
 
-# Debug with specific browser
-DEBUG_MODE=1 TEST_MODE=desktop npx playwright test --project=firefox-desktop --headed
+# Debug with specific project
+DEBUG_MODE=1 TEST_MODE=desktop npx playwright test --project=webkit-desktop --headed
 
 # Debug specific test file
 npm run test:e2e:desktop:debug -- tests/apex-outline.spec.ts
@@ -243,26 +238,6 @@ TEST_MODE=desktop npx playwright test --trace=on
 
 ```bash
 npm run test:e2e:desktop:chromium
-```
-
-### Firefox Desktop
-
-**Pros:**
-- Alternative rendering engine
-- Good memory management
-- Cross-browser verification
-
-**Cons:**
-- Some features may behave differently
-- Slightly slower than Chromium in some tests
-
-**Use When:**
-- Cross-browser compatibility testing
-- Verifying Firefox-specific behavior
-- Testing rendering differences
-
-```bash
-npm run test:e2e:desktop:firefox
 ```
 
 ### WebKit Desktop (Safari)
@@ -504,7 +479,7 @@ npm run test:e2e:desktop
 **Solution:** Check browser installation:
 ```bash
 # Install Playwright browsers
-npx playwright install chromium firefox webkit
+npx playwright install chromium webkit
 
 # Install with dependencies
 npx playwright install --with-deps
@@ -591,8 +566,8 @@ TEST_MODE=desktop npx playwright test --video=off --screenshot=off
 
 **4. Use Shared Browsers:**
 ```bash
-# Reuse existing browser instances
-TEST_MODE=desktop npx playwright test --reuse-browser
+# Reuse an already-running web server (non-CI)
+TEST_MODE=desktop npx playwright test
 ```
 
 ---
@@ -628,5 +603,4 @@ For most development and testing, **web mode (default)** is sufficient. Use **de
 - [Main README](README.md) - Complete e2e testing guide
 - [Playwright Configuration](playwright.config.ts) - Desktop mode configuration
 - [TESTING-GUIDE.md](TESTING-GUIDE.md) - Comprehensive testing guide
-- [PHASE4-SUMMARY.md](PHASE4-SUMMARY.md) - Phase 4 enhancements summary
 - [Playwright Docs](https://playwright.dev/docs/intro) - Official documentation

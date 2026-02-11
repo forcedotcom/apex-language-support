@@ -2,7 +2,7 @@
 
 This package provides comprehensive end-to-end testing for the Apex Language Server Extension in VS Code Web environments. The test suite validates that the extension correctly integrates with VS Code's language server protocol and provides essential Apex language features.
 
-## 📊 Test Suite Overview
+## Test Suite Overview
 
 **Total Tests:** 79 comprehensive e2e tests
 **Test Files:** 5 feature-specific test suites
@@ -21,7 +21,7 @@ This package provides comprehensive end-to-end testing for the Apex Language Ser
 
 ---
 
-## 🎯 Purpose
+## Purpose
 
 The e2e test suite ensures the Apex Language Server Extension works correctly in real-world browser environments by testing:
 
@@ -45,7 +45,7 @@ The e2e test suite ensures the Apex Language Server Extension works correctly in
 
 ---
 
-## 📁 Directory Structure
+## Directory Structure
 
 ```
 e2e-tests/
@@ -85,7 +85,7 @@ e2e-tests/
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -99,7 +99,6 @@ e2e-tests/
 # From repository root
 npm run compile
 npm run bundle
-npm run build -w packages/apex-lsp-vscode-extension
 ```
 
 ### Run Tests
@@ -110,9 +109,8 @@ npm run build -w packages/apex-lsp-vscode-extension
 # Run all web tests (recommended)
 npm run test:e2e
 
-# Run web tests with specific browser
+# Run web tests with Chromium
 npm run test:e2e:web:chromium
-npm run test:e2e:web:firefox
 
 # Debug mode with browser UI visible
 npm run test:e2e:debug
@@ -143,7 +141,6 @@ npm run test:e2e:desktop:debug
 
 # Run desktop tests with specific browsers
 npm run test:e2e:desktop:chromium    # Chromium desktop
-npm run test:e2e:desktop:firefox     # Firefox desktop
 npm run test:e2e:desktop:webkit      # WebKit desktop (Safari)
 
 # Run desktop tests across all browsers
@@ -151,7 +148,6 @@ npm run test:e2e:desktop:all-browsers
 
 # Run desktop tests with specific project
 npx playwright test --project=chromium-desktop
-npx playwright test --project=firefox-desktop
 npx playwright test --project=webkit-desktop
 
 # Run OS-specific desktop tests (automatically detects your OS)
@@ -168,7 +164,7 @@ TEST_MODE=desktop npx playwright test --project=chromium-linux     # Linux only
 
 ---
 
-## 📝 Test Files
+## Test Files
 
 ### 1. [apex-extension-core.spec.ts](tests/apex-extension-core.spec.ts)
 **Focus:** Core extension activation and LCS integration
@@ -275,7 +271,7 @@ TEST_MODE=desktop npx playwright test --project=chromium-linux     # Linux only
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### Page Objects
 
@@ -356,7 +352,7 @@ expect(validation.consoleValidation.allErrorsAllowed).toBe(true);
 
 ---
 
-## 🧪 Test Development
+## Test Development
 
 ### Writing a New Test
 
@@ -419,7 +415,7 @@ test('complex test', async ({ apexEditor }) => {
 
 ---
 
-## 🔍 Debugging
+## Debugging
 
 ### Debug Mode
 
@@ -455,11 +451,11 @@ Tests include comprehensive logging:
 
 ---
 
-## 🤖 CI/CD Integration
+## CI/CD Integration
 
 Tests run automatically in GitHub Actions on:
-- Push to `main` branch
-- Pull requests to `main`
+- Push to `main`, `tdx26/main`, and `kyledev/e2eTests`
+- Pull requests to `main` and `tdx26/main`
 - Manual workflow dispatch
 
 **Configuration:** `.github/workflows/e2e-tests.yml`
@@ -467,13 +463,14 @@ Tests run automatically in GitHub Actions on:
 **Features:**
 - Retry logic (2 retries in CI)
 - Headless execution
+- Web tests sharded by spec file on Chromium
 - Artifact collection (screenshots, traces, reports)
 - Junit XML reporting
 - 30-day artifact retention
 
 ---
 
-## 📊 Test Reports
+## Test Reports
 
 ### HTML Report
 
@@ -498,7 +495,7 @@ Tests provide real-time console output with:
 
 ---
 
-## 🛠️ Configuration
+## Configuration
 
 ### Playwright Config
 
@@ -517,20 +514,18 @@ Tests provide real-time console output with:
 
 ---
 
-## 📚 Documentation
+## Documentation
 
-- [Page Objects README](pages/README.md) - Page object documentation
-- [Fixtures README](fixtures/README.md) - Fixture usage guide
 - [Test Data README](test-data/README.md) - Sample files guide
-- [Phase 2 Summary](PHASE2-SUMMARY.md) - Test reorganization details
-- [Phase 3 Summary](PHASE3-SUMMARY.md) - Go-to-def & LSP tests details
-- [Planning Document](../slopdocs/e2e-test-standardization-plan.md) - Original plan
+- [TESTING-GUIDE.md](TESTING-GUIDE.md) - Comprehensive testing guide
+- [DESKTOP-TESTING.md](DESKTOP-TESTING.md) - Desktop mode details
+- [PERFORMANCE-BASELINES.md](PERFORMANCE-BASELINES.md) - Performance baseline guide
 
 ---
 
-## 🎯 Test Philosophy
+## Test Philosophy
 
-These tests focus on critical user-facing functionality rather than internal implementation details. They simulate real user interactions with the extension in a browser environment, providing confidence that the extension will work correctly when published.
+These tests focus on critical user-facing functionality rather than internal implementation details. They simulate real user interactions with the extension in a browser environment, providing confidence that the extension behaves correctly.
 
 ### Priorities
 
@@ -548,7 +543,7 @@ These tests focus on critical user-facing functionality rather than internal imp
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 When adding new tests:
 
@@ -562,7 +557,7 @@ The test suite is designed to grow with the extension while maintaining reliabil
 
 ---
 
-## 📈 Test Statistics
+## Test Statistics
 
 ### Growth Over Time
 
@@ -585,7 +580,7 @@ The test suite is designed to grow with the extension while maintaining reliabil
 
 ---
 
-## 🎉 Success Criteria
+## Success Criteria
 
 All tests passing indicates:
 - ✅ Extension activates correctly
@@ -597,4 +592,4 @@ All tests passing indicates:
 - ✅ No critical errors occur
 - ✅ Performance is acceptable
 
-**Result:** Extension is ready for production! 🚀
+**Result:** The e2e suite reports strong coverage and stability for core Apex LSP behaviors.

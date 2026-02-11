@@ -11,10 +11,6 @@ test-data/
 │   ├── inheritance.cls
 │   ├── interface-impl.cls
 │   └── ...
-└── expected-results/      # Expected test outcomes (JSON format)
-    ├── outline-symbols.json
-    ├── hover-content.json
-    └── definition-locations.json
 ```
 
 ## Apex Samples
@@ -55,33 +51,14 @@ Interface implementation:
 
 ## Expected Results
 
-Expected results are stored in JSON format for:
-1. **Outline symbols** - Expected symbol structure and hierarchy
-2. **Hover content** - Expected hover text for specific symbols
-3. **Definition locations** - Expected line/column for go-to-definition
-
-### Format Example
-
-```json
-{
-  "className": "ComplexClass",
-  "symbols": [
-    {
-      "name": "ComplexClass",
-      "type": "class",
-      "children": [
-        { "name": "InnerClass", "type": "class" },
-        { "name": "StatusEnum", "type": "enum" }
-      ]
-    }
-  ]
-}
-```
+Expected outcomes are currently asserted directly in the test specs (for example,
+symbol names, hover content, and definition navigation targets). There is no
+`expected-results/` JSON directory in this package at this time.
 
 ## Adding New Test Data
 
 1. Create the Apex file in `apex-samples/`
-2. Add expected results in `expected-results/`
+2. Add or update assertions in the relevant test spec
 3. Document the file purpose in this README
 4. Reference the file in test specs
 

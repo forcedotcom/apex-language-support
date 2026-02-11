@@ -4,7 +4,7 @@ Performance baselines and benchmarking guide for Apex Language Server Extension 
 
 ---
 
-## 📊 Performance Baselines
+## Performance Baselines
 
 These baselines represent acceptable performance thresholds for common operations.
 
@@ -61,7 +61,7 @@ These baselines represent acceptable performance thresholds for common operation
 
 ---
 
-## 🔧 Using Performance Utilities
+## Using Performance Utilities
 
 ### 1. Basic Benchmarking
 
@@ -103,7 +103,7 @@ test('should not leak memory', async ({ page, apexEditor }) => {
   await profiler.takeSnapshot(page);
 
   // Perform operations
-  await apexEditor.openFile('LargeClass.cls');
+  await apexEditor.openFile('complex-class.cls');
   await profiler.takeSnapshot(page);
 
   // Force GC and take final snapshot
@@ -150,7 +150,7 @@ test('comprehensive performance test', async ({ page, apexEditor, outlineView, h
 
   // Benchmark file open
   benchmarker.start('file.open');
-  await apexEditor.openFile('ComplexClass.cls');
+  await apexEditor.openFile('complex-class.cls');
   benchmarker.end('file.open');
   await profiler.takeSnapshot(page);
 
@@ -163,7 +163,7 @@ test('comprehensive performance test', async ({ page, apexEditor, outlineView, h
 
   // Benchmark hover
   benchmarker.start('hover.show');
-  await hoverHelper.hoverOnWord('ComplexClass');
+  await hoverHelper.hoverOnWord('ApexClassExample');
   await hoverHelper.waitForHover();
   benchmarker.end('hover.show');
   await profiler.takeSnapshot(page);
@@ -185,7 +185,7 @@ test('comprehensive performance test', async ({ page, apexEditor, outlineView, h
 
 ---
 
-## 📈 Performance Reports
+## Performance Reports
 
 ### Benchmark Report Format
 
@@ -232,14 +232,14 @@ Average Memory:  98.45MB
 Memory Growth:   94.44MB
 --------------------------------------------------------------------------------
 
-⚠️ Peak memory exceeds baseline: 178.92MB > 150.00MB
+⚠️ Peak memory exceeds baseline: 220.92MB > 200.00MB
 
 ================================================================================
 ```
 
 ---
 
-## 🎯 Performance Testing Best Practices
+## Performance Testing Best Practices
 
 ### 1. Use Desktop Mode for Accurate Measurements
 
@@ -259,12 +259,12 @@ First operation is often slower due to cold start:
 
 ```typescript
 // Warm up
-await apexEditor.openFile('WarmUp.cls');
-await apexEditor.closeFile();
+await apexEditor.openFile('ApexClassExample.cls');
+await apexEditor.openFile('inheritance.cls');
 
 // Now measure
 benchmarker.start('file.open');
-await apexEditor.openFile('TestFile.cls');
+await apexEditor.openFile('complex-class.cls');
 benchmarker.end('file.open');
 ```
 
@@ -336,7 +336,7 @@ if (!comparison?.withinThreshold) {
 
 ---
 
-## 🔍 Analyzing Performance Issues
+## Analyzing Performance Issues
 
 ### 1. Identify Slow Operations
 
@@ -380,14 +380,10 @@ npm run test:e2e:desktop:chromium
 Performance may degrade with larger files:
 
 ```typescript
-// Small file (100 lines)
-await benchmarkFile('SmallClass.cls');
-
-// Medium file (500 lines)
-await benchmarkFile('MediumClass.cls');
-
-// Large file (2000 lines)
-await benchmarkFile('LargeClass.cls');
+// Small/medium/complex samples currently in repo
+await benchmarkFile('ApexClassExample.cls');
+await benchmarkFile('inheritance.cls');
+await benchmarkFile('complex-class.cls');
 ```
 
 ### 5. Use Browser DevTools
@@ -405,7 +401,7 @@ Then use Chrome DevTools:
 
 ---
 
-## 🚀 Performance Optimization Tips
+## Performance Optimization Tips
 
 ### For Test Code
 
@@ -452,7 +448,7 @@ Performance issues in tests may indicate extension issues:
 
 ---
 
-## 📋 Performance Test Checklist
+## Performance Test Checklist
 
 Before committing code:
 
@@ -466,7 +462,7 @@ Before committing code:
 
 ---
 
-## 🔗 Additional Resources
+## Additional Resources
 
 - [DESKTOP-TESTING.md](DESKTOP-TESTING.md) - Desktop mode guide
 - [performance-benchmarking.ts](utils/performance-benchmarking.ts) - Benchmarking utilities
