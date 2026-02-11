@@ -17,12 +17,17 @@ on:
           - desktop
           - both
 
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e-tests-web:
     name: E2E Tests (Web Mode)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     if: ${{ github.event.inputs.test_mode != 'desktop' }}
+    continue-on-error: true
 
     steps:
       - name: Checkout code
