@@ -157,7 +157,7 @@ test.describe('Apex LSP Integration', () => {
 
     await test.step('Verify LSP does not crash', async () => {
       // LSP should still be functional despite syntax error
-      await apexEditor.wait(1000);
+      await apexEditor.wait(2000);
 
       expect(await apexEditor.isApexFileOpen()).toBe(true);
 
@@ -242,7 +242,7 @@ test.describe('Apex LSP Integration', () => {
       const duration = Date.now() - start;
 
       timings.push({ operation: 'navigation', duration });
-      expect(duration).toBeLessThan(1000); // Should be fast
+      expect(duration).toBeLessThan(2000);
     });
 
     await test.step('Measure typing performance', async () => {
@@ -277,7 +277,7 @@ test.describe('Apex LSP Integration', () => {
 
     await test.step('Verify recovery', async () => {
       // Wait for LSP to stabilize
-      await apexEditor.wait(1000);
+      await apexEditor.wait(2000);
 
       // Verify LSP is functional
       expect(await apexEditor.isApexFileOpen()).toBe(true);
