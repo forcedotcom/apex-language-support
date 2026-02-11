@@ -224,11 +224,9 @@ jobs:
         run: |
           SUMMARY_FILE="e2e-test-summary.md"
 
-          echo "# E2E Test Results Summary 🧪" >> $SUMMARY_FILE
+          echo "# E2E Test Results Summary" >> $SUMMARY_FILE
           echo "" >> $SUMMARY_FILE
           echo "**Run:** [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $SUMMARY_FILE
-          echo "**Branch:** \`${{ github.ref_name }}\`" >> $SUMMARY_FILE
-          echo "**Commit:** \`${{ github.sha }}\`" >> $SUMMARY_FILE
           echo "" >> $SUMMARY_FILE
 
           # Aggregate results from reporter outputs.
@@ -238,6 +236,7 @@ jobs:
           ERRORS=0
           JUNIT_COUNT=0
           JSON_COUNT=0
+          PER_FILE_STATS=()
 
           while IFS= read -r junit; do
             [ -f "$junit" ] || continue
@@ -248,6 +247,7 @@ jobs:
             TOTAL=$((TOTAL + T))
             FAILURES=$((FAILURES + F))
             ERRORS=$((ERRORS + E))
+            PER_FILE_STATS+=("$junit|$T|$F|$E")
           done < <(find test-results -name "junit.xml" 2>/dev/null || true)
 
           if [ "$JUNIT_COUNT" -eq 0 ]; then
@@ -258,6 +258,7 @@ jobs:
               TOTAL=$((TOTAL + T))
               FAILURES=$((FAILURES + F))
               ERRORS=$((ERRORS + E))
+              PER_FILE_STATS+=("$json|$T|$F|$E")
             done < <(find test-results -name "results.json" 2>/dev/null || true)
           fi
 
@@ -265,13 +266,26 @@ jobs:
             echo "## Test Results" >> $SUMMARY_FILE
             echo "" >> $SUMMARY_FILE
             PASSED=$((TOTAL - FAILURES - ERRORS))
-            echo "- ✅ **Passed:** $PASSED" >> $SUMMARY_FILE
-            echo "- ❌ **Failed:** $FAILURES" >> $SUMMARY_FILE
-            echo "- ⚠️ **Errors:** $ERRORS" >> $SUMMARY_FILE
-            echo "- 📊 **Total:** $TOTAL" >> $SUMMARY_FILE
-            echo "- 📦 **Sources:** JUnit files: $JUNIT_COUNT, JSON files: $JSON_COUNT" >> $SUMMARY_FILE
+            echo "- **Passed:** $PASSED" >> $SUMMARY_FILE
+            echo "- **Failed:** $FAILURES" >> $SUMMARY_FILE
+            echo "- **Errors:** $ERRORS" >> $SUMMARY_FILE
+            echo "- **Total:** $TOTAL" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
+            echo "## Passing Rate by File" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
+            for stat in "${PER_FILE_STATS[@]}"; do
+              IFS='|' read -r FILE_PATH FILE_TOTAL FILE_FAIL FILE_ERROR <<< "$stat"
+              FILE_PASSED=$((FILE_TOTAL - FILE_FAIL - FILE_ERROR))
+              if [ "$FILE_TOTAL" -gt 0 ]; then
+                FILE_RATE=$(node -e 'const total = Number(process.argv[1]); const passed = Number(process.argv[2]); process.stdout.write(((passed / total) * 100).toFixed(1));' "$FILE_TOTAL" "$FILE_PASSED")
+              else
+                FILE_RATE="0.0"
+              fi
+              DISPLAY_PATH="${FILE_PATH#test-results/}"
+              echo "- \`$DISPLAY_PATH\`: **$FILE_RATE%** ($FILE_PASSED/$FILE_TOTAL passed)" >> $SUMMARY_FILE
+            done
           else
-            echo "⚠️ No test results found" >> $SUMMARY_FILE
+            echo "No test results found" >> $SUMMARY_FILE
             echo "" >> $SUMMARY_FILE
             echo "Searched for \`**/junit.xml\` and \`**/results.json\` under downloaded \`test-results/\` artifacts." >> $SUMMARY_FILE
           fi
@@ -284,10 +298,10 @@ jobs:
           # Success/Failure badge
           if [ "$FAILURES" = "0" ] && [ "$ERRORS" = "0" ] && [ $TOTAL -gt 0 ]; then
             echo "" >> $SUMMARY_FILE
-            echo "### ✅ All tests passed!" >> $SUMMARY_FILE
+            echo "### All tests passed" >> $SUMMARY_FILE
           elif [ $TOTAL -gt 0 ]; then
             echo "" >> $SUMMARY_FILE
-            echo "### ❌ Some tests failed" >> $SUMMARY_FILE
+            echo "### Some tests failed" >> $SUMMARY_FILE
           fi
 
           # Also write to job summary for Actions UI
