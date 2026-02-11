@@ -144,7 +144,8 @@ export default defineConfig({
     // ========================================
     {
       name: 'chromium-macos',
-      testMatch: isDesktopMode && process.platform === 'darwin' ? undefined : [],
+      testMatch:
+        isDesktopMode && process.platform === 'darwin' ? undefined : [],
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1920, height: 1080 },

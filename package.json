@@ -219,7 +219,7 @@
       "cache": false
     },
     "test:e2e": {
-      "command": "npm run test:e2e --workspace=e2e-tests",
+      "command": "node scripts/test-e2e.js",
       "dependencies": [
         "bundle"
       ],
@@ -228,6 +228,7 @@
         "e2e-tests/playwright-report/**"
       ],
       "files": [
+        "scripts/test-e2e.js",
         "e2e-tests/tests/**/*.ts",
         "e2e-tests/utils/**/*.ts",
         "e2e-tests/playwright.config.ts"
