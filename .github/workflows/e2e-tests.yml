@@ -224,12 +224,14 @@ jobs:
 
       - name: Generate Test Summary
         run: |
-          echo "# E2E Test Results Summary 🧪" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Run:** [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          SUMMARY_FILE="e2e-test-summary.md"
+
+          echo "# E2E Test Results Summary 🧪" >> $SUMMARY_FILE
+          echo "" >> $SUMMARY_FILE
+          echo "**Run:** [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $SUMMARY_FILE
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $SUMMARY_FILE
+          echo "**Commit:** \`${{ github.sha }}\`" >> $SUMMARY_FILE
+          echo "" >> $SUMMARY_FILE
 
           # Aggregate results from all JUnit XML files (one per test file)
           TOTAL=0
@@ -246,30 +248,33 @@ jobs:
           done < <(find test-results -name "junit.xml" 2>/dev/null || true)
 
           if [ $TOTAL -gt 0 ]; then
-            echo "## Test Results" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## Test Results" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
             PASSED=$((TOTAL - FAILURES - ERRORS))
-            echo "- ✅ **Passed:** $PASSED" >> $GITHUB_STEP_SUMMARY
-            echo "- ❌ **Failed:** $FAILURES" >> $GITHUB_STEP_SUMMARY
-            echo "- ⚠️ **Errors:** $ERRORS" >> $GITHUB_STEP_SUMMARY
-            echo "- 📊 **Total:** $TOTAL" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ **Passed:** $PASSED" >> $SUMMARY_FILE
+            echo "- ❌ **Failed:** $FAILURES" >> $SUMMARY_FILE
+            echo "- ⚠️ **Errors:** $ERRORS" >> $SUMMARY_FILE
+            echo "- 📊 **Total:** $TOTAL" >> $SUMMARY_FILE
           else
-            echo "⚠️ No test results found" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ No test results found" >> $SUMMARY_FILE
           fi
 
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Artifacts" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "View detailed test reports in the [Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) section." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $SUMMARY_FILE
+          echo "## Artifacts" >> $SUMMARY_FILE
+          echo "" >> $SUMMARY_FILE
+          echo "View detailed test reports in the [Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) section." >> $SUMMARY_FILE
 
           # Success/Failure badge
           if [ "$FAILURES" = "0" ] && [ "$ERRORS" = "0" ] && [ $TOTAL -gt 0 ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### ✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $SUMMARY_FILE
+            echo "### ✅ All tests passed!" >> $SUMMARY_FILE
           elif [ $TOTAL -gt 0 ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### ❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $SUMMARY_FILE
+            echo "### ❌ Some tests failed" >> $SUMMARY_FILE
           fi
+
+          # Also write to job summary for Actions UI
+          cat $SUMMARY_FILE >> $GITHUB_STEP_SUMMARY
 
       - name: Comment PR with test results
         if: github.event_name == 'pull_request'
@@ -277,9 +282,17 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const summary = fs.readFileSync(process.env.GITHUB_STEP_SUMMARY, 'utf8');
-
-            github.rest.issues.createComment({
+            const summaryFilePath = 'e2e-test-summary.md';
+            if (!fs.existsSync(summaryFilePath)) {
+              console.log('Test summary file not found, skipping PR comment');
+              return;
+            }
+            const summary = fs.readFileSync(summaryFilePath, 'utf8').trim();
+            if (!summary) {
+              console.log('Test summary is empty, skipping PR comment');
+              return;
+            }
+            await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
