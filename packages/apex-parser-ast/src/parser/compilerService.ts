@@ -43,6 +43,7 @@ import {
   DetailLevel,
 } from './listeners/LayeredSymbolListenerBase';
 import { VisibilitySymbolListener } from './listeners/VisibilitySymbolListener';
+import { BlockContentListener } from './listeners/BlockContentListener';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../constants/constants';
 
 export interface CompilationResult<T> {
@@ -553,6 +554,20 @@ export class CompilerService {
       // a symbol was only collected in the public-api layer (because it's public),
       // its _detailLevel reflects that higher layers (protected, private) were applied.
       const highestLayer = requestedLayers[requestedLayers.length - 1];
+
+      // CRITICAL: After all layers are processed, if the highest layer is 'private' (which maps to 'full'),
+      // apply BlockContentListener to collect local variables and block-level symbols
+      if (highestLayer === 'private' || highestLayer === 'full') {
+        try {
+          const blockContentListener = new BlockContentListener(symbolTable);
+          blockContentListener.setCurrentFileUri(fileName);
+          walker.walk(blockContentListener, parseTree);
+        } catch (error) {
+          this.logger.warn(
+            () => `Failed to apply BlockContentListener: ${error}`,
+          );
+        }
+      }
       const targetDetailLevel =
         highestLayer === 'private' ? 'full' : highestLayer;
       for (const symbol of symbolTable.getAllSymbols()) {

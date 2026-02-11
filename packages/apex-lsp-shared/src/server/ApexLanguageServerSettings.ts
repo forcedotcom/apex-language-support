@@ -251,6 +251,42 @@ export interface SchedulerSettings {
 }
 
 /**
+ * Symbol graph pre-population settings
+ */
+export interface SymbolGraphSettings {
+  /**
+   * Enable symbol graph pre-population feature.
+   * When enabled, specified namespaces are loaded during server initialization.
+   * Measured startup cost: ~190ms for Database + System (eliminates 60-80ms first-file penalty).
+   * Default: true (enabled by default based on favorable performance tests)
+   */
+  enabled: boolean;
+
+  /**
+   * Standard Apex namespaces to pre-populate into symbol graph at startup.
+   * Pre-populating common namespaces eliminates first-file penalty (~60-80ms).
+   * Measured startup cost: Database (~18ms), System (~837ms), Combined (~190ms).
+   * Default: ['Database', 'System']
+   * Available namespaces: Database, System, Schema, ConnectApi, Cache, Dom, Flow, etc.
+   */
+  preloadNamespaces: string[];
+}
+
+/**
+ * Validation settings
+ */
+export interface ValidationSettings {
+  /**
+   * Enable version-specific validation rules
+   * When enabled, validators check API version requirements for annotations and other version-dependent features
+   * Default: false (disabled by default for backward compatibility)
+   */
+  versionSpecificValidation: {
+    enabled: boolean;
+  };
+}
+
+/**
  * Complete Apex Language Server settings
  */
 export interface ApexLanguageServerSettings {
@@ -281,6 +317,12 @@ export interface ApexLanguageServerSettings {
 
     /** Deferred reference processing settings */
     deferredReferenceProcessing?: DeferredReferenceProcessingSettings;
+
+    /** Symbol graph pre-population settings */
+    symbolGraph?: SymbolGraphSettings;
+
+    /** Validation configuration */
+    validation?: ValidationSettings;
 
     /** Server version for compatibility checks */
     version?: string;

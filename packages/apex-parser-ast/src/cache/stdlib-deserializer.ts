@@ -17,6 +17,7 @@ import {
   MethodSymbol as ProtoMethodSymbol,
   VariableSymbol as ProtoVariableSymbol,
   ParameterSymbol as ProtoParameterSymbol,
+  BlockSymbol as ProtoBlockSymbol,
   TypeReference as ProtoTypeReference,
   Modifiers as ProtoModifiers,
   Annotation as ProtoAnnotation,
@@ -40,6 +41,8 @@ import {
   TypeSymbol,
   MethodSymbol,
   VariableSymbol,
+  ScopeSymbol,
+  ScopeType,
 } from '../types/symbol';
 
 import { TypeInfo } from '../types/typeInfo';
@@ -90,7 +93,11 @@ export class StandardLibraryDeserializer {
         symbolTables.set(protoType.fileUri, symbolTable);
 
         // Also add to allTypes for quick access
-        const typeSymbol = this.convertTypeSymbol(protoType, null);
+        const typeSymbol = this.convertTypeSymbol(
+          protoType,
+          null,
+          namespace.name,
+        );
         allTypes.push(typeSymbol);
         typeCount++;
       }
@@ -119,12 +126,59 @@ export class StandardLibraryDeserializer {
     symbolTable.setFileUri(protoType.fileUri);
 
     // Add the main type symbol
-    const typeSymbol = this.convertTypeSymbol(protoType, null);
+    const typeSymbol = this.convertTypeSymbol(protoType, null, namespace);
     symbolTable.addSymbol(typeSymbol);
+
+    // Add block symbols FIRST (before methods/fields that reference them)
+    const blockIdMap = new Map<string, string>(); // Map old parentId format to actual block ID
+    for (const protoBlock of protoType.blocks || []) {
+      const blockSymbol = this.convertBlockSymbol(protoBlock, namespace);
+      symbolTable.addSymbol(blockSymbol);
+
+      // Create mapping for parentId normalization
+      // If parentId format is ...:class:ClassName:block:blockName, map it to ...:block:blockName
+      if (protoBlock.parentId && protoBlock.parentId.includes(':class:')) {
+        const match = protoBlock.parentId.match(
+          /^(.*):class:[^:]+:block:(.+)$/,
+        );
+        if (match) {
+          const normalizedId = `${match[1]}:block:${match[2]}`;
+          blockIdMap.set(protoBlock.parentId, normalizedId);
+        }
+      }
+    }
 
     // Add methods
     for (const protoMethod of protoType.methods) {
-      const methodSymbol = this.convertMethodSymbol(protoMethod, typeSymbol.id);
+      // Normalize parentId if it has the old format with :class: in it
+      let normalizedParentId = protoMethod.parentId;
+      if (
+        normalizedParentId &&
+        normalizedParentId.includes(':class:') &&
+        normalizedParentId.includes(':block:')
+      ) {
+        const match = normalizedParentId.match(/^(.*):class:[^:]+:block:(.+)$/);
+        if (match) {
+          normalizedParentId = `${match[1]}:block:${match[2]}`;
+          // Verify this block exists
+          const blockExists = (protoType.blocks || []).some(
+            (b) =>
+              b.id === normalizedParentId ||
+              b.id.endsWith(`:block:${match[2]}`),
+          );
+          if (!blockExists) {
+            // Fallback to original if normalization doesn't match
+            normalizedParentId = protoMethod.parentId;
+          }
+        }
+      }
+
+      const methodSymbol = this.convertMethodSymbol(
+        protoMethod,
+        typeSymbol.id,
+        namespace,
+        normalizedParentId,
+      );
       symbolTable.addSymbol(methodSymbol);
 
       // Add parameters as symbols
@@ -139,13 +193,21 @@ export class StandardLibraryDeserializer {
 
     // Add fields
     for (const protoField of protoType.fields) {
-      const fieldSymbol = this.convertVariableSymbol(protoField, typeSymbol.id);
+      const fieldSymbol = this.convertVariableSymbol(
+        protoField,
+        typeSymbol.id,
+        namespace,
+      );
       symbolTable.addSymbol(fieldSymbol);
     }
 
     // Add properties
     for (const protoProp of protoType.properties) {
-      const propSymbol = this.convertVariableSymbol(protoProp, typeSymbol.id);
+      const propSymbol = this.convertVariableSymbol(
+        protoProp,
+        typeSymbol.id,
+        namespace,
+      );
       symbolTable.addSymbol(propSymbol);
     }
 
@@ -154,13 +216,19 @@ export class StandardLibraryDeserializer {
       const enumValSymbol = this.convertVariableSymbol(
         protoEnumVal,
         typeSymbol.id,
+        namespace,
       );
       symbolTable.addSymbol(enumValSymbol);
     }
 
     // Add inner types recursively
     for (const innerType of protoType.innerTypes) {
-      this.addInnerTypeToSymbolTable(symbolTable, innerType, typeSymbol.id);
+      this.addInnerTypeToSymbolTable(
+        symbolTable,
+        innerType,
+        typeSymbol.id,
+        namespace,
+      );
     }
 
     return symbolTable;
@@ -173,25 +241,68 @@ export class StandardLibraryDeserializer {
     symbolTable: SymbolTable,
     protoType: ProtoTypeSymbol,
     parentId: string,
+    namespace?: string,
   ): void {
-    const typeSymbol = this.convertTypeSymbol(protoType, parentId);
+    const typeSymbol = this.convertTypeSymbol(protoType, parentId, namespace);
     symbolTable.addSymbol(typeSymbol);
+
+    // Add block symbols FIRST (before methods/fields that reference them)
+    for (const protoBlock of protoType.blocks || []) {
+      const blockSymbol = this.convertBlockSymbol(protoBlock, namespace);
+      symbolTable.addSymbol(blockSymbol);
+    }
 
     // Add methods
     for (const protoMethod of protoType.methods) {
-      const methodSymbol = this.convertMethodSymbol(protoMethod, typeSymbol.id);
+      // Normalize parentId if it has the old format with :class: in it
+      let normalizedParentId = protoMethod.parentId;
+      if (
+        normalizedParentId &&
+        normalizedParentId.includes(':class:') &&
+        normalizedParentId.includes(':block:')
+      ) {
+        const match = normalizedParentId.match(/^(.*):class:[^:]+:block:(.+)$/);
+        if (match) {
+          normalizedParentId = `${match[1]}:block:${match[2]}`;
+          // Verify this block exists
+          const blockExists = (protoType.blocks || []).some(
+            (b) =>
+              b.id === normalizedParentId ||
+              b.id.endsWith(`:block:${match[2]}`),
+          );
+          if (!blockExists) {
+            // Fallback to original if normalization doesn't match
+            normalizedParentId = protoMethod.parentId;
+          }
+        }
+      }
+
+      const methodSymbol = this.convertMethodSymbol(
+        protoMethod,
+        typeSymbol.id,
+        namespace,
+        normalizedParentId,
+      );
       symbolTable.addSymbol(methodSymbol);
     }
 
     // Add fields
     for (const protoField of protoType.fields) {
-      const fieldSymbol = this.convertVariableSymbol(protoField, typeSymbol.id);
+      const fieldSymbol = this.convertVariableSymbol(
+        protoField,
+        typeSymbol.id,
+        namespace,
+      );
       symbolTable.addSymbol(fieldSymbol);
     }
 
     // Add properties
     for (const protoProp of protoType.properties) {
-      const propSymbol = this.convertVariableSymbol(protoProp, typeSymbol.id);
+      const propSymbol = this.convertVariableSymbol(
+        protoProp,
+        typeSymbol.id,
+        namespace,
+      );
       symbolTable.addSymbol(propSymbol);
     }
 
@@ -200,13 +311,19 @@ export class StandardLibraryDeserializer {
       const enumValSymbol = this.convertVariableSymbol(
         protoEnumVal,
         typeSymbol.id,
+        namespace,
       );
       symbolTable.addSymbol(enumValSymbol);
     }
 
     // Recurse for nested inner types
     for (const innerType of protoType.innerTypes) {
-      this.addInnerTypeToSymbolTable(symbolTable, innerType, typeSymbol.id);
+      this.addInnerTypeToSymbolTable(
+        symbolTable,
+        innerType,
+        typeSymbol.id,
+        namespace,
+      );
     }
   }
 
@@ -216,6 +333,7 @@ export class StandardLibraryDeserializer {
   private convertTypeSymbol(
     proto: ProtoTypeSymbol,
     parentId: string | null,
+    namespace?: string,
   ): TypeSymbol {
     const kind = this.convertTypeKind(proto.kind);
     const modifiers = this.convertModifiers(proto.modifiers);
@@ -230,7 +348,7 @@ export class StandardLibraryDeserializer {
       parentId || proto.parentId || null,
       undefined,
       proto.fqn,
-      undefined,
+      namespace, // Pass namespace to symbol
       this.convertAnnotations(proto.annotations),
     ) as TypeSymbol;
 
@@ -247,6 +365,8 @@ export class StandardLibraryDeserializer {
   private convertMethodSymbol(
     proto: ProtoMethodSymbol,
     parentId: string,
+    namespace?: string,
+    normalizedParentId?: string,
   ): MethodSymbol {
     const kind = proto.isConstructor
       ? SymbolKind.Constructor
@@ -254,17 +374,20 @@ export class StandardLibraryDeserializer {
     const modifiers = this.convertModifiers(proto.modifiers);
     const location = this.convertLocation(proto.location);
 
+    // Use normalized parentId if provided, otherwise fall back to proto.parentId or parentId
+    const effectiveParentId = normalizedParentId || proto.parentId || parentId;
+
     // First create the base symbol
     const symbol = SymbolFactory.createFullSymbol(
       proto.name,
       kind,
       location,
-      '', // fileUri will be inherited from parent
+      proto.fileUri || '', // fileUri from protobuf cache
       modifiers,
-      proto.parentId || parentId,
+      effectiveParentId,
       undefined,
-      undefined,
-      undefined,
+      proto.fqn || undefined, // fqn from protobuf cache
+      namespace, // namespace from parent context
       this.convertAnnotations(proto.annotations),
     ) as MethodSymbol;
 
@@ -285,6 +408,7 @@ export class StandardLibraryDeserializer {
   private convertVariableSymbol(
     proto: ProtoVariableSymbol,
     parentId: string,
+    namespace?: string,
   ): VariableSymbol {
     const kind = this.convertVariableKind(proto.kind);
     const modifiers = this.convertModifiers(proto.modifiers);
@@ -294,9 +418,12 @@ export class StandardLibraryDeserializer {
       proto.name,
       kind,
       location,
-      '', // fileUri will be inherited from parent
+      proto.fileUri || '', // fileUri from protobuf cache
       modifiers,
       proto.parentId || parentId,
+      undefined,
+      proto.fqn || undefined, // fqn from protobuf cache
+      namespace, // namespace from parent context
     ) as VariableSymbol;
 
     // Set VariableSymbol-specific properties
@@ -331,6 +458,31 @@ export class StandardLibraryDeserializer {
     symbol.type = this.convertTypeReference(proto.type);
 
     return symbol;
+  }
+
+  /**
+   * Convert a protobuf BlockSymbol to runtime ScopeSymbol
+   */
+  private convertBlockSymbol(
+    proto: ProtoBlockSymbol,
+    namespace?: string,
+  ): ScopeSymbol {
+    const location = this.convertLocation(proto.location);
+
+    const blockSymbol = SymbolFactory.createBlockSymbol(
+      proto.name,
+      proto.scopeType as ScopeType,
+      location,
+      proto.fileUri,
+      proto.parentId || null,
+    );
+
+    // Set namespace if provided
+    if (namespace) {
+      blockSymbol.namespace = namespace;
+    }
+
+    return blockSymbol;
   }
 
   /**

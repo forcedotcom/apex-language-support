@@ -18,6 +18,7 @@ import {
   MethodSymbol as ProtoMethodSymbol,
   VariableSymbol as ProtoVariableSymbol,
   ParameterSymbol as ProtoParameterSymbol,
+  BlockSymbol as ProtoBlockSymbol,
   TypeReference as ProtoTypeReference,
   Modifiers as ProtoModifiers,
   Annotation as ProtoAnnotation,
@@ -35,6 +36,7 @@ import type {
   TypeSymbol,
   MethodSymbol,
   VariableSymbol,
+  ScopeSymbol,
   SymbolModifiers,
   SymbolLocation,
   Range,
@@ -44,6 +46,7 @@ import type {
 } from '../types/symbol';
 
 import type { TypeInfo } from '../types/typeInfo';
+import { isBlockSymbol } from '../utils/symbolNarrowing';
 
 /**
  * Interface for namespace data collected during serialization
@@ -138,8 +141,18 @@ export class StandardLibrarySerializer {
     const properties: ProtoVariableSymbol[] = [];
     const innerTypes: ProtoTypeSymbol[] = [];
     const enumValues: ProtoVariableSymbol[] = [];
+    const blocks: ProtoBlockSymbol[] = [];
 
     const allSymbols = symbolTable.getAllSymbols();
+
+    // Collect all block symbols that belong to this type's hierarchy
+    for (const sym of allSymbols) {
+      if (isBlockSymbol(sym)) {
+        if (this.isInTypeHierarchy(sym, symbol.id, allSymbols)) {
+          blocks.push(this.convertBlockSymbol(sym, namespace));
+        }
+      }
+    }
 
     for (const child of allSymbols) {
       // Find symbols that belong to this type (by parentId or scope)
@@ -180,6 +193,7 @@ export class StandardLibrarySerializer {
       enumValues,
       fileUri: symbol.fileUri,
       parentId: symbol.parentId || '',
+      blocks,
     });
   }
 
@@ -230,6 +244,30 @@ export class StandardLibrarySerializer {
       }
     }
 
+    // Normalize parentId to match actual block ID format
+    // If parentId has format ...:class:ClassName:block:blockName, normalize to ...:block:blockName
+    let normalizedParentId = symbol.parentId || '';
+    if (
+      normalizedParentId &&
+      normalizedParentId.includes(':class:') &&
+      normalizedParentId.includes(':block:')
+    ) {
+      const match = normalizedParentId.match(/^(.*):class:[^:]+:block:(.+)$/);
+      if (match) {
+        const normalized = `${match[1]}:block:${match[2]}`;
+        // Verify the normalized block exists
+        const allSymbols = symbolTable.getAllSymbols();
+        const blockExists = allSymbols.some(
+          (s) =>
+            s.kind === 'block' &&
+            (s.id === normalized || s.id.endsWith(`:block:${match[2]}`)),
+        );
+        if (blockExists) {
+          normalizedParentId = normalized;
+        }
+      }
+    }
+
     return ProtoMethodSymbol.create({
       id: symbol.id,
       name: symbol.name,
@@ -239,8 +277,10 @@ export class StandardLibrarySerializer {
       location: this.convertLocation(symbol.location),
       modifiers: this.convertModifiers(symbol.modifiers),
       annotations: this.convertAnnotations(symbol.annotations || []),
-      parentId: symbol.parentId || '',
+      parentId: normalizedParentId,
       hasBody: symbol.hasBody ?? true, // Default true for backward compatibility
+      fqn: symbol.fqn || '',
+      fileUri: symbol.fileUri || '',
     });
   }
 
@@ -260,6 +300,8 @@ export class StandardLibrarySerializer {
       initializerType: symbol.initializerType
         ? this.convertTypeReference(symbol.initializerType)
         : undefined,
+      fqn: symbol.fqn || '',
+      fileUri: symbol.fileUri || '',
     });
   }
 
@@ -275,6 +317,59 @@ export class StandardLibrarySerializer {
       modifiers: this.convertModifiers(param.modifiers),
       parentId: param.parentId || '',
     });
+  }
+
+  /**
+   * Convert a BlockSymbol to protobuf format
+   */
+  private convertBlockSymbol(
+    symbol: ScopeSymbol,
+    namespace: string,
+  ): ProtoBlockSymbol {
+    return ProtoBlockSymbol.create({
+      id: symbol.id,
+      name: symbol.name,
+      scopeType: symbol.scopeType,
+      location: this.convertLocation(symbol.location),
+      parentId: symbol.parentId || '',
+      fileUri: symbol.fileUri,
+    });
+  }
+
+  /**
+   * Check if a block symbol belongs to a type's hierarchy
+   * by walking up the parentId chain to see if it leads to the type
+   */
+  private isInTypeHierarchy(
+    blockSymbol: ScopeSymbol,
+    typeId: string,
+    allSymbols: ApexSymbol[],
+  ): boolean {
+    let current: ApexSymbol | undefined = blockSymbol;
+    const visited = new Set<string>();
+
+    while (current) {
+      if (visited.has(current.id)) {
+        break;
+      }
+      visited.add(current.id);
+
+      if (current.id === typeId) {
+        return true;
+      }
+
+      if (!current.parentId) {
+        break;
+      }
+
+      const parentIdToFind: string = current.parentId;
+      const next = allSymbols.find((s) => s.id === parentIdToFind);
+      if (!next) {
+        break;
+      }
+      current = next;
+    }
+    return false;
   }
 
   /**

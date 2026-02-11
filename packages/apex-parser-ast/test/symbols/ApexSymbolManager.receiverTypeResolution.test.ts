@@ -13,6 +13,7 @@ import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolKind } from '../../src/types/symbol';
 import { ReferenceContext } from '../../src/types/symbolReference';
+import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { URI } from 'vscode-uri';
 import {
@@ -73,7 +74,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
   };
 
   // TODO: Fix symbol resolution for chained type references
-  // The parser correctly captures method calls as CHAINED_TYPE references with chainNodes,
+  // The parser correctly captures method calls as chained references with chainNodes,
   // but symbol resolution at specific positions within chained expressions needs improvement
   it.skip('resolves request.setEndpoint(...) to HttpRequest.setEndpoint', async () => {
     const testClassPath = path.resolve(
@@ -99,7 +100,7 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
 
     const target = refs.find(
       (r) =>
-        r.context === ReferenceContext.CHAINED_TYPE &&
+        isChainedSymbolReference(r) &&
         r.name === 'request.setEndpoint' &&
         getQualifier(r) === 'request',
     );

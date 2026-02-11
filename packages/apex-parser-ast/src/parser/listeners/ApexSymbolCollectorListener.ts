@@ -119,13 +119,12 @@ import {
   ErrorReporter,
 } from '../../semantics/modifiers/index';
 import { IdentifierValidator } from '../../semantics/validation/IdentifierValidator';
-import { doesMethodSignatureMatch } from '../../semantics/validation/utils/methodSignatureUtils';
+import { doesSignatureMatch } from '../../semantics/validation/utils/methodSignatureUtils';
 import { localizeTyped } from '../../i18n/messageInstance';
 import { ErrorCodes } from '../../generated/ErrorCodes';
 import {
   hasIdMethod,
   isEnumSymbol,
-  isConstructorSymbol,
   isMethodSymbol,
   isClassSymbol,
   isInterfaceSymbol,
@@ -212,6 +211,9 @@ export class ApexSymbolCollectorListener
   }> = new Stack();
 
   private hierarchicalResolver = new HierarchicalReferenceResolver();
+  // Track current method/constructor symbol for parameter collection
+  // This is needed because enterFormalParameter is called before the method block is pushed onto the stack
+  private currentMethodOrConstructor: MethodSymbol | null = null;
   private readonly referenceResolver = new ApexReferenceResolver();
 
   private enableReferenceCorrection: boolean = true; // Default to enabled
@@ -1039,7 +1041,30 @@ export class ApexSymbolCollectorListener
     try {
       // Reset modifiers at start of class declaration to track duplicates within this declaration only
       this.seenModifiers.clear();
-      const name = ctx.id()?.text ?? 'unknownClass';
+
+      // Extract class name - handle special case where LIST, MAP, SET are lexer keywords
+      // When the source is "class List", the lexer tokenizes "List" as LIST keyword, not as id
+      // So ctx.id() returns undefined. We need to check for these keyword tokens.
+      let name = ctx.id()?.text;
+      if (!name) {
+        // Check if class name is a keyword token (LIST, MAP, SET)
+        const children = ctx.children || [];
+        for (const child of children) {
+          const childText = child.text;
+          if (
+            childText &&
+            (childText.toLowerCase() === 'list' ||
+              childText.toLowerCase() === 'map' ||
+              childText.toLowerCase() === 'set')
+          ) {
+            name = childText;
+            break;
+          }
+        }
+      }
+      if (!name) {
+        name = 'unknownClass';
+      }
 
       // Validate identifier
       const validationResult = IdentifierValidator.validateIdentifier(
@@ -1103,7 +1128,31 @@ export class ApexSymbolCollectorListener
       );
 
       // Get superclass and interfaces
-      const superclass = ctx.typeRef()?.text;
+      // Extract superclass name from typeRef (handle potential whitespace/formatting)
+      let superclass: string | undefined;
+      const superclassTypeRef = ctx.typeRef();
+      if (superclassTypeRef) {
+        // Extract base type name from typeRef (handles qualified names, arrays, etc.)
+        const typeNames = superclassTypeRef.typeName();
+        if (typeNames && typeNames.length > 0) {
+          const baseTypeName = typeNames[0];
+          const ids = baseTypeName.id();
+          if (ids) {
+            // ids can be a single IdContext or an array
+            if (Array.isArray(ids) && ids.length > 0) {
+              // Qualified name (e.g., System.String) - use first part for superclass
+              superclass = ids[0].text;
+            } else if (!Array.isArray(ids) && ids.text) {
+              // Simple name (e.g., Parent)
+              superclass = ids.text;
+            }
+          }
+        }
+        // Fallback to text if extraction failed
+        if (!superclass) {
+          superclass = superclassTypeRef.text?.trim();
+        }
+      }
       const interfaces =
         ctx
           .typeList()
@@ -1431,7 +1480,7 @@ export class ApexSymbolCollectorListener
 
         // Check for duplicate using shared validation logic (case-insensitive)
         const duplicateMethod = existingMethods.find((s: ApexSymbol) =>
-          doesMethodSignatureMatch(s, name, currentParamTypes),
+          doesSignatureMatch(s, name, currentParamTypes),
         );
 
         if (duplicateMethod) {
@@ -1485,6 +1534,10 @@ export class ApexSymbolCollectorListener
         // Add method symbol to current scope (null when stack is empty = file level)
         // Note: addSymbol will NOT override parentId if it's already set to a non-null value
         this.symbolTable.addSymbol(methodSymbol, this.getCurrentScopeSymbol());
+
+        // Track current method for parameter collection
+        // enterFormalParameter is called before the method block is pushed onto the stack
+        this.currentMethodOrConstructor = methodSymbol;
       }
 
       // Create method block symbol for scope tracking (needed for block content)
@@ -1515,6 +1568,9 @@ export class ApexSymbolCollectorListener
    * Cleans up the method scope and resets the current method symbol.
    */
   exitMethodDeclaration(): void {
+    // Clear current method/constructor tracking
+    this.currentMethodOrConstructor = null;
+
     // No-op - stack handles scope exit
     // this.symbolTable.exitScope(); // Removed - stack handles scope exit
 
@@ -1590,35 +1646,36 @@ export class ApexSymbolCollectorListener
           return;
         }
         // Use getSymbolsInScope to find constructors with the same name (more efficient)
-        const existingConstructors = this.symbolTable
-          .getSymbolsInScope(typeScope.id)
-          .filter((s) => s.name === name);
+        // Filter by both name and kind to ensure we only check constructors
+        const allScopeSymbols = this.symbolTable.getSymbolsInScope(
+          typeScope.id,
+        );
+        const existingConstructors = allScopeSymbols.filter(
+          (s) => s.name === name && s.kind === SymbolKind.Constructor,
+        );
 
         // Get the parameter types for the current constructor
+        // Check for duplicate using shared validation logic (case-insensitive)
+        // Use doesSignatureMatch for consistency with method duplicate detection
         const currentParamTypes =
           ctx
             .formalParameters()
             ?.formalParameterList()
             ?.formalParameter()
-            ?.map((param) => this.getTextFromContext(param.typeRef()))
-            .join(',') || '';
+            ?.map((param) => this.getTextFromContext(param.typeRef())) || [];
 
         const duplicateConstructor = existingConstructors.find(
-          (s: ApexSymbol) => {
-            if (!isConstructorSymbol(s)) {
-              return false;
-            }
-            const existingParamTypes =
-              s.parameters
-                ?.map((param) => param.type.originalTypeString)
-                .join(',') || '';
-            return existingParamTypes === currentParamTypes;
-          },
+          (s: ApexSymbol) => doesSignatureMatch(s, name, currentParamTypes),
         );
 
         if (duplicateConstructor) {
+          // Report the error but continue to add the duplicate symbol
+          // This allows overloaded constructors to appear in the symbol table (like methods)
+          // Overloaded constructors have the same name but different parameter types
+          // A duplicate is when two constructors have the SAME name AND SAME parameters
           this.addError(`Duplicate constructor declaration: ${name}`, ctx);
-          return;
+          // Don't return - continue to add the constructor symbol to the table
+          // This enables constructor overloading (same name, different parameters)
         }
       }
 
@@ -1651,6 +1708,10 @@ export class ApexSymbolCollectorListener
           constructorSymbol,
           this.getCurrentScopeSymbol(),
         );
+
+        // Track current constructor for parameter collection
+        // enterFormalParameter is called before the constructor block is pushed onto the stack
+        this.currentMethodOrConstructor = constructorSymbol;
       }
 
       // Create constructor block symbol for scope tracking (needed for block content)
@@ -1681,6 +1742,9 @@ export class ApexSymbolCollectorListener
    * Cleans up the constructor scope and resets the current method symbol.
    */
   exitConstructorDeclaration(): void {
+    // Clear current method/constructor tracking
+    this.currentMethodOrConstructor = null;
+
     // No-op - stack handles scope exit
     // this.symbolTable.exitScope(); // Removed - stack handles scope exit
 
@@ -1825,9 +1889,18 @@ export class ApexSymbolCollectorListener
     try {
       const name = ctx.id()?.text ?? 'unknownParameter';
       const typeRef = ctx.typeRef();
-      const type = typeRef
-        ? this.createTypeInfoFromTypeRef(typeRef)
-        : createTypeInfo('Object');
+      let type: TypeInfo;
+      if (typeRef) {
+        type = this.createTypeInfoFromTypeRef(typeRef);
+      } else {
+        // Check if parameter text contains "void" (handles cases where parser rejects void as invalid syntax)
+        const paramText = ctx.text?.toLowerCase().trim() || '';
+        if (paramText.startsWith('void ')) {
+          type = createPrimitiveType('void');
+        } else {
+          type = createTypeInfo('Object');
+        }
+      }
       const modifiers = this.getCurrentModifiers();
 
       // Create parameter symbol using createVariableSymbol method
@@ -1839,7 +1912,10 @@ export class ApexSymbolCollectorListener
         type,
       );
 
-      const currentMethod = this.getCurrentMethod();
+      // Try currentMethodOrConstructor first (set during enterMethodDeclaration/enterConstructorDeclaration)
+      // Fall back to getCurrentMethod() for cases where block is already on stack
+      const currentMethod =
+        this.currentMethodOrConstructor || this.getCurrentMethod();
       if (currentMethod) {
         currentMethod.parameters.push(paramSymbol);
       }
@@ -1914,11 +1990,26 @@ export class ApexSymbolCollectorListener
       // Reset modifiers at start of property declaration to track duplicates within this declaration only
       this.seenModifiers.clear();
       const typeRef = ctx.typeRef();
+      let type: TypeInfo;
       if (!typeRef) {
-        this.addError('Property declaration missing type reference', ctx);
-        return;
+        // Check if property text contains "void" (handles cases where parser rejects void as invalid syntax)
+        const propText = ctx.text?.toLowerCase().trim() || '';
+        if (propText.includes('void ')) {
+          type = createPrimitiveType('void');
+        } else {
+          this.addError('Property declaration missing type reference', ctx);
+          return;
+        }
+      } else {
+        type = this.createTypeInfoFromTypeRef(typeRef);
+        // Double-check: if typeRef exists but type is Object, check if context text contains "void"
+        if (type.name === 'Object' && ctx.text) {
+          const contextText = ctx.text.toLowerCase().trim();
+          if (contextText.includes('void ')) {
+            type = createPrimitiveType('void');
+          }
+        }
       }
-      const type = this.createTypeInfoFromTypeRef(typeRef);
       const name = ctx.id?.()?.text ?? 'unknownProperty';
 
       // Get current modifiers
@@ -2162,9 +2253,25 @@ export class ApexSymbolCollectorListener
         return;
       }
 
-      const varType = typeRef
-        ? this.createTypeInfoFromTypeRef(typeRef, parentContext)
-        : createTypeInfo('Object');
+      let varType: TypeInfo;
+      if (typeRef) {
+        varType = this.createTypeInfoFromTypeRef(typeRef, parentContext);
+        // Double-check: if typeRef exists but type is Object, check if context text contains "void"
+        if (varType.name === 'Object' && parentContext.text) {
+          const contextText = parentContext.text.toLowerCase().trim();
+          if (contextText.startsWith('void ')) {
+            varType = createPrimitiveType('void');
+          }
+        }
+      } else {
+        // Check if parent context text contains "void" (handles cases where parser rejects void as invalid syntax)
+        const contextText = parentContext.text?.toLowerCase().trim() || '';
+        if (contextText.startsWith('void ')) {
+          varType = createPrimitiveType('void');
+        } else {
+          varType = createTypeInfo('Object');
+        }
+      }
 
       const name = ctx.id()?.text ?? 'unknownVariable';
 
@@ -3044,6 +3151,7 @@ export class ApexSymbolCollectorListener
       // Also handle chain scope tracking (existing logic)
       if (this.chainExpressionScope?.isActive) {
         // Add this method call to the current chain scope
+        // Chain finalization will create and add the chained reference to symbol table
         this.chainExpressionScope.chainNodes.push(
           this.createExpressionNode(
             methodName,
@@ -3051,13 +3159,14 @@ export class ApexSymbolCollectorListener
             ReferenceContext.METHOD_CALL,
           ),
         );
+        // Do NOT add individual reference to symbol table - chain finalization handles it
+        // The individual reference is still used for methodCallStack (parameter tracking) above
       } else {
         // Not in chain scope - process as standalone method call
         this.processStandaloneMethodCall(ctx, methodName, methodLocation);
+        // Add to symbol table
+        this.symbolTable.addTypeReference(reference);
       }
-
-      // Add to symbol table
-      this.symbolTable.addTypeReference(reference);
     } catch (error) {
       // Defensive cleanup: if we pushed but error occurred, pop to prevent stack leak
       if (pushed) {
@@ -3835,15 +3944,38 @@ export class ApexSymbolCollectorListener
       // Capture exception type reference
       const qn: QualifiedNameContext | undefined = ctx.qualifiedName?.();
       if (qn) {
-        const typeName = this.getTextFromContext(qn);
-        const location = this.getLocation(qn as unknown as ParserRuleContext);
-        const parentContext = this.getCurrentMethodName();
-        const classRef = SymbolReferenceFactory.createClassReference(
-          typeName,
-          location,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(classRef);
+        const ids = qn.id();
+        if (ids && ids.length > 0) {
+          const parentContext = this.getCurrentMethodName();
+
+          // Extract all parts and their locations for chained exception types
+          const typeParts: string[] = [];
+          const preciseLocations: SymbolLocation[] = [];
+          let baseLocation: SymbolLocation | null = null;
+
+          for (const id of ids) {
+            const partName = id.text;
+            const partLocation = this.getLocationForReference(id);
+            typeParts.push(partName);
+            preciseLocations.push(partLocation);
+            if (!baseLocation) {
+              baseLocation = partLocation;
+            }
+          }
+
+          if (typeParts.length > 0 && baseLocation) {
+            const fullTypeName = typeParts.join('.');
+
+            // Create class reference (will create chained reference if dotted name)
+            const classRef = SymbolReferenceFactory.createClassReference(
+              fullTypeName,
+              baseLocation,
+              parentContext,
+              preciseLocations.length > 1 ? preciseLocations : undefined,
+            );
+            this.symbolTable.addTypeReference(classRef);
+          }
+        }
       }
 
       // Create scope for catch block
@@ -4551,9 +4683,13 @@ export class ApexSymbolCollectorListener
         type,
       );
 
-      // Extract initializer type if present
+      // Extract initializer type and value if present
       const expression = ctx.expression();
       if (expression) {
+        const exprText = expression.text?.trim();
+        if (exprText) {
+          variableSymbol.initialValue = exprText;
+        }
         const initializerType = this.extractInitializerType(expression);
         if (initializerType) {
           variableSymbol.initializerType = initializerType;
@@ -4666,28 +4802,26 @@ export class ApexSymbolCollectorListener
         const _startCol = location.symbolRange.startColumn;
         const _endCol = location.symbolRange.endColumn;
 
-        // For chained expressions, find the CHAINED_TYPE reference that spans this range
+        // For chained expressions, find the chained reference that spans this range
         // and link to a METHOD_CALL or FIELD_ACCESS chain node
         let methodOrFieldRef: SymbolReference | undefined;
 
-        // Find CHAINED_TYPE references that match the expression text
+        // Find chained references that match the expression text
         // First try by name match (more reliable than position overlap)
         const expressionText = fallbackTypeInfo.originalTypeString || '';
         const chainedRefsByName = allRefs.filter(
-          (ref) =>
-            ref.context === ReferenceContext.CHAINED_TYPE &&
-            ref.name === expressionText,
+          (ref) => isChainedSymbolReference(ref) && ref.name === expressionText,
         );
 
         // If not found by name, try position overlap
-        const chainedRefsByPosition = allRefs.filter(
-          (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+        const chainedRefsByPosition = allRefs.filter((ref) =>
+          isChainedSymbolReference(ref),
         );
 
         this.logger.info(
           () =>
             `[extractInitializerType-FALLBACK] Expression: "${expressionText}", ` +
-            `Found ${chainedRefsByName.length} CHAINED_TYPE refs by name, ` +
+            `Found ${chainedRefsByName.length} chained refs by name, ` +
             `${chainedRefsByPosition.length} by position, ` +
             `expression at ${location.symbolRange.startLine}:${location.symbolRange.startColumn}-` +
             `${location.symbolRange.endLine}:${location.symbolRange.endColumn}`,
@@ -4695,9 +4829,8 @@ export class ApexSymbolCollectorListener
 
         // Try name match first (more reliable)
         for (const ref of chainedRefsByName) {
-          const chainedRef = ref as any;
-          if (chainedRef.chainNodes && Array.isArray(chainedRef.chainNodes)) {
-            const targetNode = chainedRef.chainNodes.find(
+          if (ref.chainNodes && Array.isArray(ref.chainNodes)) {
+            const targetNode = ref.chainNodes.find(
               (node: SymbolReference) =>
                 node.context === ReferenceContext.METHOD_CALL ||
                 node.context === ReferenceContext.FIELD_ACCESS,
@@ -4718,8 +4851,7 @@ export class ApexSymbolCollectorListener
         // If not found by name, try position overlap
         if (!methodOrFieldRef) {
           for (const ref of chainedRefsByPosition) {
-            const chainedRef = ref as any;
-            // Check if this CHAINED_TYPE reference overlaps with the expression
+            // Check if this chained reference overlaps with the expression
             const refStartLine = ref.location.identifierRange.startLine;
             const refEndLine = ref.location.identifierRange.endLine;
             const refStartCol = ref.location.identifierRange.startColumn;
@@ -4740,10 +4872,10 @@ export class ApexSymbolCollectorListener
             if (
               refStartsBeforeExprEnds &&
               refEndsAfterExprStarts &&
-              chainedRef.chainNodes &&
-              Array.isArray(chainedRef.chainNodes)
+              ref.chainNodes &&
+              Array.isArray(ref.chainNodes)
             ) {
-              const targetNode = chainedRef.chainNodes.find(
+              const targetNode = ref.chainNodes.find(
                 (node: SymbolReference) =>
                   node.context === ReferenceContext.METHOD_CALL ||
                   node.context === ReferenceContext.FIELD_ACCESS,
@@ -5551,6 +5683,17 @@ export class ApexSymbolCollectorListener
     } else {
       const id = baseTypeName.id();
       if (!id) {
+        // Check if this is void type (void doesn't have an id, it's a keyword)
+        // Check the typeRef context text for "void"
+        const typeRefText = typeRef.text?.toLowerCase().trim();
+        if (typeRefText === 'void') {
+          return createPrimitiveType('void');
+        }
+        // Also check baseTypeName text as fallback
+        const typeNameText = (baseTypeName as any).text?.toLowerCase().trim();
+        if (typeNameText === 'void') {
+          return createPrimitiveType('void');
+        }
         return createTypeInfo('Object');
       }
       baseTypeNameStr = id.text;
@@ -5997,18 +6140,38 @@ export class ApexSymbolCollectorListener
         }
       }
 
-      const anyId = firstPair.anyId();
-      if (!anyId) return;
-
-      const typeName = anyId.text;
-      const location = this.getLocationForReference(anyId);
       const parentContext = this.getCurrentMethodName();
 
-      // Emit constructor call for the base type
+      // Extract all parts and their locations for chained constructor calls
+      const typeParts: string[] = [];
+      const preciseLocations: SymbolLocation[] = [];
+      let baseLocation: SymbolLocation | null = null;
+
+      for (const pair of idCreatedNamePairs) {
+        const anyId = pair.anyId();
+        if (anyId) {
+          const partName = anyId.text;
+          const partLocation = this.getLocationForReference(
+            anyId as unknown as ParserRuleContext,
+          );
+          typeParts.push(partName);
+          preciseLocations.push(partLocation);
+          if (!baseLocation) {
+            baseLocation = partLocation;
+          }
+        }
+      }
+
+      if (typeParts.length === 0 || !baseLocation) return;
+
+      const fullTypeName = typeParts.join('.');
+
+      // Create constructor call reference (will create chained reference if dotted name)
       const ctorRef = SymbolReferenceFactory.createConstructorCallReference(
-        typeName,
-        location,
+        fullTypeName,
+        baseLocation,
         parentContext,
+        preciseLocations.length > 1 ? preciseLocations : undefined,
       );
       this.symbolTable.addTypeReference(ctorRef);
 
@@ -6024,28 +6187,6 @@ export class ApexSymbolCollectorListener
       }
 
       // typeList handling is now done by enterTypeList, skip here
-
-      // Handle dotted names (e.g., Namespace.Type)
-      if (idCreatedNamePairs.length > 1) {
-        for (let i = 1; i < idCreatedNamePairs.length; i++) {
-          const pair = idCreatedNamePairs[i];
-          const anyId = pair.anyId();
-          if (anyId) {
-            const dottedTypeName = anyId.text;
-            const dottedLocation = this.getLocationForReference(
-              anyId as unknown as ParserRuleContext,
-            );
-
-            const dottedParamRef =
-              SymbolReferenceFactory.createParameterTypeReference(
-                dottedTypeName,
-                dottedLocation,
-                parentContext,
-              );
-            this.symbolTable.addTypeReference(dottedParamRef);
-          }
-        }
-      }
     } catch (error) {
       this.logger.warn(
         () => `Error capturing constructor call reference: ${error}`,
@@ -6798,20 +6939,6 @@ export class ApexSymbolCollectorListener
   /**
    * Create a SymbolReference that represents a chained expression
    */
-  private createChainedExpression(
-    fullExpression: string,
-    baseLocation: SymbolLocation,
-    finalLocation: SymbolLocation,
-  ): SymbolReference {
-    return {
-      name: fullExpression, // SymbolReference.name contains the full expression
-      location: baseLocation, // Use base location as the main location
-      context: ReferenceContext.CHAINED_TYPE,
-      resolvedSymbolId: undefined,
-      parentContext: this.getCurrentMethod()?.name,
-      isStatic: false,
-    };
-  }
 
   /**
    * Process a standalone method call (not part of a chain)
@@ -6983,20 +7110,40 @@ export class ApexSymbolCollectorListener
           ? chainNodes[chainNodes.length - 1].location
           : startLocation;
 
-      const chainedExpression = this.createChainedExpression(
+      // Create final node reference with chainNodes property
+      const finalNode = analyzedChainNodes[analyzedChainNodes.length - 1];
+      const finalRef = new EnhancedSymbolReference(
         fullExpression,
-        startLocation,
-        finalLocation,
-      );
-
-      // Create root reference with analyzed nodes
-      const rootRef = SymbolReferenceFactory.createChainedExpressionReference(
-        analyzedChainNodes,
-        chainedExpression,
+        {
+          symbolRange: {
+            startLine: startLocation.symbolRange.startLine,
+            startColumn: startLocation.symbolRange.startColumn,
+            endLine: finalLocation.symbolRange.endLine,
+            endColumn: finalLocation.symbolRange.endColumn,
+          },
+          identifierRange: {
+            startLine: startLocation.identifierRange.startLine,
+            startColumn: startLocation.identifierRange.startColumn,
+            endLine: finalLocation.identifierRange.endLine,
+            endColumn: finalLocation.identifierRange.endColumn,
+          },
+        },
+        finalNode.context, // Use final node's context
+        undefined, // resolvedSymbolId - will be set during second-pass resolution
         this.getCurrentMethodName(),
+        undefined, // access - will be set if in LHS context
+        finalNode.isStatic,
+        undefined,
+        undefined,
+        analyzedChainNodes, // Attach chainNodes to final node
+        undefined, // resolvedTypeId
+        undefined, // resolutionTier
+        undefined, // isFullyResolved
+        undefined, // validatedAccess
+        'syntax_only', // accessValidationState
       );
 
-      this.symbolTable.addTypeReference(rootRef);
+      this.symbolTable.addTypeReference(finalRef);
     } catch (error) {
       this.logger.warn(() => `Error creating chain root reference: ${error}`);
     }
@@ -7215,25 +7362,45 @@ export class ApexSymbolCollectorListener
           ? chainNodes[chainNodes.length - 1].location
           : startLocation;
 
-      const chainedExpression = this.createChainedExpression(
+      // Create final node reference with chainNodes property
+      const finalNode = analyzedChainNodes[analyzedChainNodes.length - 1];
+      const finalRef = new EnhancedSymbolReference(
         fullExpression,
-        startLocation,
-        finalLocation,
-      );
-
-      // Create root reference
-      const rootRef = SymbolReferenceFactory.createChainedExpressionReference(
-        analyzedChainNodes,
-        chainedExpression,
+        {
+          symbolRange: {
+            startLine: startLocation.symbolRange.startLine,
+            startColumn: startLocation.symbolRange.startColumn,
+            endLine: finalLocation.symbolRange.endLine,
+            endColumn: finalLocation.symbolRange.endColumn,
+          },
+          identifierRange: {
+            startLine: startLocation.identifierRange.startLine,
+            startColumn: startLocation.identifierRange.startColumn,
+            endLine: finalLocation.identifierRange.endLine,
+            endColumn: finalLocation.identifierRange.endColumn,
+          },
+        },
+        finalNode.context, // Use final node's context
+        undefined, // resolvedSymbolId - will be set during second-pass resolution
         this.getCurrentMethodName(),
+        undefined, // access - will be set if in LHS context
+        finalNode.isStatic,
+        undefined,
+        undefined,
+        analyzedChainNodes, // Attach chainNodes to final node
+        undefined, // resolvedTypeId
+        undefined, // resolutionTier
+        undefined, // isFullyResolved
+        undefined, // validatedAccess
+        'syntax_only', // accessValidationState
       );
 
-      this.symbolTable.addTypeReference(rootRef);
+      this.symbolTable.addTypeReference(finalRef);
 
       // If this chained expression is used as a method parameter, add it to the parameter list
       // This ensures chained expressions in method parameters are properly tracked
       if (this.methodCallStack.size > 0) {
-        this.addToCurrentMethodParameters(rootRef);
+        this.addToCurrentMethodParameters(finalRef);
       }
 
       // Also capture the base expression as a TypeReference for hover resolution
@@ -7328,9 +7495,7 @@ export class ApexSymbolCollectorListener
    * This helps identify standard library classes that should be treated as CLASS_REFERENCE
    */
   private isStandardLibraryClassName(name: string): boolean {
-    const resourceLoader = ResourceLoader.getInstance({
-      preloadStdClasses: true,
-    });
+    const resourceLoader = ResourceLoader.getInstance();
 
     // Check if the name could be resolved from the standard library
     return resourceLoader.couldResolveSymbol(name);
@@ -7450,7 +7615,7 @@ export class ApexSymbolCollectorListener
    * Check if a reference is the base expression in a chained expression
    */
   private isBaseExpressionInChain(ref: SymbolReference): boolean {
-    // Check if there's a CHAINED_TYPE reference that includes this as the first node
+    // Check if there's a chained reference that includes this as the first node
     const allRefs = this.symbolTable.getAllReferences();
     const sameLineRefs = allRefs.filter(
       (r) =>
@@ -7496,6 +7661,127 @@ export class ApexSymbolCollectorListener
   ): ApexSymbol | null {
     const allSymbols = this.symbolTable.getAllSymbols();
 
+    // Check for chained references first (no longer using CHAINED_TYPE context)
+    if (
+      isChainedSymbolReference(ref) &&
+      ref.chainNodes &&
+      ref.chainNodes.length >= 2
+    ) {
+      const firstNode = ref.chainNodes[0];
+      const lastNode = ref.chainNodes[ref.chainNodes.length - 1];
+
+      // First, try to resolve the first node as a variable (for cases like "base64Data.toString()")
+      const nodePosition = {
+        line: firstNode.location.identifierRange.startLine,
+        character: firstNode.location.identifierRange.startColumn,
+      };
+      const nodeScopeHierarchy =
+        this.symbolTable.getScopeHierarchy(nodePosition);
+      const nodeContainingScope =
+        nodeScopeHierarchy.length > 0
+          ? nodeScopeHierarchy[nodeScopeHierarchy.length - 1]
+          : null;
+
+      // Try to resolve as variable first (scope-based lookup)
+      let firstNodeSymbol = this.symbolTable.lookup(
+        firstNode.name,
+        nodeContainingScope,
+      );
+
+      if (
+        firstNodeSymbol &&
+        (firstNodeSymbol.kind === SymbolKind.Variable ||
+          firstNodeSymbol.kind === SymbolKind.Parameter ||
+          firstNodeSymbol.kind === SymbolKind.Field ||
+          firstNodeSymbol.kind === SymbolKind.Property)
+      ) {
+        // For built-in types (like String, Integer, etc.), methods are not in the same file
+        // So we only resolve the variable itself and let runtime resolution handle the method
+        // For same-file types, try to resolve the method
+        if (lastNode.context === ReferenceContext.METHOD_CALL) {
+          // Try to resolve the method on the variable's type
+          const variableType = (firstNodeSymbol as VariableSymbol).type;
+          if (variableType && !variableType.isBuiltIn) {
+            const typeName = variableType.name;
+            const typeSymbol = allSymbols.find(
+              (s) =>
+                s.name === typeName &&
+                (s.kind === SymbolKind.Class ||
+                  s.kind === SymbolKind.Interface),
+            );
+
+            if (typeSymbol) {
+              // Find the method on the type
+              // First find the class block for the type
+              const typeClassBlock = allSymbols.find(
+                (s) =>
+                  isBlockSymbol(s) &&
+                  s.scopeType === 'class' &&
+                  s.parentId === typeSymbol.id,
+              ) as ScopeSymbol | undefined;
+
+              if (typeClassBlock) {
+                const methodSymbol = allSymbols.find(
+                  (s) =>
+                    s.name === lastNode.name &&
+                    s.kind === SymbolKind.Method &&
+                    s.parentId === typeClassBlock.id,
+                );
+                if (methodSymbol) {
+                  return methodSymbol;
+                }
+              }
+            }
+          }
+        }
+        // Return the variable symbol (for variable method calls, we resolve to the variable)
+        return firstNodeSymbol;
+      }
+
+      // If first node is not a variable, try to resolve as type reference
+      const resolvedType = this.resolveTypeReference(firstNode, allSymbols);
+      if (resolvedType) {
+        // Find the class block for the type
+        const typeClassBlock = allSymbols.find(
+          (s) =>
+            isBlockSymbol(s) &&
+            s.scopeType === 'class' &&
+            s.parentId === resolvedType.id,
+        ) as ScopeSymbol | undefined;
+
+        if (typeClassBlock) {
+          // Try to resolve the last node as a member of the type
+          if (lastNode.context === ReferenceContext.METHOD_CALL) {
+            const methodSymbol = allSymbols.find(
+              (s) =>
+                s.name === lastNode.name &&
+                s.kind === SymbolKind.Method &&
+                s.parentId === typeClassBlock.id,
+            );
+            if (methodSymbol) {
+              return methodSymbol;
+            }
+          } else if (lastNode.context === ReferenceContext.FIELD_ACCESS) {
+            const fieldSymbol = allSymbols.find(
+              (s) =>
+                s.name === lastNode.name &&
+                (s.kind === SymbolKind.Field ||
+                  s.kind === SymbolKind.Property) &&
+                s.parentId === typeClassBlock.id,
+            );
+            if (fieldSymbol) {
+              return fieldSymbol;
+            }
+          }
+        }
+        // Return the type symbol if member not found
+        return resolvedType;
+      }
+
+      // If member not found, fall back to resolving just the first node
+      return firstNodeSymbol || resolvedType || null;
+    }
+
     switch (ref.context) {
       case ReferenceContext.VARIABLE_USAGE:
         // Resolve variable/parameter/field using scope-based lookup
@@ -7535,204 +7821,6 @@ export class ApexSymbolCollectorListener
           scopeHierarchy,
           allSymbols,
         );
-
-      case ReferenceContext.CHAINED_TYPE:
-        // For chained references like "ScopeExample.method4" or "base64Data.toString()",
-        // resolve the entire chain to the final member (method/property)
-        if (
-          isChainedSymbolReference(ref) &&
-          ref.chainNodes &&
-          ref.chainNodes.length >= 2
-        ) {
-          const firstNode = ref.chainNodes[0];
-          const lastNode = ref.chainNodes[ref.chainNodes.length - 1];
-
-          // First, try to resolve the first node as a variable (for cases like "base64Data.toString()")
-          const nodePosition = {
-            line: firstNode.location.identifierRange.startLine,
-            character: firstNode.location.identifierRange.startColumn,
-          };
-          const nodeScopeHierarchy =
-            this.symbolTable.getScopeHierarchy(nodePosition);
-          const nodeContainingScope =
-            nodeScopeHierarchy.length > 0
-              ? nodeScopeHierarchy[nodeScopeHierarchy.length - 1]
-              : null;
-
-          // Try to resolve as variable first (scope-based lookup)
-          let firstNodeSymbol = this.symbolTable.lookup(
-            firstNode.name,
-            nodeContainingScope,
-          );
-          if (
-            firstNodeSymbol &&
-            (firstNodeSymbol.kind === SymbolKind.Variable ||
-              firstNodeSymbol.kind === SymbolKind.Parameter ||
-              firstNodeSymbol.kind === SymbolKind.Field ||
-              firstNodeSymbol.kind === SymbolKind.Property)
-          ) {
-            // First node is a variable - resolve the method on the variable's type
-            firstNode.resolvedSymbolId = firstNodeSymbol.id;
-
-            // Get the variable's type
-            const variableType =
-              firstNodeSymbol.kind === SymbolKind.Variable ||
-              firstNodeSymbol.kind === SymbolKind.Parameter
-                ? (firstNodeSymbol as VariableSymbol).type
-                : firstNodeSymbol.kind === SymbolKind.Field ||
-                    firstNodeSymbol.kind === SymbolKind.Property
-                  ? (firstNodeSymbol as any).type
-                  : null;
-
-            // For built-in types (like String, Integer, etc.), methods are not in the same file
-            // So we only resolve the variable itself and let runtime resolution handle the method
-            // For same-file types, try to resolve the method
-            if (
-              variableType &&
-              lastNode.context === ReferenceContext.METHOD_CALL &&
-              !variableType.isBuiltIn
-            ) {
-              // Find the method on the variable's type (only for same-file types)
-              const typeName = variableType.name;
-              const typeSymbol = allSymbols.find(
-                (s) =>
-                  s.name === typeName &&
-                  (s.kind === SymbolKind.Class ||
-                    s.kind === SymbolKind.Interface),
-              );
-
-              if (typeSymbol) {
-                // Find the class block for the type
-                const typeClassBlock = allSymbols.find(
-                  (s) =>
-                    isBlockSymbol(s) &&
-                    s.scopeType === 'class' &&
-                    s.parentId === typeSymbol.id,
-                ) as ScopeSymbol | undefined;
-
-                if (typeClassBlock) {
-                  // Find the method in the type's class block
-                  const methodSymbol = allSymbols.find(
-                    (s) =>
-                      s.kind === SymbolKind.Method &&
-                      s.name === lastNode.name &&
-                      s.parentId === typeClassBlock.id,
-                  );
-                  if (methodSymbol) {
-                    // Resolve the last node to the method
-                    lastNode.resolvedSymbolId = methodSymbol.id;
-                    return methodSymbol;
-                  }
-                }
-              }
-            }
-
-            // For built-in types or if method not found, just resolve the variable itself
-            // The runtime resolution will handle finding methods on built-in types
-            return firstNodeSymbol;
-          }
-
-          // If not a variable, try to resolve as a class/type (for cases like "ScopeExample.method4")
-          const qualifierSymbol = this.resolveTypeReference(
-            firstNode,
-            allSymbols,
-          );
-          if (!qualifierSymbol) {
-            return null;
-          }
-
-          // Resolve the first node (qualifier) to its symbol
-          firstNode.resolvedSymbolId = qualifierSymbol.id;
-
-          // Find the class block associated with the qualifier symbol
-          const classBlock = allSymbols.find(
-            (s) =>
-              isBlockSymbol(s) &&
-              s.scopeType === 'class' &&
-              s.parentId === qualifierSymbol.id,
-          ) as ScopeSymbol | undefined;
-
-          if (!classBlock) {
-            return null;
-          }
-
-          // Then, resolve the member (last node) within that class block
-          // Check if the last node is a method call
-          if (lastNode.context === ReferenceContext.METHOD_CALL) {
-            // Find the method in the qualifier class's block
-            const methodSymbol = allSymbols.find(
-              (s) =>
-                s.kind === SymbolKind.Method &&
-                s.name === lastNode.name &&
-                s.parentId === classBlock.id,
-            );
-            if (methodSymbol) {
-              // Resolve the last node to the method
-              lastNode.resolvedSymbolId = methodSymbol.id;
-              return methodSymbol;
-            }
-          } else if (lastNode.context === ReferenceContext.FIELD_ACCESS) {
-            // Find the field/property in the qualifier class's block
-            const fieldSymbol = allSymbols.find(
-              (s) =>
-                (s.kind === SymbolKind.Field ||
-                  s.kind === SymbolKind.Property) &&
-                s.name === lastNode.name &&
-                s.parentId === classBlock.id,
-            );
-            if (fieldSymbol) {
-              // Resolve the last node to the field/property
-              lastNode.resolvedSymbolId = fieldSymbol.id;
-              return fieldSymbol;
-            }
-          }
-
-          // If member not found, fall back to resolving just the first node
-          return qualifierSymbol;
-        } else if (
-          isChainedSymbolReference(ref) &&
-          ref.chainNodes &&
-          ref.chainNodes.length === 1
-        ) {
-          // Single node chain - try variable first, then type reference
-          const nodePosition = {
-            line: ref.chainNodes[0].location.identifierRange.startLine,
-            character: ref.chainNodes[0].location.identifierRange.startColumn,
-          };
-          const nodeScopeHierarchy =
-            this.symbolTable.getScopeHierarchy(nodePosition);
-          const nodeContainingScope =
-            nodeScopeHierarchy.length > 0
-              ? nodeScopeHierarchy[nodeScopeHierarchy.length - 1]
-              : null;
-
-          // Try variable lookup first
-          const variableSymbol = this.symbolTable.lookup(
-            ref.chainNodes[0].name,
-            nodeContainingScope,
-          );
-          if (
-            variableSymbol &&
-            (variableSymbol.kind === SymbolKind.Variable ||
-              variableSymbol.kind === SymbolKind.Parameter ||
-              variableSymbol.kind === SymbolKind.Field ||
-              variableSymbol.kind === SymbolKind.Property)
-          ) {
-            ref.chainNodes[0].resolvedSymbolId = variableSymbol.id;
-            return variableSymbol;
-          }
-
-          // Fall back to type reference
-          const resolved = this.resolveTypeReference(
-            ref.chainNodes[0],
-            allSymbols,
-          );
-          if (resolved) {
-            ref.chainNodes[0].resolvedSymbolId = resolved.id;
-          }
-          return resolved;
-        }
-        return null;
 
       default:
         // For other contexts, try generic lookup

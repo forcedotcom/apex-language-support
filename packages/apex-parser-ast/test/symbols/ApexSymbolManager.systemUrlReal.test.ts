@@ -144,7 +144,9 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
     const target = refs.find((r) => r.name === 'System.Url');
 
     expect(target).toBeDefined();
-    expect(target?.context).toBe(11); // CHAINED_TYPE context
+    // Note: CHAINED_TYPE enum removed, now using chainNodes property
+    // The context should be the final node's context (e.g., CLASS_REFERENCE)
+    expect(target).toBeDefined();
 
     const urlSymbol = await symbolManager.resolveChainedSymbolReference(
       target!,

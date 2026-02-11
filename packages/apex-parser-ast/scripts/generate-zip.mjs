@@ -9,6 +9,7 @@
 import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
 import path, { join } from 'node:path';
 import { zipSync } from 'fflate';
+import { createHash } from 'node:crypto';
 
 // Function to recursively get all files in a directory
 async function getAllFiles(dir, baseDir = dir) {
@@ -68,9 +69,10 @@ async function generateZip() {
     const files = {};
     for (const [filePath, data] of Object.entries(standardLibraryFiles)) {
       // Check if this is a builtin class in System/ folder
-      const isBuiltinInSystem = filePath.includes('StandardApexLibrary/System/') &&
+      const isBuiltinInSystem =
+        filePath.includes('StandardApexLibrary/System/') &&
         builtinClasses.has(path.basename(filePath));
-      
+
       if (!isBuiltinInSystem) {
         files[filePath] = data;
       }
@@ -80,7 +82,7 @@ async function generateZip() {
     const builtinsDir = path.join('src', 'resources', 'builtins');
     try {
       const builtinsFiles = await getAllFiles(builtinsDir, process.cwd());
-      
+
       // Map builtins files to StandardApexLibrary/System/ paths in ZIP
       for (const [filePath, data] of Object.entries(builtinsFiles)) {
         // Convert builtins/Blob.cls -> src/resources/StandardApexLibrary/System/Blob.cls
@@ -90,7 +92,10 @@ async function generateZip() {
       }
     } catch (error) {
       // If builtins directory doesn't exist, that's okay - we'll just use StandardApexLibrary
-      console.warn('Warning: builtins directory not found, skipping builtin class merge:', error.message);
+      console.warn(
+        'Warning: builtins directory not found, skipping builtin class merge:',
+        error.message,
+      );
     }
 
     // Create a zip file
@@ -223,6 +228,19 @@ export { getZipResourcePath };
     console.log(`Zip file created: ${outZipPath}`);
     console.log(`Zip file copied to: ${topLevelZipPath}`);
     console.log(`Zip file size: ${zipData.length} bytes`);
+
+    // Generate MD5 checksum for the ZIP file
+    const zipMD5 = createHash('md5').update(zipData).digest('hex');
+    const outZipMD5Path = `${outZipPath}.md5`;
+    const topLevelZipMD5Path = `${topLevelZipPath}.md5`;
+
+    // Write MD5 checksum files in standard format: <hash>  <filename>
+    await writeFile(outZipMD5Path, `${zipMD5}  StandardApexLibrary.zip\n`);
+    await writeFile(topLevelZipMD5Path, `${zipMD5}  StandardApexLibrary.zip\n`);
+
+    console.log(`MD5 checksum created: ${outZipMD5Path}`);
+    console.log(`MD5 checksum copied to: ${topLevelZipMD5Path}`);
+    console.log(`MD5: ${zipMD5}`);
     console.log(
       'TypeScript resource loader created for Node.js and browser environments',
     );

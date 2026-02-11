@@ -110,7 +110,7 @@ export class DocumentProcessingService {
   public async processDocumentOpenInternal(
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<Diagnostic[] | undefined> {
-    return await this.processDocumentOpenSingle(event);
+    return await Effect.runPromise(this.processDocumentOpenSingle(event));
   }
 
   /**
@@ -374,169 +374,179 @@ export class DocumentProcessingService {
   }
 
   /**
-   * Process a single document open event
+   * Process a single document open event (Effect pattern)
    */
-  private async processDocumentOpenSingle(
+  private processDocumentOpenSingle(
     event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined> {
-    const storage = this.storageManager.getStorage();
-    const cache = getDocumentStateCache();
-    const compilerService = new CompilerService();
-    const backgroundManager = ApexSymbolProcessingManager.getInstance();
+  ): Effect.Effect<Diagnostic[] | undefined, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const storage = self.storageManager.getStorage();
+      const cache = getDocumentStateCache();
+      const compilerService = new CompilerService();
+      const backgroundManager = ApexSymbolProcessingManager.getInstance();
 
-    // Check cache first
-    const cached = cache.getSymbolResult(
-      event.document.uri,
-      event.document.version,
-    );
-    if (cached) {
-      await storage.setDocument(event.document.uri, event.document);
-
-      // Check if symbols exist in symbol manager (they should if cache hit)
-      // If not, we need to recompile to get them
-      const symbolManager = backgroundManager.getSymbolManager();
-      const existingSymbols = symbolManager.findSymbolsInFile(
+      // Check cache first
+      const cached = cache.getSymbolResult(
         event.document.uri,
+        event.document.version,
       );
-      if (existingSymbols.length === 0) {
-        // Cache hit but no symbols in manager - need to recompile
-        this.logger.debug(
-          () =>
-            `Cached file ${event.document.uri} has no symbols in manager, will recompile`,
-        );
-        // Fall through to recompilation
-      } else {
-        // Cache hit and symbols exist - return cached diagnostics
-        return cached.diagnostics;
-      }
-    }
-
-    try {
-      // Update storage
-      await storage.setDocument(event.document.uri, event.document);
-
-      // Compile - create listener
-      // Use VisibilitySymbolListener for document open (only need public API for cross-file refs)
-      const table = new SymbolTable();
-      const listener = new VisibilitySymbolListener('public-api', table);
-
-      const compileResult = compilerService.compile(
-        event.document.getText(),
-        event.document.uri,
-        listener,
-        {
-          collectReferences: true,
-          resolveReferences: true,
-        },
-      );
-
-      if (compileResult) {
-        // Extract diagnostics
-        const diagnostics = getDiagnosticsFromErrors(compileResult.errors);
-
-        // Get symbol table from result
-        const symbolTable =
-          compileResult.result instanceof SymbolTable
-            ? compileResult.result
-            : undefined;
-
-        this.logger.debug(
-          () =>
-            `Single processing ${event.document.uri}: symbolTable extracted: ${symbolTable ? 'yes' : 'no'}, ` +
-            `type: ${typeof compileResult.result}, instanceof: ${compileResult.result instanceof SymbolTable}`,
+      if (cached) {
+        yield* Effect.promise(() =>
+          storage.setDocument(event.document.uri, event.document),
         );
 
-        // Cache diagnostics (SymbolTable is stored in ApexSymbolManager)
-        // Editor open starts with public-api, will be enriched to full
-        cache.merge(event.document.uri, {
-          diagnostics,
-          documentVersion: event.document.version,
-          documentLength: event.document.getText().length,
-          symbolsIndexed: false,
-          detailLevel: 'public-api', // Initial level, will be enriched
-        });
-
-        // Run prerequisites for file-open-single request (async, non-blocking)
-        if (this.prerequisiteOrchestrationService) {
-          this.prerequisiteOrchestrationService
-            .runPrerequisitesForLspRequestType(
-              'file-open-single',
-              event.document.uri,
-            )
-            .catch((error) => {
-              this.logger.debug(
-                () =>
-                  `Error running prerequisites for file-open ${event.document.uri}: ${error}`,
-              );
-            });
-        }
-
-        // Add symbols synchronously so they're immediately available for hover/goto definition
-        // Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics)
-        if (symbolTable) {
-          const symbolManager = backgroundManager.getSymbolManager();
-          this.logger.debug(
+        // Check if symbols exist in symbol manager (they should if cache hit)
+        // If not, we need to recompile to get them
+        const symbolManager = backgroundManager.getSymbolManager();
+        const existingSymbols = symbolManager.findSymbolsInFile(
+          event.document.uri,
+        );
+        if (existingSymbols.length === 0) {
+          // Cache hit but no symbols in manager - need to recompile
+          self.logger.debug(
             () =>
-              `Adding symbols synchronously for ${event.document.uri} (single processing)`,
+              `Cached file ${event.document.uri} has no symbols in manager, will recompile`,
           );
-          // Add symbols immediately (synchronous) without processing cross-file references
-          // Same-file references are processed immediately, cross-file references are deferred
-          // This avoids queue pressure during workspace loading
-          await Effect.runPromise(
-            symbolManager.addSymbolTable(symbolTable, event.document.uri),
-          );
-          this.logger.debug(
-            () =>
-              `Successfully added symbols synchronously for ${event.document.uri}`,
-          );
-
-          // Enrich to full detail level for editor-opened files (not workspace batch)
-          // This ensures documentSymbol, completion, hover, and diagnostics have full semantics
-          if (this.layerEnrichmentService) {
-            try {
-              this.logger.debug(
-                () =>
-                  `Enriching editor-opened file ${event.document.uri} to full detail level`,
-              );
-              // Enrich asynchronously (don't block diagnostics return)
-              this.layerEnrichmentService
-                .enrichFiles([event.document.uri], 'full', 'same-file')
-                .then(() => {
-                  this.logger.debug(
-                    () =>
-                      `Successfully enriched ${event.document.uri} to full detail level`,
-                  );
-                })
-                .catch((error) => {
-                  this.logger.debug(
-                    () => `Error enriching ${event.document.uri}: ${error}`,
-                  );
-                });
-            } catch (error) {
-              this.logger.debug(
-                () =>
-                  `Error initiating enrichment for ${event.document.uri}: ${error}`,
-              );
-            }
-          }
+          // Fall through to recompilation
         } else {
-          this.logger.warn(
-            () =>
-              `No symbol table extracted for ${event.document.uri} in single processing`,
-          );
+          // Cache hit and symbols exist - return cached diagnostics
+          return cached.diagnostics;
         }
-
-        return diagnostics;
       }
 
-      return [];
-    } catch (error) {
-      this.logger.error(
-        () =>
-          `Error processing document open for ${event.document.uri}: ${error}`,
-      );
-      return [];
-    }
+      try {
+        // Update storage
+        yield* Effect.promise(() =>
+          storage.setDocument(event.document.uri, event.document),
+        );
+
+        // Compile - create listener
+        // Use VisibilitySymbolListener for document open (only need public API for cross-file refs)
+        const table = new SymbolTable();
+        const listener = new VisibilitySymbolListener('public-api', table);
+
+        const compileResult = yield* Effect.sync(() =>
+          compilerService.compile(
+            event.document.getText(),
+            event.document.uri,
+            listener,
+            {
+              collectReferences: true,
+              resolveReferences: true,
+            },
+          ),
+        );
+
+        if (compileResult) {
+          // Extract diagnostics
+          const diagnostics = getDiagnosticsFromErrors(compileResult.errors);
+
+          // Get symbol table from result
+          const symbolTable =
+            compileResult.result instanceof SymbolTable
+              ? compileResult.result
+              : undefined;
+
+          self.logger.debug(
+            () =>
+              `Single processing ${event.document.uri}: symbolTable extracted: ${symbolTable ? 'yes' : 'no'}, ` +
+              `type: ${typeof compileResult.result}, instanceof: ${compileResult.result instanceof SymbolTable}`,
+          );
+
+          // Cache diagnostics (SymbolTable is stored in ApexSymbolManager)
+          // Editor open starts with public-api, will be enriched to full
+          cache.merge(event.document.uri, {
+            diagnostics,
+            documentVersion: event.document.version,
+            documentLength: event.document.getText().length,
+            symbolsIndexed: false,
+            detailLevel: 'public-api', // Initial level, will be enriched
+          });
+
+          // Run prerequisites for file-open-single request (async, non-blocking)
+          if (self.prerequisiteOrchestrationService) {
+            self.prerequisiteOrchestrationService
+              .runPrerequisitesForLspRequestType(
+                'file-open-single',
+                event.document.uri,
+              )
+              .catch((error) => {
+                self.logger.debug(
+                  () =>
+                    `Error running prerequisites for file-open ${event.document.uri}: ${error}`,
+                );
+              });
+          }
+
+          // Add symbols synchronously so they're immediately available for hover/goto definition
+          // Cross-file references will be resolved on-demand when needed (hover, goto definition, diagnostics)
+          if (symbolTable) {
+            const symbolManager = backgroundManager.getSymbolManager();
+            self.logger.debug(
+              () =>
+                `Adding symbols synchronously for ${event.document.uri} (single processing)`,
+            );
+            // Add symbols immediately without processing cross-file references
+            // Same-file references are processed immediately, cross-file references are deferred
+            // This avoids queue pressure during workspace loading
+            yield* symbolManager.addSymbolTable(
+              symbolTable,
+              event.document.uri,
+            );
+            self.logger.debug(
+              () =>
+                `Successfully added symbols synchronously for ${event.document.uri}`,
+            );
+
+            // Enrich to full detail level for editor-opened files (not workspace batch)
+            // This ensures documentSymbol, completion, hover, and diagnostics have full semantics
+            if (self.layerEnrichmentService) {
+              try {
+                self.logger.debug(
+                  () =>
+                    `Enriching editor-opened file ${event.document.uri} to full detail level`,
+                );
+                // Enrich asynchronously (don't block diagnostics return)
+                self.layerEnrichmentService
+                  .enrichFiles([event.document.uri], 'full', 'same-file')
+                  .then(() => {
+                    self.logger.debug(
+                      () =>
+                        `Successfully enriched ${event.document.uri} to full detail level`,
+                    );
+                  })
+                  .catch((error) => {
+                    self.logger.debug(
+                      () => `Error enriching ${event.document.uri}: ${error}`,
+                    );
+                  });
+              } catch (error) {
+                self.logger.debug(
+                  () =>
+                    `Error initiating enrichment for ${event.document.uri}: ${error}`,
+                );
+              }
+            }
+          } else {
+            self.logger.warn(
+              () =>
+                `No symbol table extracted for ${event.document.uri} in single processing`,
+            );
+          }
+
+          return diagnostics;
+        }
+
+        return [];
+      } catch (error) {
+        self.logger.error(
+          () =>
+            `Error processing document open for ${event.document.uri}: ${error}`,
+        );
+        return [];
+      }
+    });
   }
 }
 

@@ -1,5 +1,5 @@
 public class TestClass {
-    public void testMethod() {
+    public void execute() {
         // Reference to FileUtilities.createFile
         String result = FileUtilities.createFile('test.txt', 'Hello World');
         

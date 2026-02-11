@@ -150,7 +150,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
           namespaces: ['System', 'Database', 'Schema'],
         })),
         initialize: jest.fn().mockResolvedValue(undefined),
-        isProtobufCacheLoaded: jest.fn(() => true),
+        isStandardLibrarySymbolDataLoaded: jest.fn(() => true),
       };
 
       (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
@@ -159,10 +159,8 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
       await (adapter as any).initializeResourceLoader();
 
-      // Verify ResourceLoader.getInstance was called with correct options
-      expect(ResourceLoader.getInstance).toHaveBeenCalledWith({
-        preloadStdClasses: true,
-      });
+      // Verify ResourceLoader.getInstance was called
+      expect(ResourceLoader.getInstance).toHaveBeenCalled();
     });
 
     it('should call initialize on ResourceLoader', async () => {
@@ -172,7 +170,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
           namespaces: ['System'],
         })),
         initialize: jest.fn().mockResolvedValue(undefined),
-        isProtobufCacheLoaded: jest.fn(() => true),
+        isStandardLibrarySymbolDataLoaded: jest.fn(() => true),
       };
 
       (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
@@ -205,7 +203,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
           namespaces: ['System', 'Database'],
         })),
         initialize: jest.fn().mockResolvedValue(undefined),
-        isProtobufCacheLoaded: jest.fn(() => true),
+        isStandardLibrarySymbolDataLoaded: jest.fn(() => true),
       };
 
       (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
@@ -239,8 +237,10 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         })),
         initialize: jest
           .fn()
-          .mockRejectedValue(new Error('Protobuf cache not available')),
-        isProtobufCacheLoaded: jest.fn(() => false),
+          .mockRejectedValue(
+            new Error('Standard library symbol data cache not available'),
+          ),
+        isStandardLibrarySymbolDataLoaded: jest.fn(() => false),
       };
 
       (ResourceLoader.getInstance as jest.Mock).mockReturnValue(

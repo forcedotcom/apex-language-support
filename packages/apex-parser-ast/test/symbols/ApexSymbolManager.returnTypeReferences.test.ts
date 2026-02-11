@@ -10,6 +10,7 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { ReferenceContext } from '../../src/types/symbolReference';
+import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
 import { Effect } from 'effect';
 
 describe('ApexSymbolManager - Return Type References', () => {
@@ -68,8 +69,8 @@ describe('ApexSymbolManager - Return Type References', () => {
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.Url (return type and method call)
-      const chainedTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      const chainedTypeRefs = references.filter((ref) =>
+        isChainedSymbolReference(ref),
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -159,8 +160,8 @@ describe('ApexSymbolManager - Return Type References', () => {
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have chained type references for System.Url (return type)
-      const chainedTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      const chainedTypeRefs = references.filter((ref) =>
+        isChainedSymbolReference(ref),
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -184,8 +185,8 @@ describe('ApexSymbolManager - Return Type References', () => {
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have a chained type reference for System.Url (dotted return types become chained)
-      const chainedTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      const chainedTypeRefs = references.filter((ref) =>
+        isChainedSymbolReference(ref),
       );
       expect(chainedTypeRefs).toHaveLength(1);
       expect(chainedTypeRefs[0].name).toBe('System.Url');

@@ -17,6 +17,7 @@ import {
 } from '../../src/cache/stdlib-cache-loader';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
 import type { MethodSymbol, VariableSymbol } from '../../src/types/symbol';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 // These tests require the protobuf cache to be generated first
 // Run: npm run generate:stdlib-cache
@@ -25,6 +26,8 @@ describe('Protobuf vs ZIP equivalence', () => {
   const skipIfNoCacheAvailable = !isProtobufCacheAvailable();
 
   beforeAll(() => {
+    enableConsoleLogging();
+    setLogLevel('error'); // Set to error to avoid busy logs in CI/CD
     if (skipIfNoCacheAvailable) {
       console.warn(
         'Skipping equivalence tests: protobuf cache not available. ' +
@@ -97,9 +100,9 @@ describe('Protobuf vs ZIP equivalence', () => {
 
       // Verify that generic types at least have symbol tables
       const genericTypes = [
-        'apex://stdlib/System/List',
-        'apex://stdlib/System/Map',
-        'apex://stdlib/System/Set',
+        'apexlib://resources/StandardApexLibrary/System/List.cls',
+        'apexlib://resources/StandardApexLibrary/System/Map.cls',
+        'apexlib://resources/StandardApexLibrary/System/Set.cls',
       ];
       for (const genericUri of genericTypes) {
         expect(result.data!.symbolTables.has(genericUri)).toBe(true);
@@ -273,8 +276,8 @@ describe('Protobuf vs ZIP equivalence', () => {
       const loader = ResourceLoader.getInstance();
       await loader.initialize();
 
-      // The protobuf cache should be loaded if available
-      const isLoaded = loader.isProtobufCacheLoaded();
+      // The standard library symbol data should be loaded if available
+      const isLoaded = loader.isStandardLibrarySymbolDataLoaded();
       expect(typeof isLoaded).toBe('boolean');
     });
   });

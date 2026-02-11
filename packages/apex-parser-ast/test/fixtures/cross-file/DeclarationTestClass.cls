@@ -10,7 +10,7 @@ public class DeclarationTestClass {
     public Account Owner { get; set; }
     public String Description { get; set; }
     
-    public void testMethod() {
+    public void execute() {
         // Variable declarations with builtin types
         String message = 'Hello World';
         System.debug(message);

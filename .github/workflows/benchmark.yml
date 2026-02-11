@@ -41,12 +41,28 @@ jobs:
           CI: "true"
           SERVER_TYPE: ${{ matrix.server-type }}
 
-      - name: Upload benchmark results
+      - name: Upload testbed benchmark results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results-${{ matrix.server-type }}
           path: packages/apex-lsp-testbed/test/${{ matrix.server-type }}-benchmark-results.json
           retention-days: 30
+
+      - name: Upload apex-parser-ast benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-apex-parser-ast-${{ matrix.server-type }}
+          path: packages/apex-parser-ast/test/apex-parser-ast-benchmark-results.json
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload lsp-compliant-services benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-lsp-compliant-services-${{ matrix.server-type }}
+          path: packages/lsp-compliant-services/test/lsp-compliant-services-benchmark-results.json
+          retention-days: 30
+          if-no-files-found: ignore
 
   collect-results:
     name: Collect and Store Benchmark Results
@@ -89,6 +105,30 @@ jobs:
           comment-on-alert: true
           fail-on-alert: true
 
+      - name: Store apex-parser-ast benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: "Compiler Performance Benchmarks"
+          tool: "benchmarkjs"
+          output-file-path: "benchmark-artifacts/benchmark-results-apex-parser-ast-nodeServer/packages/apex-parser-ast/test/apex-parser-ast-benchmark-results.json"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "130%"
+          comment-on-alert: true
+          fail-on-alert: true
+
+      - name: Store lsp-compliant-services benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: "LSP Services Performance Benchmarks"
+          tool: "benchmarkjs"
+          output-file-path: "benchmark-artifacts/benchmark-results-lsp-compliant-services-nodeServer/packages/lsp-compliant-services/test/lsp-compliant-services-benchmark-results.json"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "130%"
+          comment-on-alert: true
+          fail-on-alert: true
+
   compare-results:
     name: Compare Benchmark Results in PR
     runs-on: ubuntu-latest
@@ -125,6 +165,34 @@ jobs:
           name: "LSP Performance Benchmarks - Jorje"
           tool: "benchmarkjs"
           output-file-path: "benchmark-artifacts/benchmark-results-jorje/packages/apex-lsp-testbed/test/jorje-benchmark-results.json"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: false
+          save-data-file: false
+          alert-threshold: "130%"
+          comment-on-alert: true
+          fail-on-alert: false
+          summary-always: true
+
+      - name: Compare apex-parser-ast benchmark results in PR
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: "Compiler Performance Benchmarks"
+          tool: "benchmarkjs"
+          output-file-path: "benchmark-artifacts/benchmark-results-apex-parser-ast-nodeServer/packages/apex-parser-ast/test/apex-parser-ast-benchmark-results.json"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: false
+          save-data-file: false
+          alert-threshold: "130%"
+          comment-on-alert: true
+          fail-on-alert: false
+          summary-always: true
+
+      - name: Compare lsp-compliant-services benchmark results in PR
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: "LSP Services Performance Benchmarks"
+          tool: "benchmarkjs"
+          output-file-path: "benchmark-artifacts/benchmark-results-lsp-compliant-services-nodeServer/packages/lsp-compliant-services/test/lsp-compliant-services-benchmark-results.json"
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: false
           save-data-file: false

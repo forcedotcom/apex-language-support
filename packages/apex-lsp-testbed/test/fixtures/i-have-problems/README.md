@@ -69,19 +69,75 @@ Fast, same-file validations that run on every keystroke:
     - Error Code: `invalid.final.field.assignment`
     - Validator: FinalAssignmentValidator
 
-11. **FinalKeywordOnClass.cls** - Invalid use of 'final' keyword on class declaration
+11. **UnreachableAfterReturn.cls** - Unreachable statement after return
+    - Error Code: `unreachable.statement`
+    - Validator: UnreachableStatementValidator
+
+12. **UnreachableAfterThrow.cls** - Unreachable statement after throw
+    - Error Code: `unreachable.statement`
+    - Validator: UnreachableStatementValidator
+
+13. **BreakOutsideLoop.cls** - Break statement outside loop
+    - Error Code: `invalid.break`
+    - Validator: ControlFlowValidator
+
+14. **ContinueOutsideLoop.cls** - Continue statement outside loop
+    - Error Code: `invalid.continue`
+    - Validator: ControlFlowValidator
+
+15. **ReturnOutsideMethod.cls** - Return statement outside method/constructor
+    - Error Code: `invalid.return.from.non.method`
+    - Validator: ControlFlowValidator
+
+16. **DuplicateRemoteAction.cls** - Duplicate @RemoteAction methods with same name and parameter count
+    - Error Code: `duplicate.remote.action.methods`
+    - Validator: DuplicateAnnotationMethodValidator
+
+17. **DuplicateWebService.cls** - Duplicate @WebService methods with same name
+    - Error Code: `duplicate.web.service.methods`
+    - Validator: DuplicateAnnotationMethodValidator
+
+18. **InvocableMethodNoParams.cls** - @InvocableMethod without required single parameter
+    - Error Code: `invocable.method.single.param`
+    - Validator: AnnotationPropertyValidator
+
+19. **InvocableMethodNonListParam.cls** - @InvocableMethod with non-list parameter type
+    - Error Code: `invocable.method.non.list.parameter`
+    - Validator: AnnotationPropertyValidator
+
+20. **TestMethodWithParams.cls** - @isTest method with parameters
+    - Error Code: `test.method.cannot.have.params`
+    - Validator: TestMethodValidator
+
+21. **TestSetupWithParams.cls** - @TestSetup method with parameters
+    - Error Code: `test.setup.cannot.have.params`
+    - Validator: TestMethodValidator
+
+22. **ExceptionTestClass.cls** - Exception class marked as test (@isTest)
+    - Error Code: `test.class.must.not.be.exception`
+    - Validator: TestMethodValidator
+
+23. **NonStaticWithParams.cls** - Non-static @AuraEnabled method with parameters
+    - Error Code: `non.static.aura.method.cannot.have.params`
+    - Validator: AuraEnabledValidator
+
+24. **OverloadedMethod.cls** - Overloaded @AuraEnabled methods (same name, different parameters)
+    - Error Code: `aura.overloaded.method`
+    - Validator: AuraEnabledValidator
+
+25. **FinalKeywordOnClass.cls** - Invalid use of 'final' keyword on class declaration
     - Error Code: `modifier.is.not.allowed`
     - Validator: ClassModifierValidator
     - **Note**: In Apex, classes are final by default and cannot use the 'final' keyword.
       The 'final' keyword can only be used for variables (to prevent reassignment).
 
-12. **FinalKeywordOnMethod.cls** - Invalid use of 'final' keyword on method declaration
+26. **FinalKeywordOnMethod.cls** - Invalid use of 'final' keyword on method declaration
     - Error Code: `modifier.is.not.allowed`
     - Validator: MethodModifierValidator
     - **Note**: In Apex, methods are final by default and cannot use the 'final' keyword.
       The 'final' keyword can only be used for variables (to prevent reassignment).
 
-13. **InterfaceMethodWithAbstract.cls** - Invalid use of 'abstract' keyword on interface method
+27. **InterfaceMethodWithAbstract.cls** - Invalid use of 'abstract' keyword on interface method
     - Error Code: `modifier.is.not.allowed` (via "Modifiers are not allowed on interface methods")
     - Validator: MethodModifierValidator.validateInterfaceMethodModifiers
     - **Note**: In Apex, interface methods are implicitly abstract and cannot have explicit modifiers.
@@ -153,6 +209,27 @@ The `.vscode/settings.json` file configures:
 
 - `apex.trace.server`: `"verbose"` - Enable verbose server trace for debugging
 - `apex.logLevel`: `"error"` - Set log level to error
+
+## Maintaining Fixtures
+
+The fixture classes in this directory are synced from the parser-ast test fixtures using a sync script:
+
+```bash
+npm run sync:testbed-fixtures
+```
+
+This script recursively copies all fixture classes from:
+- `packages/apex-parser-ast/test/fixtures/validation/`
+
+to:
+- `packages/apex-lsp-testbed/test/fixtures/i-have-problems/force-app/main/default/classes/`
+
+**Note**: The script maintains the directory structure from parser-ast. Files starting with "Valid" are automatically excluded.
+
+When adding new validation fixtures:
+1. Create fixtures in `packages/apex-parser-ast/test/fixtures/validation/{category}/`
+2. Run `npm run sync:testbed-fixtures` to sync them to the testbed
+3. Update this README to document the new validators
 
 ## Notes
 

@@ -568,6 +568,45 @@
               "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.maxDeferredTasksPerSecond.description%"
             }
           }
+        },
+        "apex.symbolGraph": {
+          "type": "object",
+          "description": "Symbol graph pre-population settings for improved first-file performance. When enabled, specified namespaces are loaded into memory during server startup, eliminating first-file compilation penalty. Trade-off: Adds startup time (Database: ~300ms, System: ~900ms).",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable symbol graph pre-population at server startup. Eliminates ~60-80ms first-file penalty with only ~190ms startup cost for Database and System namespaces."
+            },
+            "preloadNamespaces": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "*",
+                  "Database",
+                  "System",
+                  "Schema",
+                  "ConnectApi",
+                  "Cache",
+                  "Dom",
+                  "Flow",
+                  "KbManagement",
+                  "Messaging",
+                  "QuickAction",
+                  "Reports",
+                  "Site",
+                  "Support",
+                  "UserProvisioning"
+                ]
+              },
+              "default": [
+                "Database",
+                "System"
+              ],
+              "description": "Standard Apex namespaces to pre-populate. Use \"*\" to load all namespaces (for performance measurement). Common choices: Database (database operations), System (core utilities)."
+            }
+          }
         }
       }
     },

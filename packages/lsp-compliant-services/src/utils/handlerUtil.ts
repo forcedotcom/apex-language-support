@@ -108,9 +108,10 @@ export function getDiagnosticsFromErrors(
     }
 
     // Create diagnostic code if enabled
+    // Use error.code (ErrorCode) when present (e.g. syntax errors), else generic
     let code: string | number | undefined;
     if (includeCodes) {
-      code = `${error.type.toUpperCase()}_ERROR`;
+      code = error.code ?? `${error.type.toUpperCase()}_ERROR`;
     }
 
     // Create diagnostic with enhanced information

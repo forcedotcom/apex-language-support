@@ -203,6 +203,48 @@ describe('InterfaceHierarchyValidator', () => {
     expect(result.errors).toHaveLength(0);
   });
 
+  it('should detect INTERFACE_IMPLEMENTATION_METHOD_DEPRECATED when implementation is deprecated', async () => {
+    await compileFixtureForValidator('GlobalInterface.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'ClassWithDeprecatedImpl.cls',
+    );
+
+    const result = await runValidator(
+      InterfaceHierarchyValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager),
+      ),
+      symbolManager,
+    );
+
+    expect(result.isValid).toBe(false);
+    const error = result.errors.find(
+      (e) => e.code === ErrorCodes.INTERFACE_IMPLEMENTATION_METHOD_DEPRECATED,
+    );
+    expect(error).toBeDefined();
+  });
+
+  it('should detect INTERFACE_IMPLEMENTATION_METHOD_NOT_VISIBLE when implementation is not global/public', async () => {
+    await compileFixtureForValidator('GlobalInterface.cls');
+    const symbolTable = await compileFixtureForValidator(
+      'ClassWithPrivateImpl.cls',
+    );
+
+    const result = await runValidator(
+      InterfaceHierarchyValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager),
+      ),
+      symbolManager,
+    );
+
+    expect(result.isValid).toBe(false);
+    const error = result.errors.find(
+      (e) => e.code === ErrorCodes.INTERFACE_IMPLEMENTATION_METHOD_NOT_VISIBLE,
+    );
+    expect(error).toBeDefined();
+  });
+
   // Note: Additional test cases for abstract classes, methods with parameters, etc.
   // can be added as fixtures are created. The pattern is the same:
   // 1. Create fixture files in interface-hierarchy/ folder

@@ -54,6 +54,8 @@ interface ChainScope {
   startLocation: SymbolLocation;
   depth: number;
   parentScope?: ChainScope;
+  finalAccess?: 'read' | 'write' | 'readwrite';
+  nodeAccesses?: ('read' | 'write' | 'readwrite')[];
 }
 
 /**
@@ -67,6 +69,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   private currentFilePath: string = '';
   private suppressAssignmentLHS: boolean = false;
   private suppressedLHSRange: SymbolLocation | null = null;
+  private currentLhsAccess: 'write' | 'readwrite' | null = null;
 
   // Stack-based method/constructor call tracking
   private methodCallStack: Stack<{
@@ -285,18 +288,23 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       pushed = true;
 
       if (this.chainExpressionScope?.isActive) {
+        // Method calls in chains are always 'read' (intermediate nodes)
+        // Chain finalization will create and add the chained reference to symbol table
         this.chainExpressionScope.chainNodes.push(
           this.createExpressionNode(
             methodName,
             methodLocation,
             ReferenceContext.METHOD_CALL,
+            'read',
           ),
         );
+        // Do NOT add individual reference to symbol table - chain finalization handles it
+        // The individual reference is still used for methodCallStack (parameter tracking) above
       } else {
         this.processStandaloneMethodCall(ctx, methodName, methodLocation);
+        // Add to symbol table
+        this.symbolTable.addTypeReference(reference);
       }
-
-      this.symbolTable.addTypeReference(reference);
     } catch (error) {
       if (pushed) {
         try {
@@ -848,11 +856,15 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       const parentContext = this.getCurrentMethodName();
 
       if (this.chainExpressionScope?.isActive) {
+        // For chain nodes, access will be set during chain finalization
+        // Intermediate nodes are 'read', final node gets finalAccess
+        // For now, set to 'read' - will be updated in createChainRootReference
         this.chainExpressionScope.chainNodes.push(
           this.createExpressionNode(
             fieldName,
             location,
             ReferenceContext.FIELD_ACCESS,
+            'read', // Will be updated to finalAccess if this is the final node
           ),
         );
       } else {
@@ -998,7 +1010,10 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         );
         const parentContext = this.getCurrentMethodName();
 
-        // Suppress child captures within LHS range
+        // Store LHS access for chain creation
+        this.currentLhsAccess = lhsAccess;
+
+        // Suppress child captures within LHS range (but allow dot expressions for chains)
         this.suppressAssignmentLHS = true;
         this.suppressedLHSRange = lhsLoc;
 
@@ -1018,44 +1033,17 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
             );
             this.symbolTable.addTypeReference(varRef);
           }
+          // Clear LHS access after handling simple identifier
+          this.currentLhsAccess = null;
           return;
         }
 
         // If it's a dotted field reference: obj.field
+        // Let the chain mechanism handle it - don't create manual references
+        // The chain will be created with finalAccess set to lhsAccess
         if (isContextType(leftExpression, DotExpressionContext)) {
-          const dotExpr = leftExpression;
-          const anyId = dotExpr.anyId();
-          if (anyId) {
-            const fieldName = this.getTextFromContext(anyId);
-            const objectExpr = dotExpr.expression();
-            if (objectExpr) {
-              // Extract identifiers from object expression (handles obj.field[0] cases)
-              const objectIdentifiers =
-                this.extractIdentifiersFromExpression(objectExpr);
-              const objLocation = lhsLoc;
-              // Create read references for each identifier in the object expression
-              for (const objectName of objectIdentifiers) {
-                const objRef =
-                  SymbolReferenceFactory.createVariableUsageReference(
-                    objectName,
-                    objLocation,
-                    parentContext,
-                    'read',
-                  );
-                this.symbolTable.addTypeReference(objRef);
-              }
-              // field write/readwrite
-              const fieldRef =
-                SymbolReferenceFactory.createFieldAccessReference(
-                  fieldName,
-                  lhsLoc,
-                  objectIdentifiers[0] || 'unknown',
-                  parentContext,
-                  lhsAccess,
-                );
-              this.symbolTable.addTypeReference(fieldRef);
-            }
-          }
+          // Chain mechanism will handle this in enterDotExpression/exitDotExpression
+          // finalAccess will be set in createNewChainScope
           return;
         }
 
@@ -1124,6 +1112,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   exitAssignExpression(): void {
     this.suppressAssignmentLHS = false;
     this.suppressedLHSRange = null;
+    this.currentLhsAccess = null;
   }
 
   /**
@@ -1209,18 +1198,41 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
       const catchClause = (ctx as any).catchClause?.();
       if (catchClause) {
-        const exceptionType = (catchClause as any).qualifiedName?.()?.id?.();
-        if (exceptionType) {
-          const exceptionName = Array.isArray(exceptionType)
-            ? exceptionType.map((id: any) => id.text).join('.')
-            : exceptionType.text;
-          const location = this.getLocation(ctx);
-          const classRef = SymbolReferenceFactory.createClassReference(
-            exceptionName,
-            location,
-            this.getCurrentMethodName(),
-          );
-          this.symbolTable.addTypeReference(classRef);
+        const qualifiedName = (catchClause as any).qualifiedName?.();
+        if (qualifiedName) {
+          const ids = qualifiedName.id?.();
+          if (ids && ids.length > 0) {
+            const parentContext = this.getCurrentMethodName();
+
+            // Extract all parts and their locations for chained exception types
+            const typeParts: string[] = [];
+            const preciseLocations: SymbolLocation[] = [];
+            let baseLocation: SymbolLocation | null = null;
+
+            const idArray = Array.isArray(ids) ? ids : [ids];
+            for (const id of idArray) {
+              const partName = id.text;
+              const partLocation = this.getLocationForReference(id);
+              typeParts.push(partName);
+              preciseLocations.push(partLocation);
+              if (!baseLocation) {
+                baseLocation = partLocation;
+              }
+            }
+
+            if (typeParts.length > 0 && baseLocation) {
+              const fullTypeName = typeParts.join('.');
+
+              // Create class reference (will create chained reference if dotted name)
+              const classRef = SymbolReferenceFactory.createClassReference(
+                fullTypeName,
+                baseLocation,
+                parentContext,
+                preciseLocations.length > 1 ? preciseLocations : undefined,
+              );
+              this.symbolTable.addTypeReference(classRef);
+            }
+          }
         }
       }
     } catch (error) {
@@ -1734,31 +1746,54 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       }
 
       // Handle regular class names (not List/Set/Map)
-      // For constructor calls like "new AccountAutoDeletionSettingsVMapper()", the parser structure is:
+      // For constructor calls like "new AccountAutoDeletionSettingsVMapper()" or
+      // "new System.Url()", the parser structure is:
       // createdName -> idCreatedNamePair[0] -> anyId()
+      // For dotted names: createdName -> idCreatedNamePair[0..n] -> anyId()
       const idCreatedNamePairs = createdName.idCreatedNamePair();
       if (!idCreatedNamePairs || idCreatedNamePairs.length === 0) return;
 
-      const firstPair = idCreatedNamePairs[0];
-      const anyId = firstPair.anyId();
-      if (!anyId) return;
+      const parentContext = this.getCurrentMethodName();
 
-      const className = anyId.text;
-      const location = this.getLocationForReference(anyId);
+      // Extract all parts and their locations for chained constructor calls
+      const typeParts: string[] = [];
+      const preciseLocations: SymbolLocation[] = [];
+      let baseLocation: SymbolLocation | null = null;
+
+      for (const pair of idCreatedNamePairs) {
+        const anyId = pair.anyId();
+        if (anyId) {
+          const partName = anyId.text;
+          const partLocation = this.getLocationForReference(anyId);
+          typeParts.push(partName);
+          preciseLocations.push(partLocation);
+          if (!baseLocation) {
+            baseLocation = partLocation;
+          }
+        }
+      }
+
+      if (typeParts.length === 0 || !baseLocation) return;
+
+      const fullTypeName = typeParts.join('.');
+      const finalLocation =
+        preciseLocations.length > 0
+          ? preciseLocations[preciseLocations.length - 1]
+          : baseLocation;
 
       this.logger.debug(
         () =>
-          `[CONSTRUCTOR_CALL] Created reference for "${className}" at ` +
-          `${location.identifierRange.startLine}:${location.identifierRange.startColumn}-` +
-          `${location.identifierRange.endLine}:${location.identifierRange.endColumn}`,
+          `[CONSTRUCTOR_CALL] Created reference for "${fullTypeName}" at ` +
+          `${baseLocation.identifierRange.startLine}:${baseLocation.identifierRange.startColumn}-` +
+          `${finalLocation.identifierRange.endLine}:${finalLocation.identifierRange.endColumn}`,
       );
 
-      const parentContext = this.getCurrentMethodName();
-
+      // Create constructor call reference (will create chained reference if dotted name)
       const reference = SymbolReferenceFactory.createConstructorCallReference(
-        className,
-        location,
+        fullTypeName,
+        baseLocation,
         parentContext,
+        preciseLocations.length > 1 ? preciseLocations : undefined,
       );
 
       // Check if this constructor call has arguments (classCreatorRest)
@@ -1771,26 +1806,6 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       }
 
       this.symbolTable.addTypeReference(reference);
-
-      // Handle dotted names (e.g., Namespace.Type)
-      if (idCreatedNamePairs.length > 1) {
-        for (let i = 1; i < idCreatedNamePairs.length; i++) {
-          const pair = idCreatedNamePairs[i];
-          const anyId = pair.anyId();
-          if (anyId) {
-            const dottedTypeName = anyId.text;
-            const dottedLocation = this.getLocationForReference(anyId);
-
-            const dottedParamRef =
-              SymbolReferenceFactory.createParameterTypeReference(
-                dottedTypeName,
-                dottedLocation,
-                parentContext,
-              );
-            this.symbolTable.addTypeReference(dottedParamRef);
-          }
-        }
-      }
     } catch (error) {
       this.logger.warn(
         () => `Error capturing constructor call reference: ${error}`,
@@ -1799,12 +1814,16 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   }
 
   private createNewChainScope(ctx: DotExpressionContext): ChainScope {
+    // Check if we're in LHS assignment context
+    const finalAccess = this.currentLhsAccess || 'read';
+
     return {
       isActive: true,
       baseExpression: this.extractBaseExpressionFromParser(ctx),
       chainNodes: [],
       startLocation: this.getLocation(ctx),
       depth: 0,
+      finalAccess,
     };
   }
 
@@ -1918,31 +1937,67 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
                 : startLocation;
 
             // Create chained expression location
-            const chainedExpressionLocation = this.createChainedExpression(
-              fullExpression,
-              startLocation,
-              finalLocation,
-            );
-
-            // Create a SymbolReference for the chained expression
-            const chainedExpression: SymbolReference = {
-              name: fullExpression,
-              location: chainedExpressionLocation,
-              context: ReferenceContext.CHAINED_TYPE,
-              parentContext,
+            const chainedExpressionLocation = {
+              symbolRange: {
+                startLine: startLocation.symbolRange.startLine,
+                startColumn: startLocation.symbolRange.startColumn,
+                endLine: finalLocation.symbolRange.endLine,
+                endColumn: finalLocation.symbolRange.endColumn,
+              },
+              identifierRange: {
+                startLine: startLocation.identifierRange.startLine,
+                startColumn: startLocation.identifierRange.startColumn,
+                endLine: finalLocation.identifierRange.endLine,
+                endColumn: finalLocation.identifierRange.endColumn,
+              },
             };
 
-            // Create root reference with valid chain nodes only
-            // Note: For 'this' chains, we don't include 'this' as a chain node,
+            // Create final node reference with chainNodes property
+            // For 'this' chains, we don't include 'this' as a chain node,
             // only the actual method/property calls
-            const rootRef =
-              SymbolReferenceFactory.createChainedExpressionReference(
-                validChainNodes,
-                chainedExpression,
-                parentContext,
-              );
+            const finalNode = validChainNodes[validChainNodes.length - 1];
+            const finalAccess = chainScope.finalAccess || 'read';
 
-            this.symbolTable.addTypeReference(rootRef);
+            // Ensure each chain node has correct access
+            // All nodes in 'this' chains are intermediate (read), except final node
+            const nodesWithAccess = validChainNodes.map((node, index) => {
+              const isFinal = index === validChainNodes.length - 1;
+              const nodeAccess = isFinal ? finalAccess : 'read';
+              if (node.access !== nodeAccess) {
+                return new EnhancedSymbolReference(
+                  node.name,
+                  node.location,
+                  node.context,
+                  node.resolvedSymbolId,
+                  node.parentContext,
+                  nodeAccess,
+                  node.isStatic,
+                  node.literalValue,
+                  node.literalType,
+                );
+              }
+              return node;
+            });
+
+            const finalRef = new EnhancedSymbolReference(
+              fullExpression,
+              chainedExpressionLocation,
+              finalNode.context, // Use final node's context
+              undefined, // resolvedSymbolId - will be set during second-pass resolution
+              parentContext,
+              finalAccess, // Overall chain access
+              finalNode.isStatic,
+              undefined,
+              undefined,
+              nodesWithAccess, // Attach chainNodes to final node
+              undefined, // resolvedTypeId
+              undefined, // resolutionTier
+              undefined, // isFullyResolved
+              undefined, // validatedAccess
+              'syntax_only', // accessValidationState
+            );
+
+            this.symbolTable.addTypeReference(finalRef);
           }
         }
         return;
@@ -1953,14 +2008,76 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         startLocation,
       );
 
-      const initialChainNodes = [
-        this.createExpressionNode(
-          baseExpression,
-          baseExpressionLocation,
-          ReferenceContext.CHAIN_STEP,
-        ),
-        ...chainNodes,
-      ];
+      // Determine base node context: use VARIABLE_USAGE for variables (like 'obj'),
+      // CLASS_REFERENCE for types (like 'System'), or CHAIN_STEP as fallback
+      // This helps validators correctly identify and exclude base nodes from standalone validation
+      let baseContext: ReferenceContext = ReferenceContext.CHAIN_STEP;
+      if (baseExpression === 'this') {
+        // 'this' is a special case - keep as CHAIN_STEP
+        baseContext = ReferenceContext.CHAIN_STEP;
+      } else if (baseExpression && baseExpression.length > 0) {
+        // Heuristic: if base starts with uppercase, likely a type/namespace
+        // Otherwise, assume it's a variable
+        const firstChar = baseExpression[0];
+        if (firstChar >= 'A' && firstChar <= 'Z') {
+          baseContext = ReferenceContext.CLASS_REFERENCE;
+        } else {
+          baseContext = ReferenceContext.VARIABLE_USAGE;
+        }
+      }
+
+      // Create base node with determined context and read access (intermediate nodes are always read)
+      const baseNode = this.createExpressionNode(
+        baseExpression,
+        baseExpressionLocation,
+        baseContext,
+        'read',
+      );
+
+      // Ensure each chain node has correct access based on its role
+      // Base node: always 'read' (intermediate)
+      // Intermediate nodes: always 'read'
+      // Final node: use finalAccess from chainScope (or 'read' if not set)
+      const finalAccess = chainScope.finalAccess || 'read';
+
+      // Update base node access
+      const baseNodeWithAccess =
+        baseNode.access !== 'read'
+          ? new EnhancedSymbolReference(
+              baseNode.name,
+              baseNode.location,
+              baseNode.context,
+              baseNode.resolvedSymbolId,
+              baseNode.parentContext,
+              'read',
+              baseNode.isStatic,
+              baseNode.literalValue,
+              baseNode.literalType,
+            )
+          : baseNode;
+
+      // Update chain nodes access
+      const nodesWithAccess = chainNodes.map((node, index) => {
+        const isFinal = index === chainNodes.length - 1;
+        const nodeAccess = isFinal ? finalAccess : 'read';
+        // Create new node with access if not already set correctly
+        if (node.access !== nodeAccess) {
+          return new EnhancedSymbolReference(
+            node.name,
+            node.location,
+            node.context,
+            node.resolvedSymbolId,
+            node.parentContext,
+            nodeAccess,
+            node.isStatic,
+            node.literalValue,
+            node.literalType,
+          );
+        }
+        return node;
+      });
+
+      const initialChainNodes = [baseNodeWithAccess, ...nodesWithAccess];
 
       const analyzedChainNodes = this.analyzeChainWithRightToLeftNarrowing(
         initialChainNodes,
@@ -1974,25 +2091,44 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           ? chainNodes[chainNodes.length - 1].location
           : startLocation;
 
-      const chainedExpression = this.createChainedExpression(
-        fullExpression,
-        startLocation,
-        finalLocation,
-      );
-
-      // Create a root reference for the chain
-      const rootRef = SymbolReferenceFactory.createChainedExpressionReference(
-        analyzedChainNodes,
-        {
-          name: fullExpression,
-          location: chainedExpression,
-          context: ReferenceContext.CHAINED_TYPE,
-          parentContext: this.getCurrentMethodName(),
+      // Create combined location for the full chain
+      const chainedExpression = {
+        symbolRange: {
+          startLine: startLocation.symbolRange.startLine,
+          startColumn: startLocation.symbolRange.startColumn,
+          endLine: finalLocation.symbolRange.endLine,
+          endColumn: finalLocation.symbolRange.endColumn,
         },
+        identifierRange: {
+          startLine: startLocation.identifierRange.startLine,
+          startColumn: startLocation.identifierRange.startColumn,
+          endLine: finalLocation.identifierRange.endLine,
+          endColumn: finalLocation.identifierRange.endColumn,
+        },
+      };
+
+      // Create final node reference with chainNodes property
+      // The final node is the last node in the chain
+      const finalNode = analyzedChainNodes[analyzedChainNodes.length - 1];
+      const finalRef = new EnhancedSymbolReference(
+        fullExpression,
+        chainedExpression,
+        finalNode.context, // Use final node's context (FIELD_ACCESS, METHOD_CALL, etc.)
+        undefined, // resolvedSymbolId - will be set during second-pass resolution
         this.getCurrentMethodName(),
+        finalAccess, // Overall chain access matches final node
+        finalNode.isStatic,
+        undefined,
+        undefined,
+        analyzedChainNodes, // Attach chainNodes to final node
+        undefined, // resolvedTypeId - will be set during TIER 2
+        undefined, // resolutionTier - will be set during resolution
+        undefined, // isFullyResolved - will be set during TIER 2
+        undefined, // validatedAccess - will be set during TIER 2
+        'syntax_only', // accessValidationState - TIER 1 capture only
       );
 
-      this.symbolTable.addTypeReference(rootRef);
+      this.symbolTable.addTypeReference(finalRef);
 
       // Also create a VARIABLE_USAGE reference for the base qualifier
       // This is needed for reference correction tests and ensures the qualifier
@@ -2442,6 +2578,7 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     name: string,
     location: SymbolLocation,
     context: ReferenceContext,
+    access?: 'read' | 'write' | 'readwrite',
   ): SymbolReference {
     return new EnhancedSymbolReference(
       name,
@@ -2449,28 +2586,8 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       context,
       undefined,
       this.getCurrentMethodName(),
+      access,
     );
-  }
-
-  private createChainedExpression(
-    expression: string,
-    startLocation: SymbolLocation,
-    endLocation: SymbolLocation,
-  ): SymbolLocation {
-    return {
-      symbolRange: {
-        startLine: startLocation.symbolRange.startLine,
-        startColumn: startLocation.symbolRange.startColumn,
-        endLine: endLocation.symbolRange.endLine,
-        endColumn: endLocation.symbolRange.endColumn,
-      },
-      identifierRange: {
-        startLine: startLocation.identifierRange.startLine,
-        startColumn: startLocation.identifierRange.startColumn,
-        endLine: endLocation.identifierRange.endLine,
-        endColumn: endLocation.identifierRange.endColumn,
-      },
-    };
   }
 
   private createPreciseBaseLocation(

@@ -291,7 +291,7 @@ const parentScope = variable.parentId
     - `ValidationResult.ts`: Structured validation results with location-aware errors
     - `ValidatorInitialization.ts`: Validator registration and initialization
     - `ArtifactLoadingHelper.ts`: Cross-file type resolution and artifact loading
-    - `validators/`: 16 validator implementations (12 TIER 1, 4 TIER 2)
+    - `validators/`: 46 validator implementations (42 TIER 1, 4 TIER 2)
   - `i18n/`: Internationalization support for error messages:
     - `messageInstance.ts`: Message formatting using @salesforce/vscode-i18n
   - `generated/`: Auto-generated TypeScript modules (ignored by git, do not edit):
@@ -310,7 +310,7 @@ const parentScope = variable.parentId
 This package provides parser utilities, AST generation, and analysis tools for Apex code that are used by other packages in the Apex Language Server ecosystem. It includes:
 
 - Parser utilities for Apex code
-- **2-tier semantic validation system** with 16 validators (aligned with Jorje error codes)
+- **2-tier semantic validation system** with 46 validators (aligned with Jorje error codes)
 - Semantic analysis tools
 - Type definitions
 - Abstract syntax tree (AST) generation and manipulation
@@ -598,35 +598,37 @@ The validation system consists of:
 - **`ErrorCodes`**: Generated error code constants enabling linting detection of unused codes
 - **`localizeTyped`**: Type-safe message formatting using @salesforce/vscode-i18n
 - **`ArtifactLoadingHelper`**: Service for loading missing type definitions across files
-- **16 Validators**: 12 TIER 1 validators + 4 TIER 2 validators
+- **46 Validators**: 42 TIER 1 validators + 4 TIER 2 validators
+
+See [SEMANTIC_VALIDATION_STATUS.md](./SEMANTIC_VALIDATION_STATUS.md) for the complete validator list and error code coverage.
 
 ### Validators
 
 #### TIER 1 (IMMEDIATE) Validators
 
-Fast, same-file validations that run on every keystroke:
+Fast, same-file validations that run on every keystroke. Examples:
 
-1. **`SourceSizeValidator`**: Validates source file size limits (1M for classes/interfaces/enums/triggers, 32K for anonymous blocks, 3.2M for test anonymous blocks)
-2. **`ParameterLimitValidator`**: Validates method parameter count limits (max 32)
-3. **`EnumLimitValidator`**: Validates enum constant count limits (max 100)
-4. **`EnumConstantNamingValidator`**: Validates enum constant naming conventions
-5. **`DuplicateMethodValidator`**: Detects duplicate method signatures (case-insensitive)
-6. **`DuplicateSymbolValidator`**: Detects duplicate field and variable names within the same scope (handles static/non-static distinction for fields)
-7. **`ConstructorNamingValidator`**: Validates constructor names match class names
-8. **`TypeSelfReferenceValidator`**: Detects self-referencing type declarations
-9. **`AbstractMethodBodyValidator`**: Validates abstract methods have no body
-10. **`VariableShadowingValidator`**: Detects variable shadowing issues
-11. **`ForwardReferenceValidator`**: Validates forward references
-12. **`FinalAssignmentValidator`**: Validates final variable assignments
+- **`SourceSizeValidator`**: Source file size limits
+- **`ParameterLimitValidator`**: Method parameter count (max 32)
+- **`EnumLimitValidator`**: Enum constant count (max 100)
+- **`DuplicateMethodValidator`**: Duplicate method signatures
+- **`ConstructorNamingValidator`**: Constructor names match class names
+- **`AbstractMethodBodyValidator`**: Abstract methods have no body
+- **`InnerTypeValidator`**: Inner types cannot have inner types or static blocks
+- Plus 35 more (see SEMANTIC_VALIDATION_STATUS.md)
 
 #### TIER 2 (THOROUGH) Validators
 
 Comprehensive validations that may require cross-file analysis:
 
-1. **`MethodSignatureEquivalenceValidator`**: Cross-file method signature validation
-2. **`InterfaceHierarchyValidator`**: Interface inheritance validation (circular, missing, duplicate extends)
-3. **`ClassHierarchyValidator`**: Class inheritance validation (circular, final, missing superclasses)
-4. **`TypeAssignmentValidator`**: Type compatibility validation for variable assignments with cross-file type resolution
+- **`TypeResolutionValidator`**: Type reference resolution (INVALID_UNRESOLVED_TYPE, INVALID_CLASS), including generic type arguments (e.g., `List<NonExistentType>`)
+- **`StaticContextValidator`**: Static vs non-static context (static/non-static method/variable, super/this in static)
+- **`NewExpressionValidator`**: `new` expression name conflicts (inner type vs outer, super, interface, local, member)
+- **`TypeAssignmentValidator`**: Type compatibility for variable assignments
+- **`MethodResolutionValidator`**: Method visibility and parameter types
+- **`VariableResolutionValidator`**: Variable/field existence, visibility, void field load/store
+- **`TypeVisibilityValidator`**: Type visibility; API version checks via `@Deprecated(removed=X)` for NOT_VISIBLE_MAX_VERSION (when apiVersion >= removed)
+- **`ClassHierarchyValidator`**, **`InterfaceHierarchyValidator`**, **`MethodSignatureEquivalenceValidator`**
 
 ### Validation Result Structure
 
@@ -715,6 +717,7 @@ When adding new validators or error codes:
    - `src/generated/messages_en_US.ts` with the new message and `ErrorCodeKey` union
    - `src/generated/ErrorCodes.ts` with the new constant (e.g., `NEW_ERROR_CODE`)
 4. **Use in Validator**: Use `ErrorCodes.NEW_ERROR_CODE` and `localizeTyped()`:
+
    ```typescript
    import { localizeTyped } from '../../i18n/messageInstance';
    import { ErrorCodes } from '../../generated/ErrorCodes';
@@ -725,6 +728,7 @@ When adding new validators or error codes:
      location: symbol.location,
    });
    ```
+
 5. **Linting Detection**: Unused error code constants will appear in linting output, helping identify unimplemented validations
 
 #### Error Code Format
@@ -797,7 +801,7 @@ sequenceDiagram
     participant PrerequisiteOrchestrationService
     participant LayerEnrichmentService
     participant ValidatorRegistry
-    participant TIER1Validators as TIER 1 Validators<br/>(12 validators)
+    participant TIER1Validators as TIER 1 Validators<br/>(42 validators)
     participant TIER2Validators as TIER 2 Validators<br/>(4 validators)
     participant ArtifactLoadingHelper
     participant MissingArtifactResolutionService
@@ -821,7 +825,7 @@ sequenceDiagram
 
     Note over DiagnosticProcessingService: Initialize validators<br/>(static, one-time)
     DiagnosticProcessingService->>ValidatorRegistry: initializeValidators()
-    ValidatorRegistry->>ValidatorRegistry: Register 16 validators<br/>(12 TIER 1, 4 TIER 2)
+    ValidatorRegistry->>ValidatorRegistry: Register 46 validators<br/>(42 TIER 1, 4 TIER 2)
 
     DiagnosticProcessingService->>PrerequisiteOrchestrationService: runPrerequisitesForLspRequestType('diagnostics')
 
@@ -845,7 +849,7 @@ sequenceDiagram
     rect rgb(200, 230, 255)
         Note over DiagnosticProcessingService,TIER1Validators: TIER 1: IMMEDIATE Validation<br/>(<500ms, same-file only)
         DiagnosticProcessingService->>ValidatorRegistry: runValidatorsForTier(IMMEDIATE, table, options)
-        ValidatorRegistry->>TIER1Validators: Execute 12 validators
+        ValidatorRegistry->>TIER1Validators: Execute 42 validators
 
         loop For each TIER 1 validator
             TIER1Validators->>TIER1Validators: Validate symbols<br/>(SourceSize, ParameterLimit, EnumLimit, etc.)
@@ -1056,11 +1060,80 @@ The package includes a `ResourceLoader` that provides access to the Standard Ape
 
 #### ResourceLoader Features
 
-- **In-Memory File System**: Uses memfs for efficient storage and access to standard Apex classes
-- **Compiled Artifacts**: Pre-compiled symbol tables for all standard classes
-- **Source Code Access**: Retrieve source code for goto definition and hover information
+- **Protobuf Cache**: Fast symbol table loading from pre-built protobuf cache
+- **Global Type Registry**: O(1) type resolution via pre-built type registry from gz file
+- **Ephemeral Docs**: Source code access from ZIP for goto definition and hover information
 - **Namespace Organization**: Properly organized by namespace (System, Database, Schema, etc.)
 - **Statistics and Monitoring**: Comprehensive statistics about loaded resources
+
+#### Protobuf Cache Architecture
+
+The Standard Apex Library uses a **protobuf cache** (`apex-stdlib.pb.gz`) for fast startup performance:
+
+**Build-Time Generation:**
+
+- All `.cls` files from `StandardApexLibrary/` are parsed during build
+- Symbol tables are extracted and serialized to protobuf format
+- Cache is compressed with gzip and distributed with the extension
+- **100% Coverage Guarantee**: Build fails if any class throws an exception during parsing
+- Syntax errors in stub files are expected and included (with partial type information via ANTLR error recovery)
+- MD5 checksums are generated for integrity validation
+
+**Runtime Loading:**
+
+- Protobuf cache is loaded at server startup (~1ms)
+- Classes are loaded on-demand from cache (lazy loading)
+- MD5 checksum validation ensures file integrity
+- **No ZIP Compilation Fallback**: Classes not in cache return null (should never happen)
+- ZIP file is used only for source code extraction (goto definition)
+
+**Key Guarantees:**
+
+- Protobuf cache contains 100% of all standard library classes
+- Build validation ensures completeness (no partial caches)
+- Runtime never encounters missing classes (fail-fast on corrupted cache)
+- Simpler, more predictable behavior than on-demand compilation
+
+**Files:**
+
+- `apex-stdlib.pb.gz` - Compressed protobuf cache of symbol tables
+- `apex-stdlib.pb.gz.md5` - MD5 checksum for integrity validation
+- `apex-type-registry.pb.gz` - Compressed GlobalTypeRegistry cache
+- `apex-type-registry.pb.gz.md5` - MD5 checksum for registry integrity
+- `StandardApexLibrary.zip` - Source code for goto definition
+- `StandardApexLibrary.zip.md5` - MD5 checksum for ZIP integrity
+
+#### GlobalTypeRegistry - O(1) Type Resolution
+
+The `GlobalTypeRegistry` provides O(1) type lookup for standard library types, eliminating O(n²) symbol table scans:
+
+**Build-Time Generation:**
+
+- Top-level types (classes, interfaces, enums) are extracted from protobuf cache
+- Type metadata (FQN, name, namespace, kind, symbolId) is indexed
+- Registry is serialized to protobuf format and compressed
+- **100% Coverage Guarantee**: Same as protobuf cache (all parseable classes)
+- MD5 checksum generated for integrity validation
+
+**Runtime Behavior:**
+
+- Registry is loaded at server startup (<1ms)
+- Provides O(1) lookup by fully qualified name (FQN)
+- Namespace-aware resolution (current → System → Database → first)
+- **Static for stdlib, dynamic for user types** (planned enhancement)
+- Fail-fast on missing/corrupted registry file
+
+**Performance Impact:**
+
+- Without registry: O(n²) scan of all symbol tables (~50-500ms per lookup)
+- With registry: O(1) hash map lookup (<1ms per lookup)
+- Critical for large workspaces with thousands of type references
+
+**Current Scope:**
+
+- Contains ONLY standard library types (`isStdlib: true`)
+- User workspace types currently use O(n²) fallback scan
+- Future enhancement: Dynamic registration of user types for O(1) user type resolution
 
 #### Maintaining the Standard Apex Library
 
@@ -1161,30 +1234,27 @@ import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
 // Get the singleton instance
 const resourceLoader = ResourceLoader.getInstance();
 
-// Wait for initialization and compilation
+// Wait for initialization (loads protobuf cache and global registry)
 await resourceLoader.initialize();
-await resourceLoader.waitForCompilation();
 
-// Access compiled artifacts
-const systemClass = resourceLoader.getCompiledArtifact('System/System.cls');
-const databaseClass = resourceLoader.getCompiledArtifact(
-  'Database/Database.cls',
-);
+// Access symbol tables directly from protobuf cache
+const systemSymbolTable = await resourceLoader.getSymbolTable('System/System.cls');
+const databaseSymbolTable = await resourceLoader.getSymbolTable('Database/Database.cls');
 
-// Get source code
+// Get source code from ZIP for ephemeral docs (goto definition)
 const sourceCode = await resourceLoader.getFile('System/System.cls');
 
 // Check available classes
 const availableClasses = resourceLoader.getAvailableClasses();
 const hasSystemClass = resourceLoader.hasClass('System/System.cls');
 
-// Get all files
+// Get all files (source code from ZIP)
 const allFiles = await resourceLoader.getAllFiles();
 
 // Get statistics
 const stats = resourceLoader.getStatistics();
 console.log(
-  `Loaded ${stats.totalFiles} files, ${stats.compiledFiles} compiled`,
+  `Loaded ${stats.totalFiles} files, ${stats.symbolTablesLoaded} symbol tables from cache`,
 );
 ```
 
@@ -1247,8 +1317,10 @@ Type names in variables/parameters are resolved post-parse using `NamespaceResol
 
 Helpful APIs:
 
-- `hasClass(pathOrFqn)`, `getAvailableClasses()`, `getNamespaceStructure()`
-- `ensureClassLoaded(name)`, `getCompiledArtifact(name)` (async), `getCompiledArtifactSync(name)`
+- `hasClass(pathOrFqn)`, `getAvailableClasses()`, `getStandardNamespaces()`
+- `getSymbolTable(name)` (async) - Get symbol table directly from protobuf cache
+- `hasSymbolTable(name)` (async) - Check if symbol table is available
+- `getFile(path)` (async) - Get source code from ZIP for ephemeral docs
 - `couldResolveSymbol(symbolName)`, `getPotentialMatches(partial)`
 
 ### Putting It Together: Typical Usage
@@ -1297,7 +1369,7 @@ const resolved = manager.resolveSymbol('List', { expectedNamespace: 'System' });
 - **Find References**: Use `findReferencesTo` for inbound usages; map results to LSP locations.
 - **Rename**: Combine `findReferencesTo` + `findReferencesFrom` to get a closed set of edits.
 - **Impact Analysis**: Use `analyzeDependencies` to estimate blast radius and `detectCircularDependencies` to surface risks.
-- **Stdlib On-Demand**: Before failing a lookup, call `ResourceLoader.ensureClassLoaded(name)` or let `ApexSymbolManager` leverage it implicitly.
+- **Stdlib On-Demand**: Symbol tables are loaded on-demand from protobuf cache. `ApexSymbolManager` automatically leverages `ResourceLoader.getSymbolTable()` when needed.
 
 ### Notes on Performance and Memory
 

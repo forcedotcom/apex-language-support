@@ -260,7 +260,7 @@ describe(testTitle, () => {
 
     const options: ServerOptions = {
       serverType,
-      verbose: true,
+      verbose: false,
       workspacePath: 'https://github.com/trailheadapps/dreamhouse-lwc.git',
     };
     serverContext = await createTestServer(options);
@@ -403,15 +403,8 @@ describe(testTitle, () => {
           ...individualSettings,
           fn: function (deferred: { resolve: () => void }) {
             const executeWithSetup = async () => {
-              console.debug(
-                `>>> INDIVIDUAL BENCHMARK STARTING: ${benchmarkMethod} (ID: ${benchmarkRequest.id})`,
-              );
-
               // For stateful requests, ensure proper setup
               if (benchmarkMethod !== 'textDocument/didOpen') {
-                console.debug(
-                  `>>> Setting up didOpen for ${benchmarkMethod} benchmark`,
-                );
                 // Find and execute didOpen first to set up state
                 const didOpenRequest = testData.find(
                   ([m]) => m === 'textDocument/didOpen',
@@ -431,12 +424,6 @@ describe(testTitle, () => {
               }
 
               // Execute the actual request or notification
-              const methodType = requestMethods.includes(benchmarkMethod)
-                ? 'REQUEST'
-                : 'NOTIFICATION';
-              console.debug(
-                `>>> EXECUTING ACTUAL METHOD: ${benchmarkMethod} (Type: ${methodType})`,
-              );
               if (requestMethods.includes(benchmarkMethod)) {
                 // Send as request (expects response) - with timeout
                 const timeoutPromise = new Promise((_, reject) => {
@@ -456,11 +443,6 @@ describe(testTitle, () => {
                   benchmarkRequest.params,
                 );
                 await Promise.race([req, timeoutPromise]);
-
-                // Log successful request completion
-                console.debug(
-                  `>>> ${benchmarkMethod} REQUEST completed successfully`,
-                );
               } else if (notificationMethods.includes(benchmarkMethod)) {
                 // Send as notification (no response expected) - no timeout needed
                 serverContext.client.sendNotification(
@@ -469,9 +451,6 @@ describe(testTitle, () => {
                 );
                 // Small delay to allow notification to be processed
                 await new Promise((resolve) => setTimeout(resolve, 200));
-                console.debug(
-                  `>>> ${benchmarkMethod} NOTIFICATION completed successfully`,
-                );
               }
             };
 

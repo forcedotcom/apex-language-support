@@ -375,6 +375,30 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           const allowArtifactLoading =
             settings.apex.findMissingArtifact.enabled ?? false;
 
+          // Extract version-specific validation setting
+          const enableVersionSpecificValidation =
+            settings.apex.validation?.versionSpecificValidation?.enabled ??
+            false;
+
+          // Extract and parse API version (only if version-specific validation is enabled)
+          // Only extract major version from settings (e.g., "65.0" -> 65, "20.8" -> 20)
+          let apiVersion: number | undefined;
+          if (enableVersionSpecificValidation && settings.apex.version) {
+            const versionParts = settings.apex.version.split('.');
+            if (versionParts.length > 0) {
+              const major = Number(versionParts[0]);
+              if (!isNaN(major)) {
+                apiVersion = major;
+              }
+            }
+          }
+
+          // Try to get cached parse tree
+          const cachedParseTree = parseCache.getParseTree(
+            document.uri,
+            document.version,
+          );
+
           // Build validation options
           const validationOptions: ValidationOptions = {
             tier: ValidationTier.THOROUGH,
@@ -388,6 +412,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
               ? this.createLoadArtifactCallback(params.textDocument.uri)
               : undefined,
             sourceContent: document.getText(), // Provide source content for SourceSizeValidator
+            parseTree: cachedParseTree || undefined, // Provide cached parse tree if available
+            enableVersionSpecificValidation, // Add version validation flag
+            apiVersion, // Add API version (only set if enabled)
           };
 
           // Run validators
@@ -555,6 +582,30 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           const allowArtifactLoading =
             settings.apex.findMissingArtifact.enabled ?? false;
 
+          // Extract version-specific validation setting
+          const enableVersionSpecificValidation =
+            settings.apex.validation?.versionSpecificValidation?.enabled ??
+            false;
+
+          // Extract and parse API version (only if version-specific validation is enabled)
+          // Only extract major version from settings (e.g., "65.0" -> 65, "20.8" -> 20)
+          let apiVersion: number | undefined;
+          if (enableVersionSpecificValidation && settings.apex.version) {
+            const versionParts = settings.apex.version.split('.');
+            if (versionParts.length > 0) {
+              const major = Number(versionParts[0]);
+              if (!isNaN(major)) {
+                apiVersion = major;
+              }
+            }
+          }
+
+          // Try to get cached parse tree (may not be available for new compilation)
+          const cachedParseTree = parseCache.getParseTree(
+            document.uri,
+            document.version,
+          );
+
           // Build validation options
           const validationOptions: ValidationOptions = {
             tier: ValidationTier.THOROUGH, // Pull diagnostics = thorough
@@ -567,6 +618,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             loadArtifactCallback: allowArtifactLoading
               ? this.createLoadArtifactCallback(params.textDocument.uri)
               : undefined,
+            parseTree: cachedParseTree || undefined, // Provide cached parse tree if available
+            enableVersionSpecificValidation, // Add version validation flag
+            apiVersion, // Add API version (only set if enabled)
           };
 
           // Run validators (both IMMEDIATE and THOROUGH for pull diagnostics)

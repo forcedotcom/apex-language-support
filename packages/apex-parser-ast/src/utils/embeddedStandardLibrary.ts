@@ -55,9 +55,14 @@ try {
 
 /**
  * Load the ZIP file from disk (for unbundled/development environments).
- * @returns The ZIP file as a Uint8Array, or undefined if not available
+ * @returns The ZIP file and checksum content, or undefined if not available
  */
-function loadZipFromDisk(): Uint8Array | undefined {
+function loadZipFromDisk():
+  | {
+      data: Uint8Array;
+      checksumContent: string;
+    }
+  | undefined {
   try {
     // Only available in Node.js environments
     if (typeof process === 'undefined' || typeof require === 'undefined') {
@@ -66,6 +71,10 @@ function loadZipFromDisk(): Uint8Array | undefined {
 
     const fs = require('fs');
     const path = require('path');
+    const {
+      ChecksumFileMissingError,
+      ChecksumValidationError,
+    } = require('./checksum-validator');
 
     // Try multiple possible locations for the ZIP file
     const possiblePaths = [
@@ -80,16 +89,46 @@ function loadZipFromDisk(): Uint8Array | undefined {
     for (const zipPath of possiblePaths) {
       try {
         if (fs.existsSync(zipPath)) {
+          const md5Path = `${zipPath}.md5`;
+          if (!fs.existsSync(md5Path)) {
+            throw new ChecksumFileMissingError('StandardApexLibrary.zip');
+          }
           const buffer = fs.readFileSync(zipPath);
-          return new Uint8Array(buffer);
+          const checksumContent = fs.readFileSync(md5Path, 'utf8');
+          return {
+            data: new Uint8Array(buffer),
+            checksumContent,
+          };
         }
-      } catch {
-        // Try next path
+      } catch (error) {
+        // Re-throw checksum errors
+        if (
+          error instanceof ChecksumFileMissingError ||
+          error instanceof ChecksumValidationError
+        ) {
+          throw error;
+        }
+        // Try next path for other errors
       }
     }
 
     return undefined;
-  } catch {
+  } catch (error) {
+    // Re-throw checksum errors
+    try {
+      const {
+        ChecksumFileMissingError,
+        ChecksumValidationError,
+      } = require('./checksum-validator');
+      if (
+        error instanceof ChecksumFileMissingError ||
+        error instanceof ChecksumValidationError
+      ) {
+        throw error;
+      }
+    } catch {
+      // Ignore if validator module not found
+    }
     return undefined;
   }
 }
@@ -147,14 +186,28 @@ export function getEmbeddedStandardLibraryZip(): Uint8Array | undefined {
   }
 
   // Fall back to loading from disk (development mode)
-  const diskBuffer = loadZipFromDisk();
-  if (diskBuffer) {
-    cachedZipBuffer = diskBuffer;
-    return cachedZipBuffer;
+  const diskResult = loadZipFromDisk();
+  if (diskResult) {
+    try {
+      // Validate checksum
+      const { validateMD5Checksum } = require('./checksum-validator');
+      validateMD5Checksum(
+        'StandardApexLibrary.zip',
+        diskResult.data,
+        diskResult.checksumContent,
+      );
+      cachedZipBuffer = diskResult.data;
+      return cachedZipBuffer;
+    } catch (error) {
+      // Re-throw checksum validation errors
+      throw error;
+    }
   }
 
-  console.error('Embedded Standard Apex Library ZIP is not available');
-  return undefined;
+  throw new Error(
+    'Embedded Standard Apex Library ZIP is not available. ' +
+      "This is a required build artifact. Please rebuild the extension with 'npm run build'.",
+  );
 }
 
 /**
@@ -164,4 +217,13 @@ export function getEmbeddedStandardLibraryZip(): Uint8Array | undefined {
  */
 export function hasEmbeddedStandardLibraryZip(): boolean {
   return getEmbeddedStandardLibraryZip() !== undefined;
+}
+
+/**
+ * Clear the cached ZIP buffer.
+ * This should only be called for testing purposes when resetting ResourceLoader.
+ * @internal
+ */
+export function clearEmbeddedZipCache(): void {
+  cachedZipBuffer = null;
 }

@@ -1,0 +1,3 @@
+@JsonAccess
+public class JsonAccessMissingControl {
+}

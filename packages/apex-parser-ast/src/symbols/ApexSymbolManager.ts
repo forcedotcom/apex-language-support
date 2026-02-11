@@ -72,6 +72,11 @@ import { extractFilePathFromUri } from '../types/UriBasedIdGenerator';
 
 import { ResourceLoader } from '../utils/resourceLoader';
 import { STANDARD_APEX_LIBRARY_URI } from '../utils/ResourceUtils';
+import {
+  GlobalTypeRegistry,
+  GlobalTypeRegistryLive,
+  type TypeRegistryEntry,
+} from '../services/GlobalTypeRegistryService';
 import { isApexKeyword, BUILTIN_TYPE_NAMES } from '../utils/ApexKeywords';
 import type {
   ApexComment,
@@ -256,9 +261,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Initialize ResourceLoader for standard Apex classes (lazy loading from protobuf cache)
     try {
-      this.resourceLoader = ResourceLoader.getInstance({
-        preloadStdClasses: true,
-      });
+      this.resourceLoader = ResourceLoader.getInstance();
     } catch (error) {
       this.logger.warn(() => `Failed to initialize ResourceLoader: ${error}`);
       this.resourceLoader = null;
@@ -1117,6 +1120,34 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // This ensures consistency with addSymbolTable which uses normalized URIs
     const normalizedUri = extractFilePathFromUri(properUri);
 
+    // Unregister user types from GlobalTypeRegistry before removing symbols
+    // Get symbol table before removal to extract types
+    const symbolTable = this.symbolGraph.getSymbolTableForFile(normalizedUri);
+    if (symbolTable) {
+      try {
+        const unregisterEffect = Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          const removed = yield* registry.unregisterByFileUri(normalizedUri);
+          return removed;
+        });
+
+        const removed = Effect.runSync(
+          unregisterEffect.pipe(Effect.provide(GlobalTypeRegistryLive)),
+        );
+
+        this.logger.debug(
+          () =>
+            `[GlobalTypeRegistry] Unregistered ${removed.length} types from ${normalizedUri}`,
+        );
+      } catch (error) {
+        // Log error but don't fail - registry cleanup is best-effort
+        this.logger.warn(
+          () =>
+            `[GlobalTypeRegistry] Failed to unregister types for ${normalizedUri}: ${error}`,
+        );
+      }
+    }
+
     // Remove from symbol graph (graph will normalize again, but we normalize here for consistency)
     this.symbolGraph.removeFile(normalizedUri);
 
@@ -1803,6 +1834,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // The graph is the source of truth for symbol counts
       const graphStats = self.symbolGraph.getStats();
       self.memoryStats.totalSymbols = graphStats.totalSymbols;
+
+      // Register user types to GlobalTypeRegistry for O(1) lookup
+      const symbolTableForRegistry =
+        self.symbolGraph.getSymbolTableForFile(normalizedUri);
+      if (symbolTableForRegistry) {
+        // Run registry update with GlobalTypeRegistry context
+        const registerEffect = self.registerUserTypesToGlobalRegistry(
+          symbolTableForRegistry,
+          normalizedUri,
+        );
+        yield* Effect.provide(registerEffect, GlobalTypeRegistryLive);
+      }
     });
   }
 
@@ -1821,6 +1864,115 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return Effect.runPromise(
       this.processSameFileReferencesToGraphEffect(symbolTable, fileUri),
     );
+  }
+
+  /**
+   * Register user types from a symbol table to GlobalTypeRegistry.
+   * Extracts top-level types (classes, interfaces, enums) and registers them
+   * for O(1) type resolution.
+   *
+   * @param symbolTable The symbol table containing types to register
+   * @param fileUri The file URI for the types
+   */
+  private registerUserTypesToGlobalRegistry(
+    symbolTable: SymbolTable,
+    fileUri: string,
+  ): Effect.Effect<void, never, GlobalTypeRegistry> {
+    const self = this;
+    return Effect.gen(function* () {
+      // Extract top-level types (parentId === null)
+      const allSymbols = symbolTable.getAllSymbols();
+      const topLevelTypes = allSymbols.filter((symbol) => {
+        const isTopLevel =
+          symbol.parentId === null || symbol.parentId === 'null';
+        const isType =
+          symbol.kind === SymbolKind.Class ||
+          symbol.kind === SymbolKind.Interface ||
+          symbol.kind === SymbolKind.Enum;
+        return isTopLevel && isType;
+      });
+
+      // Skip if no types (e.g., trigger-only file)
+      if (topLevelTypes.length === 0) {
+        return;
+      }
+
+      // Build registry entries
+      const entries: TypeRegistryEntry[] = [];
+      for (const symbol of topLevelTypes) {
+        // Extract namespace first
+        const namespace = self.extractNamespaceForRegistry(symbol, fileUri);
+
+        // Calculate FQN if missing
+        let fqn = symbol.fqn;
+        if (!fqn) {
+          // Build FQN from namespace and name
+          fqn = namespace ? `${namespace}.${symbol.name}` : symbol.name;
+        }
+
+        entries.push({
+          fqn: fqn.toLowerCase(),
+          name: symbol.name,
+          namespace,
+          kind: symbol.kind as
+            | SymbolKind.Class
+            | SymbolKind.Interface
+            | SymbolKind.Enum,
+          symbolId: symbol.id,
+          fileUri,
+          isStdlib: false, // User type
+        });
+      }
+
+      // Register in bulk
+      const registry = yield* GlobalTypeRegistry;
+      yield* registry.registerTypes(entries);
+
+      self.logger.debug(
+        () =>
+          `[GlobalTypeRegistry] Registered ${entries.length} user types for ${fileUri}`,
+      );
+    });
+  }
+
+  /**
+   * Extract namespace for a symbol for GlobalTypeRegistry.
+   * Uses project namespace from settings.
+   *
+   * @param symbol The symbol to extract namespace from
+   * @param fileUri The file URI (for logging)
+   * @returns Namespace string
+   */
+  private extractNamespaceForRegistry(
+    symbol: ApexSymbol,
+    fileUri: string,
+  ): string {
+    // Try symbol.namespace first
+    if (symbol.namespace) {
+      if (typeof symbol.namespace === 'string') {
+        return symbol.namespace;
+      }
+      // namespace object - use toString()
+      if (
+        typeof symbol.namespace === 'object' &&
+        'toString' in symbol.namespace
+      ) {
+        return symbol.namespace.toString();
+      }
+    }
+
+    // Try FQN
+    if (symbol.fqn && symbol.fqn.includes('.')) {
+      const parts = symbol.fqn.split('.');
+      if (parts.length > 1) {
+        return parts.slice(0, -1).join('.');
+      }
+    }
+
+    // TODO: Use project namespace from settings when available
+    // For now, use 'default' namespace for all user types
+    // Future: Extract from ApexSettings.projectNamespace or org metadata
+    return 'default';
   }
 
   /**
@@ -3792,6 +3944,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     sourceFile: string,
     position?: { line: number; character: number },
   ): Promise<ApexSymbol | null> {
+    this.logger.debug(
+      () =>
+        '[Resolution] resolveSymbolReferenceToSymbol called for ' +
+        `"${typeReference.name}" (context: ${typeReference.context})`,
+    );
+
     try {
       // Handle LITERAL references by resolving to built-in type using literalType
       if (typeReference.context === ReferenceContext.LITERAL) {
@@ -3827,19 +3985,84 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Step 0: Fast path - if already resolved by listener second-pass, use the ID directly
       // This provides O(1) lookup for same-file refs, avoiding expensive resolution chains
+      // BUT: Skip fast path for chained references when position is on a chain member (not first node)
+      // This ensures we resolve the correct chain member (e.g., "size" in "numbers.size()")
       if (typeReference.resolvedSymbolId) {
-        const resolvedSymbol = this.getSymbol(typeReference.resolvedSymbolId);
-        if (resolvedSymbol) {
+        // Check if this is a chained reference and position is on a chain member
+        let shouldSkipFastPath = false;
+        if (position && isChainedSymbolReference(typeReference)) {
+          const chainMember = this.findChainMemberAtPosition(
+            typeReference,
+            position,
+          );
+          // Skip fast path if position is on a chain member (not the first node)
+          if (chainMember && chainMember.index > 0) {
+            shouldSkipFastPath = true;
+          }
+        }
+
+        if (!shouldSkipFastPath) {
+          const resolvedSymbol = this.getSymbol(typeReference.resolvedSymbolId);
+          if (resolvedSymbol) {
+            this.logger.debug(
+              () =>
+                `Using pre-resolved symbol ID "${typeReference.resolvedSymbolId}" ` +
+                `for reference "${typeReference.name}"`,
+            );
+            return resolvedSymbol;
+          }
+          // If symbol not found (rare - might have been removed), fall through to normal resolution
           this.logger.debug(
             () =>
-              `Using pre-resolved symbol ID "${typeReference.resolvedSymbolId}" for reference "${typeReference.name}"`,
+              `Pre-resolved symbol ID "${typeReference.resolvedSymbolId}" not found, falling back to normal resolution`,
           );
-          return resolvedSymbol;
         }
-        // If symbol not found (rare - might have been removed), fall through to normal resolution
-        this.logger.debug(
-          () =>
-            `Pre-resolved symbol ID "${typeReference.resolvedSymbolId}" not found, falling back to normal resolution`,
+      }
+
+      // Step 0.5: Handle synthetic references (created from chain nodes)
+      // These are individual METHOD_CALL/FIELD_ACCESS references created from chained expressions
+      const syntheticRef = typeReference as any;
+      if (syntheticRef._originalChainedRef && syntheticRef._chainNode) {
+        // Resolve through the chain node - use its resolvedSymbolId if available
+        if (syntheticRef._chainNode.resolvedSymbolId) {
+          const resolvedSymbol = this.getSymbol(
+            syntheticRef._chainNode.resolvedSymbolId,
+          );
+          if (resolvedSymbol) {
+            this.logger.debug(
+              () =>
+                `Resolved synthetic reference "${typeReference.name}" through chain node`,
+            );
+            return resolvedSymbol;
+          }
+        }
+        // If chain node not resolved, resolve through the chained reference
+        // But use the position to ensure we resolve the specific chain member, not the whole chain
+        const chainedRef = syntheticRef._originalChainedRef;
+        if (position) {
+          // Find the specific chain member at this position
+          const chainMember = this.findChainMemberAtPosition(
+            chainedRef,
+            position,
+          );
+          if (chainMember && chainMember.member.resolvedSymbolId) {
+            const resolvedSymbol = this.getSymbol(
+              chainMember.member.resolvedSymbolId,
+            );
+            if (resolvedSymbol) {
+              this.logger.debug(
+                () =>
+                  `Resolved synthetic reference "${typeReference.name}" through chain member at position`,
+              );
+              return resolvedSymbol;
+            }
+          }
+        }
+        // Fallback: resolve the whole chained reference
+        return this.resolveChainedSymbolReference(
+          chainedRef,
+          position,
+          sourceFile,
         );
       }
 
@@ -3977,23 +4200,109 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             );
           }
 
-          // If still not found, iterate through all registered symbol tables
-          // This ensures we find classes in other files even if nameIndex isn't updated yet
+          // If still not found, try GlobalTypeRegistry for O(1) lookup via Effect service
+          // This replaces the O(n²) scan through all symbol tables
           if (classCandidates.length === 0) {
-            const fileToSymbolTable = this.symbolGraph.getFileToSymbolTable();
-            for (const [_fileUri, symbolTable] of fileToSymbolTable.entries()) {
-              if (!symbolTable) continue;
-              const allSymbols = symbolTable.getAllSymbols();
-              const found = allSymbols.filter(
-                (s: ApexSymbol) =>
-                  s.name === typeReference.name &&
-                  (s.kind === SymbolKind.Class ||
-                    s.kind === SymbolKind.Interface),
+            this.logger.debug(
+              () =>
+                `[Resolution] Type "${typeReference.name}" not in source file, checking GlobalTypeRegistry`,
+            );
+
+            // Use Effect service directly
+            const registryLookup = Effect.gen(function* () {
+              const registry = yield* GlobalTypeRegistry;
+
+              // Extract namespace from source file if available
+              const sourceSymbol = sourceSymbolTable
+                ?.getAllSymbols()
+                .find((s) => s.parentId === null);
+              const currentNs = sourceSymbol?.namespace
+                ? String(sourceSymbol.namespace)
+                : undefined;
+
+              return yield* registry.resolveType(typeReference.name, {
+                currentNamespace: currentNs,
+              });
+            });
+
+            try {
+              const registryEntry = await Effect.runPromise(
+                registryLookup.pipe(Effect.provide(GlobalTypeRegistryLive)),
               );
-              if (found.length > 0) {
-                classCandidates = found;
-                break;
+
+              if (registryEntry) {
+                // Found in registry - get the symbol directly
+                let symbol = this.symbolGraph.getSymbol(registryEntry.symbolId);
+
+                this.logger.debug(
+                  () =>
+                    `[Resolution] Registry entry found for "${typeReference.name}" ` +
+                    `(symbolId="${registryEntry.symbolId}"), symbol in graph: ${symbol ? 'YES' : 'NO'}`,
+                );
+
+                // If symbol not in graph yet, try to load it (for stdlib types)
+                if (!symbol && registryEntry.isStdlib) {
+                  this.logger.debug(
+                    () =>
+                      `[Resolution] Loading stdlib class on-demand: ${registryEntry.fileUri}`,
+                  );
+
+                  // Extract class path from fileUri
+                  // (apexlib://resources/StandardApexLibrary/System/String.cls -> System/String.cls)
+                  const match = registryEntry.fileUri.match(
+                    /apexlib:\/\/resources\/StandardApexLibrary\/(.+\.cls)$/,
+                  );
+                  if (match) {
+                    const classPath = match[1];
+                    const symbolTable =
+                      await this.resourceLoader?.getSymbolTable(classPath);
+                    if (symbolTable) {
+                      // Add to symbol graph
+                      await Effect.runPromise(
+                        this.addSymbolTable(symbolTable, registryEntry.fileUri),
+                      );
+                      // Try to get symbol again
+                      symbol = this.symbolGraph.getSymbol(
+                        registryEntry.symbolId,
+                      );
+                      this.logger.debug(
+                        () =>
+                          `[Resolution] After loading, symbol in graph: ${symbol ? 'YES' : 'NO'}`,
+                      );
+                    }
+                  }
+                }
+
+                if (symbol) {
+                  classCandidates = [symbol];
+                  this.logger.debug(
+                    () =>
+                      `[GlobalTypeRegistry] Resolved "${typeReference.name}" to ` +
+                      `"${registryEntry.fqn}" via Effect service (O(1))`,
+                  );
+                } else {
+                  this.logger.debug(
+                    () =>
+                      `[Resolution] Registry entry found but symbol not available for "${typeReference.name}"`,
+                  );
+                }
+              } else {
+                // Not in registry - type doesn't exist or file not yet loaded
+                this.logger.debug(
+                  () =>
+                    `[GlobalTypeRegistry] Type "${typeReference.name}" not found in registry. ` +
+                    'Type may not exist or file not yet loaded.',
+                );
+                // No fallback - return null (type not found)
               }
+            } catch (error) {
+              // Effect service error - log and return null
+              this.logger.error(
+                () =>
+                  `[GlobalTypeRegistry] Effect service error: ${error}. ` +
+                  'Type resolution failed.',
+              );
+              // No fallback - return null (type not found)
             }
           }
         }
@@ -4278,7 +4587,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Step 3: For unqualified names, try to find FQN even if isStandardApexClass returned false
       // This handles wrapper types like Integer, String, etc. that are in System namespace
+      // However, builtin types like String, Integer should be resolved via builtInTypeTables first
+      // Only try standard class resolution if builtin type lookup fails
       if (!name.includes('.')) {
+        // First check builtin types - these take precedence over standard classes
+        const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
+        if (builtInType) {
+          return {
+            ...builtInType,
+            modifiers: {
+              ...builtInType.modifiers,
+              isBuiltIn: true,
+            },
+          };
+        }
+
+        // If not a builtin type, try to find FQN for standard class
         const fqn = this.findFQNForStandardClass(name);
         if (fqn) {
           const standardClass = await this.resolveStandardApexClass(fqn);
@@ -4289,6 +4613,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Step 4: Check other built-in types (scalar, collection, etc.)
+      // This is a fallback for qualified names or if FQN lookup failed
       const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
       if (builtInType) {
         return {
@@ -4441,17 +4766,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         classPath = extractApexLibPath(classPath);
       }
 
-      if (!this.resourceLoader.isClassCompiled(classPath)) {
-        await this.resourceLoader.ensureClassLoaded(classPath);
-      }
-
-      const artifact = await this.resourceLoader.getCompiledArtifact(classPath);
-      if (artifact && artifact.compilationResult?.result) {
+      const symbolTable = await this.resourceLoader.getSymbolTable(classPath);
+      if (symbolTable) {
         // Convert classPath to proper URI scheme for standard Apex library classes
         const fileUri = this.convertToStandardLibraryUri(classPath);
-        await Effect.runPromise(
-          this.addSymbolTable(artifact.compilationResult.result, fileUri),
-        );
+        await Effect.runPromise(this.addSymbolTable(symbolTable, fileUri));
 
         // Update the class symbol's fileUri to use the new URI scheme
         classSymbol.fileUri = fileUri;
@@ -5180,6 +5499,93 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     try {
+      // First, try GlobalTypeRegistry for O(1) lookup
+      // This is faster and doesn't require loading the class from cache
+      try {
+        const registryLookup = Effect.gen(function* () {
+          const registry = yield* GlobalTypeRegistry;
+          return yield* registry.resolveType(name);
+        });
+
+        const registryEntry = await Effect.runPromise(
+          registryLookup.pipe(Effect.provide(GlobalTypeRegistryLive)),
+        );
+
+        if (registryEntry) {
+          this.logger.debug(
+            () =>
+              `[resolveStandardApexClass] Found "${name}" in GlobalTypeRegistry: ${registryEntry.fqn}`,
+          );
+
+          // Get symbol from graph if already loaded
+          let symbol = this.symbolGraph.getSymbol(registryEntry.symbolId);
+          if (symbol) {
+            return symbol;
+          }
+
+          // Symbol not in graph yet - load from cache using fileUri
+          // Extract class path from fileUri
+          // (apexlib://resources/StandardApexLibrary/System/String.cls -> System/String.cls)
+          const match = registryEntry.fileUri.match(
+            /apexlib:\/\/resources\/StandardApexLibrary\/(.+\.cls)$/,
+          );
+          if (match) {
+            const classPath = match[1];
+            const symbolTable =
+              await this.resourceLoader.getSymbolTable(classPath);
+            if (symbolTable) {
+              // Add to symbol graph
+              await Effect.runPromise(
+                this.addSymbolTable(symbolTable, registryEntry.fileUri),
+              );
+              // Find symbol by name (symbolId might not match)
+              const symbols = symbolTable.getAllSymbols();
+              const foundSymbol = symbols.find(
+                (s) =>
+                  s.name?.toLowerCase() === registryEntry.name.toLowerCase() &&
+                  s.kind === SymbolKind.Class,
+              );
+              if (foundSymbol) {
+                this.logger.debug(
+                  () =>
+                    `[resolveStandardApexClass] Loaded "${name}" from cache and found in graph`,
+                );
+                return foundSymbol;
+              } else {
+                this.logger.debug(
+                  () =>
+                    `[resolveStandardApexClass] Found registry entry for "${name}" ` +
+                    'but symbol not found after loading from cache',
+                );
+              }
+            } else {
+              this.logger.debug(
+                () =>
+                  `[resolveStandardApexClass] Found registry entry for "${name}" but getSymbolTable returned null`,
+              );
+            }
+          } else {
+            this.logger.debug(
+              () =>
+                `[resolveStandardApexClass] Found registry entry for "${name}" but ` +
+                `fileUri doesn't match apexlib://resources/StandardApexLibrary/ pattern: ${registryEntry.fileUri}`,
+            );
+          }
+          // If loading failed, fall through to cache loading below
+        } else {
+          this.logger.debug(
+            () =>
+              `[resolveStandardApexClass] "${name}" not found in GlobalTypeRegistry, falling through to cache loading`,
+          );
+        }
+      } catch (error) {
+        // Registry lookup failed - fall through to cache loading
+        this.logger.debug(
+          () =>
+            `[resolveStandardApexClass] GlobalTypeRegistry lookup failed for "${name}": ${error}`,
+        );
+      }
+
       // Extract namespace and class name
       const parts = name.split('.');
 
@@ -5218,6 +5624,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         namespace = parts[0];
         className = parts[1];
       }
+
+      this.logger.debug(
+        () =>
+          `[resolveStandardApexClass] Resolving "${name}" -> namespace="${namespace}", className="${className}"`,
+      );
 
       // Check if the class exists in ResourceLoader (case-insensitive)
       // Always try to find the correct case from the namespace structure
@@ -5329,89 +5740,89 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // Mark as loading to prevent recursive calls
         this.loadingSymbolTables.add(fileUri);
 
-        const artifact =
-          await this.resourceLoader.loadAndCompileClass(classPath);
-        if (!artifact) {
-          return null;
-        }
-        if (artifact?.compilationResult?.result) {
-          // Add the symbol table to the symbol manager to get all symbols including methods
-          await Effect.runPromise(
-            this.addSymbolTable(artifact.compilationResult.result, fileUri),
-          );
+        this.logger.debug(
+          () =>
+            '[resolveStandardApexClass] Loading class from ResourceLoader: ' +
+            `classPath="${classPath}", fileUri="${fileUri}"`,
+        );
 
-          // Find the class symbol from the loaded symbol table
-          const symbols = artifact.compilationResult.result.getAllSymbols();
-          // Try to find by name first (case-insensitive for Apex)
-          let classSymbol = symbols.find(
-            (s) =>
-              s.name?.toLowerCase() === className.toLowerCase() &&
-              s.kind === SymbolKind.Class,
-          );
-
-          // If not found by name, try to find the first class symbol (for cases where name might be empty)
-          // This can happen with generic types like List<T> where the parser might not extract the name correctly
-          if (!classSymbol) {
-            classSymbol = symbols.find((s) => s.kind === SymbolKind.Class);
-            // If we found a class symbol but it has an empty name, set it from the className we're looking for
-            if (classSymbol && !classSymbol.name) {
-              classSymbol.name = className;
-            }
-          }
-
-          if (classSymbol) {
-            // Update the class symbol's fileUri to use the new URI scheme
-            classSymbol.fileUri = fileUri;
-            // Ensure the name is set correctly
-            if (!classSymbol.name || classSymbol.name === '') {
-              classSymbol.name = className;
-            }
-            return classSymbol;
-          }
-
-          // If still not found in the loaded symbol table, try finding it from the symbol graph
-          // This handles cases where the symbol was added but might not be immediately available
-          // in the loaded symbol table's getAllSymbols() result
-          const graphSymbols = this.findSymbolByName(className);
-          const graphClassSymbols = graphSymbols.filter(
-            (s) =>
-              s.kind === SymbolKind.Class &&
-              (s.fileUri === fileUri ||
-                s.fileUri?.includes('StandardApexLibrary') ||
-                s.fileUri?.includes('apexlib://')),
-          );
-          if (graphClassSymbols.length > 0) {
-            // Prefer symbols from the file we just loaded
-            const fileSymbol = graphClassSymbols.find(
-              (s) => s.fileUri === fileUri,
-            );
-            if (fileSymbol) {
-              this.logger.debug(
-                () =>
-                  `Found class "${className}" from symbol graph after loading: ${fileSymbol.name}`,
-              );
-              return fileSymbol;
-            }
-            // Fallback to any standard Apex library symbol
-            const standardSymbol = graphClassSymbols.find(
-              (s) =>
-                s.fileUri?.includes('apexlib://') ||
-                s.fileUri?.includes('StandardApexLibrary'),
-            );
-            if (standardSymbol) {
-              this.logger.debug(
-                () =>
-                  `Found class "${className}" from symbol graph (standard): ${standardSymbol.name}`,
-              );
-              return standardSymbol;
-            }
-            return graphClassSymbols[0];
-          }
-        } else {
+        const symbolTable = await this.resourceLoader.getSymbolTable(classPath);
+        if (!symbolTable) {
           this.logger.debug(
             () =>
-              `Compilation result is null for ${classPath} (searched for ${name})`,
+              `[resolveStandardApexClass] ResourceLoader returned null for "${classPath}"`,
           );
+          return null;
+        }
+        // Add the symbol table to the symbol manager to get all symbols including methods
+        await Effect.runPromise(this.addSymbolTable(symbolTable, fileUri));
+
+        // Find the class symbol from the loaded symbol table
+        const symbols = symbolTable.getAllSymbols();
+        // Try to find by name first (case-insensitive for Apex)
+        let classSymbol = symbols.find(
+          (s) =>
+            s.name?.toLowerCase() === className.toLowerCase() &&
+            s.kind === SymbolKind.Class,
+        );
+
+        // If not found by name, try to find the first class symbol (for cases where name might be empty)
+        // This can happen with generic types like List<T> where the parser might not extract the name correctly
+        if (!classSymbol) {
+          classSymbol = symbols.find((s) => s.kind === SymbolKind.Class);
+          // If we found a class symbol but it has an empty name, set it from the className we're looking for
+          if (classSymbol && !classSymbol.name) {
+            classSymbol.name = className;
+          }
+        }
+
+        if (classSymbol) {
+          // Update the class symbol's fileUri to use the new URI scheme
+          classSymbol.fileUri = fileUri;
+          // Ensure the name is set correctly
+          if (!classSymbol.name || classSymbol.name === '') {
+            classSymbol.name = className;
+          }
+          return classSymbol;
+        }
+
+        // If still not found in the loaded symbol table, try finding it from the symbol graph
+        // This handles cases where the symbol was added but might not be immediately available
+        // in the loaded symbol table's getAllSymbols() result
+        const graphSymbols = this.findSymbolByName(className);
+        const graphClassSymbols = graphSymbols.filter(
+          (s) =>
+            s.kind === SymbolKind.Class &&
+            (s.fileUri === fileUri ||
+              s.fileUri?.includes('StandardApexLibrary') ||
+              s.fileUri?.includes('apexlib://')),
+        );
+        if (graphClassSymbols.length > 0) {
+          // Prefer symbols from the file we just loaded
+          const fileSymbol = graphClassSymbols.find(
+            (s) => s.fileUri === fileUri,
+          );
+          if (fileSymbol) {
+            this.logger.debug(
+              () =>
+                `Found class "${className}" from symbol graph after loading: ${fileSymbol.name}`,
+            );
+            return fileSymbol;
+          }
+          // Fallback to any standard Apex library symbol
+          const standardSymbol = graphClassSymbols.find(
+            (s) =>
+              s.fileUri?.includes('apexlib://') ||
+              s.fileUri?.includes('StandardApexLibrary'),
+          );
+          if (standardSymbol) {
+            this.logger.debug(
+              () =>
+                `Found class "${className}" from symbol graph (standard): ${standardSymbol.name}`,
+            );
+            return standardSymbol;
+          }
+          return graphClassSymbols[0];
         }
         return null;
       } catch (_error) {
@@ -5686,10 +6097,40 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           }
         }
 
-        // Step 2b: For chained references, find the most specific reference for this position
+        // Step 2b: Check for METHOD_CALL references first (before chained reference selection)
+        // This ensures method calls are prioritized over chained references that might resolve to variables
+        const methodCallRefsEarly = typeReferences.filter(
+          (ref) => ref.context === ReferenceContext.METHOD_CALL,
+        );
+        if (methodCallRefsEarly.length > 0) {
+          // Check if any METHOD_CALL reference matches the position exactly
+          for (const methodRef of methodCallRefsEarly) {
+            const methodLoc = methodRef.location.identifierRange;
+            const isExactMatch =
+              position.line >= methodLoc.startLine &&
+              position.line <= methodLoc.endLine &&
+              position.character >= methodLoc.startColumn &&
+              position.character <= methodLoc.endColumn;
+            if (isExactMatch) {
+              // METHOD_CALL matches position - prioritize it (unless we have a type reference)
+              if (
+                referenceToResolve.context !==
+                  ReferenceContext.GENERIC_PARAMETER_TYPE &&
+                referenceToResolve.context !== ReferenceContext.CLASS_REFERENCE
+              ) {
+                referenceToResolve = methodRef;
+                // Break early - METHOD_CALL takes precedence
+                break;
+              }
+            }
+          }
+        }
+
+        // Step 2c: For chained references, find the most specific reference for this position
         // If position is on a specific chain member, prefer references that match that member
-        // BUT: Don't override GENERIC_PARAMETER_TYPE or CLASS_REFERENCE if we've already selected one
-        const isTypeReferenceSelected =
+        // BUT: Don't override METHOD_CALL, GENERIC_PARAMETER_TYPE or CLASS_REFERENCE if we've already selected one
+        const isTypeOrMethodReferenceSelected =
+          referenceToResolve.context === ReferenceContext.METHOD_CALL ||
           referenceToResolve.context ===
             ReferenceContext.GENERIC_PARAMETER_TYPE ||
           referenceToResolve.context === ReferenceContext.CLASS_REFERENCE;
@@ -5701,8 +6142,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
 
         // Always prefer chained references over non-chained references when available
-        // BUT: Don't override type references (GENERIC_PARAMETER_TYPE, CLASS_REFERENCE) if already selected
-        if (chainedRefs.length > 0 && !isTypeReferenceSelected) {
+        // BUT: Don't override METHOD_CALL, GENERIC_PARAMETER_TYPE, or CLASS_REFERENCE if already selected
+        if (chainedRefs.length > 0 && !isTypeOrMethodReferenceSelected) {
           // Check each chained reference to find the one that matches the position
           for (const ref of chainedRefs) {
             const chainNodes = (ref as ChainedSymbolReference).chainNodes;
@@ -5761,7 +6202,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             );
             if (chainMember) {
               // Found a chained reference with a specific member at this position
-              // Always prefer chained references over standalone references when position matches
+              // BUT: If the chain member is a METHOD_CALL and we have a synthetic METHOD_CALL reference,
+              // prefer the synthetic reference as it's more specific
+              if (chainMember.member.context === ReferenceContext.METHOD_CALL) {
+                const syntheticMethodRef = typeReferences.find(
+                  (r) =>
+                    r.context === ReferenceContext.METHOD_CALL &&
+                    r.name === chainMember.member.name &&
+                    (r as any)._originalChainedRef === ref,
+                );
+                if (syntheticMethodRef) {
+                  // Prefer synthetic METHOD_CALL reference over chained reference
+                  referenceToResolve = syntheticMethodRef;
+                  break;
+                }
+              }
+              // Otherwise, prefer chained reference over standalone references when position matches
               // This ensures 'this.method().anotherMethod()' chains are resolved correctly
               referenceToResolve = ref;
               break;
@@ -5829,6 +6285,41 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             } else {
               referenceToResolve = chainedRefs[0];
             }
+          }
+        }
+
+        // Step 3: Prioritize METHOD_CALL references (including synthetic ones from chains)
+        // This ensures method calls are resolved over variables or other references
+        // Do this BEFORE chained reference selection to ensure METHOD_CALL takes precedence
+        const methodCallRefs = typeReferences.filter(
+          (ref) => ref.context === ReferenceContext.METHOD_CALL,
+        );
+        if (methodCallRefs.length > 0) {
+          // Find the METHOD_CALL reference that best matches the position
+          // Prefer synthetic references (from chain nodes) as they're more specific
+          let bestMethodCallRef = methodCallRefs[0];
+          for (const methodRef of methodCallRefs) {
+            const methodLoc = methodRef.location.identifierRange;
+            const isWithinMethodRange =
+              position.line >= methodLoc.startLine &&
+              position.line <= methodLoc.endLine &&
+              position.character >= methodLoc.startColumn &&
+              position.character <= methodLoc.endColumn;
+            if (isWithinMethodRange) {
+              bestMethodCallRef = methodRef;
+              break;
+            }
+          }
+          // Prioritize METHOD_CALL over everything except type references
+          // This ensures method calls resolve correctly even when chained references exist
+          if (
+            referenceToResolve.context !==
+              ReferenceContext.GENERIC_PARAMETER_TYPE &&
+            referenceToResolve.context !== ReferenceContext.CLASS_REFERENCE
+          ) {
+            // If we have a METHOD_CALL that matches the position, use it
+            // This handles synthetic references from chains correctly
+            referenceToResolve = bestMethodCallRef;
           }
         }
 
@@ -6959,17 +7450,34 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     fileUri?: string,
   ): Promise<ApexSymbol | null> {
     // Fast path: if already resolved by listener second-pass, use the ID directly
+    // BUT: Skip fast path when position is on a chain member (not first node)
+    // This ensures we resolve the correct chain member (e.g., "size" in "numbers.size()")
     if (typeReference.resolvedSymbolId) {
-      const resolvedSymbol = this.getSymbol(typeReference.resolvedSymbolId);
-      if (resolvedSymbol) {
-        this.logger.debug(
-          () =>
-            `Using pre-resolved symbol ID "${typeReference.resolvedSymbolId}" ` +
-            `for chained reference "${typeReference.name}"`,
+      // Check if this is a chained reference and position is on a chain member
+      let shouldSkipFastPath = false;
+      if (position && isChainedSymbolReference(typeReference)) {
+        const chainMember = this.findChainMemberAtPosition(
+          typeReference,
+          position,
         );
-        return resolvedSymbol;
+        // Skip fast path if position is on a chain member (not the first node)
+        if (chainMember && chainMember.index > 0) {
+          shouldSkipFastPath = true;
+        }
       }
-      // If symbol not found, fall through to normal resolution
+
+      if (!shouldSkipFastPath) {
+        const resolvedSymbol = this.getSymbol(typeReference.resolvedSymbolId);
+        if (resolvedSymbol) {
+          this.logger.debug(
+            () =>
+              `Using pre-resolved symbol ID "${typeReference.resolvedSymbolId}" ` +
+              `for chained reference "${typeReference.name}"`,
+          );
+          return resolvedSymbol;
+        }
+        // If symbol not found, fall through to normal resolution
+      }
     }
 
     if (isChainedSymbolReference(typeReference)) {
@@ -7046,6 +7554,26 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             typeReference,
             position,
           );
+
+          // If position matches a specific chain member (not the first node), resolve that member
+          if (chainMember && chainMember.index > 0) {
+            // Position is on a method/field call in the chain (e.g., "size" in "numbers.size()")
+            // Resolve the specific chain member, not the whole chain
+            if (chainMember.member.resolvedSymbolId) {
+              const resolvedSymbol = this.getSymbol(
+                chainMember.member.resolvedSymbolId,
+              );
+              if (resolvedSymbol) {
+                this.logger.debug(
+                  () =>
+                    `Resolved chain member "${chainMember.member.name}" at index ${chainMember.index}`,
+                );
+                return resolvedSymbol;
+              }
+            }
+            // If chain member not pre-resolved, it will be handled by the code below
+            // that resolves the entire chain and then finds the chain member at the position
+          }
 
           if (chainMember && chainMember.index === 0) {
             // We already tried resolving the first node above, but if it failed,
@@ -7625,10 +8153,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 // Extract the class path from the file path
                 const classPath = extractApexLibPath(contextFile);
 
-                const artifact =
-                  await this.resourceLoader.loadAndCompileClass(classPath);
-                if (artifact && artifact.compilationResult.result) {
-                  symbolTable = artifact.compilationResult.result;
+                const loadedSymbolTable =
+                  await this.resourceLoader.getSymbolTable(classPath);
+                if (loadedSymbolTable) {
+                  symbolTable = loadedSymbolTable;
 
                   // Add the symbol table to our graph for future use
                   await Effect.runPromise(
@@ -7685,16 +8213,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   const classPath = extractApexLibPath(typeSymbol.fileUri);
                   if (classPath) {
                     try {
-                      const artifact =
-                        await this.resourceLoader.loadAndCompileClass(
-                          classPath,
-                        );
-                      if (artifact?.compilationResult.result) {
+                      const symbolTable =
+                        await this.resourceLoader.getSymbolTable(classPath);
+                      if (symbolTable) {
                         await Effect.runPromise(
-                          this.addSymbolTable(
-                            artifact.compilationResult.result,
-                            typeSymbol.fileUri,
-                          ),
+                          this.addSymbolTable(symbolTable, typeSymbol.fileUri),
                         );
                         // Retry resolution after loading
                         const retryResult = await this.resolveMemberInContext(
@@ -7770,14 +8293,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                             () =>
                               `Loading class from path: ${classPath} for member resolution`,
                           );
-                          const artifact =
-                            await this.resourceLoader.loadAndCompileClass(
-                              classPath,
-                            );
-                          if (artifact?.compilationResult.result) {
+                          const symbolTable =
+                            await this.resourceLoader.getSymbolTable(classPath);
+                          if (symbolTable) {
                             await Effect.runPromise(
                               this.addSymbolTable(
-                                artifact.compilationResult.result,
+                                symbolTable,
                                 standardClassSymbol.fileUri,
                               ),
                             );
@@ -7872,14 +8393,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     );
                     if (classPath) {
                       try {
-                        const artifact =
-                          await this.resourceLoader.loadAndCompileClass(
-                            classPath,
-                          );
-                        if (artifact?.compilationResult.result) {
+                        const symbolTable =
+                          await this.resourceLoader.getSymbolTable(classPath);
+                        if (symbolTable) {
                           await Effect.runPromise(
                             this.addSymbolTable(
-                              artifact.compilationResult.result,
+                              symbolTable,
                               typeClassSymbol.fileUri,
                             ),
                           );
@@ -7961,14 +8480,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     );
                     if (classPath) {
                       try {
-                        const artifact =
-                          await this.resourceLoader.loadAndCompileClass(
-                            classPath,
-                          );
-                        if (artifact?.compilationResult.result) {
+                        const symbolTable =
+                          await this.resourceLoader.getSymbolTable(classPath);
+                        if (symbolTable) {
                           await Effect.runPromise(
                             this.addSymbolTable(
-                              artifact.compilationResult.result,
+                              symbolTable,
                               standardClassSymbol.fileUri,
                             ),
                           );
@@ -8315,14 +8832,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     // Mark as loading to prevent recursive calls
                     this.loadingSymbolTables.add(normalizedUri);
                     try {
-                      const artifact =
-                        await this.resourceLoader.loadAndCompileClass(
-                          classPath,
-                        );
-                      if (artifact?.compilationResult.result) {
+                      const symbolTable =
+                        await this.resourceLoader.getSymbolTable(classPath);
+                      if (symbolTable) {
                         await Effect.runPromise(
                           this.addSymbolTable(
-                            artifact.compilationResult.result,
+                            symbolTable,
                             contextSymbol.fileUri,
                           ),
                         );
@@ -8588,12 +9103,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               if (!this.loadingSymbolTables.has(normalizedUri)) {
                 this.loadingSymbolTables.add(normalizedUri);
                 try {
-                  const artifact =
-                    await this.resourceLoader.loadAndCompileClass(classPath);
-                  if (artifact?.compilationResult.result) {
+                  const loadedSymbolTable =
+                    await this.resourceLoader.getSymbolTable(classPath);
+                  if (loadedSymbolTable) {
                     await Effect.runPromise(
                       this.addSymbolTable(
-                        artifact.compilationResult.result,
+                        loadedSymbolTable,
                         superclassTypeSymbol.fileUri,
                       ),
                     );
@@ -8661,12 +9176,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               if (!this.loadingSymbolTables.has(normalizedUri)) {
                 this.loadingSymbolTables.add(normalizedUri);
                 try {
-                  const artifact =
-                    await this.resourceLoader.loadAndCompileClass(classPath);
-                  if (artifact?.compilationResult.result) {
+                  const loadedSymbolTable =
+                    await this.resourceLoader.getSymbolTable(classPath);
+                  if (loadedSymbolTable) {
                     await Effect.runPromise(
                       this.addSymbolTable(
-                        artifact.compilationResult.result,
+                        loadedSymbolTable,
                         objectTypeSymbol.fileUri,
                       ),
                     );

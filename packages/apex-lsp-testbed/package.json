@@ -18,11 +18,13 @@
   "scripts": {
     "compile": "wireit",
     "bundle": "echo 'Bundle is not needed for testbed'",
+    "sync:fixtures": "wireit",
     "test": "wireit",
     "test:integration": "wireit",
     "test:quality": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
+    "test:perf:quick": "QUICK=true npm run test:perf",
     "test:perf:eda": "wireit",
     "test:perf:lsp": "wireit",
     "clean": "rimraf out dist .wireit tsconfig.tsbuildinfo coverage test-artifacts",
@@ -54,11 +56,22 @@
         "../../tsconfig.base.json"
       ]
     },
+    "sync:fixtures": {
+      "command": "node ../../scripts/sync-testbed-fixtures.js",
+      "output": [
+        "test/fixtures/i-have-problems/force-app/main/default/classes/**"
+      ],
+      "files": [
+        "../../scripts/sync-testbed-fixtures.js",
+        "../../packages/apex-parser-ast/test/fixtures/validation/**"
+      ]
+    },
     "test": {
-      "command": "jest --testMatch \"**/test/**/*.test.ts\" --testPathIgnorePatterns=\"integration\" --json --outputFile=.wireit/test-results.json",
+      "command": "jest --testMatch \"**/test/**/*.test.ts\" --testPathIgnorePatterns=\"integration|accuracy/semantic-errors\" --json --outputFile=.wireit/test-results.json",
       "dependencies": [
         "compile",
-        "../apex-ls:bundle"
+        "../apex-ls:bundle",
+        "sync:fixtures"
       ],
       "output": [
         ".wireit/test-results.json"
@@ -70,10 +83,11 @@
       ]
     },
     "test:integration": {
-      "command": "jest --testMatch \"**/test/integration/**/*.test.ts\" --testPathIgnorePatterns=\"/node_modules/\" --json --outputFile=.wireit/test-results-integration.json",
+      "command": "jest --testMatch \"**/test/(integration|accuracy)/**/*.test.ts\" --testPathIgnorePatterns=\"/node_modules/\" --json --outputFile=.wireit/test-results-integration.json",
       "dependencies": [
         "compile",
-        "../apex-ls:bundle"
+        "../apex-ls:bundle",
+        "sync:fixtures"
       ],
       "output": [
         ".wireit/test-results-integration.json"
@@ -81,6 +95,7 @@
       "files": [
         "src/**/*.ts",
         "test/integration/**/*.ts",
+        "test/accuracy/**/*.test.ts",
         "**/jest.config.cjs"
       ]
     },
