@@ -23,11 +23,21 @@ concurrency:
 
 jobs:
   e2e-tests-web:
-    name: E2E Tests (Web Mode)
+    name: E2E ${{ matrix.test_file }} (Web)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     if: ${{ github.event.inputs.test_mode != 'desktop' }}
     continue-on-error: true
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test_file:
+          - apex-extension-core.spec.ts
+          - apex-goto-definition.spec.ts
+          - apex-hover.spec.ts
+          - apex-lsp-integration.spec.ts
+          - apex-outline.spec.ts
 
     steps:
       - name: Checkout code
@@ -66,19 +76,27 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E tests (Web - Chromium)
-        run: npm run test:e2e:web:chromium -w e2e-tests
+      - name: Run E2E tests - ${{ matrix.test_file }}
+        run: |
+          cd e2e-tests
+          npx playwright test tests/${{ matrix.test_file }} \
+            --project=chromium-web \
+            --reporter=line \
+            --reporter=junit \
+            --reporter=json
         env:
           CI: true
           TEST_MODE: web
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.test_file }}
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.test_file }}/junit.xml
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.test_file }}/results.json
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-web-chromium-${{ github.run_number }}
-          path: |
-            e2e-tests/test-results/
+          name: test-results-web-${{ matrix.test_file }}-${{ github.run_number }}
+          path: e2e-tests/test-results/
           retention-days: 30
           if-no-files-found: warn
 
@@ -86,7 +104,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-web-chromium-${{ github.run_number }}
+          name: playwright-report-web-${{ matrix.test_file }}-${{ github.run_number }}
           path: e2e-tests/playwright-report/
           retention-days: 30
           if-no-files-found: warn
@@ -95,7 +113,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-artifacts-web-chromium-${{ github.run_number }}
+          name: test-artifacts-web-${{ matrix.test_file }}-${{ github.run_number }}
           path: |
             e2e-tests/test-results/**/*.png
             e2e-tests/test-results/**/*.webm
@@ -213,16 +231,24 @@ jobs:
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Check if JUnit XML exists
-          if [ -f "test-results/junit.xml" ]; then
+          # Aggregate results from all JUnit XML files (one per test file)
+          TOTAL=0
+          FAILURES=0
+          ERRORS=0
+          while IFS= read -r junit; do
+            [ -f "$junit" ] || continue
+            T=$(grep -o 'tests="[0-9]*"' "$junit" | head -1 | grep -o '[0-9]*' || echo "0")
+            F=$(grep -o 'failures="[0-9]*"' "$junit" | head -1 | grep -o '[0-9]*' || echo "0")
+            E=$(grep -o 'errors="[0-9]*"' "$junit" | head -1 | grep -o '[0-9]*' || echo "0")
+            TOTAL=$((TOTAL + T))
+            FAILURES=$((FAILURES + F))
+            ERRORS=$((ERRORS + E))
+          done < <(find test-results -name "junit.xml" 2>/dev/null || true)
+
+          if [ $TOTAL -gt 0 ]; then
             echo "## Test Results" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            # Parse JUnit XML for summary (basic parsing)
-            TOTAL=$(grep -o 'tests="[0-9]*"' test-results/junit.xml | head -1 | grep -o '[0-9]*' || echo "0")
-            FAILURES=$(grep -o 'failures="[0-9]*"' test-results/junit.xml | head -1 | grep -o '[0-9]*' || echo "0")
-            ERRORS=$(grep -o 'errors="[0-9]*"' test-results/junit.xml | head -1 | grep -o '[0-9]*' || echo "0")
             PASSED=$((TOTAL - FAILURES - ERRORS))
-
             echo "- ✅ **Passed:** $PASSED" >> $GITHUB_STEP_SUMMARY
             echo "- ❌ **Failed:** $FAILURES" >> $GITHUB_STEP_SUMMARY
             echo "- ⚠️ **Errors:** $ERRORS" >> $GITHUB_STEP_SUMMARY
@@ -237,10 +263,10 @@ jobs:
           echo "View detailed test reports in the [Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) section." >> $GITHUB_STEP_SUMMARY
 
           # Success/Failure badge
-          if [ "$FAILURES" = "0" ] && [ "$ERRORS" = "0" ]; then
+          if [ "$FAILURES" = "0" ] && [ "$ERRORS" = "0" ] && [ $TOTAL -gt 0 ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### ✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
-          else
+          elif [ $TOTAL -gt 0 ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### ❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
           fi
