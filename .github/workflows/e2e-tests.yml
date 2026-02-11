@@ -2,9 +2,9 @@ name: E2E Tests
 
 on:
   push:
-    branches: [main, kyledev/e2eTests]
+    branches: [main, tdx26/main, kyledev/e2eTests]
   pull_request:
-    branches: [main]
+    branches: [main, tdx26/main]
   workflow_dispatch:
     inputs:
       test_mode:
