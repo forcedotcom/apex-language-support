@@ -47,6 +47,8 @@ export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
   'Request textDocument/diagnostic failed', // Known VS Code Web LSP issue Todo: W-19587882 for removal
   'Request textDocument/completion failed', // Expected when standard library is not loaded
   'Unhandled method textDocument/completion', // Expected when standard library is not loaded
+  'Request textDocument/hover failed', // Expected when standard library is not loaded
+  'Request textDocument/definition failed', // Can occur when symbol has no definition
 
   // VS Code lifecycle and shutdown related
   'Long running operations during shutdown',
@@ -83,6 +85,7 @@ export const SELECTORS = {
   WORKBENCH: '.monaco-workbench',
   EXPLORER: '[id="workbench.view.explorer"]',
   EDITOR_PART: '[id="workbench.parts.editor"]',
+  /** Main editor area - excludes peek widget and other overlays */
   MONACO_EDITOR: '[id="workbench.parts.editor"] .monaco-editor',
   SIDEBAR: '[id="workbench.parts.sidebar"]',
   STATUSBAR: '[id="workbench.parts.statusbar"]',
@@ -341,46 +344,47 @@ export const EXPECTED_APEX_SYMBOLS: ExpectedApexSymbols = {
 /**
  * Hover test scenarios for different Apex symbols in the ApexClassExample.cls file.
  * These scenarios test hover functionality for various symbol types.
+ * Using simpler search patterns that are more reliable for matching.
  */
 export const HOVER_TEST_SCENARIOS = [
   {
     description: 'Static variable hover',
-    searchText: 'private static final String DEFAULT_STATUS',
+    searchText: 'DEFAULT_STATUS',
   },
   {
     description: 'Instance variable hover',
-    searchText: 'private String instanceId',
+    searchText: 'instanceId',
   },
   {
     description: 'List variable hover',
-    searchText: 'private List<Account> accounts',
+    searchText: 'List<Account> accounts',
   },
   {
     description: 'Method name hover',
-    searchText: 'public static void sayHello',
+    searchText: 'sayHello',
   },
   {
     description: 'Method with parameters hover',
-    searchText: 'public static Integer add',
+    searchText: 'Integer add(Integer a',
   },
   {
     description: 'Inner class hover',
-    searchText: 'public class Configuration',
+    searchText: 'class Configuration',
   },
   {
     description: 'Inner enum hover',
-    searchText: 'public enum StatusType',
+    searchText: 'StatusType',
   },
   {
     description: 'Enum value hover',
-    searchText: 'ACTIVE, INACTIVE, PENDING, SUSPENDED',
+    searchText: 'ACTIVE, INACTIVE',
   },
   {
     description: 'Parameter hover',
-    searchText: 'List<Account> inputAccounts',
+    searchText: 'inputAccounts',
   },
   {
     description: 'Local variable hover',
-    searchText: 'Map<Id, Account> accountMap',
+    searchText: 'accountMap',
   },
 ] as const;
