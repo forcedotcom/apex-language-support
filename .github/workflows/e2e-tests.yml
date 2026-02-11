@@ -81,9 +81,7 @@ jobs:
           cd e2e-tests
           npx playwright test tests/${{ matrix.test_file }} \
             --project=chromium-web \
-            --reporter=line \
-            --reporter=junit \
-            --reporter=json
+            --reporter=line,junit,json
         env:
           CI: true
           TEST_MODE: web
@@ -233,12 +231,17 @@ jobs:
           echo "**Commit:** \`${{ github.sha }}\`" >> $SUMMARY_FILE
           echo "" >> $SUMMARY_FILE
 
-          # Aggregate results from all JUnit XML files (one per test file)
+          # Aggregate results from reporter outputs.
+          # Prefer JUnit when present; fall back to Playwright JSON when JUnit files are missing.
           TOTAL=0
           FAILURES=0
           ERRORS=0
+          JUNIT_COUNT=0
+          JSON_COUNT=0
+
           while IFS= read -r junit; do
             [ -f "$junit" ] || continue
+            JUNIT_COUNT=$((JUNIT_COUNT + 1))
             T=$(grep -o 'tests="[0-9]*"' "$junit" | head -1 | grep -o '[0-9]*' || echo "0")
             F=$(grep -o 'failures="[0-9]*"' "$junit" | head -1 | grep -o '[0-9]*' || echo "0")
             E=$(grep -o 'errors="[0-9]*"' "$junit" | head -1 | grep -o '[0-9]*' || echo "0")
@@ -246,6 +249,17 @@ jobs:
             FAILURES=$((FAILURES + F))
             ERRORS=$((ERRORS + E))
           done < <(find test-results -name "junit.xml" 2>/dev/null || true)
+
+          if [ "$JUNIT_COUNT" -eq 0 ]; then
+            while IFS= read -r json; do
+              [ -f "$json" ] || continue
+              JSON_COUNT=$((JSON_COUNT + 1))
+              read -r T F E <<<"$(node -e 'const fs = require("fs"); const p = process.argv[1]; const data = JSON.parse(fs.readFileSync(p, "utf8")); const stats = data.stats || {}; const total = Number(stats.expected ?? stats.total ?? 0); const failures = Number(stats.unexpected ?? 0); const errors = Number(stats.interrupted ?? 0); process.stdout.write(`${total} ${failures} ${errors}`);' "$json")"
+              TOTAL=$((TOTAL + T))
+              FAILURES=$((FAILURES + F))
+              ERRORS=$((ERRORS + E))
+            done < <(find test-results -name "results.json" 2>/dev/null || true)
+          fi
 
           if [ $TOTAL -gt 0 ]; then
             echo "## Test Results" >> $SUMMARY_FILE
@@ -255,8 +269,11 @@ jobs:
             echo "- ❌ **Failed:** $FAILURES" >> $SUMMARY_FILE
             echo "- ⚠️ **Errors:** $ERRORS" >> $SUMMARY_FILE
             echo "- 📊 **Total:** $TOTAL" >> $SUMMARY_FILE
+            echo "- 📦 **Sources:** JUnit files: $JUNIT_COUNT, JSON files: $JSON_COUNT" >> $SUMMARY_FILE
           else
             echo "⚠️ No test results found" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
+            echo "Searched for \`**/junit.xml\` and \`**/results.json\` under downloaded \`test-results/\` artifacts." >> $SUMMARY_FILE
           fi
 
           echo "" >> $SUMMARY_FILE
