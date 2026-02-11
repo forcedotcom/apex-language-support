@@ -5,254 +5,224 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { test, expect } from '@playwright/test';
 
+import { test, expect } from '../fixtures/apexFixtures';
 import {
-  setupApexTestEnvironment,
   performStrictValidation,
   testLSPFunctionality,
   verifyVSCodeStability,
-  executeHoverTestScenarios,
-  detectOutlineSymbols,
   TestResultReporter,
   TestConfiguration,
 } from '../utils/test-helpers';
-
-import {
-  findAndActivateOutlineView,
-  validateApexSymbolsInOutline,
-  captureOutlineViewScreenshot,
-} from '../utils/outline-helpers';
-
-import {
-  SELECTORS,
-  EXPECTED_APEX_SYMBOLS,
-  HOVER_TEST_SCENARIOS,
-} from '../utils/constants';
+import { SELECTORS } from '../utils/constants';
 
 /**
- * Comprehensive E2E tests for Apex Language Server Extension with LCS Integration.
+ * Core E2E tests for Apex Language Server Extension activation and integration.
  *
- * This consolidated test suite covers:
+ * This test suite focuses on the fundamental extension functionality:
  * - VS Code Web startup and workbench loading
  * - Extension activation and LSP worker initialization
  * - LCS (LSP-Compliant-Services) integration validation
- * - Outline view integration and symbol parsing
- * - Language service functionality (completion, symbols)
- * - Error monitoring and stability verification
+ * - Worker bundle validation
+ * - Extension stability
+ * - Error monitoring and validation
+ *
+ * Note: Specific feature tests (outline, hover, go-to-definition) are in separate spec files.
  *
  * @group core
  */
 
-test.describe('Apex Extension with LCS Integration', () => {
+test.describe('Apex Extension Core Activation', () => {
   /**
-   * Core functionality test: VS Code startup, extension activation, and LCS integration.
+   * Core activation test: Verify VS Code starts, extension activates, and LCS integrates correctly.
    *
-   * This test consolidates the functionality from:
-   * - Basic extension activation
-   * - LCS integration readiness
-   * - Worker bundle validation
-   *
-   * Verifies:
+   * This test verifies the fundamental requirements:
    * - VS Code Web environment loads correctly
    * - Extension activates when opening Apex files
    * - LCS services are integrated (not using stub fallback)
    * - Worker loading and bundle size indicates LCS inclusion
-   * - Extension stability after activation
-   * - Strict error validation (all errors must be in allowList)
+   * - Extension remains stable after activation
+   * - No critical errors occur during activation
    */
   test('should start VS Code, activate extension, and validate LCS integration', async ({
-    page,
+    apexEditor,
+    apexTestEnvironment,
+    consoleErrors,
+    networkErrors,
   }) => {
-    // Setup complete Apex test environment with LCS detection
-    const { consoleErrors, networkErrors, lcsDetection } =
-      await setupApexTestEnvironment(page, {
-        includeLCSDetection: true,
-        expectedContent: TestConfiguration.EXPECTED_APEX_FILE,
-      });
+    const { lcsDetection } = apexTestEnvironment;
 
-    // Report LCS detection results
-    TestResultReporter.reportLCSDetection(lcsDetection!);
+    await test.step('Verify test environment setup completed', async () => {
+      // Environment setup by fixture includes:
+      // - VS Code Web loaded
+      // - Apex file opened
+      // - Extension activated
+      console.log('✅ Test environment setup completed');
+    });
 
-    // Test basic LSP functionality
-    const lspFunctionality = await testLSPFunctionality(page);
-    TestResultReporter.reportLSPFunctionality(lspFunctionality);
+    await test.step('Report LCS detection results', async () => {
+      TestResultReporter.reportLCSDetection(lcsDetection!);
 
-    // Verify extension in extensions list
-    console.log('📋 Checking extension list...');
-    await page.keyboard.press('Control+Shift+X');
-    await page.waitForSelector(SELECTORS.EXTENSIONS_VIEW, { timeout: 30_000 });
+      expect(lcsDetection!.lcsIntegrationActive).toBe(true);
+      expect(lcsDetection!.hasErrorIndicators).toBe(false);
 
-    const installedSection = page.locator('text=INSTALLED').first();
-    if (await installedSection.isVisible()) {
-      await installedSection.click();
-      await page.waitForSelector('.extensions-list', { timeout: 5000 });
-      console.log('✅ Found INSTALLED extensions section');
-    }
+      console.log('✅ LCS integration validated');
+    });
 
-    // Final stability verification
-    await verifyVSCodeStability(page);
+    await test.step('Test basic LSP functionality', async () => {
+      const lspFunctionality = await testLSPFunctionality(apexEditor.getPage());
+      TestResultReporter.reportLSPFunctionality(lspFunctionality);
 
-    // Perform comprehensive validation
-    const validation = performStrictValidation(consoleErrors, networkErrors);
-    TestResultReporter.reportValidation(validation);
+      expect(lspFunctionality.editorResponsive).toBe(true);
 
-    // Assert success criteria with LCS validation
-    expect(validation.consoleValidation.allErrorsAllowed).toBe(true);
-    expect(validation.networkValidation.allErrorsAllowed).toBe(true);
-    expect(lcsDetection!.lcsIntegrationActive).toBe(true);
-    expect(lcsDetection!.hasErrorIndicators).toBe(false);
-    expect(lspFunctionality.editorResponsive).toBe(true);
+      console.log('✅ LSP functionality verified');
+    });
 
-    // Bundle size validation using configuration
-    if (lcsDetection!.bundleSize) {
-      const bundleValidation = TestConfiguration.validateBundleSize(
-        lcsDetection!.bundleSize,
-      );
-      expect(bundleValidation.meetsLCSThreshold).toBe(true);
-      expect(bundleValidation.isValid).toBe(true);
-    }
+    await test.step('Verify extension in extensions list', async () => {
+      console.log('📋 Checking extension list...');
+
+      await apexEditor.getPage().keyboard.press('Control+Shift+X');
+      await apexEditor.waitForSelector(SELECTORS.EXTENSIONS_VIEW, 30_000);
+
+      const installedSection = apexEditor.getPage().locator('text=INSTALLED').first();
+      if (await installedSection.isVisible()) {
+        await installedSection.click();
+        await apexEditor.getPage().waitForSelector('.extensions-list', { timeout: 5000 });
+        console.log('✅ Found INSTALLED extensions section');
+      }
+    });
+
+    await test.step('Verify VS Code stability', async () => {
+      await verifyVSCodeStability(apexEditor.getPage());
+      console.log('✅ VS Code is stable');
+    });
+
+    await test.step('Validate bundle size', async () => {
+      if (lcsDetection!.bundleSize) {
+        const bundleValidation = TestConfiguration.validateBundleSize(lcsDetection!.bundleSize);
+
+        expect(bundleValidation.meetsLCSThreshold).toBe(true);
+        expect(bundleValidation.isValid).toBe(true);
+
+        console.log(`✅ Bundle size valid: ${lcsDetection!.bundleSize} bytes`);
+      }
+    });
+
+    await test.step('Perform comprehensive error validation', async () => {
+      const validation = performStrictValidation(consoleErrors, networkErrors);
+      TestResultReporter.reportValidation(validation);
+
+      expect(validation.consoleValidation.allErrorsAllowed).toBe(true);
+      expect(validation.networkValidation.allErrorsAllowed).toBe(true);
+
+      console.log('✅ No critical errors detected');
+    });
 
     console.log('🎉 Core functionality with LCS integration test PASSED');
   });
 
   /**
-   * Comprehensive outline view and symbol parsing test.
-   *
-   * This test focuses on the LSP symbol parsing capabilities with LCS integration.
-   *
-   * Verifies:
-   * - Apex file opens correctly in editor
-   * - Extension activates and LCS initializes
-   * - Outline view loads and is accessible
-   * - LSP parses file and generates outline structure
-   * - Expected Apex symbols are populated (class, nested types)
-   * - LCS type parsing capabilities (classes, inner classes, enums)
-   * - Complex symbol hierarchy and nesting is correctly displayed
+   * Test: Verify Apex file opens correctly.
    */
-  test('should parse Apex symbols and populate outline view with LCS type parsing', async ({
-    page,
-  }) => {
-    // Setup complete Apex test environment with LCS detection
-    const { consoleErrors, networkErrors, lcsDetection } =
-      await setupApexTestEnvironment(page, {
-        includeLCSDetection: true,
-        expectedContent: TestConfiguration.EXPECTED_APEX_FILE,
-      });
+  test('should open Apex file successfully', async ({ apexEditor }) => {
+    await test.step('Verify Apex file is open', async () => {
+      const isOpen = await apexEditor.isApexFileOpen();
+      expect(isOpen).toBe(true);
 
-    // Ensure explorer view is accessible
-    const explorer = page.locator(SELECTORS.EXPLORER);
-    await expect(explorer).toBeVisible({ timeout: 30_000 });
-
-    // Find and activate outline view
-    await findAndActivateOutlineView(page);
-
-    // Validate that specific Apex symbols are populated in the outline
-    const symbolValidation = await validateApexSymbolsInOutline(
-      page,
-      EXPECTED_APEX_SYMBOLS,
-    );
-
-    // Assert LCS type parsing capabilities
-    expect(symbolValidation.classFound).toBe(true);
-
-    // Validate LCS type parsing capabilities using optimized symbol detection
-    console.log('🏗️ Validating LCS type parsing capabilities...');
-    const expectedLCSSymbols = [
-      'ApexClassExample', // Main class
-      'Configuration', // Inner class
-      'StatusType', // Inner enum
-    ];
-
-    const { foundSymbols, foundCount } = await detectOutlineSymbols(
-      page,
-      expectedLCSSymbols,
-    );
-
-    // Count total outline items
-    const outlineItems = page.locator(
-      '.outline-tree .monaco-list-row, .tree-explorer .monaco-list-row',
-    );
-    const totalItems = await outlineItems.count();
-
-    // Report LCS detection results
-    TestResultReporter.reportLCSDetection(lcsDetection!);
-
-    // Perform validation
-    const validation = performStrictValidation(consoleErrors, networkErrors);
-    TestResultReporter.reportValidation(validation);
-
-    // Capture screenshot for debugging
-    await captureOutlineViewScreenshot(page, 'lcs-outline-parsing-test.png');
-
-    // Assert comprehensive success criteria for LCS type parsing
-    expect(validation.consoleValidation.allErrorsAllowed).toBe(true);
-    expect(validation.networkValidation.allErrorsAllowed).toBe(true);
-    expect(symbolValidation.classFound).toBe(true); // Main class must be found
-    expect(totalItems).toBeGreaterThan(0);
-    expect(foundCount).toBeGreaterThanOrEqual(
-      TestConfiguration.MIN_EXPECTED_SYMBOLS,
-    );
-    expect(lcsDetection!.lcsIntegrationActive).toBe(true);
-
-    // Verify LCS type parsing capabilities
-    expect(foundSymbols).toContain('ApexClassExample'); // Main class
-    expect(foundSymbols.length).toBeGreaterThanOrEqual(
-      TestConfiguration.MIN_EXPECTED_SYMBOLS,
-    );
-
-    // Report comprehensive results using standardized reporter
-    TestResultReporter.reportSymbolValidation(
-      symbolValidation,
-      expectedLCSSymbols,
-      foundSymbols,
-      totalItems,
-    );
+      console.log('✅ Apex file opened successfully');
+    });
   });
 
   /**
-   * Comprehensive hover functionality test with LCS integration.
-   *
-   * This test validates that hover functionality works correctly for various
-   * Apex symbols including classes, methods, variables, and built-in types.
-   *
-   * Note: This test excludes standard Apex library classes (System, UserInfo, String methods)
-   * as the standard apex library is currently not working. The test focuses on user-defined
-   * classes and built-in types that should work with the current implementation.
-   *
-   * Verifies:
-   * - Hover functionality is active and responsive for user-defined symbols
-   * - Different symbol types provide appropriate hover information
-   * - Hover content includes type information and signatures
-   * - LCS integration provides rich hover data
+   * Test: Verify language server initializes.
    */
-  test('should provide comprehensive hover information for Apex symbols', async ({
-    page,
-  }) => {
-    // Setup complete Apex test environment (no LCS detection needed for hover test)
-    await setupApexTestEnvironment(page, {
-      includeLCSDetection: false,
-      expectedContent: TestConfiguration.EXPECTED_APEX_FILE,
+  test('should initialize language server', async ({ apexEditor }) => {
+    await test.step('Wait for language server', async () => {
+      // Simply await the method - if it throws, the test will fail
+      await apexEditor.waitForLanguageServerReady();
+      console.log('✅ Language server initialized');
+    });
+  });
+
+  /**
+   * Test: Verify editor is responsive.
+   */
+  test('should have responsive editor', async ({ apexEditor }) => {
+    await test.step('Type text in editor', async () => {
+      // Type a unique marker that we can search for
+      const marker = 'TEST_MARKER_' + Date.now();
+      await apexEditor.typeText(`// ${marker}`);
+
+      // Give the editor time to update
+      await apexEditor.wait(500);
+
+      const content = await apexEditor.getContent();
+      // Check if our marker is in the content (case-insensitive to handle normalization)
+      const hasMarker = content.toLowerCase().includes(marker.toLowerCase());
+      expect(hasMarker).toBe(true);
+
+      console.log('✅ Editor is responsive');
+    });
+  });
+
+  /**
+   * Test: Verify workbench is loaded.
+   */
+  test('should have workbench loaded', async ({ apexEditor }) => {
+    await test.step('Verify workbench elements', async () => {
+      // Workbench should be loaded by test environment
+      await apexEditor.waitForWorkbenchLoad();
+
+      console.log('✅ Workbench is loaded');
+    });
+  });
+
+  /**
+   * Test: Verify extension stability over time.
+   */
+  test('should maintain stability after activation', async ({ apexEditor, consoleErrors }) => {
+    await test.step('Wait for stability period', async () => {
+      // Wait a bit to ensure no delayed errors
+      await apexEditor.wait(3000);
     });
 
-    console.log('🔍 Testing hover functionality for subset of Apex symbols...');
-    console.log(
-      '   Note: Standard Apex library (System, UserInfo, String methods) currently excluded',
-    );
+    await test.step('Check for new critical errors', async () => {
+      const criticalErrors = consoleErrors.filter((e) => e.text.toLowerCase().includes('error'));
+      const allowedErrors = criticalErrors.filter((e) =>
+        e.text.includes('Request textDocument/diagnostic failed'),
+      );
 
-    // Execute all hover scenarios with optimized batch processing
-    const hoverResults = await executeHoverTestScenarios(
-      page,
-      HOVER_TEST_SCENARIOS,
-    );
+      // All critical errors should be in allow list
+      expect(criticalErrors.length).toBe(allowedErrors.length);
 
-    // Report results using standardized reporter
-    TestResultReporter.reportHoverResults(hoverResults);
+      console.log('✅ No new critical errors after stability period');
+    });
+  });
 
-    // Assert all hover scenarios passed
-    expect(hoverResults.length).toBe(HOVER_TEST_SCENARIOS.length);
-    expect(hoverResults.every((result) => result.success)).toBe(true);
+  /**
+   * Test: Verify console has expected startup logs.
+   */
+  test('should have console logs indicating successful startup', async ({ apexTestEnvironment }) => {
+    const { lcsDetection } = apexTestEnvironment;
 
-    console.log('🎉 Hover Functionality test PASSED');
+    await test.step('Verify LCS detection logs', async () => {
+      expect(lcsDetection).toBeDefined();
+      expect(lcsDetection!.lcsIntegrationActive).toBe(true);
+
+      console.log('✅ Startup logs indicate successful LCS activation');
+    });
+  });
+
+  /**
+   * Test: Verify network requests are successful (or acceptably failed).
+   */
+  test('should handle network requests appropriately', async ({ networkErrors }) => {
+    await test.step('Validate network errors', async () => {
+      const validation = performStrictValidation([], networkErrors);
+
+      expect(validation.networkValidation.allErrorsAllowed).toBe(true);
+
+      console.log(`✅ Network errors handled appropriately (${networkErrors.length} total)`);
+    });
   });
 });

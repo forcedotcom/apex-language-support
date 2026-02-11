@@ -129,8 +129,12 @@ class HoverTestUtils {
       success: boolean;
     }> = [];
 
+    // Desktop mode requires longer timeouts
+    const isDesktopMode = process.env.TEST_MODE === 'desktop';
+    const lspTimeout = isDesktopMode ? 10000 : 3000;
+
     // Wait for LSP server to be ready once for all scenarios
-    await WaitingStrategies.waitForLSPResponsive(page, { timeout: 3000 });
+    await WaitingStrategies.waitForLSPResponsive(page, { timeout: lspTimeout });
 
     for (const scenario of scenarios) {
       const result = await testHoverScenario(page, scenario);
@@ -305,6 +309,11 @@ export const positionCursorOnWord = async (
   searchText: string,
   moveToEnd = false,
 ): Promise<void> => {
+  // Desktop mode requires longer timeouts
+  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const findTimeout = isDesktopMode ? 5000 : 1500;
+  const waitMultiplier = isDesktopMode ? 2 : 1;
+
   await ErrorHandler.safeExecute(
     async () => {
       // Use Ctrl+F to find the text
@@ -312,14 +321,33 @@ export const positionCursorOnWord = async (
       // Wait for find input to appear
       await page
         .waitForSelector('input[aria-label="Find"], .find-widget', {
-          timeout: 1500,
+          timeout: findTimeout,
         })
         .catch(() => {});
 
+      // Wait for the find widget to be ready
+      await page.waitForTimeout(300 * waitMultiplier);
+
       // Search for the text
       await page.keyboard.type(searchText);
+      await page.waitForTimeout(300 * waitMultiplier);
       await page.keyboard.press('Enter'); // Search
+      await page.waitForTimeout(500 * waitMultiplier);
       await page.keyboard.press('Escape'); // Close search dialog
+      await page.waitForTimeout(300 * waitMultiplier);
+
+      // After search, the text is selected with cursor at the END of selection.
+      // Press Left arrow to collapse selection and position cursor at the START.
+      // This is necessary because hover needs cursor ON the identifier, not after it.
+      await page.keyboard.press('ArrowLeft');
+      await page.waitForTimeout(100 * waitMultiplier);
+
+      // Press Escape to ensure any dialogs/tooltips are dismissed.
+      // Multiple Escapes may be needed to fully close find widget in VS Code Web.
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300 * waitMultiplier);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200 * waitMultiplier);
 
       // Move to end of word if requested
       if (moveToEnd) {
@@ -338,20 +366,47 @@ export const positionCursorOnWord = async (
  * Triggers a hover at the current cursor position and waits for hover widget to appear.
  *
  * @param page - Playwright page instance
- * @param timeout - Timeout in milliseconds to wait for hover (default: 3000)
+ * @param timeout - Timeout in milliseconds to wait for hover (default: mode-specific)
  * @returns Whether hover widget appeared
  */
 export const triggerHover = async (
   page: Page,
-  timeout = 1500,
+  timeout?: number,
 ): Promise<boolean> => {
+  // Desktop mode requires longer timeouts
+  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const effectiveTimeout = timeout ?? (isDesktopMode ? 5000 : 5000);
+  const waitMultiplier = isDesktopMode ? 2 : 1;
+
   try {
-    await page.keyboard.press('Control+K+I'); // VS Code hover shortcut
-    // Wait for hover widget to appear with specific selector
-    await expect(page.locator('.monaco-editor .hover-row')).toBeVisible({
-      timeout: 1500,
-    });
-    return true;
+    // VS Code hover shortcut is a chord: Ctrl+K then Ctrl+I
+    await page.keyboard.press('Control+K');
+    await page.waitForTimeout(150 * waitMultiplier);
+    await page.keyboard.press('Control+I');
+    // LSP hover can take time to resolve; wait before checking for widget
+    await page.waitForTimeout(800 * waitMultiplier);
+
+    // Wait for hover widget to appear with multiple selectors.
+    // VS Code Web may use role="tooltip" for the hover widget.
+    const hoverSelectors = [
+      '[role="tooltip"]',
+      '.monaco-editor .hover-row',
+      '.monaco-hover',
+      '.monaco-hover-content',
+    ];
+
+    for (const selector of hoverSelectors) {
+      try {
+        await page.waitForSelector(selector, {
+          state: 'visible',
+          timeout: effectiveTimeout,
+        });
+        return true;
+      } catch {
+        continue;
+      }
+    }
+    return false;
   } catch {
     return false;
   }
@@ -368,16 +423,21 @@ export const testHoverScenario = async (
   page: Page,
   scenario: HoverTestScenario,
 ): Promise<HoverTestResult> => {
+  // Desktop mode requires longer timeouts
+  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const lspTimeout = isDesktopMode ? 10000 : 3000;
+  const hoverTimeout = isDesktopMode ? 5000 : 1500;
+
   try {
     console.log(`🔍 Testing hover: ${scenario.description}`);
     // Wait for LSP server to be ready for hover requests
-    await WaitingStrategies.waitForLSPResponsive(page, { timeout: 3000 });
+    await WaitingStrategies.waitForLSPResponsive(page, { timeout: lspTimeout });
 
     // Position cursor on the target text
     await positionCursorOnWord(page, scenario.searchText, scenario.moveToEnd);
 
-    // Trigger hover with reduced timeout
-    const hoverAppeared = await triggerHover(page, 1500);
+    // Trigger hover with mode-appropriate timeout
+    const hoverAppeared = await triggerHover(page, hoverTimeout);
 
     if (!hoverAppeared) {
       console.log(`❌ No hover appeared for: ${scenario.description}`);

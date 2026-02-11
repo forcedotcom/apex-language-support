@@ -7,6 +7,15 @@
     "test:e2e": "wireit",
     "test:debug": "wireit",
     "test:visual": "wireit",
+    "test:e2e:web": "wireit",
+    "test:e2e:web:chromium": "wireit",
+    "test:e2e:web:firefox": "wireit",
+    "test:e2e:desktop": "wireit",
+    "test:e2e:desktop:debug": "wireit",
+    "test:e2e:desktop:chromium": "wireit",
+    "test:e2e:desktop:firefox": "wireit",
+    "test:e2e:desktop:webkit": "wireit",
+    "test:e2e:desktop:all-browsers": "wireit",
     "server": "node test-server.js",
     "clean": "echo 'No artifacts to clean in e2e-tests'",
     "clean:all": "npm run clean"
@@ -53,6 +62,142 @@
         "playwright.config.ts"
       ],
       "cache": false
+    },
+    "test:e2e:web": {
+      "command": "playwright test --project=chromium-web --project=firefox-web",
+      "env": {
+        "TEST_MODE": "web"
+      },
+      "output": [
+        "test-results/**",
+        "playwright-report/**"
+      ],
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "playwright.config.ts"
+      ]
+    },
+    "test:e2e:web:chromium": {
+      "command": "playwright test --project=chromium-web",
+      "env": {
+        "TEST_MODE": "web"
+      },
+      "output": [
+        "test-results/**",
+        "playwright-report/**"
+      ],
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "playwright.config.ts"
+      ]
+    },
+    "test:e2e:web:firefox": {
+      "command": "playwright test --project=firefox-web",
+      "env": {
+        "TEST_MODE": "web"
+      },
+      "output": [
+        "test-results/**",
+        "playwright-report/**"
+      ],
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "playwright.config.ts"
+      ]
+    },
+    "test:e2e:desktop": {
+      "command": "playwright test --project=chromium-desktop",
+      "env": {
+        "TEST_MODE": "desktop"
+      },
+      "output": [
+        "test-results/**",
+        "playwright-report/**"
+      ],
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "playwright.config.ts"
+      ]
+    },
+    "test:e2e:desktop:debug": {
+      "command": "playwright test --project=chromium-desktop --headed",
+      "env": {
+        "TEST_MODE": "desktop",
+        "DEBUG_MODE": "1"
+      },
+      "output": [
+        "test-results/**"
+      ],
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "playwright.config.ts"
+      ],
+      "cache": false
+    },
+    "test:e2e:desktop:chromium": {
+      "command": "playwright test --project=chromium-desktop",
+      "env": {
+        "TEST_MODE": "desktop"
+      },
+      "output": [
+        "test-results/**",
+        "playwright-report/**"
+      ],
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "playwright.config.ts"
+      ]
+    },
+    "test:e2e:desktop:firefox": {
+      "command": "playwright test --project=firefox-desktop",
+      "env": {
+        "TEST_MODE": "desktop"
+      },
+      "output": [
+        "test-results/**",
+        "playwright-report/**"
+      ],
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "playwright.config.ts"
+      ]
+    },
+    "test:e2e:desktop:webkit": {
+      "command": "playwright test --project=webkit-desktop",
+      "env": {
+        "TEST_MODE": "desktop"
+      },
+      "output": [
+        "test-results/**",
+        "playwright-report/**"
+      ],
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "playwright.config.ts"
+      ]
+    },
+    "test:e2e:desktop:all-browsers": {
+      "command": "playwright test --project=chromium-desktop --project=firefox-desktop --project=webkit-desktop",
+      "env": {
+        "TEST_MODE": "desktop"
+      },
+      "output": [
+        "test-results/**",
+        "playwright-report/**"
+      ],
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "playwright.config.ts"
+      ]
     }
   },
   "devDependencies": {

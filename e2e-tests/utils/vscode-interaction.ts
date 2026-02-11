@@ -62,6 +62,11 @@ export const ALL_SAMPLE_FILES = [createApexClassExampleFile()] as const;
  * @param page - Playwright page instance
  */
 export const startVSCodeWeb = async (page: Page): Promise<void> => {
+  // Desktop mode requires longer timeouts due to larger viewport and resource requirements
+  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const startupTimeout = isDesktopMode ? 90_000 : 60_000;
+  const workbenchTimeout = isDesktopMode ? 60_000 : 30_000;
+
   await page.goto('/', { waitUntil: 'networkidle' });
 
   // Wait for the page to be fully loaded
@@ -69,12 +74,12 @@ export const startVSCodeWeb = async (page: Page): Promise<void> => {
 
   // Wait for VS Code workbench to be fully loaded and interactive
   await page.waitForSelector(SELECTORS.STATUSBAR, {
-    timeout: 60_000, // VS Code startup timeout
+    timeout: startupTimeout,
   });
 
   // Verify VS Code workbench loaded
   await page.waitForSelector(SELECTORS.WORKBENCH, {
-    timeout: 30_000, // Selector wait timeout
+    timeout: workbenchTimeout,
   });
   const workbench = page.locator(SELECTORS.WORKBENCH);
   await workbench.waitFor({ state: 'visible' });
@@ -124,11 +129,17 @@ export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
  * @param page - Playwright page instance
  */
 export const activateExtension = async (page: Page): Promise<void> => {
+  // Desktop mode requires longer timeouts
+  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const shortTimeout = isDesktopMode ? 30_000 : 15_000;
+  const longTimeout = isDesktopMode ? 60_000 : 30_000;
+  const contentTimeout = isDesktopMode ? 15_000 : 5_000;
+
   const clsFile = page.locator(SELECTORS.CLS_FILE_ICON).first();
 
   await clsFile.waitFor({
     state: 'visible',
-    timeout: 15_000,
+    timeout: shortTimeout,
   });
 
   if (await clsFile.isVisible()) {
@@ -148,17 +159,17 @@ export const activateExtension = async (page: Page): Promise<void> => {
   }
 
   // Wait for editor to load
-  await page.waitForSelector(SELECTORS.EDITOR_PART, { timeout: 15_000 });
+  await page.waitForSelector(SELECTORS.EDITOR_PART, { timeout: shortTimeout });
   const editorPart = page.locator(SELECTORS.EDITOR_PART);
   await editorPart.waitFor({ state: 'visible' });
 
   // Verify Monaco editor is present
   const monacoEditor = page.locator(SELECTORS.MONACO_EDITOR);
-  await monacoEditor.waitFor({ state: 'visible', timeout: 30_000 });
+  await monacoEditor.waitFor({ state: 'visible', timeout: longTimeout });
 
   // Verify that file content is actually loaded in the editor
   const editorText = page.locator('.monaco-editor .view-lines');
-  await editorText.waitFor({ state: 'visible', timeout: 5_000 });
+  await editorText.waitFor({ state: 'visible', timeout: contentTimeout });
 
   // Check if the editor contains some text content
   const hasContent = await editorText.locator('.view-line').first().isVisible();
@@ -175,17 +186,22 @@ export const activateExtension = async (page: Page): Promise<void> => {
  * @param page - Playwright page instance
  */
 export const waitForLSPInitialization = async (page: Page): Promise<void> => {
+  // Desktop mode requires longer timeouts due to larger viewport and resource requirements
+  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const selectorTimeout = isDesktopMode ? 60_000 : 30_000;
+  const evaluateTimeout = isDesktopMode ? 15000 : 8000;
+
   // Wait for Monaco editor to be ready and responsive
   await page.waitForSelector(
     SELECTORS.MONACO_EDITOR + ' .monaco-editor-background',
     {
-      timeout: 30_000, // LSP initialization timeout
+      timeout: selectorTimeout,
     },
   );
 
   // Wait for any language server activity by checking for syntax highlighting or symbols
   await page.evaluate(
-    async () =>
+    async (timeout) =>
       new Promise((resolve) => {
         const checkInterval = setInterval(() => {
           const editor = document.querySelector('.monaco-editor .view-lines');
@@ -195,12 +211,13 @@ export const waitForLSPInitialization = async (page: Page): Promise<void> => {
           }
         }, 100);
 
-        // Timeout after 8 seconds
+        // Timeout after configured duration
         setTimeout(() => {
           clearInterval(checkInterval);
           resolve(true);
-        }, 8000);
+        }, timeout);
       }),
+    evaluateTimeout,
   );
 };
 
