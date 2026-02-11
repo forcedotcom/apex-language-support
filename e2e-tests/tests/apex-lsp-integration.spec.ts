@@ -31,7 +31,10 @@ test.describe('Apex LSP Integration', () => {
   /**
    * Test: LSP initializes successfully.
    */
-  test('should initialize LSP successfully', async ({ apexEditor, apexTestEnvironment }) => {
+  test('should initialize LSP successfully', async ({
+    apexEditor,
+    apexTestEnvironment,
+  }) => {
     const { lcsDetection } = apexTestEnvironment;
 
     await test.step('Verify LSP is initialized', async () => {
@@ -69,9 +72,11 @@ test.describe('Apex LSP Integration', () => {
     await test.step('Make an edit to the file', async () => {
       await apexEditor.goToPosition(1, 1);
       await apexEditor.typeText('// Test edit\n');
+      //await apexEditor.getPage().waitForTimeout(500);
 
-      const content = await apexEditor.getContent(1);
-      expect(content).toContain('// Test edit');
+      const content = await apexEditor.getContent();
+      // Normalize spaces (Monaco may use \u00A0) and use regex for flexible match
+      expect(content.replace(/\u00A0/g, ' ')).toMatch(/\/\/ Test edit/);
 
       console.log('✅ File edit accepted');
     });
@@ -88,7 +93,10 @@ test.describe('Apex LSP Integration', () => {
   /**
    * Test: LSP maintains state across operations.
    */
-  test('should maintain state across multiple operations', async ({ apexEditor, outlineView }) => {
+  test('should maintain state across multiple operations', async ({
+    apexEditor,
+    outlineView,
+  }) => {
     await test.step('Perform multiple LSP operations', async () => {
       // Open outline
       await outlineView.open();
@@ -136,7 +144,10 @@ test.describe('Apex LSP Integration', () => {
   /**
    * Test: LSP handles syntax errors gracefully.
    */
-  test('should handle syntax errors gracefully', async ({ apexEditor, consoleErrors }) => {
+  test('should handle syntax errors gracefully', async ({
+    apexEditor,
+    consoleErrors,
+  }) => {
     await test.step('Introduce syntax error', async () => {
       await apexEditor.goToPosition(1, 1);
       await apexEditor.typeText('public class {{{{\n');
@@ -156,7 +167,9 @@ test.describe('Apex LSP Integration', () => {
     await test.step('Verify no catastrophic errors', async () => {
       // Filter out expected diagnostic errors
       const criticalErrors = consoleErrors.filter(
-        (e) => !e.text.includes('diagnostic') && e.text.toLowerCase().includes('error'),
+        (e) =>
+          !e.text.includes('diagnostic') &&
+          e.text.toLowerCase().includes('error'),
       );
 
       // Should not have unexpected critical errors
@@ -205,7 +218,7 @@ test.describe('Apex LSP Integration', () => {
     });
 
     await test.step('Verify LSP handles large content', async () => {
-      const content = await apexEditor.getContent();
+      const content = await apexEditor.findAndGetViewportContent('// Line 0');
       expect(content.length).toBeGreaterThan(500);
 
       // LSP should still be responsive
@@ -218,7 +231,9 @@ test.describe('Apex LSP Integration', () => {
   /**
    * Test: LSP performance for basic operations.
    */
-  test('should maintain good performance for basic operations', async ({ apexEditor }) => {
+  test('should maintain good performance for basic operations', async ({
+    apexEditor,
+  }) => {
     const timings: { operation: string; duration: number }[] = [];
 
     await test.step('Measure navigation performance', async () => {
@@ -334,7 +349,9 @@ test.describe('Apex LSP Integration', () => {
   /**
    * Test: LSP worker thread is active.
    */
-  test('should have active LSP worker thread', async ({ apexTestEnvironment }) => {
+  test('should have active LSP worker thread', async ({
+    apexTestEnvironment,
+  }) => {
     const { lcsDetection } = apexTestEnvironment;
 
     await test.step('Verify worker information', async () => {
@@ -355,15 +372,13 @@ test.describe('Apex LSP Integration', () => {
     await test.step('Make an edit', async () => {
       await apexEditor.goToPosition(1, 1);
       await apexEditor.typeText('// Original edit\n');
-
-      const content = await apexEditor.getContent(1);
-      expect(content).toContain('// Original edit');
+      const content = await apexEditor.getContent();
+      // Normalize spaces (Monaco may use \u00A0) and use regex for flexible match
+      expect(content.replace(/\u00A0/g, ' ')).toMatch(/\/\/ Original edit/);
     });
 
     await test.step('Undo edit', async () => {
       await apexEditor.getPage().keyboard.press('Control+Z');
-      await apexEditor.wait(500);
-
       console.log('✅ Undo performed');
     });
 

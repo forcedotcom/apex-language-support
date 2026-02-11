@@ -198,7 +198,9 @@ export class HoverPage extends BasePage {
    * @param scenarios - Array of hover test scenarios
    * @returns Array of test results
    */
-  async testScenarios(scenarios: readonly HoverTestScenario[]): Promise<HoverTestResult[]> {
+  async testScenarios(
+    scenarios: readonly HoverTestScenario[],
+  ): Promise<Array<{ scenario: HoverTestScenario; success: boolean }>> {
     return await executeHoverTestScenarios(this.page, scenarios);
   }
 

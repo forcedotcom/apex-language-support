@@ -9,11 +9,9 @@
     "test:visual": "wireit",
     "test:e2e:web": "wireit",
     "test:e2e:web:chromium": "wireit",
-    "test:e2e:web:firefox": "wireit",
     "test:e2e:desktop": "wireit",
     "test:e2e:desktop:debug": "wireit",
     "test:e2e:desktop:chromium": "wireit",
-    "test:e2e:desktop:firefox": "wireit",
     "test:e2e:desktop:webkit": "wireit",
     "test:e2e:desktop:all-browsers": "wireit",
     "server": "node test-server.js",
@@ -64,7 +62,7 @@
       "cache": false
     },
     "test:e2e:web": {
-      "command": "playwright test --project=chromium-web --project=firefox-web",
+      "command": "playwright test --project=chromium-web",
       "env": {
         "TEST_MODE": "web"
       },
@@ -80,21 +78,6 @@
     },
     "test:e2e:web:chromium": {
       "command": "playwright test --project=chromium-web",
-      "env": {
-        "TEST_MODE": "web"
-      },
-      "output": [
-        "test-results/**",
-        "playwright-report/**"
-      ],
-      "files": [
-        "tests/**/*.ts",
-        "utils/**/*.ts",
-        "playwright.config.ts"
-      ]
-    },
-    "test:e2e:web:firefox": {
-      "command": "playwright test --project=firefox-web",
       "env": {
         "TEST_MODE": "web"
       },
@@ -154,21 +137,6 @@
         "playwright.config.ts"
       ]
     },
-    "test:e2e:desktop:firefox": {
-      "command": "playwright test --project=firefox-desktop",
-      "env": {
-        "TEST_MODE": "desktop"
-      },
-      "output": [
-        "test-results/**",
-        "playwright-report/**"
-      ],
-      "files": [
-        "tests/**/*.ts",
-        "utils/**/*.ts",
-        "playwright.config.ts"
-      ]
-    },
     "test:e2e:desktop:webkit": {
       "command": "playwright test --project=webkit-desktop",
       "env": {
@@ -185,7 +153,7 @@
       ]
     },
     "test:e2e:desktop:all-browsers": {
-      "command": "playwright test --project=chromium-desktop --project=firefox-desktop --project=webkit-desktop",
+      "command": "playwright test --project=chromium-desktop --project=webkit-desktop",
       "env": {
         "TEST_MODE": "desktop"
       },

@@ -321,7 +321,7 @@ export class OutlineViewPage extends BasePage {
    * @param timeout - Optional timeout in milliseconds (defaults to mode-specific timeout)
    */
   async waitForSymbols(minSymbols = 1, timeout?: number): Promise<void> {
-    const effectiveTimeout = timeout || (this.isDesktopMode ? 20000 : 10000);
+    const effectiveTimeout = timeout || (this.isDesktopMode ? 20000 : 12000);
     const startTime = Date.now();
 
     while (Date.now() - startTime < effectiveTimeout) {

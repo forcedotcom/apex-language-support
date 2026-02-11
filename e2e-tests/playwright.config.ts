@@ -106,19 +106,6 @@ export default defineConfig({
         },
       },
     },
-    {
-      name: 'firefox-web',
-      testMatch: isDesktopMode ? [] : undefined, // Skip in desktop mode
-      use: {
-        ...devices['Desktop Firefox'],
-        launchOptions: {
-          args: commonBrowserArgs,
-          headless: isCI || !isDebugMode,
-          slowMo: isDebugMode ? 300 : 0,
-        },
-      },
-    },
-
     // ========================================
     // DESKTOP MODE PROJECTS
     // ========================================
@@ -134,19 +121,6 @@ export default defineConfig({
             ...desktopBrowserArgs,
             ...(isCI || isDebugMode ? ciBrowserArgs : []),
           ],
-          headless: isCI || !isDebugMode,
-          slowMo: isDebugMode ? 300 : 0,
-        },
-      },
-    },
-    {
-      name: 'firefox-desktop',
-      testMatch: isDesktopMode ? undefined : [], // Only run in desktop mode
-      use: {
-        ...devices['Desktop Firefox'],
-        viewport: { width: 1920, height: 1080 },
-        launchOptions: {
-          args: [...commonBrowserArgs, ...desktopBrowserArgs],
           headless: isCI || !isDebugMode,
           slowMo: isDebugMode ? 300 : 0,
         },

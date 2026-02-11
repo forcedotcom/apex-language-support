@@ -51,7 +51,9 @@ test.describe('Apex Outline View', () => {
     });
 
     await test.step('Validate Apex symbols in outline', async () => {
-      const symbolValidation = await outlineView.validateSymbols(EXPECTED_APEX_SYMBOLS);
+      const symbolValidation = await outlineView.validateSymbols(
+        EXPECTED_APEX_SYMBOLS,
+      );
       expect(symbolValidation.classFound).toBe(true);
     });
 
@@ -64,12 +66,17 @@ test.describe('Apex Outline View', () => {
         'StatusType', // Inner enum
       ];
 
-      const { foundSymbols, foundCount } = await outlineView.detectSymbols(expectedLCSSymbols);
+      const { foundSymbols, foundCount } =
+        await outlineView.detectSymbols(expectedLCSSymbols);
 
       // Verify LCS type parsing capabilities
       expect(foundSymbols).toContain('ApexClassExample');
-      expect(foundCount).toBeGreaterThanOrEqual(TestConfiguration.MIN_EXPECTED_SYMBOLS);
-      expect(foundSymbols.length).toBeGreaterThanOrEqual(TestConfiguration.MIN_EXPECTED_SYMBOLS);
+      expect(foundCount).toBeGreaterThanOrEqual(
+        TestConfiguration.MIN_EXPECTED_SYMBOLS,
+      );
+      expect(foundSymbols.length).toBeGreaterThanOrEqual(
+        TestConfiguration.MIN_EXPECTED_SYMBOLS,
+      );
 
       console.log(`✅ Found ${foundCount} symbols: ${foundSymbols.join(', ')}`);
     });
@@ -127,7 +134,9 @@ test.describe('Apex Outline View', () => {
 
     expect(innerClass).not.toBeNull();
     expect(innerClass?.type).toBe('class');
-    console.log(`✅ Found inner class: ${innerClass?.name} (type: ${innerClass?.type})`);
+    console.log(
+      `✅ Found inner class: ${innerClass?.name} (type: ${innerClass?.type})`,
+    );
   });
 
   /**
@@ -140,7 +149,9 @@ test.describe('Apex Outline View', () => {
 
     expect(innerEnum).not.toBeNull();
     expect(innerEnum?.type).toBe('enum');
-    console.log(`✅ Found inner enum: ${innerEnum?.name} (type: ${innerEnum?.type})`);
+    console.log(
+      `✅ Found inner enum: ${innerEnum?.name} (type: ${innerEnum?.type})`,
+    );
   });
 
   /**
@@ -158,7 +169,9 @@ test.describe('Apex Outline View', () => {
   /**
    * Test: Wait for outline to populate with symbols.
    */
-  test('should populate outline within reasonable time', async ({ outlineView }) => {
+  test('should populate outline within reasonable time', async ({
+    outlineView,
+  }) => {
     await outlineView.open();
 
     // Wait for at least 1 symbol to appear
@@ -172,7 +185,9 @@ test.describe('Apex Outline View', () => {
   /**
    * Test: Verify outline refreshes when file changes (if applicable).
    */
-  test('should maintain outline visibility after refresh', async ({ outlineView }) => {
+  test('should maintain outline visibility after refresh', async ({
+    outlineView,
+  }) => {
     await outlineView.open();
 
     await outlineView.refresh();
@@ -196,13 +211,18 @@ test.describe('Apex Outline View', () => {
     const types = new Set(symbols.map((s) => s.type));
 
     expect(types.size).toBeGreaterThan(1);
-    console.log(`✅ Found ${types.size} different symbol types: ${Array.from(types).join(', ')}`);
+    console.log(
+      `✅ Found ${types.size} different symbol types: ${Array.from(types).join(', ')}`,
+    );
   });
 
   /**
    * Test: Verify clicking on outline symbol navigates editor.
    */
-  test('should navigate editor when clicking outline symbol', async ({ apexEditor, outlineView }) => {
+  test('should navigate editor when clicking outline symbol', async ({
+    apexEditor,
+    outlineView,
+  }) => {
     await outlineView.open();
 
     await test.step('Click on main class symbol', async () => {
@@ -240,7 +260,10 @@ test.describe('Apex Outline View', () => {
    * Test: Verify outline displays complex class structure.
    * Uses complex-class.cls test file.
    */
-  test('should display complex class structure', async ({ apexEditor, outlineView }) => {
+  test('should display complex class structure', async ({
+    apexEditor,
+    outlineView,
+  }) => {
     // Note: This test assumes complex-class.cls is available in test workspace
     await test.step('Open complex class file', async () => {
       // Try to open complex-class if available, otherwise skip
@@ -248,7 +271,14 @@ test.describe('Apex Outline View', () => {
         await apexEditor.openFile('complex-class.cls');
         await apexEditor.waitForLanguageServerReady();
       } catch (error) {
-        console.log('⚠️ complex-class.cls not available, using default file');
+        const errStr =
+          error instanceof Error
+            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
+            : JSON.stringify(error);
+        console.log(
+          '⚠️ complex-class.cls not available, using default file',
+          errStr,
+        );
       }
     });
 

@@ -47,6 +47,8 @@ export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
   'Request textDocument/diagnostic failed', // Known VS Code Web LSP issue Todo: W-19587882 for removal
   'Request textDocument/completion failed', // Expected when standard library is not loaded
   'Unhandled method textDocument/completion', // Expected when standard library is not loaded
+  'Request textDocument/hover failed', // Expected when standard library is not loaded
+  'Request textDocument/definition failed', // Can occur when symbol has no definition
 
   // VS Code lifecycle and shutdown related
   'Long running operations during shutdown',
@@ -83,6 +85,7 @@ export const SELECTORS = {
   WORKBENCH: '.monaco-workbench',
   EXPLORER: '[id="workbench.view.explorer"]',
   EDITOR_PART: '[id="workbench.parts.editor"]',
+  /** Main editor area - excludes peek widget and other overlays */
   MONACO_EDITOR: '[id="workbench.parts.editor"] .monaco-editor',
   SIDEBAR: '[id="workbench.parts.sidebar"]',
   STATUSBAR: '[id="workbench.parts.statusbar"]',

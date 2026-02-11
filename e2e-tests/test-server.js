@@ -128,6 +128,7 @@ async function startTestServer() {
       version: 'stable',
       printServerLog: true,
       verbose: true,
+      coi: true, // Cross-origin isolation for SharedArrayBuffer support
       // Don't run any tests, just keep server running
       extensionTestsPath: undefined,
       port: 3000, // Fixed port for Playwright

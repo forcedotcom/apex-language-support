@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { expect, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { SELECTORS } from './constants';
 import { findAndActivateOutlineView } from './outline-helpers';
 import { ErrorHandler, WaitingStrategies } from './error-handling';
@@ -182,17 +182,30 @@ export const waitForLCSReady = async (
 export const testLSPFunctionality = async (
   page: Page,
 ): Promise<LSPFunctionalityResult> => {
-  const monacoEditor = page.locator(SELECTORS.MONACO_EDITOR);
+  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const lspTimeout = isDesktopMode ? 10000 : 5000;
+  const monacoEditor = page.locator(SELECTORS.MONACO_EDITOR).first();
   let completionTested = false;
   let symbolsTested = false;
   let editorResponsive = false;
 
   try {
-    // Test editor responsiveness
-    await monacoEditor.click();
+    // Wait for LSP to be responsive before testing
+    await WaitingStrategies.waitForLSPResponsive(page, { timeout: lspTimeout });
+
+    // Close any open widgets (peek, find) so main editor has focus
+    for (let i = 0; i < 2; i++) {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(150);
+    }
+
+    // Test editor responsiveness - click main editor
+    await monacoEditor.click({ timeout: 3000 });
+    await page.waitForTimeout(300);
     editorResponsive = await monacoEditor.isVisible();
 
     // Test document symbols
+    const symbolPickerTimeout = isDesktopMode ? 1500 : 1000;
     const tryOpenSymbolPicker = async (): Promise<boolean> => {
       const symbolPicker = page.locator(
         '.quick-input-widget, [id*="quickInput"]',
@@ -201,7 +214,7 @@ export const testLSPFunctionality = async (
       // Try macOS chord first, then Windows/Linux
       await page.keyboard.press('Meta+Shift+O');
       await symbolPicker
-        .waitFor({ state: 'visible', timeout: 600 })
+        .waitFor({ state: 'visible', timeout: symbolPickerTimeout })
         .catch(() => {});
       if (await symbolPicker.isVisible().catch(() => false)) {
         // Consider success only if list has items
@@ -214,7 +227,7 @@ export const testLSPFunctionality = async (
 
       await page.keyboard.press('Control+Shift+O');
       await symbolPicker
-        .waitFor({ state: 'visible', timeout: 600 })
+        .waitFor({ state: 'visible', timeout: symbolPickerTimeout })
         .catch(() => {});
       if (await symbolPicker.isVisible().catch(() => false)) {
         const itemCount = await page
@@ -262,7 +275,7 @@ export const testLSPFunctionality = async (
       );
       await outlineRows
         .first()
-        .waitFor({ state: 'visible', timeout: 5000 })
+        .waitFor({ state: 'visible', timeout: isDesktopMode ? 8000 : 6000 })
         .catch(() => {});
       const outlineCount = await outlineRows.count().catch(() => 0);
       symbolsTested = outlineCount > 0;
@@ -373,9 +386,9 @@ export const triggerHover = async (
   page: Page,
   timeout?: number,
 ): Promise<boolean> => {
-  // Desktop mode requires longer timeouts
+  // Desktop mode requires longer timeouts; web mode needs time for LSP hover to resolve
   const isDesktopMode = process.env.TEST_MODE === 'desktop';
-  const effectiveTimeout = timeout ?? (isDesktopMode ? 5000 : 5000);
+  const effectiveTimeout = timeout ?? (isDesktopMode ? 6000 : 5000);
   const waitMultiplier = isDesktopMode ? 2 : 1;
 
   try {

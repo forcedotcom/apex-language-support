@@ -67,10 +67,10 @@ export const startVSCodeWeb = async (page: Page): Promise<void> => {
   const startupTimeout = isDesktopMode ? 90_000 : 60_000;
   const workbenchTimeout = isDesktopMode ? 60_000 : 30_000;
 
-  await page.goto('/', { waitUntil: 'networkidle' });
-
-  // Wait for the page to be fully loaded
-  await page.waitForLoadState('domcontentloaded');
+  // Use 'domcontentloaded' instead of 'networkidle' - networkidle causes 60s+ timeouts
+  // in VS Code Web because SPAs maintain long-lived connections (WebSocket, polling).
+  // Explicit selector waits below are reliable indicators of app readiness.
+  await page.goto('/', { waitUntil: 'domcontentloaded', timeout: startupTimeout });
 
   // Wait for VS Code workbench to be fully loaded and interactive
   await page.waitForSelector(SELECTORS.STATUSBAR, {
@@ -83,9 +83,6 @@ export const startVSCodeWeb = async (page: Page): Promise<void> => {
   });
   const workbench = page.locator(SELECTORS.WORKBENCH);
   await workbench.waitFor({ state: 'visible' });
-
-  // Ensure the workbench is fully interactive
-  await page.waitForLoadState('networkidle');
 };
 
 /**

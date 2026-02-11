@@ -40,7 +40,8 @@ test.describe('Apex Hover Functionality', () => {
     console.log('🔍 Testing hover functionality for Apex symbols...');
 
     await test.step('Execute all hover test scenarios', async () => {
-      const hoverResults = await hoverHelper.testScenarios(HOVER_TEST_SCENARIOS);
+      const hoverResults =
+        await hoverHelper.testScenarios(HOVER_TEST_SCENARIOS);
 
       // Report results
       TestResultReporter.reportHoverResults(hoverResults);
@@ -130,7 +131,10 @@ test.describe('Apex Hover Functionality', () => {
    */
   test('should show hover within reasonable time', async ({ hoverHelper }) => {
     // LSP hover can take a few seconds to resolve in web environment
-    const isResponsive = await hoverHelper.isHoverResponsive('ApexClassExample', 8000);
+    const isResponsive = await hoverHelper.isHoverResponsive(
+      'ApexClassExample',
+      8000,
+    );
     expect(isResponsive).toBe(true);
     console.log('✅ Hover is responsive (< 8s)');
   });
@@ -156,7 +160,9 @@ test.describe('Apex Hover Functionality', () => {
   /**
    * Test: Hover on method with parameters shows parameter types.
    */
-  test('should show parameter types in method hover', async ({ hoverHelper }) => {
+  test('should show parameter types in method hover', async ({
+    hoverHelper,
+  }) => {
     await hoverHelper.hoverOnWord('Integer add(Integer a');
     const content = await hoverHelper.getHoverContent();
     const hasMethodSig = await hoverHelper.hasMethodSignature();
@@ -168,7 +174,9 @@ test.describe('Apex Hover Functionality', () => {
   /**
    * Test: Hover on List variable shows generic type.
    */
-  test('should show generic type for List variable', async ({ hoverHelper }) => {
+  test('should show generic type for List variable', async ({
+    hoverHelper,
+  }) => {
     await hoverHelper.hoverOnWord('List<Account> accounts');
     const content = await hoverHelper.getHoverContent();
     const hasTypeInfo = await hoverHelper.hasTypeInformation();
@@ -180,7 +188,9 @@ test.describe('Apex Hover Functionality', () => {
   /**
    * Test: Hover on Map variable shows generic types.
    */
-  test('should show generic types for Map variable', async ({ hoverHelper }) => {
+  test('should show generic types for Map variable', async ({
+    hoverHelper,
+  }) => {
     await hoverHelper.hoverOnWord('Map<Id, Account> accountMap');
     const content = await hoverHelper.getHoverContent();
     expect(content).toBeTruthy();
@@ -242,7 +252,9 @@ test.describe('Apex Hover Functionality', () => {
   /**
    * Test: Hover shows correct information for different symbol types.
    */
-  test('should differentiate between symbol types in hover', async ({ hoverHelper }) => {
+  test('should differentiate between symbol types in hover', async ({
+    hoverHelper,
+  }) => {
     await hoverHelper.hoverOnWord('ApexClassExample');
     const classHover = await hoverHelper.getHoverContent();
 
@@ -258,7 +270,9 @@ test.describe('Apex Hover Functionality', () => {
   /**
    * Test: Hover can be captured in screenshot.
    */
-  test('should be able to capture hover screenshot', async ({ hoverHelper }) => {
+  test('should be able to capture hover screenshot', async ({
+    hoverHelper,
+  }) => {
     await hoverHelper.hoverOnWord('ApexClassExample');
     await hoverHelper.waitForHover();
 

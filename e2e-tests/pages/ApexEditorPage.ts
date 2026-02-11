@@ -27,10 +27,8 @@ export class ApexEditorPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    // Scope to active editor to avoid reading from wrong tab
-    this.editorContent = page.locator('.editor-instance.active .monaco-editor .view-lines').or(
-      page.locator('.monaco-editor .view-lines'),
-    );
+    // Scope to workbench main editor only (excludes peek widget when it's not the first)
+    this.editorContent = page.locator(SELECTORS.MONACO_EDITOR).first().locator('.view-lines');
     this.editorLineNumbers = page.locator('.monaco-editor .line-numbers');
     // Detect desktop mode and adjust timeouts accordingly
     this.isDesktopMode = process.env.TEST_MODE === 'desktop';
@@ -88,11 +86,17 @@ export class ApexEditorPage extends BasePage {
   /**
    * Trigger go-to-definition at the current cursor position.
    * Uses F12 keyboard shortcut.
+   * Closes peek widget if "No definition found" appears so main editor retains focus.
    */
   async goToDefinition(): Promise<void> {
     await this.page.keyboard.press('F12');
     // Allow navigation to complete and editor to settle (e.g. tab switch, scroll)
     await this.page.waitForTimeout(this.isDesktopMode ? 2000 : 1500);
+    // Close peek widget if "No definition found" - ensures main editor has focus for subsequent actions
+    for (let i = 0; i < 3; i++) {
+      await this.page.keyboard.press('Escape');
+      await this.page.waitForTimeout(150);
+    }
     // Ensure editor content is visible before any subsequent getContent() calls
     await this.editorContent.waitFor({ state: 'visible', timeout: this.defaultTimeout }).catch(() => {});
   }
@@ -116,76 +120,40 @@ export class ApexEditorPage extends BasePage {
   }
 
   /**
-   * Get the full text content of the editor.
-   * Uses Monaco's model when available (full content); falls back to Select All +
-   * getSelection for reliability. The view-lines approach only returns visible viewport
-   * due to Monaco's virtualization.
-   * @param scrollToLine - Optional line to scroll to before reading (1-based). Use 1 for file start.
-   * @returns The editor content as a string
+   * Use Ctrl+F to find text and scroll it into view, then return viewport content.
+   * This is the reliable way to verify content after navigation (Monaco virtualizes).
+   * @param searchText - Text to search for (scrolls to first match)
+   * @returns Viewport content after find (includes the matched text)
    */
-  async getContent(scrollToLine?: number): Promise<string> {
-    // Wait for editor content to be visible first
-    await this.editorContent.waitFor({ state: 'visible', timeout: this.defaultTimeout });
-
-    if (scrollToLine !== undefined) {
-      await this.goToPosition(scrollToLine, 1);
-      await this.page.waitForTimeout(800);
-    }
-
-
-    // Try to get full content via Monaco/VS Code API
-    const fullContent = await this.page.evaluate(() => {
-      try {
-        const w = window as unknown as { require?: (id: string) => unknown };
-        if (w.require) {
-          // VS Code uses 'vs/editor/editor.api' for Monaco
-          for (const modId of ['vs/editor/editor.api', 'monaco-editor']) {
-            try {
-              const api = w.require(modId) as {
-                editor?: { getEditors?: () => Array<{ getModel?: () => { getValue?: () => string } }> };
-              };
-              if (api?.editor?.getEditors) {
-                const editors = api.editor.getEditors();
-                for (const ed of editors) {
-                  const value = ed.getModel?.()?.getValue?.();
-                  if (value && value.length > 0) return value;
-                }
-              }
-            } catch {
-              continue;
-            }
-          }
-        }
-      } catch {
-        // Ignore
-      }
-      return null;
-    });
-
-    if (fullContent && fullContent.length > 0) {
-      return fullContent;
-    }
-
-    // Fallback: Select All via keyboard, then read selection (captures full content)
-    const activeEditor = this.getActiveEditor();
-    const editorToUse = (await activeEditor.count()) > 0 ? activeEditor : this.page.locator('.monaco-editor').first();
-    await editorToUse.click();
-    await this.page.waitForTimeout(200);
-    await this.page.keyboard.press('Control+A');
-    await this.page.waitForTimeout(400);
-    const selectionContent = await this.page.evaluate(
-      () => window.getSelection()?.toString() ?? '',
-    );
-    await this.page.keyboard.press('Escape');
-    await this.page.waitForTimeout(150);
-
-    if (selectionContent.length > 0) {
-      return selectionContent;
-    }
-
-    // Final fallback: view-lines (may be viewport-only in virtualized editor)
-    return (await this.editorContent.textContent({ timeout: this.defaultTimeout })) || '';
+  async findAndGetViewportContent(searchText: string): Promise<string> {
+    await this.positionCursorOnWord(searchText);
+    return this.getContent();
   }
+
+  /**
+   * Get visible viewport content from the main editor.
+   * Monaco virtualizes; only visible lines are in the DOM.
+   * Use findAndGetViewportContent(searchText) to scroll to specific content first.
+   */
+  async getContent(): Promise<string> {
+    await this.editorContent.waitFor({ state: 'visible', timeout: this.defaultTimeout });
+    return this.page.evaluate(() => {
+      const editorPart = document.querySelector('[id="workbench.parts.editor"]');
+      if (!editorPart) return '';
+      const editors = Array.from(editorPart.querySelectorAll('.monaco-editor'));
+      const mainEditor = editors.reduce((best, ed) => {
+        const lines = ed.querySelectorAll('.view-line').length;
+        const bestLines = best ? best.querySelectorAll('.view-line').length : 0;
+        return !best || lines > bestLines ? ed : best;
+      }, null as Element | null);
+      if (!mainEditor) return '';
+      const lines = mainEditor.querySelectorAll('.view-line');
+      return Array.from(lines)
+        .map((ln) => (ln as HTMLElement).innerText)
+        .join('\n');
+    });
+  }
+
 
   /**
    * Get the current cursor position (line and column).

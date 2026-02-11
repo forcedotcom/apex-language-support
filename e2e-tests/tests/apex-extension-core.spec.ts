@@ -84,10 +84,15 @@ test.describe('Apex Extension Core Activation', () => {
       await apexEditor.getPage().keyboard.press('Control+Shift+X');
       await apexEditor.waitForSelector(SELECTORS.EXTENSIONS_VIEW, 30_000);
 
-      const installedSection = apexEditor.getPage().locator('text=INSTALLED').first();
+      const installedSection = apexEditor
+        .getPage()
+        .locator('text=INSTALLED')
+        .first();
       if (await installedSection.isVisible()) {
         await installedSection.click();
-        await apexEditor.getPage().waitForSelector('.extensions-list', { timeout: 5000 });
+        await apexEditor
+          .getPage()
+          .waitForSelector('.extensions-list', { timeout: 5000 });
         console.log('✅ Found INSTALLED extensions section');
       }
     });
@@ -99,7 +104,9 @@ test.describe('Apex Extension Core Activation', () => {
 
     await test.step('Validate bundle size', async () => {
       if (lcsDetection!.bundleSize) {
-        const bundleValidation = TestConfiguration.validateBundleSize(lcsDetection!.bundleSize);
+        const bundleValidation = TestConfiguration.validateBundleSize(
+          lcsDetection!.bundleSize,
+        );
 
         expect(bundleValidation.meetsLCSThreshold).toBe(true);
         expect(bundleValidation.isValid).toBe(true);
@@ -156,8 +163,7 @@ test.describe('Apex Extension Core Activation', () => {
       // Give the editor time to update
       await apexEditor.wait(500);
 
-      const content = await apexEditor.getContent();
-      // Check if our marker is in the content (case-insensitive to handle normalization)
+      const content = await apexEditor.findAndGetViewportContent(marker);
       const hasMarker = content.toLowerCase().includes(marker.toLowerCase());
       expect(hasMarker).toBe(true);
 
@@ -180,14 +186,19 @@ test.describe('Apex Extension Core Activation', () => {
   /**
    * Test: Verify extension stability over time.
    */
-  test('should maintain stability after activation', async ({ apexEditor, consoleErrors }) => {
+  test('should maintain stability after activation', async ({
+    apexEditor,
+    consoleErrors,
+  }) => {
     await test.step('Wait for stability period', async () => {
       // Wait a bit to ensure no delayed errors
       await apexEditor.wait(3000);
     });
 
     await test.step('Check for new critical errors', async () => {
-      const criticalErrors = consoleErrors.filter((e) => e.text.toLowerCase().includes('error'));
+      const criticalErrors = consoleErrors.filter((e) =>
+        e.text.toLowerCase().includes('error'),
+      );
       const allowedErrors = criticalErrors.filter((e) =>
         e.text.includes('Request textDocument/diagnostic failed'),
       );
@@ -202,7 +213,9 @@ test.describe('Apex Extension Core Activation', () => {
   /**
    * Test: Verify console has expected startup logs.
    */
-  test('should have console logs indicating successful startup', async ({ apexTestEnvironment }) => {
+  test('should have console logs indicating successful startup', async ({
+    apexTestEnvironment,
+  }) => {
     const { lcsDetection } = apexTestEnvironment;
 
     await test.step('Verify LCS detection logs', async () => {
@@ -216,13 +229,17 @@ test.describe('Apex Extension Core Activation', () => {
   /**
    * Test: Verify network requests are successful (or acceptably failed).
    */
-  test('should handle network requests appropriately', async ({ networkErrors }) => {
+  test('should handle network requests appropriately', async ({
+    networkErrors,
+  }) => {
     await test.step('Validate network errors', async () => {
       const validation = performStrictValidation([], networkErrors);
 
       expect(validation.networkValidation.allErrorsAllowed).toBe(true);
 
-      console.log(`✅ Network errors handled appropriately (${networkErrors.length} total)`);
+      console.log(
+        `✅ Network errors handled appropriately (${networkErrors.length} total)`,
+      );
     });
   });
 });
