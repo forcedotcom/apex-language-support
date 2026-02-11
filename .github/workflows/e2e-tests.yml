@@ -46,7 +46,6 @@ jobs:
         run: |
           npm run compile
           npm run bundle
-          npm run build -w packages/apex-lsp-vscode-extension
 
       - name: Verify extension build
         run: |
@@ -132,7 +131,6 @@ jobs:
         run: |
           npm run compile
           npm run bundle
-          npm run build -w packages/apex-lsp-vscode-extension
 
       - name: Verify extension build (Unix)
         if: runner.os != 'Windows'
