@@ -10,6 +10,7 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { ReferenceContext } from '../../src/types/symbolReference';
+import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
 import { Effect } from 'effect';
 
 describe('ApexSymbolManager - Resolution Integration', () => {
@@ -54,9 +55,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
 
       // Find the chained type reference for System.Url return type
       const chainedTypeRefs = references.filter(
-        (ref) =>
-          ref.context === ReferenceContext.CHAINED_TYPE &&
-          ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -89,10 +88,10 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Find the type reference for System.Url parameter (could be CHAINED_TYPE or PARAMETER_TYPE)
+      // Find the type reference for System.Url parameter (could be chained or PARAMETER_TYPE)
       const typeRefs = references.filter(
         (ref) =>
-          (ref.context === ReferenceContext.CHAINED_TYPE ||
+          (isChainedSymbolReference(ref) ||
             ref.context === ReferenceContext.PARAMETER_TYPE) &&
           ref.name === 'System.Url',
       );
@@ -120,9 +119,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
 
       // Find the chained type reference for System.Url field
       const chainedTypeRefs = references.filter(
-        (ref) =>
-          ref.context === ReferenceContext.CHAINED_TYPE &&
-          ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -151,7 +148,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       // Should have multiple System.Url references (return type and parameter)
       const systemUrlRefs = references.filter(
         (ref) =>
-          (ref.context === ReferenceContext.CHAINED_TYPE ||
+          (isChainedSymbolReference(ref) ||
             ref.context === ReferenceContext.PARAMETER_TYPE) &&
           ref.name === 'System.Url',
       );
@@ -183,7 +180,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       // Should have type references for System.Url (return type and generic parameter)
       const systemUrlRefs = references.filter(
         (ref) =>
-          (ref.context === ReferenceContext.CHAINED_TYPE ||
+          (isChainedSymbolReference(ref) ||
             ref.context === ReferenceContext.PARAMETER_TYPE ||
             ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE) &&
           ref.name === 'System.Url',
@@ -221,8 +218,8 @@ describe('ApexSymbolManager - Resolution Integration', () => {
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
       // Should have multiple types of references
-      const chainedTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      const chainedTypeRefs = references.filter((ref) =>
+        isChainedSymbolReference(ref),
       );
       const methodCallRefs = references.filter(
         (ref) => ref.context === ReferenceContext.METHOD_CALL,

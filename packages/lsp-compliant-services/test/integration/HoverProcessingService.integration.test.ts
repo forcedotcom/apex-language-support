@@ -404,7 +404,7 @@ describe('HoverProcessingService Integration Tests', () => {
         textDocument: {
           uri: 'file:///TestClass.cls',
         },
-        position: { line: 0, character: 13 }, // Position on 'TestClass' (LSP 0-based)
+        position: { line: 4, character: 13 }, // Position on 'TestClass' (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -454,7 +454,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: 1, character: 23 }, // Position on 'getStaticValue' method name (LSP 0-based)
+        position: { line: 5, character: 23 }, // Position on 'getStaticValue' method name (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -477,7 +477,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: 5, character: 20 }, // Position on instance method definition (LSP 0-based)
+        position: { line: 9, character: 20 }, // Position on instance method definition (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -504,7 +504,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: 1, character: 23 }, // Position on 'getValue' method (LSP 0-based)
+        position: { line: 5, character: 23 }, // Position on 'getValue' method (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -528,7 +528,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: 0, character: 13 }, // Position on 'TestClass' (LSP 0-based)
+        position: { line: 4, character: 13 }, // Position on 'TestClass' (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -553,7 +553,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: 1, character: 23 }, // Position on 'getValue' method (LSP 0-based)
+        position: { line: 5, character: 23 }, // Position on 'getValue' method (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);

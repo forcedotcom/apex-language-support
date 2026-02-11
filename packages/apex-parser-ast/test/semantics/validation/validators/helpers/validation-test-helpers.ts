@@ -20,6 +20,7 @@ import { CompilerService } from '../../../../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../../../../src/parser/listeners/ApexSymbolCollectorListener';
 import type { ValidationOptions } from '../../../../../src/semantics/validation/ValidationTier';
 import { ValidationTier } from '../../../../../src/semantics/validation/ValidationTier';
+import { DEFAULT_SALESFORCE_API_VERSION } from '../../../../../src/constants/constants';
 
 /**
  * Helper to load a fixture file from a validator-specific subfolder
@@ -134,5 +135,35 @@ export const createValidationOptions = (
   maxArtifacts: 5,
   timeout: 5000,
   symbolManager,
+  sourceContent: overrides?.sourceContent, // Allow sourceContent to be passed
+  enableVersionSpecificValidation:
+    overrides?.enableVersionSpecificValidation ?? false, // Default disabled
+  apiVersion: overrides?.apiVersion ?? DEFAULT_SALESFORCE_API_VERSION, // Default to 65
   ...overrides,
 });
+
+/**
+ * Helper to compile a fixture and create validation options with sourceContent
+ */
+export const compileFixtureWithOptions = async (
+  validatorCategory: string,
+  filename: string,
+  fileUri: string | undefined,
+  symbolManager: ApexSymbolManager,
+  compilerService: CompilerService,
+  overrides?: Partial<ValidationOptions>,
+): Promise<{ symbolTable: SymbolTable; options: ValidationOptions }> => {
+  const sourceContent = loadFixture(validatorCategory, filename);
+  const symbolTable = await compileFixture(
+    validatorCategory,
+    filename,
+    fileUri,
+    symbolManager,
+    compilerService,
+  );
+  const options = createValidationOptions(symbolManager, {
+    sourceContent,
+    ...overrides,
+  });
+  return { symbolTable, options };
+};

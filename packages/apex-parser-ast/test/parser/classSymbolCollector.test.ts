@@ -24,18 +24,25 @@ import {
   ErrorType,
   ErrorSeverity,
 } from '../../src/parser/listeners/ApexErrorListener';
-import { TestLogger } from '../utils/testLogger';
+import {
+  LoggerInterface,
+  enableConsoleLogging,
+  getLogger,
+  setLogLevel,
+} from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolCollectorListener', () => {
   let compilerService: CompilerService;
   let listener: ApexSymbolCollectorListener;
-  let logger: TestLogger;
+  let logger: LoggerInterface;
 
   beforeEach(() => {
-    logger = TestLogger.getInstance();
-    logger.debug('Setting up test environment');
     compilerService = new CompilerService();
     listener = new ApexSymbolCollectorListener(undefined, 'full');
+    // Enable logging for debugging
+    enableConsoleLogging();
+    setLogLevel('error');
+    logger = getLogger();
   });
 
   describe('collect Class Symbols', () => {

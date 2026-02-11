@@ -966,9 +966,21 @@ export class SymbolTable {
         // Existing symbol has higher detail level, skip enrichment
         // Keep existing symbol and return early (no duplicate detection needed)
         return;
+      } else if (newLevel === existingLevel) {
+        // Same detail level - if it's the same symbol (same ID), skip adding
+        // For top-level classes, we should never have duplicates with the same detail level
+        if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+          // Top-level class with same detail level - skip duplicate
+          logger.debug(
+            () =>
+              `[SymbolTable.addSymbol] Skipping duplicate top-level class: ${symbol.name}, ` +
+              `same detail level=${symbol._detailLevel}`,
+          );
+          return;
+        }
+        // For other symbols, fall through to duplicate detection
+        // This allows duplicates with the same detail level to be stored (e.g., overloaded methods)
       }
-      // If newLevel === existingLevel, fall through to duplicate detection
-      // This allows duplicates with the same detail level to be stored
     }
 
     // Handle duplicates: convert single symbol to array when duplicate detected
@@ -1738,7 +1750,49 @@ export class SymbolTable {
       return false;
     });
 
-    return matched;
+    // For chained references, also create synthetic individual references for chain members
+    // that match the position. This allows code expecting individual METHOD_CALL references
+    // to work even though we only store chained references in the symbol table.
+    const syntheticRefs: SymbolReference[] = [];
+    for (const ref of matched) {
+      const chainNodes = (ref as any).chainNodes;
+      if (chainNodes && Array.isArray(chainNodes)) {
+        for (const node of chainNodes) {
+          if (
+            node?.location &&
+            this.positionInRange(position, node.location) &&
+            (node.context === ReferenceContext.METHOD_CALL ||
+              node.context === ReferenceContext.FIELD_ACCESS)
+          ) {
+            // Create a synthetic reference for this chain member
+            // Preserve all properties from the chain node for proper resolution
+            // Don't include chainNodes to avoid being treated as a chained reference
+            // Instead, store the original chained reference in a custom property for resolution
+            const syntheticRef: any = {
+              name: node.name,
+              location: node.location,
+              context: node.context,
+              parentContext: ref.parentContext,
+              resolvedSymbolId: node.resolvedSymbolId,
+              access: node.access,
+              isStatic: node.isStatic,
+              resolvedTypeId: node.resolvedTypeId,
+              resolutionTier: node.resolutionTier,
+              isFullyResolved: node.isFullyResolved,
+            };
+            // Store reference to original chained ref for resolution context
+            // This allows resolution to work through the chain if needed
+            syntheticRef._originalChainedRef = ref;
+            syntheticRef._chainNode = node;
+            syntheticRefs.push(syntheticRef);
+          }
+        }
+      }
+    }
+
+    // Return both matched references and synthetic individual references
+    // Synthetic refs come after matched refs so they can be prioritized if needed
+    return [...matched, ...syntheticRefs];
   }
 
   /**

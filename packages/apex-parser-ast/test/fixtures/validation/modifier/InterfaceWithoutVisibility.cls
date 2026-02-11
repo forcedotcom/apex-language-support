@@ -1,0 +1,3 @@
+interface InterfaceWithoutVisibility {
+    void m();
+}

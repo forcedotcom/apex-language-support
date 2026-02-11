@@ -10,6 +10,7 @@ import { Effect } from 'effect';
 import type { SymbolTable } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
 import { ReferenceContext } from '../../../types/symbolReference';
+import { isChainedSymbolReference } from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -34,6 +35,7 @@ import { ErrorCodes } from '../../../generated/ErrorCodes';
  * 1. Final variables are not assigned more than once
  * 2. Final parameters are never reassigned
  * 3. Assignments are tracked using SymbolReference with 'write' or 'readwrite' access
+ * 4. Chained references (e.g., obj.field = value) are supported by extracting final node
  *
  * Note: This is a simplified check based on symbol references. Full final
  * assignment tracking would require control flow analysis to ensure ALL
@@ -98,6 +100,48 @@ export const FinalAssignmentValidator: Validator = {
           continue;
         }
 
+        // Handle chained references (e.g., obj.field = value where field is final)
+        if (isChainedSymbolReference(reference) && reference.chainNodes) {
+          // Extract the final node from the chain
+          const finalNode =
+            reference.chainNodes[reference.chainNodes.length - 1];
+
+          // Only process if final node is a FIELD_ACCESS with write access
+          if (
+            finalNode.context === ReferenceContext.FIELD_ACCESS &&
+            (finalNode.access === 'write' || finalNode.access === 'readwrite')
+          ) {
+            // Check if this final node references a final field
+            const referencedSymbol = finalNode.resolvedSymbolId
+              ? finalSymbols.find((s) => s.id === finalNode.resolvedSymbolId)
+              : null;
+
+            if (referencedSymbol) {
+              // Skip if this write reference is at the same location as a VARIABLE_DECLARATION
+              const isDeclarationInitialization = declarationRefs.some(
+                (declRef) => {
+                  if (declRef.name !== finalNode.name) {
+                    return false;
+                  }
+                  const declLine = declRef.location.identifierRange.startLine;
+                  const declCol = declRef.location.identifierRange.startColumn;
+                  const refLine = finalNode.location.identifierRange.startLine;
+                  const refCol = finalNode.location.identifierRange.startColumn;
+                  return declLine === refLine && declCol === refCol;
+                },
+              );
+
+              if (!isDeclarationInitialization) {
+                const currentCount =
+                  assignmentCounts.get(referencedSymbol.id) || 0;
+                assignmentCounts.set(referencedSymbol.id, currentCount + 1);
+              }
+            }
+          }
+          continue; // Skip direct processing of chained reference
+        }
+
+        // Handle direct references (non-chained)
         // Check if this reference is to a final symbol
         const referencedSymbol = reference.resolvedSymbolId
           ? finalSymbols.find((s) => s.id === reference.resolvedSymbolId)

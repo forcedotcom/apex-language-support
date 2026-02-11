@@ -365,6 +365,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       pushed = true;
 
       if (this.chainExpressionScope?.isActive) {
+        // Chain finalization will create and add the chained reference to symbol table
         this.chainExpressionScope.chainNodes.push(
           this.createExpressionNode(
             methodName,
@@ -372,11 +373,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
             ReferenceContext.METHOD_CALL,
           ),
         );
+        // Do NOT add individual reference to symbol table - chain finalization handles it
+        // The individual reference is still used for methodCallStack (parameter tracking) above
       } else {
         this.processStandaloneMethodCall(ctx, methodName, methodLocation);
+        // Add to symbol table
+        this.symbolTable.addTypeReference(reference);
       }
-
-      this.symbolTable.addTypeReference(reference);
     } catch (error) {
       if (pushed) {
         try {

@@ -115,6 +115,12 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       preloadNamespaces: ['Database', 'System'], // Default namespaces
     },
 
+    validation: {
+      versionSpecificValidation: {
+        enabled: false, // Disabled by default
+      },
+    },
+
     worker: {
       logLevel: 'info',
     },

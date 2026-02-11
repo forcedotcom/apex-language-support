@@ -18,6 +18,7 @@ import { SymbolKind } from '../../../types/symbol';
 import type { TypeInfo } from '../../../types/typeInfo';
 import type { SymbolReference } from '../../../types/symbolReference';
 import { ReferenceContext } from '../../../types/symbolReference';
+import { isChainedSymbolReference } from '../../../utils/symbolNarrowing';
 import type { ISymbolManager } from '../../../types/ISymbolManager';
 import type {
   ValidationResult,
@@ -28,6 +29,8 @@ import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { StatementValidator } from '../StatementValidator';
+import { localizeTyped } from '../../../i18n/messageInstance';
+import { ErrorCodes } from '../../../generated/ErrorCodes';
 
 /**
  * Validates type assignments in variable declarations.
@@ -41,6 +44,13 @@ import { StatementValidator } from '../StatementValidator';
  * This is a TIER 2 (THOROUGH) validation that requires type resolution across files.
  * It examines the symbol table to find variable declarations with initializers
  * and validates that the initializer type matches the declared type.
+ *
+ * Note: Array initializer validation (e.g., `Integer[] arr = {1, 2, 3}`) currently
+ * validates the overall initializer type but does not validate individual expression
+ * types within the initializer against the array element type. Full validation would
+ * require parsing source code to extract individual expressions from array initializers
+ * and using ExpressionValidator.resolveExpressionTypeRecursive() for each expression.
+ * This enhancement is planned for future implementation.
  *
  * Error Messages:
  * - "Type mismatch: cannot assign '{sourceType}' to '{targetType}' at line {line}"
@@ -310,9 +320,13 @@ export const TypeAssignmentValidator: Validator = {
           );
 
           errors.push({
-            message: `Type mismatch: cannot assign '${initializerTypeName}' to '${declaredTypeName}'`,
+            message: localizeTyped(
+              ErrorCodes.ILLEGAL_ASSIGNMENT,
+              initializerTypeName,
+              declaredTypeName,
+            ),
             location: variable.location,
-            code: 'TYPE_MISMATCH',
+            code: ErrorCodes.ILLEGAL_ASSIGNMENT,
           });
         }
       }
@@ -384,7 +398,7 @@ function resolveTypeIfNeeded(
       ? findSymbolReferenceById(typeInfo.typeReferenceId, symbolTable)
       : undefined;
 
-    // If typeRef is a CHAINED_TYPE, extract the target METHOD_CALL or FIELD_ACCESS node
+    // If typeRef is a chained reference, extract the target METHOD_CALL or FIELD_ACCESS node
     let targetRef: SymbolReference | undefined = typeRef;
 
     if (!typeRef) {
@@ -392,13 +406,13 @@ function resolveTypeIfNeeded(
         `[RESOLVE-TYPE] No typeRef found for ${typeInfo.name} ` +
           `(typeReferenceId: ${typeInfo.typeReferenceId ? 'set but not found' : 'not set'})`,
       );
-      // If typeReferenceId is not set but we have originalTypeString, try to find CHAINED_TYPE by name
+      // If typeReferenceId is not set but we have originalTypeString, try to find chained reference by name
       if (
         !typeInfo.typeReferenceId &&
         typeInfo.originalTypeString &&
         typeInfo.originalTypeString.includes('.')
       ) {
-        // Look for CHAINED_TYPE reference with matching name
+        // Look for chained reference with matching name
         // For method calls, remove parameters: "FileUtilities.createFile(...)" -> "FileUtilities.createFile"
         let nameToMatch = typeInfo.originalTypeString;
         const parenIndex = nameToMatch.indexOf('(');
@@ -407,54 +421,41 @@ function resolveTypeIfNeeded(
         }
         const allRefs = symbolTable.getAllReferences();
         const chainedRef = allRefs.find(
-          (ref) =>
-            ref.context === ReferenceContext.CHAINED_TYPE &&
-            ref.name === nameToMatch,
+          (ref) => isChainedSymbolReference(ref) && ref.name === nameToMatch,
         );
-        if (chainedRef) {
-          const chainedRefAny = chainedRef as any;
-          if (
-            chainedRefAny.chainNodes &&
-            Array.isArray(chainedRefAny.chainNodes)
-          ) {
-            const targetNode = chainedRefAny.chainNodes.find(
-              (node: SymbolReference) =>
-                node.context === ReferenceContext.METHOD_CALL ||
-                node.context === ReferenceContext.FIELD_ACCESS,
+        if (chainedRef && chainedRef.chainNodes) {
+          const targetNode = chainedRef.chainNodes.find(
+            (node: SymbolReference) =>
+              node.context === ReferenceContext.METHOD_CALL ||
+              node.context === ReferenceContext.FIELD_ACCESS,
+          );
+          if (targetNode) {
+            yield* Effect.logDebug(
+              `[RESOLVE-TYPE] Found chained reference "${chainedRef.name}" by name ` +
+                `(matched "${nameToMatch}"), using target node: ` +
+                `${targetNode.name}:${ReferenceContext[targetNode.context]}`,
             );
-            if (targetNode) {
-              yield* Effect.logDebug(
-                `[RESOLVE-TYPE] Found CHAINED_TYPE "${chainedRef.name}" by name ` +
-                  `(matched "${nameToMatch}"), using target node: ` +
-                  `${targetNode.name}:${ReferenceContext[targetNode.context]}`,
-              );
-              // Use the target node as the reference
-              targetRef = targetNode;
-            }
+            // Use the target node as the reference
+            targetRef = targetNode;
           }
         }
       }
     }
-    if (
-      typeRef &&
-      typeRef.context === ReferenceContext.CHAINED_TYPE &&
-      (typeRef as any).chainNodes
-    ) {
+    if (typeRef && isChainedSymbolReference(typeRef) && typeRef.chainNodes) {
       // Parse the typeReferenceId to find which node in the chain it refers to
       const refIdParts = typeInfo.typeReferenceId?.split(':');
       if (refIdParts && refIdParts.length >= 5) {
         const targetName = refIdParts[3];
         const targetContextStr = refIdParts.slice(4).join(':');
         // Find the matching node in the chain
-        const chainedRef = typeRef as any;
-        targetRef = chainedRef.chainNodes?.find(
+        targetRef = typeRef.chainNodes.find(
           (node: SymbolReference) =>
             node.name === targetName &&
             ReferenceContext[node.context] === targetContextStr,
         );
         if (!targetRef) {
           // Fallback: find any METHOD_CALL or FIELD_ACCESS node
-          targetRef = chainedRef.chainNodes?.find(
+          targetRef = typeRef.chainNodes.find(
             (node: SymbolReference) =>
               node.context === ReferenceContext.METHOD_CALL ||
               node.context === ReferenceContext.FIELD_ACCESS,

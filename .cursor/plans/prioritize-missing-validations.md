@@ -44,6 +44,9 @@ todos:
   - id: phase4-switch
     content: 'Phase 4.3: Implement SwitchStatementValidator (switch/when validation) - TIER 1, medium value, easy-medium'
     status: pending
+  - id: phase7-runas
+    content: 'Phase 7.3: Implement RunAsStatementValidator (runAs statement validation) - TIER 1, medium value, easy'
+    status: completed
 isProject: false
 ---
 
@@ -276,6 +279,16 @@ These catch common errors and can be implemented quickly using existing symbol t
 **Implementation**: Check deprecation annotations
 **Customer Value**: Low - warnings only
 **Files**: Create `DeprecationValidator.ts`
+
+### Phase 7: Statement-Specific Validations (TIER 1)
+
+#### 7.3 RunAs Statement Validation (Easy) ✅ COMPLETE
+
+- `INVALID_RUNAS` - runAs requires exactly one argument of type 'User' or 'Version'
+
+**Implementation**: Check runAs statement arguments using ANTLR listener and symbol table lookup
+**Customer Value**: Medium - catches common runAs misuse
+**Files**: `RunAsStatementValidator.ts` ✅
 
 ## Implementation Strategy
 

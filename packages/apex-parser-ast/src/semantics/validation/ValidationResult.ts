@@ -7,6 +7,7 @@
  */
 
 import type { SymbolLocation } from '../../types/symbol';
+import type { ValidationEnrichmentData } from './enrichment/SymbolTableEnrichmentService';
 
 /**
  * A validation error with location information
@@ -57,6 +58,10 @@ export interface ValidationResult {
   warnings: ValidationWarningInfo[] | string[];
   /** Type information (for expression validation) */
   type?: any;
+  /**
+   * Optional enrichment data discovered during validation that can improve symbol table quality
+   */
+  enrichmentData?: ValidationEnrichmentData;
 }
 
 /**

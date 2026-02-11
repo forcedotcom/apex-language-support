@@ -3985,19 +3985,84 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Step 0: Fast path - if already resolved by listener second-pass, use the ID directly
       // This provides O(1) lookup for same-file refs, avoiding expensive resolution chains
+      // BUT: Skip fast path for chained references when position is on a chain member (not first node)
+      // This ensures we resolve the correct chain member (e.g., "size" in "numbers.size()")
       if (typeReference.resolvedSymbolId) {
-        const resolvedSymbol = this.getSymbol(typeReference.resolvedSymbolId);
-        if (resolvedSymbol) {
+        // Check if this is a chained reference and position is on a chain member
+        let shouldSkipFastPath = false;
+        if (position && isChainedSymbolReference(typeReference)) {
+          const chainMember = this.findChainMemberAtPosition(
+            typeReference,
+            position,
+          );
+          // Skip fast path if position is on a chain member (not the first node)
+          if (chainMember && chainMember.index > 0) {
+            shouldSkipFastPath = true;
+          }
+        }
+
+        if (!shouldSkipFastPath) {
+          const resolvedSymbol = this.getSymbol(typeReference.resolvedSymbolId);
+          if (resolvedSymbol) {
+            this.logger.debug(
+              () =>
+                `Using pre-resolved symbol ID "${typeReference.resolvedSymbolId}" ` +
+                `for reference "${typeReference.name}"`,
+            );
+            return resolvedSymbol;
+          }
+          // If symbol not found (rare - might have been removed), fall through to normal resolution
           this.logger.debug(
             () =>
-              `Using pre-resolved symbol ID "${typeReference.resolvedSymbolId}" for reference "${typeReference.name}"`,
+              `Pre-resolved symbol ID "${typeReference.resolvedSymbolId}" not found, falling back to normal resolution`,
           );
-          return resolvedSymbol;
         }
-        // If symbol not found (rare - might have been removed), fall through to normal resolution
-        this.logger.debug(
-          () =>
-            `Pre-resolved symbol ID "${typeReference.resolvedSymbolId}" not found, falling back to normal resolution`,
+      }
+
+      // Step 0.5: Handle synthetic references (created from chain nodes)
+      // These are individual METHOD_CALL/FIELD_ACCESS references created from chained expressions
+      const syntheticRef = typeReference as any;
+      if (syntheticRef._originalChainedRef && syntheticRef._chainNode) {
+        // Resolve through the chain node - use its resolvedSymbolId if available
+        if (syntheticRef._chainNode.resolvedSymbolId) {
+          const resolvedSymbol = this.getSymbol(
+            syntheticRef._chainNode.resolvedSymbolId,
+          );
+          if (resolvedSymbol) {
+            this.logger.debug(
+              () =>
+                `Resolved synthetic reference "${typeReference.name}" through chain node`,
+            );
+            return resolvedSymbol;
+          }
+        }
+        // If chain node not resolved, resolve through the chained reference
+        // But use the position to ensure we resolve the specific chain member, not the whole chain
+        const chainedRef = syntheticRef._originalChainedRef;
+        if (position) {
+          // Find the specific chain member at this position
+          const chainMember = this.findChainMemberAtPosition(
+            chainedRef,
+            position,
+          );
+          if (chainMember && chainMember.member.resolvedSymbolId) {
+            const resolvedSymbol = this.getSymbol(
+              chainMember.member.resolvedSymbolId,
+            );
+            if (resolvedSymbol) {
+              this.logger.debug(
+                () =>
+                  `Resolved synthetic reference "${typeReference.name}" through chain member at position`,
+              );
+              return resolvedSymbol;
+            }
+          }
+        }
+        // Fallback: resolve the whole chained reference
+        return this.resolveChainedSymbolReference(
+          chainedRef,
+          position,
+          sourceFile,
         );
       }
 
@@ -6032,10 +6097,40 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           }
         }
 
-        // Step 2b: For chained references, find the most specific reference for this position
+        // Step 2b: Check for METHOD_CALL references first (before chained reference selection)
+        // This ensures method calls are prioritized over chained references that might resolve to variables
+        const methodCallRefsEarly = typeReferences.filter(
+          (ref) => ref.context === ReferenceContext.METHOD_CALL,
+        );
+        if (methodCallRefsEarly.length > 0) {
+          // Check if any METHOD_CALL reference matches the position exactly
+          for (const methodRef of methodCallRefsEarly) {
+            const methodLoc = methodRef.location.identifierRange;
+            const isExactMatch =
+              position.line >= methodLoc.startLine &&
+              position.line <= methodLoc.endLine &&
+              position.character >= methodLoc.startColumn &&
+              position.character <= methodLoc.endColumn;
+            if (isExactMatch) {
+              // METHOD_CALL matches position - prioritize it (unless we have a type reference)
+              if (
+                referenceToResolve.context !==
+                  ReferenceContext.GENERIC_PARAMETER_TYPE &&
+                referenceToResolve.context !== ReferenceContext.CLASS_REFERENCE
+              ) {
+                referenceToResolve = methodRef;
+                // Break early - METHOD_CALL takes precedence
+                break;
+              }
+            }
+          }
+        }
+
+        // Step 2c: For chained references, find the most specific reference for this position
         // If position is on a specific chain member, prefer references that match that member
-        // BUT: Don't override GENERIC_PARAMETER_TYPE or CLASS_REFERENCE if we've already selected one
-        const isTypeReferenceSelected =
+        // BUT: Don't override METHOD_CALL, GENERIC_PARAMETER_TYPE or CLASS_REFERENCE if we've already selected one
+        const isTypeOrMethodReferenceSelected =
+          referenceToResolve.context === ReferenceContext.METHOD_CALL ||
           referenceToResolve.context ===
             ReferenceContext.GENERIC_PARAMETER_TYPE ||
           referenceToResolve.context === ReferenceContext.CLASS_REFERENCE;
@@ -6047,8 +6142,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
 
         // Always prefer chained references over non-chained references when available
-        // BUT: Don't override type references (GENERIC_PARAMETER_TYPE, CLASS_REFERENCE) if already selected
-        if (chainedRefs.length > 0 && !isTypeReferenceSelected) {
+        // BUT: Don't override METHOD_CALL, GENERIC_PARAMETER_TYPE, or CLASS_REFERENCE if already selected
+        if (chainedRefs.length > 0 && !isTypeOrMethodReferenceSelected) {
           // Check each chained reference to find the one that matches the position
           for (const ref of chainedRefs) {
             const chainNodes = (ref as ChainedSymbolReference).chainNodes;
@@ -6107,7 +6202,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             );
             if (chainMember) {
               // Found a chained reference with a specific member at this position
-              // Always prefer chained references over standalone references when position matches
+              // BUT: If the chain member is a METHOD_CALL and we have a synthetic METHOD_CALL reference,
+              // prefer the synthetic reference as it's more specific
+              if (chainMember.member.context === ReferenceContext.METHOD_CALL) {
+                const syntheticMethodRef = typeReferences.find(
+                  (r) =>
+                    r.context === ReferenceContext.METHOD_CALL &&
+                    r.name === chainMember.member.name &&
+                    (r as any)._originalChainedRef === ref,
+                );
+                if (syntheticMethodRef) {
+                  // Prefer synthetic METHOD_CALL reference over chained reference
+                  referenceToResolve = syntheticMethodRef;
+                  break;
+                }
+              }
+              // Otherwise, prefer chained reference over standalone references when position matches
               // This ensures 'this.method().anotherMethod()' chains are resolved correctly
               referenceToResolve = ref;
               break;
@@ -6175,6 +6285,41 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             } else {
               referenceToResolve = chainedRefs[0];
             }
+          }
+        }
+
+        // Step 3: Prioritize METHOD_CALL references (including synthetic ones from chains)
+        // This ensures method calls are resolved over variables or other references
+        // Do this BEFORE chained reference selection to ensure METHOD_CALL takes precedence
+        const methodCallRefs = typeReferences.filter(
+          (ref) => ref.context === ReferenceContext.METHOD_CALL,
+        );
+        if (methodCallRefs.length > 0) {
+          // Find the METHOD_CALL reference that best matches the position
+          // Prefer synthetic references (from chain nodes) as they're more specific
+          let bestMethodCallRef = methodCallRefs[0];
+          for (const methodRef of methodCallRefs) {
+            const methodLoc = methodRef.location.identifierRange;
+            const isWithinMethodRange =
+              position.line >= methodLoc.startLine &&
+              position.line <= methodLoc.endLine &&
+              position.character >= methodLoc.startColumn &&
+              position.character <= methodLoc.endColumn;
+            if (isWithinMethodRange) {
+              bestMethodCallRef = methodRef;
+              break;
+            }
+          }
+          // Prioritize METHOD_CALL over everything except type references
+          // This ensures method calls resolve correctly even when chained references exist
+          if (
+            referenceToResolve.context !==
+              ReferenceContext.GENERIC_PARAMETER_TYPE &&
+            referenceToResolve.context !== ReferenceContext.CLASS_REFERENCE
+          ) {
+            // If we have a METHOD_CALL that matches the position, use it
+            // This handles synthetic references from chains correctly
+            referenceToResolve = bestMethodCallRef;
           }
         }
 
@@ -7305,17 +7450,34 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     fileUri?: string,
   ): Promise<ApexSymbol | null> {
     // Fast path: if already resolved by listener second-pass, use the ID directly
+    // BUT: Skip fast path when position is on a chain member (not first node)
+    // This ensures we resolve the correct chain member (e.g., "size" in "numbers.size()")
     if (typeReference.resolvedSymbolId) {
-      const resolvedSymbol = this.getSymbol(typeReference.resolvedSymbolId);
-      if (resolvedSymbol) {
-        this.logger.debug(
-          () =>
-            `Using pre-resolved symbol ID "${typeReference.resolvedSymbolId}" ` +
-            `for chained reference "${typeReference.name}"`,
+      // Check if this is a chained reference and position is on a chain member
+      let shouldSkipFastPath = false;
+      if (position && isChainedSymbolReference(typeReference)) {
+        const chainMember = this.findChainMemberAtPosition(
+          typeReference,
+          position,
         );
-        return resolvedSymbol;
+        // Skip fast path if position is on a chain member (not the first node)
+        if (chainMember && chainMember.index > 0) {
+          shouldSkipFastPath = true;
+        }
       }
-      // If symbol not found, fall through to normal resolution
+
+      if (!shouldSkipFastPath) {
+        const resolvedSymbol = this.getSymbol(typeReference.resolvedSymbolId);
+        if (resolvedSymbol) {
+          this.logger.debug(
+            () =>
+              `Using pre-resolved symbol ID "${typeReference.resolvedSymbolId}" ` +
+              `for chained reference "${typeReference.name}"`,
+          );
+          return resolvedSymbol;
+        }
+        // If symbol not found, fall through to normal resolution
+      }
     }
 
     if (isChainedSymbolReference(typeReference)) {
@@ -7392,6 +7554,26 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             typeReference,
             position,
           );
+
+          // If position matches a specific chain member (not the first node), resolve that member
+          if (chainMember && chainMember.index > 0) {
+            // Position is on a method/field call in the chain (e.g., "size" in "numbers.size()")
+            // Resolve the specific chain member, not the whole chain
+            if (chainMember.member.resolvedSymbolId) {
+              const resolvedSymbol = this.getSymbol(
+                chainMember.member.resolvedSymbolId,
+              );
+              if (resolvedSymbol) {
+                this.logger.debug(
+                  () =>
+                    `Resolved chain member "${chainMember.member.name}" at index ${chainMember.index}`,
+                );
+                return resolvedSymbol;
+              }
+            }
+            // If chain member not pre-resolved, it will be handled by the code below
+            // that resolves the entire chain and then finds the chain member at the position
+          }
 
           if (chainMember && chainMember.index === 0) {
             // We already tried resolving the first node above, but if it failed,

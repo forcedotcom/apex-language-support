@@ -1,34 +1,36 @@
-global class TestClass extends BaseClass implements MyInterface {
+/**
+ * Standalone valid class for DiagnosticProcessingService tests.
+ * No extends/implements to avoid missing-type errors; no variable shadowing.
+ */
+global class TestClass {
   public static String getStaticValue() {
     return 'test';
   }
-  
+
   public Integer getValue() {
     return 42;
   }
-  
+
   public static void testStatic() {
-    getStaticValue(); // This should resolve to static method
+    getStaticValue();
   }
-  
+
   public void testInstance() {
-    getValue(); // This should resolve to instance method
+    getValue();
   }
-  
+
   public void testTypeContext() {
-    String result = getValue(); // Should resolve to String-returning method
+    Integer val = getValue();
   }
-  
+
   public static void testIntegration() {
-    String result = getValue(); // Should resolve to static String method
+    String val = getStaticValue();
   }
-  
+
   public void testKeywordDetection() {
     if (true) {
-      // Test if keyword detection
     }
     for (Integer i = 0; i < 10; i++) {
-      // Test for keyword detection
     }
   }
 }
