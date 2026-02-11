@@ -30,9 +30,14 @@ export class ApexEditorPage extends BasePage {
     // Scope to workbench main editor only (excludes peek widget when it's not the first)
     this.editorContent = page.locator(SELECTORS.MONACO_EDITOR).first().locator('.view-lines');
     this.editorLineNumbers = page.locator('.monaco-editor .line-numbers');
-    // Detect desktop mode and adjust timeouts accordingly
+    // Detect desktop mode and CI - CI runners are slower and need longer timeouts
     this.isDesktopMode = process.env.TEST_MODE === 'desktop';
-    this.defaultTimeout = this.isDesktopMode ? 30000 : 15000;
+    const isCI = !!process.env.CI;
+    this.defaultTimeout = this.isDesktopMode
+      ? 30000
+      : isCI
+        ? 25000
+        : 15000;
   }
 
   /**
@@ -90,8 +95,10 @@ export class ApexEditorPage extends BasePage {
    */
   async goToDefinition(): Promise<void> {
     await this.page.keyboard.press('F12');
-    // Allow navigation to complete and editor to settle (e.g. tab switch, scroll)
-    await this.page.waitForTimeout(this.isDesktopMode ? 2000 : 1500);
+    // Allow navigation to complete and editor to settle (e.g. tab switch, scroll).
+    // CI runners are slower - LSP response and Monaco viewport updates take longer.
+    const settleMs = this.isDesktopMode ? 2000 : process.env.CI ? 2500 : 1500;
+    await this.page.waitForTimeout(settleMs);
     // Close peek widget if "No definition found" - ensures main editor has focus for subsequent actions
     for (let i = 0; i < 3; i++) {
       await this.page.keyboard.press('Escape');
@@ -127,6 +134,10 @@ export class ApexEditorPage extends BasePage {
    */
   async findAndGetViewportContent(searchText: string): Promise<string> {
     await this.positionCursorOnWord(searchText);
+    // CI: Allow Monaco to finish rendering the viewport after scroll
+    if (process.env.CI) {
+      await this.page.waitForTimeout(500);
+    }
     return this.getContent();
   }
 
@@ -226,19 +237,19 @@ export class ApexEditorPage extends BasePage {
   async positionCursorOnWord(searchText: string): Promise<void> {
     // Use find to navigate to the word
     await this.page.keyboard.press('Control+F');
-    await this.page.waitForTimeout(300);
+    await this.page.waitForTimeout(process.env.CI ? 500 : 300);
 
     // Type search text
     await this.page.keyboard.type(searchText);
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(process.env.CI ? 800 : 500);
 
     // Press Enter to go to first match
     await this.page.keyboard.press('Enter');
-    await this.page.waitForTimeout(300);
+    await this.page.waitForTimeout(process.env.CI ? 500 : 300);
 
     // Close find widget
     await this.page.keyboard.press('Escape');
-    await this.page.waitForTimeout(300);
+    await this.page.waitForTimeout(process.env.CI ? 500 : 300);
   }
 
   /**

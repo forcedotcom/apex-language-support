@@ -72,5 +72,19 @@ export async function setupTestWorkspace(
     fs.writeFileSync(filePath, sampleFile.content);
   });
 
+  // Copy test-data Apex samples (inheritance.cls, interface-impl.cls, complex-class.cls)
+  // for goto-definition and other tests that need multi-file scenarios
+  const testDataSamplesDir = path.resolve(__dirname, '../test-data/apex-samples');
+  if (fs.existsSync(testDataSamplesDir)) {
+    const apexSampleFiles = fs.readdirSync(testDataSamplesDir);
+    for (const file of apexSampleFiles) {
+      if (file.endsWith('.cls')) {
+        const src = path.join(testDataSamplesDir, file);
+        const dest = path.join(workspacePath, file);
+        fs.copyFileSync(src, dest);
+      }
+    }
+  }
+
   return workspacePath;
 }

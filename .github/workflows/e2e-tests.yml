@@ -107,7 +107,7 @@ jobs:
           name: playwright-report-web-${{ matrix.test_file }}-${{ github.run_number }}
           path: e2e-tests/playwright-report/
           retention-days: 30
-          if-no-files-found: warn
+          if-no-files-found: ignore
 
       - name: Upload screenshots and videos
         if: failure()

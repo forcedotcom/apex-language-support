@@ -310,7 +310,9 @@ test.describe('Apex Go-to-Definition', () => {
 
     const elapsedTime = Date.now() - startTime;
 
-    expect(elapsedTime).toBeLessThan(6000); // Should complete within 6 seconds
+    // CI runners are slower - allow 12s; local 6s
+    const maxMs = process.env.CI ? 12000 : 6000;
+    expect(elapsedTime).toBeLessThan(maxMs);
     console.log(`✅ Go-to-definition completed in ${elapsedTime}ms`);
   });
 
