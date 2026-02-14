@@ -176,7 +176,7 @@ jobs:
           npx tsx .github/scripts/index.ts npm-package-details
 
       - name: Notify Slack
-        uses: slackapi/slack-github-action@v1.22.0
+        uses: slackapi/slack-github-action@v2.1.1
         with:
           payload: |
             {
@@ -250,7 +250,7 @@ jobs:
           npx tsx .github/scripts/index.ts npm-package-details
 
       - name: Notify Slack
-        uses: slackapi/slack-github-action@v1.22.0
+        uses: slackapi/slack-github-action@v2.1.1
         with:
           payload: |
             {
