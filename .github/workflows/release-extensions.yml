@@ -85,7 +85,7 @@ jobs:
       is-promotion: ${{ steps.check.outputs.is-promotion }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -112,7 +112,7 @@ jobs:
       promotion-nightly-tag: ${{ steps.find.outputs.nightly-tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -142,7 +142,7 @@ jobs:
       promotion-commit-sha: ${{ steps.changes.outputs.promotion-commit-sha }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -172,7 +172,7 @@ jobs:
     if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.branch || github.ref }}
 
@@ -202,7 +202,7 @@ jobs:
     if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           token: ${{ secrets.IDEE_GH_TOKEN }}
 
@@ -312,7 +312,7 @@ jobs:
       artifact-name: ${{ steps.calc.outputs.artifact-name }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Calculate artifact name
         id: calc
@@ -337,7 +337,7 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -404,7 +404,7 @@ jobs:
           echo "  Dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           token: ${{ secrets.IDEE_GH_TOKEN }}
           ref: ${{ inputs.branch || github.ref }}
@@ -527,7 +527,7 @@ jobs:
     if: always() && needs.publish.result == 'success' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.branch || github.ref }}
 
@@ -634,7 +634,7 @@ jobs:
     if: always() && needs.publish.result == 'failure' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.branch || github.ref }}
 
