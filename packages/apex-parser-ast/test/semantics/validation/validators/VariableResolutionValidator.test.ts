@@ -301,4 +301,34 @@ describe('VariableResolutionValidator', () => {
       expect(latOnListErrors).toHaveLength(0);
     });
   });
+
+  describe('Protected visibility for inner classes', () => {
+    it('should allow inner class to access protected field of outer class', async () => {
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'OuterWithProtectedFieldInnerAccess.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+  });
 });

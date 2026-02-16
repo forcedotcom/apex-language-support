@@ -107,6 +107,15 @@ export class ClassModifierValidator {
       // For inner classes, all visibilities are allowed
       // But check for visibility relative to outer class
       if (currentTypeSymbol) {
+        // Exception: @isTest test classes may have public inner classes (e.g. HttpCalloutMock mocks)
+        // per Apex Developer Guide - Access Modifiers
+        const containingIsTest = this.hasIsTestAnnotation(
+          currentTypeSymbol.annotations ?? [],
+        );
+        if (containingIsTest) {
+          return; // Allow inner class visibility as declared
+        }
+
         // Check if inner class visibility is wider than outer class
         if (
           (currentTypeSymbol.modifiers.visibility ===

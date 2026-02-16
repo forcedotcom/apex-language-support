@@ -529,5 +529,26 @@ public class TestClass {
         "Inner class 'InnerClass' cannot have wider visibility than its containing class",
       );
     });
+
+    it('should allow public inner class in @isTest private class (e.g. HttpCalloutMock)', () => {
+      const fileContent = `
+        @isTest
+        private class GeocodingServiceTest {
+          public class OpenStreetMapHttpCalloutMockImpl implements HttpCalloutMock {
+            public HTTPResponse respond(HTTPRequest req) {
+              return new HttpResponse();
+            }
+          }
+        }
+      `;
+
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'GeocodingServiceTest.cls',
+        listener,
+      );
+
+      expect(result.errors.length).toBe(0);
+    });
   });
 });

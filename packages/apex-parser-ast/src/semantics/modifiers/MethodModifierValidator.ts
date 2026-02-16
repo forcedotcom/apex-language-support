@@ -126,6 +126,16 @@ export class MethodModifierValidator {
       return; // Skip visibility validation for test methods
     }
 
+    // Exception: Interface implementation methods must match interface contract (public/global).
+    // A private inner class implementing HttpCalloutMock needs public respond() - allow it.
+    if (
+      currentTypeSymbol.interfaces?.length &&
+      (modifiers.visibility === SymbolVisibility.Public ||
+        modifiers.visibility === SymbolVisibility.Global)
+    ) {
+      return; // Interface contract takes precedence
+    }
+
     // Methods cannot have wider visibility than their containing class
     if (
       // Private class can only have private methods

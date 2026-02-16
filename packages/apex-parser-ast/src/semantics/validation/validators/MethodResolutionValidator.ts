@@ -1040,32 +1040,83 @@ function isMethodVisible(
     return true;
   }
 
-  // Private methods are only visible within the same class
-  if (visibility === SymbolVisibility.Private) {
+  // Private/Default methods are only visible within the same class.
+  // Per Apex doc: if no modifier specified, it is private.
+  if (
+    visibility === SymbolVisibility.Private ||
+    visibility === SymbolVisibility.Default
+  ) {
     return declaringClass.id === callingClass.id;
   }
 
-  // Protected/Default methods are visible to subclasses
-  if (
-    visibility === SymbolVisibility.Protected ||
-    visibility === SymbolVisibility.Default
-  ) {
+  // Protected methods are visible to subclasses and inner classes (per Apex doc)
+  if (visibility === SymbolVisibility.Protected) {
     // Check if calling class is the same or a subclass of declaring class
     if (declaringClass.id === callingClass.id) {
       return true;
     }
 
     // Check if calling class extends declaring class
-    return isSubclassOf(
+    if (isSubclassOf(callingClass, declaringClass, symbolManager, allSymbols)) {
+      return true;
+    }
+
+    // Check if calling class is an inner class whose enclosing class is the declaring class
+    const enclosingClass = getEnclosingClass(
       callingClass,
-      declaringClass,
-      symbolManager,
       allSymbols,
+      symbolManager,
     );
+    if (enclosingClass && enclosingClass.id === declaringClass.id) {
+      return true;
+    }
+
+    return false;
   }
 
   // Unknown visibility - assume visible (conservative)
   return true;
+}
+
+/**
+ * Get the enclosing (outer) class for an inner class, or null if top-level.
+ */
+function getEnclosingClass(
+  typeSymbol: TypeSymbol,
+  allSymbols: ApexSymbol[],
+  symbolManager: ISymbolManagerInterface,
+): TypeSymbol | null {
+  if (!typeSymbol.parentId) return null;
+
+  const resolve = (id: string): ApexSymbol | null =>
+    allSymbols.find((s) => s.id === id) ?? symbolManager.getSymbol(id) ?? null;
+
+  const parent = resolve(typeSymbol.parentId);
+  if (!parent) return null;
+
+  if (
+    parent.kind === SymbolKind.Class ||
+    parent.kind === SymbolKind.Interface
+  ) {
+    return parent as TypeSymbol;
+  }
+
+  if (
+    isBlockSymbol(parent) &&
+    (parent as ScopeSymbol).scopeType === 'class' &&
+    parent.parentId
+  ) {
+    const grandParent = resolve(parent.parentId);
+    if (
+      grandParent &&
+      (grandParent.kind === SymbolKind.Class ||
+        grandParent.kind === SymbolKind.Interface)
+    ) {
+      return grandParent as TypeSymbol;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -1076,7 +1127,9 @@ function findDeclaringClass(
   allSymbols: ApexSymbol[],
   symbolManager: ISymbolManagerInterface,
 ): TypeSymbol | null {
-  // Try to find the class in the same file first
+  const resolveParent = (id: string): ApexSymbol | null =>
+    allSymbols.find((s) => s.id === id) ?? symbolManager.getSymbol(id) ?? null;
+
   let current: ApexSymbol | null = method;
   while (current) {
     if (
@@ -1086,7 +1139,7 @@ function findDeclaringClass(
       return current as TypeSymbol;
     }
     if (current.parentId) {
-      const parent = allSymbols.find((s) => s.id === current!.parentId);
+      const parent = resolveParent(current.parentId);
       if (
         parent &&
         (parent.kind === SymbolKind.Class ||
@@ -1096,7 +1149,7 @@ function findDeclaringClass(
       }
       // If parent is a block, check its parent
       if (parent && parent.kind === SymbolKind.Block && parent.parentId) {
-        const grandParent = allSymbols.find((s) => s.id === parent!.parentId);
+        const grandParent = resolveParent(parent.parentId);
         if (
           grandParent &&
           (grandParent.kind === SymbolKind.Class ||
@@ -1111,8 +1164,6 @@ function findDeclaringClass(
     }
   }
 
-  // If not found in same file, might be from superclass
-  // For now, return null - we'd need to track declaring class in method symbol
   return null;
 }
 

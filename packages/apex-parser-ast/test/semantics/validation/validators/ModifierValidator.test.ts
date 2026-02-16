@@ -152,6 +152,86 @@ describe('ModifierValidator', () => {
     expect(hasRequireAtLeastError).toBe(true);
   });
 
+  it('should detect MODIFIER_REQUIRE_AT_LEAST for abstract/override with private/default (API 65+)', async () => {
+    const symbolTable = await compileFixtureForValidator(
+      'AbstractOverridePrivateApi65.cls',
+    );
+
+    const result = await runValidator(
+      ModifierValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+          enableVersionSpecificValidation: true,
+          apiVersion: 65,
+        }),
+      ),
+      symbolManager,
+    );
+
+    expect(result.isValid).toBe(false);
+    const requireAtLeastErrors = result.errors.filter(
+      (e: any) =>
+        e.code === ErrorCodes.MODIFIER_REQUIRE_AT_LEAST &&
+        e.message?.toLowerCase().includes('abstract'),
+    );
+    expect(requireAtLeastErrors.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should detect MODIFIER_REQUIRE_AT_LEAST for override with default (API 65+)', async () => {
+    const { symbolTable, options } = await compileFixtureWithOptions(
+      VALIDATOR_CATEGORY,
+      'OverridePrivateApi65.cls',
+      undefined,
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.IMMEDIATE,
+        allowArtifactLoading: false,
+        enableVersionSpecificValidation: true,
+        apiVersion: 65,
+      },
+    );
+
+    const result = await runValidator(
+      ModifierValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.isValid).toBe(false);
+    const requireAtLeastErrors = result.errors.filter(
+      (e: any) => e.code === ErrorCodes.MODIFIER_REQUIRE_AT_LEAST,
+    );
+    expect(requireAtLeastErrors.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should detect MODIFIER_IS_NOT_ALLOWED for protected static (field and method)', async () => {
+    const symbolTable = await compileFixtureForValidator(
+      'ProtectedStaticInvalid.cls',
+    );
+
+    const result = await runValidator(
+      ModifierValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        }),
+      ),
+      symbolManager,
+    );
+
+    expect(result.isValid).toBe(false);
+    const protectedStaticErrors = result.errors.filter(
+      (e: any) =>
+        e.code === ErrorCodes.MODIFIER_IS_NOT_ALLOWED &&
+        e.message?.includes('protected') &&
+        e.message?.includes('static'),
+    );
+    expect(protectedStaticErrors.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('should detect invalid modifiers on fields', async () => {
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,

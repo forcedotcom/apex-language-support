@@ -879,4 +879,108 @@ private class TestInCanvasNamespace {
       expect(geocodeErrors).toHaveLength(0);
     });
   });
+
+  describe('Default visibility = private (per Apex doc)', () => {
+    it('should report INVALID_METHOD_NOT_FOUND when subclass accesses parent default method', async () => {
+      await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'ParentWithDefaultMethod.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'SubclassAccessingDefaultMethod.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(result.isValid).toBe(false);
+      const visibilityError = result.errors.filter(
+        (e: any) =>
+          (e.code === ErrorCodes.METHOD_NOT_VISIBLE ||
+            e.code === ErrorCodes.INVALID_METHOD_NOT_FOUND) &&
+          e.message?.includes('getDefaultValue'),
+      );
+      expect(visibilityError.length).toBeGreaterThan(0);
+    });
+
+    it('should allow same-class access to default visibility method', async () => {
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'ParentWithDefaultMethod.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('should allow inner class to access protected method of outer class', async () => {
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'OuterWithProtectedInnerAccess.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+  });
 });

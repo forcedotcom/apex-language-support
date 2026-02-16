@@ -24,7 +24,10 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
-import { localizeTyped } from '../../../i18n/messageInstance';
+import {
+  localizeTyped,
+  localize,
+} from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import type {
   UnitType,
@@ -178,7 +181,7 @@ function hasRequiredDefiningModifiers(
 }
 
 /**
- * Get the symbol kind name for error messages
+ * Get the symbol kind name for error messages (singular)
  */
 function getSymbolKindName(kind: SymbolKind): string {
   switch (kind) {
@@ -200,6 +203,23 @@ function getSymbolKindName(kind: SymbolKind): string {
       return 'parameter';
     default:
       return 'symbol';
+  }
+}
+
+/**
+ * Get plural form for type kinds (matches Jorje Element enum -> class.plural etc.)
+ * Used for ENCLOSING_TYPE_FOR nested in modifier.requires
+ */
+function getSymbolKindNamePlural(kind: SymbolKind): string {
+  switch (kind) {
+    case SymbolKind.Class:
+      return localize('class.plural');
+    case SymbolKind.Interface:
+      return localize('interface.plural');
+    case SymbolKind.Enum:
+      return localize('enum.plural');
+    default:
+      return getSymbolKindName(kind);
   }
 }
 
@@ -331,11 +351,19 @@ export const ModifierValidator: Validator = {
                       enclosingType?.modifiers?.visibility ===
                       SymbolVisibility.Global;
                     if (!enclosingHasGlobal) {
+                      // Jorje nests enclosing.type.for inside modifier.requires for full message
+                      const pluralKind = getSymbolKindNamePlural(symbol.kind);
+                      const enclosingMsg = localizeTyped(
+                        ErrorCodes.ENCLOSING_TYPE_FOR,
+                        'global',
+                        pluralKind,
+                      );
                       errors.push({
                         message: localizeTyped(
-                          ErrorCodes.ENCLOSING_TYPE_FOR,
+                          ErrorCodes.MODIFIER_REQUIRES,
+                          enclosingMsg,
+                          pluralKind,
                           'global',
-                          getSymbolKindName(symbol.kind),
                         ),
                         location: symbol.location,
                         code: ErrorCodes.ENCLOSING_TYPE_FOR,
@@ -505,6 +533,32 @@ export const ModifierValidator: Validator = {
           }
         }
 
+        // Check 4e: API 65+ - abstract/override methods require protected, public, or global
+        if (
+          kind === SymbolKind.Method &&
+          (modifiers.isAbstract || modifiers.isOverride) &&
+          symbol.location &&
+          options.enableVersionSpecificValidation &&
+          (options.apiVersion ?? 0) >= 65
+        ) {
+          const hasAllowedVisibility =
+            modifiers.visibility === SymbolVisibility.Protected ||
+            modifiers.visibility === SymbolVisibility.Public ||
+            modifiers.visibility === SymbolVisibility.Global;
+          if (!hasAllowedVisibility) {
+            errors.push({
+              message: localizeTyped(
+                ErrorCodes.MODIFIER_REQUIRE_AT_LEAST,
+                'Abstract',
+                'methods',
+                'global, public, protected',
+              ),
+              location: symbol.location,
+              code: ErrorCodes.MODIFIER_REQUIRE_AT_LEAST,
+            });
+          }
+        }
+
         // Check 5: Required modifiers (webService requires global)
         if (modifiers.isWebService) {
           if (modifiers.visibility !== SymbolVisibility.Global) {
@@ -567,6 +621,22 @@ export const ModifierValidator: Validator = {
 
         // Check 6: Invalid modifier combinations for specific symbol types
         if (kind === SymbolKind.Field || kind === SymbolKind.Property) {
+          // Protected only for instance member variables per Apex doc
+          if (
+            modifiers.visibility === SymbolVisibility.Protected &&
+            modifiers.isStatic
+          ) {
+            errors.push({
+              message: localizeTyped(
+                ErrorCodes.MODIFIER_IS_NOT_ALLOWED,
+                'protected',
+                'static variables',
+              ),
+              location: symbol.location,
+              code: ErrorCodes.MODIFIER_IS_NOT_ALLOWED,
+            });
+          }
+
           // Check source content for invalid modifiers on fields
           // (parser sanitizes these, so we need to check source directly)
           if (options.sourceContent && kind === SymbolKind.Field) {
@@ -665,6 +735,22 @@ export const ModifierValidator: Validator = {
 
         // Check 7: Invalid modifiers on methods
         if (isMethodSymbol(symbol) && symbol.kind === SymbolKind.Method) {
+          // Protected only for instance methods per Apex doc
+          if (
+            modifiers.visibility === SymbolVisibility.Protected &&
+            modifiers.isStatic
+          ) {
+            errors.push({
+              message: localizeTyped(
+                ErrorCodes.MODIFIER_IS_NOT_ALLOWED,
+                'protected',
+                'static methods',
+              ),
+              location: symbol.location,
+              code: ErrorCodes.MODIFIER_IS_NOT_ALLOWED,
+            });
+          }
+
           // Final not allowed on methods (methods are final by default)
           if (modifiers.isFinal) {
             warnings.push({
