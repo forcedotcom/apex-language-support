@@ -52,6 +52,8 @@ export interface CompilationResult<T> {
   result: T | null;
   errors: ApexError[];
   warnings: string[];
+  /** Cached parse tree for reuse by validators and enrichment */
+  parseTree?: CompilationUnitContext | TriggerUnitContext | BlockContext;
 }
 
 export interface CompilationResultWithComments<T> extends CompilationResult<T> {
@@ -252,6 +254,7 @@ export class CompilerService {
         result: listener.getResult(),
         errors: errorListener.getErrors(),
         warnings: listener.getWarnings(),
+        parseTree,
       };
 
       let comments: ApexComment[] = [];

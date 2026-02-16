@@ -478,9 +478,12 @@ export const VariableResolutionValidator: Validator = {
                 symbolTable,
               );
               if (resolvedType) {
+                const typeForElement =
+                  chainBaseVar?.type?.originalTypeString ||
+                  chainBaseVar?.type?.name;
                 targetType = yield* resolveTargetTypeWithArrayAccess(
                   resolvedType,
-                  chainBaseVar?.type?.name,
+                  typeForElement,
                   fieldRef,
                   options.sourceContent,
                   symbolManager,
@@ -553,7 +556,23 @@ export const VariableResolutionValidator: Validator = {
 
             if (objectVariable?.type?.name) {
               const varTypeName = objectVariable.type.name;
-              const typeSymbols = symbolManager.findSymbolByName(varTypeName);
+              const fullTypeStr =
+                objectVariable.type.originalTypeString || varTypeName;
+              let typeSymbols = symbolManager.findSymbolByName(varTypeName);
+              if (
+                typeSymbols.length === 0 &&
+                varTypeName.includes('.') &&
+                symbolManager.findSymbolByFQN
+              ) {
+                const fqn = symbolManager.findSymbolByFQN(varTypeName);
+                if (fqn) typeSymbols = [fqn];
+              }
+              if (typeSymbols.length === 0 && varTypeName.includes('.')) {
+                const lastPart = varTypeName.split('.').pop();
+                if (lastPart) {
+                  typeSymbols = symbolManager.findSymbolByName(lastPart);
+                }
+              }
               let resolvedTargetType =
                 (typeSymbols.find(
                   (s: ApexSymbol) =>
@@ -562,7 +581,7 @@ export const VariableResolutionValidator: Validator = {
                 ) as TypeSymbol | undefined) ?? null;
               resolvedTargetType = yield* resolveTargetTypeWithArrayAccess(
                 resolvedTargetType,
-                varTypeName,
+                fullTypeStr,
                 fieldRef,
                 options.sourceContent,
                 symbolManager,
@@ -685,7 +704,7 @@ export const VariableResolutionValidator: Validator = {
         );
 
         if (!field) {
-          // Field not found
+          // Field not found (write access path)
           const typeName =
             targetType?.name || containingClass?.name || 'unknown';
           errors.push({
@@ -753,7 +772,20 @@ function resolveChainTargetType(
       symbolTable,
     );
     if (firstVar?.type?.name) {
-      const typeSymbols = symbolManager.findSymbolByName(firstVar.type.name);
+      const typeName = firstVar.type.name;
+      let typeSymbols = symbolManager.findSymbolByName(typeName);
+      if (
+        typeSymbols.length === 0 &&
+        typeName.includes('.') &&
+        symbolManager.findSymbolByFQN
+      ) {
+        const fqn = symbolManager.findSymbolByFQN(typeName);
+        if (fqn) typeSymbols = [fqn];
+      }
+      if (typeSymbols.length === 0 && typeName.includes('.')) {
+        const lastPart = typeName.split('.').pop();
+        if (lastPart) typeSymbols = symbolManager.findSymbolByName(lastPart);
+      }
       currentType =
         (typeSymbols.find(
           (s: ApexSymbol) =>

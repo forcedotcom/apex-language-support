@@ -1706,7 +1706,8 @@ function extractMethodCallArgumentTypes(
 
 /**
  * Split method call arguments into individual argument strings
- * Handles nested parentheses and commas (same as constructor arguments)
+ * Handles nested parentheses and commas (same as constructor arguments).
+ * Does not split on commas inside string literals (e.g. setBody('a,b') is 1 arg).
  */
 function splitMethodCallArguments(args: string): string[] {
   if (!args || args.trim() === '') {
@@ -1716,17 +1717,36 @@ function splitMethodCallArguments(args: string): string[] {
   const argList: string[] = [];
   let depth = 0;
   let currentArg = '';
+  let inString: "'" | '"' | null = null;
 
   for (let i = 0; i < args.length; i++) {
     const char = args[i];
-    if (char === '(') {
+
+    if (inString) {
+      if (char === '\\') {
+        currentArg += char;
+        if (i + 1 < args.length) {
+          currentArg += args[++i];
+        }
+      } else if (char === inString) {
+        inString = null;
+        currentArg += char;
+      } else {
+        currentArg += char;
+      }
+      continue;
+    }
+
+    if (char === "'" || char === '"') {
+      inString = char;
+      currentArg += char;
+    } else if (char === '(') {
       depth++;
       currentArg += char;
     } else if (char === ')') {
       depth--;
       currentArg += char;
     } else if (char === ',' && depth === 0) {
-      // Top-level comma - argument separator
       if (currentArg.trim()) {
         argList.push(currentArg.trim());
       }
@@ -1736,7 +1756,6 @@ function splitMethodCallArguments(args: string): string[] {
     }
   }
 
-  // Add the last argument
   if (currentArg.trim()) {
     argList.push(currentArg.trim());
   }

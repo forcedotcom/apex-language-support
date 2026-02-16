@@ -254,6 +254,7 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
           documentVersion: document.version,
           documentLength: document.getText().length,
           symbolsIndexed: false, // Will be set to true when indexing completes
+          parseTree: result.parseTree,
         });
       } catch (error) {
         this.logger.error(

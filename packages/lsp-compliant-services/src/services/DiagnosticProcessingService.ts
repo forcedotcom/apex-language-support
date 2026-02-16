@@ -539,6 +539,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         diagnostics,
         documentVersion: document.version,
         documentLength: document.getText().length,
+        parseTree: result.parseTree,
       });
 
       // Run prerequisites for diagnostics request
@@ -651,6 +652,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
               ? this.createLoadArtifactCallback(params.textDocument.uri)
               : undefined,
             parseTree: cachedParseTree || undefined, // Provide cached parse tree if available
+            sourceContent: document.getText(), // For VariableResolutionValidator, MethodResolutionValidator
             enableVersionSpecificValidation, // Add version validation flag
             apiVersion, // Add API version (only set if enabled)
           };
@@ -662,7 +664,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             {
               ...validationOptions,
               tier: ValidationTier.IMMEDIATE,
-              sourceContent: document.getText(), // Provide source content for SourceSizeValidator
             },
           );
 

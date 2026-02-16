@@ -39,6 +39,7 @@ import {
   AssignExpressionContext,
   ArrayExpressionContext,
   CastExpressionContext,
+  SubExpressionContext,
   // Use dedicated method call contexts for precise capture
   MethodCallContext,
   DotMethodCallContext,
@@ -3835,6 +3836,15 @@ export class ApexSymbolCollectorListener
       const castExpression = expression;
       const expr = castExpression.expression();
       return this.extractIdentifiersFromExpression(expr);
+    }
+
+    // Handle SubExpressionContext (expr) - recurse into parenthesized expression
+    if (isContextType(expression, SubExpressionContext)) {
+      const subExpr = expression as SubExpressionContext;
+      const innerExpression = subExpr.expression();
+      return innerExpression
+        ? this.extractIdentifiersFromExpression(innerExpression)
+        : [];
     }
 
     // Handle PrimaryExpressionContext - check its child

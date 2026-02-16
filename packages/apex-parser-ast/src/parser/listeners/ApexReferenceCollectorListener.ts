@@ -18,6 +18,7 @@ import {
   AssignExpressionContext,
   ArrayExpressionContext,
   CastExpressionContext,
+  SubExpressionContext,
   MethodCallContext,
   DotMethodCallContext,
   AnyIdContext,
@@ -2512,6 +2513,33 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       }
 
       return baseIds;
+    }
+
+    // Handle ArrayExpressionContext (arr[i] - recurse into base expression)
+    if (isContextType(expr, ArrayExpressionContext)) {
+      const arrayExpr = expr as ArrayExpressionContext;
+      const baseExpression = arrayExpr.expression(0);
+      return baseExpression
+        ? this.extractIdentifiersFromExpression(baseExpression)
+        : [];
+    }
+
+    // Handle CastExpressionContext ((Type) expr - recurse into inner expression)
+    if (isContextType(expr, CastExpressionContext)) {
+      const castExpr = expr as CastExpressionContext;
+      const innerExpression = castExpr.expression();
+      return innerExpression
+        ? this.extractIdentifiersFromExpression(innerExpression)
+        : [];
+    }
+
+    // Handle SubExpressionContext (expr) - recurse into parenthesized expression
+    if (isContextType(expr, SubExpressionContext)) {
+      const subExpr = expr as SubExpressionContext;
+      const innerExpression = subExpr.expression();
+      return innerExpression
+        ? this.extractIdentifiersFromExpression(innerExpression)
+        : [];
     }
 
     // Handle simple identifier node

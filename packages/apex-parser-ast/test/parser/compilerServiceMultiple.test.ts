@@ -59,6 +59,10 @@ describe('CompilerService Multiple Files Compilation', () => {
       expect(results[0].errors.length).toBe(0);
       expect(results[1].errors.length).toBe(0);
 
+      // Compile result includes parseTree for cache reuse
+      expect(results[0].parseTree).toBeDefined();
+      expect(results[1].parseTree).toBeDefined();
+
       // Check symbols from first file
       const firstResult = results[0];
       const firstSymbolTable = firstResult.result as SymbolTable;

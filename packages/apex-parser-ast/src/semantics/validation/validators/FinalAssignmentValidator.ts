@@ -117,6 +117,26 @@ export const FinalAssignmentValidator: Validator = {
               : null;
 
             if (referencedSymbol) {
+              // Skip when chain has 2+ nodes and resolved symbol is static: instance.field
+              // cannot reference a static field (e.g. address.street resolving to STREET).
+              // This guards against incorrect resolution from name collision.
+              if (
+                reference.chainNodes &&
+                reference.chainNodes.length >= 2 &&
+                referencedSymbol.modifiers?.isStatic
+              ) {
+                continue;
+              }
+              // Skip when final node name doesn't match symbol name (case-sensitive).
+              // Catches address.street -> STREET wrong resolution (street !== STREET).
+              if (
+                reference.chainNodes &&
+                reference.chainNodes.length >= 2 &&
+                finalNode.name !== referencedSymbol.name
+              ) {
+                continue;
+              }
+
               // Skip if this write reference is at the same location as a VARIABLE_DECLARATION
               const isDeclarationInitialization = declarationRefs.some(
                 (declRef) => {
@@ -148,6 +168,11 @@ export const FinalAssignmentValidator: Validator = {
           : null;
 
         if (referencedSymbol) {
+          // Skip when reference name doesn't match symbol name (case-sensitive).
+          // Catches wrong resolution: address.street -> STREET (street !== STREET).
+          if (reference.name !== referencedSymbol.name) {
+            continue;
+          }
           // Skip if this write reference is at the same location as a VARIABLE_DECLARATION
           // (this is the initialization in the declaration, not a reassignment)
           const isDeclarationInitialization = declarationRefs.some(
