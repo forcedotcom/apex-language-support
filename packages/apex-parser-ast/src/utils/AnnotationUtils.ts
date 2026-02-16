@@ -42,7 +42,13 @@ export class AnnotationUtils {
       );
     }
 
-    return false;
+    // Fallback for MethodSymbol, VariableSymbol, etc. (all have annotations on ApexSymbol)
+    return (
+      (symbol.annotations ?? []).some(
+        (annotation) =>
+          annotation.name.toLowerCase() === annotationName.toLowerCase(),
+      ) || false
+    );
   }
 
   /**

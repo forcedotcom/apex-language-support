@@ -983,4 +983,128 @@ private class TestInCanvasNamespace {
       expect(result.errors).toHaveLength(0);
     });
   });
+
+  describe('@TestVisible visibility', () => {
+    it('should allow @isTest class to call @TestVisible private method', async () => {
+      await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'ClassWithTestVisibleMethod.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'TestClassAccessingTestVisibleMethod.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('should report METHOD_NOT_VISIBLE when non-test class calls @TestVisible private method', async () => {
+      await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'ClassWithTestVisibleMethod.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'NonTestClassAccessingTestVisibleMethod.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      const visibilityErrors = result.errors.filter(
+        (e: { code?: string }) => e.code === ErrorCodes.METHOD_NOT_VISIBLE,
+      );
+      expect(visibilityErrors.length).toBeGreaterThan(0);
+    });
+
+    it('should allow inner class of @isTest class to call @TestVisible method', async () => {
+      await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'ClassWithTestVisibleMethod.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'TestClassWithInnerAccessingTestVisibleMethod.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+  });
 });

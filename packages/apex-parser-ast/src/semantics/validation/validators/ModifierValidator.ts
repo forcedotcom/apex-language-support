@@ -24,10 +24,7 @@ import type {
 import type { ValidationOptions } from '../ValidationTier';
 import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
-import {
-  localizeTyped,
-  localize,
-} from '../../../i18n/messageInstance';
+import { localizeTyped, localize } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import type {
   UnitType,

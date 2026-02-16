@@ -37,6 +37,8 @@ import {
   extractElementTypeFromCollection,
   extractReceiverExpressionBeforeDot,
 } from '../utils/typeUtils';
+import { getEnclosingClass, isInTestContext } from '../utils/visibilityUtils';
+import { AnnotationUtils } from '../../../utils/AnnotationUtils';
 
 /**
  * Validates variable and field references for:
@@ -1219,7 +1221,15 @@ function isVariableVisible(
       visibility === SymbolVisibility.Private ||
       visibility === SymbolVisibility.Default
     ) {
-      return declaringClass.id === callingClass.id;
+      if (declaringClass.id === callingClass.id) return true;
+      // @TestVisible allows test classes to access private/protected members
+      if (
+        AnnotationUtils.hasAnnotation(variable, 'TestVisible') &&
+        isInTestContext(callingClass, allSymbols, symbolManager)
+      ) {
+        return true;
+      }
+      return false;
     }
 
     // Protected fields are visible to subclasses and inner classes (per Apex doc)
@@ -1246,53 +1256,20 @@ function isVariableVisible(
         return true;
       }
 
+      // @TestVisible allows test classes to access private/protected members
+      if (
+        AnnotationUtils.hasAnnotation(variable, 'TestVisible') &&
+        isInTestContext(callingClass, allSymbols, symbolManager)
+      ) {
+        return true;
+      }
+
       return false;
     }
 
     // Unknown visibility - assume visible (conservative)
     return true;
   });
-}
-
-/**
- * Get the enclosing (outer) class for an inner class, or null if top-level.
- */
-function getEnclosingClass(
-  typeSymbol: TypeSymbol,
-  allSymbols: ApexSymbol[],
-  symbolManager: ISymbolManagerInterface,
-): TypeSymbol | null {
-  if (!typeSymbol.parentId) return null;
-
-  const resolve = (id: string): ApexSymbol | null =>
-    allSymbols.find((s) => s.id === id) ?? symbolManager.getSymbol(id) ?? null;
-
-  const parent = resolve(typeSymbol.parentId);
-  if (!parent) return null;
-
-  if (
-    parent.kind === SymbolKind.Class ||
-    parent.kind === SymbolKind.Interface
-  ) {
-    return parent as TypeSymbol;
-  }
-
-  if (
-    isBlockSymbol(parent) &&
-    (parent as ScopeSymbol).scopeType === 'class' &&
-    parent.parentId
-  ) {
-    const grandParent = resolve(parent.parentId);
-    if (
-      grandParent &&
-      (grandParent.kind === SymbolKind.Class ||
-        grandParent.kind === SymbolKind.Interface)
-    ) {
-      return grandParent as TypeSymbol;
-    }
-  }
-
-  return null;
 }
 
 /**

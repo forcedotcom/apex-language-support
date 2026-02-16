@@ -331,4 +331,128 @@ describe('VariableResolutionValidator', () => {
       expect(result.errors).toHaveLength(0);
     });
   });
+
+  describe('@TestVisible visibility', () => {
+    it('should allow @isTest class to access @TestVisible private field', async () => {
+      await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'ClassWithTestVisibleField.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'TestClassAccessingTestVisibleField.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('should report VARIABLE_NOT_VISIBLE when non-test class accesses @TestVisible private field', async () => {
+      await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'ClassWithTestVisibleField.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'NonTestClassAccessingTestVisibleField.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      const visibilityErrors = result.errors.filter(
+        (e: { code?: string }) => e.code === ErrorCodes.VARIABLE_NOT_VISIBLE,
+      );
+      expect(visibilityErrors.length).toBeGreaterThan(0);
+    });
+
+    it('should allow inner class of @isTest class to access @TestVisible field', async () => {
+      await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'ClassWithTestVisibleField.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'TestClassWithInnerAccessingTestVisible.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+  });
 });
