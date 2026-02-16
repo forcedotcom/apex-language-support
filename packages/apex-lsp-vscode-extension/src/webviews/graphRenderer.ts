@@ -22,7 +22,7 @@ export interface GraphNode {
   fy: number;
   size: number;
   color: string;
-  type: 'class' | 'method' | 'property' | 'namespace';
+  type: 'class' | 'method' | 'property' | 'namespace' | 'block';
   namespace?: string;
   filePath?: string;
   line?: number;
@@ -44,9 +44,35 @@ export interface GraphEdge {
   color: string;
 }
 
+/** Diagnostic from LSP (simplified for webview) */
+export interface GraphDiagnostic {
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
+  message: string;
+  severity?: number;
+  code?: string | number;
+}
+
+/** Diagnostic correlation with graph nodes/edges */
+export interface GraphDiagnosticCorrelation {
+  diagnostic: GraphDiagnostic;
+  relatedNodeIds: string[];
+  relatedEdgeIds: string[];
+  analysis?: {
+    isFalsePositive: boolean;
+    reason: string;
+    evidence: Array<{ type: string; description: string; nodeId?: string }>;
+    suggestions?: string[];
+  };
+}
+
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  diagnostics?: GraphDiagnostic[];
+  diagnosticCorrelations?: GraphDiagnosticCorrelation[];
 }
 
 export type LayoutType =
@@ -71,6 +97,11 @@ export class GraphRenderer {
   private labelsVisible = true;
   private vscode: any;
   private currentLayout: LayoutType = 'forceatlas2';
+  private diagnosticHighlightNodeIds = new Set<string>();
+  private diagnosticHighlightEdgeIds = new Set<string>();
+  private diagnostics: GraphDiagnostic[] = [];
+  private diagnosticCorrelations: GraphDiagnosticCorrelation[] = [];
+  private diagnosticsHighlightEnabled = false;
 
   constructor(canvas: HTMLCanvasElement, vscode: any) {
     this.canvas = canvas;
@@ -181,7 +212,14 @@ export class GraphRenderer {
         vy: 0, // velocity y
         fx: 0, // force x
         fy: 0, // force y
-        size: nodeType === 'class' ? 20 : nodeType === 'method' ? 12 : 8,
+        size:
+          nodeType === 'class'
+            ? 20
+            : nodeType === 'method'
+              ? 12
+              : nodeType === 'block'
+                ? 6
+                : 8,
         color: this.getNodeColor(nodeType),
         originalX: x,
         originalY: y,
@@ -230,6 +268,25 @@ export class GraphRenderer {
       'edges',
     );
 
+    // Store diagnostics and correlations
+    this.diagnostics = data.diagnostics ?? [];
+    this.diagnosticCorrelations = data.diagnosticCorrelations ?? [];
+    this.diagnosticHighlightNodeIds.clear();
+    this.diagnosticHighlightEdgeIds.clear();
+    if (
+      this.diagnosticsHighlightEnabled &&
+      this.diagnosticCorrelations.length > 0
+    ) {
+      this.diagnosticCorrelations.forEach((c) => {
+        c.relatedNodeIds.forEach((id) =>
+          this.diagnosticHighlightNodeIds.add(id),
+        );
+        c.relatedEdgeIds.forEach((id) =>
+          this.diagnosticHighlightEdgeIds.add(id),
+        );
+      });
+    }
+
     // Add event listeners
     this.setupEventListeners();
 
@@ -260,6 +317,8 @@ export class GraphRenderer {
         return '#FF9800';
       case 'namespace':
         return '#9C27B0';
+      case 'block':
+        return '#78909C'; // Muted blue-gray to distinguish from semantic classes
       default:
         return '#666';
     }
@@ -313,7 +372,7 @@ export class GraphRenderer {
 
   private mapSymbolKindToType(
     kind: string,
-  ): 'class' | 'method' | 'property' | 'namespace' {
+  ): 'class' | 'method' | 'property' | 'namespace' | 'block' {
     switch (kind) {
       case 'class':
       case 'interface':
@@ -330,6 +389,8 @@ export class GraphRenderer {
         return 'property';
       case 'namespace':
         return 'namespace';
+      case 'block':
+        return 'block';
       default:
         return 'class'; // Default to class for unknown types
     }
@@ -488,6 +549,14 @@ export class GraphRenderer {
       handleMenuClick(e, () => this.restartSimulation()),
     );
 
+    const diagnosticToggleBtn = document.getElementById(
+      'diagnostic-highlight-toggle',
+    );
+    diagnosticToggleBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.toggleDiagnosticsHighlight();
+    });
+
     // Layout selection event listeners
     layoutButtons.forEach((buttonId) => {
       const button = document.getElementById(buttonId);
@@ -545,81 +614,73 @@ export class GraphRenderer {
     this.ctx.scale(this.camera.zoom, this.camera.zoom);
 
     // Draw edges
-    console.log(`Rendering ${this.edges.length} edges`);
-    let renderedEdges = 0;
     this.edges.forEach((edge) => {
       const sourceNode = this.nodes.find((n) => n.id === edge.source);
       const targetNode = this.nodes.find((n) => n.id === edge.target);
 
-      if (!sourceNode) {
-        console.warn(`Edge ${edge.id}: Source node ${edge.source} not found`);
-      }
-      if (!targetNode) {
-        console.warn(`Edge ${edge.id}: Target node ${edge.target} not found`);
-      }
+      if (!sourceNode) return;
+      if (!targetNode) return;
+      const isHighlighted = this.diagnosticHighlightEdgeIds.has(edge.id);
+      const edgeColor = isHighlighted ? '#f44336' : edge.color;
 
-      if (sourceNode && targetNode) {
-        renderedEdges++;
-        // Calculate arrow properties
-        const dx = targetNode.x - sourceNode.x;
-        const dy = targetNode.y - sourceNode.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+      // Calculate arrow properties
+      const dx = targetNode.x - sourceNode.x;
+      const dy = targetNode.y - sourceNode.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance > 0) {
-          // Normalize direction vector
-          const unitX = dx / distance;
-          const unitY = dy / distance;
+      if (distance > 0) {
+        const unitX = dx / distance;
+        const unitY = dy / distance;
+        const arrowLength = 12;
+        const arrowWidth = 6;
+        const offset = targetNode.size + 5; // Small gap from target node
 
-          // Calculate arrow position (offset from target node by its radius)
-          const arrowLength = 12;
-          const arrowWidth = 6;
-          const offset = targetNode.size + 5; // Small gap from target node
+        const arrowX = targetNode.x - unitX * offset;
+        const arrowY = targetNode.y - unitY * offset;
 
-          const arrowX = targetNode.x - unitX * offset;
-          const arrowY = targetNode.y - unitY * offset;
+        // Draw the edge line
+        this.ctx.strokeStyle = edgeColor;
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(sourceNode.x, sourceNode.y);
+        this.ctx.lineTo(arrowX, arrowY);
+        this.ctx.stroke();
 
-          // Draw the edge line
-          this.ctx.strokeStyle = edge.color;
-          this.ctx.lineWidth = 2;
-          this.ctx.beginPath();
-          this.ctx.moveTo(sourceNode.x, sourceNode.y);
-          this.ctx.lineTo(arrowX, arrowY);
-          this.ctx.stroke();
-
-          // Draw the arrowhead
-          this.ctx.fillStyle = edge.color;
-          this.ctx.beginPath();
-          this.ctx.moveTo(arrowX, arrowY);
-          this.ctx.lineTo(
-            arrowX - unitX * arrowLength + unitY * arrowWidth,
-            arrowY - unitY * arrowLength - unitX * arrowWidth,
-          );
-          this.ctx.lineTo(
-            arrowX - unitX * arrowLength - unitY * arrowWidth,
-            arrowY - unitY * arrowLength + unitX * arrowWidth,
-          );
-          this.ctx.closePath();
-          this.ctx.fill();
-        }
+        // Draw the arrowhead
+        this.ctx.fillStyle = edgeColor;
+        this.ctx.beginPath();
+        this.ctx.moveTo(arrowX, arrowY);
+        this.ctx.lineTo(
+          arrowX - unitX * arrowLength + unitY * arrowWidth,
+          arrowY - unitY * arrowLength - unitX * arrowWidth,
+        );
+        this.ctx.lineTo(
+          arrowX - unitX * arrowLength - unitY * arrowWidth,
+          arrowY - unitY * arrowLength + unitX * arrowWidth,
+        );
+        this.ctx.closePath();
+        this.ctx.fill();
       }
     });
 
     // Draw nodes
     this.nodes.forEach((node, index) => {
-      // Debug: Log first few nodes
-      if (index < 3) {
-        console.log(`Node ${index}:`, node.x, node.y, node.size, node.color);
-      }
+      const isHighlighted = this.diagnosticHighlightNodeIds.has(node.id);
+      const nodeColor = isHighlighted ? '#f44336' : node.color;
 
-      this.ctx.fillStyle = node.color;
+      this.ctx.fillStyle = nodeColor;
       this.ctx.beginPath();
       this.ctx.arc(node.x, node.y, node.size, 0, 2 * Math.PI);
       this.ctx.fill();
 
-      // Draw border for selected node
+      // Draw border for selected node or highlighted diagnostic node
       if (this.selectedNode === node.id) {
         this.ctx.strokeStyle = '#FFD700';
         this.ctx.lineWidth = 3;
+        this.ctx.stroke();
+      } else if (isHighlighted) {
+        this.ctx.strokeStyle = '#f44336';
+        this.ctx.lineWidth = 2;
         this.ctx.stroke();
       }
 
@@ -632,8 +693,42 @@ export class GraphRenderer {
       }
     });
 
-    console.log(`Rendered ${renderedEdges} out of ${this.edges.length} edges`);
     this.ctx.restore();
+  }
+
+  private highlightDiagnosticCorrelation(index: number): void {
+    const corr = this.diagnosticCorrelations[index];
+    if (!corr) return;
+    this.diagnosticHighlightNodeIds.clear();
+    this.diagnosticHighlightEdgeIds.clear();
+    corr.relatedNodeIds.forEach((id) =>
+      this.diagnosticHighlightNodeIds.add(id),
+    );
+    corr.relatedEdgeIds.forEach((id) =>
+      this.diagnosticHighlightEdgeIds.add(id),
+    );
+    this.render();
+  }
+
+  private toggleDiagnosticsHighlight(): void {
+    this.diagnosticsHighlightEnabled = !this.diagnosticsHighlightEnabled;
+    if (
+      this.diagnosticsHighlightEnabled &&
+      this.diagnosticCorrelations.length > 0
+    ) {
+      this.diagnosticCorrelations.forEach((c) => {
+        c.relatedNodeIds.forEach((id) =>
+          this.diagnosticHighlightNodeIds.add(id),
+        );
+        c.relatedEdgeIds.forEach((id) =>
+          this.diagnosticHighlightEdgeIds.add(id),
+        );
+      });
+    } else {
+      this.diagnosticHighlightNodeIds.clear();
+      this.diagnosticHighlightEdgeIds.clear();
+    }
+    this.render();
   }
 
   private handleMouseDown(e: MouseEvent): void {
@@ -926,7 +1021,7 @@ export class GraphRenderer {
 
   private applyDagreLayout(): void {
     // Hierarchical layout - arrange nodes in levels
-    const typeOrder = ['namespace', 'class', 'method', 'property'];
+    const typeOrder = ['namespace', 'class', 'block', 'method', 'property'];
     const levelHeight = 120;
     const nodeSpacing = 100;
     const centerX = 0; // Center around origin

@@ -14,6 +14,8 @@ import { CompilerService } from '../../../../src/parser/compilerService';
 import {
   compileFixture,
   compileFixtureWithOptions,
+  compileSourceLayeredWithOptions,
+  loadFixture,
   runValidator,
 } from './helpers/validation-test-helpers';
 import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
@@ -221,5 +223,129 @@ describe('StaticContextValidator', () => {
 
     expect(result.isValid).toBe(true);
     expect(result.errors).toHaveLength(0);
+  });
+
+  it('should pass validation when static method accesses obj.Id (property.Id pattern)', async () => {
+    await compileFixture(
+      VALIDATOR_CATEGORY,
+      'HasIdField.cls',
+      'file:///test/HasIdField.cls',
+      symbolManager,
+      compilerService,
+    );
+
+    const { symbolTable, options } = await compileFixtureWithOptions(
+      VALIDATOR_CATEGORY,
+      'PropertyIdAccess.cls',
+      'file:///test/PropertyIdAccess.cls',
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.THOROUGH,
+        allowArtifactLoading: false,
+      },
+    );
+
+    await Effect.runPromise(
+      symbolManager.resolveCrossFileReferencesForFile(
+        symbolTable.getFileUri() || '',
+      ),
+    );
+
+    const result = await runValidator(
+      StaticContextValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.isValid).toBe(true);
+    const nonStaticVarErrors = result.errors.filter(
+      (e: any) => e.code === ErrorCodes.INVALID_NON_STATIC_VARIABLE_CONTEXT,
+    );
+    expect(nonStaticVarErrors).toHaveLength(0);
+  });
+
+  it('should pass validation when static method accesses instance field via class instance', async () => {
+    await compileFixture(
+      VALIDATOR_CATEGORY,
+      'InstanceFieldAndProps.cls',
+      'file:///test/InstanceFieldAndProps.cls',
+      symbolManager,
+      compilerService,
+    );
+
+    const { symbolTable, options } = await compileFixtureWithOptions(
+      VALIDATOR_CATEGORY,
+      'StaticAccessesInstance.cls',
+      'file:///test/StaticAccessesInstance.cls',
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.THOROUGH,
+        allowArtifactLoading: false,
+      },
+    );
+
+    await Effect.runPromise(
+      symbolManager.resolveCrossFileReferencesForFile(
+        symbolTable.getFileUri() || '',
+      ),
+    );
+
+    const result = await runValidator(
+      StaticContextValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.isValid).toBe(true);
+    const nonStaticVarErrors = result.errors.filter(
+      (e: any) => e.code === ErrorCodes.INVALID_NON_STATIC_VARIABLE_CONTEXT,
+    );
+    expect(nonStaticVarErrors).toHaveLength(0);
+  });
+
+  it('should NOT report INVALID_NON_STATIC_VARIABLE_CONTEXT for address.street', async () => {
+    const testSource = loadFixture('geocoding', 'GeocodingServiceTest.cls');
+
+    await compileFixture(
+      'geocoding',
+      'GeocodingService.cls',
+      'file:///test/GeocodingService.cls',
+      symbolManager,
+      compilerService,
+    );
+
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      testSource,
+      'file:///test/GeocodingServiceTest.cls',
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.THOROUGH,
+        allowArtifactLoading: false,
+      },
+    );
+
+    await Effect.runPromise(
+      symbolManager.resolveCrossFileReferencesForFile(
+        symbolTable.getFileUri() || '',
+      ),
+    );
+
+    const result = await runValidator(
+      StaticContextValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    const streetErrors = result.errors.filter(
+      (e: any) =>
+        e.code === ErrorCodes.INVALID_NON_STATIC_VARIABLE_CONTEXT &&
+        (e.message?.includes('street') ?? false),
+    );
+
+    if (streetErrors.length > 0) {
+      console.log('Unexpected street errors:', streetErrors);
+    }
+
+    expect(streetErrors).toHaveLength(0);
   });
 });

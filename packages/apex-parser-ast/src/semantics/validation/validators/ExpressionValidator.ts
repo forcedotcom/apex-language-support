@@ -1448,7 +1448,9 @@ export const ExpressionValidator: Validator = {
             } else if (effectiveType) {
               const typeLower = effectiveType.toLowerCase();
               const isIterable =
+                typeLower === 'list' ||
                 typeLower.includes('list<') ||
+                typeLower === 'set' ||
                 typeLower.includes('set<') ||
                 typeLower.includes('array') ||
                 typeLower === 'iterable' ||

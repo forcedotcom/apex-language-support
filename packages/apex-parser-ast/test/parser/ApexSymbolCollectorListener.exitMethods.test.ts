@@ -38,7 +38,9 @@ public class TestClass {
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const method = symbols.find((s) => s.name === 'method');
+      const method = symbols.find(
+        (s) => s.name === 'method' && s.kind === SymbolKind.Method,
+      );
       expect(method).toBeDefined();
       expect(method?.kind).toBe(SymbolKind.Method);
 
@@ -66,7 +68,9 @@ public class TestClass {
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const method = symbols.find((s) => s.name === 'method');
+      const method = symbols.find(
+        (s) => s.name === 'method' && s.kind === SymbolKind.Method,
+      );
       expect(method).toBeDefined();
 
       if (method && isMethodSymbol(method)) {
@@ -721,12 +725,18 @@ public class TestClass {
 
       // Verify all symbols are collected correctly
       expect(symbols.find((s) => s.name === 'CONSTANT')).toBeDefined();
-      expect(symbols.find((s) => s.name === 'method')).toBeDefined();
+      expect(
+        symbols.find(
+          (s) => s.name === 'method' && s.kind === SymbolKind.Method,
+        ),
+      ).toBeDefined();
       expect(symbols.find((s) => s.name === 'property')).toBeDefined();
       expect(symbols.find((s) => s.name === 'field')).toBeDefined();
 
       // Verify parameters
-      const method = symbols.find((s) => s.name === 'method');
+      const method = symbols.find(
+        (s) => s.name === 'method' && s.kind === SymbolKind.Method,
+      );
       if (method && isMethodSymbol(method)) {
         expect(method.parameters).toHaveLength(2);
       }

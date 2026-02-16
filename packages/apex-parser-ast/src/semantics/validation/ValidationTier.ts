@@ -127,6 +127,13 @@ export interface ValidationOptions extends ArtifactLoadingOptions {
    * Only used when enableVersionSpecificValidation is true
    */
   apiVersion?: number; // Major version number (e.g., 65, 20)
+
+  /**
+   * Optional compilation unit namespace (e.g. "Canvas" for managed package).
+   * From sfdx-project.json or package.xml. When null/undefined, default namespace
+   * resolution applies (e.g. Test -> System.Test).
+   */
+  namespace?: string;
 }
 
 /**

@@ -13,6 +13,7 @@ import type {
   TypeSymbol,
   ApexSymbol,
   ScopeSymbol,
+  MethodSymbol,
 } from '../../../types/symbol';
 import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
 import {
@@ -32,6 +33,10 @@ import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
+import {
+  extractElementTypeFromCollection,
+  extractReceiverExpressionBeforeDot,
+} from '../utils/typeUtils';
 
 /**
  * Validates variable and field references for:
@@ -125,26 +130,31 @@ export const VariableResolutionValidator: Validator = {
 
       // Build a set of variable usage locations that are part of chains
       // These should be excluded from standalone variable validation
+      // Include ALL chain nodes (not just first) - getB, x, etc. in f.getB().x are method/field refs
       const variableUsagesInChains = new Set<string>();
       for (const chainedRef of chainedTypeRefs) {
         if (chainedRef.chainNodes && Array.isArray(chainedRef.chainNodes)) {
-          const firstNode = chainedRef.chainNodes[0];
-          if (
-            firstNode &&
-            (firstNode.context === ReferenceContext.VARIABLE_USAGE ||
-              firstNode.context === ReferenceContext.CLASS_REFERENCE ||
-              firstNode.context === ReferenceContext.CHAIN_STEP ||
-              firstNode.context === ReferenceContext.NAMESPACE)
-          ) {
-            const firstNodeLine =
-              firstNode.location?.symbolRange?.startLine ??
-              firstNode.location?.identifierRange?.startLine;
-            const firstNodeCol =
-              firstNode.location?.symbolRange?.startColumn ??
-              firstNode.location?.identifierRange?.startColumn;
-            if (firstNodeLine && firstNodeCol) {
-              const key = `${firstNode.name}:${firstNodeLine}:${firstNodeCol}`;
-              variableUsagesInChains.add(key);
+          for (const node of chainedRef.chainNodes) {
+            if (node?.name) {
+              const nodeLine =
+                node.location?.symbolRange?.startLine ??
+                node.location?.identifierRange?.startLine;
+              const symbolCol =
+                node.location?.symbolRange?.startColumn ??
+                node.location?.identifierRange?.startColumn;
+              const idCol =
+                node.location?.identifierRange?.startColumn ??
+                node.location?.symbolRange?.startColumn;
+              if (nodeLine != null) {
+                if (symbolCol != null)
+                  variableUsagesInChains.add(
+                    `${node.name}:${nodeLine}:${symbolCol}`,
+                  );
+                if (idCol != null && idCol !== symbolCol)
+                  variableUsagesInChains.add(
+                    `${node.name}:${nodeLine}:${idCol}`,
+                  );
+              }
             }
           }
         }
@@ -296,6 +306,55 @@ export const VariableResolutionValidator: Validator = {
             }
           }
 
+          // Defensive: skip if another ref at same location has type/method/field context
+          // (VARIABLE_USAGE may be misclassified for constructor types, method names, etc.)
+          const refLine =
+            refLocation?.symbolRange?.startLine ??
+            refLocation?.identifierRange?.startLine;
+          const refCol =
+            refLocation?.symbolRange?.startColumn ??
+            refLocation?.identifierRange?.startColumn;
+          if (refLine != null && refCol != null) {
+            const sameLocationRef = allReferences.find(
+              (r) =>
+                r !== variableRef &&
+                r.name === variableName &&
+                (r.context === ReferenceContext.CONSTRUCTOR_CALL ||
+                  r.context === ReferenceContext.CLASS_REFERENCE ||
+                  r.context === ReferenceContext.FIELD_ACCESS ||
+                  r.context === ReferenceContext.METHOD_CALL) &&
+                (r.location?.symbolRange?.startLine ??
+                  r.location?.identifierRange?.startLine) === refLine &&
+                (r.location?.symbolRange?.startColumn ??
+                  r.location?.identifierRange?.startColumn) === refCol,
+            );
+            if (sameLocationRef) {
+              continue; // Skip - likely misclassified, correct ref exists
+            }
+          }
+
+          // Defensive: skip if this ref is a chain node (method/field in f.getB().x)
+          // Chain nodes may appear as VARIABLE_USAGE due to listener overlap
+          if (refLine != null) {
+            const key = `${variableName}:${refLine}:${refCol ?? 0}`;
+            if (variableUsagesInChains.has(key)) continue;
+            const idCol =
+              refLocation?.identifierRange?.startColumn ??
+              refLocation?.symbolRange?.startColumn;
+            if (
+              idCol != null &&
+              variableUsagesInChains.has(`${variableName}:${refLine}:${idCol}`)
+            )
+              continue;
+            // Fallback: same name and line in any chain node (handles location mismatches)
+            const isChainNode = Array.from(variableUsagesInChains).some(
+              (k) =>
+                k.startsWith(`${variableName}:${refLine}:`) &&
+                k.length > `${variableName}:${refLine}:`.length,
+            );
+            if (isChainNode) continue;
+          }
+
           // Variable not found
           errors.push({
             message: localizeTyped(
@@ -341,6 +400,51 @@ export const VariableResolutionValidator: Validator = {
         }
         const refLocation = fieldRef.location;
 
+        // Skip if this is a method call (e.g. System.debug) - METHOD_CALL ref or chain node at same location
+        const fieldLine =
+          refLocation?.symbolRange?.startLine ??
+          refLocation?.identifierRange?.startLine;
+        const fieldCol =
+          refLocation?.symbolRange?.startColumn ??
+          refLocation?.identifierRange?.startColumn;
+        if (fieldLine != null && fieldCol != null) {
+          const isMethodCall =
+            allReferences.some((r) => {
+              if (r.context !== ReferenceContext.METHOD_CALL) return false;
+              const lastName =
+                (r.chainNodes?.length ?? 0) > 0
+                  ? r.chainNodes?.[r.chainNodes.length - 1]?.name
+                  : r.name;
+              if (lastName?.toLowerCase() !== fieldName.toLowerCase())
+                return false;
+              const rLine =
+                r.location?.symbolRange?.startLine ??
+                r.location?.identifierRange?.startLine;
+              const rCol =
+                r.location?.symbolRange?.startColumn ??
+                r.location?.identifierRange?.startColumn ??
+                0;
+              return rLine === fieldLine && Math.abs(rCol - fieldCol) < 25;
+            }) ||
+            chainedTypeRefs.some((c) => {
+              const last = c.chainNodes?.[(c.chainNodes?.length ?? 0) - 1];
+              if (
+                last?.context !== ReferenceContext.METHOD_CALL ||
+                last?.name?.toLowerCase() !== fieldName.toLowerCase()
+              )
+                return false;
+              const rLine =
+                last.location?.symbolRange?.startLine ??
+                last.location?.identifierRange?.startLine;
+              const rCol =
+                last.location?.symbolRange?.startColumn ??
+                last.location?.identifierRange?.startColumn ??
+                0;
+              return rLine === fieldLine && Math.abs(rCol - fieldCol) < 25;
+            });
+          if (isMethodCall) continue;
+        }
+
         if (!containingClass) {
           continue;
         }
@@ -348,86 +452,122 @@ export const VariableResolutionValidator: Validator = {
         // TIER 2 Enhancement: For qualified field access (obj.field), resolve object type
         let targetType: TypeSymbol | null = null;
 
-        // Try to find object name from chain context first (for field accesses extracted from chains)
-        let objectName: string | null = null;
+        // Try to resolve target type from chain context first (for f.getB().x, resolve through method return types)
+        let chainBaseVar: VariableSymbol | null = null;
         for (const chainedRef of chainedTypeRefs) {
           if (chainedRef.chainNodes && chainedRef.chainNodes.length > 0) {
-            // Check if this field access is from this chain
             const finalNode =
               chainedRef.chainNodes[chainedRef.chainNodes.length - 1];
             if (
               finalNode.name === fieldName &&
               finalNode.context === ReferenceContext.FIELD_ACCESS
             ) {
-              // Found the chain - get base object name from first node
               const baseNode = chainedRef.chainNodes[0];
-              if (
-                baseNode.context === ReferenceContext.VARIABLE_USAGE ||
-                baseNode.context === ReferenceContext.CLASS_REFERENCE
-              ) {
-                objectName = baseNode.name;
+              chainBaseVar = baseNode?.name
+                ? findVariableInScope(
+                    baseNode.name,
+                    fieldRef.parentContext,
+                    allSymbols,
+                    symbolTable,
+                  )
+                : null;
+              const resolvedType = yield* resolveChainTargetType(
+                chainedRef,
+                symbolManager,
+                allSymbols,
+                symbolTable,
+              );
+              if (resolvedType) {
+                targetType = yield* resolveTargetTypeWithArrayAccess(
+                  resolvedType,
+                  chainBaseVar?.type?.name,
+                  fieldRef,
+                  options.sourceContent,
+                  symbolManager,
+                );
                 break;
               }
             }
           }
         }
 
-        // If not found in chain, try to extract from source content
-        if (!objectName && options.sourceContent) {
-          objectName = extractObjectNameFromFieldAccess(
-            fieldRef,
-            options.sourceContent,
-          );
-        }
-
-        if (objectName) {
-          // Resolve the object's type
-          // For qualified field access like obj.field, the object variable might be
-          // part of a chained reference, so we need to find it even if it's in a chain
-          let objectVariable = findVariableInScope(
-            objectName,
-            fieldRef.parentContext,
-            allSymbols,
-            symbolTable,
-          );
-
-          // If not found, try to find it in chained references (as first node)
-          if (!objectVariable) {
-            for (const chainedRef of chainedTypeRefs) {
-              if (chainedRef.chainNodes && chainedRef.chainNodes.length > 0) {
-                const firstNode = chainedRef.chainNodes[0];
+        // Fallback: extract object name and resolve from first node only
+        if (!targetType) {
+          let objectName: string | null = null;
+          for (const chainedRef of chainedTypeRefs) {
+            if (chainedRef.chainNodes && chainedRef.chainNodes.length > 0) {
+              const finalNode =
+                chainedRef.chainNodes[chainedRef.chainNodes.length - 1];
+              if (
+                finalNode.name === fieldName &&
+                finalNode.context === ReferenceContext.FIELD_ACCESS
+              ) {
+                const baseNode = chainedRef.chainNodes[0];
                 if (
-                  firstNode.name === objectName &&
-                  firstNode.context === ReferenceContext.VARIABLE_USAGE
+                  baseNode.context === ReferenceContext.VARIABLE_USAGE ||
+                  baseNode.context === ReferenceContext.CLASS_REFERENCE ||
+                  baseNode.context === ReferenceContext.CHAIN_STEP
                 ) {
-                  // Found the variable as first node of a chain - resolve it
-                  // Try to find it using symbol table lookup (which searches scopes)
-                  objectVariable = findVariableInScope(
-                    objectName,
-                    fieldRef.parentContext,
-                    allSymbols,
-                    symbolTable,
-                  );
-                  if (objectVariable) {
-                    break;
-                  }
+                  objectName = baseNode.name;
+                  break;
                 }
               }
             }
           }
 
-          if (objectVariable?.type?.name) {
-            // Find the type symbol for the object's type
-            const typeSymbols = symbolManager.findSymbolByName(
-              objectVariable.type.name,
+          if (!objectName && options.sourceContent) {
+            objectName = extractObjectNameFromFieldAccess(
+              fieldRef,
+              options.sourceContent,
             );
-            const typeSymbol = typeSymbols.find(
-              (s: ApexSymbol) =>
-                s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-            ) as TypeSymbol | undefined;
+          }
 
-            if (typeSymbol) {
-              targetType = typeSymbol;
+          if (objectName) {
+            let objectVariable = findVariableInScope(
+              objectName,
+              fieldRef.parentContext,
+              allSymbols,
+              symbolTable,
+            );
+
+            if (!objectVariable) {
+              for (const chainedRef of chainedTypeRefs) {
+                if (chainedRef.chainNodes && chainedRef.chainNodes.length > 0) {
+                  const firstNode = chainedRef.chainNodes[0];
+                  if (
+                    firstNode.name === objectName &&
+                    (firstNode.context === ReferenceContext.VARIABLE_USAGE ||
+                      firstNode.context === ReferenceContext.CHAIN_STEP)
+                  ) {
+                    objectVariable = findVariableInScope(
+                      objectName,
+                      fieldRef.parentContext,
+                      allSymbols,
+                      symbolTable,
+                    );
+                    if (objectVariable) break;
+                  }
+                }
+              }
+            }
+
+            if (objectVariable?.type?.name) {
+              const varTypeName = objectVariable.type.name;
+              const typeSymbols = symbolManager.findSymbolByName(varTypeName);
+              let resolvedTargetType =
+                (typeSymbols.find(
+                  (s: ApexSymbol) =>
+                    s.kind === SymbolKind.Class ||
+                    s.kind === SymbolKind.Interface,
+                ) as TypeSymbol | undefined) ?? null;
+              resolvedTargetType = yield* resolveTargetTypeWithArrayAccess(
+                resolvedTargetType,
+                varTypeName,
+                fieldRef,
+                options.sourceContent,
+                symbolManager,
+              );
+              if (resolvedTargetType) targetType = resolvedTargetType;
             }
           }
         }
@@ -511,44 +651,22 @@ export const VariableResolutionValidator: Validator = {
         // Resolve object type for qualified field access
         let targetType: TypeSymbol | null = null;
 
-        if (options.sourceContent && fieldRef.parentContext) {
-          // Try to extract object name from chain context
-          // For chained references, find the chain that contains this field
-          for (const chainedRef of chainedTypeRefs) {
-            if (
-              chainedRef.chainNodes &&
-              chainedRef.chainNodes.length > 0 &&
-              chainedRef.chainNodes[chainedRef.chainNodes.length - 1].name ===
-                fieldName
-            ) {
-              // Found the chain - get base object name
-              const baseNode = chainedRef.chainNodes[0];
-              const objectName = baseNode.name;
-
-              if (objectName) {
-                const objectVariable = findVariableInScope(
-                  objectName,
-                  fieldRef.parentContext,
-                  allSymbols,
-                  symbolTable,
-                );
-
-                if (objectVariable?.type?.name) {
-                  const typeSymbols = symbolManager.findSymbolByName(
-                    objectVariable.type.name,
-                  );
-                  const typeSymbol = typeSymbols.find(
-                    (s: ApexSymbol) =>
-                      s.kind === SymbolKind.Class ||
-                      s.kind === SymbolKind.Interface,
-                  ) as TypeSymbol | undefined;
-
-                  if (typeSymbol) {
-                    targetType = typeSymbol;
-                    break; // Found the target type
-                  }
-                }
-              }
+        for (const chainedRef of chainedTypeRefs) {
+          if (
+            chainedRef.chainNodes &&
+            chainedRef.chainNodes.length > 0 &&
+            chainedRef.chainNodes[chainedRef.chainNodes.length - 1].name ===
+              fieldName
+          ) {
+            const resolvedType = yield* resolveChainTargetType(
+              chainedRef,
+              symbolManager,
+              allSymbols,
+              symbolTable,
+            );
+            if (resolvedType) {
+              targetType = resolvedType;
+              break;
             }
           }
         }
@@ -607,6 +725,157 @@ export const VariableResolutionValidator: Validator = {
       };
     }),
 };
+
+/**
+ * Resolve the target type for a chained reference by walking through the chain.
+ * For f.getB().x: resolves f -> Foo, getB() -> FooB, returns FooB for field x.
+ */
+function resolveChainTargetType(
+  chainedRef: {
+    chainNodes?: Array<{ name: string; context: ReferenceContext }>;
+  },
+  symbolManager: ISymbolManagerInterface,
+  allSymbols: ApexSymbol[],
+  symbolTable: SymbolTable,
+): Effect.Effect<TypeSymbol | null, never, never> {
+  return Effect.gen(function* () {
+    const chainNodes = chainedRef.chainNodes;
+    if (!chainNodes || chainNodes.length < 2) return null;
+
+    let currentType: TypeSymbol | null = null;
+
+    // Resolve first node (variable, class, or chain step)
+    const firstNode = chainNodes[0];
+    const firstVar = findVariableInScope(
+      firstNode.name,
+      undefined,
+      allSymbols,
+      symbolTable,
+    );
+    if (firstVar?.type?.name) {
+      const typeSymbols = symbolManager.findSymbolByName(firstVar.type.name);
+      currentType =
+        (typeSymbols.find(
+          (s: ApexSymbol) =>
+            s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+        ) as TypeSymbol | undefined) ?? null;
+    }
+    if (!currentType) return null;
+
+    // Walk intermediate nodes (method calls) to resolve return types
+    for (let i = 1; i < chainNodes.length - 1; i++) {
+      const node = chainNodes[i];
+      if (node.context !== ReferenceContext.METHOD_CALL) continue;
+      const method = yield* findMethodInClassHierarchy(
+        symbolManager,
+        currentType,
+        node.name,
+        allSymbols,
+      );
+      if (!method?.returnType?.name) return null;
+      const returnTypeName = method.returnType.name;
+      const typeSymbols = symbolManager.findSymbolByName(returnTypeName);
+      const nextType = typeSymbols.find(
+        (s: ApexSymbol) =>
+          s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+      ) as TypeSymbol | undefined;
+      if (!nextType) return null;
+      currentType = nextType;
+    }
+
+    return currentType;
+  });
+}
+
+/**
+ * Find a method in a class hierarchy (same file + cross-file)
+ */
+function findMethodInClassHierarchy(
+  symbolManager: ISymbolManagerInterface,
+  classSymbol: TypeSymbol,
+  methodName: string,
+  allSymbols: ApexSymbol[],
+): Effect.Effect<MethodSymbol | null, never, never> {
+  return Effect.gen(function* () {
+    const allSymbolsForCompletion =
+      symbolManager.getAllSymbolsForCompletion?.() ?? [];
+    const combined = [
+      ...allSymbols,
+      ...allSymbolsForCompletion.filter(
+        (s) => !allSymbols.some((e) => e.id === s.id),
+      ),
+    ];
+
+    const isMethodInClass = (method: ApexSymbol): boolean => {
+      if (
+        method.kind !== SymbolKind.Method ||
+        method.name?.toLowerCase() !== methodName.toLowerCase()
+      )
+        return false;
+      let current: ApexSymbol | undefined = method;
+      while (current) {
+        if (current.id === classSymbol.id) return true;
+        if (!current.parentId) break;
+        current = combined.find((s) => s.id === current!.parentId);
+      }
+      return false;
+    };
+
+    const method = combined.find(isMethodInClass) as MethodSymbol | undefined;
+    if (method) return method;
+
+    if (classSymbol.superClass) {
+      const superSymbols = symbolManager.findSymbolByName(
+        classSymbol.superClass,
+      );
+      const superClass = superSymbols.find(
+        (s: ApexSymbol) =>
+          s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+      ) as TypeSymbol | undefined;
+      if (superClass)
+        return yield* findMethodInClassHierarchy(
+          symbolManager,
+          superClass,
+          methodName,
+          allSymbols,
+        );
+    }
+    return null;
+  });
+}
+
+/**
+ * When targetType is List/Set and the expression has array access (arr[0].field),
+ * resolve to the element type. Otherwise return targetType unchanged.
+ */
+function resolveTargetTypeWithArrayAccess(
+  targetType: TypeSymbol | null,
+  variableTypeName: string | undefined,
+  fieldRef: any,
+  sourceContent: string | undefined,
+  symbolManager: ISymbolManagerInterface,
+): Effect.Effect<TypeSymbol | null, never, never> {
+  return Effect.gen(function* () {
+    if (!targetType || !variableTypeName) return targetType;
+    const receiverExpr = extractReceiverExpressionBeforeDot(
+      fieldRef,
+      sourceContent,
+    );
+    const hasArrayAccess = receiverExpr != null && receiverExpr.includes('[');
+    const isListOrSet =
+      targetType.name?.toLowerCase() === 'list' ||
+      targetType.name?.toLowerCase() === 'set';
+    if (!hasArrayAccess || !isListOrSet) return targetType;
+    const elementType = extractElementTypeFromCollection(variableTypeName);
+    if (!elementType) return targetType;
+    const elementSymbols = symbolManager.findSymbolByName(elementType);
+    const elementTypeSymbol = elementSymbols.find(
+      (s: ApexSymbol) =>
+        s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+    ) as TypeSymbol | undefined;
+    return elementTypeSymbol ?? targetType;
+  });
+}
 
 /**
  * Extract object name from field access reference by parsing source content
@@ -696,6 +965,23 @@ function findVariableInScope(
       symbol.kind === SymbolKind.Field)
   ) {
     return symbol as VariableSymbol;
+  }
+
+  // When parentContext is a method name, check method parameters (lookup with null
+  // misses parameters since they live in method block scope, not file scope)
+  if (parentContext) {
+    const methodSymbol = allSymbols.find(
+      (s) =>
+        s.kind === SymbolKind.Method &&
+        'parameters' in s &&
+        s.name === parentContext,
+    ) as MethodSymbol | undefined;
+    if (methodSymbol?.parameters) {
+      const param = methodSymbol.parameters.find(
+        (p) => p.name === variableName,
+      );
+      if (param) return param;
+    }
   }
 
   // Fallback: search allSymbols directly if lookup failed

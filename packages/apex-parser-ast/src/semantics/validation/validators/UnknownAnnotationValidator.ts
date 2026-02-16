@@ -25,6 +25,14 @@ import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { SymbolKind } from '../../../types/symbol';
 import { AnnotationValidator } from '../../annotations/AnnotationValidator';
 
+function getBaseAnnotationName(annotationName: string): string {
+  const parenIndex = annotationName.indexOf('(');
+  if (parenIndex >= 0) {
+    return annotationName.substring(0, parenIndex).trim();
+  }
+  return annotationName.trim();
+}
+
 /**
  * Validates that annotations are known/recognized annotations.
  *
@@ -86,9 +94,9 @@ export const UnknownAnnotationValidator: Validator = {
 
         // Check each annotation against the known list
         for (const annotation of annotations) {
-          const annotationInfo = AnnotationValidator.getAnnotationInfo(
-            annotation.name,
-          );
+          const baseName = getBaseAnnotationName(annotation.name);
+          const annotationInfo =
+            AnnotationValidator.getAnnotationInfo(baseName);
 
           // If annotation is in the known list, skip
           if (annotationInfo) {
@@ -103,7 +111,7 @@ export const UnknownAnnotationValidator: Validator = {
             options.tier === ValidationTier.THOROUGH &&
             options.symbolManager
           ) {
-            const annotationName = annotation.name;
+            const annotationName = baseName;
             const symbols =
               options.symbolManager.findSymbolByName(annotationName);
             const typeSymbol = symbols?.find(
@@ -129,10 +137,7 @@ export const UnknownAnnotationValidator: Validator = {
 
           // TIER 1 or resolution failed: report as unknown
           errors.push({
-            message: localizeTyped(
-              ErrorCodes.ANNOTATION_UNKNOWN,
-              annotation.name,
-            ),
+            message: localizeTyped(ErrorCodes.ANNOTATION_UNKNOWN, baseName),
             location,
             code: ErrorCodes.ANNOTATION_UNKNOWN,
           });

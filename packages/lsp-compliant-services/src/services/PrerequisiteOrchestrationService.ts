@@ -7,12 +7,16 @@
  */
 
 import { ProgressToken } from 'vscode-languageserver';
+import { Effect } from 'effect';
 import {
   LoggerInterface,
   ProgressToken as SharedProgressToken,
+  ApexSettingsManager,
 } from '@salesforce/apex-lsp-shared';
-import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
-import { Effect } from 'effect';
+import {
+  ISymbolManager,
+  ReferenceContext,
+} from '@salesforce/apex-lsp-parser-ast';
 import { LSPRequestType } from '../queue/LSPRequestQueue';
 import { getPrerequisitesForLspRequestType } from './LspRequestPrerequisiteMapping';
 import {
@@ -24,6 +28,10 @@ import {
   getLayerOrderIndex,
   hasCrossFileResolution,
 } from './PrerequisiteHelpers';
+import {
+  createMissingArtifactResolutionService,
+  type MissingArtifactResolutionService,
+} from './MissingArtifactResolutionService';
 
 /**
  * Service for orchestrating prerequisite fulfillment for LSP request types
@@ -31,11 +39,16 @@ import {
  * and coordinates enrichment, reference collection, and cross-file resolution.
  */
 export class PrerequisiteOrchestrationService {
+  private readonly artifactResolutionService: MissingArtifactResolutionService;
+
   constructor(
     private logger: LoggerInterface,
     private symbolManager: ISymbolManager,
     private layerEnrichmentService: LayerEnrichmentService,
-  ) {}
+  ) {
+    this.artifactResolutionService =
+      createMissingArtifactResolutionService(logger);
+  }
 
   /**
    * Run prerequisites for an LSP request type
@@ -123,6 +136,10 @@ export class PrerequisiteOrchestrationService {
         await Effect.runPromise(
           this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
         );
+
+        // After cross-file resolution, check for unresolved types and trigger artifact loading
+        // This ensures that missing artifacts (like Foo.cls) are loaded before validators run
+        await this.handleMissingArtifactsAfterCrossFileResolution(fileUri);
       }
     } else {
       // Async execution (fire-and-forget)
@@ -133,7 +150,7 @@ export class PrerequisiteOrchestrationService {
             requirements.requiredDetailLevel!,
             'same-file',
           )
-          .catch((error) => {
+          .catch((error: unknown) => {
             this.logger.debug(
               () => `Async enrichment failed for ${fileUri}: ${error}`,
             );
@@ -146,12 +163,95 @@ export class PrerequisiteOrchestrationService {
       ) {
         Effect.runPromise(
           this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
-        ).catch((error) => {
-          this.logger.debug(
-            () => `Async cross-file resolution failed for ${fileUri}: ${error}`,
-          );
-        });
+        )
+          .then(() =>
+            // After cross-file resolution, check for unresolved types and trigger artifact loading
+            // This ensures that missing artifacts are loaded even in async mode
+            this.handleMissingArtifactsAfterCrossFileResolution(fileUri),
+          )
+          .catch((error: unknown) => {
+            this.logger.debug(
+              () =>
+                `Async cross-file resolution failed for ${fileUri}: ${error}`,
+            );
+          });
       }
+    }
+  }
+
+  /**
+   * After cross-file resolution, check for unresolved types and trigger artifact loading if needed
+   * This ensures that missing artifacts are loaded before validators run
+   */
+  private async handleMissingArtifactsAfterCrossFileResolution(
+    fileUri: string,
+  ): Promise<void> {
+    const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
+    if (!symbolTable) {
+      return;
+    }
+
+    const refs = symbolTable.getAllReferences();
+    const unresolvedTypeRefs = refs.filter(
+      (r) =>
+        !r.resolvedSymbolId &&
+        (r.context === ReferenceContext.TYPE_DECLARATION ||
+          r.context === ReferenceContext.CONSTRUCTOR_CALL),
+    );
+
+    // Deduplicate unresolved type names
+    const allMissingTypes = unresolvedTypeRefs
+      .map((r) => r.name)
+      .filter((name, index, self) => self.indexOf(name) === index);
+
+    // Exclude stdlib types from artifact loading: findMissingArtifact is for org/user
+    // artifacts. Stdlib (String, List, System, etc.) is loaded by the symbol manager
+    // via resolveStandardApexClass, not via the client's artifact resolution.
+    const missingTypes = allMissingTypes.filter(
+      (name) => !this.symbolManager.isStandardLibraryType(name),
+    );
+
+    if (missingTypes.length === 0) {
+      return;
+    }
+
+    const settings = ApexSettingsManager.getInstance().getSettings();
+    const allowArtifactLoading =
+      settings.apex.findMissingArtifact.enabled ?? false;
+
+    if (!allowArtifactLoading) {
+      return;
+    }
+
+    // Load missing artifacts
+    const loadedTypeNames: string[] = [];
+    for (const typeName of missingTypes) {
+      try {
+        const result = await this.artifactResolutionService.resolveBlocking({
+          identifier: typeName,
+          origin: {
+            uri: fileUri,
+            requestKind: 'references',
+          },
+          mode: 'background', // Use background mode - don't open files in editor
+          timeoutMsHint: 2000,
+        });
+
+        if (result === 'resolved') {
+          loadedTypeNames.push(typeName);
+        }
+      } catch (error: unknown) {
+        this.logger.debug(
+          () => `Error loading artifact for type '${typeName}': ${error}`,
+        );
+      }
+    }
+
+    // Re-run cross-file resolution after artifacts are loaded
+    if (loadedTypeNames.length > 0) {
+      await Effect.runPromise(
+        this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
+      );
     }
   }
 }

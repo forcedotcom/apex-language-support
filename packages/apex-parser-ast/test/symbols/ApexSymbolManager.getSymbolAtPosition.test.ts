@@ -38,10 +38,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       }),
     );
     // Initialize ResourceLoader with StandardApexLibrary.zip for built-in type resolution
-    await initializeResourceLoaderForTests({
-      loadMode: 'lazy',
-      preloadStdClasses: false,
-    });
+    await initializeResourceLoaderForTests();
   });
 
   afterAll(async () => {

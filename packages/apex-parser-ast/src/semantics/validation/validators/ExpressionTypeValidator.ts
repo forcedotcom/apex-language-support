@@ -21,6 +21,7 @@ import {
   ExpressionContext,
   PrimaryExpressionContext,
   MethodCallExpressionContext,
+  DotExpressionContext,
   NewExpressionContext,
   IdPrimaryContext,
   FormalParameterContext,
@@ -398,13 +399,23 @@ class ExpressionTypeListener extends BaseApexParserListener<void> {
         const isMethodCall = isContextType(expr, MethodCallExpressionContext);
         const isAssignment = isContextType(expr, AssignExpressionContext);
 
+        // Qualified method calls (e.g., System.debug) are DotExpressionContext with dotMethodCall
+        const isQualifiedMethodCall =
+          isContextType(expr, DotExpressionContext) &&
+          (expr as DotExpressionContext).dotMethodCall?.() !== undefined;
+
         // Check for increment/decrement operators (++ or --)
         const exprText = expr.text || '';
         const hasIncrementDecrement =
           exprText.includes('++') || exprText.includes('--');
 
-        // Valid expression statements: method calls, assignments, increment/decrement
-        if (!isMethodCall && !isAssignment && !hasIncrementDecrement) {
+        // Valid expression statements: method calls, assignments, qualified method calls, increment/decrement
+        if (
+          !isMethodCall &&
+          !isAssignment &&
+          !isQualifiedMethodCall &&
+          !hasIncrementDecrement
+        ) {
           // Check if it's a primary expression (could be a method call)
           if (isContextType(expr, PrimaryExpressionContext)) {
             const primary = expr as PrimaryExpressionContext;

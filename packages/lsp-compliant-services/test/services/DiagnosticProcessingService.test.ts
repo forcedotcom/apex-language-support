@@ -32,7 +32,7 @@ describe('DiagnosticProcessingService', () => {
 
   beforeAll(() => {
     enableConsoleLogging();
-    setLogLevel('debug');
+    setLogLevel('error');
   });
 
   beforeEach(() => {

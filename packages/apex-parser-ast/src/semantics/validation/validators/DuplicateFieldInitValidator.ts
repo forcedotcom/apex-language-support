@@ -19,7 +19,7 @@ import {
   NewExpressionContext,
 } from '@apexdevtools/apex-parser';
 import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
-import { isPrimitiveType } from '../../../utils/TypeInfoFactory';
+import { isPrimitiveType } from '../../../utils/primitiveTypes';
 import type {
   ValidationResult,
   ValidationErrorInfo,

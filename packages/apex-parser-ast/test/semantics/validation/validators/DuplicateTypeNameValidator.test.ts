@@ -162,4 +162,28 @@ describe('DuplicateTypeNameValidator', () => {
     expect(result.isValid).toBe(true);
     expect(result.errors).toHaveLength(0);
   });
+
+  it('should not flag constructor with same name as class as duplicate type', async () => {
+    // Constructor name matching class name is valid in Apex
+    const { symbolTable, options } = await compileFixtureWithOptions(
+      VALIDATOR_CATEGORY,
+      'ClassWithConstructorSameName.cls',
+      undefined,
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.IMMEDIATE,
+        allowArtifactLoading: false,
+      },
+    );
+
+    const result = await runValidator(
+      DuplicateTypeNameValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    // Constructor is not a type, so it shouldn't cause a duplicate type error
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
 });

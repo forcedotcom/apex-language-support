@@ -65,6 +65,7 @@ export const DuplicateTypeNameValidator: Validator = {
       const allSymbols = symbolTable.getAllSymbols();
 
       // Filter to types (classes, interfaces, enums)
+      // Constructors have SymbolKind.Constructor, so they're automatically excluded
       const types = allSymbols.filter(
         (symbol): symbol is TypeSymbol =>
           (symbol.kind === SymbolKind.Class ||
@@ -73,10 +74,23 @@ export const DuplicateTypeNameValidator: Validator = {
           'annotations' in symbol,
       );
 
+      // Deduplicate by object reference - prevents same symbol object appearing multiple times
+      // but allows legitimate duplicates (different objects with same ID) to both be checked
+      // Legitimate duplicates (e.g., two inner classes with same name) share the same ID
+      // but are different objects, so we deduplicate by object reference, not ID
+      const seenObjects = new WeakSet<TypeSymbol>();
+      const uniqueTypes: TypeSymbol[] = [];
+      for (const type of types) {
+        if (!seenObjects.has(type)) {
+          seenObjects.add(type);
+          uniqueTypes.push(type);
+        }
+      }
+
       // Group types by parent scope (parentId)
       // Types with the same parentId are in the same scope
       const typesByParent = new Map<string | null, TypeSymbol[]>();
-      for (const type of types) {
+      for (const type of uniqueTypes) {
         const parentId = type.parentId ?? null; // Normalize undefined to null
 
         if (!typesByParent.has(parentId)) {

@@ -238,14 +238,18 @@ export const DuplicateSymbolValidator: Validator = {
 
 /**
  * Find the method that contains a symbol by walking up the parent chain
+ * Traverses through blocks to find the containing method/constructor
  */
 function findContainingMethod(
   symbol: ApexSymbol,
   allSymbols: ApexSymbol[],
 ): ApexSymbol | null {
   let current: ApexSymbol | null = symbol;
+  const visited = new Set<string>(); // Prevent infinite loops
 
-  while (current) {
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+
     // Check if current is a method/constructor
     if (
       current.kind === SymbolKind.Method ||
@@ -254,17 +258,23 @@ function findContainingMethod(
       return current;
     }
 
-    // Check if current's parent is a method/constructor
+    // Walk up the parent chain
     if (current.parentId) {
       const parent = allSymbols.find((s) => s.id === current!.parentId);
+      if (!parent) {
+        break;
+      }
+
+      // Check if parent is a method/constructor
       if (
-        parent &&
-        (parent.kind === SymbolKind.Method ||
-          parent.kind === SymbolKind.Constructor)
+        parent.kind === SymbolKind.Method ||
+        parent.kind === SymbolKind.Constructor
       ) {
         return parent;
       }
-      current = parent ?? null;
+
+      // Continue traversing up (through blocks, etc.)
+      current = parent;
     } else {
       break;
     }

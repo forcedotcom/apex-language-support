@@ -79,7 +79,7 @@ import {
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 import { isBlockSymbol } from '../../utils/symbolNarrowing';
 import { TypeInfo } from '../../types/typeInfo';
-import { createTypeInfo } from '../../utils/TypeInfoFactory';
+import { createTypeInfoFromTypeRef as createTypeInfoFromTypeRefUtil } from '../utils/createTypeInfoFromTypeRef';
 
 interface ChainScope {
   isActive: boolean;
@@ -412,11 +412,38 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   }
 
   /**
+   * Check if anyId should be skipped - anyId is never a variable usage.
+   * It appears in: constructor types (new Foo()), method names (System.debug),
+   * field accesses (obj.field). All are handled by other listeners/references.
+   * Uses parser context types (NewExpressionContext, isDotExpressionContext).
+   */
+  private isAnyIdInTypeOrMethodOrFieldContext(ctx: AnyIdContext): boolean {
+    const parent = ctx.parent;
+    if (!parent) return false;
+
+    // Method name or field access: "debug" in System.debug, "x" in f.getB().x
+    if (isDotExpressionContext(parent)) return true;
+
+    // Constructor type: "Foo" in "new Foo()" - walk up to find NewExpressionContext
+    let p: ParserRuleContext | undefined = parent;
+    for (let i = 0; i < 10 && p; i++) {
+      if (isContextType(p, NewExpressionContext)) return true;
+      p = p.parent;
+    }
+    return false;
+  }
+
+  /**
    * Capture any ID references (variable usage, etc.)
    */
   enterAnyId(ctx: AnyIdContext): void {
     try {
       if (this.shouldSuppress(ctx)) {
+        return;
+      }
+
+      // Skip: anyId is used for type/method/field names, never variable usage
+      if (this.isAnyIdInTypeOrMethodOrFieldContext(ctx)) {
         return;
       }
 
@@ -465,6 +492,16 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       const idText = idNode.text || '';
       const location = this.getLocationForReference(idNode);
       const parentContext = this.getCurrentMethodName(ctx);
+
+      // Skip when inside dot expression (e.g., System in System.debug, obj in obj.field)
+      // Dot/chain handling creates the appropriate reference for the base
+      if (!this.isMethodCallParameter(ctx)) {
+        let parent: ParserRuleContext | undefined = ctx.parent;
+        while (parent) {
+          if (isDotExpressionContext(parent)) return;
+          parent = parent.parent;
+        }
+      }
 
       // Check if this is a method call parameter
       if (this.isMethodCallParameter(ctx)) {
@@ -731,10 +768,39 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   }
 
   /**
-   * Capture enhanced for control type references
+   * Capture enhanced for control type references and create variable symbol for loop variable
+   * e.g. for (GeocodingAddress address : addresses) - creates VariableSymbol for "address"
    */
   enterEnhancedForControl(ctx: EnhancedForControlContext): void {
     try {
+      const typeRef = ctx.typeRef();
+      const idNode = ctx.id();
+      if (typeRef && idNode) {
+        const variableName = idNode.text;
+        if (variableName) {
+          const currentScope = this.getCurrentScopeSymbol(ctx);
+          const existingVariable = this.symbolTable.findSymbolInCurrentScope(
+            variableName,
+            currentScope,
+          );
+          if (
+            !existingVariable ||
+            existingVariable.kind !== SymbolKind.Variable
+          ) {
+            const type = this.createTypeInfoFromTypeRef(typeRef);
+            const modifiers = this.createDefaultModifiers();
+            const variableSymbol = this.createVariableSymbol(
+              idNode as unknown as ParserRuleContext,
+              modifiers,
+              variableName,
+              SymbolKind.Variable,
+              type,
+            );
+            this.symbolTable.addSymbol(variableSymbol, currentScope);
+          }
+        }
+      }
+
       // Delegate type reference collection (including generic type parameters) to reference collector
       const walker = new ParseTreeWalker();
       const refCollector = new ApexReferenceCollectorListener(this.symbolTable);
@@ -858,19 +924,8 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
     if (objectExpr) {
       const objectIdentifiers =
         this.extractIdentifiersFromExpression(objectExpr);
-      const objectLocation = this.getLocation(
-        objectExpr as unknown as ParserRuleContext,
-      );
-
-      for (const objectName of objectIdentifiers) {
-        const objRef = SymbolReferenceFactory.createVariableUsageReference(
-          objectName,
-          objectLocation,
-          parentContext,
-          'read',
-        );
-        this.symbolTable.addTypeReference(objRef);
-      }
+      // Do not create VARIABLE_USAGE for the base - it may be a class (SomeClass.STATIC_FIELD)
+      // or variable (obj.field). Field access resolution handles both via the object name
 
       const fieldRef = SymbolReferenceFactory.createFieldAccessReference(
         fieldName,
@@ -904,12 +959,13 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
             leftExpression as unknown as ParserRuleContext,
           );
 
-          const varRef = SymbolReferenceFactory.createVariableUsageReference(
+          // Qualifier in qualified method calls is typically a class (System.debug, Assert.areEqual)
+          const classRef = SymbolReferenceFactory.createClassReference(
             qualifier,
             qualifierLocation,
             parentContext,
           );
-          this.symbolTable.addTypeReference(varRef);
+          this.symbolTable.addTypeReference(classRef);
         }
       } else {
         const reference = SymbolReferenceFactory.createMethodCallReference(
@@ -1128,13 +1184,40 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
 
         // Check if variable already exists (from ApexSymbolCollectorListener)
         // to prevent duplicate variable symbols
-        const currentScope = this.getCurrentScopeSymbol();
+        // Pass ctx to getCurrentScopeSymbol to enable parse tree traversal fallback
+        const currentScope = this.getCurrentScopeSymbol(ctx);
         const existingVariable = this.symbolTable.findSymbolInCurrentScope(
           name,
           currentScope,
         );
         if (existingVariable && existingVariable.kind === SymbolKind.Variable) {
           // Variable already exists, skip creating a duplicate
+          continue;
+        }
+
+        // Fallback: check by location in case scope matching fails (e.g. different
+        // scope paths between ApexSymbolCollectorListener and BlockContentListener)
+        const declaratorLocation = this.getLocation(declarator);
+        const fileUri = this.symbolTable.getFileUri();
+        const existingByLocation = this.symbolTable.getAllSymbols().find(
+          (s) =>
+            s.kind === SymbolKind.Variable &&
+            s.name === name &&
+            (!fileUri || s.fileUri === fileUri) &&
+            (() => {
+              const loc =
+                s.location?.identifierRange ?? s.location?.symbolRange;
+              const declLoc =
+                declaratorLocation.identifierRange ??
+                declaratorLocation.symbolRange;
+              if (!loc || !declLoc) return false;
+              return (
+                loc.startLine === declLoc.startLine &&
+                loc.startColumn === declLoc.startColumn
+              );
+            })(),
+        );
+        if (existingByLocation) {
           continue;
         }
 
@@ -1261,6 +1344,19 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         }
       }
 
+      // Skip when this block is the method body (direct child of method/constructor declaration)
+      // Check parent context first - method body is already represented by method block from
+      // StructureListener/VisibilitySymbolListener. Do not create duplicate block_3.
+      const parentCtx = ctx.parent;
+      const isMethodBodyBlock =
+        parentCtx &&
+        (parentCtx.constructor.name === 'MethodDeclarationContext' ||
+          parentCtx.constructor.name === 'ConstructorDeclarationContext' ||
+          parentCtx.constructor.name === 'InterfaceMethodDeclarationContext');
+      if (isMethodBodyBlock) {
+        return;
+      }
+
       const isControlStructureBlock =
         currentScope &&
         (currentScope.scopeType === 'try' ||
@@ -1316,6 +1412,10 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   }
 
   exitBlock(): void {
+    const top = this.scopeStack.peek();
+    if (isBlockSymbol(top) && top.scopeType === 'method') {
+      return; // Exiting method body, we didn't push a generic block
+    }
     this.scopeStack.pop();
     // No validation needed for generic blocks
   }
@@ -1421,26 +1521,31 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
           ) as MethodSymbol | undefined;
         }
 
-        // Find existing method block created by ApexSymbolCollectorListener
-        if (methodSymbol) {
-          const existingMethodBlock = allSymbols.find(
-            (s) =>
-              isBlockSymbol(s) &&
-              s.scopeType === 'method' &&
-              s.parentId === methodSymbol!.id &&
-              s.fileUri === fileUri,
-          ) as ScopeSymbol | undefined;
+        // Find existing method block by location (StructureListener creates it)
+        const location = this.getLocation(ctx);
+        const existingMethodBlock = allSymbols.find(
+          (s) =>
+            isBlockSymbol(s) &&
+            s.scopeType === 'method' &&
+            s.fileUri === fileUri &&
+            s.location?.symbolRange &&
+            s.location.symbolRange.startLine ===
+              location.symbolRange.startLine &&
+            s.location.symbolRange.startColumn ===
+              location.symbolRange.startColumn,
+        ) as ScopeSymbol | undefined;
 
-          if (existingMethodBlock) {
-            // Reuse existing method block by pushing it onto scope stack
-            this.scopeStack.push(existingMethodBlock);
-            return;
+        if (existingMethodBlock) {
+          // Update parentId to semantic hierarchy (StructureListener uses stack-based)
+          if (methodSymbol) {
+            existingMethodBlock.parentId = methodSymbol.id;
           }
+          this.scopeStack.push(existingMethodBlock);
+          return;
         }
 
-        // If no existing method block found, create one (fallback for edge cases)
+        // Fallback: create block if no existing block found (StructureListener should have run)
         const name = this.generateBlockName('method');
-        const location = this.getLocation(ctx);
         const parentScope: ScopeSymbol | null = this.getCurrentScopeSymbol(ctx);
 
         const blockSymbol = this.createBlockSymbol(
@@ -1942,40 +2047,27 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
       parentId = parentScope.id;
     }
 
-    // Check if a block symbol already exists for this scope (from a previous listener walk)
-    // Match by parentId, scopeType, fileUri, and overlapping location range
-    // This prevents duplicate blocks when multiple listeners process the same scope
-    if (parentId !== null && parentId !== undefined) {
-      const allSymbols = this.symbolTable.getAllSymbols();
-      const existingBlock = allSymbols.find((s) => {
-        if (
-          !isBlockSymbol(s) ||
-          s.scopeType !== scopeType ||
-          s.parentId !== parentId ||
-          s.fileUri !== fileUri
-        ) {
-          return false;
-        }
-        // Check if location ranges overlap (same start line and similar column range)
-        const existingRange = s.location?.symbolRange;
-        const newRange = location.symbolRange;
-        if (
-          existingRange &&
-          newRange &&
-          existingRange.startLine === newRange.startLine &&
-          Math.abs(existingRange.startColumn - newRange.startColumn) <= 10 && // Allow small column differences
-          Math.abs(existingRange.endColumn - newRange.endColumn) <= 10
-        ) {
-          return true;
-        }
-        return false;
-      }) as ScopeSymbol | undefined;
+    // Check if block symbol already exists (from StructureListener)
+    // Match by location: fileUri, scopeType, startLine, startColumn
+    const existingBlock = this.symbolTable
+      .getAllSymbols()
+      .find(
+        (s) =>
+          isBlockSymbol(s) &&
+          s.scopeType === scopeType &&
+          s.fileUri === fileUri &&
+          s.location?.symbolRange &&
+          s.location.symbolRange.startLine === location.symbolRange.startLine &&
+          s.location.symbolRange.startColumn ===
+            location.symbolRange.startColumn,
+      ) as ScopeSymbol | undefined;
 
-      if (existingBlock) {
-        // Block already exists, return it instead of creating a duplicate
-        // This ensures we reuse the same block instance across listener walks
-        return existingBlock;
+    if (existingBlock) {
+      // Update parentId to semantic hierarchy (StructureListener uses stack-based)
+      if (parentId !== null && parentId !== undefined) {
+        existingBlock.parentId = parentId;
       }
+      return existingBlock;
     }
 
     const id = SymbolFactory.generateId(name, fileUri, scopePath, 'block');
@@ -2017,8 +2109,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
   }
 
   private createTypeInfoFromTypeRef(typeRef: TypeRefContext): TypeInfo {
-    const typeText = typeRef.text || '';
-    return createTypeInfo(typeText);
+    return createTypeInfoFromTypeRefUtil(typeRef);
   }
 
   /**

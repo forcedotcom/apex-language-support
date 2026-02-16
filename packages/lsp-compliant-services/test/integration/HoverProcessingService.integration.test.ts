@@ -106,18 +106,15 @@ describe('HoverProcessingService Integration Tests', () => {
     try {
       // Ensure System.System is loaded and compiled via ResourceLoader
       // This makes it available for resolveStandardApexClass to find
-      const systemArtifact =
-        await resourceLoader.loadAndCompileClass('System/System.cls');
-      if (systemArtifact?.compilationResult?.result) {
+      const symbolTable =
+        await resourceLoader.getSymbolTable('System/System.cls');
+      if (symbolTable) {
         // Add the System class symbol table to the symbol manager's graph
         // This ensures it's available for findSymbolByName to find
         // Use the correct URI format: apexlib://resources/StandardApexLibrary/System/System.cls
         const systemUri = `${STANDARD_APEX_LIBRARY_URI}/System/System.cls`;
         await Effect.runPromise(
-          symbolManager.addSymbolTable(
-            systemArtifact.compilationResult.result,
-            systemUri,
-          ),
+          symbolManager.addSymbolTable(symbolTable, systemUri),
         );
       }
     } catch (_error) {
@@ -903,7 +900,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('void System.System.debug');
+        expect(content).toContain('void System.debug');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*static.*global/);
       }
     });
@@ -1218,7 +1215,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('void System.System.debug');
+        expect(content).toContain('void System.debug');
         expect(content).toMatch(/static/);
       }
     });

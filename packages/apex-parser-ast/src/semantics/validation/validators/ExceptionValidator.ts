@@ -19,6 +19,7 @@ import {
   ClassDeclarationContext,
   ThrowStatementContext,
   CatchClauseContext,
+  TryStatementContext,
   ConstructorDeclarationContext,
   NewExpressionContext,
 } from '@apexdevtools/apex-parser';
@@ -84,9 +85,11 @@ class ExceptionListener extends BaseApexParserListener<void> {
     ctx: ThrowStatementContext;
     expressionType?: string;
   }> = [];
+  private tryStack: TryStatementContext[] = [];
   private catchClauses: Array<{
     ctx: CatchClauseContext;
     exceptionType?: string;
+    tryBlock: TryStatementContext;
   }> = [];
   private constructors: Array<{
     ctx: ConstructorDeclarationContext;
@@ -120,12 +123,21 @@ class ExceptionListener extends BaseApexParserListener<void> {
     this.throwStatements.push({ ctx });
   }
 
+  enterTryStatement(ctx: TryStatementContext): void {
+    this.tryStack.push(ctx);
+  }
+
+  exitTryStatement(ctx: TryStatementContext): void {
+    this.tryStack.pop();
+  }
+
   enterCatchClause(ctx: CatchClauseContext): void {
     const qualifiedName = ctx.qualifiedName();
     const typeName = qualifiedName
       ? this.getTextFromContext(qualifiedName)
       : undefined;
-    this.catchClauses.push({ ctx, exceptionType: typeName });
+    const tryBlock = this.tryStack[this.tryStack.length - 1];
+    this.catchClauses.push({ ctx, exceptionType: typeName, tryBlock });
   }
 
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
@@ -159,6 +171,7 @@ class ExceptionListener extends BaseApexParserListener<void> {
   getCatchClauses(): Array<{
     ctx: CatchClauseContext;
     exceptionType?: string;
+    tryBlock: TryStatementContext;
   }> {
     return this.catchClauses;
   }
@@ -445,12 +458,17 @@ export const ExceptionValidator: Validator = {
           }
         }
 
-        // 4. Validate catch clauses
+        // 4. Validate catch clauses (duplicate check is per try block, not file-wide)
         const catchClauses = listener.getCatchClauses();
-        const caughtTypes = new Set<string>();
-        for (const { ctx, exceptionType } of catchClauses) {
+        let caughtTypes = new Set<string>();
+        let lastTryBlock: TryStatementContext | null = null;
+        for (const { ctx, exceptionType, tryBlock } of catchClauses) {
+          if (tryBlock !== lastTryBlock) {
+            caughtTypes = new Set<string>();
+            lastTryBlock = tryBlock;
+          }
           if (exceptionType) {
-            // Check for duplicate exception types in catch clauses
+            // Check for duplicate exception types within this try block only
             const normalizedType = exceptionType.toLowerCase();
             if (caughtTypes.has(normalizedType)) {
               errors.push({

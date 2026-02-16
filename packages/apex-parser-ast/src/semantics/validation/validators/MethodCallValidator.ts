@@ -40,9 +40,11 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
+import { isBlockSymbol } from '../../../utils/symbolNarrowing';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import { isContextType } from '../../../utils/contextTypeGuards';
 import { ReferenceContext } from '../../../types/symbolReference';
+import { extractBaseTypeForResolution } from '../utils/typeUtils';
 
 /**
  * Information about a new expression found in the parse tree
@@ -311,6 +313,39 @@ function findClassByName(
 }
 
 /**
+ * Build valid parent IDs for methods/constructors in a class.
+ * Methods and constructors use classBlock.id (StructureListener format), not class symbol id.
+ */
+function buildValidParentIdsForClass(
+  classSymbol: TypeSymbol,
+  symbols: ApexSymbol[],
+): Set<string> {
+  const valid = new Set<string>([classSymbol.id]);
+  const classBlocks = symbols.filter(
+    (s) =>
+      isBlockSymbol(s) &&
+      s.scopeType === 'class' &&
+      s.name === classSymbol.name &&
+      (s.fileUri === classSymbol.fileUri || !classSymbol.fileUri),
+  );
+  for (const b of classBlocks) {
+    valid.add(b.id);
+  }
+  return valid;
+}
+
+function methodParentIdMatches(
+  parentId: string | null,
+  classSymbol: TypeSymbol,
+  validParentIds: Set<string>,
+): boolean {
+  if (!parentId) return false;
+  if (validParentIds.has(parentId)) return true;
+  if (parentId.startsWith(classSymbol.id + ':')) return true;
+  return false;
+}
+
+/**
  * Find a method by name in a class
  * Also checks symbol manager for cross-file classes
  */
@@ -321,14 +356,14 @@ function findMethodInClass(
   symbolManager?: any, // ISymbolManagerInterface - using any to avoid circular dependency
 ): MethodSymbol | null {
   const normalizedName = methodName.toLowerCase().trim();
+  const validParentIds = buildValidParentIdsForClass(classSymbol, allSymbols);
 
   // Find methods in the class from same-file symbols
   let methods = allSymbols.filter(
     (s) =>
       s.kind === SymbolKind.Method &&
       s.name.toLowerCase() === normalizedName &&
-      (s.parentId === classSymbol.id ||
-        (s.parentId && s.parentId.startsWith(classSymbol.id + ':'))),
+      methodParentIdMatches(s.parentId, classSymbol, validParentIds),
   ) as MethodSymbol[];
 
   // If not found and symbol manager is available, try to find in the class's file
@@ -340,12 +375,15 @@ function findMethodInClass(
     const classFileUri = classSymbol.fileUri;
     if (classFileUri) {
       const fileSymbols = symbolManager.findSymbolsInFile(classFileUri);
+      const fileValidParentIds = buildValidParentIdsForClass(
+        classSymbol,
+        fileSymbols,
+      );
       methods = fileSymbols.filter(
         (s: ApexSymbol) =>
           s.kind === SymbolKind.Method &&
           s.name.toLowerCase() === normalizedName &&
-          (s.parentId === classSymbol.id ||
-            (s.parentId && s.parentId.startsWith(classSymbol.id + ':'))),
+          methodParentIdMatches(s.parentId, classSymbol, fileValidParentIds),
       ) as MethodSymbol[];
     }
   }
@@ -703,9 +741,11 @@ export const MethodCallValidator: Validator = {
               if (receiverSymbol) {
                 const varSymbol = receiverSymbol as any;
                 if (varSymbol.type?.name) {
-                  // Find the class that the receiver type refers to (check symbol manager for cross-file)
-                  targetClass = findClassByName(
+                  const baseType = extractBaseTypeForResolution(
                     varSymbol.type.name,
+                  );
+                  targetClass = findClassByName(
+                    baseType,
                     allSymbols,
                     symbolManager,
                   );

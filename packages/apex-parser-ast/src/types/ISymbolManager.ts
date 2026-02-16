@@ -85,6 +85,13 @@ export interface ISymbolManager {
   findSymbolByFQN(fqn: string): ApexSymbol | null;
 
   /**
+   * Find the fully qualified name for a standard Apex class
+   * @param className The class name without namespace (e.g., 'Assert', 'List')
+   * @returns The FQN if found (e.g., 'System.Assert', 'System.List'), null otherwise
+   */
+  findFQNForStandardClass(className: string): string | null;
+
+  /**
    * Find all symbols in a specific file
    */
   findSymbolsInFile(fileUri: string): ApexSymbol[];
@@ -352,4 +359,12 @@ export interface ISymbolManager {
     documentText: string,
     resolver: () => T | null,
   ): Effect.Effect<T | null, never, never>;
+
+  /**
+   * Check if a type name represents a standard library type
+   * This is useful for filtering out types that don't need artifact loading
+   * @param name The type name to check (e.g., 'String', 'System', 'System.Assert', 'Foo')
+   * @returns true if it's a standard library type, false otherwise
+   */
+  isStandardLibraryType(name: string): boolean;
 }

@@ -47,6 +47,7 @@ import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import { isContextType } from '../../../utils/contextTypeGuards';
+import { isBlockSymbol } from '../../../utils/symbolNarrowing';
 
 /**
  * Information about a super()/this() call found in a constructor
@@ -878,21 +879,32 @@ function validateConstructorSignature(
         s.kind === SymbolKind.Constructor && s.name === targetClassName,
     ) as MethodSymbol[];
 
-    // Try to match by parentId first
-    // Normalize parentId comparison: constructors may have :block:... suffix in parentId
-    // that doesn't match the class ID exactly, so we check if parentId starts with class ID
+    // Build set of valid parent IDs for constructors.
+    // VisibilitySymbolListener sets constructor.parentId = classBlock.id (StructureListener format),
+    // while targetClass.id is the class TypeSymbol id (different format). We must match both.
     const targetClassId = targetClass.id;
-    let targetConstructors = allMatchingConstructors.filter((ctor) => {
-      // Exact match
-      if (ctor.parentId === targetClassId) {
-        return true;
-      }
-      // Check if parentId starts with class ID (handles :block:... suffix)
-      if (ctor.parentId && ctor.parentId.startsWith(targetClassId + ':')) {
-        return true;
-      }
+    const validParentIds = new Set<string>([targetClassId]);
+    const classBlocksInAll = allSymbolsForCompletion.filter(
+      (s: ApexSymbol) =>
+        isBlockSymbol(s) &&
+        s.scopeType === 'class' &&
+        s.name === targetClassName &&
+        (s.fileUri === targetClass.fileUri || !targetClass.fileUri),
+    );
+    for (const b of classBlocksInAll) {
+      validParentIds.add(b.id);
+    }
+
+    const parentIdMatches = (parentId: string | null) => {
+      if (!parentId) return false;
+      if (validParentIds.has(parentId)) return true;
+      if (parentId.startsWith(targetClassId + ':')) return true;
       return false;
-    });
+    };
+
+    let targetConstructors = allMatchingConstructors.filter((ctor) =>
+      parentIdMatches(ctor.parentId),
+    );
 
     // Always try finding by fileUri to get ALL constructors from the file
     // This is more reliable than getAllSymbolsForCompletion which may not include all constructors
@@ -912,15 +924,22 @@ function validateConstructorSignature(
       ) as TypeSymbol | undefined;
 
       if (fileClass) {
-        // Use constructors from the file, matching by fileClass.id
-        // Normalize parentId comparison: constructors may have :block:... suffix
+        // Add file class block IDs to valid parent set (constructors use classBlock.id)
+        const fileClassBlocks = fileSymbols.filter(
+          (s: ApexSymbol) =>
+            isBlockSymbol(s) &&
+            s.scopeType === 'class' &&
+            s.name === targetClassName,
+        );
+        for (const b of fileClassBlocks) {
+          validParentIds.add(b.id);
+        }
+        validParentIds.add(fileClass.id);
+
+        // Use constructors from the file, matching by fileClass.id or class block id
         const fileConstructors = fileSymbols.filter((s: ApexSymbol) => {
           if (s.kind === SymbolKind.Constructor && s.name === targetClassName) {
-            // Exact match or prefix match (handles :block:... suffix)
-            return (
-              s.parentId === fileClass.id ||
-              (s.parentId && s.parentId.startsWith(fileClass.id + ':'))
-            );
+            return parentIdMatches(s.parentId);
           }
           return false;
         }) as MethodSymbol[];
@@ -967,12 +986,7 @@ function validateConstructorSignature(
     const existingIds = new Set(targetConstructors.map((c) => c.id));
     for (const ctor of sameFileConstructors) {
       if (!existingIds.has(ctor.id)) {
-        // Only add if parentId matches (or if we have no targetConstructors yet)
-        // Normalize parentId comparison: constructors may have :block:... suffix
-        const parentIdMatches =
-          ctor.parentId === targetClass.id ||
-          (ctor.parentId && ctor.parentId.startsWith(targetClass.id + ':'));
-        if (targetConstructors.length === 0 || parentIdMatches) {
+        if (targetConstructors.length === 0 || parentIdMatches(ctor.parentId)) {
           targetConstructors.push(ctor);
           existingIds.add(ctor.id);
         }

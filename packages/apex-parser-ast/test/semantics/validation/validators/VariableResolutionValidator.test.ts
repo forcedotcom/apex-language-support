@@ -13,6 +13,9 @@ import { CompilerService } from '../../../../src/parser/compilerService';
 import { Effect } from 'effect';
 import {
   compileFixtureWithOptions,
+  compileSourceLayeredWithOptions,
+  loadFixture,
+  compileFixture,
   runValidator,
 } from './helpers/validation-test-helpers';
 import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
@@ -139,6 +142,163 @@ describe('VariableResolutionValidator', () => {
         (e: any) => e.code === ErrorCodes.FIELD_DOES_NOT_EXIST,
       );
       expect(hasFieldError).toBe(true);
+    });
+  });
+
+  describe('BlockContentListener fixes - no false VARIABLE_DOES_NOT_EXIST', () => {
+    it('should not report VARIABLE_DOES_NOT_EXIST for System.debug (uses compileLayered)', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public void m() {
+            System.debug('test');
+          }
+        }
+      `;
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        sourceCode,
+        'file:///test/TestClass.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      const variableErrors = result.errors.filter(
+        (e: any) => e.code === ErrorCodes.VARIABLE_DOES_NOT_EXIST,
+      );
+      const systemErrors = variableErrors.filter(
+        (e: any) => e.message?.includes('System') ?? false,
+      );
+
+      expect(systemErrors).toHaveLength(0);
+    });
+
+    it('should not report false positives for f.getB().x chained expression (compileLayered)', async () => {
+      const fooSource = `
+        public class Foo {
+          public class FooB {
+            public Integer x;
+          }
+          private FooB b = new FooB();
+          public FooB getB() { return b; }
+        }
+      `;
+      const barSource = `
+        public class Bar {
+          public void doSomething() {
+            Foo f = new Foo();
+            f.getB().x = 2;
+            System.debug(f.getB().x);
+          }
+        }
+      `;
+
+      await compileSourceLayeredWithOptions(
+        fooSource,
+        'file:///test/Foo.cls',
+        symbolManager,
+        compilerService,
+      );
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        barSource,
+        'file:///test/Bar.cls',
+        symbolManager,
+        compilerService,
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      // No false positives for f.getB().x (variable getB, field x on FooB)
+      const variableErrors = result.errors.filter(
+        (e: any) => e.code === ErrorCodes.VARIABLE_DOES_NOT_EXIST,
+      );
+      const getBVarErrors = variableErrors.filter(
+        (e: any) => e.message?.includes('getB') ?? false,
+      );
+      const fieldErrors = result.errors.filter(
+        (e: any) => e.code === ErrorCodes.FIELD_DOES_NOT_EXIST,
+      );
+      const xFieldErrors = fieldErrors.filter(
+        (e: any) => e.message?.includes('x on Foo') ?? false,
+      );
+
+      expect(getBVarErrors).toHaveLength(0);
+      expect(xFieldErrors).toHaveLength(0);
+    });
+  });
+
+  describe('List element field access (arr[0].field)', () => {
+    it('should NOT report FIELD_DOES_NOT_EXIST for computedCoordinates[0].lat (List element has lat)', async () => {
+      const testSource = loadFixture('geocoding', 'GeocodingServiceTest.cls');
+
+      await compileFixture(
+        'geocoding',
+        'GeocodingService.cls',
+        'file:///test/GeocodingService.cls',
+        symbolManager,
+        compilerService,
+      );
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        testSource,
+        'file:///test/GeocodingServiceTest.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      const fieldErrors = result.errors.filter(
+        (e: any) => e.code === ErrorCodes.FIELD_DOES_NOT_EXIST,
+      );
+      const latOnListErrors = fieldErrors.filter(
+        (e: any) => e.message?.includes('lat on List') ?? false,
+      );
+
+      if (latOnListErrors.length > 0) {
+        console.log(
+          'Unexpected FIELD_DOES_NOT_EXIST (lat on List):',
+          latOnListErrors,
+        );
+      }
+
+      expect(latOnListErrors).toHaveLength(0);
     });
   });
 });

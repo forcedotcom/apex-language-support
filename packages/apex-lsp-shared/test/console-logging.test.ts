@@ -21,7 +21,7 @@ describe('Console Logging', () => {
   let errorSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    setLogLevel('debug');
+    setLogLevel('error');
     logSpy = jest.spyOn(console, 'log').mockImplementation();
     debugSpy = jest.spyOn(console, 'debug').mockImplementation();
     infoSpy = jest.spyOn(console, 'info').mockImplementation();
@@ -43,6 +43,7 @@ describe('Console Logging', () => {
   describe('enableConsoleLogging', () => {
     it('should enable console logging with timestamps', () => {
       enableConsoleLogging();
+      setLogLevel('info');
       const logger = getLogger();
 
       logger.info('Test info message');
@@ -56,6 +57,7 @@ describe('Console Logging', () => {
 
     it('should handle different log levels correctly', () => {
       enableConsoleLogging();
+      setLogLevel('debug');
       const logger = getLogger();
 
       logger.debug('Debug message');
@@ -87,6 +89,7 @@ describe('Console Logging', () => {
 
     it('should handle LogMessageType string values correctly', () => {
       enableConsoleLogging();
+      setLogLevel('debug');
       const logger = getLogger();
 
       logger.log('error', 'Error via string');
@@ -127,6 +130,7 @@ describe('Console Logging', () => {
 
     it('should handle lazy evaluation correctly', () => {
       enableConsoleLogging();
+      setLogLevel('info');
       const logger = getLogger();
       const messageProvider = jest.fn(() => 'Lazy message');
 

@@ -279,7 +279,39 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
       // Check parse result cache first
       const parseCache = getDocumentStateCache();
-      const cached = parseCache.getSymbolResult(document.uri, document.version);
+      let cached = parseCache.getSymbolResult(document.uri, document.version);
+      const cacheCheckTime = Date.now();
+
+      // If cache miss but document exists in storage, documentOpen may be in progress
+      // Wait briefly for documentOpen to populate cache (max 500ms)
+      if (!cached && document) {
+        const maxWaitTime = 500; // Maximum time to wait for documentOpen
+        const pollInterval = 50; // Check every 50ms
+        const maxAttempts = Math.floor(maxWaitTime / pollInterval);
+        let attempts = 0;
+
+        while (attempts < maxAttempts && !cached) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          cached = parseCache.getSymbolResult(document.uri, document.version);
+          attempts++;
+        }
+
+        if (cached) {
+          const waitEndTime = Date.now();
+          this.logger.debug(
+            () =>
+              `Cache populated after waiting ${waitEndTime - cacheCheckTime}ms ` +
+              `for documentOpen to complete: ${document.uri}`,
+          );
+        } else {
+          const waitEndTime = Date.now();
+          this.logger.debug(
+            () =>
+              `Cache still empty after waiting ${waitEndTime - cacheCheckTime}ms ` +
+              `for documentOpen: ${document.uri}, proceeding with full compilation`,
+          );
+        }
+      }
 
       if (cached) {
         this.logger.debug(
@@ -346,10 +378,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
         if (cachedTable) {
           // Check enrichment level before validation
-          const detailLevel =
-            (this.symbolManager as any).getDetailLevelForFile?.(
-              params.textDocument.uri,
-            ) ?? null;
+          const detailLevel = this.symbolManager.getDetailLevelForFile(
+            params.textDocument.uri,
+          );
           this.logger.debug(
             () =>
               `[VALIDATION-DEBUG] Running semantic validation for cached result ${params.textDocument.uri}: ` +
@@ -435,11 +466,12 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           );
 
           // Combine all diagnostics
-          return [
+          const allDiagnostics = [
             ...enhancedCachedDiagnostics,
             ...immediateResults,
             ...thoroughResults,
           ];
+          return allDiagnostics;
         }
 
         return enhancedCachedDiagnostics;
@@ -550,9 +582,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       if (enrichedTable) {
         try {
           // Check enrichment level before validation
-          const detailLevel =
-            (this.symbolManager as any).getDetailLevelForFile?.(document.uri) ??
-            null;
+          const detailLevel = this.symbolManager.getDetailLevelForFile(
+            document.uri,
+          );
           this.logger.debug(
             () =>
               `[VALIDATION-DEBUG] Running semantic validation for ${params.textDocument.uri}: ` +
@@ -667,12 +699,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           `Returning ${allDiagnostics.length} total diagnostics for: ${params.textDocument.uri}`,
       );
       return allDiagnostics;
-
-      this.logger.debug(
-        () =>
-          `Returning ${enhancedDiagnostics.length} diagnostics for: ${params.textDocument.uri}`,
-      );
-      return enhancedDiagnostics;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -1004,15 +1030,21 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     contextFile: string,
   ): (typeNames: string[]) => Promise<string[]> {
     return async (typeNames: string[]): Promise<string[]> => {
-      this.logger.debug(
-        () =>
-          `Validator requesting to load ${typeNames.length} missing types: ${typeNames.join(', ')}`,
+      // Exclude stdlib types: findMissingArtifact is for org/user artifacts only.
+      // Stdlib (String, List, System, etc.) is loaded by the symbol manager.
+      const typesToLoad = typeNames.filter(
+        (name) => !this.symbolManager.isStandardLibraryType(name),
       );
 
-      const loadedUris: string[] = [];
+      this.logger.debug(
+        () =>
+          `Validator requesting to load ${typesToLoad.length} missing types: ${typesToLoad.join(', ')}`,
+      );
+
+      const loadedTypeNames: string[] = [];
 
       // Try to load each type using the artifact resolution service
-      for (const typeName of typeNames) {
+      for (const typeName of typesToLoad) {
         try {
           const result = await this.artifactResolutionService.resolveBlocking({
             identifier: typeName,
@@ -1020,7 +1052,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
               uri: contextFile,
               requestKind: 'references', // Validation needs type references
             },
-            mode: 'blocking',
+            mode: 'background', // Use background mode for diagnostics - load files without opening in editor
             // Use shorter timeout for validator-triggered loads
             timeoutMsHint: 2000,
           });
@@ -1033,7 +1065,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             );
             // Note: We don't have the exact file URI from resolveBlocking,
             // but the type should now be available in symbolManager
-            loadedUris.push(typeName); // Use type name as placeholder
+            loadedTypeNames.push(typeName);
           } else {
             this.logger.debug(
               () => `Failed to load artifact for type '${typeName}': ${result}`,
@@ -1048,10 +1080,29 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
       this.logger.debug(
         () =>
-          `Artifact loading callback completed: ${loadedUris.length}/${typeNames.length} types loaded`,
+          `Artifact loading callback completed: ${loadedTypeNames.length}/${typeNames.length} types loaded`,
       );
 
-      return loadedUris;
+      // Re-run cross-file resolution after artifacts are loaded
+      // This ensures that references that were deferred can now be resolved
+      if (loadedTypeNames.length > 0) {
+        try {
+          await Effect.runPromise(
+            this.symbolManager.resolveCrossFileReferencesForFile(contextFile),
+          );
+          this.logger.debug(
+            () =>
+              `Re-ran cross-file resolution after loading ${loadedTypeNames.length} artifacts`,
+          );
+        } catch (error) {
+          this.logger.debug(
+            () =>
+              `Error re-running cross-file resolution after artifact loading: ${error}`,
+          );
+        }
+      }
+
+      return loadedTypeNames;
     };
   }
 }

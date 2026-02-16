@@ -24,7 +24,8 @@
     "test:coverage": "wireit",
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "wireit"
+    "lint": "wireit",
+    "typecheck": "wireit"
   },
   "wireit": {
     "compile": {
@@ -50,6 +51,18 @@
       "files": [
         "src/**/*.ts",
         "esbuild.config.ts"
+      ]
+    },
+    "typecheck": {
+      "command": "tsc -p test/tsconfig.json --noEmit",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "tsconfig.json",
+        "test/tsconfig.json"
       ]
     },
     "test": {

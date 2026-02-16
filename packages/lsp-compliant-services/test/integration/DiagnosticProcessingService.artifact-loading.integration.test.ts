@@ -378,11 +378,12 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Verify client request was made
+      // Diagnostics use background mode - load files without opening in editor
       expect(mockConnection.sendRequest).toHaveBeenCalledWith(
         'apex/findMissingArtifact',
         expect.objectContaining({
           identifier: 'MissingSuperClass',
-          mode: 'blocking',
+          mode: 'background',
           origin: expect.objectContaining({
             uri: classAUri,
             requestKind: 'references',

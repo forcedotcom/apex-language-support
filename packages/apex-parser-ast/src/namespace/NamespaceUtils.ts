@@ -221,6 +221,18 @@ export interface SymbolProvider {
 }
 
 /**
+ * Extended SymbolProvider with support for standard namespace lookup.
+ * Used by BuiltInMethodNamespace to resolve types in Canvas, Database, etc.
+ * Excludes System and Schema (handled by FileBaseSystemNamespace/FileBaseSchemaNamespace).
+ */
+export interface SymbolProviderWithStandardNamespace extends SymbolProvider {
+  findInAnyStandardNamespace(
+    name: string,
+    referencingType: ApexSymbol,
+  ): ApexSymbol | null;
+}
+
+/**
  * Resolution result with detailed information
  */
 export interface NamespaceResolutionResult {

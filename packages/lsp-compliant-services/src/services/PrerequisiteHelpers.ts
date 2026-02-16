@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { DetailLevel, SymbolTable } from '@salesforce/apex-lsp-parser-ast';
+import {
+  DetailLevel,
+  SymbolTable,
+  ReferenceContext,
+} from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Get the numeric order of a detail level for comparison
@@ -38,8 +42,13 @@ export function hasReferences(
 
 /**
  * Check if cross-file references have been resolved for a file
- * This checks if references in the SymbolTable have resolvedSymbolId set
- * indicating they've been linked to symbols (including cross-file)
+ * Returns true if there are no unresolved type references that could be cross-file.
+ *
+ * The original implementation incorrectly returned true if ANY references were resolved,
+ * but same-file references get resolved during enrichment, causing cross-file resolution
+ * to be skipped even when unresolved types (like "Foo") still need to be loaded.
+ *
+ * @param symbolTable The symbol table to check
  */
 export function hasCrossFileResolution(
   symbolTable: SymbolTable | null | undefined,
@@ -51,7 +60,25 @@ export function hasCrossFileResolution(
   if (refs.length === 0) {
     return false;
   }
-  // Check if any references have been resolved (have resolvedSymbolId)
-  // This indicates cross-file resolution has been attempted
-  return refs.some((ref) => ref.resolvedSymbolId !== undefined);
+
+  // Check for unresolved type references (TYPE_DECLARATION or CONSTRUCTOR_CALL)
+  // that could potentially be cross-file types
+  const unresolvedTypeRefs = refs.filter(
+    (ref) =>
+      !ref.resolvedSymbolId &&
+      (ref.context === ReferenceContext.TYPE_DECLARATION ||
+        ref.context === ReferenceContext.CONSTRUCTOR_CALL),
+  );
+
+  // No policy-based bypass: all unresolved type refs need cross-file resolution.
+  // Standard Apex classes (System, List, etc.) go through the same resolution path as user types.
+  const unresolvedCrossFileTypes = unresolvedTypeRefs;
+
+  // If there are unresolved cross-file type references, cross-file resolution is still needed
+  if (unresolvedCrossFileTypes.length > 0) {
+    return false;
+  }
+
+  // All type references are resolved, so cross-file resolution has been completed
+  return true;
 }

@@ -21,6 +21,7 @@ import { ApexSymbolCollectorListener } from '../../../../../src/parser/listeners
 import type { ValidationOptions } from '../../../../../src/semantics/validation/ValidationTier';
 import { ValidationTier } from '../../../../../src/semantics/validation/ValidationTier';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../../../../src/constants/constants';
+import type { DetailLevel } from '../../../../../src/parser/listeners/LayeredSymbolListenerBase';
 
 /**
  * Helper to load a fixture file from a validator-specific subfolder
@@ -64,7 +65,11 @@ export const compileFixture = async (
   // if needed. If a test requires clean compilation, it should check result.errors.length === 0
 
   if (!result.result) {
-    throw new Error(`Failed to compile ${filename}`);
+    const errorDetails =
+      result.errors?.length > 0
+        ? `: ${result.errors.map((e) => e.message).join('; ')}`
+        : '';
+    throw new Error(`Failed to compile ${filename}${errorDetails}`);
   }
 
   // Add to symbol manager for cross-file resolution
@@ -141,6 +146,57 @@ export const createValidationOptions = (
   apiVersion: overrides?.apiVersion ?? DEFAULT_SALESFORCE_API_VERSION, // Default to 65
   ...overrides,
 });
+
+export interface CompileSourceLayeredOptions {
+  /** Layers to apply (default: ['full']). Use ['public-api', 'full'] to simulate layered diagnostic flow. */
+  layers?: DetailLevel[];
+}
+
+/**
+ * Helper to compile inline source using compileLayered (exercises BlockContentListener).
+ * Use when testing ref behavior that depends on BlockContentListener.
+ */
+export const compileSourceLayeredWithOptions = async (
+  sourceCode: string,
+  fileUri: string,
+  symbolManager: ApexSymbolManager,
+  compilerService: CompilerService,
+  overrides?: Partial<ValidationOptions>,
+  compileOptions?: CompileSourceLayeredOptions,
+): Promise<{ symbolTable: SymbolTable; options: ValidationOptions }> => {
+  const layers = compileOptions?.layers ?? ['full'];
+  const result = compilerService.compileLayered(
+    sourceCode,
+    fileUri,
+    layers,
+    undefined,
+    {
+      collectReferences: true,
+      resolveReferences: true,
+      projectNamespace: overrides?.namespace,
+    },
+  );
+
+  if (!result.result) {
+    const errorDetails =
+      result.errors?.length > 0
+        ? `: ${result.errors.map((e) => e.message).join('; ')}`
+        : '';
+    throw new Error(`Failed to compile${errorDetails}`);
+  }
+
+  await Effect.runPromise(
+    symbolManager
+      .addSymbolTable(result.result, fileUri)
+      .pipe(Effect.provide(EffectTestLoggerLive)),
+  );
+
+  const options = createValidationOptions(symbolManager, {
+    sourceContent: sourceCode,
+    ...overrides,
+  });
+  return { symbolTable: result.result, options };
+};
 
 /**
  * Helper to compile a fixture and create validation options with sourceContent

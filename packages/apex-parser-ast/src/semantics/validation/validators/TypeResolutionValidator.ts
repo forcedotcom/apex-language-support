@@ -25,6 +25,7 @@ import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
+import { extractBaseTypeName } from '../utils/typeUtils';
 
 /**
  * Known primitive and built-in Apex types that do not need resolution.
@@ -48,16 +49,6 @@ const KNOWN_BUILTIN_TYPES = new Set([
   'map',
   'sobject',
 ]);
-
-/**
- * Extracts the base type name from a type reference.
- * Handles: "List<String>" -> "List", "Account" -> "Account", "System.String" -> "String"
- */
-function extractBaseTypeName(typeName: string): string {
-  const withoutGenerics = typeName.split('<')[0].trim();
-  const parts = withoutGenerics.split('.');
-  return parts[parts.length - 1].toLowerCase();
-}
 
 /**
  * Validates type resolution for:

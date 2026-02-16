@@ -21,12 +21,7 @@ import {
   TypeRefContext,
   CastExpressionContext,
 } from '@apexdevtools/apex-parser';
-import type {
-  SymbolTable,
-  SymbolLocation,
-  TypeSymbol,
-  ApexSymbol,
-} from '../../../types/symbol';
+import type { SymbolTable, SymbolLocation } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
 import type {
   ValidationResult,
@@ -45,21 +40,9 @@ import {
 } from './ExpressionValidator';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4ts';
-
-/** Apex primitive types - invalid as instanceof RHS */
-const PRIMITIVE_TYPES = new Set([
-  'integer',
-  'long',
-  'decimal',
-  'string',
-  'boolean',
-  'id',
-  'blob',
-  'date',
-  'datetime',
-  'time',
-  'void',
-]);
+import { isAssignable } from '../utils/typeAssignability';
+import { INSTANCEOF_PRIMITIVE_TYPES } from '../../../utils/primitiveTypes';
+import { extractBaseTypeName } from '../utils/typeUtils';
 
 function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
   const start = ctx.start;
@@ -72,50 +55,6 @@ function getLocationFromContext(ctx: ParserRuleContext): SymbolLocation {
     endColumn: stop.charPositionInLine + textLength,
   };
   return { symbolRange, identifierRange: symbolRange };
-}
-
-function extractBaseTypeName(typeName: string): string {
-  return typeName.split('<')[0].trim().split('.').pop()?.toLowerCase() ?? '';
-}
-
-/**
- * Check if leftType is assignable to rightType (left is subtype of right or same).
- * Uses symbolManager for hierarchy when available.
- */
-function isAssignable(
-  leftType: string,
-  rightType: string,
-  allSymbols: ApexSymbol[],
-): boolean {
-  const left = leftType.toLowerCase();
-  const right = rightType.toLowerCase();
-
-  if (left === right) return true;
-  if (right === 'object') return !PRIMITIVE_TYPES.has(left);
-  if (PRIMITIVE_TYPES.has(left) || PRIMITIVE_TYPES.has(right)) return false;
-
-  const rightSymbol = allSymbols.find(
-    (s) =>
-      (s.kind === SymbolKind.Class ||
-        s.kind === SymbolKind.Interface ||
-        s.kind === SymbolKind.Enum) &&
-      s.name.toLowerCase() === right,
-  ) as TypeSymbol | undefined;
-
-  const leftSymbol = allSymbols.find(
-    (s) =>
-      (s.kind === SymbolKind.Class ||
-        s.kind === SymbolKind.Interface ||
-        s.kind === SymbolKind.Enum) &&
-      s.name.toLowerCase() === left,
-  ) as TypeSymbol | undefined;
-
-  if (leftSymbol && rightSymbol) {
-    if (leftSymbol.superClass?.toLowerCase() === right) return true;
-    if (leftSymbol.interfaces?.some((i) => i.toLowerCase() === right))
-      return true;
-  }
-  return false;
 }
 
 /**
@@ -302,7 +241,7 @@ export const InstanceofValidator: Validator = {
         const rightBase = extractBaseTypeName(rightTypeName);
 
         // INVALID_INSTANCEOF_INVALID_TYPE: RHS must be class/interface, not primitive
-        if (PRIMITIVE_TYPES.has(rightBase)) {
+        if (INSTANCEOF_PRIMITIVE_TYPES.has(rightBase)) {
           errors.push({
             message: localizeTyped(
               ErrorCodes.INVALID_INSTANCEOF_INVALID_TYPE,
@@ -315,7 +254,7 @@ export const InstanceofValidator: Validator = {
         }
 
         // Left is primitive - invalid (primitives are not objects)
-        if (PRIMITIVE_TYPES.has(effectiveLeftType.toLowerCase())) {
+        if (INSTANCEOF_PRIMITIVE_TYPES.has(effectiveLeftType.toLowerCase())) {
           errors.push({
             message: localizeTyped(
               ErrorCodes.INVALID_INSTANCEOF_INVALID_TYPE,
@@ -344,7 +283,8 @@ export const InstanceofValidator: Validator = {
         const assignable = isAssignable(
           effectiveLeftType,
           rightBase,
-          allSymbols.concat(rightSymbols),
+          'instanceof-rhs',
+          { allSymbols: allSymbols.concat(rightSymbols) },
         );
 
         if (assignable) {

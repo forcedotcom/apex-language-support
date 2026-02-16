@@ -12,6 +12,7 @@ import type {
   TypeSymbol,
   ApexSymbol,
   VariableSymbol,
+  ScopeSymbol,
 } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
 import { isBlockSymbol } from '../../../utils/symbolNarrowing';
@@ -173,11 +174,23 @@ export const NewExpressionValidator: Validator = {
           });
         }
 
+        // Inner class parentId may point to class block; traverse to get outer type symbol
         let outerType: TypeSymbol | null = resolvedType.parentId
           ? ((allSymbols.find((s) => s.id === resolvedType.parentId) as
               | TypeSymbol
               | undefined) ?? null)
           : null;
+        if (outerType && isBlockSymbol(outerType)) {
+          const block = outerType as ScopeSymbol;
+          const typeSymbol = allSymbols.find(
+            (s) =>
+              s.id === block.parentId &&
+              (s.kind === SymbolKind.Class ||
+                s.kind === SymbolKind.Interface ||
+                s.kind === SymbolKind.Enum),
+          );
+          outerType = (typeSymbol as TypeSymbol | undefined) ?? null;
+        }
 
         if (!outerType && typeName.includes('.')) {
           const outerName = typeName.split('.')[0];
@@ -286,7 +299,7 @@ export const NewExpressionValidator: Validator = {
           (s) =>
             (s.kind === SymbolKind.Variable ||
               s.kind === SymbolKind.Parameter) &&
-            s.name.toLowerCase() === innerName.toLowerCase(),
+            s.name === innerName,
         ) as VariableSymbol[];
         for (const local of locals) {
           const locLine =

@@ -22,6 +22,7 @@ import {
   ModifierContext,
   AnnotationContext,
   EnumConstantsContext,
+  ClassBodyDeclarationContext,
   TriggerMemberDeclarationContext,
   TriggerUnitContext,
   PropertyDeclarationContext,
@@ -85,6 +86,7 @@ import {
   createCollectionTypeInfo,
   createMapTypeInfo,
 } from '../../utils/TypeInfoFactory';
+import { createTypeInfoFromTypeRef as createTypeInfoFromTypeRefUtil } from '../utils/createTypeInfoFromTypeRef';
 import {
   SymbolReferenceFactory,
   ReferenceContext,
@@ -747,40 +749,27 @@ export class ApexSymbolCollectorListener
       parentScope,
     );
 
-    // Check if a block symbol already exists for this scope (from a previous listener walk)
-    // Match by parentId, scopeType, fileUri, and overlapping location range
-    // This prevents duplicate blocks when multiple listeners process the same scope
-    if (parentId !== null && parentId !== undefined) {
-      const allSymbols = this.symbolTable.getAllSymbols();
-      const existingBlock = allSymbols.find((s) => {
-        if (
-          !isBlockSymbol(s) ||
-          s.scopeType !== scopeType ||
-          s.parentId !== parentId ||
-          s.fileUri !== fileUri
-        ) {
-          return false;
-        }
-        // Check if location ranges overlap (same start line and similar column range)
-        const existingRange = s.location?.symbolRange;
-        const newRange = location.symbolRange;
-        if (
-          existingRange &&
-          newRange &&
-          existingRange.startLine === newRange.startLine &&
-          Math.abs(existingRange.startColumn - newRange.startColumn) <= 10 && // Allow small column differences
-          Math.abs(existingRange.endColumn - newRange.endColumn) <= 10
-        ) {
-          return true;
-        }
-        return false;
-      }) as ScopeSymbol | undefined;
+    // Check if block symbol already exists (from StructureListener)
+    // Match by location: fileUri, scopeType, startLine, startColumn
+    const existingBlock = this.symbolTable
+      .getAllSymbols()
+      .find(
+        (s) =>
+          isBlockSymbol(s) &&
+          s.scopeType === scopeType &&
+          s.fileUri === fileUri &&
+          s.location?.symbolRange &&
+          s.location.symbolRange.startLine === location.symbolRange.startLine &&
+          s.location.symbolRange.startColumn ===
+            location.symbolRange.startColumn,
+      ) as ScopeSymbol | undefined;
 
-      if (existingBlock) {
-        // Block already exists, return it instead of creating a duplicate
-        // This ensures we reuse the same block instance across listener walks
-        return existingBlock;
+    if (existingBlock) {
+      // Update parentId to semantic hierarchy (StructureListener uses stack-based)
+      if (parentId !== null && parentId !== undefined) {
+        existingBlock.parentId = parentId;
       }
+      return existingBlock;
     }
 
     // Create the block symbol ID
@@ -2083,6 +2072,16 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Called when entering a class body declaration (modifiers + member).
+   * Reset modifiers at the start of each declaration so they don't leak from the previous member.
+   * Must run before modifiers are visited (grammar: classBodyDeclaration -> (modifier)* memberDeclaration).
+   */
+  enterClassBodyDeclaration(_ctx: ClassBodyDeclarationContext): void {
+    this.resetModifiers();
+    this.resetAnnotations();
+  }
+
+  /**
    * Called when entering a field declaration
    * Grammar: fieldDeclaration : typeRef variableDeclarators SEMI
    *
@@ -2562,13 +2561,25 @@ export class ApexSymbolCollectorListener
 
   /**
    * Called when entering a block
-   * Always creates a block scope - the stack order determines the parent scope
+   * Creates block scope unless this is the method body block - the method block already covers that scope
    */
   enterBlock(ctx: BlockContext): void {
     try {
+      const parentScope = this.getCurrentScopeSymbol();
+      // Skip only when this block is the method body (direct child of method/constructor declaration)
+      const parentCtx = ctx.parent;
+      const isMethodBodyBlock =
+        parentScope?.scopeType === 'method' &&
+        parentCtx &&
+        (parentCtx instanceof MethodDeclarationContext ||
+          parentCtx instanceof ConstructorDeclarationContext ||
+          parentCtx instanceof InterfaceMethodDeclarationContext);
+      if (isMethodBodyBlock) {
+        return;
+      }
+
       const name = this.generateBlockName('block');
       const location = this.getLocation(ctx);
-      const parentScope = this.getCurrentScopeSymbol();
       const blockSymbol = this.createBlockSymbol(
         name,
         'block',
@@ -2589,9 +2600,13 @@ export class ApexSymbolCollectorListener
 
   /**
    * Called when exiting a block
-   * Always exits the block scope - the stack order determines what gets popped
+   * Skips pop when exiting method body (we didn't push - method block covers that scope)
    */
   exitBlock(): void {
+    const currentScope = this.getCurrentScopeSymbol();
+    if (currentScope?.scopeType === 'method') {
+      return; // Exiting method body, we didn't push a generic block
+    }
     this.exitScope('block');
   }
 
@@ -2713,8 +2728,9 @@ export class ApexSymbolCollectorListener
   enterTriggerMemberDeclaration(ctx: TriggerMemberDeclarationContext): void {
     try {
       // Get the trigger name from the parent context
-      const triggerUnit = ctx.parent?.parent as TriggerUnitContext;
-      const name = triggerUnit?.id(0)?.text ?? 'unknownTrigger';
+      // TriggerMemberDeclaration -> TriggerBlockMember -> TriggerBlock -> TriggerUnit
+      const triggerUnit = ctx.parent?.parent?.parent as TriggerUnitContext;
+      const name = triggerUnit?.id?.(0)?.text ?? 'unknownTrigger';
       const modifiers = this.getCurrentModifiers();
 
       // Create trigger symbol
@@ -3941,8 +3957,11 @@ export class ApexSymbolCollectorListener
    */
   enterCatchClause(ctx: CatchClauseContext): void {
     try {
-      // Capture exception type reference
+      // Capture exception type reference and add catch variable to symbol table
       const qn: QualifiedNameContext | undefined = ctx.qualifiedName?.();
+      const catchVarId = ctx.id();
+      const catchVarName = catchVarId?.text;
+
       if (qn) {
         const ids = qn.id();
         if (ids && ids.length > 0) {
@@ -3978,8 +3997,24 @@ export class ApexSymbolCollectorListener
         }
       }
 
-      // Create scope for catch block
+      // Create scope for catch block first (catch param is in catch scope)
       this.enterScope('catch', ctx);
+
+      // Add catch variable (e.g. "e" in catch (Exception e)) as Parameter in catch scope
+      if (qn && catchVarName) {
+        const fullTypeName = this.getTextFromContext(qn);
+        const exceptionType = createTypeInfo(fullTypeName);
+        const paramCtx = catchVarId as unknown as ParserRuleContext;
+        const paramSymbol = this.createVariableSymbol(
+          paramCtx,
+          this.getCurrentModifiers(),
+          catchVarName,
+          SymbolKind.Parameter,
+          exceptionType,
+        );
+        paramSymbol._detailLevel = this.detailLevel;
+        this.symbolTable.addSymbol(paramSymbol, this.getCurrentScopeSymbol());
+      }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in catch clause: ${errorMessage}`, ctx);
@@ -5651,167 +5686,19 @@ export class ApexSymbolCollectorListener
     typeRef: TypeRefContext,
     localVarDeclContext?: ParserRuleContext,
   ): TypeInfo {
-    const typeNames = typeRef.typeName();
-    if (!typeNames || typeNames.length === 0) {
-      return createTypeInfo('Object');
-    }
-
-    // Get the first typeName (base type)
-    const baseTypeName = typeNames[0];
-    if (!baseTypeName) {
-      return createTypeInfo('Object');
-    }
-
-    // Check for collection types (LIST, SET, MAP)
-    const listToken = baseTypeName.LIST();
-    const setToken = baseTypeName.SET();
-    const mapToken = baseTypeName.MAP();
-
-    // Check for generic type arguments
-    const typeArguments = baseTypeName.typeArguments();
-    const typeList = typeArguments?.typeList();
-    const genericTypeRefs = typeList?.typeRef() || [];
-
-    // Extract base type name
-    let baseTypeNameStr: string;
-    if (listToken) {
-      baseTypeNameStr = 'List';
-    } else if (setToken) {
-      baseTypeNameStr = 'Set';
-    } else if (mapToken) {
-      baseTypeNameStr = 'Map';
-    } else {
-      const id = baseTypeName.id();
-      if (!id) {
-        // Check if this is void type (void doesn't have an id, it's a keyword)
-        // Check the typeRef context text for "void"
-        const typeRefText = typeRef.text?.toLowerCase().trim();
-        if (typeRefText === 'void') {
-          return createPrimitiveType('void');
-        }
-        // Also check baseTypeName text as fallback
-        const typeNameText = (baseTypeName as any).text?.toLowerCase().trim();
-        if (typeNameText === 'void') {
-          return createPrimitiveType('void');
-        }
-        return createTypeInfo('Object');
-      }
-      baseTypeNameStr = id.text;
-    }
-
-    // Handle qualified type names (e.g., System.Url)
-    if (typeNames.length > 1) {
-      // For qualified types, we need to build the full qualified name
-      const qualifiedParts = typeNames.map((tn) => {
-        const tnId = tn.id();
-        if (tnId) {
-          return tnId.text;
-        }
-        return `${tn.LIST() || tn.SET() || tn.MAP()}`;
-      });
-      const qualifiedName = qualifiedParts.join('.');
-      // For qualified types with generics, we still use createTypeInfo
-      // but it will now extract the base name correctly
-      const typeInfo = createTypeInfo(
-        typeArguments
-          ? `${qualifiedName}<${genericTypeRefs.map((tr) => this.getTextFromContext(tr)).join(', ')}>`
-          : qualifiedName,
-      );
-
-      // Link to TYPE_DECLARATION reference
-      this.linkTypeInfoToReference(
-        typeInfo,
-        qualifiedName,
-        typeRef,
-        localVarDeclContext,
-      );
-
-      return typeInfo;
-    }
-
-    // Handle generic type parameters
-    if (genericTypeRefs.length > 0) {
-      // Recursively extract type parameters
-      const typeParameters = genericTypeRefs.map((tr) =>
-        this.createTypeInfoFromTypeRef(tr),
-      );
-
-      // Handle Map specially (has keyType and valueType)
-      if (mapToken && typeParameters.length >= 2) {
-        const typeInfo = createMapTypeInfo(
-          typeParameters[0],
-          typeParameters[1],
-        );
-        this.linkTypeInfoToReference(
-          typeInfo,
-          baseTypeNameStr,
-          typeRef,
-          localVarDeclContext,
-        );
-        return typeInfo;
-      }
-
-      // Handle List and Set
-      if (listToken || setToken) {
-        const typeInfo = createCollectionTypeInfo(
-          baseTypeNameStr,
-          typeParameters,
-        );
-        this.linkTypeInfoToReference(
-          typeInfo,
-          baseTypeNameStr,
-          typeRef,
-          localVarDeclContext,
-        );
-        return typeInfo;
-      }
-
-      // For regular types with generics, create base type with typeParameters
-      // Note: This is a simplified approach - full support would require
-      // a more sophisticated TypeInfo structure
-      const baseTypeInfo = createTypeInfo(baseTypeNameStr);
-      const typeInfo = {
-        ...baseTypeInfo,
-        typeParameters,
-        originalTypeString: `${baseTypeNameStr}<${typeParameters.map((tp) => tp.originalTypeString).join(', ')}>`,
-      };
-      this.linkTypeInfoToReference(
-        typeInfo,
-        baseTypeNameStr,
-        typeRef,
-        localVarDeclContext,
-      );
-      return typeInfo;
-    }
-
-    // Check for array subscripts (arrays are handled at typeRef level)
-    const arraySubscripts = typeRef.arraySubscripts();
-    if (arraySubscripts) {
-      // This is an array type - use createTypeInfo which handles arrays via string parsing
-      // Arrays are complex because they can be nested: String[][]
-      // For now, fall back to string-based parsing for arrays
-      const typeInfo = createTypeInfo(this.getTextFromContext(typeRef));
-      // For arrays, link to the base type reference (without array brackets)
-      this.linkTypeInfoToReference(
-        typeInfo,
-        baseTypeNameStr,
-        typeRef,
-        localVarDeclContext,
-      );
-      return typeInfo;
-    }
-
-    // No generics - just create the base type
-    const typeInfo = createTypeInfo(baseTypeNameStr);
-
-    // Link the TypeInfo to its TYPE_DECLARATION reference
+    const typeInfo = createTypeInfoFromTypeRefUtil(
+      typeRef,
+      this.getTextFromContext.bind(this),
+    );
+    const typeName = typeInfo.originalTypeString?.includes('.')
+      ? typeInfo.originalTypeString
+      : typeInfo.name;
     this.linkTypeInfoToReference(
       typeInfo,
-      baseTypeNameStr,
+      typeName,
       typeRef,
       localVarDeclContext,
     );
-
     return typeInfo;
   }
 
@@ -6586,19 +6473,34 @@ export class ApexSymbolCollectorListener
     );
     const rootSymbol = this.findRootSymbol(this.getCurrentScopeSymbol());
     let scopePath: string[] = baseScopePath;
-    if (rootSymbol) {
+    // For top-level types, don't include root symbol in scopePath if it's the same type being created
+    // This prevents duplicate class symbols with different IDs (e.g., class:Foo vs class:Foo:class:Foo)
+    const isTopLevel = this.scopeStack.isEmpty();
+    if (
+      rootSymbol &&
+      !(isTopLevel && rootSymbol.name === name && rootSymbol.kind === kind)
+    ) {
       // Include the root symbol's prefix (kind) and name to match the class ID format
       // e.g., ['class', 'MyClass', 'block1'] instead of ['MyClass', 'block1']
       const rootPrefix = rootSymbol.kind; // e.g., 'class', 'interface', 'enum', 'trigger'
       scopePath = [rootPrefix, rootSymbol.name, ...baseScopePath];
     }
+    // For inner types, use class block as parent (consistent with methods/constructors/fields)
+    const classBlock = this.getCurrentScopeSymbol();
+    const parentId =
+      kind === SymbolKind.Trigger
+        ? null
+        : classBlock && classBlock.scopeType === 'class'
+          ? classBlock.id
+          : parent?.id || null;
+
     const typeSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       kind,
       location,
       this.currentFilePath,
       modifiers,
-      parent?.id || null,
+      parentId,
       undefined, // No typeData needed - interfaces are set directly on TypeSymbol
       namespace, // Pass the determined namespace (can be null)
       this.getCurrentAnnotations(),

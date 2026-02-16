@@ -13,6 +13,7 @@ import type {
   TypeSymbol,
   ApexSymbol,
   VariableSymbol,
+  ScopeSymbol,
 } from '../../../types/symbol';
 import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
 import { isMethodSymbol, isBlockSymbol } from '../../../utils/symbolNarrowing';
@@ -29,6 +30,24 @@ import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
+import {
+  isAssignable,
+  isPrimitiveType,
+  isNumericType,
+} from '../utils/typeAssignability';
+import {
+  resolveTypeName,
+  ReferenceTypeEnum,
+  IdentifierContext,
+  type CompilationContext,
+  type SymbolProvider,
+  Namespaces,
+} from '../../../namespace/NamespaceUtils';
+import { DEFAULT_SALESFORCE_API_VERSION } from '../../../constants/constants';
+import {
+  extractBaseTypeForResolution,
+  extractBaseTypeName,
+} from '../utils/typeUtils';
 
 /**
  * Validates method calls for:
@@ -67,8 +86,6 @@ export const MethodResolutionValidator: Validator = {
       const symbolManager = yield* ISymbolManager;
 
       // Get all method call references from the symbol table
-      // For chained calls, only the chained reference is in the symbol table (not individual references)
-      // For standalone calls, the individual reference is in the symbol table
       const allReferences = symbolTable.getAllReferences();
       const methodCalls = allReferences.filter(
         (ref) => ref.context === ReferenceContext.METHOD_CALL,
@@ -91,6 +108,9 @@ export const MethodResolutionValidator: Validator = {
         };
       }
 
+      // Deduplicate: same logical call can produce multiple refs (e.g. chain nodes)
+      const processedCalls = new Set<string>();
+
       // Validate each method call
       for (const methodCall of methodCalls) {
         // Extract the actual method name from chained calls
@@ -112,8 +132,17 @@ export const MethodResolutionValidator: Validator = {
         }
 
         const callLocation = methodCall.location;
+        const callLine =
+          callLocation.identifierRange?.startLine ??
+          callLocation.symbolRange?.startLine ??
+          0;
+        // Dedupe: same logical call can produce multiple refs (e.g. chain nodes)
+        const callKey = `${callLine}:${methodName}`;
+        if (processedCalls.has(callKey)) continue;
+        processedCalls.add(callKey);
 
-        // Determine if this call is in a static context by finding the containing method
+        // Determine if this call is in a static context
+        // Prefer isStatic from enrichment (set when qualifier resolves to a type)
         let isStaticCall = methodCall.isStatic ?? false;
         if (!isStaticCall && callLocation) {
           // Find the containing method by checking which method contains this call location
@@ -194,10 +223,13 @@ export const MethodResolutionValidator: Validator = {
 
         // Determine the target class for this method call
         let targetClass: TypeSymbol = containingClass;
+        let receiverType: string | null = null;
+        let receiverAsVariable: VariableSymbol | undefined = undefined;
 
         // Check if this is a qualified call (obj.method()) and resolve the receiver's type
+        // If isStatic was set during enrichment, use it; otherwise fall back to detection
         if (options.sourceContent && methodCall.location) {
-          const receiverType = yield* resolveMethodCallReceiverType(
+          receiverType = yield* resolveMethodCallReceiverType(
             methodCall,
             options.sourceContent,
             symbolTable,
@@ -205,41 +237,153 @@ export const MethodResolutionValidator: Validator = {
             options.tier,
           );
 
+          // Qualified call with unresolvable receiver - skip rather than validating against containing class
+          // Detected by: chainNodes present, or dotted name (obj.method), or source fallback found receiver
+          const isQualified =
+            (methodCall.chainNodes?.length ?? 0) > 0 ||
+            (methodCall.name?.includes('.') ?? false);
+          if (isQualified && !receiverType) {
+            continue;
+          }
+
           if (receiverType) {
-            // Find the class symbol for the receiver type
-            const receiverClassSymbols =
-              symbolManager.findSymbolByName(receiverType);
-            const receiverClassSymbolsTyped = receiverClassSymbols.filter(
-              (s: ApexSymbol) =>
-                s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
-            ) as TypeSymbol[];
-
-            if (receiverClassSymbolsTyped.length > 0) {
-              // Prefer class from a file that has methods (check via getAllSymbolsForCompletion)
-              const allSymbolsForCompletion =
-                symbolManager.getAllSymbolsForCompletion();
-              const methodsForReceiverType = allSymbolsForCompletion.filter(
-                (s) =>
-                  s.kind === SymbolKind.Method &&
-                  s.name &&
-                  receiverClassSymbolsTyped.some(
-                    (cls) => cls.fileUri === s.fileUri,
-                  ),
+            const qualifierNode = methodCall.chainNodes?.[0];
+            let receiverName =
+              qualifierNode?.name ??
+              (methodCall.name?.includes('.')
+                ? methodCall.name.split('.')[0]
+                : null);
+            // When chainNodes is empty, extract receiver from source (e.g. map.put -> "map")
+            if (!receiverName && options.sourceContent) {
+              receiverName = extractReceiverNameFromSource(
+                methodCall,
+                options.sourceContent,
               );
+            }
 
-              // If we found methods, prefer the class from the file with the most methods
-              if (methodsForReceiverType.length > 0) {
-                const fileUriWithMethods = methodsForReceiverType[0].fileUri;
-                const preferredClass = receiverClassSymbolsTyped.find(
-                  (cls) => cls.fileUri === fileUriWithMethods,
-                );
-                if (preferredClass) {
-                  targetClass = preferredClass;
-                } else {
-                  targetClass = receiverClassSymbolsTyped[0];
-                }
+            // Prefer variable over type: if receiver name matches a variable in scope, treat as instance call.
+            // Enrichment may resolve "map" to Map type (e.g. for System.Map), but a local variable "map"
+            // should take precedence for map.put().
+            if (receiverName) {
+              const rcvName = receiverName;
+              const callLocation = methodCall.location;
+              const startScope = getContainingScopeForLocation(
+                symbolTable,
+                callLocation,
+              );
+              let found = symbolTable.lookup(rcvName, startScope ?? null);
+              const isVarFieldParam =
+                found &&
+                (found.kind === SymbolKind.Variable ||
+                  found.kind === SymbolKind.Field ||
+                  found.kind === SymbolKind.Parameter);
+              if (isVarFieldParam) {
+                receiverAsVariable = found as VariableSymbol;
               } else {
-                targetClass = receiverClassSymbolsTyped[0];
+                const allSymbols = symbolTable.getAllSymbols();
+                const currentFileUri = symbolTable.getFileUri();
+                receiverAsVariable = (allSymbols.find(
+                  (s) =>
+                    (s.kind === SymbolKind.Variable ||
+                      s.kind === SymbolKind.Field ||
+                      s.kind === SymbolKind.Parameter) &&
+                    s.name.toLowerCase() === rcvName.toLowerCase() &&
+                    (!currentFileUri || s.fileUri === currentFileUri),
+                ) ??
+                  allSymbols.find(
+                    (s) =>
+                      (s.kind === SymbolKind.Variable ||
+                        s.kind === SymbolKind.Field ||
+                        s.kind === SymbolKind.Parameter) &&
+                      s.name.toLowerCase() === rcvName.toLowerCase(),
+                  )) as VariableSymbol | undefined;
+              }
+            }
+
+            if (receiverAsVariable) {
+              // Receiver is a variable = instance call
+              receiverType =
+                receiverAsVariable.type?.originalTypeString ||
+                receiverAsVariable.type?.name ||
+                receiverType;
+              const baseType = extractBaseTypeForResolution(receiverType);
+              const compilationContext: CompilationContext = {
+                namespace: options.namespace
+                  ? Namespaces.create(options.namespace)
+                  : null,
+                version: options.apiVersion ?? DEFAULT_SALESFORCE_API_VERSION,
+                isTrusted: true,
+                sourceType: 'FILE',
+                referencingType: containingClass,
+                enclosingTypes: [],
+                parentTypes: [],
+                isStaticContext: isStaticCall,
+                currentSymbolTable: symbolTable,
+              };
+              const resolutionResult = resolveTypeName(
+                [baseType],
+                compilationContext,
+                ReferenceTypeEnum.METHOD,
+                IdentifierContext.NONE,
+                symbolManager as unknown as SymbolProvider,
+              );
+              if (
+                resolutionResult.isResolved &&
+                resolutionResult.symbol &&
+                (resolutionResult.symbol.kind === SymbolKind.Class ||
+                  resolutionResult.symbol.kind === SymbolKind.Interface)
+              ) {
+                targetClass = resolutionResult.symbol as TypeSymbol;
+                isStaticCall = false;
+              }
+            } else {
+              // No variable found - use pre-resolved symbol from enrichment (e.g. System.debug)
+              const preResolvedSymbol =
+                qualifierNode?.resolvedSymbolId &&
+                symbolManager.getSymbol(qualifierNode.resolvedSymbolId);
+              if (
+                preResolvedSymbol &&
+                (preResolvedSymbol.kind === SymbolKind.Class ||
+                  preResolvedSymbol.kind === SymbolKind.Interface)
+              ) {
+                targetClass = preResolvedSymbol as TypeSymbol;
+                if (methodCall.isStatic === undefined) {
+                  isStaticCall = true;
+                }
+              } else if (methodCall.isStatic === undefined) {
+                // Receiver is not a variable - try to resolve as type (static call)
+                const compilationContext: CompilationContext = {
+                  namespace: options.namespace
+                    ? Namespaces.create(options.namespace)
+                    : null,
+                  version: options.apiVersion ?? DEFAULT_SALESFORCE_API_VERSION,
+                  isTrusted: true,
+                  sourceType: 'FILE',
+                  referencingType: containingClass,
+                  enclosingTypes: [],
+                  parentTypes: [],
+                  isStaticContext: isStaticCall,
+                  currentSymbolTable: symbolTable,
+                };
+                const baseType = extractBaseTypeForResolution(receiverType);
+                const resolutionResult = resolveTypeName(
+                  [baseType],
+                  compilationContext,
+                  ReferenceTypeEnum.METHOD,
+                  IdentifierContext.NONE,
+                  symbolManager as unknown as SymbolProvider,
+                );
+                if (
+                  resolutionResult.isResolved &&
+                  resolutionResult.symbol &&
+                  (resolutionResult.symbol.kind === SymbolKind.Class ||
+                    resolutionResult.symbol.kind === SymbolKind.Interface)
+                ) {
+                  targetClass = resolutionResult.symbol as TypeSymbol;
+                  isStaticCall = true;
+                } else {
+                  continue;
+                }
               }
             }
           }
@@ -342,6 +486,50 @@ export const MethodResolutionValidator: Validator = {
           );
 
           if (argTypes.length > 0) {
+            // Extract generic type arguments from receiver type if this is an instance call
+            // e.g., List<Coordinates> -> Coordinates
+            // Map<String, Integer> -> K=String, V=Integer
+            // Get generic type arguments from TypeInfo.typeParameters if available
+            let genericTypeArguments: Map<string, string> | null = null; // Maps generics (K, V, T) to concrete type
+            if (!isStaticCall && receiverAsVariable?.type) {
+              const fullReceiverType =
+                receiverAsVariable.type.originalTypeString ||
+                receiverAsVariable.type.name ||
+                receiverType;
+              const baseTypeName = fullReceiverType
+                ? extractBaseTypeName(fullReceiverType)
+                : null;
+
+              // Check if type has typeParameters (for List<T>, Set<T>, Map<K,V>)
+              if (
+                receiverAsVariable.type.typeParameters &&
+                receiverAsVariable.type.typeParameters.length > 0 &&
+                baseTypeName
+              ) {
+                genericTypeArguments = new Map();
+
+                if (baseTypeName === 'map') {
+                  // Map<K, V>: keyType = K, typeParameters[0] = V (value type)
+                  // Note: TypeInfo stores Map as keyType + typeParameters[0] (value)
+                  // Both must be present for Map generic resolution to work
+                  const keyTypeName = receiverAsVariable.type.keyType?.name;
+                  const valueTypeName =
+                    receiverAsVariable.type.typeParameters[0]?.name;
+                  if (keyTypeName && valueTypeName) {
+                    genericTypeArguments.set('K', keyTypeName);
+                    genericTypeArguments.set('V', valueTypeName);
+                  }
+                } else {
+                  // List<T> or Set<T>: typeParameters[0] = T (element type)
+                  const firstTypeParam =
+                    receiverAsVariable.type.typeParameters[0];
+                  if (firstTypeParam?.name) {
+                    genericTypeArguments.set('T', firstTypeParam.name);
+                  }
+                }
+              }
+            }
+
             // Find methods that match both parameter count and types
             const matchingMethods = visibleMethods.filter((method) => {
               if (
@@ -351,29 +539,48 @@ export const MethodResolutionValidator: Validator = {
                 return false;
               }
 
-              // Compare each parameter type with argument type
+              // Compare each parameter type with argument type (with assignability)
               for (let i = 0; i < method.parameters.length; i++) {
-                const paramType =
-                  method.parameters[i]?.type?.name?.toLowerCase();
+                let paramType = method.parameters[i]?.type?.name?.toLowerCase();
                 const argType = argTypes[i]?.toLowerCase();
 
-                // null is compatible with any object type
-                if (argType === 'null') {
-                  continue;
+                // If parameter type is a generic type parameter (single uppercase letter like T, K, V)
+                // and we have generic type arguments from the receiver, resolve them
+                if (
+                  genericTypeArguments &&
+                  paramType &&
+                  genericTypeArguments.size > 0
+                ) {
+                  const originalParamType =
+                    method.parameters[i]?.type?.name ?? '';
+                  if (
+                    originalParamType.length === 1 &&
+                    originalParamType >= 'A' &&
+                    originalParamType <= 'Z'
+                  ) {
+                    // For Map.put(K key, V value):
+                    // - Parameter 0 (K) -> keyType (key type)
+                    // - Parameter 1 (V) -> typeParameters[0] (value type)
+                    // For List.add(T item) or Set.add(T item):
+                    // - Parameter 0 (T) -> typeParameters[0] (element type)
+                    const resolvedType =
+                      genericTypeArguments.get(originalParamType);
+                    if (resolvedType) {
+                      paramType = resolvedType.toLowerCase();
+                    }
+                  }
                 }
 
-                // If we couldn't determine argument type (Object fallback), skip type checking
-                if (!argType || argType === 'object') {
-                  continue;
-                }
+                const assignable = isAssignable(
+                  argType ?? '',
+                  paramType ?? '',
+                  'method-parameter',
+                  { allSymbols },
+                );
 
-                // Exact type match
-                if (paramType === argType) {
-                  continue;
+                if (!assignable) {
+                  return false;
                 }
-
-                // Type mismatch
-                return false;
               }
               return true;
             });
@@ -383,9 +590,12 @@ export const MethodResolutionValidator: Validator = {
               matchingMethods.length === 0 &&
               argTypes.some((t) => t !== 'Object')
             ) {
-              // We have some type information, so we can report a type mismatch
+              // Use the overload with matching param count for the error message
+              const methodWithSameParamCount = visibleMethods.find(
+                (m) => (m.parameters?.length ?? 0) === argTypes.length,
+              );
               const paramTypes =
-                visibleMethods[0]?.parameters
+                (methodWithSameParamCount ?? visibleMethods[0])?.parameters
                   ?.map((p) => p.type?.name || 'Object')
                   .join(', ') || '';
               errors.push({
@@ -428,6 +638,83 @@ export const MethodResolutionValidator: Validator = {
 };
 
 /**
+ * Find the innermost scope (block) that contains the given location.
+ * Used for scope-aware variable lookup (method-local variables).
+ */
+function getContainingScopeForLocation(
+  symbolTable: SymbolTable,
+  location: {
+    symbolRange?: { startLine?: number };
+    identifierRange?: { startLine?: number; startColumn?: number };
+  },
+): ScopeSymbol | null {
+  if (!location) return null;
+  const line =
+    location.identifierRange?.startLine ?? location.symbolRange?.startLine ?? 0;
+  const allSymbols = symbolTable.getAllSymbols();
+  const blocks = allSymbols.filter(
+    (s): s is ScopeSymbol => isBlockSymbol(s) && !!s.location,
+  );
+  let best: ScopeSymbol | null = null;
+  for (const block of blocks) {
+    const r = block.location?.identifierRange;
+    if (!r?.startLine || !r?.endLine) continue;
+    if (line >= r.startLine && line <= r.endLine) {
+      const extent = r.endLine - r.startLine;
+      const bestExtent = best
+        ? (best.location?.identifierRange?.endLine ?? 0) -
+          (best.location?.identifierRange?.startLine ?? 0)
+        : Infinity;
+      if (!best || extent < bestExtent) best = block;
+    }
+  }
+  return best;
+}
+
+/**
+ * Extract receiver name from source when chainNodes is empty (e.g. map.put -> "map").
+ * Used when reference structure lacks chainNodes but source has receiver.methodName pattern.
+ */
+function extractReceiverNameFromSource(
+  methodCall: {
+    name?: string;
+    location?: {
+      identifierRange?: { startLine?: number; startColumn?: number };
+      symbolRange?: { startLine?: number; startColumn?: number };
+    };
+  },
+  sourceContent: string,
+): string | null {
+  if (!sourceContent || !methodCall.location || !methodCall.name) return null;
+  const startLine =
+    methodCall.location.identifierRange?.startLine ??
+    methodCall.location.symbolRange?.startLine ??
+    0;
+  const startColumn =
+    methodCall.location.identifierRange?.startColumn ??
+    methodCall.location.symbolRange?.startColumn ??
+    0;
+  const lines = sourceContent.split('\n');
+  if (startLine < 1 || startLine > lines.length) return null;
+  const line = lines[startLine - 1];
+  if (!line) return null;
+  const methodNameIndex = line
+    .substring(startColumn - 1)
+    .toLowerCase()
+    .indexOf(methodCall.name.toLowerCase());
+  if (methodNameIndex < 0) return null;
+  const searchStart = startColumn - 1 + methodNameIndex;
+  const beforeMethod = line.substring(0, searchStart);
+  const lastDotIndex = beforeMethod.lastIndexOf('.');
+  if (lastDotIndex < 0) return null;
+  const receiverText = beforeMethod
+    .substring(Math.max(0, lastDotIndex - 50), lastDotIndex + 1)
+    .trim();
+  const receiverMatch = receiverText.match(/([a-zA-Z_][a-zA-Z0-9_]*)\s*\.\s*$/);
+  return receiverMatch ? receiverMatch[1] : null;
+}
+
+/**
  * Resolve the type of the receiver for a qualified method call (e.g., obj.method())
  * Returns the type name if found, null otherwise
  */
@@ -439,24 +726,43 @@ function resolveMethodCallReceiverType(
   tier?: ValidationTier,
 ): Effect.Effect<string | null, never, never> {
   return Effect.gen(function* () {
-    // For chained calls, use chainNodes to get the receiver directly
+    // For chained calls, extract receiver from base (name part before first dot)
+    // e.g. "System.debug" -> receiver "System", "f.getB" -> receiver "f"
     if (methodCall.chainNodes && methodCall.chainNodes.length > 0) {
-      const firstNode = methodCall.chainNodes[0];
-      if (firstNode && firstNode.name) {
-        const receiverName = firstNode.name;
-
+      const receiverName = methodCall.name?.includes('.')
+        ? methodCall.name.split('.')[0]
+        : methodCall.chainNodes[0]?.name;
+      if (receiverName) {
         // Resolve the receiver's type
-        // First try same-file lookup
-        let receiverSymbol = symbolTable.lookup(receiverName, null);
+        // Try scope-aware lookup first (method-local variables), then same-file flat search
+        const callLocation = methodCall.location;
+        const startScope = getContainingScopeForLocation(
+          symbolTable,
+          callLocation,
+        );
+        let receiverSymbol = symbolTable.lookup(
+          receiverName,
+          startScope ?? null,
+        );
         if (!receiverSymbol) {
           const allSymbols = symbolTable.getAllSymbols();
-          receiverSymbol = allSymbols.find(
-            (s) =>
-              (s.kind === SymbolKind.Variable ||
-                s.kind === SymbolKind.Parameter ||
-                s.kind === SymbolKind.Field) &&
-              s.name.toLowerCase() === receiverName.toLowerCase(),
-          );
+          const currentFileUri = symbolTable.getFileUri();
+          receiverSymbol =
+            allSymbols.find(
+              (s) =>
+                (s.kind === SymbolKind.Variable ||
+                  s.kind === SymbolKind.Parameter ||
+                  s.kind === SymbolKind.Field) &&
+                s.name.toLowerCase() === receiverName.toLowerCase() &&
+                s.fileUri === currentFileUri,
+            ) ??
+            allSymbols.find(
+              (s) =>
+                (s.kind === SymbolKind.Variable ||
+                  s.kind === SymbolKind.Parameter ||
+                  s.kind === SymbolKind.Field) &&
+                s.name.toLowerCase() === receiverName.toLowerCase(),
+            );
         }
 
         if (
@@ -497,6 +803,25 @@ function resolveMethodCallReceiverType(
             if (varSymbol.type?.name) {
               return varSymbol.type.name;
             }
+          }
+
+          // Defer to symbol manager for built-in/standard type check
+          if (
+            receiverName &&
+            symbolManager.isStandardLibraryType(receiverName)
+          ) {
+            return receiverName;
+          }
+
+          // Try class/interface lookup (e.g. for System from stdlib)
+          const foundClass = symbolsByName.find(
+            (s) =>
+              (s.kind === SymbolKind.Class ||
+                s.kind === SymbolKind.Interface) &&
+              s.name?.toLowerCase() === receiverName.toLowerCase(),
+          );
+          if (foundClass) {
+            return foundClass.name ?? receiverName;
           }
         }
 
@@ -549,9 +874,9 @@ function resolveMethodCallReceiverType(
       return null;
     }
 
-    // Extract the receiver name (everything before the dot, trimmed)
+    // Extract the receiver name (include dot so regex can match "identifier.")
     const receiverText = beforeMethod
-      .substring(Math.max(0, lastDotIndex - 50), lastDotIndex)
+      .substring(Math.max(0, lastDotIndex - 50), lastDotIndex + 1)
       .trim();
     // Extract identifier before the dot (handle whitespace)
     const receiverMatch = receiverText.match(
@@ -565,7 +890,9 @@ function resolveMethodCallReceiverType(
 
     // Resolve the receiver's type
     // First try same-file lookup
-    let receiverSymbol = symbolTable.lookup(receiverName, null);
+    const callLocation = methodCall.location;
+    const startScope = getContainingScopeForLocation(symbolTable, callLocation);
+    let receiverSymbol = symbolTable.lookup(receiverName, startScope ?? null);
     if (!receiverSymbol) {
       const allSymbols = symbolTable.getAllSymbols();
       receiverSymbol = allSymbols.find(
@@ -616,6 +943,21 @@ function resolveMethodCallReceiverType(
           return varSymbol.type.name;
         }
       }
+
+      // Defer to symbol manager for built-in/standard type check
+      if (receiverName && symbolManager?.isStandardLibraryType(receiverName)) {
+        return receiverName;
+      }
+
+      // Try class/interface lookup
+      const foundClass = symbolsByName.find(
+        (s) =>
+          (s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface) &&
+          s.name?.toLowerCase() === receiverName.toLowerCase(),
+      );
+      if (foundClass) {
+        return foundClass.name ?? receiverName;
+      }
     }
 
     return null;
@@ -634,20 +976,18 @@ function findMethodsInHierarchy(
   return Effect.gen(function* () {
     const methods: MethodSymbol[] = [];
 
-    // Get all symbols across all files for cross-file resolution
-    const allSymbolsForCompletion = symbolManager.getAllSymbolsForCompletion();
-    // Combine with current file symbols (current file takes precedence)
-    const combinedSymbols = [
-      ...allSymbols,
-      ...allSymbolsForCompletion.filter(
-        (s) => !allSymbols.some((existing) => existing.id === s.id),
-      ),
-    ];
+    // Use symbols from the class's file for cross-file resolution
+    // allSymbols may only contain current file; class may be in a different file
+    const symbolsForClass =
+      classSymbol.fileUri &&
+      !allSymbols.some((s) => s.fileUri === classSymbol.fileUri)
+        ? symbolManager.findSymbolsInFile(classSymbol.fileUri)
+        : allSymbols;
 
     // Find methods in the current class
     const classMethods = findMethodsInClass(
       classSymbol,
-      combinedSymbols,
+      symbolsForClass,
       symbolManager,
     );
     const matchingMethods = classMethods.filter((m) => m.name === methodName);
@@ -834,7 +1174,7 @@ function findMethodsInClass(
   symbolManager: ISymbolManagerInterface,
 ): MethodSymbol[] {
   const methods: MethodSymbol[] = [];
-  const methodsById = new Set<string>();
+  const methodsAdded = new Set<MethodSymbol>(); // By reference to allow overloads (same id, different params)
 
   // Find all methods in the same file as the class
   // If classSymbol.fileUri is not set, try to find it from the class symbol itself
@@ -844,17 +1184,32 @@ function findMethodsInClass(
     return methods;
   }
 
-  const methodsInFile = allSymbols.filter(
+  // First, try to get methods from allSymbols (same-file or already loaded)
+  let methodsInFile = allSymbols.filter(
     (s) =>
       isMethodSymbol(s) &&
       s.kind === SymbolKind.Method &&
       s.fileUri === targetFileUri,
   ) as MethodSymbol[];
 
+  // If no methods found and this is a standard library class, try to get methods from symbol manager
+  if (
+    methodsInFile.length === 0 &&
+    symbolManager &&
+    targetFileUri?.startsWith('apexlib://')
+  ) {
+    // For standard library classes, get all symbols from the file using findSymbolsInFile
+    const fileSymbols = symbolManager.findSymbolsInFile(targetFileUri);
+
+    methodsInFile = fileSymbols.filter(
+      (s: ApexSymbol) => isMethodSymbol(s) && s.kind === SymbolKind.Method,
+    ) as MethodSymbol[];
+  }
+
   // For each method, find its declaring class by traversing parentId relationships
   for (const method of methodsInFile) {
-    if (methodsById.has(method.id)) {
-      continue; // Already added
+    if (methodsAdded.has(method)) {
+      continue; // Already added (same symbol instance)
     }
 
     let declaringClass: TypeSymbol | null = null;
@@ -872,7 +1227,20 @@ function findMethodsInClass(
         break;
       }
       if (current.parentId) {
-        current = allSymbols.find((s) => s.id === current!.parentId) || null;
+        const parentId: string = current.parentId;
+        // First try to find parent in allSymbols
+        current = allSymbols.find((s) => s.id === parentId) || null;
+        // If not found and we have symbolManager, try to get it from symbol manager
+        if (!current && symbolManager) {
+          const parentSymbol = symbolManager.getSymbol(parentId);
+          if (parentSymbol) {
+            current = parentSymbol;
+          } else {
+            break;
+          }
+        } else if (!current) {
+          break;
+        }
       } else {
         break;
       }
@@ -885,19 +1253,39 @@ function findMethodsInClass(
       declaringClass.fileUri === classSymbol.fileUri
     ) {
       methods.push(method);
-      methodsById.add(method.id);
+      methodsAdded.add(method);
     } else if (method.parentId === classSymbol.id) {
       // Direct parentId match (same-file case)
       methods.push(method);
-      methodsById.add(method.id);
+      methodsAdded.add(method);
     } else {
       // Check if parentId points to a class block that belongs to this class
-      const parentBlock = allSymbols.find((s) => s.id === method.parentId);
+      let parentBlock = allSymbols.find((s) => s.id === method.parentId);
+      // If not found in allSymbols and we have symbolManager, try to get it from symbol manager
+      if (!parentBlock && symbolManager && method.parentId) {
+        const parentSymbol = symbolManager.getSymbol(method.parentId);
+        if (parentSymbol && isBlockSymbol(parentSymbol)) {
+          parentBlock = parentSymbol;
+        }
+      }
+
       if (parentBlock && isBlockSymbol(parentBlock)) {
         // Check if the block's parent is a class with matching name and fileUri
-        const blockParent = allSymbols.find(
-          (s) => s.id === parentBlock.parentId,
+        let blockParent = allSymbols.find(
+          (s) => s.id === parentBlock!.parentId,
         );
+        // If not found in allSymbols and we have symbolManager, try to get it from symbol manager
+        if (!blockParent && symbolManager && parentBlock.parentId) {
+          const parentSymbol = symbolManager.getSymbol(parentBlock.parentId);
+          if (
+            parentSymbol &&
+            (parentSymbol.kind === SymbolKind.Class ||
+              parentSymbol.kind === SymbolKind.Interface)
+          ) {
+            blockParent = parentSymbol;
+          }
+        }
+
         if (
           blockParent &&
           (blockParent.kind === SymbolKind.Class ||
@@ -906,11 +1294,11 @@ function findMethodsInClass(
           blockParent.fileUri === classSymbol.fileUri
         ) {
           methods.push(method);
-          methodsById.add(method.id);
+          methodsAdded.add(method);
         } else if (parentBlock.parentId === classSymbol.id) {
           // Direct parentId match
           methods.push(method);
-          methodsById.add(method.id);
+          methodsAdded.add(method);
         }
       }
     }
@@ -953,7 +1341,19 @@ function validateMethodReturnType(
     // In practice, we'd use the method selected by parameter type matching
     const selectedMethod = visibleMethods[0];
     if (!selectedMethod || !selectedMethod.returnType?.name) {
-      return;
+      return; // Skip when method unresolved or has no return type
+    }
+
+    // Verify we have the right method (name match)
+    const actualMethodName =
+      methodCall.chainNodes?.length > 0
+        ? methodCall.chainNodes[methodCall.chainNodes.length - 1]?.name
+        : methodCall.name?.split('.').pop();
+    if (
+      actualMethodName &&
+      selectedMethod.name?.toLowerCase() !== actualMethodName.toLowerCase()
+    ) {
+      return; // Method name mismatch - likely wrong method from cross-file resolution
     }
 
     const returnType = selectedMethod.returnType.name.toLowerCase();
@@ -964,7 +1364,19 @@ function validateMethodReturnType(
       return;
     }
 
-    // Check type compatibility
+    // Skip when method is cross-file and expected type has qualified generic param
+    // (e.g. List<GeocodingService.Coordinates>) - resolution may use short form (List<Coordinates>)
+    const symbolTableFileUri = symbolTable.getFileUri();
+    const isCrossFile =
+      symbolTableFileUri &&
+      selectedMethod.fileUri &&
+      selectedMethod.fileUri !== symbolTableFileUri;
+    const hasQualifiedGeneric = /<\w+\.\w+/.test(expectedType);
+    if (isCrossFile && hasQualifiedGeneric) {
+      return;
+    }
+
+    // Check type compatibility (handles List<X> vs list<x> case/generics)
     if (!areReturnTypesCompatible(returnType, expectedType)) {
       errors.push({
         message: localizeTyped(
@@ -1024,7 +1436,9 @@ function extractAssignmentContext(
   // Handle both qualified (obj.method()) and unqualified (method()) calls
   // Pattern 1: Type variable = receiver.method() or Type variable = method()
   // Match: Type var = ...methodName(...) where methodName is the last identifier before (
-  const typedAssignmentPattern = /(\w+)\s+(\w+)\s*=\s*.*?(\w+)\s*\(/;
+  // Also handle generic types like List<Coordinates>
+  const typedAssignmentPattern =
+    /(\w+(?:<\w+(?:\.\w+)*>)?)\s+(\w+)\s*=\s*.*?(\w+)\s*\(/;
   let match = line.match(typedAssignmentPattern);
 
   let variableName: string;
@@ -1135,22 +1549,49 @@ function areReturnTypesCompatible(
   returnType: string,
   expectedType: string,
 ): boolean {
+  // Normalize for comparison (trim, lowercase)
+  const normReturn = returnType.trim().toLowerCase();
+  const normExpected = expectedType.trim().toLowerCase();
+
   // Same type
-  if (returnType === expectedType) {
+  if (normReturn === normExpected) {
     return true;
+  }
+
+  // Generic types: List<X> vs list<x> - compare base and type param case-insensitively
+  const genericMatch = /^(\w+)<([^>]+)>$/;
+  const returnMatch = normReturn.match(genericMatch);
+  const expectedMatch = normExpected.match(genericMatch);
+  if (returnMatch && expectedMatch && returnMatch[1] === expectedMatch[1]) {
+    const returnParam = returnMatch[2].replace(/\s/g, '').toLowerCase();
+    const expectedParam = expectedMatch[2].replace(/\s/g, '').toLowerCase();
+    if (returnParam === expectedParam) {
+      return true;
+    }
+    // Handle qualified vs unqualified: Coordinates vs GeocodingService.Coordinates
+    const returnLastPart = returnParam.split('.').pop() ?? returnParam;
+    const expectedLastPart = expectedParam.split('.').pop() ?? expectedParam;
+    if (returnLastPart === expectedLastPart) {
+      return true;
+    }
   }
 
   // null is compatible with any object type
-  if (returnType === 'null' || expectedType === 'null') {
+  if (normReturn === 'null' || normExpected === 'null') {
     return true;
   }
 
+  // Object return type is compatible with any type (except primitives)
+  // This handles cases like JSON.deserialize which returns Object but can be cast to any type
+  if (normReturn === 'object' || normReturn === 'system.object') {
+    // Object can be assigned to any object type; only reject if expected is primitive
+    if (!isPrimitiveType(normExpected)) {
+      return true;
+    }
+  }
+
   // Numeric types are compatible with each other (with some restrictions)
-  const numericTypes = ['integer', 'long', 'double', 'decimal'];
-  if (
-    numericTypes.includes(returnType) &&
-    numericTypes.includes(expectedType)
-  ) {
+  if (isNumericType(normReturn) && isNumericType(normExpected)) {
     return true;
   }
 
@@ -1351,6 +1792,11 @@ function getMethodCallArgumentType(
       return newMatch[1];
     }
 
+    // Type.class expressions (e.g. AuraHandledException.class) - returns System.Type
+    if (/\.class\s*$/.test(trimmed)) {
+      return 'Type';
+    }
+
     // Variable identifiers - try to lookup in symbol table
     if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed)) {
       // Try case-sensitive lookup first
@@ -1469,8 +1915,10 @@ function findMethodsInSuperclass(
       return methods;
     }
 
-    // Get all symbols for completion to find methods
-    const allSymbols = symbolManager.getAllSymbolsForCompletion();
+    // Get symbols from the superclass's file if available
+    const allSymbols = superClassSymbol.fileUri
+      ? symbolManager.findSymbolsInFile(superClassSymbol.fileUri)
+      : [];
 
     // Find methods in the superclass
     const superClassMethods = findMethodsInClass(

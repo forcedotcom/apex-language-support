@@ -41,7 +41,9 @@ describe('Namespace Resolution Integration', () => {
       const symbols = symbolTable.getAllSymbols();
 
       // Verify immediate resolution (Phase 2) worked
-      const classSymbol = symbols.find((s) => s.name === 'TestClass');
+      const classSymbol = symbols.find(
+        (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
+      );
       expect(classSymbol?.namespace?.toString()).toBe('MyNamespace');
 
       // Verify deferred resolution (Phase 4) worked for type references
@@ -99,10 +101,10 @@ describe('Namespace Resolution Integration', () => {
 
       const classASymbol = symbolTable1
         .getAllSymbols()
-        .find((s) => s.name === 'ClassA');
+        .find((s) => s.name === 'ClassA' && s.kind === SymbolKind.Class);
       const classBSymbol = symbolTable2
         .getAllSymbols()
-        .find((s) => s.name === 'ClassB');
+        .find((s) => s.name === 'ClassB' && s.kind === SymbolKind.Class);
 
       expect(classASymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(classBSymbol?.namespace?.toString()).toBe('MyNamespace');
@@ -138,7 +140,9 @@ describe('Namespace Resolution Integration', () => {
       const symbols = symbolTable.getAllSymbols();
 
       // Verify class has correct namespace
-      const classSymbol = symbols.find((s) => s.name === 'ComplexTypeClass');
+      const classSymbol = symbols.find(
+        (s) => s.name === 'ComplexTypeClass' && s.kind === SymbolKind.Class,
+      );
       expect(classSymbol?.namespace?.toString()).toBe('MyNamespace');
 
       // Verify variables with complex types are created
@@ -223,7 +227,9 @@ describe('Namespace Resolution Integration', () => {
       const symbols = symbolTable.getAllSymbols();
 
       // Verify class has correct namespace
-      const classSymbol = symbols.find((s) => s.name === 'SystemTypeClass');
+      const classSymbol = symbols.find(
+        (s) => s.name === 'SystemTypeClass' && s.kind === SymbolKind.Class,
+      );
       expect(classSymbol?.namespace?.toString()).toBe('MyNamespace');
 
       // Verify variables with System types are created
@@ -257,7 +263,9 @@ describe('Namespace Resolution Integration', () => {
       const symbols = symbolTable.getAllSymbols();
 
       // Verify class was created (namespace should be null/undefined)
-      const classSymbol = symbols.find((s) => s.name === 'NoNamespaceClass');
+      const classSymbol = symbols.find(
+        (s) => s.name === 'NoNamespaceClass' && s.kind === SymbolKind.Class,
+      );
       expect(classSymbol).toBeDefined();
       expect(classSymbol?.namespace).toBeNull();
     });
@@ -283,7 +291,9 @@ describe('Namespace Resolution Integration', () => {
       const symbols = symbolTable.getAllSymbols();
 
       // Verify class was created (namespace should be null)
-      const classSymbol = symbols.find((s) => s.name === 'EmptyNamespaceClass');
+      const classSymbol = symbols.find(
+        (s) => s.name === 'EmptyNamespaceClass' && s.kind === SymbolKind.Class,
+      );
       expect(classSymbol).toBeDefined();
       expect(classSymbol?.namespace).toBeNull();
     });
@@ -308,7 +318,9 @@ describe('Namespace Resolution Integration', () => {
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const classSymbol = symbols.find((s) => s.name === 'TestClass');
+      const classSymbol = symbols.find(
+        (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
+      );
 
       expect(classSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(classSymbol?.fqn).toBe('mynamespace.testclass');
@@ -347,10 +359,10 @@ describe('Namespace Resolution Integration', () => {
 
       const classASymbol = symbolTable1
         .getAllSymbols()
-        .find((s) => s.name === 'ClassA');
+        .find((s) => s.name === 'ClassA' && s.kind === SymbolKind.Class);
       const classBSymbol = symbolTable2
         .getAllSymbols()
-        .find((s) => s.name === 'ClassB');
+        .find((s) => s.name === 'ClassB' && s.kind === SymbolKind.Class);
 
       expect(classASymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(classBSymbol?.namespace?.toString()).toBe('MyNamespace');
@@ -379,7 +391,9 @@ describe('Namespace Resolution Integration', () => {
       const symbols = symbolTable.getAllSymbols();
 
       // Verify class has correct namespace
-      const classSymbol = symbols.find((s) => s.name === 'ComplexClass');
+      const classSymbol = symbols.find(
+        (s) => s.name === 'ComplexClass' && s.kind === SymbolKind.Class,
+      );
       expect(classSymbol?.namespace?.toString()).toBe('MyNamespace');
 
       // Verify variables are created (they should inherit namespace)
@@ -416,11 +430,15 @@ describe('Namespace Resolution Integration', () => {
       const symbols = symbolTable.getAllSymbols();
 
       // Verify outer class has project namespace
-      const outerClass = symbols.find((s) => s.name === 'OuterClass');
+      const outerClass = symbols.find(
+        (s) => s.name === 'OuterClass' && s.kind === SymbolKind.Class,
+      );
       expect(outerClass?.namespace?.toString()).toBe('MyNamespace');
 
       // Verify inner class inherits namespace
-      const innerClass = symbols.find((s) => s.name === 'InnerClass');
+      const innerClass = symbols.find(
+        (s) => s.name === 'InnerClass' && s.kind === SymbolKind.Class,
+      );
       expect(innerClass?.namespace?.toString()).toBe('MyNamespace');
 
       // Verify that most symbols have correct namespace (some may not due to parser limitations)
@@ -451,7 +469,9 @@ describe('Namespace Resolution Integration', () => {
       const symbols = symbolTable.getAllSymbols();
 
       // Verify interface has project namespace
-      const interfaceSymbol = symbols.find((s) => s.name === 'TestInterface');
+      const interfaceSymbol = symbols.find(
+        (s) => s.name === 'TestInterface' && s.kind === SymbolKind.Interface,
+      );
       expect(interfaceSymbol?.namespace?.toString()).toBe('MyNamespace');
 
       // Verify interface methods inherit namespace
@@ -481,7 +501,9 @@ describe('Namespace Resolution Integration', () => {
       const symbols = symbolTable.getAllSymbols();
 
       // Verify enum has project namespace
-      const enumSymbol = symbols.find((s) => s.name === 'TestEnum');
+      const enumSymbol = symbols.find(
+        (s) => s.name === 'TestEnum' && s.kind === SymbolKind.Enum,
+      );
       expect(enumSymbol?.namespace?.toString()).toBe('MyNamespace');
 
       // Verify enum values inherit namespace

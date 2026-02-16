@@ -14,15 +14,17 @@ import {
 
 /**
  * Block symbol name patterns that should be excluded from display FQNs
- * These patterns match block symbols like "class_1", "method_2", "block_3", "if_4", etc.
- * Format: {scopeType}_{counter} where scopeType is one of the block types
+ * - Legacy format: {scopeType}_{counter} e.g. "class_1", "method_2", "block_3"
+ * - StructureListener format: block_{line}_{column} e.g. "block_15_36"
  */
 const BLOCK_SYMBOL_PATTERN =
   /^(class|method|block|if|while|for|try|catch|finally|switch|when|dowhile|runas|getter|setter)_\d+$/i;
+const STRUCTURE_BLOCK_PATTERN = /^block_\d+_\d+$/i;
 
 /**
  * Transforms a full FQN (including block symbols) to a display FQN (semantic hierarchy only)
- * Removes block symbol segments like "class_1", "method_2", "block_3" from the FQN
+ * Removes block symbol segments and deduplicates when block names match semantic symbols
+ * (e.g. StructureListener uses class/method names for blocks, causing "FileUtilities.FileUtilities")
  *
  * @param fqn The full FQN string that may include block symbols
  * @returns The display FQN with block symbols removed
@@ -31,6 +33,8 @@ const BLOCK_SYMBOL_PATTERN =
  * ```typescript
  * toDisplayFQN("testclass.class_1.somemethod.method_2.block_3.ifvar")
  * // Returns: "testclass.somemethod.ifvar"
+ * toDisplayFQN("FileUtilities.FileUtilities.createFile.createFile.base64data")
+ * // Returns: "FileUtilities.createFile.base64data"
  * ```
  */
 export function toDisplayFQN(fqn: string): string {
@@ -38,15 +42,21 @@ export function toDisplayFQN(fqn: string): string {
     return fqn;
   }
 
-  // Split FQN by dots and filter out block symbol patterns
   const parts = fqn.split('.');
-  const displayParts = parts.filter(
-    (part) =>
-      // Remove block symbol patterns (e.g., "class_1", "method_2", "block_3")
-      !BLOCK_SYMBOL_PATTERN.test(part),
-  );
+  const filtered: string[] = [];
+  for (const part of parts) {
+    // Remove block symbol patterns (legacy and StructureListener format)
+    if (BLOCK_SYMBOL_PATTERN.test(part) || STRUCTURE_BLOCK_PATTERN.test(part)) {
+      continue;
+    }
+    // Deduplicate: block names often match semantic symbols (class block name = class name)
+    if (filtered.length > 0 && filtered[filtered.length - 1] === part) {
+      continue;
+    }
+    filtered.push(part);
+  }
 
-  return displayParts.join('.');
+  return filtered.join('.');
 }
 
 /**

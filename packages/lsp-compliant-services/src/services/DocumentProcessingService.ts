@@ -463,7 +463,6 @@ export class DocumentProcessingService {
             symbolsIndexed: false,
             detailLevel: 'public-api', // Initial level, will be enriched
           });
-
           // Run prerequisites for file-open-single request (async, non-blocking)
           if (self.prerequisiteOrchestrationService) {
             self.prerequisiteOrchestrationService

@@ -44,6 +44,7 @@ import {
 } from './listeners/LayeredSymbolListenerBase';
 import { VisibilitySymbolListener } from './listeners/VisibilitySymbolListener';
 import { BlockContentListener } from './listeners/BlockContentListener';
+import { StructureListener } from './listeners/StructureListener';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../constants/constants';
 
 export interface CompilationResult<T> {
@@ -184,6 +185,19 @@ export class CompilerService {
       }
 
       const walker = new ParseTreeWalker();
+
+      // Run StructureListener first when listener produces SymbolTable
+      // (VisibilitySymbolListener path; FullSymbolCollectorListener has its own structure pass)
+      const result = listener.getResult();
+      if (
+        result instanceof SymbolTable &&
+        !(listener instanceof FullSymbolCollectorListener)
+      ) {
+        const structureListener = new StructureListener(result);
+        structureListener.setCurrentFileUri(fileName);
+        walker.walk(structureListener, parseTree);
+      }
+
       walker.walk(listener, parseTree);
 
       // Optionally collect references using dedicated listener
@@ -526,10 +540,15 @@ export class CompilerService {
       const symbolTable = existingSymbolTable || new SymbolTable();
       symbolTable.setFileUri(fileName);
 
-      // Apply listeners in order (public-api -> protected -> private)
       const walker = new ParseTreeWalker();
       const namespace = options.projectNamespace || this.projectNamespace;
 
+      // Step 0: Establish block structure (must run first)
+      const structureListener = new StructureListener(symbolTable);
+      structureListener.setCurrentFileUri(fileName);
+      walker.walk(structureListener, parseTree);
+
+      // Apply listeners in order (public-api -> protected -> private)
       for (const layer of requestedLayers) {
         const listener = this.createListenerForLayer(layer, symbolTable);
 

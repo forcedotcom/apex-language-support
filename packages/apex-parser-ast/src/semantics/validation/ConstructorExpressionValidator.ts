@@ -8,7 +8,7 @@
 
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import type { ExpressionType } from './TypePromotionSystem';
-import { isPrimitiveType } from '../../utils/TypeInfoFactory';
+import { isPrimitiveType } from '../../utils/primitiveTypes';
 
 /**
  * Validator for constructor expressions (new expressions with field initializers)

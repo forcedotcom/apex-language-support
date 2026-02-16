@@ -12,6 +12,8 @@ import {
   TypeSymbol,
   MethodSymbol,
   SymbolKind,
+  SymbolVisibility,
+  createPrimitiveType,
 } from '@salesforce/apex-lsp-parser-ast';
 
 import { ImplementationProcessingService } from '../../src/services/ImplementationProcessingService';
@@ -67,6 +69,12 @@ describe('ImplementationProcessingService', () => {
       const mockTypeReference = {
         name: 'MyInterface',
         location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 20,
+          },
           identifierRange: {
             startLine: 1,
             startColumn: 10,
@@ -85,6 +93,12 @@ describe('ImplementationProcessingService', () => {
         name: 'MyInterface',
         kind: SymbolKind.Interface,
         location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 20,
+          },
           identifierRange: {
             startLine: 1,
             startColumn: 10,
@@ -102,23 +116,20 @@ describe('ImplementationProcessingService', () => {
           fileUri: 'file:///test/MyInterface.cls',
           kind: SymbolKind.Interface,
         },
-        parentKey: null,
-        _modifierFlags: 0,
+        parentId: null,
         _isLoaded: true,
         modifiers: {
-          isPublic: true,
-          isPrivate: false,
-          isProtected: false,
-          isGlobal: false,
+          visibility: SymbolVisibility.Public,
           isStatic: false,
           isFinal: false,
           isAbstract: false,
           isVirtual: false,
           isOverride: false,
           isTransient: false,
-          isTest: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
         },
-        parent: null,
       };
       mockSymbolManager.getSymbolAtPosition.mockResolvedValue(interfaceSymbol);
 
@@ -128,6 +139,12 @@ describe('ImplementationProcessingService', () => {
         name: 'ImplementingClass',
         kind: SymbolKind.Class,
         location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 25,
+          },
           identifierRange: {
             startLine: 1,
             startColumn: 10,
@@ -145,23 +162,20 @@ describe('ImplementationProcessingService', () => {
           fileUri: 'file:///test/ImplementingClass.cls',
           kind: SymbolKind.Class,
         },
-        parentKey: null,
-        _modifierFlags: 0,
+        parentId: null,
         _isLoaded: true,
         modifiers: {
-          isPublic: true,
-          isPrivate: false,
-          isProtected: false,
-          isGlobal: false,
+          visibility: SymbolVisibility.Public,
           isStatic: false,
           isFinal: false,
           isAbstract: false,
           isVirtual: false,
           isOverride: false,
           isTransient: false,
-          isTest: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
         },
-        parent: null,
       };
 
       // Mock findReferencesTo to return reference from implementing class
@@ -196,6 +210,12 @@ describe('ImplementationProcessingService', () => {
       const mockTypeReference = {
         name: 'abstractMethod',
         location: {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 25,
+          },
           identifierRange: {
             startLine: 5,
             startColumn: 10,
@@ -214,6 +234,12 @@ describe('ImplementationProcessingService', () => {
         name: 'abstractMethod',
         kind: SymbolKind.Method,
         location: {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 25,
+          },
           identifierRange: {
             startLine: 5,
             startColumn: 10,
@@ -222,7 +248,7 @@ describe('ImplementationProcessingService', () => {
           },
         },
         fileUri: 'file:///test/AbstractClass.cls',
-        returnType: { name: 'void' },
+        returnType: createPrimitiveType('void'),
         parameters: [],
         key: {
           prefix: 'method',
@@ -232,23 +258,20 @@ describe('ImplementationProcessingService', () => {
           fileUri: 'file:///test/AbstractClass.cls',
           kind: SymbolKind.Method,
         },
-        parentKey: null,
-        _modifierFlags: 0,
+        parentId: null,
         _isLoaded: true,
         modifiers: {
-          isPublic: true,
-          isPrivate: false,
-          isProtected: false,
-          isGlobal: false,
+          visibility: SymbolVisibility.Public,
           isStatic: false,
           isFinal: false,
           isAbstract: true,
           isVirtual: false,
           isOverride: false,
           isTransient: false,
-          isTest: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
         },
-        parent: null,
       };
       mockSymbolManager.getSymbolAtPosition.mockResolvedValue(abstractMethod);
 
@@ -258,6 +281,12 @@ describe('ImplementationProcessingService', () => {
         name: 'AbstractClass',
         kind: SymbolKind.Class,
         location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 23,
+          },
           identifierRange: {
             startLine: 1,
             startColumn: 10,
@@ -275,23 +304,20 @@ describe('ImplementationProcessingService', () => {
           fileUri: 'file:///test/AbstractClass.cls',
           kind: SymbolKind.Class,
         },
-        parentKey: null,
-        _modifierFlags: 0,
+        parentId: null,
         _isLoaded: true,
         modifiers: {
-          isPublic: true,
-          isPrivate: false,
-          isProtected: false,
-          isGlobal: false,
+          visibility: SymbolVisibility.Public,
           isStatic: false,
           isFinal: false,
           isAbstract: true,
           isVirtual: false,
           isOverride: false,
           isTransient: false,
-          isTest: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
         },
-        parent: null,
       };
       mockSymbolManager.getContainingType.mockReturnValue(abstractClass);
 
@@ -301,6 +327,12 @@ describe('ImplementationProcessingService', () => {
         name: 'ConcreteClass',
         kind: SymbolKind.Class,
         location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 10,
+            endLine: 1,
+            endColumn: 23,
+          },
           identifierRange: {
             startLine: 1,
             startColumn: 10,
@@ -319,23 +351,20 @@ describe('ImplementationProcessingService', () => {
           fileUri: 'file:///test/ConcreteClass.cls',
           kind: SymbolKind.Class,
         },
-        parentKey: null,
-        _modifierFlags: 0,
+        parentId: null,
         _isLoaded: true,
         modifiers: {
-          isPublic: true,
-          isPrivate: false,
-          isProtected: false,
-          isGlobal: false,
+          visibility: SymbolVisibility.Public,
           isStatic: false,
           isFinal: false,
           isAbstract: false,
           isVirtual: false,
           isOverride: false,
           isTransient: false,
-          isTest: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
         },
-        parent: null,
       };
 
       // Mock implementing method
@@ -344,6 +373,12 @@ describe('ImplementationProcessingService', () => {
         name: 'abstractMethod',
         kind: SymbolKind.Method,
         location: {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 25,
+          },
           identifierRange: {
             startLine: 5,
             startColumn: 10,
@@ -352,7 +387,7 @@ describe('ImplementationProcessingService', () => {
           },
         },
         fileUri: 'file:///test/ConcreteClass.cls',
-        returnType: { name: 'void' },
+        returnType: createPrimitiveType('void'),
         parameters: [],
         key: {
           prefix: 'method',
@@ -362,23 +397,20 @@ describe('ImplementationProcessingService', () => {
           fileUri: 'file:///test/ConcreteClass.cls',
           kind: SymbolKind.Method,
         },
-        parentKey: null,
-        _modifierFlags: 0,
+        parentId: null,
         _isLoaded: true,
         modifiers: {
-          isPublic: true,
-          isPrivate: false,
-          isProtected: false,
-          isGlobal: false,
+          visibility: SymbolVisibility.Public,
           isStatic: false,
           isFinal: false,
           isAbstract: false,
           isVirtual: false,
           isOverride: false,
           isTransient: false,
-          isTest: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
         },
-        parent: null,
       };
 
       // Mock findReferencesTo to return reference from extending class
@@ -416,6 +448,12 @@ describe('ImplementationProcessingService', () => {
       const mockTypeReference = {
         name: 'regularMethod',
         location: {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 25,
+          },
           identifierRange: {
             startLine: 5,
             startColumn: 10,
@@ -434,6 +472,12 @@ describe('ImplementationProcessingService', () => {
         name: 'regularMethod',
         kind: SymbolKind.Method,
         location: {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 25,
+          },
           identifierRange: {
             startLine: 5,
             startColumn: 10,
@@ -442,7 +486,7 @@ describe('ImplementationProcessingService', () => {
           },
         },
         fileUri: 'file:///test/TestClass.cls',
-        returnType: { name: 'void' },
+        returnType: createPrimitiveType('void'),
         parameters: [],
         key: {
           prefix: 'method',
@@ -452,23 +496,20 @@ describe('ImplementationProcessingService', () => {
           fileUri: 'file:///test/TestClass.cls',
           kind: SymbolKind.Method,
         },
-        parentKey: null,
-        _modifierFlags: 0,
+        parentId: null,
         _isLoaded: true,
         modifiers: {
-          isPublic: true,
-          isPrivate: false,
-          isProtected: false,
-          isGlobal: false,
+          visibility: SymbolVisibility.Public,
           isStatic: false,
           isFinal: false,
           isAbstract: false,
           isVirtual: false,
           isOverride: false,
           isTransient: false,
-          isTest: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
         },
-        parent: null,
       };
       mockSymbolManager.getSymbolAtPosition.mockResolvedValue(regularMethod);
 

@@ -42,6 +42,7 @@ import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4ts';
 import { STANDARD_SOBJECT_TYPES } from '../../../constants/constants';
+import { isPrimitiveType } from '../../../utils/primitiveTypes';
 
 /**
  * Helper function to create SymbolLocation from parse tree context
@@ -194,7 +195,7 @@ function isSObjectTypeExpression(
   if (listMatch) {
     const elementType = listMatch[2].trim();
     // If it's a known primitive type, it's not an SObject list
-    if (isPrimitiveTypeName(elementType)) {
+    if (isPrimitiveType(elementType)) {
       return false;
     }
     // If it's a known SObject type, it's valid
@@ -211,7 +212,7 @@ function isSObjectTypeExpression(
   }
 
   // Check for direct primitive types - these are definitely not SObject
-  if (isPrimitiveTypeName(normalized)) {
+  if (isPrimitiveType(normalized)) {
     return false;
   }
 
@@ -247,7 +248,7 @@ function isSObjectTypeExpression(
       if (varSymbol.type) {
         const typeName = varSymbol.type.name || '';
         // If variable type is a primitive, it's not an SObject
-        if (varSymbol.type.isPrimitive || isPrimitiveTypeName(typeName)) {
+        if (varSymbol.type.isPrimitive || isPrimitiveType(typeName)) {
           return false;
         }
         // If variable type is a collection, check element type
@@ -257,7 +258,7 @@ function isSObjectTypeExpression(
             // If collection element is a primitive, it's not an SObject list
             if (
               elementType.isPrimitive ||
-              isPrimitiveTypeName(elementType.name || '')
+              isPrimitiveType(elementType.name || '')
             ) {
               return false;
             }
@@ -278,33 +279,6 @@ function isSObjectTypeExpression(
   // Everything else (method calls, complex expressions, unknown variables) - allow it
   // We can't determine type without TIER 2 resolution
   return true;
-}
-
-/**
- * Check if a type name is a primitive type
- */
-function isPrimitiveTypeName(typeName: string): boolean {
-  if (!typeName) {
-    return false;
-  }
-
-  const normalized = typeName.trim().toLowerCase();
-  const primitiveTypes = [
-    'string',
-    'integer',
-    'long',
-    'double',
-    'decimal',
-    'boolean',
-    'date',
-    'datetime',
-    'time',
-    'id',
-    'blob',
-    'object',
-  ];
-
-  return primitiveTypes.includes(normalized);
 }
 
 /**
