@@ -9,7 +9,12 @@
 import { expect, type Page } from '@playwright/test';
 import { executeCommandWithCommandPalette } from '../pages/commands';
 import { upsertSettings } from '../pages/settings';
-import { QUICK_INPUT_WIDGET, TAB, TAB_CLOSE_BUTTON, WORKBENCH } from './locators';
+import {
+  QUICK_INPUT_WIDGET,
+  TAB,
+  TAB_CLOSE_BUTTON,
+  WORKBENCH,
+} from './locators';
 
 type ConsoleError = { text: string; url?: string };
 type NetworkError = { status: number; url: string; description: string };
@@ -73,7 +78,7 @@ const NON_CRITICAL_NETWORK_PATTERNS: readonly string[] = [
 
 export const setupConsoleMonitoring = (page: Page): ConsoleError[] => {
   const consoleErrors: ConsoleError[] = [];
-  page.on('console', msg => {
+  page.on('console', (msg) => {
     if (msg.type() === 'error') {
       consoleErrors.push({ text: msg.text(), url: msg.location()?.url || '' });
     }
@@ -83,7 +88,7 @@ export const setupConsoleMonitoring = (page: Page): ConsoleError[] => {
 
 export const setupNetworkMonitoring = (page: Page): NetworkError[] => {
   const networkErrors: NetworkError[] = [];
-  page.on('response', response => {
+  page.on('response', (response) => {
     if (!response.ok()) {
       networkErrors.push({
         status: response.status(),
@@ -96,27 +101,27 @@ export const setupNetworkMonitoring = (page: Page): NetworkError[] => {
 };
 
 export const filterErrors = (errors: ConsoleError[]): ConsoleError[] =>
-  errors.filter(e => {
+  errors.filter((e) => {
     const t = e.text.toLowerCase();
     const u = (e.url ?? '').toLowerCase();
     return !NON_CRITICAL_ERROR_PATTERNS.some(
-      p => t.includes(p.toLowerCase()) || u.includes(p.toLowerCase())
+      (p) => t.includes(p.toLowerCase()) || u.includes(p.toLowerCase()),
     );
   });
 
 export const filterNetworkErrors = (errors: NetworkError[]): NetworkError[] =>
-  errors.filter(e => {
+  errors.filter((e) => {
     const u = e.url.toLowerCase();
     const d = e.description.toLowerCase();
     return !NON_CRITICAL_NETWORK_PATTERNS.some(
-      p => u.includes(p.toLowerCase()) || d.includes(p.toLowerCase())
+      (p) => u.includes(p.toLowerCase()) || d.includes(p.toLowerCase()),
     );
   });
 
 /** Wait for VS Code workbench to load. For web, navigates to /. For desktop, just waits. */
 export const waitForVSCodeWorkbench = async (
   page: Page,
-  navigate = true
+  navigate = true,
 ): Promise<void> => {
   if (isDesktop()) {
     await page.waitForSelector(WORKBENCH, { timeout: 60_000 });
@@ -131,20 +136,26 @@ export const waitForVSCodeWorkbench = async (
 
 /** Assert that Welcome/Walkthrough tab exists and is visible - useful for debugging startup issues */
 export const assertWelcomeTabExists = async (page: Page): Promise<void> => {
-  const welcomeTab = page.getByRole('tab', { name: /Welcome|Walkthrough/i }).first();
+  const welcomeTab = page
+    .getByRole('tab', { name: /Welcome|Walkthrough/i })
+    .first();
   await expect(
     welcomeTab,
-    'Welcome/Walkthrough tab should exist after VS Code startup'
+    'Welcome/Walkthrough tab should exist after VS Code startup',
   ).toBeVisible({ timeout: 10_000 });
 };
 
 /** Dismiss any open quick input widgets by pressing Escape until none visible */
-export const dismissAllQuickInputWidgets = async (page: Page): Promise<void> => {
+export const dismissAllQuickInputWidgets = async (
+  page: Page,
+): Promise<void> => {
   const quickInput = page.locator(QUICK_INPUT_WIDGET);
   for (let i = 0; i < 3; i++) {
     if (await quickInput.isVisible({ timeout: 200 }).catch(() => false)) {
       await page.keyboard.press('Escape');
-      await quickInput.waitFor({ state: 'hidden', timeout: 1000 }).catch(() => {});
+      await quickInput
+        .waitFor({ state: 'hidden', timeout: 1000 })
+        .catch(() => {});
     } else {
       break;
     }
@@ -177,7 +188,9 @@ export const closeWelcomeTabs = async (page: Page): Promise<void> => {
     const closeButton = welcomeTab.locator(TAB_CLOSE_BUTTON);
     if (await closeButton.isVisible({ timeout: 5000 }).catch(() => false)) {
       const quickInput = page.locator(QUICK_INPUT_WIDGET);
-      const widgetVisible = await quickInput.isVisible({ timeout: 200 }).catch(() => false);
+      const widgetVisible = await quickInput
+        .isVisible({ timeout: 200 })
+        .catch(() => false);
       if (widgetVisible) {
         await dismissAllQuickInputWidgets(page);
       }
@@ -197,7 +210,10 @@ export const closeWelcomeTabs = async (page: Page): Promise<void> => {
 
 /** Closes any visible Settings tabs */
 export const closeSettingsTab = async (page: Page): Promise<void> => {
-  const settingsTab = page.locator(TAB).filter({ hasText: /Settings/i }).first();
+  const settingsTab = page
+    .locator(TAB)
+    .filter({ hasText: /Settings/i })
+    .first();
   const isSettingsVisible = await settingsTab.isVisible().catch(() => false);
   if (isSettingsVisible) {
     const closeButton = settingsTab.locator(TAB_CLOSE_BUTTON);
@@ -209,11 +225,15 @@ export const closeSettingsTab = async (page: Page): Promise<void> => {
 /** Wait for workspace file system to be ready by checking for sfdx-project.json in Explorer */
 export const waitForWorkspaceReady = async (
   page: Page,
-  timeout = 30_000
+  timeout = 30_000,
 ): Promise<void> => {
-  const projectFile = page.getByRole('treeitem', { name: /sfdx-project\.json/ });
+  const projectFile = page.getByRole('treeitem', {
+    name: /sfdx-project\.json/,
+  });
   await projectFile.waitFor({ state: 'visible', timeout }).catch(() => {
-    throw new Error('sfdx-project.json not found - Salesforce project may not be loaded');
+    throw new Error(
+      'sfdx-project.json not found - Salesforce project may not be loaded',
+    );
   });
 };
 
@@ -237,19 +257,21 @@ export const isVSCodeWeb = (): boolean => process.env.VSCODE_DESKTOP !== '1';
 export const validateNoCriticalErrors = async (
   test: { step: (name: string, fn: () => Promise<void>) => Promise<void> },
   consoleErrors: ConsoleError[],
-  networkErrors?: NetworkError[]
+  networkErrors?: NetworkError[],
 ): Promise<void> => {
   await test.step('validate no critical errors', async () => {
     const criticalConsole = filterErrors(consoleErrors);
-    const criticalNetwork = networkErrors ? filterNetworkErrors(networkErrors) : [];
+    const criticalNetwork = networkErrors
+      ? filterNetworkErrors(networkErrors)
+      : [];
     expect(
       criticalConsole,
-      `Console errors: ${criticalConsole.map(e => e.text).join(' | ')}`
+      `Console errors: ${criticalConsole.map((e) => e.text).join(' | ')}`,
     ).toHaveLength(0);
     if (networkErrors) {
       expect(
         criticalNetwork,
-        `Network errors: ${criticalNetwork.map(e => e.description).join(' | ')}`
+        `Network errors: ${criticalNetwork.map((e) => e.description).join(' | ')}`,
       ).toHaveLength(0);
     }
     await Promise.resolve();
@@ -284,12 +306,19 @@ export const enableMonacoAutoClosing = async (page: Page): Promise<void> => {
  * Ensure the secondary sidebar (auxiliary bar, typically used for Chat/Copilot) is hidden.
  * Idempotent - only hides if currently visible.
  */
-export const ensureSecondarySideBarHidden = async (page: Page): Promise<void> => {
+export const ensureSecondarySideBarHidden = async (
+  page: Page,
+): Promise<void> => {
   const auxiliaryBar = page.locator('.part.auxiliarybar');
   const isVisible = await auxiliaryBar.isVisible().catch(() => false);
 
   if (isVisible) {
-    await executeCommandWithCommandPalette(page, 'View: Hide Secondary Side Bar');
-    await auxiliaryBar.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    await executeCommandWithCommandPalette(
+      page,
+      'View: Hide Secondary Side Bar',
+    );
+    await auxiliaryBar
+      .waitFor({ state: 'hidden', timeout: 5000 })
+      .catch(() => {});
   }
 };

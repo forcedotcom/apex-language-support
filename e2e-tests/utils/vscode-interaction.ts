@@ -8,16 +8,12 @@
 
 import type { Page } from '@playwright/test';
 import { SELECTORS, APEX_CLASS_EXAMPLE_CONTENT } from './constants';
-import { setupWorkerResponseHook } from './worker-detection';
 import {
   waitForVSCodeWorkbench,
   closeWelcomeTabs,
 } from '../shared/utils/helpers';
 import { waitForCommandToBeAvailable } from '../shared/pages/commands';
-import {
-  setupConsoleMonitoring,
-  setupNetworkMonitoring,
-} from './error-handling';
+
 import type { ConsoleError, NetworkError } from './constants';
 
 /**
@@ -167,7 +163,7 @@ export const activateExtension = async (page: Page): Promise<void> => {
   await waitForCommandToBeAvailable(
     page,
     'Restart Apex-LS-TS Language Server',
-    30_000
+    30_000,
   );
 };
 
@@ -183,12 +179,14 @@ export const waitForLSPInitialization = async (page: Page): Promise<void> => {
 
   await page.waitForSelector(
     SELECTORS.MONACO_EDITOR + ' .monaco-editor-background',
-    { timeout: selectorTimeout }
+    { timeout: selectorTimeout },
   );
 
   // Wait for editor content (view lines) to be visible - indicates LSP has processed the file
   const viewLines = page.locator('.monaco-editor .view-lines .view-line');
-  await viewLines.first().waitFor({ state: 'visible', timeout: selectorTimeout });
+  await viewLines
+    .first()
+    .waitFor({ state: 'visible', timeout: selectorTimeout });
 };
 
 /**

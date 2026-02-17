@@ -54,19 +54,16 @@ export const createDesktopTest = (options: CreateDesktopTestOptions) => {
 
     electronApp: async (
       { vscodeExecutable, workspaceDir },
-      use
+      use,
     ): Promise<void> => {
       const userDataDir = path.join(workspaceDir, '.vscode-test-user-data');
       await fs.mkdir(userDataDir, { recursive: true });
-      if (
-        userSettings !== undefined &&
-        Object.keys(userSettings).length > 0
-      ) {
+      if (userSettings !== undefined && Object.keys(userSettings).length > 0) {
         const userSettingsDir = path.join(userDataDir, 'User');
         await fs.mkdir(userSettingsDir, { recursive: true });
         await fs.writeFile(
           path.join(userSettingsDir, 'settings.json'),
-          JSON.stringify(userSettings, null, 2)
+          JSON.stringify(userSettings, null, 2),
         );
       }
       const extensionsDir = path.join(workspaceDir, '.vscode-test-extensions');
@@ -77,16 +74,21 @@ export const createDesktopTest = (options: CreateDesktopTestOptions) => {
         repoRoot,
         'packages',
         'apex-lsp-vscode-extension',
-        'dist'
+        'dist',
       );
 
-      const videosDir = path.join(repoRoot, 'e2e-tests', 'test-results', 'videos');
+      const videosDir = path.join(
+        repoRoot,
+        'e2e-tests',
+        'test-results',
+        'videos',
+      );
       await fs.mkdir(videosDir, { recursive: true });
 
       const extensionArgs = [
         extensionPath,
         ...additionalExtensionDirs.map((dir) =>
-          path.isAbsolute(dir) ? dir : path.resolve(repoRoot, dir)
+          path.isAbsolute(dir) ? dir : path.resolve(repoRoot, dir),
         ),
       ].map((p) => `--extensionDevelopmentPath=${p}`);
 
@@ -125,17 +127,15 @@ export const createDesktopTest = (options: CreateDesktopTestOptions) => {
     page: async ({ electronApp }, use) => {
       const page = await electronApp.firstWindow();
 
-      await page.context().grantPermissions([
-        'clipboard-read',
-        'clipboard-write',
-      ]);
+      await page
+        .context()
+        .grantPermissions(['clipboard-read', 'clipboard-write']);
 
       page.on('console', (msg) => {
         if (
           msg.type() !== 'error' ||
-          filterErrors([
-            { text: msg.text(), url: msg.location()?.url || '' },
-          ]).length === 0
+          filterErrors([{ text: msg.text(), url: msg.location()?.url || '' }])
+            .length === 0
         ) {
           return;
         }
@@ -156,10 +156,10 @@ export const createDesktopTest = (options: CreateDesktopTestOptions) => {
   test.afterEach(async ({ page }, testInfo) => {
     if (process.env.DEBUG_MODE && testInfo.status !== 'passed') {
       console.log(
-        '\n🔍 DEBUG_MODE: Test failed - pausing to keep VS Code window open.'
+        '\n🔍 DEBUG_MODE: Test failed - pausing to keep VS Code window open.',
       );
       console.log(
-        'Press Resume in Playwright Inspector or close VS Code window to continue.'
+        'Press Resume in Playwright Inspector or close VS Code window to continue.',
       );
       await page.pause();
     }

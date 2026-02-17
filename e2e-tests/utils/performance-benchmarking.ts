@@ -51,8 +51,18 @@ export interface PerformanceBaseline {
  */
 export const PERFORMANCE_BASELINES: PerformanceBaseline[] = [
   // Extension activation
-  { operation: 'extension.activation', baseline: 3000, threshold: 20, unit: 'ms' },
-  { operation: 'lsp.initialization', baseline: 2000, threshold: 20, unit: 'ms' },
+  {
+    operation: 'extension.activation',
+    baseline: 3000,
+    threshold: 20,
+    unit: 'ms',
+  },
+  {
+    operation: 'lsp.initialization',
+    baseline: 2000,
+    threshold: 20,
+    unit: 'ms',
+  },
 
   // LSP operations
   { operation: 'outline.populate', baseline: 1000, threshold: 30, unit: 'ms' },
@@ -70,8 +80,18 @@ export const PERFORMANCE_BASELINES: PerformanceBaseline[] = [
   { operation: 'document.update', baseline: 500, threshold: 30, unit: 'ms' },
 
   // Memory (in MB)
-  { operation: 'memory.initial', baseline: 50 * 1024 * 1024, threshold: 20, unit: 'bytes' },
-  { operation: 'memory.peak', baseline: 200 * 1024 * 1024, threshold: 30, unit: 'bytes' },
+  {
+    operation: 'memory.initial',
+    baseline: 50 * 1024 * 1024,
+    threshold: 20,
+    unit: 'bytes',
+  },
+  {
+    operation: 'memory.peak',
+    baseline: 200 * 1024 * 1024,
+    threshold: 30,
+    unit: 'bytes',
+  },
 ];
 
 /**
@@ -118,7 +138,9 @@ export class PerformanceBenchmarker {
       context: benchmark.metadata,
     });
 
-    console.log(`⏱️ Completed benchmark: ${operation} - ${benchmark.duration}ms`);
+    console.log(
+      `⏱️ Completed benchmark: ${operation} - ${benchmark.duration}ms`,
+    );
     return benchmark;
   }
 
@@ -171,7 +193,9 @@ export class PerformanceBenchmarker {
     withinThreshold: boolean;
   } | null {
     const benchmark = this.benchmarks.get(operation);
-    const baseline = PERFORMANCE_BASELINES.find((b) => b.operation === operation);
+    const baseline = PERFORMANCE_BASELINES.find(
+      (b) => b.operation === operation,
+    );
 
     if (!benchmark || !baseline) {
       return null;
@@ -217,7 +241,9 @@ export class PerformanceBenchmarker {
     // Individual benchmarks
     lines.push('Benchmark Results:');
     lines.push('-'.repeat(80));
-    lines.push(`${'Operation'.padEnd(40)} ${'Duration'.padEnd(15)} ${'vs Baseline'.padEnd(25)}`);
+    lines.push(
+      `${'Operation'.padEnd(40)} ${'Duration'.padEnd(15)} ${'vs Baseline'.padEnd(25)}`,
+    );
     lines.push('-'.repeat(80));
 
     for (const benchmark of benchmarks) {
@@ -229,12 +255,14 @@ export class PerformanceBenchmarker {
 
       if (comparison) {
         const sign = comparison.difference >= 0 ? '+' : '';
-        comparisonStr = `${sign}${comparison.differencePercent.toFixed(1)}% (${comparison.withinThreshold ? 'OK' : 'SLOW'})`;
+        comparisonStr =
+          `${sign}${comparison.differencePercent.toFixed(1)}% ` +
+          `(${comparison.withinThreshold ? 'OK' : 'SLOW'})`;
         statusIcon = comparison.withinThreshold ? '✅' : '⚠️';
       }
 
       lines.push(
-        `${statusIcon} ${benchmark.operation.padEnd(38)} ${durationStr.padEnd(15)} ${comparisonStr}`
+        `${statusIcon} ${benchmark.operation.padEnd(38)} ${durationStr.padEnd(15)} ${comparisonStr}`,
       );
     }
 
@@ -252,7 +280,8 @@ export class PerformanceBenchmarker {
       for (const issue of issues) {
         if (issue) {
           lines.push(
-            `  - ${issue.operation}: ${issue.actual.toFixed(2)}ms (expected: ${issue.baseline}ms, +${issue.differencePercent.toFixed(1)}%)`
+            `  - ${issue.operation}: ${issue.actual.toFixed(2)}ms ` +
+              `(expected: ${issue.baseline}ms, +${issue.differencePercent.toFixed(1)}%)`,
           );
         }
       }
@@ -294,12 +323,12 @@ export class MemoryProfiler {
       if (memory) {
         this.snapshots.push(memory);
         console.log(
-          `📊 Memory snapshot: ${(memory.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB used`
+          `📊 Memory snapshot: ${(memory.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB used`,
         );
         return memory;
       }
       return null;
-    } catch (error) {
+    } catch (_error) {
       console.warn('⚠️ Unable to take memory snapshot. Desktop mode required.');
       return null;
     }
@@ -319,7 +348,7 @@ export class MemoryProfiler {
       });
       console.log('♻️ Forced garbage collection');
       return true;
-    } catch (error) {
+    } catch (_error) {
       console.warn('⚠️ Unable to force GC. Desktop mode required.');
       return false;
     }
@@ -338,7 +367,7 @@ export class MemoryProfiler {
   getPeakMemory(): MemorySnapshot | null {
     if (this.snapshots.length === 0) return null;
     return this.snapshots.reduce((peak, current) =>
-      current.usedJSHeapSize > peak.usedJSHeapSize ? current : peak
+      current.usedJSHeapSize > peak.usedJSHeapSize ? current : peak,
     );
   }
 
@@ -388,40 +417,44 @@ export class MemoryProfiler {
     lines.push('Memory Statistics:');
     lines.push('-'.repeat(80));
     lines.push(
-      `Initial Memory:  ${(initial.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB`
+      `Initial Memory:  ${(initial.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB`,
     );
     lines.push(
-      `Final Memory:    ${(final.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB`
+      `Final Memory:    ${(final.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB`,
     );
     lines.push(
-      `Peak Memory:     ${peak ? (peak.usedJSHeapSize / 1024 / 1024).toFixed(2) : 'N/A'}MB`
+      `Peak Memory:     ${peak ? (peak.usedJSHeapSize / 1024 / 1024).toFixed(2) : 'N/A'}MB`,
     );
     lines.push(
-      `Average Memory:  ${average ? (average / 1024 / 1024).toFixed(2) : 'N/A'}MB`
+      `Average Memory:  ${average ? (average / 1024 / 1024).toFixed(2) : 'N/A'}MB`,
     );
     lines.push(
-      `Memory Growth:   ${((final.usedJSHeapSize - initial.usedJSHeapSize) / 1024 / 1024).toFixed(2)}MB`
+      `Memory Growth:   ${((final.usedJSHeapSize - initial.usedJSHeapSize) / 1024 / 1024).toFixed(2)}MB`,
     );
     lines.push('-'.repeat(80));
     lines.push('');
 
     // Check against baselines
     const initialBaseline = PERFORMANCE_BASELINES.find(
-      (b) => b.operation === 'memory.initial'
+      (b) => b.operation === 'memory.initial',
     );
     const peakBaseline = PERFORMANCE_BASELINES.find(
-      (b) => b.operation === 'memory.peak'
+      (b) => b.operation === 'memory.peak',
     );
 
     if (initialBaseline && initial.usedJSHeapSize > initialBaseline.baseline) {
+      const initMb = (initial.usedJSHeapSize / 1024 / 1024).toFixed(2);
+      const baseMb = (initialBaseline.baseline / 1024 / 1024).toFixed(2);
       lines.push(
-        `⚠️ Initial memory exceeds baseline: ${(initial.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB > ${(initialBaseline.baseline / 1024 / 1024).toFixed(2)}MB`
+        `⚠️ Initial memory exceeds baseline: ${initMb}MB > ${baseMb}MB`,
       );
     }
 
     if (peak && peakBaseline && peak.usedJSHeapSize > peakBaseline.baseline) {
+      const peakMb = (peak.usedJSHeapSize / 1024 / 1024).toFixed(2);
+      const peakBaseMb = (peakBaseline.baseline / 1024 / 1024).toFixed(2);
       lines.push(
-        `⚠️ Peak memory exceeds baseline: ${(peak.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB > ${(peakBaseline.baseline / 1024 / 1024).toFixed(2)}MB`
+        `⚠️ Peak memory exceeds baseline: ${peakMb}MB > ${peakBaseMb}MB`,
       );
     }
 
@@ -436,7 +469,7 @@ export class MemoryProfiler {
  */
 export async function measureAsync<T>(
   operation: string,
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
 ): Promise<{ result: T; duration: number }> {
   const startTime = Date.now();
   console.log(`⏱️ Starting: ${operation}`);
@@ -454,7 +487,7 @@ export async function measureAsync<T>(
  */
 export function measure<T>(
   operation: string,
-  fn: () => T
+  fn: () => T,
 ): { result: T; duration: number } {
   const startTime = Date.now();
   console.log(`⏱️ Starting: ${operation}`);

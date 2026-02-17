@@ -4,6 +4,8 @@
   "private": true,
   "description": "End-to-end tests for Apex Language Server Extension",
   "scripts": {
+    "lint": "wireit",
+    "lint:fix": "wireit",
     "test:e2e": "wireit",
     "test:debug": "wireit",
     "test:visual": "wireit",
@@ -19,6 +21,30 @@
     "clean:all": "npm run clean"
   },
   "wireit": {
+    "lint": {
+      "command": "eslint --color --cache --cache-location .eslintcache tests utils shared fixtures pages playwright.config.ts playwright.config.web.ts playwright.config.desktop.ts",
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "shared/**/*.ts",
+        "fixtures/**/*.ts",
+        "pages/**/*.ts",
+        "playwright.config*.ts"
+      ],
+      "output": []
+    },
+    "lint:fix": {
+      "command": "eslint --fix --color --cache --cache-location .eslintcache tests utils shared fixtures pages playwright.config.ts playwright.config.web.ts playwright.config.desktop.ts",
+      "files": [
+        "tests/**/*.ts",
+        "utils/**/*.ts",
+        "shared/**/*.ts",
+        "fixtures/**/*.ts",
+        "pages/**/*.ts",
+        "playwright.config*.ts"
+      ],
+      "output": []
+    },
     "test:e2e": {
       "command": "playwright test",
       "output": [

@@ -45,7 +45,7 @@ const performSearch =
 /** Upsert settings using Settings (UI) search and fill of each id. */
 export const upsertSettings = async (
   page: Page,
-  settings: Record<string, string>
+  settings: Record<string, string>,
 ): Promise<void> => {
   await openSettingsUI(page);
 
@@ -77,7 +77,7 @@ export const upsertSettings = async (
         await expect(checkbox).toHaveAttribute(
           'aria-checked',
           desiredChecked ? 'true' : 'false',
-          { timeout: 10_000 }
+          { timeout: 10_000 },
         );
       }
     } else {
@@ -87,7 +87,7 @@ export const upsertSettings = async (
       if (comboboxCount > 0) {
         await combobox.waitFor({ timeout: 30_000 });
         const isNativeSelect =
-          (await combobox.evaluate(el => el.tagName)) === 'SELECT';
+          (await combobox.evaluate((el) => el.tagName)) === 'SELECT';
 
         if (isNativeSelect) {
           await combobox.selectOption(value);

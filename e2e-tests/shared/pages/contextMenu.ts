@@ -13,7 +13,7 @@ import { executeCommandWithCommandPalette } from './commands';
 /** Opens context menu on an editor. If fileName is provided, matches editor by URI/name (partial match). */
 const openEditorContextMenu = async (
   page: Page,
-  fileName?: string
+  fileName?: string,
 ): Promise<Locator> => {
   let editor: Locator;
   if (fileName) {
@@ -39,7 +39,7 @@ const openEditorContextMenu = async (
     }
     if (!foundEditor) {
       throw new Error(
-        `No editor found with fileName containing "${fileName}". Available data-uris: ${dataUris.join(', ')}`
+        `No editor found with fileName containing "${fileName}". Available data-uris: ${dataUris.join(', ')}`,
       );
     }
     editor = foundEditor;
@@ -56,7 +56,7 @@ const openEditorContextMenu = async (
 /** Opens context menu on a file/folder in the explorer sidebar */
 const openExplorerContextMenu = async (
   page: Page,
-  itemName: string | RegExp
+  itemName: string | RegExp,
 ): Promise<Locator> => {
   await executeCommandWithCommandPalette(page, 'File: Focus on Files Explorer');
   const allTreeItems = page.getByRole('treeitem', { name: itemName });
@@ -65,7 +65,7 @@ const openExplorerContextMenu = async (
   for (let i = 0; i < count; i++) {
     const candidate = allTreeItems.nth(i);
     const hasStickyClass = await candidate.evaluate((el) =>
-      el.classList.contains('monaco-tree-sticky-row')
+      el.classList.contains('monaco-tree-sticky-row'),
     );
     if (!hasStickyClass) {
       treeItem = candidate;
@@ -73,9 +73,7 @@ const openExplorerContextMenu = async (
     }
   }
   if (!treeItem) {
-    throw new Error(
-      `No non-sticky tree item found matching "${itemName}"`
-    );
+    throw new Error(`No non-sticky tree item found matching "${itemName}"`);
   }
   await treeItem.waitFor({ state: 'visible', timeout: 10_000 });
   await treeItem.scrollIntoViewIfNeeded();
@@ -89,7 +87,7 @@ const openExplorerContextMenu = async (
 /** Selects an item from an open context menu by name */
 const selectContextMenuItem = async (
   page: Page,
-  itemName: string | RegExp
+  itemName: string | RegExp,
 ): Promise<void> => {
   const contextMenu = page.locator(CONTEXT_MENU);
   await contextMenu.waitFor({ state: 'visible', timeout: 5000 });
@@ -98,7 +96,7 @@ const selectContextMenuItem = async (
   if (count === 0) {
     const menuText = await contextMenu.textContent();
     throw new Error(
-      `No menu items found in context menu. Menu content: ${menuText}`
+      `No menu items found in context menu. Menu content: ${menuText}`,
     );
   }
   const matchingItem =
@@ -115,7 +113,7 @@ const selectContextMenuItem = async (
       if (text) allItems.push(text.trim());
     }
     throw new Error(
-      `Menu item matching "${itemName}" not found. Available items: ${allItems.join(' | ')}`
+      `Menu item matching "${itemName}" not found. Available items: ${allItems.join(' | ')}`,
     );
   }
   await matchingItem.scrollIntoViewIfNeeded();
@@ -129,7 +127,7 @@ const selectContextMenuItem = async (
 export const executeEditorContextMenuCommand = async (
   page: Page,
   itemName: string | RegExp,
-  fileName?: string
+  fileName?: string,
 ): Promise<void> => {
   await openEditorContextMenu(page, fileName);
   await selectContextMenuItem(page, itemName);
@@ -139,7 +137,7 @@ export const executeEditorContextMenuCommand = async (
 export const executeExplorerContextMenuCommand = async (
   page: Page,
   explorerItemName: string | RegExp,
-  menuItemName: string | RegExp
+  menuItemName: string | RegExp,
 ): Promise<void> => {
   await openExplorerContextMenu(page, explorerItemName);
   await selectContextMenuItem(page, menuItemName);

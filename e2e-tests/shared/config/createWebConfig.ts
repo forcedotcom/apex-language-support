@@ -24,13 +24,17 @@ export const createWebConfig = (options: WebConfigOptions = {}) => {
   const testDir = options.testDir ?? './tests';
   const baseURL = options.baseURL ?? 'http://localhost:3000';
   const webServerCommand = options.webServerCommand ?? 'node test-server.js';
-  const port = options.port ?? 3000;
+  const _port = options.port ?? 3000;
 
   return defineConfig({
     testDir,
     fullyParallel: !process.env.E2E_SEQUENTIAL,
     forbidOnly: !!process.env.CI,
-    ...(process.env.E2E_SEQUENTIAL ? { workers: 1 } : process.env.CI ? { workers: 1 } : {}),
+    ...(process.env.E2E_SEQUENTIAL
+      ? { workers: 1 }
+      : process.env.CI
+        ? { workers: 1 }
+        : {}),
     reporter: [
       ['html', { open: 'never' }],
       ['line'],
