@@ -121,60 +121,64 @@ export class OutlineViewPage extends BasePage {
 
   /**
    * Find a specific symbol by name in the outline.
-   * Handles virtualized Monaco lists by using keyboard navigation to scroll
-   * through off-screen symbols, since Monaco only renders visible rows in the DOM.
-   * Falls back to DOM lookup for symbols that exist but may be outside visible area.
+   * Polls until the symbol appears in the outline DOM (handles slow CI environments
+   * where the outline tree takes time to populate). Falls back to keyboard navigation
+   * for symbols that are off-screen in virtualized Monaco lists.
    * @param symbolName - Name of the symbol to find
+   * @param timeout - Max time to wait for the symbol (default: mode-specific)
    * @returns The symbol if found, or null
    */
-  async findSymbol(symbolName: string): Promise<OutlineSymbol | null> {
-    // First check currently visible symbols
-    let symbols = await this.getSymbols();
-    let match = symbols.find((s) => s.name.includes(symbolName));
-    if (match) return match;
+  async findSymbol(
+    symbolName: string,
+    timeout?: number,
+  ): Promise<OutlineSymbol | null> {
+    const effectiveTimeout = timeout ?? this.defaultTimeout;
+    const startTime = Date.now();
 
-    // Monaco lists are virtualized - use keyboard navigation to scroll
-    // through off-screen items. Focus the outline tree and press ArrowDown
-    // to bring items into view.
+    // Phase 1: Poll for the symbol to appear in the DOM (outline may still be loading)
+    while (Date.now() - startTime < effectiveTimeout) {
+      // Check broad selectors first (works even if outline rows aren't rendered yet)
+      const broadMatch = this.page
+        .locator(
+          '.outline-tree .monaco-list-row, .tree-explorer .monaco-list-row',
+        )
+        .filter({ hasText: symbolName })
+        .first();
+
+      if ((await broadMatch.count()) > 0) {
+        const text = (await broadMatch.textContent())?.trim() || '';
+        return {
+          name: text,
+          type: await this.getSymbolType(broadMatch),
+          visible: await broadMatch.isVisible().catch(() => false),
+        };
+      }
+
+      // Also check visible symbols from getSymbols()
+      const symbols = await this.getSymbols();
+      const match = symbols.find((s) => s.name.includes(symbolName));
+      if (match) return match;
+
+      // Wait briefly before retrying
+      await this.page.waitForTimeout(500);
+    }
+
+    // Phase 2: Symbol not found by polling — try keyboard navigation
+    // (it may be off-screen in the virtualized list)
     const treeContainer = this.outlineItems.first();
     const isTreeVisible = await treeContainer.isVisible().catch(() => false);
     if (!isTreeVisible) return null;
 
-    // Click the first visible outline item to focus the tree
     await treeContainer.click();
-    await this.page.waitForTimeout(200);
-
-    // Press Home to go to the top of the tree first
     await this.page.keyboard.press('Home');
-    await this.page.waitForTimeout(200);
 
-    // Navigate down through the tree using keyboard (inner enum is deep in the tree)
     const maxNavigationSteps = 80;
     for (let i = 0; i < maxNavigationSteps; i++) {
       await this.page.keyboard.press('ArrowDown');
-      await this.page.waitForTimeout(100);
 
-      // Re-check the currently visible symbols
-      symbols = await this.getSymbols();
-      match = symbols.find((s) => s.name.includes(symbolName));
+      const symbols = await this.getSymbols();
+      const match = symbols.find((s) => s.name.includes(symbolName));
       if (match) return match;
-    }
-
-    // Fallback: use scoped locator for symbols that exist in outline DOM
-    // (Monaco may render off-screen rows in some configurations)
-    const outlineRow = this.page
-      .locator(
-        '.outline-tree .monaco-list-row, .tree-explorer .monaco-list-row',
-      )
-      .filter({ hasText: symbolName })
-      .first();
-    if ((await outlineRow.count()) > 0 && (await outlineRow.isVisible())) {
-      const text = (await outlineRow.textContent())?.trim() || '';
-      return {
-        name: text,
-        type: await this.getSymbolType(outlineRow),
-        visible: true,
-      };
     }
 
     return null;
@@ -199,7 +203,7 @@ export class OutlineViewPage extends BasePage {
    * @returns Validation results
    */
   async validateSymbols(
-    expectedSymbols: import('../utils/constants').ExpectedApexSymbols
+    expectedSymbols: import('../utils/constants').ExpectedApexSymbols,
   ): Promise<{
     classFound: boolean;
     exactMethodsFound: string[];

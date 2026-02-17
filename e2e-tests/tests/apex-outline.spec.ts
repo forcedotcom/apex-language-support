@@ -115,6 +115,10 @@ test.describe('Apex Outline View', () => {
       await outlineView.open();
     });
 
+    await test.step('Wait for outline to populate', async () => {
+      await outlineView.waitForSymbols(1);
+    });
+
     await test.step('Find main class symbol', async () => {
       const mainClass = await outlineView.findSymbol('ApexClassExample');
 
@@ -129,6 +133,7 @@ test.describe('Apex Outline View', () => {
    */
   test('should show inner class in outline', async ({ outlineView }) => {
     await outlineView.open();
+    await outlineView.waitForSymbols(1);
 
     const innerClass = await outlineView.findSymbol('Configuration');
 
@@ -144,6 +149,7 @@ test.describe('Apex Outline View', () => {
    */
   test('should show inner enum in outline', async ({ outlineView }) => {
     await outlineView.open();
+    await outlineView.waitForSymbols(1);
 
     const innerEnum = await outlineView.findSymbol('StatusType');
 
