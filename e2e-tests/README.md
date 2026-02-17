@@ -55,15 +55,34 @@ e2e-tests/
 │   ├── apex-hover.spec.ts               # Hover (19 tests)
 │   ├── apex-goto-definition.spec.ts     # Go-to-def (25 tests)
 │   └── apex-lsp-integration.spec.ts     # LSP integration (16 tests)
-├── pages/                          # Page object models
+├── pages/                          # Page object models (Apex-specific)
 │   ├── BasePage.ts                      # Common VS Code interactions
 │   ├── ApexEditorPage.ts                # Editor operations
 │   ├── OutlineViewPage.ts               # Outline view operations
 │   └── HoverPage.ts                     # Hover operations
 ├── fixtures/                       # Playwright fixtures
-│   ├── apexFixtures.ts                  # Main Apex fixtures
-│   └── workspaceFixtures.ts             # Workspace setup fixtures
-├── utils/                          # Utility functions
+│   ├── apexFixtures.ts                  # Main Apex fixtures (web)
+│   ├── workspaceFixtures.ts             # Workspace setup fixtures
+│   ├── createDesktopTest.ts             # Desktop Electron fixture factory
+│   ├── desktopFixtureTypes.ts           # Desktop fixture types
+│   └── desktopWorkspace.ts              # Desktop workspace setup
+├── shared/                         # Shared utilities (monorepo parity)
+│   ├── config/
+│   │   ├── createWebConfig.ts           # Web config factory
+│   │   ├── createDesktopConfig.ts       # Desktop config factory
+│   │   └── downloadVSCode.ts            # VS Code download (global setup)
+│   ├── pages/
+│   │   ├── commands.ts                  # Command palette
+│   │   ├── settings.ts                  # Settings UI
+│   │   ├── contextMenu.ts               # Editor/explorer context menus
+│   │   └── outputChannel.ts             # Output panel operations
+│   ├── utils/
+│   │   ├── locators.ts                  # CSS selectors
+│   │   ├── helpers.ts                   # Shared helpers
+│   │   ├── fileHelpers.ts               # File operations
+│   │   └── repoRoot.ts                  # Repo root resolution
+│   └── screenshotUtils.ts               # Screenshot utilities
+├── utils/                          # E2E-specific utilities
 │   ├── constants.ts                     # Selectors and test data
 │   ├── error-handling.ts                # Error monitoring
 │   ├── lsp-testing.ts                   # LSP test utilities
@@ -76,9 +95,11 @@ e2e-tests/
 ├── test-data/                      # Sample Apex files
 │   └── apex-samples/
 │       ├── complex-class.cls            # Complex nested structures
-│       ├── inheritance.cls              # Class hierarchies
-│       └── interface-impl.cls           # Interface implementations
-├── playwright.config.ts            # Playwright configuration
+│       ├── inheritance.cls               # Class hierarchies
+│       └── interface-impl.cls            # Interface implementations
+├── playwright.config.ts            # Default config (re-exports web)
+├── playwright.config.web.ts        # Web-only configuration
+├── playwright.config.desktop.ts    # Desktop (Electron) configuration
 ├── test-server.js                  # VS Code Web test server
 └── README.md                       # This file
 ```
@@ -105,6 +126,8 @@ npm run bundle
 
 #### Web Mode (Default)
 
+Uses `playwright.config.web.ts` and VS Code Web via `@vscode/test-web`:
+
 ```bash
 # Run all web tests (recommended)
 npm run test:e2e
@@ -119,48 +142,38 @@ npm run test:e2e:debug
 npm run test:e2e:visual
 
 # Run specific test file
-npx playwright test tests/apex-outline.spec.ts
+npx playwright test tests/apex-outline.spec.ts --config=playwright.config.web.ts
 
 # Run tests in headed mode
-npx playwright test --headed
+npx playwright test --config=playwright.config.web.ts --headed
 
-# Run with specific browser
-npx playwright test --project=chromium-web
+# Run with specific project
+npx playwright test --config=playwright.config.web.ts --project=chromium-web
 ```
 
 #### Desktop Mode
 
-Desktop mode tests with enhanced native OS integrations and larger viewports (1920x1080):
+Uses `playwright.config.desktop.ts` and VS Code Electron via `@vscode/test-electron`. Launches actual VS Code Desktop with the extension loaded:
 
 ```bash
-# Run desktop tests with Chromium (recommended)
+# Run desktop tests (recommended)
 npm run test:e2e:desktop
 
-# Debug desktop tests with browser UI visible
+# Debug desktop tests with VS Code window visible (pauses on failure)
 npm run test:e2e:desktop:debug
 
-# Run desktop tests with specific browsers
-npm run test:e2e:desktop:chromium    # Chromium desktop
-npm run test:e2e:desktop:webkit      # WebKit desktop (Safari)
-
-# Run desktop tests across all browsers
+# Run desktop tests
+npm run test:e2e:desktop:chromium
+npm run test:e2e:desktop:webkit
 npm run test:e2e:desktop:all-browsers
 
-# Run desktop tests with specific project
-npx playwright test --project=chromium-desktop
-npx playwright test --project=webkit-desktop
-
-# Run OS-specific desktop tests (automatically detects your OS)
-TEST_MODE=desktop npx playwright test --project=chromium-macos     # macOS only
-TEST_MODE=desktop npx playwright test --project=chromium-windows   # Windows only
-TEST_MODE=desktop npx playwright test --project=chromium-linux     # Linux only
+# Run with explicit config
+npx playwright test --config=playwright.config.desktop.ts --project=desktop-electron
 ```
 
 **Desktop vs Web:**
 - **Web Mode**: Tests browser-based VS Code Web with standard web APIs
-- **Desktop Mode**: Tests with native OS features, larger viewports, and enhanced performance
-- Desktop mode enables features like SharedArrayBuffer, precise memory info, and GC exposure
-- Desktop viewport: 1920x1080 (vs standard web viewport)
+- **Desktop Mode**: Tests actual VS Code Desktop (Electron) with the extension loaded; uses `createDesktopTest` fixture for Electron launch, video recording, and clipboard permissions
 
 ---
 
@@ -289,6 +302,11 @@ Page objects encapsulate UI interactions and provide clean APIs for tests.
 - `OutlineViewPage` - Outline view operations
 - `HoverPage` - Hover functionality
 
+**Shared Page Utilities** (in `shared/pages/`):
+- `commands.ts` - Command palette (`executeCommandWithCommandPalette`, `verifyCommandExists`, `verifyCommandDoesNotExist`)
+- `contextMenu.ts` - Editor/explorer context menus (`executeEditorContextMenuCommand`, `executeExplorerContextMenuCommand`)
+- `outputChannel.ts` - Output panel (`ensureOutputPanelOpen`, `selectOutputChannel`, `clearOutputChannel`, `waitForOutputChannelText`)
+
 **Example:**
 ```typescript
 import { test, expect } from '../fixtures/apexFixtures';
@@ -318,6 +336,9 @@ Fixtures provide automatic setup and teardown for tests.
 - `apexTestEnvironment` - Complete test environment
 - `consoleErrors` - Captured console errors
 - `networkErrors` - Captured network errors
+
+**Desktop Fixtures** (for Electron tests):
+- `createDesktopTest()` - Factory that provides `page`, `workspaceDir`, `electronApp`; supports video renaming, clipboard permissions, DEBUG_MODE pause
 
 **Example:**
 ```typescript
@@ -454,7 +475,7 @@ Tests include comprehensive logging:
 ## CI/CD Integration
 
 Tests run automatically in GitHub Actions on:
-- Push to `main`, `tdx26/main`, and `kyledev/e2eTests`
+- Push to `main`, `tdx26/main`
 - Pull requests to `main` and `tdx26/main`
 - Manual workflow dispatch
 
@@ -462,10 +483,13 @@ Tests run automatically in GitHub Actions on:
 
 **Features:**
 - Retry logic (2 retries in CI)
+- Sequential retry with `--last-failed` when parallel run fails
+- `E2E_SEQUENTIAL` and `E2E_NO_RETRIES` env vars for workflow control
 - Headless execution
 - Web tests sharded by spec file on Chromium
 - Artifact collection (screenshots, traces, reports)
-- Junit XML reporting
+- JUnit XML and JSON reporting
+- PR comment with test summary
 - 30-day artifact retention
 
 ---
@@ -497,20 +521,19 @@ Tests provide real-time console output with:
 
 ## Configuration
 
-### Playwright Config
+### Playwright Configs
 
-[`playwright.config.ts`](playwright.config.ts) configures:
-- Test directory
-- Parallel execution
-- Retries
-- Reporters
-- Browser settings
-- Web server
+- [`playwright.config.web.ts`](playwright.config.web.ts) - Web mode (VS Code Web)
+- [`playwright.config.desktop.ts`](playwright.config.desktop.ts) - Desktop mode (VS Code Electron)
+- [`playwright.config.ts`](playwright.config.ts) - Default (re-exports web config)
 
 ### Environment Variables
 
-- `CI` - Enables CI-specific behavior
-- `DEBUG_MODE` - Enables debug mode features
+- `CI` - Enables CI-specific behavior (retries, headless, single worker)
+- `DEBUG_MODE` - Enables debug mode (slow motion, headed, pause on failure)
+- `VSCODE_DESKTOP` - Set when running desktop (Electron) tests
+- `E2E_SEQUENTIAL` - Run tests sequentially (used for `--last-failed` retry step)
+- `E2E_NO_RETRIES` - Disable Playwright retries (used for try-run in CI)
 
 ---
 
@@ -571,10 +594,9 @@ The test suite is designed to grow with the extension while maintaining reliabil
 ### Current Status
 
 - **79 comprehensive e2e tests**
-- **1,750 lines of test code**
 - **5 feature-specific test files**
-- **4 page object models**
-- **2 fixture files**
+- **4 Apex page object models** + shared utilities (commands, contextMenu, outputChannel)
+- **5 fixture files** (apexFixtures, workspaceFixtures, createDesktopTest, desktopFixtureTypes, desktopWorkspace)
 - **3 sample Apex files**
 - **100% LSP feature coverage**
 

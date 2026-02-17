@@ -137,29 +137,24 @@ npm run test:e2e:web:chromium
 
 ### Desktop Mode
 
-**Purpose:** Test with enhanced desktop environment features
+**Purpose:** Test with actual VS Code Desktop (Electron) via `@vscode/test-electron`
 
 **Characteristics:**
+- Launches real VS Code via `createDesktopTest` fixture
 - Large viewport (1920x1080)
-- Enhanced browser capabilities
-  - SharedArrayBuffer
-  - Precise memory info
-  - GC exposure
-- Native OS integrations
-- Realistic performance metrics
+- Video recording with test-name renaming
+- Clipboard permissions, DEBUG_MODE pause on failure
 
 **When to Use:**
 - Performance benchmarking
 - Memory profiling
-- OS-specific testing
 - Desktop bug reproduction
 
 **Commands:**
 ```bash
 npm run test:e2e:desktop
 npm run test:e2e:desktop:chromium
-npm run test:e2e:desktop:webkit
-npm run test:e2e:desktop:all-browsers
+npm run test:e2e:desktop:debug   # Pauses on failure
 ```
 
 **See Also:** [DESKTOP-TESTING.md](DESKTOP-TESTING.md)
@@ -180,11 +175,11 @@ npm run test:e2e:debug
 # Run in visual mode (interactive UI)
 npm run test:e2e:visual
 
-# Run specific test file
-npx playwright test tests/apex-outline.spec.ts
+# Run specific test file (web mode)
+npx playwright test tests/apex-outline.spec.ts --config=playwright.config.web.ts
 
 # Run tests matching pattern
-npx playwright test --grep "should navigate"
+npx playwright test --config=playwright.config.web.ts --grep "should navigate"
 ```
 
 ### Browser-Specific
@@ -201,39 +196,45 @@ npm run test:e2e:desktop:webkit
 ### Environment Variables
 
 ```bash
-# Enable desktop mode
-TEST_MODE=desktop npm run test:e2e
-
 # Enable debug mode
 DEBUG_MODE=1 npm run test:e2e
 
 # CI mode (automatically detected)
 CI=1 npm run test:e2e
+
+# Sequential execution (used for --last-failed retry in CI)
+E2E_SEQUENTIAL=1 npx playwright test --last-failed
+
+# Disable retries (used for try-run in CI)
+E2E_NO_RETRIES=1 npm run test:e2e
 ```
 
 ### Advanced Options
 
 ```bash
 # Run tests in parallel
-npx playwright test --workers=4
+npx playwright test --config=playwright.config.web.ts --workers=4
 
 # Run with trace recording
-npx playwright test --trace=on
+npx playwright test --config=playwright.config.web.ts --trace=on
 
 # Run with screenshots
-npx playwright test --screenshot=on
+npx playwright test --config=playwright.config.web.ts --screenshot=on
 
 # Run with video recording
-npx playwright test --video=on
+npx playwright test --config=playwright.config.web.ts --video=on
 
-# Run specific project
-npx playwright test --project=chromium-desktop
+# Run specific project (web)
+npx playwright test --config=playwright.config.web.ts --project=chromium-web
+
+# Run desktop tests (Electron)
+npx playwright test --config=playwright.config.desktop.ts --project=desktop-electron
 
 # Run in headed mode
-npx playwright test --headed
+npx playwright test --config=playwright.config.web.ts --headed
 
 # Update snapshots
-npx playwright test --update-snapshots
+npx playwright test --config=playwright.config.web.ts --update-snapshots
 ```
 
 ---
@@ -487,7 +488,7 @@ Then use Chrome DevTools:
 ### GitHub Actions
 
 Tests run automatically on:
-- Push to `main`, `tdx26/main`, and `kyledev/e2eTests`
+- Push to `main`, `tdx26/main`
 - Pull requests to `main` and `tdx26/main`
 - Manual workflow dispatch
 
@@ -515,7 +516,7 @@ name: E2E Tests
 
 on:
   push:
-    branches: [main, tdx26/main, kyledev/e2eTests]
+    branches: [main, tdx26/main]
   pull_request:
     branches: [main, tdx26/main]
   workflow_dispatch:
@@ -524,6 +525,8 @@ on:
         type: choice
         options: [web, desktop, both]
 ```
+
+**Retry Strategy:** When parallel run fails, CI retries with `--last-failed` and `E2E_SEQUENTIAL=1`.
 
 ### Test Reports
 
@@ -703,11 +706,13 @@ NODE_OPTIONS=--max-old-space-size=4096 npm run test:e2e
 
 **Solution:**
 ```bash
-# Ensure TEST_MODE is set
-TEST_MODE=desktop npm run test:e2e:desktop
-
-# Or use npm script (sets automatically)
+# Use npm script (sets VSCODE_DESKTOP automatically)
 npm run test:e2e:desktop
+
+# Ensure extension is built first
+npm run compile && npm run bundle
+
+# Desktop uses @vscode/test-electron - VS Code is downloaded on first run
 ```
 
 ---

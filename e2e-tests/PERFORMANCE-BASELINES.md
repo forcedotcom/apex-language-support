@@ -363,14 +363,14 @@ console.log(profiler.generateReport());
 
 ### 3. Compare Web vs Desktop Mode
 
-Desktop mode may reveal different performance characteristics:
+Desktop mode (VS Code Electron) may reveal different performance characteristics:
 
 ```bash
-# Web mode
+# Web mode (VS Code Web in browser)
 npm run test:e2e:web:chromium
 
-# Desktop mode
-npm run test:e2e:desktop:chromium
+# Desktop mode (actual VS Code Electron)
+npm run test:e2e:desktop
 
 # Compare results
 ```
@@ -464,7 +464,7 @@ Before committing code:
 
 ## Additional Resources
 
-- [DESKTOP-TESTING.md](DESKTOP-TESTING.md) - Desktop mode guide
-- [performance-benchmarking.ts](utils/performance-benchmarking.ts) - Benchmarking utilities
+- [DESKTOP-TESTING.md](DESKTOP-TESTING.md) - Desktop mode guide (VS Code Electron)
+- [utils/performance-benchmarking.ts](utils/performance-benchmarking.ts) - Benchmarking utilities
 - [TESTING-GUIDE.md](TESTING-GUIDE.md) - Comprehensive testing guide
 - [Playwright Performance](https://playwright.dev/docs/best-practices) - Best practices

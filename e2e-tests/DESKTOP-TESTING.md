@@ -1,6 +1,6 @@
 # Desktop Testing Guide
 
-Comprehensive guide for running e2e tests in Desktop mode with enhanced native OS integrations.
+Comprehensive guide for running e2e tests in Desktop mode using actual VS Code Electron.
 
 ---
 
@@ -11,8 +11,6 @@ Comprehensive guide for running e2e tests in Desktop mode with enhanced native O
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
 - [Running Desktop Tests](#running-desktop-tests)
-- [Browser Options](#browser-options)
-- [OS-Specific Testing](#os-specific-testing)
 - [Debugging Desktop Tests](#debugging-desktop-tests)
 - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
@@ -22,13 +20,13 @@ Comprehensive guide for running e2e tests in Desktop mode with enhanced native O
 
 ## Overview
 
-Desktop mode enables testing of the Apex Language Server extension with enhanced browser capabilities that simulate native desktop environments. This mode is ideal for:
+Desktop mode launches **actual VS Code Desktop (Electron)** with the Apex extension loaded, using `@vscode/test-electron`. This mode is ideal for:
 
 - **Performance testing** with native memory management
 - **OS-specific behavior** testing
 - **High-resolution displays** (1920x1080 viewport)
-- **Advanced browser features** (SharedArrayBuffer, precise memory info, GC)
-- **Cross-browser compatibility** on desktop platforms
+- **Real VS Code Desktop** experience (not browser simulation)
+- **Video recording** with test-name renaming for debugging
 
 ---
 
@@ -60,24 +58,20 @@ npm run test:e2e:web:chromium
 
 ### Desktop Mode
 
-**Purpose:** Test with native desktop environment features
+**Purpose:** Test with actual VS Code Desktop (Electron)
 
 **Characteristics:**
-- Large viewport: 1920x1080 (desktop resolution)
-- Enhanced browser capabilities:
-  - SharedArrayBuffer enabled
-  - Precise memory info available
-  - JavaScript GC exposure (`--js-flags=--expose-gc`)
-- Native OS integrations
-- Closer to actual VS Code Desktop experience
-- More realistic performance metrics
+- Launches real VS Code via `@vscode/test-electron`
+- Uses `createDesktopTest` fixture for Electron launch
+- Large viewport: 1920x1080
+- Video recording with test-name renaming
+- Clipboard permissions granted
+- DEBUG_MODE pauses on failure (keeps VS Code window open)
 
 **Use Cases:**
 - Performance benchmarking
-- Memory profiling
+- Memory profiling (desktop-only)
 - OS-specific feature testing
-- High-resolution display testing
-- Advanced LSP features requiring more resources
 - Desktop-specific bug reproduction
 
 **Command:**
@@ -112,49 +106,29 @@ npm run test:e2e:desktop:debug
 
 ## Configuration
 
-Desktop mode is configured via environment variables and Playwright projects.
+Desktop mode uses `playwright.config.desktop.ts` and the `createDesktopTest` fixture.
 
 ### Environment Variables
 
 ```bash
-# Enable desktop mode
-TEST_MODE=desktop
-
-# Enable debug mode (headed browser, slow motion)
+# Enable debug mode (pauses on failure, keeps VS Code open)
 DEBUG_MODE=1
 
-# CI mode (headless, retries, parallel workers)
+# CI mode (retries, sequential retry on failure)
 CI=1
+
+# Sequential execution (used for --last-failed retry)
+E2E_SEQUENTIAL=1
+
+# Disable retries (used for try-run in CI)
+E2E_NO_RETRIES=1
 ```
 
-### Playwright Projects
+### Playwright Config
 
-Desktop mode includes several pre-configured projects:
-
-**Cross-Platform Projects:**
-- `chromium-desktop` - Chromium with desktop features
-- `webkit-desktop` - WebKit (Safari) with desktop features
-
-**OS-Specific Projects:**
-- `chromium-macos` - Chromium on macOS only
-- `chromium-windows` - Chromium on Windows only
-- `chromium-linux` - Chromium on Linux only
-
-### Browser Arguments
-
-Desktop mode enables additional browser features:
-
-```javascript
-// Common desktop arguments
-'--enable-features=SharedArrayBuffer'
-'--enable-precise-memory-info'
-'--js-flags=--expose-gc'
-
-// Standard stability arguments
-'--disable-web-security'
-'--disable-features=VizDisplayCompositor'
-'--enable-logging=stderr'
-```
+- **Config file:** `playwright.config.desktop.ts`
+- **Project:** `desktop-electron`
+- **Global setup:** `downloadVSCode.ts` (downloads VS Code before tests)
 
 ---
 
@@ -173,27 +147,23 @@ npm run test:e2e:desktop
 npm run test:e2e:desktop
 ```
 
-### Browser-Specific Commands
+### Run Commands
 
 ```bash
-# Chromium (recommended - most stable)
-npm run test:e2e:desktop:chromium
-
-# WebKit (Safari)
-npm run test:e2e:desktop:webkit
-
-# All configured desktop browsers
+# Run desktop tests (uses VS Code Electron)
+npm run test:e2e:desktop
+npm run test:e2e:desktop:chromium   # Same as above
+npm run test:e2e:desktop:webkit     # Same config, different script name
 npm run test:e2e:desktop:all-browsers
 ```
+
+All desktop scripts use the same `playwright.config.desktop.ts` and `desktop-electron` project.
 
 ### Debug Mode
 
 ```bash
-# Debug with Chromium (headed, slow motion)
+# Debug with VS Code window visible (pauses on failure)
 npm run test:e2e:desktop:debug
-
-# Debug with specific project
-DEBUG_MODE=1 TEST_MODE=desktop npx playwright test --project=webkit-desktop --headed
 
 # Debug specific test file
 npm run test:e2e:desktop:debug -- tests/apex-outline.spec.ts
@@ -203,116 +173,13 @@ npm run test:e2e:desktop:debug -- tests/apex-outline.spec.ts
 
 ```bash
 # Run specific test file
-TEST_MODE=desktop npx playwright test tests/apex-hover.spec.ts
+npx playwright test tests/apex-hover.spec.ts --config=playwright.config.desktop.ts
 
 # Run tests matching pattern
-TEST_MODE=desktop npx playwright test --grep "should navigate"
+npx playwright test --config=playwright.config.desktop.ts --grep "should navigate"
 
-# Run tests in parallel (faster)
-TEST_MODE=desktop npx playwright test --workers=4
-
-# Run tests with trace
-TEST_MODE=desktop npx playwright test --trace=on
-```
-
----
-
-## Browser Options
-
-### Chromium Desktop (Recommended)
-
-**Pros:**
-- Most stable and reliable
-- Best DevTools support
-- Consistent cross-platform behavior
-- Full feature support (SharedArrayBuffer, etc.)
-
-**Cons:**
-- Slightly higher memory usage
-
-**Use When:**
-- Default desktop testing
-- Performance benchmarking
-- Memory profiling
-- Most development work
-
-```bash
-npm run test:e2e:desktop:chromium
-```
-
-### WebKit Desktop (Safari)
-
-**Pros:**
-- Tests Safari-specific behavior
-- Important for macOS users
-- Different JavaScript engine
-
-**Cons:**
-- macOS only (typically)
-- Some desktop features limited
-- Slower test execution
-
-**Use When:**
-- Testing macOS/Safari compatibility
-- Verifying WebKit-specific issues
-- Comprehensive browser coverage
-
-```bash
-npm run test:e2e:desktop:webkit
-```
-
----
-
-## OS-Specific Testing
-
-Desktop mode supports OS-specific test configurations that run only on matching platforms.
-
-### macOS Testing
-
-```bash
-# Runs only on macOS (darwin)
-TEST_MODE=desktop npx playwright test --project=chromium-macos
-
-# Test WebKit (Safari) on macOS
-npm run test:e2e:desktop:webkit
-```
-
-**macOS-Specific Features:**
-- Native Safari/WebKit testing
-- macOS-specific keybindings
-- Retina display simulation (high DPI)
-
-### Windows Testing
-
-```bash
-# Runs only on Windows (win32)
-TEST_MODE=desktop npx playwright test --project=chromium-windows
-```
-
-**Windows-Specific Features:**
-- Windows-specific file paths
-- Native Windows behaviors
-- Windows keybindings
-
-### Linux Testing
-
-```bash
-# Runs only on Linux
-TEST_MODE=desktop npx playwright test --project=chromium-linux
-```
-
-**Linux-Specific Features:**
-- Linux-specific sandbox settings
-- X11/Wayland display handling
-- Linux file system behaviors
-
-### Cross-Platform Testing
-
-```bash
-# Run on all platforms automatically
-npm run test:e2e:desktop:all-browsers
-
-# The configuration automatically detects your OS and runs appropriate tests
+# Run with explicit project
+npx playwright test --config=playwright.config.desktop.ts --project=desktop-electron
 ```
 
 ---
@@ -325,15 +192,14 @@ npm run test:e2e:desktop:all-browsers
 # Open Playwright Inspector (step through tests)
 npm run test:e2e:desktop:debug
 
-# Run with headed browser (see what's happening)
-DEBUG_MODE=1 TEST_MODE=desktop npx playwright test --headed
+# DEBUG_MODE pauses on failure and keeps VS Code window open for inspection
 ```
 
 ### Trace Viewer
 
 ```bash
 # Record trace for debugging
-TEST_MODE=desktop npx playwright test --trace=on
+npx playwright test --config=playwright.config.desktop.ts --trace=on
 
 # View trace
 npx playwright show-trace trace.zip
@@ -341,18 +207,10 @@ npx playwright show-trace trace.zip
 
 ### Screenshots and Videos
 
-Desktop tests automatically capture:
+Desktop tests (via `createDesktopTest` fixture) automatically capture:
 - **Screenshots:** On failure (CI: all tests)
-- **Videos:** On failure (CI: all tests)
+- **Videos:** Renamed with test name for easy identification (e.g., `MyTestName.webm`)
 - **Traces:** On first retry
-
-```bash
-# Force screenshot capture
-TEST_MODE=desktop npx playwright test --screenshot=on
-
-# Force video capture
-TEST_MODE=desktop npx playwright test --video=on
-```
 
 ### Console Logging
 
@@ -404,33 +262,16 @@ This enables:
 - Slow motion (300ms delay)
 - Better error visibility
 
-### 4. Use OS-Specific Projects Carefully
+### 4. Use createDesktopTest for Desktop Tests
 
-OS-specific projects (`chromium-macos`, etc.) only run on matching OS:
-```bash
-# This only runs on macOS
-TEST_MODE=desktop npx playwright test --project=chromium-macos
-```
-
-Use generic desktop projects for cross-platform tests.
+Desktop tests require the `createDesktopTest` fixture which launches VS Code Electron. Tests using this fixture must import from `../fixtures/createDesktopTest` rather than the web `apexFixtures`.
 
 ### 5. Leverage Desktop Features
 
-Desktop mode enables advanced features:
-
-```typescript
-// Example: Use exposed GC in tests
-await page.evaluate(() => {
-  if (typeof gc === 'function') {
-    gc(); // Only available in desktop mode
-  }
-});
-
-// Example: Check precise memory info
-const memory = await page.evaluate(() => {
-  return (performance as any).memory;
-});
-```
+Desktop mode (VS Code Electron) enables:
+- Clipboard permissions (granted automatically)
+- Video recording with test-name renaming
+- DEBUG_MODE pause on failure
 
 ### 6. Profile Performance
 
@@ -455,76 +296,54 @@ test('should perform within time limit', async ({ apexEditor }) => {
 
 ### Issue: Desktop tests not running
 
-**Solution:** Ensure `TEST_MODE` environment variable is set:
-```bash
-TEST_MODE=desktop npm run test:e2e:desktop
-```
-
-Or use the pre-configured npm scripts:
+**Solution:** Use the npm scripts (they set `VSCODE_DESKTOP` automatically):
 ```bash
 npm run test:e2e:desktop
 ```
 
+Ensure extension is built first:
+```bash
+npm run compile && npm run bundle
+```
+
+### Issue: VS Code download fails
+
+**Solution:** Desktop mode downloads VS Code on first run via `downloadVSCode.ts`. Check network and disk space. Cache is at repo root `.vscode-test/`.
+
 ### Issue: Tests fail only in desktop mode
 
 **Possible causes:**
-1. **Viewport size differences** - Desktop uses 1920x1080
-2. **Timing differences** - Desktop may be faster/slower
-3. **Feature availability** - Desktop enables features not in web mode
+1. **Different environment** - Desktop uses actual VS Code, not browser
+2. **Timing differences** - Electron may have different timing
+3. **Fixture mismatch** - Current test specs use web fixtures; desktop tests need `createDesktopTest`
 
-**Solution:** Adjust test selectors or timeouts for desktop viewport.
-
-### Issue: Browser won't launch in desktop mode
-
-**Solution:** Check browser installation:
-```bash
-# Install Playwright browsers
-npx playwright install chromium webkit
-
-# Install with dependencies
-npx playwright install --with-deps
-```
-
-### Issue: OS-specific tests not running
-
-**Solution:** OS-specific projects only run on matching platform:
-```bash
-# chromium-macos only runs on macOS
-# chromium-windows only runs on Windows
-# chromium-linux only runs on Linux
-```
-
-Use generic `chromium-desktop` for cross-platform tests.
+**Solution:** Desktop-specific tests must use the `createDesktopTest` fixture.
 
 ### Issue: Tests are slow in desktop mode
 
 **Possible causes:**
-1. Larger viewport requires more rendering
-2. Enhanced features add overhead
-3. Debug mode enabled (slow motion)
+1. VS Code launch overhead
+2. Video recording
+3. DEBUG_MODE enabled
 
 **Solutions:**
 ```bash
-# Disable debug mode
-TEST_MODE=desktop npx playwright test
+# Run specific tests
+npx playwright test tests/apex-hover.spec.ts --config=playwright.config.desktop.ts
 
-# Increase parallelization
-TEST_MODE=desktop npx playwright test --workers=4
-
-# Run specific tests instead of full suite
-TEST_MODE=desktop npx playwright test tests/apex-hover.spec.ts
+# Reduce workers for memory-intensive tests
+npx playwright test --config=playwright.config.desktop.ts --workers=1
 ```
 
 ### Issue: Memory issues in desktop mode
 
-**Solution:** Desktop mode enables precise memory tracking. If tests are hitting memory limits:
-
+**Solution:**
 ```bash
 # Reduce parallel workers
-TEST_MODE=desktop npx playwright test --workers=1
+npx playwright test --config=playwright.config.desktop.ts --workers=1
 
 # Run tests serially
-TEST_MODE=desktop npx playwright test --fully-parallel=false
+E2E_SEQUENTIAL=1 npx playwright test --config=playwright.config.desktop.ts
 ```
 
 ---
@@ -546,28 +365,22 @@ TEST_MODE=desktop npx playwright test --fully-parallel=false
 **1. Use Workers Wisely:**
 ```bash
 # Fast parallel execution
-TEST_MODE=desktop npx playwright test --workers=4
+npx playwright test --config=playwright.config.desktop.ts --workers=4
 
 # Single worker for memory-intensive tests
-TEST_MODE=desktop npx playwright test --workers=1
+npx playwright test --config=playwright.config.desktop.ts --workers=1
 ```
 
 **2. Run Specific Tests:**
 ```bash
 # Don't run full suite if not needed
-TEST_MODE=desktop npx playwright test tests/apex-hover.spec.ts
+npx playwright test tests/apex-hover.spec.ts --config=playwright.config.desktop.ts
 ```
 
 **3. Disable Unnecessary Features:**
 ```bash
 # Disable video/screenshots for faster execution
-TEST_MODE=desktop npx playwright test --video=off --screenshot=off
-```
-
-**4. Use Shared Browsers:**
-```bash
-# Reuse an already-running web server (non-CI)
-TEST_MODE=desktop npx playwright test
+npx playwright test --config=playwright.config.desktop.ts --video=off --screenshot=off
 ```
 
 ---
@@ -575,32 +388,30 @@ TEST_MODE=desktop npx playwright test
 ## Summary
 
 **Desktop mode provides:**
-- ✅ Enhanced browser features (SharedArrayBuffer, GC, memory info)
+- ✅ Actual VS Code Desktop (Electron) via `@vscode/test-electron`
+- ✅ `createDesktopTest` fixture with video renaming, clipboard permissions
 - ✅ Native desktop resolution (1920x1080)
-- ✅ Better performance profiling
-- ✅ OS-specific testing capabilities
-- ✅ Realistic desktop environment simulation
+- ✅ DEBUG_MODE pause on failure
+- ✅ Real VS Code Desktop experience
 
 **When to use desktop mode:**
 - Performance benchmarking
 - Memory profiling
-- Complex LSP operations
-- OS-specific testing
-- Desktop bug reproduction
+- Desktop-specific bug reproduction
 
 **When to use web mode:**
 - Quick feature verification
-- CI/CD pipelines
+- CI/CD pipelines (default)
 - Simple smoke tests
-- Browser-specific web testing
 
-For most development and testing, **web mode (default)** is sufficient. Use **desktop mode** when you need enhanced features, performance profiling, or OS-specific testing.
+For most development and testing, **web mode (default)** is sufficient. Use **desktop mode** when you need actual VS Code Desktop or performance profiling.
 
 ---
 
 ## Additional Resources
 
 - [Main README](README.md) - Complete e2e testing guide
-- [Playwright Configuration](playwright.config.ts) - Desktop mode configuration
+- [playwright.config.desktop.ts](playwright.config.desktop.ts) - Desktop configuration
+- [createDesktopTest.ts](fixtures/createDesktopTest.ts) - Desktop fixture factory
 - [TESTING-GUIDE.md](TESTING-GUIDE.md) - Comprehensive testing guide
 - [Playwright Docs](https://playwright.dev/docs/intro) - Official documentation
