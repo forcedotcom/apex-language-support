@@ -18,7 +18,22 @@ import { OUTLINE_SELECTORS, type ExpectedApexSymbols } from './constants';
  * @throws Error if outline view cannot be found or activated
  */
 export const findAndActivateOutlineView = async (page: Page): Promise<void> => {
-  // First, try to find outline view in the explorer sidebar
+  // Check if the outline tree already has content (rows) — skip activation
+  // to avoid toggling it closed by re-clicking the header.
+  const existingRows = page.locator(
+    '.outline-tree .monaco-list-row, .tree-explorer .monaco-list-row',
+  );
+  if ((await existingRows.count()) > 0) {
+    return;
+  }
+
+  // Also check broader outline presence — the tree container may exist without rows
+  const outlineTree = page.locator('.outline-tree');
+  if ((await outlineTree.count()) > 0) {
+    return;
+  }
+
+  // Try to find outline view in the explorer sidebar
   let outlineFound = false;
 
   for (const selector of OUTLINE_SELECTORS) {
@@ -37,7 +52,7 @@ export const findAndActivateOutlineView = async (page: Page): Promise<void> => {
       if (selector === 'text=OUTLINE') {
         await outlineElement.first().click();
         // Wait for outline tree to become visible after clicking
-        await page.waitForSelector('.outline-tree', { timeout: 10000 });
+        await page.waitForSelector('.outline-tree', { timeout: 15000 });
       }
       break;
     }

@@ -165,6 +165,7 @@ test.describe('Apex Outline View', () => {
    */
   test('should show multiple symbols in outline', async ({ outlineView }) => {
     await outlineView.open();
+    await outlineView.waitForSymbols(3);
 
     const symbols = await outlineView.getSymbols();
 
@@ -180,11 +181,11 @@ test.describe('Apex Outline View', () => {
   }) => {
     await outlineView.open();
 
-    // Wait for at least 1 symbol to appear
-    await expect(async () => {
-      await outlineView.waitForSymbols(1, 10000);
-    }).not.toThrow();
+    // Wait for at least 1 symbol to appear (use default timeout which is mode-aware)
+    await outlineView.waitForSymbols(1);
 
+    const count = await outlineView.getSymbolCount();
+    expect(count).toBeGreaterThanOrEqual(1);
     console.log('✅ Outline populated within timeout');
   });
 
@@ -210,6 +211,7 @@ test.describe('Apex Outline View', () => {
    */
   test('should identify different symbol types', async ({ outlineView }) => {
     await outlineView.open();
+    await outlineView.waitForSymbols(2);
 
     const symbols = await outlineView.getSymbols();
 
@@ -230,6 +232,7 @@ test.describe('Apex Outline View', () => {
     outlineView,
   }) => {
     await outlineView.open();
+    await outlineView.waitForSymbols(1);
 
     await test.step('Click on main class symbol', async () => {
       await outlineView.clickSymbol('ApexClassExample');

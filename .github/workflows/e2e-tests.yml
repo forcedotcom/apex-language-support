@@ -229,6 +229,18 @@ jobs:
           echo "**Run:** [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $SUMMARY_FILE
           echo "" >> $SUMMARY_FILE
 
+          # Expected spec files from the matrix — keep in sync with the matrix above
+          EXPECTED_SPECS=(
+            "apex-extension-core.spec.ts"
+            "apex-goto-definition.spec.ts"
+            "apex-hover.spec.ts"
+            "apex-lsp-integration.spec.ts"
+            "apex-outline.spec.ts"
+          )
+
+          # Track which specs produced results
+          declare -A SPECS_WITH_RESULTS
+
           # Aggregate results from reporter outputs.
           # Prefer JUnit when present; fall back to Playwright JSON when JUnit files are missing.
           TOTAL=0
@@ -248,6 +260,9 @@ jobs:
             FAILURES=$((FAILURES + F))
             ERRORS=$((ERRORS + E))
             PER_FILE_STATS+=("$junit|$T|$F|$E")
+            # Extract spec name from path (e.g. test-results/apex-hover.spec.ts/junit.xml)
+            SPEC_DIR=$(basename "$(dirname "$junit")")
+            SPECS_WITH_RESULTS["$SPEC_DIR"]=1
           done < <(find test-results -name "junit.xml" 2>/dev/null || true)
 
           if [ "$JUNIT_COUNT" -eq 0 ]; then
@@ -259,6 +274,8 @@ jobs:
               FAILURES=$((FAILURES + F))
               ERRORS=$((ERRORS + E))
               PER_FILE_STATS+=("$json|$T|$F|$E")
+              SPEC_DIR=$(basename "$(dirname "$json")")
+              SPECS_WITH_RESULTS["$SPEC_DIR"]=1
             done < <(find test-results -name "results.json" 2>/dev/null || true)
           fi
 
@@ -290,18 +307,41 @@ jobs:
             echo "Searched for \`**/junit.xml\` and \`**/results.json\` under downloaded \`test-results/\` artifacts." >> $SUMMARY_FILE
           fi
 
+          # Report specs that were expected but produced no results (build failure, infra error, etc.)
+          MISSING_SPECS=()
+          for spec in "${EXPECTED_SPECS[@]}"; do
+            if [ -z "${SPECS_WITH_RESULTS[$spec]+x}" ]; then
+              MISSING_SPECS+=("$spec")
+            fi
+          done
+
+          if [ ${#MISSING_SPECS[@]} -gt 0 ]; then
+            echo "" >> $SUMMARY_FILE
+            echo "## Specs With No Results" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
+            echo "The following specs did not produce test results. This usually means the job crashed before tests ran (e.g. build failure, infra error, dependency download timeout)." >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
+            for spec in "${MISSING_SPECS[@]}"; do
+              echo "- \`$spec\`: **Did not run** — check the [job logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $SUMMARY_FILE
+            done
+          fi
+
           echo "" >> $SUMMARY_FILE
           echo "## Artifacts" >> $SUMMARY_FILE
           echo "" >> $SUMMARY_FILE
           echo "View detailed test reports in the [Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) section." >> $SUMMARY_FILE
 
           # Success/Failure badge
-          if [ "$FAILURES" = "0" ] && [ "$ERRORS" = "0" ] && [ $TOTAL -gt 0 ]; then
+          if [ "$FAILURES" = "0" ] && [ "$ERRORS" = "0" ] && [ $TOTAL -gt 0 ] && [ ${#MISSING_SPECS[@]} -eq 0 ]; then
             echo "" >> $SUMMARY_FILE
             echo "### All tests passed" >> $SUMMARY_FILE
           elif [ $TOTAL -gt 0 ]; then
             echo "" >> $SUMMARY_FILE
-            echo "### Some tests failed" >> $SUMMARY_FILE
+            if [ ${#MISSING_SPECS[@]} -gt 0 ]; then
+              echo "### Some tests failed or did not run" >> $SUMMARY_FILE
+            else
+              echo "### Some tests failed" >> $SUMMARY_FILE
+            fi
           fi
 
           # Also write to job summary for Actions UI
