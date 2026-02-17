@@ -10,6 +10,11 @@ import type { Page } from '@playwright/test';
 import { SELECTORS, APEX_CLASS_EXAMPLE_CONTENT } from './constants';
 import { setupWorkerResponseHook } from './worker-detection';
 import {
+  waitForVSCodeWorkbench,
+  closeWelcomeTabs,
+} from '../shared/utils/helpers';
+import { waitForCommandToBeAvailable } from '../shared/pages/commands';
+import {
   setupConsoleMonitoring,
   setupNetworkMonitoring,
 } from './error-handling';
@@ -58,31 +63,13 @@ export const ALL_SAMPLE_FILES = [createApexClassExampleFile()] as const;
 
 /**
  * Starts VS Code Web and waits for it to load.
+ * Uses shared waitForVSCodeWorkbench and closeWelcomeTabs (monorepo parity).
  *
  * @param page - Playwright page instance
  */
 export const startVSCodeWeb = async (page: Page): Promise<void> => {
-  // Desktop mode requires longer timeouts due to larger viewport and resource requirements
-  const isDesktopMode = process.env.TEST_MODE === 'desktop';
-  const startupTimeout = isDesktopMode ? 90_000 : 60_000;
-  const workbenchTimeout = isDesktopMode ? 60_000 : 30_000;
-
-  // Use 'domcontentloaded' instead of 'networkidle' - networkidle causes 60s+ timeouts
-  // in VS Code Web because SPAs maintain long-lived connections (WebSocket, polling).
-  // Explicit selector waits below are reliable indicators of app readiness.
-  await page.goto('/', { waitUntil: 'domcontentloaded', timeout: startupTimeout });
-
-  // Wait for VS Code workbench to be fully loaded and interactive
-  await page.waitForSelector(SELECTORS.STATUSBAR, {
-    timeout: startupTimeout,
-  });
-
-  // Verify VS Code workbench loaded
-  await page.waitForSelector(SELECTORS.WORKBENCH, {
-    timeout: workbenchTimeout,
-  });
-  const workbench = page.locator(SELECTORS.WORKBENCH);
-  await workbench.waitFor({ state: 'visible' });
+  await waitForVSCodeWorkbench(page, true);
+  await closeWelcomeTabs(page);
 };
 
 /**
@@ -175,47 +162,33 @@ export const activateExtension = async (page: Page): Promise<void> => {
       'Extension activated but file content may not be loaded yet',
     );
   }
+
+  // Wait for extension command to be available (extension fully loaded + when context ready)
+  await waitForCommandToBeAvailable(
+    page,
+    'Restart Apex-LS-TS Language Server',
+    30_000
+  );
 };
 
 /**
  * Waits for LSP server to initialize.
+ * Waits for Monaco editor to be ready and for view lines (content) to be visible.
  *
  * @param page - Playwright page instance
  */
 export const waitForLSPInitialization = async (page: Page): Promise<void> => {
-  // Desktop mode requires longer timeouts due to larger viewport and resource requirements
   const isDesktopMode = process.env.TEST_MODE === 'desktop';
   const selectorTimeout = isDesktopMode ? 60_000 : 30_000;
-  const evaluateTimeout = isDesktopMode ? 15000 : 8000;
 
-  // Wait for Monaco editor to be ready and responsive
   await page.waitForSelector(
     SELECTORS.MONACO_EDITOR + ' .monaco-editor-background',
-    {
-      timeout: selectorTimeout,
-    },
+    { timeout: selectorTimeout }
   );
 
-  // Wait for any language server activity by checking for syntax highlighting or symbols
-  await page.evaluate(
-    async (timeout) =>
-      new Promise((resolve) => {
-        const checkInterval = setInterval(() => {
-          const editor = document.querySelector('.monaco-editor .view-lines');
-          if (editor && editor.children.length > 0) {
-            clearInterval(checkInterval);
-            resolve(true);
-          }
-        }, 100);
-
-        // Timeout after configured duration
-        setTimeout(() => {
-          clearInterval(checkInterval);
-          resolve(true);
-        }, timeout);
-      }),
-    evaluateTimeout,
-  );
+  // Wait for editor content (view lines) to be visible - indicates LSP has processed the file
+  const viewLines = page.locator('.monaco-editor .view-lines .view-line');
+  await viewLines.first().waitFor({ state: 'visible', timeout: selectorTimeout });
 };
 
 /**

@@ -22,16 +22,12 @@ import { SELECTORS } from '../utils/constants';
 export class ApexEditorPage extends BasePage {
   private readonly editorContent: Locator;
   private readonly editorLineNumbers: Locator;
-  private readonly isDesktopMode: boolean;
   private readonly defaultTimeout: number;
 
   constructor(page: Page) {
     super(page);
-    // Scope to workbench main editor only (excludes peek widget when it's not the first)
     this.editorContent = page.locator(SELECTORS.MONACO_EDITOR).first().locator('.view-lines');
     this.editorLineNumbers = page.locator('.monaco-editor .line-numbers');
-    // Detect desktop mode and CI - CI runners are slower and need longer timeouts
-    this.isDesktopMode = process.env.TEST_MODE === 'desktop';
     const isCI = !!process.env.CI;
     this.defaultTimeout = this.isDesktopMode
       ? 30000
@@ -45,24 +41,22 @@ export class ApexEditorPage extends BasePage {
    * @param filename - Name of the file to open (e.g., "ApexClassExample.cls")
    */
   async openFile(filename: string): Promise<void> {
-    // Click on the file in the explorer
     const fileLocator = this.page.locator(`[aria-label*="${filename}"]`).first();
 
-    // Try multiple strategies to open the file
     const fileExists = await fileLocator.count();
     if (fileExists > 0) {
       await fileLocator.dblclick();
     } else {
-      // Fallback: use command palette
       await this.executeCommand(`File: Open File`);
-      await this.page.waitForTimeout(this.isDesktopMode ? 1000 : 500);
+      const quickInput = this.page.locator('.quick-input-widget');
+      await quickInput.waitFor({ state: 'visible', timeout: 5000 });
       await this.page.keyboard.type(filename);
       await this.page.keyboard.press('Enter');
+      await quickInput.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
     }
 
-    // Wait for editor to be visible and active (longer timeout for desktop mode)
     await this.editor.waitFor({ state: 'visible', timeout: this.defaultTimeout });
-    await this.page.waitForTimeout(this.isDesktopMode ? 2000 : 1000); // Allow file to load
+    await this.editorContent.locator('.view-line').first().waitFor({ state: 'visible', timeout: this.defaultTimeout });
   }
 
   /**
@@ -82,29 +76,31 @@ export class ApexEditorPage extends BasePage {
     const position = column ? `${line}:${column}` : line.toString();
 
     await this.page.keyboard.press('Control+G');
-    await this.page.waitForTimeout(300);
+    const widget = this.page.locator('.quick-input-widget');
+    await widget.waitFor({ state: 'visible', timeout: 5000 });
     await this.page.keyboard.type(position);
     await this.page.keyboard.press('Enter');
-    await this.page.waitForTimeout(500); // Allow editor to navigate
+    await widget.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
   }
 
   /**
    * Trigger go-to-definition at the current cursor position.
    * Uses F12 keyboard shortcut.
-   * Closes peek widget if "No definition found" appears so main editor retains focus.
+   * Waits for peek widget or editor to update, then closes peek if open.
    */
   async goToDefinition(): Promise<void> {
     await this.page.keyboard.press('F12');
-    // Allow navigation to complete and editor to settle (e.g. tab switch, scroll).
-    // CI runners are slower - LSP response and Monaco viewport updates take longer.
-    const settleMs = this.isDesktopMode ? 2000 : process.env.CI ? 2500 : 1500;
-    await this.page.waitForTimeout(settleMs);
-    // Close peek widget if "No definition found" - ensures main editor has focus for subsequent actions
+    // Wait for either peek widget or editor content to be ready
+    const peekWidget = this.page.locator('.editor-widget');
+    const settleTimeout = this.isDesktopMode ? 5000 : process.env.CI ? 5000 : 3000;
+    await Promise.race([
+      peekWidget.waitFor({ state: 'visible', timeout: settleTimeout }),
+      this.editorContent.waitFor({ state: 'visible', timeout: settleTimeout }),
+    ]).catch(() => {});
     for (let i = 0; i < 3; i++) {
       await this.page.keyboard.press('Escape');
-      await this.page.waitForTimeout(150);
+      await peekWidget.waitFor({ state: 'hidden', timeout: 500 }).catch(() => {});
     }
-    // Ensure editor content is visible before any subsequent getContent() calls
     await this.editorContent.waitFor({ state: 'visible', timeout: this.defaultTimeout }).catch(() => {});
   }
 
@@ -114,7 +110,8 @@ export class ApexEditorPage extends BasePage {
    */
   async triggerCompletion(): Promise<void> {
     await this.page.keyboard.press('Control+Space');
-    await this.page.waitForTimeout(500); // Allow completion widget to appear
+    const suggestWidget = this.page.locator('.monaco-editor .suggest-widget, .editor-widget.suggest-widget');
+    await suggestWidget.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   }
 
   /**
@@ -123,7 +120,8 @@ export class ApexEditorPage extends BasePage {
    */
   async triggerSignatureHelp(): Promise<void> {
     await this.page.keyboard.press('Control+Shift+Space');
-    await this.page.waitForTimeout(500);
+    const signatureWidget = this.page.locator('.monaco-editor .parameter-hints-widget, .editor-widget.parameter-hints');
+    await signatureWidget.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   }
 
   /**
@@ -134,11 +132,25 @@ export class ApexEditorPage extends BasePage {
    */
   async findAndGetViewportContent(searchText: string): Promise<string> {
     await this.positionCursorOnWord(searchText);
-    // CI: Allow Monaco to finish rendering the viewport after scroll
-    if (process.env.CI) {
-      await this.page.waitForTimeout(500);
-    }
+    await this.editorContent.waitFor({ state: 'visible', timeout: 3000 });
     return this.getContent();
+  }
+
+  /**
+   * Wait for editor content to include specific text (polls until found).
+   * Use instead of arbitrary wait() when waiting for typed content to render.
+   * Normalizes \u00A0 (non-breaking space) to regular space for reliable matching.
+   */
+  async waitForContentToInclude(text: string, timeout = 5000): Promise<void> {
+    const { expect } = await import('@playwright/test');
+    const normalizedText = text.replace(/\u00A0/g, ' ');
+    await expect(async () => {
+      const content = await this.getContent();
+      const normalizedContent = content.replace(/\u00A0/g, ' ');
+      expect(normalizedContent, `Expected content to include "${text}"`).toContain(
+        normalizedText
+      );
+    }).toPass({ timeout });
   }
 
   /**
@@ -201,7 +213,6 @@ export class ApexEditorPage extends BasePage {
    */
   async typeText(text: string): Promise<void> {
     await this.page.keyboard.type(text);
-    await this.page.waitForTimeout(300); // Allow typing to register
   }
 
   /**
@@ -209,7 +220,6 @@ export class ApexEditorPage extends BasePage {
    */
   async selectAll(): Promise<void> {
     await this.page.keyboard.press('Control+A');
-    await this.page.waitForTimeout(200);
   }
 
   /**
@@ -217,88 +227,59 @@ export class ApexEditorPage extends BasePage {
    * @param searchText - The text to search for
    */
   async findText(searchText: string): Promise<void> {
-    // Open find widget
     await this.page.keyboard.press('Control+F');
-    await this.page.waitForTimeout(300);
-
-    // Type search text
+    const findWidget = this.page.getByRole('dialog', { name: 'Find / Replace' });
+    await findWidget.waitFor({ state: 'visible', timeout: 5000 });
     await this.page.keyboard.type(searchText);
-    await this.page.waitForTimeout(500);
-
-    // Close find widget
     await this.page.keyboard.press('Escape');
   }
 
   /**
    * Position the cursor on a specific word in the editor.
-   * This is useful for testing hover and go-to-definition on specific symbols.
    * @param searchText - The text to search for and position cursor on
    */
   async positionCursorOnWord(searchText: string): Promise<void> {
-    // Use find to navigate to the word
     await this.page.keyboard.press('Control+F');
-    await this.page.waitForTimeout(process.env.CI ? 500 : 300);
-
-    // Type search text
+    const findWidget = this.page.getByRole('dialog', { name: 'Find / Replace' });
+    await findWidget.waitFor({ state: 'visible', timeout: 5000 });
     await this.page.keyboard.type(searchText);
-    await this.page.waitForTimeout(process.env.CI ? 800 : 500);
-
-    // Press Enter to go to first match
     await this.page.keyboard.press('Enter');
-    await this.page.waitForTimeout(process.env.CI ? 500 : 300);
-
-    // Close find widget
     await this.page.keyboard.press('Escape');
-    await this.page.waitForTimeout(process.env.CI ? 500 : 300);
+    await findWidget.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
   }
+
 
   /**
    * Get the word at the current cursor position.
    * @returns The word under the cursor, or empty string
    */
   async getWordAtCursor(): Promise<string> {
-    // Select the word under cursor
-    await this.page.keyboard.press('Control+D'); // Select word
-    await this.page.waitForTimeout(200);
-
-    // Copy the selection
+    await this.page.keyboard.press('Control+D');
     await this.page.keyboard.press('Control+C');
-    await this.page.waitForTimeout(200);
-
-    // Get clipboard content (note: this may not work in all test environments)
-    // For now, return a placeholder - this can be enhanced if needed
     return '';
   }
 
   /**
    * Verify that the editor is showing an Apex file.
-   * Waits briefly for indicators to appear before returning.
    * @returns True if an Apex file is open
    */
   async isApexFileOpen(): Promise<boolean> {
-    // Check for Apex language indicator or .cls extension in tab
     const apexIndicators = [
       '.apex-lang-file-icon',
       '.cls-ext-file-icon',
       '[aria-label*=".cls"]',
       '.tab [title*=".cls"]',
-      '.monaco-editor', // Fallback: just check if any editor is visible
+      '.monaco-editor',
     ];
 
-    // Give indicators time to render (longer in desktop mode)
-    const waitTime = this.isDesktopMode ? 2000 : 500;
-    await this.page.waitForTimeout(waitTime);
-
+    const timeout = this.isDesktopMode ? 5000 : 3000;
     for (const selector of apexIndicators) {
       try {
         const locator = this.page.locator(selector);
         const count = await locator.count();
         if (count > 0) {
-          // Verify the element is actually visible
-          const isVisible = await locator.first().isVisible();
-          if (isVisible) {
-            return true;
-          }
+          await locator.first().waitFor({ state: 'visible', timeout });
+          return true;
         }
       } catch {
         // Continue to next selector

@@ -223,16 +223,6 @@
       "dependencies": [
         "bundle"
       ],
-      "output": [
-        "e2e-tests/test-results/**",
-        "e2e-tests/playwright-report/**"
-      ],
-      "files": [
-        "scripts/test-e2e.js",
-        "e2e-tests/tests/**/*.ts",
-        "e2e-tests/utils/**/*.ts",
-        "e2e-tests/playwright.config.ts"
-      ],
       "cache": false
     },
     "lint": {

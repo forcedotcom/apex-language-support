@@ -160,8 +160,7 @@ test.describe('Apex Extension Core Activation', () => {
       const marker = 'TEST_MARKER_' + Date.now();
       await apexEditor.typeText(`// ${marker}`);
 
-      // Give the editor time to update
-      await apexEditor.wait(500);
+      await apexEditor.waitForContentToInclude(marker);
 
       const content = await apexEditor.findAndGetViewportContent(marker);
       const hasMarker = content.toLowerCase().includes(marker.toLowerCase());
@@ -191,8 +190,11 @@ test.describe('Apex Extension Core Activation', () => {
     consoleErrors,
   }) => {
     await test.step('Wait for stability period', async () => {
-      // Wait a bit to ensure no delayed errors
-      await apexEditor.wait(3000);
+      // Wait for editor to be idle (tab still visible, no loading state)
+      await apexEditor
+        .getPage()
+        .locator('.tab[aria-selected="true"]')
+        .waitFor({ state: 'visible', timeout: 5000 });
     });
 
     await test.step('Check for new critical errors', async () => {

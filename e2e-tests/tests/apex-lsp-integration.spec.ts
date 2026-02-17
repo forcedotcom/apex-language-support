@@ -156,8 +156,11 @@ test.describe('Apex LSP Integration', () => {
     });
 
     await test.step('Verify LSP does not crash', async () => {
-      // LSP should still be functional despite syntax error
-      await apexEditor.wait(2000);
+      await apexEditor
+        .getPage()
+        .locator('.monaco-editor .view-lines')
+        .first()
+        .waitFor({ state: 'visible', timeout: 5000 });
 
       expect(await apexEditor.isApexFileOpen()).toBe(true);
 
@@ -192,8 +195,11 @@ test.describe('Apex LSP Integration', () => {
     });
 
     await test.step('Wait for diagnostics', async () => {
-      // Give LSP time to provide diagnostics
-      await apexEditor.wait(2000);
+      await apexEditor
+        .getPage()
+        .locator('.monaco-editor .view-lines')
+        .first()
+        .waitFor({ state: 'visible', timeout: 5000 });
 
       // LSP should still be functional
       expect(await apexEditor.isApexFileOpen()).toBe(true);
@@ -267,17 +273,19 @@ test.describe('Apex LSP Integration', () => {
    */
   test('should recover from temporary errors', async ({ apexEditor }) => {
     await test.step('Cause temporary error state', async () => {
-      // Type rapidly to potentially cause temporary inconsistency
       await apexEditor.typeText('public class Test {');
-      await apexEditor.wait(100);
+      await apexEditor.waitForContentToInclude('{', 2000);
       await apexEditor.typeText('}');
 
       console.log('✅ Temporary error state introduced');
     });
 
     await test.step('Verify recovery', async () => {
-      // Wait for LSP to stabilize
-      await apexEditor.wait(2000);
+      await apexEditor
+        .getPage()
+        .locator('.monaco-editor .view-lines')
+        .first()
+        .waitFor({ state: 'visible', timeout: 5000 });
 
       // Verify LSP is functional
       expect(await apexEditor.isApexFileOpen()).toBe(true);
@@ -295,11 +303,11 @@ test.describe('Apex LSP Integration', () => {
     networkErrors,
   }) => {
     await test.step('Perform extended operations', async () => {
-      // Simulate extended usage
       for (let i = 0; i < 10; i++) {
+        const marker = `// STABILITY_${i}`;
         await apexEditor.goToPosition(i + 5, 1);
-        await apexEditor.typeText('// ');
-        await apexEditor.wait(300);
+        await apexEditor.typeText(marker);
+        await apexEditor.waitForContentToInclude(marker, 5000);
       }
 
       console.log('✅ Extended operations completed');
@@ -371,7 +379,11 @@ test.describe('Apex LSP Integration', () => {
   test('should handle undo/redo operations', async ({ apexEditor }) => {
     await test.step('Make an edit', async () => {
       await apexEditor.goToPosition(1, 1);
-      await apexEditor.typeText('// Original edit\n');
+      await apexEditor.typeText('// Original edit');
+      await apexEditor.getPage().keyboard.press('Enter');
+      await apexEditor.waitForContentToInclude('// Original edit', 5000);
+      // Scroll to the edit so it's in the viewport (Monaco virtualizes)
+      await apexEditor.findText('// Original edit');
       const content = await apexEditor.getContent();
       // Normalize spaces (Monaco may use \u00A0) and use regex for flexible match
       expect(content.replace(/\u00A0/g, ' ')).toMatch(/\/\/ Original edit/);

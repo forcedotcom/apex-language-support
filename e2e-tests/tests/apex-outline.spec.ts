@@ -227,8 +227,12 @@ test.describe('Apex Outline View', () => {
 
     await test.step('Click on main class symbol', async () => {
       await outlineView.clickSymbol('ApexClassExample');
-      // Give editor time to navigate
-      await apexEditor.wait(1000);
+      await apexEditor
+        .getPage()
+        .locator('.view-line')
+        .filter({ hasText: 'ApexClassExample' })
+        .first()
+        .waitFor({ state: 'visible', timeout: 5000 });
     });
 
     await test.step('Verify Apex file is still open', async () => {

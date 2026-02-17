@@ -40,7 +40,6 @@ export interface OutlineSymbol {
 export class OutlineViewPage extends BasePage {
   private readonly outlineTree: Locator;
   private readonly outlineItems: Locator;
-  private readonly isDesktopMode: boolean;
   private readonly defaultTimeout: number;
 
   constructor(page: Page) {
@@ -49,8 +48,6 @@ export class OutlineViewPage extends BasePage {
     this.outlineItems = page.locator(
       '.outline-tree .monaco-list-row, .tree-explorer .monaco-list-row',
     );
-    // Detect desktop mode and adjust timeouts accordingly
-    this.isDesktopMode = process.env.TEST_MODE === 'desktop';
     this.defaultTimeout = this.isDesktopMode ? 30000 : 15000;
   }
 
@@ -201,15 +198,15 @@ export class OutlineViewPage extends BasePage {
    * @param expectedSymbols - Expected symbol structure
    * @returns Validation results
    */
-  async validateSymbols(expectedSymbols: {
-    className: string;
-    classType: 'class' | 'interface' | 'enum';
-    methods?: readonly { name: string }[];
-    totalSymbols?: number;
-  }): Promise<{
+  async validateSymbols(
+    expectedSymbols: import('../utils/constants').ExpectedApexSymbols
+  ): Promise<{
     classFound: boolean;
-    methodsFound: string[];
-    totalSymbolsCount: number;
+    exactMethodsFound: string[];
+    missingMethods: string[];
+    unexpectedMethods: string[];
+    allExpectedMethodsFound: boolean;
+    exactMatch: boolean;
   }> {
     return await validateApexSymbolsInOutline(this.page, expectedSymbols);
   }

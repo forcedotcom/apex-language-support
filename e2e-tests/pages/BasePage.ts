@@ -7,29 +7,22 @@
  */
 
 import { Page, Locator } from '@playwright/test';
+import { executeCommandWithCommandPalette } from '../shared/pages/commands';
 import { SELECTORS } from '../utils/constants';
 
 /**
  * Base page object class for VS Code interactions.
- * All page objects should extend this class to inherit common functionality.
- *
- * This class provides:
- * - Common VS Code UI element accessors
- * - Workbench interaction methods
- * - Command palette operations
- * - Wait strategies
+ * Uses shared executeCommandWithCommandPalette (F1, monorepo parity).
  */
 export class BasePage {
   protected readonly page: Page;
 
-  // Common VS Code locators
   protected readonly workbench: Locator;
   protected readonly editor: Locator;
   protected readonly explorer: Locator;
   protected readonly sidebar: Locator;
   protected readonly statusbar: Locator;
 
-  // Desktop mode detection for extended timeouts
   protected readonly isDesktopMode: boolean;
   protected readonly baseTimeout: number;
 
@@ -41,46 +34,23 @@ export class BasePage {
     this.sidebar = page.locator(SELECTORS.SIDEBAR);
     this.statusbar = page.locator(SELECTORS.STATUSBAR);
 
-    // Desktop mode uses longer timeouts due to larger viewport and resource requirements
     this.isDesktopMode = process.env.TEST_MODE === 'desktop';
     this.baseTimeout = this.isDesktopMode ? 60000 : 30000;
   }
 
   /**
    * Wait for VS Code workbench to be loaded and ready.
-   * This should be called before interacting with VS Code UI.
    */
   async waitForWorkbenchLoad(): Promise<void> {
     await this.workbench.waitFor({ state: 'visible', timeout: this.baseTimeout });
-    // Give workbench a moment to settle (longer in desktop mode)
-    await this.page.waitForTimeout(this.isDesktopMode ? 1000 : 500);
   }
 
   /**
-   * Open the command palette using keyboard shortcut.
-   * @param timeout - Optional timeout in milliseconds
+   * Execute a command using the command palette (F1).
+   * Uses shared utility for monorepo parity.
    */
-  async openCommandPalette(timeout = 10000): Promise<void> {
-    await this.page.keyboard.press('Control+Shift+P');
-    // Wait for quick input widget to appear
-    const quickInput = this.page.locator('.quick-input-widget');
-    await quickInput.waitFor({ state: 'visible', timeout });
-  }
-
-  /**
-   * Execute a command using the command palette.
-   * @param command - The command to execute (e.g., "File: Open File")
-   * @param waitForCompletion - Whether to wait for command to complete
-   */
-  async executeCommand(command: string, waitForCompletion = true): Promise<void> {
-    await this.openCommandPalette();
-    await this.page.keyboard.type(command);
-    await this.page.waitForTimeout(500); // Allow command list to filter
-    await this.page.keyboard.press('Enter');
-
-    if (waitForCompletion) {
-      await this.page.waitForTimeout(1000); // Allow command to execute
-    }
+  async executeCommand(command: string, _waitForCompletion = true): Promise<void> {
+    await executeCommandWithCommandPalette(this.page, command);
   }
 
   /**
@@ -88,7 +58,8 @@ export class BasePage {
    */
   async closeQuickInput(): Promise<void> {
     await this.page.keyboard.press('Escape');
-    await this.page.waitForTimeout(300);
+    const quickInput = this.page.locator('.quick-input-widget');
+    await quickInput.waitFor({ state: 'hidden', timeout: 1000 }).catch(() => {});
   }
 
   /**
@@ -122,20 +93,10 @@ export class BasePage {
   }
 
   /**
-   * Wait for a specific amount of time.
-   * Use sparingly - prefer explicit waits when possible.
-   * @param ms - Milliseconds to wait
-   */
-  async wait(ms: number): Promise<void> {
-    await this.page.waitForTimeout(ms);
-  }
-
-  /**
    * Focus on the workbench (useful for ensuring keyboard shortcuts work).
    */
   async focusWorkbench(): Promise<void> {
     await this.workbench.click();
-    await this.wait(200);
   }
 
   /**
@@ -178,10 +139,11 @@ export class BasePage {
    */
   async goToLine(line: number): Promise<void> {
     await this.page.keyboard.press('Control+G');
-    await this.page.waitForTimeout(300);
+    const widget = this.page.locator('.quick-input-widget');
+    await widget.waitFor({ state: 'visible', timeout: 5000 });
     await this.page.keyboard.type(line.toString());
     await this.page.keyboard.press('Enter');
-    await this.page.waitForTimeout(500);
+    await widget.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
   }
 
   /**

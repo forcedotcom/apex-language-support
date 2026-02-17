@@ -28,7 +28,6 @@ import {
 export class HoverPage extends BasePage {
   private readonly hoverWidget: Locator;
   private readonly hoverContent: Locator;
-  private readonly isDesktopMode: boolean;
   private readonly defaultTimeout: number;
 
   constructor(page: Page) {
@@ -40,8 +39,6 @@ export class HoverPage extends BasePage {
     this.hoverContent = page.getByRole('tooltip').or(
       page.locator('.monaco-hover-content, .hover-contents, .monaco-hover'),
     );
-    // Detect desktop mode and adjust timeouts accordingly
-    this.isDesktopMode = process.env.TEST_MODE === 'desktop';
     this.defaultTimeout = this.isDesktopMode ? 10000 : 5000;
   }
 
