@@ -20,7 +20,7 @@ import * as path from 'node:path';
 export const saveScreenshot = async (
   page: Page,
   fileName: string,
-  fullPage = false
+  fullPage = false,
 ): Promise<string> => {
   try {
     // Ensure test-results directory exists

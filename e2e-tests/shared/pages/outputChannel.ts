@@ -28,17 +28,16 @@ const filterInput = (page: Page) =>
 
 const ensureOutputFilterReady = async (
   page: Page,
-  timeout: number
+  timeout: number,
 ): Promise<ReturnType<Page['locator']>> => {
   const panel = outputPanel(page);
   const outputTab = panel.getByRole('tab', { name: /Output/i }).first();
   const tabVisible = await outputTab.isVisible().catch(() => false);
   if (tabVisible) await outputTab.hover({ force: true });
   const input = filterInput(page);
-  await expect(
-    input,
-    'Output filter should be visible and usable'
-  ).toBeVisible({ timeout });
+  await expect(input, 'Output filter should be visible and usable').toBeVisible(
+    { timeout },
+  );
   return input;
 };
 
@@ -46,7 +45,7 @@ const withOutputFilter = async <T>(
   page: Page,
   searchText: string,
   fn: () => Promise<T>,
-  opts?: { timeout?: number }
+  opts?: { timeout?: number },
 ): Promise<T> => {
   const { timeout = 10_000 } = opts ?? {};
   const input = await ensureOutputFilterReady(page, Math.min(timeout, 15_000));
@@ -72,7 +71,7 @@ const getAllOutputText = async (page: Page): Promise<string> => {
 
 const waitForOutputContent = async (
   page: Page,
-  timeout: number
+  timeout: number,
 ): Promise<boolean> => {
   const codeArea = outputPanelCodeArea(page);
   try {
@@ -112,7 +111,7 @@ export const ensureOutputPanelOpen = async (page: Page): Promise<void> => {
 export const selectOutputChannel = async (
   page: Page,
   channelName: string,
-  timeout = 30_000
+  timeout = 30_000,
 ): Promise<void> => {
   const panel = outputPanel(page);
   await panel.waitFor({ state: 'visible', timeout: 5000 });
@@ -152,7 +151,7 @@ export const selectOutputChannel = async (
 export const outputChannelContains = async (
   page: Page,
   searchText: string,
-  opts?: { timeout?: number }
+  opts?: { timeout?: number },
 ): Promise<boolean> => {
   const { timeout = 10_000 } = opts ?? {};
 
@@ -167,11 +166,11 @@ export const outputChannelContains = async (
           const combinedText = await getAllOutputText(page);
           expect(
             combinedText.includes(searchText),
-            `Expected "${searchText}" in output`
+            `Expected "${searchText}" in output`,
           ).toBe(true);
         }).toPass({ timeout });
       },
-      { timeout }
+      { timeout },
     );
     const safeName = searchText.replaceAll(/[^a-zA-Z0-9]/g, '_');
     await page.screenshot({ path: `test-results/filter-${safeName}.png` });
@@ -185,7 +184,9 @@ export const outputChannelContains = async (
 
 /** Clears the output channel by clicking the clear button */
 export const clearOutputChannel = async (page: Page): Promise<void> => {
-  const clearButton = page.getByRole('button', { name: 'Clear Output' }).first();
+  const clearButton = page
+    .getByRole('button', { name: 'Clear Output' })
+    .first();
   await clearButton.click({ force: true });
 
   const codeArea = outputPanelCodeArea(page);
@@ -193,7 +194,7 @@ export const clearOutputChannel = async (page: Page): Promise<void> => {
     const text = await codeArea.textContent();
     expect(
       text?.trim().length ?? 0,
-      'Output channel should be completely cleared'
+      'Output channel should be completely cleared',
     ).toBe(0);
   }).toPass({ timeout: 2000 });
 };
@@ -201,14 +202,12 @@ export const clearOutputChannel = async (page: Page): Promise<void> => {
 /** Wait for output channel to contain specific text */
 export const waitForOutputChannelText = async (
   page: Page,
-  opts: { expectedText: string; timeout?: number }
+  opts: { expectedText: string; timeout?: number },
 ): Promise<void> => {
   const { expectedText, timeout = 30_000 } = opts;
 
   if (!(await waitForOutputContent(page, timeout))) {
-    throw new Error(
-      `Output channel did not have content within ${timeout}ms`
-    );
+    throw new Error(`Output channel did not have content within ${timeout}ms`);
   }
 
   const input = await ensureOutputFilterReady(page, Math.min(timeout, 15_000));
@@ -224,7 +223,7 @@ export const waitForOutputChannelText = async (
       const combinedText = await getAllOutputText(page);
       expect(
         combinedText.includes(expectedText),
-        `Expected "${expectedText}" in output`
+        `Expected "${expectedText}" in output`,
       ).toBe(true);
     }).toPass({ timeout });
   } finally {
@@ -238,7 +237,7 @@ export const waitForOutputChannelText = async (
 export const captureOutputChannelDetails = async (
   page: Page,
   channelName: string,
-  screenshotName?: string
+  screenshotName?: string,
 ): Promise<void> => {
   const safeChannelName = channelName.replaceAll(/[^a-zA-Z0-9]/g, '_');
   const screenshotFileName =
@@ -246,7 +245,7 @@ export const captureOutputChannelDetails = async (
 
   if (isMacDesktop()) {
     console.log(
-      'Skipping "Open Output in Editor" on Mac Desktop (context menus not supported)'
+      'Skipping "Open Output in Editor" on Mac Desktop (context menus not supported)',
     );
     await ensureOutputPanelOpen(page);
     await selectOutputChannel(page, channelName);
@@ -283,8 +282,9 @@ export const captureOutputChannelDetails = async (
 
     await saveScreenshot(page, `test-results/${screenshotFileName}`, true);
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
     console.log(
-      `Failed to open output in editor (${error instanceof Error ? error.message : String(error)}), falling back to output panel screenshot`
+      `Failed to open output in editor (${errMsg}), falling back to output panel screenshot`,
     );
     await saveScreenshot(page, `test-results/${screenshotFileName}`, true);
   }

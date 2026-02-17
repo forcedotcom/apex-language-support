@@ -10,7 +10,10 @@ import { test as base, expect } from '@playwright/test';
 import { ApexEditorPage } from '../pages/ApexEditorPage';
 import { OutlineViewPage } from '../pages/OutlineViewPage';
 import { HoverPage } from '../pages/HoverPage';
-import { setupApexTestEnvironment, type ExtendedTestSessionResult } from '../utils/test-orchestration';
+import {
+  setupApexTestEnvironment,
+  type ExtendedTestSessionResult,
+} from '../utils/test-orchestration';
 import type { ConsoleError, NetworkError } from '../utils/constants';
 
 /**

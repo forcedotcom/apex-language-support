@@ -26,14 +26,13 @@ export class ApexEditorPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    this.editorContent = page.locator(SELECTORS.MONACO_EDITOR).first().locator('.view-lines');
+    this.editorContent = page
+      .locator(SELECTORS.MONACO_EDITOR)
+      .first()
+      .locator('.view-lines');
     this.editorLineNumbers = page.locator('.monaco-editor .line-numbers');
     const isCI = !!process.env.CI;
-    this.defaultTimeout = this.isDesktopMode
-      ? 30000
-      : isCI
-        ? 25000
-        : 15000;
+    this.defaultTimeout = this.isDesktopMode ? 30000 : isCI ? 25000 : 15000;
   }
 
   /**
@@ -41,22 +40,32 @@ export class ApexEditorPage extends BasePage {
    * @param filename - Name of the file to open (e.g., "ApexClassExample.cls")
    */
   async openFile(filename: string): Promise<void> {
-    const fileLocator = this.page.locator(`[aria-label*="${filename}"]`).first();
+    const fileLocator = this.page
+      .locator(`[aria-label*="${filename}"]`)
+      .first();
 
     const fileExists = await fileLocator.count();
     if (fileExists > 0) {
       await fileLocator.dblclick();
     } else {
-      await this.executeCommand(`File: Open File`);
+      await this.executeCommand('File: Open File');
       const quickInput = this.page.locator('.quick-input-widget');
       await quickInput.waitFor({ state: 'visible', timeout: 5000 });
       await this.page.keyboard.type(filename);
       await this.page.keyboard.press('Enter');
-      await quickInput.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+      await quickInput
+        .waitFor({ state: 'hidden', timeout: 5000 })
+        .catch(() => {});
     }
 
-    await this.editor.waitFor({ state: 'visible', timeout: this.defaultTimeout });
-    await this.editorContent.locator('.view-line').first().waitFor({ state: 'visible', timeout: this.defaultTimeout });
+    await this.editor.waitFor({
+      state: 'visible',
+      timeout: this.defaultTimeout,
+    });
+    await this.editorContent
+      .locator('.view-line')
+      .first()
+      .waitFor({ state: 'visible', timeout: this.defaultTimeout });
   }
 
   /**
@@ -92,16 +101,24 @@ export class ApexEditorPage extends BasePage {
     await this.page.keyboard.press('F12');
     // Wait for either peek widget or editor content to be ready
     const peekWidget = this.page.locator('.editor-widget');
-    const settleTimeout = this.isDesktopMode ? 5000 : process.env.CI ? 5000 : 3000;
+    const settleTimeout = this.isDesktopMode
+      ? 5000
+      : process.env.CI
+        ? 5000
+        : 3000;
     await Promise.race([
       peekWidget.waitFor({ state: 'visible', timeout: settleTimeout }),
       this.editorContent.waitFor({ state: 'visible', timeout: settleTimeout }),
     ]).catch(() => {});
     for (let i = 0; i < 3; i++) {
       await this.page.keyboard.press('Escape');
-      await peekWidget.waitFor({ state: 'hidden', timeout: 500 }).catch(() => {});
+      await peekWidget
+        .waitFor({ state: 'hidden', timeout: 500 })
+        .catch(() => {});
     }
-    await this.editorContent.waitFor({ state: 'visible', timeout: this.defaultTimeout }).catch(() => {});
+    await this.editorContent
+      .waitFor({ state: 'visible', timeout: this.defaultTimeout })
+      .catch(() => {});
   }
 
   /**
@@ -110,8 +127,12 @@ export class ApexEditorPage extends BasePage {
    */
   async triggerCompletion(): Promise<void> {
     await this.page.keyboard.press('Control+Space');
-    const suggestWidget = this.page.locator('.monaco-editor .suggest-widget, .editor-widget.suggest-widget');
-    await suggestWidget.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    const suggestWidget = this.page.locator(
+      '.monaco-editor .suggest-widget, .editor-widget.suggest-widget',
+    );
+    await suggestWidget
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .catch(() => {});
   }
 
   /**
@@ -120,8 +141,12 @@ export class ApexEditorPage extends BasePage {
    */
   async triggerSignatureHelp(): Promise<void> {
     await this.page.keyboard.press('Control+Shift+Space');
-    const signatureWidget = this.page.locator('.monaco-editor .parameter-hints-widget, .editor-widget.parameter-hints');
-    await signatureWidget.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    const signatureWidget = this.page.locator(
+      '.monaco-editor .parameter-hints-widget, .editor-widget.parameter-hints',
+    );
+    await signatureWidget
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .catch(() => {});
   }
 
   /**
@@ -147,9 +172,10 @@ export class ApexEditorPage extends BasePage {
     await expect(async () => {
       const content = await this.getContent();
       const normalizedContent = content.replace(/\u00A0/g, ' ');
-      expect(normalizedContent, `Expected content to include "${text}"`).toContain(
-        normalizedText
-      );
+      expect(
+        normalizedContent,
+        `Expected content to include "${text}"`,
+      ).toContain(normalizedText);
     }).toPass({ timeout });
   }
 
@@ -159,16 +185,26 @@ export class ApexEditorPage extends BasePage {
    * Use findAndGetViewportContent(searchText) to scroll to specific content first.
    */
   async getContent(): Promise<string> {
-    await this.editorContent.waitFor({ state: 'visible', timeout: this.defaultTimeout });
+    await this.editorContent.waitFor({
+      state: 'visible',
+      timeout: this.defaultTimeout,
+    });
     return this.page.evaluate(() => {
-      const editorPart = document.querySelector('[id="workbench.parts.editor"]');
+      const editorPart = document.querySelector(
+        '[id="workbench.parts.editor"]',
+      );
       if (!editorPart) return '';
       const editors = Array.from(editorPart.querySelectorAll('.monaco-editor'));
-      const mainEditor = editors.reduce((best, ed) => {
-        const lines = ed.querySelectorAll('.view-line').length;
-        const bestLines = best ? best.querySelectorAll('.view-line').length : 0;
-        return !best || lines > bestLines ? ed : best;
-      }, null as Element | null);
+      const mainEditor = editors.reduce(
+        (best, ed) => {
+          const lines = ed.querySelectorAll('.view-line').length;
+          const bestLines = best
+            ? best.querySelectorAll('.view-line').length
+            : 0;
+          return !best || lines > bestLines ? ed : best;
+        },
+        null as Element | null,
+      );
       if (!mainEditor) return '';
       const lines = mainEditor.querySelectorAll('.view-line');
       return Array.from(lines)
@@ -176,7 +212,6 @@ export class ApexEditorPage extends BasePage {
         .join('\n');
     });
   }
-
 
   /**
    * Get the current cursor position (line and column).
@@ -228,7 +263,9 @@ export class ApexEditorPage extends BasePage {
    */
   async findText(searchText: string): Promise<void> {
     await this.page.keyboard.press('Control+F');
-    const findWidget = this.page.getByRole('dialog', { name: 'Find / Replace' });
+    const findWidget = this.page.getByRole('dialog', {
+      name: 'Find / Replace',
+    });
     await findWidget.waitFor({ state: 'visible', timeout: 5000 });
     await this.page.keyboard.type(searchText);
     await this.page.keyboard.press('Escape');
@@ -240,14 +277,17 @@ export class ApexEditorPage extends BasePage {
    */
   async positionCursorOnWord(searchText: string): Promise<void> {
     await this.page.keyboard.press('Control+F');
-    const findWidget = this.page.getByRole('dialog', { name: 'Find / Replace' });
+    const findWidget = this.page.getByRole('dialog', {
+      name: 'Find / Replace',
+    });
     await findWidget.waitFor({ state: 'visible', timeout: 5000 });
     await this.page.keyboard.type(searchText);
     await this.page.keyboard.press('Enter');
     await this.page.keyboard.press('Escape');
-    await findWidget.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
+    await findWidget
+      .waitFor({ state: 'hidden', timeout: 2000 })
+      .catch(() => {});
   }
-
 
   /**
    * Get the word at the current cursor position.

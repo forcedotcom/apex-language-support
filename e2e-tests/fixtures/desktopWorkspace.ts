@@ -14,7 +14,7 @@ import { setupTestWorkspace } from '../utils/setup';
 /** Create a temporary workspace directory with Apex sample files for desktop tests */
 export const createDesktopTestWorkspace = async (): Promise<string> => {
   const workspaceDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'apex-e2e-desktop-')
+    path.join(os.tmpdir(), 'apex-e2e-desktop-'),
   );
 
   await setupTestWorkspace({

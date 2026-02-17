@@ -24,7 +24,7 @@ import {
 export const createFileWithContents = async (
   page: Page,
   _filePath: string,
-  contents: string
+  contents: string,
 ): Promise<void> => {
   await page.locator(WORKBENCH).click();
 
@@ -47,7 +47,7 @@ export const createFileWithContents = async (
  */
 export const openFileByName = async (
   page: Page,
-  fileName: string
+  fileName: string,
 ): Promise<void> => {
   const widget = page.locator(QUICK_INPUT_WIDGET);
 
@@ -73,7 +73,9 @@ export const openFileByName = async (
     state: 'visible',
     timeout: 10_000,
   });
-  await page.locator(QUICK_INPUT_WIDGET).waitFor({ state: 'visible', timeout: 1000 });
+  await page
+    .locator(QUICK_INPUT_WIDGET)
+    .waitFor({ state: 'visible', timeout: 1000 });
 
   const results = page.locator(QUICK_INPUT_LIST_ROW);
   const resultCount = await results.count();
@@ -105,11 +107,13 @@ export const openFileByName = async (
       firstResult.toLowerCase().includes('no matching')
     ) {
       throw new Error(
-        `Quick Open appears to be showing command palette results instead of files. Found ${resultCount} results. First few: ${allResults.join(' | ')}`
+        'Quick Open appears to be showing command palette results instead of files. ' +
+          `Found ${resultCount} results. First few: ${allResults.join(' | ')}`,
       );
     }
     throw new Error(
-      `No exact match found for "${fileName}" in Quick Open. Found ${resultCount} results. First few: ${allResults.join(' | ')}`
+      `No exact match found for "${fileName}" in Quick Open. ` +
+        `Found ${resultCount} results. First few: ${allResults.join(' | ')}`,
     );
   }
 
@@ -128,7 +132,7 @@ export const openFileByName = async (
 /** Edit the currently open file by adding a comment at the top */
 export const editAndSaveOpenFile = async (
   page: Page,
-  comment: string
+  comment: string,
 ): Promise<void> => {
   const editor = page.locator(EDITOR_WITH_URI).first();
   await editor.waitFor({ state: 'visible' });

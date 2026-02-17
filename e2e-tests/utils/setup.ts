@@ -74,7 +74,10 @@ export async function setupTestWorkspace(
 
   // Copy test-data Apex samples (inheritance.cls, interface-impl.cls, complex-class.cls)
   // for goto-definition and other tests that need multi-file scenarios
-  const testDataSamplesDir = path.resolve(__dirname, '../test-data/apex-samples');
+  const testDataSamplesDir = path.resolve(
+    __dirname,
+    '../test-data/apex-samples',
+  );
   if (fs.existsSync(testDataSamplesDir)) {
     const apexSampleFiles = fs.readdirSync(testDataSamplesDir);
     for (const file of apexSampleFiles) {

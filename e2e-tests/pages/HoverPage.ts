@@ -33,12 +33,14 @@ export class HoverPage extends BasePage {
   constructor(page: Page) {
     super(page);
     // VS Code Web uses role="tooltip" for hover; Monaco uses .monaco-hover
-    this.hoverWidget = page.getByRole('tooltip').or(
-      page.locator('.monaco-hover, .monaco-editor .hover-row, .hover-row'),
-    );
-    this.hoverContent = page.getByRole('tooltip').or(
-      page.locator('.monaco-hover-content, .hover-contents, .monaco-hover'),
-    );
+    this.hoverWidget = page
+      .getByRole('tooltip')
+      .or(page.locator('.monaco-hover, .monaco-editor .hover-row, .hover-row'));
+    this.hoverContent = page
+      .getByRole('tooltip')
+      .or(
+        page.locator('.monaco-hover-content, .hover-contents, .monaco-hover'),
+      );
     this.defaultTimeout = this.isDesktopMode ? 10000 : 5000;
   }
 
@@ -307,7 +309,10 @@ export class HoverPage extends BasePage {
    * @param maxTime - Maximum acceptable time in ms (defaults to mode-specific timeout)
    * @returns True if hover appears within the time limit
    */
-  async isHoverResponsive(searchText: string, maxTime?: number): Promise<boolean> {
+  async isHoverResponsive(
+    searchText: string,
+    maxTime?: number,
+  ): Promise<boolean> {
     const effectiveMaxTime = maxTime || (this.isDesktopMode ? 5000 : 2000);
     const startTime = Date.now();
 

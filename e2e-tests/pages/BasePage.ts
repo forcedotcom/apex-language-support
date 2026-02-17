@@ -42,14 +42,20 @@ export class BasePage {
    * Wait for VS Code workbench to be loaded and ready.
    */
   async waitForWorkbenchLoad(): Promise<void> {
-    await this.workbench.waitFor({ state: 'visible', timeout: this.baseTimeout });
+    await this.workbench.waitFor({
+      state: 'visible',
+      timeout: this.baseTimeout,
+    });
   }
 
   /**
    * Execute a command using the command palette (F1).
    * Uses shared utility for monorepo parity.
    */
-  async executeCommand(command: string, _waitForCompletion = true): Promise<void> {
+  async executeCommand(
+    command: string,
+    _waitForCompletion = true,
+  ): Promise<void> {
     await executeCommandWithCommandPalette(this.page, command);
   }
 
@@ -59,7 +65,9 @@ export class BasePage {
   async closeQuickInput(): Promise<void> {
     await this.page.keyboard.press('Escape');
     const quickInput = this.page.locator('.quick-input-widget');
-    await quickInput.waitFor({ state: 'hidden', timeout: 1000 }).catch(() => {});
+    await quickInput
+      .waitFor({ state: 'hidden', timeout: 1000 })
+      .catch(() => {});
   }
 
   /**
