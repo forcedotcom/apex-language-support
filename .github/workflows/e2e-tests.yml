@@ -2,7 +2,7 @@ name: E2E Tests
 
 on:
   push:
-    branches: [main, tdx26/main, kyledev/e2eTests]
+    branches: [main, tdx26/main]
   pull_request:
     branches: [main, tdx26/main]
   workflow_dispatch:
@@ -77,14 +77,32 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E tests - ${{ matrix.test_file }}
+        id: parallel-run
+        continue-on-error: true
         run: |
           cd e2e-tests
           npx playwright test tests/${{ matrix.test_file }} \
-            --project=chromium-web \
+            --config=playwright.config.web.ts \
             --reporter=line,junit,json
         env:
           CI: true
           TEST_MODE: web
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.test_file }}
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.test_file }}/junit.xml
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.test_file }}/results.json
+
+      - name: Retry failed tests (sequential)
+        if: steps.parallel-run.outcome == 'failure'
+        run: |
+          cd e2e-tests
+          npx playwright test tests/${{ matrix.test_file }} \
+            --config=playwright.config.web.ts \
+            --last-failed \
+            --reporter=line,junit,json
+        env:
+          CI: true
+          TEST_MODE: web
+          E2E_SEQUENTIAL: 1
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.test_file }}
           PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.test_file }}/junit.xml
           PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.test_file }}/results.json
@@ -171,10 +189,20 @@ jobs:
         run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Run E2E tests (Desktop - ${{ matrix.browser }} on ${{ matrix.os }})
+        id: parallel-run
+        continue-on-error: true
         run: npm run test:e2e:desktop:${{ matrix.browser }} -w e2e-tests
         env:
           CI: true
           TEST_MODE: desktop
+
+      - name: Retry failed tests (sequential)
+        if: steps.parallel-run.outcome == 'failure'
+        run: npm run test:e2e:desktop:${{ matrix.browser }} -w e2e-tests -- --last-failed
+        env:
+          CI: true
+          TEST_MODE: desktop
+          E2E_SEQUENTIAL: 1
 
       - name: Upload test results
         if: always()

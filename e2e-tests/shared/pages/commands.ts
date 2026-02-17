@@ -18,8 +18,11 @@ export const openCommandPalette = async (page: Page): Promise<void> => {
   await dismissAllQuickInputWidgets(page);
 
   await expect(async () => {
+    // Bring page to front to ensure VS Code window is active (critical on Windows)
     await page.bringToFront();
+    // Click workbench to ensure focus is not on walkthrough elements; Windows needs explicit focus before F1
     await workbench.click({ timeout: 5000 });
+    // Small delay to allow Windows to process focus change before F1 keypress
     await page.waitForTimeout(100);
     await page.keyboard.press('F1');
     await expect(widget).toBeVisible({ timeout: 5000 });
@@ -75,6 +78,44 @@ export const executeCommandWithCommandPalette = async (
 ): Promise<void> => {
   await openCommandPalette(page);
   await executeCommand(page, command, hasNotText);
+};
+
+/** Verify a command exists in the command palette using retry pattern */
+export const verifyCommandExists = async (
+  page: Page,
+  commandText: string,
+  timeoutMs = 10_000
+): Promise<void> => {
+  await expect(
+    async () => {
+      await dismissAllQuickInputWidgets(page);
+      await openCommandPalette(page);
+      const widget = page.locator(QUICK_INPUT_WIDGET);
+      const input = widget.locator('input.input');
+
+      await expect(input).toBeVisible({ timeout: 5000 });
+      await input.click({ timeout: 5000 });
+      await page.keyboard.press('End');
+      await input.pressSequentially(commandText, { delay: 5 });
+
+      await expect(widget.locator(QUICK_INPUT_LIST_ROW).first()).toBeAttached({
+        timeout: 10_000,
+      });
+
+      const first20Rows = (await widget.locator(QUICK_INPUT_LIST_ROW).all()).slice(0, 20);
+      for (const row of first20Rows) {
+        const rowText = await row.textContent();
+        if (rowText?.trim().toLowerCase().includes(commandText.toLowerCase())) {
+          return;
+        }
+      }
+      throw new Error(`Command "${commandText}" not found yet`);
+    },
+    `Waiting for command "${commandText}" to be available`
+  ).toPass({ timeout: timeoutMs });
+
+  await page.keyboard.press('Escape');
+  await page.locator(QUICK_INPUT_WIDGET).waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
 };
 
 /** Verify a command does not exist in the command palette */

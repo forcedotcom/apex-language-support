@@ -5,19 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  *
- * Playwright configuration for Apex Language Server Extension e2e tests.
- * Uses createWebConfig from shared utilities (monorepo parity).
- *
- * Environment Variables:
- * - TEST_MODE: 'web' (default) or 'desktop'
- * - DEBUG_MODE: Enable debug mode with slow motion and headed browser
- * - CI: Enable CI-specific settings
+ * Default Playwright config - re-exports web config for backward compatibility.
+ * Use playwright.config.web.ts or playwright.config.desktop.ts for explicit mode.
  */
-import { createWebConfig } from './shared/config/createWebConfig';
-
-export default createWebConfig({
-  testDir: './tests',
-  baseURL: 'http://localhost:3000',
-  webServerCommand: 'node test-server.js',
-  port: 3000,
-});
+export { default } from './playwright.config.web';

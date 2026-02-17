@@ -71,10 +71,7 @@
       "cache": false
     },
     "test:e2e:web": {
-      "command": "playwright test --project=chromium-web",
-      "env": {
-        "TEST_MODE": "web"
-      },
+      "command": "playwright test --config=playwright.config.web.ts",
       "output": [
         "test-results/**",
         "playwright-report/**"
@@ -85,14 +82,11 @@
         "shared/**/*.ts",
         "fixtures/**/*.ts",
         "pages/**/*.ts",
-        "playwright.config.ts"
+        "playwright.config.web.ts"
       ]
     },
     "test:e2e:web:chromium": {
-      "command": "playwright test --project=chromium-web",
-      "env": {
-        "TEST_MODE": "web"
-      },
+      "command": "playwright test --config=playwright.config.web.ts",
       "output": [
         "test-results/**",
         "playwright-report/**"
@@ -103,13 +97,13 @@
         "shared/**/*.ts",
         "fixtures/**/*.ts",
         "pages/**/*.ts",
-        "playwright.config.ts"
+        "playwright.config.web.ts"
       ]
     },
     "test:e2e:desktop": {
-      "command": "playwright test --project=chromium-desktop",
+      "command": "playwright test --config=playwright.config.desktop.ts",
       "env": {
-        "TEST_MODE": "desktop"
+        "VSCODE_DESKTOP": "1"
       },
       "output": [
         "test-results/**",
@@ -121,13 +115,13 @@
         "shared/**/*.ts",
         "fixtures/**/*.ts",
         "pages/**/*.ts",
-        "playwright.config.ts"
+        "playwright.config.desktop.ts"
       ]
     },
     "test:e2e:desktop:debug": {
-      "command": "playwright test --project=chromium-desktop --headed",
+      "command": "playwright test --config=playwright.config.desktop.ts --headed",
       "env": {
-        "TEST_MODE": "desktop",
+        "VSCODE_DESKTOP": "1",
         "DEBUG_MODE": "1"
       },
       "output": [
@@ -139,14 +133,14 @@
         "shared/**/*.ts",
         "fixtures/**/*.ts",
         "pages/**/*.ts",
-        "playwright.config.ts"
+        "playwright.config.desktop.ts"
       ],
       "cache": false
     },
     "test:e2e:desktop:chromium": {
-      "command": "playwright test --project=chromium-desktop",
+      "command": "playwright test --config=playwright.config.desktop.ts",
       "env": {
-        "TEST_MODE": "desktop"
+        "VSCODE_DESKTOP": "1"
       },
       "output": [
         "test-results/**",
@@ -158,13 +152,13 @@
         "shared/**/*.ts",
         "fixtures/**/*.ts",
         "pages/**/*.ts",
-        "playwright.config.ts"
+        "playwright.config.desktop.ts"
       ]
     },
     "test:e2e:desktop:webkit": {
-      "command": "playwright test --project=webkit-desktop",
+      "command": "playwright test --config=playwright.config.desktop.ts",
       "env": {
-        "TEST_MODE": "desktop"
+        "VSCODE_DESKTOP": "1"
       },
       "output": [
         "test-results/**",
@@ -176,13 +170,13 @@
         "shared/**/*.ts",
         "fixtures/**/*.ts",
         "pages/**/*.ts",
-        "playwright.config.ts"
+        "playwright.config.desktop.ts"
       ]
     },
     "test:e2e:desktop:all-browsers": {
-      "command": "playwright test --project=chromium-desktop --project=webkit-desktop",
+      "command": "playwright test --config=playwright.config.desktop.ts",
       "env": {
-        "TEST_MODE": "desktop"
+        "VSCODE_DESKTOP": "1"
       },
       "output": [
         "test-results/**",
@@ -194,13 +188,14 @@
         "shared/**/*.ts",
         "fixtures/**/*.ts",
         "pages/**/*.ts",
-        "playwright.config.ts"
+        "playwright.config.desktop.ts"
       ]
     }
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "@types/node": "^20.11.30",
+    "@vscode/test-electron": "2.5.2",
     "typescript": "^5.8.2"
   },
   "dependencies": {}

@@ -55,10 +55,26 @@ export { upsertSettings, openSettingsUI } from './pages/settings';
 export {
   executeCommandWithCommandPalette,
   openCommandPalette,
+  verifyCommandExists,
   verifyCommandDoesNotExist,
   waitForCommandToBeAvailable,
 } from './pages/commands';
 
+export {
+  executeEditorContextMenuCommand,
+  executeExplorerContextMenuCommand,
+} from './pages/contextMenu';
+
+export {
+  ensureOutputPanelOpen,
+  selectOutputChannel,
+  clearOutputChannel,
+  waitForOutputChannelText,
+  outputChannelContains,
+  captureOutputChannelDetails,
+} from './pages/outputChannel';
+
 export { saveScreenshot } from './screenshotUtils';
 
 export { createWebConfig } from './config/createWebConfig';
+export { createDesktopConfig } from './config/createDesktopConfig';

@@ -28,9 +28,9 @@ export const createWebConfig = (options: WebConfigOptions = {}) => {
 
   return defineConfig({
     testDir,
-    fullyParallel: !process.env.CI,
+    fullyParallel: !process.env.E2E_SEQUENTIAL,
     forbidOnly: !!process.env.CI,
-    ...(process.env.CI ? { workers: 1 } : {}),
+    ...(process.env.E2E_SEQUENTIAL ? { workers: 1 } : process.env.CI ? { workers: 1 } : {}),
     reporter: [
       ['html', { open: 'never' }],
       ['line'],
@@ -66,7 +66,8 @@ export const createWebConfig = (options: WebConfigOptions = {}) => {
     },
     timeout: process.env.DEBUG_MODE ? 0 : 360 * 1000,
     maxFailures: process.env.CI ? 3 : 0,
-    retries: process.env.CI ? 2 : 0,
+    // E2E_NO_RETRIES: workflow try-run sets this to fail fast on cache miss. Using env var preserves wireit cache key.
+    retries: process.env.E2E_NO_RETRIES ? 0 : process.env.CI ? 2 : 0,
     expect: {
       timeout: 10_000,
     },
@@ -80,8 +81,6 @@ export const createWebConfig = (options: WebConfigOptions = {}) => {
     projects: [
       {
         name: 'chromium-web',
-        testMatch:
-          process.env.TEST_MODE === 'desktop' ? ([/$^/] as RegExp[]) : undefined,
         use: {
           ...devices['Desktop Chrome'],
           headless: !!(process.env.CI || !process.env.DEBUG_MODE),
