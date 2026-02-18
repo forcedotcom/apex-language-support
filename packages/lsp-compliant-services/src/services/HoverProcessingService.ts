@@ -11,7 +11,6 @@ import {
   Hover,
   MarkupContent,
   MarkupKind,
-  Position,
 } from 'vscode-languageserver';
 import {
   ApexCapabilitiesManager,
@@ -32,9 +31,9 @@ import {
   isVariableSymbol,
   VariableSymbol,
   inTypeSymbolGroup,
-  isApexKeyword,
   ReferenceContext,
   SymbolKind,
+  isApexKeyword,
 } from '@salesforce/apex-lsp-parser-ast';
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { calculateDisplayFQN } from '../utils/displayFQNUtils';
@@ -46,7 +45,6 @@ import {
   transformLspToParserPosition,
   formatPosition,
 } from '../utils/positionUtils';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Effect } from 'effect';
 
 /**
@@ -155,70 +153,54 @@ export class HoverProcessingService implements IHoverProcessor {
       );
       const referencesTime = Date.now() - referencesStartTime;
 
-      // Keyword check: if position is on a keyword AND there's no TypeReference,
-      // return null immediately. If there's a TypeReference, it means the parser
-      // recognized it as a valid identifier (e.g., "System" as namespace/class name),
-      // so we should process it even if it matches a keyword.
-      const keywordCheckStartTime = Date.now();
+      // No references at position: try getSymbolAtPosition for declaration symbols
+      // (e.g., method names in declarations don't create references but should show hover)
+      // Skip when on a keyword (keywords don't create references; return null)
       if (!references || references.length === 0) {
-        const storage = ApexStorageManager.getInstance().getStorage();
-        const document = await storage.getDocument(params.textDocument.uri);
-        if (document) {
-          const wordAtPosition = this.extractWordAtPosition(
-            document,
-            params.position,
-          );
-          if (wordAtPosition && isApexKeyword(wordAtPosition)) {
-            const keywordCheckTime = Date.now() - keywordCheckStartTime;
-            this.logger.debug(
-              () =>
-                `[HOVER-DIAG] Position is on keyword "${wordAtPosition}", ` +
-                `returning null (keyword check: ${keywordCheckTime}ms)`,
+        const wordAtPosition = await this.extractSymbolNameAtPosition(params);
+        if (isApexKeyword(wordAtPosition)) {
+          return null;
+        }
+        const symbolAtPosition = await this.symbolManager.getSymbolAtPosition(
+          params.textDocument.uri,
+          parserPosition,
+          'precise',
+        );
+        if (symbolAtPosition?.location?.identifierRange) {
+          const ir = symbolAtPosition.location.identifierRange;
+          const isOnIdentifier =
+            parserPosition.line >= ir.startLine &&
+            parserPosition.line <= ir.endLine &&
+            parserPosition.character >= ir.startColumn &&
+            parserPosition.character <= ir.endColumn;
+          if (isOnIdentifier) {
+            const hover = await this.createHoverInformation(
+              symbolAtPosition,
+              undefined,
+              [],
+              parserPosition,
             );
-            return null;
-          }
-          // system/system_mode are contextual keywords (excluded from isApexKeyword)
-          // but in SOQL/DML/runas contexts they have no TypeReference - return null
-          const lowerWord = wordAtPosition?.toLowerCase() ?? '';
-          if (
-            lowerWord === 'system' ||
-            lowerWord === 'system_mode' ||
-            lowerWord === 'user_mode'
-          ) {
-            const keywordCheckTime = Date.now() - keywordCheckStartTime;
-            this.logger.debug(
-              () =>
-                `[HOVER-DIAG] Position is on contextual keyword "${wordAtPosition}", ` +
-                `returning null (keyword check: ${keywordCheckTime}ms)`,
-            );
-            return null;
+            return hover;
           }
         }
+        return null;
       }
-      const keywordCheckTime = Date.now() - keywordCheckStartTime;
 
       // Debug: Log all references at position
-      if (references && references.length > 0) {
-        this.logger.debug(
-          () =>
-            `[HOVER-DEBUG] Found ${references.length} reference(s) at ` +
-            `position ${parserPosition.line}:${parserPosition.character}: ` +
-            references
-              .map(
-                (ref) =>
-                  `${ref.name} (${ReferenceContext[ref.context]}) at ` +
-                  `${ref.location.identifierRange.startLine}:` +
-                  `${ref.location.identifierRange.startColumn}-` +
-                  `${ref.location.identifierRange.endColumn}`,
-              )
-              .join(', '),
-        );
-      } else {
-        this.logger.debug(
-          () =>
-            `[HOVER-DEBUG] No references found at position ${parserPosition.line}:${parserPosition.character}`,
-        );
-      }
+      this.logger.debug(
+        () =>
+          `[HOVER-DEBUG] Found ${references.length} reference(s) at ` +
+          `position ${parserPosition.line}:${parserPosition.character}: ` +
+          references
+            .map(
+              (ref) =>
+                `${ref.name} (${ReferenceContext[ref.context]}) at ` +
+                `${ref.location.identifierRange.startLine}:` +
+                `${ref.location.identifierRange.startColumn}-` +
+                `${ref.location.identifierRange.endColumn}`,
+            )
+            .join(', '),
+      );
 
       // Check if file has symbols indexed before lookup
       const fileSymbolsStartTime = Date.now();
@@ -372,15 +354,20 @@ export class HoverProcessingService implements IHoverProcessor {
       const symbolResolutionTime = Date.now() - symbolResolutionStartTime;
 
       if (symbol) {
+        const resolvedSymbol = symbol;
         // Symbol found - check if we're hovering over a class name in a constructor call context
         // If so, try to find the constructor symbol instead
-        let symbolToUse = symbol;
-        if (isClassSymbol(symbol) && references && references.length > 0) {
+        let symbolToUse = resolvedSymbol;
+        if (
+          isClassSymbol(resolvedSymbol) &&
+          references &&
+          references.length > 0
+        ) {
           // Check if there's a CONSTRUCTOR_CALL reference at this position
           const constructorCallRef = references.find(
             (ref) =>
               ref.context === ReferenceContext.CONSTRUCTOR_CALL &&
-              ref.name === symbol.name &&
+              ref.name === resolvedSymbol.name &&
               ref.location.identifierRange.startLine === parserPosition.line &&
               ref.location.identifierRange.startColumn <=
                 parserPosition.character &&
@@ -395,23 +382,24 @@ export class HoverProcessingService implements IHoverProcessor {
             );
             const constructorSymbol = fileSymbols.find(
               (s) =>
-                s.name === symbol.name &&
+                s.name === resolvedSymbol.name &&
                 s.kind === SymbolKind.Constructor &&
-                s.parentId === symbol.id,
+                s.parentId === resolvedSymbol.id,
             );
 
             if (constructorSymbol) {
               this.logger.debug(
                 () =>
-                  `Found constructor symbol for class ${symbol.name} in constructor call context`,
+                  `Found constructor symbol for class ${resolvedSymbol.name} in constructor call context`,
               );
               symbolToUse = constructorSymbol;
             } else {
-              // No explicit constructor found - Apex has implicit default constructor
-              // We'll handle this in createHoverInformation by checking for constructor call context
+              // No explicit constructor - Apex has implicit default
+              // Handled in createHoverInformation via constructor call context
               this.logger.debug(
                 () =>
-                  `No explicit constructor found for class ${symbol.name}, will show default constructor signature`,
+                  `No explicit constructor for ${resolvedSymbol.name}, ` +
+                  'showing default signature',
               );
             }
           }
@@ -427,7 +415,7 @@ export class HoverProcessingService implements IHoverProcessor {
         const hoverCreationStartTime = Date.now();
         const hover = await this.createHoverInformation(
           symbolToUse,
-          symbol,
+          resolvedSymbol,
           references,
           parserPosition,
         );
@@ -442,9 +430,8 @@ export class HoverProcessingService implements IHoverProcessor {
           this.logger.debug(
             () =>
               `[HOVER-DIAG] Hover completed in ${totalTime}ms ` +
-              `(keyword=${keywordCheckTime}ms, references=${referencesTime}ms, ` +
-              `fileSymbols=${fileSymbolsTime}ms, symbolResolution=${symbolResolutionTime}ms, ` +
-              `hoverCreation=${hoverCreationTime}ms)`,
+              `(references=${referencesTime}ms, fileSymbols=${fileSymbolsTime}ms, ` +
+              `symbolResolution=${symbolResolutionTime}ms, hoverCreation=${hoverCreationTime}ms)`,
           );
         }
 
@@ -861,33 +848,6 @@ export class HoverProcessingService implements IHoverProcessor {
       position.character >= range.startColumn &&
       position.character <= range.endColumn
     );
-  }
-
-  /**
-   * Extract word at the given position from the document
-   * Similar to ReferencesProcessingService.getWordRangeAtPosition
-   */
-  private extractWordAtPosition(
-    document: TextDocument,
-    position: Position,
-  ): string | null {
-    const text = document.getText();
-    const offset = document.offsetAt(position);
-
-    // Simple word boundary detection
-    const wordRegex = /\b\w+\b/g;
-    let match;
-
-    while ((match = wordRegex.exec(text)) !== null) {
-      const start = match.index;
-      const end = start + match[0].length;
-
-      if (offset >= start && offset < end) {
-        return match[0];
-      }
-    }
-
-    return null;
   }
 
   /**

@@ -6957,11 +6957,32 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       });
 
       if (exactMatchSymbols.length > 0) {
+        // When METHOD_CALL reference exists at position, only return method/constructor symbols.
+        // Resolution is deterministic for same-file refs; if it failed, return null rather than a variable.
+        const methodCallAtPos = typeReferences.some(
+          (ref) =>
+            ref.context === ReferenceContext.METHOD_CALL &&
+            position.line >= ref.location.identifierRange.startLine &&
+            position.line <= ref.location.identifierRange.endLine &&
+            position.character >= ref.location.identifierRange.startColumn &&
+            position.character <= ref.location.identifierRange.endColumn,
+        );
+        const symbolsToConsider = methodCallAtPos
+          ? exactMatchSymbols.filter(
+              (s) =>
+                s.kind === SymbolKind.Method ||
+                s.kind === SymbolKind.Constructor,
+            )
+          : exactMatchSymbols;
+        if (symbolsToConsider.length === 0) {
+          return null;
+        }
+
         // Return the smallest (most specific) symbol if multiple matches
         const mostSpecific =
-          exactMatchSymbols.length === 1
-            ? exactMatchSymbols[0]
-            : exactMatchSymbols.reduce((prev, current) => {
+          symbolsToConsider.length === 1
+            ? symbolsToConsider[0]
+            : symbolsToConsider.reduce((prev, current) => {
                 const prevSize =
                   (prev.location.identifierRange.endLine -
                     prev.location.identifierRange.startLine) *
