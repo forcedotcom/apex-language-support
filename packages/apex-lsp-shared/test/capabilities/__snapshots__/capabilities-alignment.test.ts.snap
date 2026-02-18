@@ -89,12 +89,8 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
   "colorProvider": undefined,
   "completionProvider": undefined,
   "declarationProvider": undefined,
-  "definitionProvider": undefined,
-  "diagnosticProvider": {
-    "identifier": "apex-ls-ts",
-    "interFileDependencies": false,
-    "workspaceDiagnostics": false,
-  },
+  "definitionProvider": true,
+  "diagnosticProvider": undefined,
   "documentFormattingProvider": undefined,
   "documentHighlightProvider": undefined,
   "documentLinkProvider": undefined,
@@ -104,7 +100,7 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
   "executeCommandProvider": undefined,
   "experimental": {
     "findMissingArtifactProvider": {
-      "enabled": false,
+      "enabled": true,
       "maxCandidatesToOpen": 3,
       "supportedModes": [
         "blocking",
@@ -116,8 +112,8 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
       "enabled": false,
     },
   },
-  "foldingRangeProvider": false,
-  "hoverProvider": undefined,
+  "foldingRangeProvider": true,
+  "hoverProvider": true,
   "implementationProvider": undefined,
   "inlayHintProvider": undefined,
   "inlineCompletionProvider": undefined,
@@ -169,14 +165,10 @@ exports[`Capabilities Alignment Tests Capability Feature Alignment should have c
   },
   "production": {
     "completionProvider": undefined,
-    "diagnosticProvider": {
-      "identifier": "apex-ls-ts",
-      "interFileDependencies": false,
-      "workspaceDiagnostics": false,
-    },
+    "diagnosticProvider": undefined,
     "documentSymbolProvider": true,
-    "foldingRangeProvider": false,
-    "hoverProvider": undefined,
+    "foldingRangeProvider": true,
+    "hoverProvider": true,
   },
 }
 `;
@@ -1367,12 +1359,8 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
       "colorProvider": undefined,
       "completionProvider": undefined,
       "declarationProvider": undefined,
-      "definitionProvider": undefined,
-      "diagnosticProvider": {
-        "identifier": "apex-ls-ts",
-        "interFileDependencies": false,
-        "workspaceDiagnostics": false,
-      },
+      "definitionProvider": true,
+      "diagnosticProvider": undefined,
       "documentFormattingProvider": undefined,
       "documentHighlightProvider": undefined,
       "documentLinkProvider": undefined,
@@ -1382,7 +1370,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
       "executeCommandProvider": undefined,
       "experimental": {
         "findMissingArtifactProvider": {
-          "enabled": false,
+          "enabled": true,
           "maxCandidatesToOpen": 3,
           "supportedModes": [
             "blocking",
@@ -1394,8 +1382,8 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
           "enabled": false,
         },
       },
-      "foldingRangeProvider": false,
-      "hoverProvider": undefined,
+      "foldingRangeProvider": true,
+      "hoverProvider": true,
       "implementationProvider": undefined,
       "inlayHintProvider": undefined,
       "inlineCompletionProvider": undefined,
@@ -2451,12 +2439,8 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
         "colorProvider": undefined,
         "completionProvider": undefined,
         "declarationProvider": undefined,
-        "definitionProvider": undefined,
-        "diagnosticProvider": {
-          "identifier": "apex-ls-ts",
-          "interFileDependencies": false,
-          "workspaceDiagnostics": false,
-        },
+        "definitionProvider": true,
+        "diagnosticProvider": undefined,
         "documentFormattingProvider": undefined,
         "documentHighlightProvider": undefined,
         "documentLinkProvider": undefined,
@@ -2466,7 +2450,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
         "executeCommandProvider": undefined,
         "experimental": {
           "findMissingArtifactProvider": {
-            "enabled": false,
+            "enabled": true,
             "maxCandidatesToOpen": 3,
             "supportedModes": [
               "blocking",
@@ -2478,8 +2462,8 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
             "enabled": false,
           },
         },
-        "foldingRangeProvider": false,
-        "hoverProvider": undefined,
+        "foldingRangeProvider": true,
+        "hoverProvider": true,
         "implementationProvider": undefined,
         "inlayHintProvider": undefined,
         "inlineCompletionProvider": undefined,
@@ -2597,12 +2581,8 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       "colorProvider": undefined,
       "completionProvider": undefined,
       "declarationProvider": undefined,
-      "definitionProvider": undefined,
-      "diagnosticProvider": {
-        "identifier": "apex-ls-ts",
-        "interFileDependencies": false,
-        "workspaceDiagnostics": false,
-      },
+      "definitionProvider": true,
+      "diagnosticProvider": undefined,
       "documentFormattingProvider": undefined,
       "documentHighlightProvider": undefined,
       "documentLinkProvider": undefined,
@@ -2612,7 +2592,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       "executeCommandProvider": undefined,
       "experimental": {
         "findMissingArtifactProvider": {
-          "enabled": false,
+          "enabled": true,
           "maxCandidatesToOpen": 3,
           "supportedModes": [
             "blocking",
@@ -2624,8 +2604,8 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
           "enabled": false,
         },
       },
-      "foldingRangeProvider": false,
-      "hoverProvider": undefined,
+      "foldingRangeProvider": true,
+      "hoverProvider": true,
       "implementationProvider": undefined,
       "inlayHintProvider": undefined,
       "inlineCompletionProvider": undefined,
@@ -2798,12 +2778,8 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
     "colorProvider": undefined,
     "completionProvider": undefined,
     "declarationProvider": undefined,
-    "definitionProvider": undefined,
-    "diagnosticProvider": {
-      "identifier": "apex-ls-ts",
-      "interFileDependencies": false,
-      "workspaceDiagnostics": false,
-    },
+    "definitionProvider": true,
+    "diagnosticProvider": undefined,
     "documentFormattingProvider": undefined,
     "documentHighlightProvider": undefined,
     "documentLinkProvider": undefined,
@@ -2813,7 +2789,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
     "executeCommandProvider": undefined,
     "experimental": {
       "findMissingArtifactProvider": {
-        "enabled": false,
+        "enabled": true,
         "maxCandidatesToOpen": 3,
         "supportedModes": [
           "blocking",
@@ -2825,8 +2801,8 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
         "enabled": false,
       },
     },
-    "foldingRangeProvider": false,
-    "hoverProvider": undefined,
+    "foldingRangeProvider": true,
+    "hoverProvider": true,
     "implementationProvider": undefined,
     "inlayHintProvider": undefined,
     "inlineCompletionProvider": undefined,
@@ -2948,12 +2924,8 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
   "colorProvider": undefined,
   "completionProvider": undefined,
   "declarationProvider": undefined,
-  "definitionProvider": undefined,
-  "diagnosticProvider": {
-    "identifier": "apex-ls-ts",
-    "interFileDependencies": false,
-    "workspaceDiagnostics": false,
-  },
+  "definitionProvider": true,
+  "diagnosticProvider": undefined,
   "documentFormattingProvider": undefined,
   "documentHighlightProvider": undefined,
   "documentLinkProvider": undefined,
@@ -2963,7 +2935,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
   "executeCommandProvider": undefined,
   "experimental": {
     "findMissingArtifactProvider": {
-      "enabled": false,
+      "enabled": true,
       "maxCandidatesToOpen": 3,
       "supportedModes": [
         "blocking",
@@ -2975,8 +2947,8 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
       "enabled": false,
     },
   },
-  "foldingRangeProvider": false,
-  "hoverProvider": undefined,
+  "foldingRangeProvider": true,
+  "hoverProvider": true,
   "implementationProvider": undefined,
   "inlayHintProvider": undefined,
   "inlineCompletionProvider": undefined,

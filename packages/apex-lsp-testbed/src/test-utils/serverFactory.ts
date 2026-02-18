@@ -108,6 +108,7 @@ export async function createTestServer(
     options.verbose || false,
     workspace,
     false, // suspend
+    options.initOptions,
   );
 
   // Create and start the client

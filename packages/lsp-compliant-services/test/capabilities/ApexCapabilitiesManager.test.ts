@@ -83,17 +83,19 @@ describe('ApexCapabilitiesManager', () => {
     it('should correctly identify enabled capabilities in production mode', () => {
       manager.setMode('production');
 
-      // Production mode should have these enabled (released features only)
+      // Production mode should have these enabled (released features)
       expect(manager.isCapabilityEnabled('textDocumentSync')).toBe(true);
       expect(manager.isCapabilityEnabled('documentSymbolProvider')).toBe(true);
-      expect(manager.isCapabilityEnabled('foldingRangeProvider')).toBe(false);
-      expect(manager.isCapabilityEnabled('diagnosticProvider')).toBe(true);
+      expect(manager.isCapabilityEnabled('foldingRangeProvider')).toBe(true);
+      expect(manager.isCapabilityEnabled('hoverProvider')).toBe(true);
+      expect(manager.isCapabilityEnabled('definitionProvider')).toBe(true);
+      expect(manager.isCapabilityEnabled('diagnosticProvider')).toBe(false); // TDX26: production never gets diagnostics
       expect(manager.isCapabilityEnabled('workspace')).toBe(true);
 
-      // Production mode should have these disabled (not released)
+      // Production mode should have these disabled (dev-only)
       expect(manager.isCapabilityEnabled('completionProvider')).toBe(false);
-      expect(manager.isCapabilityEnabled('hoverProvider')).toBe(false);
-      expect(manager.isCapabilityEnabled('definitionProvider')).toBe(false);
+      expect(manager.isCapabilityEnabled('implementationProvider')).toBe(false);
+      expect(manager.isCapabilityEnabled('executeCommandProvider')).toBe(false);
     });
 
     it('should correctly identify enabled capabilities in development mode', () => {
@@ -118,7 +120,7 @@ describe('ApexCapabilitiesManager', () => {
       // Check production mode capabilities
       expect(
         manager.isCapabilityEnabledForMode('production', 'hoverProvider'),
-      ).toBe(false);
+      ).toBe(true);
       expect(
         manager.isCapabilityEnabledForMode('production', 'completionProvider'),
       ).toBe(false);
@@ -185,10 +187,10 @@ describe('ApexCapabilitiesManager', () => {
       expect(capabilities.completionProvider).toBeUndefined();
     });
 
-    it('should not have definitionProvider in production mode', () => {
+    it('should have definitionProvider in production mode', () => {
       manager.setMode('production');
       const capabilities = manager.getCapabilities();
-      expect(capabilities.definitionProvider).toBeUndefined();
+      expect(capabilities.definitionProvider).toBe(true);
     });
 
     it('should have valid workspace configuration', () => {
@@ -259,6 +261,44 @@ describe('ApexCapabilitiesManager', () => {
       expect(desktopDevCapabilities.experimental?.profilingProvider).toEqual({
         enabled: true,
       });
+    });
+  });
+
+  describe('TDX26 Diagnostics Matrix', () => {
+    it('should disable diagnostics for production/web', () => {
+      const caps = manager.getCapabilitiesForModeAndPlatform(
+        'production',
+        'web',
+      );
+      expect(caps.publishDiagnostics).toBeFalsy();
+      expect(caps.diagnosticProvider).toBeUndefined();
+    });
+
+    it('should disable diagnostics for production/desktop', () => {
+      const caps = manager.getCapabilitiesForModeAndPlatform(
+        'production',
+        'desktop',
+      );
+      expect(caps.publishDiagnostics).toBe(false);
+      expect(caps.diagnosticProvider).toBeUndefined();
+    });
+
+    it('should disable diagnostics for development/web', () => {
+      const caps = manager.getCapabilitiesForModeAndPlatform(
+        'development',
+        'web',
+      );
+      expect(caps.publishDiagnostics).toBeUndefined();
+      expect(caps.diagnosticProvider).toBeUndefined();
+    });
+
+    it('should enable diagnostics for development/desktop only', () => {
+      const caps = manager.getCapabilitiesForModeAndPlatform(
+        'development',
+        'desktop',
+      );
+      expect(caps.publishDiagnostics).toBe(true);
+      expect(caps.diagnosticProvider).toBeDefined();
     });
   });
 });

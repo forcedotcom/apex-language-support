@@ -33,9 +33,11 @@ type StandardCapabilityKey = keyof ServerCapabilities;
  * All possible capability paths including nested experimental capabilities.
  * Format: 'experimental.<capability>' for experimental capabilities,
  * or standard capability name for top-level capabilities.
+ * Includes ImplicitCapabilities keys (e.g. publishDiagnostics) not in ServerCapabilities.
  */
 type CapabilityPath =
   | StandardCapabilityKey
+  | keyof ImplicitCapabilties
   | `experimental.${ExperimentalCapabilityKey}`;
 
 /**
@@ -46,6 +48,8 @@ type CapabilityPath =
  */
 export const WEB_DISABLED_CAPABILITIES: ReadonlySet<CapabilityPath> = new Set([
   'experimental.profilingProvider', // Requires Node.js inspector API
+  'publishDiagnostics', // TDX26: diagnostics disabled for web
+  'diagnosticProvider', // TDX26: diagnostics disabled for web
 ]);
 
 /**
@@ -131,15 +135,13 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   },
   // Released features only
   documentSymbolProvider: true,
-  foldingRangeProvider: false,
+  foldingRangeProvider: true,
+  hoverProvider: true,
+  definitionProvider: true,
   codeLensProvider: {
     resolveProvider: false,
   },
-  diagnosticProvider: {
-    identifier: 'apex-ls-ts',
-    interFileDependencies: false,
-    workspaceDiagnostics: false,
-  },
+  diagnosticProvider: undefined, // TDX26: production never gets diagnostics
   workspace: {
     workspaceFolders: {
       supported: true,
@@ -148,8 +150,6 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   },
   // Planned features - explicitly not supported yet (implementation planned)
   completionProvider: undefined,
-  hoverProvider: undefined,
-  definitionProvider: undefined,
   referencesProvider: true, // ENABLED: References implementation
   codeActionProvider: undefined,
   renameProvider: undefined,
@@ -178,7 +178,7 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   inlineCompletionProvider: undefined,
   experimental: {
     findMissingArtifactProvider: {
-      enabled: false, // Disabled by default in production
+      enabled: true, // Enabled for production (hover, goto def, etc.)
       supportedModes: ['blocking', 'background'],
       maxCandidatesToOpen: 3,
       timeoutMsHint: 1500,
