@@ -14,10 +14,7 @@ import { ApexSymbolCollectorListener } from '../../../src/parser/listeners/ApexS
 const FIXTURES_ROOT = path.join(__dirname, '../../fixtures/validation');
 
 function loadFixture(category: string, filename: string): string {
-  return fs.readFileSync(
-    path.join(FIXTURES_ROOT, category, filename),
-    'utf8',
-  );
+  return fs.readFileSync(path.join(FIXTURES_ROOT, category, filename), 'utf8');
 }
 
 describe('Contextual Keyword Identifier', () => {

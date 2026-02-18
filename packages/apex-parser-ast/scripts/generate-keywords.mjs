@@ -12,6 +12,10 @@ import { fileURLToPath } from 'node:url';
 
 const EXCLUDE_ID_TOKENS = new Set(['Identifier', 'IntegralCurrencyLiteral']);
 
+// Grammar erroneously treats system.runas as single token; runAsStatement is System.runAs.
+// Exclude until grammar owners fix. See runAsStatement rule.
+const EXCLUDE_LEXER_KEYWORDS = new Set(['SYSTEMRUNAS']);
+
 /**
  * Read @apexdevtools/apex-parser version. Prefer package-lock.json (exact resolved);
  * fall back to package.json (strip ^/~ if present).
@@ -147,9 +151,9 @@ async function generateKeywords() {
       const symbolicName = vocab.getSymbolicName(i);
       if (symbolicName) {
         // Check if it's a keyword (uppercase token name that's not excluded)
-        const isExcluded = excludePatterns.some((pattern) =>
-          pattern.test(symbolicName),
-        );
+        const isExcluded =
+          EXCLUDE_LEXER_KEYWORDS.has(symbolicName) ||
+          excludePatterns.some((pattern) => pattern.test(symbolicName));
         if (!isExcluded && symbolicName.match(/^[A-Z_]+$/)) {
           const displayName = vocab.getDisplayName(i);
           // Display name is quoted (e.g., "'abstract'"), strip quotes
