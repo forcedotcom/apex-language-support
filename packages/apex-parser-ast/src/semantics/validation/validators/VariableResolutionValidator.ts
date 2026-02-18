@@ -591,9 +591,9 @@ export const VariableResolutionValidator: Validator = {
               );
               if (resolvedTargetType) {
                 targetType = resolvedTargetType;
-              } else if (fullTypeStr.includes('.')) {
-                // Qualified type (e.g. GeocodingService.GeocodingAddress) unresolved - suppress false positive
-                // Unqualified built-ins (String, Integer) may not be in symbol manager but we still validate
+              } else {
+                // Type not in symbol manager - suppress false positive (don't fall back to containingClass)
+                // Covers: ContentDocumentLink, ContentVersion, cross-project types, etc.
                 suppressDueToUnresolvedDeclaredType = true;
               }
             }
@@ -1120,10 +1120,11 @@ function findFieldsInClass(
       s.parentId === classSymbol.id,
   ) as ScopeSymbol | undefined;
 
-  // Get fields directly in this class
+  // Get fields and properties directly in this class (properties use get; set;)
   for (const symbol of allSymbols) {
     if (
-      symbol.kind === SymbolKind.Field &&
+      (symbol.kind === SymbolKind.Field ||
+        symbol.kind === SymbolKind.Property) &&
       (symbol.parentId === classBlock?.id || symbol.parentId === classSymbol.id)
     ) {
       fields.push(symbol as VariableSymbol);

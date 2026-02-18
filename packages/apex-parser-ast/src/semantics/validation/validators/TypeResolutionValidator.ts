@@ -51,6 +51,27 @@ const KNOWN_BUILTIN_TYPES = new Set([
 ]);
 
 /**
+ * Standard Salesforce types that are always available at runtime but may not be
+ * in StandardApexLibrary or symbol manager. Suppress INVALID_UNRESOLVED_TYPE for these.
+ */
+const KNOWN_STANDARD_TYPES = new Set([
+  'contentversion',
+  'contentdocument',
+  'contentdocumentlink',
+  'contentworkspace',
+  'contentworkspacepermission',
+  'contentworkspacedoc',
+  'contentdistribution',
+  'contentdistributionview',
+  'contentfolder',
+  'contentfolderitem',
+  'contentfolderlink',
+  'contentversionhistory',
+  'contentbody',
+  'contentdocumenthistory',
+]);
+
+/**
  * Validates type resolution for:
  * - INVALID_UNRESOLVED_TYPE: Type reference cannot be resolved
  * - INVALID_CLASS: Type resolves to something that is not a class (e.g., interface where class required)
@@ -111,6 +132,10 @@ export const TypeResolutionValidator: Validator = {
         const baseName = extractBaseTypeName(typeName);
 
         if (KNOWN_BUILTIN_TYPES.has(baseName)) {
+          continue;
+        }
+
+        if (KNOWN_STANDARD_TYPES.has(baseName)) {
           continue;
         }
 

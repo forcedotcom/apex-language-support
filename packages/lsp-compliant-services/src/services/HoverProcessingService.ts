@@ -177,6 +177,22 @@ export class HoverProcessingService implements IHoverProcessor {
             );
             return null;
           }
+          // system/system_mode are contextual keywords (excluded from isApexKeyword)
+          // but in SOQL/DML/runas contexts they have no TypeReference - return null
+          const lowerWord = wordAtPosition?.toLowerCase() ?? '';
+          if (
+            lowerWord === 'system' ||
+            lowerWord === 'system_mode' ||
+            lowerWord === 'user_mode'
+          ) {
+            const keywordCheckTime = Date.now() - keywordCheckStartTime;
+            this.logger.debug(
+              () =>
+                `[HOVER-DIAG] Position is on contextual keyword "${wordAtPosition}", ` +
+                `returning null (keyword check: ${keywordCheckTime}ms)`,
+            );
+            return null;
+          }
         }
       }
       const keywordCheckTime = Date.now() - keywordCheckStartTime;
