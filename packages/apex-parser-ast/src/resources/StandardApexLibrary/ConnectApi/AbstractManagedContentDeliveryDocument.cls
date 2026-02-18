@@ -1,6 +1,8 @@
 global class AbstractManagedContentDeliveryDocument {
 	global String contentKey;
 	global ConnectApi.ManagedContentTypeSummary contentType;
+	global Integer contentVersion;
+	global Boolean isLatest;
 	global String language;
 	global String managedContentId;
 	global Datetime publishedDate;

@@ -1,5 +1,6 @@
 global class DataSpaceMemberRepresentation {
 	global ConnectApi.DataSpaceFilterRepresentation filter;
+	global String memberLabel;
 	global String memberName;
 	global String status;
 	global DataSpaceMemberRepresentation() { }

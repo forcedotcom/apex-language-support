@@ -1,5 +1,6 @@
 global enum DataConnectionStatusEnum {
 CONNECTED,
 DISCONNECTED,
-FAILED
+FAILED,
+NEEDSREAUTH
 }

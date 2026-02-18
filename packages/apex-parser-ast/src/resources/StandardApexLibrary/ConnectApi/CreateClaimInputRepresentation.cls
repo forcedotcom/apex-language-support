@@ -1,10 +1,18 @@
 global class CreateClaimInputRepresentation {
-	global List<ConnectApi.AdditionalFieldInputRep> additionalFields;
+	global String accountId;
+	global List<ConnectApi.ClaimAdditionalFieldInputRep> additionalFields;
 	global List<ConnectApi.ClaimAttributeInputRep> attributes;
-	global List<ConnectApi.ClaimItemInputRep> claimItems;
-	global String claimName;
+	global String claimLossDate;
+	global String claimReason;
+	global String claimReasonType;
+	global String claimType;
+	global String incidentTypeId;
+	global String insurancePolicyId;
+	global List<ConnectApi.ClaimItemInputRep> items;
 	global String lossDate;
-	global List<ConnectApi.ClaimOptionInputRep> options;
+	global String lossType;
+	global String name;
+	global ConnectApi.ClaimOptionInputRep options;
 	global List<ConnectApi.ClaimParticipantInputRep> participants;
 	global String productCode;
 	global CreateClaimInputRepresentation() { }

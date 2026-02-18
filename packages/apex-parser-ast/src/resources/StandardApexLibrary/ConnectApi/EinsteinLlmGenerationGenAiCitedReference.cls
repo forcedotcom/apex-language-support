@@ -1,4 +1,6 @@
 global class EinsteinLlmGenerationGenAiCitedReference {
+	global List<Integer> citationLocations;
+	global List<String> claims;
 	global String link;
 	global String sourceObjectApiName;
 	global String sourceObjectRecordId;

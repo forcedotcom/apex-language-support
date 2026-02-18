@@ -1,6 +1,7 @@
 global class TaxTransactionRequest {
 	global commercetax.HeaderTaxAddressesRequest addresses;
 	global String currencyIsoCode;
+	global Map<String,Object> customTaxAttributes;
 	global commercetax.TaxCustomerDetailsRequest customerDetails;
 	global String description;
 	global String documentCode;

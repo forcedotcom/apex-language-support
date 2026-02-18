@@ -54,7 +54,7 @@ describe('Apex Server Status LanguageStatusItem', () => {
     expect(mockStatusItem.text).toContain('Starting');
     expect(mockStatusItem.busy).toBe(true);
     expect(mockStatusItem.command).toEqual({
-      title: 'Restart Apex-LS-TS Language Server',
+      title: 'SFDX: Restart Apex-LS-TS Language Server',
       command: 'apex-ls-ts.restart.server',
     });
   });

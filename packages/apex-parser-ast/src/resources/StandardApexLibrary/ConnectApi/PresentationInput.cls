@@ -6,7 +6,7 @@ global class PresentationInput {
 	global Boolean enablePinchZoom;
 	global String id;
 	global String name;
-	global ConnectApi.PlayerGestureEnum playerGesture;
+	global String playerGesture;
 	global String publicContentName;
 	global String publicContentUrl;
 	global Boolean sendByEmail;

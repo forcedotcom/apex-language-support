@@ -5,6 +5,7 @@ global class CreateLearningOutputRepresentation {
 	global List<String> learningFoundationItemIds;
 	global String learningId;
 	global List<String> learningOutcomeItemIds;
+	global List<String> learningPolicyRuleIds;
 	global String learningProgramId;
 	global Boolean success;
 	global CreateLearningOutputRepresentation() { }

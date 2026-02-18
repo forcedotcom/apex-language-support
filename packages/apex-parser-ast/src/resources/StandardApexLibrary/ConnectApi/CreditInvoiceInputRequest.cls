@@ -1,5 +1,7 @@
 global class CreditInvoiceInputRequest {
+	global String category;
 	global String description;
+	global String disputeId;
 	global String effectiveDate;
 	global String invoiceId;
 	global List<ConnectApi.CreditInvoiceInvoiceLine> invoiceLines;

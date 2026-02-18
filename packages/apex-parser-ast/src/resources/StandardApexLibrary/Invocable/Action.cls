@@ -2,12 +2,15 @@ global class Action {
 	global Invocable.Action addInvocation() { }
 	global Invocable.Action clearInvocations() { }
 	global Object clone() { }
+	global static Invocable.Action createCustomAction(String type, String namespace, String name, String version) { }
 	global static Invocable.Action createCustomAction(String type, String namespace, String name) { }
 	global static Invocable.Action createCustomAction(String type, String name) { }
+	global static Invocable.Action createStandardAction(String type, String version) { }
 	global static Invocable.Action createStandardAction(String type) { }
 	global String getName() { }
 	global String getNamespace() { }
 	global String getType() { }
+	global String getVersion() { }
 	global List<Invocable.Action.Result> invoke() { }
 	global Boolean isStandard() { }
 	global Invocable.Action setInvocationParameter(String parameterName, Object parameterValue) { }

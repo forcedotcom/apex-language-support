@@ -14,6 +14,8 @@ global class PostAuthorizationResponse {
 	global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) { }
 	global void setPaymentMethodDetails(commercepayments.PaymentMethodDetailsResponse paymentMethodDetails) { }
 	global void setPaymentMethodTokenizationResponse(commercepayments.PaymentMethodTokenizationResponse paymentMethodTokenizationResponse) { }
+	global void setRetryCategory(commercepayments.RetryCategory retryCategory) { }
+	global void setRetryDecision(commercepayments.RetryDecision retryDecision) { }
 	global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) { }
 
 }

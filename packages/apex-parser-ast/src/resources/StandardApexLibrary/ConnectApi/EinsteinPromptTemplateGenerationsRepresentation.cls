@@ -4,9 +4,12 @@ global class EinsteinPromptTemplateGenerationsRepresentation {
 	global List<ConnectApi.EinsteinPromptTemplateGenerationsError> generationErrors;
 	global List<ConnectApi.EinsteinLLMGenerationItemOutput> generations;
 	global Boolean isSummarized;
+	global Map<String,ConnectApi.EinsteinPromptTemplateMergeFieldInformationContext> mergeFieldInformation;
 	global ConnectApi.WrappedMapObject parameters;
 	global String prompt;
 	global String promptTemplateDevName;
+	global String rawPrompt;
+	global Map<String,String> renderConfiguration;
 	global String requestId;
 	global List<ConnectApi.EinsteinPromptTemplateMaskContentRepresentation> requestMessages;
 	global List<ConnectApi.EinsteinPromptTemplateMaskContentRepresentation> responseMessages;

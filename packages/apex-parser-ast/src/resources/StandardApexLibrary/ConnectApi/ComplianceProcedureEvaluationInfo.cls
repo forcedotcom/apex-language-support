@@ -1,5 +1,5 @@
 global class ComplianceProcedureEvaluationInfo {
-	global Map<String,ConnectApi.ComplianceProcedureBusinessContextGenericValue> businessContext;
+	global List<ConnectApi.ComplianceProcedureBusinessContext> businessContext;
 	global String inContextOf;
 	global String transactionKey;
 	global ComplianceProcedureEvaluationInfo() { }

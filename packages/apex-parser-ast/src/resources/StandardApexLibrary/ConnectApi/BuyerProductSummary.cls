@@ -5,6 +5,8 @@ global class BuyerProductSummary {
 	global String id;
 	global ConnectApi.ProductMedia image;
 	global String name;
+	global ConnectApi.ProductClass productClass;
+	global ConnectApi.PurchaseQuantityRule purchaseQuantityRule;
 	global String sku;
 	global Boolean success;
 	global List<ConnectApi.ProductAttributeSummary> variationAttributes;

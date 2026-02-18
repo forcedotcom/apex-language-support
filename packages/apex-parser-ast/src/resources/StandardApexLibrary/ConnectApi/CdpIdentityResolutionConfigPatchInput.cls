@@ -1,6 +1,8 @@
 global class CdpIdentityResolutionConfigPatchInput {
 	global String description;
 	global Boolean doesRunAutomatically;
+	global Boolean isCaseSensitive;
+	global Boolean isLimitedToSingleHousehold;
 	global String label;
 	global List<ConnectApi.CdpIdentityResolutionMatchRule> matchRules;
 	global List<ConnectApi.CdpIdentityResolutionReconciliationRule> reconciliationRules;

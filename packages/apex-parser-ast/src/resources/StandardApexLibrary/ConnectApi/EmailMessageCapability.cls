@@ -6,6 +6,7 @@ global class EmailMessageCapability {
 	global List<ConnectApi.EmailAddress> ccAddresses;
 	global ConnectApi.EmailMessageDirection direction;
 	global String emailMessageId;
+	global ConnectApi.EmailMessageSize emailSize;
 	global ConnectApi.EmailAddress fromAddress;
 	global Integer htmlExpandEmailThread;
 	global Boolean isRichText;

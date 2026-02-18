@@ -1,5 +1,6 @@
 global class GiftCampaignDefaultDesignationRecordOutputRepresentation {
 	global String designationId;
+	global String designationName;
 	global Double percentage;
 	global GiftCampaignDefaultDesignationRecordOutputRepresentation() { }
 	global Object clone() { }

@@ -1,7 +1,5 @@
 global class ActivationDataSourceConfig {
-	global String dataSourceId;
-	global String dataSourceName;
-	global String marketSegmentActivationId;
+	global String name;
 	global ActivationDataSourceConfig() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

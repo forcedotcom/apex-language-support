@@ -1,4 +1,5 @@
 global enum PersonalizationSourceEnum {
+AGENTFORCE,
 BLOCKBUILDER,
 EXPERIENCEBUILDER,
 FLOWBUILDER,

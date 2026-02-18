@@ -2,6 +2,7 @@ global class CPQCategoryOutputRepresentation {
 	global String catalogId;
 	global Map<String,Object> customFields;
 	global String description;
+	global List<ConnectApi.CPQPromotionOutputRepresentation> eligiblePromotions;
 	global Boolean hasSubCategories;
 	global String id;
 	global Boolean isNavigational;

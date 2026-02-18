@@ -5,6 +5,7 @@ global class PurchasedProductSummaryOutput {
 	global Boolean isAvailable;
 	global String listPrice;
 	global String name;
+	global ConnectApi.ProductClass productClass;
 	global ConnectApi.CommerceProductSellingModel productSellingModelInformation;
 	global ConnectApi.PurchaseQuantityRule purchaseQuantityRule;
 	global String salesPrice;

@@ -1,5 +1,6 @@
 global class ReturnOrderInputRepresentation {
 	global String orderSummaryId;
+	global ConnectApi.RefundInstructionsHintInputRepresentation refundInstructionsHint;
 	global String returnOrderLifeCycleType;
 	global List<ConnectApi.ReturnOrderLineItemInputRepresentation> returnOrderLineItems;
 	global String status;

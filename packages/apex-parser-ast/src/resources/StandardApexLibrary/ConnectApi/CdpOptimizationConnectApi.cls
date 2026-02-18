@@ -1,0 +1,26 @@
+global class CdpOptimizationConnectApi {
+	global Object clone() { }
+	global static ConnectApi.CdpOptimizationDefinitionRepresentation createOptimizationDefinition(ConnectApi.CdpOptimizationDefinitionInputRepresentation cdpOptimizationDefinitionInputRepresentation) { }
+	global static ConnectApi.CdpOptimizationJobStatusOutputRepresentation createOptimizationJob(ConnectApi.CdpOptimizationDefinitionInputRepresentation cdpOptimizationDefinitionInputRepresentation) { }
+	global static ConnectApi.CdpOptimizationJobStatusOutputRepresentation createOptimizationJobForDefinition(String defId) { }
+	global static ConnectApi.CdpOptimizationJobStatusOutputRepresentationText createOptimizationJobNew(ConnectApi.CdpOptimizationDefinitionInputRepresentationText cdpOptimizationDefinitionInputRepresentation) { }
+	global static void deleteOptimizationDefinition(String defId) { }
+	global static ConnectApi.CdpOptimizationDataModelObjectRepresentation getDataModelObject(String dataSpaceName, String dmoApiName) { }
+	global static ConnectApi.CdpOptimizationDataModelObjectQueryCountRepresentation getDataModelObjectQueryCount(String dataSpaceName, String dmoApiName) { }
+	global static ConnectApi.CdpOptimizationFormulaFunctionsRepresentation getFormulaFunctions() { }
+	global static ConnectApi.CdpOptimizationDataLakeObjectRepresentation getOptimizationDataLakeObject(String dataSpaceName, String dmoApiName) { }
+	global static ConnectApi.CdpOptimizationDataLakeObjectCollectionRepresentation getOptimizationDataLakeObjects(String dataSpaceName) { }
+	global static ConnectApi.CdpOptimizationDataModelObjectCollectionRepresentation getOptimizationDataModelObjects(String dataSpaceName) { }
+	global static ConnectApi.CdpOptimizationDataSpaceCollectionRepresentation getOptimizationDataSpaces(String orgID) { }
+	global static ConnectApi.CdpOptimizationDefinitionCollectionRepresentation getOptimizationDefinitions() { }
+	global static ConnectApi.CdpOptimizationFormulaOperatorsRepresentation getOptimizationFormulaOperators() { }
+	global static ConnectApi.CdpOptimizationJobRepresentation getOptimizationJobDetails(String defId, String jobId) { }
+	global static ConnectApi.CdpOptimizationJobStatusRepresentation getOptimizationJobStatusById(String defId, String jobId) { }
+	global static ConnectApi.CdpOptimizationJobCollectionRepresentation getOptimizationJobsForDefinition(String defId) { }
+	global static ConnectApi.CdpOptimizationDefinitionRepresentation getSingleOptimizationDefinition(String defId) { }
+	global static ConnectApi.CdpOptimizationDefinitionRepresentation patchOptimizationDefinition(String defId, ConnectApi.CdpOptimizationDefinitionInputRepresentation cdpOptimizationDefinitionInputRepresentation) { }
+	global static ConnectApi.CdpOptimizationDataModelObjectQueryCountRepresentation postDataModelObjectQueryCount(String dataSpaceName, String dmoApiName, ConnectApi.CdpOptimizationSourceDataInputRepresentation cdpOptimizationSourceDataInputRepresentation) { }
+	global static ConnectApi.CdpOptimizationJobStatusRepresentation updateOptimizationJob(String defId, String jobId, ConnectApi.CdpOptimizationJobUpdateInputRepresentation cdpOptimizationJobUpdateInputRepresentation) { }
+	global static ConnectApi.CdpOptimizationSyntaxValidationOutputRepresentation validateFormulaSyntax(ConnectApi.CdpOptimizationSyntaxValidationInputRepresentation cdpOptimizationSyntaxValidationInputRepresentation) { }
+
+}

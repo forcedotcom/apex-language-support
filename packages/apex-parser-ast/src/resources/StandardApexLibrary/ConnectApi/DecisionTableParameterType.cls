@@ -1,4 +1,5 @@
 global enum DecisionTableParameterType {
 INPUT,
-OUTPUT
+OUTPUT,
+ROWCRITERIA
 }

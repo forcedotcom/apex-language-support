@@ -1,4 +1,5 @@
 global class ApplyTemplateToMediaPlanInputRepresentation {
+	global String correlationId;
 	global String quoteId;
 	global String quoteTemplateId;
 	global ApplyTemplateToMediaPlanInputRepresentation() { }

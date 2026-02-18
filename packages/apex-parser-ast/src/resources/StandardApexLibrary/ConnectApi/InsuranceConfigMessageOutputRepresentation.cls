@@ -1,5 +1,6 @@
 global class InsuranceConfigMessageOutputRepresentation {
 	global String message;
+	global String recordId;
 	global String type;
 	global InsuranceConfigMessageOutputRepresentation() { }
 	global Object clone() { }

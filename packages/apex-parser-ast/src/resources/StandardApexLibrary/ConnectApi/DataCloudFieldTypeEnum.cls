@@ -1,0 +1,13 @@
+global enum DataCloudFieldTypeEnum {
+BOOLEAN,
+CURRENCY,
+DATE,
+DATETIME,
+EMAIL,
+NUMBER,
+PERCENT,
+PHONE,
+TEXT,
+UNSUPPORTED,
+URL
+}
