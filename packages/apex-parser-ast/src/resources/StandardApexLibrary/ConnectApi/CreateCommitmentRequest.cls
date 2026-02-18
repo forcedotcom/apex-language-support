@@ -8,6 +8,7 @@ global class CreateCommitmentRequest {
 	global ConnectApi.TransactionDetails firstTransaction;
 	global List<ConnectApi.CustomFieldDetails> giftCommitmentCustomFields;
 	global List<ConnectApi.CustomFieldDetails> giftCommitmentScheduleCustomFields;
+	global List<ConnectApi.CustomFieldDetails> giftTransactionCustomFields;
 	global ConnectApi.OutreachSourceCodeDetails outreachSourceCode;
 	global ConnectApi.PaymentInstrumentDetails paymentInstrument;
 	global String paymentProcessorCommitmentId;

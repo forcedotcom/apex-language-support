@@ -1,7 +1,7 @@
 global class GenericResponseOutputRepresentation {
-	global String code;
 	global List<String> errors;
 	global Boolean isSuccess;
+	global String jobId;
 	global String message;
 	global GenericResponseOutputRepresentation() { }
 	global Object clone() { }

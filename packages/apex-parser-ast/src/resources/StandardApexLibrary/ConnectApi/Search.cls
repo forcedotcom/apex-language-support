@@ -14,6 +14,5 @@ global class Search {
 	global static void setTestFindAndGroup(String q, String configurationName, Boolean highlights, ConnectApi.SearchResultGroups result) { }
 	global static void setTestFindAndGroup(String q, String configurationName, ConnectApi.SearchResultGroups result) { }
 	global static void setTestFindAndGroup(String q, ConnectApi.SearchResultGroups result) { }
-	global static ConnectApi.Suggestions suggest(String q, Integer queryLimit, Integer recordLimit) { }
 
 }

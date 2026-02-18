@@ -1,5 +1,6 @@
 global class PaymentMethodDetails {
 	global ConnectApi.AlternativePaymentMethodOutput alternativePaymentMethod;
+	global ConnectApi.BankPaymentMethodOutput bankPaymentMethod;
 	global ConnectApi.CardPaymentMethodOutput cardPaymentMethod;
 	global ConnectApi.DigitalWalletOutput digitalWallet;
 	global PaymentMethodDetails() { }

@@ -4,7 +4,7 @@ global class AttributeFilter {
 	global ConnectApi.FilterDateUnit dateUnits;
 	global String operator;
 	global ConnectApi.FilterOperatorDataType type;
-	global List<String> values;
+	global ConnectApi.FilterValues value;
 	global AttributeFilter() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

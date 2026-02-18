@@ -1,0 +1,9 @@
+global enum CdpScheduleFrequencyTypeEnum {
+DAILY,
+HOURLY,
+MONTHLY,
+MONTHLYRELATIVE,
+NONE,
+TRANSFORM,
+WEEKLY
+}

@@ -10,6 +10,7 @@ global class LearningOutput {
 	global String learningId;
 	global String name;
 	global String provider;
+	global String providerName;
 	global String type;
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

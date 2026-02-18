@@ -10,6 +10,8 @@ global class ReferencedRefundNotification {
 	global void setGatewayResultCode(String gatewayResultCode) { }
 	global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) { }
 	global void setId(String id) { }
+	global void setRetryCategory(commercepayments.RetryCategory retryCategory) { }
+	global void setRetryDecision(commercepayments.RetryDecision retryDecision) { }
 	global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) { }
 	global void setStatus(commercepayments.NotificationStatus status) { }
 

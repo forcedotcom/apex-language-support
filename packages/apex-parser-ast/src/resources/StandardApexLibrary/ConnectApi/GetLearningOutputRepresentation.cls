@@ -1,8 +1,12 @@
 global class GetLearningOutputRepresentation {
 	global List<ConnectApi.LearningFoundationItemOutput> corequisites;
+	global List<String> educationalCharacteristicRequirements;
 	global List<ConnectApi.EducationApiErrorDetails> errors;
 	global ConnectApi.LearningOutput learning;
+	global List<ConnectApi.LearningPolicyRuleOutput> learningPolicyRules;
+	global List<ConnectApi.LearningFoundationItemOutput> linked;
 	global List<ConnectApi.LearningOutcomeItemOutput> outcomes;
+	global List<ConnectApi.LearningFoundationItemOutput> preOrCorequisites;
 	global List<ConnectApi.LearningFoundationItemOutput> prerequisites;
 	global List<ConnectApi.LearningFoundationItemOutput> recommended;
 	global Boolean success;

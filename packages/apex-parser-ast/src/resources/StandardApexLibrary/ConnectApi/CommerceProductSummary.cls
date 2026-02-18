@@ -1,4 +1,5 @@
 global class CommerceProductSummary {
+	global Boolean isConfigurationAllowed;
 	global ConnectApi.CommerceProductSellingModel productSellingModelInformation;
 	global ConnectApi.ProductVariationInfo productVariationInfo;
 	global ConnectApi.PurchaseQuantityRule purchaseQuantityRule;
@@ -10,6 +11,7 @@ global class CommerceProductSummary {
 	global ConnectApi.ProductMedia getDefaultImage() { }
 	global Map<String,ConnectApi.FieldValue> getFields() { }
 	global String getId() { }
+	global Boolean getIsConfigurationAllowed() { }
 	global String getName() { }
 	global ConnectApi.ProductClass getProductClass() { }
 	global ConnectApi.CommerceProductSellingModel getProductSellingModelInformation() { }
@@ -21,6 +23,7 @@ global class CommerceProductSummary {
 	global void setDefaultImage(ConnectApi.ProductMedia value) { }
 	global void setFields(Map<String,ConnectApi.FieldValue> value) { }
 	global void setId(String value) { }
+	global void setIsConfigurationAllowed(Boolean value) { }
 	global void setName(String value) { }
 	global void setProductClass(ConnectApi.ProductClass value) { }
 	global void setProductSellingModelInformation(ConnectApi.CommerceProductSellingModel value) { }

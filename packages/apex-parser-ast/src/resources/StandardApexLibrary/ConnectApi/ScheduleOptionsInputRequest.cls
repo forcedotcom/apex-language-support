@@ -5,6 +5,7 @@ global class ScheduleOptionsInputRequest {
 	global String preferredTime;
 	global String recursEveryMonthOnDay;
 	global String schedulerName;
+	global Boolean shouldRunDpeOnCore;
 	global String startDate;
 	global ConnectApi.BatchSchedulerStatusEnum status;
 	global String timezone;

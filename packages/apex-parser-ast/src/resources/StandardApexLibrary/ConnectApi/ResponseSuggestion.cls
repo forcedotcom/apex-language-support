@@ -1,5 +1,6 @@
 global class ResponseSuggestion {
 	global String appGenerationId;
+	global String citedSourceUrl;
 	global String generationId;
 	global String generativeSourceEntity;
 	global String generativeSourceEntityId;

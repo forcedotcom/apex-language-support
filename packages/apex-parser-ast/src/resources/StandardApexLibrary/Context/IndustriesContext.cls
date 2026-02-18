@@ -8,6 +8,7 @@ global class IndustriesContext {
 	global Map<String,Object> filteringContext(Map<String,Object> input) { }
 	global Map<String,Object> getContext(Map<String,Object> input) { }
 	global Map<String,Object> getContextTranslation(Map<String,Object> input) { }
+	global Map<String,Object> leanerQueryTags(Map<String,Object> input) { }
 	global Map<String,Object> persistContext(Map<String,Object> input) { }
 	global Map<String,Object> queryContextRecordsAndChildren(Map<String,Object> input) { }
 	global Map<String,Object> queryRecordStatus(Map<String,Object> input) { }

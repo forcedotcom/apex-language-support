@@ -1,4 +1,5 @@
 global class OutreachInvocableActionOutputRepresentation {
+	global List<String> additionalRecipientIds;
 	global String body;
 	global String recipientId;
 	global String subject;

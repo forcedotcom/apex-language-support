@@ -1,5 +1,6 @@
 global class PaymentMethodTokenizationRequest {
 	global commercepayments.AddressRequest address;
+	global commercepayments.BankPaymentMethodRequest bankPaymentMethod;
 	global commercepayments.CardPaymentMethodRequest cardPaymentMethod;
 	global Boolean savedByMerchant;
 	global PaymentMethodTokenizationRequest(String paymentGatewayId) { }

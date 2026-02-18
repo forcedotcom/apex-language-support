@@ -1,4 +1,5 @@
 global class MlRetrieverQueryResultRepresentation {
+	global ConnectApi.MlRetrieverExecutionDetailsRepresentation executionDetails;
 	global List<ConnectApi.MlRetrieverQueryResultDocumentRepresentation> searchResults;
 	global MlRetrieverQueryResultRepresentation() { }
 	global Object clone() { }

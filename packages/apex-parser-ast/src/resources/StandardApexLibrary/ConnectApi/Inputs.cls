@@ -1,4 +1,6 @@
 global class Inputs {
+	global Map<String,String> contextVariables;
+	global List<ConnectApi.EvaluationConversationElement> conversationHistory;
 	global String utterance;
 	global Inputs() { }
 	global Object clone() { }

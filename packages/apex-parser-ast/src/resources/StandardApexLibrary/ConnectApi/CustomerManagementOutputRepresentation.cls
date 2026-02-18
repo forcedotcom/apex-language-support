@@ -5,6 +5,7 @@ global class CustomerManagementOutputRepresentation {
 	global ConnectApi.OpenAPIAccountContactRelationOutputRepresentation engagedParty;
 	global String name;
 	global String type;
+	global Map<String,Object> updatedPayload;
 	global CustomerManagementOutputRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

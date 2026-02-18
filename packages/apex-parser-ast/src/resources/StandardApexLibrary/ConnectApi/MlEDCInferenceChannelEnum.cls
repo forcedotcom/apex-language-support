@@ -1,0 +1,9 @@
+global enum MlEDCInferenceChannelEnum {
+APEX,
+DATATRANSFORM,
+FLOW,
+INFERENCEJOB,
+OTHER,
+QUERY,
+REST
+}

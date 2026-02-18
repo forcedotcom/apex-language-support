@@ -1,5 +1,6 @@
 global class CredentialValue {
 	global Boolean encrypted;
+	global String id;
 	global Integer revision;
 	global String value;
 	global CredentialValue() { }

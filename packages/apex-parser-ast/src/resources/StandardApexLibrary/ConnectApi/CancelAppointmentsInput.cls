@@ -1,5 +1,6 @@
 global class CancelAppointmentsInput {
 	global String appointmentType;
+	global List<ConnectApi.AppointmentAttendee> attendeeList;
 	global String externalAppointmentId;
 	global String externalPatientId;
 	global String healthcarePractitionerFacilityId;

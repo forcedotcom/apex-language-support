@@ -3,6 +3,7 @@ global class ProductOverview {
 	global ConnectApi.ErrorResponse error;
 	global Map<String,String> fields;
 	global String id;
+	global Boolean isConfigurationAllowed;
 	global List<ConnectApi.ProductMediaGroup> mediaGroups;
 	global String name;
 	global ConnectApi.PricingResultLineItem prices;

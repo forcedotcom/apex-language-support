@@ -1,15 +1,15 @@
 global class ActivationAdditionalAttributesConfigInput {
 	global String activationPlatformAttrId;
-	global String attributeLabel;
-	global String attributeName;
-	global String curatedFieldId;
 	global String dataSourceType;
 	global String entityName;
+	global String externalPlatformAttributeName;
 	global List<ConnectApi.AttributeFilterInput> filterExpression;
 	global Boolean isRolluppable;
-	global List<ConnectApi.QueryPathInputConfig> path;
+	global String label;
+	global String name;
 	global String preferredName;
-	global String refAttrDeveloperName;
+	global List<ConnectApi.QueryPathInputConfig> queryPathConfig;
+	global String referenceAttributeName;
 	global ConnectApi.DataExportAttributeSource source;
 	global ConnectApi.DataExportAttributeType type;
 	global ActivationAdditionalAttributesConfigInput() { }

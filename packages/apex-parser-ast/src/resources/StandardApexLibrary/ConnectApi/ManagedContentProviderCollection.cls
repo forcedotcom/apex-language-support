@@ -1,4 +1,5 @@
 global class ManagedContentProviderCollection {
+	global String contentSpaceId;
 	global String currentPageUrl;
 	global String nextPageUrl;
 	global List<ConnectApi.ManagedContentProvider> providers;

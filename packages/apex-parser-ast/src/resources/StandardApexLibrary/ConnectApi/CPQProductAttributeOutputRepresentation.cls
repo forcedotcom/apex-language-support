@@ -19,7 +19,9 @@ global class CPQProductAttributeOutputRepresentation {
 	global Boolean isReadOnly;
 	global Boolean isRequired;
 	global String label;
+	global Integer maximumCharacterCount;
 	global String maximumValue;
+	global Integer minimumCharacterCount;
 	global String minimumValue;
 	global String name;
 	global Integer sequence;

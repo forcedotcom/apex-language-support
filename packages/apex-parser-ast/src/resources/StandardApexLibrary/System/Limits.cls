@@ -1,6 +1,9 @@
 global class Limits {
 	global static Integer getAggregateQueries() { }
 	global static Integer getApexCursorRows() { }
+	global static Integer getApexCursors() { }
+	global static Integer getApexPaginationCursorRows() { }
+	global static Integer getApexPaginationCursors() { }
 	global static Integer getAsyncCalls() { }
 	global static Integer getCallouts() { }
 	global static Integer getChildRelationshipsDescribes() { }
@@ -17,6 +20,9 @@ global class Limits {
 	global static Integer getHeapSize() { }
 	global static Integer getLimitAggregateQueries() { }
 	global static Integer getLimitApexCursorRows() { }
+	global static Integer getLimitApexCursors() { }
+	global static Integer getLimitApexPaginationCursorRows() { }
+	global static Integer getLimitApexPaginationCursors() { }
 	global static Integer getLimitAsyncCalls() { }
 	global static Integer getLimitCallouts() { }
 	global static Integer getLimitChildRelationshipsDescribes() { }

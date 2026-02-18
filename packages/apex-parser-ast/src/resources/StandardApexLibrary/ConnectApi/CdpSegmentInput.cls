@@ -8,6 +8,7 @@ global class CdpSegmentInput {
 	global String displayName;
 	global ConnectApi.CdpSegmentEinsteinGptSegmentsUI einsteinGptSegmentsUICriteria;
 	global String excludeCriteria;
+	global String groupSortLimitFilterCriteria;
 	global String includeCriteria;
 	global ConnectApi.CdpSegmentDbtInput includeDbt;
 	global ConnectApi.CdpSegmentLookalikeInput lookalikeCriteria;
@@ -15,6 +16,7 @@ global class CdpSegmentInput {
 	global ConnectApi.PublishSchedule publishSchedule;
 	global String publishScheduleEndDate;
 	global String publishScheduleEndDateTime;
+	global ConnectApi.CdpSegmentScheduleInput publishScheduleInfo;
 	global String publishScheduleStartDateTime;
 	global ConnectApi.SegmentCreationFlow segmentCreationFlow;
 	global String segmentOnApiName;

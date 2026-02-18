@@ -3,6 +3,7 @@ global class InsPolicyIAInputRep {
 	global String effectiveToDate;
 	global String policyName;
 	global String policyNumber;
+	global String referencePolicyNumber;
 	global InsPolicyIAInputRep() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

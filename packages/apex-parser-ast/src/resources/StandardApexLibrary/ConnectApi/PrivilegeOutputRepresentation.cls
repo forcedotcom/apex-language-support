@@ -4,6 +4,7 @@ global class PrivilegeOutputRepresentation {
 	global String label;
 	global List<String> reason;
 	global String type;
+	global String userRoleOrGroup;
 	global PrivilegeOutputRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

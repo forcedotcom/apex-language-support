@@ -5,6 +5,7 @@ global class CaseCommentCapability {
 	global ConnectApi.CaseCommentEventType eventType;
 	global String id;
 	global Boolean published;
+	global String rawBody;
 	global String text;
 	global CaseCommentCapability() { }
 	global Object clone() { }

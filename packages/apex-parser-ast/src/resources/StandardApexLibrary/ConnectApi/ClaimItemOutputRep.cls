@@ -1,10 +1,10 @@
 global class ClaimItemOutputRep {
 	global String category;
 	global ConnectApi.ClaimItemDetailOutputRep claimItemDetails;
+	global String id;
 	global String instanceKey;
 	global String insuredItemId;
 	global String name;
-	global String participantInstanceKey;
 	global String productCode;
 	global ClaimItemOutputRep() { }
 	global Object clone() { }
