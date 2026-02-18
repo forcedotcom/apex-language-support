@@ -33,7 +33,6 @@ import {
   inTypeSymbolGroup,
   ReferenceContext,
   SymbolKind,
-  isApexKeyword,
 } from '@salesforce/apex-lsp-parser-ast';
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { calculateDisplayFQN } from '../utils/displayFQNUtils';
@@ -155,12 +154,8 @@ export class HoverProcessingService implements IHoverProcessor {
 
       // No references at position: try getSymbolAtPosition for declaration symbols
       // (e.g., method names in declarations don't create references but should show hover)
-      // Skip when on a keyword (keywords don't create references; return null)
+      // Rely on reference/symbol layer: keywords don't create refs; identifierRange filters containment
       if (!references || references.length === 0) {
-        const wordAtPosition = await this.extractSymbolNameAtPosition(params);
-        if (isApexKeyword(wordAtPosition)) {
-          return null;
-        }
         const symbolAtPosition = await this.symbolManager.getSymbolAtPosition(
           params.textDocument.uri,
           parserPosition,

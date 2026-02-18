@@ -883,7 +883,6 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
         'precise',
       );
 
-
       // Contract: when METHOD_CALL reference exists at position, result must be method or null.
       // BUG: fallback can return a variable when resolution fails. Fix: in ApexSymbolManager
       // getSymbolAtPositionPrecise, reject non-method symbols when METHOD_CALL ref exists.
