@@ -5,8 +5,8 @@ global class DmoFilter {
 	global ConnectApi.DmoFilterLimit filterLimit;
 	global ConnectApi.BaseComparison inheritedFilter;
 	global String inheritedFilterType;
-	global ConnectApi.QueryPathConfigList pathFromActivateOnToContainer;
-	global ConnectApi.QueryPathConfigList pathFromContainerToEntity;
+	global ConnectApi.QueryPathConfigList queryPathConfigForActivateOnToContainer;
+	global ConnectApi.QueryPathConfigList queryPathConfigFromContainerToEntity;
 	global DmoFilter() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

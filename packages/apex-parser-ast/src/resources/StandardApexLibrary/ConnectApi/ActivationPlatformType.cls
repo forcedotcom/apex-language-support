@@ -1,0 +1,7 @@
+global enum ActivationPlatformType {
+ADVERTISING,
+ANALYTICS,
+MARKETING,
+PUBLISHING,
+TECHNOLOGY
+}

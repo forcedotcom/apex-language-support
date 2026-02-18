@@ -1,9 +1,11 @@
 global class LearningCourseOutput {
 	global String courseLevelDescription;
 	global String courseNumber;
+	global String courseType;
 	global String fieldOfStudy;
 	global Map<String,Object> learningCourseCustomFields;
 	global String learningCourseId;
+	global Boolean linkedOnly;
 	global String subjectAbbreviation;
 	global LearningCourseOutput() { }
 	global Object clone() { }

@@ -1,0 +1,9 @@
+global class CreateProductRequestsInputRepresentation {
+	global List<ConnectApi.CreateProductRequestInputRepresentation> productRequests;
+	global CreateProductRequestsInputRepresentation() { }
+	global Object clone() { }
+	global Boolean equals(Object obj) { }
+	global Integer hashCode() { }
+	global String toString() { }
+
+}

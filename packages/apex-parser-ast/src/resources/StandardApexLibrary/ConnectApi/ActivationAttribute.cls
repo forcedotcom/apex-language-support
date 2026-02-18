@@ -1,14 +1,12 @@
 global class ActivationAttribute {
 	global String activationPlatformAttrId;
-	global String attributeLabel;
-	global String attributeName;
-	global String curatedFieldId;
 	global String dataSourceType;
 	global String entityName;
+	global String externalPlatformAttributeName;
 	global ConnectApi.AttributeFilterExpression filterExpression;
-	global ConnectApi.QueryPathConfigList path;
 	global String preferredName;
-	global String refAttrDeveloperName;
+	global ConnectApi.QueryPathConfigList queryPathConfig;
+	global String referenceAttributeName;
 	global ConnectApi.DataExportAttributeSource source;
 	global ConnectApi.DataExportAttributeType type;
 	global ActivationAttribute() { }

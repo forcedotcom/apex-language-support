@@ -9,6 +9,7 @@ global class OCIInventoryRecordOutputRepresentation {
 	global Double reserved;
 	global Double safetyStockCount;
 	global String stockKeepingUnit;
+	global Double targetInventory;
 	global OCIInventoryRecordOutputRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

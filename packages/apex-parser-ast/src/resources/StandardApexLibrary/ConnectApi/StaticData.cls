@@ -1,4 +1,5 @@
 global class StaticData {
+	global String name;
 	global String value;
 	global StaticData() { }
 	global Object clone() { }

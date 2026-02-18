@@ -2,6 +2,7 @@ global class ServiceRequestInput {
 	global Object attributes;
 	global String businessObjectId;
 	global Object context;
+	global String createdFromRecord;
 	global List<ConnectApi.ServiceAutomationProductAttributeInputRepresentation> productAttributes;
 	global String productId;
 	global ServiceRequestInput() { }

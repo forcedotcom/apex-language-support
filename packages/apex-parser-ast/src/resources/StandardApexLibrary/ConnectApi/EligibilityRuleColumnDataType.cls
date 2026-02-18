@@ -1,0 +1,10 @@
+global enum EligibilityRuleColumnDataType {
+BOOLEAN,
+CURRENCY,
+DATE,
+DATETIME,
+NUMBER,
+PERCENT,
+PICKLIST,
+STRING
+}

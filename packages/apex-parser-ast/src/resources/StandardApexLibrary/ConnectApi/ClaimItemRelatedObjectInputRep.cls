@@ -1,6 +1,6 @@
 global class ClaimItemRelatedObjectInputRep {
-	global String relatedRecordId;
-	global String relatedRecordObjName;
+	global String recordId;
+	global String recordObjName;
 	global ClaimItemRelatedObjectInputRep() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

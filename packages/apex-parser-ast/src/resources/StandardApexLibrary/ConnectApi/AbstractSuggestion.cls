@@ -1,8 +1,6 @@
 global class AbstractSuggestion {
 	global String iconUrl;
-	global String secondaryText;
 	global String sourceName;
-	global String text;
 	global ConnectApi.SuggestionType type;
 	global String url;
 	global Object clone() { }

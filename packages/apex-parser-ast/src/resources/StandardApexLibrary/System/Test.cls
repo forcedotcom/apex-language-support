@@ -29,6 +29,7 @@ global class Test {
 	global static void setReadOnlyApplicationMode(Boolean readOnlyApplicationMode) { }
 	global static void startTest() { }
 	global static void stopTest() { }
+	global static Messaging.ActionResult testNotificationActionHandler(Messaging.NotificationActionHandler handler, Messaging.ActionableNotification actionableNotification) { }
 	global static void testSandboxPostCopyScript(System.SandboxPostCopy script, Id organizationId, Id sandboxId, String sandboxName, Boolean isRunAsAutoProcUser) { }
 	global static void testSandboxPostCopyScript(System.SandboxPostCopy script, Id organizationId, Id sandboxId, String sandboxName) { }
 

@@ -1,7 +1,7 @@
 global class EntityScopedGroupInput {
 	global String attributeSource;
 	global ConnectApi.BaseComparisonInput condition;
-	global String objectApiName;
+	global String objectName;
 	global String type;
 	global EntityScopedGroupInput() { }
 	global Object clone() { }

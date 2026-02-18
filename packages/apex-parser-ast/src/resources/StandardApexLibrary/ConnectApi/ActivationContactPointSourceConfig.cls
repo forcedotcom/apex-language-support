@@ -1,6 +1,5 @@
 global class ActivationContactPointSourceConfig {
 	global String dataSourceId;
-	global String dataSourceName;
 	global ConnectApi.ContactPointPref dataSourcePreference;
 	global Integer dataSourcePriority;
 	global ActivationContactPointSourceConfig() { }

@@ -1,5 +1,7 @@
 global class CalculateTaxRequest {
 	global Boolean isCommit;
+	global Boolean isHeaderTaxRequested;
+	global Boolean shouldVoidTax;
 	global String taxEngineId;
 	global ConnectApi.TaxTransactionType taxTransactionType;
 	global ConnectApi.CalculateTaxTypeRequest taxType;

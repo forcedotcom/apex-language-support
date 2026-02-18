@@ -1,6 +1,5 @@
 global class DataSourceNameConfigInput {
-	global String dataSourceId;
-	global String dataSourceName;
+	global String name;
 	global DataSourceNameConfigInput() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

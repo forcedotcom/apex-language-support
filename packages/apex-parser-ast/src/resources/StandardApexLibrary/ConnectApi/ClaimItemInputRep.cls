@@ -1,6 +1,6 @@
 global class ClaimItemInputRep {
 	global String action;
-	global List<ConnectApi.AdditionalFieldInputRep> additionalFields;
+	global List<ConnectApi.ClaimAdditionalFieldInputRep> additionalFields;
 	global List<ConnectApi.ClaimAttributeInputRep> attributes;
 	global String category;
 	global String instanceKey;
@@ -9,7 +9,7 @@ global class ClaimItemInputRep {
 	global String name;
 	global String participantInstanceKey;
 	global String productCode;
-	global ConnectApi.ClaimItemRelatedObjectInputRep relatedObject;
+	global List<ConnectApi.ClaimItemRelatedObjectInputRep> relatedObjects;
 	global ClaimItemInputRep() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

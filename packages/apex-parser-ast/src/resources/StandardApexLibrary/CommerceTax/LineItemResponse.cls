@@ -4,6 +4,7 @@ global class LineItemResponse {
 	global java:commerce.tax.impl.engine.integration.response.LineItemEngineResponse getDelegate() { }
 	global void setAddresses(commercetax.AddressesResponse addresses) { }
 	global void setAmountDetails(commercetax.AmountDetailsResponse amountDetails) { }
+	global void setCustomTaxAttributes(commercetax.CustomTaxAttributesResponse customTaxAttributes) { }
 	global void setEffectiveDate(Datetime effectiveDate) { }
 	global void setIsTaxable(Boolean isTaxable) { }
 	global void setLineNumber(String lineNumber) { }

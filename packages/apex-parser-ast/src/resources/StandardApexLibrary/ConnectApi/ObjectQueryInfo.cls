@@ -1,6 +1,7 @@
 global class ObjectQueryInfo {
 	global List<String> displayFields;
 	global Boolean hasMoreResults;
+	global String nameField;
 	global Integer numberOfMatches;
 	global List<ConnectApi.SearchAppliedOrderBy> orderBy;
 	global String source;

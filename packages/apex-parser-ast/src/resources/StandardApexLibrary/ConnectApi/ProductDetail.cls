@@ -1,9 +1,11 @@
 global class ProductDetail {
 	global Map<String,ConnectApi.ProductAttributeSetInfo> attributeSetInfo;
 	global ConnectApi.ProductMedia defaultImage;
+	global Integer dynamicAttributeCount;
 	global ConnectApi.ProductEntitlement entitlement;
 	global Map<String,String> fields;
 	global String id;
+	global Boolean isConfigurationAllowed;
 	global List<ConnectApi.ProductMediaGroup> mediaGroups;
 	global ConnectApi.ProductCategoryPath primaryProductCategoryPath;
 	global ConnectApi.ProductClass productClass;
@@ -19,9 +21,11 @@ global class ProductDetail {
 	global Map<String,ConnectApi.ProductAttributeSetInfo> getAttributeSetInfo() { }
 	global Double getBuildVersion() { }
 	global ConnectApi.ProductMedia getDefaultImage() { }
+	global Integer getDynamicAttributeCount() { }
 	global ConnectApi.ProductEntitlement getEntitlement() { }
 	global Map<String,String> getFields() { }
 	global String getId() { }
+	global Boolean getIsConfigurationAllowed() { }
 	global List<ConnectApi.ProductMediaGroup> getMediaGroups() { }
 	global ConnectApi.ProductCategoryPath getPrimaryProductCategoryPath() { }
 	global ConnectApi.ProductClass getProductClass() { }
@@ -34,9 +38,11 @@ global class ProductDetail {
 	global Integer hashCode() { }
 	global void setAttributeSetInfo(Map<String,ConnectApi.ProductAttributeSetInfo> value) { }
 	global void setDefaultImage(ConnectApi.ProductMedia value) { }
+	global void setDynamicAttributeCount(Integer value) { }
 	global void setEntitlement(ConnectApi.ProductEntitlement value) { }
 	global void setFields(Map<String,String> value) { }
 	global void setId(String value) { }
+	global void setIsConfigurationAllowed(Boolean value) { }
 	global void setMediaGroups(List<ConnectApi.ProductMediaGroup> value) { }
 	global void setPrimaryProductCategoryPath(ConnectApi.ProductCategoryPath value) { }
 	global void setProductClass(ConnectApi.ProductClass value) { }

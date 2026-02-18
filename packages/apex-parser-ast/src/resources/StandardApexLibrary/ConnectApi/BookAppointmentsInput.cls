@@ -2,6 +2,7 @@ global class BookAppointmentsInput {
 	global String appointmentId;
 	global String appointmentStatus;
 	global String appointmentType;
+	global List<ConnectApi.AppointmentAttendee> attendeeList;
 	global String channelId;
 	global String externalPatientId;
 	global ConnectApi.HCAddressInput facilityAddress;

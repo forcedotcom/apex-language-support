@@ -7,6 +7,7 @@ global class ArticleFeedbackResponseRepresentation {
 	global String likeStatus;
 	global String responseId;
 	global String responseName;
+	global String reviewDueDate;
 	global String reviewStatus;
 	global String submitterId;
 	global String submitterName;

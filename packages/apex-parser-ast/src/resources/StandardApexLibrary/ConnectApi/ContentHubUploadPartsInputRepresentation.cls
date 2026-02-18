@@ -1,6 +1,6 @@
 global class ContentHubUploadPartsInputRepresentation {
 	global String eTag;
-	global String partNumber;
+	global Integer partNumber;
 	global ContentHubUploadPartsInputRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

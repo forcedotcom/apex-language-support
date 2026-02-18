@@ -60,6 +60,7 @@ global class System {
 	 * For all the workitem ids passed in, perform the given action
 	 */
 	global static List<Id> process(List<Id> workItemIds, String action, String comments, String nextApprover) { }
+	global static Integer purgeOldAsyncJobs(Date date, Integer limit) { }
 	global static Integer purgeOldAsyncJobs(Date date) { }
 	global static System.Version requestVersion() { }
 	global static System.ResetPasswordResult resetPassword(Id userId, Boolean sendUserEmail) { }

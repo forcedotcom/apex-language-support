@@ -6,6 +6,7 @@ global class ManagedContent {
 	global static ConnectApi.ManagedContentVersionOutput createManagedContentVersion(String contentSpaceId, ConnectApi.ManagedContentVersionInput contentVersion, ConnectApi.BinaryInput contentData) { }
 	global static ConnectApi.ManagedContentVersionOutput createManagedContentVersion(String contentSpaceId, ConnectApi.ManagedContentVersionInput contentVersion) { }
 	global static ConnectApi.ManagedContentDocument createManagedContentWithMedia(ConnectApi.ManagedContentDocumentInput ManagedContentInputParam, ConnectApi.BinaryInput contentData) { }
+	global static ConnectApi.ManagedContentDocument createManagedContentWithMediaAndSaveMode(ConnectApi.ManagedContentDocumentInput ManagedContentInputParam, ConnectApi.BinaryInput contentData, ConnectApi.ConnectMCSaveMode saveMode) { }
 	global static void deleteManagedContent(String contentSpaceId, String managedContentId) { }
 	global static void deleteManagedContentProviderInstance(String providerInstanceId) { }
 	global static void deleteManagedContentSpace(String contentSpaceId) { }
@@ -29,12 +30,15 @@ global class ManagedContent {
 	global static ConnectApi.ManagedContentVersionCollection getManagedContentByTopicsAndIds(String communityId, List<String> managedContentIds, List<String> topics, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) { }
 	global static ConnectApi.ManagedContentVersionCollection getManagedContentByTopicsAndIds(String communityId, List<String> managedContentIds, List<String> topics, Integer pageParam, Integer pageSize, String language, String managedContentType) { }
 	global static ConnectApi.ManagedContentProviderCollection getManagedContentProviders() { }
+	global static ConnectApi.ManagedContentProviderCollection getManagedContentProvidersForSpace(String contentSpaceId) { }
 	global static ConnectApi.ManagedContentSpace getManagedContentSpace(String contentSpaceId) { }
 	global static ConnectApi.MCSFolderShareCollection patchMCSFolderShares(String folderId, ConnectApi.MCSFolderShareCollectionUpdateInput mcsFolderShareCollectionUpdateInput) { }
 	global static ConnectApi.ManagedContentPublishOutput publish(ConnectApi.ManagedContentPublishInput publishInput) { }
 	global static ConnectApi.ManagedContentVariant replaceManagedContentVariant(String variantId, ConnectApi.ManagedContentVariantUpdateInput ManagedContentVariantInputParam) { }
 	global static ConnectApi.ManagedContentVariant replaceManagedContentVariantWithMedia(String variantId, ConnectApi.ManagedContentVariantUpdateInput ManagedContentVariantInputParam, ConnectApi.BinaryInput contentData) { }
+	global static ConnectApi.ManagedContentVariant replaceManagedContentVariantWithMediaAndSaveMode(String variantId, ConnectApi.ManagedContentVariantUpdateInput ManagedContentVariantInputParam, ConnectApi.BinaryInput contentData, ConnectApi.ConnectMCSaveMode saveMode) { }
 	global static ConnectApi.ManagedContentUnpublishOutput unpublish(ConnectApi.ManagedContentUnpublishInput unpublishInput) { }
 	global static ConnectApi.ManagedContentOutput updateManagedContent(String contentSpaceId, String managedContentId, ConnectApi.ManagedContentInput contentVersion) { }
+	global static ConnectApi.ManagedContentProviderInstance updateManagedContentProviderInstance(String providerInstanceId, ConnectApi.ManagedContentProviderInput providerInstanceInput) { }
 
 }

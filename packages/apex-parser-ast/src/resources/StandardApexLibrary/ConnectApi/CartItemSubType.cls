@@ -1,4 +1,4 @@
 global enum CartItemSubType {
 BONUS,
-GIFT
+GIFTWRAP
 }

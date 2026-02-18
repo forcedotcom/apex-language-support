@@ -10,6 +10,7 @@ global class CdpSegment {
 	global static ConnectApi.CdpSegmentActionOutput executeCountAsync(String segmentApiName) { }
 	global static ConnectApi.CdpSegmentActionOutput executePublishAdhoc(String segmentId) { }
 	global static ConnectApi.CdpSegmentContainerOutput getSegment(String segmentApiName) { }
+	global static ConnectApi.CdpSegmentContainerOutput getSegmentById(String segmentId) { }
 	global static ConnectApi.CdpSegmentContainerOutput getSegments() { }
 	global static ConnectApi.CdpSegmentContainerOutput getSegmentsFilteredPaginated(Integer batchSize, Integer offset, String orderBy, String dataspace, String filters) { }
 	global static ConnectApi.CdpSegmentContainerOutput getSegmentsFilteredPaginated(Integer batchSize, Integer offset, String orderBy, String filters) { }

@@ -5,6 +5,7 @@ global class AbstractCartItem {
 	global String cartItemId;
 	global Integer childProductCount;
 	global List<SObject> customFields;
+	global Boolean isConfigurationAllowed;
 	global Boolean isShippingChargeNotApplicable;
 	global ConnectApi.CartMessagesSummary messagesSummary;
 	global String name;

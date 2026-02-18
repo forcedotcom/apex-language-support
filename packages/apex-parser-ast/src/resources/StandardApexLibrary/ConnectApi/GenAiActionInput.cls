@@ -7,12 +7,16 @@ global class GenAiActionInput {
 	global String invocationTargetName;
 	global String invocationTargetType;
 	global Boolean isConfirmationRequired;
+	global String localDeveloperName;
 	global String masterLabel;
 	global String name;
 	global String namespace;
 	global String output;
 	global String parentId;
+	global String plannerId;
+	global String pluginId;
 	global String progressIndicatorMessage;
+	global String source;
 	global GenAiActionInput() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

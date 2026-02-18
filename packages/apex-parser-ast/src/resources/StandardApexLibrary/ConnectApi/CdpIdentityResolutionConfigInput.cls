@@ -3,11 +3,14 @@ global class CdpIdentityResolutionConfigInput {
 	global String dataSpaceName;
 	global String description;
 	global Boolean doesRunAutomatically;
+	global Boolean isCaseSensitive;
+	global Boolean isLimitedToSingleHousehold;
 	global String label;
 	global List<ConnectApi.CdpIdentityResolutionMatchRule> matchRules;
 	global List<ConnectApi.CdpIdentityResolutionReconciliationRule> reconciliationRules;
 	global String rulesetId;
 	global String secondaryDmo;
+	global String sourceIrDevName;
 	global CdpIdentityResolutionConfigInput() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }
