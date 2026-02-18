@@ -1,6 +1,7 @@
 global class BaseApiPaymentMethodRequest {
 	global commercepayments.AddressRequest address;
 	global String id;
+	global commercepayments.PaymentMethodIdType idType;
 	global Boolean saveForFuture;
 	global BaseApiPaymentMethodRequest(commercepayments.AddressRequest address, String id, Boolean saveForFuture) { }
 	global Object clone() { }

@@ -11,6 +11,7 @@ global class Example {
 	global static ConnectApi.ExampleEntityRepresentation getExampleWithSimpleUserAccessCheck() { }
 	global static ConnectApi.ExampleSerializationRepresentation postExampleSerialization(ConnectApi.ExampleSerializationInputRepresentation input) { }
 	global static ConnectApi.NoWrapperRepresentation postNoWrapperMethod(ConnectApi.NoWrapperInputRepresentation noWrapperInputRepresentation) { }
+	global static ConnectApi.AbstractAnimalRepresentation updateDiscriminator(ConnectApi.AbstractAnimalInputRepresentation recordInput) { }
 	global static ConnectApi.ExampleEntityRepresentation updateExampleEntity(String recordId, ConnectApi.ExampleEntityInputRepresentation recordInput) { }
 	global static ConnectApi.ExampleEntityRepresentation updateExampleEntityWithOptionalParameters(String recordId, ConnectApi.ExampleEntityInputRepresentation recordInput, Map<String,String> connectDynamicParameters) { }
 	global static ConnectApi.ExampleListRepresentation updateExampleList(String recordId, ConnectApi.ExampleListInputRepresentation recordInput) { }

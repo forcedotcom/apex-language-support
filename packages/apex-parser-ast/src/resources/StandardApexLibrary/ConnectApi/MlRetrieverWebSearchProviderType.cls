@@ -1,3 +1,4 @@
 global enum MlRetrieverWebSearchProviderType {
-BRIGHTDATA
+BRIGHTDATA,
+GOOGLEVERTEX
 }

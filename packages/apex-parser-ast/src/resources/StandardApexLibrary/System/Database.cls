@@ -219,6 +219,18 @@ global class Database {
 	 */
 	global static Database.GetDeletedResult getDeleted(String sobjectType, Datetime startDate, Datetime endDate) { }
 	/**
+	 * create an apex cursor
+	 */
+	global static Database.PaginationCursor getPaginationCursor(String queries, System.AccessLevel accessLevel) { }
+	/**
+	 * create an apex pagination cursor
+	 */
+	global static Database.PaginationCursor getPaginationCursor(String queries) { }
+	/**
+	 * create an apex cursor with BindMap
+	 */
+	global static Database.PaginationCursor getPaginationCursorWithBinds(String queries, Map<String, Object> bindMap, System.AccessLevel accessLevel) { }
+	/**
 	 * create a query locator for batch Apex
 	 */
 	global static Database.QueryLocator getQueryLocator(List<SObject> queries, System.AccessLevel accessLevel) { }

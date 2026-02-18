@@ -1,5 +1,6 @@
 global class CalculateTaxResponse {
 	global ConnectApi.ErrorResponse adapterError;
+	global Boolean hasAdditionalData;
 	global ConnectApi.TaxTransactionState status;
 	global List<ConnectApi.TaxEngineLogResponse> taxEngineLogs;
 	global ConnectApi.TaxTransactionType taxTransactionType;

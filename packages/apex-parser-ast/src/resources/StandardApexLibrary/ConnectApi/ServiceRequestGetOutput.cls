@@ -1,6 +1,7 @@
 global class ServiceRequestGetOutput {
 	global Map<String,Object> anchor;
 	global Map<String,Object> customAttributes;
+	global Map<String,String> productAttributes;
 	global ServiceRequestGetOutput() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

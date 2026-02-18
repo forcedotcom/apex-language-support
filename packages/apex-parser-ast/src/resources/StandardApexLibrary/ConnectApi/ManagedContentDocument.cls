@@ -5,6 +5,7 @@ global class ManagedContentDocument {
 	global String contentKey;
 	global ConnectApi.ManagedContentSpaceSummary contentSpace;
 	global ConnectApi.ManagedContentTypeSummary contentType;
+	global Integer contentVersion;
 	global ConnectApi.ManagedContentUserSummary createdBy;
 	global Datetime createdDate;
 	global String externalId;
@@ -19,6 +20,7 @@ global class ManagedContentDocument {
 	global ConnectApi.ManagedContentVariantStatusOutput status;
 	global String title;
 	global String urlName;
+	global String variantVersion;
 	global String versionNumber;
 	global ManagedContentDocument() { }
 	global Object clone() { }

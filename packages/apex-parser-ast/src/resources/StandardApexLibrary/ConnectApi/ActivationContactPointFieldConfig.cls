@@ -1,8 +1,7 @@
 global class ActivationContactPointFieldConfig {
 	global String attributeId;
-	global String attributeLabel;
-	global String attributeName;
 	global String preferredName;
+	global String referenceAttributeName;
 	global ActivationContactPointFieldConfig() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

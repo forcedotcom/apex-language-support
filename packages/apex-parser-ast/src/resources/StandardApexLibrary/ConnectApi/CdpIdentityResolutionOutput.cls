@@ -6,6 +6,8 @@ global class CdpIdentityResolutionOutput {
 	global String description;
 	global Boolean doesRunAutomatically;
 	global String id;
+	global Boolean isCaseSensitive;
+	global Boolean isLimitedToSingleHousehold;
 	global Long knownUnifiedProfiles;
 	global String label;
 	global Datetime lastJobCompleted;
@@ -17,6 +19,7 @@ global class CdpIdentityResolutionOutput {
 	global String rulesetId;
 	global String rulesetStatus;
 	global String secondaryDmo;
+	global String sourceIrDevName;
 	global Long sourceProfiles;
 	global Long totalUnifiedProfiles;
 	global CdpIdentityResolutionOutput() { }

@@ -8,6 +8,7 @@ global class OCIBatchUpdateSingleInputRepresentation {
 	global Double onHand;
 	global Double safetyStockCount;
 	global String stockKeepingUnit;
+	global Double targetInventory;
 	global OCIBatchUpdateSingleInputRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

@@ -4,6 +4,7 @@ global class CalculateTaxResponse {
 	global void setAddresses(commercetax.AddressesResponse addresses) { }
 	global void setAmountDetails(commercetax.AmountDetailsResponse amountDetails) { }
 	global void setCurrencyIsoCode(String currencyIsoCode) { }
+	global void setCustomTaxAttributes(commercetax.CustomTaxAttributesResponse customTaxAttributes) { }
 	global void setDescription(String dscptn) { }
 	global void setDocumentCode(String documentCode) { }
 	global void setEffectiveDate(Datetime effectiveDate) { }

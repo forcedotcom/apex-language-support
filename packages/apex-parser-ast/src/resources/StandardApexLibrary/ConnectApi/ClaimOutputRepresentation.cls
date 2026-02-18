@@ -1,12 +1,19 @@
 global class ClaimOutputRepresentation {
-	global Object attributes;
+	global String accountId;
+	global List<ConnectApi.ClaimAttributeOutputRepresentation> attributes;
 	global String claimId;
-	global String claimName;
+	global String claimLossDate;
+	global String claimReason;
+	global String claimReasonType;
 	global String claimType;
-	global Datetime initiationDate;
+	global String contextId;
+	global List<ConnectApi.ErrorDetail> errors;
+	global String incidentTypeId;
 	global String insurancePolicyId;
 	global List<ConnectApi.ClaimItemOutputRepresentation> items;
 	global Datetime lossDate;
+	global String lossType;
+	global String name;
 	global List<ConnectApi.ClaimParticipantOutputRepresentation> participants;
 	global String productCode;
 	global ClaimOutputRepresentation() { }

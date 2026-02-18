@@ -1,6 +1,6 @@
 global class Suggestions {
-	global Map<String,ConnectApi.ObjectMetadata> metadata;
-	global ConnectApi.QueryInfo queryInfo;
+	global ConnectApi.SearchMetadata metadata;
+	global ConnectApi.SuggestionsQueryInfo queryInfo;
 	global List<ConnectApi.AbstractSuggestion> suggestions;
 	global Suggestions() { }
 	global Object clone() { }

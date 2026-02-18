@@ -1,0 +1,5 @@
+global enum ExampleDinosaurType {
+SECONDVELOCIRAPTOR,
+TRICERATOPS,
+VELOCIRAPTOR
+}

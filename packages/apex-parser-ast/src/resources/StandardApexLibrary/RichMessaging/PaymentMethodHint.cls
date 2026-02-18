@@ -1,0 +1,10 @@
+global enum PaymentMethodHint {
+BOLETO,
+CARD,
+EMI,
+NETBANKING,
+PAYLATER,
+PIX,
+UPI,
+WALLET
+}

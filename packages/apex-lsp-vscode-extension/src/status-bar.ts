@@ -114,7 +114,7 @@ export const createApexLanguageStatusActions = (
     item.name = 'Apex-LS-TS Log Level';
     item.severity = vscode.LanguageStatusSeverity.Information;
     item.command = {
-      title: `Set Apex-LS-TS Log Level: ${level.charAt(0).toUpperCase() + level.slice(1)}`,
+      title: `SFDX: Set Apex-LS-TS Log Level: ${level.charAt(0).toUpperCase() + level.slice(1)}`,
       command: `apex-ls-ts.setLogLevel.${level}`,
     };
     context.subscriptions.push(item);
@@ -158,7 +158,7 @@ export const registerApexLanguageStatusMenu = (
   langStatusItem.text = 'Apex-LS-TS';
   langStatusItem.detail = 'Apex-LS-TS Language Actions';
   langStatusItem.command = {
-    title: 'Apex-LS-TS Actions',
+    title: 'SFDX: Apex-LS-TS Actions',
     command: 'apex-ls-ts.languageStatusMenu',
   };
   context.subscriptions.push(langStatusItem);
@@ -215,7 +215,7 @@ export const createApexServerStatusItem = (
   apexServerStatusItem.detail = 'Apex-LS-TS Language Server is starting';
   apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Information;
   apexServerStatusItem.command = {
-    title: 'Restart Apex-LS-TS Language Server',
+    title: 'SFDX: Restart Apex-LS-TS Language Server',
     command: 'apex-ls-ts.restart.server',
   };
   apexServerStatusItem.busy = true;
@@ -326,7 +326,7 @@ export const createProfilingToggleItem = (
   );
   profilingToggleItem.name = 'Apex-LS-TS Profiling Toggle';
   profilingToggleItem.command = {
-    title: 'Toggle Profiling',
+    title: 'SFDX: Toggle Profiling',
     command: 'apex-ls-ts.profiling.toggle',
   };
   context.subscriptions.push(profilingToggleItem);

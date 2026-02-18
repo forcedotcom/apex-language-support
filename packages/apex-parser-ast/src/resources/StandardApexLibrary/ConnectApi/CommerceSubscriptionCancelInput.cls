@@ -1,5 +1,5 @@
 global class CommerceSubscriptionCancelInput {
-	global List<String> subscriptions;
+	global List<String> subscriptionIds;
 	global CommerceSubscriptionCancelInput() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

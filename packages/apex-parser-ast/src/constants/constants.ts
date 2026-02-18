@@ -6,12 +6,12 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-export const DEFAULT_SALESFORCE_VERSION = 258;
+export const DEFAULT_SALESFORCE_VERSION = 260;
 
 /**
  * Default Salesforce version to use if version file cannot be loaded
  */
-export const DEFAULT_SALESFORCE_API_VERSION = 65;
+export const DEFAULT_SALESFORCE_API_VERSION = 66;
 
 /**
  * Standard SObject types that are always valid across Salesforce orgs

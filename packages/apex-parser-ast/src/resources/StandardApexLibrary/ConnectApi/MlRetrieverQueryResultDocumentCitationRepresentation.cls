@@ -1,4 +1,5 @@
 global class MlRetrieverQueryResultDocumentCitationRepresentation {
+	global String label;
 	global String link;
 	global String sourceObjectApiName;
 	global String sourceObjectRecordId;

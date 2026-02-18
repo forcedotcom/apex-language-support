@@ -1,5 +1,6 @@
 global class MarketingCloudConnectorInput {
 	global List<String> businessUnitConfig;
+	global String name;
 	global String targetSubType;
 	global MarketingCloudConnectorInput() { }
 	global Object clone() { }

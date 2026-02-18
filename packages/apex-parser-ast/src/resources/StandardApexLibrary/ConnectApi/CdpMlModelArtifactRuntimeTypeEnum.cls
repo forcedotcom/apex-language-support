@@ -1,4 +1,5 @@
 global enum CdpMlModelArtifactRuntimeTypeEnum {
 EXTERNAL,
-INTERNAL
+INTERNAL,
+INTERNALV2
 }

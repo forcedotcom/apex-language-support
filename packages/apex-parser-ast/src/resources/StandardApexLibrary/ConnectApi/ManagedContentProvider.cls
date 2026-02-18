@@ -1,11 +1,12 @@
 global class ManagedContentProvider {
+	global String componentDefinition;
 	global String icon;
 	global String label;
 	global String name;
 	global String providerId;
 	global List<ConnectApi.ManagedContentProviderInstance> providerInstances;
 	global String providerLightningComponentId;
-	global ConnectApi.ConnectManagedContentPickerMenuItemType type;
+	global ConnectApi.ConnectManagedContentProviderType type;
 	global ManagedContentProvider() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

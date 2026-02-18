@@ -1,4 +1,5 @@
 global class WaitlistParticipantStats {
+	global String createdDate;
 	global String errorMessage;
 	global Integer positionInWaitlist;
 	global String serviceAppointmentId;

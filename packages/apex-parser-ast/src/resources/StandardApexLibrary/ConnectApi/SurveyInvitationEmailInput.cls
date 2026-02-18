@@ -12,6 +12,7 @@ global class SurveyInvitationEmailInput {
 	global Boolean isPersonalInvitation;
 	global List<ConnectApi.RecipientEngagementContextInput> recipientEngagementContexts;
 	global List<String> recipients;
+	global Boolean sendEmailThroughUma;
 	global List<String> shareInvitationsWith;
 	global String subject;
 	global List<String> surveyQuestionIds;

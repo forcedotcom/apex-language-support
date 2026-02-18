@@ -1,3 +1,8 @@
-global class EvaluationStatus {
-
+global enum EvaluationStatus {
+COMPLETED,
+CREATED,
+ERROR,
+INPROGRESS,
+PENDING,
+TERMINATED
 }

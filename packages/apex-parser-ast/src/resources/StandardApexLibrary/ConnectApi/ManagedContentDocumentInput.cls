@@ -5,6 +5,7 @@ global class ManagedContentDocumentInput {
 	global String contentSpaceOrFolderId;
 	global String contentType;
 	global String externalId;
+	global ConnectApi.ManagedContentExternalSourceInput externalSource;
 	global String title;
 	global String urlName;
 	global ManagedContentDocumentInput() { }

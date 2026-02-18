@@ -1,0 +1,6 @@
+global enum DeploymentStatus {
+FAILURE,
+NOTATTEMPTED,
+PARTIALSUCCESS,
+SUCCESS
+}

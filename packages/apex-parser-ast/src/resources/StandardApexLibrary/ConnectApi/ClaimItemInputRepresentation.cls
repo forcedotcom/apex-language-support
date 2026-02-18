@@ -1,7 +1,7 @@
 global class ClaimItemInputRepresentation {
 	global String action;
 	global Object additionalFields;
-	global Object attributes;
+	global List<ConnectApi.ClaimAttributeInputRepresentation> attributes;
 	global String category;
 	global String instanceKey;
 	global String insurancePolicyCoverageId;
@@ -9,7 +9,7 @@ global class ClaimItemInputRepresentation {
 	global String name;
 	global String participantInstanceKey;
 	global String productCode;
-	global List<ConnectApi.RelatedObjectInputRepresentation> relatedObjects;
+	global List<ConnectApi.ClaimRelatedObjectInputRepresentation> relatedObjects;
 	global ClaimItemInputRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

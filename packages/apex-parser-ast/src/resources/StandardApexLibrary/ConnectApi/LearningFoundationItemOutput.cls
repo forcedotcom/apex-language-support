@@ -5,7 +5,9 @@ global class LearningFoundationItemOutput {
 	global List<ConnectApi.LearningFulfiller> fulfilledBy;
 	global Double fulfilledDuration;
 	global Boolean isFulfilled;
+	global String learningAchievementConfigName;
 	global String learningAchievementId;
+	global String learningAchievementName;
 	global String learningAchievementType;
 	global String learningFoundationItemId;
 	global String learningId;

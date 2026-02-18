@@ -4,6 +4,7 @@ global class MlRetrieverQueryResultDocumentContentRepresentation {
 	global String resultFieldApiKey;
 	global String sourceObjectApiKey;
 	global String sourceObjectName;
+	global String stringValue;
 	global Object value;
 	global MlRetrieverQueryResultDocumentContentRepresentation() { }
 	global Object clone() { }

@@ -1,7 +1,7 @@
 global class ManagedContentProviderInstance {
-	global String componentDefinition;
-	global String instanceUrl;
+	global String instanceKey;
 	global Boolean isDefault;
+	global Boolean isEnabledForSpace;
 	global String name;
 	global String providerInstanceId;
 	global ManagedContentProviderInstance() { }
