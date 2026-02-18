@@ -1,4 +1,5 @@
 global enum DataKitBundleConnectorTypeEnum {
+ACCOUNTENGAGEMENT,
 COMMERCE,
 CRM,
 EXTERNAL,

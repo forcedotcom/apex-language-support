@@ -1,6 +1,7 @@
 global class ReturnItemsOutputRepresentation {
 	global String changeOrderId;
 	global String feeChangeOrderId;
+	global ConnectApi.RefundInstructionsHintOutputRepresentation refundInstructionsHint;
 	global List<ConnectApi.ReturnOrderItemSplitLineOutputRepresentation> returnLineItemSplits;
 	global ReturnItemsOutputRepresentation() { }
 	global Object clone() { }

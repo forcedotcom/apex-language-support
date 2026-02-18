@@ -1,6 +1,8 @@
 global class CPQProductListOutputRepresentation {
 	global List<ConnectApi.CPQCategoryOutputRepresentation> categories;
 	global List<ConnectApi.CPQProductListOutputRepresentation> childProducts;
+	global List<ConnectApi.ProductConfigurationRulesOutputRepresentation> configurationRules;
+	global List<ConnectApi.CPQPromotionOutputRepresentation> eligiblePromotions;
 	global List<ConnectApi.CPQProductPricesOutputRepresentation> prices;
 	global Integer variationsCount;
 	global CPQProductListOutputRepresentation() { }

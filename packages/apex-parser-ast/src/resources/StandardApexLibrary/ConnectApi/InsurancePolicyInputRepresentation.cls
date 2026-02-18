@@ -3,6 +3,7 @@ global class InsurancePolicyInputRepresentation {
 	global String effectiveToDate;
 	global String policyName;
 	global String policyNumber;
+	global String referencePolicyNumber;
 	global InsurancePolicyInputRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

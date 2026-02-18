@@ -1,4 +1,5 @@
 global class CloneSalesTransactionInputRepresentation {
+	global ConnectApi.CloneOptionsInputRepresentation options;
 	global List<String> recordIds;
 	global String salesTransactionId;
 	global CloneSalesTransactionInputRepresentation() { }

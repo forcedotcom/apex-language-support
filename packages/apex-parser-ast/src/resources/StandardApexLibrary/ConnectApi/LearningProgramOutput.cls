@@ -1,6 +1,7 @@
 global class LearningProgramOutput {
 	global Map<String,Object> learningProgramCustomFields;
 	global String learningProgramId;
+	global String productId;
 	global Boolean topLevelProgram;
 	global LearningProgramOutput() { }
 	global Object clone() { }

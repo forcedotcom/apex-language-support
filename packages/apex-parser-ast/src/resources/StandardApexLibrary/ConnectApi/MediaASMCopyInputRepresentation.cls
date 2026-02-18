@@ -1,4 +1,5 @@
 global class MediaASMCopyInputRepresentation {
+	global String correlationId;
 	global String destinationQuoteId;
 	global String sourceQuoteId;
 	global MediaASMCopyInputRepresentation() { }

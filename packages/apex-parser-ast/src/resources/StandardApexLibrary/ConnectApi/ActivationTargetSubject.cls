@@ -1,7 +1,7 @@
 global class ActivationTargetSubject {
 	global String developerName;
 	global String masterLabel;
-	global ConnectApi.QueryPathConfigList queryPathConfigListRepresentation;
+	global ConnectApi.QueryPathConfigList queryPathConfig;
 	global ActivationTargetSubject() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

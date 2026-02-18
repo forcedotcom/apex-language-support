@@ -1,5 +1,7 @@
 global class CalculateTaxRequest {
 	global Boolean isCommit;
+	global Boolean isHeaderTaxRequested;
+	global Boolean shouldVoidTax;
 	global commercetax.TaxTransactionType taxTransactionType;
 	global commercetax.CalculateTaxType taxType;
 	global CalculateTaxRequest(commercetax.CalculateTaxType taxType) { }

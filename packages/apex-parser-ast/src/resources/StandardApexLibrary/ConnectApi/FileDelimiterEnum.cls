@@ -1,0 +1,13 @@
+global enum FileDelimiterEnum {
+BROKENPIPE,
+CARET,
+COLON,
+COMMA,
+HASH,
+PIPE,
+SEMICOLON,
+SLASH,
+TAB,
+TILDE,
+UNDERSCORE
+}

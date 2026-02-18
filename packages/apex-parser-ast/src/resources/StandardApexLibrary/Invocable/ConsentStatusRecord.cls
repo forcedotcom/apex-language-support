@@ -5,6 +5,7 @@ global class ConsentStatusRecord {
 	global String consentStatus;
 	global String contactPointValue;
 	global String engagementChannelTypeId;
+	global String flowDataSpaceApiName;
 	global String flowName;
 	global String flowTriggerType;
 	global String senderCode;

@@ -4,6 +4,7 @@ global class SaleRequest {
 	global String comments;
 	global String currencyIsoCode;
 	global commercepayments.SaleApiPaymentMethodRequest paymentMethod;
+	global Map<String,String> paymentMethodData;
 	global Boolean submittedByMerchant;
 	global SaleRequest(Double amount) { }
 	global Object clone() { }

@@ -1,4 +1,5 @@
 global enum TaxTransactionType {
 CREDIT,
-DEBIT
+DEBIT,
+VOID
 }

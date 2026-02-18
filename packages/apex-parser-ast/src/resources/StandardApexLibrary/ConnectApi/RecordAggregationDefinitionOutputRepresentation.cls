@@ -4,6 +4,7 @@ global class RecordAggregationDefinitionOutputRepresentation {
 	global String label;
 	global String rollupFromObjectApiName;
 	global String rollupFromObjectLabel;
+	global String status;
 	global RecordAggregationDefinitionOutputRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

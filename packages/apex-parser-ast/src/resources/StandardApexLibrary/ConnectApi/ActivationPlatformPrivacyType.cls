@@ -1,0 +1,6 @@
+global enum ActivationPlatformPrivacyType {
+NOTAPPLICABLE,
+SERVICEPROVIDER,
+THIRDPARTY,
+UPDATEFAILED
+}

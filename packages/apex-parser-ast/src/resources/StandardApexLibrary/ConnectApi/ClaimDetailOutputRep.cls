@@ -1,5 +1,6 @@
 global class ClaimDetailOutputRep {
-	global ConnectApi.ClaimAttributeOutputRep attributes;
+	global String accountId;
+	global ConnectApi.ClaimAttributeOutputs attributes;
 	global String claimReason;
 	global String claimReasonType;
 	global String claimType;

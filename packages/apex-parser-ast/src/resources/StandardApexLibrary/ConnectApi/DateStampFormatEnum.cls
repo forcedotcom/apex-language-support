@@ -1,0 +1,7 @@
+global enum DateStampFormatEnum {
+MMDDYYYY,
+MMYYYY,
+NONE,
+ORGFISCALYEARYYYYYY,
+YYYY
+}

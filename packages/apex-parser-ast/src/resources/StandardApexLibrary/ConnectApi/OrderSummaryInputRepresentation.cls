@@ -1,5 +1,6 @@
 global class OrderSummaryInputRepresentation {
 	global String businessModel;
+	global String externalCustomerIdReference;
 	global String externalReferenceIdentifier;
 	global String name;
 	global String orderId;

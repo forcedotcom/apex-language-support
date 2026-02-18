@@ -1,6 +1,5 @@
 global class ClaimOptionInputRep {
-	global String optionType;
-	global String optionValue;
+	global String executeConfigurationRules;
 	global ClaimOptionInputRep() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

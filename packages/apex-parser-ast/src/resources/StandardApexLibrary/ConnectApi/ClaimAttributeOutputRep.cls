@@ -1,6 +1,6 @@
 global class ClaimAttributeOutputRep {
-	global String attributeName;
-	global String attributeValue;
+	global String apiName;
+	global String value;
 	global ClaimAttributeOutputRep() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

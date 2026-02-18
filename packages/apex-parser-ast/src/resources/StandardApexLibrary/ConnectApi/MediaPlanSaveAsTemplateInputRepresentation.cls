@@ -1,4 +1,5 @@
 global class MediaPlanSaveAsTemplateInputRepresentation {
+	global String correlationId;
 	global String description;
 	global String name;
 	global String quoteId;

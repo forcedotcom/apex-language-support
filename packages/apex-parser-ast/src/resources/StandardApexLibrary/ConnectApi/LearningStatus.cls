@@ -4,8 +4,12 @@ global class LearningStatus {
 	global String academicTermEnrollmentId;
 	global String academicTermId;
 	global String academicYear;
+	global String courseOfferingId;
+	global String courseOfferingParticipantId;
 	global String durationUnit;
+	global Boolean isAlternativeGradeRelated;
 	global Boolean isRepeatAttempt;
+	global List<ConnectApi.LearningEquivalency> learningEquivalencies;
 	global String learningId;
 	global String letterGrade;
 	global List<String> mappedStatusDefinition;

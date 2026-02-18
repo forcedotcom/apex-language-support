@@ -9,6 +9,7 @@ global class OrderItemSummaryLookupOutput {
 	global List<ConnectApi.ProcessExceptionOutput> processExceptions;
 	global ConnectApi.OrderSummaryProductLookupOutput product;
 	global ConnectApi.ProductSellingModel productSellingModel;
+	global String type;
 	global OrderItemSummaryLookupOutput() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

@@ -3,7 +3,9 @@ global class PersnlDecisionContextInputRepresentation {
 	global String anchorType;
 	global String correlationId;
 	global String dataSpace;
+	global List<ConnectApi.PersnlRecommenderDynamicContextVariableInputRepresentation> dynamicContextVariables;
 	global String individualId;
+	global ConnectApi.PersnlIntentContextInputRepresentation intentContext;
 	global String unifiedIndividualId;
 	global PersnlDecisionContextInputRepresentation() { }
 	global Object clone() { }

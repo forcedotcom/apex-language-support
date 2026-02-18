@@ -1,12 +1,12 @@
 global class ContactPointConfig {
-	global ConnectApi.ActivationContactPointsFieldConfig activationContactPointFieldConfig;
-	global ConnectApi.ActivationContactPointsSourceConfig activationContactPointSourcesConfig;
-	global ConnectApi.ContactPointFilterExpression contactPointFilterExpression;
+	global String contactPointEntityId;
+	global String contactPointEntityName;
 	global String contactPointPath;
-	global ConnectApi.ContactPointType contactPointType;
-	global String entityId;
-	global String entityName;
-	global ConnectApi.QueryPathConfigList queryPathConfigList;
+	global ConnectApi.ActivationContactPointsFieldConfig fieldConfig;
+	global ConnectApi.ContactPointFilterExpression filterExpression;
+	global ConnectApi.QueryPathConfigList queryPathConfig;
+	global ConnectApi.ActivationContactPointsSourceConfig sourceConfig;
+	global ConnectApi.ContactPointType type;
 	global ContactPointConfig() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

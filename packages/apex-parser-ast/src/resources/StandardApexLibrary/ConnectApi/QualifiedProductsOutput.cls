@@ -1,7 +1,8 @@
 global class QualifiedProductsOutput {
+	global Boolean hasMoreRecords;
 	global Boolean isSuccess;
 	global String message;
-	global Map<String,List<String>> qualifiedAccountProductIds;
+	global List<ConnectApi.QualifiedAccountProducts> qualifiedAccountProductIds;
 	global List<String> qualifiedProductIds;
 	global QualifiedProductsOutput() { }
 	global Object clone() { }

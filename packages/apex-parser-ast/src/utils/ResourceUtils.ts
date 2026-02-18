@@ -47,7 +47,7 @@ export interface SalesforceVersionInfo {
 /**
  * Default Salesforce version to use if version file cannot be loaded
  */
-export const DEFAULT_SALESFORCE_VERSION = 258;
+export const DEFAULT_SALESFORCE_VERSION = 260;
 
 /**
  * Convert an apexlib URI to a URL for browser environments
