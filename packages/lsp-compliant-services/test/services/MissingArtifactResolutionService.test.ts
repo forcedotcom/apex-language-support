@@ -91,7 +91,7 @@ describe('MissingArtifactResolutionService', () => {
   describe('Service Parameters', () => {
     it('should accept valid FindMissingArtifactParams', () => {
       const params: FindMissingArtifactParams = {
-        identifier: 'TestClass',
+        identifiers: [{ name: 'TestClass' }],
         origin: {
           uri: 'file:///test.cls',
           position: { line: 10, character: 5 },
@@ -103,14 +103,14 @@ describe('MissingArtifactResolutionService', () => {
         correlationId: 'test-123',
       };
 
-      expect(params.identifier).toBe('TestClass');
+      expect(params.identifiers[0].name).toBe('TestClass');
       expect(params.mode).toBe('blocking');
       expect(params.origin.requestKind).toBe('definition');
     });
 
     it('should accept background mode parameters', () => {
       const params: FindMissingArtifactParams = {
-        identifier: 'TestTrigger',
+        identifiers: [{ name: 'TestTrigger' }],
         origin: {
           uri: 'file:///test.trigger',
           requestKind: 'hover',

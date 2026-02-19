@@ -48,39 +48,30 @@ export class MissingArtifactHandler {
   public async handleFindMissingArtifact(
     params: FindMissingArtifactParams,
   ): Promise<FindMissingArtifactResult> {
+    const names = params.identifiers.map((s) => s.name).join(', ');
     this.logger.debug(
-      () =>
-        `Processing apex/findMissingArtifact request for: ${params.identifier}`,
+      () => `Processing apex/findMissingArtifact request for: ${names}`,
     );
 
     try {
-      // For blocking mode, use immediate processing via queue with HIGH priority
       if (params.mode === 'blocking') {
-        this.logger.debug(
-          () => `Processing blocking resolution for: ${params.identifier}`,
-        );
+        this.logger.debug(() => `Processing blocking resolution for: ${names}`);
         return await this.processBlockingRequest(params);
       }
 
-      // For background mode, queue the request for background processing
       if (params.mode === 'background') {
-        this.logger.debug(
-          () => `Queueing background resolution for: ${params.identifier}`,
-        );
+        this.logger.debug(() => `Queueing background resolution for: ${names}`);
         return await this.processBackgroundRequest(params);
       }
 
-      this.logger.warn(
-        () => `Unknown mode '${params.mode}' for: ${params.identifier}`,
-      );
+      this.logger.warn(() => `Unknown mode '${params.mode}' for: ${names}`);
       return { notFound: true };
     } catch (error) {
       this.logger.error(
         () =>
-          `Error processing apex/findMissingArtifact for ${params.identifier}: ${error}`,
+          `Error processing apex/findMissingArtifact for ${names}: ${error}`,
       );
 
-      // Return not found on error
       return { notFound: true };
     }
   }
@@ -94,9 +85,10 @@ export class MissingArtifactHandler {
   ): Promise<FindMissingArtifactResult> {
     try {
       // If we have a connection, send the request directly to the client
+      const names = params.identifiers.map((s) => s.name).join(', ');
       if (this.connection) {
         this.logger.debug(
-          () => `Sending blocking request to client for: ${params.identifier}`,
+          () => `Sending blocking request to client for: ${names}`,
         );
 
         const result =
@@ -105,17 +97,13 @@ export class MissingArtifactHandler {
             params,
           );
 
-        this.logger.debug(
-          () => `Client response received for: ${params.identifier}`,
-        );
+        this.logger.debug(() => `Client response received for: ${names}`);
 
         return result;
       }
 
-      // Fallback to queue-based processing if no connection
       this.logger.debug(
-        () =>
-          `No connection available, using queue fallback for: ${params.identifier}`,
+        () => `No connection available, using queue fallback for: ${names}`,
       );
 
       const result = await this.queueManager.submitRequest(
@@ -123,19 +111,19 @@ export class MissingArtifactHandler {
         params,
         {
           priority: Priority.High,
-          timeout: params.timeoutMsHint || 2000, // Use client hint or default
+          timeout: params.timeoutMsHint || 2000,
         },
       );
 
       this.logger.debug(
-        () =>
-          `Queue-based blocking resolution completed for: ${params.identifier}`,
+        () => `Queue-based blocking resolution completed for: ${names}`,
       );
 
       return this.mapBlockingResultToResponse(result as BlockingResult, params);
     } catch (error) {
+      const names = params.identifiers.map((s) => s.name).join(', ');
       this.logger.error(
-        () => `Blocking resolution failed for ${params.identifier}: ${error}`,
+        () => `Blocking resolution failed for ${names}: ${error}`,
       );
 
       // Fallback to direct processing if both connection and queue fail
@@ -149,23 +137,18 @@ export class MissingArtifactHandler {
   private async processBackgroundRequest(
     params: FindMissingArtifactParams,
   ): Promise<FindMissingArtifactResult> {
+    const names = params.identifiers.map((s) => s.name).join(', ');
     try {
-      // Queue the request for background processing
       await this.queueManager.submitRequest('findMissingArtifact', params, {
         priority: Priority.Low,
-        timeout: 30000, // Longer timeout for background processing
+        timeout: 30000,
       });
+      this.logger.debug(() => `Background resolution queued for: ${names}`);
 
-      this.logger.debug(
-        () => `Background resolution queued for: ${params.identifier}`,
-      );
-
-      // Return accepted immediately for background requests
       return { accepted: true };
     } catch (error) {
       this.logger.error(
-        () =>
-          `Failed to queue background resolution for ${params.identifier}: ${error}`,
+        () => `Failed to queue background resolution for ${names}: ${error}`,
       );
 
       // Return not found if queueing fails
@@ -179,12 +162,9 @@ export class MissingArtifactHandler {
   private async fallbackBlockingProcessing(
     params: FindMissingArtifactParams,
   ): Promise<FindMissingArtifactResult> {
-    this.logger.warn(
-      () => `Using fallback processing for: ${params.identifier}`,
-    );
+    const names = params.identifiers.map((s) => s.name).join(', ');
+    this.logger.warn(() => `Using fallback processing for: ${names}`);
 
-    // Simple fallback - just return not found
-    // In a real implementation, this might try other resolution strategies
     return { notFound: true };
   }
 
@@ -195,31 +175,25 @@ export class MissingArtifactHandler {
     result: BlockingResult,
     params: FindMissingArtifactParams,
   ): FindMissingArtifactResult {
+    const names = params.identifiers.map((s) => s.name).join(', ');
     switch (result) {
       case 'resolved':
-        // Return a placeholder response - in practice this would come from the client
-        return { opened: [`${params.identifier}.cls`] };
+        return {
+          opened: params.identifiers.map((s) => `${s.name}.cls`),
+        };
       case 'not-found':
         return { notFound: true };
       case 'timeout':
-        this.logger.warn(
-          () => `Resolution timed out for: ${params.identifier}`,
-        );
+        this.logger.warn(() => `Resolution timed out for: ${names}`);
         return { notFound: true };
       case 'cancelled':
-        this.logger.debug(
-          () => `Resolution cancelled for: ${params.identifier}`,
-        );
+        this.logger.debug(() => `Resolution cancelled for: ${names}`);
         return { notFound: true };
       case 'unsupported':
-        this.logger.debug(
-          () => `Resolution not supported for: ${params.identifier}`,
-        );
+        this.logger.debug(() => `Resolution not supported for: ${names}`);
         return { notFound: true };
       default:
-        this.logger.warn(
-          () => `Unknown result type '${result}' for: ${params.identifier}`,
-        );
+        this.logger.warn(() => `Unknown result type '${result}' for: ${names}`);
         return { notFound: true };
     }
   }

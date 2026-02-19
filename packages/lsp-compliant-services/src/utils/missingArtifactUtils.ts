@@ -108,10 +108,19 @@ export class MissingArtifactUtils {
       );
 
       // Send background resolution request
+      const identifierName = reference.qualifier
+        ? `${reference.qualifier}.${reference.name}`
+        : reference.name;
       service.resolveInBackground({
-        identifier: reference.qualifier
-          ? `${reference.qualifier}.${reference.name}`
-          : reference.name,
+        identifiers: [
+          {
+            name: identifierName,
+            typeReference: reference,
+            ...(parentContext && { parentContext }),
+            ...(searchHints?.length && { searchHints }),
+            ...(resolvedQualifier && { resolvedQualifier }),
+          },
+        ],
         origin: {
           uri,
           position,
@@ -119,10 +128,6 @@ export class MissingArtifactUtils {
         },
         mode: 'background' as const,
         maxCandidatesToOpen: 2,
-        typeReference: reference,
-        ...(parentContext && { parentContext }),
-        searchHints,
-        ...(resolvedQualifier && { resolvedQualifier }),
       });
 
       this.logger.debug(
@@ -175,10 +180,19 @@ export class MissingArtifactUtils {
       );
 
       // Send blocking resolution request
+      const identifierName = reference.qualifier
+        ? `${reference.qualifier}.${reference.name}`
+        : reference.name;
       const result = await service.resolveBlocking({
-        identifier: reference.qualifier
-          ? `${reference.qualifier}.${reference.name}`
-          : reference.name,
+        identifiers: [
+          {
+            name: identifierName,
+            typeReference: reference,
+            ...(parentContext && { parentContext }),
+            ...(searchHints?.length && { searchHints }),
+            ...(resolvedQualifier && { resolvedQualifier }),
+          },
+        ],
         origin: {
           uri,
           position,
@@ -186,10 +200,6 @@ export class MissingArtifactUtils {
         },
         mode: 'blocking' as const,
         maxCandidatesToOpen: 3,
-        typeReference: reference,
-        ...(parentContext && { parentContext }),
-        searchHints,
-        ...(resolvedQualifier && { resolvedQualifier }),
       });
 
       this.logger.debug(

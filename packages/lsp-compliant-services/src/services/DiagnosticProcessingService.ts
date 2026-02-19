@@ -1042,41 +1042,54 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           `Validator requesting to load ${typesToLoad.length} missing types: ${typesToLoad.join(', ')}`,
       );
 
-      const loadedTypeNames: string[] = [];
+      let loadedTypeNames: string[] = [];
 
-      // Try to load each type using the artifact resolution service
-      for (const typeName of typesToLoad) {
-        try {
-          const result = await this.artifactResolutionService.resolveBlocking({
-            identifier: typeName,
-            origin: {
-              uri: contextFile,
-              requestKind: 'references', // Validation needs type references
-            },
-            mode: 'background', // Use background mode for diagnostics - load files without opening in editor
-            // Use shorter timeout for validator-triggered loads
-            timeoutMsHint: 2000,
-          });
+      try {
+        const result = await this.artifactResolutionService.resolveBlocking({
+          identifiers: typesToLoad.map((name) => ({ name })),
+          origin: {
+            uri: contextFile,
+            requestKind: 'references',
+          },
+          mode: 'background',
+          timeoutMsHint: 2000,
+        });
 
-          if (result === 'resolved') {
-            // Type was successfully loaded
-            // The resolution service will have already added symbols to the manager
-            this.logger.debug(
-              () => `Successfully loaded artifact for type: ${typeName}`,
-            );
-            // Note: We don't have the exact file URI from resolveBlocking,
-            // but the type should now be available in symbolManager
-            loadedTypeNames.push(typeName);
-          } else {
-            this.logger.debug(
-              () => `Failed to load artifact for type '${typeName}': ${result}`,
-            );
+        if (result === 'resolved') {
+          // Wait for opened files to be indexed (didOpen processing is async)
+          const settings = ApexSettingsManager.getInstance().getSettings();
+          const pollMs =
+            settings.apex.findMissingArtifact?.indexingBarrierPollMs ?? 100;
+          const maxWaitMs = 500;
+          const start = Date.now();
+          while (Date.now() - start < maxWaitMs) {
+            const allIndexed = typesToLoad.every((name) => {
+              const symbols = this.symbolManager.findSymbolByName(name);
+              return symbols.length > 0;
+            });
+            if (allIndexed) break;
+            await new Promise((r) => setTimeout(r, pollMs));
           }
-        } catch (error) {
+          // Check which types are now in the symbol manager
+          loadedTypeNames = typesToLoad.filter((name) => {
+            const symbols = this.symbolManager.findSymbolByName(name);
+            return symbols.length > 0;
+          });
           this.logger.debug(
-            () => `Error loading artifact for type '${typeName}': ${error}`,
+            () =>
+              `Successfully loaded ${loadedTypeNames.length} artifacts for types: ${loadedTypeNames.join(', ')}`,
+          );
+        } else {
+          this.logger.debug(
+            () =>
+              `Failed to load artifacts for types [${typesToLoad.join(', ')}]: ${result}`,
           );
         }
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error loading artifacts for types [${typesToLoad.join(', ')}]: ${error}`,
+        );
       }
 
       this.logger.debug(

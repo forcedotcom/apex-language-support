@@ -169,8 +169,28 @@ export interface TypeReference {
   readonly access?: 'read' | 'write' | 'readwrite';
 }
 
+/** Per-identifier hints for find missing artifact resolution */
+export interface IdentifierSpec {
+  readonly name: string;
+  readonly typeReference?: TypeReference;
+  readonly searchHints?: SearchHint[];
+  readonly resolvedQualifier?: {
+    readonly type: 'class' | 'interface' | 'enum' | 'variable' | 'unknown';
+    readonly name: string;
+    readonly namespace?: string;
+    readonly isStatic: boolean;
+    readonly filePath?: string;
+  };
+  readonly parentContext?: {
+    readonly containingType?: any;
+    readonly ancestorChain?: any[];
+    readonly parentSymbol?: any;
+    readonly contextualHierarchy?: string;
+  };
+}
+
 export interface FindMissingArtifactParams {
-  readonly identifier: string;
+  readonly identifiers: IdentifierSpec[];
   readonly origin: {
     readonly uri: string;
     readonly position?: { line: number; character: number };
@@ -182,25 +202,6 @@ export interface FindMissingArtifactParams {
   readonly timeoutMsHint?: number;
   readonly workDoneToken?: unknown;
   readonly correlationId?: string;
-  // Simply pass the TypeReference object directly - much cleaner!
-  readonly typeReference?: TypeReference;
-  // Enhanced parent context - full parent symbol data when available
-  readonly parentContext?: {
-    readonly containingType?: any; // ApexSymbol of immediate containing type (class/interface/enum)
-    readonly ancestorChain?: any[]; // Array of ApexSymbol ancestors from top-level to closest parent
-    readonly parentSymbol?: any; // Direct parent ApexSymbol if available
-    readonly contextualHierarchy?: string; // Human-readable hierarchy like "MyClass.MyMethod.localVar"
-  };
-  // New: Pre-resolved search hints from LSP services
-  readonly searchHints?: SearchHint[];
-  // New: Resolved qualifier information
-  readonly resolvedQualifier?: {
-    readonly type: 'class' | 'interface' | 'enum' | 'variable' | 'unknown';
-    readonly name: string;
-    readonly namespace?: string;
-    readonly isStatic: boolean;
-    readonly filePath?: string; // If already known
-  };
 }
 
 export type FindMissingArtifactResult =
