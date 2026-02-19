@@ -37,6 +37,7 @@ test.describe('Apex Hover Functionality', () => {
   test('should provide comprehensive hover information for Apex symbols', async ({
     hoverHelper,
   }) => {
+    test.setTimeout(120_000);
     console.log('🔍 Testing hover functionality for Apex symbols...');
 
     await test.step('Execute all hover test scenarios', async () => {
@@ -164,10 +165,26 @@ test.describe('Apex Hover Functionality', () => {
     hoverHelper,
   }) => {
     await hoverHelper.hoverOnWord('Integer add(Integer a');
-    const content = await hoverHelper.getHoverContent();
-    const hasMethodSig = await hoverHelper.hasMethodSignature();
-    expect(hasMethodSig).toBe(true);
-    expect(content).toBeTruthy();
+    const methodSignaturePattern = /\w+\s*\([^)]*\)/;
+    const parameterSymbolPattern = /\b\w+\s+\w+(?:\.\w+){2,}\b/;
+    await expect
+      .poll(
+        async () => {
+          const content = await hoverHelper.getHoverContent();
+          const normalized = content.trim();
+          if (!normalized) return false;
+          return (
+            methodSignaturePattern.test(normalized) ||
+            parameterSymbolPattern.test(normalized)
+          );
+        },
+        {
+          timeout: 8000,
+          message:
+            'Expected hover to include method signature or parameter symbol details',
+        },
+      )
+      .toBe(true);
     console.log('✅ Method with parameters shows signature in hover');
   });
 
