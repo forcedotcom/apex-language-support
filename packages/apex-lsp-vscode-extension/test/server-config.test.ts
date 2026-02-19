@@ -163,9 +163,11 @@ describe('Server Config Module', () => {
     });
 
     // Create mock context
+    // extensionPath required for apex-ls path resolution (e.g. E2E loads from dist/)
     mockContext = {
       subscriptions: [],
-      asAbsolutePath: jest.fn((path: string) => `/mock/path/${path}`),
+      extensionPath: '/mock/path',
+      asAbsolutePath: jest.fn((p: string) => `/mock/path/${p}`),
       extensionMode: vscode.ExtensionMode.Development,
       extension: {
         packageJSON: {
@@ -202,15 +204,13 @@ describe('Server Config Module', () => {
     it('should create server options with correct module path', () => {
       const serverOptions = createServerOptions(mockContext, 'development');
 
-      expect(mockContext.asAbsolutePath).toHaveBeenCalledWith(
-        '../apex-ls/out/node/server.node.js',
-      );
+      // Dev mode uses path.join(extensionPath, '..', 'apex-ls') - not asAbsolutePath
       expect(getRunModule(serverOptions)).toBe(
-        '/mock/path/../apex-ls/out/node/server.node.js',
+        '/mock/apex-ls/out/node/server.node.js',
       );
       expect(getRunTransport(serverOptions)).toBe('ipc');
       expect(getDebugModule(serverOptions)).toBe(
-        '/mock/path/../apex-ls/out/node/server.node.js',
+        '/mock/apex-ls/out/node/server.node.js',
       );
       expect(getDebugTransport(serverOptions)).toBe('ipc');
     });
@@ -225,14 +225,11 @@ describe('Server Config Module', () => {
 
         const serverOptions = createServerOptions(mockContext, 'development');
 
-        expect(mockContext.asAbsolutePath).toHaveBeenCalledWith(
-          '../apex-ls/dist/server.node.js',
-        );
         expect(getRunModule(serverOptions)).toBe(
-          '/mock/path/../apex-ls/dist/server.node.js',
+          '/mock/apex-ls/dist/server.node.js',
         );
         expect(getDebugModule(serverOptions)).toBe(
-          '/mock/path/../apex-ls/dist/server.node.js',
+          '/mock/apex-ls/dist/server.node.js',
         );
       } finally {
         // Restore original environment

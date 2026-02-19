@@ -8,6 +8,10 @@
 
 import { defineConfig } from '@playwright/test';
 
+// Ensure fixtures use desktop (Electron) path when this config is loaded.
+// Required when running from Playwright extension (gutter icons) which does not set env.
+process.env.VSCODE_DESKTOP = '1';
+
 type DesktopConfigOptions = {
   /** Test directory relative to e2e-tests root (default: './tests') */
   testDir?: string;

@@ -8,6 +8,7 @@
 
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+import { getModifierShortcut } from '../shared/utils/helpers';
 import { OUTLINE_SELECTORS, type ExpectedApexSymbols } from './constants';
 
 /**
@@ -85,7 +86,7 @@ export const findAndActivateOutlineView = async (page: Page): Promise<void> => {
 const activateOutlineViaCommandPalette = async (page: Page): Promise<void> => {
   try {
     // Open command palette
-    await page.keyboard.press('Control+Shift+P');
+    await page.keyboard.press(getModifierShortcut('Shift+P'));
     await page.waitForSelector('.quick-input-widget', { timeout: 3000 });
 
     // Type command to show outline

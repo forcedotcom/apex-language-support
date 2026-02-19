@@ -392,19 +392,23 @@ function runCI(specFiles) {
     process.stdout.write(
       `\nRunning: npx playwright test tests/${specFile}\n`,
     );
-    const runResult = spawnSync(
-      'npx',
-      ['playwright', 'test', `tests/${specFile}`],
-      {
-        cwd: e2eRoot,
-        stdio: 'inherit',
-        shell: process.platform === 'win32',
-        env: {
-          ...process.env,
-          CI: process.env.CI ?? '1',
-        },
+    const testMode = process.env.TEST_MODE || 'web';
+    const configArg =
+      testMode === 'web'
+        ? ['test', '--config=playwright.config.web.ts', `tests/${specFile}`]
+        : ['test', `tests/${specFile}`];
+
+    const runResult = spawnSync('npx', ['playwright', ...configArg], {
+      cwd: e2eRoot,
+      stdio: 'inherit',
+      shell: process.platform === 'win32',
+      env: {
+        ...process.env,
+        CI: process.env.CI ?? '1',
+        TEST_MODE: testMode,
+        ...(testMode === 'desktop' ? { VSCODE_DESKTOP: '1' } : {}),
       },
-    );
+    });
 
     moveRunArtifacts(specFile);
 
@@ -429,13 +433,20 @@ function runLocal() {
 
   process.stdout.write('\nRunning all e2e tests...\n');
 
-  const runResult = spawnSync('npx', ['playwright', 'test'], {
+  const testMode = process.env.TEST_MODE || 'web';
+  const configArg =
+    testMode === 'web'
+      ? ['test', '--config=playwright.config.web.ts']
+      : ['test'];
+
+  const runResult = spawnSync('npx', ['playwright', ...configArg], {
     cwd: e2eRoot,
     stdio: 'inherit',
     shell: process.platform === 'win32',
     env: {
       ...process.env,
-      TEST_MODE: process.env.TEST_MODE || 'web',
+      TEST_MODE: testMode,
+      ...(testMode === 'desktop' ? { VSCODE_DESKTOP: '1' } : {}),
     },
   });
 

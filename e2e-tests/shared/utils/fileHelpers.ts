@@ -8,7 +8,11 @@
 
 import { expect, type Page } from '@playwright/test';
 import { executeCommandWithCommandPalette } from '../pages/commands';
-import { isDesktop } from './helpers';
+import {
+  getGoToStartShortcut,
+  getModifierShortcut,
+  isDesktop,
+} from './helpers';
 import {
   DIRTY_EDITOR,
   EDITOR_WITH_URI,
@@ -57,11 +61,11 @@ export const openFileByName = async (
     const input = widget.locator('input.input');
     await expect(input).toBeVisible({ timeout: 5000 });
     await input.click({ timeout: 5000 });
-    await page.keyboard.press('Control+a');
+    await page.keyboard.press(getModifierShortcut('a'));
     await page.keyboard.press('Delete');
   } else {
     await page.locator(WORKBENCH).click();
-    await page.keyboard.press('Control+p');
+    await page.keyboard.press(getModifierShortcut('p'));
     await widget.waitFor({ state: 'visible', timeout: 10_000 });
     const input = widget.locator('input.input');
     await expect(input).toBeVisible({ timeout: 5000 });
@@ -143,7 +147,7 @@ export const editAndSaveOpenFile = async (
   });
 
   await editor.click();
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press(getGoToStartShortcut());
   await page.keyboard.press('End');
   await page.keyboard.press('Enter');
   await page.keyboard.type(`// ${comment}`);

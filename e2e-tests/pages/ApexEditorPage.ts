@@ -8,6 +8,11 @@
 
 import { Page, Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
+import {
+  findInPage,
+  getModifierShortcut,
+  goToLineInEditor,
+} from '../shared/utils/helpers';
 import { waitForLSPInitialization } from '../utils/vscode-interaction';
 import { SELECTORS } from '../utils/constants';
 
@@ -83,13 +88,7 @@ export class ApexEditorPage extends BasePage {
    */
   async goToPosition(line: number, column?: number): Promise<void> {
     const position = column ? `${line}:${column}` : line.toString();
-
-    await this.page.keyboard.press('Control+G');
-    const widget = this.page.locator('.quick-input-widget');
-    await widget.waitFor({ state: 'visible', timeout: 5000 });
-    await this.page.keyboard.type(position);
-    await this.page.keyboard.press('Enter');
-    await widget.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    await goToLineInEditor(this.page, position);
   }
 
   /**
@@ -254,7 +253,7 @@ export class ApexEditorPage extends BasePage {
    * Select all text in the editor.
    */
   async selectAll(): Promise<void> {
-    await this.page.keyboard.press('Control+A');
+    await this.page.keyboard.press(getModifierShortcut('A'));
   }
 
   /**
@@ -262,13 +261,7 @@ export class ApexEditorPage extends BasePage {
    * @param searchText - The text to search for
    */
   async findText(searchText: string): Promise<void> {
-    await this.page.keyboard.press('Control+F');
-    const findWidget = this.page.getByRole('dialog', {
-      name: 'Find / Replace',
-    });
-    await findWidget.waitFor({ state: 'visible', timeout: 5000 });
-    await this.page.keyboard.type(searchText);
-    await this.page.keyboard.press('Escape');
+    await findInPage(this.page, searchText);
   }
 
   /**
@@ -276,17 +269,7 @@ export class ApexEditorPage extends BasePage {
    * @param searchText - The text to search for and position cursor on
    */
   async positionCursorOnWord(searchText: string): Promise<void> {
-    await this.page.keyboard.press('Control+F');
-    const findWidget = this.page.getByRole('dialog', {
-      name: 'Find / Replace',
-    });
-    await findWidget.waitFor({ state: 'visible', timeout: 5000 });
-    await this.page.keyboard.type(searchText);
-    await this.page.keyboard.press('Enter');
-    await this.page.keyboard.press('Escape');
-    await findWidget
-      .waitFor({ state: 'hidden', timeout: 2000 })
-      .catch(() => {});
+    await findInPage(this.page, searchText);
   }
 
   /**
@@ -294,8 +277,8 @@ export class ApexEditorPage extends BasePage {
    * @returns The word under the cursor, or empty string
    */
   async getWordAtCursor(): Promise<string> {
-    await this.page.keyboard.press('Control+D');
-    await this.page.keyboard.press('Control+C');
+    await this.page.keyboard.press(getModifierShortcut('D'));
+    await this.page.keyboard.press(getModifierShortcut('C'));
     return '';
   }
 

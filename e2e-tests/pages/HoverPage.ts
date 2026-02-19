@@ -8,6 +8,7 @@
 
 import { Page, Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
+import { getModifierShortcut, goToLineInEditor } from '../shared/utils/helpers';
 import {
   positionCursorOnWord,
   triggerHover,
@@ -52,17 +53,13 @@ export class HoverPage extends BasePage {
   async hoverAt(line: number, column: number): Promise<void> {
     const waitMultiplier = this.isDesktopMode ? 2 : 1;
 
-    // Navigate to position
-    await this.page.keyboard.press('Control+G');
-    await this.page.waitForTimeout(300 * waitMultiplier);
-    await this.page.keyboard.type(`${line}:${column}`);
-    await this.page.keyboard.press('Enter');
+    await goToLineInEditor(this.page, `${line}:${column}`);
     await this.page.waitForTimeout(500 * waitMultiplier);
 
     // Trigger hover using keyboard shortcut (chord: Ctrl+K then Ctrl+I)
-    await this.page.keyboard.press('Control+K');
+    await this.page.keyboard.press(getModifierShortcut('K'));
     await this.page.waitForTimeout(100 * waitMultiplier);
-    await this.page.keyboard.press('Control+I');
+    await this.page.keyboard.press(getModifierShortcut('I'));
     await this.page.waitForTimeout(1000 * waitMultiplier); // Wait for hover to appear
   }
 
@@ -83,27 +80,12 @@ export class HoverPage extends BasePage {
    */
   async waitForHover(timeout?: number): Promise<void> {
     const effectiveTimeout = timeout || this.defaultTimeout;
-    const selectors = [
-      '[role="tooltip"]',
-      '.monaco-hover',
-      '.monaco-editor .hover-row',
-      '.hover-row',
-      '.monaco-hover-content',
-    ];
-    for (const selector of selectors) {
-      try {
-        await this.page.locator(selector).first().waitFor({
-          state: 'visible',
-          timeout: effectiveTimeout,
-        });
-        return;
-      } catch {
-        continue;
-      }
-    }
-    throw new Error(
-      `Hover widget did not appear within ${effectiveTimeout}ms. Tried: ${selectors.join(', ')}`,
-    );
+    const combinedSelector =
+      '[role="tooltip"], .monaco-hover, .monaco-editor .hover-row, .hover-row, .monaco-hover-content';
+    await this.page.locator(combinedSelector).first().waitFor({
+      state: 'visible',
+      timeout: effectiveTimeout,
+    });
   }
 
   /**
