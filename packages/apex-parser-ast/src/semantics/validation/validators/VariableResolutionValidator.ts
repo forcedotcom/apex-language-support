@@ -627,6 +627,15 @@ export const VariableResolutionValidator: Validator = {
         );
 
         if (!field) {
+          // May be a method (e.g. EncodingUtil.base64Decode) - skip, MethodResolutionValidator handles it
+          const method = yield* findMethodInClassHierarchy(
+            symbolManager,
+            targetType,
+            fieldName,
+            allSymbols,
+          );
+          if (method) continue;
+
           // Field not found
           const typeName =
             targetType?.name || containingClass?.name || 'unknown';
@@ -712,8 +721,62 @@ export const VariableResolutionValidator: Validator = {
           }
         }
 
+        // Fallback: resolve from first node (variable) when chain resolution failed
+        let suppressDueToUnresolvedDeclaredType = false;
+        if (!targetType) {
+          for (const chainedRef of chainedTypeRefs) {
+            if (
+              chainedRef.chainNodes &&
+              chainedRef.chainNodes.length >= 2 &&
+              chainedRef.chainNodes[chainedRef.chainNodes.length - 1].name ===
+                fieldName
+            ) {
+              const baseNode = chainedRef.chainNodes[0];
+              const objectVariable = findVariableInScope(
+                baseNode.name,
+                fieldRef.parentContext,
+                allSymbols,
+                symbolTable,
+              );
+              if (objectVariable?.type?.name) {
+                const varTypeName = objectVariable.type.name;
+                let typeSymbols = symbolManager.findSymbolByName(varTypeName);
+                if (
+                  typeSymbols.length === 0 &&
+                  varTypeName.includes('.') &&
+                  symbolManager.findSymbolByFQN
+                ) {
+                  const fqn = symbolManager.findSymbolByFQN(varTypeName);
+                  if (fqn) typeSymbols = [fqn];
+                }
+                if (typeSymbols.length === 0 && varTypeName.includes('.')) {
+                  const lastPart = varTypeName.split('.').pop();
+                  if (lastPart)
+                    typeSymbols = symbolManager.findSymbolByName(lastPart);
+                }
+                const resolvedTargetType =
+                  (typeSymbols.find(
+                    (s: ApexSymbol) =>
+                      s.kind === SymbolKind.Class ||
+                      s.kind === SymbolKind.Interface,
+                  ) as TypeSymbol | undefined) ?? null;
+                if (resolvedTargetType) {
+                  targetType = resolvedTargetType;
+                } else {
+                  // Type not in symbol manager (e.g. ContentVersion) - suppress false positive
+                  suppressDueToUnresolvedDeclaredType = true;
+                }
+                break;
+              }
+            }
+          }
+        }
+
         // If we couldn't resolve object type, fall back to current class hierarchy
         if (!targetType) {
+          if (suppressDueToUnresolvedDeclaredType) {
+            continue;
+          }
           targetType = containingClass;
         }
 
@@ -726,6 +789,15 @@ export const VariableResolutionValidator: Validator = {
         );
 
         if (!field) {
+          // May be a method (e.g. EncodingUtil.base64Decode) - skip, MethodResolutionValidator handles it
+          const method = yield* findMethodInClassHierarchy(
+            symbolManager,
+            targetType,
+            fieldName,
+            allSymbols,
+          );
+          if (method) continue;
+
           // Field not found (write access path)
           const typeName =
             targetType?.name || containingClass?.name || 'unknown';
@@ -806,6 +878,26 @@ function resolveChainTargetType(
       }
       if (typeSymbols.length === 0 && typeName.includes('.')) {
         const lastPart = typeName.split('.').pop();
+        if (lastPart) typeSymbols = symbolManager.findSymbolByName(lastPart);
+      }
+      currentType =
+        (typeSymbols.find(
+          (s: ApexSymbol) =>
+            s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+        ) as TypeSymbol | undefined) ?? null;
+    }
+    // When first node is a class name (e.g. EncodingUtil), resolve via symbol manager
+    if (!currentType && !firstVar) {
+      let typeSymbols = symbolManager.findSymbolByName(firstNode.name);
+      if (typeSymbols.length === 0 && symbolManager.findSymbolByFQN) {
+        const fqn = firstNode.name.includes('.')
+          ? firstNode.name
+          : `System.${firstNode.name}`;
+        const fqnSymbol = symbolManager.findSymbolByFQN(fqn);
+        if (fqnSymbol) typeSymbols = [fqnSymbol];
+      }
+      if (typeSymbols.length === 0 && firstNode.name.includes('.')) {
+        const lastPart = firstNode.name.split('.').pop();
         if (lastPart) typeSymbols = symbolManager.findSymbolByName(lastPart);
       }
       currentType =

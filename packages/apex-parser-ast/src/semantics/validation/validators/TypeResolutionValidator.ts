@@ -55,6 +55,7 @@ const KNOWN_BUILTIN_TYPES = new Set([
  * in StandardApexLibrary or symbol manager. Suppress INVALID_UNRESOLVED_TYPE for these.
  */
 const KNOWN_STANDARD_TYPES = new Set([
+  'aurahandledexception',
   'contentversion',
   'contentdocument',
   'contentdocumentlink',
