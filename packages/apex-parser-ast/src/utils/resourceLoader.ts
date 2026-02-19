@@ -870,10 +870,6 @@ export class ResourceLoader {
    */
   private getSymbolTableFromCache(className: string): SymbolTable | null {
     if (!this.standardLibrarySymbolData) {
-      this.logger.debug(
-        () =>
-          '[DIAGNOSTIC] getSymbolTableFromCache: no standardLibrarySymbolData',
-      );
       return null;
     }
 
@@ -886,72 +882,32 @@ export class ResourceLoader {
     let searchUri: string | null = null;
     const normalizedClassName = className.replace(/\.cls$/i, '');
 
-    this.logger.debug(
-      () =>
-        `[DIAGNOSTIC] getSymbolTableFromCache: className="${className}", ` +
-        `normalizedClassName="${normalizedClassName}"`,
-    );
-
     // Check if it includes a namespace
     const pathParts = normalizedClassName.split(/[\/\\]/);
     if (pathParts.length >= 2) {
       const namespace = pathParts[0];
       const classNameOnly = pathParts[pathParts.length - 1];
       searchUri = `apexlib://resources/StandardApexLibrary/${namespace}/${classNameOnly}.cls`;
-      this.logger.debug(
-        () =>
-          `[DIAGNOSTIC] Path has namespace: '${namespace}', ` +
-          `className: '${classNameOnly}', searchUri: '${searchUri}'`,
-      );
     } else {
       // Try to find by class name only - check all namespaces
-      const tableCount = this.standardLibrarySymbolData!.symbolTables.size;
-      this.logger.debug(
-        () =>
-          '[DIAGNOSTIC] No namespace in path, searching by class name ' +
-          `only in ${tableCount} symbol tables`,
-      );
       for (const [uri, _symbolTable] of this.standardLibrarySymbolData
         .symbolTables) {
         if (uri.endsWith(`/${normalizedClassName}`)) {
           searchUri = uri;
-          this.logger.debug(
-            () => `[DIAGNOSTIC] Found matching URI by suffix: '${searchUri}'`,
-          );
           break;
         }
       }
     }
 
     if (!searchUri) {
-      this.logger.debug(
-        () =>
-          `[DIAGNOSTIC] Could not determine searchUri for className="${className}"`,
-      );
       return null;
     }
 
     const symbolTable =
       this.standardLibrarySymbolData!.symbolTables.get(searchUri);
     if (!symbolTable) {
-      // Debug: List some example URIs from the cache to help diagnose
-      const sampleUris = Array.from(
-        this.standardLibrarySymbolData!.symbolTables.keys(),
-      ).slice(0, 10);
-      this.logger.debug(
-        () =>
-          `[DIAGNOSTIC] No symbol table found for searchUri='${searchUri}' in standard library symbol data cache. ` +
-          `Cache has ${this.standardLibrarySymbolData!.symbolTables.size} entries. ` +
-          `Sample URIs: ${sampleUris.join(', ')}`,
-      );
       return null;
     }
-
-    this.logger.debug(
-      () =>
-        '[DIAGNOSTIC] Found symbol table for ' +
-        `searchUri='${searchUri}' in standard library symbol data cache`,
-    );
 
     return symbolTable;
   }
@@ -1139,30 +1095,12 @@ export class ResourceLoader {
    * @returns Promise that resolves to the symbol table or null if not found in cache
    */
   public async getSymbolTable(className: string): Promise<SymbolTable | null> {
-    // DIAGNOSTIC: Check standard library symbol data cache
-    this.logger.debug(
-      () =>
-        `[DIAGNOSTIC] getSymbolTable("${className}") - ` +
-        `standardLibrarySymbolDataLoaded: ${this.standardLibrarySymbolDataLoaded}, ` +
-        `hasData: ${this.standardLibrarySymbolData !== null}`,
-    );
-
     if (
       this.standardLibrarySymbolDataLoaded &&
       this.standardLibrarySymbolData
     ) {
       const symbolTable = this.getSymbolTableFromCache(className);
-      this.logger.debug(
-        () =>
-          `[DIAGNOSTIC] getSymbolTableFromCache("${className}") ` +
-          `returned: ${symbolTable ? 'FOUND' : 'NULL'}`,
-      );
       if (symbolTable) {
-        this.logger.debug(
-          () =>
-            '[DIAGNOSTIC] Returning symbol table from cache ' +
-            `for ${className}`,
-        );
         return symbolTable;
       }
     }

@@ -14,10 +14,17 @@
     "test:quality": "wireit",
     "test:coverage:report": "wireit",
     "test:web": "wireit",
-    "test:e2e": "npm run test --workspace=e2e-tests",
+    "test:e2e": "wireit",
     "test:e2e:debug": "npm run test:debug --workspace=e2e-tests",
     "test:e2e:server": "npm run server --workspace=e2e-tests",
     "test:e2e:visual": "npm run test:visual --workspace=e2e-tests",
+    "test:e2e:web": "npm run test:e2e:web --workspace=e2e-tests",
+    "test:e2e:web:chromium": "npm run test:e2e:web:chromium --workspace=e2e-tests",
+    "test:e2e:desktop": "npm run test:e2e:desktop --workspace=e2e-tests",
+    "test:e2e:desktop:debug": "npm run test:e2e:desktop:debug --workspace=e2e-tests",
+    "test:e2e:desktop:chromium": "npm run test:e2e:desktop:chromium --workspace=e2e-tests",
+    "test:e2e:desktop:webkit": "npm run test:e2e:desktop:webkit --workspace=e2e-tests",
+    "test:e2e:desktop:all-browsers": "npm run test:e2e:desktop:all-browsers --workspace=e2e-tests",
     "lint": "wireit",
     "lint:fix": "wireit",
     "knip": "knip",
@@ -211,6 +218,13 @@
       ],
       "cache": false
     },
+    "test:e2e": {
+      "command": "node scripts/test-e2e.js",
+      "dependencies": [
+        "bundle"
+      ],
+      "cache": false
+    },
     "lint": {
       "dependencies": [
         "compile",
@@ -220,7 +234,8 @@
         "./packages/lsp-compliant-services:lint",
         "./packages/custom-services:lint",
         "./packages/apex-lsp-testbed:lint",
-        "./packages/apex-lsp-vscode-extension:lint"
+        "./packages/apex-lsp-vscode-extension:lint",
+        "./e2e-tests:lint"
       ]
     },
     "lint:fix": {
@@ -232,7 +247,8 @@
         "./packages/lsp-compliant-services:lint:fix",
         "./packages/custom-services:lint:fix",
         "./packages/apex-lsp-testbed:lint:fix",
-        "./packages/apex-lsp-vscode-extension:lint:fix"
+        "./packages/apex-lsp-vscode-extension:lint:fix",
+        "./e2e-tests:lint:fix"
       ]
     },
     "clean": {

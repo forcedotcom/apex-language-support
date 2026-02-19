@@ -3,21 +3,43 @@ globs: **/e2e-tests/**
 alwaysApply: false
 ---
 
-Never use `waitForTimeout`. Always wait for something specific on the page:
+# Playwright E2E Test Rules
 
-- Use `page.waitForSelector()` to wait for elements to appear
-- Use `expect(locator).toBeVisible()` to wait for visibility
-- Use `page.waitForLoadState()` for page state changes
-- Use `page.waitForResponse()` for network requests
+See `.claude/skills/playwright-e2e/` for full skill with references.
 
-Prefer `expect` assertions that will fail with clear messages instead of logging failures to the console.
+## Waiting and Timing
 
-Use f1 to access commands, not meta-shift-P. Use `ControlOrMeta` so tests work across OSes.
+- **Never** `waitForTimeout` — wait for specific page elements
+- `page.waitForSelector()` — elements appear
+- `expect(locator).toBeVisible()` — visibility
+- `page.waitForLoadState()` — page state changes
+- **Don't** use `page.waitForResponse()` — doesn't work in desktop/electron
+- **Don't** use `networkidle` — not available on desktop/electron
+- Use `test.step` to organize sequential tests
 
-Use @https://playwright.dev/docs/api/class-locator#locator-inner-html on a known-good locator and use the result to get more accurate locators for stuff inside it.
+## Selectors and Assertions
 
-Fail early, avoid creating fallbacks.
+- Prefer `aria` (`getByRole`) over CSS selectors
+- `expect` assertions need clear error messages. Import `expect` from playwright
+- Fail early, avoid fallbacks/retries
+- Reusable locators belong in `e2e-tests/shared/utils/locators.ts`
 
-Use emojis infrequently.
+## Commands and Shortcuts
 
-Read the playwright docs
+- Use `f1` for commands, not meta-shift-P
+- Use `Control` for all. **No** `ControlOrMeta`
+
+## Reuse
+
+- Check `e2e-tests/shared/` before creating new utilities or PageObjects
+- Check `e2e-tests/pages/` for existing page objects
+
+## Debugging
+
+- Use `locator.innerHTML()` on a known-good locator to get accurate inner locators
+- Take screenshots — review in `test-results` folder
+- Use emojis infrequently
+
+## References
+
+- https://playwright.dev/docs
