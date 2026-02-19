@@ -7,7 +7,7 @@
  */
 
 import { Locator, Page, expect } from '@playwright/test';
-import { closeWelcomeTabs, isMacDesktop } from '../utils/helpers';
+import { closeWelcomeTabs, getModifierShortcut } from '../utils/helpers';
 import { WORKBENCH, SETTINGS_SEARCH_INPUT } from '../utils/locators';
 
 const settingsLocator = (page: Page): Locator =>
@@ -16,8 +16,7 @@ const settingsLocator = (page: Page): Locator =>
 export const openSettingsUI = async (page: Page): Promise<void> => {
   await closeWelcomeTabs(page);
   await page.locator(WORKBENCH).click({ timeout: 60_000 });
-  const shortcut = isMacDesktop() ? 'Meta+,' : 'Control+,';
-  await page.keyboard.press(shortcut);
+  await page.keyboard.press(getModifierShortcut(','));
   await settingsLocator(page).first().waitFor({ timeout: 3000 });
   const workspaceTab = page.getByRole('tab', { name: 'Workspace' });
   await workspaceTab.click();

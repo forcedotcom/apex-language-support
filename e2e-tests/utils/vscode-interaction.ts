@@ -11,6 +11,7 @@ import { SELECTORS, APEX_CLASS_EXAMPLE_CONTENT } from './constants';
 import {
   waitForVSCodeWorkbench,
   closeWelcomeTabs,
+  isDesktop,
 } from '../shared/utils/helpers';
 import { waitForCommandToBeAvailable } from '../shared/pages/commands';
 
@@ -110,7 +111,7 @@ export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
  */
 export const activateExtension = async (page: Page): Promise<void> => {
   // Desktop mode requires longer timeouts
-  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const isDesktopMode = isDesktop();
   const shortTimeout = isDesktopMode ? 30_000 : 15_000;
   const longTimeout = isDesktopMode ? 60_000 : 30_000;
   const contentTimeout = isDesktopMode ? 15_000 : 5_000;
@@ -147,8 +148,9 @@ export const activateExtension = async (page: Page): Promise<void> => {
   const monacoEditor = page.locator(SELECTORS.MONACO_EDITOR);
   await monacoEditor.waitFor({ state: 'visible', timeout: longTimeout });
 
-  // Verify that file content is actually loaded in the editor
-  const editorText = page.locator('.monaco-editor .view-lines');
+  // Verify that file content is actually loaded in the editor.
+  // Use EDITOR_PART scope to exclude interactive-input-editor (Chat/Copilot) which also has .view-lines.
+  const editorText = editorPart.locator('.monaco-editor .view-lines').first();
   await editorText.waitFor({ state: 'visible', timeout: contentTimeout });
 
   // Check if the editor contains some text content
@@ -174,7 +176,7 @@ export const activateExtension = async (page: Page): Promise<void> => {
  * @param page - Playwright page instance
  */
 export const waitForLSPInitialization = async (page: Page): Promise<void> => {
-  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const isDesktopMode = isDesktop();
   const selectorTimeout = isDesktopMode ? 60_000 : 30_000;
 
   await page.waitForSelector(

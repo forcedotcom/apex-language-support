@@ -7,6 +7,7 @@
  */
 
 import { test, expect } from '../fixtures/apexFixtures';
+import { getModifierShortcut } from '../shared/utils/helpers';
 import {
   performStrictValidation,
   testLSPFunctionality,
@@ -390,7 +391,7 @@ test.describe('Apex LSP Integration', () => {
     });
 
     await test.step('Undo edit', async () => {
-      await apexEditor.getPage().keyboard.press('Control+Z');
+      await apexEditor.getPage().keyboard.press(getModifierShortcut('Z'));
       console.log('✅ Undo performed');
     });
 

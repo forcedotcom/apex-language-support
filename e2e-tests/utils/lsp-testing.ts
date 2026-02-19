@@ -7,6 +7,11 @@
  */
 
 import type { Page } from '@playwright/test';
+import {
+  findInPage,
+  getModifierShortcut,
+  isDesktop,
+} from '../shared/utils/helpers';
 import { SELECTORS } from './constants';
 import { findAndActivateOutlineView } from './outline-helpers';
 import { ErrorHandler, WaitingStrategies } from './error-handling';
@@ -130,7 +135,7 @@ class HoverTestUtils {
     }> = [];
 
     // Desktop mode requires longer timeouts
-    const isDesktopMode = process.env.TEST_MODE === 'desktop';
+    const isDesktopMode = isDesktop();
     const lspTimeout = isDesktopMode ? 10000 : 3000;
 
     // Wait for LSP server to be ready once for all scenarios
@@ -182,7 +187,7 @@ export const waitForLCSReady = async (
 export const testLSPFunctionality = async (
   page: Page,
 ): Promise<LSPFunctionalityResult> => {
-  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const isDesktopMode = isDesktop();
   const lspTimeout = isDesktopMode ? 10000 : 5000;
   const monacoEditor = page.locator(SELECTORS.MONACO_EDITOR).first();
   let completionTested = false;
@@ -211,21 +216,7 @@ export const testLSPFunctionality = async (
         '.quick-input-widget, [id*="quickInput"]',
       );
 
-      // Try macOS chord first, then Windows/Linux
-      await page.keyboard.press('Meta+Shift+O');
-      await symbolPicker
-        .waitFor({ state: 'visible', timeout: symbolPickerTimeout })
-        .catch(() => {});
-      if (await symbolPicker.isVisible().catch(() => false)) {
-        // Consider success only if list has items
-        const itemCount = await page
-          .locator('.quick-input-widget .monaco-list-row')
-          .count()
-          .catch(() => 0);
-        if (itemCount > 0) return true;
-      }
-
-      await page.keyboard.press('Control+Shift+O');
+      await page.keyboard.press(getModifierShortcut('Shift+O'));
       await symbolPicker
         .waitFor({ state: 'visible', timeout: symbolPickerTimeout })
         .catch(() => {});
@@ -322,47 +313,28 @@ export const positionCursorOnWord = async (
   searchText: string,
   moveToEnd = false,
 ): Promise<void> => {
-  // Desktop mode requires longer timeouts
-  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const isDesktopMode = isDesktop();
   const findTimeout = isDesktopMode ? 5000 : 1500;
-  const waitMultiplier = isDesktopMode ? 2 : 1;
 
   await ErrorHandler.safeExecute(
     async () => {
-      // Use Ctrl+F to find the text
-      await page.keyboard.press('Control+F');
-      // Wait for find input to appear
       await page
-        .waitForSelector('input[aria-label="Find"], .find-widget', {
-          timeout: findTimeout,
-        })
+        .locator('[id="workbench.parts.editor"] .monaco-editor')
+        .first()
+        .click();
+      await findInPage(page, searchText, { findTimeout });
+
+      // Collapse selection so cursor is ON the identifier (hover needs this)
+      await page.keyboard.press('ArrowLeft');
+
+      // Dismiss any lingering dialogs/tooltips
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Escape');
+      await page
+        .getByRole('dialog', { name: 'Find / Replace' })
+        .waitFor({ state: 'hidden', timeout: 2000 })
         .catch(() => {});
 
-      // Wait for the find widget to be ready
-      await page.waitForTimeout(300 * waitMultiplier);
-
-      // Search for the text
-      await page.keyboard.type(searchText);
-      await page.waitForTimeout(300 * waitMultiplier);
-      await page.keyboard.press('Enter'); // Search
-      await page.waitForTimeout(500 * waitMultiplier);
-      await page.keyboard.press('Escape'); // Close search dialog
-      await page.waitForTimeout(300 * waitMultiplier);
-
-      // After search, the text is selected with cursor at the END of selection.
-      // Press Left arrow to collapse selection and position cursor at the START.
-      // This is necessary because hover needs cursor ON the identifier, not after it.
-      await page.keyboard.press('ArrowLeft');
-      await page.waitForTimeout(100 * waitMultiplier);
-
-      // Press Escape to ensure any dialogs/tooltips are dismissed.
-      // Multiple Escapes may be needed to fully close find widget in VS Code Web.
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(300 * waitMultiplier);
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(200 * waitMultiplier);
-
-      // Move to end of word if requested
       if (moveToEnd) {
         await page.keyboard.press('End');
       }
@@ -387,15 +359,15 @@ export const triggerHover = async (
   timeout?: number,
 ): Promise<boolean> => {
   // Desktop mode requires longer timeouts; web mode needs time for LSP hover to resolve
-  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const isDesktopMode = isDesktop();
   const effectiveTimeout = timeout ?? (isDesktopMode ? 6000 : 5000);
   const waitMultiplier = isDesktopMode ? 2 : 1;
 
   try {
-    // VS Code hover shortcut is a chord: Ctrl+K then Ctrl+I
-    await page.keyboard.press('Control+K');
+    // VS Code hover shortcut is a chord: Cmd+K then Cmd+I on Mac, Ctrl+K then Ctrl+I elsewhere
+    await page.keyboard.press(getModifierShortcut('K'));
     await page.waitForTimeout(150 * waitMultiplier);
-    await page.keyboard.press('Control+I');
+    await page.keyboard.press(getModifierShortcut('I'));
     // LSP hover can take time to resolve; wait before checking for widget
     await page.waitForTimeout(800 * waitMultiplier);
 
@@ -437,7 +409,7 @@ export const testHoverScenario = async (
   scenario: HoverTestScenario,
 ): Promise<HoverTestResult> => {
   // Desktop mode requires longer timeouts
-  const isDesktopMode = process.env.TEST_MODE === 'desktop';
+  const isDesktopMode = isDesktop();
   const lspTimeout = isDesktopMode ? 10000 : 3000;
   const hoverTimeout = isDesktopMode ? 5000 : 1500;
 

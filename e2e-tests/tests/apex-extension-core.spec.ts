@@ -13,6 +13,7 @@ import {
   verifyVSCodeStability,
   TestResultReporter,
   TestConfiguration,
+  validateAllErrorsInAllowList,
 } from '../utils/test-helpers';
 import { SELECTORS } from '../utils/constants';
 
@@ -81,7 +82,7 @@ test.describe('Apex Extension Core Activation', () => {
     await test.step('Verify extension in extensions list', async () => {
       console.log('📋 Checking extension list...');
 
-      await apexEditor.getPage().keyboard.press('Control+Shift+X');
+      await apexEditor.executeCommand('Extensions: Focus on Extensions View');
       await apexEditor.waitForSelector(SELECTORS.EXTENSIONS_VIEW, 30_000);
 
       const installedSection = apexEditor
@@ -162,7 +163,7 @@ test.describe('Apex Extension Core Activation', () => {
 
       await apexEditor.waitForContentToInclude(marker);
 
-      const content = await apexEditor.findAndGetViewportContent(marker);
+      const content = await apexEditor.getContent();
       const hasMarker = content.toLowerCase().includes(marker.toLowerCase());
       expect(hasMarker).toBe(true);
 
@@ -198,15 +199,8 @@ test.describe('Apex Extension Core Activation', () => {
     });
 
     await test.step('Check for new critical errors', async () => {
-      const criticalErrors = consoleErrors.filter((e) =>
-        e.text.toLowerCase().includes('error'),
-      );
-      const allowedErrors = criticalErrors.filter((e) =>
-        e.text.includes('Request textDocument/diagnostic failed'),
-      );
-
-      // All critical errors should be in allow list
-      expect(criticalErrors.length).toBe(allowedErrors.length);
+      const validation = validateAllErrorsInAllowList(consoleErrors);
+      expect(validation.allErrorsAllowed).toBe(true);
 
       console.log('✅ No new critical errors after stability period');
     });

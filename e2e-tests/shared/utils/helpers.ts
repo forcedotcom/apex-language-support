@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { executeCommandWithCommandPalette } from '../pages/commands';
 import { upsertSettings } from '../pages/settings';
 import {
@@ -197,7 +197,7 @@ export const closeWelcomeTabs = async (page: Page): Promise<void> => {
       await closeButton.click({ timeout: 5000, force: true });
       await welcomeTab.waitFor({ state: 'detached', timeout: 10_000 });
     } else {
-      await page.keyboard.press('Control+w');
+      await page.keyboard.press(getModifierShortcut('w'));
       await welcomeTab.waitFor({ state: 'detached', timeout: 10_000 });
     }
 
@@ -249,6 +249,62 @@ export const isMacDesktop = (): boolean =>
 /** Returns true if running on Windows desktop (Electron) */
 export const isWindowsDesktop = (): boolean =>
   process.env.VSCODE_DESKTOP === '1' && process.platform === 'win32';
+
+/** Returns platform-specific shortcut (Meta+key on Mac, Control+key elsewhere) */
+export const getModifierShortcut = (key: string): string =>
+  isMacDesktop() ? `Meta+${key}` : `Control+${key}`;
+
+/** Go to start of file: Cmd+Up on Mac, Ctrl+Home elsewhere */
+export const getGoToStartShortcut = (): string =>
+  isMacDesktop() ? 'Meta+Up' : 'Control+Home';
+
+/**
+ * Open the in-editor Find widget (uses Meta+F on Mac, Control+F elsewhere).
+ * Waits for the widget to be visible, then returns the widget locator for the consumer.
+ */
+export const openFindWidget = async (
+  page: Page,
+  timeout = 5000,
+): Promise<Locator> => {
+  await page.keyboard.press(getModifierShortcut('f'));
+  const findWidget = page.getByRole('dialog', { name: 'Find / Replace' });
+  await findWidget.waitFor({ state: 'visible', timeout });
+  return findWidget;
+};
+
+/**
+ * Find text in the page via the Find widget: open, type, Enter, Escape, wait for hidden.
+ */
+export const findInPage = async (
+  page: Page,
+  searchText: string,
+  options?: { findTimeout?: number },
+): Promise<void> => {
+  const findTimeout = options?.findTimeout ?? 5000;
+  const findWidget = await openFindWidget(page, findTimeout);
+  await page.keyboard.type(searchText);
+  // await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
+  await findWidget.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
+};
+
+/**
+ * Navigate to a line (and optional column) via VS Code's Go to Line dialog.
+ * Uses platform shortcut (Cmd+G on Mac, Ctrl+G elsewhere).
+ */
+export const goToLineInEditor = async (
+  page: Page,
+  position: string,
+  options?: { timeout?: number },
+): Promise<void> => {
+  const timeout = options?.timeout ?? 5000;
+  await page.keyboard.press('Control+G');
+  const widget = page.locator('.quick-input-widget');
+  await widget.waitFor({ state: 'visible', timeout });
+  await page.keyboard.type(position);
+  await page.keyboard.press('Enter');
+  await widget.waitFor({ state: 'hidden', timeout }).catch(() => {});
+};
 
 /** Returns true if running in VS Code web (not desktop Electron) */
 export const isVSCodeWeb = (): boolean => process.env.VSCODE_DESKTOP !== '1';

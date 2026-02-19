@@ -6,7 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import * as path from 'node:path';
 import { test as base, expect } from '@playwright/test';
+import { createDesktopTest } from './createDesktopTest';
 import { ApexEditorPage } from '../pages/ApexEditorPage';
 import { OutlineViewPage } from '../pages/OutlineViewPage';
 import { HoverPage } from '../pages/HoverPage';
@@ -67,10 +69,16 @@ export interface ApexTestFixtures {
   networkErrors: NetworkError[];
 }
 
+/** Base test: use createDesktopTest (Electron) when VSCODE_DESKTOP=1, else Playwright default (web) */
+const testBase =
+  process.env.VSCODE_DESKTOP === '1'
+    ? createDesktopTest({ fixturesDir: path.join(__dirname) })
+    : base;
+
 /**
  * Extend Playwright's test with Apex-specific fixtures.
  */
-export const test = base.extend<ApexTestFixtures>({
+export const test = testBase.extend<ApexTestFixtures>({
   /**
    * Apex test environment fixture.
    * Automatically sets up VS Code Web with Apex workspace before each test.

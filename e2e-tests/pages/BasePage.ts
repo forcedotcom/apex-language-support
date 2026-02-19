@@ -8,6 +8,7 @@
 
 import { Page, Locator } from '@playwright/test';
 import { executeCommandWithCommandPalette } from '../shared/pages/commands';
+import { goToLineInEditor, isDesktop } from '../shared/utils/helpers';
 import { SELECTORS } from '../utils/constants';
 
 /**
@@ -34,7 +35,7 @@ export class BasePage {
     this.sidebar = page.locator(SELECTORS.SIDEBAR);
     this.statusbar = page.locator(SELECTORS.STATUSBAR);
 
-    this.isDesktopMode = process.env.TEST_MODE === 'desktop';
+    this.isDesktopMode = isDesktop();
     this.baseTimeout = this.isDesktopMode ? 60000 : 30000;
   }
 
@@ -146,12 +147,7 @@ export class BasePage {
    * @param line - Line number to navigate to
    */
   async goToLine(line: number): Promise<void> {
-    await this.page.keyboard.press('Control+G');
-    const widget = this.page.locator('.quick-input-widget');
-    await widget.waitFor({ state: 'visible', timeout: 5000 });
-    await this.page.keyboard.type(line.toString());
-    await this.page.keyboard.press('Enter');
-    await widget.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    await goToLineInEditor(this.page, line.toString());
   }
 
   /**
