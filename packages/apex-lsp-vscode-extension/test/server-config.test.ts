@@ -7,6 +7,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { createServerOptions, createClientOptions } from '../src/server-config';
 import { determineServerMode } from '../src/utils/serverUtils';
 
@@ -206,11 +207,11 @@ describe('Server Config Module', () => {
 
       // Dev mode uses path.join(extensionPath, '..', 'apex-ls') - not asAbsolutePath
       expect(getRunModule(serverOptions)).toBe(
-        '/mock/apex-ls/out/node/server.node.js',
+        path.join('/mock', 'apex-ls', 'out', 'node', 'server.node.js'),
       );
       expect(getRunTransport(serverOptions)).toBe('ipc');
       expect(getDebugModule(serverOptions)).toBe(
-        '/mock/apex-ls/out/node/server.node.js',
+        path.join('/mock', 'apex-ls', 'out', 'node', 'server.node.js'),
       );
       expect(getDebugTransport(serverOptions)).toBe('ipc');
     });
@@ -226,10 +227,10 @@ describe('Server Config Module', () => {
         const serverOptions = createServerOptions(mockContext, 'development');
 
         expect(getRunModule(serverOptions)).toBe(
-          '/mock/apex-ls/dist/server.node.js',
+          path.join('/mock', 'apex-ls', 'dist', 'server.node.js'),
         );
         expect(getDebugModule(serverOptions)).toBe(
-          '/mock/apex-ls/dist/server.node.js',
+          path.join('/mock', 'apex-ls', 'dist', 'server.node.js'),
         );
       } finally {
         // Restore original environment
