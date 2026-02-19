@@ -37,7 +37,6 @@ test.describe('Apex Hover Functionality', () => {
   test('should provide comprehensive hover information for Apex symbols', async ({
     hoverHelper,
   }) => {
-    test.setTimeout(120_000);
     console.log('🔍 Testing hover functionality for Apex symbols...');
 
     await test.step('Execute all hover test scenarios', async () => {
