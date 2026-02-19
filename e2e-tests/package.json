@@ -127,7 +127,7 @@
       ]
     },
     "test:e2e:desktop": {
-      "command": "playwright test --config=playwright.config.desktop.ts",
+      "command": "playwright test --config=playwright.config.desktop.ts; playwright show-report",
       "env": {
         "VSCODE_DESKTOP": "1"
       },

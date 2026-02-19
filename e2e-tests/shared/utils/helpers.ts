@@ -299,7 +299,8 @@ export const goToLineInEditor = async (
 ): Promise<void> => {
   const timeout = options?.timeout ?? 5000;
   const widget = page.locator('.quick-input-widget');
-  await page.keyboard.press(getModifierShortcut('G'));
+  // VS Code binds "Go to Line" to Ctrl+G on all platforms (including macOS)
+  await page.keyboard.press('Control+G');
   await widget.waitFor({ state: 'visible', timeout });
   await page.keyboard.type(position);
   await page.keyboard.press('Enter');

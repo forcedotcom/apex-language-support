@@ -291,7 +291,8 @@ test.describe('Apex Hover Functionality', () => {
     hoverHelper,
   }) => {
     await hoverHelper.hoverOnWord('ApexClassExample');
-    await hoverHelper.waitForHover();
+    const content = await hoverHelper.getHoverContent();
+    expect(content.length).toBeGreaterThan(0);
 
     await hoverHelper.captureHoverScreenshot('test-hover');
 
