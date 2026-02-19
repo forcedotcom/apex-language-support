@@ -73,10 +73,6 @@ class DiagnosticListener {
       column: ctx.start?.charPositionInLine || 0,
       parent: parentName,
     });
-    console.log(
-      `[DIAGNOSTIC] enterTypeRef called at line ${ctx.start?.line}:` +
-        `${ctx.start?.charPositionInLine}, parent=${parentName}`,
-    );
   }
 
   exitTypeRef(): void {
@@ -93,12 +89,6 @@ class DiagnosticListener {
       typeRefExists,
       typeRefType,
     });
-    console.log(
-      `[DIAGNOSTIC] enterLocalVariableDeclaration called at line ${ctx.start?.line}:${ctx.start?.charPositionInLine}`,
-    );
-    console.log(
-      `[DIAGNOSTIC] typeRef exists: ${typeRefExists}, typeRef type: ${typeRefType}`,
-    );
   }
 
   exitLocalVariableDeclaration(): void {
@@ -135,46 +125,10 @@ public class TestClass {
         (r) => r.rule === 'TypeRefContext',
       );
 
-      console.log(
-        `[DIAGNOSTIC] Total TypeRefContext visits: ${typeRefVisits.length}`,
-      );
-      typeRefVisits.forEach((visit, idx) => {
-        console.log(
-          `[DIAGNOSTIC] TypeRefContext visit ${idx + 1}: line ${visit.line}:${visit.column}, parent=${visit.parent}`,
-        );
-      });
-
       // Check for TypeRefContext with LocalVariableDeclarationContext parent
       const localVarTypeRefs = typeRefVisits.filter(
         (r) => r.parent === 'LocalVariableDeclarationContext',
       );
-
-      console.log(
-        `[DIAGNOSTIC] TypeRefContext visits with LocalVariableDeclarationContext parent: ${localVarTypeRefs.length}`,
-      );
-
-      // Check if enterTypeRef was called
-      console.log(
-        `[DIAGNOSTIC] enterTypeRef called ${listener.enterTypeRefCalled.length} times`,
-      );
-      listener.enterTypeRefCalled.forEach((call, idx) => {
-        console.log(
-          `[DIAGNOSTIC] enterTypeRef call ${idx + 1}: line ${call.line}:${call.column}, parent=${call.parent}`,
-        );
-      });
-
-      // Check if enterLocalVariableDeclaration was called
-      console.log(
-        '[DIAGNOSTIC] enterLocalVariableDeclaration called ' +
-          `${listener.enterLocalVariableDeclarationCalled.length} times`,
-      );
-      listener.enterLocalVariableDeclarationCalled.forEach((call, idx) => {
-        console.log(
-          `[DIAGNOSTIC] enterLocalVariableDeclaration call ${idx + 1}: ` +
-            `line ${call.line}:${call.column}, typeRefExists=${call.typeRefExists}, ` +
-            `typeRefType=${call.typeRefType}`,
-        );
-      });
 
       // Assertions
       expect(
@@ -188,17 +142,8 @@ public class TestClass {
       );
 
       if (lhsTypeRefCall) {
-        console.log(
-          '[DIAGNOSTIC] ✓ enterTypeRef WAS called for LHS typeRef with LocalVariableDeclarationContext parent',
-        );
         expect(lhsTypeRefCall).toBeDefined();
       } else {
-        console.log(
-          '[DIAGNOSTIC] ✗ enterTypeRef was NOT called for LHS typeRef with LocalVariableDeclarationContext parent',
-        );
-        console.log(
-          '[DIAGNOSTIC] This indicates a method signature mismatch or walker issue',
-        );
         // This test will fail, which is intentional to surface the issue
         expect(lhsTypeRefCall).toBeDefined();
       }
@@ -223,17 +168,8 @@ public class TestClass {
         (r) => r.parent === 'LocalVariableDeclarationContext',
       );
 
-      console.log(
-        '[DIAGNOSTIC] Simple type: TypeRefContext visits with ' +
-          `LocalVariableDeclarationContext parent: ${localVarTypeRefs.length}`,
-      );
-
       const lhsTypeRefCall = listener.enterTypeRefCalled.find(
         (call) => call.parent === 'LocalVariableDeclarationContext',
-      );
-
-      console.log(
-        `[DIAGNOSTIC] Simple type: enterTypeRef called for LocalVariableDeclarationContext: ${!!lhsTypeRefCall}`,
       );
 
       // For simple types, enterTypeRef should also be called
@@ -256,43 +192,14 @@ public class TestClass {
         (r) => r.rule === 'TypeRefContext',
       );
 
-      console.log(
-        `[DIAGNOSTIC] Generic constructor: Total TypeRefContext visits: ${typeRefVisits.length}`,
-      );
-      typeRefVisits.forEach((visit, idx) => {
-        console.log(
-          `[DIAGNOSTIC] Generic constructor: TypeRefContext visit ${idx + 1}: ` +
-            `line ${visit.line}:${visit.column}, parent=${visit.parent}`,
-        );
-      });
-
       // Check for LHS (LocalVariableDeclarationContext)
       const lhsTypeRefs = typeRefVisits.filter(
         (r) => r.parent === 'LocalVariableDeclarationContext',
       );
 
-      // Check for RHS (NewExpressionContext -> CreatorContext -> CreatedNameContext -> IdCreatedNamePairContext)
-      const rhsTypeRefs = typeRefVisits.filter(
-        (r) =>
-          r.parent === 'TypeListContext' ||
-          r.parent === 'TypeArgumentsContext' ||
-          r.parent === 'IdCreatedNamePairContext',
-      );
-
-      console.log(
-        `[DIAGNOSTIC] Generic constructor: LHS TypeRefContext visits: ${lhsTypeRefs.length}`,
-      );
-      console.log(
-        `[DIAGNOSTIC] Generic constructor: RHS TypeRefContext visits: ${rhsTypeRefs.length}`,
-      );
-
       // Verify enterTypeRef calls
       const lhsTypeRefCall = listener.enterTypeRefCalled.find(
         (call) => call.parent === 'LocalVariableDeclarationContext',
-      );
-
-      console.log(
-        `[DIAGNOSTIC] Generic constructor: enterTypeRef called for LHS: ${!!lhsTypeRefCall}`,
       );
 
       expect(lhsTypeRefs.length).toBeGreaterThan(0);
@@ -312,32 +219,10 @@ public class TestClass {
 
       const listener = parseAndWalk(code);
 
-      // Group visits by rule type
-      const ruleGroups: Record<string, number> = {};
-      listener.visitedRules.forEach((visit) => {
-        ruleGroups[visit.rule] = (ruleGroups[visit.rule] || 0) + 1;
-      });
-
-      console.log('[DIAGNOSTIC] Rule visit counts:');
-      Object.entries(ruleGroups)
-        .sort((a, b) => b[1] - a[1])
-        .forEach(([rule, count]) => {
-          console.log(`[DIAGNOSTIC]   ${rule}: ${count}`);
-        });
-
       // Find all TypeRefContext visits with their full context
       const typeRefVisits = listener.visitedRules.filter(
         (r) => r.rule === 'TypeRefContext',
       );
-
-      console.log(
-        `[DIAGNOSTIC] Complete TypeRefContext visit details (${typeRefVisits.length} total):`,
-      );
-      typeRefVisits.forEach((visit, idx) => {
-        console.log(
-          `[DIAGNOSTIC]   ${idx + 1}. Line ${visit.line}:${visit.column}, Parent: ${visit.parent}`,
-        );
-      });
 
       // Verify we have TypeRefContext visits
       expect(typeRefVisits.length).toBeGreaterThan(0);
