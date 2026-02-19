@@ -162,7 +162,7 @@ export const activateExtension = async (page: Page): Promise<void> => {
   // Wait for extension command to be available (extension fully loaded + when context ready)
   await waitForCommandToBeAvailable(
     page,
-    'Restart Apex-LS-TS Language Server',
+    'SFDX: Restart Apex-LS-TS Language Server',
     30_000,
   );
 };

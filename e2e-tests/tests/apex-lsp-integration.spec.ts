@@ -72,7 +72,7 @@ test.describe('Apex LSP Integration', () => {
     await test.step('Make an edit to the file', async () => {
       await apexEditor.goToPosition(1, 1);
       await apexEditor.typeText('// Test edit\n');
-      //await apexEditor.getPage().waitForTimeout(500);
+      await apexEditor.waitForContentToInclude('// Test edit', 10_000);
 
       const content = await apexEditor.getContent();
       // Normalize spaces (Monaco may use \u00A0) and use regex for flexible match
