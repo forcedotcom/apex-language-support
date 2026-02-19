@@ -371,27 +371,17 @@ export const triggerHover = async (
     // LSP hover can take time to resolve; wait before checking for widget
     await page.waitForTimeout(800 * waitMultiplier);
 
-    // Wait for hover widget to appear with multiple selectors.
-    // VS Code Web may use role="tooltip" for the hover widget.
-    const hoverSelectors = [
-      '[role="tooltip"]',
-      '.monaco-editor .hover-row',
-      '.monaco-hover',
-      '.monaco-hover-content',
-    ];
-
-    for (const selector of hoverSelectors) {
-      try {
-        await page.waitForSelector(selector, {
-          state: 'visible',
-          timeout: effectiveTimeout,
-        });
-        return true;
-      } catch {
-        continue;
-      }
+    const combinedSelector =
+      '[role="tooltip"], .monaco-editor .hover-row, .monaco-hover, .monaco-hover-content';
+    try {
+      await page.waitForSelector(combinedSelector, {
+        state: 'visible',
+        timeout: effectiveTimeout,
+      });
+      return true;
+    } catch {
+      return false;
     }
-    return false;
   } catch {
     return false;
   }

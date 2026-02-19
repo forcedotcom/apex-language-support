@@ -80,27 +80,12 @@ export class HoverPage extends BasePage {
    */
   async waitForHover(timeout?: number): Promise<void> {
     const effectiveTimeout = timeout || this.defaultTimeout;
-    const selectors = [
-      '[role="tooltip"]',
-      '.monaco-hover',
-      '.monaco-editor .hover-row',
-      '.hover-row',
-      '.monaco-hover-content',
-    ];
-    for (const selector of selectors) {
-      try {
-        await this.page.locator(selector).first().waitFor({
-          state: 'visible',
-          timeout: effectiveTimeout,
-        });
-        return;
-      } catch {
-        continue;
-      }
-    }
-    throw new Error(
-      `Hover widget did not appear within ${effectiveTimeout}ms. Tried: ${selectors.join(', ')}`,
-    );
+    const combinedSelector =
+      '[role="tooltip"], .monaco-hover, .monaco-editor .hover-row, .hover-row, .monaco-hover-content';
+    await this.page.locator(combinedSelector).first().waitFor({
+      state: 'visible',
+      timeout: effectiveTimeout,
+    });
   }
 
   /**

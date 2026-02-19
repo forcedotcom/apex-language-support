@@ -266,8 +266,8 @@ export const openFindWidget = async (
   page: Page,
   timeout = 5000,
 ): Promise<Locator> => {
-  await page.keyboard.press(getModifierShortcut('f'));
-  const findWidget = page.getByRole('dialog', { name: 'Find / Replace' });
+  const findWidget = page.locator('.editor-widget.find-widget, .find-widget');
+  await page.keyboard.press(getModifierShortcut('F'));
   await findWidget.waitFor({ state: 'visible', timeout });
   return findWidget;
 };
@@ -283,7 +283,7 @@ export const findInPage = async (
   const findTimeout = options?.findTimeout ?? 5000;
   const findWidget = await openFindWidget(page, findTimeout);
   await page.keyboard.type(searchText);
-  // await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
   await page.keyboard.press('Escape');
   await findWidget.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
 };
@@ -298,8 +298,8 @@ export const goToLineInEditor = async (
   options?: { timeout?: number },
 ): Promise<void> => {
   const timeout = options?.timeout ?? 5000;
-  await page.keyboard.press('Control+G');
   const widget = page.locator('.quick-input-widget');
+  await page.keyboard.press('Control+G');
   await widget.waitFor({ state: 'visible', timeout });
   await page.keyboard.type(position);
   await page.keyboard.press('Enter');
