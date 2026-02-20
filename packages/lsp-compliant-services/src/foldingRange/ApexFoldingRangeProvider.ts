@@ -11,7 +11,6 @@ import {
   CompilerService,
   ApexFoldingRangeListener,
   ApexComment,
-  CommentType,
   FoldingRange,
 } from '@salesforce/apex-lsp-parser-ast';
 import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
@@ -171,7 +170,7 @@ export class ApexFoldingRangeProvider {
     for (const comment of comments) {
       // Only process block comments that span multiple lines
       if (
-        comment.type === CommentType.Block &&
+        comment.type === 'block' &&
         comment.range.endLine > comment.range.startLine
       ) {
         blockCommentRanges.push({

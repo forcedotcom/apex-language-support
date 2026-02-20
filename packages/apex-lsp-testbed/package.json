@@ -126,7 +126,8 @@
     "test:coverage": {
       "command": "jest --coverage --coverageDirectory=./coverage",
       "dependencies": [
-        "compile"
+        "compile",
+        "sync:fixtures"
       ],
       "output": [
         "coverage/**"
