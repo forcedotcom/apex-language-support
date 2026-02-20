@@ -224,25 +224,54 @@ testSuite('Semantic Error Detection', () => {
     }
   });
 
-  // Get all class files
-  const classFiles = readdirSync(classesDir)
-    .filter((file) => file.endsWith('.cls'))
-    .sort();
+  // Get all class files recursively (including subdirectories)
+  function getAllClassFiles(dir: string, basePath = ''): string[] {
+    const files: string[] = [];
+    const entries = readdirSync(dir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      const relativePath = basePath ? `${basePath}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        // Recursively search subdirectories
+        files.push(...getAllClassFiles(fullPath, relativePath));
+      } else if (entry.isFile() && entry.name.endsWith('.cls')) {
+        files.push(relativePath);
+      }
+    }
+
+    return files;
+  }
+
+  const classFiles = getAllClassFiles(classesDir).sort();
 
   // Define cross-file dependencies - files that must be opened before others
+  // Key is the base class name (without path or extension), value is array of dependency base names
   const dependencies: Record<string, string[]> = {
     ClassHierarchyIssue: ['FinalBaseClass'],
   };
+
+  // Map from base class name to full file path (with subdirectory)
+  const classFileMap = new Map<string, string>();
+  for (const classFile of classFiles) {
+    const baseName =
+      classFile.replace('.cls', '').split('/').pop() ||
+      classFile.replace('.cls', '');
+    classFileMap.set(baseName, classFile);
+  }
 
   // Open dependencies first
   const openedFiles = new Set<string>();
 
   /**
    * Open a class file and its dependencies
+   * @param baseClassName - Base class name without path or extension (e.g., "BreakOutsideLoop")
+   * @returns true if the file was newly opened, false if it was already open
    */
-  async function openClassFile(className: string): Promise<void> {
+  async function openClassFile(baseClassName: string): Promise<boolean> {
     // Open dependencies first
-    const deps = dependencies[className] || [];
+    const deps = dependencies[baseClassName] || [];
     for (const dep of deps) {
       if (!openedFiles.has(dep)) {
         await openClassFile(dep);
@@ -250,31 +279,36 @@ testSuite('Semantic Error Detection', () => {
     }
 
     // Open the file itself
-    if (!openedFiles.has(className)) {
-      const filePath = join(classesDir, `${className}.cls`);
+    if (!openedFiles.has(baseClassName)) {
+      // Get the full file path (including subdirectory) from the map
+      const classFile = classFileMap.get(baseClassName);
+      if (!classFile) {
+        throw new Error(`Class file not found for: ${baseClassName}`);
+      }
+      const filePath = join(classesDir, classFile);
       const content = readFileSync(filePath, 'utf8');
       const uri = `file://${filePath}`;
 
       try {
         await serverContext.client.openTextDocument(uri, content, 'apex');
-        openedFiles.add(className);
+        openedFiles.add(baseClassName);
 
         // Give the server time to process the document and add it to symbol manager
         // This is important for cross-file validation (e.g., ClassHierarchyIssue needs FinalBaseClass)
-        // Wait longer to ensure document is fully processed and symbols are indexed
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        // Also wait a bit after opening before requesting diagnostics
-        // This ensures the document is fully processed
+        // Reduced wait time - 200ms is usually sufficient for document processing
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return true; // File was newly opened
       } catch (error) {
-        console.warn(`Failed to open ${className}: ${error}`);
+        console.warn(`Failed to open ${baseClassName}: ${error}`);
         throw error;
       }
     }
+    return false; // File was already open
   }
 
   // Test each class file
   describe.each(classFiles)('Class: %s', (className) => {
+    // className may include subdirectory (e.g., "control-flow/BreakOutsideLoop.cls")
     const baseName = className.replace('.cls', '');
 
     it(`should detect semantic errors in ${baseName}`, async () => {
@@ -284,13 +318,20 @@ testSuite('Semantic Error Detection', () => {
       }
 
       // Open the document and its dependencies
-      await openClassFile(baseName);
+      // Extract base name without directory path for dependency resolution
+      const baseNameForDeps = baseName.split('/').pop() || baseName;
+      const wasNewlyOpened = await openClassFile(baseNameForDeps);
 
+      // className includes subdirectory path (e.g., "control-flow/BreakOutsideLoop.cls")
       const filePath = join(classesDir, className);
       const uri = `file://${filePath}`;
 
-      // Wait a bit more after opening to ensure all documents are processed
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Only wait if the file was newly opened (already waited 200ms in openClassFile)
+      // If file was already open, no additional wait needed
+      if (wasNewlyOpened) {
+        // Small additional wait to ensure document is fully processed
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
 
       // Request diagnostics
       let diagnosticResponse;

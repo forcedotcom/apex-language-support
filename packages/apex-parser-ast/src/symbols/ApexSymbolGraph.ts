@@ -1018,10 +1018,10 @@ export class ApexSymbolGraph {
     };
 
     // Recalculate FQN to ensure it includes the full parent hierarchy
-    // This is especially important for child symbols that initially only have namespace.name
+    // Exclude block symbols for cleaner FQNs (e.g. "outerclass.innerclass" not "outerclass.outerclass.innerclass")
     const recalculatedFQN = calculateFQN(
       symbol,
-      { normalizeCase: true },
+      { normalizeCase: true, excludeBlockSymbols: true },
       getParent,
     );
 
@@ -1323,14 +1323,19 @@ export class ApexSymbolGraph {
   /**
    * OPTIMIZED: Get symbols in file by delegating to SymbolTable
    * Normalizes URI to ensure consistent lookup
+   * Uses SymbolTable.getAllSymbols() when available to include overloaded methods
+   * (methods with same name but different params share an id in fileIndex, so the
+   * id-based lookup would collapse them to one; SymbolTable stores all in symbolArray)
    */
   getSymbolsInFile(fileUri: string): ApexSymbol[] {
-    // Normalize URI to match how SymbolTables are registered
     const normalizedUri = extractFilePathFromUri(fileUri);
+    const symbolTable = this.fileToSymbolTable.get(normalizedUri);
+    if (symbolTable) {
+      return symbolTable.getAllSymbols();
+    }
+    // Fallback: no symbol table registered, use fileIndex (e.g. during migration)
     const symbolIds = this.fileIndex.get(normalizedUri) || [];
-
     const symbols: ApexSymbol[] = [];
-
     for (const symbolId of symbolIds) {
       const symbol = this.getSymbol(symbolId);
       if (symbol) {
@@ -1343,7 +1348,6 @@ export class ApexSymbolGraph {
         );
       }
     }
-
     return symbols;
   }
 
@@ -2744,12 +2748,35 @@ export class ApexSymbolGraph {
   }
 
   /**
+   * Get deferred references for a symbol name
+   * @param symbolName The symbol name to get deferred references for
+   * @returns Array of deferred references, or undefined if none exist
+   */
+  public getDeferredReferences(symbolName: string):
+    | Array<{
+        sourceSymbol: ApexSymbol;
+        referenceType: EnumValue<typeof ReferenceType>;
+        location: SymbolLocation;
+        context?: {
+          methodName?: string;
+          parameterIndex?: number;
+          isStatic?: boolean;
+          namespace?: string;
+        };
+      }>
+    | undefined {
+    // Sync class fields from Refs to ensure we have the latest state
+    this.syncClassFieldsFromRefs();
+    return this.deferredReferences.get(symbolName);
+  }
+
+  /**
    * Process deferred references for a symbol in batches with retry tracking (Effect-based)
    * Returns result indicating if retry is needed and why
    * This version yields periodically to prevent blocking
    * @deprecated Use queueDeferredReferencesForSymbol for individual task queueing
    */
-  private processDeferredReferencesBatchEffect(
+  public processDeferredReferencesBatchEffect(
     symbolName: string,
   ): Effect.Effect<BatchProcessingResult, never, never> {
     // Sync class fields to Refs before processing

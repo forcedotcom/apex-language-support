@@ -25,6 +25,7 @@ describe('DocumentSymbolHandler', () => {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
+      alwaysLog: jest.fn(),
     };
 
     // Create mock document symbol processor

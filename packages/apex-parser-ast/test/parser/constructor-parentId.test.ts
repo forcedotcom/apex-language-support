@@ -210,12 +210,12 @@ describe('Constructor ParentId Relationships - ApexSymbolCollectorListener', () 
       ) as ScopeSymbol | undefined;
       expect(outerClassBlock).toBeDefined();
 
-      // Find inner class symbol - should have parentId pointing to outer class symbol
+      // Find inner class symbol - should have parentId pointing to outer class block
       const innerClassSymbol = semanticSymbols.find(
         (s) =>
           s.name === 'InnerClass' &&
           s.kind === SymbolKind.Class &&
-          s.parentId === outerClassSymbol!.id,
+          s.parentId === outerClassBlock!.id,
       );
       expect(innerClassSymbol).toBeDefined();
 
@@ -302,14 +302,21 @@ describe('Constructor ParentId Relationships - ApexSymbolCollectorListener', () 
       );
       expect(outerClass).toBeDefined();
 
-      // Find inner class - search all symbols with parentId matching outer class
+      // Find outer class block
+      const outerClassBlock = allSymbols.find(
+        (s) =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'class' &&
+          s.parentId === outerClass!.id,
+      ) as ScopeSymbol | undefined;
+
+      // Find inner class - has parentId pointing to outer class block
       let innerClass = semanticSymbols.find(
         (s) =>
           s.name === 'InnerClass' &&
           s.kind === SymbolKind.Class &&
-          s.parentId === outerClass!.id,
+          s.parentId === outerClassBlock!.id,
       );
-      // Fallback: search all symbols if not found
       if (!innerClass) {
         innerClass = semanticSymbols.find(
           (s) => s.name === 'InnerClass' && s.kind === SymbolKind.Class,
@@ -317,12 +324,20 @@ describe('Constructor ParentId Relationships - ApexSymbolCollectorListener', () 
       }
       expect(innerClass).toBeDefined();
 
-      // Find nested inner class - search with parentId matching inner class
+      // Find inner class block - has parentId pointing to inner class symbol
+      const innerClassBlock = allSymbols.find(
+        (s) =>
+          isBlockSymbol(s) &&
+          s.scopeType === 'class' &&
+          s.parentId === innerClass!.id,
+      ) as ScopeSymbol | undefined;
+
+      // Find nested inner class - has parentId pointing to inner class block
       let nestedInnerClass = semanticSymbols.find(
         (s) =>
           s.name === 'NestedInnerClass' &&
           s.kind === SymbolKind.Class &&
-          s.parentId === innerClass!.id,
+          s.parentId === innerClassBlock!.id,
       );
       // Fallback: search all symbols if not found
       if (!nestedInnerClass) {
@@ -332,13 +347,7 @@ describe('Constructor ParentId Relationships - ApexSymbolCollectorListener', () 
       }
       expect(nestedInnerClass).toBeDefined();
 
-      // Find all class blocks
-      const innerClassBlock = allSymbols.find(
-        (s) =>
-          isBlockSymbol(s) &&
-          s.scopeType === 'class' &&
-          s.parentId === innerClass!.id,
-      ) as ScopeSymbol | undefined;
+      // Find nested inner class block
       const nestedInnerClassBlock = allSymbols.find(
         (s) =>
           isBlockSymbol(s) &&

@@ -199,10 +199,8 @@ describe('Scope-Qualified Symbol IDs', () => {
     expect(dataVariables).toHaveLength(2);
 
     // Find variables by their scope paths (outer block vs inner block)
-    // Outer variable is in method body block (block1)
-    // Inner variable is in nested block (block2)
-    // IDs now use block counter names, so we need to find by parentId chain
-    // Find the method symbol first to get its block
+    // Method body block is omitted - method block covers that scope
+    // Outer variable is directly in method block; inner variable is in nested block
     const methodSymbol = allSymbols.find(
       (s) => s.name === 'complexMethod' && s.kind === SymbolKind.Method,
     );
@@ -218,64 +216,40 @@ describe('Scope-Qualified Symbol IDs', () => {
         ) as ScopeSymbol | undefined)
       : undefined;
 
-    // Find variables by checking their parentId chain
-    // Structure: method block -> method body block (generic) -> outer variable
-    //           method block -> method body block (generic) -> nested block (generic) -> inner variable
-    // Find the method body block (the generic block that's a direct child of the method block)
-    const methodBodyBlock = methodBlock
-      ? (allSymbols.find(
-          (s) =>
-            isBlockSymbol(s) &&
-            s.scopeType === 'block' &&
-            s.parentId === methodBlock.id,
-        ) as ScopeSymbol | undefined)
-      : undefined;
-
+    // Structure: method block -> outer variable
+    //           method block -> nested block (generic) -> inner variable
     const outerVar = dataVariables.find((v) => {
-      if (!methodBodyBlock) return false;
-      // Outer variable's parent should be the method body block
-      return v.parentId === methodBodyBlock.id;
+      if (!methodBlock) return false;
+      // Outer variable's parent should be the method block
+      return v.parentId === methodBlock.id;
     });
 
     const innerVar = dataVariables.find((v) => {
-      if (!methodBodyBlock) return false;
-      // Inner variable should be in a nested block (grandchild of method body block)
+      if (!methodBlock) return false;
+      // Inner variable should be in a nested block (child of method block)
       const parent = allSymbols.find((s) => s.id === v.parentId);
       if (!parent || parent.kind !== SymbolKind.Block) return false;
-      // Parent should be a nested block whose parent is the method body block
-      return parent.parentId === methodBodyBlock.id;
+      // Parent should be a nested block whose parent is the method block
+      return parent.parentId === methodBlock.id;
     });
 
     expect(outerVar).toBeDefined();
     expect(innerVar).toBeDefined();
 
     // Both should have unique IDs with scope paths
-    // ID format: fileUri:class:TestClass:block1:block2:variable:data
-    // (method name is in the method block's ID, not directly in the variable's ID)
     if (outerVar) {
       expect(outerVar.id).toContain('data');
       expect(outerVar.id).toContain('variable');
-      // Verify the variable is in the method block's scope
-      expect(
-        outerVar.parentId === methodBlock!.id ||
-          allSymbols.find(
-            (s) => s.id === outerVar.parentId && s.parentId === methodBlock!.id,
-          ) !== undefined,
-      ).toBe(true);
+      expect(outerVar.parentId).toBe(methodBlock!.id);
     }
 
     if (innerVar) {
       expect(innerVar.id).toContain('data');
       expect(innerVar.id).toContain('variable');
-      // Verify the variable is in a nested block within the method
-      // Structure: method block -> method body block -> nested block -> inner variable
+      // Structure: method block -> nested block -> inner variable
       const parent = allSymbols.find((s) => s.id === innerVar.parentId);
       if (parent && parent.kind === SymbolKind.Block) {
-        const grandparent = allSymbols.find((s) => s.id === parent.parentId);
-        // The grandparent is the method body block, its parent should be the method block
-        if (grandparent) {
-          expect(grandparent.parentId).toBe(methodBlock!.id);
-        }
+        expect(parent.parentId).toBe(methodBlock!.id);
       }
     }
 
@@ -536,9 +510,12 @@ describe('Scope-Qualified Symbol IDs', () => {
       ) as ScopeSymbol | undefined;
       expect(methodBlock).toBeDefined();
 
-      // The innermost block should be the method body block
+      // The innermost block is the method block (method body block omitted) or a nested block
       const innermostBlock = scopeHierarchy[scopeHierarchy.length - 1];
-      expect(innermostBlock.name).toContain('block');
+      expect(
+        innermostBlock.name?.includes('block') ||
+          innermostBlock.scopeType === 'method',
+      ).toBe(true);
       // Verify it's within method1 by checking parentId chain
       if (method1Symbol) {
         const methodBlock = allSymbols.find(
@@ -550,11 +527,15 @@ describe('Scope-Qualified Symbol IDs', () => {
         if (methodBlock) {
           let current: typeof innermostBlock | null = innermostBlock;
           let isInMethodBlock = false;
-          while (current?.parentId) {
-            if (current.parentId === methodBlock.id) {
+          while (current) {
+            if (
+              current.id === methodBlock.id ||
+              current.parentId === methodBlock.id
+            ) {
               isInMethodBlock = true;
               break;
             }
+            if (!current.parentId) break;
             const parent = allSymbols.find((s) => s.id === current!.parentId);
             current = parent as typeof innermostBlock | null;
           }
@@ -705,18 +686,25 @@ describe('Scope-Qualified Symbol IDs', () => {
       ) as ScopeSymbol | undefined;
       expect(methodBlock).toBeDefined();
 
-      // The innermost block should be the method body block
+      // The innermost block is the method block (method body block omitted) or a nested block
       const innermostBlock = scopeHierarchy[scopeHierarchy.length - 1];
-      expect(innermostBlock.name).toContain('block');
+      expect(
+        innermostBlock.name?.includes('block') ||
+          innermostBlock.scopeType === 'method',
+      ).toBe(true);
       // Verify it's within method3 by checking parentId chain
       if (method3Symbol && methodBlock) {
         let current: typeof innermostBlock | null = innermostBlock;
         let isInMethodBlock = false;
-        while (current?.parentId) {
-          if (current.parentId === methodBlock.id) {
+        while (current) {
+          if (
+            current.id === methodBlock.id ||
+            current.parentId === methodBlock.id
+          ) {
             isInMethodBlock = true;
             break;
           }
+          if (!current.parentId) break;
           const parent = allSymbols.find((s) => s.id === current!.parentId);
           current = parent as typeof innermostBlock | null;
         }
@@ -922,9 +910,13 @@ describe('Scope-Qualified Symbol IDs', () => {
       );
       expect(symbolsInBlock.length).toBe(0);
 
-      // Verify class field exists and is accessible
+      // Verify class field exists and is accessible (parent is class block or class symbol)
       expect(classFieldA).toBeDefined();
-      expect(classFieldA!.parentId).toContain('class:ScopeExample');
+      expect(classFieldA!.parentId).toBeTruthy();
+      expect(
+        classFieldA!.parentId!.includes('class:ScopeExample') ||
+          classFieldA!.parentId!.includes('block:class'),
+      ).toBe(true);
     }
 
     // Verify resolved references in the graph

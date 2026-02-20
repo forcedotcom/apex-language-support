@@ -96,7 +96,7 @@ describe('Logger MessageType Functions', () => {
       setLogLevel('info');
       expect(shouldLog('log')).toBe(true);
 
-      setLogLevel('debug');
+      setLogLevel('error');
       expect(shouldLog('log')).toBe(true);
     });
 

@@ -236,6 +236,7 @@ describe('DocumentSelectorUtils', () => {
             maxConcurrency: 50,
             yieldInterval: 50,
             yieldDelayMs: 10,
+            batchSize: 100,
           },
           queueProcessing: {
             maxConcurrency: {},
@@ -246,6 +247,10 @@ describe('DocumentSelectorUtils', () => {
             queueCapacity: 100,
             maxHighPriorityStreak: 50,
             idleSleepMs: 1,
+            queueStateNotificationIntervalMs: 200,
+          },
+          worker: {
+            logLevel: 'info',
           },
         },
       };

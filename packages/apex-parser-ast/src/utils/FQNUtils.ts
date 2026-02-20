@@ -80,9 +80,15 @@ export function calculateFQN(
         break;
       }
 
+      // Skip block symbols when requested (avoids "outerclass.outerclass.innerclass")
+      // when inner class has parentId pointing to class block
+      if (options?.excludeBlockSymbols === true && isBlockSymbol(parent)) {
+        currentParentId = parent.parentId ?? null;
+        depth++;
+        continue;
+      }
+
       // Include all parents in FQN - FQN should reflect the actual parent hierarchy
-      // This includes blocks, types, methods, constructors, etc.
-      // The parentId relationships tell us the true containment structure
       parts.unshift(parent.name);
 
       currentParentId = parent.parentId ?? null;

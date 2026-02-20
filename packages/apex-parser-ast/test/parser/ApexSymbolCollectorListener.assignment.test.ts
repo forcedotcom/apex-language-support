@@ -13,6 +13,7 @@ import {
 } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { ReferenceContext } from '../../src/types/symbolReference';
+import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
 
 describe('FullSymbolCollectorListener - Assignment Reference Capture', () => {
   let compilerService: CompilerService;
@@ -324,12 +325,27 @@ describe('FullSymbolCollectorListener - Assignment Reference Capture', () => {
       expect(fileUtilsVarUsages.length).toBeGreaterThan(0);
 
       // Method calls should still be captured
-      const methodCalls = refs.filter(
+      // With our changes, chained calls like EncodingUtil.urlEncode() only have chained references
+      // Check for chained references that contain the method names
+      const chainedMethodRefs = refs.filter((r) => {
+        const chainNodes = (r as any).chainNodes;
+        if (chainNodes && Array.isArray(chainNodes)) {
+          return chainNodes.some(
+            (node: any) =>
+              node.name === 'urlEncode' || node.name === 'createFile',
+          );
+        }
+        return false;
+      });
+      // Also check for individual METHOD_CALL references (for standalone calls)
+      const individualMethodCalls = refs.filter(
         (r) =>
           r.context === ReferenceContext.METHOD_CALL &&
           (r.name === 'urlEncode' || r.name === 'createFile'),
       );
-      expect(methodCalls.length).toBeGreaterThanOrEqual(2);
+      expect(
+        chainedMethodRefs.length + individualMethodCalls.length,
+      ).toBeGreaterThanOrEqual(2);
     });
 
     it('should keep VARIABLE_USAGE for workspace class qualifiers when correction is disabled', () => {
@@ -392,11 +408,10 @@ describe('FullSymbolCollectorListener - Assignment Reference Capture', () => {
       const refs = symbolTable.getAllReferences();
 
       // Chained references should still be captured
-      // Check for CHAINED_TYPE context with the full expression name
+      // Check for chained reference with the full expression name
       const chainedRefs = refs.filter(
         (r) =>
-          r.context === ReferenceContext.CHAINED_TYPE &&
-          r.name === 'FileUtilities.createFile',
+          isChainedSymbolReference(r) && r.name === 'FileUtilities.createFile',
       );
 
       // If no chained refs found, check what references were actually created for debugging

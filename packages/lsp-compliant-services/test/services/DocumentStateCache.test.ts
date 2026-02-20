@@ -478,4 +478,43 @@ describe('DocumentStateCache', () => {
       expect(retrieved?.symbolsIndexed).toBe(true);
     });
   });
+
+  describe('getParseTree', () => {
+    it('should return parse tree when merge includes parseTree', () => {
+      const uri = 'file:///test.cls';
+      const version = 1;
+      const mockParseTree = { type: 'CompilationUnitContext' };
+
+      cache.merge(uri, {
+        documentVersion: version,
+        documentLength: 100,
+        parseTree: mockParseTree,
+      });
+
+      const retrieved = cache.getParseTree(uri, version);
+      expect(retrieved).toBe(mockParseTree);
+    });
+
+    it('should return null when parseTree not cached', () => {
+      const uri = 'file:///test.cls';
+      cache.merge(uri, {
+        documentVersion: 1,
+        documentLength: 100,
+      });
+
+      expect(cache.getParseTree(uri, 1)).toBeNull();
+    });
+
+    it('should return null when version does not match', () => {
+      const uri = 'file:///test.cls';
+      const mockParseTree = { type: 'CompilationUnitContext' };
+      cache.merge(uri, {
+        documentVersion: 1,
+        documentLength: 100,
+        parseTree: mockParseTree,
+      });
+
+      expect(cache.getParseTree(uri, 2)).toBeNull();
+    });
+  });
 });

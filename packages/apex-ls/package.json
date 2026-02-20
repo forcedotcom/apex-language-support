@@ -32,6 +32,7 @@
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo || rm -rf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "wireit",
+    "typecheck": "wireit",
     "rebuild": "wireit"
   },
   "wireit": {
@@ -50,6 +51,19 @@
         "tsconfig*.json",
         "tsconfig.base.shared.json",
         "../../tsconfig.base.json"
+      ]
+    },
+    "typecheck": {
+      "command": "tsc -p test/tsconfig.json --noEmit",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "tsconfig.json",
+        "tsconfig.base.shared.json",
+        "test/tsconfig.json"
       ]
     },
     "rebuild": {

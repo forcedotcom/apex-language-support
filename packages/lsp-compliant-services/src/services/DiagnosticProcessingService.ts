@@ -279,7 +279,39 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
       // Check parse result cache first
       const parseCache = getDocumentStateCache();
-      const cached = parseCache.getSymbolResult(document.uri, document.version);
+      let cached = parseCache.getSymbolResult(document.uri, document.version);
+      const cacheCheckTime = Date.now();
+
+      // If cache miss but document exists in storage, documentOpen may be in progress
+      // Wait briefly for documentOpen to populate cache (max 500ms)
+      if (!cached && document) {
+        const maxWaitTime = 500; // Maximum time to wait for documentOpen
+        const pollInterval = 50; // Check every 50ms
+        const maxAttempts = Math.floor(maxWaitTime / pollInterval);
+        let attempts = 0;
+
+        while (attempts < maxAttempts && !cached) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          cached = parseCache.getSymbolResult(document.uri, document.version);
+          attempts++;
+        }
+
+        if (cached) {
+          const waitEndTime = Date.now();
+          this.logger.debug(
+            () =>
+              `Cache populated after waiting ${waitEndTime - cacheCheckTime}ms ` +
+              `for documentOpen to complete: ${document.uri}`,
+          );
+        } else {
+          const waitEndTime = Date.now();
+          this.logger.debug(
+            () =>
+              `Cache still empty after waiting ${waitEndTime - cacheCheckTime}ms ` +
+              `for documentOpen: ${document.uri}, proceeding with full compilation`,
+          );
+        }
+      }
 
       if (cached) {
         this.logger.debug(
@@ -346,10 +378,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
         if (cachedTable) {
           // Check enrichment level before validation
-          const detailLevel =
-            (this.symbolManager as any).getDetailLevelForFile?.(
-              params.textDocument.uri,
-            ) ?? null;
+          const detailLevel = this.symbolManager.getDetailLevelForFile(
+            params.textDocument.uri,
+          );
           this.logger.debug(
             () =>
               `[VALIDATION-DEBUG] Running semantic validation for cached result ${params.textDocument.uri}: ` +
@@ -375,6 +406,30 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           const allowArtifactLoading =
             settings.apex.findMissingArtifact.enabled ?? false;
 
+          // Extract version-specific validation setting
+          const enableVersionSpecificValidation =
+            settings.apex.validation?.versionSpecificValidation?.enabled ??
+            false;
+
+          // Extract and parse API version (only if version-specific validation is enabled)
+          // Only extract major version from settings (e.g., "65.0" -> 65, "20.8" -> 20)
+          let apiVersion: number | undefined;
+          if (enableVersionSpecificValidation && settings.apex.version) {
+            const versionParts = settings.apex.version.split('.');
+            if (versionParts.length > 0) {
+              const major = Number(versionParts[0]);
+              if (!isNaN(major)) {
+                apiVersion = major;
+              }
+            }
+          }
+
+          // Try to get cached parse tree
+          const cachedParseTree = parseCache.getParseTree(
+            document.uri,
+            document.version,
+          );
+
           // Build validation options
           const validationOptions: ValidationOptions = {
             tier: ValidationTier.THOROUGH,
@@ -388,6 +443,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
               ? this.createLoadArtifactCallback(params.textDocument.uri)
               : undefined,
             sourceContent: document.getText(), // Provide source content for SourceSizeValidator
+            parseTree: cachedParseTree || undefined, // Provide cached parse tree if available
+            enableVersionSpecificValidation, // Add version validation flag
+            apiVersion, // Add API version (only set if enabled)
           };
 
           // Run validators
@@ -408,11 +466,12 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           );
 
           // Combine all diagnostics
-          return [
+          const allDiagnostics = [
             ...enhancedCachedDiagnostics,
             ...immediateResults,
             ...thoroughResults,
           ];
+          return allDiagnostics;
         }
 
         return enhancedCachedDiagnostics;
@@ -480,6 +539,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         diagnostics,
         documentVersion: document.version,
         documentLength: document.getText().length,
+        parseTree: result.parseTree,
       });
 
       // Run prerequisites for diagnostics request
@@ -523,9 +583,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       if (enrichedTable) {
         try {
           // Check enrichment level before validation
-          const detailLevel =
-            (this.symbolManager as any).getDetailLevelForFile?.(document.uri) ??
-            null;
+          const detailLevel = this.symbolManager.getDetailLevelForFile(
+            document.uri,
+          );
           this.logger.debug(
             () =>
               `[VALIDATION-DEBUG] Running semantic validation for ${params.textDocument.uri}: ` +
@@ -555,6 +615,30 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           const allowArtifactLoading =
             settings.apex.findMissingArtifact.enabled ?? false;
 
+          // Extract version-specific validation setting
+          const enableVersionSpecificValidation =
+            settings.apex.validation?.versionSpecificValidation?.enabled ??
+            false;
+
+          // Extract and parse API version (only if version-specific validation is enabled)
+          // Only extract major version from settings (e.g., "65.0" -> 65, "20.8" -> 20)
+          let apiVersion: number | undefined;
+          if (enableVersionSpecificValidation && settings.apex.version) {
+            const versionParts = settings.apex.version.split('.');
+            if (versionParts.length > 0) {
+              const major = Number(versionParts[0]);
+              if (!isNaN(major)) {
+                apiVersion = major;
+              }
+            }
+          }
+
+          // Try to get cached parse tree (may not be available for new compilation)
+          const cachedParseTree = parseCache.getParseTree(
+            document.uri,
+            document.version,
+          );
+
           // Build validation options
           const validationOptions: ValidationOptions = {
             tier: ValidationTier.THOROUGH, // Pull diagnostics = thorough
@@ -567,6 +651,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             loadArtifactCallback: allowArtifactLoading
               ? this.createLoadArtifactCallback(params.textDocument.uri)
               : undefined,
+            parseTree: cachedParseTree || undefined, // Provide cached parse tree if available
+            sourceContent: document.getText(), // For VariableResolutionValidator, MethodResolutionValidator
+            enableVersionSpecificValidation, // Add version validation flag
+            apiVersion, // Add API version (only set if enabled)
           };
 
           // Run validators (both IMMEDIATE and THOROUGH for pull diagnostics)
@@ -576,7 +664,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             {
               ...validationOptions,
               tier: ValidationTier.IMMEDIATE,
-              sourceContent: document.getText(), // Provide source content for SourceSizeValidator
             },
           );
 
@@ -613,12 +700,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           `Returning ${allDiagnostics.length} total diagnostics for: ${params.textDocument.uri}`,
       );
       return allDiagnostics;
-
-      this.logger.debug(
-        () =>
-          `Returning ${enhancedDiagnostics.length} diagnostics for: ${params.textDocument.uri}`,
-      );
-      return enhancedDiagnostics;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -950,54 +1031,92 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     contextFile: string,
   ): (typeNames: string[]) => Promise<string[]> {
     return async (typeNames: string[]): Promise<string[]> => {
-      this.logger.debug(
-        () =>
-          `Validator requesting to load ${typeNames.length} missing types: ${typeNames.join(', ')}`,
+      // Exclude stdlib types: findMissingArtifact is for org/user artifacts only.
+      // Stdlib (String, List, System, etc.) is loaded by the symbol manager.
+      const typesToLoad = typeNames.filter(
+        (name) => !this.symbolManager.isStandardLibraryType(name),
       );
 
-      const loadedUris: string[] = [];
+      this.logger.debug(
+        () =>
+          `Validator requesting to load ${typesToLoad.length} missing types: ${typesToLoad.join(', ')}`,
+      );
 
-      // Try to load each type using the artifact resolution service
-      for (const typeName of typeNames) {
-        try {
-          const result = await this.artifactResolutionService.resolveBlocking({
-            identifier: typeName,
-            origin: {
-              uri: contextFile,
-              requestKind: 'references', // Validation needs type references
-            },
-            mode: 'blocking',
-            // Use shorter timeout for validator-triggered loads
-            timeoutMsHint: 2000,
-          });
+      let loadedTypeNames: string[] = [];
 
-          if (result === 'resolved') {
-            // Type was successfully loaded
-            // The resolution service will have already added symbols to the manager
-            this.logger.debug(
-              () => `Successfully loaded artifact for type: ${typeName}`,
-            );
-            // Note: We don't have the exact file URI from resolveBlocking,
-            // but the type should now be available in symbolManager
-            loadedUris.push(typeName); // Use type name as placeholder
-          } else {
-            this.logger.debug(
-              () => `Failed to load artifact for type '${typeName}': ${result}`,
-            );
+      try {
+        const result = await this.artifactResolutionService.resolveBlocking({
+          identifiers: typesToLoad.map((name) => ({ name })),
+          origin: {
+            uri: contextFile,
+            requestKind: 'references',
+          },
+          mode: 'background',
+          timeoutMsHint: 2000,
+        });
+
+        if (result === 'resolved') {
+          // Wait for opened files to be indexed (didOpen processing is async)
+          const settings = ApexSettingsManager.getInstance().getSettings();
+          const pollMs =
+            settings.apex.findMissingArtifact?.indexingBarrierPollMs ?? 100;
+          const maxWaitMs = 500;
+          const start = Date.now();
+          while (Date.now() - start < maxWaitMs) {
+            const allIndexed = typesToLoad.every((name) => {
+              const symbols = this.symbolManager.findSymbolByName(name);
+              return symbols.length > 0;
+            });
+            if (allIndexed) break;
+            await new Promise((r) => setTimeout(r, pollMs));
           }
-        } catch (error) {
+          // Check which types are now in the symbol manager
+          loadedTypeNames = typesToLoad.filter((name) => {
+            const symbols = this.symbolManager.findSymbolByName(name);
+            return symbols.length > 0;
+          });
           this.logger.debug(
-            () => `Error loading artifact for type '${typeName}': ${error}`,
+            () =>
+              `Successfully loaded ${loadedTypeNames.length} artifacts for types: ${loadedTypeNames.join(', ')}`,
+          );
+        } else {
+          this.logger.debug(
+            () =>
+              `Failed to load artifacts for types [${typesToLoad.join(', ')}]: ${result}`,
           );
         }
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error loading artifacts for types [${typesToLoad.join(', ')}]: ${error}`,
+        );
       }
 
       this.logger.debug(
         () =>
-          `Artifact loading callback completed: ${loadedUris.length}/${typeNames.length} types loaded`,
+          `Artifact loading callback completed: ${loadedTypeNames.length}/${typeNames.length} types loaded`,
       );
 
-      return loadedUris;
+      // Re-run cross-file resolution after artifacts are loaded
+      // This ensures that references that were deferred can now be resolved
+      if (loadedTypeNames.length > 0) {
+        try {
+          await Effect.runPromise(
+            this.symbolManager.resolveCrossFileReferencesForFile(contextFile),
+          );
+          this.logger.debug(
+            () =>
+              `Re-ran cross-file resolution after loading ${loadedTypeNames.length} artifacts`,
+          );
+        } catch (error) {
+          this.logger.debug(
+            () =>
+              `Error re-running cross-file resolution after artifact loading: ${error}`,
+          );
+        }
+      }
+
+      return loadedTypeNames;
     };
   }
 }

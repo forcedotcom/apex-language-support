@@ -418,21 +418,45 @@ export async function showGraph(context: vscode.ExtensionContext) {
     return;
   }
 
+  // Get active editor URI for file-specific diagnostics
+  const activeEditor = vscode.window.activeTextEditor;
+  const fileUri = activeEditor?.document.uri.toString();
+  const isApexFile = activeEditor?.document.languageId === 'apex';
+
   // Get graph data from language server (custom request)
-  let graphData: GraphData;
+  let graphData: GraphData & {
+    diagnostics?: unknown[];
+    diagnosticCorrelations?: unknown[];
+  };
 
   try {
-    // Try to get data from language server
-    const response = await client.sendRequest('apex/graphData', {
-      type: 'all',
+    // Try to get data from language server, include diagnostics when viewing Apex file
+    const requestParams: Record<string, unknown> = {
+      type: fileUri && isApexFile ? 'file' : 'all',
       includeMetadata: true,
-    });
+      includeDiagnostics: !!fileUri && isApexFile,
+    };
+    if (fileUri && isApexFile) {
+      requestParams.fileUri = fileUri;
+    }
+
+    const response = await client.sendRequest('apex/graphData', requestParams);
     console.log('Successfully loaded graph data from language server');
 
     // Extract the actual graph data from the response
-    graphData = response.data || response;
+    const responseData = response.data || response;
+    graphData = {
+      nodes: responseData.nodes ?? [],
+      edges: responseData.edges ?? [],
+    };
+    if (response.diagnostics) {
+      graphData.diagnostics = response.diagnostics;
+    }
+    if (response.diagnosticCorrelations) {
+      graphData.diagnosticCorrelations = response.diagnosticCorrelations;
+    }
 
-    // Save graph data to workspace .graph folder
+    // Save graph data to workspace .graph folder (without diagnostics for smaller file)
     await saveGraphDataToWorkspace(graphData);
   } catch (error) {
     console.error('Failed to get graph data from language server:', error);

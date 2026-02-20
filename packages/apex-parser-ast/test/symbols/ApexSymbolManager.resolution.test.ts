@@ -752,9 +752,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.name).toBe('createFile');
       expect(result?.kind).toBe('method');
       expect(result?.fileUri).toBe('file:///test/FileUtilities.cls');
-      // ID format uses block-based structure: fileUri:class:ClassName:block:class_1:method:methodName
+      // ID format uses block-based structure: fileUri:class:ClassName:block:ClassName:method:methodName
       expect(result?.id).toBe(
-        'file:///test/FileUtilities.cls:class:FileUtilities:block:class_1:method:createFile',
+        'file:///test/FileUtilities.cls:class:FileUtilities:block:FileUtilities:method:createFile',
       );
     });
 
@@ -775,9 +775,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.name).toBe('processData');
       expect(result?.kind).toBe('method');
       expect(result?.fileUri).toBe('file:///test/ServiceClass.cls');
-      // ID format uses block-based structure: fileUri:class:ClassName:block:class_1:method:methodName
+      // ID format uses block-based structure: fileUri:class:ClassName:block:ClassName:method:methodName
       expect(result?.id).toBe(
-        'file:///test/ServiceClass.cls:class:ServiceClass:block:class_1:method:processData',
+        'file:///test/ServiceClass.cls:class:ServiceClass:block:ServiceClass:method:processData',
       );
     });
 
@@ -799,9 +799,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.name).toBe('formatString');
       expect(result?.kind).toBe('method');
       expect(result?.fileUri).toBe('file:///test/UtilityClass.cls');
-      // ID format uses block-based structure: fileUri:class:ClassName:block:class_1:method:methodName
+      // ID format uses block-based structure: fileUri:class:ClassName:block:ClassName:method:methodName
       expect(result?.id).toBe(
-        'file:///test/UtilityClass.cls:class:UtilityClass:block:class_1:method:formatString',
+        'file:///test/UtilityClass.cls:class:UtilityClass:block:UtilityClass:method:formatString',
       );
     });
 

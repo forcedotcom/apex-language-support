@@ -287,6 +287,21 @@ function findShadowedSymbol(
         return false; // Same method scope - handled by DuplicateSymbolValidator
       }
 
+      // CRITICAL: Variables in different methods should NEVER shadow each other
+      // They are siblings at the same level, not nested scopes
+      // Only check for shadowing if:
+      // 1. Both are in methods but different methods -> NOT shadowing (siblings)
+      // 2. One is in a method and one is not -> check if outer scope
+      // 3. Neither is in a method -> check if outer scope
+      if (
+        symbolMethod &&
+        containingMethod &&
+        symbolMethod.id !== containingMethod.id
+      ) {
+        // Different methods - these are siblings, not shadowing
+        return false;
+      }
+
       // Check if symbol is in current scope or a descendant of current
       return (
         s.parentId === current!.id || isDescendantOf(s, current!, allSymbols)

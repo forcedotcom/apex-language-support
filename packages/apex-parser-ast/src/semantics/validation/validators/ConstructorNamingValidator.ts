@@ -7,7 +7,8 @@
  */
 
 import { Effect } from 'effect';
-import type { SymbolTable } from '../../../types/symbol';
+import type { SymbolTable, ApexSymbol } from '../../../types/symbol';
+import { isBlockSymbol } from '../../../utils/symbolNarrowing';
 import type {
   ValidationResult,
   ValidationErrorInfo,
@@ -18,6 +19,47 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
+
+/**
+ * Resolve constructor's parentId to the owning ClassSymbol.
+ * parentId may point to ClassSymbol directly or to a BlockSymbol with scopeType 'class'.
+ */
+function findParentClass(
+  constructor: { parentId?: string | null; name: string },
+  allSymbols: ApexSymbol[],
+): ApexSymbol | undefined {
+  if (!constructor.parentId) return undefined;
+
+  const direct = allSymbols.find(
+    (s) => s.id === constructor.parentId && s.kind === 'class',
+  );
+  if (direct) return direct;
+
+  const block = allSymbols.find(
+    (s) =>
+      isBlockSymbol(s) &&
+      s.scopeType === 'class' &&
+      s.id === constructor.parentId,
+  );
+  if (!block) return undefined;
+
+  if (block.parentId) {
+    const viaBlock = allSymbols.find(
+      (s) => s.id === block.parentId && s.kind === 'class',
+    );
+    if (viaBlock) return viaBlock;
+  }
+
+  const blockAsSymbol = block as ApexSymbol;
+  const candidates = allSymbols.filter(
+    (s) =>
+      s.kind === 'class' &&
+      s.name.toLowerCase() === block.name.toLowerCase() &&
+      s.fileUri === blockAsSymbol.fileUri &&
+      (block.id === s.id || block.id.startsWith(s.id + ':')),
+  );
+  return candidates.sort((a, b) => b.id.length - a.id.length)[0];
+}
 
 /**
  * Validates that constructor names match their containing class name.
@@ -72,10 +114,7 @@ export const ConstructorNamingValidator: Validator = {
           continue;
         }
 
-        // Find parent class
-        const parentClass = allSymbols.find(
-          (s) => s.id === constructor.parentId && s.kind === 'class',
-        );
+        const parentClass = findParentClass(constructor, allSymbols);
 
         if (!parentClass) {
           // No parent class found - could be in an interface or other invalid context

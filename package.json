@@ -7,6 +7,7 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
+    "typecheck": "wireit",
     "test": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
@@ -34,6 +35,7 @@
     "commit": "git-cz",
     "clean": "wireit",
     "clean:all": "wireit",
+    "sync:testbed-fixtures": "wireit",
     "semantic-release": "semantic-release",
     "bundle": "wireit",
     "package": "wireit",
@@ -98,6 +100,7 @@
     "rimraf": "^5.0.5",
     "semantic-release": "^22.0.12",
     "semver": "^7.7.2",
+    "shelljs": "^0.10.0",
     "simple-git": "^3.22.0",
     "ts-jest": "^29.3.0",
     "tsx": "^4.7.0",
@@ -119,6 +122,17 @@
     "e2e-tests"
   ],
   "wireit": {
+    "typecheck": {
+      "dependencies": [
+        "compile",
+        "./packages/apex-parser-ast:typecheck",
+        "./packages/apex-lsp-shared:typecheck",
+        "./packages/apex-ls:typecheck",
+        "./packages/lsp-compliant-services:typecheck",
+        "./packages/apex-lsp-vscode-extension:typecheck",
+        "./packages/apex-lsp-testbed:typecheck"
+      ]
+    },
     "compile": {
       "dependencies": [
         "./packages/apex-ls:compile",
@@ -153,6 +167,7 @@
       "command": "node scripts/test-summary.js",
       "dependencies": [
         "compile",
+        "sync:testbed-fixtures",
         "./packages/apex-ls:test",
         "./packages/apex-ls:test:web",
         "./packages/apex-lsp-shared:test",
@@ -228,6 +243,7 @@
     "lint": {
       "dependencies": [
         "compile",
+        "typecheck",
         "./packages/apex-ls:lint",
         "./packages/apex-lsp-shared:lint",
         "./packages/apex-parser-ast:lint",
@@ -241,6 +257,7 @@
     "lint:fix": {
       "dependencies": [
         "compile",
+        "typecheck",
         "./packages/apex-ls:lint:fix",
         "./packages/apex-lsp-shared:lint:fix",
         "./packages/apex-parser-ast:lint:fix",
@@ -270,6 +287,16 @@
       "files": [
         "scripts/merge-coverage.js",
         "packages/*/coverage/coverage-final.json"
+      ]
+    },
+    "sync:testbed-fixtures": {
+      "command": "node scripts/sync-testbed-fixtures.js",
+      "output": [
+        "packages/apex-lsp-testbed/test/fixtures/i-have-problems/force-app/main/default/classes/**"
+      ],
+      "files": [
+        "scripts/sync-testbed-fixtures.js",
+        "packages/apex-parser-ast/test/fixtures/validation/**"
       ]
     }
   },

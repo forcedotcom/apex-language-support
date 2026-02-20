@@ -70,7 +70,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const classSymbol = symbols.find((s) => s.name === 'TestClass');
+      const classSymbol = symbols.find(
+        (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
+      );
 
       expect(classSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(classSymbol?.fqn).toBe('mynamespace.testclass');
@@ -86,7 +88,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const interfaceSymbol = symbols.find((s) => s.name === 'TestInterface');
+      const interfaceSymbol = symbols.find(
+        (s) => s.name === 'TestInterface' && s.kind === SymbolKind.Interface,
+      );
 
       expect(interfaceSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(interfaceSymbol?.fqn).toBe('mynamespace.testinterface');
@@ -102,7 +106,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const enumSymbol = symbols.find((s) => s.name === 'TestEnum');
+      const enumSymbol = symbols.find(
+        (s) => s.name === 'TestEnum' && s.kind === SymbolKind.Enum,
+      );
 
       expect(enumSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(enumSymbol?.fqn).toBe('mynamespace.testenum');
@@ -118,7 +124,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const triggerSymbol = symbols.find((s) => s.name === 'TestTrigger');
+      const triggerSymbol = symbols.find(
+        (s) => s.name === 'TestTrigger' && s.kind === SymbolKind.Trigger,
+      );
 
       expect(triggerSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(triggerSymbol?.fqn).toBe('mynamespace.testtrigger');
@@ -136,7 +144,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const innerSymbol = symbols.find((s) => s.name === 'InnerClass');
+      const innerSymbol = symbols.find(
+        (s) => s.name === 'InnerClass' && s.kind === SymbolKind.Class,
+      );
 
       expect(innerSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(innerSymbol?.fqn).toBe('mynamespace.innerclass');
@@ -152,7 +162,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const innerSymbol = symbols.find((s) => s.name === 'InnerInterface');
+      const innerSymbol = symbols.find(
+        (s) => s.name === 'InnerInterface' && s.kind === SymbolKind.Interface,
+      );
 
       expect(innerSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(innerSymbol?.fqn).toBe('mynamespace.innerinterface');
@@ -168,7 +180,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const innerSymbol = symbols.find((s) => s.name === 'InnerEnum');
+      const innerSymbol = symbols.find(
+        (s) => s.name === 'InnerEnum' && s.kind === SymbolKind.Enum,
+      );
 
       expect(innerSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(innerSymbol?.fqn).toBe('mynamespace.innerenum');
@@ -188,7 +202,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const symbols = symbolTable.getAllSymbols();
 
       // Find any method symbol (since the name might be empty)
-      const methodSymbol = symbols.find((s) => s.kind === 'method');
+      const methodSymbol = symbols.find(
+        (s) => s.kind === SymbolKind.Method && s.name === 'myMethod',
+      );
 
       expect(methodSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(methodSymbol?.fqn).toBe('mynamespace.mymethod');
@@ -204,7 +220,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const methodSymbol = symbols.find((s) => s.name === 'myMethod');
+      const methodSymbol = symbols.find(
+        (s) => s.name === 'myMethod' && s.kind === SymbolKind.Method,
+      );
 
       expect(methodSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(methodSymbol?.fqn).toBe('mynamespace.mymethod');
@@ -240,7 +258,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const fieldSymbol = symbols.find((s) => s.name === 'testField');
+      const fieldSymbol = symbols.find(
+        (s) => s.name === 'testField' && s.kind === SymbolKind.Field,
+      );
 
       expect(fieldSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(fieldSymbol?.fqn).toBe('mynamespace.testfield');
@@ -256,7 +276,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const propertySymbol = symbols.find((s) => s.name === 'testProperty');
+      const propertySymbol = symbols.find(
+        (s) => s.name === 'testProperty' && s.kind === SymbolKind.Property,
+      );
 
       expect(propertySymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(propertySymbol?.fqn).toBe('mynamespace.testproperty');
@@ -274,7 +296,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const variableSymbol = symbols.find((s) => s.name === 'localVar');
+      const variableSymbol = symbols.find(
+        (s) => s.name === 'localVar' && s.kind === SymbolKind.Variable,
+      );
 
       expect(variableSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(variableSymbol?.fqn).toBe('mynamespace.localvar');
@@ -290,7 +314,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const parameterSymbol = symbols.find((s) => s.name === 'param');
+      const parameterSymbol = symbols.find(
+        (s) => s.name === 'param' && s.kind === SymbolKind.Parameter,
+      );
 
       expect(parameterSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(parameterSymbol?.fqn).toBe('mynamespace.param');
@@ -308,7 +334,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const enumValueSymbol = symbols.find((s) => s.name === 'VALUE1');
+      const enumValueSymbol = symbols.find(
+        (s) => s.name === 'VALUE1' && s.kind === SymbolKind.EnumValue,
+      );
 
       expect(enumValueSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(enumValueSymbol?.fqn).toBe('mynamespace.value1');
@@ -327,11 +355,21 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
 
-      const outerSymbol = symbols.find((s) => s.name === 'OuterClass');
-      const innerSymbol = symbols.find((s) => s.name === 'InnerClass');
-      const methodSymbol = symbols.find((s) => s.name === 'innerMethod');
-      const fieldSymbol = symbols.find((s) => s.name === 'innerField');
-      const variableSymbol = symbols.find((s) => s.name === 'localVar');
+      const outerSymbol = symbols.find(
+        (s) => s.name === 'OuterClass' && s.kind === SymbolKind.Class,
+      );
+      const innerSymbol = symbols.find(
+        (s) => s.name === 'InnerClass' && s.kind === SymbolKind.Class,
+      );
+      const methodSymbol = symbols.find(
+        (s) => s.name === 'innerMethod' && s.kind === SymbolKind.Method,
+      );
+      const fieldSymbol = symbols.find(
+        (s) => s.name === 'innerField' && s.kind === SymbolKind.Field,
+      );
+      const variableSymbol = symbols.find(
+        (s) => s.name === 'localVar' && s.kind === SymbolKind.Variable,
+      );
 
       expect(outerSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(innerSymbol?.namespace?.toString()).toBe('MyNamespace');
@@ -351,9 +389,15 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
 
-      const outerClassSymbol = symbols.find((s) => s.name === 'OuterClass');
-      const innerClass1Symbol = symbols.find((s) => s.name === 'InnerClass1');
-      const innerClass2Symbol = symbols.find((s) => s.name === 'InnerClass2');
+      const outerClassSymbol = symbols.find(
+        (s) => s.name === 'OuterClass' && s.kind === SymbolKind.Class,
+      );
+      const innerClass1Symbol = symbols.find(
+        (s) => s.name === 'InnerClass1' && s.kind === SymbolKind.Class,
+      );
+      const innerClass2Symbol = symbols.find(
+        (s) => s.name === 'InnerClass2' && s.kind === SymbolKind.Class,
+      );
 
       expect(outerClassSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(innerClass1Symbol?.namespace?.toString()).toBe('MyNamespace');
@@ -375,7 +419,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const classSymbol = symbols.find((s) => s.name === 'TestClass');
+      const classSymbol = symbols.find(
+        (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
+      );
 
       expect(classSymbol?.namespace).toBeNull();
       expect(classSymbol?.fqn).toBeUndefined();
@@ -391,7 +437,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const classSymbol = symbols.find((s) => s.name === 'TestClass');
+      const classSymbol = symbols.find(
+        (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
+      );
 
       expect(classSymbol?.namespace).toBeNull();
       expect(classSymbol?.fqn).toBeUndefined();
@@ -410,7 +458,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const classSymbol = symbols.find((s) => s.name === 'TestClass');
+      const classSymbol = symbols.find(
+        (s) => s.name === 'TestClass' && s.kind === SymbolKind.Class,
+      );
 
       expect(classSymbol).toBeDefined();
       expect(classSymbol?.name).toBe('TestClass');

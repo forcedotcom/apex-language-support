@@ -581,9 +581,9 @@ export class LCSAdapter {
       async (
         params: FindMissingArtifactParams,
       ): Promise<FindMissingArtifactResult> => {
+        const names = params.identifiers.map((s) => s.name).join(', ');
         this.logger.debug(
-          () =>
-            `🔍 apex/findMissingArtifact request received for: ${params.identifier}`,
+          () => `🔍 apex/findMissingArtifact request received for: ${names}`,
         );
         try {
           return await dispatchProcessOnFindMissingArtifact(params);

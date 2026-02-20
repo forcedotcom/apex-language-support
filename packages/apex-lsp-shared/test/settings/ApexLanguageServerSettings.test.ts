@@ -6,12 +6,12 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { ApexLanguageServerSettings } from '../../src/server/ApexLanguageServerSettings';
 import {
   validateApexSettings,
   isValidApexSettings,
   mergeWithDefaults,
   mergeWithExisting,
-  ApexLanguageServerSettings,
 } from '../../src/settings/ApexSettingsUtilities';
 import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
 
@@ -276,6 +276,31 @@ describe('ApexLanguageServerSettings Validation', () => {
               maxCandidatesToOpen: 3,
               timeoutMsHint: 1500,
               enablePerfMarks: false,
+            },
+            loadWorkspace: {
+              enabled: false,
+              maxConcurrency: 4,
+              yieldInterval: 10,
+              yieldDelayMs: 25,
+              batchSize: 100,
+            },
+            queueProcessing: {
+              maxConcurrency: {
+                CRITICAL: 4,
+                IMMEDIATE: 4,
+                HIGH: 2,
+                NORMAL: 2,
+                LOW: 2,
+                BACKGROUND: 1,
+              },
+              yieldInterval: 10,
+              yieldDelayMs: 25,
+            },
+            scheduler: {
+              queueCapacity: 200,
+              maxHighPriorityStreak: 10,
+              idleSleepMs: 25,
+              queueStateNotificationIntervalMs: 500,
             },
             worker: {
               logLevel: 'info',

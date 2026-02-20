@@ -7,7 +7,7 @@
  */
 
 import { Effect } from 'effect';
-import { ApexSymbolGraph } from '../symbols/ApexSymbolGraph';
+import { ApexSymbolGraph, ReferenceType } from '../symbols/ApexSymbolGraph';
 import {
   GraphNode,
   GraphEdge,
@@ -46,6 +46,8 @@ export function getAllNodesEffect(): Effect.Effect<GraphNode[], never, never> {
     const nodes: GraphNode[] = [];
     // Deduplicate by symbol.id since multiple symbolIds can resolve to the same symbol.id
     const seenNodeIds = new Map<string, GraphNode>();
+    // Also track by name+kind+fileUri+location to catch duplicates with different IDs
+    const seenByKey = new Map<string, GraphNode>();
 
     const symbolIds = graph.getSymbolIds();
     const symbolToVertex = graph.getSymbolToVertex();
@@ -82,10 +84,33 @@ export function getAllNodesEffect(): Effect.Effect<GraphNode[], never, never> {
       const symbol = graph.getSymbol(symbolId);
       if (symbol) {
         successfulRetrievals++;
+        // Include all symbols including blocks - embrace the structural nature of SymbolTable
+        // Blocks represent scopes and are part of the hierarchy
         // Deduplicate by symbol.id (not symbolId) since getSymbol() finds by name
         // Multiple symbolIds can resolve to the same symbol.id
         if (seenNodeIds.has(symbol.id)) {
           continue;
+        }
+
+        // Also deduplicate by semantic key (name+kind+fileUri+location) to catch duplicates with different IDs
+        // This catches cases like duplicate class symbols with IDs like ...:class:Foo vs ...:class:Foo:class:Foo
+        const semanticKey = `${symbol.name}|${symbol.kind}|${symbol.fileUri}|${
+          symbol.location.identifierRange.startLine
+        }:${symbol.location.identifierRange.startColumn}`;
+        const existingByKey = seenByKey.get(semanticKey);
+        if (existingByKey) {
+          // Prefer the simpler/shorter ID (usually the correct one)
+          if (symbol.id.length < existingByKey.id.length) {
+            // Replace with shorter ID
+            const index = nodes.findIndex((n) => n.id === existingByKey.id);
+            if (index >= 0) {
+              nodes.splice(index, 1);
+            }
+            seenNodeIds.delete(existingByKey.id);
+          } else {
+            // Skip this duplicate
+            continue;
+          }
         }
 
         // Get graph-specific properties from ReferenceNode
@@ -119,6 +144,7 @@ export function getAllNodesEffect(): Effect.Effect<GraphNode[], never, never> {
         };
 
         seenNodeIds.set(symbol.id, graphNode);
+        seenByKey.set(semanticKey, graphNode);
         nodes.push(graphNode);
       } else {
         failedRetrievals++;
@@ -173,17 +199,19 @@ function addHierarchicalEdges(
   // Get all symbols from the SymbolTable
   const allSymbols = symbolTable.getAllSymbols();
 
+  // Create hierarchical edges for ALL symbols (including blocks)
+  // Embrace the structural nature - blocks are part of the hierarchy
   for (const symbol of allSymbols) {
-    // Find the parent symbol by looking for a symbol with matching ID
     if (symbol.parentId) {
-      const parentSymbol = allSymbols.find((s) => s.id === symbol.parentId);
-      if (parentSymbol) {
+      const parent = allSymbols.find((s) => s.id === symbol.parentId);
+      if (parent) {
         // Create a "contains" relationship from parent to child
+        // Use IMPORT_REFERENCE (9) as the type for hierarchical "contains" relationships
         edges.push({
-          id: `contains-${symbol.parentId}-${symbol.id}`,
-          source: symbol.parentId,
+          id: `${parent.id}-${symbol.id}`,
+          source: parent.id,
           target: symbol.id,
-          type: 9, // IMPORT_REFERENCE used as "contains" relationship
+          type: ReferenceType.IMPORT_REFERENCE, // Used as "contains" relationship
           sourceFileUri: fileUri,
           targetFileUri: fileUri,
           context: {
@@ -232,7 +260,16 @@ export function getAllEdgesEffect(): Effect.Effect<GraphEdge[], never, never> {
       }
     }
 
+    // Track hierarchical edge keys to avoid duplicates with reference edges
+    // Use a Map to track edge type so we can prefer hierarchical edges
+    const edgeMap = new Map<string, GraphEdge>();
+    for (const edge of edges) {
+      const edgeKey = `${edge.source}-${edge.target}`;
+      edgeMap.set(edgeKey, edge);
+    }
+
     // Then, add reference relationships from the graph
+    // Only add reference edges that don't conflict with hierarchical "contains" relationships
     const vertexEntries = Array.from(symbolToVertex.entries());
     const vertexBatchSize = 100;
 
@@ -246,8 +283,38 @@ export function getAllEdgesEffect(): Effect.Effect<GraphEdge[], never, never> {
       for (const edge of outgoingEdges) {
         if (!edge.value) continue;
 
-        edges.push({
-          id: `${edge.src}-${edge.dest}`,
+        const edgeKey = `${edge.src}-${edge.dest}`;
+        const existingEdge = edgeMap.get(edgeKey);
+
+        // If a hierarchical "contains" edge already exists, prefer it over reference edges
+        // Hierarchical edges use IMPORT_REFERENCE (9) for contains relationships
+        // For outer-inner class relationships, "contains" is more semantically correct than "calls"
+        if (
+          existingEdge &&
+          existingEdge.type === ReferenceType.IMPORT_REFERENCE
+        ) {
+          // Check if this is a class-to-class relationship that should be "contains"
+          const sourceSymbol = graph.getSymbol(String(edge.src));
+          const targetSymbol = graph.getSymbol(String(edge.dest));
+          if (
+            sourceSymbol &&
+            targetSymbol &&
+            (sourceSymbol.kind === 'class' ||
+              sourceSymbol.kind === 'interface' ||
+              sourceSymbol.kind === 'enum') &&
+            (targetSymbol.kind === 'class' ||
+              targetSymbol.kind === 'interface' ||
+              targetSymbol.kind === 'enum') &&
+            edge.value.type === ReferenceType.CONSTRUCTOR_CALL
+          ) {
+            // Skip CONSTRUCTOR_CALL edges between classes when "contains" edge exists
+            // This represents outer-inner class relationship, not a constructor call
+            continue;
+          }
+        }
+
+        const newEdge: GraphEdge = {
+          id: edgeKey,
           source: String(edge.src),
           target: String(edge.dest),
           type: edge.value.type,
@@ -263,7 +330,24 @@ export function getAllEdgesEffect(): Effect.Effect<GraphEdge[], never, never> {
                 namespace: edge.value.context.namespace,
               }
             : undefined,
-        });
+        };
+
+        // Skip if an edge with the same source-target and type already exists (prevents duplicates)
+        if (existingEdge && existingEdge.type === newEdge.type) {
+          continue;
+        }
+
+        // Only add reference edge if:
+        // 1. No existing edge, OR
+        // 2. Existing edge is not a hierarchical edge (type 9) and types differ
+        // Never overwrite hierarchical "contains" edges with reference edges
+        if (
+          !existingEdge ||
+          (existingEdge.type !== ReferenceType.IMPORT_REFERENCE &&
+            existingEdge.type !== newEdge.type)
+        ) {
+          edgeMap.set(edgeKey, newEdge);
+        }
       }
 
       // Yield after processing each batch of vertices
@@ -272,7 +356,8 @@ export function getAllEdgesEffect(): Effect.Effect<GraphEdge[], never, never> {
       }
     }
 
-    return edges;
+    // Convert map back to array
+    return Array.from(edgeMap.values());
   });
 }
 
@@ -338,25 +423,43 @@ export function getGraphDataForFile(fileUri: string): FileGraphData {
   for (const symbolId of fileSymbolIds) {
     const symbol = graph.getSymbol(symbolId);
     if (symbol) {
+      // Include all symbols including blocks - embrace the structural nature of SymbolTable
       nodes.push(cleanSymbol(symbol));
     }
   }
 
-  // Get edges that involve symbols from this file
+  // 1. Add hierarchical "contains" edges from SymbolTable (same as getAllEdgesEffect)
+  const symbolTable = graph.getSymbolTableForFile(normalizedUri);
+  if (symbolTable) {
+    addHierarchicalEdges(symbolTable, normalizedUri, edges);
+  }
+
+  // 2. Add reference edges, deduplicating by source-target-type
+  const edgeMap = new Map<string, GraphEdge>();
+  for (const e of edges) {
+    edgeMap.set(`${e.source}-${e.target}-${String(e.type)}`, e);
+  }
+
+  const fileSymbolIdSet = new Set(fileSymbolIds);
   for (const symbolId of fileSymbolIds) {
     const vertex = symbolToVertex.get(symbolId);
     if (!vertex) continue;
 
     const outgoingEdges = referenceGraph.outgoingEdgesOf(vertex.key);
-    const incomingEdges = referenceGraph.incomingEdgesOf(vertex.key);
-
-    // Process both outgoing and incoming edges
-    for (const edge of [...outgoingEdges, ...incomingEdges]) {
+    for (const edge of outgoingEdges) {
       if (!edge.value) continue;
-      edges.push({
-        id: `${edge.src}-${edge.dest}`,
-        source: String(edge.src),
-        target: String(edge.dest),
+      const src = String(edge.src);
+      const dest = String(edge.dest);
+      // Only include if both endpoints are in this file
+      if (!fileSymbolIdSet.has(src) || !fileSymbolIdSet.has(dest)) continue;
+
+      const edgeKey = `${src}-${dest}-${String(edge.value.type)}`;
+      if (edgeMap.has(edgeKey)) continue;
+
+      edgeMap.set(edgeKey, {
+        id: `${src}-${dest}`,
+        source: src,
+        target: dest,
         type: edge.value.type,
         sourceFileUri: edge.value.sourceFileUri,
         targetFileUri: edge.value.targetFileUri,
@@ -374,13 +477,14 @@ export function getGraphDataForFile(fileUri: string): FileGraphData {
     }
   }
 
+  const finalEdges = Array.from(edgeMap.values());
   return {
     nodes,
-    edges,
+    edges: finalEdges,
     fileUri,
     metadata: {
       totalNodes: nodes.length,
-      totalEdges: edges.length,
+      totalEdges: finalEdges.length,
       totalFiles: 1,
       lastUpdated: Date.now(),
     },
@@ -417,6 +521,7 @@ export function getGraphDataByType(symbolType: string): TypeGraphData {
   for (const symbolId of symbolIds) {
     const symbol = graph.getSymbol(symbolId);
     if (symbol && symbol.kind === symbolType) {
+      // Include all symbols including blocks - embrace the structural nature of SymbolTable
       filteredNodes.push(cleanSymbol(symbol));
       nodeIds.add(symbolId);
     }

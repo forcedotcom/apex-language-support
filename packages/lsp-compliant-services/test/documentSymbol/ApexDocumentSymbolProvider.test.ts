@@ -62,6 +62,7 @@ describe('DefaultApexDocumentSymbolProvider - Unit Tests', () => {
       error: jest.fn(),
       debug: jest.fn(),
       log: jest.fn(),
+      alwaysLog: jest.fn(),
     };
     mockedGetLogger.mockReturnValue(mockLogger);
 

@@ -23,6 +23,7 @@ import {
   initializeResourceLoaderForTests,
   resetResourceLoader,
 } from '../helpers/testHelpers';
+import { ReferenceContext } from '../../src/types/symbolReference';
 
 describe('ApexSymbolManager.getSymbolAtPosition', () => {
   let symbolManager: ApexSymbolManager;
@@ -38,10 +39,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       }),
     );
     // Initialize ResourceLoader with StandardApexLibrary.zip for built-in type resolution
-    await initializeResourceLoaderForTests({
-      loadMode: 'lazy',
-      preloadStdClasses: false,
-    });
+    await initializeResourceLoaderForTests();
   });
 
   afterAll(async () => {
@@ -805,6 +803,97 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
             // Variables found
           }
         }
+      }
+    });
+  });
+
+  describe('METHOD_CALL reference at position - must not return non-method symbol', () => {
+    it('should return method or null when METHOD_CALL reference exists at position, never a variable', async () => {
+      // Scenario: METHOD_CALL reference at method name position. getSymbolAtPosition must return
+      // the method or null—never a variable/field. UnknownClass doesn't exist so resolution fails;
+      // we mutate the variable's identifierRange to overlap the method call position to simulate
+      // the bug where the fallback returns a variable.
+      const apexSource = fs.readFileSync(
+        path.join(
+          __dirname,
+          '../fixtures/position/MethodCallWithSameNameVariable.cls',
+        ),
+        'utf8',
+      );
+
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      const result = compilerService.compile(
+        apexSource,
+        'file:///test/MethodCallWithSameNameVariable.cls',
+        listener,
+      );
+
+      if (result.result) {
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            result.result,
+            'file:///test/MethodCallWithSameNameVariable.cls',
+          ),
+        );
+      }
+
+      const lines = apexSource.split('\n');
+      const lineIndex = lines.findIndex((l) => l.includes('helper();'));
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf('helper');
+      expect(charIndex).toBeGreaterThanOrEqual(0);
+
+      const parserPosition = {
+        line: lineIndex + 1,
+        character: charIndex,
+      };
+
+      const references = symbolManager.getReferencesAtPosition(
+        'file:///test/MethodCallWithSameNameVariable.cls',
+        parserPosition,
+      );
+
+      const methodCallRef = references.find(
+        (ref) =>
+          ref.context === ReferenceContext.METHOD_CALL && ref.name === 'helper',
+      );
+      expect(methodCallRef).toBeDefined();
+
+      const symbolsInFile = symbolManager.findSymbolsInFile(
+        'file:///test/MethodCallWithSameNameVariable.cls',
+      );
+      const variableSymbol = symbolsInFile.find(
+        (s) => s.name === 'helper' && s.kind === 'variable',
+      );
+      expect(variableSymbol).toBeDefined();
+      variableSymbol!.location.identifierRange = {
+        startLine: parserPosition.line,
+        startColumn: parserPosition.character,
+        endLine: parserPosition.line,
+        endColumn: parserPosition.character + 'helper'.length,
+      };
+      (variableSymbol!.location as any).symbolRange =
+        variableSymbol!.location.identifierRange;
+
+      (symbolManager as any).unifiedCache.invalidatePattern('file_symbols_');
+
+      const symbol = await symbolManager.getSymbolAtPosition(
+        'file:///test/MethodCallWithSameNameVariable.cls',
+        parserPosition,
+        'precise',
+      );
+
+      // Contract: when METHOD_CALL reference exists at position, result must be method or null.
+      // BUG: fallback can return a variable when resolution fails. Fix: in ApexSymbolManager
+      // getSymbolAtPositionPrecise, reject non-method symbols when METHOD_CALL ref exists.
+      // This test fails when the bug occurs (variable returned); passes after the fix (null returned).
+      expect(
+        symbol === null ||
+          symbol.kind === 'method' ||
+          symbol.kind === 'constructor',
+      ).toBe(true);
+      if (symbol) {
+        expect(['variable', 'field', 'parameter']).not.toContain(symbol.kind);
       }
     });
   });

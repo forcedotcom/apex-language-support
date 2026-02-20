@@ -1,0 +1,6 @@
+{
+  "collections": ["list", "map", "set"],
+  "special": ["void", "null"],
+  "nonNullable": ["integer", "long", "double", "decimal", "boolean"],
+  "numeric": ["integer", "long", "double", "decimal"]
+}
