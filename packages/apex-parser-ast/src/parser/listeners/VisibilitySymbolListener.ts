@@ -7,6 +7,7 @@
  */
 
 import {
+  ClassBodyDeclarationContext,
   ClassDeclarationContext,
   InterfaceDeclarationContext,
   MethodDeclarationContext,
@@ -100,6 +101,17 @@ export class VisibilitySymbolListener
 
   getDetailLevel(): DetailLevel {
     return this.detailLevel;
+  }
+
+  /**
+   * Called when entering a class body declaration (modifiers + member).
+   * Reset modifiers at the start of each declaration so they don't leak from the previous member.
+   * Must run before modifiers are visited (grammar: classBodyDeclaration -> (modifier)* memberDeclaration).
+   * Without this, e.g. "private static final" from a field can leak into the next inner class.
+   */
+  enterClassBodyDeclaration(_ctx: ClassBodyDeclarationContext): void {
+    this.resetModifiers();
+    this.resetAnnotations();
   }
 
   setProjectNamespace(namespace: string): void {

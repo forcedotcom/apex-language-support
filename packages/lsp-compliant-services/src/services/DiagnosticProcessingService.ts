@@ -752,10 +752,15 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           return diagnostics; // Return original diagnostics if no graph data available
         }
 
-        // Add cross-file dependency warnings
+        // Add cross-file dependency warnings (only for type-level symbols)
+        // Variable/Parameter symbols have no meaningful circular dependency - skip to avoid false positives
         const batchSize = 50;
+        const typeLevelKinds = ['class', 'interface', 'trigger', 'method', 'constructor'];
         for (let i = 0; i < fileSymbols.length; i++) {
           const symbol = fileSymbols[i];
+          if (!typeLevelKinds.includes(symbol.kind)) {
+            continue;
+          }
           try {
             const dependencyAnalysis =
               self.symbolManager.analyzeDependencies(symbol);
