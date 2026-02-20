@@ -592,6 +592,15 @@ export class CompilerService {
       }
       const targetDetailLevel =
         highestLayer === 'private' ? 'full' : highestLayer;
+      // INVARIANT: All symbols are updated to targetDetailLevel HERE, after all listeners
+      // have run (including BlockContentListener at line ~586). This single write is the
+      // authoritative source of truth for detailLevel on every symbol. It intentionally
+      // overwrites any premature _detailLevel values that individual listeners may have set
+      // (e.g. ApexSymbolCollectorListener defaults new symbols to 'full' in its constructor).
+      // Callers that read symbolTable.getDetailLevel() are safe because:
+      //   (a) This loop runs before compileLayered returns (synchronous).
+      //   (b) LayerEnrichmentService calls symbolManager.addSymbolTable() only after
+      //       compileLayered returns, so no external reader can observe a partially-updated table.
       for (const symbol of symbolTable.getAllSymbols()) {
         if (symbol._detailLevel) {
           symbol._detailLevel = targetDetailLevel as DetailLevel;

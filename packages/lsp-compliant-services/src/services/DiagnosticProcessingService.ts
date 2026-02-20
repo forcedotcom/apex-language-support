@@ -377,17 +377,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           params.textDocument.uri,
         );
 
-        // Skip semantic validation when prerequisites were skipped or enrichment incomplete.
-        // Run validation when we have full table, or when we have public-api and artifact
-        // loading is enabled (ClassHierarchyValidator can run with type-level symbols).
-        const settings = ApexSettingsManager.getInstance().getSettings();
-        const allowArtifactLoading =
-          settings.apex.findMissingArtifact.enabled ?? false;
-        const detailLevel = cachedTable?.getDetailLevel();
-        const skipSemanticValidation =
-          isWorkspaceLoading() ||
-          !cachedTable ||
-          (detailLevel !== 'full' && !allowArtifactLoading);
+        // Let the per-validator prerequisite system (ValidatorRegistry.checkValidatorPrerequisites)
+        // decide what runs. It already gates on detailLevel, references, and cross-file resolution.
+        // Only skip when workspace is loading (no tables available) or no table at all.
+        const skipSemanticValidation = isWorkspaceLoading() || !cachedTable;
 
         if (skipSemanticValidation) {
           this.logger.debug(
@@ -400,6 +393,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         }
 
         if (cachedTable) {
+          const settings = ApexSettingsManager.getInstance().getSettings();
+          const allowArtifactLoading =
+            settings.apex.findMissingArtifact.enabled ?? false;
+
           // Check enrichment level before validation
           const detailLevel = this.symbolManager.getDetailLevelForFile(
             params.textDocument.uri,
@@ -585,18 +582,11 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       const enrichedTable =
         this.symbolManager.getSymbolTableForFile(document.uri) || table;
 
-      // Skip semantic validation when prerequisites were skipped or enrichment incomplete.
-      // Run validation when we have full table, or when we have public-api and artifact
-      // loading is enabled (ClassHierarchyValidator can run with type-level symbols).
-      const fullPathSettings =
-        ApexSettingsManager.getInstance().getSettings();
-      const fullPathAllowArtifactLoading =
-        fullPathSettings.apex.findMissingArtifact.enabled ?? false;
-      const fullPathDetailLevel = enrichedTable?.getDetailLevel();
+      // Let the per-validator prerequisite system (ValidatorRegistry.checkValidatorPrerequisites)
+      // decide what runs. It already gates on detailLevel, references, and cross-file resolution.
+      // Only skip when workspace is loading (no tables available) or no table at all.
       const skipSemanticValidationFullPath =
-        isWorkspaceLoading() ||
-        !enrichedTable ||
-        (fullPathDetailLevel !== 'full' && !fullPathAllowArtifactLoading);
+        isWorkspaceLoading() || !enrichedTable;
 
       if (skipSemanticValidationFullPath) {
         this.logger.debug(
@@ -610,6 +600,11 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
       if (enrichedTable) {
         try {
+          const fullPathSettings =
+            ApexSettingsManager.getInstance().getSettings();
+          const fullPathAllowArtifactLoading =
+            fullPathSettings.apex.findMissingArtifact.enabled ?? false;
+
           // Check enrichment level before validation
           const detailLevel = this.symbolManager.getDetailLevelForFile(
             document.uri,
@@ -746,7 +741,13 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         // Add cross-file dependency warnings (only for type-level symbols)
         // Variable/Parameter symbols have no meaningful circular dependency - skip to avoid false positives
         const batchSize = 50;
-        const typeLevelKinds = ['class', 'interface', 'trigger', 'method', 'constructor'];
+        const typeLevelKinds = [
+          'class',
+          'interface',
+          'trigger',
+          'method',
+          'constructor',
+        ];
         for (let i = 0; i < fileSymbols.length; i++) {
           const symbol = fileSymbols[i];
           if (!typeLevelKinds.includes(symbol.kind)) {
