@@ -52,6 +52,7 @@ import {
 } from './MissingArtifactResolutionService';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
+import { isWorkspaceLoading } from './WorkspaceLoadCoordinator';
 
 /**
  * Interface for diagnostic processing functionality to make handlers more testable.
@@ -364,7 +365,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           });
         }
 
-        // Run semantic validation (always enabled)
+        // Run semantic validation (skip when prerequisites incomplete to avoid false positives)
         this.logger.debug(
           () =>
             `Running semantic validation for cached result: ${params.textDocument.uri}`,
@@ -375,6 +376,31 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         const cachedTable = this.symbolManager.getSymbolTableForFile(
           params.textDocument.uri,
         );
+
+        // Skip semantic validation when prerequisites were skipped or enrichment incomplete.
+        // Running validators with public-api-only table causes false positives
+        // (e.g. "variable does not exist" for locals, "receiver unresolved" for types).
+        // Runtime evidence: first diagnostic request can receive table with detailLevel='full'
+        // but varAndParamCount=0 (BlockContentListener not yet applied); skip in that case.
+        const allSymsForSkip = cachedTable?.getAllSymbols() ?? [];
+        const varParamCount = allSymsForSkip.filter(
+          (s) => s.kind === 'variable' || s.kind === 'parameter',
+        ).length;
+        const skipSemanticValidation =
+          isWorkspaceLoading() ||
+          !cachedTable ||
+          cachedTable.getDetailLevel() !== 'full' ||
+          varParamCount === 0;
+
+        if (skipSemanticValidation) {
+          this.logger.debug(
+            () =>
+              `Skipping semantic validation for ${params.textDocument.uri}: ` +
+              `workspaceLoading=${isWorkspaceLoading()}, hasTable=${!!cachedTable}, ` +
+              `detailLevel=${cachedTable?.getDetailLevel() ?? 'none'}`,
+          );
+          return enhancedCachedDiagnostics;
+        }
 
         if (cachedTable) {
           // Check enrichment level before validation
@@ -387,19 +413,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
               `syntaxErrors=${hasCachedSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
               `symbolTableSize=${cachedTable.getAllSymbols().length}`,
           );
-
-          // Verify detail level meets validator requirements after prerequisites
-          // For THOROUGH tier diagnostics, we expect 'full' detail level
-          const expectedDetailLevel = 'full';
-          const actualDetailLevel = cachedTable.getDetailLevel();
-          if (actualDetailLevel !== expectedDetailLevel) {
-            this.logger.warn(
-              () =>
-                `[VALIDATION-WARNING] Symbol table for ${params.textDocument.uri} has detail level ` +
-                `'${actualDetailLevel ?? 'unknown'}' but validators may require '${expectedDetailLevel}'. ` +
-                'Some validators may be skipped.',
-            );
-          }
 
           // Get settings for artifact loading
           const settings = ApexSettingsManager.getInstance().getSettings();
@@ -567,7 +580,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         ),
       );
 
-      // Run semantic validation (always enabled)
+      // Run semantic validation (skip when prerequisites incomplete to avoid false positives)
       // Wrap in try-catch to ensure syntax errors are still returned even if validators fail
       let validatorDiagnostics: Diagnostic[] = [];
 
@@ -579,6 +592,28 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       );
       const enrichedTable =
         this.symbolManager.getSymbolTableForFile(document.uri) || table;
+
+      // Skip semantic validation when prerequisites were skipped or enrichment incomplete.
+      // Runtime evidence: table may report detailLevel='full' but have varParamCount=0.
+      const fullPathSyms = enrichedTable?.getAllSymbols() ?? [];
+      const fullPathVarCount = fullPathSyms.filter(
+        (s) => s.kind === 'variable' || s.kind === 'parameter',
+      ).length;
+      const skipSemanticValidationFullPath =
+        isWorkspaceLoading() ||
+        !enrichedTable ||
+        enrichedTable.getDetailLevel() !== 'full' ||
+        fullPathVarCount === 0;
+
+      if (skipSemanticValidationFullPath) {
+        this.logger.debug(
+          () =>
+            `Skipping semantic validation for ${params.textDocument.uri} (full path): ` +
+            `workspaceLoading=${isWorkspaceLoading()}, hasTable=${!!enrichedTable}, ` +
+            `detailLevel=${enrichedTable?.getDetailLevel() ?? 'none'}`,
+        );
+        return enhancedDiagnostics;
+      }
 
       if (enrichedTable) {
         try {
@@ -596,19 +631,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           this.logger.debug(
             () => `Running semantic validation for: ${params.textDocument.uri}`,
           );
-
-          // Verify detail level meets validator requirements after prerequisites
-          // For THOROUGH tier diagnostics, we expect 'full' detail level
-          const expectedDetailLevel = 'full';
-          const actualDetailLevel = enrichedTable.getDetailLevel();
-          if (actualDetailLevel !== expectedDetailLevel) {
-            this.logger.warn(
-              () =>
-                `[VALIDATION-WARNING] Symbol table for ${params.textDocument.uri} has detail level ` +
-                `'${actualDetailLevel ?? 'unknown'}' but validators may require '${expectedDetailLevel}'. ` +
-                'Some validators may be skipped.',
-            );
-          }
 
           // Get settings for artifact loading
           const settings = ApexSettingsManager.getInstance().getSettings();

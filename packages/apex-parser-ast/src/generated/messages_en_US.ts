@@ -94,6 +94,7 @@ export type ErrorCodeKey =
   | 'external.string.does.not.exist'
   | 'extract.constant'
   | 'extract.variable'
+  | 'field.access.receiver.unresolved'
   | 'field.does.not.exist'
   | 'field.does.not.support.type'
   | 'field.plural'
@@ -447,6 +448,7 @@ export const messages: Record<string, string> = {
   'external.string.does.not.exist': 'External string does not exist: %s',
   'extract.constant': 'Extract Constant',
   'extract.variable': 'Extract Variable',
+  'field.access.receiver.unresolved': 'Unable to resolve receiver type for field access: %s',
   'field.does.not.exist': 'Field does not exist: %s on %s',
   'field.does.not.support.type': '%s fields do not support type of %s',
   'field.plural': 'fields',

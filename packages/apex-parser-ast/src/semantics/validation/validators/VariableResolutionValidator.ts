@@ -357,6 +357,11 @@ export const VariableResolutionValidator: Validator = {
             if (isChainNode) continue;
           }
 
+          // "this" is a valid Apex keyword (current instance) - not in symbol table
+          if (variableName?.toLowerCase() === 'this') {
+            continue;
+          }
+
           // Variable not found
           errors.push({
             message: localizeTyped(
@@ -498,8 +503,8 @@ export const VariableResolutionValidator: Validator = {
 
         // Fallback: extract object name and resolve from first node only
         let suppressDueToUnresolvedDeclaredType = false;
+        let objectName: string | null = null;
         if (!targetType) {
-          let objectName: string | null = null;
           for (const chainedRef of chainedTypeRefs) {
             if (chainedRef.chainNodes && chainedRef.chainNodes.length > 0) {
               const finalNode =
@@ -510,11 +515,12 @@ export const VariableResolutionValidator: Validator = {
               ) {
                 const baseNode = chainedRef.chainNodes[0];
                 if (
+                  baseNode.name?.toLowerCase() === 'this' ||
                   baseNode.context === ReferenceContext.VARIABLE_USAGE ||
                   baseNode.context === ReferenceContext.CLASS_REFERENCE ||
                   baseNode.context === ReferenceContext.CHAIN_STEP
                 ) {
-                  objectName = baseNode.name;
+                  objectName = baseNode.name ?? null;
                   break;
                 }
               }
@@ -535,6 +541,51 @@ export const VariableResolutionValidator: Validator = {
               allSymbols,
               symbolTable,
             );
+
+            // When objectVariable is null, the base may be a class (e.g. EncodingUtil) or an
+            // unresolved variable (e.g. contentVersion when ContentVersion type not loaded).
+            // Resolve as type from symbol manager; if found use it; if not, suppress to avoid
+            // false positive "field on FileUtilities" when falling back to containingClass.
+            if (!objectVariable) {
+              // "this" and containing class name are deterministic - don't suppress
+              const isThisOrClassName =
+                objectName?.toLowerCase() === 'this' ||
+                objectName === containingClass?.name;
+              if (!isThisOrClassName) {
+                let typeSymbols = symbolManager.findSymbolByName(objectName);
+                if (
+                  typeSymbols.length === 0 &&
+                  objectName.includes('.') &&
+                  symbolManager.findSymbolByFQN
+                ) {
+                  const fqn = symbolManager.findSymbolByFQN(objectName);
+                  if (fqn) typeSymbols = [fqn];
+                }
+                if (typeSymbols.length === 0 && objectName.includes('.')) {
+                  const lastPart = objectName.split('.').pop();
+                  if (lastPart) {
+                    typeSymbols = symbolManager.findSymbolByName(lastPart);
+                  }
+                }
+                const resolvedType =
+                  (typeSymbols.find(
+                    (s: ApexSymbol) =>
+                      s.kind === SymbolKind.Class ||
+                      s.kind === SymbolKind.Interface,
+                  ) as TypeSymbol | undefined) ?? null;
+                if (resolvedType) {
+                  targetType = yield* resolveTargetTypeWithArrayAccess(
+                    resolvedType,
+                    objectName,
+                    fieldRef,
+                    options.sourceContent,
+                    symbolManager,
+                  );
+                } else {
+                  suppressDueToUnresolvedDeclaredType = true;
+                }
+              }
+            }
 
             if (!objectVariable) {
               for (const chainedRef of chainedTypeRefs) {
@@ -600,13 +651,37 @@ export const VariableResolutionValidator: Validator = {
           }
         }
 
-        // If we couldn't resolve object type, fall back to current class hierarchy
-        // unless we have a variable with an unresolved declared type (suppress false positive)
+        // Use containingClass only when receiver is deterministic: "this" or class-name static access
         if (!targetType) {
           if (suppressDueToUnresolvedDeclaredType) {
             continue;
           }
-          targetType = containingClass;
+          // Fallback: try source extraction when objectName not from chain (e.g. "this")
+          const effectiveObjectName =
+            objectName ??
+            (options.sourceContent
+              ? extractObjectNameFromFieldAccess(
+                  fieldRef,
+                  options.sourceContent,
+                )
+              : null);
+          const isThisOrClass =
+            effectiveObjectName?.toLowerCase() === 'this' ||
+            effectiveObjectName === containingClass?.name;
+          if (isThisOrClass) {
+            targetType = containingClass;
+          } else {
+            // Receiver cannot be resolved - report warning
+            warnings.push({
+              message: localizeTyped(
+                ErrorCodes.FIELD_ACCESS_RECEIVER_UNRESOLVED,
+                fieldName,
+              ),
+              location: refLocation,
+              code: ErrorCodes.FIELD_ACCESS_RECEIVER_UNRESOLVED,
+            });
+            continue;
+          }
         }
 
         // Suppress when target is List/Set - these have no instance fields in Apex;
@@ -723,6 +798,7 @@ export const VariableResolutionValidator: Validator = {
 
         // Fallback: resolve from first node (variable) when chain resolution failed
         let suppressDueToUnresolvedDeclaredType = false;
+        let objectName: string | null = null;
         if (!targetType) {
           for (const chainedRef of chainedTypeRefs) {
             if (
@@ -732,6 +808,7 @@ export const VariableResolutionValidator: Validator = {
                 fieldName
             ) {
               const baseNode = chainedRef.chainNodes[0];
+              objectName = baseNode.name ?? null;
               const objectVariable = findVariableInScope(
                 baseNode.name,
                 fieldRef.parentContext,
@@ -772,12 +849,44 @@ export const VariableResolutionValidator: Validator = {
           }
         }
 
-        // If we couldn't resolve object type, fall back to current class hierarchy
+        if (!objectName && options.sourceContent) {
+          objectName = extractObjectNameFromFieldAccess(
+            fieldRef,
+            options.sourceContent,
+          );
+        }
+
+        // Use containingClass only when receiver is deterministic: "this" or class-name static access
         if (!targetType) {
           if (suppressDueToUnresolvedDeclaredType) {
             continue;
           }
-          targetType = containingClass;
+          // Fallback: try source extraction when objectName not from chain (e.g. "this")
+          const effectiveObjectName =
+            objectName ??
+            (options.sourceContent
+              ? extractObjectNameFromFieldAccess(
+                  fieldRef,
+                  options.sourceContent,
+                )
+              : null);
+          const isThisOrClass =
+            effectiveObjectName?.toLowerCase() === 'this' ||
+            effectiveObjectName === containingClass?.name;
+          if (isThisOrClass) {
+            targetType = containingClass;
+          } else {
+            // Receiver cannot be resolved - report warning
+            warnings.push({
+              message: localizeTyped(
+                ErrorCodes.FIELD_ACCESS_RECEIVER_UNRESOLVED,
+                fieldName,
+              ),
+              location: refLocation,
+              code: ErrorCodes.FIELD_ACCESS_RECEIVER_UNRESOLVED,
+            });
+            continue;
+          }
         }
 
         // Find field in the target type's hierarchy
@@ -1052,20 +1161,30 @@ function extractObjectNameFromFieldAccess(
   }
 
   // Find the dot before the field name
-  // Look backwards from the field name position to find the dot
-  const fieldName = fieldRef.name;
+  const fieldName = fieldRef.name?.includes('.')
+    ? (fieldRef.name.split('.').pop() ?? fieldRef.name)
+    : fieldRef.name;
+
+  // Try location-based extraction first
   const fieldNameIndex = fieldAccessLine
     .substring(startColumn - 1)
     .toLowerCase()
     .indexOf(fieldName.toLowerCase());
-
-  if (fieldNameIndex < 0) {
-    return null;
+  let dotIndex = -1;
+  if (fieldNameIndex >= 0) {
+    dotIndex = startColumn - 1 + fieldNameIndex - 1;
   }
 
-  // Look backwards from before the dot to find the object name
-  const dotIndex = startColumn - 1 + fieldNameIndex - 1;
+  // Fallback: search whole line for ".fieldName" when location-based fails
   if (dotIndex < 0 || fieldAccessLine[dotIndex] !== '.') {
+    const dotFieldMatch = fieldAccessLine.match(
+      new RegExp(
+        `([a-zA-Z_][a-zA-Z0-9_]*)\\.${fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
+      ),
+    );
+    if (dotFieldMatch) {
+      return dotFieldMatch[1];
+    }
     return null;
   }
 
@@ -1124,9 +1243,26 @@ function findVariableInScope(
     ) as MethodSymbol | undefined;
     if (methodSymbol?.parameters) {
       const param = methodSymbol.parameters.find(
-        (p) => p.name === variableName,
+        (p) => p.name?.toLowerCase() === variableName.toLowerCase(),
       );
       if (param) return param;
+    }
+  }
+
+  // When parentContext is missing, parameters may still be in method.parameters
+  // (not in symbolArray). Search all methods in the file.
+  if (!parentContext) {
+    for (const s of allSymbols) {
+      if (
+        s.kind === SymbolKind.Method &&
+        'parameters' in s &&
+        (s as MethodSymbol).parameters
+      ) {
+        const param = (s as MethodSymbol).parameters.find(
+          (p) => p.name?.toLowerCase() === variableName.toLowerCase(),
+        );
+        if (param) return param;
+      }
     }
   }
 
@@ -1137,7 +1273,7 @@ function findVariableInScope(
       (s.kind === SymbolKind.Variable ||
         s.kind === SymbolKind.Parameter ||
         s.kind === SymbolKind.Field) &&
-      s.name === variableName,
+      s.name?.toLowerCase() === variableName.toLowerCase(),
   );
 
   if (matchingSymbols.length > 0) {
