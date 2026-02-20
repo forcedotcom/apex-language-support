@@ -378,19 +378,16 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         );
 
         // Skip semantic validation when prerequisites were skipped or enrichment incomplete.
-        // Running validators with public-api-only table causes false positives
-        // (e.g. "variable does not exist" for locals, "receiver unresolved" for types).
-        // Runtime evidence: first diagnostic request can receive table with detailLevel='full'
-        // but varAndParamCount=0 (BlockContentListener not yet applied); skip in that case.
-        const allSymsForSkip = cachedTable?.getAllSymbols() ?? [];
-        const varParamCount = allSymsForSkip.filter(
-          (s) => s.kind === 'variable' || s.kind === 'parameter',
-        ).length;
+        // Run validation when we have full table, or when we have public-api and artifact
+        // loading is enabled (ClassHierarchyValidator can run with type-level symbols).
+        const settings = ApexSettingsManager.getInstance().getSettings();
+        const allowArtifactLoading =
+          settings.apex.findMissingArtifact.enabled ?? false;
+        const detailLevel = cachedTable?.getDetailLevel();
         const skipSemanticValidation =
           isWorkspaceLoading() ||
           !cachedTable ||
-          cachedTable.getDetailLevel() !== 'full' ||
-          varParamCount === 0;
+          (detailLevel !== 'full' && !allowArtifactLoading);
 
         if (skipSemanticValidation) {
           this.logger.debug(
@@ -413,11 +410,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
               `syntaxErrors=${hasCachedSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
               `symbolTableSize=${cachedTable.getAllSymbols().length}`,
           );
-
-          // Get settings for artifact loading
-          const settings = ApexSettingsManager.getInstance().getSettings();
-          const allowArtifactLoading =
-            settings.apex.findMissingArtifact.enabled ?? false;
 
           // Extract version-specific validation setting
           const enableVersionSpecificValidation =
@@ -594,16 +586,17 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         this.symbolManager.getSymbolTableForFile(document.uri) || table;
 
       // Skip semantic validation when prerequisites were skipped or enrichment incomplete.
-      // Runtime evidence: table may report detailLevel='full' but have varParamCount=0.
-      const fullPathSyms = enrichedTable?.getAllSymbols() ?? [];
-      const fullPathVarCount = fullPathSyms.filter(
-        (s) => s.kind === 'variable' || s.kind === 'parameter',
-      ).length;
+      // Run validation when we have full table, or when we have public-api and artifact
+      // loading is enabled (ClassHierarchyValidator can run with type-level symbols).
+      const fullPathSettings =
+        ApexSettingsManager.getInstance().getSettings();
+      const fullPathAllowArtifactLoading =
+        fullPathSettings.apex.findMissingArtifact.enabled ?? false;
+      const fullPathDetailLevel = enrichedTable?.getDetailLevel();
       const skipSemanticValidationFullPath =
         isWorkspaceLoading() ||
         !enrichedTable ||
-        enrichedTable.getDetailLevel() !== 'full' ||
-        fullPathVarCount === 0;
+        (fullPathDetailLevel !== 'full' && !fullPathAllowArtifactLoading);
 
       if (skipSemanticValidationFullPath) {
         this.logger.debug(
@@ -632,21 +625,19 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             () => `Running semantic validation for: ${params.textDocument.uri}`,
           );
 
-          // Get settings for artifact loading
-          const settings = ApexSettingsManager.getInstance().getSettings();
-          const allowArtifactLoading =
-            settings.apex.findMissingArtifact.enabled ?? false;
-
           // Extract version-specific validation setting
           const enableVersionSpecificValidation =
-            settings.apex.validation?.versionSpecificValidation?.enabled ??
-            false;
+            fullPathSettings.apex.validation?.versionSpecificValidation
+              ?.enabled ?? false;
 
           // Extract and parse API version (only if version-specific validation is enabled)
           // Only extract major version from settings (e.g., "65.0" -> 65, "20.8" -> 20)
           let apiVersion: number | undefined;
-          if (enableVersionSpecificValidation && settings.apex.version) {
-            const versionParts = settings.apex.version.split('.');
+          if (
+            enableVersionSpecificValidation &&
+            fullPathSettings.apex.version
+          ) {
+            const versionParts = fullPathSettings.apex.version.split('.');
             if (versionParts.length > 0) {
               const major = Number(versionParts[0]);
               if (!isNaN(major)) {
@@ -664,13 +655,13 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           // Build validation options
           const validationOptions: ValidationOptions = {
             tier: ValidationTier.THOROUGH, // Pull diagnostics = thorough
-            allowArtifactLoading,
+            allowArtifactLoading: fullPathAllowArtifactLoading,
             maxDepth: ARTIFACT_LOADING_LIMITS.maxDepth,
             maxArtifacts: ARTIFACT_LOADING_LIMITS.maxArtifacts,
             timeout: ARTIFACT_LOADING_LIMITS.timeout,
             progressToken: params.workDoneToken,
             symbolManager: this.symbolManager,
-            loadArtifactCallback: allowArtifactLoading
+            loadArtifactCallback: fullPathAllowArtifactLoading
               ? this.createLoadArtifactCallback(params.textDocument.uri)
               : undefined,
             parseTree: cachedParseTree || undefined, // Provide cached parse tree if available
