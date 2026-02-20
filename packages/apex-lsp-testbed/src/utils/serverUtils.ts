@@ -66,9 +66,10 @@ export async function createClientOptions(
   verbose: boolean,
   workspace?: WorkspaceConfig,
   suspend: boolean = false,
+  initOptions?: Record<string, any>,
 ): Promise<JsonRpcClientOptions> {
   // Common initialization options that include the workspace configuration
-  const initializationOptions = workspace
+  const baseParams = workspace
     ? {
         workspaceFolders: [
           {
@@ -85,6 +86,11 @@ export async function createClientOptions(
         code2ProtocolConverter: code2ProtocolConverter,
       }
     : {};
+
+  // Merge initOptions as LSP initializationOptions (e.g. apex.environment.serverMode)
+  const initializationOptions = initOptions
+    ? { ...baseParams, initializationOptions: initOptions }
+    : baseParams;
 
   // Find the root of the repository to use for absolute paths
   const repoRoot = findRepoRoot(process.cwd());
