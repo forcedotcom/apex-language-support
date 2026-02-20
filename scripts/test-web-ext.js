@@ -643,8 +643,8 @@ async function runWebExtensionTests() {
       fs.mkdirSync(vscodeDir, { recursive: true });
 
       const vscodeSettings = {
-        'apex.logLevel': 'debug',
-        'apex.worker.logLevel': 'debug',
+        'apex.logLevel': 'error',
+        'apex.worker.logLevel': 'error',
         'apex.environment.serverMode': 'development',
       };
 
@@ -744,7 +744,9 @@ async function runWebExtensionTests() {
     );
 
     console.log('🌐 Starting VS Code Web Extension Tests...');
-    console.log(`📁 Extension development path (dist): ${extensionDevelopmentPath}`);
+    console.log(
+      `📁 Extension development path (dist): ${extensionDevelopmentPath}`,
+    );
     console.log(`📁 Extension source path: ${extensionSourcePath}`);
     console.log(`📂 Workspace path: ${workspacePath}`);
 

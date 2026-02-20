@@ -72,11 +72,17 @@ async function startTestServer() {
         console.log(
           `📋 Copying test workspace from ${sourceWorkspace} to ${workspacePath}`,
         );
-        const files = fs.readdirSync(sourceWorkspace);
-        files.forEach((file) => {
-          const src = path.join(sourceWorkspace, file);
-          const dest = path.join(workspacePath, file);
-          fs.copyFileSync(src, dest);
+        const entries = fs.readdirSync(sourceWorkspace, {
+          withFileTypes: true,
+        });
+        entries.forEach((entry) => {
+          const src = path.join(sourceWorkspace, entry.name);
+          const dest = path.join(workspacePath, entry.name);
+          if (entry.isDirectory()) {
+            fs.cpSync(src, dest, { recursive: true });
+          } else if (entry.isFile()) {
+            fs.copyFileSync(src, dest);
+          }
         });
         console.log('✅ Test workspace files copied successfully');
       } else {
@@ -122,6 +128,7 @@ async function startTestServer() {
       version: 'stable',
       printServerLog: true,
       verbose: true,
+      coi: true, // Cross-origin isolation for SharedArrayBuffer support
       // Don't run any tests, just keep server running
       extensionTestsPath: undefined,
       port: 3000, // Fixed port for Playwright

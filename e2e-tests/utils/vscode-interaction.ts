@@ -8,11 +8,13 @@
 
 import type { Page } from '@playwright/test';
 import { SELECTORS, APEX_CLASS_EXAMPLE_CONTENT } from './constants';
-import { setupWorkerResponseHook } from './worker-detection';
 import {
-  setupConsoleMonitoring,
-  setupNetworkMonitoring,
-} from './error-handling';
+  waitForVSCodeWorkbench,
+  closeWelcomeTabs,
+  isDesktop,
+} from '../shared/utils/helpers';
+import { waitForCommandToBeAvailable } from '../shared/pages/commands';
+
 import type { ConsoleError, NetworkError } from './constants';
 
 /**
@@ -58,29 +60,13 @@ export const ALL_SAMPLE_FILES = [createApexClassExampleFile()] as const;
 
 /**
  * Starts VS Code Web and waits for it to load.
+ * Uses shared waitForVSCodeWorkbench and closeWelcomeTabs (monorepo parity).
  *
  * @param page - Playwright page instance
  */
 export const startVSCodeWeb = async (page: Page): Promise<void> => {
-  await page.goto('/', { waitUntil: 'networkidle' });
-
-  // Wait for the page to be fully loaded
-  await page.waitForLoadState('domcontentloaded');
-
-  // Wait for VS Code workbench to be fully loaded and interactive
-  await page.waitForSelector(SELECTORS.STATUSBAR, {
-    timeout: 60_000, // VS Code startup timeout
-  });
-
-  // Verify VS Code workbench loaded
-  await page.waitForSelector(SELECTORS.WORKBENCH, {
-    timeout: 30_000, // Selector wait timeout
-  });
-  const workbench = page.locator(SELECTORS.WORKBENCH);
-  await workbench.waitFor({ state: 'visible' });
-
-  // Ensure the workbench is fully interactive
-  await page.waitForLoadState('networkidle');
+  await waitForVSCodeWorkbench(page, true);
+  await closeWelcomeTabs(page);
 };
 
 /**
@@ -124,11 +110,17 @@ export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
  * @param page - Playwright page instance
  */
 export const activateExtension = async (page: Page): Promise<void> => {
+  // Desktop mode requires longer timeouts
+  const isDesktopMode = isDesktop();
+  const shortTimeout = isDesktopMode ? 30_000 : 15_000;
+  const longTimeout = isDesktopMode ? 60_000 : 30_000;
+  const contentTimeout = isDesktopMode ? 15_000 : 5_000;
+
   const clsFile = page.locator(SELECTORS.CLS_FILE_ICON).first();
 
   await clsFile.waitFor({
     state: 'visible',
-    timeout: 15_000,
+    timeout: shortTimeout,
   });
 
   if (await clsFile.isVisible()) {
@@ -148,17 +140,18 @@ export const activateExtension = async (page: Page): Promise<void> => {
   }
 
   // Wait for editor to load
-  await page.waitForSelector(SELECTORS.EDITOR_PART, { timeout: 15_000 });
+  await page.waitForSelector(SELECTORS.EDITOR_PART, { timeout: shortTimeout });
   const editorPart = page.locator(SELECTORS.EDITOR_PART);
   await editorPart.waitFor({ state: 'visible' });
 
   // Verify Monaco editor is present
   const monacoEditor = page.locator(SELECTORS.MONACO_EDITOR);
-  await monacoEditor.waitFor({ state: 'visible', timeout: 30_000 });
+  await monacoEditor.waitFor({ state: 'visible', timeout: longTimeout });
 
-  // Verify that file content is actually loaded in the editor
-  const editorText = page.locator('.monaco-editor .view-lines');
-  await editorText.waitFor({ state: 'visible', timeout: 5_000 });
+  // Verify that file content is actually loaded in the editor.
+  // Use EDITOR_PART scope to exclude interactive-input-editor (Chat/Copilot) which also has .view-lines.
+  const editorText = editorPart.locator('.monaco-editor .view-lines').first();
+  await editorText.waitFor({ state: 'visible', timeout: contentTimeout });
 
   // Check if the editor contains some text content
   const hasContent = await editorText.locator('.view-line').first().isVisible();
@@ -167,41 +160,35 @@ export const activateExtension = async (page: Page): Promise<void> => {
       'Extension activated but file content may not be loaded yet',
     );
   }
+
+  // Wait for extension command to be available (extension fully loaded + when context ready)
+  await waitForCommandToBeAvailable(
+    page,
+    'SFDX: Restart Apex-LS-TS Language Server',
+    30_000,
+  );
 };
 
 /**
  * Waits for LSP server to initialize.
+ * Waits for Monaco editor to be ready and for view lines (content) to be visible.
  *
  * @param page - Playwright page instance
  */
 export const waitForLSPInitialization = async (page: Page): Promise<void> => {
-  // Wait for Monaco editor to be ready and responsive
+  const isDesktopMode = isDesktop();
+  const selectorTimeout = isDesktopMode ? 60_000 : 30_000;
+
   await page.waitForSelector(
     SELECTORS.MONACO_EDITOR + ' .monaco-editor-background',
-    {
-      timeout: 30_000, // LSP initialization timeout
-    },
+    { timeout: selectorTimeout },
   );
 
-  // Wait for any language server activity by checking for syntax highlighting or symbols
-  await page.evaluate(
-    async () =>
-      new Promise((resolve) => {
-        const checkInterval = setInterval(() => {
-          const editor = document.querySelector('.monaco-editor .view-lines');
-          if (editor && editor.children.length > 0) {
-            clearInterval(checkInterval);
-            resolve(true);
-          }
-        }, 100);
-
-        // Timeout after 8 seconds
-        setTimeout(() => {
-          clearInterval(checkInterval);
-          resolve(true);
-        }, 8000);
-      }),
-  );
+  // Wait for editor content (view lines) to be visible - indicates LSP has processed the file
+  const viewLines = page.locator('.monaco-editor .view-lines .view-line');
+  await viewLines
+    .first()
+    .waitFor({ state: 'visible', timeout: selectorTimeout });
 };
 
 /**

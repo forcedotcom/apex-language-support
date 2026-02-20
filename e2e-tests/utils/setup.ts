@@ -22,6 +22,19 @@ interface SetupOptions {
 }
 
 /**
+ * VS Code workspace settings for optimal standard library loading.
+ * These settings ensure:
+ * - Logging level is "error" to avoid performance impact from verbose logging
+ * - Worker logging is also "error" for the same reason
+ * - Server mode is "development" for testing
+ */
+const WORKSPACE_SETTINGS = {
+  'apex.logLevel': 'error',
+  'apex.worker.logLevel': 'error',
+  'apex.environment.serverMode': 'development',
+};
+
+/**
  * Sets up test workspace with sample files for e2e tests.
  * Can be called from individual tests with custom options.
  *
@@ -47,11 +60,34 @@ export async function setupTestWorkspace(
   // Ensure workspace directory exists
   fs.mkdirSync(workspacePath, { recursive: true });
 
+  // Create .vscode directory and settings.json for optimal standard library loading
+  const vscodeDir = path.join(workspacePath, '.vscode');
+  fs.mkdirSync(vscodeDir, { recursive: true });
+  const settingsPath = path.join(vscodeDir, 'settings.json');
+  fs.writeFileSync(settingsPath, JSON.stringify(WORKSPACE_SETTINGS, null, 2));
+
   // Create sample files
   sampleFiles.forEach((sampleFile) => {
     const filePath = path.join(workspacePath, sampleFile.filename);
     fs.writeFileSync(filePath, sampleFile.content);
   });
+
+  // Copy test-data Apex samples (inheritance.cls, interface-impl.cls, complex-class.cls)
+  // for goto-definition and other tests that need multi-file scenarios
+  const testDataSamplesDir = path.resolve(
+    __dirname,
+    '../test-data/apex-samples',
+  );
+  if (fs.existsSync(testDataSamplesDir)) {
+    const apexSampleFiles = fs.readdirSync(testDataSamplesDir);
+    for (const file of apexSampleFiles) {
+      if (file.endsWith('.cls')) {
+        const src = path.join(testDataSamplesDir, file);
+        const dest = path.join(workspacePath, file);
+        fs.copyFileSync(src, dest);
+      }
+    }
+  }
 
   return workspacePath;
 }

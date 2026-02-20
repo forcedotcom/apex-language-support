@@ -359,10 +359,12 @@ export class HoverProcessingService implements IHoverProcessor {
           references.length > 0
         ) {
           // Check if there's a CONSTRUCTOR_CALL reference at this position
+          const className = symbol.name;
+          const classId = symbol.id;
           const constructorCallRef = references.find(
             (ref) =>
               ref.context === ReferenceContext.CONSTRUCTOR_CALL &&
-              ref.name === resolvedSymbol.name &&
+              ref.name === className &&
               ref.location.identifierRange.startLine === parserPosition.line &&
               ref.location.identifierRange.startColumn <=
                 parserPosition.character &&
@@ -377,15 +379,15 @@ export class HoverProcessingService implements IHoverProcessor {
             );
             const constructorSymbol = fileSymbols.find(
               (s) =>
-                s.name === resolvedSymbol.name &&
+                s.name === className &&
                 s.kind === SymbolKind.Constructor &&
-                s.parentId === resolvedSymbol.id,
+                s.parentId === classId,
             );
 
             if (constructorSymbol) {
               this.logger.debug(
                 () =>
-                  `Found constructor symbol for class ${resolvedSymbol.name} in constructor call context`,
+                  `Found constructor symbol for class ${className} in constructor call context`,
               );
               symbolToUse = constructorSymbol;
             } else {
@@ -393,8 +395,7 @@ export class HoverProcessingService implements IHoverProcessor {
               // Handled in createHoverInformation via constructor call context
               this.logger.debug(
                 () =>
-                  `No explicit constructor for ${resolvedSymbol.name}, ` +
-                  'showing default signature',
+                  `No explicit constructor found for class ${className}, will show default constructor signature`,
               );
             }
           }

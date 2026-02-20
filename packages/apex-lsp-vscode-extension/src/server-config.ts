@@ -8,6 +8,7 @@
 
 import * as vscode from 'vscode';
 import * as os from 'os';
+import * as path from 'path';
 import {
   LanguageClientOptions,
   CloseAction,
@@ -189,16 +190,25 @@ export const createServerOptions = (
   logToOutputChannel(`isDevelopment = ${isDevelopment}`, 'debug');
   logToOutputChannel(`useIndividualFiles = ${useIndividualFiles}`, 'debug');
 
+  // When extension loads from dist/ (e.g. E2E with --extensionDevelopmentPath=.../dist),
+  // extensionPath is dist; apex-ls is sibling at packages/apex-ls, so we need ../../apex-ls.
+  // When extension loads from package root (e.g. launch.json), ../apex-ls suffices.
+  const extensionRoot =
+    path.basename(context.extensionPath) === 'dist'
+      ? path.dirname(context.extensionPath)
+      : context.extensionPath;
+  const apexLsRoot = path.join(extensionRoot, '..', 'apex-ls');
+
   let serverModule: string;
   if (useIndividualFiles && isDevelopment) {
     // Use individual compiled files for better debugging (CommonJS version)
-    serverModule = context.asAbsolutePath('../apex-ls/out/node/server.node.js');
+    serverModule = path.join(apexLsRoot, 'out', 'node', 'server.node.js');
     logToOutputChannel(
       `Using individual files for debugging: ${serverModule}`,
       'debug',
     );
   } else if (isDevelopment) {
-    serverModule = context.asAbsolutePath('../apex-ls/dist/server.node.js');
+    serverModule = path.join(apexLsRoot, 'dist', 'server.node.js');
     logToOutputChannel(
       `Using bundled files for development: ${serverModule}`,
       'debug',

@@ -104,4 +104,11 @@ export default [
       parser: jsoncParser,
     },
   },
+  {
+    // e2e-tests: import plugin cannot resolve @playwright/test re-exports (Page, Locator, etc.)
+    files: ['e2e-tests/**/*.ts'],
+    rules: {
+      'import/named': 'off',
+    },
+  },
 ];

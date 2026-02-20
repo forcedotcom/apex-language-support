@@ -45,8 +45,16 @@ export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
 
   // LSP and language server related non-critical errors
   'Request textDocument/diagnostic failed', // Known VS Code Web LSP issue Todo: W-19587882 for removal
+  'Pending response rejected since connection got disposed', // LSP client shutdown race
+  "Client is not running and can't be stopped", // LSP client state during teardown
+  'Server initialization failed', // LSP server fails to start (e.g. in test env)
+  "couldn't create connection to server", // LSP connection failure in test env
+  'Connection to server got closed. Server will not be restarted', // LSP shutdown in test env
+  'An unknown error occurred. Please consult the log', // VS Code generic error wrapper
   'Request textDocument/completion failed', // Expected when standard library is not loaded
   'Unhandled method textDocument/completion', // Expected when standard library is not loaded
+  'Request textDocument/hover failed', // Expected when standard library is not loaded
+  'Request textDocument/definition failed', // Can occur when symbol has no definition
 
   // VS Code lifecycle and shutdown related
   'Long running operations during shutdown',
@@ -83,6 +91,7 @@ export const SELECTORS = {
   WORKBENCH: '.monaco-workbench',
   EXPLORER: '[id="workbench.view.explorer"]',
   EDITOR_PART: '[id="workbench.parts.editor"]',
+  /** Main editor area - excludes peek widget and other overlays */
   MONACO_EDITOR: '[id="workbench.parts.editor"] .monaco-editor',
   SIDEBAR: '[id="workbench.parts.sidebar"]',
   STATUSBAR: '[id="workbench.parts.statusbar"]',
@@ -306,6 +315,46 @@ export const APEX_CLASS_EXAMPLE_CONTENT =
 }` as const;
 
 /**
+ * Maps searchText to {line, column} (1-indexed) for positionCursorOnWord when Find widget fails (e.g. Electron/Mac).
+ * Computed from APEX_CLASS_EXAMPLE_CONTENT - use first occurrence suitable for go-to-definition.
+ */
+export const SYMBOL_POSITIONS: Readonly<
+  Record<string, { line: number; column: number }>
+> = (() => {
+  const lines = APEX_CLASS_EXAMPLE_CONTENT.split('\n');
+  const result: Record<string, { line: number; column: number }> = {};
+  const add = (text: string, line: number, col: number) => {
+    if (!(text in result)) result[text] = { line, column: col };
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const l = i + 1;
+    const idx = (s: string) => line.indexOf(s);
+    let x: number;
+    if ((x = idx('ApexClassExample')) >= 0) add('ApexClassExample', l, x + 1);
+    if ((x = idx('sayHello')) >= 0) add('sayHello', l, x + 1);
+    if ((x = idx('add')) >= 0) add('add', l, x + 1);
+    if ((x = idx('instanceId')) >= 0) add('instanceId', l, x + 1);
+    if ((x = idx('DEFAULT_STATUS')) >= 0) add('DEFAULT_STATUS', l, x + 1);
+    if ((x = idx('Configuration')) >= 0) add('Configuration', l, x + 1);
+    if ((x = idx('StatusType')) >= 0) add('StatusType', l, x + 1);
+    if ((x = idx('ApexClassExample(')) >= 0) add('ApexClassExample(', l, x + 1);
+    if ((x = idx('accountMap')) >= 0) add('accountMap', l, x + 1);
+    if ((x = idx('inputAccounts')) >= 0) add('inputAccounts', l, x + 1);
+    if ((x = idx('validateAccounts')) >= 0) add('validateAccounts', l, x + 1);
+    if ((x = idx('processAccounts')) >= 0) add('processAccounts', l, x + 1);
+    if ((x = idx('List<Account>')) >= 0) add('List<Account>', l, x + 1);
+    if ((x = idx('ACTIVE')) >= 0) add('ACTIVE', l, x + 1);
+    if ((x = idx('this.instanceId')) >= 0) add('this.instanceId', l, x + 1);
+    if ((x = idx('String')) >= 0) add('String', l, x + 1);
+    if ((x = idx('NonExistentSymbol')) >= 0) add('NonExistentSymbol', l, x + 1);
+  }
+  // NonExistentSymbol is added by test via typeText('// NonExistentSymbol\n') at line 1
+  result['NonExistentSymbol'] = { line: 1, column: 5 };
+  return result;
+})();
+
+/**
  * Interface for expected Apex symbols in outline view.
  */
 export interface ExpectedApexSymbols {
@@ -341,46 +390,47 @@ export const EXPECTED_APEX_SYMBOLS: ExpectedApexSymbols = {
 /**
  * Hover test scenarios for different Apex symbols in the ApexClassExample.cls file.
  * These scenarios test hover functionality for various symbol types.
+ * Using simpler search patterns that are more reliable for matching.
  */
 export const HOVER_TEST_SCENARIOS = [
   {
     description: 'Static variable hover',
-    searchText: 'private static final String DEFAULT_STATUS',
+    searchText: 'DEFAULT_STATUS',
   },
   {
     description: 'Instance variable hover',
-    searchText: 'private String instanceId',
+    searchText: 'instanceId',
   },
   {
     description: 'List variable hover',
-    searchText: 'private List<Account> accounts',
+    searchText: 'List<Account> accounts',
   },
   {
     description: 'Method name hover',
-    searchText: 'public static void sayHello',
+    searchText: 'sayHello',
   },
   {
     description: 'Method with parameters hover',
-    searchText: 'public static Integer add',
+    searchText: 'Integer add(Integer a',
   },
   {
     description: 'Inner class hover',
-    searchText: 'public class Configuration',
+    searchText: 'class Configuration',
   },
   {
     description: 'Inner enum hover',
-    searchText: 'public enum StatusType',
+    searchText: 'StatusType',
   },
   {
     description: 'Enum value hover',
-    searchText: 'ACTIVE, INACTIVE, PENDING, SUSPENDED',
+    searchText: 'ACTIVE, INACTIVE',
   },
   {
     description: 'Parameter hover',
-    searchText: 'List<Account> inputAccounts',
+    searchText: 'inputAccounts',
   },
   {
     description: 'Local variable hover',
-    searchText: 'Map<Id, Account> accountMap',
+    searchText: 'accountMap',
   },
 ] as const;

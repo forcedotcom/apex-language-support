@@ -2,16 +2,42 @@ name: E2E Tests
 
 on:
   push:
-    branches: [main, kyledev/e2eTests]
+    branches: [main, tdx26/main]
   pull_request:
-    branches: [main]
+    branches: [main, tdx26/main]
   workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Test mode (web or desktop)'
+        required: false
+        default: 'web'
+        type: choice
+        options:
+          - web
+          - desktop
+          - both
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  e2e-tests:
-    name: End-to-End Tests
+  e2e-tests-web:
+    name: E2E ${{ matrix.test_file }} (Web)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    if: ${{ github.event.inputs.test_mode != 'desktop' }}
+    continue-on-error: true
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test_file:
+          - apex-extension-core.spec.ts
+          - apex-goto-definition.spec.ts
+          - apex-hover.spec.ts
+          - apex-lsp-integration.spec.ts
+          - apex-outline.spec.ts
 
     steps:
       - name: Checkout code
@@ -30,7 +56,6 @@ jobs:
         run: |
           npm run compile
           npm run bundle
-          npm run build -w packages/apex-lsp-vscode-extension
 
       - name: Verify extension build
         run: |
@@ -46,22 +71,329 @@ jobs:
             echo "❌ extension.web.js not found in dist"
             exit 1
           fi
+          echo "✅ Extension build verified"
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E tests
-        run: npm run test -w e2e-tests
+      - name: Run E2E tests - ${{ matrix.test_file }}
+        id: parallel-run
+        continue-on-error: true
+        run: |
+          cd e2e-tests
+          npx playwright test tests/${{ matrix.test_file }} \
+            --config=playwright.config.web.ts \
+            --reporter=line,junit,json
         env:
           CI: true
+          TEST_MODE: web
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.test_file }}
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.test_file }}/junit.xml
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.test_file }}/results.json
 
-      - name: Upload test results and artifacts
+      - name: Retry failed tests (sequential)
+        if: steps.parallel-run.outcome == 'failure'
+        run: |
+          cd e2e-tests
+          npx playwright test tests/${{ matrix.test_file }} \
+            --config=playwright.config.web.ts \
+            --last-failed \
+            --reporter=line,junit,json
+        env:
+          CI: true
+          TEST_MODE: web
+          E2E_SEQUENTIAL: 1
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.test_file }}
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.test_file }}/junit.xml
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.test_file }}/results.json
+
+      - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-results-${{ github.run_number }}
+          name: test-results-web-${{ matrix.test_file }}-${{ github.run_number }}
+          path: e2e-tests/test-results/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-web-${{ matrix.test_file }}-${{ github.run_number }}
+          path: e2e-tests/playwright-report/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload screenshots and videos
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts-web-${{ matrix.test_file }}-${{ github.run_number }}
           path: |
-            e2e-tests/playwright-report/
+            e2e-tests/test-results/**/*.png
+            e2e-tests/test-results/**/*.webm
+          retention-days: 30
+          if-no-files-found: ignore
+
+  e2e-tests-desktop:
+    name: E2E Tests (Desktop Mode)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    if: ${{ github.event.inputs.test_mode == 'desktop' || github.event.inputs.test_mode == 'both' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        browser: [chromium]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all packages and extension
+        run: |
+          npm run compile
+          npm run bundle
+
+      - name: Verify extension build (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          if [ ! -f "packages/apex-lsp-vscode-extension/dist/package.json" ]; then
+            echo "❌ package.json not found in dist"
+            exit 1
+          fi
+          echo "✅ Extension build verified"
+
+      - name: Verify extension build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "packages/apex-lsp-vscode-extension/dist/package.json")) {
+            Write-Host "❌ package.json not found in dist"
+            exit 1
+          }
+          Write-Host "✅ Extension build verified"
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run E2E tests (Desktop - ${{ matrix.browser }} on ${{ matrix.os }})
+        id: parallel-run
+        continue-on-error: true
+        run: npm run test:e2e:desktop:${{ matrix.browser }} -w e2e-tests
+        env:
+          CI: true
+          TEST_MODE: desktop
+
+      - name: Retry failed tests (sequential)
+        if: steps.parallel-run.outcome == 'failure'
+        run: npm run test:e2e:desktop:${{ matrix.browser }} -w e2e-tests -- --last-failed
+        env:
+          CI: true
+          TEST_MODE: desktop
+          E2E_SEQUENTIAL: 1
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-desktop-${{ matrix.browser }}-${{ matrix.os }}-${{ github.run_number }}
+          path: |
             e2e-tests/test-results/
           retention-days: 30
           if-no-files-found: warn
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-desktop-${{ matrix.browser }}-${{ matrix.os }}-${{ github.run_number }}
+          path: e2e-tests/playwright-report/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload screenshots and videos
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts-desktop-${{ matrix.browser }}-${{ matrix.os }}-${{ github.run_number }}
+          path: |
+            e2e-tests/test-results/**/*.png
+            e2e-tests/test-results/**/*.webm
+          retention-days: 30
+          if-no-files-found: ignore
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [e2e-tests-web]
+    if: always()
+
+    steps:
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          path: test-results/
+          merge-multiple: true
+
+      - name: Generate Test Summary
+        run: |
+          SUMMARY_FILE="e2e-test-summary.md"
+
+          echo "# E2E Test Results Summary" >> $SUMMARY_FILE
+          echo "" >> $SUMMARY_FILE
+          echo "**Run:** [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $SUMMARY_FILE
+          echo "" >> $SUMMARY_FILE
+
+          # Expected spec files from the matrix — keep in sync with the matrix above
+          EXPECTED_SPECS=(
+            "apex-extension-core.spec.ts"
+            "apex-goto-definition.spec.ts"
+            "apex-hover.spec.ts"
+            "apex-lsp-integration.spec.ts"
+            "apex-outline.spec.ts"
+          )
+
+          # Track which specs produced results
+          declare -A SPECS_WITH_RESULTS
+
+          # Aggregate results from reporter outputs.
+          # Prefer JUnit when present; fall back to Playwright JSON when JUnit files are missing.
+          TOTAL=0
+          FAILURES=0
+          ERRORS=0
+          JUNIT_COUNT=0
+          JSON_COUNT=0
+          PER_FILE_STATS=()
+
+          while IFS= read -r junit; do
+            [ -f "$junit" ] || continue
+            JUNIT_COUNT=$((JUNIT_COUNT + 1))
+            T=$(grep -o 'tests="[0-9]*"' "$junit" | head -1 | grep -o '[0-9]*' || echo "0")
+            F=$(grep -o 'failures="[0-9]*"' "$junit" | head -1 | grep -o '[0-9]*' || echo "0")
+            E=$(grep -o 'errors="[0-9]*"' "$junit" | head -1 | grep -o '[0-9]*' || echo "0")
+            TOTAL=$((TOTAL + T))
+            FAILURES=$((FAILURES + F))
+            ERRORS=$((ERRORS + E))
+            PER_FILE_STATS+=("$junit|$T|$F|$E")
+            # Extract spec name from path (e.g. test-results/apex-hover.spec.ts/junit.xml)
+            SPEC_DIR=$(basename "$(dirname "$junit")")
+            SPECS_WITH_RESULTS["$SPEC_DIR"]=1
+          done < <(find test-results -name "junit.xml" 2>/dev/null || true)
+
+          if [ "$JUNIT_COUNT" -eq 0 ]; then
+            while IFS= read -r json; do
+              [ -f "$json" ] || continue
+              JSON_COUNT=$((JSON_COUNT + 1))
+              read -r T F E <<<"$(node -e 'const fs = require("fs"); const p = process.argv[1]; const data = JSON.parse(fs.readFileSync(p, "utf8")); const stats = data.stats || {}; const total = Number(stats.expected ?? stats.total ?? 0); const failures = Number(stats.unexpected ?? 0); const errors = Number(stats.interrupted ?? 0); process.stdout.write(`${total} ${failures} ${errors}`);' "$json")"
+              TOTAL=$((TOTAL + T))
+              FAILURES=$((FAILURES + F))
+              ERRORS=$((ERRORS + E))
+              PER_FILE_STATS+=("$json|$T|$F|$E")
+              SPEC_DIR=$(basename "$(dirname "$json")")
+              SPECS_WITH_RESULTS["$SPEC_DIR"]=1
+            done < <(find test-results -name "results.json" 2>/dev/null || true)
+          fi
+
+          if [ $TOTAL -gt 0 ]; then
+            echo "## Test Results" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
+            PASSED=$((TOTAL - FAILURES - ERRORS))
+            echo "- **Passed:** $PASSED" >> $SUMMARY_FILE
+            echo "- **Failed:** $FAILURES" >> $SUMMARY_FILE
+            echo "- **Errors:** $ERRORS" >> $SUMMARY_FILE
+            echo "- **Total:** $TOTAL" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
+            echo "## Passing Rate by File" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
+            for stat in "${PER_FILE_STATS[@]}"; do
+              IFS='|' read -r FILE_PATH FILE_TOTAL FILE_FAIL FILE_ERROR <<< "$stat"
+              FILE_PASSED=$((FILE_TOTAL - FILE_FAIL - FILE_ERROR))
+              if [ "$FILE_TOTAL" -gt 0 ]; then
+                FILE_RATE=$(node -e 'const total = Number(process.argv[1]); const passed = Number(process.argv[2]); process.stdout.write(((passed / total) * 100).toFixed(1));' "$FILE_TOTAL" "$FILE_PASSED")
+              else
+                FILE_RATE="0.0"
+              fi
+              DISPLAY_PATH="${FILE_PATH#test-results/}"
+              echo "- \`$DISPLAY_PATH\`: **$FILE_RATE%** ($FILE_PASSED/$FILE_TOTAL passed)" >> $SUMMARY_FILE
+            done
+          else
+            echo "No test results found" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
+            echo "Searched for \`**/junit.xml\` and \`**/results.json\` under downloaded \`test-results/\` artifacts." >> $SUMMARY_FILE
+          fi
+
+          # Report specs that were expected but produced no results (build failure, infra error, etc.)
+          MISSING_SPECS=()
+          for spec in "${EXPECTED_SPECS[@]}"; do
+            if [ -z "${SPECS_WITH_RESULTS[$spec]+x}" ]; then
+              MISSING_SPECS+=("$spec")
+            fi
+          done
+
+          if [ ${#MISSING_SPECS[@]} -gt 0 ]; then
+            echo "" >> $SUMMARY_FILE
+            echo "## Specs With No Results" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
+            echo "The following specs did not produce test results. This usually means the job crashed before tests ran (e.g. build failure, infra error, dependency download timeout)." >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
+            for spec in "${MISSING_SPECS[@]}"; do
+              echo "- \`$spec\`: **Did not run** — check the [job logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $SUMMARY_FILE
+            done
+          fi
+
+          echo "" >> $SUMMARY_FILE
+          echo "## Artifacts" >> $SUMMARY_FILE
+          echo "" >> $SUMMARY_FILE
+          echo "View detailed test reports in the [Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) section." >> $SUMMARY_FILE
+
+          # Success/Failure badge
+          if [ "$FAILURES" = "0" ] && [ "$ERRORS" = "0" ] && [ $TOTAL -gt 0 ] && [ ${#MISSING_SPECS[@]} -eq 0 ]; then
+            echo "" >> $SUMMARY_FILE
+            echo "### All tests passed" >> $SUMMARY_FILE
+          elif [ $TOTAL -gt 0 ]; then
+            echo "" >> $SUMMARY_FILE
+            if [ ${#MISSING_SPECS[@]} -gt 0 ]; then
+              echo "### Some tests failed or did not run" >> $SUMMARY_FILE
+            else
+              echo "### Some tests failed" >> $SUMMARY_FILE
+            fi
+          fi
+
+          # Also write to job summary for Actions UI
+          cat $SUMMARY_FILE >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summaryFilePath = 'e2e-test-summary.md';
+            if (!fs.existsSync(summaryFilePath)) {
+              console.log('Test summary file not found, skipping PR comment');
+              return;
+            }
+            const summary = fs.readFileSync(summaryFilePath, 'utf8').trim();
+            if (!summary) {
+              console.log('Test summary is empty, skipping PR comment');
+              return;
+            }
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });

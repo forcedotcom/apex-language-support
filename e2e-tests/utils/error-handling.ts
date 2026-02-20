@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { expect, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
 import type { ConsoleError, NetworkError } from './constants';
 import {
   NON_CRITICAL_ERROR_PATTERNS,
