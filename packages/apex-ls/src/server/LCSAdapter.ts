@@ -1103,13 +1103,13 @@ export class LCSAdapter {
     // Get all capabilities from manager based on mode
     const allCapabilities = configManager.getCapabilities();
 
-    // Register mode-specific handlers
-    if (serverModeAfter === 'development') {
-      this.logger.debug('🔧 Registering development-mode handlers');
+    // Register hover handler when capability is enabled (capability-driven)
+    if (allCapabilities.hoverProvider) {
+      this.logger.debug('🔧 Registering hover handler');
       this.registerHoverHandler();
     } else {
       this.logger.debug(
-        '🔧 Production mode - hover handler will not be registered',
+        '🔧 Hover handler will not be registered (capability disabled)',
       );
     }
 
@@ -1497,16 +1497,25 @@ export class LCSAdapter {
     // Check if we need to update server mode based on client configuration
     this.updateServerModeIfNeeded(change);
 
-    const revalidationPromises = this.documents.all().map(async (document) => {
-      try {
-        this.connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
-      } catch (error) {
-        this.logger.error(
-          () => `Error revalidating ${document.uri}: ${formattedError(error)}`,
-        );
-      }
-    });
-    await Promise.all(revalidationPromises);
+    const capabilities = configManager.getExtendedServerCapabilities();
+    if (capabilities.publishDiagnostics) {
+      const revalidationPromises = this.documents
+        .all()
+        .map(async (document) => {
+          try {
+            this.connection.sendDiagnostics({
+              uri: document.uri,
+              diagnostics: [],
+            });
+          } catch (error) {
+            this.logger.error(
+              () =>
+                `Error revalidating ${document.uri}: ${formattedError(error)}`,
+            );
+          }
+        });
+      await Promise.all(revalidationPromises);
+    }
   }
 
   public getConnection(): Connection {
@@ -1578,8 +1587,9 @@ export class LCSAdapter {
         );
         configManager.updateServerMode(clientServerMode);
 
-        // Register hover handler if we're now in development mode
-        if (clientServerMode === 'development') {
+        // Register hover handler when capability is enabled (capability-driven)
+        const newCapabilities = configManager.getCapabilities();
+        if (newCapabilities.hoverProvider) {
           this.registerHoverHandler();
         }
       }

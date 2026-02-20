@@ -167,6 +167,9 @@ testSuite('Semantic Error Detection', () => {
       serverType: targetServer,
       verbose: false,
       workspacePath: resolve(workspacePath),
+      initOptions: {
+        apex: { environment: { serverMode: 'development' } },
+      },
     };
 
     // Add timeout to server startup
