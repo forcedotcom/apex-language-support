@@ -82,6 +82,7 @@ describe('LSPConfigurationManager', () => {
         yieldInterval: 50,
         yieldDelayMs: 10,
         batchSize: 100,
+        includeSfdxToolsCustomObjects: false,
       },
       queueProcessing: {
         maxConcurrency: {

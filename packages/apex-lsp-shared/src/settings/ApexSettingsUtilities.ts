@@ -60,6 +60,7 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       yieldInterval: 10, // WAS 50
       yieldDelayMs: 25,
       batchSize: 100,
+      includeSfdxToolsCustomObjects: false,
     },
 
     queueProcessing: {
@@ -173,6 +174,7 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: Partial<ApexLanguageServerSettings> 
         yieldInterval: 5,
         yieldDelayMs: 25,
         batchSize: 100,
+        includeSfdxToolsCustomObjects: false,
       },
 
       queueProcessing: {

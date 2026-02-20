@@ -283,6 +283,7 @@ describe('ApexLanguageServerSettings Validation', () => {
               yieldInterval: 10,
               yieldDelayMs: 25,
               batchSize: 100,
+              includeSfdxToolsCustomObjects: false,
             },
             queueProcessing: {
               maxConcurrency: {
