@@ -238,7 +238,7 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on constructor shows constructor signature.
    */
   test('should show hover for constructor', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord("this('default-instance')");
+    await hoverHelper.hoverOnWord('ApexClassExample()');
     const content = await hoverHelper.getHoverContent();
     expect(content).toBeTruthy();
     console.log('✅ Constructor hover provided');
