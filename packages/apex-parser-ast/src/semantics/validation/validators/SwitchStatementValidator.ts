@@ -175,10 +175,11 @@ class SwitchListener extends BaseApexParserListener<void> {
     }
 
     if (literalType) {
-      // Find the containing ExpressionContext
       let parent = ctx.parent;
-      while (parent && !(parent instanceof ExpressionContext)) {
+      let depth = 0;
+      while (parent && !(parent instanceof ExpressionContext) && depth < 50) {
         parent = parent.parent;
+        depth++;
       }
       if (parent instanceof ExpressionContext) {
         this.literalTypes.set(parent, literalType);
@@ -198,13 +199,15 @@ class SwitchListener extends BaseApexParserListener<void> {
     // Find the containing switch statement
     let current: ParserRuleContext | null = ctx.parent || null;
     let switchCtx: SwitchStatementContext | null = null;
+    let depth = 0;
 
-    while (current) {
-      if ((current as any).constructor.name === 'SwitchStatementContext') {
-        switchCtx = current as SwitchStatementContext;
+    while (current && depth < 50) {
+      if (current instanceof SwitchStatementContext) {
+        switchCtx = current;
         break;
       }
       current = current.parent || null;
+      depth++;
     }
 
     if (!switchCtx) {
