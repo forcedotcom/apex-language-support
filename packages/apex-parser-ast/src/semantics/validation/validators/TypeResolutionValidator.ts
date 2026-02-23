@@ -31,29 +31,6 @@ import {
 import { extractBaseTypeName } from '../utils/typeUtils';
 
 /**
- * Known primitive and built-in Apex types that do not need resolution.
- * These are always available in the Apex runtime.
- */
-const KNOWN_BUILTIN_TYPES = new Set([
-  'integer',
-  'long',
-  'decimal',
-  'string',
-  'boolean',
-  'id',
-  'blob',
-  'date',
-  'datetime',
-  'time',
-  'object',
-  'void',
-  'list',
-  'set',
-  'map',
-  'sobject',
-]);
-
-/**
  * Validates type resolution for:
  * - INVALID_UNRESOLVED_TYPE: Type reference cannot be resolved
  * - INVALID_CLASS: Type resolves to something that is not a class (e.g., interface where class required)
@@ -118,11 +95,6 @@ export const TypeResolutionValidator: Validator = {
       for (const ref of typeRefs) {
         const typeName = ref.name;
         const baseName = extractBaseTypeName(typeName);
-        if (KNOWN_BUILTIN_TYPES.has(baseName)) continue;
-        if (typeName.toLowerCase().startsWith('system.')) {
-          const systemType = typeName.split('.')[1]?.toLowerCase();
-          if (systemType && KNOWN_BUILTIN_TYPES.has(systemType)) continue;
-        }
         const sameFileType = allSymbols.find(
           (s) =>
             (s.kind === SymbolKind.Class ||
@@ -174,19 +146,6 @@ export const TypeResolutionValidator: Validator = {
       for (const ref of typeRefs) {
         const typeName = ref.name;
         const baseName = extractBaseTypeName(typeName);
-
-        if (KNOWN_BUILTIN_TYPES.has(baseName)) {
-          continue;
-        }
-
-        // Check if System-prefixed (e.g., System.String)
-        if (typeName.toLowerCase().startsWith('system.')) {
-          const systemType = typeName.split('.')[1]?.toLowerCase();
-          if (systemType && KNOWN_BUILTIN_TYPES.has(systemType)) {
-            continue;
-          }
-        }
-
         let typeSymbol: TypeSymbol | null = null;
 
         // Same-file lookup

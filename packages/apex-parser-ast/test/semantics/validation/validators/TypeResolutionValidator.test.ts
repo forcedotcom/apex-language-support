@@ -75,6 +75,10 @@ describe('TypeResolutionValidator', () => {
   });
 
   it('should pass validation for valid types', async () => {
+    // allowArtifactLoading must be true: without the stdlib loaded in the test
+    // symbol manager, String/Integer are not in the graph. The artifact-loading
+    // path adds them to attemptedButUnavailable and suppresses errors, which is
+    // the correct no-false-positives behaviour.
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,
       'ValidType.cls',
@@ -83,7 +87,7 @@ describe('TypeResolutionValidator', () => {
       compilerService,
       {
         tier: ValidationTier.THOROUGH,
-        allowArtifactLoading: false,
+        allowArtifactLoading: true,
       },
     );
 

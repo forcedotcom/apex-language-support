@@ -41,7 +41,6 @@ import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import type { ParserRuleContext } from 'antlr4ts';
-import { STANDARD_SOBJECT_TYPES } from '../../../constants/constants';
 import { isPrimitiveType } from '../../../utils/primitiveTypes';
 
 /**
@@ -296,11 +295,6 @@ function isSObjectTypeName(typeName: string): boolean {
     return true;
   }
 
-  // Standard SObject types
-  if (STANDARD_SOBJECT_TYPES.has(normalized)) {
-    return true;
-  }
-
   // Custom SObject types (end with __c, __kav, __ka, __x)
   if (
     normalized.endsWith('__c') ||
@@ -317,7 +311,6 @@ function isSObjectTypeName(typeName: string): boolean {
     const typePart = parts[1];
     if (
       typePart === 'SObject' ||
-      STANDARD_SOBJECT_TYPES.has(typePart) ||
       typePart.endsWith('__c') ||
       typePart.endsWith('__kav') ||
       typePart.endsWith('__ka') ||
@@ -327,7 +320,9 @@ function isSObjectTypeName(typeName: string): boolean {
     }
   }
 
-  return false;
+  // Unknown type — cannot confirm it is NOT an SObject without org access.
+  // Permissive to avoid false positives.
+  return true;
 }
 
 /**
@@ -367,10 +362,7 @@ function isConcreteSObjectType(
     return false;
   }
 
-  // Concrete: standard SObject or custom object pattern
-  if (STANDARD_SOBJECT_TYPES.has(typePart)) {
-    return true;
-  }
+  // Concrete: custom object pattern
   if (
     typePart.endsWith('__c') ||
     typePart.endsWith('__kav') ||
