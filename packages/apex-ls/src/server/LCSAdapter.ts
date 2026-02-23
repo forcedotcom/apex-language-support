@@ -74,6 +74,7 @@ import {
   dispatchProcessOnExecuteCommand,
   onWorkspaceLoadComplete,
   onWorkspaceLoadFailed,
+  getDiagnosticRefreshService,
 } from '@salesforce/apex-lsp-compliant-services';
 
 import {
@@ -1071,6 +1072,15 @@ export class LCSAdapter {
     this.hasWorkspaceFolderCapability =
       !!params.capabilities.workspace?.workspaceFolders;
 
+    // Capture whether the client supports workspace/diagnostic/refresh.
+    // Per LSP spec the server must not send this request unless the client
+    // advertises refreshSupport here.
+    const clientRefreshSupport = !!(params.capabilities.workspace as any)
+      ?.diagnostics?.refreshSupport;
+    getDiagnosticRefreshService().setClientSupportsRefresh(
+      clientRefreshSupport,
+    );
+
     // Process initialization options - THIS IS THE AUTHORITATIVE SOURCE FOR MODE
     const configManager = LSPConfigurationManager.getInstance();
     const serverModeBefore = configManager.getCapabilitiesManager().getMode();
@@ -1269,6 +1279,18 @@ export class LCSAdapter {
         ApexSymbolProcessingManager.getInstance().getSymbolManager();
       initializeLSPQueueManager(symbolManager, this.connection);
       this.logger.debug('✅ LSP queue manager initialized');
+
+      // Configure the diagnostic refresh service now that capabilities are resolved.
+      // diagnosticsEnabled reflects whether diagnosticProvider is active for this
+      // mode/platform combination (false in production and on web).
+      const resolvedCapabilities =
+        LSPConfigurationManager.getInstance().getCapabilities();
+      const diagnosticsEnabled = !!resolvedCapabilities.diagnosticProvider;
+      getDiagnosticRefreshService().setConnection(this.connection);
+      getDiagnosticRefreshService().setDiagnosticsEnabled(diagnosticsEnabled);
+      this.logger.debug(
+        `🔧 DiagnosticRefreshService configured: diagnosticsEnabled=${diagnosticsEnabled}`,
+      );
 
       // Start periodic queue state notification task (development mode only)
       const capabilitiesManager =

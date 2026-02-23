@@ -400,6 +400,16 @@ export const MethodResolutionValidator: Validator = {
         );
 
         if (candidateMethods.length === 0) {
+          // Multi-hop chain calls (e.g. result.records.size()) have intermediate field
+          // accesses that we can't resolve without full chain traversal. Only the first
+          // chain node's type is resolved; intermediate fields are skipped. Give benefit
+          // of the doubt — skip the error rather than report a false positive.
+          if ((methodCall.chainNodes?.length ?? 0) > 1) {
+            continue;
+          }
+          // #region agent log
+          fetch('http://127.0.0.1:7249/ingest/0f486e81-d99b-4936-befb-74177d662c21',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'371dcb'},body:JSON.stringify({sessionId:'371dcb',runId:'run7',hypothesisId:'L-method-not-found',location:'MethodResolutionValidator.ts:method-not-found',message:'INVALID_METHOD_NOT_FOUND',data:{methodName,methodCallName:methodCall.name,chainNodesCount:methodCall.chainNodes?.length,chainNodes:(methodCall.chainNodes??[]).map((n:any)=>({name:n.name,kind:n.kind,type:(n as any).resolvedType||(n as any).type?.name})),targetClass:targetClass.name,callLine:callLocation?.identifierRange?.startLine},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           // Method not found
           errors.push({
             message: localizeTyped(
@@ -1384,7 +1394,11 @@ function validateMethodReturnType(
       return; // Method name mismatch - likely wrong method from cross-file resolution
     }
 
-    const returnType = selectedMethod.returnType.name.toLowerCase();
+    // Use originalTypeString when available (includes generic params, e.g. 'List<ContentVersion>')
+    // since collection TypeInfo stores name='List' (base only) and originalTypeString='List<ContentVersion>'
+    const returnType = (
+      selectedMethod.returnType.originalTypeString || selectedMethod.returnType.name
+    ).toLowerCase();
     const expectedType = variableType?.toLowerCase();
 
     if (!expectedType) {
@@ -1406,6 +1420,9 @@ function validateMethodReturnType(
 
     // Check type compatibility (handles List<X> vs list<x> case/generics)
     if (!areReturnTypesCompatible(returnType, expectedType)) {
+      // #region agent log
+      fetch('http://127.0.0.1:7249/ingest/0f486e81-d99b-4936-befb-74177d662c21',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'371dcb'},body:JSON.stringify({sessionId:'371dcb',runId:'run7',hypothesisId:'M-return-type',location:'MethodResolutionValidator.ts:validateMethodReturnType',message:'return type mismatch',data:{methodName:selectedMethod.name,returnType,expectedType,selectedMethodFileUri:selectedMethod.fileUri,callLine:methodCall.location?.identifierRange?.startLine},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       errors.push({
         message: localizeTyped(
           ErrorCodes.METHOD_DOES_NOT_SUPPORT_RETURN_TYPE,
@@ -1606,6 +1623,14 @@ function areReturnTypesCompatible(
 
   // null is compatible with any object type
   if (normReturn === 'null' || normExpected === 'null') {
+    return true;
+  }
+
+  // In Apex, Id is a subtype of String — they are interchangeable
+  if (
+    (normReturn === 'id' && normExpected === 'string') ||
+    (normReturn === 'string' && normExpected === 'id')
+  ) {
     return true;
   }
 

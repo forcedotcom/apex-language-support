@@ -407,6 +407,26 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
               `syntaxErrors=${hasCachedSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
               `symbolTableSize=${cachedTable.getAllSymbols().length}`,
           );
+          // #region agent log
+          fetch('http://127.0.0.1:7249/ingest/0f486e81-d99b-4936-befb-74177d662c21', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '371dcb' },
+            body: JSON.stringify({
+              sessionId: '371dcb', runId: 'run3', hypothesisId: 'E',
+              location: 'DiagnosticProcessingService.ts:400',
+              message: 'CACHED-path semantic validation starting',
+              data: {
+                uri: params.textDocument.uri,
+                smDetailLevel: detailLevel ?? 'unknown',
+                tableDetailLevel: cachedTable.getDetailLevel() ?? 'null',
+                symbolCount: cachedTable.getAllSymbols().length,
+                hasCachedSyntaxErrors,
+                allowArtifactLoading,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {});
+          // #endregion
 
           // Extract version-specific validation setting
           const enableVersionSpecificValidation =
@@ -615,6 +635,24 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
               `syntaxErrors=${hasSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
               `symbolTableSize=${enrichedTable.getAllSymbols().length}`,
           );
+          // #region agent log
+          fetch('http://127.0.0.1:7249/ingest/0f486e81-d99b-4936-befb-74177d662c21', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '371dcb' },
+            body: JSON.stringify({
+              sessionId: '371dcb', runId: 'run2', hypothesisId: 'B-C-full',
+              location: 'DiagnosticProcessingService.ts:640',
+              message: 'FULL-path semantic validation starting',
+              data: {
+                uri: params.textDocument.uri,
+                detailLevel: detailLevel ?? 'unknown',
+                symbolCount: enrichedTable.getAllSymbols().length,
+                hasSyntaxErrors,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {});
+          // #endregion
 
           this.logger.debug(
             () => `Running semantic validation for: ${params.textDocument.uri}`,

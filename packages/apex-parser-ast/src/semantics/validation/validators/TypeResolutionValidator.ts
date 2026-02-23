@@ -24,7 +24,7 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
-import { ISymbolManager } from '../ArtifactLoadingHelper';
+import { ArtifactLoadingHelper, ISymbolManager } from '../ArtifactLoadingHelper';
 import { extractBaseTypeName } from '../utils/typeUtils';
 
 /**
@@ -97,7 +97,11 @@ export const TypeResolutionValidator: Validator = {
   validate: (
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<ValidationResult, ValidationError, ISymbolManager> =>
+  ): Effect.Effect<
+    ValidationResult,
+    ValidationError,
+    ISymbolManager | ArtifactLoadingHelper
+  > =>
     Effect.gen(function* () {
       const errors: ValidationErrorInfo[] = [];
       const warnings: ValidationWarningInfo[] = [];
@@ -128,6 +132,64 @@ export const TypeResolutionValidator: Validator = {
         // For CONSTRUCTOR_CALL we need a class
       ]);
 
+      // First pass: collect all type names that need resolution
+      const unresolvedTypeNames: string[] = [];
+      for (const ref of typeRefs) {
+        const typeName = ref.name;
+        const baseName = extractBaseTypeName(typeName);
+        if (KNOWN_BUILTIN_TYPES.has(baseName)) continue;
+        if (KNOWN_STANDARD_TYPES.has(baseName)) continue;
+        if (typeName.toLowerCase().startsWith('system.')) {
+          const systemType = typeName.split('.')[1]?.toLowerCase();
+          if (systemType && KNOWN_BUILTIN_TYPES.has(systemType)) continue;
+        }
+        const sameFileType = allSymbols.find(
+          (s) =>
+            (s.kind === SymbolKind.Class ||
+              s.kind === SymbolKind.Interface ||
+              s.kind === SymbolKind.Enum) &&
+            s.name.toLowerCase() === baseName,
+        );
+        if (sameFileType) continue;
+        if (options.tier === ValidationTier.THOROUGH) {
+          const symbols = symbolManager.findSymbolByName(typeName);
+          const found = symbols.find(
+            (s: ApexSymbol) =>
+              s.kind === SymbolKind.Class ||
+              s.kind === SymbolKind.Interface ||
+              s.kind === SymbolKind.Enum,
+          );
+          if (found) continue;
+          const fqnSymbol = symbolManager.findSymbolByFQN(typeName);
+          if (
+            fqnSymbol &&
+            (fqnSymbol.kind === SymbolKind.Class ||
+              fqnSymbol.kind === SymbolKind.Interface ||
+              fqnSymbol.kind === SymbolKind.Enum)
+          )
+            continue;
+        }
+        unresolvedTypeNames.push(typeName);
+      }
+
+      // Attempt artifact loading for unresolved types before generating errors
+      // Track types where loading was attempted but artifacts weren't available
+      const attemptedButUnavailable = new Set<string>();
+      if (unresolvedTypeNames.length > 0 && options.allowArtifactLoading) {
+        const helper = yield* ArtifactLoadingHelper;
+        const loadResult = yield* helper.loadMissingArtifacts(unresolvedTypeNames, options);
+        // Types that failed to load may not exist in the org (e.g. org not connected).
+        // Per the "no false positives" tenant, suppress errors for these — we cannot
+        // confirm they don't exist without org access.
+        for (const typeName of loadResult.failed) {
+          attemptedButUnavailable.add(typeName.toLowerCase());
+        }
+        // #region agent log
+        fetch('http://127.0.0.1:7249/ingest/0f486e81-d99b-4936-befb-74177d662c21',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'371dcb'},body:JSON.stringify({sessionId:'371dcb',runId:'run7',hypothesisId:'I-type-resolution',location:'TypeResolutionValidator.ts',message:'artifact load result',data:{unresolvedTypeNames,loaded:loadResult.loaded,alreadyLoaded:loadResult.alreadyLoaded,failed:loadResult.failed,attemptedButUnavailable:[...attemptedButUnavailable]},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+      }
+
+      // Second pass: validate with potentially newly loaded types
       for (const ref of typeRefs) {
         const typeName = ref.name;
         const baseName = extractBaseTypeName(typeName);
@@ -162,7 +224,7 @@ export const TypeResolutionValidator: Validator = {
         if (sameFileType) {
           typeSymbol = sameFileType;
         } else if (options.tier === ValidationTier.THOROUGH) {
-          // Cross-file lookup via symbolManager
+          // Cross-file lookup via symbolManager (types may have been loaded above)
           const symbols = symbolManager.findSymbolByName(typeName);
           const found = symbols.find(
             (s: ApexSymbol) =>
@@ -186,6 +248,13 @@ export const TypeResolutionValidator: Validator = {
         }
 
         if (!typeSymbol) {
+          // If artifact loading was attempted for this type but it couldn't be
+          // fetched (e.g. org not connected), suppress the error. We cannot
+          // confirm the type doesn't exist without org access — showing a false
+          // positive violates the "no false positives" tenant.
+          if (attemptedButUnavailable.has(baseName)) {
+            continue;
+          }
           errors.push({
             message: localizeTyped(
               ErrorCodes.INVALID_UNRESOLVED_TYPE,

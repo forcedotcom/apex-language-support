@@ -29,6 +29,7 @@ import {
   isWorkspaceLoaded,
 } from './WorkspaceLoadCoordinator';
 import { getDocumentStateCache } from './DocumentStateCache';
+import { getDiagnosticRefreshService } from './DiagnosticRefreshService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import {
   getLayerOrderIndex,
@@ -239,12 +240,26 @@ export class PrerequisiteOrchestrationService {
     } else {
       // Async execution (fire-and-forget)
       if (needsEnrichment) {
+        // Only signal a diagnostic refresh for request types where the client
+        // opened a document and may have pulled diagnostics prematurely.
+        // Blocking paths (diagnostics, hover, etc.) already produce accurate
+        // results and don't need a re-pull signal.
+        const shouldSignalRefresh =
+          requestType === 'file-open-single' || requestType === 'documentOpen';
+
         this.layerEnrichmentService
           .enrichFiles(
             [fileUri],
             requirements.requiredDetailLevel!,
             'same-file',
           )
+          .then(() => {
+            if (shouldSignalRefresh) {
+              Effect.runPromise(
+                getDiagnosticRefreshService().signalEnrichmentComplete(),
+              ).catch(() => {});
+            }
+          })
           .catch((error: unknown) => {
             this.logger.debug(
               () => `Async enrichment failed for ${fileUri}: ${error}`,

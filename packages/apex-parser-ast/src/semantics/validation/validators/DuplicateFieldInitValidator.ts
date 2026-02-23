@@ -318,7 +318,11 @@ export const DuplicateFieldInitValidator: Validator = {
           });
         }
 
-        // Report INVALID_NAME_VALUE_PAIR_CONSTRUCTOR for types that don't support it
+        // Report INVALID_NAME_VALUE_PAIR_CONSTRUCTOR for types that don't support it.
+        // Without symbol-manager access (TIER 1), we can only be certain that
+        // primitive types do NOT support name=value pair constructors. For all other
+        // types we cannot determine SObject-ness, so we give benefit of the doubt
+        // to avoid false positives (per the "no false positives" tenant).
         const nameValuePairs = listener.getNameValuePairConstructors();
         for (const { ctx, typeName } of nameValuePairs) {
           const normalized =
@@ -327,8 +331,7 @@ export const DuplicateFieldInitValidator: Validator = {
               : typeName.charAt(0).toUpperCase() +
                 typeName.slice(1).toLowerCase();
           const isPrimitive = isPrimitiveType(normalized);
-          const isSObject = supportsNameValuePairConstructor(typeName);
-          if (isPrimitive || !isSObject) {
+          if (isPrimitive) {
             errors.push({
               message: localizeTyped(
                 ErrorCodes.INVALID_NAME_VALUE_PAIR_CONSTRUCTOR,
