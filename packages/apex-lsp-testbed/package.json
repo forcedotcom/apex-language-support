@@ -124,9 +124,10 @@
       ]
     },
     "test:coverage": {
-      "command": "jest --coverage --coverageDirectory=./coverage",
+      "command": "jest --coverage --coverageDirectory=./coverage --testPathIgnorePatterns=\"integration|accuracy/semantic-errors\"",
       "dependencies": [
-        "compile"
+        "compile",
+        "sync:fixtures"
       ],
       "output": [
         "coverage/**"

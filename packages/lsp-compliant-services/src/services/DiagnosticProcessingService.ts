@@ -285,6 +285,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
       // If cache miss but document exists in storage, documentOpen may be in progress
       // Wait briefly for documentOpen to populate cache (max 500ms)
+      // TODO: Replace polling loop with event-driven approach. DocumentStateCache should
+      // expose a waitForResult(uri, version): Promise<SymbolResult> backed by an event
+      // emitter so callers can await directly instead of polling, eliminating latency
+      // waste (up to pollInterval after condition becomes true) and unnecessary CPU work.
       if (!cached && document) {
         const maxWaitTime = 500; // Maximum time to wait for documentOpen
         const pollInterval = 50; // Check every 50ms
@@ -457,7 +461,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             {
               ...validationOptions,
               tier: ValidationTier.IMMEDIATE,
-              sourceContent: document.getText(), // Provide source content for SourceSizeValidator
             },
           );
 

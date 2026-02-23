@@ -200,8 +200,8 @@ class SwitchListener extends BaseApexParserListener<void> {
     let switchCtx: SwitchStatementContext | null = null;
 
     while (current) {
-      if ((current as any).constructor.name === 'SwitchStatementContext') {
-        switchCtx = current as SwitchStatementContext;
+      if (current instanceof SwitchStatementContext) {
+        switchCtx = current;
         break;
       }
       current = current.parent || null;

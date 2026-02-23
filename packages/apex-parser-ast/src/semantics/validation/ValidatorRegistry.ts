@@ -352,7 +352,7 @@ class ValidatorRegistryImpl implements ValidatorRegistryService {
             return deduplicateValidationResult(result);
           }),
         ),
-        { concurrency: 'unbounded' }, // Run sequentially for now
+        { concurrency: 'unbounded' },
       );
 
       // Apply enrichment from validation results

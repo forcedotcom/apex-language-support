@@ -362,6 +362,11 @@ export class PrerequisiteOrchestrationService {
       // Wait for opened files to be indexed (didOpen processing is async).
       // Without this barrier, we re-run cross-file resolution before the client's
       // opened documents are processed, so types remain unresolved.
+      // TODO: Replace polling loop with event-driven approach. SymbolManager should
+      // expose a waitForSymbol(name): Promise<void> backed by an event emitter,
+      // so callers can await directly. The current loop calls findSymbolByName()
+      // (O(n)) for every type on every poll iteration, which is expensive when
+      // multiple types are being loaded concurrently.
       const pollMs =
         ApexSettingsManager.getInstance().getSettings().apex.findMissingArtifact
           ?.indexingBarrierPollMs ?? 100;

@@ -22,6 +22,10 @@ import type { ValidationOptions } from '../../../../../src/semantics/validation/
 import { ValidationTier } from '../../../../../src/semantics/validation/ValidationTier';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../../../../src/constants/constants';
 import type { DetailLevel } from '../../../../../src/parser/listeners/LayeredSymbolListenerBase';
+import {
+  GlobalTypeRegistry,
+  GlobalTypeRegistryLive,
+} from '../../../../../src/services/GlobalTypeRegistryService';
 
 /**
  * Helper to load a fixture file from a validator-specific subfolder
@@ -116,6 +120,19 @@ export const runValidator = async <T>(
   const fullLayer = Layer.mergeAll(baseLayer, artifactLayer);
   return Effect.runPromise(
     Effect.provide(validatorEffect, fullLayer) as Effect.Effect<T, any, never>,
+  );
+};
+
+/**
+ * Clear the GlobalTypeRegistry singleton to prevent cross-test pollution.
+ * Call this in afterEach alongside symbolManager.clear().
+ */
+export const clearGlobalTypeRegistry = async (): Promise<void> => {
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const registry = yield* GlobalTypeRegistry;
+      yield* registry.clear();
+    }).pipe(Effect.provide(GlobalTypeRegistryLive)),
   );
 };
 
