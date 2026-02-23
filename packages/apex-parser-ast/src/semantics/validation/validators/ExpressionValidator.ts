@@ -106,13 +106,11 @@ function findContainingExpression(
   ctx: ParserRuleContext,
 ): ExpressionContext | null {
   let current: ParserRuleContext | null = ctx;
-  let depth = 0;
-  while (current && depth < 50) {
+  while (current) {
     if (current instanceof ExpressionContext) {
       return current;
     }
     current = current.parent || null;
-    depth++;
   }
   return null;
 }

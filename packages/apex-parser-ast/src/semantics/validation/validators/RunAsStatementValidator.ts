@@ -111,11 +111,10 @@ class RunAsStatementListener extends BaseApexParserListener<void> {
     }
 
     if (literalType) {
+      // Find the containing ExpressionContext
       let parent = ctx.parent;
-      let depth = 0;
-      while (parent && !(parent instanceof ExpressionContext) && depth < 50) {
+      while (parent && !(parent instanceof ExpressionContext)) {
         parent = parent.parent;
-        depth++;
       }
       if (parent instanceof ExpressionContext) {
         this.literalTypes.set(parent, literalType);

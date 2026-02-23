@@ -108,14 +108,12 @@ class InstanceofCollectorListener extends BaseApexParserListener<
     else if (literal.NULL?.()) litType = 'null';
     if (litType) {
       let current: ParserRuleContext | null = (ctx as any).parent || null;
-      let depth = 0;
-      while (current && depth < 50) {
+      while (current) {
         if (current instanceof ExpressionContext) {
           this.literalTypes.set(current, litType);
           break;
         }
         current = (current as any).parent || null;
-        depth++;
       }
     }
   }
