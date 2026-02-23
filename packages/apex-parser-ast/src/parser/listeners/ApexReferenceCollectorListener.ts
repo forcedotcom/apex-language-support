@@ -65,13 +65,22 @@ interface ChainScope {
  * Parent chain: AssignExpression → ExpressionList → Arguments → ClassCreatorRest.
  * Uses constructor.name string checks to avoid module-bundling instanceof issues.
  */
-export function isAssignInsideSObjectConstructor(ctx: AssignExpressionContext): boolean {
-  let ancestor: ParserRuleContext | undefined = ctx.parent as ParserRuleContext | undefined;
+export function isAssignInsideSObjectConstructor(
+  ctx: AssignExpressionContext,
+): boolean {
+  let ancestor: ParserRuleContext | undefined = ctx.parent as
+    | ParserRuleContext
+    | undefined;
   while (ancestor) {
     const name = ancestor.constructor?.name ?? '';
     if (name === 'ClassCreatorRestContext') return true;
     // Stop if we cross into a block/statement scope (left constructor territory)
-    if (name === 'BlockContext' || name === 'StatementContext' || name === 'MethodDeclarationContext') return false;
+    if (
+      name === 'BlockContext' ||
+      name === 'StatementContext' ||
+      name === 'MethodDeclarationContext'
+    )
+      return false;
     ancestor = ancestor.parent as ParserRuleContext | undefined;
   }
   return false;
@@ -1047,18 +1056,16 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
               this.extractIdentifiersFromExpression(leftExpression);
             if (identifiers.length > 0) {
               // Use the first identifier (for array expressions, this is the base variable)
-              const varRef = SymbolReferenceFactory.createVariableUsageReference(
-                identifiers[0],
-                lhsLoc,
-                parentContext,
-                lhsAccess,
-              );
+              const varRef =
+                SymbolReferenceFactory.createVariableUsageReference(
+                  identifiers[0],
+                  lhsLoc,
+                  parentContext,
+                  lhsAccess,
+                );
               this.symbolTable.addTypeReference(varRef);
             }
           }
-          // #region agent log
-          fetch('http://127.0.0.1:7249/ingest/0f486e81-d99b-4936-befb-74177d662c21', {method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'371dcb'},body:JSON.stringify({sessionId:'371dcb',runId:'run5',hypothesisId:'H-assign-sobject',location:'ApexReferenceCollectorListener.ts:enterAssignExpression',message:'SObject constructor field suppression',data:{lhsText:(leftExpression as any).text,isSObjectConstructor:isAssignInsideSObjectConstructor(ctx),ancestorNames:(() => { const chain: string[] = []; let a = ctx.parent as ParserRuleContext | undefined; for(let i=0;i<5&&a;i++){chain.push(a.constructor?.name??'?');a=a.parent as ParserRuleContext|undefined;} return chain; })()},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           // Clear LHS access after handling simple identifier
           this.currentLhsAccess = null;
           return;

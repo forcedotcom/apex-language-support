@@ -142,32 +142,6 @@ export class MethodModifierValidator {
       return; // Interface contract takes precedence
     }
 
-    // #region agent log
-    if (
-      currentTypeSymbol.modifiers.visibility === SymbolVisibility.Private &&
-      modifiers.visibility !== SymbolVisibility.Private
-    ) {
-      fetch('http://127.0.0.1:7249/ingest/0f486e81-d99b-4936-befb-74177d662c21', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '371dcb' },
-        body: JSON.stringify({
-          sessionId: '371dcb', runId: 'run1', hypothesisId: 'A',
-          location: 'MethodModifierValidator.ts:140',
-          message: 'wider visibility check firing for private class method',
-          data: {
-            methodName,
-            methodIsTestMethod: modifiers.isTestMethod,
-            classIsTestMethod: currentTypeSymbol.modifiers.isTestMethod,
-            classAnnotations: currentTypeSymbol.annotations?.map(a => a.name),
-            classVisibility: currentTypeSymbol.modifiers.visibility,
-            methodVisibility: modifiers.visibility,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
-
     // Methods cannot have wider visibility than their containing class
     if (
       // Private class can only have private methods

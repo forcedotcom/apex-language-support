@@ -24,7 +24,10 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
-import { ArtifactLoadingHelper, ISymbolManager } from '../ArtifactLoadingHelper';
+import {
+  ArtifactLoadingHelper,
+  ISymbolManager,
+} from '../ArtifactLoadingHelper';
 import { extractBaseTypeName } from '../utils/typeUtils';
 
 /**
@@ -48,28 +51,6 @@ const KNOWN_BUILTIN_TYPES = new Set([
   'set',
   'map',
   'sobject',
-]);
-
-/**
- * Standard Salesforce types that are always available at runtime but may not be
- * in StandardApexLibrary or symbol manager. Suppress INVALID_UNRESOLVED_TYPE for these.
- */
-const KNOWN_STANDARD_TYPES = new Set([
-  'aurahandledexception',
-  'contentversion',
-  'contentdocument',
-  'contentdocumentlink',
-  'contentworkspace',
-  'contentworkspacepermission',
-  'contentworkspacedoc',
-  'contentdistribution',
-  'contentdistributionview',
-  'contentfolder',
-  'contentfolderitem',
-  'contentfolderlink',
-  'contentversionhistory',
-  'contentbody',
-  'contentdocumenthistory',
 ]);
 
 /**
@@ -138,7 +119,6 @@ export const TypeResolutionValidator: Validator = {
         const typeName = ref.name;
         const baseName = extractBaseTypeName(typeName);
         if (KNOWN_BUILTIN_TYPES.has(baseName)) continue;
-        if (KNOWN_STANDARD_TYPES.has(baseName)) continue;
         if (typeName.toLowerCase().startsWith('system.')) {
           const systemType = typeName.split('.')[1]?.toLowerCase();
           if (systemType && KNOWN_BUILTIN_TYPES.has(systemType)) continue;
@@ -177,16 +157,17 @@ export const TypeResolutionValidator: Validator = {
       const attemptedButUnavailable = new Set<string>();
       if (unresolvedTypeNames.length > 0 && options.allowArtifactLoading) {
         const helper = yield* ArtifactLoadingHelper;
-        const loadResult = yield* helper.loadMissingArtifacts(unresolvedTypeNames, options);
-        // Types that failed to load may not exist in the org (e.g. org not connected).
-        // Per the "no false positives" tenant, suppress errors for these — we cannot
-        // confirm they don't exist without org access.
-        for (const typeName of loadResult.failed) {
+        const loadResult = yield* helper.loadMissingArtifacts(
+          unresolvedTypeNames,
+          options,
+        );
+        // Types that failed or were skipped (maxArtifacts limit) cannot be confirmed
+        // as non-existent without org access. Suppress errors for both to avoid
+        // false positives — the client should be asked first; if it can't provide
+        // the type, we accept the uncertainty rather than report a bogus error.
+        for (const typeName of [...loadResult.failed, ...loadResult.skipped]) {
           attemptedButUnavailable.add(typeName.toLowerCase());
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7249/ingest/0f486e81-d99b-4936-befb-74177d662c21',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'371dcb'},body:JSON.stringify({sessionId:'371dcb',runId:'run7',hypothesisId:'I-type-resolution',location:'TypeResolutionValidator.ts',message:'artifact load result',data:{unresolvedTypeNames,loaded:loadResult.loaded,alreadyLoaded:loadResult.alreadyLoaded,failed:loadResult.failed,attemptedButUnavailable:[...attemptedButUnavailable]},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
       }
 
       // Second pass: validate with potentially newly loaded types
@@ -195,10 +176,6 @@ export const TypeResolutionValidator: Validator = {
         const baseName = extractBaseTypeName(typeName);
 
         if (KNOWN_BUILTIN_TYPES.has(baseName)) {
-          continue;
-        }
-
-        if (KNOWN_STANDARD_TYPES.has(baseName)) {
           continue;
         }
 

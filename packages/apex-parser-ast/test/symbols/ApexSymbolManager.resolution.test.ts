@@ -3328,9 +3328,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         expect(result?.id).toContain('property:Name');
       });
 
-      it('should resolve Account property type declaration when position is on type', async () => {
-        // Test hover on "Account" type in property declaration
-        // SKIPPED: Requires standard Salesforce SObject library to be loaded
+      it('should not resolve Account property type declaration without org artifacts', async () => {
+        // Account is a standard SObject. Without synthetic SObject symbols, it must be
+        // loaded from the org via findMissingArtifact. In this unit-test context there
+        // is no org connection, so the type is unresolvable and the result is undefined.
         const testCode = loadFixtureFile('DeclarationTestClass.cls');
 
         await compileAndAddToManager(
@@ -3347,11 +3348,8 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
           'precise',
         );
 
-        // PROPER EXPECTATIONS - Account should resolve to built-in SObject type
-        expect(result).toBeDefined();
-        expect(result?.name).toBe('Account');
-        expect(result?.kind).toBe('class');
-        expect(result?.fileUri).toBe('built-in://apex');
+        // Without org-loaded SObject stubs Account is not in the graph — no result.
+        expect(result).toBeNull();
       });
 
       it('should resolve Account property type declaration when position is on property name', async () => {

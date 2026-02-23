@@ -9,7 +9,6 @@
 import { ApexSymbol, SymbolKind, SymbolVisibility } from '../types/symbol';
 import { BuiltInTypeTables } from '../namespace/NamespaceUtils';
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { STANDARD_SOBJECT_TYPES } from '../constants/constants';
 
 /**
  * Built-in type tables for Apex
@@ -23,12 +22,11 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
   // Wrapper types (String, Integer, etc.) and collection types (List, Set, Map)
   // are now in StandardApexLibrary/System/ and resolved via ResourceLoader
   // System and Schema types are also in StandardApexLibrary and resolved via ResourceLoader
+  // SObject types are resolved via the symbol graph / findMissingArtifact endpoint
   readonly scalarTypes: Map<string, ApexSymbol>;
-  readonly sObjectTypes: Map<string, ApexSymbol>;
 
   private constructor() {
     this.scalarTypes = this.createScalarTypes();
-    this.sObjectTypes = this.createSObjectTypes();
   }
 
   /**
@@ -55,31 +53,6 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
         name,
         SymbolKind.Class,
         'BUILT_IN',
-      );
-      types.set(name.toLowerCase(), symbol);
-    });
-
-    return types;
-  }
-
-  /**
-   * Create SObject type symbols
-   * These are dynamic types, not real classes, so they need synthetic symbols
-   */
-  private createSObjectTypes(): Map<string, ApexSymbol> {
-    const types = new Map<string, ApexSymbol>();
-
-    // Common SObject types
-    const sObjectTypeNames = [
-      ...Array.from(STANDARD_SOBJECT_TYPES),
-      'CustomObject__c', // Placeholder for custom objects
-    ];
-
-    sObjectTypeNames.forEach((name) => {
-      const symbol = this.createBuiltInSymbol(
-        name,
-        SymbolKind.Class,
-        'SObject',
       );
       types.set(name.toLowerCase(), symbol);
     });
@@ -138,51 +111,32 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
   }
 
   /**
-   * Find a type in all built-in tables
-   * Note: Wrapper types, collection types (List, Set, Map), System types, and
-   * Schema types are now resolved via ResourceLoader
-   * This only returns types that aren't real classes (scalar, sObject)
+   * Find a type in built-in tables.
+   * Note: Only scalar types (void, null) are synthetic. Wrapper types,
+   * collection types (List, Set, Map), System types, Schema types, and
+   * SObject types are all resolved via ResourceLoader or the symbol graph.
    */
   findType(lowerCaseName: string): ApexSymbol | null {
-    // Check scalar types
-    const scalarType = this.scalarTypes.get(lowerCaseName);
-    if (scalarType) return scalarType;
-
-    // Check SObject types
-    const sObjectType = this.sObjectTypes.get(lowerCaseName);
-    if (sObjectType) return sObjectType;
-
-    return null;
+    return this.scalarTypes.get(lowerCaseName) ?? null;
   }
 
   /**
    * Get all built-in types
-   * Note: Wrapper types, collection types (List, Set, Map), System types, and
-   * Schema types are now resolved via ResourceLoader
    */
   getAllTypes(): ApexSymbol[] {
-    const allTypes: ApexSymbol[] = [];
-
-    this.scalarTypes.forEach((type) => allTypes.push(type));
-    this.sObjectTypes.forEach((type) => allTypes.push(type));
-
-    return allTypes;
+    return Array.from(this.scalarTypes.values());
   }
 
   /**
    * Get statistics about built-in types
-   * Note: Wrapper types, collection types (List, Set, Map), System types, and
-   * Schema types are now resolved via ResourceLoader
    */
   getStats(): {
     totalTypes: number;
     scalarTypes: number;
-    sObjectTypes: number;
   } {
     return {
-      totalTypes: this.getAllTypes().length,
+      totalTypes: this.scalarTypes.size,
       scalarTypes: this.scalarTypes.size,
-      sObjectTypes: this.sObjectTypes.size,
     };
   }
 
@@ -190,23 +144,16 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
    * Check if a type is built-in
    */
   isBuiltInType(name: string): boolean {
-    const lowerCaseName = name.toLowerCase();
-    return this.findType(lowerCaseName) !== null;
+    return this.findType(name.toLowerCase()) !== null;
   }
 
   /**
    * Get built-in type by category
-   * Note: Wrapper types, collection types (List, Set, Map), System types, and
-   * Schema types are now resolved via ResourceLoader
    */
-  getTypesByCategory(category: 'scalar' | 'sobject'): ApexSymbol[] {
-    switch (category) {
-      case 'scalar':
-        return Array.from(this.scalarTypes.values());
-      case 'sobject':
-        return Array.from(this.sObjectTypes.values());
-      default:
-        return [];
+  getTypesByCategory(category: 'scalar'): ApexSymbol[] {
+    if (category === 'scalar') {
+      return Array.from(this.scalarTypes.values());
     }
+    return [];
   }
 }

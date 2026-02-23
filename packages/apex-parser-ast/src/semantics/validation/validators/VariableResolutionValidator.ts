@@ -362,23 +362,6 @@ export const VariableResolutionValidator: Validator = {
             continue;
           }
 
-          // #region agent log
-          fetch('http://127.0.0.1:7249/ingest/0f486e81-d99b-4936-befb-74177d662c21', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '371dcb' },
-            body: JSON.stringify({
-              sessionId: '371dcb', runId: 'run5', hypothesisId: 'F-var-ref',
-              location: 'VariableResolutionValidator.ts:366',
-              message: 'variable.does.not.exist about to fire',
-              data: {
-                variableName,
-                refLine: refLocation?.symbolRange?.startLine ?? refLocation?.identifierRange?.startLine,
-                refCol: refLocation?.symbolRange?.startColumn ?? refLocation?.identifierRange?.startColumn,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-          // #endregion
           // Variable not found
           errors.push({
             message: localizeTyped(

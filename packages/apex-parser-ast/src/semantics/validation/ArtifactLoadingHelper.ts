@@ -226,10 +226,6 @@ export const ArtifactLoadingHelperLive: Layer.Layer<
             );
           }
 
-          // #region agent log
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          fetch('http://127.0.0.1:7249/ingest/0f486e81-d99b-4936-befb-74177d662c21',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'371dcb'},body:JSON.stringify({sessionId:'371dcb',runId:'run7',hypothesisId:'I-artifact-callback',location:'ArtifactLoadingHelper.ts:load',message:'artifact load state',data:{toLoad,alreadyLoaded,hasCallback:!!options.loadArtifactCallback},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           // Load missing types (with timeout)
           if (toLoad.length > 0 && options.loadArtifactCallback) {
             yield* Effect.logDebug(

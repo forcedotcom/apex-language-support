@@ -253,7 +253,6 @@ export interface NamespaceResolutionResult {
  */
 export interface BuiltInTypeTables {
   readonly scalarTypes: Map<string, ApexSymbol>;
-  readonly sObjectTypes: Map<string, ApexSymbol>;
 }
 
 /**
