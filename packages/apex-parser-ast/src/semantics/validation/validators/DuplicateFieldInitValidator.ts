@@ -69,38 +69,6 @@ function extractTypeNameFromCreator(ctx: NewExpressionContext): string | null {
 }
 
 /**
- * Check if type supports name-value pair constructor (only SObject, VfComponent)
- */
-function supportsNameValuePairConstructor(typeName: string): boolean {
-  const lower = typeName.toLowerCase().trim();
-  if (lower === 'vfcomponent' || lower === 'apexpages.component') return true;
-  if (lower === 'sobject') return true;
-  if (lower.endsWith('__c') || lower.endsWith('__r')) return true;
-  const standardSObjects = new Set([
-    'account',
-    'contact',
-    'lead',
-    'opportunity',
-    'case',
-    'user',
-    'profile',
-    'recordtype',
-    'task',
-    'event',
-    'campaign',
-    'asset',
-    'order',
-    'quote',
-    'contract',
-    'product2',
-    'pricebookentry',
-    'pricebook2',
-    'opportunitylineitem',
-  ]);
-  return standardSObjects.has(lower);
-}
-
-/**
  * Extract field name from an assignment expression (e.g., "Name='Test'" -> "Name")
  * Field initializers in constructors use the syntax: fieldName=value
  */
@@ -318,7 +286,11 @@ export const DuplicateFieldInitValidator: Validator = {
           });
         }
 
-        // Report INVALID_NAME_VALUE_PAIR_CONSTRUCTOR for types that don't support it
+        // Report INVALID_NAME_VALUE_PAIR_CONSTRUCTOR for types that don't support it.
+        // Without symbol-manager access (TIER 1), we can only be certain that
+        // primitive types do NOT support name=value pair constructors. For all other
+        // types we cannot determine SObject-ness, so we give benefit of the doubt
+        // to avoid false positives (per the "no false positives" tenant).
         const nameValuePairs = listener.getNameValuePairConstructors();
         for (const { ctx, typeName } of nameValuePairs) {
           const normalized =
@@ -327,8 +299,7 @@ export const DuplicateFieldInitValidator: Validator = {
               : typeName.charAt(0).toUpperCase() +
                 typeName.slice(1).toLowerCase();
           const isPrimitive = isPrimitiveType(normalized);
-          const isSObject = supportsNameValuePairConstructor(typeName);
-          if (isPrimitive || !isSObject) {
+          if (isPrimitive) {
             errors.push({
               message: localizeTyped(
                 ErrorCodes.INVALID_NAME_VALUE_PAIR_CONSTRUCTOR,

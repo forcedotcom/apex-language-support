@@ -50,7 +50,10 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Stack } from 'data-structure-typed';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
-import { ApexReferenceCollectorListener } from './ApexReferenceCollectorListener';
+import {
+  ApexReferenceCollectorListener,
+  isAssignInsideSObjectConstructor,
+} from './ApexReferenceCollectorListener';
 import {
   SymbolReferenceFactory,
   ReferenceContext,
@@ -610,16 +613,21 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
 
         // If it's a simple identifier, mark as write/readwrite
         if (isContextType(leftExpression, PrimaryExpressionContext)) {
-          const identifiers =
-            this.extractIdentifiersFromExpression(leftExpression);
-          if (identifiers.length > 0) {
-            const varRef = SymbolReferenceFactory.createVariableUsageReference(
-              identifiers[0],
-              lhsLoc,
-              parentContext,
-              lhsAccess,
-            );
-            this.symbolTable.addTypeReference(varRef);
+          // SObject constructor field initializer: `new Account(Name = 'value')`.
+          // The LHS identifier is a field name, not a variable — skip the variable reference.
+          if (!isAssignInsideSObjectConstructor(ctx)) {
+            const identifiers =
+              this.extractIdentifiersFromExpression(leftExpression);
+            if (identifiers.length > 0) {
+              const varRef =
+                SymbolReferenceFactory.createVariableUsageReference(
+                  identifiers[0],
+                  lhsLoc,
+                  parentContext,
+                  lhsAccess,
+                );
+              this.symbolTable.addTypeReference(varRef);
+            }
           }
           return;
         }

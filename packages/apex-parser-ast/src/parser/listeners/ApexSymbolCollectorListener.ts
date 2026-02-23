@@ -80,6 +80,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Stack } from 'data-structure-typed';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
+import { isAssignInsideSObjectConstructor } from './ApexReferenceCollectorListener';
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import {
@@ -3692,19 +3693,23 @@ export class ApexSymbolCollectorListener
 
       // If it's a simple identifier, mark as write/readwrite
       if (isContextType(leftExpression, PrimaryExpressionContext)) {
-        // Extract identifiers to handle array expressions correctly
-        // For array expressions like "arr[0]", extractIdentifiersFromExpression returns ["arr"]
-        const identifiers =
-          this.extractIdentifiersFromExpression(leftExpression);
-        if (identifiers.length > 0) {
-          // Use the first identifier (for array expressions, this is the base variable)
-          const varRef = SymbolReferenceFactory.createVariableUsageReference(
-            identifiers[0],
-            lhsLoc,
-            parentContext,
-            lhsAccess,
-          );
-          this.symbolTable.addTypeReference(varRef);
+        // SObject constructor field initializer: `new Account(Name = 'value')`.
+        // The LHS identifier is a field name, not a variable — skip the variable reference.
+        if (!isAssignInsideSObjectConstructor(ctx)) {
+          // Extract identifiers to handle array expressions correctly
+          // For array expressions like "arr[0]", extractIdentifiersFromExpression returns ["arr"]
+          const identifiers =
+            this.extractIdentifiersFromExpression(leftExpression);
+          if (identifiers.length > 0) {
+            // Use the first identifier (for array expressions, this is the base variable)
+            const varRef = SymbolReferenceFactory.createVariableUsageReference(
+              identifiers[0],
+              lhsLoc,
+              parentContext,
+              lhsAccess,
+            );
+            this.symbolTable.addTypeReference(varRef);
+          }
         }
         return;
       }

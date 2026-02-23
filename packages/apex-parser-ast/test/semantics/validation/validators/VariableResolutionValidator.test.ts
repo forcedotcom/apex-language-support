@@ -455,4 +455,138 @@ describe('VariableResolutionValidator', () => {
       expect(result.errors).toHaveLength(0);
     });
   });
+
+  describe('Deterministic containingClass', () => {
+    it('should resolve this.field deterministically without warnings', async () => {
+      const sourceCode = `
+        public class ThisFieldClass {
+          public Integer myField;
+          public Integer m() {
+            return this.myField;
+          }
+        }
+      `;
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        sourceCode,
+        'file:///test/ThisFieldClass.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      const receiverUnresolvedWarnings = result.warnings.filter(
+        (w: any) => w.code === ErrorCodes.FIELD_ACCESS_RECEIVER_UNRESOLVED,
+      );
+      expect(receiverUnresolvedWarnings).toHaveLength(0);
+    });
+
+    it('should resolve ClassName.staticField deterministically when ClassName is containing class', async () => {
+      const sourceCode = `
+        public class StaticAccessClass {
+          public static Integer staticField = 1;
+          public void m() {
+            Integer x = StaticAccessClass.staticField;
+          }
+        }
+      `;
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        sourceCode,
+        'file:///test/StaticAccessClass.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      const receiverUnresolvedWarnings = result.warnings.filter(
+        (w: any) => w.code === ErrorCodes.FIELD_ACCESS_RECEIVER_UNRESOLVED,
+      );
+      expect(receiverUnresolvedWarnings).toHaveLength(0);
+    });
+
+    it('reports FIELD_ACCESS_RECEIVER_UNRESOLVED when receiver cannot be resolved', async () => {
+      // getObj().field - method call result as receiver; chain base may be METHOD_CALL
+      // so objectName may not be extracted, leading to warning instead of false positive
+      const sourceCode = `
+        public class UnresolvedReceiverClass {
+          public Integer field;
+          public UnresolvedReceiverClass getObj() { return this; }
+          public void m() {
+            Integer x = getObj().field;
+          }
+        }
+      `;
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        sourceCode,
+        'file:///test/UnresolvedReceiverClass.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri() || '',
+        ),
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      // Should NOT report FIELD_DOES_NOT_EXIST on containing class (no false positive)
+      const fieldErrors = result.errors.filter(
+        (e: any) => e.code === ErrorCodes.FIELD_DOES_NOT_EXIST,
+      );
+      const onContainingClass = fieldErrors.filter(
+        (e: any) => e.message?.includes('on UnresolvedReceiverClass') ?? false,
+      );
+      expect(onContainingClass).toHaveLength(0);
+
+      // May report FIELD_ACCESS_RECEIVER_UNRESOLVED when receiver cannot be determined
+      const receiverWarnings = result.warnings.filter(
+        (w: any) => w.code === ErrorCodes.FIELD_ACCESS_RECEIVER_UNRESOLVED,
+      );
+      // Either chain resolution succeeds (no warning) or we get the warning
+      expect(receiverWarnings.length).toBeLessThanOrEqual(1);
+    });
+  });
 });

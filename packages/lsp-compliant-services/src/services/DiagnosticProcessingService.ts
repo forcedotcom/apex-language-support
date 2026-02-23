@@ -52,6 +52,7 @@ import {
 } from './MissingArtifactResolutionService';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
+import { isWorkspaceLoading } from './WorkspaceLoadCoordinator';
 
 /**
  * Interface for diagnostic processing functionality to make handlers more testable.
@@ -368,7 +369,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           });
         }
 
-        // Run semantic validation (always enabled)
+        // Run semantic validation (skip when prerequisites incomplete to avoid false positives)
         this.logger.debug(
           () =>
             `Running semantic validation for cached result: ${params.textDocument.uri}`,
@@ -380,7 +381,26 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           params.textDocument.uri,
         );
 
+        // Let the per-validator prerequisite system (ValidatorRegistry.checkValidatorPrerequisites)
+        // decide what runs. It already gates on detailLevel, references, and cross-file resolution.
+        // Only skip when workspace is loading (no tables available) or no table at all.
+        const skipSemanticValidation = isWorkspaceLoading() || !cachedTable;
+
+        if (skipSemanticValidation) {
+          this.logger.debug(
+            () =>
+              `Skipping semantic validation for ${params.textDocument.uri}: ` +
+              `workspaceLoading=${isWorkspaceLoading()}, hasTable=${!!cachedTable}, ` +
+              `detailLevel=${cachedTable?.getDetailLevel() ?? 'none'}`,
+          );
+          return enhancedCachedDiagnostics;
+        }
+
         if (cachedTable) {
+          const settings = ApexSettingsManager.getInstance().getSettings();
+          const allowArtifactLoading =
+            settings.apex.findMissingArtifact.enabled ?? false;
+
           // Check enrichment level before validation
           const detailLevel = this.symbolManager.getDetailLevelForFile(
             params.textDocument.uri,
@@ -391,24 +411,6 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
               `syntaxErrors=${hasCachedSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
               `symbolTableSize=${cachedTable.getAllSymbols().length}`,
           );
-
-          // Verify detail level meets validator requirements after prerequisites
-          // For THOROUGH tier diagnostics, we expect 'full' detail level
-          const expectedDetailLevel = 'full';
-          const actualDetailLevel = cachedTable.getDetailLevel();
-          if (actualDetailLevel !== expectedDetailLevel) {
-            this.logger.warn(
-              () =>
-                `[VALIDATION-WARNING] Symbol table for ${params.textDocument.uri} has detail level ` +
-                `'${actualDetailLevel ?? 'unknown'}' but validators may require '${expectedDetailLevel}'. ` +
-                'Some validators may be skipped.',
-            );
-          }
-
-          // Get settings for artifact loading
-          const settings = ApexSettingsManager.getInstance().getSettings();
-          const allowArtifactLoading =
-            settings.apex.findMissingArtifact.enabled ?? false;
 
           // Extract version-specific validation setting
           const enableVersionSpecificValidation =
@@ -570,7 +572,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         ),
       );
 
-      // Run semantic validation (always enabled)
+      // Run semantic validation (skip when prerequisites incomplete to avoid false positives)
       // Wrap in try-catch to ensure syntax errors are still returned even if validators fail
       let validatorDiagnostics: Diagnostic[] = [];
 
@@ -583,8 +585,29 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       const enrichedTable =
         this.symbolManager.getSymbolTableForFile(document.uri) || table;
 
+      // Let the per-validator prerequisite system (ValidatorRegistry.checkValidatorPrerequisites)
+      // decide what runs. It already gates on detailLevel, references, and cross-file resolution.
+      // Only skip when workspace is loading (no tables available) or no table at all.
+      const skipSemanticValidationFullPath =
+        isWorkspaceLoading() || !enrichedTable;
+
+      if (skipSemanticValidationFullPath) {
+        this.logger.debug(
+          () =>
+            `Skipping semantic validation for ${params.textDocument.uri} (full path): ` +
+            `workspaceLoading=${isWorkspaceLoading()}, hasTable=${!!enrichedTable}, ` +
+            `detailLevel=${enrichedTable?.getDetailLevel() ?? 'none'}`,
+        );
+        return enhancedDiagnostics;
+      }
+
       if (enrichedTable) {
         try {
+          const fullPathSettings =
+            ApexSettingsManager.getInstance().getSettings();
+          const fullPathAllowArtifactLoading =
+            fullPathSettings.apex.findMissingArtifact.enabled ?? false;
+
           // Check enrichment level before validation
           const detailLevel = this.symbolManager.getDetailLevelForFile(
             document.uri,
@@ -595,39 +618,23 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
               `syntaxErrors=${hasSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
               `symbolTableSize=${enrichedTable.getAllSymbols().length}`,
           );
-
           this.logger.debug(
             () => `Running semantic validation for: ${params.textDocument.uri}`,
           );
 
-          // Verify detail level meets validator requirements after prerequisites
-          // For THOROUGH tier diagnostics, we expect 'full' detail level
-          const expectedDetailLevel = 'full';
-          const actualDetailLevel = enrichedTable.getDetailLevel();
-          if (actualDetailLevel !== expectedDetailLevel) {
-            this.logger.warn(
-              () =>
-                `[VALIDATION-WARNING] Symbol table for ${params.textDocument.uri} has detail level ` +
-                `'${actualDetailLevel ?? 'unknown'}' but validators may require '${expectedDetailLevel}'. ` +
-                'Some validators may be skipped.',
-            );
-          }
-
-          // Get settings for artifact loading
-          const settings = ApexSettingsManager.getInstance().getSettings();
-          const allowArtifactLoading =
-            settings.apex.findMissingArtifact.enabled ?? false;
-
           // Extract version-specific validation setting
           const enableVersionSpecificValidation =
-            settings.apex.validation?.versionSpecificValidation?.enabled ??
-            false;
+            fullPathSettings.apex.validation?.versionSpecificValidation
+              ?.enabled ?? false;
 
           // Extract and parse API version (only if version-specific validation is enabled)
           // Only extract major version from settings (e.g., "65.0" -> 65, "20.8" -> 20)
           let apiVersion: number | undefined;
-          if (enableVersionSpecificValidation && settings.apex.version) {
-            const versionParts = settings.apex.version.split('.');
+          if (
+            enableVersionSpecificValidation &&
+            fullPathSettings.apex.version
+          ) {
+            const versionParts = fullPathSettings.apex.version.split('.');
             if (versionParts.length > 0) {
               const major = Number(versionParts[0]);
               if (!isNaN(major)) {
@@ -645,13 +652,13 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           // Build validation options
           const validationOptions: ValidationOptions = {
             tier: ValidationTier.THOROUGH, // Pull diagnostics = thorough
-            allowArtifactLoading,
+            allowArtifactLoading: fullPathAllowArtifactLoading,
             maxDepth: ARTIFACT_LOADING_LIMITS.maxDepth,
             maxArtifacts: ARTIFACT_LOADING_LIMITS.maxArtifacts,
             timeout: ARTIFACT_LOADING_LIMITS.timeout,
             progressToken: params.workDoneToken,
             symbolManager: this.symbolManager,
-            loadArtifactCallback: allowArtifactLoading
+            loadArtifactCallback: fullPathAllowArtifactLoading
               ? this.createLoadArtifactCallback(params.textDocument.uri)
               : undefined,
             parseTree: cachedParseTree || undefined, // Provide cached parse tree if available
@@ -733,10 +740,21 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           return diagnostics; // Return original diagnostics if no graph data available
         }
 
-        // Add cross-file dependency warnings
+        // Add cross-file dependency warnings (only for type-level symbols)
+        // Variable/Parameter symbols have no meaningful circular dependency - skip to avoid false positives
         const batchSize = 50;
+        const typeLevelKinds = [
+          'class',
+          'interface',
+          'trigger',
+          'method',
+          'constructor',
+        ];
         for (let i = 0; i < fileSymbols.length; i++) {
           const symbol = fileSymbols[i];
+          if (!typeLevelKinds.includes(symbol.kind)) {
+            continue;
+          }
           try {
             const dependencyAnalysis =
               self.symbolManager.analyzeDependencies(symbol);

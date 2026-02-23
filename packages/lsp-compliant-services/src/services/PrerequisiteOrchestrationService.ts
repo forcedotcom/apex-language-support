@@ -28,6 +28,8 @@ import {
   isWorkspaceLoading,
   isWorkspaceLoaded,
 } from './WorkspaceLoadCoordinator';
+import { getDocumentStateCache } from './DocumentStateCache';
+import { getDiagnosticRefreshService } from './DiagnosticRefreshService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import {
   getLayerOrderIndex,
@@ -177,8 +179,20 @@ export class PrerequisiteOrchestrationService {
       this.symbolManager.getDetailLevelForFile(fileUri);
     const symbolTable = this.symbolManager.getSymbolTableForFile(fileUri);
 
-    // Determine what needs to be done
+    // Determine what needs to be done.
+    // Skip enrichment when a previous attempt failed (e.g. missing superclass); the failure flag
+    // is cleared automatically when the document version changes (file is modified/reopened).
+    const enrichmentPreviouslyFailed =
+      getDocumentStateCache().hasEnrichmentFailed(fileUri);
+    if (enrichmentPreviouslyFailed) {
+      this.logger.debug(
+        () =>
+          `Skipping enrichment for ${fileUri}: previous attempt failed ` +
+          `(table stuck at ${currentDetailLevel ?? 'none'})`,
+      );
+    }
     const needsEnrichment =
+      !enrichmentPreviouslyFailed &&
       requirements.requiredDetailLevel &&
       (!currentDetailLevel ||
         getLayerOrderIndex(currentDetailLevel) <
@@ -226,12 +240,26 @@ export class PrerequisiteOrchestrationService {
     } else {
       // Async execution (fire-and-forget)
       if (needsEnrichment) {
+        // Only signal a diagnostic refresh for request types where the client
+        // opened a document and may have pulled diagnostics prematurely.
+        // Blocking paths (diagnostics, hover, etc.) already produce accurate
+        // results and don't need a re-pull signal.
+        const shouldSignalRefresh =
+          requestType === 'file-open-single' || requestType === 'documentOpen';
+
         this.layerEnrichmentService
           .enrichFiles(
             [fileUri],
             requirements.requiredDetailLevel!,
             'same-file',
           )
+          .then(() => {
+            if (shouldSignalRefresh) {
+              Effect.runPromise(
+                getDiagnosticRefreshService().signalEnrichmentComplete(),
+              ).catch(() => {});
+            }
+          })
           .catch((error: unknown) => {
             this.logger.debug(
               () => `Async enrichment failed for ${fileUri}: ${error}`,

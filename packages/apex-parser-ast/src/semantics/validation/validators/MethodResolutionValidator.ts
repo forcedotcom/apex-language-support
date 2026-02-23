@@ -400,6 +400,13 @@ export const MethodResolutionValidator: Validator = {
         );
 
         if (candidateMethods.length === 0) {
+          // Multi-hop chain calls (e.g. result.records.size()) have intermediate field
+          // accesses that we can't resolve without full chain traversal. Only the first
+          // chain node's type is resolved; intermediate fields are skipped. Give benefit
+          // of the doubt — skip the error rather than report a false positive.
+          if ((methodCall.chainNodes?.length ?? 0) > 1) {
+            continue;
+          }
           // Method not found
           errors.push({
             message: localizeTyped(
@@ -1384,7 +1391,12 @@ function validateMethodReturnType(
       return; // Method name mismatch - likely wrong method from cross-file resolution
     }
 
-    const returnType = selectedMethod.returnType.name.toLowerCase();
+    // Use originalTypeString when available (includes generic params, e.g. 'List<ContentVersion>')
+    // since collection TypeInfo stores name='List' (base only) and originalTypeString='List<ContentVersion>'
+    const returnType = (
+      selectedMethod.returnType.originalTypeString ||
+      selectedMethod.returnType.name
+    ).toLowerCase();
     const expectedType = variableType?.toLowerCase();
 
     if (!expectedType) {
@@ -1606,6 +1618,14 @@ function areReturnTypesCompatible(
 
   // null is compatible with any object type
   if (normReturn === 'null' || normExpected === 'null') {
+    return true;
+  }
+
+  // In Apex, Id is a subtype of String — they are interchangeable
+  if (
+    (normReturn === 'id' && normExpected === 'string') ||
+    (normReturn === 'string' && normExpected === 'id')
+  ) {
     return true;
   }
 

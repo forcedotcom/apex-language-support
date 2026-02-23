@@ -159,6 +159,9 @@ export interface LoadWorkspaceSettings {
 
   /** Number of files per batch when using batch loading (default: 100) */
   batchSize: number;
+
+  /** When true, include .sfdx/tools/sobjects/customObjects in workspace scan (default: false) */
+  includeSfdxToolsCustomObjects?: boolean;
 }
 
 /**

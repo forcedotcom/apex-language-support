@@ -4859,10 +4859,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Step 3: For unqualified names, try to find FQN even if isStandardApexClass returned false
       // This handles wrapper types like Integer, String, etc. that are in System namespace
-      // However, builtin types like String, Integer should be resolved via builtInTypeTables first
+      // However, builtin types like void/null should be resolved via builtInTypeTables first
       // Only try standard class resolution if builtin type lookup fails
       if (!name.includes('.')) {
-        // First check builtin types - these take precedence over standard classes
+        // First check builtin types (scalar only: void, null)
         const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
         if (builtInType) {
           return {
@@ -4884,8 +4884,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
       }
 
-      // Step 4: Check other built-in types (scalar, collection, etc.)
-      // This is a fallback for qualified names or if FQN lookup failed
+      // Step 4: Check other built-in types (scalar: void, null) — fallback for qualified names
       const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
       if (builtInType) {
         return {

@@ -500,35 +500,10 @@ export class DocumentProcessingService {
                 `Successfully added symbols synchronously for ${event.document.uri}`,
             );
 
-            // Enrich to full detail level for editor-opened files (not workspace batch)
-            // This ensures documentSymbol, completion, hover, and diagnostics have full semantics
-            if (self.layerEnrichmentService) {
-              try {
-                self.logger.debug(
-                  () =>
-                    `Enriching editor-opened file ${event.document.uri} to full detail level`,
-                );
-                // Enrich asynchronously (don't block diagnostics return)
-                self.layerEnrichmentService
-                  .enrichFiles([event.document.uri], 'full', 'same-file')
-                  .then(() => {
-                    self.logger.debug(
-                      () =>
-                        `Successfully enriched ${event.document.uri} to full detail level`,
-                    );
-                  })
-                  .catch((error) => {
-                    self.logger.debug(
-                      () => `Error enriching ${event.document.uri}: ${error}`,
-                    );
-                  });
-              } catch (error) {
-                self.logger.debug(
-                  () =>
-                    `Error initiating enrichment for ${event.document.uri}: ${error}`,
-                );
-              }
-            }
+            // Enrichment is deferred: diagnostics, hover, and goto-def each call
+            // PrerequisiteOrchestrationService (blocking) before they need full semantics.
+            // Fire-and-forget enrichment here created a race with those blocking paths,
+            // causing non-deterministic behaviour. Let each consumer own enrichment.
           } else {
             self.logger.warn(
               () =>

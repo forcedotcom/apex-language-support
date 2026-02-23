@@ -24,53 +24,11 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
-import { ISymbolManager } from '../ArtifactLoadingHelper';
+import {
+  ArtifactLoadingHelper,
+  ISymbolManager,
+} from '../ArtifactLoadingHelper';
 import { extractBaseTypeName } from '../utils/typeUtils';
-
-/**
- * Known primitive and built-in Apex types that do not need resolution.
- * These are always available in the Apex runtime.
- */
-const KNOWN_BUILTIN_TYPES = new Set([
-  'integer',
-  'long',
-  'decimal',
-  'string',
-  'boolean',
-  'id',
-  'blob',
-  'date',
-  'datetime',
-  'time',
-  'object',
-  'void',
-  'list',
-  'set',
-  'map',
-  'sobject',
-]);
-
-/**
- * Standard Salesforce types that are always available at runtime but may not be
- * in StandardApexLibrary or symbol manager. Suppress INVALID_UNRESOLVED_TYPE for these.
- */
-const KNOWN_STANDARD_TYPES = new Set([
-  'aurahandledexception',
-  'contentversion',
-  'contentdocument',
-  'contentdocumentlink',
-  'contentworkspace',
-  'contentworkspacepermission',
-  'contentworkspacedoc',
-  'contentdistribution',
-  'contentdistributionview',
-  'contentfolder',
-  'contentfolderitem',
-  'contentfolderlink',
-  'contentversionhistory',
-  'contentbody',
-  'contentdocumenthistory',
-]);
 
 /**
  * Validates type resolution for:
@@ -97,7 +55,11 @@ export const TypeResolutionValidator: Validator = {
   validate: (
     symbolTable: SymbolTable,
     options: ValidationOptions,
-  ): Effect.Effect<ValidationResult, ValidationError, ISymbolManager> =>
+  ): Effect.Effect<
+    ValidationResult,
+    ValidationError,
+    ISymbolManager | ArtifactLoadingHelper
+  > =>
     Effect.gen(function* () {
       const errors: ValidationErrorInfo[] = [];
       const warnings: ValidationWarningInfo[] = [];
@@ -128,26 +90,62 @@ export const TypeResolutionValidator: Validator = {
         // For CONSTRUCTOR_CALL we need a class
       ]);
 
+      // First pass: collect all type names that need resolution
+      const unresolvedTypeNames: string[] = [];
       for (const ref of typeRefs) {
         const typeName = ref.name;
         const baseName = extractBaseTypeName(typeName);
-
-        if (KNOWN_BUILTIN_TYPES.has(baseName)) {
-          continue;
-        }
-
-        if (KNOWN_STANDARD_TYPES.has(baseName)) {
-          continue;
-        }
-
-        // Check if System-prefixed (e.g., System.String)
-        if (typeName.toLowerCase().startsWith('system.')) {
-          const systemType = typeName.split('.')[1]?.toLowerCase();
-          if (systemType && KNOWN_BUILTIN_TYPES.has(systemType)) {
+        const sameFileType = allSymbols.find(
+          (s) =>
+            (s.kind === SymbolKind.Class ||
+              s.kind === SymbolKind.Interface ||
+              s.kind === SymbolKind.Enum) &&
+            s.name.toLowerCase() === baseName,
+        );
+        if (sameFileType) continue;
+        if (options.tier === ValidationTier.THOROUGH) {
+          const symbols = symbolManager.findSymbolByName(typeName);
+          const found = symbols.find(
+            (s: ApexSymbol) =>
+              s.kind === SymbolKind.Class ||
+              s.kind === SymbolKind.Interface ||
+              s.kind === SymbolKind.Enum,
+          );
+          if (found) continue;
+          const fqnSymbol = symbolManager.findSymbolByFQN(typeName);
+          if (
+            fqnSymbol &&
+            (fqnSymbol.kind === SymbolKind.Class ||
+              fqnSymbol.kind === SymbolKind.Interface ||
+              fqnSymbol.kind === SymbolKind.Enum)
+          )
             continue;
-          }
         }
+        unresolvedTypeNames.push(typeName);
+      }
 
+      // Attempt artifact loading for unresolved types before generating errors
+      // Track types where loading was attempted but artifacts weren't available
+      const attemptedButUnavailable = new Set<string>();
+      if (unresolvedTypeNames.length > 0 && options.allowArtifactLoading) {
+        const helper = yield* ArtifactLoadingHelper;
+        const loadResult = yield* helper.loadMissingArtifacts(
+          unresolvedTypeNames,
+          options,
+        );
+        // Types that failed or were skipped (maxArtifacts limit) cannot be confirmed
+        // as non-existent without org access. Suppress errors for both to avoid
+        // false positives — the client should be asked first; if it can't provide
+        // the type, we accept the uncertainty rather than report a bogus error.
+        for (const typeName of [...loadResult.failed, ...loadResult.skipped]) {
+          attemptedButUnavailable.add(typeName.toLowerCase());
+        }
+      }
+
+      // Second pass: validate with potentially newly loaded types
+      for (const ref of typeRefs) {
+        const typeName = ref.name;
+        const baseName = extractBaseTypeName(typeName);
         let typeSymbol: TypeSymbol | null = null;
 
         // Same-file lookup
@@ -162,7 +160,7 @@ export const TypeResolutionValidator: Validator = {
         if (sameFileType) {
           typeSymbol = sameFileType;
         } else if (options.tier === ValidationTier.THOROUGH) {
-          // Cross-file lookup via symbolManager
+          // Cross-file lookup via symbolManager (types may have been loaded above)
           const symbols = symbolManager.findSymbolByName(typeName);
           const found = symbols.find(
             (s: ApexSymbol) =>
@@ -186,6 +184,13 @@ export const TypeResolutionValidator: Validator = {
         }
 
         if (!typeSymbol) {
+          // If artifact loading was attempted for this type but it couldn't be
+          // fetched (e.g. org not connected), suppress the error. We cannot
+          // confirm the type doesn't exist without org access — showing a false
+          // positive violates the "no false positives" tenant.
+          if (attemptedButUnavailable.has(baseName)) {
+            continue;
+          }
           errors.push({
             message: localizeTyped(
               ErrorCodes.INVALID_UNRESOLVED_TYPE,

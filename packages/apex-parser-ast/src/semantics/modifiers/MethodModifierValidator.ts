@@ -126,6 +126,12 @@ export class MethodModifierValidator {
       return; // Skip visibility validation for test methods
     }
 
+    // Exception: All methods in @isTest classes are exempt from visibility restrictions.
+    // An @isTest private class can have public/protected/etc. methods - this is valid Apex.
+    if (currentTypeSymbol.modifiers.isTestMethod) {
+      return; // Skip visibility validation for all methods in @isTest classes
+    }
+
     // Exception: Interface implementation methods must match interface contract (public/global).
     // A private inner class implementing HttpCalloutMock needs public respond() - allow it.
     if (

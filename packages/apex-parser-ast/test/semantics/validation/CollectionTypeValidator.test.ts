@@ -451,7 +451,7 @@ describe('CollectionTypeValidator', () => {
         expect(result.errors).toHaveLength(0);
       });
 
-      it('should reject List with invalid SObject type', () => {
+      it('should allow List with unknown SObject type (permissive without org access)', () => {
         const elementType = createMockSObjectType('InvalidObject');
         const listType = createMockCollectionType('List', elementType);
 
@@ -460,11 +460,10 @@ describe('CollectionTypeValidator', () => {
           createMockScope(),
         );
 
-        expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('invalid.sobject.type');
+        expect(result.isValid).toBe(true);
       });
 
-      it('should reject Set with invalid SObject type', () => {
+      it('should allow Set with unknown SObject type (permissive without org access)', () => {
         const elementType = createMockSObjectType('InvalidObject');
         const setType = createMockCollectionType('Set', elementType);
 
@@ -473,8 +472,7 @@ describe('CollectionTypeValidator', () => {
           createMockScope(),
         );
 
-        expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('invalid.sobject.type');
+        expect(result.isValid).toBe(true);
       });
     });
 
@@ -521,7 +519,7 @@ describe('CollectionTypeValidator', () => {
         expect(result.errors).toHaveLength(0);
       });
 
-      it('should reject Map with invalid SObject key type', () => {
+      it('should allow Map with unknown SObject key type (permissive without org access)', () => {
         const keyType = createMockSObjectType('InvalidObject');
         const valueType = createMockTypeInfo('String', true);
         const mapType = createMockMapType(keyType, valueType);
@@ -531,11 +529,10 @@ describe('CollectionTypeValidator', () => {
           createMockScope(),
         );
 
-        expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('invalid.sobject.type');
+        expect(result.isValid).toBe(true);
       });
 
-      it('should reject Map with invalid SObject value type', () => {
+      it('should allow Map with unknown SObject value type (permissive without org access)', () => {
         const keyType = createMockTypeInfo('Id', true);
         const valueType = createMockSObjectType('InvalidObject');
         const mapType = createMockMapType(keyType, valueType);
@@ -545,8 +542,7 @@ describe('CollectionTypeValidator', () => {
           createMockScope(),
         );
 
-        expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('invalid.sobject.type');
+        expect(result.isValid).toBe(true);
       });
 
       it('should reject Map with invalid key type for SObject value', () => {
@@ -617,7 +613,9 @@ describe('CollectionTypeValidator', () => {
         expect(result.errors).toHaveLength(0);
       });
 
-      it('should reject custom SObject with invalid suffix', () => {
+      it('should allow custom SObject with unknown suffix (permissive without org access)', () => {
+        // __invalid is not a recognised custom suffix, but without org metadata
+        // we cannot confirm this type is NOT a valid SObject.
         const elementType = createMockSObjectType('CustomObject__invalid');
         const listType = createMockCollectionType('List', elementType);
 
@@ -626,8 +624,7 @@ describe('CollectionTypeValidator', () => {
           createMockScope(),
         );
 
-        expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('invalid.sobject.type');
+        expect(result.isValid).toBe(true);
       });
     });
 

@@ -60,6 +60,33 @@ interface ChainScope {
 }
 
 /**
+ * Returns true if the given AssignExpressionContext is a field initializer inside
+ * an SObject constructor, e.g. `Name = 'value'` in `new Account(Name = 'value')`.
+ * Parent chain: AssignExpression → ExpressionList → Arguments → ClassCreatorRest.
+ * Uses constructor.name string checks to avoid module-bundling instanceof issues.
+ */
+export function isAssignInsideSObjectConstructor(
+  ctx: AssignExpressionContext,
+): boolean {
+  let ancestor: ParserRuleContext | undefined = ctx.parent as
+    | ParserRuleContext
+    | undefined;
+  while (ancestor) {
+    const name = ancestor.constructor?.name ?? '';
+    if (name === 'ClassCreatorRestContext') return true;
+    // Stop if we cross into a block/statement scope (left constructor territory)
+    if (
+      name === 'BlockContext' ||
+      name === 'StatementContext' ||
+      name === 'MethodDeclarationContext'
+    )
+      return false;
+    ancestor = ancestor.parent as ParserRuleContext | undefined;
+  }
+  return false;
+}
+
+/**
  * Listener that captures symbol references during parse tree walk.
  * Can be used independently or alongside symbol declaration listeners.
  * Works with any SymbolTable, regardless of how symbols were collected.
@@ -1020,19 +1047,24 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
 
         // If it's a simple identifier, mark as write/readwrite
         if (isContextType(leftExpression, PrimaryExpressionContext)) {
-          // Extract identifiers to handle array expressions correctly
-          // For array expressions like "arr[0]", extractIdentifiersFromExpression returns ["arr"]
-          const identifiers =
-            this.extractIdentifiersFromExpression(leftExpression);
-          if (identifiers.length > 0) {
-            // Use the first identifier (for array expressions, this is the base variable)
-            const varRef = SymbolReferenceFactory.createVariableUsageReference(
-              identifiers[0],
-              lhsLoc,
-              parentContext,
-              lhsAccess,
-            );
-            this.symbolTable.addTypeReference(varRef);
+          // SObject constructor field initializer: `new Account(Name = 'value')`.
+          // The LHS identifier is a field name, not a variable — skip the variable reference.
+          if (!isAssignInsideSObjectConstructor(ctx)) {
+            // Extract identifiers to handle array expressions correctly
+            // For array expressions like "arr[0]", extractIdentifiersFromExpression returns ["arr"]
+            const identifiers =
+              this.extractIdentifiersFromExpression(leftExpression);
+            if (identifiers.length > 0) {
+              // Use the first identifier (for array expressions, this is the base variable)
+              const varRef =
+                SymbolReferenceFactory.createVariableUsageReference(
+                  identifiers[0],
+                  lhsLoc,
+                  parentContext,
+                  lhsAccess,
+                );
+              this.symbolTable.addTypeReference(varRef);
+            }
           }
           // Clear LHS access after handling simple identifier
           this.currentLhsAccess = null;

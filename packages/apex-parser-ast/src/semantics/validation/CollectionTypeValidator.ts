@@ -9,7 +9,6 @@
 import type { ValidationResult } from './ValidationResult';
 import type { TypeInfo } from './TypeValidator';
 import { SymbolVisibility } from '../../types/symbol';
-import { STANDARD_SOBJECT_TYPES } from '../../constants/constants';
 
 /**
  * Context for collection type validation
@@ -343,14 +342,6 @@ export class CollectionTypeValidator {
    * Check if an SObject type name is valid
    */
   private static isValidSObjectTypeName(typeName: string): boolean {
-    // Standard SObject types
-    const standardSObjects = STANDARD_SOBJECT_TYPES;
-
-    // Check if it's a standard SObject
-    if (standardSObjects.has(typeName)) {
-      return true;
-    }
-
     // Check if it's a custom SObject (ends with __c)
     if (typeName.endsWith('__c')) {
       return true;
@@ -371,6 +362,8 @@ export class CollectionTypeValidator {
       return true;
     }
 
-    return false;
+    // Unknown type — cannot confirm it is NOT a valid SObject without org access.
+    // Permissive to avoid false positives.
+    return true;
   }
 }

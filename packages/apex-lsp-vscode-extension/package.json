@@ -387,6 +387,11 @@
               "type": "number",
               "default": 100,
               "description": "%configuration.apex-ls-ts.loadWorkspace.batchSize.description%"
+            },
+            "includeSfdxToolsCustomObjects": {
+              "type": "boolean",
+              "default": false,
+              "description": "%configuration.apex-ls-ts.loadWorkspace.includeSfdxToolsCustomObjects.description%"
             }
           }
         },
