@@ -47,6 +47,9 @@ packages/*/coverage/
 *.tmp
 *.temp
 
+# Local documentation/notes
+slopdocs/
+
 # Benchmark results
 *benchmark*.json
 

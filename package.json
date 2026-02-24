@@ -38,7 +38,13 @@
     "bundle": "wireit",
     "package": "wireit",
     "package:packages": "npm run package",
-    "rebuild": "npm run clean && npm run compile && npm run bundle"
+    "rebuild": "npm run clean && npm run compile && npm run bundle",
+    "telemetry:start": "docker-compose -f telemetry/docker-compose.yaml --profile grafana up -d",
+    "telemetry:stop": "docker-compose -f telemetry/docker-compose.yaml --profile grafana down",
+    "telemetry:logs": "docker-compose -f telemetry/docker-compose.yaml logs -f otel-collector",
+    "telemetry:collector-only": "docker-compose -f telemetry/docker-compose.yaml up -d",
+    "telemetry:grafana": "open http://localhost:3001",
+    "dashboard": "npx serve telemetry -p 2080"
   },
   "keywords": [
     "salesforce",

@@ -1,0 +1,26 @@
+# Apex Language Extension Output - 2026-02-24T06:49:45.483Z
+
+INSTRUCTIONS FOR CAPTURING APEX EXTENSION LOGS:
+
+1. In VS Code Web, go to: View → Output
+2. In the Output panel dropdown (top right), select "Apex Language Extension (Typescript)"
+3. Copy ALL the content from that output panel
+4. Replace this message with the copied content
+
+ALTERNATIVE - Browser Console:
+1. Open Developer Tools (F12)
+2. Go to Console tab  
+3. Filter for messages containing "Apex" or "typescript" or "Error"
+4. Copy relevant error messages
+
+WHAT TO LOOK FOR:
+- TypeScript compilation errors
+- Import/module resolution errors
+- Polyfill-related errors
+- Language server initialization errors
+- Worker communication errors
+
+Last check: 2026-02-24T06:49:45.483Z
+
+=== PASTE APEX EXTENSION OUTPUT BELOW THIS LINE ===
+

@@ -1,0 +1,80 @@
+# Docker Compose for Apex Language Server Telemetry Development
+#
+# Services:
+#   otel-collector: OpenTelemetry Collector for receiving and processing traces
+#   tempo: Grafana Tempo for trace storage
+#   grafana: Grafana UI for trace visualization
+#
+# Usage:
+#   npm run telemetry:start       - Start all services (Collector + Tempo + Grafana)
+#   npm run telemetry:stop        - Stop all services
+#   npm run telemetry:logs        - View OTEL Collector logs
+#   npm run telemetry:collector-only - Start only the collector
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.92.0
+    container_name: apex-lsp-otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+      - ./data:/data
+    ports:
+      - "4317:4317"   # gRPC receiver
+      - "4318:4318"   # HTTP receiver
+      - "13133:13133" # Health check
+    environment:
+      - AZURE_MONITOR_CONNECTION_STRING=${AZURE_MONITOR_CONNECTION_STRING:-}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "localhost:13133"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - telemetry
+
+  # Grafana Tempo - Distributed tracing backend
+  tempo:
+    image: grafana/tempo:2.3.1
+    container_name: apex-lsp-tempo
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./tempo-config.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"   # Tempo API
+      - "9095:9095"   # Tempo gRPC
+    profiles:
+      - grafana
+    networks:
+      - telemetry
+
+  # Grafana - Visualization UI
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: apex-lsp-grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
+    volumes:
+      - ./grafana-provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"   # Grafana UI (using 3001 to avoid conflicts)
+    profiles:
+      - grafana
+    depends_on:
+      - tempo
+    networks:
+      - telemetry
+
+networks:
+  telemetry:
+    name: apex-lsp-telemetry
+
+volumes:
+  tempo-data:
+  grafana-data:

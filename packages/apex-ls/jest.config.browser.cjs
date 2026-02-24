@@ -22,6 +22,10 @@ module.exports = {
     // Map ESM exports from vscode-languageserver-types to CJS
     '^vscode-languageserver-types$':
       '<rootDir>/../../node_modules/vscode-languageserver-types/lib/umd/main.js',
+    // Mock Node.js-specific OpenTelemetry packages for web tests
+    // These packages use ESM exports that Jest cannot handle in browser environment
+    '^@azure/monitor-opentelemetry-exporter$':
+      '<rootDir>/test/__mocks__/@azure/monitor-opentelemetry-exporter.mock.js',
   },
 
   // Transform ignore patterns - include vscode packages for ESM support

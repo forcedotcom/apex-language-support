@@ -607,6 +607,16 @@
               "description": "Standard Apex namespaces to pre-populate. Use \"*\" to load all namespaces (for performance measurement). Common choices: Database (database operations), System (core utilities)."
             }
           }
+        },
+        "apex.telemetry.localTracingEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Export traces to a local OpenTelemetry collector at http://localhost:4318. Useful for development and debugging with Grafana/Tempo."
+        },
+        "apex.telemetry.consoleTracingEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log trace spans to the server console output. Useful for quick debugging without a collector."
         }
       }
     },

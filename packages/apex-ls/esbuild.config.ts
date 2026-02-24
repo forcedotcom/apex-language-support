@@ -58,9 +58,10 @@ const NODE_SERVER_EXTERNAL = [
  * (like the ANTLR parser which is too large) should be external.
  */
 const WORKER_EXTERNAL: string[] = [
-  // The ANTLR parser is loaded separately due to its size
-  // '@apexdevtools/apex-parser',
-  // 'antlr4ts',
+  // Node.js-specific OpenTelemetry packages - not available in browser worker
+  '@azure/monitor-opentelemetry-exporter',
+  '@opentelemetry/sdk-trace-node',
+  '@opentelemetry/context-async-hooks',
 ];
 
 const builds: BuildOptions[] = [
