@@ -15,7 +15,9 @@ import {
   setLoggerFactory,
   UniversalLoggerFactory,
   LoggerInterface,
+  initializeTracing,
 } from '@salesforce/apex-lsp-shared';
+import { NodeSdkLayerFor } from '@salesforce/apex-lsp-shared/observability/spansNode';
 
 import { LCSAdapter } from './LCSAdapter';
 
@@ -37,6 +39,33 @@ export async function startApexNodeServer(): Promise<void> {
   // Initial lifecycle logs
   logger.info('🚀 Node.js server starting...');
   logger.info('🔧 Starting LCS integration...');
+
+  // Initialize Node.js tracing if any exporter is configured
+  try {
+    const appInsightsConnectionString =
+      process?.env?.APEX_LSP_APP_INSIGHTS_CONNECTION_STRING;
+    const localTracingEnabled = process?.env?.APEX_LSP_LOCAL_TRACING === 'true';
+    const consoleTracingEnabled =
+      process?.env?.APEX_LSP_CONSOLE_TRACING === 'true';
+
+    if (
+      appInsightsConnectionString ||
+      localTracingEnabled ||
+      consoleTracingEnabled
+    ) {
+      const layer = NodeSdkLayerFor({
+        extensionName: 'apex-language-server',
+        extensionVersion: '1.0.0',
+        appInsightsConnectionString,
+        localTracingEnabled,
+        consoleTracingEnabled,
+      });
+      initializeTracing(layer);
+      logger.info('✅ Node.js telemetry initialized');
+    }
+  } catch (error) {
+    logger.error(`Failed to initialize telemetry: ${error}`);
+  }
 
   // Create and initialize LCS adapter in one step
   await LCSAdapter.create({

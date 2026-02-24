@@ -47,6 +47,8 @@ import {
   formattedError,
   getDocumentSelectorsFromSettings,
   ApexSettingsManager,
+  runWithSpan,
+  LSP_SPAN_NAMES,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -391,7 +393,14 @@ export class LCSAdapter {
             `🔍 Document symbol request for URI: ${params.textDocument.uri}`,
         );
         try {
-          return await dispatchProcessOnDocumentSymbol(params);
+          return await runWithSpan(
+            LSP_SPAN_NAMES.DOCUMENT_SYMBOL,
+            () => dispatchProcessOnDocumentSymbol(params),
+            {
+              'lsp.method': 'textDocument/documentSymbol',
+              'document.uri': params.textDocument.uri,
+            },
+          );
         } catch (error) {
           this.logger.error(
             () => `Error processing document symbols: ${formattedError(error)}`,
@@ -416,7 +425,15 @@ export class LCSAdapter {
               `at ${params.position.line}:${params.position.character}`,
           );
           try {
-            return await dispatchProcessOnDefinition(params);
+            return await runWithSpan(
+              LSP_SPAN_NAMES.DEFINITION,
+              () => dispatchProcessOnDefinition(params),
+              {
+                'lsp.method': 'textDocument/definition',
+                'document.uri': params.textDocument.uri,
+                'document.position': `${params.position.line}:${params.position.character}`,
+              },
+            );
           } catch (error) {
             this.logger.error(
               () => `Error processing definition: ${formattedError(error)}`,
@@ -442,7 +459,15 @@ export class LCSAdapter {
               `at ${params.position.line}:${params.position.character}`,
           );
           try {
-            return await dispatchProcessOnImplementation(params);
+            return await runWithSpan(
+              LSP_SPAN_NAMES.IMPLEMENTATION,
+              () => dispatchProcessOnImplementation(params),
+              {
+                'lsp.method': 'textDocument/implementation',
+                'document.uri': params.textDocument.uri,
+                'document.position': `${params.position.line}:${params.position.character}`,
+              },
+            );
           } catch (error) {
             this.logger.error(
               () => `Error processing implementation: ${formattedError(error)}`,
@@ -468,7 +493,15 @@ export class LCSAdapter {
               `at ${params.position.line}:${params.position.character}`,
           );
           try {
-            return await dispatchProcessOnReferences(params);
+            return await runWithSpan(
+              LSP_SPAN_NAMES.REFERENCES,
+              () => dispatchProcessOnReferences(params),
+              {
+                'lsp.method': 'textDocument/references',
+                'document.uri': params.textDocument.uri,
+                'document.position': `${params.position.line}:${params.position.character}`,
+              },
+            );
           } catch (error) {
             this.logger.error(
               () => `Error processing references: ${formattedError(error)}`,
@@ -494,8 +527,14 @@ export class LCSAdapter {
           params: DocumentDiagnosticParams,
         ): Promise<DocumentDiagnosticReport> => {
           try {
-            const diagnostics =
-              await this.diagnosticProcessor.processDiagnostic(params);
+            const diagnostics = await runWithSpan(
+              LSP_SPAN_NAMES.DIAGNOSTICS,
+              () => this.diagnosticProcessor.processDiagnostic(params),
+              {
+                'lsp.method': 'textDocument/diagnostic',
+                'document.uri': params.textDocument.uri,
+              },
+            );
             return {
               kind: DocumentDiagnosticReportKind.Full,
               items: diagnostics,
@@ -525,7 +564,14 @@ export class LCSAdapter {
           );
           try {
             const storage = ApexStorageManager.getInstance().getStorage();
-            return await dispatchProcessOnFoldingRange(params, storage);
+            return await runWithSpan(
+              LSP_SPAN_NAMES.FOLDING_RANGE,
+              () => dispatchProcessOnFoldingRange(params, storage),
+              {
+                'lsp.method': 'textDocument/foldingRange',
+                'document.uri': params.textDocument.uri,
+              },
+            );
           } catch (error) {
             this.logger.error(
               () => `Error processing folding ranges: ${formattedError(error)}`,
@@ -557,7 +603,14 @@ export class LCSAdapter {
           () => `CodeLens request received for URI: ${params.textDocument.uri}`,
         );
         try {
-          const result = await dispatchProcessOnCodeLens(params);
+          const result = await runWithSpan(
+            LSP_SPAN_NAMES.CODE_LENS,
+            () => dispatchProcessOnCodeLens(params),
+            {
+              'lsp.method': 'textDocument/codeLens',
+              'document.uri': params.textDocument.uri,
+            },
+          );
           this.logger.debug(
             `Returning ${result.length} code lenses for ${params.textDocument.uri}`,
           );
@@ -587,7 +640,16 @@ export class LCSAdapter {
           () => `🔍 apex/findMissingArtifact request received for: ${names}`,
         );
         try {
-          return await dispatchProcessOnFindMissingArtifact(params);
+          return await runWithSpan(
+            LSP_SPAN_NAMES.FIND_MISSING_ARTIFACT,
+            () => dispatchProcessOnFindMissingArtifact(params),
+            {
+              'apex.identifier': params.identifier,
+              'apex.origin.uri': params.origin.uri,
+              'apex.origin.requestKind': params.origin.requestKind,
+              'apex.mode': params.mode,
+            },
+          );
         } catch (error) {
           this.logger.error(
             () =>
@@ -685,7 +747,14 @@ export class LCSAdapter {
               `🔍 workspace/executeCommand request received: ${params.command}`,
           );
           try {
-            return await dispatchProcessOnExecuteCommand(params);
+            return await runWithSpan(
+              LSP_SPAN_NAMES.EXECUTE_COMMAND,
+              () => dispatchProcessOnExecuteCommand(params),
+              {
+                'lsp.method': 'workspace/executeCommand',
+                'command.name': params.command,
+              },
+            );
           } catch (error) {
             this.logger.error(
               () => `Error processing executeCommand: ${formattedError(error)}`,
@@ -1858,7 +1927,15 @@ export class LCSAdapter {
         );
         try {
           const dispatchStartTime = Date.now();
-          const result = await dispatchProcessOnHover(params);
+          const result = await runWithSpan(
+            LSP_SPAN_NAMES.HOVER,
+            () => dispatchProcessOnHover(params),
+            {
+              'lsp.method': 'textDocument/hover',
+              'document.uri': params.textDocument.uri,
+              'document.position': `${params.position.line}:${params.position.character}`,
+            },
+          );
           const totalTime = Date.now() - requestStartTime;
           const dispatchTime = Date.now() - dispatchStartTime;
           this.logger.debug(

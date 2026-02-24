@@ -84,6 +84,36 @@ export * from './types/priority';
 // Export document selector utilities
 export * from './document/DocumentSelectorUtils';
 
+export {
+  type SdkLayerConfig,
+  DEFAULT_TELEMETRY_SETTINGS,
+  isTopLevelSpan,
+  convertAttributes,
+  spanDuration,
+  spanStartTime,
+  spanEndTime,
+  formatSpanForLogging,
+  OTEL_COLLECTOR_ENDPOINTS,
+  isLocalTracingEnabled,
+  isConsoleTracingEnabled,
+  getAppInsightsConnectionString,
+  LOCAL_DEV_CONFIG,
+  parseConnectionString,
+  isValidConnectionString,
+  getInstrumentationKey,
+  type AppInsightsConnectionConfig,
+  initializeTracing,
+  isTracingEnabled,
+  disableTracing,
+  shutdownTracing,
+  runWithSpan,
+  runSyncWithSpan,
+  withTracing,
+  annotateCurrentSpan,
+  LSP_SPAN_NAMES,
+  type LspSpanAttributes,
+} from './observability';
+
 // Experimental protocol: Missing Artifact Resolution
 export type RequestKind =
   | 'definition'

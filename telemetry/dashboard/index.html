@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apex Language Server - Telemetry Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Apex Language Server Telemetry Dashboard</h1>
+            <div class="header-actions">
+                <button id="refreshBtn" class="btn btn-primary">Refresh Data</button>
+                <button id="generateDemoBtn" class="btn btn-secondary">Generate Demo Data</button>
+                <select id="timeRange">
+                    <option value="1h">Last 1 Hour</option>
+                    <option value="6h">Last 6 Hours</option>
+                    <option value="24h" selected>Last 24 Hours</option>
+                    <option value="7d">Last 7 Days</option>
+                </select>
+            </div>
+        </header>
+
+        <main>
+            <!-- Environment Comparison Panel -->
+            <section class="panel environment-comparison">
+                <h2>Environment Comparison</h2>
+                <div class="cards">
+                    <div class="card desktop">
+                        <h3>Desktop</h3>
+                        <div class="metric">
+                            <span class="label">Total Operations</span>
+                            <span class="value" id="desktop-total">--</span>
+                        </div>
+                        <div class="metric">
+                            <span class="label">Errors</span>
+                            <span class="value error" id="desktop-errors">--</span>
+                        </div>
+                        <div class="metric">
+                            <span class="label">Avg Latency</span>
+                            <span class="value" id="desktop-latency">-- ms</span>
+                        </div>
+                    </div>
+                    <div class="card web">
+                        <h3>Web</h3>
+                        <div class="metric">
+                            <span class="label">Total Operations</span>
+                            <span class="value" id="web-total">--</span>
+                        </div>
+                        <div class="metric">
+                            <span class="label">Errors</span>
+                            <span class="value error" id="web-errors">--</span>
+                        </div>
+                        <div class="metric">
+                            <span class="label">Avg Latency</span>
+                            <span class="value" id="web-latency">-- ms</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Operation Breakdown Chart -->
+            <section class="panel chart-panel">
+                <h2>Operation Breakdown by Type</h2>
+                <div class="chart-container">
+                    <canvas id="operationChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Latency Distribution Chart -->
+            <section class="panel chart-panel">
+                <h2>Latency Distribution</h2>
+                <div class="percentiles">
+                    <div class="percentile">
+                        <span class="label">P50</span>
+                        <span class="value" id="p50">-- ms</span>
+                    </div>
+                    <div class="percentile">
+                        <span class="label">P90</span>
+                        <span class="value" id="p90">-- ms</span>
+                    </div>
+                    <div class="percentile">
+                        <span class="label">P99</span>
+                        <span class="value" id="p99">-- ms</span>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="latencyChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Error Rate Timeline -->
+            <section class="panel chart-panel">
+                <h2>Error Rate Over Time</h2>
+                <div class="chart-container">
+                    <canvas id="errorChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Recent Spans Table -->
+            <section class="panel table-panel">
+                <h2>Recent Spans</h2>
+                <div class="table-controls">
+                    <input type="text" id="filterInput" placeholder="Filter by operation name...">
+                    <select id="statusFilter">
+                        <option value="all">All Status</option>
+                        <option value="ok">OK Only</option>
+                        <option value="error">Errors Only</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <table id="spansTable">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Operation</th>
+                                <th>Duration (ms)</th>
+                                <th>Status</th>
+                                <th>Environment</th>
+                                <th>Trace ID</th>
+                            </tr>
+                        </thead>
+                        <tbody id="spansTableBody">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Apex Language Server Telemetry &bull; Data refreshed: <span id="lastRefresh">--</span></p>
+        </footer>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

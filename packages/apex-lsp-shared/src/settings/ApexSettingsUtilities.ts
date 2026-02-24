@@ -10,6 +10,8 @@ import type {
   ApexLanguageServerSettings,
   RuntimePlatform,
   DeferredReferenceProcessingSettings,
+  SymbolGraphSettings,
+  TelemetrySettings,
 } from '../server/ApexLanguageServerSettings';
 
 /**
@@ -112,8 +114,14 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     },
 
     symbolGraph: {
-      enabled: true, // Enabled by default - only 190ms startup cost for 60-80ms first-file benefit
-      preloadNamespaces: ['Database', 'System'], // Default namespaces
+      enabled: true,
+      preloadNamespaces: ['Database', 'System'],
+    },
+
+    telemetry: {
+      enabled: true,
+      localTracingEnabled: false,
+      consoleTracingEnabled: false,
     },
 
     validation: {
@@ -384,6 +392,18 @@ export function mergeWithDefaults(
             ...userSettings.apex?.deferredReferenceProcessing,
           }
         : userSettings.apex?.deferredReferenceProcessing,
+      symbolGraph: baseApex.symbolGraph
+        ? {
+            ...baseApex.symbolGraph,
+            ...userSettings.apex?.symbolGraph,
+          }
+        : userSettings.apex?.symbolGraph,
+      telemetry: baseApex.telemetry
+        ? {
+            ...baseApex.telemetry,
+            ...userSettings.apex?.telemetry,
+          }
+        : userSettings.apex?.telemetry,
       worker: {
         ...baseApex.worker,
         ...userSettings.apex?.worker,
@@ -476,6 +496,22 @@ export function mergeWithExisting(
               ...existingSettings.apex.deferredReferenceProcessing,
               ...partialSettings.apex?.deferredReferenceProcessing,
             } as DeferredReferenceProcessingSettings)
+          : undefined,
+      symbolGraph:
+        existingSettings.apex.symbolGraph || partialSettings.apex?.symbolGraph
+          ? ({
+              ...DEFAULT_APEX_SETTINGS.apex.symbolGraph!,
+              ...existingSettings.apex.symbolGraph,
+              ...partialSettings.apex?.symbolGraph,
+            } as SymbolGraphSettings)
+          : undefined,
+      telemetry:
+        existingSettings.apex.telemetry || partialSettings.apex?.telemetry
+          ? ({
+              ...DEFAULT_APEX_SETTINGS.apex.telemetry!,
+              ...existingSettings.apex.telemetry,
+              ...partialSettings.apex?.telemetry,
+            } as TelemetrySettings)
           : undefined,
       worker: {
         ...existingSettings.apex.worker,

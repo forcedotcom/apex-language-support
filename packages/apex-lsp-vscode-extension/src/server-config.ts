@@ -259,16 +259,28 @@ export const createServerOptions = (
     debugExecArgv.push(...debugOptions);
   }
 
+  const telemetryConfig = vscode.workspace.getConfiguration('apex.telemetry');
+  const telemetryEnv: Record<string, string> = {};
+  if (telemetryConfig.get<boolean>('localTracingEnabled')) {
+    telemetryEnv.APEX_LSP_LOCAL_TRACING = 'true';
+  }
+  if (telemetryConfig.get<boolean>('consoleTracingEnabled')) {
+    telemetryEnv.APEX_LSP_CONSOLE_TRACING = 'true';
+  }
+
+  const serverEnv = {
+    ...process.env,
+    NODE_OPTIONS: '--enable-source-maps',
+    APEX_LS_MODE: serverMode,
+    ...telemetryEnv,
+  };
+
   return {
     run: {
       module: serverModule,
       transport: TransportKind.ipc,
       options: {
-        env: {
-          ...process.env, // Inherit parent environment (includes launch.json env vars)
-          NODE_OPTIONS: '--enable-source-maps',
-          APEX_LS_MODE: serverMode,
-        },
+        env: serverEnv,
         ...(runExecArgv.length > 0 && {
           execArgv: runExecArgv,
         }),
@@ -278,11 +290,7 @@ export const createServerOptions = (
       module: serverModule,
       transport: TransportKind.ipc,
       options: {
-        env: {
-          ...process.env, // Inherit parent environment (includes launch.json env vars)
-          NODE_OPTIONS: '--enable-source-maps',
-          APEX_LS_MODE: serverMode,
-        },
+        env: serverEnv,
         ...(debugExecArgv.length > 0 && {
           execArgv: debugExecArgv,
         }),

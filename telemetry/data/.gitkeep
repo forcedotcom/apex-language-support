@@ -1,0 +1,2 @@
+# Placeholder for trace data files
+# The OTEL Collector will write traces.json to this directory
