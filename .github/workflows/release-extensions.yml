@@ -572,7 +572,7 @@ jobs:
           echo "pre_release=$PRE_RELEASE" >> $GITHUB_OUTPUT
 
       - name: Notify Slack
-        uses: slackapi/slack-github-action@v1.22.0
+        uses: slackapi/slack-github-action@v2.1.1
         with:
           payload: |
             {
@@ -679,7 +679,7 @@ jobs:
           echo "pre_release=$PRE_RELEASE" >> $GITHUB_OUTPUT
 
       - name: Notify Slack
-        uses: slackapi/slack-github-action@v1.22.0
+        uses: slackapi/slack-github-action@v2.1.1
         with:
           payload: |
             {
