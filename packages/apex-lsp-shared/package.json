@@ -10,31 +10,6 @@
       "types": "./out/index.d.ts",
       "import": "./out/index.js",
       "require": "./out/index.js"
-    },
-    "./observability/node": {
-      "types": "./out/observability/spansNode.d.ts",
-      "import": "./out/observability/spansNode.js",
-      "require": "./out/observability/spansNode.js"
-    },
-    "./observability/spansNode": {
-      "types": "./out/observability/spansNode.d.ts",
-      "import": "./out/observability/spansNode.js",
-      "require": "./out/observability/spansNode.js"
-    },
-    "./observability/web": {
-      "types": "./out/observability/spansWeb.d.ts",
-      "import": "./out/observability/spansWeb.js",
-      "require": "./out/observability/spansWeb.js"
-    },
-    "./observability/spansWeb": {
-      "types": "./out/observability/spansWeb.d.ts",
-      "import": "./out/observability/spansWeb.js",
-      "require": "./out/observability/spansWeb.js"
-    },
-    "./observability/spans": {
-      "types": "./out/observability/spans.d.ts",
-      "import": "./out/observability/spans.js",
-      "require": "./out/observability/spans.js"
     }
   },
   "sideEffects": false,

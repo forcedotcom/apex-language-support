@@ -202,7 +202,7 @@ describe('Configuration Module', () => {
             preloadNamespaces: ['Database', 'System'],
           },
           telemetry: {
-            enabled: true,
+            enabled: false,
             localTracingEnabled: false,
             consoleTracingEnabled: false,
           },

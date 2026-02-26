@@ -110,13 +110,15 @@ describe('tracing', () => {
 
   describe('LSP_SPAN_NAMES', () => {
     it('has expected span names defined', () => {
-      expect(LSP_SPAN_NAMES.HOVER).toBe('lsp.hover');
-      expect(LSP_SPAN_NAMES.COMPLETION).toBe('lsp.completion');
-      expect(LSP_SPAN_NAMES.DEFINITION).toBe('lsp.definition');
-      expect(LSP_SPAN_NAMES.REFERENCES).toBe('lsp.references');
-      expect(LSP_SPAN_NAMES.DOCUMENT_SYMBOL).toBe('lsp.documentSymbol');
-      expect(LSP_SPAN_NAMES.DIAGNOSTICS).toBe('lsp.diagnostics');
-      expect(LSP_SPAN_NAMES.PARSE).toBe('apex.parse');
+      expect(LSP_SPAN_NAMES.HOVER).toBe('extension.command.hover');
+      expect(LSP_SPAN_NAMES.COMPLETION).toBe('extension.command.completion');
+      expect(LSP_SPAN_NAMES.DEFINITION).toBe('extension.command.definition');
+      expect(LSP_SPAN_NAMES.REFERENCES).toBe('extension.command.references');
+      expect(LSP_SPAN_NAMES.DOCUMENT_SYMBOL).toBe(
+        'extension.command.documentSymbol',
+      );
+      expect(LSP_SPAN_NAMES.DIAGNOSTICS).toBe('extension.command.diagnostics');
+      expect(LSP_SPAN_NAMES.PARSE).toBe('extension.parser.parse');
     });
   });
 });

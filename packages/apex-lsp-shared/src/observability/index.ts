@@ -7,63 +7,17 @@
  */
 
 /**
- * OpenTelemetry-based observability module for the Apex Language Server.
+ * Observability module for the Apex Language Server.
  *
  * This module provides:
- * - Effect-TS integrated tracing via @effect/opentelemetry
- * - Azure Application Insights export for production telemetry
- * - Local OTEL Collector support for development
- * - Console tracing for debugging
- * - Web and Node.js environment support
- *
- * Following the salesforcedx-vscode-services observability patterns
- * with Effect-TS integration.
- *
- * @example
- * ```typescript
- * import * as Effect from 'effect/Effect';
- * import { ApexLspSdkLayer } from '@salesforce/apex-lsp-shared/observability';
- *
- * const program = Effect.gen(function* () {
- *   yield* Effect.log('Starting operation');
- *   return 'done';
- * }).pipe(
- *   Effect.withSpan('my.operation', {
- *     attributes: { 'my.attribute': 'value' }
- *   })
- * );
- *
- * // Run with tracing
- * await Effect.runPromise(Effect.provide(program, ApexLspSdkLayer('1.0.0')));
- * ```
+ * - Effect-TS integrated tracing (gracefully no-ops without SDK init)
+ * - In-memory telemetry aggregation sent via LSP telemetry/event
+ * - Startup snapshot collection
+ * - Command performance tracking
  */
 
-export type { SdkLayerConfig, TelemetrySettings } from './sdkLayerConfig';
+export type { TelemetrySettings } from './sdkLayerConfig';
 export { DEFAULT_TELEMETRY_SETTINGS } from './sdkLayerConfig';
-
-export {
-  isTopLevelSpan,
-  convertAttributes,
-  spanDuration,
-  spanStartTime,
-  spanEndTime,
-  formatSpanForLogging,
-} from './spanUtils';
-
-export {
-  OTEL_COLLECTOR_ENDPOINTS,
-  isLocalTracingEnabled,
-  isConsoleTracingEnabled,
-  getAppInsightsConnectionString,
-  LOCAL_DEV_CONFIG,
-} from './localTracing';
-
-export {
-  parseConnectionString,
-  isValidConnectionString,
-  getInstrumentationKey,
-  type AppInsightsConnectionConfig,
-} from './appInsights';
 
 export {
   initializeTracing,
@@ -77,3 +31,20 @@ export {
   LSP_SPAN_NAMES,
   type LspSpanAttributes,
 } from './tracing';
+
+export type {
+  TelemetryEventType,
+  StartupSnapshotEvent,
+  CommandSummary,
+  CommandPerformanceEvent,
+  TelemetryEvent,
+} from './telemetryEvents';
+
+export { CommandPerformanceAggregator } from './commandPerformanceAggregator';
+
+export {
+  collectStartupSnapshot,
+  generateSessionId,
+  hashWorkspaceUri,
+} from './startupSnapshot';
+export type { StartupSnapshotParams } from './startupSnapshot';

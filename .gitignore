@@ -38,6 +38,9 @@ bundle/
 coverage/
 packages/*/coverage/
 
+# Telemetry output (local dev)
+.apex-telemetry/
+
 # Miscellaneous
 *.env
 .env.local
@@ -46,9 +49,6 @@ packages/*/coverage/
 # Temporary files
 *.tmp
 *.temp
-
-# Local documentation/notes
-slopdocs/
 
 # Benchmark results
 *benchmark*.json

@@ -172,34 +172,34 @@ export const annotateCurrentSpan = (
  */
 export const LSP_SPAN_NAMES = {
   // Document lifecycle
-  DOCUMENT_OPEN: 'lsp.document.open',
-  DOCUMENT_CHANGE: 'lsp.document.change',
-  DOCUMENT_SAVE: 'lsp.document.save',
-  DOCUMENT_CLOSE: 'lsp.document.close',
+  DOCUMENT_OPEN: 'extension.document.open',
+  DOCUMENT_CHANGE: 'extension.document.change',
+  DOCUMENT_SAVE: 'extension.document.save',
+  DOCUMENT_CLOSE: 'extension.document.close',
 
   // LSP protocol operations
-  HOVER: 'lsp.hover',
-  COMPLETION: 'lsp.completion',
-  DEFINITION: 'lsp.definition',
-  IMPLEMENTATION: 'lsp.implementation',
-  REFERENCES: 'lsp.references',
-  DOCUMENT_SYMBOL: 'lsp.documentSymbol',
-  DIAGNOSTICS: 'lsp.diagnostics',
-  FOLDING_RANGE: 'lsp.foldingRange',
-  CODE_LENS: 'lsp.codeLens',
-  EXECUTE_COMMAND: 'lsp.executeCommand',
+  HOVER: 'extension.command.hover',
+  COMPLETION: 'extension.command.completion',
+  DEFINITION: 'extension.command.definition',
+  IMPLEMENTATION: 'extension.command.implementation',
+  REFERENCES: 'extension.command.references',
+  DOCUMENT_SYMBOL: 'extension.command.documentSymbol',
+  DIAGNOSTICS: 'extension.command.diagnostics',
+  FOLDING_RANGE: 'extension.command.foldingRange',
+  CODE_LENS: 'extension.command.codeLens',
+  EXECUTE_COMMAND: 'extension.command.executeCommand',
 
   // Custom operations
-  FIND_MISSING_ARTIFACT: 'apex.findMissingArtifact',
-  RESOLVE_APEXLIB: 'apex.resolveApexlib',
-  WORKSPACE_BATCH: 'apex.workspaceBatch',
-  PROCESS_BATCHES: 'apex.processBatches',
+  FIND_MISSING_ARTIFACT: 'extension.operation.findMissingArtifact',
+  RESOLVE_APEXLIB: 'extension.operation.resolveApexlib',
+  WORKSPACE_BATCH: 'extension.operation.workspaceBatch',
+  PROCESS_BATCHES: 'extension.operation.processBatches',
 
   // Parser operations
-  PARSE: 'apex.parse',
-  RESOLVE_SYMBOLS: 'apex.resolveSymbols',
+  PARSE: 'extension.parser.parse',
+  RESOLVE_SYMBOLS: 'extension.parser.resolveSymbols',
 
   // Queue operations
-  QUEUE_PROCESS: 'lsp.queue.process',
-  QUEUE_WAIT: 'lsp.queue.wait',
+  QUEUE_PROCESS: 'extension.queue.process',
+  QUEUE_WAIT: 'extension.queue.wait',
 } as const;
