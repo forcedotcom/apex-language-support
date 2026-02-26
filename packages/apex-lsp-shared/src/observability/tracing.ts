@@ -35,12 +35,19 @@ export const initializeTracing = (layer: Layer<never, never, never>): void => {
 export const isTracingEnabled = (): boolean => tracingEnabled;
 
 /**
- * Disable tracing (useful for testing or when user opts out).
+ * Immediately disable tracing without waiting for pending spans to flush.
+ * The runtime is disposed in the background; any in-flight spans may be lost.
  * For a clean shutdown that flushes pending spans, prefer `shutdownTracing`.
  */
 export const disableTracing = (): void => {
+  const rt = tracingRuntime;
   tracingEnabled = false;
   tracingRuntime = undefined;
+  if (rt) {
+    Effect.runPromise(rt.disposeEffect).catch(() => {
+      // Best-effort disposal; errors are expected during abrupt shutdown
+    });
+  }
 };
 
 /**

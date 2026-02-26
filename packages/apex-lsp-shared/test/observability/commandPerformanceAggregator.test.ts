@@ -156,12 +156,12 @@ describe('CommandPerformanceAggregator', () => {
     it('rounds mean to two decimal places', () => {
       aggregator.record('cmd', 10, true);
       aggregator.record('cmd', 20, true);
-      aggregator.record('cmd', 33, true);
+      aggregator.record('cmd', 31, true);
 
       const event = aggregator.flush('s', '', null);
       expect(event).toBeDefined();
-      // mean = 63/3 = 21
-      expect(event!.commands[0].meanDurationMs).toBe(21);
+      // mean = 61/3 = 20.333... → rounded to 20.33
+      expect(event!.commands[0].meanDurationMs).toBe(20.33);
     });
   });
 
