@@ -20,7 +20,10 @@ import { getDebugConfig, getWorkspaceSettings } from './configuration';
 import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
 import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
 import { ServerMode } from './utils/serverUtils';
-import { getDocumentSelectorsFromSettings } from '@salesforce/apex-lsp-shared';
+import {
+  getDocumentSelectorsFromSettings,
+  type ApexLanguageServerSettings,
+} from '@salesforce/apex-lsp-shared';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -62,10 +65,7 @@ export const getDebugOptions = (): string[] | undefined => {
  * @param context The extension context to get workspace path
  * @returns Array of profiling flags or empty array if profiling is disabled
  */
-const getProfilingFlags = (
-  runtimePlatform: 'desktop' | 'web',
-  context: vscode.ExtensionContext,
-): string[] => {
+const getProfilingFlags = (runtimePlatform: 'desktop' | 'web'): string[] => {
   // Profiling is only available on desktop
   if (runtimePlatform !== 'desktop') {
     return [];
@@ -233,7 +233,7 @@ export const createServerOptions = (
     vscode.env.uiKind === vscode.UIKind.Web ? 'web' : 'desktop';
 
   // Get profiling flags
-  const profilingFlags = getProfilingFlags(runtimePlatform, context);
+  const profilingFlags = getProfilingFlags(runtimePlatform);
 
   // Get heap size flag
   const heapSizeFlag = getHeapSizeFlag(runtimePlatform);
@@ -295,7 +295,7 @@ export const createServerOptions = (
  * @returns Client options configuration
  */
 export const createClientOptions = (
-  initializationOptions: any,
+  initializationOptions: ApexLanguageServerSettings,
 ): LanguageClientOptions => ({
   documentSelector: getDocumentSelectorsFromSettings(
     'all',

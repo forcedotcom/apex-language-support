@@ -200,18 +200,12 @@ mockConnection.onRequest.mockImplementation(
   (method: string, handler: OnRequestHandler) => {
     if (method === 'textDocument/diagnostic') {
       mockHandlers.onRequest = handler;
+    } else if (method === '$/ping') {
+      mockHandlers.ping = handler;
     }
     return mockConnection;
   },
 );
-
-mockConnection.onRequest.mockImplementation((method: string, handler: any) => {
-  // Store the handler for later testing
-  if (method === '$/ping') {
-    mockHandlers.ping = handler;
-  }
-  return mockConnection;
-});
 
 mockDocuments.onDidOpen.mockImplementation((handler: OnDidOpenHandler) => {
   mockHandlers.onDidOpen = handler;

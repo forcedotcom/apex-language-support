@@ -47,7 +47,7 @@ describe('tracing', () => {
     });
   });
 
-  describe('runWithSpan', () => {
+  describe('runWithSpan (tracing disabled)', () => {
     it('executes function when tracing is disabled', async () => {
       const result = await runWithSpan('test.span', async () => 'success');
 
@@ -71,7 +71,33 @@ describe('tracing', () => {
     });
   });
 
-  describe('runSyncWithSpan', () => {
+  describe('runWithSpan (tracing enabled)', () => {
+    beforeEach(() => {
+      initializeTracing(mockLayer);
+    });
+
+    it('executes and returns result with tracing active', async () => {
+      const result = await runWithSpan('test.span', async () => 42);
+      expect(result).toBe(42);
+    });
+
+    it('propagates errors with tracing active', async () => {
+      await expect(
+        runWithSpan('test.span', async () => {
+          throw new Error('traced error');
+        }),
+      ).rejects.toThrow('traced error');
+    });
+
+    it('accepts attributes with tracing active', async () => {
+      const result = await runWithSpan('test.span', async () => 'ok', {
+        'lsp.method': 'textDocument/hover',
+      });
+      expect(result).toBe('ok');
+    });
+  });
+
+  describe('runSyncWithSpan (tracing disabled)', () => {
     it('executes sync function when tracing is disabled', () => {
       const result = runSyncWithSpan('test.span', () => 'sync-success');
       expect(result).toBe('sync-success');
@@ -83,6 +109,25 @@ describe('tracing', () => {
           throw new Error('sync error');
         }),
       ).toThrow('sync error');
+    });
+  });
+
+  describe('runSyncWithSpan (tracing enabled)', () => {
+    beforeEach(() => {
+      initializeTracing(mockLayer);
+    });
+
+    it('executes and returns result with tracing active', () => {
+      const result = runSyncWithSpan('test.span', () => 'sync-traced');
+      expect(result).toBe('sync-traced');
+    });
+
+    it('propagates errors with tracing active', () => {
+      expect(() =>
+        runSyncWithSpan('test.span', () => {
+          throw new Error('sync traced error');
+        }),
+      ).toThrow('sync traced error');
     });
   });
 
@@ -105,6 +150,15 @@ describe('tracing', () => {
       const result = await tracedFn('World');
 
       expect(result).toBe('Hello, World!');
+    });
+
+    it('works with tracing enabled', async () => {
+      initializeTracing(mockLayer);
+      const originalFn = async (x: number) => x * 2;
+      const tracedFn = withTracing('double', originalFn);
+
+      const result = await tracedFn(5);
+      expect(result).toBe(10);
     });
   });
 

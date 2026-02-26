@@ -30,26 +30,30 @@ export function generateSessionId(): string {
     Math.floor(Math.random() * 0x10000)
       .toString(16)
       .padStart(4, '0');
-  const variant = (0x8 | (Math.random() * 0x4)) >>> 0;
+  const variant = ((0x8 | (Math.random() * 0x4)) >>> 0).toString(16);
   return (
     `${hex()}${hex()}-${hex()}-4${hex().slice(1)}-` +
     `${variant}${hex().slice(1)}-${hex()}${hex()}${hex()}`
   );
 }
 
+/**
+ * FNV-1a hash producing a 64-bit hex string from two 32-bit passes.
+ * The second pass uses a different seed (0x050c5d1f) to produce an
+ * independent 32-bit hash that is concatenated with the first to
+ * form a 64-bit result, reducing collision probability.
+ */
 function fnv1aHash(str: string): string {
   let hash = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    hash ^= str.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  const upper = (hash >>> 0).toString(16).padStart(8, '0');
-
   let hash2 = 0x050c5d1f;
   for (let i = 0; i < str.length; i++) {
-    hash2 ^= str.charCodeAt(i);
+    const c = str.charCodeAt(i);
+    hash ^= c;
+    hash = Math.imul(hash, 0x01000193);
+    hash2 ^= c;
     hash2 = Math.imul(hash2, 0x01000193);
   }
+  const upper = (hash >>> 0).toString(16).padStart(8, '0');
   const lower = (hash2 >>> 0).toString(16).padStart(8, '0');
 
   return `${upper}${lower}`;

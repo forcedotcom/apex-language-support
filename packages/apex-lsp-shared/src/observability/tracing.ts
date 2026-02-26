@@ -96,14 +96,14 @@ export const runWithSpan = async <T>(
     Effect.withSpan(spanName, {
       attributes: attributes as Record<string, unknown>,
     }),
-    Effect.catchAll((error) => Effect.fail(error)),
+    Effect.catchAll((error) => {
+      throw error;
+    }),
   );
 
-  try {
-    return await tracingRuntime.runPromise(effect as Effect.Effect<T, unknown>);
-  } catch (error) {
-    throw error;
-  }
+  return await tracingRuntime.runPromise(
+    effect as Effect.Effect<T, never, never>,
+  );
 };
 
 /**
@@ -130,7 +130,7 @@ export const runSyncWithSpan = <T>(
     }),
   );
 
-  return tracingRuntime.runSync(effect as Effect.Effect<T, never>);
+  return tracingRuntime.runSync(effect as Effect.Effect<T, never, never>);
 };
 
 /**
@@ -152,20 +152,6 @@ export const withTracing =
     const attributes = getAttributes?.(...args);
     return runWithSpan(spanName, () => fn(...args), attributes);
   };
-
-/**
- * Annotate the current span with additional attributes.
- * This is useful for adding context discovered during execution.
- *
- * @param attributes - Attributes to add to the current span
- */
-export const annotateCurrentSpan = (
-  attributes: Record<string, string | number | boolean>,
-): void => {
-  if (!tracingEnabled) {
-    return;
-  }
-};
 
 /**
  * Standard LSP span names following OpenTelemetry semantic conventions

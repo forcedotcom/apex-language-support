@@ -13,14 +13,8 @@ export interface TelemetrySettings {
   /** Enable telemetry collection (respects VS Code global setting) */
   readonly enabled: boolean;
 
-  /** App Insights connection string (overrides default) */
-  readonly appInsightsConnectionString?: string;
-
-  /** Enable local OTEL collector export */
+  /** Enable local file-based telemetry export */
   readonly localTracingEnabled: boolean;
-
-  /** Enable console span logging (development only) */
-  readonly consoleTracingEnabled: boolean;
 }
 
 /**
@@ -29,5 +23,4 @@ export interface TelemetrySettings {
 export const DEFAULT_TELEMETRY_SETTINGS: TelemetrySettings = {
   enabled: false,
   localTracingEnabled: false,
-  consoleTracingEnabled: false,
 };

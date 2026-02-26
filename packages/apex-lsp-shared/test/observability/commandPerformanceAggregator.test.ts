@@ -21,19 +21,21 @@ describe('CommandPerformanceAggregator', () => {
       aggregator.record('extension.command.hover', 42, true);
       const event = aggregator.flush('sess-1', '1.0.0', null);
 
-      expect(event.commands).toHaveLength(1);
-      expect(event.commands[0].command).toBe('extension.command.hover');
-      expect(event.commands[0].count).toBe(1);
-      expect(event.commands[0].successCount).toBe(1);
-      expect(event.commands[0].failureCount).toBe(0);
+      expect(event).toBeDefined();
+      expect(event!.commands).toHaveLength(1);
+      expect(event!.commands[0].command).toBe('extension.command.hover');
+      expect(event!.commands[0].count).toBe(1);
+      expect(event!.commands[0].successCount).toBe(1);
+      expect(event!.commands[0].failureCount).toBe(0);
     });
 
     it('tracks a failed command', () => {
       aggregator.record('extension.command.hover', 10, false);
       const event = aggregator.flush('sess-1', '1.0.0', null);
 
-      expect(event.commands[0].successCount).toBe(0);
-      expect(event.commands[0].failureCount).toBe(1);
+      expect(event).toBeDefined();
+      expect(event!.commands[0].successCount).toBe(0);
+      expect(event!.commands[0].failureCount).toBe(1);
     });
 
     it('accumulates multiple invocations for the same command', () => {
@@ -43,8 +45,9 @@ describe('CommandPerformanceAggregator', () => {
 
       const event = aggregator.flush('sess-1', '1.0.0', null);
 
-      expect(event.commands).toHaveLength(1);
-      const summary = event.commands[0];
+      expect(event).toBeDefined();
+      expect(event!.commands).toHaveLength(1);
+      const summary = event!.commands[0];
       expect(summary.count).toBe(3);
       expect(summary.successCount).toBe(2);
       expect(summary.failureCount).toBe(1);
@@ -56,8 +59,9 @@ describe('CommandPerformanceAggregator', () => {
 
       const event = aggregator.flush('sess-1', '1.0.0', null);
 
-      expect(event.commands).toHaveLength(2);
-      const commands = event.commands.map((c) => c.command).sort();
+      expect(event).toBeDefined();
+      expect(event!.commands).toHaveLength(2);
+      const commands = event!.commands.map((c) => c.command).sort();
       expect(commands).toEqual([
         'extension.command.definition',
         'extension.command.hover',
@@ -70,23 +74,34 @@ describe('CommandPerformanceAggregator', () => {
       aggregator.record('extension.command.hover', 10, true);
       const event = aggregator.flush('my-session', '2.5.0', 12345678);
 
-      expect(event.type).toBe('command_performance');
-      expect(event.sessionId).toBe('my-session');
-      expect(event.extensionVersion).toBe('2.5.0');
-      expect(event.flushReason).toBe('session_end');
-      expect(event.heapUsedBytes).toBe(12345678);
+      expect(event).toBeDefined();
+      expect(event!.type).toBe('command_performance');
+      expect(event!.sessionId).toBe('my-session');
+      expect(event!.extensionVersion).toBe('2.5.0');
+      expect(event!.flushReason).toBe('session_end');
+      expect(event!.heapUsedBytes).toBe(12345678);
+    });
+
+    it('accepts a custom flushReason', () => {
+      aggregator.record('cmd', 10, true);
+      const event = aggregator.flush('s', '1.0.0', null, 'periodic');
+      expect(event).toBeDefined();
+      expect(event!.flushReason).toBe('periodic');
     });
 
     it('returns null heapUsedBytes when not provided', () => {
+      aggregator.record('cmd', 10, true);
       const event = aggregator.flush('sess-1', '1.0.0', null);
-      expect(event.heapUsedBytes).toBeNull();
+      expect(event).toBeDefined();
+      expect(event!.heapUsedBytes).toBeNull();
     });
 
     it('computes correct statistics for a single value', () => {
       aggregator.record('cmd', 42, true);
       const event = aggregator.flush('s', '', null);
 
-      const summary = event.commands[0];
+      expect(event).toBeDefined();
+      const summary = event!.commands[0];
       expect(summary.meanDurationMs).toBe(42);
       expect(summary.p95DurationMs).toBe(42);
       expect(summary.minDurationMs).toBe(42);
@@ -100,7 +115,8 @@ describe('CommandPerformanceAggregator', () => {
       }
 
       const event = aggregator.flush('s', '', null);
-      const summary = event.commands[0];
+      expect(event).toBeDefined();
+      const summary = event!.commands[0];
 
       expect(summary.count).toBe(10);
       expect(summary.minDurationMs).toBe(10);
@@ -117,7 +133,8 @@ describe('CommandPerformanceAggregator', () => {
       }
 
       const event = aggregator.flush('s', '', null);
-      const summary = event.commands[0];
+      expect(event).toBeDefined();
+      const summary = event!.commands[0];
 
       // p95 index = ceil(0.95 * 20) - 1 = 18, sorted[18] = 190
       expect(summary.p95DurationMs).toBe(190);
@@ -128,13 +145,12 @@ describe('CommandPerformanceAggregator', () => {
       aggregator.flush('s', '', null);
 
       const secondFlush = aggregator.flush('s', '', null);
-      expect(secondFlush.commands).toHaveLength(0);
+      expect(secondFlush).toBeUndefined();
     });
 
-    it('returns empty commands when nothing has been recorded', () => {
+    it('returns undefined when nothing has been recorded', () => {
       const event = aggregator.flush('s', '1.0.0', null);
-      expect(event.commands).toHaveLength(0);
-      expect(event.type).toBe('command_performance');
+      expect(event).toBeUndefined();
     });
 
     it('rounds mean to two decimal places', () => {
@@ -143,8 +159,9 @@ describe('CommandPerformanceAggregator', () => {
       aggregator.record('cmd', 33, true);
 
       const event = aggregator.flush('s', '', null);
+      expect(event).toBeDefined();
       // mean = 63/3 = 21
-      expect(summary(event, 'cmd').meanDurationMs).toBe(21);
+      expect(event!.commands[0].meanDurationMs).toBe(21);
     });
   });
 
@@ -155,16 +172,7 @@ describe('CommandPerformanceAggregator', () => {
       aggregator.reset();
 
       const event = aggregator.flush('s', '', null);
-      expect(event.commands).toHaveLength(0);
+      expect(event).toBeUndefined();
     });
   });
 });
-
-function summary(
-  event: ReturnType<CommandPerformanceAggregator['flush']>,
-  command: string,
-) {
-  const found = event.commands.find((c) => c.command === command);
-  if (!found) throw new Error(`Command ${command} not found`);
-  return found;
-}

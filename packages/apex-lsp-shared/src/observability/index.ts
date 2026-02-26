@@ -27,7 +27,6 @@ export {
   runWithSpan,
   runSyncWithSpan,
   withTracing,
-  annotateCurrentSpan,
   LSP_SPAN_NAMES,
   type LspSpanAttributes,
 } from './tracing';
@@ -42,9 +41,5 @@ export type {
 
 export { CommandPerformanceAggregator } from './commandPerformanceAggregator';
 
-export {
-  collectStartupSnapshot,
-  generateSessionId,
-  hashWorkspaceUri,
-} from './startupSnapshot';
+export { collectStartupSnapshot, generateSessionId } from './startupSnapshot';
 export type { StartupSnapshotParams } from './startupSnapshot';
