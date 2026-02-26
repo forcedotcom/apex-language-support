@@ -272,24 +272,8 @@ export interface SymbolGraphSettings {
   preloadNamespaces: string[];
 }
 
-/**
- * Telemetry settings for observability
- */
-export interface TelemetrySettings {
-  /**
-   * Enable telemetry collection.
-   * Respects VS Code's global telemetry setting (telemetry.telemetryLevel).
-   * Default: false
-   */
-  enabled: boolean;
-
-  /**
-   * Enable local file-based telemetry export.
-   * Writes events to .apex-telemetry/events.jsonl in the workspace root.
-   * Default: false
-   */
-  localTracingEnabled: boolean;
-}
+import type { TelemetrySettings } from '../observability/sdkLayerConfig';
+export type { TelemetrySettings } from '../observability/sdkLayerConfig';
 
 /**
  * Complete Apex Language Server settings
