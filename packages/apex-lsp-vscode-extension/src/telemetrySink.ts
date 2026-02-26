@@ -8,18 +8,18 @@
 
 import * as vscode from 'vscode';
 
-export interface TelemetryEvent {
+export interface TelemetryPayload {
   type: string;
   [key: string]: unknown;
 }
 
 export interface TelemetrySink {
-  send(event: TelemetryEvent): void;
+  send(event: TelemetryPayload): void;
   dispose(): void;
 }
 
 class NoOpTelemetrySink implements TelemetrySink {
-  send(_event: TelemetryEvent): void {
+  send(_event: TelemetryPayload): void {
     // intentionally empty
   }
   dispose(): void {
@@ -30,7 +30,7 @@ class NoOpTelemetrySink implements TelemetrySink {
 class CoreServicesTelemetrySink implements TelemetrySink {
   constructor(
     private readonly telemetryService: {
-      sendTelemetryEvent: (
+      sendTelemetryPayload: (
         eventName: string,
         properties?: Record<string, string>,
         measurements?: Record<string, number>,
@@ -38,7 +38,7 @@ class CoreServicesTelemetrySink implements TelemetrySink {
     },
   ) {}
 
-  send(event: TelemetryEvent): void {
+  send(event: TelemetryPayload): void {
     const properties: Record<string, string> = {};
     const measurements: Record<string, number> = {};
 
@@ -54,7 +54,7 @@ class CoreServicesTelemetrySink implements TelemetrySink {
     }
 
     try {
-      this.telemetryService.sendTelemetryEvent(
+      this.telemetryService.sendTelemetryPayload(
         event.type,
         properties,
         measurements,
@@ -91,7 +91,7 @@ class FileTelemetrySink implements TelemetrySink {
     this.filePath = path.join(dir, `${stamp}-events.jsonl`);
   }
 
-  send(event: TelemetryEvent): void {
+  send(event: TelemetryPayload): void {
     try {
       const line =
         JSON.stringify({
@@ -114,7 +114,7 @@ class FileTelemetrySink implements TelemetrySink {
 class CompositeTelemetrySink implements TelemetrySink {
   constructor(private readonly sinks: TelemetrySink[]) {}
 
-  send(event: TelemetryEvent): void {
+  send(event: TelemetryPayload): void {
     for (const sink of this.sinks) {
       try {
         sink.send(event);
@@ -147,7 +147,7 @@ export function createTelemetrySink(workspaceRoot?: string): TelemetrySink {
         const telemetryService = coreExtension.exports?.telemetryService;
         if (
           telemetryService &&
-          typeof telemetryService.sendTelemetryEvent === 'function'
+          typeof telemetryService.sendTelemetryPayload === 'function'
         ) {
           sinks.push(new CoreServicesTelemetrySink(telemetryService));
         }

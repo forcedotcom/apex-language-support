@@ -103,14 +103,10 @@ export const runWithSpan = async <T>(
     Effect.withSpan(spanName, {
       attributes: attributes as Record<string, unknown>,
     }),
-    Effect.catchAll((error) => {
-      throw error;
-    }),
+    Effect.catchAll((error) => Effect.die(error)),
   );
 
-  return await tracingRuntime.runPromise(
-    effect as Effect.Effect<T, never, never>,
-  );
+  return await tracingRuntime.runPromise(effect);
 };
 
 /**
@@ -137,7 +133,7 @@ export const runSyncWithSpan = <T>(
     }),
   );
 
-  return tracingRuntime.runSync(effect as Effect.Effect<T, never, never>);
+  return tracingRuntime.runSync(effect);
 };
 
 /**
