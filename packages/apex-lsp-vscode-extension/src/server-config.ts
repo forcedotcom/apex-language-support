@@ -259,20 +259,10 @@ export const createServerOptions = (
     debugExecArgv.push(...debugOptions);
   }
 
-  const telemetryConfig = vscode.workspace.getConfiguration('apex.telemetry');
-  const telemetryEnv: Record<string, string> = {};
-  if (telemetryConfig.get<boolean>('localTracingEnabled')) {
-    telemetryEnv.APEX_LSP_LOCAL_TRACING = 'true';
-  }
-  if (telemetryConfig.get<boolean>('consoleTracingEnabled')) {
-    telemetryEnv.APEX_LSP_CONSOLE_TRACING = 'true';
-  }
-
   const serverEnv = {
     ...process.env,
     NODE_OPTIONS: '--enable-source-maps',
     APEX_LS_MODE: serverMode,
-    ...telemetryEnv,
   };
 
   return {

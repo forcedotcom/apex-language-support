@@ -49,7 +49,11 @@ import {
   ApexSettingsManager,
   runWithSpan,
   LSP_SPAN_NAMES,
+  CommandPerformanceAggregator,
+  collectStartupSnapshot,
 } from '@salesforce/apex-lsp-shared';
+
+import type { LspSpanAttributes } from '@salesforce/apex-lsp-shared';
 
 import {
   dispatchProcessOnOpenDocument,
@@ -99,6 +103,7 @@ import { Effect } from 'effect';
 export interface LCSAdapterConfig {
   connection: Connection;
   logger?: LoggerInterface;
+  getHeapUsedBytes?: () => Promise<number | null>;
 }
 
 /**
@@ -114,11 +119,16 @@ export class LCSAdapter {
   private hoverHandlerRegistered = false;
   private clientCapabilities?: ClientCapabilities;
   private queueStateNotificationFiber?: Fiber.RuntimeFiber<void, never>;
+  private readonly aggregator = new CommandPerformanceAggregator();
+  private readonly getHeapUsedBytes?: () => Promise<number | null>;
+  private sessionId = '';
+  private workspaceRootUri = '';
 
   private constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
     this.logger = config.logger ?? this.createDefaultLogger();
     this.documents = new TextDocuments(TextDocument);
+    this.getHeapUsedBytes = config.getHeapUsedBytes;
 
     this.diagnosticProcessor = new DiagnosticProcessingService(this.logger);
 
@@ -331,8 +341,21 @@ export class LCSAdapter {
    */
   private setupUtilityHandlers(): void {
     // Register shutdown handler
-    this.connection.onRequest('shutdown', (): null => {
+    this.connection.onRequest('shutdown', async (): Promise<null> => {
       this.logger.debug(() => 'Shutdown request received');
+      try {
+        const heapUsedBytes = this.getHeapUsedBytes
+          ? await this.getHeapUsedBytes()
+          : null;
+        const event = this.aggregator.flush(
+          this.sessionId,
+          '', // extensionVersion filled by client-side enricher
+          heapUsedBytes,
+        );
+        this.connection.telemetry.logEvent(event);
+      } catch (e) {
+        this.logger.debug(() => `Failed to flush telemetry: ${e}`);
+      }
       return null;
     });
 
@@ -377,6 +400,23 @@ export class LCSAdapter {
     });
   }
 
+  private async runWithSpanAndRecord<T>(
+    spanName: string,
+    fn: () => Promise<T>,
+    attributes?: LspSpanAttributes,
+  ): Promise<T> {
+    const start = performance.now();
+    let success = true;
+    try {
+      return await runWithSpan(spanName, fn, attributes);
+    } catch (e) {
+      success = false;
+      throw e;
+    } finally {
+      this.aggregator.record(spanName, performance.now() - start, success);
+    }
+  }
+
   /**
    * LSP protocol handlers (hover, diagnostics, etc.)
    */
@@ -392,7 +432,7 @@ export class LCSAdapter {
             `🔍 Document symbol request for URI: ${params.textDocument.uri}`,
         );
         try {
-          return await runWithSpan(
+          return await this.runWithSpanAndRecord(
             LSP_SPAN_NAMES.DOCUMENT_SYMBOL,
             () => dispatchProcessOnDocumentSymbol(params),
             {
@@ -424,7 +464,7 @@ export class LCSAdapter {
               `at ${params.position.line}:${params.position.character}`,
           );
           try {
-            return await runWithSpan(
+            return await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.DEFINITION,
               () => dispatchProcessOnDefinition(params),
               {
@@ -458,7 +498,7 @@ export class LCSAdapter {
               `at ${params.position.line}:${params.position.character}`,
           );
           try {
-            return await runWithSpan(
+            return await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.IMPLEMENTATION,
               () => dispatchProcessOnImplementation(params),
               {
@@ -492,7 +532,7 @@ export class LCSAdapter {
               `at ${params.position.line}:${params.position.character}`,
           );
           try {
-            return await runWithSpan(
+            return await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.REFERENCES,
               () => dispatchProcessOnReferences(params),
               {
@@ -526,7 +566,7 @@ export class LCSAdapter {
           params: DocumentDiagnosticParams,
         ): Promise<DocumentDiagnosticReport> => {
           try {
-            const diagnostics = await runWithSpan(
+            const diagnostics = await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.DIAGNOSTICS,
               () => this.diagnosticProcessor.processDiagnostic(params),
               {
@@ -563,7 +603,7 @@ export class LCSAdapter {
           );
           try {
             const storage = ApexStorageManager.getInstance().getStorage();
-            return await runWithSpan(
+            return await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.FOLDING_RANGE,
               () => dispatchProcessOnFoldingRange(params, storage),
               {
@@ -602,7 +642,7 @@ export class LCSAdapter {
           () => `CodeLens request received for URI: ${params.textDocument.uri}`,
         );
         try {
-          const result = await runWithSpan(
+          const result = await this.runWithSpanAndRecord(
             LSP_SPAN_NAMES.CODE_LENS,
             () => dispatchProcessOnCodeLens(params),
             {
@@ -639,7 +679,7 @@ export class LCSAdapter {
             `🔍 apex/findMissingArtifact request received for: ${params.identifier}`,
         );
         try {
-          return await runWithSpan(
+          return await this.runWithSpanAndRecord(
             LSP_SPAN_NAMES.FIND_MISSING_ARTIFACT,
             () => dispatchProcessOnFindMissingArtifact(params),
             {
@@ -746,7 +786,7 @@ export class LCSAdapter {
               `🔍 workspace/executeCommand request received: ${params.command}`,
           );
           try {
-            return await runWithSpan(
+            return await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.EXECUTE_COMMAND,
               () => dispatchProcessOnExecuteCommand(params),
               {
@@ -1277,6 +1317,9 @@ export class LCSAdapter {
         `Returning static capabilities: ${JSON.stringify(staticCapabilities, null, 2)}`,
     );
 
+    this.workspaceRootUri =
+      params.workspaceFolders?.[0]?.uri ?? params.rootUri ?? '';
+
     return {
       capabilities: staticCapabilities,
     };
@@ -1461,6 +1504,24 @@ export class LCSAdapter {
         );
       }
     });
+
+    // Send startup snapshot telemetry
+    try {
+      const snapshot = collectStartupSnapshot({
+        activationDurationMs: 0,
+        serverStartDurationMs: performance.now(),
+        workspaceFileCount: 0,
+        apexFileCount: 0,
+        extensionVersion: '', // filled by client-side enricher
+        vscodeVersion: '', // filled by client-side enricher
+        platform: typeof process !== 'undefined' ? 'desktop' : 'web',
+        workspaceRootUri: this.workspaceRootUri,
+      });
+      this.sessionId = snapshot.sessionId;
+      this.connection.telemetry.logEvent(snapshot);
+    } catch (e) {
+      this.logger.debug(() => `Failed to send startup snapshot: ${e}`);
+    }
 
     // Initialize ResourceLoader with standard library
     // Requests ZIP from client via apex/provideStandardLibrary
@@ -1905,7 +1966,7 @@ export class LCSAdapter {
         );
         try {
           const dispatchStartTime = Date.now();
-          const result = await runWithSpan(
+          const result = await this.runWithSpanAndRecord(
             LSP_SPAN_NAMES.HOVER,
             () => dispatchProcessOnHover(params),
             {

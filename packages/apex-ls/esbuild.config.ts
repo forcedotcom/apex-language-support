@@ -57,12 +57,7 @@ const NODE_SERVER_EXTERNAL = [
  * they get bundled into the worker. Only deps that are loaded separately
  * (like the ANTLR parser which is too large) should be external.
  */
-const WORKER_EXTERNAL: string[] = [
-  // Node.js-specific OpenTelemetry packages - not available in browser worker
-  '@azure/monitor-opentelemetry-exporter',
-  '@opentelemetry/sdk-trace-node',
-  '@opentelemetry/context-async-hooks',
-];
+const WORKER_EXTERNAL: string[] = [];
 
 const builds: BuildOptions[] = [
   // Node.js server build - used by desktop VSCode extension

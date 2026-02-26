@@ -85,23 +85,7 @@ export * from './types/priority';
 export * from './document/DocumentSelectorUtils';
 
 export {
-  type SdkLayerConfig,
   DEFAULT_TELEMETRY_SETTINGS,
-  isTopLevelSpan,
-  convertAttributes,
-  spanDuration,
-  spanStartTime,
-  spanEndTime,
-  formatSpanForLogging,
-  OTEL_COLLECTOR_ENDPOINTS,
-  isLocalTracingEnabled,
-  isConsoleTracingEnabled,
-  getAppInsightsConnectionString,
-  LOCAL_DEV_CONFIG,
-  parseConnectionString,
-  isValidConnectionString,
-  getInstrumentationKey,
-  type AppInsightsConnectionConfig,
   initializeTracing,
   isTracingEnabled,
   disableTracing,
@@ -112,6 +96,16 @@ export {
   annotateCurrentSpan,
   LSP_SPAN_NAMES,
   type LspSpanAttributes,
+  type TelemetrySettings,
+  CommandPerformanceAggregator,
+  collectStartupSnapshot,
+  generateSessionId,
+  type StartupSnapshotParams,
+  type TelemetryEventType,
+  type StartupSnapshotEvent,
+  type CommandSummary,
+  type CommandPerformanceEvent,
+  type TelemetryEvent,
 } from './observability';
 
 // Experimental protocol: Missing Artifact Resolution

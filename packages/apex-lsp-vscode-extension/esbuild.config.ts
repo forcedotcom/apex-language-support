@@ -210,10 +210,6 @@ const builds: BuildOptions[] = [
     sourcemap: true,
     external: [
       ...(browserBaseConfig.external ?? []),
-      // Node.js-specific packages that should never be bundled in browser
-      '@azure/monitor-opentelemetry-exporter',
-      '@opentelemetry/sdk-trace-node',
-      '@opentelemetry/context-async-hooks',
     ],
     conditions: ['browser', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],

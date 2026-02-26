@@ -7,30 +7,6 @@
  */
 
 /**
- * Configuration for OpenTelemetry SDK layers.
- * Following the salesforcedx-vscode-services observability patterns.
- */
-export interface SdkLayerConfig {
-  /** Name of the extension/service being instrumented */
-  readonly extensionName: string;
-
-  /** Version of the extension/service */
-  readonly extensionVersion: string;
-
-  /** Azure Application Insights connection string for production telemetry */
-  readonly appInsightsConnectionString?: string;
-
-  /** Enable export to local OTEL collector (http://localhost:4318) */
-  readonly localTracingEnabled?: boolean;
-
-  /** Enable console span logging for debugging */
-  readonly consoleTracingEnabled?: boolean;
-
-  /** Custom attributes to add to all spans */
-  readonly additionalAttributes?: Record<string, string | number | boolean>;
-}
-
-/**
  * Telemetry settings that can be configured via VS Code settings
  */
 export interface TelemetrySettings {
@@ -51,7 +27,7 @@ export interface TelemetrySettings {
  * Default telemetry settings
  */
 export const DEFAULT_TELEMETRY_SETTINGS: TelemetrySettings = {
-  enabled: true,
+  enabled: false,
   localTracingEnabled: false,
   consoleTracingEnabled: false,
 };

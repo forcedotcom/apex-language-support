@@ -45,6 +45,41 @@ import {
   getStdApexClassesPathFromContext,
   ServerMode,
 } from './utils/serverUtils';
+import {
+  createTelemetrySink,
+  type TelemetrySink,
+  type TelemetryEvent,
+} from './telemetrySink';
+
+/**
+ * Enriches telemetry events with client-side metadata (extension version,
+ * VS Code version, workspace file counts) that the server cannot provide.
+ */
+async function enrichTelemetryEvent(
+  event: TelemetryEvent,
+  context: vscode.ExtensionContext,
+): Promise<TelemetryEvent> {
+  const enriched = { ...event };
+
+  enriched.extensionVersion =
+    (context.extension.packageJSON?.version as string) ?? '';
+  enriched.vscodeVersion = vscode.version;
+
+  if (event.type === 'startup_snapshot') {
+    const allFiles = await vscode.workspace.findFiles(
+      '**/*',
+      '**/node_modules/**',
+    );
+    const apexFiles = await vscode.workspace.findFiles(
+      '**/*.{cls,trigger}',
+      '**/node_modules/**',
+    );
+    enriched.workspaceFileCount = allFiles.length;
+    enriched.apexFileCount = apexFiles.length;
+  }
+
+  return enriched;
+}
 
 /**
  * Global language client instance
@@ -56,6 +91,11 @@ let Client: ClientInterface | undefined;
  * Note: This can be either browser or node LanguageClient, both extend BaseLanguageClient
  */
 let LanguageClientInstance: BaseLanguageClient | undefined;
+
+/**
+ * Telemetry sink for dispatching LSP telemetry/event notifications
+ */
+let telemetrySink: TelemetrySink | undefined;
 
 /**
  * Shared workspace load layer - created once and reused across all requests
@@ -220,6 +260,28 @@ export const createAndStartClient = async (
     }
 
     logToOutputChannel('✅ Client initialized successfully', 'info');
+
+    // Set up telemetry sink and register onTelemetry handler
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    telemetrySink = createTelemetrySink(workspaceRoot);
+    if (LanguageClientInstance) {
+      LanguageClientInstance.onTelemetry(async (event: unknown) => {
+        if (telemetrySink) {
+          const enriched = await enrichTelemetryEvent(
+            event as TelemetryEvent,
+            context,
+          );
+          telemetrySink.send(enriched);
+        }
+      });
+    }
+
+    context.subscriptions.push(
+      vscode.env.onDidChangeTelemetryEnabled(() => {
+        telemetrySink?.dispose();
+        telemetrySink = createTelemetrySink(workspaceRoot);
+      }),
+    );
 
     // Set up client state monitoring
     updateApexServerStatusReady();
@@ -684,9 +746,7 @@ async function createWebLanguageClient(
       return disposable;
     },
     isDisposed: () => !languageClient.isRunning(),
-    dispose: () => {
-      languageClient.stop();
-    },
+    dispose: () => languageClient.stop(),
   } as ClientInterface;
 
   // Initialize ApexLib for standard library support
@@ -1229,7 +1289,12 @@ export async function stopLanguageServer(): Promise<void> {
 
   if (Client) {
     try {
-      Client.dispose();
+      // Await stop so the server can send command_performance telemetry during shutdown.
+      // The telemetry sink must remain active until after stop completes.
+      const stopPromise = Client.dispose() as unknown as Promise<void>;
+      if (stopPromise && typeof stopPromise.then === 'function') {
+        await stopPromise;
+      }
       Client = undefined;
       LanguageClientInstance = undefined;
       logToOutputChannel('✅ Language server stopped', 'info');
@@ -1240,6 +1305,12 @@ export async function stopLanguageServer(): Promise<void> {
       );
     }
   }
+
+  // Brief delay to allow in-flight telemetry (e.g. command_performance) to be received
+  await new Promise((resolve) => setTimeout(resolve, 150));
+
+  telemetrySink?.dispose();
+  telemetrySink = undefined;
 
   updateApexServerStatusError();
 }

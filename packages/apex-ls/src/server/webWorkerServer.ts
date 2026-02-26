@@ -18,9 +18,7 @@ import {
 import {
   setLoggerFactory,
   UniversalLoggerFactory,
-  initializeTracing,
 } from '@salesforce/apex-lsp-shared';
-import { WebSdkLayerFor } from '@salesforce/apex-lsp-shared/observability/spansWeb';
 
 import { getWorkerSelf } from '../utils/EnvironmentUtils';
 
@@ -58,28 +56,30 @@ export async function startApexWebWorker(): Promise<void> {
   logger.info('🚀 Worker script loading...');
   logger.info('🔧 Starting LCS integration...');
 
-  // Initialize web tracing -- console for dev visibility, OTLP for the local
-  // collector (CORS is enabled).  Both are no-ops in production when the
-  // collector isn't running.
-  try {
-    const layer = WebSdkLayerFor({
-      extensionName: 'apex-language-server',
-      extensionVersion: '1.0.0',
-      consoleTracingEnabled: true,
-      localTracingEnabled: true,
-    });
-    initializeTracing(layer);
-    logger.info('✅ Web telemetry initialized');
-  } catch (error) {
-    logger.error(`Failed to initialize web telemetry: ${error}`);
-  }
-
   // Create and initialize LCS adapter
   const { LCSAdapter } = await import('./LCSAdapter');
 
   await LCSAdapter.create({
     connection,
     logger,
+    getHeapUsedBytes: async () => {
+      try {
+        if (
+          typeof performance !== 'undefined' &&
+          'measureUserAgentSpecificMemory' in performance
+        ) {
+          const result = await (
+            performance as unknown as {
+              measureUserAgentSpecificMemory: () => Promise<{ bytes: number }>;
+            }
+          ).measureUserAgentSpecificMemory();
+          return result.bytes;
+        }
+      } catch {
+        // API unavailable or failed
+      }
+      return null;
+    },
   });
 
   connection.listen();
