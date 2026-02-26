@@ -17,6 +17,8 @@ interface CommandStats {
   failureCount: number;
 }
 
+const MAX_DURATIONS_PER_COMMAND = 10_000;
+
 export class CommandPerformanceAggregator {
   private readonly stats: Map<string, CommandStats> = new Map();
 
@@ -26,7 +28,9 @@ export class CommandPerformanceAggregator {
       entry = { durations: [], successCount: 0, failureCount: 0 };
       this.stats.set(command, entry);
     }
-    entry.durations.push(durationMs);
+    if (entry.durations.length < MAX_DURATIONS_PER_COMMAND) {
+      entry.durations.push(durationMs);
+    }
     if (success) {
       entry.successCount++;
     } else {
@@ -38,7 +42,8 @@ export class CommandPerformanceAggregator {
     sessionId: string,
     extensionVersion: string,
     heapUsedBytes: number | null,
-  ): CommandPerformanceEvent {
+    flushReason: 'session_end' | 'periodic' = 'session_end',
+  ): CommandPerformanceEvent | undefined {
     const commands: CommandSummary[] = [];
 
     for (const [command, entry] of this.stats) {
@@ -65,11 +70,15 @@ export class CommandPerformanceAggregator {
 
     this.stats.clear();
 
+    if (commands.length === 0) {
+      return undefined;
+    }
+
     return {
       type: 'command_performance',
       sessionId,
       extensionVersion,
-      flushReason: 'session_end',
+      flushReason,
       heapUsedBytes,
       commands,
     };

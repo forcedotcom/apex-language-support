@@ -58,8 +58,8 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
 
     loadWorkspace: {
       enabled: false,
-      maxConcurrency: 4, // WAS 50
-      yieldInterval: 10, // WAS 50
+      maxConcurrency: 4,
+      yieldInterval: 10,
       yieldDelayMs: 25,
       batchSize: 100,
     },
@@ -120,7 +120,6 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     telemetry: {
       enabled: false,
       localTracingEnabled: false,
-      consoleTracingEnabled: false,
     },
 
     worker: {
@@ -237,13 +236,19 @@ export function validateApexSettings(obj: any): ValidationResult {
     return result;
   }
 
-  // Define valid properties and their expected types
-  const validTopLevelProps = {
+  const validTopLevelProps: Record<string, string> = {
     commentCollection: 'object',
     performance: 'object',
     environment: 'object',
     resources: 'object',
     findMissingArtifact: 'object',
+    loadWorkspace: 'object',
+    queueProcessing: 'object',
+    scheduler: 'object',
+    deferredReferenceProcessing: 'object',
+    symbolGraph: 'object',
+    telemetry: 'object',
+    worker: 'object',
     version: 'string',
     logLevel: 'string',
   };

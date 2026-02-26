@@ -273,35 +273,22 @@ export interface SymbolGraphSettings {
 }
 
 /**
- * Telemetry settings for OpenTelemetry-based observability
+ * Telemetry settings for observability
  */
 export interface TelemetrySettings {
   /**
    * Enable telemetry collection.
    * Respects VS Code's global telemetry setting (telemetry.telemetryLevel).
-   * Default: true
+   * Default: false
    */
   enabled: boolean;
 
   /**
-   * Azure Application Insights connection string.
-   * If not provided, telemetry will only be available locally.
-   */
-  appInsightsConnectionString?: string;
-
-  /**
-   * Enable export to local OTEL collector (http://localhost:4318).
-   * Useful for development and debugging.
+   * Enable local file-based telemetry export.
+   * Writes events to .apex-telemetry/events.jsonl in the workspace root.
    * Default: false
    */
   localTracingEnabled: boolean;
-
-  /**
-   * Enable console span logging.
-   * Outputs trace information to the server console.
-   * Default: false
-   */
-  consoleTracingEnabled: boolean;
 }
 
 /**

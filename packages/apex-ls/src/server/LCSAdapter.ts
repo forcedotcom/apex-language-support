@@ -94,8 +94,7 @@ import {
   SchedulerMetrics,
   SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
-import type { Fiber } from 'effect';
-import { Effect } from 'effect';
+import { Fiber, Effect } from 'effect';
 
 /**
  * Configuration for the LCS Adapter
@@ -104,10 +103,11 @@ export interface LCSAdapterConfig {
   connection: Connection;
   logger?: LoggerInterface;
   getHeapUsedBytes?: () => Promise<number | null>;
+  onExit?: () => void;
 }
 
 /**
- * Adapter layer between webworker environment and LSP-Compliant-Services
+ * Adapter layer between LSP clients (Node.js or Web Worker) and LSP-Compliant-Services.
  */
 export class LCSAdapter {
   private readonly connection: Connection;
@@ -124,11 +124,14 @@ export class LCSAdapter {
   private sessionId = '';
   private workspaceRootUri = '';
 
+  private readonly onExit: () => void;
+
   private constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
     this.logger = config.logger ?? this.createDefaultLogger();
     this.documents = new TextDocuments(TextDocument);
     this.getHeapUsedBytes = config.getHeapUsedBytes;
+    this.onExit = config.onExit ?? (() => process.exit(0));
 
     this.diagnosticProcessor = new DiagnosticProcessingService(this.logger);
 
@@ -340,9 +343,12 @@ export class LCSAdapter {
    * These are registered early for proper lifecycle management
    */
   private setupUtilityHandlers(): void {
-    // Register shutdown handler
     this.connection.onRequest('shutdown', async (): Promise<null> => {
       this.logger.debug(() => 'Shutdown request received');
+      if (this.queueStateNotificationFiber) {
+        Effect.runFork(Fiber.interrupt(this.queueStateNotificationFiber));
+        this.queueStateNotificationFiber = undefined;
+      }
       try {
         const heapUsedBytes = this.getHeapUsedBytes
           ? await this.getHeapUsedBytes()
@@ -352,17 +358,18 @@ export class LCSAdapter {
           '', // extensionVersion filled by client-side enricher
           heapUsedBytes,
         );
-        this.connection.telemetry.logEvent(event);
+        if (event) {
+          this.connection.telemetry.logEvent(event);
+        }
       } catch (e) {
         this.logger.debug(() => `Failed to flush telemetry: ${e}`);
       }
       return null;
     });
 
-    // Register exit notification handler
     this.connection.onNotification('exit', (): void => {
       this.logger.debug(() => 'Exit notification received');
-      process.exit(0);
+      this.onExit();
     });
 
     this.logger.debug('✅ Utility handlers (shutdown, exit) registered');
@@ -954,32 +961,18 @@ export class LCSAdapter {
       return;
     }
 
-    // Lazy-load ProfilingService to avoid bundling issues
-    let profilingService: any = null;
+    // ProfilingService has a private constructor so InstanceType cannot be used.
+
+    let profilingServiceInstance: any = null;
     const getProfilingService = async () => {
-      if (!profilingService) {
+      if (!profilingServiceInstance) {
         const { ProfilingService } = await import(
           '../profiling/ProfilingService'
         );
-        profilingService = ProfilingService.getInstance();
-
-        // Initialize with logger and output directory
-        // Get workspace folder from initialization params or use current working directory
-        let outputDir = process.cwd();
-        try {
-          // Try to get workspace folder from connection
-          // Note: workspaceFolders may not be available at this point, so we use a fallback
-          if (typeof process !== 'undefined' && process.cwd) {
-            outputDir = process.cwd();
-          }
-        } catch (_error) {
-          // Fallback to current working directory
-          outputDir = process.cwd();
-        }
-
-        profilingService.initialize(this.logger, outputDir);
+        profilingServiceInstance = ProfilingService.getInstance();
+        profilingServiceInstance.initialize(this.logger, process.cwd());
       }
-      return profilingService;
+      return profilingServiceInstance;
     };
 
     // Register apex/profiling/start
@@ -1124,18 +1117,7 @@ export class LCSAdapter {
       );
       const profilingService = ProfilingService.getInstance();
 
-      // Initialize with logger and output directory
-      let outputDir = process.cwd();
-      try {
-        if (typeof process !== 'undefined' && process.cwd) {
-          outputDir = process.cwd();
-        }
-      } catch (_error) {
-        // Fallback to current working directory
-        outputDir = process.cwd();
-      }
-
-      profilingService.initialize(this.logger, outputDir);
+      profilingService.initialize(this.logger, process.cwd());
 
       if (!profilingService.isAvailable()) {
         this.logger.warn(

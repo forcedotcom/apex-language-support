@@ -36,7 +36,7 @@ export interface CommandPerformanceEvent {
   readonly type: 'command_performance';
   readonly sessionId: string;
   readonly extensionVersion: string;
-  readonly flushReason: string;
+  readonly flushReason: 'session_end' | 'periodic';
   readonly heapUsedBytes: number | null;
   readonly commands: CommandSummary[];
 }

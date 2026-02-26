@@ -11,86 +11,73 @@ import type {
   TelemetryEvent,
   StartupSnapshotEvent,
   CommandPerformanceEvent,
-  CommandSummary,
 } from '../../src/observability/telemetryEvents';
 
 describe('telemetryEvents type contracts', () => {
-  it('StartupSnapshotEvent has the correct discriminant', () => {
-    const event: StartupSnapshotEvent = {
-      type: 'startup_snapshot',
-      activationDurationMs: 100,
-      serverStartDurationMs: 200,
-      workspaceFileCount: 50,
-      apexFileCount: 10,
-      extensionVersion: '1.0.0',
-      sessionId: 'abc',
-      workspaceHash: 'def',
-      vscodeVersion: '1.85.0',
-      platform: 'desktop',
-    };
-    expect(event.type).toBe('startup_snapshot');
-  });
+  const snapshotEvent: StartupSnapshotEvent = {
+    type: 'startup_snapshot',
+    activationDurationMs: 100,
+    serverStartDurationMs: 200,
+    workspaceFileCount: 50,
+    apexFileCount: 10,
+    extensionVersion: '1.0.0',
+    sessionId: 'abc',
+    workspaceHash: 'def',
+    vscodeVersion: '1.85.0',
+    platform: 'desktop',
+  };
 
-  it('CommandPerformanceEvent has the correct discriminant', () => {
-    const event: CommandPerformanceEvent = {
-      type: 'command_performance',
-      sessionId: 'abc',
-      extensionVersion: '1.0.0',
-      flushReason: 'session_end',
-      heapUsedBytes: null,
-      commands: [],
-    };
-    expect(event.type).toBe('command_performance');
-  });
-
-  it('CommandSummary carries all required fields', () => {
-    const summary: CommandSummary = {
-      command: 'extension.command.hover',
-      count: 5,
-      successCount: 4,
-      failureCount: 1,
-      meanDurationMs: 30,
-      p95DurationMs: 50,
-      minDurationMs: 10,
-      maxDurationMs: 60,
-    };
-    expect(summary.command).toBe('extension.command.hover');
-    expect(summary.count).toBe(5);
-  });
-
-  it('TelemetryEvent discriminated union narrows on type field', () => {
-    const events: TelemetryEvent[] = [
+  const perfEvent: CommandPerformanceEvent = {
+    type: 'command_performance',
+    sessionId: 'abc',
+    extensionVersion: '1.0.0',
+    flushReason: 'session_end',
+    heapUsedBytes: null,
+    commands: [
       {
-        type: 'startup_snapshot',
-        activationDurationMs: 0,
-        serverStartDurationMs: 0,
-        workspaceFileCount: 0,
-        apexFileCount: 0,
-        extensionVersion: '',
-        sessionId: '',
-        workspaceHash: '',
-        vscodeVersion: '',
-        platform: 'web',
+        command: 'extension.command.hover',
+        count: 5,
+        successCount: 4,
+        failureCount: 1,
+        meanDurationMs: 30,
+        p95DurationMs: 50,
+        minDurationMs: 10,
+        maxDurationMs: 60,
       },
-      {
-        type: 'command_performance',
-        sessionId: '',
-        extensionVersion: '',
-        flushReason: '',
-        heapUsedBytes: null,
-        commands: [],
-      },
-    ];
+    ],
+  };
 
-    for (const event of events) {
-      switch (event.type) {
-        case 'startup_snapshot':
-          expect(event.platform).toBeDefined();
-          break;
-        case 'command_performance':
-          expect(event.commands).toBeDefined();
-          break;
-      }
+  it('discriminated union narrows to StartupSnapshotEvent', () => {
+    const event: TelemetryEvent = snapshotEvent;
+    if (event.type === 'startup_snapshot') {
+      expect(event.platform).toBe('desktop');
+      expect(event.workspaceFileCount).toBe(50);
+    } else {
+      throw new Error('Expected startup_snapshot');
     }
+  });
+
+  it('discriminated union narrows to CommandPerformanceEvent', () => {
+    const event: TelemetryEvent = perfEvent;
+    if (event.type === 'command_performance') {
+      expect(event.commands).toHaveLength(1);
+      expect(event.commands[0].command).toBe('extension.command.hover');
+      expect(event.commands[0].successCount).toBe(4);
+    } else {
+      throw new Error('Expected command_performance');
+    }
+  });
+
+  it('flushReason accepts both valid literal values', () => {
+    const sessionEnd: CommandPerformanceEvent = {
+      ...perfEvent,
+      flushReason: 'session_end',
+    };
+    const periodic: CommandPerformanceEvent = {
+      ...perfEvent,
+      flushReason: 'periodic',
+    };
+    expect(sessionEnd.flushReason).toBe('session_end');
+    expect(periodic.flushReason).toBe('periodic');
   });
 });

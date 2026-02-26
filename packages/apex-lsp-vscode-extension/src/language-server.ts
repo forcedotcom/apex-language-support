@@ -66,14 +66,10 @@ async function enrichTelemetryEvent(
   enriched.vscodeVersion = vscode.version;
 
   if (event.type === 'startup_snapshot') {
-    const allFiles = await vscode.workspace.findFiles(
-      '**/*',
-      '**/node_modules/**',
-    );
-    const apexFiles = await vscode.workspace.findFiles(
-      '**/*.{cls,trigger}',
-      '**/node_modules/**',
-    );
+    const [allFiles, apexFiles] = await Promise.all([
+      vscode.workspace.findFiles('**/*', '**/node_modules/**'),
+      vscode.workspace.findFiles('**/*.{cls,trigger}', '**/node_modules/**'),
+    ]);
     enriched.workspaceFileCount = allFiles.length;
     enriched.apexFileCount = apexFiles.length;
   }
@@ -185,11 +181,13 @@ export const createInitializeParams = (
     'info',
   );
 
+  const extensionVersion =
+    (context.extension.packageJSON?.version as string) ?? '0.0.0';
   const baseParams = {
     processId: null, // Web environments don't have process IDs
     clientInfo: {
       name: 'Apex Language Server Extension',
-      version: '1.0.0',
+      version: extensionVersion,
     },
     locale: vscode.env.language,
     rootPath:
@@ -266,12 +264,19 @@ export const createAndStartClient = async (
     telemetrySink = createTelemetrySink(workspaceRoot);
     if (LanguageClientInstance) {
       LanguageClientInstance.onTelemetry(async (event: unknown) => {
-        if (telemetrySink) {
-          const enriched = await enrichTelemetryEvent(
-            event as TelemetryEvent,
-            context,
+        try {
+          if (telemetrySink) {
+            const enriched = await enrichTelemetryEvent(
+              event as TelemetryEvent,
+              context,
+            );
+            telemetrySink.send(enriched);
+          }
+        } catch (error) {
+          logToOutputChannel(
+            `Failed to process telemetry event: ${error}`,
+            'warning',
           );
-          telemetrySink.send(enriched);
         }
       });
     }
@@ -674,21 +679,7 @@ async function createWebLanguageClient(
           logToOutputChannel(`Sending notification: ${method}`, 'debug');
         }
 
-        // Ensure params are serializable before sending
-        let cleanParams = params;
-        if (params) {
-          try {
-            cleanParams = JSON.parse(JSON.stringify(params));
-          } catch (error) {
-            logToOutputChannel(
-              `Failed to clean params for notification: ${error}`,
-              'error',
-            );
-            cleanParams = {};
-          }
-        }
-
-        languageClient.sendNotification(method, cleanParams);
+        languageClient.sendNotification(method, params);
 
         if (isDidOpen) {
           const uri = params?.textDocument?.uri || 'unknown';
@@ -1306,13 +1297,13 @@ export async function stopLanguageServer(): Promise<void> {
     }
   }
 
-  // Brief delay to allow in-flight telemetry (e.g. command_performance) to be received
-  await new Promise((resolve) => setTimeout(resolve, 150));
+  // Allow in-flight telemetry (e.g. command_performance flush at shutdown) to arrive
+  // before disposing the sink. 150ms is sufficient for a local IPC round-trip.
+  const TELEMETRY_DRAIN_MS = 150;
+  await new Promise((resolve) => setTimeout(resolve, TELEMETRY_DRAIN_MS));
 
   telemetrySink?.dispose();
   telemetrySink = undefined;
-
-  updateApexServerStatusError();
 }
 
 /**

@@ -611,12 +611,7 @@
         "apex.telemetry.localTracingEnabled": {
           "type": "boolean",
           "default": false,
-          "description": "Export traces to a local OpenTelemetry collector at http://localhost:4318. Useful for development and debugging with Grafana/Tempo."
-        },
-        "apex.telemetry.consoleTracingEnabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Log trace spans to the server console output. Useful for quick debugging without a collector."
+          "description": "Write telemetry events to a local JSONL file at .apex-telemetry/events.jsonl in the workspace root. Useful for development and debugging."
         }
       }
     },

@@ -203,7 +203,6 @@ describe('Configuration Module', () => {
           telemetry: {
             enabled: false,
             localTracingEnabled: false,
-            consoleTracingEnabled: false,
           },
           worker: {
             logLevel: 'info',

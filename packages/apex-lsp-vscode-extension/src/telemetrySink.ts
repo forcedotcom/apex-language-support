@@ -48,7 +48,7 @@ class CoreServicesTelemetrySink implements TelemetrySink {
         measurements[key] = value;
       } else if (typeof value === 'string') {
         properties[key] = value;
-      } else if (value !== null && value !== undefined) {
+      } else if (value != null) {
         properties[key] = JSON.stringify(value);
       }
     }
@@ -94,7 +94,9 @@ class FileTelemetrySink implements TelemetrySink {
           timestamp: new Date().toISOString(),
           event,
         }) + '\n';
-      this.fs.appendFileSync(this.filePath, line);
+      this.fs.appendFile(this.filePath, line, () => {
+        // fire-and-forget; errors are silently ignored
+      });
     } catch {
       // Silent failure -- e.g. web env, no fs, or permission denied
     }
@@ -132,7 +134,6 @@ class CompositeTelemetrySink implements TelemetrySink {
 export function createTelemetrySink(workspaceRoot?: string): TelemetrySink {
   const sinks: TelemetrySink[] = [];
 
-  // Primary sink (Core Services or no-op)
   if (vscode.env.isTelemetryEnabled) {
     try {
       const coreExtension = vscode.extensions.getExtension(
@@ -156,7 +157,6 @@ export function createTelemetrySink(workspaceRoot?: string): TelemetrySink {
     sinks.push(new NoOpTelemetrySink());
   }
 
-  // File sink layer (for local dev/testing)
   const telemetryConfig = vscode.workspace.getConfiguration('apex.telemetry');
   if (telemetryConfig.get<boolean>('localTracingEnabled') && workspaceRoot) {
     try {
