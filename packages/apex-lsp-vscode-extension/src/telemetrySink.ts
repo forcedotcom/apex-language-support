@@ -84,7 +84,11 @@ class FileTelemetrySink implements TelemetrySink {
     } catch {
       // Directory creation failed, writes will fail
     }
-    this.filePath = path.join(dir, 'events.jsonl');
+    const stamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, '-')
+      .replace('Z', '');
+    this.filePath = path.join(dir, `${stamp}-events.jsonl`);
   }
 
   send(event: TelemetryEvent): void {

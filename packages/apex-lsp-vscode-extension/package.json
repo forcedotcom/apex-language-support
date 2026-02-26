@@ -611,7 +611,7 @@
         "apex.telemetry.localTracingEnabled": {
           "type": "boolean",
           "default": false,
-          "description": "Write telemetry events to a local JSONL file at .apex-telemetry/events.jsonl in the workspace root. Useful for development and debugging."
+          "description": "Write telemetry events to a timestamped JSONL file in .apex-telemetry/ in the workspace root. Each session creates a new file. Useful for development and debugging."
         }
       }
     },
