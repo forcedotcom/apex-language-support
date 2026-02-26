@@ -33,6 +33,7 @@ import {
   updateApexServerStatusStarting,
   updateApexServerStatusReady,
   updateApexServerStatusError,
+  updateApexServerStatusStopped,
 } from './status-bar';
 import {
   getWorkspaceSettings,
@@ -48,17 +49,17 @@ import {
 import {
   createTelemetrySink,
   type TelemetrySink,
-  type TelemetryEvent,
+  type TelemetryPayload,
 } from './telemetrySink';
 
 /**
  * Enriches telemetry events with client-side metadata (extension version,
  * VS Code version, workspace file counts) that the server cannot provide.
  */
-async function enrichTelemetryEvent(
-  event: TelemetryEvent,
+async function enrichTelemetryPayload(
+  event: TelemetryPayload,
   context: vscode.ExtensionContext,
-): Promise<TelemetryEvent> {
+): Promise<TelemetryPayload> {
   const enriched = { ...event };
 
   enriched.extensionVersion =
@@ -266,8 +267,8 @@ export const createAndStartClient = async (
       LanguageClientInstance.onTelemetry(async (event: unknown) => {
         try {
           if (telemetrySink) {
-            const enriched = await enrichTelemetryEvent(
-              event as TelemetryEvent,
+            const enriched = await enrichTelemetryPayload(
+              event as TelemetryPayload,
               context,
             );
             telemetrySink.send(enriched);
@@ -1280,12 +1281,7 @@ export async function stopLanguageServer(): Promise<void> {
 
   if (Client) {
     try {
-      // Await stop so the server can send command_performance telemetry during shutdown.
-      // The telemetry sink must remain active until after stop completes.
-      const stopPromise = Client.dispose() as unknown as Promise<void>;
-      if (stopPromise && typeof stopPromise.then === 'function') {
-        await stopPromise;
-      }
+      await Client.dispose();
       Client = undefined;
       LanguageClientInstance = undefined;
       logToOutputChannel('✅ Language server stopped', 'info');
@@ -1304,6 +1300,8 @@ export async function stopLanguageServer(): Promise<void> {
 
   telemetrySink?.dispose();
   telemetrySink = undefined;
+
+  updateApexServerStatusStopped();
 }
 
 /**

@@ -208,9 +208,7 @@ const builds: BuildOptions[] = [
     format: 'cjs',
     outExtension: { '.js': '.web.js' },
     sourcemap: true,
-    external: [
-      ...(browserBaseConfig.external ?? []),
-    ],
+    external: browserBaseConfig.external ?? [],
     conditions: ['browser', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],
     plugins: [
