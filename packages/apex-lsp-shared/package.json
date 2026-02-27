@@ -109,6 +109,7 @@
     }
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
     "effect": "^3.18.4",
     "vscode-jsonrpc": "^8.2.0",
     "vscode-languageserver": "^9.0.1",

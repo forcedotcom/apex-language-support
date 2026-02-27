@@ -6,27 +6,28 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as Effect from 'effect/Effect';
-import type { Layer } from 'effect/Layer';
-import { ManagedRuntime } from 'effect';
+import { trace, SpanStatusCode } from '@opentelemetry/api';
+import type { Tracer } from '@opentelemetry/api';
 
-/**
- * Global tracing state -- a persistent ManagedRuntime that keeps the OTEL SDK
- * alive for the entire server lifetime, avoiding per-call SDK create/teardown.
- */
-let tracingRuntime: ManagedRuntime.ManagedRuntime<never, never> | undefined;
+const TRACER_NAME = 'apex-language-server';
+
 let tracingEnabled = false;
+let tracer: Tracer | undefined;
 
 /**
- * Initialize the tracing runtime with a pre-built SDK layer.
- * The layer is built exactly once; the resulting runtime is reused for every
- * `runWithSpan` / `runSyncWithSpan` call until `shutdownTracing` is called.
- *
- * @param layer - A pre-built Effect Layer for tracing (e.g. NodeSdk.layer)
+ * Enable tracing. A tracer is obtained from the global TracerProvider on first
+ * use — callers must register a TracerProvider before spans will be recorded.
  */
-export const initializeTracing = (layer: Layer<never, never, never>): void => {
-  tracingRuntime = ManagedRuntime.make(layer);
+export const enableTracing = (): void => {
   tracingEnabled = true;
+};
+
+/**
+ * Disable tracing. No new spans will be created after this call.
+ */
+export const disableTracing = (): void => {
+  tracingEnabled = false;
+  tracer = undefined;
 };
 
 /**
@@ -34,35 +35,12 @@ export const initializeTracing = (layer: Layer<never, never, never>): void => {
  */
 export const isTracingEnabled = (): boolean => tracingEnabled;
 
-/**
- * Immediately disable tracing without waiting for pending spans to flush.
- * The runtime is disposed in the background; any in-flight spans may be lost.
- * For a clean shutdown that flushes pending spans, prefer `shutdownTracing`.
- */
-export const disableTracing = (): void => {
-  const rt = tracingRuntime;
-  tracingEnabled = false;
-  tracingRuntime = undefined;
-  if (rt) {
-    Effect.runPromise(rt.disposeEffect).catch(() => {
-      // Best-effort disposal; errors are expected during abrupt shutdown
-    });
+function getTracer(): Tracer {
+  if (!tracer) {
+    tracer = trace.getTracer(TRACER_NAME);
   }
-};
-
-/**
- * Gracefully shut down the tracing runtime, flushing all pending spans to
- * their exporters before disposing resources.
- */
-export const shutdownTracing = async (): Promise<void> => {
-  if (!tracingRuntime) {
-    return;
-  }
-  const rt = tracingRuntime;
-  tracingEnabled = false;
-  tracingRuntime = undefined;
-  await Effect.runPromise(rt.disposeEffect);
-};
+  return tracer;
+}
 
 /**
  * Common span attributes for LSP operations
@@ -79,71 +57,82 @@ export interface LspSpanAttributes {
 }
 
 /**
- * Run a Promise-returning function with optional tracing.
- * If tracing is disabled, the function is executed directly.
- *
- * @param spanName - Name of the span (e.g., 'lsp.hover')
- * @param fn - The async function to execute
- * @param attributes - Optional span attributes
- * @returns Promise with the result
+ * Run a Promise-returning function inside an OTEL span.
+ * If tracing is disabled, the function is executed directly with no overhead.
  */
 export const runWithSpan = async <T>(
   spanName: string,
   fn: () => Promise<T>,
   attributes?: LspSpanAttributes,
 ): Promise<T> => {
-  if (!tracingEnabled || !tracingRuntime) {
+  if (!tracingEnabled) {
     return fn();
   }
 
-  const effect = Effect.tryPromise({
-    try: fn,
-    catch: (error) => error,
-  }).pipe(
-    Effect.withSpan(spanName, {
-      attributes: attributes as Record<string, unknown>,
-    }),
-    Effect.catchAll((error) => Effect.die(error)),
-  );
-
-  return await tracingRuntime.runPromise(effect);
+  return getTracer().startActiveSpan(spanName, async (span) => {
+    if (attributes) {
+      for (const [key, value] of Object.entries(attributes)) {
+        if (value != null) {
+          span.setAttribute(key, value);
+        }
+      }
+    }
+    try {
+      const result = await fn();
+      span.setStatus({ code: SpanStatusCode.OK });
+      return result;
+    } catch (e) {
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      throw e;
+    } finally {
+      span.end();
+    }
+  });
 };
 
 /**
- * Run a synchronous function with optional tracing.
- * If tracing is disabled, the function is executed directly.
- *
- * @param spanName - Name of the span (e.g., 'apex.parse')
- * @param fn - The sync function to execute
- * @param attributes - Optional span attributes
- * @returns The result
+ * Run a synchronous function inside an OTEL span.
+ * If tracing is disabled, the function is executed directly with no overhead.
  */
 export const runSyncWithSpan = <T>(
   spanName: string,
   fn: () => T,
   attributes?: LspSpanAttributes,
 ): T => {
-  if (!tracingEnabled || !tracingRuntime) {
+  if (!tracingEnabled) {
     return fn();
   }
 
-  const effect = Effect.sync(fn).pipe(
-    Effect.withSpan(spanName, {
-      attributes: attributes as Record<string, unknown>,
-    }),
-  );
-
-  return tracingRuntime.runSync(effect);
+  return getTracer().startActiveSpan(spanName, (span) => {
+    if (attributes) {
+      for (const [key, value] of Object.entries(attributes)) {
+        if (value != null) {
+          span.setAttribute(key, value);
+        }
+      }
+    }
+    try {
+      const result = fn();
+      span.setStatus({ code: SpanStatusCode.OK });
+      return result;
+    } catch (e) {
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      throw e;
+    } finally {
+      span.end();
+    }
+  });
 };
 
 /**
  * Create a traced wrapper for an async function.
  * Returns a function with the same signature that adds tracing.
- *
- * @param spanName - Name of the span
- * @param fn - The async function to wrap
- * @param getAttributes - Optional function to extract attributes from arguments
- * @returns Wrapped function with tracing
  */
 export const withTracing =
   <TArgs extends unknown[], TResult>(

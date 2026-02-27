@@ -10,7 +10,7 @@
  * Observability module for the Apex Language Server.
  *
  * This module provides:
- * - Effect-TS integrated tracing (gracefully no-ops without SDK init)
+ * - OTEL-native tracing (no-ops when tracing is disabled)
  * - In-memory telemetry aggregation sent via LSP telemetry/event
  * - Startup snapshot collection
  * - Command performance tracking
@@ -20,10 +20,9 @@ export type { TelemetrySettings } from './sdkLayerConfig';
 export { DEFAULT_TELEMETRY_SETTINGS } from './sdkLayerConfig';
 
 export {
-  initializeTracing,
+  enableTracing,
   isTracingEnabled,
   disableTracing,
-  shutdownTracing,
   runWithSpan,
   runSyncWithSpan,
   withTracing,
