@@ -26,7 +26,8 @@
     "test:perf:quick": "QUICK=true npm run test:perf",
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "wireit"
+    "lint": "wireit",
+    "typecheck": "wireit"
   },
   "wireit": {
     "compile": {
@@ -42,6 +43,18 @@
         "src/**/*.ts",
         "tsconfig*.json",
         "../../tsconfig.base.json"
+      ]
+    },
+    "typecheck": {
+      "command": "tsc -p test/tsconfig.json --noEmit",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "tsconfig.json",
+        "test/tsconfig.json"
       ]
     },
     "bundle": {

@@ -13,7 +13,7 @@ import type {
   TypeSymbol,
   MethodSymbol,
 } from '../../../types/symbol';
-import { SymbolKind } from '../../../types/symbol';
+import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
 import type {
   ValidationErrorInfo,
   ValidationWarningInfo,
@@ -338,17 +338,57 @@ export const InterfaceHierarchyValidator: Validator = {
 
           // Check each required method is implemented
           for (const requiredMethod of requiredMethods) {
-            const implemented = classMethods.some((m) =>
+            const implementingMethod = classMethods.find((m) =>
               isMethodImplemented(m, requiredMethod),
             );
 
-            if (!implemented) {
+            if (!implementingMethod) {
               const code = ErrorCodes.INTERFACE_IMPLEMENTATION_MISSING_METHOD;
               errors.push({
                 message: localizeTyped(code, cls.name, requiredMethod.name),
                 location: cls.location,
                 code,
               });
+            } else {
+              // INTERFACE_IMPLEMENTATION_METHOD_DEPRECATED: cannot deprecate interface implementation
+              if (hasDeprecatedAnnotation(implementingMethod)) {
+                errors.push({
+                  message: localizeTyped(
+                    ErrorCodes.INTERFACE_IMPLEMENTATION_METHOD_DEPRECATED,
+                    implementingMethod.name,
+                  ),
+                  location: implementingMethod.location ?? cls.location,
+                  code: ErrorCodes.INTERFACE_IMPLEMENTATION_METHOD_DEPRECATED,
+                });
+              }
+
+              // INTERFACE_IMPLEMENTATION_METHOD_NOT_VISIBLE: implementations of
+              // global/public interface methods must be global or public
+              const ifaceVisibility =
+                requiredMethod.modifiers?.visibility ??
+                SymbolVisibility.Default;
+              const implVisibility =
+                implementingMethod.modifiers?.visibility ??
+                SymbolVisibility.Default;
+              if (
+                ifaceVisibility === SymbolVisibility.Global ||
+                ifaceVisibility === SymbolVisibility.Public
+              ) {
+                if (
+                  implVisibility !== SymbolVisibility.Global &&
+                  implVisibility !== SymbolVisibility.Public
+                ) {
+                  errors.push({
+                    message: localizeTyped(
+                      ErrorCodes.INTERFACE_IMPLEMENTATION_METHOD_NOT_VISIBLE,
+                      implementingMethod.name,
+                      requiredMethod.name,
+                    ),
+                    location: implementingMethod.location ?? cls.location,
+                    code: ErrorCodes.INTERFACE_IMPLEMENTATION_METHOD_NOT_VISIBLE,
+                  });
+                }
+              }
             }
           }
         }
@@ -526,6 +566,21 @@ function getAllInterfaceMethods(
 function getMethodSignature(method: MethodSymbol): string {
   const paramTypes = method.parameters.map((p) => p.type.name.toLowerCase());
   return `${method.name.toLowerCase()}(${paramTypes.join(',')})`;
+}
+
+/**
+ * Check if a symbol has @Deprecated annotation
+ */
+function hasDeprecatedAnnotation(symbol: {
+  annotations?: Array<{ name: string }>;
+}): boolean {
+  if (!symbol.annotations || symbol.annotations.length === 0) {
+    return false;
+  }
+  return symbol.annotations.some((ann) => {
+    const baseName = ann.name.toLowerCase().split('(')[0].trim();
+    return baseName === 'deprecated';
+  });
 }
 
 /**

@@ -38,6 +38,7 @@ describe('ReferencesHandler', () => {
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 5, character: 10 },
+        context: { includeDeclaration: true },
       };
 
       const mockLocations: Location[] = [
@@ -79,6 +80,7 @@ describe('ReferencesHandler', () => {
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 5, character: 10 },
+        context: { includeDeclaration: true },
       };
 
       mockReferencesProcessor.processReferences.mockResolvedValue([]);
@@ -98,6 +100,7 @@ describe('ReferencesHandler', () => {
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 5, character: 10 },
+        context: { includeDeclaration: true },
       };
 
       const error = new Error('Processor error');
@@ -117,6 +120,7 @@ describe('ReferencesHandler', () => {
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 5, character: 10 },
+        context: { includeDeclaration: true },
       };
 
       mockReferencesProcessor.processReferences.mockResolvedValue(null as any);
@@ -133,6 +137,7 @@ describe('ReferencesHandler', () => {
       const params: ReferenceParams = {
         textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 5, character: 10 },
+        context: { includeDeclaration: true },
       };
 
       const singleLocation: Location = {

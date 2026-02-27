@@ -92,12 +92,18 @@ export * from './services/CompletionProcessingService';
 export * from './services/ReferencesProcessingService';
 export * from './services/WorkspaceSymbolProcessingService';
 export * from './services/WorkspaceLoadCoordinator';
+export * from './services/DiagnosticRefreshService';
 export * from './services/MissingArtifactResolutionService';
 export * from './services/IndexingObserver';
 export * from './services/SymbolManagerExtensions';
 export * from './services/CodeLensProcessingService';
 export * from './services/QueueStateProcessingService';
 export * from './services/GraphDataProcessingService';
+export * from './services/DiagnosticGraphCorrelationService';
+export * from './services/DiagnosticAnalysisService';
+
+// Export diagnostic graph types
+export * from './types/diagnosticGraph';
 export * from './services/ExecuteCommandProcessingService';
 export * from './services/commands/CommandHandler';
 export * from './services/commands/FindApexTestsCommandHandler';

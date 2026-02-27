@@ -91,5 +91,6 @@ export {
 // Export workspace loader utilities
 export {
   deriveFilePatternsFromDocumentSelector,
+  getExcludeGlob,
   EXCLUDE_GLOB,
 } from './workspace-loader';

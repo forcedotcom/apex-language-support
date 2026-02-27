@@ -7,20 +7,12 @@
  */
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import type { TypeInfo } from './TypeValidator';
-import { isPrimitiveType } from '../../utils/TypeInfoFactory';
+import { isNumericType, isPrimitiveType } from '../../utils/primitiveTypes';
 
 /**
  * Validates type casting operations
  */
 export class TypeCastingValidator {
-  // Numeric types that can be cast between each other
-  private static readonly NUMERIC_TYPES = new Set([
-    'Integer',
-    'Long',
-    'Double',
-    'Decimal',
-  ]);
-
   /**
    * Validate a cast operation
    */
@@ -126,10 +118,7 @@ export class TypeCastingValidator {
     targetName: string,
   ): boolean {
     // Numeric types can be cast between each other
-    if (
-      this.NUMERIC_TYPES.has(sourceName) &&
-      this.NUMERIC_TYPES.has(targetName)
-    ) {
+    if (isNumericType(sourceName) && isNumericType(targetName)) {
       return true;
     }
 

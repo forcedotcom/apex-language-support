@@ -217,14 +217,14 @@ describe('Constructor Validation Tests', () => {
         (s) => s.name === 'InnerClass',
       );
 
-      // If not found in outer class scope, check all symbols filtered by parent
-      if (!innerClass && outerClass) {
+      // If not found in outer scope, check all symbols (inner class parentId = outer class block)
+      if (!innerClass && outerClassScope) {
         const allTableSymbols = symbolTable?.getAllSymbols() || [];
         const allSemanticSymbols = allTableSymbols.filter(
           (s) => !isBlockSymbol(s),
         );
         innerClass = allSemanticSymbols.find(
-          (s) => s.name === 'InnerClass' && s.parentId === outerClass.id,
+          (s) => s.name === 'InnerClass' && s.parentId === outerClassScope.id,
         );
       }
 

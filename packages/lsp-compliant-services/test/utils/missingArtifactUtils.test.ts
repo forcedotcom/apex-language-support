@@ -174,7 +174,7 @@ describe('MissingArtifactUtils', () => {
             endColumn: 66,
           },
         },
-        context: ReferenceContext.CHAINED_TYPE,
+        context: ReferenceContext.CHAIN_STEP,
         resolvedSymbolId: undefined,
         chainNodes: [
           {
@@ -255,7 +255,7 @@ describe('MissingArtifactUtils', () => {
 
       const chainedRef = {
         name: 'FileUtilities.createFile',
-        context: ReferenceContext.CHAINED_TYPE,
+        context: ReferenceContext.CHAIN_STEP,
         location: {
           identifierRange: {
             startLine: 10,

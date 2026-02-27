@@ -351,7 +351,7 @@ import type {
 
 // Request to find and load missing type definitions
 const params: FindMissingArtifactParams = {
-  identifier: 'MyCustomClass',
+  identifiers: [{ name: 'MyCustomClass' }],
   origin: {
     uri: 'file:///workspace/MyFile.cls',
     requestKind: 'definition',

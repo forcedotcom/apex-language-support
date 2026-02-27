@@ -104,7 +104,7 @@ export function getGraphWebviewContent(
             position: absolute;
             top: 10px;
             right: 10px;
-            z-index: 10;
+            z-index: 100;
           }
           
           .dropdown {
@@ -248,6 +248,7 @@ export function getGraphWebviewContent(
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             max-width: 300px;
           }
+
         </style>
       </head>
       <body>
@@ -276,6 +277,8 @@ export function getGraphWebviewContent(
                 <a href="#" id="layout-random-btn" class="layout-option">Random</a>
                 <div class="dropdown-divider"></div>
                 <a href="#" id="restart-simulation-btn">Restart Layout</a>
+                <div class="dropdown-divider"></div>
+                <a href="#" id="diagnostic-highlight-toggle">Toggle Diagnostic Highlight</a>
               </div>
             </div>
           </div>
@@ -296,6 +299,10 @@ export function getGraphWebviewContent(
             <div class="legend-item">
               <div class="legend-color" style="background-color: #9C27B0;"></div>
               <span>Namespace</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #78909C;"></div>
+              <span>Block</span>
             </div>
             <div style="font-weight: bold; margin: 8px 0 4px 0;">Relationships:</div>
             <div class="legend-item">

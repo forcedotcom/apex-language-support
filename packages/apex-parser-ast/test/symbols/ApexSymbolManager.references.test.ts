@@ -8,6 +8,7 @@
 
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { ReferenceContext } from '../../src/types/symbolReference';
+import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
@@ -254,8 +255,8 @@ describe('ApexSymbolManager Reference Processing', () => {
       const fieldAccessRefs = allReferences.filter(
         (ref) => ref.context === ReferenceContext.FIELD_ACCESS,
       );
-      const chainedTypeRefs = allReferences.filter(
-        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      const chainedTypeRefs = allReferences.filter((ref) =>
+        isChainedSymbolReference(ref),
       );
 
       // Should have method call references
@@ -441,9 +442,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       // Find the ChainedSymbolReference for System.Url
       const systemUrlRefs = references.filter(
-        (ref) =>
-          ref.context === ReferenceContext.CHAINED_TYPE &&
-          ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -492,9 +491,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       // Find references - System.Assert should be captured as a chained expression
       // The System part should be resolvable as a built-in type using chain nodes
       const _systemRefs = references.filter(
-        (ref) =>
-          ref.name === 'System' &&
-          ref.context === ReferenceContext.CHAINED_TYPE,
+        (ref) => ref.name === 'System' && isChainedSymbolReference(ref),
       );
       // System might be captured as part of System.Assert chain
       expect(references.length).toBeGreaterThan(0);
@@ -568,7 +565,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       // Find System.EncodingUtil.urlEncode chain
       const _longChainRefs = references.filter(
         (ref) =>
-          ref.context === ReferenceContext.CHAINED_TYPE &&
+          isChainedSymbolReference(ref) &&
           ref.name.includes('System.EncodingUtil'),
       );
       // Should have chained references, but resolveBuiltInType should handle them correctly

@@ -56,6 +56,10 @@ export interface DocumentState {
 
   // Symbol indexing state
   symbolsIndexed: boolean;
+
+  // Enrichment failure tracking: set when compileLayered throws so callers can avoid
+  // redundant re-enrichment attempts. Cleared automatically when the document version changes.
+  enrichmentFailed?: boolean;
 }
 
 /**
@@ -193,6 +197,26 @@ export class DocumentStateCache {
   }
 
   /**
+   * Mark enrichment as failed for this URI. Subsequent enrichment attempts will be skipped
+   * until the document version changes (which clears the cache entry via merge/set).
+   */
+  markEnrichmentFailed(uri: string): void {
+    const existing = this.cache.get(uri);
+    if (existing) {
+      this.cache.set(uri, { ...existing, enrichmentFailed: true });
+      this.logger.debug(() => `Marked enrichment as failed for ${uri}`);
+    }
+  }
+
+  /**
+   * Returns true if a previous enrichment attempt for this URI failed.
+   * Callers should skip re-enrichment when true (until the file changes).
+   */
+  hasEnrichmentFailed(uri: string): boolean {
+    return this.cache.get(uri)?.enrichmentFailed === true;
+  }
+
+  /**
    * Get the detail level of symbols in the cached document state
    * @param uri Document URI
    * @param version Document version number
@@ -264,6 +288,10 @@ export class DocumentStateCache {
     const existing = this.cache.get(uri);
 
     if (existing) {
+      const versionChanged =
+        newData.documentVersion !== undefined &&
+        newData.documentVersion !== existing.documentVersion;
+
       // Merge with existing data
       const merged: DocumentState = {
         ...existing,
@@ -275,6 +303,10 @@ export class DocumentStateCache {
           newData.symbolsIndexed !== undefined
             ? newData.symbolsIndexed
             : existing.symbolsIndexed,
+        // Clear enrichmentFailed when a new document version arrives
+        enrichmentFailed: versionChanged
+          ? false
+          : (newData.enrichmentFailed ?? existing.enrichmentFailed),
       };
 
       this.cache.set(uri, merged);

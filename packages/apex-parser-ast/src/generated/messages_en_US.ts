@@ -54,6 +54,7 @@ export type ErrorCodeKey =
   | 'annotation.property.type.mismatch'
   | 'annotation.property.value.is.not.allowed'
   | 'annotation.property.value.not.found'
+  | 'annotation.unknown'
   | 'anonymous.plural'
   | 'array.ref.not.allowed'
   | 'aura.duplicate.method.field'
@@ -93,6 +94,7 @@ export type ErrorCodeKey =
   | 'external.string.does.not.exist'
   | 'extract.constant'
   | 'extract.variable'
+  | 'field.access.receiver.unresolved'
   | 'field.does.not.exist'
   | 'field.does.not.support.type'
   | 'field.plural'
@@ -298,9 +300,6 @@ export type ErrorCodeKey =
   | 'modifier.not.on.top.level.type'
   | 'modifier.require.at.least'
   | 'modifier.requires'
-  | 'namespace.guard.one.private.constructor'
-  | 'namespace.guard.private.constructor'
-  | 'namespace.guard.static.only'
   | 'new.inner.type.name.conflict.interface'
   | 'new.inner.type.name.conflict.outer'
   | 'new.inner.type.name.conflict.super.type'
@@ -337,7 +336,6 @@ export type ErrorCodeKey =
   | 'safe.navigation.invalid.between.sobject.field.and.add.error'
   | 'safe.navigation.invalid.between.sobject.field.and.method'
   | 'script.too.large'
-  | 'sfdc.only.cannot.have.global.fields'
   | 'sobject.not.constructable'
   | 'synthetic.loc'
   | 'test.class.must.not.be.exception'
@@ -410,6 +408,7 @@ export const messages: Record<string, string> = {
   'annotation.property.type.mismatch': 'The data type of the value for the %s annotation property doesn\'\'t match the data type of the \'\'%s\'\' variable. Specify a value with a data type of %s',
   'annotation.property.value.is.not.allowed': 'Invalid annotation property value, %s, for property %s on %s',
   'annotation.property.value.not.found': 'Invalid value for property %s expected Apex %s %s not found',
+  'annotation.unknown': 'Unknown annotation: %s',
   'anonymous.plural': 'anonymous classes',
   'array.ref.not.allowed': 'A type is not allowed to extend or implement an array ref: %s',
   'aura.duplicate.method.field': 'AuraEnabled method and variable cannot have the same name: %s',
@@ -449,6 +448,7 @@ export const messages: Record<string, string> = {
   'external.string.does.not.exist': 'External string does not exist: %s',
   'extract.constant': 'Extract Constant',
   'extract.variable': 'Extract Variable',
+  'field.access.receiver.unresolved': 'Unable to resolve receiver type for field access: %s',
   'field.does.not.exist': 'Field does not exist: %s on %s',
   'field.does.not.support.type': '%s fields do not support type of %s',
   'field.plural': 'fields',
@@ -459,7 +459,7 @@ export const messages: Record<string, string> = {
   'identifier.too.long': 'Identifier name is too long: %s',
   'illegal.accessor.on.property': 'Cannot declare %s accessor on %s property',
   'illegal.all.call': 'Illegal all method call for argument type, %s, for collection: %s',
-  'illegal.assignment': 'Illegal assignment from %s to %s',
+  'illegal.assignment': 'Type mismatch: cannot assign %s to %s',
   'illegal.comparator.for.sort': 'Incompatible Comparator argument type: %s, for collection: %s',
   'illegal.conversion': 'Illegal conversion from %s to %s',
   'illegal.decimal.literal': 'Illegal decimal',
@@ -654,9 +654,6 @@ export const messages: Record<string, string> = {
   'modifier.not.on.top.level.type': '%s can only be used on a top level type',
   'modifier.require.at.least': '%s %s require at least one of the following %s',
   'modifier.requires': '%s %s must be declared as %s',
-  'namespace.guard.one.private.constructor': '@NamespaceGuard classes must have at least one private constructor',
-  'namespace.guard.private.constructor': '@NamespaceGuard classes cannot have a public constructor',
-  'namespace.guard.static.only': '@NamespaceGuard classes can only have static methods',
   'new.inner.type.name.conflict.interface': 'New name for inner type cannot be the same as the interface being implemented by the outer type',
   'new.inner.type.name.conflict.outer': 'New name for inner type cannot be the same as the name of the containing outer type',
   'new.inner.type.name.conflict.super.type': 'New name for inner type cannot be the same as the type being extended by the outer type',
@@ -693,7 +690,6 @@ export const messages: Record<string, string> = {
   'safe.navigation.invalid.between.sobject.field.and.add.error': 'Safe navigation operator is not allowed between SObject field and addError',
   'safe.navigation.invalid.between.sobject.field.and.method': 'Safe navigation operator is not allowed between SObject field and %s',
   'script.too.large': 'Script too large: %s...',
-  'sfdc.only.cannot.have.global.fields': 'SfdcOnly defined types cannot have global fields',
   'sobject.not.constructable': 'SObject is not constructable: %s',
   'synthetic.loc': 'no location',
   'test.class.must.not.be.exception': 'Only top-level non-exception class types can be marked as tests',

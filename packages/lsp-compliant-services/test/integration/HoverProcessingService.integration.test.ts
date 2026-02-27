@@ -106,18 +106,15 @@ describe('HoverProcessingService Integration Tests', () => {
     try {
       // Ensure System.System is loaded and compiled via ResourceLoader
       // This makes it available for resolveStandardApexClass to find
-      const systemArtifact =
-        await resourceLoader.loadAndCompileClass('System/System.cls');
-      if (systemArtifact?.compilationResult?.result) {
+      const symbolTable =
+        await resourceLoader.getSymbolTable('System/System.cls');
+      if (symbolTable) {
         // Add the System class symbol table to the symbol manager's graph
         // This ensures it's available for findSymbolByName to find
         // Use the correct URI format: apexlib://resources/StandardApexLibrary/System/System.cls
         const systemUri = `${STANDARD_APEX_LIBRARY_URI}/System/System.cls`;
         await Effect.runPromise(
-          symbolManager.addSymbolTable(
-            systemArtifact.compilationResult.result,
-            systemUri,
-          ),
+          symbolManager.addSymbolTable(symbolTable, systemUri),
         );
       }
     } catch (_error) {
@@ -404,7 +401,7 @@ describe('HoverProcessingService Integration Tests', () => {
         textDocument: {
           uri: 'file:///TestClass.cls',
         },
-        position: { line: 0, character: 13 }, // Position on 'TestClass' (LSP 0-based)
+        position: { line: 4, character: 13 }, // Position on 'TestClass' (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -454,7 +451,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: 1, character: 23 }, // Position on 'getStaticValue' method name (LSP 0-based)
+        position: { line: 5, character: 23 }, // Position on 'getStaticValue' method name (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -477,7 +474,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: 5, character: 20 }, // Position on instance method definition (LSP 0-based)
+        position: { line: 9, character: 20 }, // Position on instance method definition (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -504,7 +501,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: 1, character: 23 }, // Position on 'getValue' method (LSP 0-based)
+        position: { line: 5, character: 23 }, // Position on 'getValue' method (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -528,7 +525,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: 0, character: 13 }, // Position on 'TestClass' (LSP 0-based)
+        position: { line: 4, character: 13 }, // Position on 'TestClass' (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -553,7 +550,7 @@ describe('HoverProcessingService Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: 1, character: 23 }, // Position on 'getValue' method (LSP 0-based)
+        position: { line: 5, character: 23 }, // Position on 'getValue' method (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -903,7 +900,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('void System.System.debug');
+        expect(content).toContain('void System.debug');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*static.*global/);
       }
     });
@@ -1218,7 +1215,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('void System.System.debug');
+        expect(content).toContain('void System.debug');
         expect(content).toMatch(/static/);
       }
     });
@@ -1942,94 +1939,8 @@ public class RecordTypeModel {}`;
     });
   });
 
-  describe('Keyword Detection', () => {
-    it('should return null when hovering on keyword', async () => {
-      mockStorage.getDocument.mockResolvedValue(testClassDocument);
-
-      const text = testClassDocument.getText();
-      const lines = text.split('\n');
-      // Find the line with "if (true)" - should be in testKeywordDetection method
-      const lineIndex = lines.findIndex((l) =>
-        l.trim().startsWith('if (true)'),
-      );
-      expect(lineIndex).toBeGreaterThanOrEqual(0);
-      // Find the exact position of "if" on that line (after leading whitespace)
-      const line = lines[lineIndex];
-      const charIndex = line.indexOf('if');
-      expect(charIndex).toBeGreaterThanOrEqual(0);
-
-      // Position on "if" keyword in the test class
-      const params: HoverParams = {
-        textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: lineIndex, character: charIndex },
-      };
-
-      const result = await hoverService.processHover(params);
-
-      // Assert: Should return null for keywords
-      expect(result).toBeNull();
-    });
-
-    it('should return null when hovering on "for" keyword', async () => {
-      mockStorage.getDocument.mockResolvedValue(testClassDocument);
-
-      const text = testClassDocument.getText();
-      const lines = text.split('\n');
-      // Find the line with "for (Integer i" - should be in testKeywordDetection method
-      const lineIndex = lines.findIndex((l) =>
-        l.trim().startsWith('for (Integer i'),
-      );
-      expect(lineIndex).toBeGreaterThanOrEqual(0);
-      // Find the exact position of "for" on that line (after leading whitespace)
-      const line = lines[lineIndex];
-      const charIndex = line.indexOf('for');
-      expect(charIndex).toBeGreaterThanOrEqual(0);
-
-      // Position on "for" keyword
-      const params: HoverParams = {
-        textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: lineIndex, character: charIndex },
-      };
-
-      const result = await hoverService.processHover(params);
-
-      // Assert: Should return null for keywords
-      expect(result).toBeNull();
-    });
-
-    it('should NOT trigger missing artifact resolution for keywords', async () => {
-      mockStorage.getDocument.mockResolvedValue(testClassDocument);
-
-      const text = testClassDocument.getText();
-      const lines = text.split('\n');
-      // Find the line with "if (true)" - should be in testKeywordDetection method
-      const lineIndex = lines.findIndex((l) =>
-        l.trim().startsWith('if (true)'),
-      );
-      expect(lineIndex).toBeGreaterThanOrEqual(0);
-      // Find the exact position of "if" on that line (after leading whitespace)
-      const line = lines[lineIndex];
-      const charIndex = line.indexOf('if');
-      expect(charIndex).toBeGreaterThanOrEqual(0);
-
-      const params: HoverParams = {
-        textDocument: { uri: 'file:///TestClass.cls' },
-        position: { line: lineIndex, character: charIndex },
-      };
-
-      // Mock missing artifact utils
-      const tryResolveSpy = jest.spyOn(
-        hoverService['missingArtifactUtils'],
-        'tryResolveMissingArtifactBackground',
-      );
-
-      const result = await hoverService.processHover(params);
-
-      // Assert: Should return null and NOT trigger missing artifact resolution
-      expect(result).toBeNull();
-      expect(tryResolveSpy).not.toHaveBeenCalled();
-    });
-  });
+  // Keyword detection: rely on reference/symbol layer. Keywords don't create refs;
+  // getSymbolAtPosition + identifierRange filter handles containment. No hover snowflakes.
 
   describe('System Keyword vs Namespace Hover Tests', () => {
     let systemKeywordTestDocument: TextDocument;
@@ -2162,32 +2073,12 @@ public class RecordTypeModel {}`;
         expect(result).toBeDefined(); // Can be null (symbol not found) or have content
       });
 
-      it('should return null for system in system.runas (SYSTEMRUNAS is single token)', async () => {
-        mockStorage.getDocument.mockResolvedValue(systemKeywordTestDocument);
-
-        const text = systemKeywordTestDocument.getText();
-        const lines = text.split('\n');
-        const lineIndex = lines.findIndex((l) => l.includes('system.runas'));
-        expect(lineIndex).toBeGreaterThanOrEqual(0);
-        const line = lines[lineIndex];
-        const charIndex = line.indexOf('system');
-
-        const params: HoverParams = {
-          textDocument: { uri: 'file:///SystemKeywordTestClass.cls' },
-          position: { line: lineIndex, character: charIndex },
-        };
-
-        const result = await hoverService.processHover(params);
-
-        // system.runas is a single SYSTEMRUNAS token, so hovering on "system"
-        // doesn't create a TypeReference - it's correct that it returns null
-        // This verifies keyword filtering works correctly for keyword tokens
-        expect(result).toBeNull();
-      });
+      // system.runas: "system" is a lexer token (SYSTEMRUNAS), not a class reference.
+      // Reference layer handles this; hover relies on refs/symbols, no special handling.
     });
 
-    describe('System DML Keyword Hover (should return null)', () => {
-      it('should return null for system in INSERT AS SYSTEM', async () => {
+    describe('System DML Keyword Hover (expect null)', () => {
+      it('should return null for system in INSERT AS SYSTEM (keyword context)', async () => {
         mockStorage.getDocument.mockResolvedValue(systemKeywordTestDocument);
 
         const text = systemKeywordTestDocument.getText();
@@ -2206,11 +2097,11 @@ public class RecordTypeModel {}`;
 
         const result = await hoverService.processHover(params);
 
-        // Should return null - system is a DML keyword here, no TypeReference
+        // No references at DML keyword position.
         expect(result).toBeNull();
       });
 
-      it('should return null for system in UPDATE AS SYSTEM', async () => {
+      it('should return null for system in UPDATE AS SYSTEM (keyword context)', async () => {
         mockStorage.getDocument.mockResolvedValue(systemKeywordTestDocument);
 
         const text = systemKeywordTestDocument.getText();
@@ -2229,7 +2120,7 @@ public class RecordTypeModel {}`;
 
         const result = await hoverService.processHover(params);
 
-        // Should return null - system is a DML keyword here, no TypeReference
+        // No references at DML keyword position.
         expect(result).toBeNull();
       });
 

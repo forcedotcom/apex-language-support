@@ -9,7 +9,7 @@
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { ReferenceContext } from '../../src/types/symbolReference';
+import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
 import type { ChainedSymbolReference } from '../../src/types/symbolReference';
 import { Effect } from 'effect';
 
@@ -55,9 +55,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
 
       // Find the chained type reference for System.Url
       const chainedTypeRefs = references.filter(
-        (ref) =>
-          ref.context === ReferenceContext.CHAINED_TYPE &&
-          ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
       );
       expect(chainedTypeRefs).toHaveLength(1);
 
@@ -91,9 +89,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
 
       // Find the chained type reference for System.Url parameter
       const chainedTypeRefs = references.filter(
-        (ref) =>
-          ref.context === ReferenceContext.CHAINED_TYPE &&
-          ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
       );
       expect(chainedTypeRefs).toHaveLength(1);
 
@@ -125,9 +121,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
 
       // Find the chained type reference for System.Url field
       const chainedTypeRefs = references.filter(
-        (ref) =>
-          ref.context === ReferenceContext.CHAINED_TYPE &&
-          ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
       );
       expect(chainedTypeRefs).toHaveLength(1);
 
@@ -161,9 +155,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
 
       // Find all chained type references for System.Url (return type and method call)
       const chainedTypeRefs = references.filter(
-        (ref) =>
-          ref.context === ReferenceContext.CHAINED_TYPE &&
-          ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 

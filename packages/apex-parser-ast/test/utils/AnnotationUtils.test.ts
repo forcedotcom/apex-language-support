@@ -134,6 +134,61 @@ describe('AnnotationUtils', () => {
 
       expect(AnnotationUtils.hasAnnotation(classSymbol, 'istest')).toBe(true);
     });
+
+    it('should return true for MethodSymbol with @TestVisible annotation', () => {
+      const methodSymbol = {
+        name: 'getSecret',
+        kind: SymbolKind.Method,
+        location: sampleLocation,
+        modifiers: sampleModifiers,
+        parent: null,
+        key: {
+          prefix: SymbolKind.Method,
+          name: 'getSecret',
+          path: ['getSecret'],
+        },
+        parentKey: null,
+        annotations: [{ name: 'TestVisible', location: sampleLocation }],
+        id: '',
+        fileUri: '',
+        parentId: null,
+        _modifierFlags: 0,
+        _isLoaded: false,
+        returnType: { name: 'String', isCollection: false },
+        parameters: [],
+      };
+
+      expect(AnnotationUtils.hasAnnotation(methodSymbol, 'TestVisible')).toBe(
+        true,
+      );
+    });
+
+    it('should return true for VariableSymbol with @TestVisible annotation', () => {
+      const fieldSymbol = {
+        name: 'testVisibleField',
+        kind: SymbolKind.Field,
+        location: sampleLocation,
+        modifiers: sampleModifiers,
+        parent: null,
+        key: {
+          prefix: SymbolKind.Field,
+          name: 'testVisibleField',
+          path: ['testVisibleField'],
+        },
+        parentKey: null,
+        annotations: [{ name: 'TestVisible', location: sampleLocation }],
+        id: '',
+        fileUri: '',
+        parentId: null,
+        _modifierFlags: 0,
+        _isLoaded: false,
+        type: { name: 'String', isCollection: false },
+      };
+
+      expect(AnnotationUtils.hasAnnotation(fieldSymbol, 'TestVisible')).toBe(
+        true,
+      );
+    });
   });
 
   describe('getAnnotation', () => {

@@ -159,6 +159,9 @@ export interface LoadWorkspaceSettings {
 
   /** Number of files per batch when using batch loading (default: 100) */
   batchSize: number;
+
+  /** When true, include .sfdx/tools/sobjects/customObjects in workspace scan (default: false) */
+  includeSfdxToolsCustomObjects?: boolean;
 }
 
 /**
@@ -273,6 +276,20 @@ export interface SymbolGraphSettings {
 }
 
 /**
+ * Validation settings
+ */
+export interface ValidationSettings {
+  /**
+   * Enable version-specific validation rules
+   * When enabled, validators check API version requirements for annotations and other version-dependent features
+   * Default: false (disabled by default for backward compatibility)
+   */
+  versionSpecificValidation: {
+    enabled: boolean;
+  };
+}
+
+/**
  * Complete Apex Language Server settings
  */
 export interface ApexLanguageServerSettings {
@@ -306,6 +323,9 @@ export interface ApexLanguageServerSettings {
 
     /** Symbol graph pre-population settings */
     symbolGraph?: SymbolGraphSettings;
+
+    /** Validation configuration */
+    validation?: ValidationSettings;
 
     /** Server version for compatibility checks */
     version?: string;

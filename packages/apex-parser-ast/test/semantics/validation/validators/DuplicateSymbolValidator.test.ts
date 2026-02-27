@@ -17,6 +17,16 @@ import {
   runValidator,
   createValidationOptions,
 } from './helpers/validation-test-helpers';
+import type { ValidationErrorInfo } from '../../../../src/semantics/validation/ValidationResult';
+
+/**
+ * Type guard to check if an error is ValidationErrorInfo (not a string)
+ */
+function isValidationErrorInfo(
+  error: string | ValidationErrorInfo,
+): error is ValidationErrorInfo {
+  return typeof error !== 'string';
+}
 
 describe('DuplicateSymbolValidator', () => {
   let symbolManager: ApexSymbolManager;
@@ -105,9 +115,12 @@ describe('DuplicateSymbolValidator', () => {
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
       const error = result.errors[0];
-      expect(error.code).toBe(ErrorCodes.DUPLICATE_FIELD);
-      const errorMessage = getMessage(error);
-      expect(errorMessage).toContain('Duplicate field');
+      expect(isValidationErrorInfo(error)).toBe(true);
+      if (isValidationErrorInfo(error)) {
+        expect(error.code).toBe(ErrorCodes.DUPLICATE_FIELD);
+        const errorMessage = getMessage(error);
+        expect(errorMessage).toContain('Duplicate field');
+      }
     });
 
     it.skip('should fail validation for duplicate non-static fields', async () => {
@@ -132,7 +145,10 @@ describe('DuplicateSymbolValidator', () => {
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
       const error = result.errors[0];
-      expect(error.code).toBe(ErrorCodes.DUPLICATE_FIELD);
+      expect(isValidationErrorInfo(error)).toBe(true);
+      if (isValidationErrorInfo(error)) {
+        expect(error.code).toBe(ErrorCodes.DUPLICATE_FIELD);
+      }
     });
 
     it.skip('should allow static and non-static fields with same name (non-static first)', async () => {
@@ -182,7 +198,10 @@ describe('DuplicateSymbolValidator', () => {
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
       const error = result.errors[0];
-      expect(error.code).toBe(ErrorCodes.DUPLICATE_FIELD);
+      expect(isValidationErrorInfo(error)).toBe(true);
+      if (isValidationErrorInfo(error)) {
+        expect(error.code).toBe(ErrorCodes.DUPLICATE_FIELD);
+      }
     });
 
     it.skip('should handle case-insensitive field name comparison', async () => {
@@ -206,7 +225,10 @@ describe('DuplicateSymbolValidator', () => {
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
       const error = result.errors[0];
-      expect(error.code).toBe(ErrorCodes.DUPLICATE_FIELD);
+      expect(isValidationErrorInfo(error)).toBe(true);
+      if (isValidationErrorInfo(error)) {
+        expect(error.code).toBe(ErrorCodes.DUPLICATE_FIELD);
+      }
     });
   });
 
@@ -230,9 +252,12 @@ describe('DuplicateSymbolValidator', () => {
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
       const error = result.errors[0];
-      expect(error.code).toBe(ErrorCodes.DUPLICATE_VARIABLE);
-      const errorMessage = getMessage(error);
-      expect(errorMessage).toContain('Duplicate variable');
+      expect(isValidationErrorInfo(error)).toBe(true);
+      if (isValidationErrorInfo(error)) {
+        expect(error.code).toBe(ErrorCodes.DUPLICATE_VARIABLE);
+        const errorMessage = getMessage(error);
+        expect(errorMessage).toContain('Duplicate variable');
+      }
     });
 
     it('should report only one error for variable shadowing parameter (not duplicate)', async () => {
@@ -259,10 +284,53 @@ describe('DuplicateSymbolValidator', () => {
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBe(1);
       const error = result.errors[0];
-      expect(error.code).toBe(ErrorCodes.DUPLICATE_VARIABLE);
-      // Error location should use identifierRange (just the variable name, not the full declaration)
-      expect(error.location).toBeDefined();
-      expect(error.location?.identifierRange).toBeDefined();
+      expect(isValidationErrorInfo(error)).toBe(true);
+      if (isValidationErrorInfo(error)) {
+        expect(error.code).toBe(ErrorCodes.DUPLICATE_VARIABLE);
+        // Error location should use identifierRange (just the variable name, not the full declaration)
+        expect(error.location).toBeDefined();
+        expect(error.location?.identifierRange).toBeDefined();
+      }
+    });
+
+    it('should not report duplicate variables in different methods', async () => {
+      // Variables with the same name in different methods should NOT be flagged as duplicates
+      const symbolTable = await compileVariableFixture(
+        'MultipleMethodsSameVarName.cls',
+      );
+
+      const result = await runValidator(
+        DuplicateSymbolValidator.validate(
+          symbolTable,
+          createValidationOptions(symbolManager, {
+            tier: ValidationTier.IMMEDIATE,
+            allowArtifactLoading: false,
+          }),
+        ),
+        symbolManager,
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('should not report duplicate variables in Class0001 structure', async () => {
+      // Test with exact structure from user report (constructor + multiple methods)
+      const symbolTable = await compileVariableFixture('Class0001.cls');
+
+      const result = await runValidator(
+        DuplicateSymbolValidator.validate(
+          symbolTable,
+          createValidationOptions(symbolManager, {
+            tier: ValidationTier.IMMEDIATE,
+            allowArtifactLoading: false,
+          }),
+        ),
+        symbolManager,
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
     });
   });
 });

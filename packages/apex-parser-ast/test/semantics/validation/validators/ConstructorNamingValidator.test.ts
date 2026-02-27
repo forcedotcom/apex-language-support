@@ -138,6 +138,48 @@ describe('ConstructorNamingValidator', () => {
     expect(errorMessage).toContain('must match');
   });
 
+  it('should not report CONSTRUCTOR_NO_PARENT when constructor parentId points to class block', async () => {
+    const symbolTable = await compileFixtureForValidator('MatchingName.cls');
+
+    const result = await runValidator(
+      ConstructorNamingValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        }),
+      ),
+      symbolManager,
+    );
+
+    const noParentWarnings = result.warnings.filter(
+      (w) => w.code === 'CONSTRUCTOR_NO_PARENT',
+    );
+    expect(noParentWarnings).toHaveLength(0);
+  });
+
+  it('should not report CONSTRUCTOR_NO_PARENT for inner class constructor', async () => {
+    const symbolTable = await compileFixtureForValidator(
+      'InnerClassWithConstructor.cls',
+    );
+
+    const result = await runValidator(
+      ConstructorNamingValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        }),
+      ),
+      symbolManager,
+    );
+
+    const noParentWarnings = result.warnings.filter(
+      (w) => w.code === 'CONSTRUCTOR_NO_PARENT',
+    );
+    expect(noParentWarnings).toHaveLength(0);
+  });
+
   it('should pass validation for class with no constructors', async () => {
     const symbolTable = await compileFixtureForValidator('NoConstructor.cls');
 

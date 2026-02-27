@@ -29,6 +29,7 @@
  */
 
 import type { MethodSymbol, ApexSymbol } from '../../../types/symbol';
+import { SymbolKind } from '../../../types/symbol';
 import { isMethodSymbol } from '../../../utils/symbolNarrowing';
 import { ValidationTier } from '../ValidationTier';
 
@@ -118,34 +119,42 @@ export function areMethodSignaturesIdentical(
 }
 
 /**
- * Check if a method signature matches an existing method by comparing
+ * Check if a method or constructor signature matches an existing one by comparing
  * name and parameter types from string representations.
  *
- * This is used by the listener during compilation when we have:
- * - Existing method symbols (with type info)
- * - Current method being parsed (with parameter type strings from context)
+ * Used by the listener during compilation when we have:
+ * - Existing method/constructor symbols (with type info)
+ * - Current method or constructor being parsed (with parameter type strings from context)
  *
- * @param existingMethod - Method symbol already in symbol table
- * @param methodName - Name of method being checked (case-insensitive comparison)
+ * @param existingMethod - Method or constructor symbol already in symbol table
+ * @param methodName - Name of method/constructor being checked (case-insensitive comparison)
  * @param parameterTypeStrings - Array of parameter type strings from parser context
  * @returns True if signatures match
  */
-export function doesMethodSignatureMatch(
+export function doesSignatureMatch(
   existingMethod: ApexSymbol,
   methodName: string,
   parameterTypeStrings: string[],
 ): boolean {
-  if (!isMethodSymbol(existingMethod)) {
+  // Accept both methods and constructors (constructors are MethodSymbols with Constructor kind)
+  if (
+    existingMethod.kind !== SymbolKind.Method &&
+    existingMethod.kind !== SymbolKind.Constructor
+  ) {
     return false;
   }
 
+  // Cast to MethodSymbol to access parameters property
+  // Both methods and constructors are MethodSymbols
+  const methodSymbol = existingMethod as MethodSymbol;
+
   // 1. Compare names (case-insensitive)
-  if (existingMethod.name.toLowerCase() !== methodName.toLowerCase()) {
+  if (methodSymbol.name.toLowerCase() !== methodName.toLowerCase()) {
     return false;
   }
 
   // 2. Compare parameter counts
-  const existingParams = existingMethod.parameters || [];
+  const existingParams = methodSymbol.parameters || [];
   if (existingParams.length !== parameterTypeStrings.length) {
     return false;
   }

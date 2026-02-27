@@ -145,6 +145,7 @@ describe('ApexSymbolManager Integration Tests', () => {
       error: jest.fn(),
       debug: jest.fn(),
       log: jest.fn(),
+      alwaysLog: jest.fn(),
     };
 
     hoverService = new HoverProcessingService(mockLogger, symbolManager);

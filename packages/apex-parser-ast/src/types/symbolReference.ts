@@ -24,12 +24,11 @@ export enum ReferenceContext {
   GENERIC_PARAMETER_TYPE = 8,
   CAST_TYPE_REFERENCE = 9,
   INSTANCEOF_TYPE_REFERENCE = 10,
-  CHAINED_TYPE = 11, // Root reference for entire chained type
-  CHAIN_STEP = 12, // Ambiguous node that could be multiple reference types
-  NAMESPACE = 13, // Explicitly resolved namespace
-  RETURN_TYPE = 14, // For return type references in method declarations
-  PROPERTY_REFERENCE = 15, // For property names in property declarations
-  LITERAL = 16, // For literal values (Integer, Long, Decimal, String, Boolean, Null)
+  CHAIN_STEP = 11, // Ambiguous node that could be multiple reference types
+  NAMESPACE = 12, // Explicitly resolved namespace
+  RETURN_TYPE = 13, // For return type references in method declarations
+  PROPERTY_REFERENCE = 14, // For property names in property declarations
+  LITERAL = 15, // For literal values (Integer, Long, Decimal, String, Boolean, Null)
 }
 
 /**
@@ -68,11 +67,27 @@ export interface SymbolReference {
   literalValue?: string | number | boolean | null;
   /** Optional: literal type for LITERAL context */
   literalType?: 'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null';
+  /** Optional: chain nodes for chained expressions (e.g., obj.field1.field2) */
+  chainNodes?: SymbolReference[];
+  /** Optional: ID of the resolved type (if type is known, undefined otherwise) */
+  resolvedTypeId?: string;
+  /** Optional: which tier resolved this reference */
+  resolutionTier?: 'TIER_1' | 'TIER_2';
+  /** Optional: whether this reference and all dependencies are fully resolved */
+  isFullyResolved?: boolean;
+  /** Optional: semantically validated access (TIER 2 validation) */
+  validatedAccess?: 'read' | 'write' | 'readwrite' | 'invalid';
+  /** Optional: access validation state */
+  accessValidationState?:
+    | 'syntax_only'
+    | 'partially_validated'
+    | 'fully_validated';
 }
 
 /**
  * A symbol reference that represents a chained expression
- * The root reference spans the entire chain and contains all nodes
+ * The final node (FIELD_ACCESS/METHOD_CALL) contains chainNodes array
+ * @deprecated Use SymbolReference with chainNodes property instead
  */
 export interface ChainedSymbolReference extends SymbolReference {
   /** All nodes in the chain, including the base expression and all steps */
@@ -101,6 +116,15 @@ export class EnhancedSymbolReference implements SymbolReference {
       | 'String'
       | 'Boolean'
       | 'Null',
+    public chainNodes?: SymbolReference[],
+    public resolvedTypeId?: string,
+    public resolutionTier?: 'TIER_1' | 'TIER_2',
+    public isFullyResolved?: boolean,
+    public validatedAccess?: 'read' | 'write' | 'readwrite' | 'invalid',
+    public accessValidationState?:
+      | 'syntax_only'
+      | 'partially_validated'
+      | 'fully_validated',
   ) {}
 
   // Custom JSON serialization to avoid circular references
@@ -115,14 +139,18 @@ export class EnhancedSymbolReference implements SymbolReference {
       isStatic: this.isStatic,
       literalValue: this.literalValue,
       literalType: this.literalType,
+      chainNodes: this.chainNodes,
+      resolvedTypeId: this.resolvedTypeId,
+      resolutionTier: this.resolutionTier,
+      isFullyResolved: this.isFullyResolved,
+      validatedAccess: this.validatedAccess,
+      accessValidationState: this.accessValidationState,
     };
 
     // Add chained expression info without circular references
-    const chainNodes = (this as any).chainNodes;
-    if (chainNodes) {
-      base.chainNodes = chainNodes; // Preserve the actual chainNodes array
-      base.referenceChainSize = chainNodes.length;
-      base.referenceChainNames = chainNodes.map(
+    if (this.chainNodes) {
+      base.referenceChainSize = this.chainNodes.length;
+      base.referenceChainNames = this.chainNodes.map(
         (node: SymbolReference) => node.name,
       );
     }
@@ -342,7 +370,73 @@ export class SymbolReferenceFactory {
     typeName: string,
     location: SymbolLocation,
     parentContext?: string,
+    preciseLocations?: SymbolLocation[],
   ): SymbolReference {
+    // Check if this is a dotted type name that needs chain resolution
+    if (typeName.includes('.')) {
+      // For dotted type names, create individual chain nodes
+      const parts = this.parseTypeName(typeName);
+      const chainNodes: SymbolReference[] = [];
+
+      // Create chain nodes for each part
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const isLast = i === parts.length - 1;
+
+        // Use precise location if available, otherwise fall back to the base location
+        const partLocation =
+          preciseLocations && preciseLocations[i]
+            ? preciseLocations[i]
+            : location;
+
+        const nodeRef = new EnhancedSymbolReference(
+          part,
+          partLocation,
+          isLast
+            ? ReferenceContext.CONSTRUCTOR_CALL
+            : ReferenceContext.NAMESPACE,
+          undefined, // resolvedSymbolId - will be set during second-pass resolution
+          parentContext,
+        );
+
+        chainNodes.push(nodeRef);
+      }
+
+      // Create a chained constructor call reference
+      const finalNode = chainNodes[chainNodes.length - 1];
+      const baseLocation = chainNodes[0]?.location || location;
+      const finalLocation = finalNode.location || location;
+
+      const finalRef = new EnhancedSymbolReference(
+        typeName, // Name contains the full type name (e.g., "System.Url")
+        {
+          symbolRange: {
+            startLine: baseLocation.symbolRange.startLine,
+            startColumn: baseLocation.symbolRange.startColumn,
+            endLine: finalLocation.symbolRange.endLine,
+            endColumn: finalLocation.symbolRange.endColumn,
+          },
+          identifierRange: {
+            startLine: baseLocation.identifierRange.startLine,
+            startColumn: baseLocation.identifierRange.startColumn,
+            endLine: finalLocation.identifierRange.endLine,
+            endColumn: finalLocation.identifierRange.endColumn,
+          },
+        },
+        ReferenceContext.CONSTRUCTOR_CALL, // Final context is CONSTRUCTOR_CALL
+        undefined, // resolvedSymbolId - will be set during second-pass resolution
+        parentContext,
+        undefined,
+        false, // Not static by default
+        undefined,
+        undefined,
+        chainNodes, // Attach chainNodes to final node
+      );
+
+      return finalRef;
+    }
+
+    // For simple type names, create a regular constructor call reference
     return new EnhancedSymbolReference(
       typeName,
       location,
@@ -359,7 +453,73 @@ export class SymbolReferenceFactory {
     className: string,
     location: SymbolLocation,
     parentContext?: string,
+    preciseLocations?: SymbolLocation[],
   ): SymbolReference {
+    // Check if this is a dotted type name that needs chain resolution
+    if (className.includes('.')) {
+      // For dotted type names, create individual chain nodes
+      const parts = this.parseTypeName(className);
+      const chainNodes: SymbolReference[] = [];
+
+      // Create chain nodes for each part
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const isLast = i === parts.length - 1;
+
+        // Use precise location if available, otherwise fall back to the base location
+        const partLocation =
+          preciseLocations && preciseLocations[i]
+            ? preciseLocations[i]
+            : location;
+
+        const nodeRef = new EnhancedSymbolReference(
+          part,
+          partLocation,
+          isLast
+            ? ReferenceContext.CLASS_REFERENCE
+            : ReferenceContext.NAMESPACE,
+          undefined, // resolvedSymbolId - will be set during second-pass resolution
+          parentContext,
+        );
+
+        chainNodes.push(nodeRef);
+      }
+
+      // Create a chained class reference
+      const finalNode = chainNodes[chainNodes.length - 1];
+      const baseLocation = chainNodes[0]?.location || location;
+      const finalLocation = finalNode.location || location;
+
+      const finalRef = new EnhancedSymbolReference(
+        className, // Name contains the full type name (e.g., "Namespace.Exception")
+        {
+          symbolRange: {
+            startLine: baseLocation.symbolRange.startLine,
+            startColumn: baseLocation.symbolRange.startColumn,
+            endLine: finalLocation.symbolRange.endLine,
+            endColumn: finalLocation.symbolRange.endColumn,
+          },
+          identifierRange: {
+            startLine: baseLocation.identifierRange.startLine,
+            startColumn: baseLocation.identifierRange.startColumn,
+            endLine: finalLocation.identifierRange.endLine,
+            endColumn: finalLocation.identifierRange.endColumn,
+          },
+        },
+        ReferenceContext.CLASS_REFERENCE, // Final context is CLASS_REFERENCE
+        undefined, // resolvedSymbolId - will be set during second-pass resolution
+        parentContext,
+        undefined,
+        false, // Not static by default
+        undefined,
+        undefined,
+        chainNodes, // Attach chainNodes to final node
+      );
+
+      return finalRef;
+    }
+
+    // For simple type names, create a regular class reference
     return new EnhancedSymbolReference(
       className,
       location,
@@ -558,26 +718,33 @@ export class SymbolReferenceFactory {
   }
 
   /**
-   * Create a root SymbolRef for the entire chained expression
-   * This SymbolRef represents the complete chain with all nodes stored in an array
-   * The root reference spans the entire chain from start to end
+   * Create a chained expression reference
+   * Creates the final node (FIELD_ACCESS/METHOD_CALL) with chainNodes property
+   * The final node represents the complete chain with all nodes stored in chainNodes array
    */
   static createChainedExpressionReference(
     chainNodes: SymbolReference[],
     chainedExpression: SymbolReference,
     parentContext?: string,
-  ): ChainedSymbolReference {
+  ): SymbolReference {
+    if (chainNodes.length === 0) {
+      throw new Error('Chain nodes array cannot be empty');
+    }
+
+    // The final node is the last node in the chain
+    const finalNode = chainNodes[chainNodes.length - 1];
+
     // Compute combined location from chain nodes
     const baseLocation = chainNodes[0]?.location;
-    const finalLocation = chainNodes[chainNodes.length - 1]?.location;
+    const finalLocation = finalNode.location;
 
     if (!baseLocation || !finalLocation) {
       throw new Error('Chain nodes must have valid locations');
     }
 
-    // Create the root reference with the full chain span
-    // For chained expressions, the identifierRange should match the symbolRange
-    const rootRef = new EnhancedSymbolReference(
+    // Create the final node reference with chainNodes property
+    // Use the final node's context (FIELD_ACCESS, METHOD_CALL, etc.)
+    const finalRef = new EnhancedSymbolReference(
       chainedExpression.name, // Name contains the full expression
       {
         symbolRange: {
@@ -587,48 +754,53 @@ export class SymbolReferenceFactory {
           endColumn: finalLocation.symbolRange.endColumn,
         },
         identifierRange: {
-          startLine: baseLocation.symbolRange.startLine,
-          startColumn: baseLocation.symbolRange.startColumn,
-          endLine: finalLocation.symbolRange.endLine,
-          endColumn: finalLocation.symbolRange.endColumn,
+          startLine: baseLocation.identifierRange.startLine,
+          startColumn: baseLocation.identifierRange.startColumn,
+          endLine: finalLocation.identifierRange.endLine,
+          endColumn: finalLocation.identifierRange.endColumn,
         },
       },
-      ReferenceContext.CHAINED_TYPE, // New context for chained expressions
+      finalNode.context, // Use final node's context (FIELD_ACCESS, METHOD_CALL, etc.)
       undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
+      finalNode.access, // Use final node's access
+      finalNode.isStatic,
       undefined,
-      false, // Not static by default
+      undefined,
+      chainNodes, // Attach chainNodes to final node
     );
 
-    // Add chained expression properties
-    (rootRef as any).chainNodes = chainNodes;
-
-    return rootRef as unknown as ChainedSymbolReference;
+    return finalRef;
   }
 
   /**
    * Create a chained type reference for dotted type names
    * This method handles dotted type references like "System.Url" in type declarations,
-   * creating a chained symbol reference that can be resolved using the same
-   * chain resolution logic as expressions
+   * creating a final node (CLASS_REFERENCE) with chainNodes property
    */
   static createChainedTypeReference(
     chainNodes: SymbolReference[],
     fullTypeName: string,
     location: SymbolLocation,
     parentContext?: string,
-  ): ChainedSymbolReference {
+  ): SymbolReference {
+    if (chainNodes.length === 0) {
+      throw new Error('Chain nodes array cannot be empty');
+    }
+
+    // The final node is the last node in the chain (should be CLASS_REFERENCE)
+    const finalNode = chainNodes[chainNodes.length - 1];
+
     // Compute combined location from chain nodes or use provided location
     const baseLocation = chainNodes[0]?.location || location;
-    const finalLocation =
-      chainNodes[chainNodes.length - 1]?.location || location;
+    const finalLocation = finalNode.location || location;
 
     if (!baseLocation || !finalLocation) {
       throw new Error('Chain nodes must have valid locations');
     }
 
-    // Create the root reference with the full chain span
-    const rootRef = new EnhancedSymbolReference(
+    // Create the final node reference with chainNodes property
+    const finalRef = new EnhancedSymbolReference(
       fullTypeName, // Name contains the full type name (e.g., "System.Url")
       {
         symbolRange: {
@@ -644,17 +816,17 @@ export class SymbolReferenceFactory {
           endColumn: finalLocation.identifierRange.endColumn,
         },
       },
-      ReferenceContext.CHAINED_TYPE, // Use chained expression context for type chains
+      finalNode.context, // Use final node's context (typically CLASS_REFERENCE)
       undefined, // resolvedSymbolId - will be set during second-pass resolution
       parentContext,
       undefined,
       false, // Not static by default
+      undefined,
+      undefined,
+      chainNodes, // Attach chainNodes to final node
     );
 
-    // Add chained expression properties
-    (rootRef as any).chainNodes = chainNodes;
-
-    return rootRef as unknown as ChainedSymbolReference;
+    return finalRef;
   }
 
   /**

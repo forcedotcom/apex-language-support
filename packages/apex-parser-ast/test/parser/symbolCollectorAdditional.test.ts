@@ -323,7 +323,19 @@ public class TestClass {
           ) as ScopeSymbol | undefined)
         : undefined;
 
-      // Get all block scopes
+      // Variable x is directly in method block (method body block omitted)
+      const methodVars = methodScope
+        ? symbolTable
+            .getSymbolsInScope(methodScope.id)
+            .filter(
+              (s) =>
+                s.kind === SymbolKind.Variable && s.parentId === methodScope.id,
+            )
+        : [];
+      expect(methodVars.length).toBe(1);
+      expect(methodVars[0]?.name).toBe('x');
+
+      // Get all block scopes (nested blocks directly under method)
       const blockScopes = methodScope
         ? (symbolTable
             .getSymbolsInScope(methodScope.id)
@@ -336,18 +348,21 @@ public class TestClass {
         : [];
       expect(blockScopes?.length).toBe(1); // One nested block directly under method
 
-      // Check variables in the first block scope (outer block)
+      // Check variables in the first block scope (outer nested block)
       const firstBlock = blockScopes?.[0];
       const firstBlockVars = firstBlock
         ? symbolTable
             .getSymbolsInScope(firstBlock.id)
-            .filter((s) => s.kind === SymbolKind.Variable)
+            .filter(
+              (s) =>
+                s.kind === SymbolKind.Variable && s.parentId === firstBlock.id,
+            )
         : [];
-      expect(firstBlockVars.length).toBe(1); // Only x in the outer block
-      expect(firstBlockVars[0]?.name).toBe('x');
+      expect(firstBlockVars.length).toBe(1); // Only y in the outer nested block
+      expect(firstBlockVars[0]?.name).toBe('y');
 
-      // Check nested block scope
-      const nestedBlockScopes = firstBlock
+      // Check innermost block scope
+      const innerBlockScopes = firstBlock
         ? (symbolTable
             .getSymbolsInScope(firstBlock.id)
             .filter(
@@ -357,37 +372,17 @@ public class TestClass {
                 s.scopeType !== 'method',
             ) as ScopeSymbol[])
         : [];
-      expect(nestedBlockScopes.length).toBe(1); // One nested block inside the first block
-
-      // Check variables in the middle block scope
-      const middleBlock = nestedBlockScopes?.[0];
-      const middleBlockVars = middleBlock
-        ? symbolTable
-            .getSymbolsInScope(middleBlock.id)
-            .filter((s) => s.kind === SymbolKind.Variable)
-        : [];
-      expect(middleBlockVars.length).toBe(1); // Only y in the middle block
-      expect(middleBlockVars[0]?.name).toBe('y');
-
-      // Check innermost block scope
-      const innerBlockScopes = middleBlock
-        ? (symbolTable
-            .getSymbolsInScope(middleBlock.id)
-            .filter(
-              (s) =>
-                s.parentId === middleBlock.id &&
-                isBlockSymbol(s) &&
-                s.scopeType !== 'method',
-            ) as ScopeSymbol[])
-        : [];
-      expect(innerBlockScopes.length).toBe(1); // One nested block inside the middle block
+      expect(innerBlockScopes.length).toBe(1); // One nested block inside the first block
 
       // Check variables in the innermost block scope
       const innerBlock = innerBlockScopes?.[0];
       const innerBlockVars = innerBlock
         ? symbolTable
             .getSymbolsInScope(innerBlock.id)
-            .filter((s) => s.kind === SymbolKind.Variable)
+            .filter(
+              (s) =>
+                s.kind === SymbolKind.Variable && s.parentId === innerBlock.id,
+            )
         : [];
       expect(innerBlockVars.length).toBe(1); // Only z in the innermost block
       expect(innerBlockVars?.[0].name).toBe('z');
@@ -507,10 +502,9 @@ public class TestClass {
       }
 
       expect(innerClass).toBeDefined();
-      // Parent property removed - check parentId instead
-      // Inner classes have parentId pointing to the outer class symbol (not the block)
-      if (outerClass) {
-        expect(innerClass?.parentId).toBe(outerClass.id);
+      // Inner classes have parentId pointing to the outer class block (consistent with methods/constructors)
+      if (outerScope) {
+        expect(innerClass?.parentId).toBe(outerScope.id);
       }
       expect(innerClass?.kind).toBe(SymbolKind.Class);
     });
@@ -534,6 +528,27 @@ public class TestClass {
       expect(result.errors[0].message).toContain(
         "Inner class 'InnerClass' cannot have wider visibility than its containing class",
       );
+    });
+
+    it('should allow public inner class in @isTest private class (e.g. HttpCalloutMock)', () => {
+      const fileContent = `
+        @isTest
+        private class GeocodingServiceTest {
+          public class OpenStreetMapHttpCalloutMockImpl implements HttpCalloutMock {
+            public HTTPResponse respond(HTTPRequest req) {
+              return new HttpResponse();
+            }
+          }
+        }
+      `;
+
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'GeocodingServiceTest.cls',
+        listener,
+      );
+
+      expect(result.errors.length).toBe(0);
     });
   });
 });

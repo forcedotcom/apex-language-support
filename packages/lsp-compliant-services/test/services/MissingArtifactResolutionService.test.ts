@@ -25,6 +25,7 @@ const mockLogger: LoggerInterface = {
   warn: jest.fn(),
   error: jest.fn(),
   log: jest.fn(),
+  alwaysLog: jest.fn(),
 };
 
 const _mockRpcClient = {
@@ -90,8 +91,7 @@ describe('MissingArtifactResolutionService', () => {
   describe('Service Parameters', () => {
     it('should accept valid FindMissingArtifactParams', () => {
       const params: FindMissingArtifactParams = {
-        identifier: 'TestClass',
-        artifactKind: 'class',
+        identifiers: [{ name: 'TestClass' }],
         origin: {
           uri: 'file:///test.cls',
           position: { line: 10, character: 5 },
@@ -103,15 +103,14 @@ describe('MissingArtifactResolutionService', () => {
         correlationId: 'test-123',
       };
 
-      expect(params.identifier).toBe('TestClass');
+      expect(params.identifiers[0].name).toBe('TestClass');
       expect(params.mode).toBe('blocking');
       expect(params.origin.requestKind).toBe('definition');
     });
 
     it('should accept background mode parameters', () => {
       const params: FindMissingArtifactParams = {
-        identifier: 'TestTrigger',
-        artifactKind: 'trigger',
+        identifiers: [{ name: 'TestTrigger' }],
         origin: {
           uri: 'file:///test.trigger',
           requestKind: 'hover',
@@ -120,7 +119,6 @@ describe('MissingArtifactResolutionService', () => {
       };
 
       expect(params.mode).toBe('background');
-      expect(params.artifactKind).toBe('trigger');
     });
   });
 

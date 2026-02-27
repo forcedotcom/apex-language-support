@@ -31,25 +31,21 @@ export class MissingArtifactProcessingService {
   async processFindMissingArtifact(
     params: FindMissingArtifactParams,
   ): Promise<FindMissingArtifactResult> {
+    const names = params.identifiers.map((s) => s.name).join(', ');
     this.logger.debug(
       () =>
-        `MissingArtifactProcessingService processing queued request for: ${params.identifier}`,
+        `MissingArtifactProcessingService processing queued request for: ${names}`,
     );
 
     try {
-      // Get LSP connection from configuration manager
       const configManager = LSPConfigurationManager.getInstance();
       const connection = configManager.getConnection();
 
       if (!connection) {
-        this.logger.warn(
-          () => `No LSP connection available for: ${params.identifier}`,
-        );
+        this.logger.warn(() => `No LSP connection available for: ${names}`);
         return { notFound: true };
       }
 
-      // Send request directly to client via LSP connection
-      // This avoids the circular dependency of queuing another request
       const result = await connection.sendRequest<FindMissingArtifactResult>(
         'apex/findMissingArtifact',
         params,
@@ -57,17 +53,15 @@ export class MissingArtifactProcessingService {
 
       this.logger.debug(
         () =>
-          `MissingArtifactProcessingService completed request for: ${params.identifier}`,
+          `MissingArtifactProcessingService completed request for: ${names}`,
       );
 
       return result;
     } catch (error) {
       this.logger.error(
-        () =>
-          `MissingArtifactProcessingService failed for ${params.identifier}: ${error}`,
+        () => `MissingArtifactProcessingService failed for ${names}: ${error}`,
       );
 
-      // Return a "not found" result on error
       return { notFound: true };
     }
   }

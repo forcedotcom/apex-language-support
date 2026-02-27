@@ -252,7 +252,7 @@ describe('ApexLanguageServerSettings Validation', () => {
               logLevel: 'info',
             },
           },
-        },
+        } as Partial<ApexLanguageServerSettings>,
         'desktop',
       );
 

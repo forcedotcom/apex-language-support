@@ -10,76 +10,98 @@ import { logToOutputChannel } from './logging';
 import {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
+  IdentifierSpec,
 } from '@salesforce/apex-lsp-shared';
 
 export async function handleFindMissingArtifact(
   params: FindMissingArtifactParams,
-  context: vscode.ExtensionContext,
+  _context: vscode.ExtensionContext,
 ): Promise<FindMissingArtifactResult> {
+  const names = params.identifiers.map((s) => s.name).join(', ');
   logToOutputChannel(
-    `🔍 Handling missing artifact request for: ${params.identifier}`,
+    `🔍 Handling missing artifact request for: ${names}`,
     'debug',
   );
 
   try {
-    // Try to resolve from workspace files only
-    // StandardApexLibrary resolution is handled by lsp-compliant-services and parser-ast
     const workspaceResult = await resolveFromWorkspace(params);
     if (workspaceResult) {
       return workspaceResult;
     }
 
-    // Not found in workspace
     logToOutputChannel(
-      `❌ Could not find artifact in workspace: ${params.identifier}`,
+      `❌ Could not find artifact in workspace: ${names}`,
       'debug',
     );
     return { notFound: true };
   } catch (error) {
     logToOutputChannel(
-      `❌ Error resolving artifact ${params.identifier}: ${error}`,
+      `❌ Error resolving artifact ${names}: ${error}`,
       'error',
     );
     return { notFound: true };
   }
 }
 
+/** Dedupe specs by name; prefer spec with hints over minimal { name } */
+function dedupeByIdentifierName(specs: IdentifierSpec[]): IdentifierSpec[] {
+  const byName = new Map<string, IdentifierSpec>();
+  for (const spec of specs) {
+    const existing = byName.get(spec.name);
+    const hasHints =
+      spec.searchHints?.length ||
+      spec.typeReference ||
+      spec.resolvedQualifier ||
+      spec.parentContext;
+    const existingHasHints =
+      existing?.searchHints?.length ||
+      existing?.typeReference ||
+      existing?.resolvedQualifier ||
+      existing?.parentContext;
+    if (!existing || (hasHints && !existingHasHints)) {
+      byName.set(spec.name, spec);
+    }
+  }
+  return Array.from(byName.values());
+}
+
 async function resolveFromWorkspace(
   params: FindMissingArtifactParams,
 ): Promise<FindMissingArtifactResult | null> {
-  const identifier = params.identifier;
+  const { identifiers, mode } = params;
   const maxCandidates = params.maxCandidatesToOpen || 3;
 
-  logToOutputChannel(`🔍 Resolving missing artifact: ${identifier}`, 'debug');
+  if (identifiers.length === 0) {
+    return { notFound: true };
+  }
 
-  // Use intelligent search strategy based on available information
-  const searchStrategies = generateSearchStrategies(params);
+  const uniqueSpecs = dedupeByIdentifierName(identifiers);
+  const allFiles = new Set<string>();
 
-  for (const strategy of searchStrategies) {
-    logToOutputChannel(
-      `🔍 Trying strategy: ${strategy.reasoning} (confidence: ${strategy.confidence})`,
-      'debug',
-    );
+  for (const spec of uniqueSpecs) {
+    const searchStrategies = generateSearchStrategiesForSpec(spec);
 
-    const files = await searchWithStrategy(strategy, maxCandidates);
-
-    if (files.length > 0) {
-      logToOutputChannel(
-        `✅ Found ${files.length} files using strategy: ${strategy.reasoning}`,
-        'debug',
-      );
-
-      const openedFiles = await openFiles(files, params.mode);
-      if (openedFiles.length > 0) {
-        return { opened: openedFiles };
+    for (const strategy of searchStrategies) {
+      const files = await searchWithStrategy(strategy, maxCandidates);
+      for (const f of files) {
+        allFiles.add(f.toString());
+      }
+      if (files.length > 0) {
+        break; // Found for this spec, move to next
       }
     }
   }
 
-  logToOutputChannel(
-    `❌ Could not find artifact in workspace: ${identifier}`,
-    'debug',
-  );
+  if (allFiles.size > 0) {
+    const filesToOpen = Array.from(allFiles)
+      .map((p) => vscode.Uri.parse(p))
+      .slice(0, maxCandidates);
+    const openedFiles = await openFiles(filesToOpen, mode);
+    if (openedFiles.length > 0) {
+      return { opened: openedFiles };
+    }
+  }
+
   return null;
 }
 
@@ -93,15 +115,14 @@ interface SearchStrategy {
   namespace?: string;
 }
 
-function generateSearchStrategies(
-  params: FindMissingArtifactParams,
+function generateSearchStrategiesForSpec(
+  spec: IdentifierSpec,
 ): SearchStrategy[] {
   const strategies: SearchStrategy[] = [];
-  const identifier = params.identifier;
+  const identifier = spec.name;
 
-  // Strategy 1: Use server-provided search hints (highest priority)
-  if (params.searchHints && params.searchHints.length > 0) {
-    for (const hint of params.searchHints) {
+  if (spec.searchHints && spec.searchHints.length > 0) {
+    for (const hint of spec.searchHints) {
       strategies.push({
         searchPatterns: hint.searchPatterns || [
           `**/${hint.expectedFileType || 'class'}.cls`,
@@ -116,9 +137,8 @@ function generateSearchStrategies(
     }
   }
 
-  // Strategy 2: Use resolved qualifier information
-  if (params.resolvedQualifier) {
-    const qualifier = params.resolvedQualifier;
+  if (spec.resolvedQualifier) {
+    const qualifier = spec.resolvedQualifier;
     strategies.push({
       searchPatterns: [`**/${qualifier.name}.cls`],
       priority: 'exact',
@@ -129,9 +149,8 @@ function generateSearchStrategies(
     });
   }
 
-  // Strategy 3: Parse identifier intelligently
   if (identifier.includes('.')) {
-    const [className, _theRest] = identifier.split('.', 2);
+    const [className] = identifier.split('.', 2);
     strategies.push({
       searchPatterns: [`**/${className}.cls`],
       priority: 'high',
@@ -140,7 +159,6 @@ function generateSearchStrategies(
       confidence: 0.8,
     });
   } else {
-    // Unqualified reference - could be class or method
     strategies.push({
       searchPatterns: [`**/${identifier}.cls`],
       priority: 'medium',
@@ -150,35 +168,26 @@ function generateSearchStrategies(
     });
   }
 
-  // Strategy 4: Use type reference information
-  if (params.typeReference) {
-    const ref = params.typeReference;
-    if (ref.qualifier) {
-      strategies.push({
-        searchPatterns: [`**/${ref.qualifier}.cls`],
-        priority: 'exact',
-        reasoning: `TypeReference qualifier: ${ref.qualifier}`,
-        expectedFileType: 'class',
-        confidence: 0.95,
-      });
-    }
+  if (spec.typeReference?.qualifier) {
+    strategies.push({
+      searchPatterns: [`**/${spec.typeReference.qualifier}.cls`],
+      priority: 'exact',
+      reasoning: `TypeReference qualifier: ${spec.typeReference.qualifier}`,
+      expectedFileType: 'class',
+      confidence: 0.95,
+    });
   }
 
-  // Strategy 5: Use parent context
-  if (params.parentContext?.containingType) {
-    const containingType = params.parentContext.containingType;
-    if (containingType.name) {
-      strategies.push({
-        searchPatterns: [`**/${containingType.name}.cls`],
-        priority: 'high',
-        reasoning: `Parent context: ${containingType.name}`,
-        expectedFileType: 'class',
-        confidence: 0.7,
-      });
-    }
+  if (spec.parentContext?.containingType?.name) {
+    strategies.push({
+      searchPatterns: [`**/${spec.parentContext.containingType.name}.cls`],
+      priority: 'high',
+      reasoning: `Parent context: ${spec.parentContext.containingType.name}`,
+      expectedFileType: 'class',
+      confidence: 0.7,
+    });
   }
 
-  // Strategy 6: Fallback patterns
   strategies.push({
     searchPatterns: [`**/${identifier}*.cls`, `**/${identifier}*.trigger`],
     priority: 'low',
@@ -187,7 +196,6 @@ function generateSearchStrategies(
     confidence: 0.3,
   });
 
-  // Sort by confidence (highest first)
   return strategies.sort((a, b) => b.confidence - a.confidence);
 }
 
@@ -197,7 +205,6 @@ async function searchWithStrategy(
 ): Promise<vscode.Uri[]> {
   const allFiles: vscode.Uri[] = [];
 
-  // Try primary search patterns
   for (const pattern of strategy.searchPatterns) {
     try {
       const files = await vscode.workspace.findFiles(
@@ -218,7 +225,6 @@ async function searchWithStrategy(
     }
   }
 
-  // Try fallback patterns if we didn't find enough files
   if (allFiles.length < maxCandidates && strategy.fallbackPatterns) {
     for (const pattern of strategy.fallbackPatterns) {
       try {
@@ -241,12 +247,9 @@ async function searchWithStrategy(
     }
   }
 
-  // Remove duplicates and limit results
-  const uniqueFiles = Array.from(new Set(allFiles.map((f) => f.toString())))
+  return Array.from(new Set(allFiles.map((f) => f.toString())))
     .map((path) => vscode.Uri.parse(path))
     .slice(0, maxCandidates);
-
-  return uniqueFiles;
 }
 
 async function openFiles(
@@ -259,7 +262,6 @@ async function openFiles(
     try {
       const doc = await vscode.workspace.openTextDocument(file);
 
-      // Only show in editor if blocking mode
       if (mode === 'blocking') {
         await vscode.window.showTextDocument(doc, { preview: false });
       }

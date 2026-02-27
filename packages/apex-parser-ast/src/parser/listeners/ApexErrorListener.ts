@@ -12,6 +12,29 @@ import {
   Recognizer,
   Token,
 } from 'antlr4ts';
+import {
+  ILLEGAL_DOUBLE_LITERAL,
+  ILLEGAL_STRING_LITERAL,
+  INVALID_APEX_IDENTIFIER,
+  INVALID_APEX_SYMBOL,
+  INVALID_DATE,
+  INVALID_DATE_TIME,
+  INVALID_TIME,
+  MISSING_CLOSING_MARK,
+  MISSING_CLOSING_QUOTE,
+  MISMATCHED_SYNTAX,
+  MISSING_SYNTAX,
+  UNEXPECTED_EOF,
+  UNEXPECTED_ERROR,
+  UNEXPECTED_SYMBOL_EXPECTED_FOUND,
+  UNEXPECTED_SYMBOL_NOT_SET,
+  UNEXPECTED_SYMBOL_RANGE,
+  UNEXPECTED_SYMBOL_SET,
+  UNEXPECTED_SYNTAX_ERROR,
+  UNEXPECTED_TOKEN,
+  UNMATCHED_SYNTAX,
+  UNRECOGNIZED_SYMBOL_NOT_VALID_APEX_IDENTIFIER,
+} from '../../generated/ErrorCodes';
 
 /**
  * Error types that can be captured during parsing and analysis
@@ -43,6 +66,90 @@ export interface ApexError {
   endColumn?: number;
   fileUri?: string;
   source?: string;
+  /** Error code from ErrorCodes (e.g. for syntax errors) */
+  code?: string;
+}
+
+/**
+ * Map ANTLR parser/lexer error message to ErrorCode.
+ * Uses regex patterns on the message; fallback is UNEXPECTED_SYNTAX_ERROR.
+ */
+export function mapSyntaxErrorToCode(
+  msg: string,
+  _e?: RecognitionException | undefined,
+): string {
+  const m = msg.trim().toLowerCase();
+  if (/missing closing quote|unclosed.*string/i.test(m)) {
+    return MISSING_CLOSING_QUOTE;
+  }
+  if (/missing closing mark|unclosed.*comment|multi.line comment/i.test(m)) {
+    return MISSING_CLOSING_MARK;
+  }
+  if (/missing\s+['""].*at\s|missing '.*' at/i.test(m)) {
+    return MISSING_SYNTAX;
+  }
+  if (/mismatched input|expecting.*but was|expecting '.*' but was/i.test(m)) {
+    return MISMATCHED_SYNTAX;
+  }
+  if (
+    /extraneous input|extra .*at|unmatched|extra '.*'|did not expect/i.test(m)
+  ) {
+    return UNMATCHED_SYNTAX;
+  }
+  if (
+    /no viable alternative|unexpected <eof>|unexpected end of file|reach.*eof/i.test(
+      m,
+    )
+  ) {
+    return UNEXPECTED_EOF;
+  }
+  if (
+    /unexpected symbol.*was expecting|was expecting.*found|expecting.*found/i.test(
+      m,
+    )
+  ) {
+    return UNEXPECTED_SYMBOL_EXPECTED_FOUND;
+  }
+  if (/not expecting anything in the set|not in the set/i.test(m)) {
+    return UNEXPECTED_SYMBOL_NOT_SET;
+  }
+  if (/expected something in the range|in the range/i.test(m)) {
+    return UNEXPECTED_SYMBOL_RANGE;
+  }
+  if (/expecting something in the set\s*\[/i.test(m)) {
+    return UNEXPECTED_SYMBOL_SET;
+  }
+  if (/unexpected token/i.test(m)) {
+    return UNEXPECTED_TOKEN;
+  }
+  if (/unexpected error/i.test(m)) {
+    return UNEXPECTED_ERROR;
+  }
+  if (/illegal string literal/i.test(m)) {
+    return ILLEGAL_STRING_LITERAL;
+  }
+  if (/illegal double/i.test(m)) {
+    return ILLEGAL_DOUBLE_LITERAL;
+  }
+  if (/invalid time\b/i.test(m) || /invalid time '/i.test(m)) {
+    return INVALID_TIME;
+  }
+  if (/invalid date\b/i.test(m) || /invalid date '/i.test(m)) {
+    return INVALID_DATE;
+  }
+  if (/invalid datetime/i.test(m) || /invalid date\.time/i.test(m)) {
+    return INVALID_DATE_TIME;
+  }
+  if (/invalid identifier|apex identifiers must start/i.test(m)) {
+    return INVALID_APEX_IDENTIFIER;
+  }
+  if (/punctuation symbol or operator|isn't valid in apex/i.test(m)) {
+    return INVALID_APEX_SYMBOL;
+  }
+  if (/unrecognized symbol|not a valid apex identifier/i.test(m)) {
+    return UNRECOGNIZED_SYMBOL_NOT_VALID_APEX_IDENTIFIER;
+  }
+  return UNEXPECTED_SYNTAX_ERROR;
 }
 
 /**
@@ -122,7 +229,7 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
     msg: string,
     e: RecognitionException | undefined,
   ): void {
-    // Add the syntax error to our collection (with deduplication)
+    const code = mapSyntaxErrorToCode(msg, e);
     const error: ApexError = {
       type: ErrorType.Syntax,
       severity: ErrorSeverity.Error,
@@ -131,6 +238,35 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
       column: charPositionInLine,
       fileUri: this.fileUri,
       source: offendingSymbol?.text,
+      code,
+    };
+    this.addErrorIfNotDuplicate(error);
+  }
+
+  /**
+   * Add a syntax error (for lexer or custom use). Lexer errors should use this
+   * so they are typed as Syntax and get proper ErrorCode mapping.
+   */
+  addSyntaxError(
+    message: string,
+    line: number,
+    column: number,
+    endLine?: number,
+    endColumn?: number,
+    source?: string,
+  ): void {
+    const code = mapSyntaxErrorToCode(message);
+    const error: ApexError = {
+      type: ErrorType.Syntax,
+      severity: ErrorSeverity.Error,
+      message,
+      line,
+      column,
+      endLine,
+      endColumn,
+      fileUri: this.fileUri,
+      source,
+      code,
     };
     this.addErrorIfNotDuplicate(error);
   }
@@ -238,7 +374,8 @@ export class ApexLexerErrorListener implements ANTLRErrorListener<number> {
   }
 
   /**
-   * Called by ANTLR lexer when a syntax error occurs
+   * Called by ANTLR lexer when a syntax error occurs.
+   * Lexer errors (e.g. unclosed string, unclosed comment) are syntax errors.
    */
   syntaxError<T extends number>(
     recognizer: Recognizer<T, any>,
@@ -248,8 +385,7 @@ export class ApexLexerErrorListener implements ANTLRErrorListener<number> {
     msg: string,
     e: RecognitionException | undefined,
   ): void {
-    // Delegate to the parser error listener
-    this.errorListener.semanticError(
+    this.errorListener.addSyntaxError(
       msg,
       line,
       charPositionInLine,

@@ -8,7 +8,7 @@
 
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import type { ExpressionType } from './TypePromotionSystem';
-import { isNonNullablePrimitiveType } from '../../utils/TypeInfoFactory';
+import { isAssignable } from './utils/typeAssignability';
 
 /**
  * Extended ExpressionType interface for statement validation
@@ -18,26 +18,6 @@ interface StatementExpressionType extends ExpressionType {
   isEnum?: boolean;
   isCollection?: boolean;
   elementType?: ExpressionType;
-}
-
-/**
- * Helper function to check if a type is a non-nullable primitive
- * In Apex, only these types are truly primitive (cannot be null):
- * Integer, Long, Double, Decimal, Boolean
- */
-function isPrimitiveType(type: StatementExpressionType): boolean {
-  if (type.isPrimitive === true || type.kind === 'primitive') {
-    return isNonNullablePrimitiveType(type.name);
-  }
-
-  return isNonNullablePrimitiveType(type.name);
-}
-
-/**
- * Helper function to check if a type is null
- */
-function isNullType(type: StatementExpressionType): boolean {
-  return type.name === 'null';
 }
 
 /**
@@ -205,164 +185,33 @@ export class StatementValidator {
 
   /**
    * Check if two types are compatible for assignment/initialization
-   * @param targetType - The target type
-   * @param sourceType - The source type
-   * @returns True if types are compatible
+   * Delegates to shared typeAssignability module.
    */
   private static isCompatibleType(
     targetType: StatementExpressionType,
     sourceType: StatementExpressionType,
   ): boolean {
-    // Same type is always compatible
-    if (targetType.name === sourceType.name) {
-      return true;
-    }
-
-    // String is compatible with String (case-insensitive check)
-    // String is a special type in Apex - it's not a true primitive but behaves like one
-    if (
-      (targetType.name === 'string' || targetType.name === 'String') &&
-      (sourceType.name === 'string' || sourceType.name === 'String')
-    ) {
-      return true;
-    }
-
-    // Null is compatible with all object types
-    if (isNullType(sourceType)) {
-      return !isPrimitiveType(targetType);
-    }
-
-    // Use type promotion system for primitive conversions
-    if (isPrimitiveType(targetType) && isPrimitiveType(sourceType)) {
-      return this.canPromotePrimitive(sourceType, targetType);
-    }
-
-    // Object type compatibility (widening)
-    if (!isPrimitiveType(targetType) && !isPrimitiveType(sourceType)) {
-      // Object can accept any object type (widening)
-      if (targetType.name === 'Object') {
-        return true;
-      }
-
-      // Check inheritance relationships (simplified)
-      // In a real implementation, this would check the actual inheritance hierarchy
-      return false;
-    }
-
-    // Primitive to Object widening (boxing)
-    if (!isPrimitiveType(targetType) && isPrimitiveType(sourceType)) {
-      if (targetType.name === 'Object') {
-        return true;
-      }
-      return false;
-    }
-
-    return false;
+    return isAssignable(
+      sourceType.name ?? '',
+      targetType.name ?? '',
+      'assignment',
+      { allSymbols: [] },
+    );
   }
 
   /**
    * Check if assignment is compatible (allows widening conversions)
-   * @param targetType - The target type
-   * @param valueType - The value type
-   * @returns True if assignment is compatible
+   * Delegates to shared typeAssignability module.
    */
   private static isCompatibleAssignment(
     targetType: StatementExpressionType,
     valueType: StatementExpressionType,
   ): boolean {
-    // Same type is always compatible
-    if (targetType.name === valueType.name) {
-      return true;
-    }
-
-    // String is compatible with String (case-insensitive check)
-    // String is a special type in Apex - it's not a true primitive but behaves like one
-    if (
-      (targetType.name === 'string' || targetType.name === 'String') &&
-      (valueType.name === 'string' || valueType.name === 'String')
-    ) {
-      return true;
-    }
-
-    // Null is compatible with all object types
-    if (isNullType(valueType)) {
-      return !isPrimitiveType(targetType);
-    }
-
-    // Use type promotion system for primitive conversions
-    if (isPrimitiveType(targetType) && isPrimitiveType(valueType)) {
-      return this.canPromotePrimitive(valueType, targetType);
-    }
-
-    // Object type compatibility (widening only)
-    if (!isPrimitiveType(targetType) && !isPrimitiveType(valueType)) {
-      // Object can accept any object type (widening)
-      if (targetType.name === 'Object') {
-        return true;
-      }
-
-      // Check inheritance relationships (simplified)
-      // In a real implementation, this would check the actual inheritance hierarchy
-      return false;
-    }
-
-    // Primitive to Object widening (boxing)
-    if (!isPrimitiveType(targetType) && isPrimitiveType(valueType)) {
-      if (targetType.name === 'Object') {
-        return true;
-      }
-      return false;
-    }
-
-    return false;
-  }
-
-  /**
-   * Check if primitive type can be promoted to target type
-   * @param sourceType - The source primitive type
-   * @param targetType - The target primitive type
-   * @returns True if promotion is allowed
-   */
-  private static canPromotePrimitive(
-    sourceType: StatementExpressionType,
-    targetType: StatementExpressionType,
-  ): boolean {
-    // Same type is always promotable
-    if (sourceType.name === targetType.name) {
-      return true;
-    }
-
-    // Widening conversions (allowed)
-    if (sourceType.name === 'Integer' && targetType.name === 'Long') {
-      return true;
-    }
-    if (sourceType.name === 'Integer' && targetType.name === 'Double') {
-      return true;
-    }
-    if (sourceType.name === 'Integer' && targetType.name === 'Decimal') {
-      return true;
-    }
-    if (sourceType.name === 'Long' && targetType.name === 'Double') {
-      return true;
-    }
-    if (sourceType.name === 'Long' && targetType.name === 'Decimal') {
-      return true;
-    }
-    if (sourceType.name === 'Double' && targetType.name === 'Decimal') {
-      return true;
-    }
-
-    // String can only accept String (no automatic conversion)
-    if (targetType.name === 'String') {
-      return sourceType.name === 'String';
-    }
-
-    // Object can accept any primitive type (boxing)
-    if (targetType.name === 'Object') {
-      return true;
-    }
-
-    // No other conversions are allowed
-    return false;
+    return isAssignable(
+      valueType.name ?? '',
+      targetType.name ?? '',
+      'assignment',
+      { allSymbols: [] },
+    );
   }
 }

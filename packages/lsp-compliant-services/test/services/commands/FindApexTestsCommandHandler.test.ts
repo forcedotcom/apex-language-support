@@ -13,6 +13,7 @@ import {
   TypeSymbol,
   MethodSymbol,
   ScopeSymbol,
+  createPrimitiveType,
 } from '@salesforce/apex-lsp-parser-ast';
 import { FindApexTestsCommandHandler } from '../../../src/services/commands/FindApexTestsCommandHandler';
 
@@ -127,7 +128,7 @@ describe('FindApexTestsCommandHandler', () => {
         },
         _isLoaded: true,
         interfaces: [],
-        namespace: null,
+        namespace: undefined,
       };
 
       const classBlock: ScopeSymbol = {
@@ -239,11 +240,7 @@ describe('FindApexTestsCommandHandler', () => {
           isWebService: false,
           isBuiltIn: false,
         },
-        returnType: {
-          name: 'void',
-          namespace: null,
-          originalTypeString: 'void',
-        },
+        returnType: createPrimitiveType('void'),
         parameters: [],
         _isLoaded: true,
       };
@@ -291,7 +288,7 @@ describe('FindApexTestsCommandHandler', () => {
         },
         _isLoaded: true,
         interfaces: [],
-        namespace: null,
+        namespace: undefined,
       };
 
       mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
@@ -380,7 +377,7 @@ describe('FindApexTestsCommandHandler', () => {
         },
         _isLoaded: true,
         interfaces: [],
-        namespace: null,
+        namespace: undefined,
       };
 
       const classBlock: ScopeSymbol = {
@@ -492,11 +489,7 @@ describe('FindApexTestsCommandHandler', () => {
           isWebService: false,
           isBuiltIn: false,
         },
-        returnType: {
-          name: 'void',
-          namespace: null,
-          originalTypeString: 'void',
-        },
+        returnType: createPrimitiveType('void'),
         parameters: [],
         _isLoaded: true,
       };
@@ -548,11 +541,7 @@ describe('FindApexTestsCommandHandler', () => {
           isWebService: false,
           isBuiltIn: false,
         },
-        returnType: {
-          name: 'void',
-          namespace: null,
-          originalTypeString: 'void',
-        },
+        returnType: createPrimitiveType('void'),
         parameters: [],
         _isLoaded: true,
       };
@@ -621,7 +610,7 @@ describe('FindApexTestsCommandHandler', () => {
         },
         _isLoaded: true,
         interfaces: [],
-        namespace: null,
+        namespace: undefined,
       };
 
       mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([
@@ -700,7 +689,7 @@ describe('FindApexTestsCommandHandler', () => {
         },
         _isLoaded: true,
         interfaces: [],
-        namespace: null,
+        namespace: undefined,
       };
 
       mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([testClass]);
@@ -804,7 +793,7 @@ describe('FindApexTestsCommandHandler', () => {
         },
         _isLoaded: true,
         interfaces: [],
-        namespace: null,
+        namespace: undefined,
       };
 
       mockSymbolManager.getAllSymbolsForCompletion.mockReturnValue([testClass]);

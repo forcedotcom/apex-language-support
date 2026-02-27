@@ -291,7 +291,7 @@ const parentScope = variable.parentId
     - `ValidationResult.ts`: Structured validation results with location-aware errors
     - `ValidatorInitialization.ts`: Validator registration and initialization
     - `ArtifactLoadingHelper.ts`: Cross-file type resolution and artifact loading
-    - `validators/`: 16 validator implementations (12 TIER 1, 4 TIER 2)
+    - `validators/`: 46 validator implementations (42 TIER 1, 4 TIER 2)
   - `i18n/`: Internationalization support for error messages:
     - `messageInstance.ts`: Message formatting using @salesforce/vscode-i18n
   - `generated/`: Auto-generated TypeScript modules (ignored by git, do not edit):
@@ -310,7 +310,7 @@ const parentScope = variable.parentId
 This package provides parser utilities, AST generation, and analysis tools for Apex code that are used by other packages in the Apex Language Server ecosystem. It includes:
 
 - Parser utilities for Apex code
-- **2-tier semantic validation system** with 16 validators (aligned with Jorje error codes)
+- **2-tier semantic validation system** with 46 validators (aligned with Jorje error codes)
 - Semantic analysis tools
 - Type definitions
 - Abstract syntax tree (AST) generation and manipulation
@@ -598,35 +598,37 @@ The validation system consists of:
 - **`ErrorCodes`**: Generated error code constants enabling linting detection of unused codes
 - **`localizeTyped`**: Type-safe message formatting using @salesforce/vscode-i18n
 - **`ArtifactLoadingHelper`**: Service for loading missing type definitions across files
-- **16 Validators**: 12 TIER 1 validators + 4 TIER 2 validators
+- **46 Validators**: 42 TIER 1 validators + 4 TIER 2 validators
+
+See [SEMANTIC_VALIDATION_STATUS.md](./SEMANTIC_VALIDATION_STATUS.md) for the complete validator list and error code coverage.
 
 ### Validators
 
 #### TIER 1 (IMMEDIATE) Validators
 
-Fast, same-file validations that run on every keystroke:
+Fast, same-file validations that run on every keystroke. Examples:
 
-1. **`SourceSizeValidator`**: Validates source file size limits (1M for classes/interfaces/enums/triggers, 32K for anonymous blocks, 3.2M for test anonymous blocks)
-2. **`ParameterLimitValidator`**: Validates method parameter count limits (max 32)
-3. **`EnumLimitValidator`**: Validates enum constant count limits (max 100)
-4. **`EnumConstantNamingValidator`**: Validates enum constant naming conventions
-5. **`DuplicateMethodValidator`**: Detects duplicate method signatures (case-insensitive)
-6. **`DuplicateSymbolValidator`**: Detects duplicate field and variable names within the same scope (handles static/non-static distinction for fields)
-7. **`ConstructorNamingValidator`**: Validates constructor names match class names
-8. **`TypeSelfReferenceValidator`**: Detects self-referencing type declarations
-9. **`AbstractMethodBodyValidator`**: Validates abstract methods have no body
-10. **`VariableShadowingValidator`**: Detects variable shadowing issues
-11. **`ForwardReferenceValidator`**: Validates forward references
-12. **`FinalAssignmentValidator`**: Validates final variable assignments
+- **`SourceSizeValidator`**: Source file size limits
+- **`ParameterLimitValidator`**: Method parameter count (max 32)
+- **`EnumLimitValidator`**: Enum constant count (max 100)
+- **`DuplicateMethodValidator`**: Duplicate method signatures
+- **`ConstructorNamingValidator`**: Constructor names match class names
+- **`AbstractMethodBodyValidator`**: Abstract methods have no body
+- **`InnerTypeValidator`**: Inner types cannot have inner types or static blocks
+- Plus 35 more (see SEMANTIC_VALIDATION_STATUS.md)
 
 #### TIER 2 (THOROUGH) Validators
 
 Comprehensive validations that may require cross-file analysis:
 
-1. **`MethodSignatureEquivalenceValidator`**: Cross-file method signature validation
-2. **`InterfaceHierarchyValidator`**: Interface inheritance validation (circular, missing, duplicate extends)
-3. **`ClassHierarchyValidator`**: Class inheritance validation (circular, final, missing superclasses)
-4. **`TypeAssignmentValidator`**: Type compatibility validation for variable assignments with cross-file type resolution
+- **`TypeResolutionValidator`**: Type reference resolution (INVALID_UNRESOLVED_TYPE, INVALID_CLASS), including generic type arguments (e.g., `List<NonExistentType>`)
+- **`StaticContextValidator`**: Static vs non-static context (static/non-static method/variable, super/this in static)
+- **`NewExpressionValidator`**: `new` expression name conflicts (inner type vs outer, super, interface, local, member)
+- **`TypeAssignmentValidator`**: Type compatibility for variable assignments
+- **`MethodResolutionValidator`**: Method visibility and parameter types
+- **`VariableResolutionValidator`**: Variable/field existence, visibility, void field load/store
+- **`TypeVisibilityValidator`**: Type visibility; API version checks via `@Deprecated(removed=X)` for NOT_VISIBLE_MAX_VERSION (when apiVersion >= removed)
+- **`ClassHierarchyValidator`**, **`InterfaceHierarchyValidator`**, **`MethodSignatureEquivalenceValidator`**
 
 ### Validation Result Structure
 
@@ -799,7 +801,7 @@ sequenceDiagram
     participant PrerequisiteOrchestrationService
     participant LayerEnrichmentService
     participant ValidatorRegistry
-    participant TIER1Validators as TIER 1 Validators<br/>(12 validators)
+    participant TIER1Validators as TIER 1 Validators<br/>(42 validators)
     participant TIER2Validators as TIER 2 Validators<br/>(4 validators)
     participant ArtifactLoadingHelper
     participant MissingArtifactResolutionService
@@ -823,7 +825,7 @@ sequenceDiagram
 
     Note over DiagnosticProcessingService: Initialize validators<br/>(static, one-time)
     DiagnosticProcessingService->>ValidatorRegistry: initializeValidators()
-    ValidatorRegistry->>ValidatorRegistry: Register 16 validators<br/>(12 TIER 1, 4 TIER 2)
+    ValidatorRegistry->>ValidatorRegistry: Register 46 validators<br/>(42 TIER 1, 4 TIER 2)
 
     DiagnosticProcessingService->>PrerequisiteOrchestrationService: runPrerequisitesForLspRequestType('diagnostics')
 
@@ -847,7 +849,7 @@ sequenceDiagram
     rect rgb(200, 230, 255)
         Note over DiagnosticProcessingService,TIER1Validators: TIER 1: IMMEDIATE Validation<br/>(<500ms, same-file only)
         DiagnosticProcessingService->>ValidatorRegistry: runValidatorsForTier(IMMEDIATE, table, options)
-        ValidatorRegistry->>TIER1Validators: Execute 12 validators
+        ValidatorRegistry->>TIER1Validators: Execute 42 validators
 
         loop For each TIER 1 validator
             TIER1Validators->>TIER1Validators: Validate symbols<br/>(SourceSize, ParameterLimit, EnumLimit, etc.)

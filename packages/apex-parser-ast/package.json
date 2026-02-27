@@ -36,6 +36,7 @@
     "clean": "rimraf out dist resources .wireit coverage src/generated tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "wireit",
+    "typecheck": "wireit",
     "check:error-codes": "node scripts/check-error-code-coverage.mjs"
   },
   "wireit": {
@@ -56,7 +57,7 @@
       ]
     },
     "precompile": {
-      "command": "node scripts/generate-proto.mjs && node scripts/generate-keywords.mjs && node scripts/generate-zip.mjs && node scripts/generate-messages.mjs",
+      "command": "node scripts/generate-proto.mjs && node scripts/generate-keywords.mjs && node scripts/generate-primitive-types.mjs && node scripts/generate-zip.mjs && node scripts/generate-messages.mjs",
       "output": [
         "src/generated/**",
         "resources/StandardApexLibrary.zip"
@@ -64,11 +65,13 @@
       "files": [
         "scripts/generate-proto.mjs",
         "scripts/generate-keywords.mjs",
+        "scripts/generate-primitive-types.mjs",
         "scripts/generate-zip.mjs",
         "scripts/generate-messages.mjs",
         "proto/apex-stdlib.proto",
         "src/**/*.cls",
-        "src/resources/messages/messages_en_US.properties"
+        "src/resources/messages/messages_en_US.properties",
+        "src/resources/builtins/primitive-metadata.json"
       ]
     },
     "compile:tsc": {
@@ -90,6 +93,18 @@
       "dependencies": [
         "compile:tsc",
         "generate:stdlib-cache"
+      ]
+    },
+    "typecheck": {
+      "command": "tsc -p test/tsconfig.json --noEmit",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "tsconfig.json",
+        "test/tsconfig.json"
       ]
     },
     "bundle": {

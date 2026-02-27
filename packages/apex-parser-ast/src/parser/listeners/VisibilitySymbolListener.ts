@@ -7,6 +7,7 @@
  */
 
 import {
+  ClassBodyDeclarationContext,
   ClassDeclarationContext,
   InterfaceDeclarationContext,
   MethodDeclarationContext,
@@ -35,6 +36,7 @@ import {
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
+import { createTypeInfoFromTypeRef as createTypeInfoFromTypeRefUtil } from '../utils/createTypeInfoFromTypeRef';
 import {
   SymbolKind,
   SymbolLocation,
@@ -99,6 +101,17 @@ export class VisibilitySymbolListener
 
   getDetailLevel(): DetailLevel {
     return this.detailLevel;
+  }
+
+  /**
+   * Called when entering a class body declaration (modifiers + member).
+   * Reset modifiers at the start of each declaration so they don't leak from the previous member.
+   * Must run before modifiers are visited (grammar: classBodyDeclaration -> (modifier)* memberDeclaration).
+   * Without this, e.g. "private static final" from a field can leak into the next inner class.
+   */
+  enterClassBodyDeclaration(_ctx: ClassBodyDeclarationContext): void {
+    this.resetModifiers();
+    this.resetAnnotations();
   }
 
   setProjectNamespace(namespace: string): void {
@@ -488,19 +501,20 @@ export class VisibilitySymbolListener
 
       this.addSymbolWithDetailLevel(methodSymbol, this.getCurrentScopeSymbol());
 
-      // Create method block for scope tracking (only for private level)
-      if (this.detailLevel === 'private') {
-        const location = this.getLocation(ctx);
-        const blockSymbol = this.createBlockSymbol(
-          name,
-          'method',
-          location,
-          this.getCurrentScopeSymbol(),
-        );
+      // Find and push method block for scope tracking (StructureListener creates it)
+      const location = this.getLocation(ctx);
+      const blockSymbol = this.createBlockSymbol(
+        name,
+        'method',
+        location,
+        this.getCurrentScopeSymbol(),
+        undefined,
+        ctx,
+        methodSymbol.id,
+      );
 
-        if (blockSymbol) {
-          this.scopeStack.push(blockSymbol);
-        }
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
       }
 
       // Delegate reference collection for return type
@@ -541,15 +555,9 @@ export class VisibilitySymbolListener
   }
 
   exitMethodDeclaration(): void {
-    // Only pop if we actually pushed a method block in enterMethodDeclaration
-    // This happens only for private level AND when the method visibility matched
-    if (this.detailLevel === 'private') {
-      const currentScope = this.scopeStack.peek();
-      // Only pop if the current scope is a method block
-      // (avoid popping class block if method was skipped due to visibility mismatch)
-      if (isBlockSymbol(currentScope) && currentScope.scopeType === 'method') {
-        this.scopeStack.pop();
-      }
+    const currentScope = this.scopeStack.peek();
+    if (isBlockSymbol(currentScope) && currentScope.scopeType === 'method') {
+      this.scopeStack.pop();
     }
   }
 
@@ -803,19 +811,20 @@ export class VisibilitySymbolListener
 
       this.addSymbolWithDetailLevel(constructorSymbol, classBlock || null);
 
-      // Create constructor block for scope tracking (only for private level)
-      if (this.detailLevel === 'private') {
-        const location = this.getLocation(ctx);
-        const blockSymbol = this.createBlockSymbol(
-          name,
-          'method',
-          location,
-          this.getCurrentScopeSymbol(),
-        );
+      // Find and push constructor block for scope tracking (StructureListener creates it)
+      const location = this.getLocation(ctx);
+      const blockSymbol = this.createBlockSymbol(
+        name,
+        'method',
+        location,
+        this.getCurrentScopeSymbol(),
+        undefined,
+        ctx,
+        constructorSymbol.id,
+      );
 
-        if (blockSymbol) {
-          this.scopeStack.push(blockSymbol);
-        }
+      if (blockSymbol) {
+        this.scopeStack.push(blockSymbol);
       }
 
       // Delegate reference collection for parameter types
@@ -841,15 +850,9 @@ export class VisibilitySymbolListener
   }
 
   exitConstructorDeclaration(): void {
-    // Only pop if we actually pushed a method block in enterConstructorDeclaration
-    // This happens only for private level AND when the constructor visibility matched
-    if (this.detailLevel === 'private') {
-      const currentScope = this.scopeStack.peek();
-      // Only pop if the current scope is a method block
-      // (avoid popping class block if constructor was skipped due to visibility mismatch)
-      if (isBlockSymbol(currentScope) && currentScope.scopeType === 'method') {
-        this.scopeStack.pop();
-      }
+    const currentScope = this.scopeStack.peek();
+    if (isBlockSymbol(currentScope) && currentScope.scopeType === 'method') {
+      this.scopeStack.pop();
     }
   }
 
@@ -1073,8 +1076,9 @@ export class VisibilitySymbolListener
   enterTriggerMemberDeclaration(ctx: TriggerMemberDeclarationContext): void {
     try {
       // Get the trigger name from the parent context
-      const triggerUnit = ctx.parent?.parent as TriggerUnitContext;
-      const name = triggerUnit?.id(0)?.text ?? 'unknownTrigger';
+      // TriggerMemberDeclaration -> TriggerBlockMember -> TriggerBlock -> TriggerUnit
+      const triggerUnit = ctx.parent?.parent?.parent as TriggerUnitContext;
+      const name = triggerUnit?.id?.(0)?.text ?? 'unknownTrigger';
       const modifiers = this.getCurrentModifiers();
 
       // Only create TypeSymbol for public-api level and matching visibility
@@ -1453,13 +1457,32 @@ export class VisibilitySymbolListener
     const parent = this.getCurrentType();
     const namespace = this.determineNamespaceForType(name, kind);
 
-    const scopePath = this.symbolTable.getCurrentScopePath(
-      this.getCurrentScopeSymbol(),
-    );
+    // Include root symbol's prefix and name in scopePath to match ApexSymbolCollectorListener format
+    // This ensures inner types created by different listeners have the same unifiedId
+    const currentScope = this.getCurrentScopeSymbol();
+    const baseScopePath = this.symbolTable.getCurrentScopePath(currentScope);
+    const rootSymbol = this.findRootSymbol(currentScope);
+    let scopePath: string[] = baseScopePath;
+    // For top-level types, don't include root symbol in scopePath if it's the same type being created
+    // This prevents duplicate class symbols with different IDs (e.g., class:Foo vs class:Foo:class:Foo)
+    const isTopLevel = this.scopeStack.isEmpty();
+    if (
+      rootSymbol &&
+      !(isTopLevel && rootSymbol.name === name && rootSymbol.kind === kind)
+    ) {
+      const rootPrefix = rootSymbol.kind; // e.g., 'class', 'interface', 'enum', 'trigger'
+      scopePath = [rootPrefix, rootSymbol.name, ...baseScopePath];
+    }
 
-    // For triggers, always set parentId to null (they're always top-level)
-    // For other types, use parent?.id || null
-    const parentId = kind === SymbolKind.Trigger ? null : parent?.id || null;
+    // For inner types, use class block as parent (consistent with methods/constructors/fields)
+    const parentId =
+      kind === SymbolKind.Trigger
+        ? null
+        : currentScope &&
+            isBlockSymbol(currentScope) &&
+            currentScope.scopeType === 'class'
+          ? currentScope.id
+          : parent?.id || null;
 
     const typeSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
@@ -1522,6 +1545,11 @@ export class VisibilitySymbolListener
       // e.g., ['class', 'MyClass', 'block1'] instead of ['MyClass', 'block1']
       const rootPrefix = rootSymbol.kind; // e.g., 'class', 'interface', 'enum', 'trigger'
       scopePath = [rootPrefix, rootSymbol.name, ...baseScopePath];
+    } else if (currentScope && currentScope.scopeType === 'class') {
+      // Root type not in symbol table yet (e.g. protected layer adds default-visibility methods
+      // before private layer adds a private class). Use class block name for consistent path
+      // so VisibilitySymbolListener and ApexSymbolCollectorListener produce identical unifiedIds.
+      scopePath = ['class', currentScope.name, ...baseScopePath];
     }
 
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
@@ -1620,6 +1648,7 @@ export class VisibilitySymbolListener
     parentScope: ScopeSymbol | null,
     semanticName?: string,
     ctx?: ParserRuleContext,
+    semanticParentId?: string | null,
   ): ScopeSymbol | null {
     const fileUri = this.symbolTable.getFileUri();
 
@@ -1685,24 +1714,28 @@ export class VisibilitySymbolListener
       parentId = parentScope.id;
     }
 
-    // Check if block symbol already exists (from a previous listener walk)
-    // Look it up by finding a block with matching scopeType and parentId
-    // This must happen BEFORE calculating scope path to reuse existing block's key
-    if (scopeType === 'class' && parentId) {
-      const existingBlock = this.symbolTable
-        .getAllSymbols()
-        .find(
-          (s) =>
-            isBlockSymbol(s) &&
-            s.scopeType === scopeType &&
-            s.parentId === parentId &&
-            s.fileUri === fileUri,
-        ) as ScopeSymbol | undefined;
-      if (existingBlock) {
-        // Block already exists, return it instead of creating a duplicate
-        // This ensures we reuse the same block instance across listener walks
-        return existingBlock;
+    // Check if block symbol already exists (from StructureListener)
+    // Match by location: fileUri, scopeType, startLine, startColumn
+    const existingBlock = this.symbolTable
+      .getAllSymbols()
+      .find(
+        (s) =>
+          isBlockSymbol(s) &&
+          s.scopeType === scopeType &&
+          s.fileUri === fileUri &&
+          s.location?.symbolRange &&
+          s.location.symbolRange.startLine === location.symbolRange.startLine &&
+          s.location.symbolRange.startColumn ===
+            location.symbolRange.startColumn,
+      ) as ScopeSymbol | undefined;
+    if (existingBlock) {
+      // Update parentId to semantic hierarchy (StructureListener uses stack-based)
+      if (semanticParentId !== undefined) {
+        existingBlock.parentId = semanticParentId;
+      } else if (scopeType === 'class' && parentId) {
+        existingBlock.parentId = parentId;
       }
+      return existingBlock;
     }
 
     // Calculate scope path correctly even when parentScope is null
@@ -1863,8 +1896,7 @@ export class VisibilitySymbolListener
   }
 
   private createTypeInfoFromTypeRef(typeRef: TypeRefContext): TypeInfo {
-    const typeText = typeRef.text || '';
-    return createTypeInfo(typeText);
+    return createTypeInfoFromTypeRefUtil(typeRef);
   }
 
   private extractParameters(

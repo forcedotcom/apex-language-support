@@ -860,7 +860,35 @@ export class SymbolTable {
     const normalizedUnifiedId = getUnifiedId(symbol.key, symbol.fileUri);
     // Always use unifiedId as the map key (never path-based fallback)
     const symbolKey = normalizedUnifiedId;
-    const existing = this.symbolMap.get(symbolKey);
+    let existing = this.symbolMap.get(symbolKey);
+
+    // Fallback for layered compilation: different listeners (VisibilitySymbolListener vs
+    // ApexSymbolCollectorListener) may produce different keys when run in sequence. Look up by
+    // name+parentId to merge. Applies to: (1) inner classes - different scope paths; (2) methods -
+    // both listeners add the same method.
+    let effectiveKey = symbolKey;
+    if (
+      !existing &&
+      symbol._detailLevel &&
+      (symbol.kind === SymbolKind.Class ||
+        symbol.kind === SymbolKind.Method ||
+        symbol.kind === SymbolKind.Constructor)
+    ) {
+      const allSymbols = this.symbolArray;
+      const existingByParent = allSymbols.find(
+        (s) =>
+          s.kind === symbol.kind &&
+          s.name === symbol.name &&
+          s.parentId === symbol.parentId &&
+          s.fileUri === symbol.fileUri &&
+          s._detailLevel &&
+          s !== symbol,
+      );
+      if (existingByParent) {
+        effectiveKey = getUnifiedId(existingByParent.key, symbol.fileUri);
+        existing = this.symbolMap.get(effectiveKey);
+      }
+    }
 
     // Handle union type: existing could be ApexSymbol or ApexSymbol[]
     const existingSymbol = Array.isArray(existing) ? existing[0] : existing;
@@ -946,8 +974,8 @@ export class SymbolTable {
         }
         // Use enriched symbol
         symbolToAdd = existingSymbol;
-        // Update map with enriched symbol
-        this.symbolMap.set(symbolKey, symbolToAdd);
+        // Update map with enriched symbol (use effectiveKey to avoid duplicate entries for inner classes)
+        this.symbolMap.set(effectiveKey, symbolToAdd);
         // Update array - remove ALL occurrences with this ID and add the enriched symbol once
         // This prevents duplicates if the same symbol was added multiple times
         let i = this.symbolArray.length - 1;
@@ -966,9 +994,37 @@ export class SymbolTable {
         // Existing symbol has higher detail level, skip enrichment
         // Keep existing symbol and return early (no duplicate detection needed)
         return;
+      } else if (newLevel === existingLevel) {
+        // Same detail level - check if this is a legitimate duplicate (different locations)
+        // or the same symbol being added twice (same object or same location)
+        const sameLocation =
+          existingSymbol.location.symbolRange.startLine ===
+            symbol.location.symbolRange.startLine &&
+          existingSymbol.location.symbolRange.startColumn ===
+            symbol.location.symbolRange.startColumn;
+
+        if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
+          // Top-level class with same detail level - skip duplicate (only one top-level class per file)
+          logger.debug(
+            () =>
+              `[SymbolTable.addSymbol] Skipping duplicate top-level class: ${symbol.name}, ` +
+              `same detail level=${symbol._detailLevel}`,
+          );
+          return;
+        }
+
+        // For inner classes/types: if same location, it's the same symbol being added twice - skip
+        // If different locations, it's a legitimate duplicate - fall through to duplicate detection
+        if (sameLocation) {
+          logger.debug(
+            () =>
+              `[SymbolTable.addSymbol] Skipping duplicate ${symbol.kind} with same location: ${symbol.name}, ` +
+              `line=${symbol.location.symbolRange.startLine}`,
+          );
+          return;
+        }
+        // Different locations - legitimate duplicate, fall through to duplicate detection
       }
-      // If newLevel === existingLevel, fall through to duplicate detection
-      // This allows duplicates with the same detail level to be stored
     }
 
     // Handle duplicates: convert single symbol to array when duplicate detected
@@ -982,27 +1038,38 @@ export class SymbolTable {
         );
       }
       this.symbolMap.set(symbolKey, symbolToAdd);
-      // Add to array (check by object reference to avoid duplicates with same id)
+      // Add to array - check by object reference to prevent same object appearing twice
+      // For the first symbol, this prevents the same symbol object from being added multiple times
       if (!this.symbolArray.includes(symbolToAdd)) {
         this.symbolArray.push(symbolToAdd);
       }
     } else if (isDuplicate) {
-      // Already have duplicates - add to array
+      // Already have duplicates - add to array (existing is ApexSymbol[] when isDuplicate)
+      const existingArr = existing as ApexSymbol[];
       if (symbol.kind === SymbolKind.Class && symbol.parentId === null) {
         logger.debug(
           () =>
             `[SymbolTable.addSymbol] ADDING TO EXISTING DUPLICATES: ${symbol.name}, ` +
-            `existingCount=${existing.length}, ` +
+            `existingCount=${existingArr.length}, ` +
             `location=${symbol.location.identifierRange.startLine}`,
         );
       }
       // Check if this symbol is already in the duplicate array (by object reference)
-      if (!existing.includes(symbolToAdd)) {
-        existing.push(symbolToAdd);
+      // For legitimate duplicates (same ID, different objects), we want both in the array
+      if (!existingArr.includes(symbolToAdd)) {
+        existingArr.push(symbolToAdd);
       }
-      // Add to symbolArray (check by object reference)
+      // Add to symbolArray - for duplicates, we want all symbols with same ID in the array
+      // Check by object reference to prevent same object appearing twice, but allow
+      // legitimate duplicates (same ID, different objects) to both appear
       if (!this.symbolArray.includes(symbolToAdd)) {
         this.symbolArray.push(symbolToAdd);
+      }
+      // Ensure all existing duplicates are also in symbolArray
+      for (const dup of existingArr) {
+        if (!this.symbolArray.includes(dup)) {
+          this.symbolArray.push(dup);
+        }
       }
     } else if (existingSymbol) {
       // Second duplicate detected - convert to array
@@ -1030,11 +1097,13 @@ export class SymbolTable {
         );
       }
       this.symbolMap.set(symbolKey, [existingSymbol, symbolToAdd]);
-      // Add to symbolArray (check by object reference)
+      // Add to symbolArray - for legitimate duplicates (same ID, different objects),
+      // we want both symbols in the array. Check by object reference to prevent
+      // same object appearing twice, but allow legitimate duplicates.
       if (!this.symbolArray.includes(symbolToAdd)) {
         this.symbolArray.push(symbolToAdd);
       }
-      // Ensure existingSymbol is also in array
+      // Ensure existingSymbol is also in array (check by object reference)
       if (!this.symbolArray.includes(existingSymbol)) {
         this.symbolArray.push(existingSymbol);
       }
@@ -1048,8 +1117,8 @@ export class SymbolTable {
         );
       }
       this.symbolMap.set(symbolKey, symbolToAdd);
-      // Add to array (check by object reference)
-      if (!this.symbolArray.includes(symbolToAdd)) {
+      // Add to array (check by ID to avoid duplicates)
+      if (!this.symbolArray.some((s) => s.id === symbolToAdd.id)) {
         this.symbolArray.push(symbolToAdd);
       }
     }
@@ -1082,17 +1151,32 @@ export class SymbolTable {
       }
     }
     // If parentId is null (top-level), set as root
-    // Only one top-level type can exist per file, so simple assignment
+    // Only semantic types (Class, Interface, Enum, Trigger) can be roots, not BlockSymbols
+    // BlockSymbols are structural and should not be roots - they're created by StructureListener
+    // for scope tracking, while TypeSymbols represent the actual semantic type
     if (symbol.parentId === null) {
+      // Skip BlockSymbols - only semantic types should be roots
+      if (symbol.kind === SymbolKind.Block) {
+        return;
+      }
+
       if (this.root && this.root.id !== symbol.id) {
-        // Defensive check: if root exists with different ID, log warning
-        // (shouldn't happen since parser only recognizes one top-level type)
+        // Check if root exists with same name (case-insensitive for Apex)
+        // If same name, it's likely the same class being added by different listeners
+        // with different IDs - don't warn, just replace silently
         const existingRootName = this.root.name;
-        logger.warn(
-          () =>
-            `[SymbolTable.updateRootsArray] Replacing root ${existingRootName} ` +
-            `with ${symbol.name} - multiple roots detected`,
-        );
+        const sameName =
+          existingRootName.toLowerCase() === symbol.name.toLowerCase();
+
+        if (!sameName) {
+          // Different class names - this is unexpected, log warning
+          logger.warn(
+            () =>
+              `[SymbolTable.updateRootsArray] Replacing root ${existingRootName} ` +
+              `with ${symbol.name} - multiple roots detected`,
+          );
+        }
+        // If same name, silently replace (handles multiple listeners creating same class with different IDs)
       }
       if (symbol.kind === SymbolKind.Class) {
         logger.debug(
@@ -1738,7 +1822,49 @@ export class SymbolTable {
       return false;
     });
 
-    return matched;
+    // For chained references, also create synthetic individual references for chain members
+    // that match the position. This allows code expecting individual METHOD_CALL references
+    // to work even though we only store chained references in the symbol table.
+    const syntheticRefs: SymbolReference[] = [];
+    for (const ref of matched) {
+      const chainNodes = (ref as any).chainNodes;
+      if (chainNodes && Array.isArray(chainNodes)) {
+        for (const node of chainNodes) {
+          if (
+            node?.location &&
+            this.positionInRange(position, node.location) &&
+            (node.context === ReferenceContext.METHOD_CALL ||
+              node.context === ReferenceContext.FIELD_ACCESS)
+          ) {
+            // Create a synthetic reference for this chain member
+            // Preserve all properties from the chain node for proper resolution
+            // Don't include chainNodes to avoid being treated as a chained reference
+            // Instead, store the original chained reference in a custom property for resolution
+            const syntheticRef: any = {
+              name: node.name,
+              location: node.location,
+              context: node.context,
+              parentContext: ref.parentContext,
+              resolvedSymbolId: node.resolvedSymbolId,
+              access: node.access,
+              isStatic: node.isStatic,
+              resolvedTypeId: node.resolvedTypeId,
+              resolutionTier: node.resolutionTier,
+              isFullyResolved: node.isFullyResolved,
+            };
+            // Store reference to original chained ref for resolution context
+            // This allows resolution to work through the chain if needed
+            syntheticRef._originalChainedRef = ref;
+            syntheticRef._chainNode = node;
+            syntheticRefs.push(syntheticRef);
+          }
+        }
+      }
+    }
+
+    // Return both matched references and synthetic individual references
+    // Synthetic refs come after matched refs so they can be prioritized if needed
+    return [...matched, ...syntheticRefs];
   }
 
   /**

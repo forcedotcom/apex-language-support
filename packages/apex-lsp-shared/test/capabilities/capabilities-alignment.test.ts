@@ -80,7 +80,7 @@ describe('Capabilities Alignment Tests', () => {
     let capabilitiesManager: ApexCapabilitiesManager;
 
     beforeEach(() => {
-      capabilitiesManager = new ApexCapabilitiesManager();
+      capabilitiesManager = ApexCapabilitiesManager.getInstance();
     });
 
     it('should return production capabilities in production mode', () => {

@@ -14,6 +14,10 @@ import type { ValidationOptions, ValidationTier } from './ValidationTier';
 import type { ValidatorPrerequisites } from '../../prerequisites/OperationPrerequisites';
 import { DetailLevel } from '../../parser/listeners/LayeredSymbolListenerBase';
 import { isStandardApexUri } from '../../types/ProtocolHandler';
+import {
+  SymbolTableEnrichmentService,
+  type ValidationEnrichmentData,
+} from './enrichment/SymbolTableEnrichmentService';
 
 /**
  * Error types for validation operations
@@ -348,8 +352,49 @@ class ValidatorRegistryImpl implements ValidatorRegistryService {
             return deduplicateValidationResult(result);
           }),
         ),
-        { concurrency: 'unbounded' }, // Run sequentially for now
+        { concurrency: 'unbounded' },
       );
+
+      // Apply enrichment from validation results
+      // Merge enrichment data from all validators and enrich symbol table
+      let mergedEnrichmentData: ValidationEnrichmentData | undefined =
+        undefined;
+
+      for (const result of results) {
+        if (result.enrichmentData) {
+          // Initialize merged data if needed
+          if (!mergedEnrichmentData) {
+            mergedEnrichmentData = {
+              expressionLiteralTypes: new Map(),
+              resolvedExpressionTypes: new Map(),
+            };
+          }
+
+          // Merge expression literal types
+          const exprLiteralTypes = result.enrichmentData.expressionLiteralTypes;
+          if (exprLiteralTypes && mergedEnrichmentData.expressionLiteralTypes) {
+            for (const [expr, type] of exprLiteralTypes.entries()) {
+              mergedEnrichmentData.expressionLiteralTypes.set(expr, type);
+            }
+          }
+
+          // Merge resolved expression types
+          const resolvedTypes = result.enrichmentData.resolvedExpressionTypes;
+          if (resolvedTypes && mergedEnrichmentData.resolvedExpressionTypes) {
+            for (const [expr, type] of resolvedTypes.entries()) {
+              mergedEnrichmentData.resolvedExpressionTypes.set(expr, type);
+            }
+          }
+        }
+      }
+
+      // Apply enrichment if we have any enrichment data
+      if (mergedEnrichmentData) {
+        SymbolTableEnrichmentService.enrich(symbolTable, mergedEnrichmentData);
+        yield* Effect.logDebug(
+          'Applied enrichment data from validation results',
+        );
+      }
 
       return results;
     });

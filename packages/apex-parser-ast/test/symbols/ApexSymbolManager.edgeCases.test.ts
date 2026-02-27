@@ -13,6 +13,7 @@ import {
   ChainedSymbolReference,
   ReferenceContext,
 } from '../../src/types/symbolReference';
+import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
 import { Effect } from 'effect';
 
 describe('ApexSymbolManager - Edge Cases', () => {
@@ -158,9 +159,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
 
       // Should have chained type references for System.Url (two-part type)
       const chainedTypeRefs = references.filter(
-        (ref) =>
-          ref.context === ReferenceContext.CHAINED_TYPE &&
-          ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -186,9 +185,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
 
       // Should have chained type references for the four-part type
       const chainedTypeRefs = references.filter(
-        (ref) =>
-          ref.context === ReferenceContext.CHAINED_TYPE &&
-          ref.name === 'A.B.C.D',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'A.B.C.D',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -256,7 +253,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
       // Should have multiple System.Url references in different contexts
       const systemUrlRefs = references.filter(
         (ref) =>
-          (ref.context === ReferenceContext.CHAINED_TYPE ||
+          (isChainedSymbolReference(ref) ||
             ref.context === ReferenceContext.PARAMETER_TYPE) &&
           ref.name === 'System.Url',
       );
@@ -287,7 +284,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
       // Should have chained type references for System.Url in interface methods
       const systemUrlRefs = references.filter(
         (ref) =>
-          (ref.context === ReferenceContext.CHAINED_TYPE ||
+          (isChainedSymbolReference(ref) ||
             ref.context === ReferenceContext.PARAMETER_TYPE) &&
           ref.name === 'System.Url',
       );
@@ -342,8 +339,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
 
       // Should have chained type references for A.B
       const chainedTypeRefs = references.filter(
-        (ref) =>
-          ref.context === ReferenceContext.CHAINED_TYPE && ref.name === 'A.B',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'A.B',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -370,7 +366,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
       // Should have chained type references for System.Url
       const systemUrlRefs = references.filter(
         (ref) =>
-          (ref.context === ReferenceContext.CHAINED_TYPE ||
+          (isChainedSymbolReference(ref) ||
             ref.context === ReferenceContext.PARAMETER_TYPE ||
             ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE) &&
           ref.name === 'System.Url',
@@ -378,8 +374,8 @@ describe('ApexSymbolManager - Edge Cases', () => {
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
 
       // Check for chained type references
-      const chainedTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      const chainedTypeRefs = references.filter((ref) =>
+        isChainedSymbolReference(ref),
       );
       if (chainedTypeRefs.length > 0) {
         const chainedRef = chainedTypeRefs[0] as ChainedSymbolReference;

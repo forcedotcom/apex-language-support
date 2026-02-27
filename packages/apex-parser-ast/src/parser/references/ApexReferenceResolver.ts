@@ -282,6 +282,19 @@ export class ApexReferenceResolver {
   ): ApexSymbol | null {
     const allSymbols = symbolTable.getAllSymbols();
 
+    // Check for chained references first (before switch statement)
+    // Chained references can have any context (METHOD_CALL, FIELD_ACCESS, etc.)
+    // based on the final node, so we need to check before the switch
+    if (isChainedSymbolReference(ref)) {
+      return this.resolveChainedReference(
+        ref,
+        containingScope,
+        scopeHierarchy,
+        allSymbols,
+        symbolTable,
+      );
+    }
+
     switch (ref.context) {
       case ReferenceContext.VARIABLE_USAGE:
         return this.resolveVariableUsage(
@@ -314,15 +327,6 @@ export class ApexReferenceResolver {
           containingScope,
           scopeHierarchy,
           allSymbols,
-        );
-
-      case ReferenceContext.CHAINED_TYPE:
-        return this.resolveChainedReference(
-          ref,
-          containingScope,
-          scopeHierarchy,
-          allSymbols,
-          symbolTable,
         );
 
       default:
@@ -528,7 +532,7 @@ export class ApexReferenceResolver {
   }
 
   /**
-   * Resolve a CHAINED_TYPE reference
+   * Resolve a chained reference (with chainNodes property)
    */
   private resolveChainedReference(
     ref: SymbolReference,
@@ -614,7 +618,29 @@ export class ApexReferenceResolver {
       }
 
       // If not a variable, try to resolve as a class/type
-      const qualifierSymbol = this.resolveTypeReference(firstNode, allSymbols);
+      // For chained references, try to resolve the full type name first
+      // (e.g., "System.Url" for constructor calls or type references)
+      let qualifierSymbol: ApexSymbol | null = null;
+
+      // For constructor calls and type references, try resolving the full name
+      if (
+        lastNode.context === ReferenceContext.CONSTRUCTOR_CALL ||
+        lastNode.context === ReferenceContext.CLASS_REFERENCE ||
+        lastNode.context === ReferenceContext.TYPE_DECLARATION
+      ) {
+        // Try to resolve the full qualified type name (e.g., "System.Url")
+        const fullTypeName = ref.name; // Should contain the full name like "System.Url"
+        qualifierSymbol = this.resolveTypeReference(
+          { ...firstNode, name: fullTypeName } as SymbolReference,
+          allSymbols,
+        );
+      }
+
+      // If full name resolution failed, try resolving just the first node
+      if (!qualifierSymbol) {
+        qualifierSymbol = this.resolveTypeReference(firstNode, allSymbols);
+      }
+
       if (!qualifierSymbol) {
         return null;
       }
@@ -625,7 +651,7 @@ export class ApexReferenceResolver {
         (s) =>
           isBlockSymbol(s) &&
           s.scopeType === 'class' &&
-          s.parentId === qualifierSymbol.id,
+          s.parentId === qualifierSymbol!.id,
       ) as ScopeSymbol | undefined;
 
       if (!classBlock) {
@@ -654,6 +680,28 @@ export class ApexReferenceResolver {
           lastNode.resolvedSymbolId = fieldSymbol.id;
           return fieldSymbol;
         }
+      } else if (lastNode.context === ReferenceContext.CONSTRUCTOR_CALL) {
+        // For chained constructor calls like "new System.Url()"
+        // The last node is the constructor call, resolve to the constructor symbol
+        const constructorSymbol = allSymbols.find(
+          (s) =>
+            s.kind === SymbolKind.Constructor &&
+            s.name === lastNode.name &&
+            s.parentId === qualifierSymbol.id,
+        );
+        if (constructorSymbol) {
+          lastNode.resolvedSymbolId = constructorSymbol.id;
+          return constructorSymbol;
+        }
+        // If constructor not found, return the class symbol
+        return qualifierSymbol;
+      } else if (
+        lastNode.context === ReferenceContext.CLASS_REFERENCE ||
+        lastNode.context === ReferenceContext.TYPE_DECLARATION
+      ) {
+        // For chained type references like "Namespace.Exception" in catch clauses
+        // The last node is the class reference, return the resolved type symbol
+        return qualifierSymbol;
       }
 
       return qualifierSymbol;

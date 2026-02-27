@@ -43,6 +43,8 @@ import {
   DetailLevel,
 } from './listeners/LayeredSymbolListenerBase';
 import { VisibilitySymbolListener } from './listeners/VisibilitySymbolListener';
+import { BlockContentListener } from './listeners/BlockContentListener';
+import { StructureListener } from './listeners/StructureListener';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../constants/constants';
 
 export interface CompilationResult<T> {
@@ -50,6 +52,8 @@ export interface CompilationResult<T> {
   result: T | null;
   errors: ApexError[];
   warnings: string[];
+  /** Cached parse tree for reuse by validators and enrichment */
+  parseTree?: CompilationUnitContext | TriggerUnitContext | BlockContext;
 }
 
 export interface CompilationResultWithComments<T> extends CompilationResult<T> {
@@ -183,6 +187,19 @@ export class CompilerService {
       }
 
       const walker = new ParseTreeWalker();
+
+      // Run StructureListener first when listener produces SymbolTable
+      // (VisibilitySymbolListener path; FullSymbolCollectorListener has its own structure pass)
+      const result = listener.getResult();
+      if (
+        result instanceof SymbolTable &&
+        !(listener instanceof FullSymbolCollectorListener)
+      ) {
+        const structureListener = new StructureListener(result);
+        structureListener.setCurrentFileUri(fileName);
+        walker.walk(structureListener, parseTree);
+      }
+
       walker.walk(listener, parseTree);
 
       // Optionally collect references using dedicated listener
@@ -237,6 +254,7 @@ export class CompilerService {
         result: listener.getResult(),
         errors: errorListener.getErrors(),
         warnings: listener.getWarnings(),
+        parseTree,
       };
 
       let comments: ApexComment[] = [];
@@ -525,10 +543,15 @@ export class CompilerService {
       const symbolTable = existingSymbolTable || new SymbolTable();
       symbolTable.setFileUri(fileName);
 
-      // Apply listeners in order (public-api -> protected -> private)
       const walker = new ParseTreeWalker();
       const namespace = options.projectNamespace || this.projectNamespace;
 
+      // Step 0: Establish block structure (must run first)
+      const structureListener = new StructureListener(symbolTable);
+      structureListener.setCurrentFileUri(fileName);
+      walker.walk(structureListener, parseTree);
+
+      // Apply listeners in order (public-api -> protected -> private)
       for (const layer of requestedLayers) {
         const listener = this.createListenerForLayer(layer, symbolTable);
 
@@ -553,8 +576,31 @@ export class CompilerService {
       // a symbol was only collected in the public-api layer (because it's public),
       // its _detailLevel reflects that higher layers (protected, private) were applied.
       const highestLayer = requestedLayers[requestedLayers.length - 1];
+
+      // CRITICAL: After all layers are processed, if the highest layer is 'private' (which maps to 'full'),
+      // apply BlockContentListener to collect local variables and block-level symbols
+      if (highestLayer === 'private' || highestLayer === 'full') {
+        try {
+          const blockContentListener = new BlockContentListener(symbolTable);
+          blockContentListener.setCurrentFileUri(fileName);
+          walker.walk(blockContentListener, parseTree);
+        } catch (error) {
+          this.logger.warn(
+            () => `Failed to apply BlockContentListener: ${error}`,
+          );
+        }
+      }
       const targetDetailLevel =
         highestLayer === 'private' ? 'full' : highestLayer;
+      // INVARIANT: All symbols are updated to targetDetailLevel HERE, after all listeners
+      // have run (including BlockContentListener at line ~586). This single write is the
+      // authoritative source of truth for detailLevel on every symbol. It intentionally
+      // overwrites any premature _detailLevel values that individual listeners may have set
+      // (e.g. ApexSymbolCollectorListener defaults new symbols to 'full' in its constructor).
+      // Callers that read symbolTable.getDetailLevel() are safe because:
+      //   (a) This loop runs before compileLayered returns (synchronous).
+      //   (b) LayerEnrichmentService calls symbolManager.addSymbolTable() only after
+      //       compileLayered returns, so no external reader can observe a partially-updated table.
       for (const symbol of symbolTable.getAllSymbols()) {
         if (symbol._detailLevel) {
           symbol._detailLevel = targetDetailLevel as DetailLevel;

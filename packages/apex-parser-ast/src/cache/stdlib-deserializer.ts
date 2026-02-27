@@ -132,7 +132,11 @@ export class StandardLibraryDeserializer {
     // Add block symbols FIRST (before methods/fields that reference them)
     const blockIdMap = new Map<string, string>(); // Map old parentId format to actual block ID
     for (const protoBlock of protoType.blocks || []) {
-      const blockSymbol = this.convertBlockSymbol(protoBlock, namespace);
+      const blockSymbol = this.convertBlockSymbol(
+        protoBlock,
+        namespace,
+        typeSymbol.id,
+      );
       symbolTable.addSymbol(blockSymbol);
 
       // Create mapping for parentId normalization
@@ -248,7 +252,11 @@ export class StandardLibraryDeserializer {
 
     // Add block symbols FIRST (before methods/fields that reference them)
     for (const protoBlock of protoType.blocks || []) {
-      const blockSymbol = this.convertBlockSymbol(protoBlock, namespace);
+      const blockSymbol = this.convertBlockSymbol(
+        protoBlock,
+        namespace,
+        typeSymbol.id,
+      );
       symbolTable.addSymbol(blockSymbol);
     }
 
@@ -462,20 +470,41 @@ export class StandardLibraryDeserializer {
 
   /**
    * Convert a protobuf BlockSymbol to runtime ScopeSymbol
+   * Preserves proto.id so method/field parentId references resolve correctly
    */
   private convertBlockSymbol(
     proto: ProtoBlockSymbol,
     namespace?: string,
+    typeSymbolId?: string,
   ): ScopeSymbol {
     const location = this.convertLocation(proto.location);
+
+    // Fix parentId if it points to a class in the same file but has wrong class name
+    let parentId = proto.parentId || null;
+    if (
+      parentId &&
+      typeSymbolId &&
+      parentId.includes(':class:') &&
+      parentId.startsWith(proto.fileUri)
+    ) {
+      // Replace the class name part with the correct type symbol ID
+      // e.g., "apexlib://.../List.cls:class:unknownClass" -> typeSymbolId
+      parentId = typeSymbolId;
+    }
 
     const blockSymbol = SymbolFactory.createBlockSymbol(
       proto.name,
       proto.scopeType as ScopeType,
       location,
       proto.fileUri,
-      proto.parentId || null,
+      parentId,
     );
+
+    // Preserve serialized id so parentId references from methods/fields resolve
+    if (proto.id) {
+      blockSymbol.id = proto.id;
+      blockSymbol.key.unifiedId = proto.id;
+    }
 
     // Set namespace if provided
     if (namespace) {

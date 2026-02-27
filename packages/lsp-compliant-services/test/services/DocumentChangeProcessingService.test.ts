@@ -76,16 +76,6 @@ describe('DocumentChangeProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       service.processDocumentChange(event);
@@ -110,16 +100,6 @@ describe('DocumentChangeProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       mockStorage.setDocument.mockRejectedValue(new Error('Storage error'));
@@ -144,16 +124,6 @@ describe('DocumentChangeProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       service.processDocumentChange(event);
@@ -175,7 +145,6 @@ describe('DocumentChangeProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 0,
         },
-        contentChanges: [],
       };
 
       service.processDocumentChange(event);
@@ -201,16 +170,6 @@ describe('DocumentChangeProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1001,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: largeContent,
-          },
-        ],
       };
 
       service.processDocumentChange(event);
@@ -256,16 +215,6 @@ describe('DocumentChangeProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       service.processDocumentChange(event);
@@ -288,16 +237,6 @@ describe('DocumentChangeProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       service.processDocumentChange(event);
@@ -321,16 +260,6 @@ describe('DocumentChangeProcessingService', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       // Process multiple changes rapidly (fire-and-forget)
@@ -350,7 +279,6 @@ describe('DocumentChangeProcessingService', () => {
           uri: 'apexlib://resources/StandardApexLibrary/System/System.cls',
           getText: () => 'global class System { }',
         } as TextDocument,
-        contentChanges: [],
       };
 
       service.processDocumentChange(event);
@@ -376,7 +304,6 @@ describe('DocumentChangeProcessingService', () => {
             uri,
             getText: () => 'global class TestClass { }',
           } as TextDocument,
-          contentChanges: [],
         };
 
         service.processDocumentChange(event);
@@ -394,7 +321,6 @@ describe('DocumentChangeProcessingService', () => {
           uri: 'file:///Users/test/MyClass.cls',
           getText: () => 'public class MyClass { }',
         } as TextDocument,
-        contentChanges: [],
       };
 
       service.processDocumentChange(event);

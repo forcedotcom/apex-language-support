@@ -55,6 +55,7 @@ describe('Logging Protocol Integration', () => {
       serverType: 'nodeServer',
       serverArgs: ['--stdio'], // Required for stdio communication
       initializeParams: {
+        rootUri: workspaceUri,
         initializationOptions: {
           logLevel: 'DEBUG', // Enable debug logging to trigger workspace load messages
           apex: {
@@ -67,11 +68,8 @@ describe('Logging Protocol Integration', () => {
     // Install notification capture middleware
     notificationCapture.installOnClient(client);
 
-    // Start the server
+    // Start the server (initialization with workspace is done via initializeParams.rootUri)
     await client.start();
-
-    // Initialize the server with workspace
-    await client.initialize(workspaceUri);
 
     // Wait for startup messages to be sent
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -457,6 +455,7 @@ describe('Logging Protocol Integration', () => {
       serverType: 'nodeServer',
       serverArgs: ['--stdio'],
       initializeParams: {
+        rootUri: workspaceUri,
         initializationOptions: {
           logLevel: 'ERROR', // Restrictive log level
           apex: {
@@ -470,9 +469,8 @@ describe('Logging Protocol Integration', () => {
     restrictiveCapture.installOnClient(restrictiveClient);
 
     try {
-      // Start the restrictive server
+      // Start the restrictive server (initialization with workspace is done via initializeParams.rootUri)
       await restrictiveClient.start();
-      await restrictiveClient.initialize(workspaceUri);
 
       // Wait for startup messages
       await new Promise((resolve) => setTimeout(resolve, 3000));

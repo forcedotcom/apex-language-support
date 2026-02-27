@@ -24,18 +24,25 @@ import {
   ErrorType,
   ErrorSeverity,
 } from '../../src/parser/listeners/ApexErrorListener';
-import { TestLogger } from '../utils/testLogger';
+import {
+  LoggerInterface,
+  enableConsoleLogging,
+  getLogger,
+  setLogLevel,
+} from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolCollectorListener', () => {
   let compilerService: CompilerService;
   let listener: ApexSymbolCollectorListener;
-  let logger: TestLogger;
+  let logger: LoggerInterface;
 
   beforeEach(() => {
-    logger = TestLogger.getInstance();
-    logger.debug('Setting up test environment');
     compilerService = new CompilerService();
     listener = new ApexSymbolCollectorListener(undefined, 'full');
+    // Enable logging for debugging
+    enableConsoleLogging();
+    setLogLevel('error');
+    logger = getLogger();
   });
 
   describe('collect Class Symbols', () => {
@@ -383,14 +390,14 @@ describe('ApexSymbolCollectorListener', () => {
         ) as ScopeSymbol | undefined;
       expect(outerClassScope).toBeDefined();
 
-      // Find inner class symbol - it's nested in the outer class
+      // Find inner class symbol - it's nested in the outer class block
       const innerClassSymbol = symbolTable
         .getAllSymbols()
         .find(
           (s) =>
             s.name === 'InnerClass' &&
             s.kind === SymbolKind.Class &&
-            s.parentId === outerClassSymbol?.id,
+            s.parentId === outerClassScope?.id,
         );
       expect(innerClassSymbol).toBeDefined();
 
@@ -425,14 +432,14 @@ describe('ApexSymbolCollectorListener', () => {
             ) as MethodSymbol | undefined)
         : undefined;
 
-      // If not found in scope, search all symbols filtered by parent
-      if (!constructorSymbol && innerClassSymbol) {
+      // If not found in scope, search all symbols filtered by parent (constructor points to class block)
+      if (!constructorSymbol && innerClassScope) {
         const allSymbols = symbolTable.getAllSymbols();
         constructorSymbol = allSymbols.find(
           (s) =>
             s.kind === SymbolKind.Constructor &&
             s.name === 'InnerClass' &&
-            s.parentId === innerClassSymbol.id,
+            s.parentId === innerClassScope!.id,
         ) as MethodSymbol | undefined;
       }
 
@@ -757,8 +764,8 @@ describe('ApexSymbolCollectorListener', () => {
         (s) => s.name === 'InnerClass',
       );
 
-      // If not found in outer scope, check all symbols filtered by parent
-      if (!innerClass && outerClass && symbolTable) {
+      // If not found in outer scope, check all symbols (inner class parentId = outer class block)
+      if (!innerClass && outerScope && symbolTable) {
         const allTableSymbols = symbolTable.getAllSymbols() || [];
         const allSemanticSymbols = allTableSymbols.filter(
           (s) => !isBlockSymbol(s),
@@ -767,7 +774,7 @@ describe('ApexSymbolCollectorListener', () => {
           (s) =>
             s.kind === SymbolKind.Class &&
             s.name === 'InnerClass' &&
-            s.parentId === outerClass.id,
+            s.parentId === outerScope.id,
         );
       }
 
@@ -779,14 +786,14 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check inner class scope - inner class blocks now use block counter names
-      // Find inner class symbol first, then find its block
+      // Find inner class symbol first (parentId points to outer class block)
       const innerClassSymbol = symbolTable
         ?.getAllSymbols()
         .find(
           (s) =>
             s.name === 'InnerClass' &&
             s.kind === SymbolKind.Class &&
-            s.parentId === outerClass?.id,
+            s.parentId === outerScope?.id,
         );
       const innerScope =
         innerClassSymbol && symbolTable
@@ -934,15 +941,15 @@ describe('ApexSymbolCollectorListener', () => {
         (s: ApexSymbol) => s.kind === SymbolKind.Class,
       );
 
-      // If not found in outer class scope, check all symbols filtered by parent
-      if (!innerClassSymbol && outerClassSymbol) {
+      // If not found in outer scope, check all symbols (inner class parentId = outer class block)
+      if (!innerClassSymbol && outerClassScope) {
         const allTableSymbols = symbolTable?.getAllSymbols() || [];
         const allSemanticSymbols = allTableSymbols.filter(
           (s) => !isBlockSymbol(s),
         );
         innerClassSymbol = allSemanticSymbols.find(
           (s) =>
-            s.kind === SymbolKind.Class && s.parentId === outerClassSymbol.id,
+            s.kind === SymbolKind.Class && s.parentId === outerClassScope.id,
         );
       }
 

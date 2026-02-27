@@ -10,8 +10,10 @@ import * as vscode from 'vscode';
 import { DebugConfig } from './types';
 import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel } from './logging';
-import { ApexLanguageServerSettings } from 'packages/apex-lsp-shared/src/server/ApexLanguageServerSettings';
-import { mergeWithDefaults } from '@salesforce/apex-lsp-shared';
+import {
+  ApexLanguageServerSettings,
+  mergeWithDefaults,
+} from '@salesforce/apex-lsp-shared';
 
 /**
  * Creates a clean, serializable notification object for workspace/didChangeConfiguration

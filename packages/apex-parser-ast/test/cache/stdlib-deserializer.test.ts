@@ -25,6 +25,7 @@ import {
   Range,
   TypeKind,
   Visibility,
+  BlockSymbol,
 } from '../../src/generated/apex-stdlib';
 
 // Helper to create a valid proto location
@@ -631,6 +632,158 @@ describe('StandardLibraryDeserializer', () => {
       // Should handle empty name gracefully
       expect(result.allTypes.length).toBe(1);
       expect(result.allTypes[0].name).toBe('');
+    });
+  });
+
+  describe('Block Symbol parentId enrichment bug fix', () => {
+    it('should correct block parentId when it contains :class:unknownClass', () => {
+      // Tests the enrichment bug fix where blocks had parentId with :class:unknownClass
+      // instead of the correct type symbol ID
+      const fileUri = 'apex://stdlib/System/List';
+      const typeSymbolId = `${fileUri}:class:List`;
+
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'checksum',
+        namespaces: [
+          Namespace.create({
+            name: 'System',
+            types: [
+              TypeSymbol.create({
+                id: typeSymbolId,
+                name: 'List',
+                kind: TypeKind.CLASS,
+                fqn: 'System.List',
+                fileUri,
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+                blocks: [
+                  BlockSymbol.create({
+                    id: `${fileUri}:block:class_1`,
+                    name: 'class_1',
+                    scopeType: 'class',
+                    location: createProtoLocation(),
+                    fileUri,
+                    // This is the buggy parentId format that should be corrected
+                    parentId: `${fileUri}:class:unknownClass`,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      const symbolTable = result.symbolTables.get(fileUri);
+      expect(symbolTable).toBeDefined();
+
+      // Find the block symbol
+      const symbols = symbolTable!.getAllSymbols();
+      const block = symbols.find(
+        (s) => s.kind === SymbolKind.Block && s.name === 'class_1',
+      );
+      expect(block).toBeDefined();
+
+      // The parentId should be corrected to the typeSymbolId, not :class:unknownClass
+      expect(block!.parentId).toBe(typeSymbolId);
+      expect(block!.parentId).not.toContain('unknownClass');
+    });
+
+    it('should not modify block parentId when it does not contain :class:', () => {
+      // Blocks without :class: in parentId should not be modified
+      const fileUri = 'apex://stdlib/System/List';
+      const blockParentId = `${fileUri}:block:parent_block`;
+
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'checksum',
+        namespaces: [
+          Namespace.create({
+            name: 'System',
+            types: [
+              TypeSymbol.create({
+                id: `${fileUri}:class:List`,
+                name: 'List',
+                kind: TypeKind.CLASS,
+                fqn: 'System.List',
+                fileUri,
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+                blocks: [
+                  BlockSymbol.create({
+                    id: `${fileUri}:block:child_block`,
+                    name: 'child_block',
+                    scopeType: 'block',
+                    location: createProtoLocation(),
+                    fileUri,
+                    parentId: blockParentId, // Valid parentId without :class:
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      const symbolTable = result.symbolTables.get(fileUri);
+      const symbols = symbolTable!.getAllSymbols();
+      const block = symbols.find(
+        (s) => s.kind === SymbolKind.Block && s.name === 'child_block',
+      );
+
+      // parentId should remain unchanged
+      expect(block!.parentId).toBe(blockParentId);
+    });
+
+    it('should not modify block parentId when fileUri does not match', () => {
+      // Blocks from different files should not have their parentId modified
+      const fileUri = 'apex://stdlib/System/List';
+      const differentFileUri = 'apex://stdlib/System/Set';
+      const originalParentId = `${differentFileUri}:class:unknownClass`;
+
+      const proto = StandardLibrary.create({
+        generatedAt: new Date().toISOString(),
+        sourceChecksum: 'checksum',
+        namespaces: [
+          Namespace.create({
+            name: 'System',
+            types: [
+              TypeSymbol.create({
+                id: `${fileUri}:class:List`,
+                name: 'List',
+                kind: TypeKind.CLASS,
+                fqn: 'System.List',
+                fileUri,
+                location: createProtoLocation(),
+                modifiers: createProtoModifiers(),
+                blocks: [
+                  BlockSymbol.create({
+                    id: `${fileUri}:block:block_1`,
+                    name: 'block_1',
+                    scopeType: 'block',
+                    location: createProtoLocation(),
+                    fileUri,
+                    // parentId points to different file, should not be modified
+                    parentId: originalParentId,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      });
+
+      const result = deserializer.deserialize(proto);
+      const symbolTable = result.symbolTables.get(fileUri);
+      const symbols = symbolTable!.getAllSymbols();
+      const block = symbols.find(
+        (s) => s.kind === SymbolKind.Block && s.name === 'block_1',
+      );
+
+      // parentId should remain unchanged because fileUri doesn't match
+      expect(block!.parentId).toBe(originalParentId);
     });
   });
 });

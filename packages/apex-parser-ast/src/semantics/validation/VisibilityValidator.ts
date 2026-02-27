@@ -86,8 +86,12 @@ export class VisibilityValidator {
       return { isValid: true, errors, warnings };
     }
 
-    // Private types are only visible within the same class
-    if (typeInfo.visibility === 'private') {
+    // Private/Default types are only visible within the same class.
+    // Per Apex doc: if no modifier specified, it is private.
+    if (
+      typeInfo.visibility === 'private' ||
+      typeInfo.visibility === 'default'
+    ) {
       if (!scope.currentType || scope.currentType.name !== typeInfo.name) {
         errors.push('type.not.visible');
         return { isValid: false, errors, warnings };
@@ -132,8 +136,12 @@ export class VisibilityValidator {
       return { isValid: true, errors, warnings };
     }
 
-    // Private methods are only visible within the same class
-    if (methodInfo.visibility === 'private') {
+    // Private/Default methods are only visible within the same class.
+    // Per Apex doc: if no modifier specified, it is private.
+    if (
+      methodInfo.visibility === 'private' ||
+      methodInfo.visibility === 'default'
+    ) {
       if (
         !scope.currentType ||
         (methodInfo.declaringType &&
@@ -192,8 +200,12 @@ export class VisibilityValidator {
       return { isValid: true, errors, warnings };
     }
 
-    // Private variables are only visible within the same class
-    if (variableInfo.visibility === 'private') {
+    // Private/Default variables are only visible within the same class.
+    // Per Apex doc: if no modifier specified, it is private.
+    if (
+      variableInfo.visibility === 'private' ||
+      variableInfo.visibility === 'default'
+    ) {
       if (
         !scope.currentType ||
         (variableInfo.declaringType &&
@@ -301,8 +313,8 @@ export class VisibilityValidator {
       return true;
     }
 
-    // Private types are only accessible within the same class
-    if (visibility === 'private') {
+    // Private/Default types are only accessible within the same class
+    if (visibility === 'private' || visibility === 'default') {
       return scope.currentType?.name === typeName;
     }
 
@@ -334,8 +346,8 @@ export class VisibilityValidator {
       return true;
     }
 
-    // Private members are only accessible within the same class
-    if (visibility === 'private') {
+    // Private/Default members are only accessible within the same class
+    if (visibility === 'private' || visibility === 'default') {
       return scope.currentType?.name === memberName.split('.')[0];
     }
 
