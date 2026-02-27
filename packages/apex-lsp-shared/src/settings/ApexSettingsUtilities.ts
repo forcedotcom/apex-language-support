@@ -10,6 +10,8 @@ import type {
   ApexLanguageServerSettings,
   RuntimePlatform,
   DeferredReferenceProcessingSettings,
+  SymbolGraphSettings,
+  TelemetrySettings,
 } from '../server/ApexLanguageServerSettings';
 
 /**
@@ -56,8 +58,8 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
 
     loadWorkspace: {
       enabled: false,
-      maxConcurrency: 4, // WAS 50
-      yieldInterval: 10, // WAS 50
+      maxConcurrency: 4,
+      yieldInterval: 10,
       yieldDelayMs: 25,
       batchSize: 100,
     },
@@ -111,8 +113,13 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     },
 
     symbolGraph: {
-      enabled: true, // Enabled by default - only 190ms startup cost for 60-80ms first-file benefit
-      preloadNamespaces: ['Database', 'System'], // Default namespaces
+      enabled: true,
+      preloadNamespaces: ['Database', 'System'],
+    },
+
+    telemetry: {
+      enabled: false,
+      localTracingEnabled: false,
     },
 
     worker: {
@@ -229,13 +236,19 @@ export function validateApexSettings(obj: any): ValidationResult {
     return result;
   }
 
-  // Define valid properties and their expected types
-  const validTopLevelProps = {
+  const validTopLevelProps: Record<string, string> = {
     commentCollection: 'object',
     performance: 'object',
     environment: 'object',
     resources: 'object',
     findMissingArtifact: 'object',
+    loadWorkspace: 'object',
+    queueProcessing: 'object',
+    scheduler: 'object',
+    deferredReferenceProcessing: 'object',
+    symbolGraph: 'object',
+    telemetry: 'object',
+    worker: 'object',
     version: 'string',
     logLevel: 'string',
   };
@@ -376,6 +389,18 @@ export function mergeWithDefaults(
             ...userSettings.apex?.deferredReferenceProcessing,
           }
         : userSettings.apex?.deferredReferenceProcessing,
+      symbolGraph: baseApex.symbolGraph
+        ? {
+            ...baseApex.symbolGraph,
+            ...userSettings.apex?.symbolGraph,
+          }
+        : userSettings.apex?.symbolGraph,
+      telemetry: baseApex.telemetry
+        ? {
+            ...baseApex.telemetry,
+            ...userSettings.apex?.telemetry,
+          }
+        : userSettings.apex?.telemetry,
       worker: {
         ...baseApex.worker,
         ...userSettings.apex?.worker,
@@ -468,6 +493,22 @@ export function mergeWithExisting(
               ...existingSettings.apex.deferredReferenceProcessing,
               ...partialSettings.apex?.deferredReferenceProcessing,
             } as DeferredReferenceProcessingSettings)
+          : undefined,
+      symbolGraph:
+        existingSettings.apex.symbolGraph || partialSettings.apex?.symbolGraph
+          ? ({
+              ...DEFAULT_APEX_SETTINGS.apex.symbolGraph!,
+              ...existingSettings.apex.symbolGraph,
+              ...partialSettings.apex?.symbolGraph,
+            } as SymbolGraphSettings)
+          : undefined,
+      telemetry:
+        existingSettings.apex.telemetry || partialSettings.apex?.telemetry
+          ? ({
+              ...DEFAULT_APEX_SETTINGS.apex.telemetry!,
+              ...existingSettings.apex.telemetry,
+              ...partialSettings.apex?.telemetry,
+            } as TelemetrySettings)
           : undefined,
       worker: {
         ...existingSettings.apex.worker,

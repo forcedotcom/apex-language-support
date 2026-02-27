@@ -272,6 +272,9 @@ export interface SymbolGraphSettings {
   preloadNamespaces: string[];
 }
 
+import type { TelemetrySettings } from '../observability/sdkLayerConfig';
+export type { TelemetrySettings } from '../observability/sdkLayerConfig';
+
 /**
  * Complete Apex Language Server settings
  */
@@ -306,6 +309,9 @@ export interface ApexLanguageServerSettings {
 
     /** Symbol graph pre-population settings */
     symbolGraph?: SymbolGraphSettings;
+
+    /** Telemetry settings for OpenTelemetry-based observability */
+    telemetry?: TelemetrySettings;
 
     /** Server version for compatibility checks */
     version?: string;

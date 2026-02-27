@@ -38,7 +38,6 @@ export async function startApexWebWorker(): Promise<void> {
   // Create a connection for the server using type-safe worker context
   const workerSelf = getWorkerSelf();
   if (!workerSelf) {
-    console.error('🔧 DEBUG WORKER: Worker context not available!');
     throw new Error('Worker context not available');
   }
 
@@ -62,6 +61,25 @@ export async function startApexWebWorker(): Promise<void> {
   await LCSAdapter.create({
     connection,
     logger,
+    onExit: () => self.close(),
+    getHeapUsedBytes: async () => {
+      try {
+        if (
+          typeof performance !== 'undefined' &&
+          'measureUserAgentSpecificMemory' in performance
+        ) {
+          const result = await (
+            performance as unknown as {
+              measureUserAgentSpecificMemory: () => Promise<{ bytes: number }>;
+            }
+          ).measureUserAgentSpecificMemory();
+          return result.bytes;
+        }
+      } catch {
+        // API unavailable or failed
+      }
+      return null;
+    },
   });
 
   connection.listen();

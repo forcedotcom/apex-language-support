@@ -47,7 +47,13 @@ import {
   formattedError,
   getDocumentSelectorsFromSettings,
   ApexSettingsManager,
+  runWithSpan,
+  LSP_SPAN_NAMES,
+  CommandPerformanceAggregator,
+  collectStartupSnapshot,
 } from '@salesforce/apex-lsp-shared';
+
+import type { LspSpanAttributes } from '@salesforce/apex-lsp-shared';
 
 import {
   dispatchProcessOnOpenDocument,
@@ -88,8 +94,7 @@ import {
   SchedulerMetrics,
   SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
-import type { Fiber } from 'effect';
-import { Effect } from 'effect';
+import { Fiber, Effect } from 'effect';
 
 /**
  * Configuration for the LCS Adapter
@@ -97,10 +102,12 @@ import { Effect } from 'effect';
 export interface LCSAdapterConfig {
   connection: Connection;
   logger?: LoggerInterface;
+  getHeapUsedBytes?: () => Promise<number | null>;
+  onExit?: () => void;
 }
 
 /**
- * Adapter layer between webworker environment and LSP-Compliant-Services
+ * Adapter layer between LSP clients (Node.js or Web Worker) and LSP-Compliant-Services.
  */
 export class LCSAdapter {
   private readonly connection: Connection;
@@ -112,11 +119,19 @@ export class LCSAdapter {
   private hoverHandlerRegistered = false;
   private clientCapabilities?: ClientCapabilities;
   private queueStateNotificationFiber?: Fiber.RuntimeFiber<void, never>;
+  private readonly aggregator = new CommandPerformanceAggregator();
+  private readonly getHeapUsedBytes?: () => Promise<number | null>;
+  private sessionId = '';
+  private workspaceRootUri = '';
+
+  private readonly onExit: () => void;
 
   private constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
     this.logger = config.logger ?? this.createDefaultLogger();
     this.documents = new TextDocuments(TextDocument);
+    this.getHeapUsedBytes = config.getHeapUsedBytes;
+    this.onExit = config.onExit ?? (() => process.exit(0));
 
     this.diagnosticProcessor = new DiagnosticProcessingService(this.logger);
 
@@ -328,16 +343,33 @@ export class LCSAdapter {
    * These are registered early for proper lifecycle management
    */
   private setupUtilityHandlers(): void {
-    // Register shutdown handler
-    this.connection.onRequest('shutdown', (): null => {
+    this.connection.onRequest('shutdown', async (): Promise<null> => {
       this.logger.debug(() => 'Shutdown request received');
+      if (this.queueStateNotificationFiber) {
+        Effect.runFork(Fiber.interrupt(this.queueStateNotificationFiber));
+        this.queueStateNotificationFiber = undefined;
+      }
+      try {
+        const heapUsedBytes = this.getHeapUsedBytes
+          ? await this.getHeapUsedBytes()
+          : null;
+        const event = this.aggregator.flush(
+          this.sessionId,
+          '', // extensionVersion filled by client-side enricher
+          heapUsedBytes,
+        );
+        if (event) {
+          this.connection.telemetry.logEvent(event);
+        }
+      } catch (e) {
+        this.logger.debug(() => `Failed to flush telemetry: ${e}`);
+      }
       return null;
     });
 
-    // Register exit notification handler
     this.connection.onNotification('exit', (): void => {
       this.logger.debug(() => 'Exit notification received');
-      process.exit(0);
+      this.onExit();
     });
 
     this.logger.debug('✅ Utility handlers (shutdown, exit) registered');
@@ -375,6 +407,23 @@ export class LCSAdapter {
     });
   }
 
+  private async runWithSpanAndRecord<T>(
+    spanName: string,
+    fn: () => Promise<T>,
+    attributes?: LspSpanAttributes,
+  ): Promise<T> {
+    const start = performance.now();
+    let success = true;
+    try {
+      return await runWithSpan(spanName, fn, attributes);
+    } catch (e) {
+      success = false;
+      throw e;
+    } finally {
+      this.aggregator.record(spanName, performance.now() - start, success);
+    }
+  }
+
   /**
    * LSP protocol handlers (hover, diagnostics, etc.)
    */
@@ -390,7 +439,14 @@ export class LCSAdapter {
             `🔍 Document symbol request for URI: ${params.textDocument.uri}`,
         );
         try {
-          return await dispatchProcessOnDocumentSymbol(params);
+          return await this.runWithSpanAndRecord(
+            LSP_SPAN_NAMES.DOCUMENT_SYMBOL,
+            () => dispatchProcessOnDocumentSymbol(params),
+            {
+              'lsp.method': 'textDocument/documentSymbol',
+              'document.uri': params.textDocument.uri,
+            },
+          );
         } catch (error) {
           this.logger.error(
             () => `Error processing document symbols: ${formattedError(error)}`,
@@ -415,7 +471,15 @@ export class LCSAdapter {
               `at ${params.position.line}:${params.position.character}`,
           );
           try {
-            return await dispatchProcessOnDefinition(params);
+            return await this.runWithSpanAndRecord(
+              LSP_SPAN_NAMES.DEFINITION,
+              () => dispatchProcessOnDefinition(params),
+              {
+                'lsp.method': 'textDocument/definition',
+                'document.uri': params.textDocument.uri,
+                'document.position': `${params.position.line}:${params.position.character}`,
+              },
+            );
           } catch (error) {
             this.logger.error(
               () => `Error processing definition: ${formattedError(error)}`,
@@ -441,7 +505,15 @@ export class LCSAdapter {
               `at ${params.position.line}:${params.position.character}`,
           );
           try {
-            return await dispatchProcessOnImplementation(params);
+            return await this.runWithSpanAndRecord(
+              LSP_SPAN_NAMES.IMPLEMENTATION,
+              () => dispatchProcessOnImplementation(params),
+              {
+                'lsp.method': 'textDocument/implementation',
+                'document.uri': params.textDocument.uri,
+                'document.position': `${params.position.line}:${params.position.character}`,
+              },
+            );
           } catch (error) {
             this.logger.error(
               () => `Error processing implementation: ${formattedError(error)}`,
@@ -467,7 +539,15 @@ export class LCSAdapter {
               `at ${params.position.line}:${params.position.character}`,
           );
           try {
-            return await dispatchProcessOnReferences(params);
+            return await this.runWithSpanAndRecord(
+              LSP_SPAN_NAMES.REFERENCES,
+              () => dispatchProcessOnReferences(params),
+              {
+                'lsp.method': 'textDocument/references',
+                'document.uri': params.textDocument.uri,
+                'document.position': `${params.position.line}:${params.position.character}`,
+              },
+            );
           } catch (error) {
             this.logger.error(
               () => `Error processing references: ${formattedError(error)}`,
@@ -493,8 +573,14 @@ export class LCSAdapter {
           params: DocumentDiagnosticParams,
         ): Promise<DocumentDiagnosticReport> => {
           try {
-            const diagnostics =
-              await this.diagnosticProcessor.processDiagnostic(params);
+            const diagnostics = await this.runWithSpanAndRecord(
+              LSP_SPAN_NAMES.DIAGNOSTICS,
+              () => this.diagnosticProcessor.processDiagnostic(params),
+              {
+                'lsp.method': 'textDocument/diagnostic',
+                'document.uri': params.textDocument.uri,
+              },
+            );
             return {
               kind: DocumentDiagnosticReportKind.Full,
               items: diagnostics,
@@ -524,7 +610,14 @@ export class LCSAdapter {
           );
           try {
             const storage = ApexStorageManager.getInstance().getStorage();
-            return await dispatchProcessOnFoldingRange(params, storage);
+            return await this.runWithSpanAndRecord(
+              LSP_SPAN_NAMES.FOLDING_RANGE,
+              () => dispatchProcessOnFoldingRange(params, storage),
+              {
+                'lsp.method': 'textDocument/foldingRange',
+                'document.uri': params.textDocument.uri,
+              },
+            );
           } catch (error) {
             this.logger.error(
               () => `Error processing folding ranges: ${formattedError(error)}`,
@@ -556,7 +649,14 @@ export class LCSAdapter {
           () => `CodeLens request received for URI: ${params.textDocument.uri}`,
         );
         try {
-          const result = await dispatchProcessOnCodeLens(params);
+          const result = await this.runWithSpanAndRecord(
+            LSP_SPAN_NAMES.CODE_LENS,
+            () => dispatchProcessOnCodeLens(params),
+            {
+              'lsp.method': 'textDocument/codeLens',
+              'document.uri': params.textDocument.uri,
+            },
+          );
           this.logger.debug(
             `Returning ${result.length} code lenses for ${params.textDocument.uri}`,
           );
@@ -586,7 +686,16 @@ export class LCSAdapter {
             `🔍 apex/findMissingArtifact request received for: ${params.identifier}`,
         );
         try {
-          return await dispatchProcessOnFindMissingArtifact(params);
+          return await this.runWithSpanAndRecord(
+            LSP_SPAN_NAMES.FIND_MISSING_ARTIFACT,
+            () => dispatchProcessOnFindMissingArtifact(params),
+            {
+              'apex.identifier': params.identifier,
+              'apex.origin.uri': params.origin.uri,
+              'apex.origin.requestKind': params.origin.requestKind,
+              'apex.mode': params.mode,
+            },
+          );
         } catch (error) {
           this.logger.error(
             () =>
@@ -684,7 +793,14 @@ export class LCSAdapter {
               `🔍 workspace/executeCommand request received: ${params.command}`,
           );
           try {
-            return await dispatchProcessOnExecuteCommand(params);
+            return await this.runWithSpanAndRecord(
+              LSP_SPAN_NAMES.EXECUTE_COMMAND,
+              () => dispatchProcessOnExecuteCommand(params),
+              {
+                'lsp.method': 'workspace/executeCommand',
+                'command.name': params.command,
+              },
+            );
           } catch (error) {
             this.logger.error(
               () => `Error processing executeCommand: ${formattedError(error)}`,
@@ -845,32 +961,18 @@ export class LCSAdapter {
       return;
     }
 
-    // Lazy-load ProfilingService to avoid bundling issues
-    let profilingService: any = null;
+    // ProfilingService has a private constructor so InstanceType cannot be used.
+
+    let profilingServiceInstance: any = null;
     const getProfilingService = async () => {
-      if (!profilingService) {
+      if (!profilingServiceInstance) {
         const { ProfilingService } = await import(
           '../profiling/ProfilingService'
         );
-        profilingService = ProfilingService.getInstance();
-
-        // Initialize with logger and output directory
-        // Get workspace folder from initialization params or use current working directory
-        let outputDir = process.cwd();
-        try {
-          // Try to get workspace folder from connection
-          // Note: workspaceFolders may not be available at this point, so we use a fallback
-          if (typeof process !== 'undefined' && process.cwd) {
-            outputDir = process.cwd();
-          }
-        } catch (_error) {
-          // Fallback to current working directory
-          outputDir = process.cwd();
-        }
-
-        profilingService.initialize(this.logger, outputDir);
+        profilingServiceInstance = ProfilingService.getInstance();
+        profilingServiceInstance.initialize(this.logger, process.cwd());
       }
-      return profilingService;
+      return profilingServiceInstance;
     };
 
     // Register apex/profiling/start
@@ -1015,18 +1117,7 @@ export class LCSAdapter {
       );
       const profilingService = ProfilingService.getInstance();
 
-      // Initialize with logger and output directory
-      let outputDir = process.cwd();
-      try {
-        if (typeof process !== 'undefined' && process.cwd) {
-          outputDir = process.cwd();
-        }
-      } catch (_error) {
-        // Fallback to current working directory
-        outputDir = process.cwd();
-      }
-
-      profilingService.initialize(this.logger, outputDir);
+      profilingService.initialize(this.logger, process.cwd());
 
       if (!profilingService.isAvailable()) {
         this.logger.warn(
@@ -1207,6 +1298,9 @@ export class LCSAdapter {
       () =>
         `Returning static capabilities: ${JSON.stringify(staticCapabilities, null, 2)}`,
     );
+
+    this.workspaceRootUri =
+      params.workspaceFolders?.[0]?.uri ?? params.rootUri ?? '';
 
     return {
       capabilities: staticCapabilities,
@@ -1392,6 +1486,24 @@ export class LCSAdapter {
         );
       }
     });
+
+    // Send startup snapshot telemetry
+    try {
+      const snapshot = collectStartupSnapshot({
+        activationDurationMs: 0,
+        serverStartDurationMs: performance.now(),
+        workspaceFileCount: 0,
+        apexFileCount: 0,
+        extensionVersion: '', // filled by client-side enricher
+        vscodeVersion: '', // filled by client-side enricher
+        platform: typeof process !== 'undefined' ? 'desktop' : 'web',
+        workspaceRootUri: this.workspaceRootUri,
+      });
+      this.sessionId = snapshot.sessionId;
+      this.connection.telemetry.logEvent(snapshot);
+    } catch (e) {
+      this.logger.debug(() => `Failed to send startup snapshot: ${e}`);
+    }
 
     // Initialize ResourceLoader with standard library
     // Requests ZIP from client via apex/provideStandardLibrary
@@ -1836,7 +1948,15 @@ export class LCSAdapter {
         );
         try {
           const dispatchStartTime = Date.now();
-          const result = await dispatchProcessOnHover(params);
+          const result = await this.runWithSpanAndRecord(
+            LSP_SPAN_NAMES.HOVER,
+            () => dispatchProcessOnHover(params),
+            {
+              'lsp.method': 'textDocument/hover',
+              'document.uri': params.textDocument.uri,
+              'document.position': `${params.position.line}:${params.position.character}`,
+            },
+          );
           const totalTime = Date.now() - requestStartTime;
           const dispatchTime = Date.now() - dispatchStartTime;
           this.logger.debug(

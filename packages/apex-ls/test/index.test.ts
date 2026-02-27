@@ -143,6 +143,9 @@ const mockConnection: MockConnection & {
   client: {
     register: jest.fn(),
   },
+  telemetry: {
+    logEvent: jest.fn(),
+  },
 };
 
 // Mock TextDocuments
@@ -197,18 +200,12 @@ mockConnection.onRequest.mockImplementation(
   (method: string, handler: OnRequestHandler) => {
     if (method === 'textDocument/diagnostic') {
       mockHandlers.onRequest = handler;
+    } else if (method === '$/ping') {
+      mockHandlers.ping = handler;
     }
     return mockConnection;
   },
 );
-
-mockConnection.onRequest.mockImplementation((method: string, handler: any) => {
-  // Store the handler for later testing
-  if (method === '$/ping') {
-    mockHandlers.ping = handler;
-  }
-  return mockConnection;
-});
 
 mockDocuments.onDidOpen.mockImplementation((handler: OnDidOpenHandler) => {
   mockHandlers.onDidOpen = handler;
@@ -465,6 +462,19 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   LSPConfigurationManager: {
     getInstance: jest.fn(),
   },
+  runWithSpan: jest.fn((_name: string, fn: () => any) => fn()),
+  LSP_SPAN_NAMES: {},
+  CommandPerformanceAggregator: jest.fn().mockImplementation(() => ({
+    record: jest.fn(),
+    flush: jest
+      .fn()
+      .mockReturnValue({ type: 'command_performance', commands: [] }),
+    reset: jest.fn(),
+  })),
+  collectStartupSnapshot: jest.fn().mockReturnValue({
+    type: 'startup_snapshot',
+    sessionId: 'mock-session',
+  }),
 }));
 
 jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
@@ -678,7 +688,7 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     );
   });
 
-  it('should handle shutdown request', () => {
+  it('should handle shutdown request', async () => {
     // Verify shutdown handler was registered
     expect(mockConnection.onRequest).toHaveBeenCalledWith(
       'shutdown',
@@ -694,9 +704,9 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     // Clear previous debug calls
     mockLogger.debug.mockClear();
 
-    // Call the shutdown handler
+    // Call the shutdown handler (now async)
     const shutdownHandler = shutdownCall![1];
-    const result = shutdownHandler();
+    const result = await shutdownHandler();
 
     // Verify it returns null (LSP spec)
     expect(result).toBeNull();

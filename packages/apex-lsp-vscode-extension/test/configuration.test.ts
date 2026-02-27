@@ -196,6 +196,14 @@ describe('Configuration Module', () => {
             yieldInterval: 10,
             batchSize: 100,
           },
+          symbolGraph: {
+            enabled: true,
+            preloadNamespaces: ['Database', 'System'],
+          },
+          telemetry: {
+            enabled: false,
+            localTracingEnabled: false,
+          },
           worker: {
             logLevel: 'info',
           },

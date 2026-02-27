@@ -33,6 +33,7 @@ import {
   updateApexServerStatusStarting,
   updateApexServerStatusReady,
   updateApexServerStatusError,
+  updateApexServerStatusStopped,
 } from './status-bar';
 import {
   getWorkspaceSettings,
@@ -45,6 +46,37 @@ import {
   getStdApexClassesPathFromContext,
   ServerMode,
 } from './utils/serverUtils';
+import {
+  createTelemetrySink,
+  type TelemetrySink,
+  type TelemetryPayload,
+} from './telemetrySink';
+
+/**
+ * Enriches telemetry events with client-side metadata (extension version,
+ * VS Code version, workspace file counts) that the server cannot provide.
+ */
+async function enrichTelemetryPayload(
+  event: TelemetryPayload,
+  context: vscode.ExtensionContext,
+): Promise<TelemetryPayload> {
+  const enriched = { ...event };
+
+  enriched.extensionVersion =
+    (context.extension.packageJSON?.version as string) ?? '';
+  enriched.vscodeVersion = vscode.version;
+
+  if (event.type === 'startup_snapshot') {
+    const [allFiles, apexFiles] = await Promise.all([
+      vscode.workspace.findFiles('**/*', '**/node_modules/**'),
+      vscode.workspace.findFiles('**/*.{cls,trigger}', '**/node_modules/**'),
+    ]);
+    enriched.workspaceFileCount = allFiles.length;
+    enriched.apexFileCount = apexFiles.length;
+  }
+
+  return enriched;
+}
 
 /**
  * Global language client instance
@@ -56,6 +88,11 @@ let Client: ClientInterface | undefined;
  * Note: This can be either browser or node LanguageClient, both extend BaseLanguageClient
  */
 let LanguageClientInstance: BaseLanguageClient | undefined;
+
+/**
+ * Telemetry sink for dispatching LSP telemetry/event notifications
+ */
+let telemetrySink: TelemetrySink | undefined;
 
 /**
  * Shared workspace load layer - created once and reused across all requests
@@ -145,11 +182,13 @@ export const createInitializeParams = (
     'info',
   );
 
+  const extensionVersion =
+    (context.extension.packageJSON?.version as string) ?? '0.0.0';
   const baseParams = {
     processId: null, // Web environments don't have process IDs
     clientInfo: {
       name: 'Apex Language Server Extension',
-      version: '1.0.0',
+      version: extensionVersion,
     },
     locale: vscode.env.language,
     rootPath:
@@ -220,6 +259,35 @@ export const createAndStartClient = async (
     }
 
     logToOutputChannel('✅ Client initialized successfully', 'info');
+
+    // Set up telemetry sink and register onTelemetry handler
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    telemetrySink = createTelemetrySink(workspaceRoot);
+    if (LanguageClientInstance) {
+      LanguageClientInstance.onTelemetry(async (event: unknown) => {
+        try {
+          if (telemetrySink) {
+            const enriched = await enrichTelemetryPayload(
+              event as TelemetryPayload,
+              context,
+            );
+            telemetrySink.send(enriched);
+          }
+        } catch (error) {
+          logToOutputChannel(
+            `Failed to process telemetry event: ${error}`,
+            'warning',
+          );
+        }
+      });
+    }
+
+    context.subscriptions.push(
+      vscode.env.onDidChangeTelemetryEnabled(() => {
+        telemetrySink?.dispose();
+        telemetrySink = createTelemetrySink(workspaceRoot);
+      }),
+    );
 
     // Set up client state monitoring
     updateApexServerStatusReady();
@@ -612,21 +680,7 @@ async function createWebLanguageClient(
           logToOutputChannel(`Sending notification: ${method}`, 'debug');
         }
 
-        // Ensure params are serializable before sending
-        let cleanParams = params;
-        if (params) {
-          try {
-            cleanParams = JSON.parse(JSON.stringify(params));
-          } catch (error) {
-            logToOutputChannel(
-              `Failed to clean params for notification: ${error}`,
-              'error',
-            );
-            cleanParams = {};
-          }
-        }
-
-        languageClient.sendNotification(method, cleanParams);
+        languageClient.sendNotification(method, params);
 
         if (isDidOpen) {
           const uri = params?.textDocument?.uri || 'unknown';
@@ -684,9 +738,7 @@ async function createWebLanguageClient(
       return disposable;
     },
     isDisposed: () => !languageClient.isRunning(),
-    dispose: () => {
-      languageClient.stop();
-    },
+    dispose: () => languageClient.stop(),
   } as ClientInterface;
 
   // Initialize ApexLib for standard library support
@@ -1229,7 +1281,7 @@ export async function stopLanguageServer(): Promise<void> {
 
   if (Client) {
     try {
-      Client.dispose();
+      await Client.dispose();
       Client = undefined;
       LanguageClientInstance = undefined;
       logToOutputChannel('✅ Language server stopped', 'info');
@@ -1241,7 +1293,15 @@ export async function stopLanguageServer(): Promise<void> {
     }
   }
 
-  updateApexServerStatusError();
+  // Allow in-flight telemetry (e.g. command_performance flush at shutdown) to arrive
+  // before disposing the sink. 150ms is sufficient for a local IPC round-trip.
+  const TELEMETRY_DRAIN_MS = 150;
+  await new Promise((resolve) => setTimeout(resolve, TELEMETRY_DRAIN_MS));
+
+  telemetrySink?.dispose();
+  telemetrySink = undefined;
+
+  updateApexServerStatusStopped();
 }
 
 /**

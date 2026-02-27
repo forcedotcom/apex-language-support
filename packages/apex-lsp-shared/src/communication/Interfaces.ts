@@ -58,5 +58,5 @@ export interface ClientInterface {
   onNotification(method: string, handler: (params: any) => void): Disposable;
   onRequest(method: string, handler: (params: any) => any): void;
   isDisposed(): boolean;
-  dispose(): void;
+  dispose(): void | Promise<void>;
 }
