@@ -2,9 +2,9 @@ name: E2E Tests
 
 on:
   push:
-    branches: [main, tdx26/main]
+    branches: [main]
   pull_request:
-    branches: [main, tdx26/main]
+    branches: [main]
   workflow_dispatch:
     inputs:
       test_mode:
