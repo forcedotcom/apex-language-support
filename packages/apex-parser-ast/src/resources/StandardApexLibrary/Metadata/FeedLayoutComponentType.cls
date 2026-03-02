@@ -1,13 +1,5 @@
-global enum FeedLayoutComponentType {
-CASEEXPERTS,
-CASEUNIFIEDFILES,
-CUSTOMBUTTONS,
-CUSTOMLINKS,
-FOLLOWERS,
-FOLLOWING,
-HELPANDTOOLLINKS,
-MILESTONES,
-SIMILARCASES,
-TOPICS,
-VISUALFORCE
+/**
+ * Indicates the type of feed layout component.
+ */
+public enum FeedLayoutComponentType {
 }

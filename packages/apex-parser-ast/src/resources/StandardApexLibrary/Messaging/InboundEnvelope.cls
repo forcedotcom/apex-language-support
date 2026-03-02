@@ -1,7 +1,6 @@
-global class InboundEnvelope {
-	global String fromAddress;
-	global String toAddress;
-	global InboundEnvelope() { }
-	global Object clone() { }
+/**
+ * The InboundEnvelope object stores the envelope information associated with the inbound email, and has the following fields.
+ */
+public class InboundEnvelope {
 
 }

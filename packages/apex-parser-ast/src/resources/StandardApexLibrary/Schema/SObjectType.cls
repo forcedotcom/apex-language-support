@@ -1,26 +1,40 @@
-global class SObjectType {
-	global Boolean equals(Object obj) { }
-	/**
-	 * Return the describe information for this SObject type
-	 */
-	global Schema.DescribeSObjectResult getDescribe(Object options) { }
-	/**
-	 * Return the describe information for this SObject type
-	 */
-	global Schema.DescribeSObjectResult getDescribe() { }
-	global Integer hashCode() { }
-	/**
-	 * Factory method to construct a new SObject of this type, optionally with a record type Id and/or default field values loaded
-	 */
-	global SObject newSObject(Id recordTypeId, Boolean loadDefaultValues) { }
-	/**
-	 * Factory method to construct a new SObject of this type, with a valid Id
-	 */
-	global SObject newSObject(Id id) { }
-	/**
-	 * Factory method to construct a new SObject of this type
-	 */
-	global SObject newSObject() { }
-	global String toString() { }
+/**
+ * A Schema.sObjectType object is returned from the field describe result using the getReferenceTo method, or from the sObject describe result using the getSObjectType method.
+ */
+public class SObjectType {
+
+  /**
+   * Returns the describe sObject result for this field.
+   * @return Schema.DescribeSObjectResult
+   */
+  public Schema.DescribeSObjectResult getDescribe() {}
+
+  /**
+   * Returns the describe sObject result for this field.
+   * @param options 
+   * @return Schema.DescribeSObjectResult
+   */
+  public Schema.DescribeSObjectResult getDescribe(Object options) {}
+
+  /**
+   * Constructs a new sObject of this type.
+   * @return sObject
+   */
+  public sObject newSObject() {}
+
+  /**
+   * Constructs a new sObject of this type.
+   * @param id 
+   * @return sObject
+   */
+  public sObject newSObject(ID id) {}
+
+  /**
+   * Constructs a new sObject of this type.
+   * @param recordTypeId 
+   * @param loadDefaults 
+   * @return sObject
+   */
+  public sObject newSObject(ID recordTypeId, Boolean loadDefaults) {}
 
 }

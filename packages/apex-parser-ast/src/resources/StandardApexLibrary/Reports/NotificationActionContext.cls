@@ -1,7 +1,18 @@
-global class NotificationActionContext {
-	global NotificationActionContext(reports.ReportInstance reportInstance, reports.ThresholdInformation thresholdInformation) { }
-	global Object clone() { }
-	global reports.ReportInstance getReportInstance() { }
-	global reports.ThresholdInformation getThresholdInformation() { }
+/**
+ * Contains information about the report instance and condition threshold for a report notification.
+ */
+public class NotificationActionContext {
+
+  /**
+   * Returns the report instance associated with the notification.
+   * @return Reports.ReportInstance
+   */
+  public Reports.ReportInstance getReportInstance() {}
+
+  /**
+   * Returns the threshold information associated with the notification.
+   * @return Reports.ThresholdInformation
+   */
+  public Reports.ThresholdInformation getThresholdInformation() {}
 
 }

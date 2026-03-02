@@ -1,4 +1,6 @@
-global interface AuthRequestHandler {
-	RichMessaging.AuthRequestResult handleAuthRequest(RichMessaging.AuthRequestResponse param0);
+/**
+ * Use this interface to handle authorization request responses.
+ */
+public interface AuthRequestHandler {
 
 }

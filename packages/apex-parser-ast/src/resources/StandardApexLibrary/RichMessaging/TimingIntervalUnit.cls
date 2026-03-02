@@ -1,7 +1,5 @@
-global enum TimingIntervalUnit {
-DAY,
-HOUR,
-MINUTE,
-MONTH,
-YEAR
+/**
+ * Represents an enumerated type that describes the timing interval.
+ */
+public enum TimingIntervalUnit {
 }

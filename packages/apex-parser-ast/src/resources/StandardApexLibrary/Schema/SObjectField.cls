@@ -1,14 +1,19 @@
-global class SObjectField {
-	global Boolean equals(Object obj) { }
-	/**
-	 * Return the describe information for this field
-	 */
-	global Schema.DescribeFieldResult getDescribe(Object options) { }
-	/**
-	 * Return the describe information for this field
-	 */
-	global Schema.DescribeFieldResult getDescribe() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * A Schema.sObjectField object is returned from the field describe result using the getController and getSObjectField methods.
+ */
+public class SObjectField {
+
+  /**
+   * Returns the describe field result for this field.
+   * @return Schema.DescribeFieldResult
+   */
+  public Schema.DescribeFieldResult getDescribe() {}
+
+  /**
+   * Returns the describe field result for this field.
+   * @param options 
+   * @return Schema.DescribeFieldResult
+   */
+  public Schema.DescribeFieldResult getDescribe(Object options) {}
 
 }

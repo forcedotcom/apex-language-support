@@ -1,5 +1,5 @@
-global enum UiBehavior {
-EDIT,
-READONLY,
-REQUIRED
+/**
+ * Describes the behavior for a layout item on a layout page.
+ */
+public enum UiBehavior {
 }

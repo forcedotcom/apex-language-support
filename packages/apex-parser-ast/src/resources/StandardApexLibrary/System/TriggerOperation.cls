@@ -1,9 +1,5 @@
-global enum TriggerOperation {
-AFTER_DELETE,
-AFTER_INSERT,
-AFTER_UNDELETE,
-AFTER_UPDATE,
-BEFORE_DELETE,
-BEFORE_INSERT,
-BEFORE_UPDATE
+/**
+ * System.TriggerOperation enum values are associated with trigger events.
+ */
+public enum TriggerOperation {
 }

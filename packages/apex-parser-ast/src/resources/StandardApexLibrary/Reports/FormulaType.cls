@@ -1,10 +1,8 @@
-global enum FormulaType {
-CHECKBOX,
-CURRENCY,
-DATE,
-DATE_TIME,
-NUMBER,
-PERCENT,
-TEXT,
-TIME
+/**
+ * The format of the numbers in a custom summary formula.
+ */
+public enum FormulaType {
+  CURRENCY,
+  NUMBER,
+  PERCENT
 }

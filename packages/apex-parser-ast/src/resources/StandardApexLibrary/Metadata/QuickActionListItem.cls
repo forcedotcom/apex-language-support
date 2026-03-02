@@ -1,6 +1,12 @@
-global class QuickActionListItem {
-	global String quickActionName;
-	global QuickActionListItem() { }
-	global Object clone() { }
+/**
+ * Represents an action in the QuickActionList .
+ */
+public class QuickActionListItem {
+
+  /**
+   * Makes a duplicate copy of the Metadata.QuickActionListItem .
+   * @return Object
+   */
+  public Object clone() {}
 
 }

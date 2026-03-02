@@ -1,4 +1,13 @@
-global interface DeployCallback {
-	void handleResult(Metadata.DeployResult param0, Metadata.DeployCallbackContext param1);
+/**
+ * An interface for metadata deployment callback classes.
+ */
+public interface DeployCallback {
+
+  /**
+   * Method that is called when the asynchronous deployment of custom metadata completes.
+   * @param var1 The results of the asynchronous deployment.
+   * @param var2 The context for the queued asynchronous deployment job.
+   */
+  void handleResult(Metadata.DeployResult var1, Metadata.DeployCallbackContext var2);
 
 }

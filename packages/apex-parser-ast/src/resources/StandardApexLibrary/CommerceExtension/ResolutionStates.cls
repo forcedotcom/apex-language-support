@@ -1,5 +1,5 @@
-global enum ResolutionStates {
-EXECUTE_DEFAULT,
-EXECUTE_REGISTERED,
-OFF
+/**
+ * Potential resolution states for a resolution strategy.
+ */
+public enum ResolutionStates {
 }

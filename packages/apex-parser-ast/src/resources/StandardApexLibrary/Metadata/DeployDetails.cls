@@ -1,7 +1,12 @@
-global class DeployDetails {
-	global List<Metadata.DeployMessage> componentFailures;
-	global List<Metadata.DeployMessage> componentSuccesses;
-	global DeployDetails() { }
-	global Object clone() { }
+/**
+ * Contains detailed information on deployed components.
+ */
+public class DeployDetails {
+
+  /**
+   * Makes a duplicate copy of the Metadata.DeployDetails .
+   * @return Object
+   */
+  public Object clone() {}
 
 }

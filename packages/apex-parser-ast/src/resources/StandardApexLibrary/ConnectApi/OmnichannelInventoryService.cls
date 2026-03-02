@@ -1,3 +1,26 @@
-global class OmnichannelInventoryService {
+/**
+ * Route orders to inventory locations in Order Management.
+ */
+public class OmnichannelInventoryService {
+
+  public static ConnectApi.OCICreateReservationOutputRepresentation createReservation(ConnectApi.OCICreateReservationInputRepresentation createReservationInputRepresentation) {}
+
+  public static ConnectApi.OCIFulfillReservationOutputRepresentation fulfillReservation(ConnectApi.OCIFulfillReservationInputRepresentation fulfillReservationInputRepresentation) {}
+
+  public static ConnectApi.OCIGetInventoryAvailabilityOutputRepresentation getInventoryAvailability(ConnectApi.OCIGetInventoryAvailabilityInputRepresentation inventoryAvailabilityInputRepresentation) {}
+
+  public static ConnectApi.OCIUploadInventoryAvailabilityStatusOutputRepresentation getInventoryAvailabilityUploadStatus(String uploadId) {}
+
+  public static ConnectApi.OCIPublishLocationStructureStatusOutputRepresentation getPublishLocationStructureStatus(String uploadId) {}
+
+  public static ConnectApi.OCIPublishLocationStructureOutputRepresentation publishLocationStructure() {}
+
+  public static ConnectApi.OCIReleaseReservationOutputRepresentation releaseReservation(ConnectApi.OCIReleaseReservationInputRepresentation releaseReservationInputRepresentation) {}
+
+  public static ConnectApi.OCIUploadInventoryAvailabilityOutputRepresentation submitInventoryAvailabilityUpload(ConnectApi.BinaryInput fileUpload) {}
+
+  public static ConnectApi.OCITransferReservationOutputRepresentation transferReservation(ConnectApi.OCITransferReservationInputRepresentation transferReservationInputRepresentation) {}
+
+  public static ConnectApi.OCIUpdateReservationOutputRepresentation updateReservation(ConnectApi.OCIUpdateReservationInputRepresentation updateReservationInputRepresentation) {}
 
 }

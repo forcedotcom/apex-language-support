@@ -1,0 +1,41 @@
+{
+  "name": "@salesforce/apex-stubs-generator",
+  "version": "1.0.0",
+  "description": "Generate Apex standard class stub files from the official Salesforce Apex Reference Guide",
+  "private": true,
+  "main": "out/index.js",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forcedotcom/apex-language-support.git",
+    "directory": "packages/apex-stubs-generator"
+  },
+  "scripts": {
+    "compile": "wireit",
+    "clean": "rimraf out .wireit tsconfig.tsbuildinfo",
+    "clean:all": "npm run clean && rimraf node_modules",
+    "generate": "tsx src/commands/generate.ts",
+    "validate": "tsx src/commands/validate.ts",
+    "validate:manifest": "tsx src/commands/validate.ts --manifest",
+    "testscraper": "tsx src/commands/test-scraper.ts",
+    "testapi": "tsx src/commands/test-api.ts",
+    "testplaywright": "tsx src/commands/test-playwright.ts",
+    "intercept": "tsx src/commands/test-intercept.ts",
+    "scrapedetail": "tsx src/commands/test-scrape-detail.ts",
+    "testscrape": "tsx src/commands/test-scrape-string.ts"
+  },
+  "wireit": {
+    "compile": {
+      "command": "tsc --build",
+      "clean": "if-file-deleted",
+      "output": [
+        "out/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "tsconfig*.json",
+        "../../tsconfig.base.json"
+      ]
+    }
+  }
+}

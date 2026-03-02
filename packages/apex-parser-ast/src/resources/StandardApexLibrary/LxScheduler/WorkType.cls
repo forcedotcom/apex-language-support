@@ -1,5 +1,6 @@
-global class WorkType {
-	global WorkType() { }
-	global Object clone() { }
+/**
+ * Contains information about the type of work to be performed.
+ */
+public class WorkType {
 
 }

@@ -1,8 +1,6 @@
-global class TemplatesSearchOptions {
-	global String filterGroup;
-	global String options;
-	global String type;
-	global TemplatesSearchOptions() { }
-	global Object clone() { }
+/**
+ * The TemplatesSearchOptions class provides optional properties to filter the template collection.
+ */
+public class TemplatesSearchOptions {
 
 }

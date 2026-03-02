@@ -1,4 +1,5 @@
-global enum AccountType {
-CHECKING,
-SAVINGS
+/**
+ * Specifies the account type.
+ */
+public enum AccountType {
 }

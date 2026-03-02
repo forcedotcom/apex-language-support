@@ -1,4 +1,5 @@
-global enum AuthRequestResultStatus {
-AUTHENTICATED,
-DECLINED
+/**
+ * This enum describes the authentication result status.
+ */
+public enum AuthRequestResultStatus {
 }

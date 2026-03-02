@@ -1,8 +1,12 @@
-global class PlatformActionList {
-	global Metadata.PlatformActionListContextEnum actionListContext;
-	global List<Metadata.PlatformActionListItem> platformActionListItems;
-	global String relatedSourceEntity;
-	global PlatformActionList() { }
-	global Object clone() { }
+/**
+ * Represents the list of actions, and their order, that display in the Salesforce mobile action bar for the layout.
+ */
+public class PlatformActionList {
+
+  /**
+   * Makes a duplicate copy of the Metadata.PlatformActionList .
+   * @return Object
+   */
+  public Object clone() {}
 
 }

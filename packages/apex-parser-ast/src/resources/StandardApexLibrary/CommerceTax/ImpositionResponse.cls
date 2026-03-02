@@ -1,10 +1,14 @@
-global class ImpositionResponse {
-	global ImpositionResponse() { }
-	global Object clone() { }
-	global java:commerce.tax.impl.engine.integration.response.ImpositionEngineResponse getDelegate() { }
-	global void setId(String id) { }
-	global void setName(String name) { }
-	global void setSubType(String subType) { }
-	global void setType(String type) { }
+/**
+ * Stores details of tax impositions from the external tax engine.
+ */
+public class ImpositionResponse {
+
+  public void setId(String id) {}
+
+  public void setName(String name) {}
+
+  public void setSubType(String subType) {}
+
+  public void setType(String type) {}
 
 }

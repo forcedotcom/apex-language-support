@@ -1,11 +1,30 @@
-global class StandardFilter {
-	global StandardFilter(String name, String value) { }
-	global StandardFilter() { }
-	global Object clone() { }
-	global String getName() { }
-	global String getValue() { }
-	global void setName(String name) { }
-	global void setValue(String value) { }
-	global String toString() { }
+/**
+ * Contains information about the standard filter defined in the report, such as the filter field API name and filter value.
+ */
+public class StandardFilter {
+
+  /**
+   * Return the API name of the standard filter.
+   * @return String
+   */
+  public String getName() {}
+
+  /**
+   * Returns the standard filter value.
+   * @return String
+   */
+  public String getValue() {}
+
+  /**
+   * Sets the API name of the standard filter.
+   * @param name 
+   */
+  public void setName(String name) {}
+
+  /**
+   * Sets the standard filter value.
+   * @param value 
+   */
+  public void setValue(String value) {}
 
 }

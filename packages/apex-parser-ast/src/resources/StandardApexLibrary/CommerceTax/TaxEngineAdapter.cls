@@ -1,4 +1,8 @@
-global interface TaxEngineAdapter {
-	commercetax.TaxEngineResponse processRequest(commercetax.TaxEngineContext param0);
+/**
+ * Retrieves information from the tax engine and evaluates the information to define tax details.
+ */
+public interface TaxEngineAdapter {
+
+  commercetax.TaxEngineResponse processRequest(commercetax.TaxEngineContext var1);
 
 }

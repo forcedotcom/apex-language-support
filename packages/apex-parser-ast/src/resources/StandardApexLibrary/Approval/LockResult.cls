@@ -1,12 +1,24 @@
-global class LockResult {
-	global List<Database.Error> errors;
-	global Id id;
-	global Boolean success;
-	global Boolean equals(Object obj) { }
-	global List<Database.Error> getErrors() { }
-	global Id getId() { }
-	global Integer hashCode() { }
-	global Boolean isSuccess() { }
-	global String toString() { }
+/**
+ * The result of a record lock returned by a System.Approval.lock() method.
+ */
+public class LockResult {
+
+  /**
+   * If an error occurred, returns an array of one or more database error objects, providing the error code and description.
+   * @return List<Database.Error>
+   */
+  public List<Database.Error> getErrors() {}
+
+  /**
+   * Returns the ID of the sObject you are trying to lock.
+   * @return Id
+   */
+  public Id getId() {}
+
+  /**
+   * A Boolean value that is set to true if the lock operation is successful for this object, or false otherwise.
+   * @return Boolean
+   */
+  public Boolean isSuccess() {}
 
 }

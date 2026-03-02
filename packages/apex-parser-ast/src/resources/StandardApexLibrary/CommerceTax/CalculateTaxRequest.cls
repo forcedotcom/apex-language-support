@@ -1,13 +1,12 @@
-global class CalculateTaxRequest {
-	global Boolean isCommit;
-	global Boolean isHeaderTaxRequested;
-	global Boolean shouldVoidTax;
-	global commercetax.TaxTransactionType taxTransactionType;
-	global commercetax.CalculateTaxType taxType;
-	global CalculateTaxRequest(commercetax.CalculateTaxType taxType) { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Represents a request to an external tax engine to calculate tax. Extends the TaxTransactionRequest class and is the top-level request class.
+ */
+public class CalculateTaxRequest {
+
+  public Boolean equals(Object obj) {}
+
+  public Integer hashCode() {}
+
+  public String toString() {}
 
 }

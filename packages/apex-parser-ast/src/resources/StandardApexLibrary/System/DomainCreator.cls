@@ -1,16 +1,28 @@
-global class DomainCreator {
-	global DomainCreator() { }
-	global Object clone() { }
-	global static String getContentHostname() { }
-	global static String getExperienceCloudSitesBuilderHostname() { }
-	global static String getExperienceCloudSitesHostname() { }
-	global static String getExperienceCloudSitesLivePreviewHostname() { }
-	global static String getExperienceCloudSitesPreviewHostname() { }
-	global static String getLightningContainerComponentHostname(String packageName) { }
-	global static String getLightningHostname() { }
-	global static String getOrgMyDomainHostname() { }
-	global static String getSalesforceSitesHostname() { }
-	global static String getSetupHostname() { }
-	global static String getVisualforceHostname(String packageName) { }
+/**
+ * Use the DomainCreator class to return a hostname specific to the org. For example, get the org’s Visualforce hostname. Values are returned as a hostname, such as MyDomainName .lightning.force.com .
+ */
+public class DomainCreator {
+
+  public static String getContentHostname() {}
+
+  public static String getExperienceCloudSitesBuilderHostname() {}
+
+  public static String getExperienceCloudSitesHostname() {}
+
+  public static String getExperienceCloudSitesLivePreviewHostname() {}
+
+  public static String getExperienceCloudSitesPreviewHostname() {}
+
+  public static String getLightningContainerComponentHostname(String packageName) {}
+
+  public static String getLightningHostname() {}
+
+  public static String getOrgMyDomainHostname() {}
+
+  public static String getSalesforceSitesHostname() {}
+
+  public static String getSetupHostname() {}
+
+  public static String getVisualforceHostname(String packageName) {}
 
 }

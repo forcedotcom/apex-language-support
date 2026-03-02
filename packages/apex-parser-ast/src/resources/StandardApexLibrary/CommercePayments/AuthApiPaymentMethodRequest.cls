@@ -1,10 +1,6 @@
-global class AuthApiPaymentMethodRequest {
-	global commercepayments.CardPaymentMethodRequest cardPaymentMethod;
-	global AuthApiPaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) { }
-	global AuthApiPaymentMethodRequest() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Sends information about a payment method to a gateway adapter during an authorization service call.
+ */
+public class AuthApiPaymentMethodRequest {
 
 }

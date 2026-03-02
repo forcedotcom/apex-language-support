@@ -1,5 +1,8 @@
-global class Surveys {
-	global Object clone() { }
-	global static ConnectApi.SurveyInvitationEmailOutput sendSurveyInvitationEmail(String surveyID, ConnectApi.SurveyInvitationEmailInput SurveyEmailInput) { }
+/**
+ * Send survey invitations by email.
+ */
+public class Surveys {
+
+  public static ConnectApi.SurveyInvitationEmailOutput sendSurveyInvitationEmail(String surveyID, ConnectApi.SurveyInvitationEmailInput SurveyEmailInput) {}
 
 }

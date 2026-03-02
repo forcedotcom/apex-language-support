@@ -1,6 +1,5 @@
-global enum LayoutSectionStyle {
-CUSTOMLINKS,
-ONECOLUMN,
-TWOCOLUMNSLEFTTORIGHT,
-TWOCOLUMNSTOPTOBOTTOM
+/**
+ * Describes the possible styles for a layout section.
+ */
+public enum LayoutSectionStyle {
 }

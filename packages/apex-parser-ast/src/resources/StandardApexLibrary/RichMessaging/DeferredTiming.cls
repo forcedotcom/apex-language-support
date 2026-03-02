@@ -1,9 +1,6 @@
-global class DeferredTiming {
-	global Datetime deferredDate;
-	global Datetime deferredDateValue;
-	global String timingType;
-	global DeferredTiming(Datetime deferredDate) { }
-	global DeferredTiming() { }
-	global Object clone() { }
+/**
+ * Represents timing for a transaction that occurs in the future.
+ */
+public class DeferredTiming {
 
 }

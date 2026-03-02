@@ -1,7 +1,18 @@
-global class PaymentGatewayContext {
-	global PaymentGatewayContext(commercepayments.PaymentGatewayRequest request, commercepayments.RequestType requestType) { }
-	global Object clone() { }
-	global commercepayments.PaymentGatewayRequest getPaymentRequest() { }
-	global commercepayments.RequestType getPaymentRequestType() { }
+/**
+ * Wraps the information related to a payment request.
+ */
+public class PaymentGatewayContext {
+
+  /**
+   * Returns the payment request object.
+   * @return commercepayments.PaymentGatewayRequest
+   */
+  public commercepayments.PaymentGatewayRequest getPaymentRequest() {}
+
+  /**
+   * Returns the payment request type.
+   * @return String
+   */
+  public String getPaymentRequestType() {}
 
 }

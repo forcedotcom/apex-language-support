@@ -1,4 +1,6 @@
-global interface ProcessPaymentHandler {
-	RichMessaging.ProcessPaymentResult processPaymentRequest(RichMessaging.ProcessPaymentRequest param0);
+/**
+ * Interface used to process payment requests.
+ */
+public interface ProcessPaymentHandler {
 
 }

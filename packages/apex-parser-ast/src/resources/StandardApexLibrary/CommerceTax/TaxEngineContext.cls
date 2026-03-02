@@ -1,8 +1,12 @@
-global class TaxEngineContext {
-	global TaxEngineContext(commercetax.TaxEngineRequest request, commercetax.RequestType requestType, String namedUri) { }
-	global Object clone() { }
-	global String getNamedUri() { }
-	global commercetax.TaxEngineRequest getRequest() { }
-	global commercetax.RequestType getRequestType() { }
+/**
+ * Wrapper class that stores details about the type of a tax calculation request.
+ */
+public class TaxEngineContext {
+
+  public String getNamedUri() {}
+
+  public commercetax.TaxEngineRequest getRequest() {}
+
+  public commercetax.RequestType getRequestType() {}
 
 }

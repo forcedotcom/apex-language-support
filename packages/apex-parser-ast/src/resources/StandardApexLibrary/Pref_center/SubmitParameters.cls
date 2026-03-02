@@ -1,6 +1,8 @@
-global class SubmitParameters {
-	global SubmitParameters() { }
-	global Object clone() { }
-	global String getRecordId() { }
+/**
+ * Retrieve record ID information to use with your submit-form handler.
+ */
+public class SubmitParameters {
+
+  public String getRecordId() {}
 
 }

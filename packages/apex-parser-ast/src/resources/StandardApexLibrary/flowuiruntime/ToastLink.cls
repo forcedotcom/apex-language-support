@@ -1,8 +1,6 @@
-global class ToastLink {
-	global String displayText;
-	global String name;
-	global String url;
-	global ToastLink() { }
-	global Object clone() { }
+/**
+ * The methods and properties in this class are reserved for future use.
+ */
+public class ToastLink {
 
 }

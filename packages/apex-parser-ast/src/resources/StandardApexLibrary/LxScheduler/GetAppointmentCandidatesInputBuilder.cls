@@ -1,19 +1,34 @@
-global class GetAppointmentCandidatesInputBuilder {
-	global GetAppointmentCandidatesInputBuilder() { }
-	global lxscheduler.GetAppointmentCandidatesInput build() { }
-	global Object clone() { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setAccountId(String accountId) { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setAllowConcurrent(Boolean allowConcurrent) { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setApiVersion(Double apiVersion) { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setCorrelationId(String correlationId) { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setEndTime(String endTime) { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setEngagementChannelTypeIds(List<String> engagementChannelTypeIds) { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setFilterByResources(List<String> filterByResources) { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setResourceLimitApptDistribution(Integer resourceLimitApptDistribution) { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setSchedulingPolicyId(String schedulingPolicyId) { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setStartTime(String startTime) { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setTerritoryIds(List<String> territoryIds) { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setWorkType(lxscheduler.WorkType workType) { }
-	global lxscheduler.GetAppointmentCandidatesInputBuilder setWorkTypeGroupId(String workTypeGroupId) { }
+/**
+ * Contains methods to build an instance of the lxscheduler.GetAppointmentCandidatesInput class.
+ */
+public class GetAppointmentCandidatesInputBuilder {
+
+  public lxscheduler.GetAppointmentCandidatesInput build() {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setAccountId(String accountId) {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setAllowConcurrent(Boolean allowConcurrent) {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setApiVersion(Double apiVersion) {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setCorrelationId(String correlationId) {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setEndTime(String endTime) {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setEngagementChannelTypeIds(List< String > engagementChannelTypeIds) {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setFilterByResources(List< String > filterByResources) {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setResourceLimitApptDistribution(Integer resourceLimitApptDistribution) {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setSchedulingPolicyId(String schedulingPolicyId) {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setStartTime(String startTime) {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setTerritoryIds(List< String > territoryIds) {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setWorkType(lxscheduler.WorkType workType) {}
+
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setWorkTypeGroupId(String workTypeGroupId) {}
 
 }

@@ -1,5 +1,5 @@
-global enum MetadataType {
-CUSTOMMETADATA,
-LAYOUT,
-OMNIINTERACTIONACCESSCONFIG
+/**
+ * Represents the custom metadata components available in Apex.
+ */
+public enum MetadataType {
 }

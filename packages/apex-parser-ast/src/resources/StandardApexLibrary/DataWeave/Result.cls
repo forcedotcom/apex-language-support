@@ -1,7 +1,10 @@
-global class Result {
-	global Object clone() { }
-	global Object getValue() { }
-	global String getValueAsString() { }
-	global String toString() { }
+/**
+ * Contains methods to retrieve data that was transformed using Script class methods.
+ */
+public class Result {
+
+  public Object getValue() {}
+
+  public String getValueAsString() {}
 
 }

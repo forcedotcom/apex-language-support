@@ -1,9 +1,5 @@
-global enum SalesforceResultCode {
-DECLINE,
-INDETERMINATE,
-PERMANENTFAIL,
-REQUIRESREVIEW,
-SUCCESS,
-SYSTEMERROR,
-VALIDATIONERROR
+/**
+ * Defines the gateway call status values in Salesforce based on the call status values that the payment gateway returned.
+ */
+public enum SalesforceResultCode {
 }

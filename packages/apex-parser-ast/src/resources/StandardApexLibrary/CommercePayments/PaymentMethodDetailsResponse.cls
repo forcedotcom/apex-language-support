@@ -1,7 +1,6 @@
-global class PaymentMethodDetailsResponse {
-	global PaymentMethodDetailsResponse() { }
-	global Object clone() { }
-	global void setAlternativePaymentMethod(commercepayments.AlternativePaymentMethodResponse alternativePaymentMethod) { }
-	global void setCardPaymentMethod(commercepayments.CardPaymentMethodResponse cardPaymentMethod) { }
+/**
+ * This class contains the details about the payment method.
+ */
+public class PaymentMethodDetailsResponse {
 
 }

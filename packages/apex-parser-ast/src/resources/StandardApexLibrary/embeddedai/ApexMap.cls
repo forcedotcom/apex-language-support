@@ -1,9 +1,6 @@
-global class ApexMap {
-	global String key;
-	global String value;
-	global ApexMap(String key, String value) { }
-	global ApexMap() { }
-	global Object clone() { }
-	global String toString() { }
+/**
+ * Create, clone, and convert string based key-value pairs to a JSON string format.
+ */
+public class ApexMap {
 
 }

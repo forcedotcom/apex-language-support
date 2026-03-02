@@ -1,23 +1,34 @@
-global class Document {
-	global Document() { }
-	/**
-	 * Create root element node. name can not be null. if namespace is not null and prefix is null, namespace is set as default ns
-	 */
-	global dom.XmlNode createRootElement(String name, String namespace, String prefix) { }
-	global Boolean equals(Object obj) { }
-	/**
-	 * Return root element node. null, root node is not created yet
-	 */
-	global dom.XmlNode getRootElement() { }
-	global Integer hashCode() { }
-	/**
-	 * parse and load the specified XML
-	 */
-	global void load(String xml) { }
-	global String toString() { }
-	/**
-	 * returns the XML as string
-	 */
-	global String toXmlString() { }
+/**
+ * Use the Document class to process XML content. You can parse nested XML content that’s up to 50 nodes deep.
+ */
+public class Document {
+
+  /**
+   * Creates the top-level root element for a document.
+   * @param name 
+   * @param namespace 
+   * @param prefix 
+   * @return Dom.XmlNode
+   */
+  public Dom.XmlNode createRootElement(String name, String namespace, String prefix) {}
+
+  /**
+   * Returns the top-level root element node in the document. If this method returns null , the root element has not been created yet.
+   * @return Dom.XmlNode
+   */
+  public Dom.XmlNode getRootElement() {}
+
+  /**
+   * Parse the XML representation of the document specified in the xml argument and load it into a document.
+   * @param xml 
+   * @return Void
+   */
+  public Void load(String xml) {}
+
+  /**
+   * Returns the XML representation of the document as a String.
+   * @return String
+   */
+  public String toXmlString() {}
 
 }

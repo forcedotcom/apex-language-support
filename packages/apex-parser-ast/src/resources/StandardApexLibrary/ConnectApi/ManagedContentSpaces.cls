@@ -1,11 +1,18 @@
-global class ManagedContentSpaces {
-	global Object clone() { }
-	global static ConnectApi.ManagedContentSpace getManagedContentSpace(String contentSpaceId) { }
-	global static ConnectApi.ManagedContentSpaceChannelsRepresentation getManagedContentSpaceChannels(String contentSpaceId, Integer pageParam, Integer pageSize) { }
-	global static ConnectApi.ManagedContentSpaceCollectionRepresentation getManagedContentSpaces(Integer pageParam, Integer pageSize, String nameFragment, String businessUnitId, Boolean hasBusinessUnit, ConnectApi.ConnectManagedContentSpaceType spaceType) { }
-	global static ConnectApi.ManagedContentSpaceCollectionRepresentation getManagedContentSpaces(Integer pageParam, Integer pageSize, String nameFragment) { }
-	global static ConnectApi.ManagedContentSpace patchManagedContentSpace(String contentSpaceId, ConnectApi.ManagedContentSpaceUpdateInput ManagedContentSpaceUpdateInput) { }
-	global static ConnectApi.ManagedContentSpaceChannelsRepresentation patchManagedContentSpaceChannels(String contentSpaceId, ConnectApi.ManagedContentSpaceChannelsInputRepresentation spaceChannels) { }
-	global static ConnectApi.ManagedContentSpace postManagedContentSpace(ConnectApi.ManagedContentSpaceInput ManagedContentSpaceInput) { }
+/**
+ * Get channels in a managed content space. Add or remove channels from a managed content space.
+ */
+public class ManagedContentSpaces {
+
+  public static ConnectApi.ManagedContentSpace getManagedContentSpace(String contentSpaceId) {}
+
+  public static ConnectApi.ManagedContentSpaceChannelsRepresentation getManagedContentSpaceChannels(String contentSpaceId, Integer pageParam, Integer pageSize) {}
+
+  public static ConnectApi.ManagedContentSpaceCollectionRepresentation getManagedContentSpaces(Integer pageParam, Integer pageSize, String nameFragment) {}
+
+  public static ConnectApi.ManagedContentSpace patchManagedContentSpace(String contentSpaceId, ConnectApi.ManagedContentSpaceUpdateInput ManagedContentSpaceUpdateInput) {}
+
+  public static ConnectApi.ManagedContentSpaceChannelsRepresentation patchManagedContentSpaceChannels(String contentSpaceId, ConnectApi.ManagedContentSpaceChannelsInputRepresentation spaceChannels) {}
+
+  public static ConnectApi.ManagedContentSpace postManagedContentSpace(ConnectApi.ManagedContentSpaceInput ManagedContentSpaceInput) {}
 
 }

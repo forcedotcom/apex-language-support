@@ -1,7 +1,6 @@
-global class ReportDataCell {
-	global Object clone() { }
-	global String getLabel() { }
-	global Object getValue() { }
-	global String toString() { }
+/**
+ * Contains the data for a cell in the report, including the display label and value.
+ */
+public class ReportDataCell {
 
 }

@@ -1,6 +1,8 @@
-global enum AuthenticationProtocol {
-CERTIFICATE,
-NONE,
-OAUTH,
-PASSWORD
+/**
+ * Determines what type of credentials are used to authenticate to the external system.
+ */
+public enum AuthenticationProtocol {
+  NONE,
+  OAUTH,
+  PASSWORD
 }

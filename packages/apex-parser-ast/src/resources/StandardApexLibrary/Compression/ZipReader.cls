@@ -1,11 +1,6 @@
-global class ZipReader {
-	global ZipReader(Blob apexData) { }
-	global Object clone() { }
-	global Blob extract(String name) { }
-	global Blob extract(compression.ZipEntry entry) { }
-	global List<compression.ZipEntry> getEntries() { }
-	global Map<String,compression.ZipEntry> getEntriesMap() { }
-	global compression.ZipEntry getEntry(String name) { }
-	global List<String> getEntryNames() { }
+/**
+ * Contains methods to get information about zip entries and to extract content for specified zip entries from the zip file.
+ */
+public class ZipReader {
 
 }

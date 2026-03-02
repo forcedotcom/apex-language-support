@@ -1,10 +1,44 @@
-global class Ideas {
-	global Ideas() { }
-	global Object clone() { }
-	global static List<Id> findSimilar(SObject idea) { }
-	global static List<Id> getAllRecentReplies(String userId, String communityId) { }
-	global static List<Id> getReadRecentReplies(String userId, String communityId) { }
-	global static List<Id> getUnreadRecentReplies(String userId, String communityId) { }
-	global static void markRead(String ideaId) { }
+/**
+ * Represents zone ideas.
+ */
+public class Ideas {
+
+  /**
+   * Returns a list of similar ideas based on the title of the specified idea.
+   * @param idea 
+   * @return ID []
+   */
+  public static ID [] findSimilar(Idea idea) {}
+
+  /**
+   * Returns ideas that have recent replies for the specified user or zone. This includes all read and unread replies.
+   * @param userID 
+   * @param communityID 
+   * @return ID []
+   */
+  public static ID [] getAllRecentReplies(String userID, String communityID) {}
+
+  /**
+   * Returns ideas that have recent replies marked as read.
+   * @param userID 
+   * @param communityID 
+   * @return ID []
+   */
+  public static ID [] getReadRecentReplies(String userID, String communityID) {}
+
+  /**
+   * Returns ideas that have recent replies marked as unread.
+   * @param userID 
+   * @param communityID 
+   * @return ID []
+   */
+  public static ID [] getUnreadRecentReplies(String userID, String communityID) {}
+
+  /**
+   * Marks all comments as read for the user that is currently logged in.
+   * @param ideaID 
+   * @return Void
+   */
+  public static Void markRead(String ideaID) {}
 
 }

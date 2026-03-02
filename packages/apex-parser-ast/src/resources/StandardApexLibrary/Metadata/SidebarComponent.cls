@@ -1,17 +1,12 @@
-global class SidebarComponent {
-	global String componentType;
-	global String createAction;
-	global Boolean enableLinking;
-	global Integer height;
-	global Boolean knowledgeOneEnable;
-	global String label;
-	global String lookup;
-	global String page_x;
-	global List<Metadata.RelatedList> relatedLists;
-	global String unit;
-	global String updateAction;
-	global Integer width;
-	global SidebarComponent() { }
-	global Object clone() { }
+/**
+ * Represents a specific custom console component to display in a container that hosts multiple components in one of the sidebars of the Salesforce console.
+ */
+public class SidebarComponent {
+
+  /**
+   * Makes a duplicate copy of the Metadata.SidebarComponent .
+   * @return Object
+   */
+  public Object clone() {}
 
 }

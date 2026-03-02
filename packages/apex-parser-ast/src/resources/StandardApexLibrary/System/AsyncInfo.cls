@@ -1,9 +1,6 @@
-global class AsyncInfo {
-	global AsyncInfo() { }
-	global Object clone() { }
-	global static Integer getCurrentQueueableStackDepth() { }
-	global static Integer getMaximumQueueableStackDepth() { }
-	global static Integer getMinimumQueueableDelayInMinutes() { }
-	global static Boolean hasMaxStackDepth() { }
+/**
+ * Provides methods to get the current stack depth, maximum stack depth, and the minimum queueable delay for Queueable transactions, and to determine if maximum stack depth is set.
+ */
+public class AsyncInfo {
 
 }

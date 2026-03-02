@@ -1,6 +1,6 @@
-global class ReportDetailRow {
-	global Object clone() { }
-	global List<reports.ReportDataCell> getDataCells() { }
-	global String toString() { }
+/**
+ * Contains data cells for a detail row of a report.
+ */
+public class ReportDetailRow {
 
 }

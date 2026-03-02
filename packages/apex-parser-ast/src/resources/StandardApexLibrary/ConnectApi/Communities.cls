@@ -1,8 +1,12 @@
-global class Communities {
-	global Object clone() { }
-	global static ConnectApi.CommunityPage getCommunities(ConnectApi.CommunityStatus status) { }
-	global static ConnectApi.CommunityPage getCommunities() { }
-	global static ConnectApi.Community getCommunity(String communityId) { }
-	global static ConnectApi.CommunityTemplates getCommunityTemplates() { }
+/**
+ * Get information about Experience Cloud sites in your org.
+ */
+public class Communities {
+
+  public static ConnectApi.CommunityPage getCommunities() {}
+
+  public static ConnectApi.CommunityPage getCommunities(ConnectApi.CommunityStatus communityStatus) {}
+
+  public static ConnectApi.Community getCommunity(String communityId) {}
 
 }

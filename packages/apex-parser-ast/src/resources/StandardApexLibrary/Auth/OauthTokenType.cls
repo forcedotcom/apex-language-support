@@ -1,6 +1,5 @@
-global enum OauthTokenType {
-ACCESS_TOKEN,
-DELETE_TOKEN,
-ORG_JWT,
-REFRESH_TOKEN
+/**
+ * Specifies the type of Salesforce-issued OAuth 2.0 token being revoked in the OauthToken.revokeToken method.
+ */
+public enum OauthTokenType {
 }

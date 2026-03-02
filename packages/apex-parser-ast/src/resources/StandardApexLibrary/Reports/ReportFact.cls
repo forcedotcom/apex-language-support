@@ -1,7 +1,6 @@
-global class ReportFact {
-	global Object clone() { }
-	global List<reports.SummaryValue> getAggregates() { }
-	global String getKey() { }
-	global String toString() { }
+/**
+ * Contains the fact map for the report, which represents the report’s data values.
+ */
+public class ReportFact {
 
 }

@@ -1,9 +1,0 @@
-global enum DayOfWeekEnum {
-FRIDAY,
-MONDAY,
-SATURDAY,
-SUNDAY,
-THURSDAY,
-TUESDAY,
-WEDNESDAY
-}

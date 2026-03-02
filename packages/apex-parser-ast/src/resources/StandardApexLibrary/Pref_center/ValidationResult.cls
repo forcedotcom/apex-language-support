@@ -1,4 +1,6 @@
-global class ValidationResult {
-	global Object clone() { }
+/**
+ * This class is reserved for future use with Preference Manager.
+ */
+public class ValidationResult {
 
 }

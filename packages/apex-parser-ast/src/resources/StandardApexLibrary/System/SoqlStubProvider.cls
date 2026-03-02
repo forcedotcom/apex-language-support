@@ -1,6 +1,6 @@
-global class SoqlStubProvider {
-	global SoqlStubProvider() { }
-	global Object clone() { }
-	global List<SObject> handleSoqlQuery(Schema.SObjectType param0, String param1, Map<String,Object> param2) { }
+/**
+ * Contains a method to create a mock test class for handling SOQL query responses for Data Cloud data model objects (DMOs).
+ */
+public class SoqlStubProvider {
 
 }

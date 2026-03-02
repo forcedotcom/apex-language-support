@@ -1,4 +1,6 @@
-global interface ProcessFormHandler {
-	Id processFormRequest(RichMessaging.ProcessFormResponse param0);
+/**
+ * Apex interface that processes the responses to forms submitted in a messaging session.
+ */
+public interface ProcessFormHandler {
 
 }

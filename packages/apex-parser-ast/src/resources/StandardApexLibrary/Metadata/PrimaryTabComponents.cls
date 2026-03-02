@@ -1,7 +1,12 @@
-global class PrimaryTabComponents {
-	global List<Metadata.ConsoleComponent> component;
-	global List<Metadata.Container> containers;
-	global PrimaryTabComponents() { }
-	global Object clone() { }
+/**
+ * Represents custom console components on primary tabs in the Salesforce console.
+ */
+public class PrimaryTabComponents {
+
+  /**
+   * Makes a duplicate copy of the Metadata.PrimaryTabComponents .
+   * @return Object
+   */
+  public Object clone() {}
 
 }

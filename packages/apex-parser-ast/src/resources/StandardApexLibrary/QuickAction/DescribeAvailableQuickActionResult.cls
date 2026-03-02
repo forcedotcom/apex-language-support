@@ -1,14 +1,30 @@
-global class DescribeAvailableQuickActionResult {
-	global String actionenumorid;
-	global String label;
-	global String name;
-	global String type;
-	global Boolean equals(Object obj) { }
-	global String getActionEnumOrId() { }
-	global String getLabel() { }
-	global String getName() { }
-	global String getType() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Contains describe metadata information for a quick action that is available for a specified parent.
+ */
+public class DescribeAvailableQuickActionResult {
+
+  /**
+   * Returns the unique ID for the action. If the action doesn’t have an ID, its API name is used.
+   * @return String
+   */
+  public String getActionEnumOrId() {}
+
+  /**
+   * The quick action label.
+   * @return String
+   */
+  public String getLabel() {}
+
+  /**
+   * The quick action name.
+   * @return String
+   */
+  public String getName() {}
+
+  /**
+   * The quick action type.
+   * @return String
+   */
+  public String getType() {}
 
 }

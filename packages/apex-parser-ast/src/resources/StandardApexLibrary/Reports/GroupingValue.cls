@@ -1,9 +1,6 @@
-global class GroupingValue {
-	global Object clone() { }
-	global List<reports.GroupingValue> getGroupings() { }
-	global String getKey() { }
-	global String getLabel() { }
-	global Object getValue() { }
-	global String toString() { }
+/**
+ * Contains grouping values for a row or column, including the key, label, and value.
+ */
+public class GroupingValue {
 
 }

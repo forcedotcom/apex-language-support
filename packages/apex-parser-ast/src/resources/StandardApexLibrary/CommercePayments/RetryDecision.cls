@@ -1,4 +1,5 @@
-global enum RetryDecision {
-NONRETRIABLE,
-RETRIABLE
+/**
+ * Specifies the retry decision.
+ */
+public enum RetryDecision {
 }

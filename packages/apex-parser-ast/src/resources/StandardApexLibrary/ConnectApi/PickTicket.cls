@@ -1,3 +1,6 @@
-global class PickTicket {
+/**
+ * Create tickets to fulfill orders.
+ */
+public class PickTicket {
 
 }

@@ -1,6 +1,6 @@
-global class FormulaInstance {
-	global Object clone() { }
-	global Object evaluate(Object contextObject) { }
-	global Set<String> getReferencedFields() { }
+/**
+ * Contains a method to evaluate the formula instance.
+ */
+public class FormulaInstance {
 
 }

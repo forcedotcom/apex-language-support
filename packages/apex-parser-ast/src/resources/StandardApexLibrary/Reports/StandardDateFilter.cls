@@ -1,15 +1,54 @@
-global class StandardDateFilter {
-	global StandardDateFilter(String column, String durationValue, String startDate, String endDate) { }
-	global StandardDateFilter() { }
-	global Object clone() { }
-	global String getColumn() { }
-	global String getDurationValue() { }
-	global String getEndDate() { }
-	global String getStartDate() { }
-	global void setColumn(String column) { }
-	global void setDurationValue(String durationValue) { }
-	global void setEndDate(String endDate) { }
-	global void setStartDate(String startDate) { }
-	global String toString() { }
+/**
+ * Contains information about standard date filter available in the report—for example, the API name, start date, and end date of the standard date filter duration as well as the API name of the date field on which the filter is placed.
+ */
+public class StandardDateFilter {
+
+  /**
+   * Returns the API name of the standard date filter column.
+   * @return String
+   */
+  public String getColumn() {}
+
+  /**
+   * Returns duration information about a standard date filter, such as start date, end date, and display name and API name of the date filter.
+   * @return String
+   */
+  public String getDurationValue() {}
+
+  /**
+   * Returns the end date of the standard date filter.
+   * @return String
+   */
+  public String getEndDate() {}
+
+  /**
+   * Returns the start date for the standard date filter.
+   * @return String
+   */
+  public String getStartDate() {}
+
+  /**
+   * Sets the API name of the standard date filter column.
+   * @param standardDateFilterColumnName 
+   */
+  public void setColumn(String standardDateFilterColumnName) {}
+
+  /**
+   * Sets the API name of the standard date filter.
+   * @param durationName 
+   */
+  public void setDurationValue(String durationName) {}
+
+  /**
+   * Sets the end date for the standard date filter.
+   * @param endDate 
+   */
+  public void setEndDate(String endDate) {}
+
+  /**
+   * Sets the start date for the standard date filter.
+   * @param startDate 
+   */
+  public void setStartDate(String startDate) {}
 
 }

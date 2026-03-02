@@ -1,10 +1,18 @@
-global class DescribeLayoutRow {
-	global List<QuickAction.DescribeLayoutItem> layoutitems;
-	global Integer numitems;
-	global Boolean equals(Object obj) { }
-	global List<QuickAction.DescribeLayoutItem> getLayoutItems() { }
-	global Integer getNumItems() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Represents a row in a QuickAction.DescribeLayoutSection .
+ */
+public class DescribeLayoutRow {
+
+  /**
+   * Returns either a specific field or an empty QuickAction.DescribeLayoutItem (one that contains no QuickAction.DescribeLayoutComponent objects).
+   * @return List<QuickAction.DescribeLayoutItem>
+   */
+  public List<QuickAction.DescribeLayoutItem> getLayoutItems() {}
+
+  /**
+   * Returns the number of QuickAction.DescribeLayoutItem .
+   * @return Integer
+   */
+  public Integer getNumItems() {}
 
 }

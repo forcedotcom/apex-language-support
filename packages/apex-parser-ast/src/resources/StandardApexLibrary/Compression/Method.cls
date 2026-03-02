@@ -1,4 +1,5 @@
-global enum Method {
-DEFLATED,
-STORED
+/**
+ * Specifies the compression method for the zip entries.
+ */
+public enum Method {
 }

@@ -1,7 +1,6 @@
-global class NlpResponse {
-	global List<String> errors;
-	global industriesNlpSvc.NlpSummarizationResult summarizationResult;
-	global NlpResponse() { }
-	global Object clone() { }
+/**
+ * Stores the result for an NLP Operation. NLP operation can be SurveyLongSummarization and SurveyShortSummarization.
+ */
+public class NlpResponse {
 
 }

@@ -1,14 +1,19 @@
-global class Http {
-	global Http() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	/**
-	 * Send HTTP request to external server
-	 */
-	global System.HttpResponse send(Object request) { }
-	/**
-	 * Returns a string that displays and identifies this object's properties.
-	 */
-	global String toString() { }
+/**
+ * Use the Http class to initiate an HTTP request and response.
+ */
+public class Http {
+
+  /**
+   * Sends an HttpRequest and returns the response.
+   * @param request 
+   * @return HttpResponse
+   */
+  public HttpResponse send(HttpRequest request) {}
+
+  /**
+   * Returns a string that displays and identifies the object's properties.
+   * @return String
+   */
+  public String toString() {}
 
 }

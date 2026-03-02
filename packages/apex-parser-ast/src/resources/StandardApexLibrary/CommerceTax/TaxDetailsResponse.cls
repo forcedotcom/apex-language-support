@@ -1,19 +1,30 @@
-global class TaxDetailsResponse {
-	global TaxDetailsResponse() { }
-	global Object clone() { }
-	global java:commerce.tax.impl.engine.integration.response.TaxDetailsEngineResponse getDelegate() { }
-	global void setCustomTaxAttributes(commercetax.CustomTaxAttributesResponse customTaxAttributes) { }
-	global void setExemptAmount(Double exemptAmount) { }
-	global void setExemptReason(String reason) { }
-	global void setImposition(commercetax.ImpositionResponse imposition) { }
-	global void setJurisdiction(commercetax.JurisdictionResponse jurisdiction) { }
-	global void setRate(Double rate) { }
-	global void setSerCode(String serCode) { }
-	global void setTax(Double tax) { }
-	global void setTaxAuthorityTypeId(String taxAuthorityTypeId) { }
-	global void setTaxId(String taxId) { }
-	global void setTaxRegionId(String taxRegionId) { }
-	global void setTaxRuleDetails(commercetax.RuleDetailsResponse taxRuleDetails) { }
-	global void setTaxableAmount(Double taxableAmount) { }
+/**
+ * Stores details of the tax values that an external tax engine calculates in response to a tax calculation request.
+ */
+public class TaxDetailsResponse {
+
+  public void setExemptAmount(Double exemptAmount) {}
+
+  public void setExemptReason(String reason) {}
+
+  public void setImposition(commercetax.ImpositionResponse imposition) {}
+
+  public void setJurisdiction(commercetax.JurisdictionResponse jurisdiction) {}
+
+  public void setRate(Double rate) {}
+
+  public void setSerCode(String serCode) {}
+
+  public void setTax(Double tax) {}
+
+  public void setTaxAuthorityTypeId(String taxAuthorityTypeId) {}
+
+  public void setTaxId(String taxId) {}
+
+  public void setTaxRegionId(String taxRegionId) {}
+
+  public void setTaxRuleDetails(commercetax.RuleDetailsResponse taxRuleDetails) {}
+
+  public void setTaxableAmount(Double taxableAmount) {}
 
 }

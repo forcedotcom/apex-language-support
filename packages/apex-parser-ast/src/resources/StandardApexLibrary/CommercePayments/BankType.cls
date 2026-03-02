@@ -1,6 +1,5 @@
-global enum BankType {
-ACH,
-BACS,
-BECS,
-SEPADEBIT
+/**
+ * Specifies the bank type.
+ */
+public enum BankType {
 }

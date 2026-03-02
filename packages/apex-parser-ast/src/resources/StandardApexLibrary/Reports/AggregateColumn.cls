@@ -1,10 +1,6 @@
-global class AggregateColumn {
-	global Object clone() { }
-	global String getAcrossGroupingContext() { }
-	global reports.ColumnDataType getDataType() { }
-	global String getDownGroupingContext() { }
-	global String getLabel() { }
-	global String getName() { }
-	global String toString() { }
+/**
+ * Contains methods for describing summary fields such as Record Count, Sum, Average, Max, Min, and custom summary formulas. Includes name, label, data type, and grouping context.
+ */
+public class AggregateColumn {
 
 }

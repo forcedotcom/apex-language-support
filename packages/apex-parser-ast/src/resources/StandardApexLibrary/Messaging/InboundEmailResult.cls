@@ -1,7 +1,6 @@
-global class InboundEmailResult {
-	global String message;
-	global Boolean success;
-	global InboundEmailResult() { }
-	global Object clone() { }
+/**
+ * The InboundEmailResult object is used to return the result of the email service. If this object is null, the result is assumed to be successful.
+ */
+public class InboundEmailResult {
 
 }

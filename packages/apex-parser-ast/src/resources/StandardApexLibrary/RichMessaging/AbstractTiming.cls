@@ -1,5 +1,6 @@
-global class AbstractTiming {
-	global AbstractTiming() { }
-	global Object clone() { }
+/**
+ * Parent class for other RichMessaging timing classes.
+ */
+public class AbstractTiming {
 
 }

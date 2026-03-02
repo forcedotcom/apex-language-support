@@ -1,9 +1,6 @@
-global class OAuthRefreshResult {
-	global String accessToken;
-	global String error;
-	global String refreshToken;
-	global OAuthRefreshResult(String accessToken, String refreshToken, String error) { }
-	global OAuthRefreshResult(String accessToken, String refreshToken) { }
-	global Object clone() { }
+/**
+ * Stores the result of an AuthProviderPluginClass refresh method. OAuth authentication flow provides a refresh token that can be used to get a new access token. Access tokens have a limited lifetime as specified by the session timeout value. When an access token expires, use a refresh token to get a new access token.
+ */
+public class OAuthRefreshResult {
 
 }

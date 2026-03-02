@@ -1,11 +1,6 @@
-global interface EnvironmentContext {
-	void addEntityField(String param0);
-	void addEntityFields(Set<String> param0);
-	String getDisplayLocation();
-	List<String> getEntityFields();
-	String getLocationUrl();
-	String getParametersAsJSON();
-	String getSublocation();
-	void setParametersAsJSON(String param0);
+/**
+ * Use this interface to retrieve environment context information, such as the app display location or the configuration parameters.
+ */
+public interface EnvironmentContext {
 
 }

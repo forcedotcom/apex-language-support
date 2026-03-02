@@ -1,6 +1,6 @@
-global class Dimension {
-	global Object clone() { }
-	global List<reports.GroupingValue> getGroupings() { }
-	global String toString() { }
+/**
+ * Contains information for each row or column grouping.
+ */
+public class Dimension {
 
 }

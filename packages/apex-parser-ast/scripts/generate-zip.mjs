@@ -38,24 +38,17 @@ async function generateZip() {
     // Create resources directory for distribution
     await mkdir(path.join('out', 'resources'), { recursive: true });
 
-    // List of builtin classes that should be excluded from StandardApexLibrary/System/
-    // These will be merged from builtins/ folder instead
+    // Builtin classes that override StandardApexLibrary/System/ equivalents.
+    // These are hand-crafted stubs retained because the docs don't fully cover them
+    // (e.g. operator overloads, implicit constructors, conversion methods not on the docs site).
+    // The remaining 11 System classes (Boolean, Date, DateTime, Decimal, Double, Id,
+    // List, Map, Set, String, Time) have been retired from builtins and are now sourced
+    // directly from StandardApexLibrary/System/ as generated stubs.
     const builtinClasses = new Set([
-      'Blob.cls',
-      'Boolean.cls',
-      'Date.cls',
-      'DateTime.cls',
-      'Decimal.cls',
-      'Double.cls',
-      'Id.cls',
-      'Integer.cls',
-      'List.cls',
-      'Long.cls',
-      'Map.cls',
-      'Object.cls',
-      'Set.cls',
-      'String.cls',
-      'Time.cls',
+      'Blob.cls',    // hand-crafted: append(), subBlob(), toHexString(), valueOf(String, encoding)
+      'Integer.cls', // hand-crafted: decimalValue(), doubleValue(), longValue()
+      'Long.cls',    // hand-crafted: decimalValue(), doubleValue()
+      'Object.cls',  // hand-crafted: equals(), hashCode(), toString() (minimal in docs)
     ]);
 
     // Get all files from the StandardApexLibrary directory

@@ -1,13 +1,6 @@
-global class AlternativePaymentMethodRequest {
-	global String accountId;
-	global String email;
-	global String gatewayToken;
-	global String gatewayTokenDetails;
-	global String name;
-	global AlternativePaymentMethodRequest(String gatewayToken) { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * The class contains information about the alternative payment method that are required for a gateway to process the request.
+ */
+public class AlternativePaymentMethodRequest {
 
 }

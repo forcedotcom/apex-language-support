@@ -1,4 +1,5 @@
-global enum NotificationStatus {
-FAILED,
-SUCCESS
+/**
+ * Shows whether the payments platform successfully received the notification from the gateway.
+ */
+public enum NotificationStatus {
 }

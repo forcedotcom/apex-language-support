@@ -1,10 +1,18 @@
-global class FieldDiff {
-	global String difference;
-	global String name;
-	global Boolean equals(Object obj) { }
-	global String getDifference() { }
-	global String getName() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Represents the name of a matching rule field and how the values of the field compare for the duplicate and its matching record.
+ */
+public class FieldDiff {
+
+  /**
+   * Returns how the field values compare for the duplicate and its matching record.
+   * @return String
+   */
+  public String getDifference() {}
+
+  /**
+   * Returns the name of a field on a matching rule that detected duplicates.
+   * @return String
+   */
+  public String getName() {}
 
 }

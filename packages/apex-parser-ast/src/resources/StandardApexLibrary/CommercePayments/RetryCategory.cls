@@ -1,8 +1,5 @@
-global enum RetryCategory {
-CARDLIMIT,
-GATEWAYCONNECTION,
-PAYMENTINFORMATION,
-PAYMENTPROCESSING,
-SECURITY,
-UNKNOWN
+/**
+ * Specifies the retry category.
+ */
+public enum RetryCategory {
 }
