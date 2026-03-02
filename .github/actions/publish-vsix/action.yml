@@ -121,7 +121,7 @@ runs:
             export VSCE_PAT="${!TOKEN_ENV}"  # ensure the expected env var is set
             npx @vscode/vsce publish --packagePath "${{ inputs.vsix-path }}" --skip-duplicate $PRE_RELEASE_FLAG
           else
-            npx ovsx publish "${{ inputs.vsix-path }}" -p "${!TOKEN_ENV}" $PRE_RELEASE_FLAG
+            npx ovsx publish "${{ inputs.vsix-path }}" -p "${!TOKEN_ENV}" --skip-duplicate $PRE_RELEASE_FLAG
           fi
           
           echo "✅ Successfully published to $MARKETPLACE_NAME"
