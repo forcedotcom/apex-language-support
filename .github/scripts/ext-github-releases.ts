@@ -187,15 +187,46 @@ function createGitHubRelease(
     console.log(`Pre-release: ${preRelease}`);
 
     try {
-      // Create release using GitHub CLI
+      const repo = process.env.GITHUB_REPOSITORY;
       const vsixArgs = vsixFiles.map((file) => `"${file}"`).join(' ');
-      const command =
-        `gh release create "${releaseTag}" --title "${releaseTitle}" ` +
-        `--notes "${releaseNotes}" --prerelease="${preRelease}" ` +
-        `--repo "${process.env.GITHUB_REPOSITORY}" ${vsixArgs}`;
 
-      execSync(command, { stdio: 'inherit' });
-      console.log(`✅ Release created for ${extension}`);
+      // Check if release already exists (idempotency)
+      let releaseExists = false;
+      let hasAssets = false;
+      try {
+        const viewOutput = execSync(
+          `gh release view "${releaseTag}" --repo "${repo}" --json assets`,
+          { encoding: 'utf8' },
+        );
+        const releaseData = JSON.parse(viewOutput);
+        releaseExists = true;
+        hasAssets =
+          Array.isArray(releaseData.assets) && releaseData.assets.length > 0;
+      } catch {
+        // Release does not exist — proceed to create
+      }
+
+      if (releaseExists && hasAssets) {
+        console.log(
+          `⏭️ Release ${releaseTag} already exists with assets — skipping`,
+        );
+      } else if (releaseExists) {
+        console.log(
+          `📎 Release ${releaseTag} exists but has no assets — uploading`,
+        );
+        execSync(
+          `gh release upload "${releaseTag}" ${vsixArgs} --repo "${repo}"`,
+          { stdio: 'inherit' },
+        );
+        console.log(`✅ Assets uploaded to existing release for ${extension}`);
+      } else {
+        const command =
+          `gh release create "${releaseTag}" --title "${releaseTitle}" ` +
+          `--notes "${releaseNotes}" --prerelease="${preRelease}" ` +
+          `--repo "${repo}" ${vsixArgs}`;
+        execSync(command, { stdio: 'inherit' });
+        console.log(`✅ Release created for ${extension}`);
+      }
     } catch (error) {
       console.error(`Failed to create release for ${extension}:`, error);
       throw error;

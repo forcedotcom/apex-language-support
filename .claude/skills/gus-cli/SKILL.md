@@ -34,7 +34,8 @@ Interact with Gus (Salesforce Agile Accelerator org) via sf CLI. Requires alias 
 | Constant                | Value                |
 | ----------------------- | -------------------- |
 | Team ID                 | `a00B0000000w9xPIAQ` |
-| Product Tag             | `a1aB000000005G3IAI` |
+| Product Tag             | `a1aEE0000028Da1YAE` |
+| Epic ID                 | `a3QEE000002BQSf2AO` |
 | User Story RecordTypeId | `0129000000006gDAAQ` |
 | Bug RecordTypeId        | `012T00000004MUHIA2` |
 
@@ -116,6 +117,10 @@ Use to pick the right Epic\_\_c when creating work. Query epics first; match by 
 **TDX 262 epics** (Code Builder Web, CBLite, Org Browser on Web, LWC on web, Apex Testing Extension, etc.)
 
 - Web IDE compatibility; running extensions in browser
+
+**IDE Apex Language Support** `a3QEE000002BQSf2AO`
+
+- Primary epic for the apex-language-support repo
 
 **Backlog epics** (IDE Exp - Core, Extensions, LWC & Aura, etc.)
 
