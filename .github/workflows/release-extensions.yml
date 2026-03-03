@@ -242,6 +242,8 @@ jobs:
 
           echo "✅ GitHub authentication validated"
 
+      # If the branch push succeeds but tag push fails, do NOT re-run this job.
+      # Manually push the missing tags: git push origin --tags
       - name: Commit version bumps with tags
         env:
           # Ensure GitHub CLI has proper authentication
@@ -488,7 +490,7 @@ jobs:
 
   create-github-releases:
     name: Create GitHub Releases
-    needs: [package, determine-changes, determine-build-type, calculate-artifact-name, publish]
+    needs: [package, determine-changes, determine-build-type, calculate-artifact-name]
     runs-on: ubuntu-latest
     if: needs.package.result == 'success' && needs.determine-changes.outputs.selected-extensions != '' && github.event_name != 'pull_request'
     steps:

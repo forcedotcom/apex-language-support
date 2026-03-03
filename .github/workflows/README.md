@@ -197,8 +197,7 @@ graph LR
 
 - Manual dispatch (primary)
 - Scheduled nightly builds:
-  - `main` branch: Daily at 3:00 AM UTC (`0 3 * * *`)
-  - `tdx26/main` branch: Daily at 4:00 AM UTC (`0 4 * * *`)
+  - `main` branch: Daily at 4:00 AM UTC (`0 4 * * *`)
 - ~~Push to main (commented out)~~
 
 **Jobs:**
@@ -222,13 +221,13 @@ graph TB
 - Uses composite action `get-packages` to dynamically identify packages
 - Supports manual input for branch, packages, dry-run, pre-release, etc.
 - Determines build type (nightly vs regular)
-- **Nightly builds**: Automatically runs scheduled builds for `main` and `tdx26/main` branches as pre-releases
+- **Nightly builds**: Automatically runs scheduled builds for `main` as pre-releases
 - ~~NPM release workflow is commented out~~
 
 **Nightly Build Behavior:**
 
 - Scheduled runs automatically use `pre-release: true`
-- Branch selection is determined by the cron schedule time (hour 3 = main, hour 4 = tdx26/main)
+- All scheduled runs target `main`
 - Only changed extensions are built and released
 - All registries are targeted by default
 
@@ -641,7 +640,7 @@ gh workflow run release-extensions.yml --field pre-release=false
 ### Active Features
 
 1. **Extension Releases**: Fully functional with manual triggers
-2. **Nightly Builds**: Active scheduled builds for `main` and `tdx26/main` branches (pre-releases)
+2. **Nightly Builds**: Active scheduled builds for `main` branch (pre-releases, daily at 4:00 AM UTC)
 3. **MD5 Checksums**: Automatic MD5 checksum generation for all VSIX files
 4. **NPM Package Releases**: Fully functional with manual triggers
 5. **Performance Benchmarks**: Active monitoring and alerting
