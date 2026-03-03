@@ -409,7 +409,7 @@ jobs:
           ref: ${{ inputs.branch || github.ref }}
 
       - name: Download VSIX artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
@@ -499,7 +499,7 @@ jobs:
           token: ${{ secrets.IDEE_GH_TOKEN }}
 
       - name: Download VSIX artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
