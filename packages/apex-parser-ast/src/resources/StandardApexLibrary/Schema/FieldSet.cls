@@ -1,7 +1,7 @@
 /**
  * Contains methods for discovering and retrieving the details of field sets created on sObjects.
  */
-public class FieldSet {
+global class FieldSet {
 
   /**
    * Returns the field set’s description.

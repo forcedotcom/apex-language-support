@@ -1,7 +1,7 @@
 /**
  * A wrapper object that contains an sObject.
  */
-public class SuggestionResult {
+global class SuggestionResult {
 
   /**
    * Returns the sObject from a SuggestionResult object.

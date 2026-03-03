@@ -77,22 +77,14 @@ async function generateKeywords() {
 
     console.log(`Found ${uniqueKeywords.length} Apex keywords`);
 
-    // Extract builtin type names from src/resources/builtins/ directory
-    const builtinsDir = path.join('src', 'resources', 'builtins');
-    let builtinTypeNames = [];
-    try {
-      const entries = await readdir(builtinsDir, { withFileTypes: true });
-      builtinTypeNames = entries
-        .filter((entry) => entry.isFile() && entry.name.endsWith('.cls'))
-        .map((entry) => entry.name.replace('.cls', '').toLowerCase())
-        .sort();
-      console.log(`Found ${builtinTypeNames.length} builtin type names`);
-    } catch (error) {
-      console.warn(
-        `⚠️  Warning: Could not read builtins directory: ${error.message}`,
-      );
-      console.warn('Continuing without builtin type names...');
-    }
+    // Apex primitive/collection type names — these are well-known, stable types that
+    // exist as keywords in the grammar but must also be resolvable as types.
+    // This list is intentionally hardcoded and independent of the builtins/ directory contents.
+    const builtinTypeNames = [
+      'blob', 'boolean', 'date', 'datetime', 'decimal', 'double',
+      'id', 'integer', 'list', 'long', 'map', 'object', 'set', 'string', 'time',
+    ].sort();
+    console.log(`Using ${builtinTypeNames.length} hardcoded builtin type names`);
 
     // Create the generated content
     const generatedContent = `/*

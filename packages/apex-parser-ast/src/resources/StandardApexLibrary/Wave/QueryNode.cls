@@ -1,7 +1,7 @@
 /**
  * Define each node of the query - such as projection, groups, order, filters. Execute the query.
  */
-public class QueryNode {
+global class QueryNode {
 
   /**
    * Build the query string represented by this QueryNode and assign it to a stream name.
@@ -42,7 +42,7 @@ public class QueryNode {
    * @param cap The maximum number of rows to return.
    * @return Wave.QueryNode
    */
-  public Wave.QueryNode cap(Integer cap) {}
+  global Wave.QueryNode cap(Integer cap) {}
 
   /**
    * Selects rows from a dataset based on a filter condition (a predicate).
@@ -63,6 +63,6 @@ public class QueryNode {
    * @param streamName The query stream to execute. For example: ConnectApi.LiteralJson result = Wave.QueryBuilder.load('datasetId', 'datasetVersionId').group().foreach(projs).execute('q');
    * @return ConnectApi.LiteralJson
    */
-  public ConnectApi.LiteralJson execute(String streamName) {}
+  global ConnectApi.LiteralJson execute(String streamName) {}
 
 }

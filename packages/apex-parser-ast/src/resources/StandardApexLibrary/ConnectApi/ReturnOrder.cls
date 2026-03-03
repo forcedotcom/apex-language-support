@@ -1,7 +1,7 @@
 /**
  * Process ReturnOrders in Order Management, limited to 2,000 requests per hour.
  */
-public class ReturnOrder {
+global class ReturnOrder {
 
   public static ConnectApi.ReturnOrderOutputRepresentation createReturnOrder(ConnectApi.ReturnOrderInputRepresentation returnOrderInput) {}
 

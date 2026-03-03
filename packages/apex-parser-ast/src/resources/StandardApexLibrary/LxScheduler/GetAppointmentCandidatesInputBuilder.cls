@@ -1,7 +1,7 @@
 /**
  * Contains methods to build an instance of the lxscheduler.GetAppointmentCandidatesInput class.
  */
-public class GetAppointmentCandidatesInputBuilder {
+global class GetAppointmentCandidatesInputBuilder {
 
   public lxscheduler.GetAppointmentCandidatesInput build() {}
 

@@ -1,6 +1,10 @@
 /**
  * This class contains the details about the payment method.
  */
-public class PaymentMethodDetailsResponse {
+global class PaymentMethodDetailsResponse {
+
+  public void setAlternativePaymentMethod(commercepayments.AlternativePaymentMethodResponse alternativePaymentMethod) {}
+
+  public void setCardPaymentMethod(commercepayments.CardPaymentMethodResponse cardPaymentMethod) {}
 
 }

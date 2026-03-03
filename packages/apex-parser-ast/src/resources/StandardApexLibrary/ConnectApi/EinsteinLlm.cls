@@ -1,7 +1,7 @@
 /**
  * Get a list of prompt templates and generate LLM responses for prompt templates.
  */
-public class EinsteinLLM {
+global class EinsteinLLM {
 
   public static ConnectApi.EinsteinPromptTemplateGenerationsRepresentation generateMessagesForPromptTemplate(String promptTemplateDevName, ConnectApi.EinsteinPromptTemplateGenerationsInput promptTemplateGenerationsInput) {}
 

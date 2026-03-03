@@ -1,7 +1,7 @@
 /**
  * Contains the result for the Database.getUpdated method call.
  */
-public class GetUpdatedResult {
+global class GetUpdatedResult {
 
   /**
    * Returns the IDs of records updated within the time window specified in the Database.getUpdated method.

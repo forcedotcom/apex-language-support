@@ -1,0 +1,6 @@
+/**
+ * Address.
+ */
+global class Address {
+
+}

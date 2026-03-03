@@ -1,7 +1,7 @@
 /**
  * Manage Experience Cloud sites.
  */
-public class Network {
+global class Network {
 
   /**
    * Returns a Page Reference to the default landing page for the Experience Cloud site. This is the first tab of the site.

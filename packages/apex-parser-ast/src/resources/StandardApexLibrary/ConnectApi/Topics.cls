@@ -1,7 +1,7 @@
 /**
  * Access information about topics, such as their descriptions, the number of people talking about them, related topics, and information about groups contributing to the topic. Update a topic’s name or description, merge topics, and add and remove topics from records and feed items.
  */
-public class Topics {
+global class Topics {
 
   public static ConnectApi.Topic assignTopic(String communityId, String recordId, String topicId) {}
 
@@ -11,7 +11,7 @@ public class Topics {
 
   public static ConnectApi.TopicPage createTopicDataCategoryRules(String communityId, String dataCategoryGroup, String dataCategory, ConnectApi.TopicNamesInput topicNames) {}
 
-  public static Void deleteTopic(String communityId, String topicId) {}
+  public static void deleteTopic(String communityId, String topicId) {}
 
   public static ConnectApi.ChatterGroupSummaryPage getGroupsRecentlyTalkingAboutTopic(String communityId, String topicId) {}
 
@@ -63,30 +63,30 @@ public class Topics {
 
   public static ConnectApi.TopicPage reassignTopicsByName(String communityId, String recordId, ConnectApi.TopicNamesInput topicNames) {}
 
-  public static Void unassignTopic(String communityId, String recordId, String topicId) {}
+  public static void unassignTopic(String communityId, String recordId, String topicId) {}
 
   public static ConnectApi.Topic updateTopic(String communityId, String topicId, ConnectApi.TopicInput topic) {}
 
   public static ConnectApi.TopicPage updateTopicsForArticlesInDataCategory(String communityId, String dataCategoryGroup, String dataCategory, ConnectApi.ArticleTopicAssignmentJobInput articleTopicAssignmentJob) {}
 
-  public static Void setTestGetGroupsRecentlyTalkingAboutTopic(String communityId, String topicId, ConnectApi.ChatterGroupSummaryPage result) {}
+  public static void setTestGetGroupsRecentlyTalkingAboutTopic(String communityId, String topicId, ConnectApi.ChatterGroupSummaryPage result) {}
 
-  public static Void setTestGetRecentlyTalkingAboutTopicsForGroup(String communityId, String groupId) {}
+  public static void setTestGetRecentlyTalkingAboutTopicsForGroup(String communityId, String groupId) {}
 
-  public static Void setTestGetRecentlyTalkingAboutTopicsForUser(String communityId, String userId, ConnectApi.TopicPage result) {}
+  public static void setTestGetRecentlyTalkingAboutTopicsForUser(String communityId, String userId, ConnectApi.TopicPage result) {}
 
-  public static Void setTestGetRelatedTopics(String communityId, String topicId, ConnectApi.TopicPage result) {}
+  public static void setTestGetRelatedTopics(String communityId, String topicId, ConnectApi.TopicPage result) {}
 
-  public static Void setTestGetTopicSuggestions(String communityId, String recordId, Integer maxResults, ConnectApi.TopicSuggestionPage result) {}
+  public static void setTestGetTopicSuggestions(String communityId, String recordId, Integer maxResults, ConnectApi.TopicSuggestionPage result) {}
 
-  public static Void setTestGetTopicSuggestions(String communityId, String recordId) {}
+  public static void setTestGetTopicSuggestions(String communityId, String recordId) {}
 
-  public static Void setTestGetTopicSuggestionsForText(String communityId, String text, Integer maxResults, ConnectApi.TopicSuggestionPage result) {}
+  public static void setTestGetTopicSuggestionsForText(String communityId, String text, Integer maxResults, ConnectApi.TopicSuggestionPage result) {}
 
-  public static Void setTestGetTopicSuggestionsForText(String communityId, String text, ConnectApi.TopicSuggestionPage result) {}
+  public static void setTestGetTopicSuggestionsForText(String communityId, String text, ConnectApi.TopicSuggestionPage result) {}
 
-  public static Void setTestGetTrendingTopics(String communityId, ConnectApi.TopicPage result) {}
+  public static void setTestGetTrendingTopics(String communityId, ConnectApi.TopicPage result) {}
 
-  public static Void setTestGetTrendingTopics(String communityId, Integer maxResults, ConnectApi.TopicPage result) {}
+  public static void setTestGetTrendingTopics(String communityId, Integer maxResults, ConnectApi.TopicPage result) {}
 
 }

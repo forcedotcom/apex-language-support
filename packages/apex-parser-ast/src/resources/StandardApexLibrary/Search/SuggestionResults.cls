@@ -1,7 +1,7 @@
 /**
  * Wraps the results returned by the Search.suggest(​String, String , Search.SuggestionOption) method.
  */
-public class SuggestionResults {
+global class SuggestionResults {
 
   /**
    * Returns a list of SuggestionResult objects from the response to a call to Search.suggest( String , String , Search.SuggestionOption) .

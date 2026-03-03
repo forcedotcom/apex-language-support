@@ -1,7 +1,7 @@
 /**
  * Contains a list of picklist items in a Lightning component on a Lightning page.
  */
-public class DynamicPickListRows {
+global class DynamicPickListRows {
 
   /**
    * Adds a list of picklist items to a dynamic picklist rendered in a Lightning component on a Lightning page.

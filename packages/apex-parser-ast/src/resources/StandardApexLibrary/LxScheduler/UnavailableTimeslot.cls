@@ -1,6 +1,6 @@
 /**
  * Use this class to pass the unavailable time slots to the lxscheduler.ServiceResourceSchedule class. Timezones that differ across operating hours are handled and results are always returned in UTC.
  */
-public class UnavailableTimeslot {
+global class UnavailableTimeslot {
 
 }

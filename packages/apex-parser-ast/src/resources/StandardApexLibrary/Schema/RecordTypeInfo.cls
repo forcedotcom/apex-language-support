@@ -1,7 +1,7 @@
 /**
  * Contains methods for accessing record type information for an sObject with associated record types.
  */
-public class RecordTypeInfo {
+global class RecordTypeInfo {
 
   /**
    * Returns the developer name for this record type.

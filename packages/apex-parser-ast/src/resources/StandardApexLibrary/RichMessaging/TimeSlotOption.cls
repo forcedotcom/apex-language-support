@@ -1,6 +1,6 @@
 /**
  * Represents a complex time slot option type. This class is used to provide time option payloads that can be translated to structured content payloads in rich content messages.
  */
-public class TimeSlotOption {
+global class TimeSlotOption {
 
 }

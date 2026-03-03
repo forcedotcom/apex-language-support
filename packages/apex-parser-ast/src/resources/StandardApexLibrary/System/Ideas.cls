@@ -1,7 +1,7 @@
 /**
  * Represents zone ideas.
  */
-public class Ideas {
+global class Ideas {
 
   /**
    * Returns a list of similar ideas based on the title of the specified idea.
@@ -37,8 +37,7 @@ public class Ideas {
   /**
    * Marks all comments as read for the user that is currently logged in.
    * @param ideaID 
-   * @return Void
    */
-  public static Void markRead(String ideaID) {}
+  public static void markRead(String ideaID) {}
 
 }

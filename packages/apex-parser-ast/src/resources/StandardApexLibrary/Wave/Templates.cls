@@ -1,7 +1,7 @@
 /**
  * The Templates class provides methods for retrieving CRM Analytics template collections, individual templates, and template configurations.
  */
-public class Templates {
+global class Templates {
 
   public static Map< String , Object > getTemplate(String templateIdOrApiName) {}
 

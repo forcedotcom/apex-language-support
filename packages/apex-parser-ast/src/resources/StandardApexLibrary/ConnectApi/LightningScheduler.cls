@@ -1,7 +1,7 @@
 /**
  * Create and update service appointments.
  */
-public class LightningScheduler {
+global class LightningScheduler {
 
   public static ConnectApi.ServiceAppointmentOutput createServiceAppointment(ConnectApi.CreateServiceAppointmentInput createServiceAppointmentInput) {}
 

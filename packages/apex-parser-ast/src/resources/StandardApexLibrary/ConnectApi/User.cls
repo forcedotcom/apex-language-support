@@ -1,0 +1,6 @@
+/**
+ * User.
+ */
+global class User {
+
+}

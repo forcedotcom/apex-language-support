@@ -1,52 +1,46 @@
 /**
  * Contains methods for the sObject data type.
  */
-public class SObject {
+global class SObject {
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param errorMsg The error message to mark the record with.
-   * @return Void
    */
-  public Void addError(String errorMsg) {}
+  public void addError(String errorMsg) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param errorMsg The error message to mark the record with.
    * @param escape 
-   * @return Void
    */
-  public Void addError(String errorMsg, Boolean escape) {}
+  public void addError(String errorMsg, Boolean escape) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param exceptionError 
-   * @return Void
    */
-  public Void addError(Exception exceptionError) {}
+  public void addError(Exception exceptionError) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param exceptionError 
    * @param escape 
-   * @return Void
    */
-  public Void addError(Exception exceptionError, Boolean escape) {}
+  public void addError(Exception exceptionError, Boolean escape) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param errorMsg The error message to mark the record with.
-   * @return Void
    */
-  public Void addError(String errorMsg) {}
+  public void addError(String errorMsg) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param errorMsg The error message to mark the record with.
    * @param escape 
-   * @return Void
    */
-  public Void addError(String errorMsg, Boolean escape) {}
+  public void addError(String errorMsg, Boolean escape) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
@@ -73,9 +67,8 @@ public class SObject {
 
   /**
    * Clears all field values
-   * @return Void
    */
-  public Void clear() {}
+  public void clear() {}
 
   /**
    * Creates a copy of the SObject record.
@@ -247,13 +240,12 @@ public class SObject {
    */
   public SObject putSObject(Schema.SObjectType fieldName, SObject value) {}
 
-  public Void recalculateFormulas() {}
+  public void recalculateFormulas() {}
 
   /**
    * Sets the DMLOptions object for the SObject.
    * @param DMLOptions 
-   * @return Void
    */
-  public Void setOptions(database.DMLOptions DMLOptions) {}
+  public void setOptions(database.DMLOptions DMLOptions) {}
 
 }

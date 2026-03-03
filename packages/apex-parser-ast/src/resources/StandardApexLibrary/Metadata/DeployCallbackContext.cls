@@ -1,7 +1,7 @@
 /**
  * Represents context information for a deployment job.
  */
-public class DeployCallbackContext {
+global class DeployCallbackContext {
 
   /**
    * Makes a duplicate copy of the Metadata.DeployCallbackContext .

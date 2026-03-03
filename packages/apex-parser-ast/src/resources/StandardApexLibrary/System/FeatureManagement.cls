@@ -1,7 +1,7 @@
 /**
  * Use the methods in the System.FeatureManagement class to check and modify the values of feature parameters, and to show or hide custom objects and custom permissions in your subscribers’ orgs.
  */
-public class FeatureManagement {
+global class FeatureManagement {
 
   /**
    * Hides or reveals custom permissions, or reveals custom objects, in your subscriber’s org.

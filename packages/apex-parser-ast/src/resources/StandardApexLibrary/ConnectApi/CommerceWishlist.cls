@@ -1,7 +1,7 @@
 /**
  * Get, create, update, and delete wishlists. Add wishlists to carts. Get wishlist items, add items to wishlists, and delete wishlist items.
  */
-public class CommerceWishlist {
+global class CommerceWishlist {
 
   public static ConnectApi.WishlistItem addItemToWishlist(String webstoreId, String wishlistId, ConnectApi.WishlistItemInput wishlistItemInput) {}
 
@@ -19,9 +19,9 @@ public class CommerceWishlist {
 
   public static ConnectApi.Wishlist createWishlist(String webstoreId, String effectiveAccountId, ConnectApi.WishlistInput wishlistInput) {}
 
-  public static Void deleteWishlist(String webstoreId, String wishlistId) {}
+  public static void deleteWishlist(String webstoreId, String wishlistId) {}
 
-  public static Void deleteWishlist(String webstoreId, String effectiveAccountId, String wishlistId) {}
+  public static void deleteWishlist(String webstoreId, String effectiveAccountId, String wishlistId) {}
 
   public static ConnectApi.Wishlist getWishlist(String webstoreId, String effectiveAccountId, String wishlistId, String productFields, ConnectApi.WishlistItemSortOrder sortItemsBy) {}
 
@@ -37,7 +37,7 @@ public class CommerceWishlist {
 
   public static ConnectApi.WishlistsSummary getWishlistSummaries(String webstoreId, String effectiveAccountId, Boolean includeDisplayedList, Integer pageSize, String productFields, ConnectApi.WishlistItemSortOrder sortItemsBy) {}
 
-  public static Void removeWishlistItem(String webstoreId, String effectiveAccountId, String wishlistId, String wishlistItemId) {}
+  public static void removeWishlistItem(String webstoreId, String effectiveAccountId, String wishlistId, String wishlistItemId) {}
 
   public static ConnectApi.WishlistSummary updateWishlist(String webstoreId, String wishlistId, ConnectApi.WishlistUpdateInput wishlistUpdateInput) {}
 

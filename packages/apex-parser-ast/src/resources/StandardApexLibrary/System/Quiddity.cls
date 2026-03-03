@@ -1,7 +1,7 @@
 /**
  * Specifies a Quiddity value used by the methods in the System.Request class
  */
-public enum Quiddity {
+global enum Quiddity {
   ANONYMOUS,
   AURA,
   BATCH_ACS,

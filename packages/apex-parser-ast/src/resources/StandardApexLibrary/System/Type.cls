@@ -1,7 +1,7 @@
 /**
  * Contains methods for getting the Apex type that corresponds to an Apex class and for instantiating new types.
  */
-public class Type {
+global class Type {
 
   /**
    * Returns true if the specified type is equal to the current type; otherwise, returns false .

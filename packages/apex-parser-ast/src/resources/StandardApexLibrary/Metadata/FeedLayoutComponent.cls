@@ -1,7 +1,7 @@
 /**
  * Represents a component in the feed view of a feed-based page layout.
  */
-public class FeedLayoutComponent {
+global class FeedLayoutComponent {
 
   /**
    * Makes a duplicate copy of the Metadata.FeedLayoutComponent .

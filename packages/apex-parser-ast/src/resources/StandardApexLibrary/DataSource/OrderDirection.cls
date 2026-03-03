@@ -1,7 +1,7 @@
 /**
  * Specifies the direction for sorting rows based on column values.
  */
-public enum OrderDirection {
+global enum OrderDirection {
   ASCENDING,
   DESCENDING
 }

@@ -1,7 +1,7 @@
 /**
  * Use this interface to implement asynchronous integrations in B2B Commerce.
  */
-public interface AsyncCartProcessor {
+global interface AsyncCartProcessor {
 
   /**
    * The startCartProcessAsync method is called asynchronously by the integration framework. Calling this method begins cart processing for Commerce checkout.

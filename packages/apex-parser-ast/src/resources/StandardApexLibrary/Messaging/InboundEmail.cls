@@ -1,6 +1,6 @@
 /**
  * Represents an inbound email object.
  */
-public class InboundEmail {
+global class InboundEmail {
 
 }

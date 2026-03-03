@@ -1,7 +1,7 @@
 /**
  * Contains information used for lead conversion.
  */
-public class LeadConvert {
+global class LeadConvert {
 
   /**
    * Gets the ID of the account into which the lead will be merged.
@@ -78,78 +78,67 @@ public class LeadConvert {
   /**
    * Sets the ID of the account into which the lead is merged. This value is required only when updating an existing account, including person accounts.
    * @param accountId 
-   * @return Void
    */
-  public Void setAccountId(ID accountId) {}
+  public void setAccountId(ID accountId) {}
 
   /**
    * Sets the ID of the contact into which the lead will be merged (this contact must be associated with the account specified with setAccountId , and setAccountId must be specified). This value is required only when updating an existing contact.
    * @param contactId 
-   * @return Void
    */
-  public Void setContactId(ID contactId) {}
+  public void setContactId(ID contactId) {}
 
   /**
    * Sets the lead status value for a converted lead. This field is required.
    * @param status 
-   * @return Void
    */
-  public Void setConvertedStatus(String status) {}
+  public void setConvertedStatus(String status) {}
 
   /**
    * Specifies whether to create an opportunity during lead conversion. The default value is false : opportunities are created by default. Set this flag to true only if you do not want to create an opportunity from the lead.
    * @param createOpportunity 
-   * @return Void
    */
-  public Void setDoNotCreateOpportunity(Boolean createOpportunity) {}
+  public void setDoNotCreateOpportunity(Boolean createOpportunity) {}
 
   /**
    * Sets the ID of the lead to convert. This field is required.
    * @param leadId 
-   * @return Void
    */
-  public Void setLeadId(ID leadId) {}
+  public void setLeadId(ID leadId) {}
 
   /**
    * Sets the ID of the opportunity into which the lead is merged. This value is required only when updating an existing opportunity.
    * @param opportunityId 
-   * @return Void
    */
-  public Void setOpportunityId(ID opportunityId) {}
+  public void setOpportunityId(ID opportunityId) {}
 
   /**
    * Sets the name of the opportunity to create. If no name is specified, this value defaults to the company name of the lead.
    * @param opportunityName 
-   * @return Void
    */
-  public Void setOpportunityName(String opportunityName) {}
+  public void setOpportunityName(String opportunityName) {}
 
   /**
    * Specifies whether to overwrite the LeadSource field on the target contact object with the contents of the LeadSource field in the source lead object. The default value is false , to not overwrite the field. If you specify this as true , you must also specify setContactId for the target contact.
    * @param overwriteLeadSource 
-   * @return Void
    */
-  public Void setOverwriteLeadSource(Boolean overwriteLeadSource) {}
+  public void setOverwriteLeadSource(Boolean overwriteLeadSource) {}
 
   /**
    * Specifies the ID of the person to own any newly created account, contact, and opportunity. If the application does not specify this value, the owner of the new object will be the owner of the lead.
    * @param ownerId 
-   * @return Void
    */
-  public Void setOwnerId(ID ownerId) {}
+  public void setOwnerId(ID ownerId) {}
 
   /**
    * Sets the ID of the existing person account into which to convert the lead. This value is required only when updating an existing person account.
    * @param relatedPersonAccountId 
-   * @return Void
    */
-  public Void setRelatedPersonAccountId(ID relatedPersonAccountId) {}
+  public void setRelatedPersonAccountId(ID relatedPersonAccountId) {}
 
   /**
    * Specifies whether to send a notification email to the owner specified by setOwnerId . The default value is false , that is, to not send email.
    * @param sendEmail 
-   * @return Void
    */
-  public Void setSendNotificationEmail(Boolean sendEmail) {}
+  public void setSendNotificationEmail(Boolean sendEmail) {}
 
 }

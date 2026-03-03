@@ -1,7 +1,7 @@
 /**
  * Get, create, update, calculate, and delete carts. Get cart items, add items to carts, update and delete cart items.
  */
-public class CommerceCart {
+global class CommerceCart {
 
   public static ConnectApi.CartItem addItemToCart(String webstoreId, String effectiveAccountId, String activeCartOrId, ConnectApi.CartItemInput cartItemInput, String currencyIsoCode) {}
 
@@ -25,13 +25,13 @@ public class CommerceCart {
 
   public static ConnectApi.CartSummary cloneCart(String webstoreId, String activeCartOrId, String targetEffectiveAccountId, String targetType) {}
 
-  public static Void deleteCart(String webstoreId, String effectiveAccountId, String activeCartOrId) {}
+  public static void deleteCart(String webstoreId, String effectiveAccountId, String activeCartOrId) {}
 
-  public static Void deleteCartCoupon(String webstoreId, String effectiveAccountId, String activeCartOrId, String cartCouponId, String currencyIsoCode) {}
+  public static void deleteCartCoupon(String webstoreId, String effectiveAccountId, String activeCartOrId, String cartCouponId, String currencyIsoCode) {}
 
-  public static Void deleteCartItem(String webstoreId, String effectiveAccountId, String activeCartOrId, String cartItemId) {}
+  public static void deleteCartItem(String webstoreId, String effectiveAccountId, String activeCartOrId, String cartItemId) {}
 
-  public static Void deleteInventoryReservation(String webstoreId, String activeCartOrId, String effectiveAccountId) {}
+  public static void deleteInventoryReservation(String webstoreId, String activeCartOrId, String effectiveAccountId) {}
 
   public static ConnectApi.CalculateCartResult evaluateShipping(String webstoreId, String activeCartOrId, String effectiveAccountId, ConnectApi.CartEvaluateShippingInput cartEvaluateShippingInput) {}
 

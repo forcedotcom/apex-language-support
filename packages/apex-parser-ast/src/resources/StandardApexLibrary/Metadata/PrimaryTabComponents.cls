@@ -1,7 +1,7 @@
 /**
  * Represents custom console components on primary tabs in the Salesforce console.
  */
-public class PrimaryTabComponents {
+global class PrimaryTabComponents {
 
   /**
    * Makes a duplicate copy of the Metadata.PrimaryTabComponents .

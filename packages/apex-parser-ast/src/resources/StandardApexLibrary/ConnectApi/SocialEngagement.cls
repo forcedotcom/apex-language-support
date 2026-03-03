@@ -1,7 +1,7 @@
 /**
  * Manage information about social accounts or fan pages for social networks.
  */
-public class SocialEngagement {
+global class SocialEngagement {
 
   public static ConnectApi.DeleteSocialPostIntent deleteSocialPost(String socialPostId, String socialAccountId) {}
 
@@ -25,14 +25,14 @@ public class SocialEngagement {
 
   public static ConnectApi.SocialPostMassApprovalOutput massApprove(ConnectApi.SocialPostMassApprovalInput massApproval) {}
 
-  public static Void recallApproval(String socialPostId) {}
+  public static void recallApproval(String socialPostId) {}
 
-  public static Void unfollowSocialPersona(String socialPersonaId, String socialAccountId) {}
+  public static void unfollowSocialPersona(String socialPersonaId, String socialAccountId) {}
 
-  public static Void unfollowSocialPostPersona(String socialPostId, String socialAccountId) {}
+  public static void unfollowSocialPostPersona(String socialPostId, String socialAccountId) {}
 
-  public static Void unhideSocialPost(String socialPostId, String socialAccountId) {}
+  public static void unhideSocialPost(String socialPostId, String socialAccountId) {}
 
-  public static Void unlikeSocialPost(String socialPostId, String socialAccountId) {}
+  public static void unlikeSocialPost(String socialPostId, String socialAccountId) {}
 
 }

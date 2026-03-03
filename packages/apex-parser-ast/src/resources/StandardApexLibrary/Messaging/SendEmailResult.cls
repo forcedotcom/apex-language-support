@@ -1,7 +1,7 @@
 /**
  * Contains the result of sending an email message.
  */
-public class SendEmailResult {
+global class SendEmailResult {
 
   /**
    * If an error occurred during the sendEmail method, a SendEmailError object is returned.

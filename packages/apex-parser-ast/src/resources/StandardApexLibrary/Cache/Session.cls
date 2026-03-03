@@ -1,7 +1,7 @@
 /**
  * Use the Cache.Session class to add, retrieve, and manage values in the session cache. The session cache is active as long as the user’s Salesforce session is valid (the user is logged in, and the session is not expired).
  */
-public class Session {
+global class Session {
 
   /**
    * Returns true if the session cache contains a cached value corresponding to the specified key.
@@ -165,5 +165,9 @@ public class Session {
    * @return Boolean
    */
   public static Boolean remove(System.Type cacheBuilder, String key) {}
+
+  global class SessionCacheException extends Exception {}
+
+  global class SessionCacheNoSessionException extends Exception {}
 
 }

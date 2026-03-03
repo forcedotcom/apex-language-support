@@ -1,7 +1,7 @@
 /**
  * Access and update activation information of a bot version.
  */
-public class BotVersionActivation {
+global class BotVersionActivation {
 
   public static ConnectApi.BotVersionActivationInfo getVersionActivationInfo(String botVersionId) {}
 

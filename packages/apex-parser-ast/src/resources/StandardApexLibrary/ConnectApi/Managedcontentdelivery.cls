@@ -1,7 +1,7 @@
 /**
  * Get collection items. Get a managed content channel. Get managed content.
  */
-public class ManagedContentDelivery {
+global class ManagedContentDelivery {
 
   public static ConnectApi.ManagedContentDeliveryChannelsRepresentation getChannels(Integer pageParam, Integer pageSize) {}
 

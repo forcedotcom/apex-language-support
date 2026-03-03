@@ -1,7 +1,7 @@
 /**
  * Get, send, search, and reply to private messages. You can also get and search private conversations, mark conversations as read, and get a count of unread private messages.
  */
-public class ChatterMessages {
+global class ChatterMessages {
 
   public static ConnectApi.ChatterConversation getConversation(String conversationId) {}
 

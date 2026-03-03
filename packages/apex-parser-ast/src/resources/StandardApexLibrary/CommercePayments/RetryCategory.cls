@@ -1,5 +1,5 @@
 /**
  * Specifies the retry category.
  */
-public enum RetryCategory {
+global enum RetryCategory {
 }

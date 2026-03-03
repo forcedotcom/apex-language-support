@@ -1,7 +1,7 @@
 /**
  * Add aggregate functions to the query, or define an alias.
  */
-public class ProjectionNode {
+global class ProjectionNode {
 
   /**
    * Returns the sum of a numeric field.

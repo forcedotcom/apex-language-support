@@ -1,11 +1,11 @@
 /**
  * Get, set and crop, and delete employee banner photos and photos.
  */
-public class EmployeeProfiles {
+global class EmployeeProfiles {
 
-  public static Void deleteBannerPhoto(String employeeId) {}
+  public static void deleteBannerPhoto(String employeeId) {}
 
-  public static Void deletePhoto(String employeeId) {}
+  public static void deletePhoto(String employeeId) {}
 
   public static ConnectApi.BannerPhoto getBannerPhoto(String employeeId) {}
 

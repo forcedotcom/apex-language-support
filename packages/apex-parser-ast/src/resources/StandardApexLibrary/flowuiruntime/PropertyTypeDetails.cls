@@ -1,6 +1,6 @@
 /**
  * The methods and properties in this class are for internal use only.
  */
-public class PropertyTypeDetails {
+global class PropertyTypeDetails {
 
 }

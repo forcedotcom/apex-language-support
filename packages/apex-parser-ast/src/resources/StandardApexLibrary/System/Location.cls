@@ -1,7 +1,7 @@
 /**
  * Contains methods for accessing the component fields of geolocation compound fields.
  */
-public class Location {
+global class Location {
 
   /**
    * Calculates the distance between this location and the specified location, using an approximation of the haversine formula and the specified unit.

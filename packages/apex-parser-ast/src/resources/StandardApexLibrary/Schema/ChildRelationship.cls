@@ -1,7 +1,7 @@
 /**
  * Contains methods for accessing the child relationship as well as the child sObject for a parent sObject.
  */
-public class ChildRelationship {
+global class ChildRelationship {
 
   /**
    * Returns the token of the child sObject on which there is a foreign key back to the parent sObject.

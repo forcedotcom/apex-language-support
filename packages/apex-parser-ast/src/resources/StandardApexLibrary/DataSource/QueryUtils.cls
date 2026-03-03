@@ -1,7 +1,7 @@
 /**
  * Contains helper methods to locally filter, sort, and apply limit and offset clauses to data rows. This helper class is provided for your convenience during early development and tests, but it isn’t supported for use in production environments.
  */
-public class QueryUtils {
+global class QueryUtils {
 
   /**
    * Returns a subset of data rows after locally applying limit and offset clauses from the query. This helper method is provided for your convenience during early development and tests, but it isn’t supported for use in production environments.

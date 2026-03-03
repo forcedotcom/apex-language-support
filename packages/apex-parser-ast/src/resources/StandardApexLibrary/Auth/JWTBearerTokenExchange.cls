@@ -1,7 +1,7 @@
 /**
  * Contains methods that POST the signed JWT bearer token to a token endpoint to request an access token, in the OAuth 2.0 JWT bearer token flow.
  */
-public class JWTBearerTokenExchange {
+global class JWTBearerTokenExchange {
 
   /**
    * Makes a duplicate copy of the JWTBearerTokenExchange object.

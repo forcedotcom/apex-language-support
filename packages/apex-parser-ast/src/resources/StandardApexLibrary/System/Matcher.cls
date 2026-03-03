@@ -1,7 +1,7 @@
 /**
  * Matchers use Patterns to perform match operations on a character string.
  */
-public class Matcher {
+global class Matcher {
 
   /**
    * Returns the position after the last matched character.

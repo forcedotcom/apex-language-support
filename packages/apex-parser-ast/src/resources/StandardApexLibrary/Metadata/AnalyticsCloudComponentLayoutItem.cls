@@ -1,7 +1,7 @@
 /**
  * Represents the settings for a Wave Analytics dashboard on a standard or custom page.
  */
-public class AnalyticsCloudComponentLayoutItem {
+global class AnalyticsCloudComponentLayoutItem {
 
   /**
    * Makes a duplicate copy of the Metadata.AnalyticsCloudComponentLayoutItem .

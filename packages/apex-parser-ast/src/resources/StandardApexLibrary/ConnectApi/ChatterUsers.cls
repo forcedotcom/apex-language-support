@@ -1,7 +1,7 @@
 /**
  * Access information about users, such as activity, followers, subscriptions, files, and groups.
  */
-public class ChatterUsers {
+global class ChatterUsers {
 
   public static ConnectApi.UserActivitiesJob exportUserActivities(String communityId, String userId) {}
 
@@ -55,13 +55,13 @@ public class ChatterUsers {
 
   public static ConnectApi.UserDetail updateUser(String communityId, String userId, ConnectApi.UserInput userInput) {}
 
-  public static Void setTestSearchUsers(String communityId, String q, ConnectApi.UserPage result) {}
+  public static void setTestSearchUsers(String communityId, String q, ConnectApi.UserPage result) {}
 
-  public static Void setTestSearchUsers(String communityId, String q, Integer pageParam, Integer pageSize, ConnectApi.UserPage result) {}
+  public static void setTestSearchUsers(String communityId, String q, Integer pageParam, Integer pageSize, ConnectApi.UserPage result) {}
 
-  public static Void setTestSearchUsers(String communityId, String q, String searchContextId, Integer pageParam, Integer pageSize, ConnectApi.UserPage result) {}
+  public static void setTestSearchUsers(String communityId, String q, String searchContextId, Integer pageParam, Integer pageSize, ConnectApi.UserPage result) {}
 
-  public static Void deletePhoto(String communityId, String userId) {}
+  public static void deletePhoto(String communityId, String userId) {}
 
   public static ConnectApi.UserGroupPage getGroups(String communityId, String userId) {}
 

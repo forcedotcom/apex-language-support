@@ -1,7 +1,7 @@
 /**
  * Contains methods for the Decimal primitive data type.
  */
-public class Decimal {
+global class Decimal {
 
   /**
    * Returns the absolute value of the Decimal.

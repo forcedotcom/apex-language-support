@@ -1,7 +1,7 @@
 /**
  * Represents an error that the RenderEmailTemplateBodyResult object can contain.
  */
-public class RenderEmailTemplateError {
+global class RenderEmailTemplateError {
 
   /**
    * Returns the name of the merge field in the error.

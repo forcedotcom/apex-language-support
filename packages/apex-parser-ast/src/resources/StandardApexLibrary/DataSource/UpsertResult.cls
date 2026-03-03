@@ -1,7 +1,7 @@
 /**
  * Represents the result of an upsert operation on an external object record. The result is returned by the upsertRows method of the DataSource.Connection class.
  */
-public class UpsertResult {
+global class UpsertResult {
 
   /**
    * Maintains the integrity of lists of type UpsertResult by determining the equality of external object records in a list. This method is dynamic and is based on the equals method in Java.

@@ -1,7 +1,7 @@
 /**
  * Contains information about a deleted record.
  */
-public class DeletedRecord {
+global class DeletedRecord {
 
   /**
    * Returns the deleted date of this record.

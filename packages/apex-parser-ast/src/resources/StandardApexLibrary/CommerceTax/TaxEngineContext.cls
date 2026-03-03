@@ -1,12 +1,12 @@
 /**
  * Wrapper class that stores details about the type of a tax calculation request.
  */
-public class TaxEngineContext {
+global class TaxEngineContext {
 
-  public String getNamedUri() {}
+  global String getNamedUri() {}
 
-  public commercetax.TaxEngineRequest getRequest() {}
+  global commercetax.TaxEngineRequest getRequest() {}
 
-  public commercetax.RequestType getRequestType() {}
+  global commercetax.RequestType getRequestType() {}
 
 }

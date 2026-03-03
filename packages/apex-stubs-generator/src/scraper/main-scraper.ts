@@ -6,9 +6,10 @@ import {
   extractClassDescriptionFromHtml,
   extractEnumValuesFromHtml,
   extractExceptionClassNamesFromHtml,
+  extractMultipleEnumsFromHtml,
 } from "../parser/html-parser";
 import { extractSlackClassReferences, scrapeSlackClass } from "./slack-scraper";
-import { ApexClass, ApexEnum, ApexNamespace } from "../types/apex";
+import { ApexClass, ApexEnum, ApexEnumValue, ApexInnerException, ApexNamespace } from "../types/apex";
 import { readFile, writeFile } from "node:fs/promises";
 
 export class ScrapingError {
@@ -72,6 +73,10 @@ const scrapeInterface = (ref: ClassReference) =>
     return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, methods, properties: [], isInterface: true })];
   });
 
+type ExceptionScrapeResult =
+  | { kind: "topLevel"; cls: ApexClass }
+  | { kind: "inner"; name: string; parentClass: string };
+
 const scrapeExceptions = (ref: ClassReference) =>
   Effect.gen(function* () {
     yield* Console.log(`  Scraping exceptions page: ${ref.namespace} (${ref.pageId})`);
@@ -79,19 +84,21 @@ const scrapeExceptions = (ref: ClassReference) =>
     const content = yield* fetchPageContent(ref.pageId);
 
     if (!content.content) {
-      return [] as ApexClass[];
+      return [] as ExceptionScrapeResult[];
     }
 
-    const exceptionNames = yield* extractExceptionClassNamesFromHtml(content.content, ref.namespace);
+    const extracted = yield* extractExceptionClassNamesFromHtml(content.content, ref.namespace);
     const description = yield* extractClassDescriptionFromHtml(content.content);
 
-    if (exceptionNames.length === 0) {
+    if (extracted.length === 0) {
       yield* Console.log(`    Fallback: treating as single exception class ${ref.name}`);
-      return [new ApexClass({ name: ref.name, namespace: ref.namespace, description, methods: [], properties: [], isInterface: false })];
+      return [{ kind: "topLevel" as const, cls: new ApexClass({ name: ref.name, namespace: ref.namespace, description, methods: [], properties: [] }) }];
     }
 
-    return exceptionNames.map(name =>
-      new ApexClass({ name, namespace: ref.namespace, methods: [], properties: [], isInterface: false })
+    return extracted.map(({ name, parentClass }): ExceptionScrapeResult =>
+      parentClass
+        ? { kind: "inner", name, parentClass }
+        : { kind: "topLevel", cls: new ApexClass({ name, namespace: ref.namespace, methods: [], properties: [] }) }
     );
   });
 
@@ -102,29 +109,46 @@ const scrapeEnum = (ref: ClassReference) =>
     const content = yield* fetchPageContent(ref.pageId);
 
     if (!content.content) {
-      return new ApexEnum({ name: ref.name, namespace: ref.namespace, values: [] });
+      return [new ApexEnum({ name: ref.name, namespace: ref.namespace, values: [] })];
+    }
+
+    // Detect aggregate enum pages (e.g. connectAPI_enums.htm) by trying the
+    // multi-enum extractor first. If it finds multiple enums we treat this as an
+    // aggregate page and return all of them. If the placeholder name has spaces
+    // (e.g. "ConnectApi Enums") and extraction yields nothing, return empty rather
+    // than writing a file with a space in the name.
+    const multiEnums = yield* extractMultipleEnumsFromHtml(content.content, ref.namespace);
+    if (multiEnums.length > 1) {
+      return multiEnums.map(e =>
+        new ApexEnum({ name: e.name, namespace: ref.namespace, values: e.values.map(v => new ApexEnumValue({ name: v })) })
+      );
+    }
+    if (/\s/.test(ref.name)) {
+      yield* Console.log(`    Skipping aggregate enum page with no extracted enums: ${ref.name}`);
+      return [];
     }
 
     const description = yield* extractClassDescriptionFromHtml(content.content);
     const values = yield* extractEnumValuesFromHtml(content.content, ref.name);
 
-    return new ApexEnum({ name: ref.name, namespace: ref.namespace, description, values });
+    return [new ApexEnum({ name: ref.name, namespace: ref.namespace, description, values })];
   });
 
 const SCRAPE_CONCURRENCY = 5;
 
 type ScrapeEntryResult =
-  | { kind: "enum"; value: ApexEnum }
-  | { kind: "classes"; value: ApexClass[] };
+  | { kind: "enum"; value: ApexEnum[] }
+  | { kind: "classes"; value: ApexClass[] }
+  | { kind: "exceptions"; value: ExceptionScrapeResult[] };
 
 const scrapeEntry = (ref: ClassReference): Effect.Effect<ScrapeEntryResult, ApiScrapingError> => {
   switch (ref.pageType) {
     case "enum":
-      return scrapeEnum(ref).pipe(Effect.map((e) => ({ kind: "enum" as const, value: e })));
+      return scrapeEnum(ref).pipe(Effect.map((es) => ({ kind: "enum" as const, value: es })));
     case "interface":
       return scrapeInterface(ref).pipe(Effect.map((cs) => ({ kind: "classes" as const, value: cs })));
     case "exceptions":
-      return scrapeExceptions(ref).pipe(Effect.map((cs) => ({ kind: "classes" as const, value: cs })));
+      return scrapeExceptions(ref).pipe(Effect.map((es) => ({ kind: "exceptions" as const, value: es })));
     default:
       return scrapeClass(ref).pipe(Effect.map((cs) => ({ kind: "classes" as const, value: cs })));
   }
@@ -136,15 +160,62 @@ const scrapeNamespace = (namespaceInfo: NamespaceInfo, limit?: number) =>
 
     const entriesToScrape = limit ? namespaceInfo.classes.slice(0, limit) : namespaceInfo.classes;
 
-    const results = yield* Effect.forEach(entriesToScrape, scrapeEntry, { concurrency: SCRAPE_CONCURRENCY });
+    const results = yield* Effect.forEach(
+      entriesToScrape,
+      (ref) =>
+        scrapeEntry(ref).pipe(
+          Effect.catchAll((error) =>
+            Console.log(`    Warning: skipping ${ref.name} due to error: ${error.message}`).pipe(
+              Effect.as({ kind: "classes" as const, value: [] as ApexClass[] })
+            )
+          )
+        ),
+      { concurrency: SCRAPE_CONCURRENCY }
+    );
 
     const classes: ApexClass[] = [];
     const enums: ApexEnum[] = [];
+    const pendingInnerExceptions: Array<{ name: string; parentClass: string }> = [];
+
     for (const result of results) {
       if (result.kind === "enum") {
-        enums.push(result.value);
+        enums.push(...result.value);
+      } else if (result.kind === "exceptions") {
+        for (const exc of result.value) {
+          if (exc.kind === "topLevel") {
+            classes.push(exc.cls);
+          } else {
+            pendingInnerExceptions.push({ name: exc.name, parentClass: exc.parentClass });
+          }
+        }
       } else {
         classes.push(...result.value);
+      }
+    }
+
+    // Merge inner exceptions into their parent class stubs.
+    // parentClass may include the namespace prefix (e.g. "Cache.Session") — strip it.
+    for (const { name, parentClass } of pendingInnerExceptions) {
+      const parentSimple = parentClass.includes(".")
+        ? parentClass.slice(parentClass.lastIndexOf(".") + 1)
+        : parentClass;
+      // If parentSimple is the namespace itself, this is a top-level exception
+      if (parentSimple === namespaceInfo.name || parentSimple === parentClass) {
+        classes.push(new ApexClass({ name, namespace: namespaceInfo.name, methods: [], properties: [] }));
+        continue;
+      }
+      const parent = classes.find(c => c.name === parentSimple);
+      if (parent) {
+        const existing = parent.innerExceptions ?? [];
+        const idx = classes.indexOf(parent);
+        classes[idx] = new ApexClass({
+          ...parent,
+          innerExceptions: [...existing, new ApexInnerException({ name })],
+        });
+        yield* Console.log(`    Nested ${name} inside ${parentSimple}`);
+      } else {
+        yield* Console.log(`    Warning: parent class ${parentSimple} not found for ${name}, emitting top-level`);
+        classes.push(new ApexClass({ name, namespace: namespaceInfo.name, methods: [], properties: [] }));
       }
     }
 

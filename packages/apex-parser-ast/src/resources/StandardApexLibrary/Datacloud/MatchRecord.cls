@@ -1,7 +1,7 @@
 /**
  * Represents a duplicate record detected by a matching rule.
  */
-public class MatchRecord {
+global class MatchRecord {
 
   /**
    * Returns other information about a matched record. For example, a matchGrade represents the quality of the data for the D&B fields in the matched record.

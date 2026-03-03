@@ -1,5 +1,5 @@
 /**
  * Specifies the retry decision.
  */
-public enum RetryDecision {
+global enum RetryDecision {
 }

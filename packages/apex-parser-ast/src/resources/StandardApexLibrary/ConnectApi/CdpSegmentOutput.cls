@@ -1,0 +1,6 @@
+/**
+ * Segment.
+ */
+global class CdpSegmentOutput {
+
+}

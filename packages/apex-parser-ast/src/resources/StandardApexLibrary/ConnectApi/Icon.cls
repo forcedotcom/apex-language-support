@@ -1,0 +1,6 @@
+/**
+ * Icon.
+ */
+global class Icon {
+
+}

@@ -1,7 +1,7 @@
 /**
  * Contains report metadata for a tabular, summary, or matrix report.
  */
-public class ReportMetadata {
+global class ReportMetadata {
 
   /**
    * Returns a list of bucket fields in the report.

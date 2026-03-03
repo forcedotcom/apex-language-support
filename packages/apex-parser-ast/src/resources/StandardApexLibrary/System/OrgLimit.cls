@@ -1,7 +1,7 @@
 /**
  * Contains methods that provide the name, maximum value, and current value of an org limit.
  */
-public class OrgLimit {
+global class OrgLimit {
 
   /**
    * Returns the maximum allowed limit value.

@@ -1,6 +1,6 @@
 /**
  * Contains maximum stack depths for queueable transactions and the minimum queueable delay in minutes. Passed as parameter to the System.enqueueJob() method to define a unique queueable job signature, the maximum stack depth for queueable transactions and the minimum queueable delay in minutes.
  */
-public class AsyncOptions {
+global class AsyncOptions {
 
 }

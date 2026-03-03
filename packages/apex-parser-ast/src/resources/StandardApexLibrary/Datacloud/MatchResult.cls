@@ -1,7 +1,7 @@
 /**
  * Represents the duplicate results for a matching rule.
  */
-public class MatchResult {
+global class MatchResult {
 
   /**
    * Returns the entity type of the matching rule.

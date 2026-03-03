@@ -1,7 +1,7 @@
 /**
  * Contains methods to build an instance of the lxscheduler.WorkType class.
  */
-public class WorkTypeBuilder {
+global class WorkTypeBuilder {
 
   public lxscheduler.WorkType build() {}
 

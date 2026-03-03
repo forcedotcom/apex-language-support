@@ -1,7 +1,7 @@
 /**
  * Represents the categories within a category group.
  */
-public class DataCategory {
+global class DataCategory {
 
   /**
    * Returns a recursive object that contains the visible sub categories in the data category.

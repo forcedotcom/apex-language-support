@@ -1,7 +1,7 @@
 /**
  * Contains methods for the Blob primitive data type.
  */
-public class Blob {
+global class Blob {
 
   /**
    * Returns the number of bytes in the Blob.

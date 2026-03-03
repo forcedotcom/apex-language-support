@@ -1,7 +1,7 @@
 /**
  * The UserProvisioningPlugin base class implements Process.Plugin for programmatic customization of the user provisioning process for connected apps.
  */
-public class UserProvisioningPlugin {
+global class UserProvisioningPlugin {
 
   /**
    * Use this method to add more input and output parameters to those defined in the base class.

@@ -1,7 +1,7 @@
 /**
  * A Schema.DisplayType enum value is returned by the field describe result's getType method.
  */
-public enum DisplayType {
+global enum DisplayType {
   ADDRESS,
   ANYTYPE,
   URL,

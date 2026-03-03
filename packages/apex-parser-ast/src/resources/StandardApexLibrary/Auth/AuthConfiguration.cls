@@ -1,7 +1,7 @@
 /**
  * Contains methods for configuring settings for users to log in to a Salesforce org using their authentication provider credentials instead of their Salesforce credentials. The authentication provider can be any authentication provider that supports the OpenID Connect protocol, such as Google, Facebook, or Twitter. Users log in to either an Experience Cloud site ( https:// MyDomainName .my.site.com ) or your My Domain login URL ( https:// MyDomainName .my.salesforce.com ).
  */
-public class AuthConfiguration {
+global class AuthConfiguration {
 
   /**
    * Indicates whether the Experience Cloud site allows internal users to log in using the Experience Cloud site login page. To enable, admins configure the setting Allow internal users to log in directly to the experience on the Login & Registration page in Experience Workspaces. It’s disabled by default.
@@ -83,6 +83,14 @@ public class AuthConfiguration {
    * @return String
    */
   public String getForgotPasswordUrl() {}
+
+  public Boolean getHeadlessForgotPasswordEnabled() {}
+
+  public Boolean getHeadlessFrgtPswEnabled() {}
+
+  public Boolean getHeadlessPasswordlessLoginEnabled() {}
+
+  public Boolean getHeadlessRegistrationEnabled() {}
 
   /**
    * Returns the location of the icon image at the bottom of the login page for a community.

@@ -1,7 +1,7 @@
 /**
  * Represents a collection of unique elements with no duplicate values.
  */
-public class Set {
+global class Set {
 
   /**
    * Adds an element to the set if it is not already present.
@@ -26,9 +26,8 @@ public class Set {
 
   /**
    * Removes all of the elements from the set.
-   * @return Void
    */
-  public Void clear() {}
+  public void clear() {}
 
   /**
    * Makes a duplicate copy of the set.

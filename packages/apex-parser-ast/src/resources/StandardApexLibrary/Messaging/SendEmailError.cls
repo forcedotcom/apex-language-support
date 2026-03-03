@@ -1,7 +1,7 @@
 /**
  * Represents an error that the SendEmailResult object may contain.
  */
-public class SendEmailError {
+global class SendEmailError {
 
   /**
    * A list of one or more field names. Identifies which fields in the object, if any, affected the error condition.

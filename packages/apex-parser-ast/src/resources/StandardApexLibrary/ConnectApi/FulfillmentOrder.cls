@@ -1,7 +1,7 @@
 /**
  * Fulfill orders in Order Management.
  */
-public class FulfillmentOrder {
+global class FulfillmentOrder {
 
   public static ConnectApi.FulfillmentOrderCancelLineItemsOutputRepresentation cancelFulfillmentOrderLineItems(String fulfillmentOrderId, ConnectApi.FulfillmentOrderLineItemsToCancelInputRepresentation cancelFulfillmentOrderLineItemsInput) {}
 

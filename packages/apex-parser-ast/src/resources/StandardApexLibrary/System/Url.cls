@@ -1,7 +1,7 @@
 /**
  * Represents a uniform resource locator (URL) and provides access to parts of the URL. Enables access to the base URL used to access your Salesforce org.
  */
-public class URL {
+global class URL {
 
   /**
    * Returns the authority portion of the current URL.
@@ -43,9 +43,9 @@ public class URL {
 
   /**
    * Returns the canonical URL for your org. For example, https:// MyDomainName .my.salesforce.com .
-   * @return System.Url
+   * @return System.URL
    */
-  public static System.Url getOrgDomainUrl() {}
+  public static System.URL getOrgDomainUrl() {}
 
   /**
    * Returns the path portion of the current URL.

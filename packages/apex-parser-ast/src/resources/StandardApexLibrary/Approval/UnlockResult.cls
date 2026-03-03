@@ -1,7 +1,7 @@
 /**
  * The result of a record unlock, returned by a System.Approval.unlock() method.
  */
-public class UnlockResult {
+global class UnlockResult {
 
   /**
    * If an error occurred, returns an array of one or more database error objects, providing the error code and description.

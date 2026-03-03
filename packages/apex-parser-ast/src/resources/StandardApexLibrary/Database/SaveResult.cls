@@ -1,7 +1,7 @@
 /**
  * The result of an insert or update DML operation returned by a Database method.
  */
-public class SaveResult {
+global class SaveResult {
 
   /**
    * If an error occurred, returns an array of one or more database error objects providing the error code and description. If no error occurred, returns an empty set.

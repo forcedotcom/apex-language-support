@@ -1,7 +1,7 @@
 /**
  * Contains methods for mathematical operations.
  */
-public class Math {
+global class Math {
 
   /**
    * Returns the absolute value of the specified Decimal.

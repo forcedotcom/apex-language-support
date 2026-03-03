@@ -1,7 +1,7 @@
 /**
  * Get Data 360 metadata and query data.
  */
-public class CdpQuery {
+global class CdpQuery {
 
   public static ConnectApi.CdpQueryMetadataOutput getAllMetadata() {}
 
@@ -73,11 +73,11 @@ public class CdpQuery {
 
   public static ConnectApi.QuerySqlPageOutput querySqlRows(String queryId, Long offset, Long rowLimit, Boolean omitSchema, String workloadName, String dataspace) {}
 
-  public static Void cancelQuerySql(String queryId) {}
+  public static void cancelQuerySql(String queryId) {}
 
-  public static Void cancelQuerySql(String queryId, String dataspace) {}
+  public static void cancelQuerySql(String queryId, String dataspace) {}
 
-  public static Void cancelQuerySql(String queryId, String workloadName, String dataspace) {}
+  public static void cancelQuerySql(String queryId, String workloadName, String dataspace) {}
 
   public static ConnectApi.QuerySqlStatus querySqlStatus(String queryId) {}
 

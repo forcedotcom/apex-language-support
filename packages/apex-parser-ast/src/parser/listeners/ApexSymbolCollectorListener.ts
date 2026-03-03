@@ -3136,12 +3136,12 @@ export class ApexSymbolCollectorListener
       // Check if this is a method return type context
       const isMethodReturnType = this.isMethodReturnTypeContext(ctx);
 
-      // For qualified type names (e.g., System.Url), we need to combine all type names
+      // For qualified type names (e.g., System.URL), we need to combine all type names
       let fullTypeName: string;
       let baseLocation: SymbolLocation | undefined;
 
       if (typeNames.length > 1) {
-        // This is a qualified type name like System.Url
+        // This is a qualified type name like System.URL
         const typeNameParts = typeNames.map((tn) => {
           const id = tn.id();
           if (id) {
@@ -3935,12 +3935,12 @@ export class ApexSymbolCollectorListener
     const typeNames = typeRef.typeName();
     if (!typeNames || typeNames.length === 0) return null;
 
-    // For qualified type names (e.g., System.Url), we need to combine all type names
+    // For qualified type names (e.g., System.URL), we need to combine all type names
     let fullTypeName: string;
     let baseLocation: SymbolLocation | undefined;
 
     if (typeNames.length > 1) {
-      // This is a qualified type name like System.Url
+      // This is a qualified type name like System.URL
       const typeNameParts = typeNames.map((tn) => {
         const id = tn.id();
         if (id) {
@@ -3975,7 +3975,7 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Handle generic type arguments (e.g., <String, List<System.Url>>)
+   * Handle generic type arguments (e.g., <String, List<System.URL>>)
    * This method is called when entering a typeArguments context
    * Generic arguments are processed the same way as typeName.id (Java-style generics)
    */
@@ -5579,7 +5579,7 @@ export class ApexSymbolCollectorListener
       baseTypeNameStr = id.text;
     }
 
-    // Handle qualified type names (e.g., System.Url)
+    // Handle qualified type names (e.g., System.URL)
     if (typeNames.length > 1) {
       // For qualified types, we need to build the full qualified name
       const qualifiedParts = typeNames.map((tn) => {
@@ -7038,7 +7038,7 @@ export class ApexSymbolCollectorListener
 
   /**
    * Get the location of the base expression in a chained expression
-   * e.g., for "System.Url.getOrgDomainUrl()", return the location of "System"
+   * e.g., for "System.URL.getOrgDomainUrl()", return the location of "System"
    */
   private getBaseExpressionLocation(
     ctx: DotMethodCallContext,

@@ -1,7 +1,7 @@
 /**
  * Filter settings that narrow the results from a call to System.Search.suggest(searchQuery, sObjectType, options) when the SOSL search query contains a KnowledgeArticleVersion object.
  */
-public class KnowledgeSuggestionFilter {
+global class KnowledgeSuggestionFilter {
 
   /**
    * Adds a filter that narrows suggestion results to display the specified article type. This filter is optional.

@@ -1,13 +1,12 @@
 /**
  * Represents a parser for JSON-encoded content.
  */
-public class JSONParser {
+global class JSONParser {
 
   /**
    * Removes the current token.
-   * @return Void
    */
-  public Void clearCurrentToken() {}
+  public void clearCurrentToken() {}
 
   /**
    * Returns the current token as a BLOB value.
@@ -127,8 +126,7 @@ public class JSONParser {
 
   /**
    * Skips all child tokens of type JSONToken.START_ARRAY and JSONToken.START_OBJECT that the parser currently points to.
-   * @return Void
    */
-  public Void skipChildren() {}
+  public void skipChildren() {}
 
 }

@@ -1,7 +1,7 @@
 /**
  * Provides methods for creating digests, message authentication codes, and signatures, as well as encrypting and decrypting information.
  */
-public class Crypto {
+global class Crypto {
 
   public static Blob decrypt(String algorithmName, Blob secretKey, Blob initializationVector, Blob cipherText) {}
 
@@ -27,7 +27,7 @@ public class Crypto {
 
   public static Blob signWithCertificate(String algorithmName, Blob input, String certDevName) {}
 
-  public Void signXML(String algorithmName, Dom.XmlNode node, String idAttributeName, String certDevName) {}
+  public void signXML(String algorithmName, Dom.XmlNode node, String idAttributeName, String certDevName) {}
 
   public static void signXml(String algorithmName, Dom.XmlNode node, String idAttributeName, String certDevName, Dom.XmlNode refChild) {}
 

@@ -1,7 +1,7 @@
 /**
  * Purchase Data.com contact or company records, and retrieve purchase information.
  */
-public class Datacloud {
+global class Datacloud {
 
   public static ConnectApi.DatacloudCompanies getCompaniesFromOrder(String orderId, String pageSize, String page) {}
 

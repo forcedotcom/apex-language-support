@@ -1,9 +1,9 @@
 /**
  * Execute recommendation strategies, get recommendations, manage recommendation reactions.
  */
-public class NextBestAction {
+global class NextBestAction {
 
-  public static Void deleteRecommendationReaction(String reactionId) {}
+  public static void deleteRecommendationReaction(String reactionId) {}
 
   public static ConnectApi.NBARecommendations executeStrategy(String strategyName, Integer maxResults, String contextRecordId) {}
 

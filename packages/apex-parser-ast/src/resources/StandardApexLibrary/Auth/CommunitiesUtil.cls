@@ -1,7 +1,7 @@
 /**
  * Contains methods for getting information about an Experience Cloud user.
  */
-public class CommunitiesUtil {
+global class CommunitiesUtil {
 
   /**
    * Returns the page to display after the current Experience Cloud user logs out.

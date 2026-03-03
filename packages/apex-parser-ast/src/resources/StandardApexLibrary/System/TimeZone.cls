@@ -1,7 +1,7 @@
 /**
  * Represents a time zone. Contains methods for creating a new time zone and obtaining time zone properties, such as the time zone ID, offset, and display name.
  */
-public class TimeZone {
+global class TimeZone {
 
   /**
    * Returns this time zone’s display name.

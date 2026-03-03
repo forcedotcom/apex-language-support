@@ -1,7 +1,7 @@
 /**
  * Access information about followers and subscriptions for records.
  */
-public class Chatter {
+global class Chatter {
 
   public static void deleteSubscription(String communityId, String subscriptionId) {}
 

@@ -1,14 +1,13 @@
 /**
  * Use a StandardController when defining an extension for a standard controller.
  */
-public class StandardController {
+global class StandardController {
 
   /**
    * When a Visualforce page is loaded, the fields accessible to the page are based on the fields referenced in the Visualforce markup. This method adds a reference to each field specified in fieldNames so that the controller can explicitly access those fields as well.
    * @param fieldNames 
-   * @return Void
    */
-  public Void addFields(List< String > fieldNames) {}
+  public void addFields(List< String > fieldNames) {}
 
   /**
    * Returns the PageReference of the cancel page.
@@ -42,9 +41,8 @@ public class StandardController {
 
   /**
    * Forces the controller to reacquire access to newly referenced fields. Any changes made to the record prior to this method call are discarded.
-   * @return Void
    */
-  public Void reset() {}
+  public void reset() {}
 
   /**
    * Saves changes and returns the updated PageReference.

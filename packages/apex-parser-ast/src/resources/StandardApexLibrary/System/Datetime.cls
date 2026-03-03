@@ -1,7 +1,7 @@
 /**
  * Contains methods for the Datetime primitive data type.
  */
-public class Datetime {
+global class Datetime {
 
   /**
    * Adds the specified number of days to a Datetime.

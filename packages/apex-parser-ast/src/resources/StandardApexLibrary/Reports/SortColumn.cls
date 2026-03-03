@@ -1,7 +1,7 @@
 /**
  * Contains information about the sort column used in the report.
  */
-public class SortColumn {
+global class SortColumn {
 
   /**
    * Returns the column used to sort the records in the report.

@@ -1,7 +1,7 @@
 /**
  * Create or update a composite product. Create a variation product.
  */
-public class CommerceCatalogManagement {
+global class CommerceCatalogManagement {
 
   public static ConnectApi.CompositeCommerceProductOutputRepresentation compositeCommerceProductCreate(String webstoreId, ConnectApi.CompositeCommerceProductInputRepresentation compositeCommerceProductInputRepresentation) {}
 

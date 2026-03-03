@@ -1,7 +1,7 @@
 /**
  * Represents a picklist entry.
  */
-public class PicklistEntry {
+global class PicklistEntry {
 
   /**
    * Returns the display name of this item in the picklist.

@@ -1,7 +1,7 @@
 /**
  * Contains validation errors that occur when the user saves the page that uses a standard controller.
  */
-public class Message {
+global class Message {
 
   /**
    * Returns the label of the associated inputField component. If no label is defined, this method returns null .

@@ -58,7 +58,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
     it('should capture dotted parameter type references', async () => {
       const testClass = `
         public class TestClass {
-          public void processUrl(System.Url inputUrl) {
+          public void processUrl(System.URL inputUrl) {
             // Method body
           }
         }
@@ -67,15 +67,15 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have a chained type reference for System.Url parameter
+      // Should have a chained type reference for System.URL parameter
       const chainedTypeRefs = references.filter(
         (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
-      // Should have at least one System.Url reference (the parameter type)
+      // Should have at least one System.URL reference (the parameter type)
       const systemUrlRefs = chainedTypeRefs.filter(
-        (ref) => ref.name === 'System.Url',
+        (ref) => ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
     });
@@ -114,7 +114,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
     it('should capture dotted generic parameter type references', async () => {
       const testClass = `
         public class TestClass {
-          public void processUrlList(List<System.Url> inputUrlList) {
+          public void processUrlList(List<System.URL> inputUrlList) {
             // Method body
           }
         }
@@ -132,12 +132,12 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       const typeNames = paramTypeRefs.map((ref) => ref.name);
       expect(typeNames).toContain('List');
 
-      // Should also have a generic parameter type reference for System.Url (dotted generic parameter)
+      // Should also have a generic parameter type reference for System.URL (dotted generic parameter)
       // Dotted type names in generic arguments are captured as GENERIC_PARAMETER_TYPE
       const genericParamRefs = references.filter(
         (ref) =>
           ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE &&
-          ref.name === 'System.Url',
+          ref.name === 'System.URL',
       );
       expect(genericParamRefs).toHaveLength(1);
     });
@@ -145,7 +145,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
     it('should distinguish between return types and parameter types', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url processUrl(System.Url inputUrl) {
+          public System.URL processUrl(System.URL inputUrl) {
             return inputUrl;
           }
         }
@@ -154,15 +154,15 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have chained type references for System.Url (both return and parameter)
+      // Should have chained type references for System.URL (both return and parameter)
       const chainedTypeRefs = references.filter(
         (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(2);
 
-      // Should have at least two System.Url references (return type and parameter)
+      // Should have at least two System.URL references (return type and parameter)
       const systemUrlRefs = chainedTypeRefs.filter(
-        (ref) => ref.name === 'System.Url',
+        (ref) => ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(2);
     });
@@ -172,22 +172,22 @@ describe('ApexSymbolManager - Parameter Type References', () => {
     it('should capture dotted field type references', async () => {
       const testClass = `
         public class TestClass {
-          public System.Url myUrl;
+          public System.URL myUrl;
         }
       `;
 
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have a chained type reference for System.Url field type
+      // Should have a chained type reference for System.URL field type
       const chainedTypeRefs = references.filter(
         (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
-      // Should have at least one System.Url reference (the field type)
+      // Should have at least one System.URL reference (the field type)
       const systemUrlRefs = chainedTypeRefs.filter(
-        (ref) => ref.name === 'System.Url',
+        (ref) => ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
     });
@@ -198,7 +198,7 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       const testClass = `
         public class TestClass {
           public void testMethod() {
-            System.Url localUrl = System.Url.getOrgDomainUrl();
+            System.URL localUrl = System.URL.getOrgDomainUrl();
           }
         }
       `;
@@ -206,15 +206,15 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have chained type references for System.Url (variable type and method call)
+      // Should have chained type references for System.URL (variable type and method call)
       const chainedTypeRefs = references.filter(
         (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
-      // Should have at least one System.Url reference
+      // Should have at least one System.URL reference
       const systemUrlRefs = chainedTypeRefs.filter(
-        (ref) => ref.name === 'System.Url',
+        (ref) => ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
     });

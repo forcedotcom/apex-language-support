@@ -1,7 +1,7 @@
 /**
  * Get managed topics in an Experience Cloud site. Create, delete, and reorder managed topics.
  */
-public class ManagedTopics {
+global class ManagedTopics {
 
   public static ConnectApi.ManagedTopic createManagedTopic(String communityId, String recordId, ConnectApi.ManagedTopicType managedTopicType) {}
 

@@ -1,7 +1,7 @@
 /**
  * Export and purge mission activity for users. Get a user’s mission progress. Update mission activity counts for users.
  */
-public class Missions {
+global class Missions {
 
   public static ConnectApi.UserMissionActivitiesJob exportUserMissionsActivities(String communityId, String userId) {}
 

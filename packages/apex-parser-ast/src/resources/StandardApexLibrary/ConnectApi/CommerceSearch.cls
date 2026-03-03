@@ -1,7 +1,7 @@
 /**
  * Get sort rules for the live search index. Get product search suggestions. Search products.
  */
-public class CommerceSearch {
+global class CommerceSearch {
 
   public static ConnectApi.SortRulesCollection getSortRules(String webstoreId) {}
 

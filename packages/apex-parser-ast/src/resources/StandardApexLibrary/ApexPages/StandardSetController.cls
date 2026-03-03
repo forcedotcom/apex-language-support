@@ -1,7 +1,7 @@
 /**
  * StandardSetController objects allow you to create list controllers similar to, or as extensions of, the pre-built Visualforce list controllers provided by Salesforce.
  */
-public class StandardSetController {
+global class StandardSetController {
 
   /**
    * Returns the PageReference of the original page, if known, or the home page.
@@ -9,7 +9,7 @@ public class StandardSetController {
    */
   public System.PageReference cancel() {}
 
-  public Void first() {}
+  public void first() {}
 
   /**
    * Indicates whether there are more records in the set than the maximum record limit. If this is false, there are more records than you can process using the list controller. The maximum record limit is 10,000 records.
@@ -77,11 +77,11 @@ public class StandardSetController {
    */
   public sObject[] getSelected() {}
 
-  public Void last() {}
+  public void last() {}
 
-  public Void next() {}
+  public void next() {}
 
-  public Void previous() {}
+  public void previous() {}
 
   /**
    * Inserts new records or updates existing records that have been changed. After this operation is finished, it returns a PageReference to the original page, if known, or the home page.
@@ -92,24 +92,21 @@ public class StandardSetController {
   /**
    * Sets the filter ID of the controller.
    * @param filterId 
-   * @return Void
    */
-  public Void setFilterID(String filterId) {}
+  public void setFilterID(String filterId) {}
 
   /**
    * Sets the page number.
    * @param pageNumber 
-   * @return Void
    */
-  public Void setpageNumber(Integer pageNumber) {}
+  public void setpageNumber(Integer pageNumber) {}
 
   /**
    * Sets the number of records in each page set.
    * @param pageSize 
-   * @return Void
    */
-  public Void setPageSize(Integer pageSize) {}
+  public void setPageSize(Integer pageSize) {}
 
-  public Void setSelected(sObject[] selectedRecords) {}
+  public void setSelected(sObject[] selectedRecords) {}
 
 }

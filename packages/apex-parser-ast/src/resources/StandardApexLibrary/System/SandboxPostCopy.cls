@@ -1,7 +1,7 @@
 /**
  * To make your sandbox environment business ready, automate data manipulation or business logic tasks. Extend this interface and add methods to perform post-copy tasks, then specify the class during sandbox creation.
  */
-public interface SandboxPostCopy {
+global interface SandboxPostCopy {
 
   /**
    * Executes actions in a new sandbox to prepare it for use. For example, add logic to this method to create users, run sanitizing code on records, and perform other setup tasks.

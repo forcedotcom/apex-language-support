@@ -1,7 +1,7 @@
 /**
  * Contains describe metadata information for a quick action.
  */
-public class DescribeQuickActionResult {
+global class DescribeQuickActionResult {
 
   /**
    * Returns the unique ID for the action. If the action doesn’t have an ID, its API name is used.
@@ -92,6 +92,12 @@ public class DescribeQuickActionResult {
    * @return String
    */
   public String getLightningComponentQualifiedName() {}
+
+  public String getLightningWebComponentBundleId() {}
+
+  public String getLightningWebComponentBundleName() {}
+
+  public String getLightningWebComponentQualifiedName() {}
 
   /**
    * Returns the 16x16 icon URL.

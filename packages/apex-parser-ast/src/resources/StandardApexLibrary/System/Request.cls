@@ -1,7 +1,7 @@
 /**
  * Contains methods to obtain the request ID and Quiddity value of the current Salesforce request.
  */
-public class Request {
+global class Request {
 
   /**
    * Returns the current Request object that contains the request ID and Quiddity value.

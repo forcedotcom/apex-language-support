@@ -1,6 +1,12 @@
 /**
  * This class contains authorization request response data.
  */
-public class AuthRequestResponse {
+global class AuthRequestResponse {
+
+  public String getAccessToken() {}
+
+  public String getAuthProviderName() {}
+
+  public String getContextRecordId() {}
 
 }

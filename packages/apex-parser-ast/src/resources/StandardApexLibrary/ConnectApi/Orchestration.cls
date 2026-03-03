@@ -1,7 +1,7 @@
 /**
  * Get orchestration instances.
  */
-public class Orchestration {
+global class Orchestration {
 
   public static ConnectApi.OrchestrationInstance getOrchestrationInstance(String instanceId) {}
 

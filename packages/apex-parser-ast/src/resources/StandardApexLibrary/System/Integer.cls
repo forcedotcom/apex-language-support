@@ -1,7 +1,7 @@
 /**
  * Contains methods for the Integer primitive data type.
  */
-public class Integer {
+global class Integer {
 
   /**
    * Returns the integer as a string using the locale of the context user.

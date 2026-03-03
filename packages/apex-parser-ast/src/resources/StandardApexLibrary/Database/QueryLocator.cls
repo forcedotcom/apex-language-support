@@ -1,7 +1,7 @@
 /**
  * Represents the record set returned by Database.getQueryLocator and used with Batch Apex.
  */
-public class QueryLocator {
+global class QueryLocator {
 
   /**
    * Returns the query used to instantiate the Database.QueryLocator object. This is useful when testing the start method.

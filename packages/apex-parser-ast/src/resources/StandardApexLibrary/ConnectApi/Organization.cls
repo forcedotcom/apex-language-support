@@ -1,7 +1,7 @@
 /**
  * Access information about an org.
  */
-public class Organization {
+global class Organization {
 
   public static ConnectApi.OrganizationSettings getSettings() {}
 

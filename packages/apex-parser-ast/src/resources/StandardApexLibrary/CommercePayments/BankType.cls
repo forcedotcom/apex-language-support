@@ -1,5 +1,5 @@
 /**
  * Specifies the bank type.
  */
-public enum BankType {
+global enum BankType {
 }

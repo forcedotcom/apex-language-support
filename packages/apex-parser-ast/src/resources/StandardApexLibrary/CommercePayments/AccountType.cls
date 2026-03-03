@@ -1,5 +1,5 @@
 /**
  * Specifies the account type.
  */
-public enum AccountType {
+global enum AccountType {
 }

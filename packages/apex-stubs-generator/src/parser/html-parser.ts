@@ -25,7 +25,9 @@ export const stripHtmlTags = (html: string): string => {
 
 const extractSignatures = (html: string): string[] => {
   const signatures: string[] = [];
-  const signaturePattern = /<h4[^>]*>Signature<\/h4>\s*<p[^>]*><samp[^>]*apex_code[^>]*>([\s\S]*?)<\/samp><\/p>/gi;
+  // Some pages use class="codeph apex_code", others use class="codeph " (no apex_code).
+  // Match any <samp class="codeph..."> after a Signature heading.
+  const signaturePattern = /<h4[^>]*>Signature<\/h4>\s*<p[^>]*><samp[^>]*codeph[^>]*>([\s\S]*?)<\/samp><\/p>/gi;
 
   let match;
   while ((match = signaturePattern.exec(html)) !== null) {
@@ -48,8 +50,10 @@ const parseMethodSignature = (signature: string): ApexMethod | null => {
     return null;
   }
 
+  const visibility = match[1];
   const isStatic = !!match[2];
-  const returnType = match[3].trim();
+  // Normalize 'Void' to 'void' — docs capitalize it but Apex uses lowercase
+  const returnType = match[3].trim() === 'Void' ? 'void' : match[3].trim();
   const methodName = match[4];
   const paramsStr = match[5].trim();
 
@@ -66,7 +70,7 @@ const parseMethodSignature = (signature: string): ApexMethod | null => {
     }
   }
 
-  return new ApexMethod({ name: methodName, returnType, parameters, isStatic, signature: normalizedSignature });
+  return new ApexMethod({ name: methodName, returnType, parameters, isStatic, visibility, signature: normalizedSignature });
 };
 
 const extractClassDescription = (html: string): string | undefined => {
@@ -139,6 +143,7 @@ export const extractMethodsFromHtml = (html: string, className: string) =>
           returnType: method.returnType,
           parameters: updatedParameters,
           isStatic: method.isStatic,
+          visibility: method.visibility,
           signature: method.signature,
           description,
         }));
@@ -197,38 +202,111 @@ export const extractEnumValuesFromHtml = (html: string, enumName: string) =>
     return values;
   });
 
+export interface ExtractedExceptionClass {
+  /** Simple class name, e.g. "OrgCacheException" */
+  name: string;
+  /** Parent class name when this is an inner class, e.g. "Org" for "Org.OrgCacheException" */
+  parentClass?: string;
+}
+
 /**
- * Extract multiple exception class names from an aggregated exceptions page
+ * Extract multiple exception class names from an aggregated exceptions page.
+ *
+ * Handles three common formats:
+ *   1. <h2/h3> headings with anchor links (most namespace exception pages)
+ *   2. <span class="apiname">ClassName</span>
+ *   3. <samp class="codeph apex_code">[Parent.]ClassName</samp> in table cells
+ *      (used by ConnectApi and Cache exception pages)
+ *
+ * Returns structured results preserving parent class info for inner exceptions.
  */
 export const extractExceptionClassNamesFromHtml = (html: string, namespace: string) =>
   Effect.gen(function* () {
     yield* Console.log(`Parsing exception classes for namespace: ${namespace}`);
 
-    const classNames: string[] = [];
+    const results: ExtractedExceptionClass[] = [];
     const seen = new Set<string>();
 
-    const headingPattern = /<h[23][^>]*>\s*<a[^>]*>\s*([A-Za-z][A-Za-z0-9]*Exception[A-Za-z0-9]*)\s*<\/a>\s*<\/h[23]>/gi;
-    let match;
-
-    while ((match = headingPattern.exec(html)) !== null) {
-      const name = match[1].trim();
+    const addName = (raw: string) => {
+      const cleaned = raw.replace(/\u200b/g, "").trim();
+      const dotIdx = cleaned.lastIndexOf(".");
+      const name = dotIdx >= 0 ? cleaned.slice(dotIdx + 1).trim() : cleaned;
+      const parentClass = dotIdx >= 0 ? cleaned.slice(0, dotIdx).trim() : undefined;
       if (name && !seen.has(name)) {
         seen.add(name);
-        classNames.push(name);
+        results.push({ name, parentClass });
       }
+    };
+
+    let match;
+
+    // Format 1: heading with anchor
+    const headingPattern = /<h[23][^>]*>\s*<a[^>]*>\s*([A-Za-z][A-Za-z0-9]*Exception[A-Za-z0-9]*)\s*<\/a>\s*<\/h[23]>/gi;
+    while ((match = headingPattern.exec(html)) !== null) addName(match[1]);
+
+    // Format 2: <span class="apiname">
+    if (results.length === 0) {
+      const apinamePattern = /<span[^>]*class="[^"]*apiname[^"]*"[^>]*>([A-Za-z][A-Za-z0-9]*Exception[A-Za-z0-9]*)<\/span>/gi;
+      while ((match = apinamePattern.exec(html)) !== null) addName(match[1]);
     }
 
-    if (classNames.length === 0) {
-      const apinamePattern = /<span[^>]*class="[^"]*apiname[^"]*"[^>]*>([A-Za-z][A-Za-z0-9]*Exception[A-Za-z0-9]*)<\/span>/gi;
-      while ((match = apinamePattern.exec(html)) !== null) {
-        const name = match[1].trim();
-        if (name && !seen.has(name)) {
-          seen.add(name);
-          classNames.push(name);
+    // Format 3: <samp class="codeph apex_code">[Parent.]ClassName</samp> in table cells
+    if (results.length === 0) {
+      const sampPattern = /<samp[^>]*class="codeph apex_code"[^>]*>([A-Za-z][A-Za-z0-9.​\u200b]*Exception[A-Za-z0-9]*)<\/samp>/gi;
+      while ((match = sampPattern.exec(html)) !== null) addName(match[1]);
+    }
+
+    yield* Console.log(`  Found ${results.length} exception classes`);
+    return results;
+  });
+
+/**
+ * Extract all enums from an aggregate enum page (e.g. connectAPI_enums.htm).
+ *
+ * Enum names come from the `id` attribute of <samp class="codeph apex_code" id="EnumName">
+ * elements. Enum values come from <ul id="EnumNameEnum"> lists containing
+ * <samp class="codeph nolang"> items.
+ */
+export const extractMultipleEnumsFromHtml = (html: string, namespace: string) =>
+  Effect.gen(function* () {
+    yield* Console.log(`Parsing aggregate enum page for namespace: ${namespace}`);
+
+    const result: Array<{ name: string; values: string[] }> = [];
+
+    // Enum names are in <samp class="codeph apex_code" id="EnumName"> elements inside a <tr>.
+    // Values are in the sibling <td> of the same row, regardless of the UL's id attribute.
+    // Strategy: find the <tr> containing each enum's <samp id="...">, extract values from
+    // everything after the first </td> in that row — avoids fragile UL id pattern matching.
+    const namePattern = /<samp[^>]*class="codeph apex_code"[^>]*\bid="([A-Za-z][A-Za-z0-9_]*)"[^>]*>/gi;
+    let match;
+
+    while ((match = namePattern.exec(html)) !== null) {
+      // Strip zero-width spaces and capitalize first character
+      const raw = match[1].replace(/\u200b/g, "");
+      const name = raw.length > 0 ? raw[0].toUpperCase() + raw.slice(1) : raw;
+
+      // Walk back to find the start of the enclosing <tr>
+      const matchPos = match.index;
+      const trStart = html.lastIndexOf("<tr", matchPos);
+      const trEnd = html.indexOf("</tr>", matchPos);
+      const rowHtml = trStart >= 0 && trEnd > 0 ? html.slice(trStart, trEnd + 5) : "";
+
+      // Values are in the second <td> of the row — skip the first </td>
+      const firstTdEnd = rowHtml.indexOf("</td>");
+      const valueTdHtml = firstTdEnd >= 0 ? rowHtml.slice(firstTdEnd) : rowHtml;
+
+      const values: string[] = [];
+      if (valueTdHtml) {
+        const valuePattern = /<samp class="codeph (?:nolang|apex_code)">([A-Za-z][A-Za-z0-9_]*)<\/samp>/g;
+        let vm;
+        while ((vm = valuePattern.exec(valueTdHtml)) !== null) {
+          values.push(vm[1]);
         }
       }
+
+      result.push({ name, values });
     }
 
-    yield* Console.log(`  Found ${classNames.length} exception classes`);
-    return classNames;
+    yield* Console.log(`  Found ${result.length} enums in aggregate page`);
+    return result;
   });

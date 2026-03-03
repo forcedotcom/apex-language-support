@@ -1,6 +1,14 @@
 /**
  * Contains static methods to expose extension-related context information.
  */
-public class ExtensionInfo {
+global class ExtensionInfo {
+
+  public static Double getClientApiVersion() {}
+
+  public static String getCustomParameterField(String fieldName) {}
+
+  public static String getLocaleString() {}
+
+  public static Boolean isCustomParametersAvailable() {}
 
 }

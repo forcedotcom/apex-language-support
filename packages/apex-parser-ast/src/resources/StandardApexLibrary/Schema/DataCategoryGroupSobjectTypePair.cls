@@ -1,7 +1,7 @@
 /**
  * Specifies a category group and an associated object.
  */
-public class DataCategoryGroupSobjectTypePair {
+global class DataCategoryGroupSobjectTypePair {
 
   /**
    * Returns the unique name used by the API to access the data category group.
@@ -25,8 +25,7 @@ public class DataCategoryGroupSobjectTypePair {
   /**
    * Sets the sObject associated with the data category group.
    * @param sObjectName The sObjectName is the object name associated with the data category group. Valid values are: KnowledgeArticleVersion —for article types. Question —for questions from Answers.
-   * @return Void
    */
-  public Void setSobject(String sObjectName) {}
+  public void setSobject(String sObjectName) {}
 
 }

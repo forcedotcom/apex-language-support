@@ -1,7 +1,7 @@
 /**
  * Contains the results for rendering email templates.
  */
-public class RenderEmailTemplateBodyResult {
+global class RenderEmailTemplateBodyResult {
 
   /**
    * If an error occurred during the renderEmailTemplate method, a RenderEmailTemplateError object is returned.

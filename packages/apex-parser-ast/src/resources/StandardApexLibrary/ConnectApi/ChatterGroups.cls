@@ -1,7 +1,7 @@
 /**
  * Information about groups, such as the group’s members, photo, and the groups the specified user is a member of. Add members to a group, remove members, and change the group photo.
  */
-public class ChatterGroups {
+global class ChatterGroups {
 
   public static ConnectApi.GroupMember addMember(String communityId, String groupId, String userId) {}
 
@@ -11,13 +11,13 @@ public class ChatterGroups {
 
   public static ConnectApi.ChatterGroupDetail createGroup(ConnectApi.ChatterGroupInput groupInput) {}
 
-  public static Void deleteBannerPhoto(String communityId, String groupId) {}
+  public static void deleteBannerPhoto(String communityId, String groupId) {}
 
-  public static Void deleteGroup(String communityId, String groupId) {}
+  public static void deleteGroup(String communityId, String groupId) {}
 
-  public static Void deleteMember(String communityId, String membershipId) {}
+  public static void deleteMember(String communityId, String membershipId) {}
 
-  public static Void deletePhoto(String communityId, String groupId) {}
+  public static void deletePhoto(String communityId, String groupId) {}
 
   public static ConnectApi.AnnouncementPage getAnnouncements(String communityId, String groupId) {}
 
@@ -63,7 +63,7 @@ public class ChatterGroups {
 
   public static ConnectApi.Announcement postAnnouncement(String communityId, String groupId, ConnectApi.AnnouncementInput announcement) {}
 
-  public static Void removeRecord(String communityId, String groupRecordId) {}
+  public static void removeRecord(String communityId, String groupRecordId) {}
 
   public static ConnectApi.GroupMembershipRequest requestGroupMembership(String communityId, String groupId) {}
 
@@ -99,10 +99,10 @@ public class ChatterGroups {
 
   public static ConnectApi.GroupMembershipRequest updateRequestStatus(String communityId, String requestId, ConnectApi.GroupMembershipRequestStatus status, String responseMessage) {}
 
-  public static Void setTestSearchGroups(String communityId, String q, ConnectApi.ChatterGroupPage result) {}
+  public static void setTestSearchGroups(String communityId, String q, ConnectApi.ChatterGroupPage result) {}
 
-  public static Void setTestSearchGroups(String communityId, String q, Integer pageParam, Integer pageSize, ConnectApi.ChatterGroupPage result) {}
+  public static void setTestSearchGroups(String communityId, String q, Integer pageParam, Integer pageSize, ConnectApi.ChatterGroupPage result) {}
 
-  public static Void setTestSearchGroups(String communityId, String q, Integer pageParam, Integer pageSize, ConnectApi.ChatterGroupPage result) {}
+  public static void setTestSearchGroups(String communityId, String q, Integer pageParam, Integer pageSize, ConnectApi.ChatterGroupPage result) {}
 
 }

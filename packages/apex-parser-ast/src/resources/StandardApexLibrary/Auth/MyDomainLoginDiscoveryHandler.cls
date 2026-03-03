@@ -1,7 +1,7 @@
 /**
  * The handler used to implement the My Domain Login Discovery page, which is an interview-based (two-step) login process. First the user is prompted for a unique identifier such as an email address or phone number. Then the handler determines (discovers) how to authenticate the user. Either the user enters a password or is directed to an identity provider’s login page.
  */
-public interface MyDomainLoginDiscoveryHandler {
+global interface MyDomainLoginDiscoveryHandler {
 
   /**
    * Log in a Salesforce user given the specified identifier, such as email or phone number. If successful, redirect the user to the page specified by the start URL.

@@ -1,7 +1,7 @@
 /**
  * This interface is deprecated. For new development, use the abstract class Auth.AuthProviderPluginClass to create a custom OAuth-based authentication provider plug-in for single sign-on in to Salesforce.
  */
-public interface AuthProviderPlugin {
+global interface AuthProviderPlugin {
 
   /**
    * Deprecated as of API version 39.0. Use the corresponding method in Auth.AuthProviderPluginClass .

@@ -1,12 +1,12 @@
 /**
  * Contains methods to get and set tax address values.
  */
-public class TaxAddressesRequest {
+global class TaxAddressesRequest {
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global String toString() {}
 
 }

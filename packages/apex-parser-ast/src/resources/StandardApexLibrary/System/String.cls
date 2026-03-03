@@ -1,7 +1,7 @@
 /**
  * Contains methods for the String primitive data type.
  */
-public class String {
+global class String {
 
   /**
    * Returns an abbreviated version of the String, of the specified length and with ellipses appended if the current String is longer than the specified length; otherwise, returns the original String without ellipses.

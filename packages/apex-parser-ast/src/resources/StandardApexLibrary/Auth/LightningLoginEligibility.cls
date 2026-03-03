@@ -1,7 +1,7 @@
 /**
  * Contains a Lightning Login eligibility value used by the Auth.SessionManagement.getLightningLoginEligibility method.
  */
-public enum LightningLoginEligibility {
+global enum LightningLoginEligibility {
   ELIGIBLE,
   ORG_AUTHENTICATOR_NOT_ENABLED,
   ORG_PREF_NOT_ENABLED,

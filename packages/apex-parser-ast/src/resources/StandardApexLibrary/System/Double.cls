@@ -1,7 +1,7 @@
 /**
  * Contains methods for the Double primitive data type.
  */
-public class Double {
+global class Double {
 
   /**
    * Returns the String value for this Double using the locale of the context user

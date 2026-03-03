@@ -1,12 +1,12 @@
 /**
  * Represents a request to an external tax engine to calculate tax. Extends the TaxTransactionRequest class and is the top-level request class.
  */
-public class CalculateTaxRequest {
+global class CalculateTaxRequest {
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global String toString() {}
 
 }

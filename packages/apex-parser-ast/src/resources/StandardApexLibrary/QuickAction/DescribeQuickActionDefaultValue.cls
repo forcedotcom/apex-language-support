@@ -1,7 +1,7 @@
 /**
  * Returns a default value for a quick action.
  */
-public class DescribeQuickActionDefaultValue {
+global class DescribeQuickActionDefaultValue {
 
   /**
    * Returns the default value of the quick action.

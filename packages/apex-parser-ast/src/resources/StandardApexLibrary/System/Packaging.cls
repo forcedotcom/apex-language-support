@@ -1,7 +1,7 @@
 /**
  * Contains a method for obtaining information about managed and unlocked packages.
  */
-public class Packaging {
+global class Packaging {
 
   /**
    * Returns the context packageID in managed and unlocked packages.

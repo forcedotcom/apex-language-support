@@ -1,7 +1,7 @@
 /**
  * Represents the Mobile Cards section of the page layout.
  */
-public class RelatedContent {
+global class RelatedContent {
 
   /**
    * Makes a duplicate copy of the Metadata.RelatedContent .

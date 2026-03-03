@@ -1,7 +1,9 @@
 /**
  * Contains methods for obtaining information about the context user.
  */
-public class UserInfo {
+global class UserInfo {
+
+  public static String getCurrentUvid() {}
 
   /**
    * Returns the context user's default currency code for multiple currency organizations or the organization's currency code for single currency organizations.

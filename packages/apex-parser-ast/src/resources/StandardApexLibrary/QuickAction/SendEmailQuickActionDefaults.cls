@@ -1,7 +1,7 @@
 /**
  * Represents an Apex class that provides: the From address list; the original email’s email message ID, provided that the reply action was invoked on the email message feed item; and methods to specify related settings on templates. You can override these fields before the standard Email Action is rendered.
  */
-public class SendEmailQuickActionDefaults {
+global class SendEmailQuickActionDefaults {
 
   /**
    * Returns a list of email addresses that are available in the From: address drop-down menu for the standard Email Action.

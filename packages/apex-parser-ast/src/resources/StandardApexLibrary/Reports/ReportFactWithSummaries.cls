@@ -1,7 +1,7 @@
 /**
  * Contains the fact map for the report, which represents the report’s data values, and includes summarized fields.
  */
-public class ReportFactWithSummaries {
+global class ReportFactWithSummaries {
 
   /**
    * Returns a string.

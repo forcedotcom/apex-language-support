@@ -1,5 +1,5 @@
 /**
  * Defines the type of payment transaction request made to the payment gateway.
  */
-public enum RequestType {
+global enum RequestType {
 }

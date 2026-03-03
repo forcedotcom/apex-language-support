@@ -1,7 +1,7 @@
 /**
  * Helper class for implementing search on a custom adapter for Salesforce Connect.
  */
-public class SearchUtils {
+global class SearchUtils {
 
   /**
    * Queries all the tables and returns each row whose designated name field contains the search phrase.

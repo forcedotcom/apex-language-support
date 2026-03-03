@@ -1,7 +1,7 @@
 /**
  * Contains a list of evaluated conditions for a report notification.
  */
-public class ThresholdInformation {
+global class ThresholdInformation {
 
   /**
    * Returns a list of evaluated conditions for a report notification.

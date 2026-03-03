@@ -1,7 +1,7 @@
 /**
  * Contains methods and constructors for working with information about a row limit filter.
  */
-public class TopRows {
+global class TopRows {
 
   /**
    * Returns the sort order of the report rows.

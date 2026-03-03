@@ -1,12 +1,12 @@
 /**
  * Abstract class for storing customer details used in tax calculation and estimation requests.
  */
-public class TaxTransactionRequest {
+global class TaxTransactionRequest {
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global String toString() {}
 
 }

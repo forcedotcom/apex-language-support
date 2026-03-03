@@ -1,7 +1,7 @@
 /**
  * Contains methods to build an instance of the lxscheduler.SkillRequirement class.
  */
-public class SkillRequirementBuilder {
+global class SkillRequirementBuilder {
 
   public lxscheduler.SkillRequirement build() {}
 

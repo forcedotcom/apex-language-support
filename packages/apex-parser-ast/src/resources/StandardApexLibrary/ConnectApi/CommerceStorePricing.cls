@@ -1,7 +1,7 @@
 /**
  * Get product prices.
  */
-public class CommerceStorePricing {
+global class CommerceStorePricing {
 
   public static ConnectApi.ProductPrice getProductPrice(String webstoreId, String productId, String effectiveAccountId) {}
 

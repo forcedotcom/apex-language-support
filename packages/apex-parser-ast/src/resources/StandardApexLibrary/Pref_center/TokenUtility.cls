@@ -1,7 +1,7 @@
 /**
  * Generate authentication tokens to access preference forms.
  */
-public class TokenUtility {
+global class TokenUtility {
 
   public static String generateToken(String tokenValue, pref_center.TokenType tokenType) {}
 

@@ -1,7 +1,7 @@
 /**
  * Represents the smallest unit in a layout—a field or a separator.
  */
-public class DescribeLayoutComponent {
+global class DescribeLayoutComponent {
 
   /**
    * Returns the vertical lines displayed for a field. Applies to textarea and multi-select picklist fields.

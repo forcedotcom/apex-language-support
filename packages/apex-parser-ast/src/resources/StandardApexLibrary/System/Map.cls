@@ -1,13 +1,12 @@
 /**
  * Contains methods for the Map collection type.
  */
-public class Map {
+global class Map {
 
   /**
    * Removes all of the key-value mappings from the map.
-   * @return Void
    */
-  public Void clear() {}
+  public void clear() {}
 
   /**
    * Makes a duplicate copy of the map.
@@ -77,16 +76,14 @@ public class Map {
   /**
    * Copies all of the mappings from the specified map to the original map.
    * @param fromMap 
-   * @return Void
    */
-  public Void putAll(Map fromMap) {}
+  public void putAll(Map fromMap) {}
 
   /**
    * Copies all of the mappings from the specified map to the original map.
    * @param sobjectArray 
-   * @return Void
    */
-  public Void putAll(sObject[] sobjectArray) {}
+  public void putAll(sObject[] sobjectArray) {}
 
   /**
    * Removes the mapping for the specified key from the map, if present, and returns the corresponding value.

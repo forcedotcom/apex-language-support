@@ -1,7 +1,7 @@
 /**
  * A wrapper object that contains an sObject and search metadata.
  */
-public class SearchResult {
+global class SearchResult {
 
   /**
    * Returns an sObject from a SearchResult object.

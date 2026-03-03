@@ -1,7 +1,7 @@
 /**
  * Represents the result of a delete operation on an sObject record. The result is returned by the DataSource.deleteRows method of the DataSource.Connection class.
  */
-public class DeleteResult {
+global class DeleteResult {
 
   /**
    * Maintains the integrity of lists of type DeleteResult by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.

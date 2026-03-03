@@ -1,7 +1,7 @@
 /**
  * CustomNotification is used to create, configure, and send custom notifications from Apex code.
  */
-public class CustomNotification {
+global class CustomNotification {
 
   /**
    * Sends a custom notification to the specified users.

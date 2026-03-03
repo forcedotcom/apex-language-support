@@ -1,7 +1,7 @@
 /**
  * Use the Continuation class to make callouts asynchronously to a SOAP or REST Web service.
  */
-public class Continuation {
+global class Continuation {
 
   /**
    * Adds the HTTP request for the callout that is associated with this continuation.

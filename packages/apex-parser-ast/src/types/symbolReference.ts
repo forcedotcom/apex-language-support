@@ -608,7 +608,7 @@ export class SymbolReferenceFactory {
 
   /**
    * Create a chained type reference for dotted type names
-   * This method handles dotted type references like "System.Url" in type declarations,
+   * This method handles dotted type references like "System.URL" in type declarations,
    * creating a chained symbol reference that can be resolved using the same
    * chain resolution logic as expressions
    */
@@ -629,7 +629,7 @@ export class SymbolReferenceFactory {
 
     // Create the root reference with the full chain span
     const rootRef = new EnhancedSymbolReference(
-      fullTypeName, // Name contains the full type name (e.g., "System.Url")
+      fullTypeName, // Name contains the full type name (e.g., "System.URL")
       {
         symbolRange: {
           startLine: baseLocation.symbolRange.startLine,
@@ -659,7 +659,7 @@ export class SymbolReferenceFactory {
 
   /**
    * Create a return type reference for method declarations
-   * This handles return types like "System.Url" in method signatures
+   * This handles return types like "System.URL" in method signatures
    */
   static createReturnTypeReference(
     typeName: string,

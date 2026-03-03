@@ -1,7 +1,7 @@
 /**
  * Describes the status code for an unsuccessful component deploy.
  */
-public enum StatusCode {
+global enum StatusCode {
   INVALID_SCS_INBOUND_USER,
   REQUIRE_CONNECTED_APP_SCS,
   REQUIRE_CONNECTED_APP_SESSION_SCS,

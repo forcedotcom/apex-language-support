@@ -1,7 +1,7 @@
 /**
  * You can use ApexPages.Action to create an action method that you can use in a Visualforce custom controller or controller extension.
  */
-public class Action {
+global class Action {
 
   /**
    * Returns the expression that is evaluated when the action is invoked.

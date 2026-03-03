@@ -1,7 +1,7 @@
 /**
  * The result of a lead conversion.
  */
-public class LeadConvertResult {
+global class LeadConvertResult {
 
   /**
    * The ID of the new account (if a new account was specified) or the ID of the account specified when convertLead was invoked.

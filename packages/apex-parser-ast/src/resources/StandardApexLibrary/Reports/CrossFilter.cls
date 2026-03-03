@@ -1,7 +1,7 @@
 /**
  * Contains methods and constructors used to work with information about a cross filter.
  */
-public class CrossFilter {
+global class CrossFilter {
 
   /**
    * Returns information about how to filter the relatedEntity . Describes the subset of the relatedEntity which the primary entity is evaluated against.

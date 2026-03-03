@@ -1,7 +1,7 @@
 /**
  * Output for rule-based searches for duplicate records. FindDuplicatesResult contains results of detecting duplicates using instances of FindDuplicates or FindDuplicatesByIds classes.
  */
-public class FindDuplicatesResult {
+global class FindDuplicatesResult {
 
   /**
    * Returns a list of DuplicateResult objects representing the results of calling FindDuplicates.findDuplicates(sObjects) or FindDuplicatesByIds.findDuplicatesByIds(ids) . Elements in the list correspond to sObjects or IDs in the input list.

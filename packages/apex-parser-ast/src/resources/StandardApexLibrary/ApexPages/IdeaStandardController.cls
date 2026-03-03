@@ -1,7 +1,7 @@
 /**
  * IdeaStandardController objects offer Ideas-specific functionality in addition to what is provided by the StandardController .
  */
-public class IdeaStandardController {
+global class IdeaStandardController {
 
   /**
    * Returns the list of read-only comments from the current page.

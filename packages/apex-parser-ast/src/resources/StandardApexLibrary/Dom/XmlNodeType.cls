@@ -1,7 +1,7 @@
 /**
  * Specifies the node type in an XML document.
  */
-public enum XmlNodeType {
+global enum XmlNodeType {
   COMMENT,
   ELEMENT,
   TEXT

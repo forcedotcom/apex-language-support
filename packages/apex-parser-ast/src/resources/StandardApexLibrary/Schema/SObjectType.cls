@@ -1,7 +1,7 @@
 /**
  * A Schema.sObjectType object is returned from the field describe result using the getReferenceTo method, or from the sObject describe result using the getSObjectType method.
  */
-public class SObjectType {
+global class SObjectType {
 
   /**
    * Returns the describe sObject result for this field.

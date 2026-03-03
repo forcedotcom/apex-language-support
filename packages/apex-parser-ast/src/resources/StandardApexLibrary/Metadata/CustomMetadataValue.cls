@@ -1,7 +1,7 @@
 /**
  * Represents custom metadata values for a custom metadata component.
  */
-public class CustomMetadataValue {
+global class CustomMetadataValue {
 
   /**
    * Makes a duplicate copy of the Metadata.CustomMetadataValue .

@@ -1,6 +1,6 @@
 /**
  * Represents a payment method.
  */
-public class PaymentMethod {
+global class PaymentMethod {
 
 }

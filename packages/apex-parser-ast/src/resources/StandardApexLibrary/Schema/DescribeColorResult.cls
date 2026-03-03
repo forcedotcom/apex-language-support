@@ -1,7 +1,7 @@
 /**
  * Contains color metadata information for a tab.
  */
-public class DescribeColorResult {
+global class DescribeColorResult {
 
   /**
    * Returns the Web RGB color code, such as 00FF00 .

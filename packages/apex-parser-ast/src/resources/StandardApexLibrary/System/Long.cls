@@ -1,7 +1,7 @@
 /**
  * Contains methods for the Long primitive data type.
  */
-public class Long {
+global class Long {
 
   /**
    * Returns the String format for this Long using the locale of the context user.

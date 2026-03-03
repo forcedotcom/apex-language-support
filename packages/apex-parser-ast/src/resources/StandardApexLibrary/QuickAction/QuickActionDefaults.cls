@@ -1,7 +1,7 @@
 /**
  * Represents an abstract Apex class that provides the context for running the standard Email Action on Case Feed and the container of the Email Message fields for the action payload. You can override the target fields before the standard Email Action is rendered.
  */
-public class QuickActionDefaults {
+global class QuickActionDefaults {
 
   /**
    * Returns the name of the standard Email Action on Case Feed (Case.Email).

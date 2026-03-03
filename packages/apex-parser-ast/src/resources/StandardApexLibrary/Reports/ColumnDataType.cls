@@ -1,7 +1,7 @@
 /**
  * The Reports.ColumnDataType enum describes the type of data in a column. It is returned by the getDataType method.
  */
-public enum ColumnDataType {
+global enum ColumnDataType {
   BOOLEAN_DATA,
   COMBOBOX_DATA,
   CURRENCY_DATA,

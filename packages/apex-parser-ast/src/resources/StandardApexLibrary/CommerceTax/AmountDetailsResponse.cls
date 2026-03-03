@@ -1,12 +1,14 @@
 /**
  * Sets tax amount fields based on a response from the external tax engine.
  */
-public class AmountDetailsResponse {
+global class AmountDetailsResponse {
 
-  public void setExemptAmount(Double exemptAmount) {}
+  global void setExemptAmount(Double exemptAmount) {}
 
-  public void setTaxAmount(Double taxAmount) {}
+  global void setTaxAmount(Double taxAmount) {}
 
-  public void setTotalAmount(Double totalAmount) {}
+  global void setTotalAmount(Double totalAmount) {}
+
+  global void setTotalAmountWithTax(Double totalAmtWithTax) {}
 
 }

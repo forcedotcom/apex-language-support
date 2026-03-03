@@ -1,37 +1,33 @@
 /**
  * Contains methods for the ID primitive data type.
  */
-public class Id {
+global class Id {
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param errorMsg The error message to mark the record with.
-   * @return Void
    */
-  public Void addError(String errorMsg) {}
+  public void addError(String errorMsg) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param errorMsg The error message to mark the record with.
    * @param escape 
-   * @return Void
    */
-  public Void addError(String errorMsg, Boolean escape) {}
+  public void addError(String errorMsg, Boolean escape) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param exceptionError 
-   * @return Void
    */
-  public Void addError(Exception exceptionError) {}
+  public void addError(Exception exceptionError) {}
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param exceptionError 
    * @param escape 
-   * @return Void
    */
-  public Void addError(Exception exceptionError, Boolean escape) {}
+  public void addError(Exception exceptionError, Boolean escape) {}
 
   /**
    * Returns the token for the sObject corresponding to this ID. This method is primarily used with describe information.

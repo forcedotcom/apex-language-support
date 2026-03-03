@@ -1,6 +1,6 @@
 /**
  * Represents the postal address.
  */
-public class PostalAddress {
+global class PostalAddress {
 
 }

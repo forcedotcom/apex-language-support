@@ -1,7 +1,7 @@
 /**
  * StubProvider is a callback interface that you can use as part of the Apex stub API to implement a mocking framework. Use this interface with the Test.createStub() method to create stubbed Apex objects for testing.
  */
-public interface StubProvider {
+global interface StubProvider {
 
   /**
    * Use this method to define the behavior of each method of a stubbed class.

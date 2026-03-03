@@ -1,7 +1,7 @@
 /**
  * Options that narrow record and article suggestion results returned from a call to System.Search.suggest( String , String , Search.SuggestionOption) .
  */
-public class SuggestionOption {
+global class SuggestionOption {
 
   /**
    * Set filters that narrow Salesforce Knowledge article results in a call to System.Search.suggest( String , String , Search.SuggestionOption) .

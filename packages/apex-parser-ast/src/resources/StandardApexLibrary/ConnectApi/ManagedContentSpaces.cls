@@ -1,7 +1,7 @@
 /**
  * Get channels in a managed content space. Add or remove channels from a managed content space.
  */
-public class ManagedContentSpaces {
+global class ManagedContentSpaces {
 
   public static ConnectApi.ManagedContentSpace getManagedContentSpace(String contentSpaceId) {}
 

@@ -1,7 +1,7 @@
 /**
  * Get, save, and submit a microsites marketing integration form for an Experience Cloud site.
  */
-public class MarketingIntegration {
+global class MarketingIntegration {
 
   public static ConnectApi.Form getForm(String siteId, String formId) {}
 

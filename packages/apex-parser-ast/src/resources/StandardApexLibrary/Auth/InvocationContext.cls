@@ -1,7 +1,7 @@
 /**
  * The context in which the connected app is invoked, such as the protocol flow used and the token type issued, if any. Developers can use the context information to write code that is unique to the type of invocation.
  */
-public enum InvocationContext {
+global enum InvocationContext {
   ASSET_TOKEN,
   OAUTH1,
   OAUTH2_JWT_BEARER_TOKEN,

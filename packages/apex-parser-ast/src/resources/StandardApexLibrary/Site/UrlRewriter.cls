@@ -1,7 +1,7 @@
 /**
  * Enables rewriting Sites URLs.
  */
-public interface UrlRewriter {
+global interface UrlRewriter {
 
   /**
    * Maps a list of Salesforce URLs to a list of user-friendly URLs.

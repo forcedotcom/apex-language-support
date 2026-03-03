@@ -1,7 +1,7 @@
 /**
  * Create, delete, or get commerce addresses. Get order delivery group, order item, order shipments, shipment items, and order summaries. Get adjustments for order items and order summaries.
  */
-public class CommerceBuyerExperience {
+global class CommerceBuyerExperience {
 
   public static ConnectApi.OrderToCartResult addOrderToCart(String webstoreId, String orderSummaryId, ConnectApi.OrderToCartInput orderToCartInput) {}
 

@@ -1,0 +1,6 @@
+/**
+ * Actor.
+ */
+global class Actor {
+
+}

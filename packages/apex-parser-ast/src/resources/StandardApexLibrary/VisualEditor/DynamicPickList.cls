@@ -1,7 +1,7 @@
 /**
  * An abstract class, used to display the values of a picklist in a Lightning component on a Lightning page.
  */
-public class DynamicPickList {
+global class DynamicPickList {
 
   /**
    * Makes a duplicate copy of the VisualEditor.DynamicPicklist object.

@@ -1,7 +1,7 @@
 /**
  * Contains methods for the Boolean primitive data type.
  */
-public class Boolean {
+global class Boolean {
 
   /**
    * Converts the specified string to a Boolean value and returns true if the specified string value is true . Otherwise, returns false .

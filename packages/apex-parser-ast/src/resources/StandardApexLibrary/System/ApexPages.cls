@@ -1,21 +1,19 @@
 /**
  * Use ApexPages to add and check for messages associated with the current page, as well as to reference the current page.
  */
-public class ApexPages {
+global class ApexPages {
 
   /**
    * Add a message to the current page context.
    * @param message 
-   * @return Void
    */
-  public Void addMessage(ApexPages.Message message) {}
+  public void addMessage(ApexPages.Message message) {}
 
   /**
    * Adds a list of messages to the current page context based on a thrown exception.
    * @param exceptionThrown 
-   * @return Void
    */
-  public Void addMessages(Exception exceptionThrown) {}
+  public void addMessages(Exception exceptionThrown) {}
 
   /**
    * Returns the current page's PageReference.

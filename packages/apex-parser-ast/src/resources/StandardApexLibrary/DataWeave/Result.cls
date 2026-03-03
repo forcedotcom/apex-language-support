@@ -1,7 +1,7 @@
 /**
  * Contains methods to retrieve data that was transformed using Script class methods.
  */
-public class Result {
+global class Result {
 
   public Object getValue() {}
 

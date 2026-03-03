@@ -1,7 +1,7 @@
 /**
  * Contains information about one item in a picklist used in a Lightning component on a Lightning page.
  */
-public class DataRow {
+global class DataRow {
 
   /**
    * Makes a duplicate copy of the VisualEditor.DataRow object.

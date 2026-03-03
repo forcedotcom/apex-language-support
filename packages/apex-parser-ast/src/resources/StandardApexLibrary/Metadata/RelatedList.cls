@@ -1,7 +1,7 @@
 /**
  * Represents related list custom components on the sidebars of the Salesforce console.
  */
-public class RelatedList {
+global class RelatedList {
 
   /**
    * Makes a duplicate copy of the Metadata.RelatedList .

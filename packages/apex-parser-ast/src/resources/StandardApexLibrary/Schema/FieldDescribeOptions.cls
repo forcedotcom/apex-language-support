@@ -1,7 +1,7 @@
 /**
  * A Schema.FieldDescribeOptions enum value is a parameter in the SObjectType.getDescribe method.
  */
-public enum FieldDescribeOptions {
+global enum FieldDescribeOptions {
   DEFAULT,
   FULL_DESCRIBE
 }

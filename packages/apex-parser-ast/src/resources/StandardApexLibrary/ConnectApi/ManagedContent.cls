@@ -1,7 +1,7 @@
 /**
  * Clone managed content. Create and get managed content. Create, delete, or update a digital asset management (DAM) provider instance. Delete and replace variants. Get channels. Get a managed content space. Get DAM providers. Get targets that managed content space folders can be shared with. Get and update targets that managed content space folders are shared with. Publish and unpublish content.
  */
-public class ManagedContent {
+global class ManagedContent {
 
   public static ConnectApi.ManagedContentDocumentClone cloneManagedContentDocument(String contentKeyOrId, ConnectApi.ManagedContentDocumentCloneInput ManagedContentCloneInputParam) {}
 
@@ -11,9 +11,9 @@ public class ManagedContent {
 
   public static ConnectApi.ManagedContentDocument createManagedContentWithMedia(ConnectApi.ManagedContentDocumentInput ManagedContentInputParam, ConnectApi.BinaryInput contentData) {}
 
-  public static Void deleteManagedContentProviderInstance(String providerInstanceId) {}
+  public static void deleteManagedContentProviderInstance(String providerInstanceId) {}
 
-  public static Void deleteManagedContentVariant(String variantId) {}
+  public static void deleteManagedContentVariant(String variantId) {}
 
   public static ConnectApi.ManagedContentVersionCollection getAllContent(String channelId, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean includeMetadata, String startDate, String endDate) {}
 

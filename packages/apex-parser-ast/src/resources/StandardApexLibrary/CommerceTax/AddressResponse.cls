@@ -1,8 +1,8 @@
 /**
  * Contains a location code sent from the external tax engine.
  */
-public class AddressResponse {
+global class AddressResponse {
 
-  public void setLocationCode(String locationCode) {}
+  global void setLocationCode(String locationCode) {}
 
 }

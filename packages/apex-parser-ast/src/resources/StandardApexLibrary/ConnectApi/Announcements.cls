@@ -1,7 +1,7 @@
 /**
  * Access information about announcements and post announcements.
  */
-public class Announcements {
+global class Announcements {
 
   public static void deleteAnnouncement(String communityId, String announcementId) {}
 

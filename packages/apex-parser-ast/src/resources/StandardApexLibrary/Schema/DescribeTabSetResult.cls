@@ -1,7 +1,7 @@
 /**
  * Contains metadata information about a Salesforce Classic standard or custom app available in the Salesforce user interface.
  */
-public class DescribeTabSetResult {
+global class DescribeTabSetResult {
 
   /**
    * Returns the display description for the standard or custom app.

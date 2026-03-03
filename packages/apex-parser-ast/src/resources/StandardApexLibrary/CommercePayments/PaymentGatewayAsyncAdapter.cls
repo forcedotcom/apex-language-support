@@ -1,7 +1,7 @@
 /**
  * Implement the interface to allow customers to process payments asynchronously.
  */
-public interface PaymentGatewayAsyncAdapter {
+global interface PaymentGatewayAsyncAdapter {
 
   /**
    * Entry point for processing notifications from payment gateways.

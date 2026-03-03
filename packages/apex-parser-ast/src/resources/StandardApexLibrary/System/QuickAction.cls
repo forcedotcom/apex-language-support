@@ -1,7 +1,7 @@
 /**
  * Use Apex to request and process actions on objects that allow custom fields, on objects that appear in a Chatter feed, or on objects that are available globally.
  */
-public class QuickAction {
+global class QuickAction {
 
   /**
    * Returns metadata information for the available quick actions of the provided parent object.

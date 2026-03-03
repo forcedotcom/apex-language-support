@@ -1,7 +1,7 @@
 /**
  * Get indexes. Get index logs. Create an index of a product catalog.
  */
-public class CommerceSearchSettings {
+global class CommerceSearchSettings {
 
   public static ConnectApi.CommerceSearchIndex createCommerceSearchIndex(String webstoreId, String indexBuildType) {}
 

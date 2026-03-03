@@ -1,7 +1,7 @@
 /**
  * Contains methods for processing approval requests and setting approval-process locks and unlocks on records.
  */
-public class Approval {
+global class Approval {
 
   /**
    * Returns true if the record with the ID id is locked, or false if it’s not.

@@ -1,7 +1,7 @@
 /**
  * Generates the JSON Claims Set in a JSON Web Token (JWT). The resulting Base64-encoded payload can be passed as an argument to create an instance of the Auth.JWS class.
  */
-public class JWT {
+global class JWT {
 
   /**
    * Makes a duplicate copy of the JWT object.

@@ -1,7 +1,7 @@
 /**
  * The Reports.ColumnSortOrder enum describes the order that the grouping column uses to sort data.
  */
-public enum ColumnSortOrder {
+global enum ColumnSortOrder {
   ASCENDING,
   DESCENDING
 }

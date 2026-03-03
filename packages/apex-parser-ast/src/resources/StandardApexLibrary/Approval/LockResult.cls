@@ -1,7 +1,7 @@
 /**
  * The result of a record lock returned by a System.Approval.lock() method.
  */
-public class LockResult {
+global class LockResult {
 
   /**
    * If an error occurred, returns an array of one or more database error objects, providing the error code and description.

@@ -1,0 +1,6 @@
+/**
+ * Subscription.
+ */
+global class Subscription {
+
+}

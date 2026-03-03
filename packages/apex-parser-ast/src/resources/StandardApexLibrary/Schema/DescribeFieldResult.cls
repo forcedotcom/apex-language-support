@@ -1,7 +1,7 @@
 /**
  * Contains methods for describing sObject fields.
  */
-public class DescribeFieldResult {
+global class DescribeFieldResult {
 
   /**
    * For variable-length fields (including binary fields), returns the maximum size of the field, in bytes.
@@ -122,6 +122,8 @@ public class DescribeFieldResult {
    * @return Schema.sObjectField
    */
   public Schema.sObjectField getSObjectField() {}
+
+  public Schema.SObjectType getSObjectType() {}
 
   /**
    * Returns one of the DisplayType enum values, depending on the type of field.

@@ -1,7 +1,7 @@
 /**
  * Access information about delivery estimation.
  */
-public class ExtendedCommerceDelivery {
+global class ExtendedCommerceDelivery {
 
   public static ConnectApi.EstimateDeliveryDateOutputRepresentation estimateDeliveryDate(ConnectApi.EstimateDeliveryDateInputRepresentation estimateDeliveryDateInput, String externalReference) {}
 

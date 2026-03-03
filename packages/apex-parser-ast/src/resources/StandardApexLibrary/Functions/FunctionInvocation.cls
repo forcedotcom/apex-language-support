@@ -1,7 +1,7 @@
 /**
  * Use FunctionInvocation to get the status and results of a synchronous or asynchronous Function invocation.
  */
-public interface FunctionInvocation {
+global interface FunctionInvocation {
 
   /**
    * Returns error information for a Function invocation.

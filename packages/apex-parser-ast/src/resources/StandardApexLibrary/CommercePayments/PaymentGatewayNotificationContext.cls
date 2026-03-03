@@ -1,12 +1,12 @@
 /**
  * Wraps the information related to a gateway notification.
  */
-public class PaymentGatewayNotificationContext {
+global class PaymentGatewayNotificationContext {
 
   /**
    * Returns the payment gateway’s notification request.
    * @return commercepayments.PaymentGatewayNotificationRequest
    */
-  public commercepayments.PaymentGatewayNotificationRequest getPaymentGatewayNotificationRequest() {}
+  global commercepayments.PaymentGatewayNotificationRequest getPaymentGatewayNotificationRequest() {}
 
 }

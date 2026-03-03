@@ -1,24 +1,26 @@
 /**
  * Response class that stores details of a list of one or more line items on which the tax engine has calculated tax.
  */
-public class LineItemResponse {
+global class LineItemResponse {
 
-  public void setAddresses(commercetax.AddressesResponse addresses) {}
+  global void setAddresses(commercetax.AddressesResponse addresses) {}
 
-  public void setAmountDetails(commercetax.AmountDetailsResponse amountDetails) {}
+  global void setAmountDetails(commercetax.AmountDetailsResponse amountDetails) {}
 
-  public void setEffectiveDate(Datetime effectiveDate) {}
+  global void setCustomTaxAttributes(commercetax.CustomTaxAttributesResponse customTaxAttributes) {}
 
-  public void setIsTaxable(Boolean isTaxable) {}
+  global void setEffectiveDate(Datetime effectiveDate) {}
 
-  public void setLineNumber(String lineNumber) {}
+  global void setIsTaxable(Boolean isTaxable) {}
 
-  public void setProductCode(String productCode) {}
+  global void setLineNumber(String lineNumber) {}
 
-  public void setQuantity(Double quantity) {}
+  global void setProductCode(String productCode) {}
 
-  public void setTaxCode(String taxCode) {}
+  global void setQuantity(Double quantity) {}
 
-  public void setTaxes(List<commercetax.TaxDetailsResponse> taxes) {}
+  global void setTaxCode(String taxCode) {}
+
+  global void setTaxes(List<commercetax.TaxDetailsResponse> taxes) {}
 
 }

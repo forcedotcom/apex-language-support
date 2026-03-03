@@ -1,7 +1,7 @@
 /**
  * Represents custom console components on subtabs in the Salesforce console.
  */
-public class SubtabComponents {
+global class SubtabComponents {
 
   /**
    * Makes a duplicate copy of the Metadata.SubtabComponents .

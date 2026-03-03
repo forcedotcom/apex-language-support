@@ -1,12 +1,12 @@
 /**
  * Contains tax code details used in the tax calculation request.
  */
-public class TaxSellerDetailsRequest {
+global class TaxSellerDetailsRequest {
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global String toString() {}
 
 }

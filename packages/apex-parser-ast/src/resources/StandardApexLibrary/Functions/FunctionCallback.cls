@@ -1,7 +1,7 @@
 /**
  * Represents the callback Salesforce calls when an asynchronous, queued Function invocation has completed.
  */
-public interface FunctionCallback {
+global interface FunctionCallback {
 
   /**
    * Called when an asynchronous Function invocation has completed.

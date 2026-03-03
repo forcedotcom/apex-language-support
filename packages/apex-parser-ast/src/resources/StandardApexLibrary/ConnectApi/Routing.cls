@@ -1,7 +1,7 @@
 /**
  * Route orders to inventory locations in Order Management.
  */
-public class Routing {
+global class Routing {
 
   public static ConnectApi.ConfirmHeldFOCapacityOutputRepresentation confirmHeldFOCapacity(ConnectApi.ConfirmHeldFOCapacityInputRepresentation confirmHeldFOCapacityInput) {}
 

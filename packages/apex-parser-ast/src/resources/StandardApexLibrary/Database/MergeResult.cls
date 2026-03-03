@@ -1,7 +1,7 @@
 /**
  * Contains the result of a merge Database method operation.
  */
-public class MergeResult {
+global class MergeResult {
 
   /**
    * Returns a list of Database.Error objects representing the errors encountered, if any, during a merge operation using the Database. merge method. If no error occurred, returns null.

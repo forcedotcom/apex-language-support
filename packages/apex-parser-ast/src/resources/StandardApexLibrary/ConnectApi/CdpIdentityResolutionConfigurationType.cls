@@ -1,0 +1,2 @@
+global enum CdpIdentityResolutionConfigurationType {
+}

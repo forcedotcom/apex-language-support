@@ -1,7 +1,7 @@
 /**
  * Wraps the results returned by the Search.find(String​) method.
  */
-public class SearchResults {
+global class SearchResults {
 
   /**
    * Returns a list of Search.SearchResult objects that contain an sObject of the specified type.

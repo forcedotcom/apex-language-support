@@ -1,5 +1,5 @@
 /**
  * Represents the custom metadata components available in Apex.
  */
-public enum MetadataType {
+global enum MetadataType {
 }

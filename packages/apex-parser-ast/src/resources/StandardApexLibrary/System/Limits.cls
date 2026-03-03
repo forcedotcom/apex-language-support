@@ -1,7 +1,7 @@
 /**
  * Contains methods that return limit information for specific resources.
  */
-public class Limits {
+global class Limits {
 
   /**
    * Returns the number of aggregate queries that have been processed with any SOQL query statement.
@@ -14,6 +14,26 @@ public class Limits {
    * @return Integer
    */
   public static Integer getLimitAggregateQueries() {}
+
+  public static Integer getApexCursors() {}
+
+  public static Integer getLimitApexCursors() {}
+
+  public static Integer getApexCursorRows() {}
+
+  public static Integer getLimitApexCursorRows() {}
+
+  public static Integer getApexPaginationCursors() {}
+
+  public static Integer getLimitApexPaginationCursors() {}
+
+  public static Integer getApexPaginationCursorRows() {}
+
+  public static Integer getLimitApexPaginationCursorRows() {}
+
+  public static Integer getFetchCallsOnApexCursor() {}
+
+  public static Integer getLimitFetchCallsOnApexCursor() {}
 
   /**
    * Reserved for future use.

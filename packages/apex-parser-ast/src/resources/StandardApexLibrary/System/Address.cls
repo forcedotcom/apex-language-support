@@ -1,7 +1,7 @@
 /**
  * Contains methods for accessing the component fields of address compound fields.
  */
-public class Address {
+global class Address {
 
   /**
    * Returns the city field of this address.

@@ -1,7 +1,7 @@
 /**
  * Contains methods related to Apex tests.
  */
-public class Test {
+global class Test {
 
   public static void calculatePermissionSetGroup(List< String > psgIds) {}
 
@@ -12,6 +12,8 @@ public class Test {
    */
   public static void clearApexPageMessages() {}
 
+  public static void createSoqlStub(Schema.SObjectType targetType, System.SoqlStubProvider soqlStub) {}
+
   /**
    * Creates a stubbed version of an Apex class that you can use for testing. This method is part of the Apex stub API. You can use it with the System.StubProvider interface to create a mocking framework.
    * @param parentType The type of the Apex class to be stubbed.
@@ -19,6 +21,10 @@ public class Test {
    * @return Object
    */
   public static Object createStub(System.Type parentType, System.StubProvider stubProvider) {}
+
+  public static SObject createStubQueryRow(Schema.SObjectType targetType, Object> fieldMapWithRelationshipKeys) {}
+
+  public static List<SObject> createStubQueryRows(Schema.SObjectType targetType, Object>> fieldMapWithRelationshipKeysForMultipleRows) {}
 
   /**
    * Use this method in an Apex test so that change event notifications are generated for all supported Change Data Capture entities. Call this method at the beginning of your test before performing DML operations and calling Test.getEventBus().deliver(); .
@@ -64,6 +70,8 @@ public class Test {
    */
   public static Boolean isRunningTest() {}
 
+  public static Boolean isSoqlStubDefined(Schema.SObjectType targetType) {}
+
   /**
    * Inserts test records from the specified static resource .csv file and for the specified sObject type, and returns a list of the inserted sObjects.
    * @param sObjectToken The sObject type for which to insert test records.
@@ -97,59 +105,51 @@ public class Test {
   /**
    * A Visualforce test method that sets the current PageReference for the controller.
    * @param page 
-   * @return Void
    */
-  public static Void setCurrentPage(PageReference page) {}
+  public static void setCurrentPage(PageReference page) {}
 
   /**
    * A Visualforce test method that sets the current PageReference for the controller.
    * @param page 
-   * @return Void
    */
-  public static Void setCurrentPageReference(PageReference page) {}
+  public static void setCurrentPageReference(PageReference page) {}
 
   /**
    * Defines a list of fixed search results to be returned by all subsequent SOSL statements in a test method.
    * @param fixedSearchResults The list of record IDs specified by opt_set_search_results replaces the results that would normally be returned by the SOSL queries if they were not subject to any WHERE or LIMIT clauses. If these clauses exist in the SOSL queries, they are applied to the list of fixed search results.
-   * @return Void
    */
-  public static Void setFixedSearchResults(ID [] fixedSearchResults) {}
+  public static void setFixedSearchResults(ID [] fixedSearchResults) {}
 
   /**
    * Sets the response mock mode and instructs the Apex runtime to send a mock response whenever a callout is made through the HTTP classes or the auto-generated code from WSDLs.
    * @param interfaceType 
    * @param instance 
-   * @return Void
    */
-  public static Void setMock(Type interfaceType, Object instance) {}
+  public static void setMock(Type interfaceType, Object instance) {}
 
   /**
    * Sets the application mode for an organization to read-only in an Apex test to simulate read-only mode during Salesforce upgrades and downtimes. The application mode is reset to the default mode at the end of each Apex test run.
    * @param applicationMode 
-   * @return Void
    */
-  public static Void setReadOnlyApplicationMode(Boolean applicationMode) {}
+  public static void setReadOnlyApplicationMode(Boolean applicationMode) {}
 
   /**
    * Marks the point in your test code when your test actually begins. Use this method when you are testing governor limits.
-   * @return Void
    */
-  public static Void startTest() {}
+  public static void startTest() {}
 
   /**
    * Marks the point in your test code when your test ends. Use this method in conjunction with the startTest method.
-   * @return Void
    */
-  public static Void stopTest() {}
+  public static void stopTest() {}
 
   /**
    * Tests the implementation of the InstallHandler interface, which is used for specifying a post install script in packages. Tests run as the test initiator in the development environment.
    * @param installImplementation A class that implements the InstallHandler interface.
    * @param version The version number of the existing package installed in the subscriber organization.
    * @param isPush (Optional) Specifies whether the upgrade is a push. The default value is false .
-   * @return Void
    */
-  public static Void testInstall(InstallHandler installImplementation, Version version, Boolean isPush) {}
+  public static void testInstall(InstallHandler installImplementation, Version version, Boolean isPush) {}
 
   /**
    * Tests the implementation of the SandboxPostCopy Interface, which is used for specifying a script to run at the completion of a Sandbox copy. Tests run as the test initiator in the development environment.
@@ -161,10 +161,19 @@ public class Test {
   public static void testSandboxPostCopyScript(System.SandboxPostCopy script, Id organizationId, Id sandboxId, String sandboxName) {}
 
   /**
+   * Tests the implementation of the SandboxPostCopy Interface, which is used for specifying a script to run at the completion of a Sandbox copy. Tests run as the test initiator in the development environment.
+   * @param script A class that implements the SandboxPostCopy interface.
+   * @param organizationId The sandbox organization ID
+   * @param sandboxId The sandbox ID to be provided to the SandboxPostCopy script.
+   * @param sandboxName The sandbox name to be provided to the SandboxPostCopy script.
+   * @param RunAsAutoProcUser 
+   */
+  public static void testSandboxPostCopyScript(System.SandboxPostCopy script, Id organizationId, Id sandboxId, String sandboxName, Boolean RunAsAutoProcUser) {}
+
+  /**
    * Tests the implementation of the UninstallHandler interface, which is used for specifying an uninstall script in packages. Tests run as the test initiator in the development environment.
    * @param uninstallImplementation A class that implements the UninstallHandler interface.
-   * @return Void
    */
-  public static Void testUninstall(UninstallHandler uninstallImplementation) {}
+  public static void testUninstall(UninstallHandler uninstallImplementation) {}
 
 }

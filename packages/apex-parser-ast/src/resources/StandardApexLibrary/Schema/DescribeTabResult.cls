@@ -1,7 +1,7 @@
 /**
  * Contains tab metadata information for a tab in a standard or custom app available in the Salesforce user interface.
  */
-public class DescribeTabResult {
+global class DescribeTabResult {
 
   /**
    * Returns a list of color metadata information for all colors associated with this tab. Each color is associated with a theme and context.

@@ -1,7 +1,7 @@
 /**
  * Create, delete, and get information about an action link group definition; get information about an action link group; get action link diagnostic information.
  */
-public class ActionLinks {
+global class ActionLinks {
 
   public static ConnectApi.ActionLinkGroupDefinition createActionLinkGroupDefinition(String communityId, ConnectApi.ActionLinkGroupDefinitionInput actionLinkGroup) {}
 

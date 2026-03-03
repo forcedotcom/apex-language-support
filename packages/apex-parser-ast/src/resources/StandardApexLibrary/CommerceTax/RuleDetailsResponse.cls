@@ -1,16 +1,16 @@
 /**
  * Contains details about the tax rules used for tax calculation.
  */
-public class RuleDetailsResponse {
+global class RuleDetailsResponse {
 
-  public void RuleDetailsResponse() {}
+  global void RuleDetailsResponse() {}
 
-  public void setNonTaxableRuleId(String nonTaxableRuleId) {}
+  global void setNonTaxableRuleId(String nonTaxableRuleId) {}
 
-  public void setNonTaxableType(String nonTaxableType) {}
+  global void setNonTaxableType(String nonTaxableType) {}
 
-  public void setRateRuleId(String rateRuleId) {}
+  global void setRateRuleId(String rateRuleId) {}
 
-  public void setRateSourceId(String rateSourceId) {}
+  global void setRateSourceId(String rateSourceId) {}
 
 }

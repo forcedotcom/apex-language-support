@@ -1,7 +1,7 @@
 /**
  * The result of the emptyRecycleBin DML operation returned by the Database.emptyRecycleBin method.
  */
-public class EmptyRecycleBinResult {
+global class EmptyRecycleBinResult {
 
   /**
    * If an error occurred during the delete for this record or sObject, returns a list of one or more Database.Error objects. If no errors occurred, the returned list is empty.

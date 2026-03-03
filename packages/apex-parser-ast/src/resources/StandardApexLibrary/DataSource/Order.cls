@@ -1,7 +1,7 @@
 /**
  * Contains details about how to sort the rows in the result set. Equivalent to an ORDER BY statement in a SOQL query.
  */
-public class Order {
+global class Order {
 
   /**
    * Creates an instance of the DataSource.Order class.

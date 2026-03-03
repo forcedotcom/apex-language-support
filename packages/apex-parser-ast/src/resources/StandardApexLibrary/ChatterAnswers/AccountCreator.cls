@@ -1,7 +1,7 @@
 /**
  * Creates Account records that will be associated with Chatter Answers users.
  */
-public interface AccountCreator {
+global interface AccountCreator {
 
   /**
    * Accepts basic user information and creates an Account record. The implementation of this method returns the account ID.

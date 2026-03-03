@@ -188,7 +188,7 @@ describe('ResourceLoader', () => {
       }
       expect(typeof content).toBe('string');
       expect(content).toContain('global class System');
-      expect(content).toContain('global static void debug(Object o)');
+      expect(content).toContain('static void debug(Object msg)');
     });
 
     it('should handle case-insensitive file paths', async () => {

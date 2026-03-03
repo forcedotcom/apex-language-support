@@ -1,7 +1,7 @@
 /**
  * Represents the status of a Function invocation.
  */
-public enum FunctionInvocationStatus {
+global enum FunctionInvocationStatus {
   ERROR,
   PENDING,
   SUCCESS

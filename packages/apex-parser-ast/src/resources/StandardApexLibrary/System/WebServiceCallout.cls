@@ -1,7 +1,7 @@
 /**
  * Enables making callouts to SOAP operations on an external Web service. This class is used in the Apex stub class that is auto-generated from a WSDL.
  */
-public class WebServiceCallout {
+global class WebServiceCallout {
 
   /**
    * Invokes an external SOAP web service operation based on an Apex class that is auto-generated from a WSDL.

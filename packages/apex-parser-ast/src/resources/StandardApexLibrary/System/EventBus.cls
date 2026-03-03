@@ -1,7 +1,7 @@
 /**
  * Contains methods for publishing platform events.
  */
-public class EventBus {
+global class EventBus {
 
   /**
    * Returns the event UUID, which identifies a published event message.
@@ -23,5 +23,21 @@ public class EventBus {
    * @return List<Database.SaveResult>
    */
   public static List<Database.SaveResult> publish(List<SObject> events) {}
+
+  /**
+   * Publishes the given platform event.
+   * @param event An instance of a platform event. For example, an instance of MyEvent__e . You must first define your platform event object in your org.
+   * @param callback 
+   * @return Database.SaveResult
+   */
+  public static Database.SaveResult publish(SObject event, Object callback) {}
+
+  /**
+   * Publishes the given platform event.
+   * @param sobjects 
+   * @param callback 
+   * @return List<Database.SaveResult>
+   */
+  public static List<Database.SaveResult> publish(List<SObject> sobjects, Object callback) {}
 
 }

@@ -1,7 +1,9 @@
 /**
  * Contains methods to get a builder for creating a formula instance and to update all formula fields on the input SObjects.
  */
-public class Formula {
+global class Formula {
+
+  public static formulaeval.FormulaBuilder builder() {}
 
   /**
    * Updates (recalculates) all formula fields on the input SObjects .

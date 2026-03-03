@@ -1,7 +1,7 @@
 /**
  * Represents a section of a layout and consists of one or more columns and one or more rows (an array of QuickAction.DescribeLayoutRow ).
  */
-public class DescribeLayoutSection {
+global class DescribeLayoutSection {
 
   /**
    * Returns the number of columns in the QuickAction.DescribeLayoutSection .

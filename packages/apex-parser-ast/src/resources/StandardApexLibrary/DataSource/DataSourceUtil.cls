@@ -1,7 +1,7 @@
 /**
  * Parent class for the DataSource.Provider , DataSource.Connection , DataSource.Table , and DataSource.Column classes.
  */
-public class DataSourceUtil {
+global class DataSourceUtil {
 
   /**
    * Logs the error message in the debug log.

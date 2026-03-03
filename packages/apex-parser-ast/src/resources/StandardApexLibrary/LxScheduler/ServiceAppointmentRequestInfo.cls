@@ -1,7 +1,7 @@
 /**
  * Represents the list of parameters that are passed to the ServiceResourceScheduleHandler interface. This class is implemented internally by Apex.
  */
-public class ServiceAppointmentRequestInfo {
+global class ServiceAppointmentRequestInfo {
 
   /**
    * Returns the account ID of the customer if the API request contains one.

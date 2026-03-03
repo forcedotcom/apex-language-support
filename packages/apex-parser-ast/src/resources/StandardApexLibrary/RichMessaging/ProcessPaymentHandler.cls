@@ -1,6 +1,8 @@
 /**
  * Interface used to process payment requests.
  */
-public interface ProcessPaymentHandler {
+global interface ProcessPaymentHandler {
+
+  RichMessaging.ProcessPaymentResult processPaymentRequest(RichMessaging.ProcessPaymentRequest var1);
 
 }

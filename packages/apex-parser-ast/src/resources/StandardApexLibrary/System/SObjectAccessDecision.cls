@@ -1,7 +1,7 @@
 /**
  * Contains the results of a call to the Security.stripInaccessible method and methods to retrieve those results.
  */
-public class SObjectAccessDecision {
+global class SObjectAccessDecision {
 
   public Set< Integer > getModifiedIndexes() {}
 

@@ -1,7 +1,7 @@
 /**
  * Extend this class to enable your Salesforce org to sync the external system’s schema and to handle queries, searches, and write operations (upsert and delete) of the external data. This class extends the DataSourceUtil class and inherits its methods.
  */
-public class Connection {
+global class Connection {
 
   /**
    * Invoked when external object records are deleted via the Salesforce user interface, APIs, or Apex.

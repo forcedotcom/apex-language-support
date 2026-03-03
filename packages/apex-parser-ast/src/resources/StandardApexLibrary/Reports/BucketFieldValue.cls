@@ -1,7 +1,7 @@
 /**
  * Contains information about the report values included in a bucket field.
  */
-public class BucketFieldValue {
+global class BucketFieldValue {
 
   /**
    * Returns the user-facing name of the bucket category.

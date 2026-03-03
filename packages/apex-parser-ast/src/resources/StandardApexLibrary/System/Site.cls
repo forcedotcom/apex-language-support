@@ -1,7 +1,7 @@
 /**
  * Use the Site Class to manage your sites. Change, reset, validate, and check the expiration of passwords. Create site users, person accounts, and portal users. Get the admin email and ID. Get various URLs, the path prefix, the ID, the template, and the type of the site. Log in to the site.
  */
-public class Site {
+global class Site {
 
   /**
    * Changes the password of the current user.
@@ -254,9 +254,8 @@ public class Site {
    * Sets the specified user information within the site’s portal via an authentication provider.
    * @param user 
    * @param contactId 
-   * @return Void
    */
-  public static Void setPortalUserAsAuthProvider(sObject user, String contactId) {}
+  public static void setPortalUserAsAuthProvider(sObject user, String contactId) {}
 
   /**
    * Indicates whether a given password meets the requirements specified by org-wide or profile-based password policies in the current user’s org.

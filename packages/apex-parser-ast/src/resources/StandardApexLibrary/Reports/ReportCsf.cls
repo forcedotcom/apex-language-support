@@ -1,7 +1,7 @@
 /**
  * Contains methods and constructors for working with information about a custom summary formula (CSF).
  */
-public class ReportCsf {
+global class ReportCsf {
 
   /**
    * Returns the name of a column grouping when the acrossGroupType is CUSTOM . Otherwise, returns null .

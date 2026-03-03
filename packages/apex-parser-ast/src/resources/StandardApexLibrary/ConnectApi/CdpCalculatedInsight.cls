@@ -1,11 +1,11 @@
 /**
  * Create, delete, get, run, and update Data 360 calculated insights.
  */
-public class CdpCalculatedInsight {
+global class CdpCalculatedInsight {
 
   public static ConnectApi.CdpCalculatedInsightOutput createCalculatedInsight(ConnectApi.CdpCalculatedInsightInput input) {}
 
-  public static Void deleteCalculatedInsight(String apiName) {}
+  public static void deleteCalculatedInsight(String apiName) {}
 
   public static ConnectApi.CdpCalculatedInsightOutput getCalculatedInsight(String apiName) {}
 

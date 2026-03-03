@@ -1,7 +1,9 @@
 /**
  * Contains methods for describing SObjects. None of the methods take an argument.
  */
-public class DescribeSObjectResult {
+global class DescribeSObjectResult {
+
+  public Boolean equals(Object obj) {}
 
   public String getAssociateParentEntity() {}
 
@@ -11,11 +13,17 @@ public class DescribeSObjectResult {
    */
   public Schema.ChildRelationship getChildRelationships() {}
 
+  public Boolean getDataTranslationEnabled() {}
+
   /**
    * Reserved for future use.
    * @return String
    */
   public String getDefaultImplementation() {}
+
+  public Schema.SObjectTypeFields getFields() {}
+
+  public Schema.SObjectTypeFieldSets getFieldSets() {}
 
   /**
    * Reserved for future use.
@@ -101,6 +109,8 @@ public class DescribeSObjectResult {
    */
   public Schema.SObjectType getSobjectType() {}
 
+  public Integer hashCode() {}
+
   /**
    * Returns true if the current user can see this object, false otherwise.
    * @return Boolean
@@ -178,5 +188,7 @@ public class DescribeSObjectResult {
    * @return Boolean
    */
   public Boolean isUpdateable() {}
+
+  public String toString() {}
 
 }

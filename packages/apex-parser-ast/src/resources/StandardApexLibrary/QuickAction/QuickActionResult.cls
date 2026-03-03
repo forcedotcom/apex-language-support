@@ -1,7 +1,7 @@
 /**
  * After you initiate a quick action with the QuickAction class, use the QuickActionResult class for processing action results.
  */
-public class QuickActionResult {
+global class QuickActionResult {
 
   /**
    * If an error occurs, an array of one or more database error objects, along with error codes and descriptions, is returned.

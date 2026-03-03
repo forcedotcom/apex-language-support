@@ -1,7 +1,7 @@
 /**
  * Contains methods for accessing the metadata for field set member fields.
  */
-public class FieldSetMember {
+global class FieldSetMember {
 
   /**
    * Returns true if the field is required by the field’s definition in its sObject, otherwise, false .

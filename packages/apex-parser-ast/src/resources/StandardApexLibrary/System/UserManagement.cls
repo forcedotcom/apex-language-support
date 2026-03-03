@@ -1,7 +1,7 @@
 /**
  * Contains methods to manage end users, for example, to register their verification methods, verify their identity, or remove their personal information.
  */
-public class UserManagement {
+global class UserManagement {
 
   /**
    * Makes a duplicate copy of the System.UserManagement object.
@@ -22,7 +22,7 @@ public class UserManagement {
    * @param phoneNumber A mobile number that contains from 3 through 49 numeric characters, without the country code. For example, (415) 555-1234.
    * @return String
    */
-  public static String formatPhoneNumber(String countryCode, String phoneNumber) {}
+  global static String formatPhoneNumber(String countryCode, String phoneNumber) {}
 
   /**
    * Invokes a verification challenge for passwordless login when creating custom (Visualforce) Login and Verify pages for customers and partners.

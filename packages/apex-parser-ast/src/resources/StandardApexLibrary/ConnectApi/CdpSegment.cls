@@ -1,7 +1,7 @@
 /**
  * Create, delete, get, publish, and update Data 360 segments.
  */
-public class CdpSegment {
+global class CdpSegment {
 
   public static ConnectApi.CdpSegmentOutput createSegment(ConnectApi.CdpSegmentInput input) {}
 
@@ -11,7 +11,7 @@ public class CdpSegment {
 
   public static ConnectApi.CdpSegmentActionOutput deactivateSegmentById(String segmentId) {}
 
-  public static Void deleteSegment(String segmentApiName) {}
+  public static void deleteSegment(String segmentApiName) {}
 
   public static ConnectApi.CdpSegmentActionOutput executePublishAdhoc(String segmentId) {}
 

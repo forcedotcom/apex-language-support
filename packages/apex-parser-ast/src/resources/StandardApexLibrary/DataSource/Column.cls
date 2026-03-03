@@ -1,7 +1,7 @@
 /**
  * Describes a column on a DataSource.Table . This class extends the DataSourceUtil class and inherits its methods.
  */
-public class Column {
+global class Column {
 
   /**
    * Returns a new column of data type BOOLEAN_TYPE .
@@ -10,6 +10,14 @@ public class Column {
    */
   public static DataSource.Column boolean(String name) {}
 
+  public static DataSource.Column currency(String name, Integer length, Integer decimalPlaces) {}
+
+  public static DataSource.Column date(String name) {}
+
+  public static DataSource.Column datetime(String name) {}
+
+  public static DataSource.Column email(String name) {}
+
   /**
    * Returns a new column of data type EXTERNAL_LOOKUP_TYPE .
    * @param name Name of the column.
@@ -17,6 +25,25 @@ public class Column {
    * @return DataSource.Column
    */
   public static DataSource.Column externalLookup(String name, String domain) {}
+
+  /**
+   * Returns a new column with the ten specified Column property values.
+   * @param name 
+   * @param label 
+   * @param description 
+   * @param isSortable 
+   * @param isFilterable 
+   * @param type 
+   * @param length 
+   * @param decimalPlaces 
+   * @param referenceTo 
+   * @param referenceTargetField 
+   * @param picklistValuesObj 
+   * @param isPicklistAlphabeticallySorted 
+   * @param isPicklistRestricted 
+   * @return DataSource.Column
+   */
+  public static DataSource.Column get(String name, String label, String description, Boolean isSortable, Boolean isFilterable, DataSource.DataType type, Integer length, Integer decimalPlaces, String referenceTo, String referenceTargetField, Object picklistValuesObj, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
 
   /**
    * Returns a new column with the ten specified Column property values.
@@ -86,6 +113,10 @@ public class Column {
    */
   public static DataSource.Column lookup(String name, String domain) {}
 
+  public static DataSource.Column multipicklist(String name, String>> picklistValues, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
+
+  public static DataSource.Column multipicklist(String name, String>> picklistValues) {}
+
   /**
    * Returns a new column of data type NUMBER_TYPE .
    * @param name 
@@ -94,6 +125,14 @@ public class Column {
    * @return DataSource.Column
    */
   public static DataSource.Column number(String name, Integer length, Integer decimalPlaces) {}
+
+  public static DataSource.Column percent(String name, Integer length, Integer decimalPlaces) {}
+
+  public static DataSource.Column phone(String name) {}
+
+  public static DataSource.Column picklist(String name, String>> picklistValues, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
+
+  public static DataSource.Column picklist(String name, String>> picklistValues) {}
 
   /**
    * Returns a new column of data type STRING_SHORT_TYPE or STRING_LONG_TYPE , with the specified name, label, and length.
@@ -125,6 +164,8 @@ public class Column {
    * @return DataSource.Column
    */
   public static DataSource.Column textarea(String name) {}
+
+  public static DataSource.Column time(String name) {}
 
   /**
    * Returns a new column of data type URL_TYPE with the specified name and length.

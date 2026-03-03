@@ -1,7 +1,7 @@
 /**
  * Contains the deleted records retrieved for a specific sObject type and time window.
  */
-public class GetDeletedResult {
+global class GetDeletedResult {
 
   /**
    * Returns a list of deleted records for the time window specified in the Database.getDeleted method call.

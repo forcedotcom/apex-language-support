@@ -1,9 +1,9 @@
 /**
  * Get managed content channels. Create, get, update, or delete a managed content channel.
  */
-public class ManagedContentChannels {
+global class ManagedContentChannels {
 
-  public static Void deleteManagedContentChannel(String channelId) {}
+  public static void deleteManagedContentChannel(String channelId) {}
 
   public static ConnectApi.ManagedContentChannel getManagedContentChannel(String channelId) {}
 

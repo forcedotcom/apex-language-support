@@ -1,7 +1,7 @@
 /**
  * Represents the result of a delete DML operation returned by the Database. delete method.
  */
-public class DeleteResult {
+global class DeleteResult {
 
   /**
    * If an error occurred, returns an array of one or more database error objects providing the error code and description. If no error occurred, returns an empty set.

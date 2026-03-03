@@ -1,7 +1,7 @@
 /**
  * Use this interface to provide a class factory that Salesforce can call to create instances of your custom ContentDownloadHandler.
  */
-public interface ContentDownloadHandlerFactory {
+global interface ContentDownloadHandlerFactory {
 
   /**
    * Returns a ContentDownloadHandler for a given list of content IDs and a download context.

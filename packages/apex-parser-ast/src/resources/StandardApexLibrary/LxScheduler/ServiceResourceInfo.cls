@@ -1,7 +1,7 @@
 /**
  * Contains information about a service resource.
  */
-public class ServiceResourceInfo {
+global class ServiceResourceInfo {
 
   /**
    * Returns the email ID of the service resource.

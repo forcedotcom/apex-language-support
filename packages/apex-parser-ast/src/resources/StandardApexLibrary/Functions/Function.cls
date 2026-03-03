@@ -1,7 +1,7 @@
 /**
  * Use the Function class to access deployed Salesforce Functions, and invoke them synchronously or asynchronously.
  */
-public class Function {
+global class Function {
 
   /**
    * Returns the Function instance for the named Function and Project. The Function must be properly deployed and have appropriate permissions to work with the org running your Apex code.

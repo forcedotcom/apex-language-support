@@ -1,7 +1,7 @@
 /**
  * Contains methods for extending the behavior of a connected app, for example, customizing how a connected app is invoked depending on the protocol used. This class gives you more control over the interaction between Salesforce and your connected app.
  */
-public class ConnectedAppPlugin {
+global class ConnectedAppPlugin {
 
   /**
    * Deprecated and available only in API versions 35.0 and 36.0. As of version 37.0, use authorize(userId, connectedAppId, isAdminApproved, context) instead.

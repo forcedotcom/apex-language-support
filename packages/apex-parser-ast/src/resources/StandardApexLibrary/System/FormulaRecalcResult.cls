@@ -1,7 +1,7 @@
 /**
  * The return type of the Formula.recalculateFormulas method.
  */
-public class FormulaRecalcResult {
+global class FormulaRecalcResult {
 
   /**
    * If an error occurs during formula recalculation, an array of one or more database error objects, along with error codes and descriptions, is returned.

@@ -1,7 +1,7 @@
 /**
  * Contains methods that holds the business logic to get resources availability.
  */
-public class SchedulerResources {
+global class SchedulerResources {
 
   public static String getAppointmentCandidates(lxscheduler.GetAppointmentCandidatesInput getAppointmentCandidatesInput) {}
 

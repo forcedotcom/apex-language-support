@@ -1,7 +1,7 @@
 /**
  * Represents a container for custom metadata components to be deployed.
  */
-public class DeployContainer {
+global class DeployContainer {
 
   /**
    * Add a custom metadata component to the container.

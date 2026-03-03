@@ -1,7 +1,7 @@
 /**
  * Is an abstract base class for an object that provides standard filter information.
  */
-public class StandardFilterInfo {
+global class StandardFilterInfo {
 
   /**
    * Returns the display label of the standard filter.

@@ -1,7 +1,7 @@
 /**
  * Specifies the domain type for a System.Domain .
  */
-public enum DomainType {
+global enum DomainType {
   CMS_DOMAIN,
   CONTENT_DOMAIN,
   CUSTOMER_360_ADMIN_DOMAIN,

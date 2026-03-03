@@ -1,7 +1,7 @@
 /**
  * Contains methods to retrieve information on buttons and options selected in a preference form.
  */
-public class SubmitFormData {
+global class SubmitFormData {
 
   public String getButtonClicked() {}
 

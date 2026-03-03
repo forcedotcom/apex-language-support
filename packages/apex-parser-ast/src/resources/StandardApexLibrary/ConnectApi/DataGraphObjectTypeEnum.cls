@@ -1,0 +1,19 @@
+global enum DataGraphObjectTypeEnum {
+  Adg,
+  AdgActivationAudience,
+  AdgExternal,
+  Bridge,
+  Calculated,
+  CalculatedRealTime,
+  CalculatedStreaming,
+  Curated,
+  Custom,
+  Derived,
+  MlPrediction,
+  ObjectTypeUnspecified,
+  Package,
+  SegmentMembership,
+  Standard,
+  System,
+  Transform
+}

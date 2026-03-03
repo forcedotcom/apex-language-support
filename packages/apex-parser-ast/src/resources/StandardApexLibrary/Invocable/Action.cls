@@ -1,7 +1,7 @@
 /**
  * Contains methods to create, update, and retrieve information about invocable actions.
  */
-public class Action {
+global class Action {
 
   public Invocable.Action addInvocation() {}
 

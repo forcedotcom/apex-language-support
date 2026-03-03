@@ -1,7 +1,7 @@
 /**
  * Contains information about possible scope values that you can choose. Scope values depend on the report type. For example, you can set the scope for opportunity reports to All opportunities , My team’s opportunities , or My opportunities .
  */
-public class ReportScopeInfo {
+global class ReportScopeInfo {
 
   /**
    * Returns the default scope of the data to display in the report.

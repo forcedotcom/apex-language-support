@@ -1,11 +1,11 @@
 /**
  * Create, delete, get, run, and update Data 360 identity resolution rulesets.
  */
-public class CdpIdentityResolution {
+global class CdpIdentityResolution {
 
   public static ConnectApi.CdpIdentityResolutionOutput createIdentityResolution(ConnectApi.CdpIdentityResolutionConfigInput input) {}
 
-  public static Void deleteIdentityResolution(String identityResolution) {}
+  public static void deleteIdentityResolution(String identityResolution) {}
 
   public static ConnectApi.CdpIdentityResolutionOutput getIdentityResolution(String identityResolution) {}
 

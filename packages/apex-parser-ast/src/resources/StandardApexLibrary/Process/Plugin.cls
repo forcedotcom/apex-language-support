@@ -1,7 +1,7 @@
 /**
  * Allows you to pass data between your organization and a specified flow.
  */
-public interface Plugin {
+global interface Plugin {
 
   /**
    * Returns a Process.PluginDescribeResult object that describes this method call.

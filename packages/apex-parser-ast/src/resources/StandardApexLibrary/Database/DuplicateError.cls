@@ -1,7 +1,7 @@
 /**
  * Contains information about an error that occurred when an attempt was made to save a duplicate record. Use if your organization has set up duplicate rules, which are part of the Duplicate Management feature.
  */
-public class DuplicateError {
+global class DuplicateError {
 
   /**
    * Returns the details of a duplicate rule and duplicate records found by the duplicate rule.

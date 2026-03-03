@@ -1,7 +1,7 @@
 /**
  * Use RemoteObjectController to access the standard Visualforce Remote Objects operations in your Remote Objects override methods.
  */
-public class RemoteObjectController {
+global class RemoteObjectController {
 
   /**
    * Create a record in the database.

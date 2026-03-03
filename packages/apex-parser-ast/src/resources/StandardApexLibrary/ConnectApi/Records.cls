@@ -1,7 +1,7 @@
 /**
  * Access information about record motifs, which are small icons used to distinguish record types in the Salesforce UI.
  */
-public class Records {
+global class Records {
 
   public static ConnectApi.Motif getMotif(String communityId, String idOrPrefix) {}
 

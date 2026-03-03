@@ -1,7 +1,7 @@
 /**
  * Contains information about the standard date filter groupings, such as the grouping display label and all standard date filters that fall under the grouping. Groupings include Calendar Year , Calendar Quarter , Calendar Month , Calendar Week , Fiscal Year , Fiscal Quarter , Day , and custom values based on user-defined date ranges.
  */
-public class StandardDateFilterDurationGroup {
+global class StandardDateFilterDurationGroup {
 
   /**
    * Returns the display label for the standard date filter grouping.

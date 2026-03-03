@@ -1,7 +1,7 @@
 /**
  * Contains methods for getting and revoking access and refresh tokens that are issued when a user logs in via a single sign-on (SSO) flow that uses an authentication provider, such as Facebook.
  */
-public class AuthToken {
+global class AuthToken {
 
   /**
    * Returns an access token for the current user using the specified 18-character identifier of an AuthProvider definition in your org and the proper name of the provider, such as Salesforce or Facebook.

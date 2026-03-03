@@ -1,7 +1,7 @@
 /**
  * Declares which functional operations the external system supports. Also specifies required endpoint settings for the external data source definition.
  */
-public enum Capability {
+global enum Capability {
   MULTI_PICKLIST,
   PICKLIST,
   QUERY_PAGINATION_SERVER_DRIVEN,

@@ -1,7 +1,7 @@
 /**
  * Work with orders in Order Management.
  */
-public class OrderSummary {
+global class OrderSummary {
 
   public static ConnectApi.AdjustOrderSummaryOutputRepresentation adjustPreview(String orderSummaryId, ConnectApi.AdjustOrderItemSummaryInputRepresentation adjustInput) {}
 

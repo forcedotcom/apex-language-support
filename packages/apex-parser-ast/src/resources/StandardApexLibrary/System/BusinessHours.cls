@@ -1,7 +1,7 @@
 /**
  * Use the BusinessHours methods to set the business hours at which your customer support team operates.
  */
-public class BusinessHours {
+global class BusinessHours {
 
   /**
    * Adds an interval of time from a start Datetime traversing business hours only. Returns the result Datetime in the local time zone.

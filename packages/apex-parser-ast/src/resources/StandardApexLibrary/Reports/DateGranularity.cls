@@ -1,7 +1,7 @@
 /**
  * The Reports.DateGranularity enum describes the date interval that is used for grouping.
  */
-public enum DateGranularity {
+global enum DateGranularity {
   DAY,
   DAY_IN_MONTH,
   FISCAL_PERIOD,

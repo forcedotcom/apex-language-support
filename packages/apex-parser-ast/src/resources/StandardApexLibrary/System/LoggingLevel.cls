@@ -1,7 +1,7 @@
 /**
  * Specifies the logging level for the System.debug method.
  */
-public enum LoggingLevel {
+global enum LoggingLevel {
   NONE,
   ERROR,
   WARN,

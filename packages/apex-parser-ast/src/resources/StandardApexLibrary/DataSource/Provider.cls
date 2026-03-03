@@ -1,7 +1,7 @@
 /**
  * Extend this base class to create a custom adapter for Salesforce Connect. The class informs Salesforce of the functional and authentication capabilities that are supported by or required to connect to the external system. This class extends the DataSourceUtil class and inherits its methods.
  */
-public class Provider {
+global class Provider {
 
   /**
    * Returns the types of authentication that can be used to access the external system.

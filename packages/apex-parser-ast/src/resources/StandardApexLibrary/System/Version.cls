@@ -1,7 +1,7 @@
 /**
  * Use the Version methods to get the version of a first-generation managed package (1GP) or a migrated second-generation managed package (2GP), and to compare package versions.
  */
-public class Version {
+global class Version {
 
   /**
    * Compares the current version with the specified version.

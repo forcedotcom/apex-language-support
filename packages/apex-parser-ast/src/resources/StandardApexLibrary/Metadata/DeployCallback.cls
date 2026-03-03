@@ -1,7 +1,7 @@
 /**
  * An interface for metadata deployment callback classes.
  */
-public interface DeployCallback {
+global interface DeployCallback {
 
   /**
    * Method that is called when the asynchronous deployment of custom metadata completes.

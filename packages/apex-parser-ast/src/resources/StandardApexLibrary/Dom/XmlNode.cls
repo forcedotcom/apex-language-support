@@ -1,7 +1,7 @@
 /**
  * Use the XmlNode class to work with a node in an XML document.
  */
-public class XmlNode {
+global class XmlNode {
 
   /**
    * Creates a child element node for this node.
@@ -161,9 +161,8 @@ public class XmlNode {
    * Sets the key attribute value.
    * @param key 
    * @param value 
-   * @return Void
    */
-  public Void setAttribute(String key, String value) {}
+  public void setAttribute(String key, String value) {}
 
   /**
    * Sets the key attribute value.
@@ -171,16 +170,14 @@ public class XmlNode {
    * @param value 
    * @param keyNamespace 
    * @param valueNamespace 
-   * @return Void
    */
-  public Void setAttributeNs(String key, String value, String keyNamespace, String valueNamespace) {}
+  public void setAttributeNs(String key, String value, String keyNamespace, String valueNamespace) {}
 
   /**
    * Sets the namespace for the given prefix.
    * @param prefix 
    * @param namespace 
-   * @return Void
    */
-  public Void setNamespace(String prefix, String namespace) {}
+  public void setNamespace(String prefix, String namespace) {}
 
 }

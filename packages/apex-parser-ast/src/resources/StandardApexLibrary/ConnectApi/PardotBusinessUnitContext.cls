@@ -1,7 +1,7 @@
 /**
  * Get the Pardot business units the context user has access to.
  */
-public class PardotBusinessUnitContext {
+global class PardotBusinessUnitContext {
 
   public static ConnectApi.PardotBusinessUnitContextOutput getBusinessUnitContext() {}
 

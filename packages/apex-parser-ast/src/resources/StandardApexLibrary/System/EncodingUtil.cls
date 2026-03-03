@@ -1,7 +1,7 @@
 /**
  * Use the methods in the EncodingUtil class to encode and decode URL strings, and convert strings to hexadecimal format.
  */
-public class EncodingUtil {
+global class EncodingUtil {
 
   /**
    * Converts a Base64-encoded String to a Blob representing its normal form.

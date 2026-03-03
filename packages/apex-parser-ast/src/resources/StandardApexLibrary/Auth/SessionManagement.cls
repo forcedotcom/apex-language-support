@@ -1,7 +1,7 @@
 /**
  * Contains methods for verifying users’ identity, creating custom login flows, customizing security levels, and defining trusted IP ranges for a current session.
  */
-public class SessionManagement {
+global class SessionManagement {
 
   /**
    * Finishes the My Domain Login Discovery login process.
@@ -79,9 +79,8 @@ public class SessionManagement {
   /**
    * Sets the user's current session security level.
    * @param level The session security level to assign to the user. The meaning of each level can be customized in the Session Settings for each organization, such as setting the High Assurance level to apply only to users who authenticated with multi-factor authentication (MFA) or through a specific identity provider.
-   * @return Void
    */
-  public static Void setSessionLevel(Auth.SessionLevel level) {}
+  public static void setSessionLevel(Auth.SessionLevel level) {}
 
   /**
    * Deprecated. Use validateTotpTokenForKey(totpSharedKey, totpCode, description) instead.

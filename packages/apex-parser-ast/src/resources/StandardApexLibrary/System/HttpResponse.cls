@@ -1,7 +1,7 @@
 /**
  * Use the HttpResponse class to handle the HTTP response returned by the Http class.
  */
-public class HttpResponse {
+global class HttpResponse {
 
   /**
    * Retrieves the body returned in the response.
@@ -55,38 +55,33 @@ public class HttpResponse {
   /**
    * Specifies the body returned in the response.
    * @param body 
-   * @return Void
    */
-  public Void setBody(String body) {}
+  public void setBody(String body) {}
 
   /**
    * Specifies the body returned in the response using a Blob.
    * @param body 
-   * @return Void
    */
-  public Void setBodyAsBlob(Blob body) {}
+  public void setBodyAsBlob(Blob body) {}
 
   /**
    * Specifies the contents of the response header.
    * @param key 
    * @param value 
-   * @return Void
    */
-  public Void setHeader(String key, String value) {}
+  public void setHeader(String key, String value) {}
 
   /**
    * Specifies the status message returned in the response.
    * @param status 
-   * @return Void
    */
-  public Void setStatus(String status) {}
+  public void setStatus(String status) {}
 
   /**
    * Specifies the value of the status code returned in the response.
    * @param statusCode 
-   * @return Void
    */
-  public Void setStatusCode(Integer statusCode) {}
+  public void setStatusCode(Integer statusCode) {}
 
   /**
    * Returns the status message and status code returned in the response, for example:

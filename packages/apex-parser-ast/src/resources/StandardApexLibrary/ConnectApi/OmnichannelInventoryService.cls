@@ -1,7 +1,7 @@
 /**
  * Route orders to inventory locations in Order Management.
  */
-public class OmnichannelInventoryService {
+global class OmnichannelInventoryService {
 
   public static ConnectApi.OCICreateReservationOutputRepresentation createReservation(ConnectApi.OCICreateReservationInputRepresentation createReservationInputRepresentation) {}
 

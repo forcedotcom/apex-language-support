@@ -1,7 +1,7 @@
 /**
  * Contains information about the standard filter defined in the report, such as the filter field API name and filter value.
  */
-public class StandardFilter {
+global class StandardFilter {
 
   /**
    * Return the API name of the standard filter.

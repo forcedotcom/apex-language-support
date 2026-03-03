@@ -1,7 +1,7 @@
 /**
  * An instance of QueryContext is provided to the query method on your DataSource.Connection class. The instance corresponds to a SOQL request.
  */
-public class QueryContext {
+global class QueryContext {
 
   /**
    * Creates an instance of the QueryContext class.

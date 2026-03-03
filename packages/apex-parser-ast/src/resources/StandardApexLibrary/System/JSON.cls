@@ -1,7 +1,7 @@
 /**
  * Contains methods for serializing Apex objects into JSON format and deserializing JSON content that was serialized using the serialize method in this class.
  */
-public class JSON {
+global class JSON {
 
   /**
    * Returns a new JSON generator.

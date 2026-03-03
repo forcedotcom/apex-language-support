@@ -1,7 +1,7 @@
 /**
  * Represents an action in the QuickActionList .
  */
-public class QuickActionListItem {
+global class QuickActionListItem {
 
   /**
    * Makes a duplicate copy of the Metadata.QuickActionListItem .

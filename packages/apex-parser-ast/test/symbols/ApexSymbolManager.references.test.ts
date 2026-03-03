@@ -417,10 +417,10 @@ describe('ApexSymbolManager Reference Processing', () => {
   });
 
   describe('ChainedSymbolReference Built-in Type Resolution', () => {
-    it('should resolve System.Url using chain nodes when passed to resolveBuiltInType', async () => {
+    it('should resolve System.URL using chain nodes when passed to resolveBuiltInType', async () => {
       const sourceCode = `
         public class TestClass {
-          public System.Url myUrl;
+          public System.URL myUrl;
         }
       `;
 
@@ -439,11 +439,11 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       const references = symbolManager.getAllReferencesInFile(fileUri);
 
-      // Find the ChainedSymbolReference for System.Url
+      // Find the ChainedSymbolReference for System.URL
       const systemUrlRefs = references.filter(
         (ref) =>
           ref.context === ReferenceContext.CHAINED_TYPE &&
-          ref.name === 'System.Url',
+          ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -451,7 +451,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       expect(systemUrlRef.chainNodes).toBeDefined();
       expect(systemUrlRef.chainNodes.length).toBe(2);
       expect(systemUrlRef.chainNodes[0].name).toBe('System');
-      expect(systemUrlRef.chainNodes[1].name).toBe('Url');
+      expect(systemUrlRef.chainNodes[1].name).toBe('URL');
 
       // Verify that the reference can be resolved using getSymbolAtPosition
       // This will use resolveBuiltInType internally, which should leverage the chain nodes

@@ -1,11 +1,11 @@
 /**
  * Access user profile data. The user profile data populates the profile page (also called the Chatter profile page). This data includes user information (such as address, manager, and phone number), some user capabilities (permissions), and a set of subtab apps, which are custom tabs on the profile page.
  */
-public class UserProfiles {
+global class UserProfiles {
 
-  public static Void deleteBannerPhoto(String communityId, String userId) {}
+  public static void deleteBannerPhoto(String communityId, String userId) {}
 
-  public static Void deletePhoto(String communityId, String userId) {}
+  public static void deletePhoto(String communityId, String userId) {}
 
   public static ConnectApi.BannerPhoto getBannerPhoto(String communityId, String userId) {}
 

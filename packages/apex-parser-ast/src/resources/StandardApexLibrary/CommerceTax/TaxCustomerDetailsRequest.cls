@@ -1,12 +1,12 @@
 /**
  * Contains customer details used in tax calculation.
  */
-public class TaxCustomerDetailsRequest {
+global class TaxCustomerDetailsRequest {
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global String toString() {}
 
 }

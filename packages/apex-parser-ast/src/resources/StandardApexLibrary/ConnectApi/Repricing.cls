@@ -1,7 +1,7 @@
 /**
  * Perform functions related to repricing orders in Order Management.
  */
-public class Repricing {
+global class Repricing {
 
   public static ConnectApi.ProductDetailsOutputRepresentation productDetails(String webstoreId, String skuOrProductId, String effectiveAccountId, String currencyCode, String locale) {}
 

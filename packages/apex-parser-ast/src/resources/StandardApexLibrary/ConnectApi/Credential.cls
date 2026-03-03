@@ -1,0 +1,6 @@
+/**
+ * Credential.
+ */
+global class Credential {
+
+}

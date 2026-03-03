@@ -1,7 +1,7 @@
 /**
  * Contains messaging methods used when sending a single or mass email.
  */
-public class Messaging {
+global class Messaging {
 
   /**
    * Use this method in your email service code to control how to parse and process forwarded or attached emails. Returns an instance of Messaging.InboundEmail from a stream of data that is in RFC822 format. The data stream can be a forwarded email in an attachment to an existing InboundEmail, or a stream from another source.
@@ -14,16 +14,14 @@ public class Messaging {
   /**
    * Reserves email capacity to send mass email to the specified number of email addresses, after the current transaction commits.
    * @param amountReserved 
-   * @return Void
    */
-  public Void reserveMassEmailCapacity(Integer amountReserved) {}
+  public void reserveMassEmailCapacity(Integer amountReserved) {}
 
   /**
    * Reserves email capacity to send single email to the specified number of email addresses, after the current transaction commits.
    * @param amountReserved 
-   * @return Void
    */
-  public Void reserveSingleEmailCapacity(Integer amountReserved) {}
+  public void reserveSingleEmailCapacity(Integer amountReserved) {}
 
   /**
    * Sends the list of emails instantiated with either SingleEmailMessage or MassEmailMessage and returns a list of SendEmailResult objects. When org preferences are set to save EmailMessage objects and a trigger is defined for EmailMessage objects, the trigger is fired for each SingleEmailMessage individually. The sendEmail method can be called 10 times per Apex transaction and each method invocation can include up to 100 "To", 25 "Cc", and 25 "Bcc" recipients.

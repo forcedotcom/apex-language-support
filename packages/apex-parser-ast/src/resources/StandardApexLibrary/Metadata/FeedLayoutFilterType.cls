@@ -1,5 +1,5 @@
 /**
  * The type of feed layout filter.
  */
-public enum FeedLayoutFilterType {
+global enum FeedLayoutFilterType {
 }

@@ -1,7 +1,7 @@
 /**
  * Represents an individual item in the RelatedContent list.
  */
-public class RelatedContentItem {
+global class RelatedContentItem {
 
   /**
    * Makes a duplicate copy of the Metadata.RelatedContentItem .

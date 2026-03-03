@@ -1,6 +1,8 @@
 /**
  * Interface for a resolution strategy.
  */
-public interface ResolutionStrategy {
+global interface ResolutionStrategy {
+
+  CommerceExtension.Resolution resolve();
 
 }

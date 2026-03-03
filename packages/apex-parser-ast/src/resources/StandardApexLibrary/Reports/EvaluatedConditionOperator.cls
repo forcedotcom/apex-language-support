@@ -1,7 +1,7 @@
 /**
  * The Reports.EvaluatedConditionOperator enum describes the type of operator used to compare an aggregate to a value. It is returned by the getOperator method.
  */
-public enum EvaluatedConditionOperator {
+global enum EvaluatedConditionOperator {
   EQUAL,
   GREATER_THAN,
   GREATER_THAN_EQUAL,

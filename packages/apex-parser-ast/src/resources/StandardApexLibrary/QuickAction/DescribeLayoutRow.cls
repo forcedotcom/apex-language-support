@@ -1,7 +1,7 @@
 /**
  * Represents a row in a QuickAction.DescribeLayoutSection .
  */
-public class DescribeLayoutRow {
+global class DescribeLayoutRow {
 
   /**
    * Returns either a specific field or an empty QuickAction.DescribeLayoutItem (one that contains no QuickAction.DescribeLayoutComponent objects).

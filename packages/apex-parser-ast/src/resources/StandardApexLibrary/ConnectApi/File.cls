@@ -1,0 +1,6 @@
+/**
+ * File.
+ */
+global class File {
+
+}

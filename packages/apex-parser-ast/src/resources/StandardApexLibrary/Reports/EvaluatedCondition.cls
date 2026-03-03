@@ -1,7 +1,7 @@
 /**
  * Contains the individual components of an evaluated condition for a report notification, such as the aggregate name and label, the operator, and the value that the aggregate is compared to.
  */
-public class EvaluatedCondition {
+global class EvaluatedCondition {
 
   /**
    * Returns the localized display name of the aggregate.

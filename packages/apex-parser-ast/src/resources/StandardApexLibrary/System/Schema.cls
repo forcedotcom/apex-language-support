@@ -1,7 +1,7 @@
 /**
  * Contains methods for obtaining schema describe information.
  */
-public class Schema {
+global class Schema {
 
   /**
    * Returns a map of all sObject names (keys) to sObject tokens (values) for the standard and custom objects defined in your organization.

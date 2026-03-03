@@ -8,6 +8,10 @@ export class GenerationError {
   constructor(readonly message: string, readonly cause?: unknown) {}
 }
 
+/** Normalize System.Url to System.URL to match documented all-caps form */
+const normalizeUrlType = (type: string): string =>
+  type.replace(/\bSystem\.Url\b/g, "System.URL");
+
 /**
  * Generate stub files for all namespaces
  */
@@ -81,7 +85,7 @@ const generateClassContent = (apexClass: ApexClass): string => {
     lines.push(" */");
   }
 
-  lines.push(`public ${keyword} ${apexClass.name} {`);
+  lines.push(`global ${keyword} ${apexClass.name} {`);
   lines.push("");
 
   for (const prop of apexClass.properties) {
@@ -90,8 +94,9 @@ const generateClassContent = (apexClass: ApexClass): string => {
       lines.push(`   * ${prop.description}`);
       lines.push("   */");
     }
+    const propVisibility = prop.visibility ?? "global";
     const staticKeyword = prop.isStatic ? "static " : "";
-    lines.push(`  public ${staticKeyword}${prop.type} ${prop.name};`);
+    lines.push(`  ${propVisibility} ${staticKeyword}${normalizeUrlType(prop.type)} ${prop.name};`);
     lines.push("");
   }
 
@@ -103,19 +108,27 @@ const generateClassContent = (apexClass: ApexClass): string => {
         lines.push(`   * @param ${param.name} ${param.description || ""}`);
       }
       if (method.returnType !== "void") {
-        lines.push(`   * @return ${method.returnType}`);
+        lines.push(`   * @return ${normalizeUrlType(method.returnType)}`);
       }
       lines.push("   */");
     }
 
+    const methodVisibility = method.visibility ?? "global";
     const staticKeyword = method.isStatic ? "static " : "";
-    const params = method.parameters.map((p) => `${p.type} ${p.name}`).join(", ");
+    const returnTypeNorm = normalizeUrlType(method.returnType);
+    const params = method.parameters.map((p) => `${normalizeUrlType(p.type)} ${p.name}`).join(", ");
 
     if (apexClass.isInterface) {
-      lines.push(`  ${staticKeyword}${method.returnType} ${method.name}(${params});`);
+      lines.push(`  ${staticKeyword}${returnTypeNorm} ${method.name}(${params});`);
     } else {
-      lines.push(`  public ${staticKeyword}${method.returnType} ${method.name}(${params}) {}`);
+      lines.push(`  ${methodVisibility} ${staticKeyword}${returnTypeNorm} ${method.name}(${params}) {}`);
     }
+    lines.push("");
+  }
+
+  // Emit inner exception classes as nested class definitions
+  for (const inner of (apexClass.innerExceptions ?? [])) {
+    lines.push(`  global class ${inner.name} extends Exception {}`);
     lines.push("");
   }
 
@@ -132,7 +145,7 @@ const generateEnumContent = (apexEnum: ApexEnum): string => {
     lines.push(" */");
   }
 
-  lines.push(`public enum ${apexEnum.name} {`);
+  lines.push(`global enum ${apexEnum.name} {`);
 
   if (apexEnum.values.length > 0) {
     lines.push(

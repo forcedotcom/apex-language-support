@@ -1,12 +1,12 @@
 /**
  * Stores details of the addresses applied per line item in a tax calculation request.
  */
-public class LineTaxAddressesRequest {
+global class LineTaxAddressesRequest {
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global String toString() {}
 
 }

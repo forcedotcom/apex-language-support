@@ -1,7 +1,7 @@
 /**
  * Get information about flagged feed items and comments in an Experience Cloud site. Add and remove flags from comments and feed items.
  */
-public class CommunityModeration {
+global class CommunityModeration {
 
   public static ConnectApi.ModerationFlags addFlagToComment(String communityId, String commentId) {}
 

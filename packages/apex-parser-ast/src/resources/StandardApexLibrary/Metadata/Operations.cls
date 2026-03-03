@@ -1,7 +1,7 @@
 /**
  * Represents a class to execute metadata operations, such as retrieving or deploying custom metadata.
  */
-public class Operations {
+global class Operations {
 
   /**
    * Makes a duplicate copy of the Metadata.Operations .

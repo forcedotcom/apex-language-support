@@ -1,7 +1,7 @@
 /**
  * Represents the details of a duplicate rule that detected duplicate records and information about those duplicate records.
  */
-public class DuplicateResult {
+global class DuplicateResult {
 
   /**
    * Returns the developer name of the executed duplicate rule that returned duplicate records.

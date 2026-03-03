@@ -1,7 +1,7 @@
 /**
  * Referenced by the type property on a DataSource.Filter .
  */
-public enum FilterType {
+global enum FilterType {
   AND_,
   CONTAINS,
   ENDS_WITH,

@@ -1,7 +1,7 @@
 /**
  * Represents a compiled representation of a regular expression.
  */
-public class Pattern {
+global class Pattern {
 
   /**
    * Compiles the regular expression into a Pattern object.

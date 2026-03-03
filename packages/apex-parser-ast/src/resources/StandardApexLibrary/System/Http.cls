@@ -1,7 +1,7 @@
 /**
  * Use the Http class to initiate an HTTP request and response.
  */
-public class Http {
+global class Http {
 
   /**
    * Sends an HttpRequest and returns the response.

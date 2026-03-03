@@ -1,7 +1,7 @@
 /**
  * The Cookie class lets you access cookies for your Salesforce site using Apex.
  */
-public class Cookie {
+global class Cookie {
 
   /**
    * Returns the name of the server making the request.

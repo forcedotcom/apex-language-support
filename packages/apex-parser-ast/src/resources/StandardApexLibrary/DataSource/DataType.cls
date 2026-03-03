@@ -1,7 +1,7 @@
 /**
  * Specifies the data types that are supported by the Apex Connector Framework.
  */
-public enum DataType {
+global enum DataType {
   BOOLEAN_TYPE,
   CURRENCY_TYPE,
   DATE_TYPE,

@@ -1,7 +1,7 @@
 /**
  * Contains information about standard date filter available in the report—for example, the API name, start date, and end date of the standard date filter duration as well as the API name of the date field on which the filter is placed.
  */
-public class StandardDateFilter {
+global class StandardDateFilter {
 
   /**
    * Returns the API name of the standard date filter column.

@@ -1,7 +1,7 @@
 /**
  * Search objects using keywords or a natural language query.
  */
-public class Search {
+global class Search {
 
   public static ConnectApi.SearchAnswer answer(String q) {}
 
@@ -17,18 +17,18 @@ public class Search {
 
   public static ConnectApi.ScopedSearchResults find(String objectApiName, ConnectApi.SearchRequest request) {}
 
-  public static Void setTestAnswer(String q, ConnectApi.SearchAnswer result) {}
+  public static void setTestAnswer(String q, ConnectApi.SearchAnswer result) {}
 
-  public static Void setTestAnswer(String q, String objectApiName, ConnectApi.SearchAnswer result) {}
+  public static void setTestAnswer(String q, String objectApiName, ConnectApi.SearchAnswer result) {}
 
-  public static Void setTestAnswer(String q, String objectApiName, List< String > displayFields, ConnectApi.SearchAnswer result) {}
+  public static void setTestAnswer(String q, String objectApiName, List< String > displayFields, ConnectApi.SearchAnswer result) {}
 
-  public static Void setTestFindAndGroup(String q, ConnectApi.SearchResultGroups result) {}
+  public static void setTestFindAndGroup(String q, ConnectApi.SearchResultGroups result) {}
 
-  public static Void setTestFindAndGroup(String q, String configurationName, ConnectApi.SearchResultGroups result) {}
+  public static void setTestFindAndGroup(String q, String configurationName, ConnectApi.SearchResultGroups result) {}
 
-  public static Void setTestFindAndGroup(String q, String configurationName, Boolean highlights, ConnectApi.SearchResultGroups result) {}
+  public static void setTestFindAndGroup(String q, String configurationName, Boolean highlights, ConnectApi.SearchResultGroups result) {}
 
-  public static Void setTestFind(String objectApiName, ConnectApi.SearchRequest request, ConnectApi.ScopedSearchResults result) {}
+  public static void setTestFind(String objectApiName, ConnectApi.SearchRequest request, ConnectApi.ScopedSearchResults result) {}
 
 }

@@ -1,7 +1,7 @@
 /**
  * The Flow.Interview class provides advanced controller access to flows and the ability to start a flow.
  */
-public class Interview {
+global class Interview {
 
   public static Flow.Interview createInterview(String namespace, String flowName, Map< String, ANY> inputVariables) {}
 
@@ -9,6 +9,6 @@ public class Interview {
 
   public Object getVariableValue(String variableName) {}
 
-  public Void start() {}
+  public void start() {}
 
 }

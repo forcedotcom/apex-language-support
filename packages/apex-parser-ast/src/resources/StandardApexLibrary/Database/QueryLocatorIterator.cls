@@ -1,7 +1,7 @@
 /**
  * Represents an iterator over a query locator record set.
  */
-public class QueryLocatorIterator {
+global class QueryLocatorIterator {
 
   /**
    * Returns true if there are one or more records remaining in the collection; otherwise, returns false .

@@ -1,7 +1,7 @@
 /**
  * Get navigation menu items for an Experience Cloud site.
  */
-public class NavigationMenu {
+global class NavigationMenu {
 
   public static ConnectApi.NavigationMenuItemCollection getCommunityNavigationMenu(String communityId, String navigationLinkSetId, String navigationLinkSetDeveloperName, ConnectApi.PublishStatus publishStatus, Boolean includeImageUrl, Boolean addHomeMenuItem, List<ConnectApi.NavigationMenuItemType> menuItemTypesToSkip) {}
 

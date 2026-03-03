@@ -1,7 +1,7 @@
 /**
  * This enum specifies the download context.
  */
-public enum ContentDownloadContext {
+global enum ContentDownloadContext {
   CHATTER,
   CONTENT,
   DELIVERY,

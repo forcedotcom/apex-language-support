@@ -1,7 +1,7 @@
 /**
  * Contains the results of a search or query.
  */
-public class TableResult {
+global class TableResult {
 
   /**
    * errorMessage

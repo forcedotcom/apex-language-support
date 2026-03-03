@@ -1,6 +1,10 @@
 /**
  * Contains a method to evaluate the formula instance.
  */
-public class FormulaInstance {
+global class FormulaInstance {
+
+  public Object evaluate(Object contextObject) {}
+
+  public Set<String> getReferencedFields() {}
 
 }

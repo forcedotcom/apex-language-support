@@ -1,7 +1,7 @@
 /**
  * A Schema.sObjectField object is returned from the field describe result using the getController and getSObjectField methods.
  */
-public class SObjectField {
+global class SObjectField {
 
   /**
    * Returns the describe field result for this field.

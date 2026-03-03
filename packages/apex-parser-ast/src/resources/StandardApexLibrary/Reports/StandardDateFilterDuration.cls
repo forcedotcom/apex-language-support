@@ -1,7 +1,7 @@
 /**
  * Contains information about each standard date filter—also referred to as a relative date filter. It contains the API name and display label of the standard date filter duration as well as the start and end dates.
  */
-public class StandardDateFilterDuration {
+global class StandardDateFilterDuration {
 
   /**
    * Returns the end date of the date filter.

@@ -1,7 +1,7 @@
 /**
  * Create, refresh, get, delete, replace, and update credentials. Create and get external credentials. Create and get named credentials. Create, get, delete, and update external auth identity providers. Get the URL for the OAuth token flow for an external credential.
  */
-public class NamedCredentials {
+global class NamedCredentials {
 
   public static ConnectApi.Credential createCredential(ConnectApi.CredentialInput requestBody) {}
 
@@ -15,15 +15,15 @@ public class NamedCredentials {
 
   public static ConnectApi.NamedCredential createNamedCredential(ConnectApi.NamedCredentialInput requestBody) {}
 
-  public static Void deleteCredential(String externalCredential, String principalName, ConnectApi.CredentialPrincipalType principalType) {}
+  public static void deleteCredential(String externalCredential, String principalName, ConnectApi.CredentialPrincipalType principalType) {}
 
-  public static Void deleteCredential(String externalCredential, String principalName, ConnectApi.CredentialPrincipalType principalType, List< String > authenticationParameters) {}
+  public static void deleteCredential(String externalCredential, String principalName, ConnectApi.CredentialPrincipalType principalType, List< String > authenticationParameters) {}
 
-  public static Void deleteExternalAuthIdentityProvider(String developerName) {}
+  public static void deleteExternalAuthIdentityProvider(String developerName) {}
 
-  public static Void deleteExternalCredential(String developerName) {}
+  public static void deleteExternalCredential(String developerName) {}
 
-  public static Void deleteNamedCredential(String developerName) {}
+  public static void deleteNamedCredential(String developerName) {}
 
   public static ConnectApi.Credential getCredential(String externalCredential, String principalName, ConnectApi.CredentialPrincipalType principalType) {}
 

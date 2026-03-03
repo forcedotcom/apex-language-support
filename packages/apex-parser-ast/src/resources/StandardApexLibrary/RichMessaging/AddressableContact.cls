@@ -1,6 +1,6 @@
 /**
  * Represents an addressable contact.
  */
-public class AddressableContact {
+global class AddressableContact {
 
 }

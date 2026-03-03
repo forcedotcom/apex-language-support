@@ -1,7 +1,7 @@
 /**
  * Get externally managed accounts.
  */
-public class ExternalManagedAccount {
+global class ExternalManagedAccount {
 
   public static ConnectApi.ExternalManagedAccountCollectionOutput getCommunitiesExternalManagedAccounts(String communityId) {}
 

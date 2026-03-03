@@ -1,7 +1,7 @@
 /**
  * Enables the asynchronous execution of Apex jobs that can be monitored.
  */
-public interface Queueable {
+global interface Queueable {
 
   /**
    * Executes the queueable job.

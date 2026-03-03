@@ -1,7 +1,7 @@
 /**
  * The result of an undelete DML operation returned by the Database. undelete method.
  */
-public class UndeleteResult {
+global class UndeleteResult {
 
   /**
    * If an error occurred, returns an array of one or more database error objects providing the error code and description. If no error occurred, returns null.

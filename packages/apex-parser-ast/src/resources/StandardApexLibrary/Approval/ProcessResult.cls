@@ -1,7 +1,7 @@
 /**
  * After you submit a record for approval, use the ProcessResult class to process the results of an approval process.
  */
-public class ProcessResult {
+global class ProcessResult {
 
   /**
    * The ID of the record being processed.

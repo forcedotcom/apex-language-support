@@ -1,7 +1,7 @@
 /**
  * Base class of Cache.OrgPartition and Cache.SessionPartition . Use the subclasses to manage the cache partition for org caches and session caches.
  */
-public class Partition {
+global class Partition {
 
   /**
    * Returns true if the cache partition contains a cached value corresponding to the specified key.

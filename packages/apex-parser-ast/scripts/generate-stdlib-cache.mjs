@@ -45,22 +45,14 @@ const CACHE_FILE = join(OUTPUT_DIR, 'apex-stdlib.pb.gz');
 const CHECKSUM_FILE = join(OUTPUT_DIR, 'apex-stdlib.sha256');
 
 // List of builtin classes that should be loaded from builtins/ folder
+// Only classes that are physically present in src/resources/builtins/ should be here.
+// Classes in this set are excluded from StandardApexLibrary/System/ and loaded from builtins/ instead.
+// If a class is not in builtins/, do NOT add it here or it will disappear from the stdlib entirely.
 const BUILTIN_CLASSES = new Set([
   'Blob.cls',
-  'Boolean.cls',
-  'Date.cls',
-  'DateTime.cls',
-  'Decimal.cls',
-  'Double.cls',
-  'Id.cls',
   'Integer.cls',
-  'List.cls',
   'Long.cls',
-  'Map.cls',
   'Object.cls',
-  'Set.cls',
-  'String.cls',
-  'Time.cls',
 ]);
 
 /**

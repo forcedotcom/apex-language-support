@@ -1,7 +1,7 @@
 /**
  * Contains report type metadata, which gives you information about the fields that are available in each section of the report type, plus filter information for those fields.
  */
-public class ReportTypeMetadata {
+global class ReportTypeMetadata {
 
   /**
    * Returns the default division and a list of all possible divisions that can be applied to this type of report.

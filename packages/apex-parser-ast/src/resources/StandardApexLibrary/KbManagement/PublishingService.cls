@@ -1,15 +1,14 @@
 /**
  * Use the methods in the KbManagement.PublishingService class to manage the lifecycle of an article and its translations.
  */
-public class PublishingService {
+global class PublishingService {
 
   /**
    * Archives an online version of an article. If the specified scheduledDate is null, the article is archived immediately. Otherwise, it archives the article on the scheduled date.
    * @param articleId 
    * @param scheduledDate 
-   * @return Void
    */
-  public static Void archiveOnlineArticle(String articleId, Datetime scheduledDate) {}
+  public static void archiveOnlineArticle(String articleId, Datetime scheduledDate) {}
 
   /**
    * Assigns a review task related to a draft article.
@@ -18,9 +17,8 @@ public class PublishingService {
    * @param instructions 
    * @param dueDate 
    * @param sendEmailNotification 
-   * @return Void
    */
-  public static Void assignDraftArticleTask(String articleId, String assigneeId, String instructions, Datetime dueDate, Boolean sendEmailNotification) {}
+  public static void assignDraftArticleTask(String articleId, String assigneeId, String instructions, Datetime dueDate, Boolean sendEmailNotification) {}
 
   /**
    * Assigns a review task related to a draft translation.
@@ -29,59 +27,51 @@ public class PublishingService {
    * @param instructions 
    * @param dueDate 
    * @param sendEmailNotification 
-   * @return Void
    */
-  public static Void assignDraftTranslationTask(String articleVersionId, String assigneeId, String instructions, Datetime dueDate, Boolean sendEmailNotification) {}
+  public static void assignDraftTranslationTask(String articleVersionId, String assigneeId, String instructions, Datetime dueDate, Boolean sendEmailNotification) {}
 
   /**
    * Cancels the scheduled archiving of an online article.
    * @param articleId 
-   * @return Void
    */
-  public static Void cancelScheduledArchivingOfArticle(String articleId) {}
+  public static void cancelScheduledArchivingOfArticle(String articleId) {}
 
   /**
    * Cancels the scheduled publication of a draft article.
    * @param articleId 
-   * @return Void
    */
-  public static Void cancelScheduledPublicationOfArticle(String articleId) {}
+  public static void cancelScheduledPublicationOfArticle(String articleId) {}
 
   /**
    * Puts a translation in a completed state that is ready to publish.
    * @param articleVersionId 
-   * @return Void
    */
-  public static Void completeTranslation(String articleVersionId) {}
+  public static void completeTranslation(String articleVersionId) {}
 
   /**
    * Deletes an archived article.
    * @param articleId 
-   * @return Void
    */
-  public static Void deleteArchivedArticle(String articleId) {}
+  public static void deleteArchivedArticle(String articleId) {}
 
   /**
    * Deletes a specific archived version of a published article.
    * @param articleId 
    * @param versionNumber 
-   * @return Void
    */
-  public static Void deleteArchivedArticleVersion(String articleId, Integer versionNumber) {}
+  public static void deleteArchivedArticleVersion(String articleId, Integer versionNumber) {}
 
   /**
    * Deletes a draft article.
    * @param articleId 
-   * @return Void
    */
-  public static Void deleteDraftArticle(String articleId) {}
+  public static void deleteDraftArticle(String articleId) {}
 
   /**
    * Deletes a draft translation.
    * @param articleVersionId 
-   * @return Void
    */
-  public static Void deleteDraftTranslation(String articleVersionId) {}
+  public static void deleteDraftTranslation(String articleVersionId) {}
 
   /**
    * Creates a draft article from the archived primary version and returns the new draft primary version ID of the article.
@@ -111,9 +101,8 @@ public class PublishingService {
    * Publishes an article. If flagAsNew is set to true , the article is published as a major version.
    * @param articleId 
    * @param flagAsNew 
-   * @return Void
    */
-  public static Void publishArticle(String articleId, Boolean flagAsNew) {}
+  public static void publishArticle(String articleId, Boolean flagAsNew) {}
 
   /**
    * Creates a draft article from an existing online article based on the specified archived version of the article and returns the article version ID.
@@ -127,16 +116,14 @@ public class PublishingService {
    * Schedules the article for publication as a major version. If the specified date is null, the article is published immediately.
    * @param articleId 
    * @param scheduledDate 
-   * @return Void
    */
-  public static Void scheduleForPublication(String articleId, Datetime scheduledDate) {}
+  public static void scheduleForPublication(String articleId, Datetime scheduledDate) {}
 
   /**
    * Sets a draft translation that is ready for publication back to “in progress” status.
    * @param articleVersionId 
-   * @return Void
    */
-  public static Void setTranslationToIncomplete(String articleVersionId) {}
+  public static void setTranslationToIncomplete(String articleVersionId) {}
 
   /**
    * Submits an article for translation to the specified language. Also assigns the specified user and due date to the submittal and returns new ID of the draft translation.

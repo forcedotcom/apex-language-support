@@ -1,6 +1,6 @@
 /**
  * Response sent by the payment gateway adapter for a postauthorization service.
  */
-public class PostAuthorizationResponse {
+global class PostAuthorizationResponse {
 
 }

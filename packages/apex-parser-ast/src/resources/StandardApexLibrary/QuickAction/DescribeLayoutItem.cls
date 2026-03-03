@@ -1,7 +1,7 @@
 /**
  * Represents an individual item in a QuickAction.DescribeLayoutRow .
  */
-public class DescribeLayoutItem {
+global class DescribeLayoutItem {
 
   /**
    * Returns the label text for this item.

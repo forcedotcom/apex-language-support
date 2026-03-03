@@ -1,12 +1,12 @@
 /**
  * Contains line item details of a tax request.
  */
-public class TaxLineItemRequest {
+global class TaxLineItemRequest {
 
-  public Boolean equals(Object obj) {}
+  global Boolean equals(Object obj) {}
 
-  public Integer hashCode() {}
+  global Integer hashCode() {}
 
-  public String toString() {}
+  global String toString() {}
 
 }

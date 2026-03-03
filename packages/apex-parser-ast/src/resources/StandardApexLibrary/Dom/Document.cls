@@ -1,7 +1,7 @@
 /**
  * Use the Document class to process XML content. You can parse nested XML content that’s up to 50 nodes deep.
  */
-public class Document {
+global class Document {
 
   /**
    * Creates the top-level root element for a document.
@@ -21,9 +21,8 @@ public class Document {
   /**
    * Parse the XML representation of the document specified in the xml argument and load it into a document.
    * @param xml 
-   * @return Void
    */
-  public Void load(String xml) {}
+  public void load(String xml) {}
 
   /**
    * Returns the XML representation of the document as a String.

@@ -1,7 +1,7 @@
 /**
  * Use the Cache.Org class to add, retrieve, and manage values in the org cache. Unlike the session cache, the org cache is not tied to any session and is available to the organization across requests and to all users.
  */
-public class Org {
+global class Org {
 
   /**
    * Returns true if the org cache contains a cached value corresponding to the specified key.
@@ -166,5 +166,7 @@ public class Org {
    * @return Boolean
    */
   public static Boolean remove(System.Type cacheBuilder, String key) {}
+
+  global class OrgCacheException extends Exception {}
 
 }

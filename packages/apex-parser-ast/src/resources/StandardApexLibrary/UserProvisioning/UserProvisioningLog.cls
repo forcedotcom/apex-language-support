@@ -1,7 +1,7 @@
 /**
  * Provides methods for writing messages to monitor outbound user provisioning requests.
  */
-public class UserProvisioningLog {
+global class UserProvisioningLog {
 
   /**
    * Writes a specific message, such as an error message, to monitor the progress of a user provisioning request.

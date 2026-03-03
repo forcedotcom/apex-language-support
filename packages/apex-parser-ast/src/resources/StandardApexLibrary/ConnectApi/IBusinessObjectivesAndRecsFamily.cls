@@ -1,7 +1,7 @@
 /**
  * Get and patch business objectives, or goals. Get, create, patch, and update recommended actions for business objectives.
  */
-public class IBusinessObjectivesAndRecsFamily {
+global class IBusinessObjectivesAndRecsFamily {
 
   public static ConnectApi.RecRepresentation createRecommendations(ConnectApi.BusObjRecommendationInputRepresentation busObjRecommendationInput) {}
 

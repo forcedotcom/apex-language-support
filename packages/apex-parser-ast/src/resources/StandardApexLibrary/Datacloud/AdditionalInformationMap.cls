@@ -1,7 +1,7 @@
 /**
  * Represents other information, if any, about matched records.
  */
-public class AdditionalInformationMap {
+global class AdditionalInformationMap {
 
   /**
    * Returns the element name.

@@ -1,7 +1,7 @@
 /**
  * Contains information about a report filter, including column, operator, and value.
  */
-public class ReportFilter {
+global class ReportFilter {
 
   /**
    * Returns a string representation of the filter.

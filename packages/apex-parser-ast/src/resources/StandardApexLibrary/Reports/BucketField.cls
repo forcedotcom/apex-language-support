@@ -1,7 +1,7 @@
 /**
  * Contains methods and constructors to work with information about a bucket field, including bucket type, name, and bucketed values.
  */
-public class BucketField {
+global class BucketField {
 
   /**
    * Returns the bucket type.

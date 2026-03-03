@@ -1,7 +1,7 @@
 /**
  * Send survey invitations by email.
  */
-public class Surveys {
+global class Surveys {
 
   public static ConnectApi.SurveyInvitationEmailOutput sendSurveyInvitationEmail(String surveyID, ConnectApi.SurveyInvitationEmailInput SurveyEmailInput) {}
 

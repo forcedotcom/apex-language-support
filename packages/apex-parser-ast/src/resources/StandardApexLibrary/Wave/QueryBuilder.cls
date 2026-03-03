@@ -1,7 +1,7 @@
 /**
  * The QueryBuilder class provides methods for constructing well-formed SAQL queries to pass to CRM Analytics.
  */
-public class QueryBuilder {
+global class QueryBuilder {
 
   /**
    * Load a stream from a dataset.
@@ -29,7 +29,7 @@ public class QueryBuilder {
    * @param unionNodes List of nodes to combine.
    * @return Wave.QueryNode
    */
-  public static Wave.QueryNode union(List<Wave.QueryNode> unionNodes) {}
+  global static Wave.QueryNode union(List<Wave.QueryNode> unionNodes) {}
 
   /**
    * Cogrouping means that two input streams are grouped independently and arranged side by side. Only data that exists in both groups appears in the results.
@@ -37,6 +37,6 @@ public class QueryBuilder {
    * @param groups The type of grouping.
    * @return Wave.QueryNode
    */
-  public static Wave.QueryNode cogroup(List<Wave.QueryNode> cogroupNodes, List<List< String >> groups) {}
+  global static Wave.QueryNode cogroup(List<Wave.QueryNode> cogroupNodes, List<List< String >> groups) {}
 
 }

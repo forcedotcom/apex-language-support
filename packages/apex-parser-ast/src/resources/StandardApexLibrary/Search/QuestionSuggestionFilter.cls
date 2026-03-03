@@ -1,7 +1,7 @@
 /**
  * The Search.QuestionSuggestionFilter class filters results from a call to System.Search.suggest(searchQuery, sObjectType, options) when the SOSL searchQuery contains a FeedItem object.
  */
-public class QuestionSuggestionFilter {
+global class QuestionSuggestionFilter {
 
   /**
    * Adds a filter to display questions associated with the single specified group whose ID is passed in as an argument. This filter is optional.

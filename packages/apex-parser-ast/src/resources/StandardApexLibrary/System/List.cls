@@ -1,42 +1,37 @@
 /**
  * Contains methods for the List collection type.
  */
-public class List {
+global class List {
 
   /**
    * Adds an element to the end of the list.
    * @param listElement 
-   * @return Void
    */
-  public Void add(Object listElement) {}
+  public void add(Object listElement) {}
 
   /**
    * Adds an element to the end of the list.
    * @param index 
    * @param listElement 
-   * @return Void
    */
-  public Void add(Integer index, Object listElement) {}
+  public void add(Integer index, Object listElement) {}
 
   /**
    * Adds all of the elements in the specified list to the list that calls the method. Both lists must be of the same type.
    * @param fromList 
-   * @return Void
    */
-  public Void addAll(List fromList) {}
+  public void addAll(List fromList) {}
 
   /**
    * Adds all of the elements in the specified list to the list that calls the method. Both lists must be of the same type.
    * @param fromSet 
-   * @return Void
    */
-  public Void addAll(Set fromSet) {}
+  public void addAll(Set fromSet) {}
 
   /**
    * Removes all elements from a list, consequently setting the list's length to zero.
-   * @return Void
    */
-  public Void clear() {}
+  public void clear() {}
 
   /**
    * Makes a duplicate copy of a list.
@@ -116,9 +111,8 @@ public class List {
    * Sets the specified value for the element at the given index.
    * @param index The index of the list element to set.
    * @param listElement The value of the list element to set.
-   * @return Void
    */
-  public Void set(Integer index, Object listElement) {}
+  public void set(Integer index, Object listElement) {}
 
   /**
    * Returns the number of elements in the list.
@@ -128,9 +122,8 @@ public class List {
 
   /**
    * Sorts the items in the list in ascending order.
-   * @return Void
    */
-  public Void sort() {}
+  public void sort() {}
 
   /**
    * Returns the string representation of the list.

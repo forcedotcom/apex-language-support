@@ -1,7 +1,7 @@
 /**
  * Contains methods that provide a list or map of all OrgLimit instances for Salesforce your org, such as SOAP API requests, Bulk API requests, and Streaming API limits.
  */
-public class OrgLimits {
+global class OrgLimits {
 
   /**
    * Returns a list of OrgLimit instances.

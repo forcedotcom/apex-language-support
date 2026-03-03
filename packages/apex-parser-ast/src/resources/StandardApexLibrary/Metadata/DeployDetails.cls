@@ -1,7 +1,7 @@
 /**
  * Contains detailed information on deployed components.
  */
-public class DeployDetails {
+global class DeployDetails {
 
   /**
    * Makes a duplicate copy of the Metadata.DeployDetails .

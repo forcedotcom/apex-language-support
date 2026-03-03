@@ -1,7 +1,7 @@
 /**
  * Get, create, and update Data 360 activation targets.
  */
-public class CdpActivationTarget {
+global class CdpActivationTarget {
 
   public static ConnectApi.ActivationTarget createActivationTarget(ConnectApi.ActivationTargetInput input) {}
 

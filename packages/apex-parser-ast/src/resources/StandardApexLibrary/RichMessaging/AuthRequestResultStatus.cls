@@ -1,5 +1,5 @@
 /**
  * This enum describes the authentication result status.
  */
-public enum AuthRequestResultStatus {
+global enum AuthRequestResultStatus {
 }

@@ -1,7 +1,7 @@
 /**
  * Get, create, update, and delete Data 360 activations.
  */
-public class CdpActivation {
+global class CdpActivation {
 
   public static ConnectApi.ActivationCollection getActivations() {}
 
@@ -9,7 +9,7 @@ public class CdpActivation {
 
   public static ConnectApi.Activation createActivation(ConnectApi.ActivationDefinitionInput input) {}
 
-  public static Void deleteActivation(String activationId) {}
+  public static void deleteActivation(String activationId) {}
 
   public static ConnectApi.Activation getActivation(String activationId) {}
 

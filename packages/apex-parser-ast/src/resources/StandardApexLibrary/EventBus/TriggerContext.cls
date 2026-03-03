@@ -1,7 +1,7 @@
 /**
  * Provides information about the platform event or change event trigger that’s currently executing, such as how many times the trigger was retried due to the EventBus.RetryableException . Also, provides a method to resume trigger executions.
  */
-public class TriggerContext {
+global class TriggerContext {
 
   /**
    * Returns an instance of the EventBus.TriggerContext class containing information about the currently executing trigger.

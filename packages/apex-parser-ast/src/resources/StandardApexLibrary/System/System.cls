@@ -1,9 +1,32 @@
 /**
  * Contains methods for system operations, such as writing debug messages and scheduling jobs.
  */
-public class System {
+global class System {
 
-  public static Void abortJob(String jobId) {}
+  public static void abortJob(String jobId) {}
+
+  /**
+   * Asserts that the specified condition is true. If it isn’t , a fatal error is returned that causes code execution to halt.
+   * @param condition 
+   * @param msg (Optional) Custom message returned as part of the error message.
+   */
+  public static void assert(Boolean condition, Object msg) {}
+
+  /**
+   * Asserts that the first two arguments are the same. If they aren’t, a fatal error is returned that causes code execution to halt.
+   * @param expected Specifies the expected value.
+   * @param actual Specifies the actual value.
+   * @param msg (Optional) Custom message returned as part of the error message.
+   */
+  public static void assertEquals(Object expected, Object actual, Object msg) {}
+
+  /**
+   * Asserts that the first two arguments are different. If they’re the same, a fatal error is returned that causes code execution to halt.
+   * @param expected Specifies the expected value.
+   * @param actual Specifies the actual value.
+   * @param msg (Optional) Custom message returned as part of the error message.
+   */
+  public static void assertNotEquals(Object expected, Object actual, Object msg) {}
 
   /**
    * Returns a reference to the current page. This is used with Visualforce pages.
@@ -20,17 +43,15 @@ public class System {
   /**
    * Writes the specified message, in string format, to the execution debug log. The DEBUG log level is used.
    * @param msg 
-   * @return Void
    */
-  public static Void debug(Object msg) {}
+  public static void debug(Object msg) {}
 
   /**
    * Writes the specified message, in string format, to the execution debug log. The DEBUG log level is used.
    * @param logLevel 
    * @param msg 
-   * @return Void
    */
-  public static Void debug(LoggingLevel logLevel, Object msg) {}
+  public static void debug(LoggingLevel logLevel, Object msg) {}
 
   /**
    * Adds a job to the Apex job queue that corresponds to the specified queueable class and returns the job ID.
@@ -38,6 +59,22 @@ public class System {
    * @return ID
    */
   public static ID enqueueJob(Object queueableObj) {}
+
+  /**
+   * Adds a job to the Apex job queue that corresponds to the specified queueable class and returns the job ID.
+   * @param queueable 
+   * @param delay 
+   * @return Id
+   */
+  public static Id enqueueJob(Object queueable, Integer delay) {}
+
+  /**
+   * Adds a job to the Apex job queue that corresponds to the specified queueable class and returns the job ID.
+   * @param queueable 
+   * @param asyncoptions 
+   * @return Id
+   */
+  public static Id enqueueJob(Object queueable, Object asyncoptions) {}
 
   /**
    * Returns true if both arguments are equal. Otherwise, returns false .
@@ -107,15 +144,18 @@ public class System {
    * Moves the specified user’s password to a different user.
    * @param targetUserId The user that the password is moved to.
    * @param sourceUserId The user that the password is moved from.
-   * @return Void
    */
-  public static Void movePassword(ID targetUserId, ID sourceUserId) {}
+  public static void movePassword(ID targetUserId, ID sourceUserId) {}
 
   /**
    * Returns the current date and time in the GMT time zone.
    * @return Datetime
    */
   public static Datetime now() {}
+
+  public static void pauseJobById(String cronTriggerId) {}
+
+  public static void pauseJobByName(String jobName) {}
 
   /**
    * Processes the list of work item IDs.
@@ -161,19 +201,21 @@ public class System {
    */
   public static System.ResetPasswordResult resetPasswordWithEmailTemplate(Id userId, Boolean sendUserEmail, String emailTemplateName) {}
 
+  public static void resumeJobById(String cronTriggerId) {}
+
+  public static void resumeJobByName(String jobName) {}
+
   /**
    * Changes the current package version to the package version specified in the argument.
    * @param version 
-   * @return Void
    */
-  public static Void runAs(System.Version version) {}
+  public static void runAs(System.Version version) {}
 
   /**
    * Changes the current package version to the package version specified in the argument.
    * @param userSObject 
-   * @return Void
    */
-  public static Void runAs(User userSObject) {}
+  public static void runAs(User userSObject) {}
 
   /**
    * Use schedule with an Apex class that implements the Schedulable interface to schedule the class to run at the time specified by a Cron expression.
@@ -207,9 +249,8 @@ public class System {
    * Sets the password for the specified user.
    * @param userId 
    * @param password 
-   * @return Void
    */
-  public static Void setPassword(ID userId, String password) {}
+  public static void setPassword(ID userId, String password) {}
 
   /**
    * Submits the processed approvals. The current user is the submitter and the entry criteria is evaluated for all processes applicable to the current user.

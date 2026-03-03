@@ -1,7 +1,7 @@
 /**
  * Contains information about the standard filter picklist, such as the display name and type of the filter field, the default picklist value, and a list of all possible picklist values.
  */
-public class StandardFilterInfoPicklist {
+global class StandardFilterInfoPicklist {
 
   /**
    * Returns the default value for the standard filter picklist.

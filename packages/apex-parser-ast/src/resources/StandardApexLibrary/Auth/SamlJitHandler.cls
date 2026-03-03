@@ -1,7 +1,7 @@
 /**
  * Use this interface to control and customize Just-in-Time user provisioning logic during SAML single sign-on.
  */
-public interface SamlJitHandler {
+global interface SamlJitHandler {
 
   /**
    * Returns a User object using the specified Federation ID. The User object corresponds to the user information. This object can be a new user that hasn’t been inserted in the database or an existing user record in the database.

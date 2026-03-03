@@ -1,7 +1,7 @@
 /**
  * Preview and create shifts from a pattern.
  */
-public class FieldService {
+global class FieldService {
 
   public static ConnectApi.ShiftsFromPattern createShiftsFromPattern(ConnectApi.ShiftsFromPatternInput shiftsFromPatternInput, String shiftPatternId) {}
 

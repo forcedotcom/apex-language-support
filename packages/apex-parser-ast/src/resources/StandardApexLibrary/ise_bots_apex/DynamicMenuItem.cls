@@ -1,6 +1,6 @@
 /**
  * Contains properties to define and hold the details for a single dynamic menu item Each item contains information related to an object, such as identifiers, labels, summaries, and sorting logic. It enables bots to present context-aware and user-relevant choices dynamically during conversations. .
  */
-public class DynamicMenuItem {
+global class DynamicMenuItem {
 
 }

@@ -1,5 +1,5 @@
 /**
  * Specifies the return type for the withReturnType(returnType) method.
  */
-public enum FormulaReturnType {
+global enum FormulaReturnType {
 }

@@ -1,7 +1,7 @@
 /**
  * Contains methods to set the appearance of apps in the App Launcher.
  */
-public class AppMenu {
+global class AppMenu {
 
   /**
    * Shows or hides specific apps in the App Launcher.

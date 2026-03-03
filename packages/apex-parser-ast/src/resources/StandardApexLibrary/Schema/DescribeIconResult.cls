@@ -1,7 +1,7 @@
 /**
  * Contains icon metadata information for a tab.
  */
-public class DescribeIconResult {
+global class DescribeIconResult {
 
   /**
    * Returns the tab icon’s content type, such as image/png .

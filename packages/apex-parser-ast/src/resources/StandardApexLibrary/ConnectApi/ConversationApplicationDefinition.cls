@@ -1,7 +1,7 @@
 /**
  * Access information about a conversation application definition.
  */
-public class ConversationApplicationDefinition {
+global class ConversationApplicationDefinition {
 
   public static ConnectApi.ConversationApplicationDefinitionDetailRespresentation getConversationApplicationDefinition(String integrationName) {}
 

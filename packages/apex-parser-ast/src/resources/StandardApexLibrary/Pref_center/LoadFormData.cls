@@ -1,7 +1,7 @@
 /**
  * Retrieve records related to the tokenized record id, and populate the values of a preference form.
  */
-public class LoadFormData {
+global class LoadFormData {
 
   public void addOption(String fieldId, String value, String label) {}
 

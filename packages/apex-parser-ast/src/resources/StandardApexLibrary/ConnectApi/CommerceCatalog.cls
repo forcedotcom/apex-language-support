@@ -1,7 +1,7 @@
 /**
  * Get products, product categories, and product category paths.
  */
-public class CommerceCatalog {
+global class CommerceCatalog {
 
   public static ConnectApi.NavigationMenuItemCollection getCategoryMenuItems(String webstoreId, Boolean includeImageUrl, Boolean addHomeMenuItem, String publishStatus, String effectiveAccountId, Integer maxLevels, Integer maxItems) {}
 

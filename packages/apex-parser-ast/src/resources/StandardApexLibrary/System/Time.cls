@@ -1,7 +1,7 @@
 /**
  * Contains methods for the Time primitive data type.
  */
-public class Time {
+global class Time {
 
   /**
    * Adds the specified number of hours to a Time.

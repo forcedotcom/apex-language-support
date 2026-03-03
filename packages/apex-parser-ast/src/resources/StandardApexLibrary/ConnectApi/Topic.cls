@@ -1,0 +1,6 @@
+/**
+ * Topic.
+ */
+global class Topic {
+
+}
