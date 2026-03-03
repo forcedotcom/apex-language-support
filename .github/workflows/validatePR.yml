@@ -2,7 +2,7 @@ name: Validate PR
 on:
   pull_request:
     types: [opened, reopened, edited, synchronize]
-    branches: [main, tdx26/main]
+    branches: [main]
 
 # Add explicit permissions for security
 permissions:

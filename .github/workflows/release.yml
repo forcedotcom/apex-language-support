@@ -70,9 +70,7 @@ on:
           - "false"
 
   schedule:
-    # Nightly pre-release build at 3 AM UTC for main branch
-    - cron: "0 3 * * *"
-    # Nightly pre-release build at 4 AM UTC for tdx26/main branch
+    # Nightly pre-release build at 4 AM UTC for main branch
     - cron: "0 4 * * *"
   # push:
   #   branches:
@@ -99,28 +97,7 @@ jobs:
       - name: Determine target branch
         id: determine-branch
         run: |
-          # For scheduled runs, determine branch based on cron schedule time
-          # For manual dispatch, use input or default to main
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            # Get current UTC time
-            CURRENT_HOUR=$(date -u +%H)
-            # Hour 3 = main branch (3:00 AM schedule)
-            # Hour 4 = tdx26/main branch (4:00 AM schedule)
-            if [ "$CURRENT_HOUR" = "03" ]; then
-              TARGET_BRANCH="main"
-              echo "Scheduled build for main branch (triggered at 3:00 AM UTC)"
-            elif [ "$CURRENT_HOUR" = "04" ]; then
-              TARGET_BRANCH="tdx26/main"
-              echo "Scheduled build for tdx26/main branch (triggered at 4:00 AM UTC)"
-            else
-              echo "Warning: Scheduled run detected at unexpected hour: $CURRENT_HOUR UTC"
-              echo "Defaulting to main branch"
-              TARGET_BRANCH="main"
-            fi
-            echo "Current UTC time: ${CURRENT_HOUR}:$(date -u +%M)"
-          else
-            TARGET_BRANCH="${{ github.event.inputs.branch || github.ref_name || 'main' }}"
-          fi
+          TARGET_BRANCH="${{ github.event.inputs.branch || 'main' }}"
           echo "branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
           echo "Building from branch: $TARGET_BRANCH"
 
