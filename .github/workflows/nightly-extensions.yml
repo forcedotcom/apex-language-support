@@ -75,34 +75,7 @@ permissions:
   actions: read
 
 jobs:
-  determine-build-type:
-    runs-on: ubuntu-latest
-    outputs:
-      is-nightly: ${{ steps.check.outputs.is-nightly }}
-      version-bump: ${{ steps.check.outputs.version-bump }}
-      pre-release: ${{ steps.check.outputs.pre-release }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-
-      - name: Install dependencies
-        uses: ./.github/actions/npm-install-with-retries
-
-      - name: Check build type
-        id: check
-        env:
-          INPUT_VERSION_BUMP: ${{ inputs.version-bump || 'auto' }}
-          INPUT_PRE_RELEASE: ${{ inputs.pre-release || 'false' }}
-        run: |
-          npx tsx .github/scripts/index.ts ext-build-type
-
   determine-changes:
-    needs: [determine-build-type]
     runs-on: ubuntu-latest
     outputs:
       selected-extensions: ${{ steps.changes.outputs.selected-extensions }}
@@ -125,15 +98,15 @@ jobs:
         id: changes
         env:
           IS_NIGHTLY: 'true'
-          VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
-          PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
+          VERSION_BUMP: 'auto'
+          PRE_RELEASE: 'true'
           IS_PROMOTION: 'false'
           SELECTED_EXTENSIONS: ${{ inputs.extensions }}
         run: |
           npx tsx .github/scripts/index.ts ext-change-detector
 
   display-release-plan:
-    needs: [determine-build-type, determine-changes]
+    needs: [determine-changes]
     runs-on: ubuntu-latest
     if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
@@ -154,16 +127,16 @@ jobs:
         env:
           BRANCH: ${{ inputs.branch || github.ref_name }}
           BUILD_TYPE: ${{ github.event_name }}
-          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
-          VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
+          IS_NIGHTLY: 'true'
+          VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
           REGISTRIES: ${{ inputs.registries }}
-          PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
+          PRE_RELEASE: 'true'
           SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
         run: |
           npx tsx .github/scripts/index.ts ext-release-plan
 
   bump-versions:
-    needs: [determine-build-type, determine-changes]
+    needs: [determine-changes]
     runs-on: ubuntu-latest
     if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
@@ -299,7 +272,7 @@ jobs:
       pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
 
   determine-publish-matrix:
-    needs: [determine-changes, calculate-artifact-name, determine-build-type]
+    needs: [determine-changes, calculate-artifact-name]
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -320,7 +293,7 @@ jobs:
         env:
           REGISTRIES: ${{ inputs.registries }}
           SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
-          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+          IS_NIGHTLY: 'true'
         run: |
           # Skip marketplace publishing for nightly builds
           if [ "$IS_NIGHTLY" = "true" ]; then
@@ -337,10 +310,9 @@ jobs:
         package,
         calculate-artifact-name,
         determine-publish-matrix,
-        determine-build-type,
       ]
     runs-on: ubuntu-latest
-    if: needs.determine-publish-matrix.outputs.matrix != '[]' && needs.determine-build-type.outputs.is-nightly != 'true'
+    if: needs.determine-publish-matrix.outputs.matrix != '[]'
     strategy:
       matrix:
         include: ${{ fromJson(needs.determine-publish-matrix.outputs.matrix) }}
@@ -457,7 +429,7 @@ jobs:
 
   create-github-releases:
     name: Create GitHub Releases
-    needs: [package, determine-changes, determine-build-type, calculate-artifact-name]
+    needs: [package, determine-changes, calculate-artifact-name]
     runs-on: ubuntu-latest
     if: needs.package.result == 'success' && needs.determine-changes.outputs.selected-extensions != '' && github.event_name != 'pull_request'
     steps:
@@ -486,9 +458,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
-          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
-          PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
-          VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
+          IS_NIGHTLY: 'true'
+          PRE_RELEASE: 'true'
+          VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
           DRY_RUN: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
           BRANCH: ${{ inputs.branch || github.ref_name }}
           VSIX_ARTIFACTS_PATH: ./vsix-artifacts
@@ -498,7 +470,7 @@ jobs:
   slack-notify:
     name: Slack Notification
     needs:
-      [determine-build-type, determine-changes, bump-versions, package, publish]
+      [determine-changes, bump-versions, package, publish]
     runs-on: ubuntu-latest
     if: always() && needs.publish.result == 'success' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
@@ -512,8 +484,8 @@ jobs:
         run: |
           # Get selected extensions and their details
           SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
-          VERSION_BUMP="${{ needs.determine-build-type.outputs.version-bump }}"
-          PRE_RELEASE="${{ needs.determine-build-type.outputs.pre-release }}"
+          VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
+          PRE_RELEASE="true"
 
           # Initialize arrays for extension details
           EXTENSION_NAMES=""
@@ -605,7 +577,7 @@ jobs:
   slack-notify-failure:
     name: Slack Failure Notification
     needs:
-      [determine-build-type, determine-changes, bump-versions, package, publish]
+      [determine-changes, bump-versions, package, publish]
     runs-on: ubuntu-latest
     if: always() && needs.publish.result == 'failure' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
@@ -619,8 +591,8 @@ jobs:
         run: |
           # Get selected extensions and their details
           SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
-          VERSION_BUMP="${{ needs.determine-build-type.outputs.version-bump }}"
-          PRE_RELEASE="${{ needs.determine-build-type.outputs.pre-release }}"
+          VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
+          PRE_RELEASE="true"
 
           # Initialize arrays for extension details
           EXTENSION_NAMES=""
