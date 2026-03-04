@@ -12,9 +12,9 @@
 import { Command } from 'commander';
 import { determineBuildType, setBuildTypeOutputs } from './ext-build-type';
 import {
-  findPromotionCandidate,
-  setPromotionOutputs,
-} from './ext-promotion-finder';
+  findNightlyCandidate,
+  setNightlyFinderOutputs,
+} from './ext-nightly-finder';
 import {
   detectExtensionChanges,
   setChangeDetectionOutputs,
@@ -64,14 +64,14 @@ program
   });
 
 program
-  .command('ext-promotion-finder')
-  .description('Find promotion candidates for nightly builds')
+  .command('ext-nightly-finder')
+  .description('Find eligible nightly builds for pre-release promotion')
   .action(async () => {
     try {
-      const candidate = await findPromotionCandidate();
-      setPromotionOutputs(candidate);
+      const candidate = await findNightlyCandidate();
+      setNightlyFinderOutputs(candidate);
     } catch (error) {
-      log.error(`Failed to find promotion candidate: ${error}`);
+      log.error(`Failed to find nightly candidate: ${error}`);
       process.exit(1);
     }
   });

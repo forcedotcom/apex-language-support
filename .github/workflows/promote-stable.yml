@@ -1,0 +1,343 @@
+name: Promote Pre-release to Stable
+
+on:
+  schedule:
+    # Wednesdays at 6 AM UTC (1 hour before pre-release promotion)
+    - cron: '0 6 * * 3'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Run in dry-run mode (no actual publishing or tagging)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+concurrency:
+  group: promote-stable
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
+jobs:
+  find-prerelease-candidate:
+    runs-on: ubuntu-latest
+    outputs:
+      prerelease-version: ${{ steps.find.outputs.prerelease-version }}
+      stable-version: ${{ steps.find.outputs.stable-version }}
+      nightly-tag: ${{ steps.find.outputs.nightly-tag }}
+      commit-sha: ${{ steps.find.outputs.commit-sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.IDEE_GH_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
+      - name: Find latest pre-release candidate and compute stable version
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+        run: |
+          # Find the latest marketplace-prerelease-* tracking tag
+          git fetch --tags origin
+
+          PRERELEASE_TAG=$(git tag --list 'marketplace-prerelease-*' \
+            --sort=-version:refname | head -1)
+
+          if [ -z "$PRERELEASE_TAG" ]; then
+            echo "No marketplace-prerelease-* tracking tags found. Nothing to promote."
+            exit 1
+          fi
+
+          echo "Found pre-release tracking tag: $PRERELEASE_TAG"
+
+          # Extract version from tag (format: marketplace-prerelease-<pkg>-v<semver>)
+          PRERELEASE_VERSION=$(echo "$PRERELEASE_TAG" | grep -oP '\d+\.\d+\.\d+' | head -1)
+          if [ -z "$PRERELEASE_VERSION" ]; then
+            echo "Could not extract version from tag: $PRERELEASE_TAG"
+            exit 1
+          fi
+
+          echo "Pre-release version: $PRERELEASE_VERSION"
+
+          # Compute stable version via semver minor bump using Node.js/semver
+          STABLE_VERSION=$(node -e "const semver = require('semver'); console.log(semver.inc('$PRERELEASE_VERSION', 'minor'));")
+          if [ -z "$STABLE_VERSION" ] || [ "$STABLE_VERSION" = "null" ]; then
+            echo "Could not compute stable version from $PRERELEASE_VERSION"
+            exit 1
+          fi
+
+          echo "Computed stable version: $STABLE_VERSION"
+
+          # Check if stable was already published (floor check)
+          STABLE_TRACKING_TAG="marketplace-stable-apex-lsp-vscode-extension-v${STABLE_VERSION}"
+          if git tag --list "$STABLE_TRACKING_TAG" | grep -q .; then
+            echo "Stable version $STABLE_VERSION already published ($STABLE_TRACKING_TAG exists). Nothing to do."
+            exit 1
+          fi
+
+          # Find the nightly tag that corresponds to this pre-release version
+          # It was the nightly that had version $PRERELEASE_VERSION
+          NIGHTLY_TAG=$(git tag --list "*-v${PRERELEASE_VERSION}-nightly*" \
+            --sort=-version:refname | head -1)
+
+          if [ -z "$NIGHTLY_TAG" ]; then
+            echo "Could not find nightly tag for version $PRERELEASE_VERSION"
+            exit 1
+          fi
+
+          echo "Corresponding nightly tag: $NIGHTLY_TAG"
+
+          # Get commit SHA from the nightly tag
+          COMMIT_SHA=$(git rev-list -n 1 "$NIGHTLY_TAG")
+          echo "Commit SHA: $COMMIT_SHA"
+
+          echo "prerelease-version=$PRERELEASE_VERSION" >> $GITHUB_OUTPUT
+          echo "stable-version=$STABLE_VERSION" >> $GITHUB_OUTPUT
+          echo "nightly-tag=$NIGHTLY_TAG" >> $GITHUB_OUTPUT
+          echo "commit-sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+  quality-gate:
+    needs: find-prerelease-candidate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check CI status for candidate commit
+        uses: ./.github/actions/check-ci-status
+        with:
+          commit-sha: ${{ needs.find-prerelease-candidate.outputs.commit-sha }}
+          token: ${{ secrets.IDEE_GH_TOKEN }}
+
+  repackage:
+    needs: [find-prerelease-candidate, quality-gate]
+    runs-on: ubuntu-latest
+    outputs:
+      stable-vsix-path: ${{ steps.repack.outputs.stable-vsix-path }}
+    steps:
+      - name: Download VSIX from nightly GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+          NIGHTLY_TAG: ${{ needs.find-prerelease-candidate.outputs.nightly-tag }}
+        run: |
+          mkdir -p ./vsix-artifacts
+          echo "Downloading VSIX from release: $NIGHTLY_TAG"
+          gh release download "$NIGHTLY_TAG" \
+            --pattern "*.vsix" \
+            --dir ./vsix-artifacts \
+            --repo "${{ github.repository }}"
+
+          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          if [ -z "$VSIX_FILE" ]; then
+            echo "No VSIX found in release $NIGHTLY_TAG"
+            exit 1
+          fi
+          echo "VSIX_FILE=$VSIX_FILE" >> $GITHUB_ENV
+
+      - name: Repackage VSIX with stable version
+        id: repack
+        env:
+          PRERELEASE_VERSION: ${{ needs.find-prerelease-candidate.outputs.prerelease-version }}
+          STABLE_VERSION: ${{ needs.find-prerelease-candidate.outputs.stable-version }}
+        run: |
+          echo "Repackaging VSIX: $PRERELEASE_VERSION → $STABLE_VERSION"
+
+          WORK_DIR="./vsix-repack"
+          mkdir -p "$WORK_DIR"
+
+          # Unzip the VSIX (it is a ZIP archive)
+          unzip -q "$VSIX_FILE" -d "$WORK_DIR"
+
+          # Patch extension/package.json
+          PKG_JSON="$WORK_DIR/extension/package.json"
+          if [ ! -f "$PKG_JSON" ]; then
+            echo "extension/package.json not found in VSIX"
+            exit 1
+          fi
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('$PKG_JSON', 'utf8'));
+            pkg.version = '$STABLE_VERSION';
+            fs.writeFileSync('$PKG_JSON', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          echo "Patched extension/package.json version to $STABLE_VERSION"
+
+          # Patch extension.vsixmanifest
+          VSIX_MANIFEST="$WORK_DIR/extension.vsixmanifest"
+          if [ -f "$VSIX_MANIFEST" ]; then
+            sed -i "s/Version=\"$PRERELEASE_VERSION\"/Version=\"$STABLE_VERSION\"/" "$VSIX_MANIFEST"
+            echo "Patched extension.vsixmanifest version to $STABLE_VERSION"
+          else
+            echo "Warning: extension.vsixmanifest not found — skipping manifest patch"
+          fi
+
+          # Rezip into a new VSIX
+          STABLE_VSIX="./vsix-artifacts/apex-language-server-extension-${STABLE_VERSION}.vsix"
+          cd "$WORK_DIR"
+          zip -qr "../$STABLE_VSIX" .
+          cd -
+
+          echo "Created stable VSIX: $STABLE_VSIX"
+          echo "stable-vsix-path=$STABLE_VSIX" >> $GITHUB_OUTPUT
+
+      - name: Upload stable VSIX as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stable-vsix
+          path: ${{ steps.repack.outputs.stable-vsix-path }}
+
+  publish:
+    needs: [find-prerelease-candidate, repackage]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - registry: vsce
+            publish-tool: vsce
+          - registry: ovsx
+            publish-tool: ovsx
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
+      - name: Download stable VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: stable-vsix
+          path: ./vsix-artifacts
+
+      - name: Locate stable VSIX
+        run: |
+          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          if [ -z "$VSIX_FILE" ]; then
+            echo "No stable VSIX found in artifact"
+            exit 1
+          fi
+          echo "VSIX_PATH=$VSIX_FILE" >> $GITHUB_ENV
+
+      - name: Publish to ${{ matrix.registry }}
+        uses: ./.github/actions/publish-vsix
+        with:
+          vsix-path: ${{ env.VSIX_PATH }}
+          publish-tool: ${{ matrix.publish-tool }}
+          pre-release: 'false'
+          dry-run: ${{ inputs.dry-run || 'false' }}
+        env:
+          VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
+          OVSX_PAT: ${{ secrets.IDEE_OVSX_PAT }}
+
+  create-github-release:
+    needs: [find-prerelease-candidate, repackage, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.IDEE_GH_TOKEN }}
+
+      - name: Download stable VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: stable-vsix
+          path: ./vsix-artifacts
+
+      - name: Create GitHub release for stable version
+        env:
+          GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+          STABLE_VERSION: ${{ needs.find-prerelease-candidate.outputs.stable-version }}
+          PRERELEASE_VERSION: ${{ needs.find-prerelease-candidate.outputs.prerelease-version }}
+          NIGHTLY_TAG: ${{ needs.find-prerelease-candidate.outputs.nightly-tag }}
+          DRY_RUN: ${{ inputs.dry-run || 'false' }}
+        run: |
+          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          RELEASE_TAG="apex-language-server-extension-v${STABLE_VERSION}"
+          RELEASE_TITLE="Apex Language Server Extension v${STABLE_VERSION} (stable)"
+          RELEASE_NOTES="## Stable Release v${STABLE_VERSION}
+
+          Promoted from pre-release v${PRERELEASE_VERSION} (nightly: ${NIGHTLY_TAG}).
+
+          This is a stable release. Install from the VS Code Marketplace or Open VSX Registry."
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "DRY RUN: Would create GitHub release $RELEASE_TAG with $VSIX_FILE"
+          else
+            # Idempotent: check if release already exists
+            if gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" &>/dev/null; then
+              EXISTING_ASSETS=$(gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" --json assets --jq '.assets | length')
+              if [ "$EXISTING_ASSETS" -gt 0 ]; then
+                echo "⏭️ GitHub release $RELEASE_TAG already exists with assets — skipping (idempotent rerun)"
+              else
+                echo "GitHub release $RELEASE_TAG exists but has no assets — uploading VSIX"
+                gh release upload "$RELEASE_TAG" "$VSIX_FILE" --repo "${{ github.repository }}"
+                echo "VSIX uploaded to existing release: $RELEASE_TAG"
+              fi
+            else
+              gh release create "$RELEASE_TAG" \
+                "$VSIX_FILE" \
+                --title "$RELEASE_TITLE" \
+                --notes "$RELEASE_NOTES" \
+                --repo "${{ github.repository }}"
+              echo "GitHub release created: $RELEASE_TAG"
+            fi
+          fi
+
+  tag-stable:
+    needs: [find-prerelease-candidate, create-github-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.IDEE_GH_TOKEN }}
+
+      - name: Create marketplace-stable tracking tag
+        env:
+          STABLE_VERSION: ${{ needs.find-prerelease-candidate.outputs.stable-version }}
+          COMMIT_SHA: ${{ needs.find-prerelease-candidate.outputs.commit-sha }}
+          DRY_RUN: ${{ inputs.dry-run || 'false' }}
+          GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+        run: |
+          TRACKING_TAG="marketplace-stable-apex-lsp-vscode-extension-v${STABLE_VERSION}"
+
+          echo "Creating tracking tag: $TRACKING_TAG → $COMMIT_SHA"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "DRY RUN: Would create and push tag $TRACKING_TAG"
+          else
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
+            git fetch --tags origin
+            if git tag --list "$TRACKING_TAG" | grep -q .; then
+              echo "⏭️ Tracking tag $TRACKING_TAG already exists — skipping (idempotent rerun)"
+            else
+              git tag "$TRACKING_TAG" "$COMMIT_SHA"
+              git push origin "$TRACKING_TAG"
+              echo "Tracking tag pushed: $TRACKING_TAG"
+            fi
+          fi

@@ -80,6 +80,10 @@ on:
   #     - '.github/workflows/README.md'
   #     - 'docs/**'
 
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.event.inputs.branch || 'main' }}
+  cancel-in-progress: false
+
 # Add explicit permissions for security
 permissions:
   contents: write # Needed for version bumps and releases
@@ -138,7 +142,7 @@ jobs:
   release-extensions:
     needs: get-packages
     if: (github.event.inputs.extensions != 'none' && github.event.inputs.extensions != '') || (github.event_name == 'schedule') || (needs.get-packages.outputs.extensions != '')
-    uses: ./.github/workflows/release-extensions.yml
+    uses: ./.github/workflows/nightly-extensions.yml
     with:
       branch: ${{ needs.get-packages.outputs.target-branch }}
       registries: ${{ github.event.inputs.registries || 'all' }}

@@ -33,7 +33,7 @@ graph TB
     end
 
     %% Extension Release Workflow
-    subgraph "Extension Release (release-extensions.yml)"
+    subgraph "Extension Release (nightly-extensions.yml)"
         O --> Q[Determine Changes]
         Q --> R[Package Workflow]
         R --> S[vsix-packages]
@@ -231,7 +231,7 @@ graph TB
 - Only changed extensions are built and released
 - All registries are targeted by default
 
-### 3. Extension Release Workflow (`release-extensions.yml`)
+### 3. Extension Release Workflow (`nightly-extensions.yml`)
 
 **Triggers:**
 
@@ -629,10 +629,10 @@ The extension release workflow uses a smart version bumping strategy that combin
 
 ```bash
 # Pre-release with feature
-gh workflow run release-extensions.yml --field pre-release=true
+gh workflow run nightly-extensions.yml --field pre-release=true
 
 # Stable release with feature
-gh workflow run release-extensions.yml --field pre-release=false
+gh workflow run nightly-extensions.yml --field pre-release=false
 ```
 
 ## Current Status and Notes
