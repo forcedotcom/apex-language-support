@@ -375,7 +375,7 @@ The workflow system uses several composite actions to reduce code duplication an
 
 - `npm-packages`: Comma-separated list of NPM package names
 - `extensions`: Comma-separated list of VS Code extension names
-- `extension-paths`: Extension package paths for publishing
+- `extension-paths`: Extension package paths for publishing (one path per extension)
 
 ### 2. Download VSIX Artifacts (`download-vsix-artifacts/action.yml`)
 
@@ -475,7 +475,7 @@ sequenceDiagram
 
 ### VS Code Extensions (1 total)
 
-- `apex-lsp-vscode-extension` (desktop)
+- `apex-lsp-vscode-extension` (unified: browser + desktop entry points)
 
 ## Artifact Management
 
