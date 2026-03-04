@@ -124,7 +124,7 @@ jobs:
       - name: Determine changes and version bumps
         id: changes
         env:
-          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+          IS_NIGHTLY: 'true'
           VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
           PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
           IS_PROMOTION: 'false'
@@ -186,7 +186,7 @@ jobs:
           VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
           SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
           PRE_RELEASE: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
-          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+          IS_NIGHTLY: 'true'
           IS_PROMOTION: 'false'
         run: |
           npx tsx .github/scripts/index.ts ext-version-bumper
