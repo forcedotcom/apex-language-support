@@ -25,7 +25,7 @@ graph TB
     end
 
     %% Release Workflow
-    subgraph "Release Workflow (release.yml)"
+    subgraph "Nightly Release Workflow (nightly.yml)"
         C --> N[Get Packages Action]
         F --> N
         N --> O[Release Extensions]
@@ -191,7 +191,7 @@ graph LR
 - Merges coverage reports across matrix runs
 - Creates VSIX packages for extensions
 
-### 2. Release Workflow (`release.yml`)
+### 2. Nightly Release Workflow (`nightly.yml`)
 
 **Triggers:**
 
@@ -426,7 +426,7 @@ sequenceDiagram
     GitHub->>CI: Trigger ci.yml
     CI->>CI: Run tests & package
     Note over Release: Manual trigger required
-    Dev->>Release: Manual trigger release.yml
+    Dev->>Release: Manual trigger nightly.yml
     Release->>Release: Get changed packages
     Release->>Release: Release changed extensions
 ```
@@ -544,7 +544,7 @@ md5sum -c extension-name.vsix.md5
 gh run list
 
 # View specific workflow
-gh run list --workflow=release.yml
+gh run list --workflow=nightly.yml
 
 # View workflow details
 gh run view <run-id>
@@ -554,10 +554,10 @@ gh run view <run-id>
 
 ```bash
 # Trigger release workflow
-gh workflow run release.yml
+gh workflow run nightly.yml
 
 # Trigger with inputs
-gh workflow run release.yml -f extensions=changed -f dry-run=true
+gh workflow run nightly.yml -f extensions=changed -f dry-run=true
 
 # Trigger benchmark workflow
 gh workflow run benchmark.yml

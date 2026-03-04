@@ -75,7 +75,7 @@ test_workflow_files() {
         ".github/workflows/package.yml"
         ".github/workflows/release-npm.yml"
         ".github/workflows/release-extensions.yml"
-        ".github/workflows/release.yml"
+        ".github/workflows/nightly.yml"
         ".github/actions/get-packages/action.yml"
     )
     
