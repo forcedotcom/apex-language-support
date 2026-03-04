@@ -135,16 +135,12 @@ The scripts read from GitHub Actions environment variables:
 
 ### Outputs
 
-Scripts set GitHub Actions outputs using the `::set-output` format:
+Scripts set GitHub Actions outputs by appending to the `$GITHUB_OUTPUT` environment file (modern approach):
 
 #### Extension Outputs
 
-- `is-nightly`: Whether this is a nightly build
-- `version-bump`: Version bump type to use
-- `pre-release`: Whether this is a pre-release
-- `is-promotion`: Whether this is a promotion build
 - `selected-extensions`: Comma-separated list of extensions to release
-- `version-bumps`: Version bump type for selected extensions
+- `version-bumps`: Version bump type determined from conventional commits (major/minor/patch/auto)
 - `promotion-commit-sha`: Commit SHA for promotion (if applicable)
 - `matrix`: JSON array for publish matrix
 
