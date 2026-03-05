@@ -8,35 +8,20 @@
 
 import * as vscode from 'vscode';
 import type { SalesforceVSCodeServicesApi } from '@salesforce/vscode-services';
-import { Context, Effect, ManagedRuntime } from 'effect';
-import { ExportResultCode } from '@opentelemetry/core';
-import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-base';
-import type { ExportResult } from '@opentelemetry/core';
+import { Effect, ManagedRuntime } from 'effect';
 import { logToOutputChannel } from '../logging';
-
-// Mirror the tag key from @effect/opentelemetry/Tracer without importing that
-// module — doing so would pull @opentelemetry/resources into the bundle.
-const OtelTracer = Context.GenericTag<unknown>(
-  '@effect/opentelemetry/Tracer/OtelTracer',
-);
 
 const ACTIVATION_SPAN = 'apex-language-server-extension.activate';
 
 const SERVICES_EXT_ID = 'salesforce.salesforcedx-vscode-services';
+const SALESFORCE_DX_SECTION = 'salesforcedx-vscode-salesforcedx';
 
 let extensionTracingRuntime:
   | ManagedRuntime.ManagedRuntime<never, never>
   | undefined;
 
-/**
- * Initialize OTEL tracing for the extension host process by obtaining
- * the SDK layer from salesforcedx-vscode-services and running it.
- *
- * After this call, Effect.withSpan() in the extension host will route
- * spans to whichever exporters dx-services has configured (console,
- * file, App Insights, OTLP, etc.).
- */
-export async function initializeExtensionTracing(
+/** Build or rebuild the ManagedRuntime. Called at activation and on setting changes. */
+async function buildTracingRuntime(
   context: vscode.ExtensionContext,
 ): Promise<void> {
   try {
@@ -63,22 +48,6 @@ export async function initializeExtensionTracing(
     // Eagerly build the layer (ManagedRuntime is lazy).
     await extensionTracingRuntime.runPromise(Effect.void);
 
-    // The SdkLayerFor layer exposes the OtelTracer tag in its output context.
-    // Access it to attach a dev-only file exporter for local span verification.
-    try {
-      await extensionTracingRuntime.runPromise(
-        Effect.gen(function* () {
-          const tracer = yield* OtelTracer as any;
-          attachDevFileExporter(context, tracer);
-        }) as Effect.Effect<void>,
-      );
-    } catch {
-      logToOutputChannel(
-        'Dev file exporter: OtelTracer not available in context',
-        'debug',
-      );
-    }
-
     // Emit the activation span.
     await extensionTracingRuntime.runPromise(
       Effect.withSpan(ACTIVATION_SPAN)(Effect.void),
@@ -97,97 +66,42 @@ export async function initializeExtensionTracing(
 }
 
 /**
- * Attach a dev-only span processor to the layer's OTEL Tracer.
+ * Initialize OTEL tracing for the extension host process by obtaining
+ * the SDK layer from salesforcedx-vscode-services and running it.
  *
- * The global TracerProvider (set by salesforcedx-vscode-services during its own
- * activation) uses an ExtensionHostSampler that rejects spans from external
- * callers. The layer-internal provider, however, uses the default
- * ParentBasedSampler(AlwaysOnSampler) and records all spans. We access this
- * internal provider through the Tracer's _spanProcessor (a MultiSpanProcessor)
- * and push our dev file exporter into its _spanProcessors array.
- *
- * Writes a JSONL file to ~/.sf/vscode-spans/ for on-disk span verification.
+ * Registers a configuration change listener (once) so that toggling
+ * `salesforceDx.enableFileTraces` or related settings at runtime causes
+ * the runtime to be torn down and rebuilt without requiring a window reload.
  */
-function attachDevFileExporter(
+export async function initializeExtensionTracing(
   context: vscode.ExtensionContext,
-  tracer: unknown,
-): void {
-  try {
-    const tracerObj = tracer as Record<string, unknown>;
-    const multiProcessor = tracerObj._spanProcessor as
-      | { _spanProcessors?: unknown[] }
-      | undefined;
+): Promise<void> {
+  // Register the config-change listener exactly once per activation.
+  // The listener disposes itself when the extension deactivates via context.subscriptions.
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(async (event) => {
+      const affectsTracing =
+        event.affectsConfiguration(
+          `${SALESFORCE_DX_SECTION}.enableFileTraces`,
+        ) ||
+        event.affectsConfiguration(
+          `${SALESFORCE_DX_SECTION}.enableConsoleTraces`,
+        ) ||
+        event.affectsConfiguration(
+          `${SALESFORCE_DX_SECTION}.enableLocalTraces`,
+        );
+      if (affectsTracing) {
+        logToOutputChannel(
+          'Tracing setting changed — reinitializing extension tracing runtime',
+          'info',
+        );
+        await shutdownExtensionTracing();
+        await buildTracingRuntime(context);
+      }
+    }),
+  );
 
-    if (
-      !multiProcessor?._spanProcessors ||
-      !Array.isArray(multiProcessor._spanProcessors)
-    ) {
-      logToOutputChannel(
-        'Dev file exporter: _spanProcessor._spanProcessors not found on tracer',
-        'debug',
-      );
-      return;
-    }
-
-    const os = require('os') as typeof import('os');
-    const nodePath = require('path') as typeof import('path');
-    const fs = require('fs') as typeof import('fs');
-    const spansDir = nodePath.join(os.homedir(), '.sf', 'vscode-spans');
-    fs.mkdirSync(spansDir, { recursive: true });
-    const stamp = new Date().toISOString().replaceAll(/[:.]/g, '-');
-    const filePath = nodePath.join(spansDir, `apex-ext-dev-${stamp}.jsonl`);
-
-    const devExporter: SpanExporter = {
-      export(spans: ReadableSpan[], cb: (r: ExportResult) => void): void {
-        try {
-          const lines =
-            spans
-              .map((s) =>
-                JSON.stringify({
-                  name: s.name,
-                  traceId: s.spanContext().traceId,
-                  spanId: s.spanContext().spanId,
-                  startTime: s.startTime,
-                  endTime: s.endTime,
-                  attributes: s.attributes,
-                  status: s.status,
-                  extensionId: context.extension.id,
-                }),
-              )
-              .join('\n') + '\n';
-          fs.appendFileSync(filePath, lines);
-          cb({ code: ExportResultCode.SUCCESS });
-        } catch (e) {
-          cb({ code: ExportResultCode.FAILED, error: e as Error });
-        }
-      },
-      shutdown(): Promise<void> {
-        return Promise.resolve();
-      },
-    };
-
-    const wrappedProcessor = {
-      onStart(_span: unknown, _ctx: unknown): void {
-        /* noop */
-      },
-      onEnd(span: ReadableSpan): void {
-        devExporter.export([span], () => {
-          /* ignore result */
-        });
-      },
-      forceFlush(): Promise<void> {
-        return Promise.resolve();
-      },
-      shutdown(): Promise<void> {
-        return Promise.resolve();
-      },
-    };
-
-    multiProcessor._spanProcessors.push(wrappedProcessor);
-    logToOutputChannel(`Dev span file: ${filePath}`, 'info');
-  } catch (e) {
-    logToOutputChannel(`Dev file exporter setup failed: ${e}`, 'debug');
-  }
+  await buildTracingRuntime(context);
 }
 
 /**
