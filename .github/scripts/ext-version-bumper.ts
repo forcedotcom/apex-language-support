@@ -211,6 +211,17 @@ function bumpVersions(options: VersionBumpOptions): void {
       process.chdir(originalDir);
 
       // Create git tag for this extension
+      // #region agent log
+      const tagName = preRelease === 'true'
+        ? `${packageDetails.name}-v${newVersion}-pre-release`
+        : `${packageDetails.name}-v${newVersion}`;
+      console.log('🔍 DEBUG: Creating git tag');
+      console.log(`  Extension: ${ext}`);
+      console.log(`  Package name: ${packageDetails.name}`);
+      console.log(`  New version: ${newVersion}`);
+      console.log(`  Pre-release: ${preRelease}`);
+      console.log(`  Expected tag name: ${tagName}`);
+      // #endregion
       createGitTag(
         packageDetails.name,
         newVersion,
