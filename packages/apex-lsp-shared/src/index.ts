@@ -63,10 +63,9 @@ export * from './document/DocumentSelectorUtils';
 
 export {
   DEFAULT_TELEMETRY_SETTINGS,
-  initializeTracing,
+  enableTracing,
   isTracingEnabled,
   disableTracing,
-  shutdownTracing,
   runWithSpan,
   runSyncWithSpan,
   withTracing,
