@@ -15,9 +15,6 @@
   "engines": {
     "vscode": "^1.90.0"
   },
-  "extensionDependencies": [
-    "salesforce.salesforcedx-vscode-services"
-  ],
   "categories": [
     "Programming Languages",
     "Linters",

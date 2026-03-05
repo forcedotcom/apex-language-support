@@ -9,9 +9,10 @@
  *   node scripts/test-web-ext.js [web]
  *
  * Options:
- *   --debug    : Wait for debugger attachment
- *   --devtools : Open browser devtools during tests
- *   --headless : Run in headless mode (browser hidden)
+ *   --debug         : Wait for debugger attachment
+ *   --devtools      : Open browser devtools during tests
+ *   --headless      : Run in headless mode (browser hidden)
+ *   --with-services : Install salesforcedx-vscode-services extension from Marketplace
  *
  * The test will timeout after 45 seconds if the extension fails to activate.
  */
@@ -786,6 +787,13 @@ async function runWebExtensionTests() {
       verbose: true, // Enable verbose logging
       devtools: process.argv.includes('--devtools'),
       folderPath: workspacePath,
+      ...(process.argv.includes('--with-services')
+        ? {
+            extensionIds: [
+              { id: 'salesforce.salesforcedx-vscode-services' },
+            ],
+          }
+        : {}),
       // Add a simple test that just verifies extension loading
       extensionTestsPath: !process.argv.includes('--interactive')
         ? undefined
