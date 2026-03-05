@@ -208,6 +208,8 @@ jobs:
             git remote set-url origin https://x-access-token:${{ secrets.IDEE_GH_TOKEN }}@github.com/${{ github.repository }}.git
 
             # Add all changes
+            # Note: git add . respects .gitignore, so ignored files won't be added
+            # This is intentional - Wireit output files in test fixtures should remain ignored
             git add .
 
             if git diff --staged --quiet; then
