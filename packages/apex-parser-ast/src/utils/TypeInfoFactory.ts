@@ -11,6 +11,7 @@ import { Namespace, Namespaces } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from './BuiltInTypeTables';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ResourceLoader } from './resourceLoader';
+import { isPrimitiveType } from './primitiveTypes';
 
 const logger = getLogger();
 const builtInTypes = BuiltInTypeTablesImpl.getInstance();
@@ -178,56 +179,8 @@ const getBuiltInNamespace = (namespace: string): Namespace | null => {
   return null;
 };
 
-/**
- * Canonical list of all Apex primitive types
- * This is the single source of truth for primitive type enumeration
- */
-export const PRIMITIVE_TYPES = [
-  'void',
-  'null',
-  'String',
-  'Integer',
-  'Long',
-  'Double',
-  'Decimal',
-  'Boolean',
-  'Date',
-  'DateTime',
-  'Time',
-  'Blob',
-  'Id',
-  'Object',
-] as const;
-
-/**
- * Check if a type name is a primitive type
- * This is the canonical function for checking primitive types across the codebase
- * @param typeName - The type name to check (case-sensitive)
- * @returns True if the type is a primitive type
- */
-export const isPrimitiveType = (typeName: string): boolean => {
-  // Handle case normalization for 'ID' vs 'Id'
-  const normalizedName = typeName === 'ID' ? 'Id' : typeName;
-  return PRIMITIVE_TYPES.includes(normalizedName as any);
-};
-
-/**
- * Check if a type name is a non-nullable primitive type
- * In Apex, only these types are truly primitive (cannot be null):
- * Integer, Long, Double, Decimal, Boolean
- * @param typeName - The type name to check (case-sensitive)
- * @returns True if the type is a non-nullable primitive type
- */
-export const isNonNullablePrimitiveType = (typeName: string): boolean => {
-  const nonNullablePrimitives = [
-    'Integer',
-    'Long',
-    'Double',
-    'Decimal',
-    'Boolean',
-  ] as const;
-  return nonNullablePrimitives.includes(typeName as any);
-};
+export { isPrimitiveType, isNonNullablePrimitiveType } from './primitiveTypes';
+export { APEX_PRIMITIVE_TYPES_ARRAY as PRIMITIVE_TYPES } from './primitiveTypes';
 
 /**
  * Create TypeInfo for array types

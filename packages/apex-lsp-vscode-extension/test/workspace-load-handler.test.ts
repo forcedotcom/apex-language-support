@@ -42,6 +42,8 @@ jest.mock('../src/configuration', () => ({
         maxConcurrency: 50,
         yieldInterval: 50,
         yieldDelayMs: 25,
+        batchSize: 100,
+        includeSfdxToolsCustomObjects: false,
       },
     },
   })),
@@ -110,6 +112,23 @@ describe('Workspace Load Handler', () => {
       const patterns =
         workspaceLoaderModule.deriveFilePatternsFromDocumentSelector([]);
       expect(patterns).toEqual([]);
+    });
+  });
+
+  describe('getExcludeGlob', () => {
+    it('should exclude customObjects when includeSfdxToolsCustomObjects is false', () => {
+      const glob = workspaceLoaderModule.getExcludeGlob(false);
+      expect(glob).toContain('.sfdx/tools/sobjects/customObjects');
+      expect(glob).toContain('.sfdx/tools/sobjects/standardObjects');
+      expect(glob).toContain('node_modules');
+      expect(glob).toContain('StandardApexLibrary');
+    });
+
+    it('should not exclude customObjects when includeSfdxToolsCustomObjects is true', () => {
+      const glob = workspaceLoaderModule.getExcludeGlob(true);
+      expect(glob).not.toContain('.sfdx/tools/sobjects/customObjects');
+      expect(glob).toContain('.sfdx/tools/sobjects/standardObjects');
+      expect(glob).toContain('node_modules');
     });
   });
 

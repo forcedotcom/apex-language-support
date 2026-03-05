@@ -8,7 +8,6 @@
 
 import type { ValidationResult } from './ValidationResult';
 import type { TypeInfo } from './TypeValidator';
-import { STANDARD_SOBJECT_TYPES } from '../../constants/constants';
 
 /**
  * Context for SObject validation
@@ -78,8 +77,6 @@ export interface SObjectFieldInfo {
   isSoqlExpression?: boolean;
   hasSafeNavigation?: boolean;
 }
-
-// Note: STANDARD_SOBJECT_TYPES is now imported from constants.ts
 
 /**
  * Valid SObject Map key types
@@ -297,11 +294,6 @@ export class SObjectTypeValidator {
    * Check if SObject type name is valid
    */
   private static isValidSObjectTypeName(name: string): boolean {
-    // Standard SObject types are always valid
-    if (STANDARD_SOBJECT_TYPES.has(name)) {
-      return true;
-    }
-
     // Custom SObject types must end with __c
     if (name.endsWith('__c')) {
       return true;
@@ -322,7 +314,9 @@ export class SObjectTypeValidator {
       return true;
     }
 
-    return false;
+    // Unknown type — cannot confirm it is NOT a valid SObject without org access.
+    // Permissive to avoid false positives.
+    return true;
   }
 
   /**

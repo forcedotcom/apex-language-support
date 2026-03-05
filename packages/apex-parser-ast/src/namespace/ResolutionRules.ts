@@ -11,6 +11,7 @@ import {
   ResolutionRule,
   NamespaceResolutionContext,
   SymbolProvider,
+  SymbolProviderWithStandardNamespace,
   ReferenceTypeValue,
   createTypeWithNamespace,
   Namespaces,
@@ -53,7 +54,11 @@ export const TopLevelTypeInSameNamespace: ResolutionRule = {
 
     if (!namespace) return null;
 
-    const candidateName = createTypeWithNamespace(namespace, name);
+    const candidateName = createTypeWithNamespace(namespace, name, {
+      includeNamespace: true,
+      normalizeCase: true,
+      separator: '.', // Match symbol FQN format (namespace.name)
+    });
     return symbols.find(
       context.compilationContext.referencingType,
       candidateName,
@@ -103,6 +108,98 @@ export const SObject: ResolutionRule = {
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
     return symbols.findSObjectType(name);
+  },
+};
+
+/**
+ * FileBaseSystemNamespace rule
+ * Priority: 9 - Implicit System namespace for file-based apex (e.g. System.Test as Test)
+ * Jorje: FileBaseSystemNamespace in OnePartTypeNameResolveRules
+ */
+export const FileBaseSystemNamespace: ResolutionRule = {
+  name: 'FileBaseSystemNamespace',
+  priority: 9,
+  appliesTo: (context: NamespaceResolutionContext): boolean =>
+    context.adjustedNameParts.length === 1,
+  resolve: (
+    context: NamespaceResolutionContext,
+    symbols: SymbolProvider,
+  ): ApexSymbol | null => {
+    const name = context.adjustedNameParts[0];
+    return symbols.find(
+      context.compilationContext.referencingType,
+      `System.${name}`,
+    );
+  },
+};
+
+/**
+ * FileBaseSchemaNamespace rule
+ * Priority: 10 - Implicit Schema namespace for file-based apex
+ * Jorje: FileBaseSchemaNamespace in OnePartTypeNameResolveRules
+ */
+export const FileBaseSchemaNamespace: ResolutionRule = {
+  name: 'FileBaseSchemaNamespace',
+  priority: 10,
+  appliesTo: (context: NamespaceResolutionContext): boolean =>
+    context.adjustedNameParts.length === 1,
+  resolve: (
+    context: NamespaceResolutionContext,
+    symbols: SymbolProvider,
+  ): ApexSymbol | null => {
+    const name = context.adjustedNameParts[0];
+    return symbols.find(
+      context.compilationContext.referencingType,
+      `Schema.${name}`,
+    );
+  },
+};
+
+/**
+ * BuiltInMethodNamespace rule
+ * Priority: 11 - For METHOD context: System, Schema, then other built-in namespaces (Canvas, etc.)
+ * Jorje: BuiltInMethodNamespace in OnePartTypeNameResolveRules
+ * Only applies when referenceType is METHOD.
+ */
+export const BuiltInMethodNamespace: ResolutionRule = {
+  name: 'BuiltInMethodNamespace',
+  priority: 11,
+  appliesTo: (context: NamespaceResolutionContext): boolean =>
+    context.adjustedNameParts.length === 1 &&
+    context.referenceType === 'METHOD',
+  resolve: (
+    context: NamespaceResolutionContext,
+    symbols: SymbolProvider,
+  ): ApexSymbol | null => {
+    const name = context.adjustedNameParts[0];
+    const refType = context.compilationContext.referencingType;
+    // System and Schema already tried by FileBaseSystemNamespace/FileBaseSchemaNamespace.
+    // Try other built-in namespaces (Canvas, Database, etc.) if provider supports it.
+    if ('findInAnyStandardNamespace' in symbols) {
+      return (
+        symbols as SymbolProviderWithStandardNamespace
+      ).findInAnyStandardNamespace(name, refType);
+    }
+    return null;
+  },
+};
+
+/**
+ * WorkspaceType rule
+ * Priority: 12 - Types from workspace/symbol graph (user classes, etc.)
+ * Fallback when no standard namespace matches.
+ */
+export const WorkspaceType: ResolutionRule = {
+  name: 'WorkspaceType',
+  priority: 12,
+  appliesTo: (context: NamespaceResolutionContext): boolean =>
+    context.adjustedNameParts.length === 1,
+  resolve: (
+    context: NamespaceResolutionContext,
+    symbols: SymbolProvider,
+  ): ApexSymbol | null => {
+    const name = context.adjustedNameParts[0];
+    return symbols.find(context.compilationContext.referencingType, name);
   },
 };
 
@@ -178,6 +275,35 @@ export const SchemaSObject: ResolutionRule = {
 };
 
 /**
+ * One-part rules for METHOD context (method calls).
+ * Jorje order: TopLevelTypeInSameNamespace, NamedScalarOrVoid,
+ * FileBaseSystemNamespace, FileBaseSchemaNamespace, BuiltInMethodNamespace, SObject
+ */
+const METHOD_ONE_PART_ORDER = [
+  TopLevelTypeInSameNamespace,
+  NamedScalarOrVoid,
+  BuiltInSystemSchema,
+  FileBaseSystemNamespace,
+  FileBaseSchemaNamespace,
+  BuiltInMethodNamespace,
+  SObject,
+  WorkspaceType,
+];
+
+/**
+ * One-part rules for DEFAULT/other contexts (type declarations, etc.)
+ */
+const DEFAULT_ONE_PART_ORDER = [
+  NamedScalarOrVoid,
+  TopLevelTypeInSameNamespace,
+  BuiltInSystemSchema,
+  SObject,
+  FileBaseSystemNamespace,
+  FileBaseSchemaNamespace,
+  WorkspaceType,
+];
+
+/**
  * Get all one-part resolution rules in priority order
  */
 export const getOnePartRules = (): ResolutionRule[] =>
@@ -186,6 +312,10 @@ export const getOnePartRules = (): ResolutionRule[] =>
     TopLevelTypeInSameNamespace,
     BuiltInSystemSchema,
     SObject,
+    FileBaseSystemNamespace,
+    FileBaseSchemaNamespace,
+    BuiltInMethodNamespace,
+    WorkspaceType,
   ].sort((a, b) => a.priority - b.priority);
 
 /**
@@ -197,11 +327,14 @@ export const getTwoPartRules = (): ResolutionRule[] =>
   );
 
 /**
- * Get resolution order based on reference type
+ * Get resolution order based on reference type.
+ * METHOD: Jorje-style order for method calls (Test.setMock() -> System.Test).
+ * DEFAULT/other: Original order.
  */
 export const getResolutionOrder = (
   referenceType: ReferenceTypeValue,
-): ResolutionRule[] =>
-  // For now, use the same resolution order for all reference types
-  // This can be expanded later if different resolution orders are needed
-  [...getOnePartRules(), ...getTwoPartRules()];
+): ResolutionRule[] => {
+  const onePartRules =
+    referenceType === 'METHOD' ? METHOD_ONE_PART_ORDER : DEFAULT_ONE_PART_ORDER;
+  return [...onePartRules, ...getTwoPartRules()];
+};

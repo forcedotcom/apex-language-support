@@ -378,11 +378,14 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Verify client request was made
+      // Diagnostics use background mode - load files without opening in editor
       expect(mockConnection.sendRequest).toHaveBeenCalledWith(
         'apex/findMissingArtifact',
         expect.objectContaining({
-          identifier: 'MissingSuperClass',
-          mode: 'blocking',
+          identifiers: expect.arrayContaining([
+            expect.objectContaining({ name: 'MissingSuperClass' }),
+          ]),
+          mode: 'background',
           origin: expect.objectContaining({
             uri: classAUri,
             requestKind: 'references',
@@ -438,7 +441,9 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       expect(mockConnection.sendRequest).toHaveBeenCalledWith(
         'apex/findMissingArtifact',
         expect.objectContaining({
-          identifier: 'NonExistentSuperClass',
+          identifiers: expect.arrayContaining([
+            expect.objectContaining({ name: 'NonExistentSuperClass' }),
+          ]),
         }),
       );
 
@@ -528,10 +533,10 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
         async (method: string, params: any) => {
           if (method === 'apex/findMissingArtifact') {
             _callCount++;
-            const identifier = params.identifier;
+            const names = params.identifiers?.map((s: any) => s.name) ?? [];
+            const opened: string[] = [];
 
-            if (identifier === 'MissingClass1') {
-              // First artifact found - add to storage and trigger didOpen processing
+            if (names.includes('MissingClass1')) {
               setTimeout(async () => {
                 const missingClass1Doc = TextDocument.create(
                   missingClass1Uri,
@@ -542,7 +547,6 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
                 const storage = storageManager.getStorage();
                 await storage.setDocument(missingClass1Uri, missingClass1Doc);
 
-                // Trigger didOpen processing to compile and add to symbol manager
                 const documentProcessingService = new DocumentProcessingService(
                   logger,
                 );
@@ -550,10 +554,9 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
                   document: missingClass1Doc,
                 });
               }, 10);
-
-              return { opened: [missingClass1Uri] };
-            } else if (identifier === 'MissingClass2') {
-              // Second artifact found - add to storage and trigger didOpen processing
+              opened.push(missingClass1Uri);
+            }
+            if (names.includes('MissingClass2')) {
               setTimeout(async () => {
                 const missingClass2Doc = TextDocument.create(
                   missingClass2Uri,
@@ -564,7 +567,6 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
                 const storage = storageManager.getStorage();
                 await storage.setDocument(missingClass2Uri, missingClass2Doc);
 
-                // Trigger didOpen processing to compile and add to symbol manager
                 const documentProcessingService = new DocumentProcessingService(
                   logger,
                 );
@@ -572,10 +574,12 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
                   document: missingClass2Doc,
                 });
               }, 10);
-
-              return { opened: [missingClass2Uri] };
+              opened.push(missingClass2Uri);
             }
 
+            if (opened.length > 0) {
+              return { opened };
+            }
             return { notFound: true };
           }
           return null;
@@ -596,7 +600,9 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       expect(mockConnection.sendRequest).toHaveBeenCalledWith(
         'apex/findMissingArtifact',
         expect.objectContaining({
-          identifier: 'MissingClass1',
+          identifiers: expect.arrayContaining([
+            expect.objectContaining({ name: 'MissingClass1' }),
+          ]),
         }),
       );
 

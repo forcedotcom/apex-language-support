@@ -26,6 +26,7 @@ describe('DidSaveDocumentHandler', () => {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
+      alwaysLog: jest.fn(),
     };
 
     // Create mock document save processor

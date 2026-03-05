@@ -19,10 +19,12 @@ describe('DidChangeDocumentHandler', () => {
 
   beforeEach(() => {
     mockLogger = {
+      log: jest.fn(),
       debug: jest.fn(),
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
+      alwaysLog: jest.fn(),
     };
 
     mockProcessor = {
@@ -51,16 +53,6 @@ describe('DidChangeDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       // Act (void return, fire-and-forget)
@@ -84,16 +76,6 @@ describe('DidChangeDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       const error = new Error('Processing failed');
@@ -122,7 +104,6 @@ describe('DidChangeDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 0,
         },
-        contentChanges: [],
       };
 
       // Act (void return, fire-and-forget)
@@ -146,16 +127,6 @@ describe('DidChangeDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1001,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: largeContent,
-          },
-        ],
       };
 
       // Act (void return, fire-and-forget)
@@ -178,16 +149,6 @@ describe('DidChangeDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       // Act (void return, fire-and-forget)
@@ -210,16 +171,6 @@ describe('DidChangeDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       // Act (void return, fire-and-forget)
@@ -244,16 +195,6 @@ describe('DidChangeDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       mockProcessor.processDocumentChange.mockImplementation(() => {
@@ -281,16 +222,6 @@ describe('DidChangeDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       // Act (void return, fire-and-forget)
@@ -315,19 +246,9 @@ describe('DidChangeDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
-      mockProcessor.processDocumentChange.mockResolvedValue([]);
+      mockProcessor.processDocumentChange.mockImplementation(() => {});
 
       // Process multiple changes rapidly (fire-and-forget)
       for (let i = 0; i < 10; i++) {
@@ -351,19 +272,9 @@ describe('DidChangeDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: `public class TestClass${index} {}`,
-          },
-        ],
       }));
 
-      mockProcessor.processDocumentChange.mockResolvedValue([]);
+      mockProcessor.processDocumentChange.mockImplementation(() => {});
 
       // Process concurrently (fire-and-forget)
       events.forEach((event) => handler.handleDocumentChange(event));
@@ -387,16 +298,6 @@ describe('DidChangeDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       // Act (void return, fire-and-forget)
@@ -423,16 +324,6 @@ describe('DidChangeDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-            rangeLength: 0,
-            text: 'public class TestClass {}',
-          },
-        ],
       };
 
       const error = new Error('Processing failed');

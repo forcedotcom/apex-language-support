@@ -19,10 +19,12 @@ describe('DidCloseDocumentHandler', () => {
 
   beforeEach(() => {
     mockLogger = {
+      log: jest.fn(),
       debug: jest.fn(),
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
+      alwaysLog: jest.fn(),
     };
 
     mockProcessor = {
@@ -51,7 +53,6 @@ describe('DidCloseDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       // Act (void return, fire-and-forget)
@@ -75,7 +76,6 @@ describe('DidCloseDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       const error = new Error('Processing failed');
@@ -104,7 +104,6 @@ describe('DidCloseDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 0,
         },
-        contentChanges: [],
       };
 
       // Act (void return, fire-and-forget)
@@ -128,7 +127,6 @@ describe('DidCloseDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1001,
         },
-        contentChanges: [],
       };
 
       // Act (void return, fire-and-forget)
@@ -151,7 +149,6 @@ describe('DidCloseDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       // Act (void return, fire-and-forget)
@@ -176,7 +173,6 @@ describe('DidCloseDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       mockProcessor.processDocumentClose.mockImplementation(() => {
@@ -204,7 +200,6 @@ describe('DidCloseDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       // Act (void return, fire-and-forget)
@@ -229,10 +224,9 @@ describe('DidCloseDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
-      mockProcessor.processDocumentClose.mockResolvedValue(undefined);
+      mockProcessor.processDocumentClose.mockImplementation(() => {});
 
       // Process multiple closes rapidly (fire-and-forget)
       for (let i = 0; i < 10; i++) {
@@ -262,10 +256,9 @@ describe('DidCloseDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       }));
 
-      mockProcessor.processDocumentClose.mockResolvedValue(undefined);
+      mockProcessor.processDocumentClose.mockImplementation(() => {});
 
       // Process concurrently (fire-and-forget)
       events.forEach((event) => handler.handleDocumentClose(event));
@@ -289,7 +282,6 @@ describe('DidCloseDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       // Act (void return, fire-and-forget)
@@ -316,7 +308,6 @@ describe('DidCloseDocumentHandler', () => {
           offsetAt: jest.fn(),
           lineCount: 1,
         },
-        contentChanges: [],
       };
 
       const error = new Error('Processing failed');

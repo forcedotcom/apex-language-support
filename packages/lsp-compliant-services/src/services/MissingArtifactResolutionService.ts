@@ -80,8 +80,9 @@ export class EnhancedMissingArtifactResolutionService
   async resolveBlocking(
     params: FindMissingArtifactParams,
   ): Promise<BlockingResult> {
+    const names = params.identifiers.map((s) => s.name).join(', ');
     this.logger.debug(
-      () => `Starting blocking resolution for identifier: ${params.identifier}`,
+      () => `Starting blocking resolution for identifiers: ${names}`,
     );
 
     // Check if missing artifact resolution is enabled in settings
@@ -104,15 +105,13 @@ export class EnhancedMissingArtifactResolutionService
         },
       );
 
-      this.logger.debug(
-        () => `Blocking resolution completed for: ${params.identifier}`,
-      );
+      this.logger.debug(() => `Blocking resolution completed for: ${names}`);
 
       // Map the result to BlockingResult
       return this.mapResultToBlockingResult(result);
     } catch (error) {
       this.logger.error(
-        () => `Blocking resolution failed for ${params.identifier}: ${error}`,
+        () => `Blocking resolution failed for ${names}: ${error}`,
       );
 
       // Return timeout if the request timed out
@@ -129,9 +128,9 @@ export class EnhancedMissingArtifactResolutionService
    * Sends request directly to client for background processing
    */
   async resolveInBackground(params: FindMissingArtifactParams): Promise<void> {
+    const names = params.identifiers.map((s) => s.name).join(', ');
     this.logger.debug(
-      () =>
-        `Starting background resolution for identifier: ${params.identifier}`,
+      () => `Starting background resolution for identifiers: ${names}`,
     );
 
     // Check if missing artifact resolution is enabled in settings
@@ -149,7 +148,7 @@ export class EnhancedMissingArtifactResolutionService
       if (!connection) {
         this.logger.warn(
           () =>
-            `No LSP connection available for background resolution of: ${params.identifier}`,
+            `No LSP connection available for background resolution of: ${names}`,
         );
         return;
       }
@@ -159,19 +158,18 @@ export class EnhancedMissingArtifactResolutionService
         .sendRequest('apex/findMissingArtifact', params)
         .catch((error) => {
           this.logger.debug(
-            () =>
-              `Background resolution request failed for ${params.identifier}: ${error}`,
+            () => `Background resolution request failed for ${names}: ${error}`,
           );
           // Don't throw - background resolution failures shouldn't block the main flow
         });
 
       this.logger.debug(
-        () => `Background resolution request sent for: ${params.identifier}`,
+        () => `Background resolution request sent for: ${names}`,
       );
     } catch (error) {
       this.logger.error(
         () =>
-          `Failed to send background resolution request for ${params.identifier}: ${error}`,
+          `Failed to send background resolution request for ${names}: ${error}`,
       );
       // Don't throw - background resolution failures shouldn't block the main flow
     }

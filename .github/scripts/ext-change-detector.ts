@@ -215,6 +215,47 @@ function intersectExtensions(
 }
 
 /**
+ * Determine the highest required version bump from conventional commits since a tag.
+ * Returns 'major', 'minor', or 'patch'.
+ */
+async function detectBumpTypeFromCommits(
+  git: any,
+  extensionPath: string,
+  lastTag: string | null,
+): Promise<'major' | 'minor' | 'patch'> {
+  try {
+    const range = lastTag ? `${lastTag}..HEAD` : 'HEAD';
+    const log_ = await git.log({
+      from: lastTag || undefined,
+      to: 'HEAD',
+      '--': null,
+      _: [extensionPath],
+    });
+    const messages: string[] = log_.all.map((c: any) => c.message as string);
+
+    let bump: 'major' | 'minor' | 'patch' = 'patch';
+    for (const msg of messages) {
+      const firstLine = msg.split('\n')[0];
+      const body = msg;
+      if (
+        /BREAKING CHANGE/i.test(body) ||
+        /^[a-z]+(\([^)]*\))?!:/i.test(firstLine)
+      ) {
+        return 'major';
+      }
+      if (/^feat(\([^)]*\))?:/i.test(firstLine) && bump !== 'major') {
+        bump = 'minor';
+      }
+    }
+    log.debug(`Detected bump type from commits (${range}): ${bump}`);
+    return bump;
+  } catch (error) {
+    log.warning(`Failed to analyze commits for bump type: ${error}`);
+    return 'patch';
+  }
+}
+
+/**
  * Detect changes in extensions
  */
 export async function detectExtensionChanges(
@@ -276,6 +317,29 @@ export async function detectExtensionChanges(
           `Found changes in ${extension.name} - including in ${buildType.toLowerCase()} release`,
         );
         changedExtensions.push(extension.name);
+
+        // For nightly builds with auto bump type, analyze conventional commits
+        // to determine the appropriate bump level
+        if (
+          buildContext.isNightly &&
+          (buildContext.versionBump === 'auto' ||
+            buildContext.versionBump === 'patch')
+        ) {
+          const detectedBump = await detectBumpTypeFromCommits(
+            git,
+            extension.path,
+            lastTag,
+          );
+          if (
+            detectedBump === 'major' ||
+            (detectedBump === 'minor' && versionBumps !== 'major')
+          ) {
+            log.info(
+              `Upgrading bump type for ${extension.name}: ${versionBumps} → ${detectedBump} (conventional commits)`,
+            );
+            versionBumps = detectedBump;
+          }
+        }
       } else {
         log.info(
           `No changes found in ${extension.name} - skipping ${buildType.toLowerCase()} release`,

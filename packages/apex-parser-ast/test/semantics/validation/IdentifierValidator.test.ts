@@ -163,7 +163,6 @@ describe('IdentifierValidator', () => {
   describe('Keywords', () => {
     // Test a sample of keywords (now using centralized keyword set)
     const keywords = [
-      'trigger',
       'insert',
       'update',
       'upsert',
@@ -172,7 +171,6 @@ describe('IdentifierValidator', () => {
       'merge',
       'new',
       'for',
-      'select',
       'if',
       'class',
       'while',
@@ -196,7 +194,7 @@ describe('IdentifierValidator', () => {
 
     it('should allow keywords for methods', () => {
       const result = IdentifierValidator.validateIdentifier(
-        'trigger',
+        'insert',
         SymbolKind.Method,
         false,
         createMockScope(),
@@ -209,7 +207,14 @@ describe('IdentifierValidator', () => {
   describe('Contextual Keywords', () => {
     // Contextual keywords that can be used as identifiers (class names, etc.)
     // These are keywords in specific contexts (like SOQL/SOSL queries) but valid as identifiers elsewhere
-    const contextualKeywords = ['metadata', 'reference', 'name', 'count'];
+    const contextualKeywords = [
+      'metadata',
+      'reference',
+      'name',
+      'count',
+      'offset',
+      'limit',
+    ];
 
     it.each(contextualKeywords)(
       'should allow contextual keyword as class name: %s',
@@ -301,8 +306,8 @@ describe('IdentifierValidator', () => {
       expect(result.errors.length).toBe(0);
     });
 
-    it('should reject select as class name', () => {
-      // 'select' should remain a keyword and not be allowed as an identifier
+    it('should allow select as class name', () => {
+      // 'select' is contextual (Grammar id rule) - valid as identifier in Apex code
       const result = IdentifierValidator.validateIdentifier(
         'select',
         SymbolKind.Class,
@@ -310,8 +315,8 @@ describe('IdentifierValidator', () => {
         createMockScope(),
       );
 
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Identifier cannot be a keyword: select');
+      expect(result.isValid).toBe(true);
+      expect(result.errors.length).toBe(0);
     });
 
     it('should allow SelectOption as class name', () => {

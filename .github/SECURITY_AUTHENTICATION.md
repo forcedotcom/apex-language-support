@@ -91,7 +91,7 @@ permissions:
 - **Operations**: Orchestrate releases
 - **Permissions**: `contents: write`, `packages: write`, `actions: read`
 
-### **Release Extensions Workflow** (`release-extensions.yml`)
+### **Release Extensions Workflow** (`nightly-extensions.yml`)
 
 - **Token**: `GITHUB_TOKEN` (automatic)
 - **Operations**:

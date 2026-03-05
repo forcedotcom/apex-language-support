@@ -10,6 +10,7 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { ReferenceContext } from '../../src/types/symbolReference';
+import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
 import { Effect } from 'effect';
 
 describe('ApexSymbolManager - Parameter Type References', () => {
@@ -67,9 +68,9 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have a chained type reference for System.URL parameter
-      const chainedTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      // Should have a chained type reference for System.Url parameter
+      const chainedTypeRefs = references.filter((ref) =>
+        isChainedSymbolReference(ref),
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -154,9 +155,9 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have chained type references for System.URL (both return and parameter)
-      const chainedTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      // Should have chained type references for System.Url (both return and parameter)
+      const chainedTypeRefs = references.filter((ref) =>
+        isChainedSymbolReference(ref),
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(2);
 
@@ -179,9 +180,9 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have a chained type reference for System.URL field type
-      const chainedTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      // Should have a chained type reference for System.Url field type
+      const chainedTypeRefs = references.filter((ref) =>
+        isChainedSymbolReference(ref),
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -206,9 +207,9 @@ describe('ApexSymbolManager - Parameter Type References', () => {
       const testClassUri = await addTestClass(testClass, 'TestClass');
       const references = symbolManager.getAllReferencesInFile(testClassUri);
 
-      // Should have chained type references for System.URL (variable type and method call)
-      const chainedTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
+      // Should have chained type references for System.Url (variable type and method call)
+      const chainedTypeRefs = references.filter((ref) =>
+        isChainedSymbolReference(ref),
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 

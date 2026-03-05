@@ -25,7 +25,7 @@ graph TB
     end
 
     %% Release Workflow
-    subgraph "Release Workflow (release.yml)"
+    subgraph "Nightly Release Workflow (nightly.yml)"
         C --> N[Get Packages Action]
         F --> N
         N --> O[Release Extensions]
@@ -33,7 +33,7 @@ graph TB
     end
 
     %% Extension Release Workflow
-    subgraph "Extension Release (release-extensions.yml)"
+    subgraph "Extension Release (nightly-extensions.yml)"
         O --> Q[Determine Changes]
         Q --> R[Package Workflow]
         R --> S[vsix-packages]
@@ -83,33 +83,24 @@ The workflows use TypeScript-based release scripts located in `.github/scripts/`
 #### Extension Release Scripts
 
 ```yaml
-# Determine build type
-- name: Check build type
-  env:
-    INPUT_VERSION_BUMP: ${{ inputs.version-bump || 'auto' }}
-    INPUT_PRE_RELEASE: ${{ inputs.pre-release || 'false' }}
-  run: npx tsx .github/scripts/index.ts ext-build-type
-
-# Detect changes
+# Detect changes and analyze conventional commits for bump type
 - name: Determine changes and version bumps
   env:
-    IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
-    VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
-    PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
-    IS_PROMOTION: ${{ needs.determine-build-type.outputs.is-promotion }}
-    PROMOTION_COMMIT_SHA: ${{ env.PROMOTION_COMMIT_SHA || '' }}
+    IS_NIGHTLY: 'true'
+    VERSION_BUMP: 'auto'   # overridden by commit analysis in ext-change-detector
+    PRE_RELEASE: 'true'
+    IS_PROMOTION: 'false'
     SELECTED_EXTENSIONS: ${{ inputs.extensions }}
   run: npx tsx .github/scripts/index.ts ext-change-detector
 
-# Bump versions
+# Bump versions (bump type flows from determine-changes output)
 - name: Bump versions and tag for selected extensions
   env:
     VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
     SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
-    PRE_RELEASE: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
-    IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
-    IS_PROMOTION: ${{ needs.determine-build-type.outputs.is-promotion }}
-    PROMOTION_COMMIT_SHA: ${{ needs.determine-changes.outputs.promotion-commit-sha }}
+    PRE_RELEASE: 'true'
+    IS_NIGHTLY: 'true'
+    IS_PROMOTION: 'false'
   run: npx tsx .github/scripts/index.ts ext-version-bumper
 ```
 
@@ -135,12 +126,11 @@ The workflows use TypeScript-based release scripts located in `.github/scripts/`
 
 #### Extension Scripts (ext-\*)
 
-- `ext-build-type`: Determine build type (nightly/promotion/regular)
-- `ext-promotion-finder`: Find promotion candidates for nightly builds
-- `ext-change-detector`: Detect changes in VS Code extensions
+- `ext-change-detector`: Detect changes in VS Code extensions; analyzes conventional commits to determine bump type (major/minor/patch)
+- `ext-nightly-finder`: Find eligible nightly builds for pre-release promotion
 - `ext-package-selector`: Select VS Code extensions for release
 - `ext-release-plan`: Display extension release plan
-- `ext-version-bumper`: Bump versions for selected extensions
+- `ext-version-bumper`: Bump versions for selected extensions (odd minor = nightly/pre-release, even minor = stable)
 - `ext-publish-matrix`: Determine publish matrix for extensions
 - `ext-github-releases`: Create GitHub releases for extensions
 
@@ -191,87 +181,70 @@ graph LR
 - Merges coverage reports across matrix runs
 - Creates VSIX packages for extensions
 
-### 2. Release Workflow (`release.yml`)
+### 2. Nightly Release Workflow (`release.yml` → will become `nightly.yml` on main)
 
 **Triggers:**
 
-- Manual dispatch (primary)
-- Scheduled nightly builds:
-  - `main` branch: Daily at 4:00 AM UTC (`0 4 * * *`)
-- ~~Push to main (commented out)~~
+- Manual dispatch — inputs: `branch`, `extensions`, `dry-run`
+- Scheduled nightly builds: Daily at 4:00 AM UTC (`0 4 * * *`)
 
 **Jobs:**
 
 ```mermaid
 graph TB
-    A[Get Packages] --> B[Release Extensions]
-    A --> C[Determine Build Type]
-
-    subgraph "Get Packages Action"
-        D[Scan packages/*/]
-        D --> E[Identify NPM packages]
-        D --> F[Identify Extensions]
-    end
+    A[get-extensions] --> B[release-extensions]
 ```
 
-**Purpose:** Orchestrate releases of VS Code extensions (NPM releases currently disabled).
+**Purpose:** Extension-only nightly orchestrator. NPM publishing is decoupled into `release-npm.yml` pending dependency-ordering design.
 
 **Key Features:**
 
-- Uses composite action `get-packages` to dynamically identify packages
-- Supports manual input for branch, packages, dry-run, pre-release, etc.
-- Determines build type (nightly vs regular)
-- **Nightly builds**: Automatically runs scheduled builds for `main` as pre-releases
-- ~~NPM release workflow is commented out~~
+- Discovers available VS Code extensions via `ext-package-selector`
+- Hardcodes `pre-release: true` and `version-bump: auto` — always a nightly
+- Schedule always passes `extensions: changed`
+- Concurrency group prevents overlapping runs
 
-**Nightly Build Behavior:**
-
-- Scheduled runs automatically use `pre-release: true`
-- All scheduled runs target `main`
-- Only changed extensions are built and released
-- All registries are targeted by default
-
-### 3. Extension Release Workflow (`release-extensions.yml`)
+### 3. Extension Nightly Workflow (`nightly-extensions.yml`)
 
 **Triggers:**
 
-- Called by release workflow
+- Called by `release.yml`
 - Manual dispatch
 
 **Jobs:**
 
 ```mermaid
 graph TB
-    A[Determine Changes] --> B[Package Workflow]
-    B --> C[vsix-packages]
-    A --> D[Bump Versions]
-    D --> E[Commit & Push]
-    E --> F[Publish VSCode]
-    E --> G[Publish OpenVSX]
-
-    subgraph "Extensions"
-        H[apex-lsp-vscode-extension]
-    end
+    A[determine-changes] --> B[bump-versions]
+    A --> C[display-release-plan]
+    A --> D[determine-publish-matrix]
+    B --> E[package]
+    E --> F[create-github-releases]
+    D --> G[publish - skipped for nightly]
 ```
 
-**Purpose:** Release VS Code extensions to multiple registries.
+**Purpose:** Build, version-bump, and create GitHub Releases for nightly extension builds. Marketplace publish is skipped (matrix is always empty for nightly).
 
 **Script Integration:**
 
-- Uses `ext-build-type` to determine build type
-- Uses `ext-change-detector` to detect changes
-- Uses `ext-version-bumper` to bump versions
-- Uses `ext-github-releases` to create releases
-- Uses `ext-publish-matrix` to determine publish targets
+- Uses `ext-change-detector` to detect changes and analyze conventional commits for bump type
+- Uses `ext-version-bumper` to bump versions (odd minor enforced for nightly)
+- Uses `ext-github-releases` to create GH releases with VSIX assets
+- Uses `ext-publish-matrix` (returns empty for nightly — no marketplace publish)
+
+**Version Scheme:**
+
+- Odd minor (0.5.x, 0.7.x) → nightly/pre-release slot
+- Even minor (0.6.x, 0.8.x) → stable slot (set at promotion time)
+- `fix:` commits → patch increment; `feat:` → next odd minor; `feat!:` → major+1.1.0
 
 ### 4. NPM Release Workflow (`release-npm.yml`)
 
 **Triggers:**
 
-- Push to main
-- Manual dispatch
+- Manual dispatch only (decoupled from nightly schedule)
 
-**Purpose:** Release NPM packages to npmjs.org.
+**Purpose:** Standalone npm package publishing — strategy pending dependency-ordering design.
 
 **Script Integration:**
 
@@ -375,7 +348,7 @@ The workflow system uses several composite actions to reduce code duplication an
 
 - `npm-packages`: Comma-separated list of NPM package names
 - `extensions`: Comma-separated list of VS Code extension names
-- `extension-paths`: Extension package paths for publishing
+- `extension-paths`: Extension package paths for publishing (one path per extension)
 
 ### 2. Download VSIX Artifacts (`download-vsix-artifacts/action.yml`)
 
@@ -426,7 +399,7 @@ sequenceDiagram
     GitHub->>CI: Trigger ci.yml
     CI->>CI: Run tests & package
     Note over Release: Manual trigger required
-    Dev->>Release: Manual trigger release.yml
+    Dev->>Release: Manual trigger nightly.yml
     Release->>Release: Get changed packages
     Release->>Release: Release changed extensions
 ```
@@ -475,7 +448,7 @@ sequenceDiagram
 
 ### VS Code Extensions (1 total)
 
-- `apex-lsp-vscode-extension` (desktop)
+- `apex-lsp-vscode-extension` (unified: browser + desktop entry points)
 
 ## Artifact Management
 
@@ -544,7 +517,7 @@ md5sum -c extension-name.vsix.md5
 gh run list
 
 # View specific workflow
-gh run list --workflow=release.yml
+gh run list --workflow=nightly.yml
 
 # View workflow details
 gh run view <run-id>
@@ -554,10 +527,10 @@ gh run view <run-id>
 
 ```bash
 # Trigger release workflow
-gh workflow run release.yml
+gh workflow run nightly.yml
 
 # Trigger with inputs
-gh workflow run release.yml -f extensions=changed -f dry-run=true
+gh workflow run nightly.yml -f extensions=changed -f dry-run=true
 
 # Trigger benchmark workflow
 gh workflow run benchmark.yml
@@ -629,10 +602,10 @@ The extension release workflow uses a smart version bumping strategy that combin
 
 ```bash
 # Pre-release with feature
-gh workflow run release-extensions.yml --field pre-release=true
+gh workflow run nightly-extensions.yml --field pre-release=true
 
 # Stable release with feature
-gh workflow run release-extensions.yml --field pre-release=false
+gh workflow run nightly-extensions.yml --field pre-release=false
 ```
 
 ## Current Status and Notes

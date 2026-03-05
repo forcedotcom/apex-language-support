@@ -51,7 +51,7 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
 
   beforeEach(() => {
     enableConsoleLogging();
-    setLogLevel('debug'); // Set to 'debug' to see debug messages for troubleshooting
+    setLogLevel('error'); // Set to 'debug' to see debug messages for troubleshooting
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
   });

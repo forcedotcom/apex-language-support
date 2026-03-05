@@ -202,7 +202,9 @@ describe('SObjectTypeValidator', () => {
     });
 
     describe('Invalid SObject Types', () => {
-      it('should reject invalid SObject type names', () => {
+      it('should allow unknown SObject type names (permissive without org access)', () => {
+        // Without org-loaded metadata we cannot confirm a type is NOT a valid
+        // SObject. isValidSObjectTypeName is permissive to avoid false positives.
         const invalidType = createMockSObjectType('InvalidObject');
 
         const result = SObjectTypeValidator.validateSObjectType(
@@ -210,8 +212,7 @@ describe('SObjectTypeValidator', () => {
           createMockScope(),
         );
 
-        expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('invalid.sobject.type');
+        expect(result.isValid).toBe(true);
       });
 
       it('should reject SObject Map with non-SObject value', () => {
@@ -366,7 +367,8 @@ describe('SObjectTypeValidator', () => {
         expect(result.errors).toContain('field.does.not.exist');
       });
 
-      it('should reject fields on invalid SObject types', () => {
+      it('should allow fields on unknown SObject types (permissive without org access)', () => {
+        // Without org-loaded metadata we cannot confirm a type is NOT a valid SObject.
         const field = createMockSObjectField('Name', 'String');
 
         const result = SObjectTypeValidator.validateSObjectField(
@@ -375,8 +377,7 @@ describe('SObjectTypeValidator', () => {
           createMockScope(),
         );
 
-        expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('invalid.sobject.type');
+        expect(result.isValid).toBe(true);
       });
     });
   });

@@ -31,7 +31,7 @@ export interface ApexComment {
 /**
  * Types of comments supported
  */
-export const enum CommentType {
+export enum CommentType {
   /** Single-line comment starting with // */
   Line = 'line',
   /** Multi-line comment between slash-star and star-slash */
@@ -41,7 +41,7 @@ export const enum CommentType {
 /**
  * Types of associations between comments and symbols
  */
-export const enum CommentAssociationType {
+export enum CommentAssociationType {
   /** Comment appears before the symbol (typical documentation) */
   Preceding = 'preceding',
   /** Comment appears on the same line as the symbol */

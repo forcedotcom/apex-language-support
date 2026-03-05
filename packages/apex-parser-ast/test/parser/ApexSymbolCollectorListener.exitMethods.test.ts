@@ -38,7 +38,9 @@ public class TestClass {
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const method = symbols.find((s) => s.name === 'method');
+      const method = symbols.find(
+        (s) => s.name === 'method' && s.kind === SymbolKind.Method,
+      );
       expect(method).toBeDefined();
       expect(method?.kind).toBe(SymbolKind.Method);
 
@@ -66,7 +68,9 @@ public class TestClass {
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const method = symbols.find((s) => s.name === 'method');
+      const method = symbols.find(
+        (s) => s.name === 'method' && s.kind === SymbolKind.Method,
+      );
       expect(method).toBeDefined();
 
       if (method && isMethodSymbol(method)) {
@@ -475,20 +479,25 @@ public class ParentClass {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
 
-      // Note: super.parentMethod() is parsed as a dot expression, and super
-      // might be handled as part of the dot expression rather than as a standalone primary.
-      // The enterPrimary handler for SUPER is called when super appears as a standalone
-      // primary expression. When super is part of a dot expression like super.method(),
-      // it may be handled by the dot expression handler.
-      // The implementation is correct - super references are tracked when they appear
-      // as standalone primary expressions. For dot expressions, the super is part of
-      // the chained expression.
-      const methodCallRefs = references.filter(
-        (r) => r.name === 'parentMethod',
+      // Note: super.parentMethod() is parsed as a chained expression
+      // With our changes, individual method call references are not added to the symbol table
+      // for chained calls. Instead, we have the chained reference.
+      // Check for chained references that contain 'parentMethod' in the chain
+      const chainedRefs = references.filter((r) => {
+        const chainNodes = (r as any).chainNodes;
+        return (
+          chainNodes &&
+          Array.isArray(chainNodes) &&
+          chainNodes.some((node: any) => node.name === 'parentMethod')
+        );
+      });
+      // Also check for any reference with 'parentMethod' in the name (could be chained)
+      const parentMethodRefs = references.filter((r) =>
+        r.name.includes('parentMethod'),
       );
 
-      // Verify that the method call is tracked (which implies super was processed)
-      expect(methodCallRefs.length).toBeGreaterThan(0);
+      // Verify that the method call is tracked (either as chained reference or individual)
+      expect(chainedRefs.length + parentMethodRefs.length).toBeGreaterThan(0);
     });
   });
 
@@ -716,12 +725,18 @@ public class TestClass {
 
       // Verify all symbols are collected correctly
       expect(symbols.find((s) => s.name === 'CONSTANT')).toBeDefined();
-      expect(symbols.find((s) => s.name === 'method')).toBeDefined();
+      expect(
+        symbols.find(
+          (s) => s.name === 'method' && s.kind === SymbolKind.Method,
+        ),
+      ).toBeDefined();
       expect(symbols.find((s) => s.name === 'property')).toBeDefined();
       expect(symbols.find((s) => s.name === 'field')).toBeDefined();
 
       // Verify parameters
-      const method = symbols.find((s) => s.name === 'method');
+      const method = symbols.find(
+        (s) => s.name === 'method' && s.kind === SymbolKind.Method,
+      );
       if (method && isMethodSymbol(method)) {
         expect(method.parameters).toHaveLength(2);
       }
