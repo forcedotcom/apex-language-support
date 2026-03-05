@@ -120,7 +120,6 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
 
     telemetry: {
       enabled: false,
-      localTracingEnabled: false,
     },
 
     validation: {
