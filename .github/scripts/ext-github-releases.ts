@@ -7,7 +7,7 @@
  */
 
 import { execSync } from 'child_process';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { glob } from 'glob';
 
@@ -296,24 +296,48 @@ function createGitHubRelease(
           // #endregion
         }
 
+        // Write release notes to a temporary file to avoid shell escaping issues
+        const notesFile = join(process.cwd(), `.release-notes-${Date.now()}.tmp`);
+        try {
+          writeFileSync(notesFile, releaseNotes, 'utf8');
+        } catch (writeError) {
+          console.error(`Failed to write release notes file: ${writeError}`);
+          throw writeError;
+        }
+
         const command =
           `gh release create "${releaseTag}" --title "${releaseTitle}" ` +
-          `--notes "${releaseNotes}" --prerelease="${preRelease}" ` +
+          `--notes-file "${notesFile}" --prerelease="${preRelease}" ` +
           `--repo "${repo}" ${vsixArgs}`;
         
         // #region agent log
         console.log('🔍 DEBUG: Executing gh release create command');
         console.log(`  Command: ${command.substring(0, 200)}...`);
         console.log(`  Tag exists: ${tagExists}`);
+        console.log(`  Notes file: ${notesFile}`);
         // #endregion
 
         try {
           execSync(command, { stdio: 'inherit' });
+          
+          // Clean up notes file after successful creation
+          try {
+            unlinkSync(notesFile);
+          } catch (cleanupError) {
+            console.warn(`Warning: Failed to clean up notes file ${notesFile}: ${cleanupError}`);
+          }
           // #region agent log
           console.log(`🔍 DEBUG: gh release create command completed successfully`);
           // #endregion
           console.log(`✅ Release created for ${extension}`);
         } catch (createError) {
+          // Clean up notes file even on error
+          try {
+            unlinkSync(notesFile);
+          } catch (cleanupError) {
+            console.warn(`Warning: Failed to clean up notes file ${notesFile}: ${cleanupError}`);
+          }
+          
           // #region agent log
           const errorObj = createError as any;
           console.error(`🔍 DEBUG: gh release create FAILED`);
