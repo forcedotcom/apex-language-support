@@ -749,6 +749,7 @@ class PerformanceSettingsUI {
       yieldInterval: 10,
       yieldDelayMs: 25,
       batchSize: 100,
+      includeSfdxToolsCustomObjects: false,
     };
 
     return `
@@ -767,6 +768,15 @@ class PerformanceSettingsUI {
                 <span class="setting-label-text">Enable Workspace Loading</span>
               </label>
               <div class="setting-help">Automatically load workspace files at startup (default: false)</div>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">
+                <input type="checkbox" 
+                       data-path="loadWorkspace.includeSfdxToolsCustomObjects"
+                       ${def.includeSfdxToolsCustomObjects ? 'checked' : ''}>
+                <span class="setting-label-text">Include SFDX Custom Object Stubs</span>
+              </label>
+              <div class="setting-help">Scan .sfdx/tools/sobjects/customObjects (default: false)</div>
             </div>
             <div class="setting-item">
               <label class="setting-label">

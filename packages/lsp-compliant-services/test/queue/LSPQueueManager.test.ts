@@ -104,6 +104,8 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
+      log: jest.fn(),
+      alwaysLog: jest.fn(),
     };
     (getLogger as jest.Mock).mockReturnValue(mockLogger);
 
@@ -142,6 +144,11 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       getGraphData: jest.fn(),
       getGraphDataForFile: jest.fn(),
       getGraphDataByType: jest.fn(),
+      findFQNForStandardClass: jest.fn(),
+      getDetailLevelForFile: jest.fn(),
+      enrichToLevel: jest.fn(),
+      resolveWithEnrichment: jest.fn(),
+      isStandardLibraryType: jest.fn(),
     };
 
     // Mock ApexSettingsManager

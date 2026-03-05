@@ -24,6 +24,7 @@ export enum AnnotationTarget {
   Interface = 'interface',
   Method = 'method',
   Property = 'property',
+  Field = 'field',
   Parameter = 'parameter',
   Any = 'any',
 }
@@ -78,6 +79,19 @@ export class AnnotationValidator {
       validTargets: [AnnotationTarget.Method],
       optionalParameters: ['label', 'description', 'category'],
       description: 'Allows a method to be invoked from flows and processes',
+    },
+    {
+      name: 'InvocableVariable',
+      validTargets: [AnnotationTarget.Field],
+      optionalParameters: [
+        'label',
+        'description',
+        'required',
+        'defaultValue',
+        'placeholderText',
+      ],
+      description:
+        'Marks a field as an input or output variable for invocable methods',
     },
     {
       name: 'RemoteAction',
@@ -375,6 +389,8 @@ export class AnnotationValidator {
         return validTargets.includes(AnnotationTarget.Method);
       case SymbolKind.Property:
         return validTargets.includes(AnnotationTarget.Property);
+      case SymbolKind.Field:
+        return validTargets.includes(AnnotationTarget.Field);
       case SymbolKind.Parameter:
         return validTargets.includes(AnnotationTarget.Parameter);
       default:

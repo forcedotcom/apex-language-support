@@ -69,23 +69,9 @@ describe('ApexKeywords', () => {
     });
 
     describe('SOQL Keywords', () => {
-      const soqlKeywords = [
-        'select',
-        'from',
-        'where',
-        'order',
-        'by',
-        'limit',
-        'group',
-        'having',
-        'and',
-        'or',
-        'not',
-        'like',
-        'in',
-        'includes',
-        'excludes',
-      ];
+      const soqlKeywords = ['and', 'or'];
+      // select, from, where, order, by, group, having, not, like, in, includes, excludes,
+      // limit, offset are contextual (in grammar id rule) - valid as identifiers
 
       it.each(soqlKeywords)('should recognize SOQL keyword: %s', (keyword) => {
         expect(isApexKeyword(keyword)).toBe(true);
@@ -101,12 +87,12 @@ describe('ApexKeywords', () => {
       });
 
       it('should match SOQL keywords case-insensitively', () => {
-        expect(isApexKeyword('select')).toBe(true);
-        expect(isApexKeyword('SELECT')).toBe(true);
-        expect(isApexKeyword('Select')).toBe(true);
-        expect(isApexKeyword('from')).toBe(true);
-        expect(isApexKeyword('FROM')).toBe(true);
-        expect(isApexKeyword('From')).toBe(true);
+        expect(isApexKeyword('and')).toBe(true);
+        expect(isApexKeyword('AND')).toBe(true);
+        expect(isApexKeyword('And')).toBe(true);
+        expect(isApexKeyword('or')).toBe(true);
+        expect(isApexKeyword('OR')).toBe(true);
+        expect(isApexKeyword('Or')).toBe(true);
       });
     });
 
@@ -160,8 +146,7 @@ describe('ApexKeywords', () => {
       });
 
       it('should still treat other keywords as keywords', () => {
-        // Keywords that are NOT builtin types should still be treated as keywords
-        expect(isApexKeyword('system')).toBe(true); // System is a namespace, not a builtin type
+        // Keywords that are NOT builtin types or contextual should still be treated as keywords
         expect(isApexKeyword('testmethod')).toBe(true);
         expect(isApexKeyword('if')).toBe(true);
         expect(isApexKeyword('for')).toBe(true);
@@ -171,7 +156,14 @@ describe('ApexKeywords', () => {
       it('should NOT treat contextual keywords as keywords', () => {
         // Contextual keywords that can be used as identifiers should NOT be treated as keywords
         // They are keywords in specific contexts (like SOQL/SOSL queries) but valid as identifiers elsewhere
-        const contextualKeywords = ['metadata', 'reference', 'name', 'count'];
+        const contextualKeywords = [
+          'metadata',
+          'reference',
+          'name',
+          'count',
+          'offset',
+          'limit',
+        ];
         contextualKeywords.forEach((keyword) => {
           expect(isApexKeyword(keyword)).toBe(false);
           expect(isApexKeyword(keyword.toUpperCase())).toBe(false);
@@ -182,15 +174,26 @@ describe('ApexKeywords', () => {
       });
 
       it('should still treat SOQL keywords as keywords', () => {
-        // SOQL keywords should still be treated as keywords
-        expect(isApexKeyword('select')).toBe(true);
-        expect(isApexKeyword('from')).toBe(true);
-        expect(isApexKeyword('where')).toBe(true);
-        expect(isApexKeyword('group')).toBe(true);
-        expect(isApexKeyword('order')).toBe(true);
-        expect(isApexKeyword('having')).toBe(true);
-        expect(isApexKeyword('limit')).toBe(true);
-        expect(isApexKeyword('offset')).toBe(true);
+        // SOQL keywords that are not contextual should be treated as keywords
+        expect(isApexKeyword('and')).toBe(true);
+        expect(isApexKeyword('or')).toBe(true);
+      });
+
+      it('should NOT treat contextual SOQL keywords as keywords', () => {
+        // SOQL keywords in grammar id rule - valid as identifiers in Apex code
+        const contextualSoql = [
+          'select',
+          'from',
+          'where',
+          'group',
+          'order',
+          'having',
+          'limit',
+          'offset',
+        ];
+        contextualSoql.forEach((keyword) => {
+          expect(isApexKeyword(keyword)).toBe(false);
+        });
       });
     });
 
@@ -293,17 +296,22 @@ describe('ApexKeywords', () => {
     });
 
     it('should contain expected contextual keywords', () => {
-      const expectedKeywords = ['metadata', 'reference', 'name', 'count'];
+      const expectedKeywords = [
+        'metadata',
+        'reference',
+        'name',
+        'count',
+        'offset',
+        'limit',
+      ];
       expectedKeywords.forEach((keyword) => {
         expect(CONTEXTUAL_KEYWORDS.has(keyword)).toBe(true);
       });
     });
 
     it('should have reasonable number of contextual keywords', () => {
-      // We have 4 confirmed cases (metadata, reference, name, count)
-      expect(CONTEXTUAL_KEYWORDS_ARRAY.length).toBeGreaterThanOrEqual(4);
-      // Expect less than 20 contextual keywords (sanity check)
-      expect(CONTEXTUAL_KEYWORDS_ARRAY.length).toBeLessThan(20);
+      expect(CONTEXTUAL_KEYWORDS_ARRAY.length).toBeGreaterThanOrEqual(6);
+      expect(CONTEXTUAL_KEYWORDS_ARRAY.length).toBeLessThan(200);
     });
   });
 
@@ -354,7 +362,7 @@ describe('ApexKeywords', () => {
 
     describe('lookupSymbolWithContext short-circuit', () => {
       it('should return null for keywords', () => {
-        const keywords = ['if', 'for', 'while', 'select', 'from'];
+        const keywords = ['if', 'for', 'while', 'class', 'try'];
         keywords.forEach((keyword) => {
           const result = symbolGraph.lookupSymbolWithContext(keyword);
           expect(result).toBeNull();

@@ -206,7 +206,7 @@ describe('DuplicateMethodValidator', () => {
     // using originalTypeString comparison.
     //
     // The fix in areMethodSignaturesIdentical() ensures consistency with the listener's
-    // doesMethodSignatureMatch() function, which also uses originalTypeString first.
+    // doesSignatureMatch() function, which also uses originalTypeString first.
     const symbolTable = await compileFixtureForValidator(
       'UnresolvedTypeDup.cls',
     );

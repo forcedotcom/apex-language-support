@@ -387,6 +387,11 @@
               "type": "number",
               "default": 100,
               "description": "%configuration.apex-ls-ts.loadWorkspace.batchSize.description%"
+            },
+            "includeSfdxToolsCustomObjects": {
+              "type": "boolean",
+              "default": false,
+              "description": "%configuration.apex-ls-ts.loadWorkspace.includeSfdxToolsCustomObjects.description%"
             }
           }
         },
@@ -678,6 +683,7 @@
     "rebuild": "npm run clean && npm run build",
     "test": "wireit",
     "test:coverage": "wireit",
+    "typecheck": "wireit",
     "clean": "rimraf out dist extension .wireit coverage grammars tsconfig.tsbuildinfo server-bundle",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "wireit"
@@ -729,6 +735,18 @@
         "src/**/*.ts",
         "esbuild.config.ts",
         "out/extension.js"
+      ]
+    },
+    "typecheck": {
+      "command": "tsc -p test/tsconfig.json --noEmit",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "tsconfig.json",
+        "test/tsconfig.json"
       ]
     },
     "package": {

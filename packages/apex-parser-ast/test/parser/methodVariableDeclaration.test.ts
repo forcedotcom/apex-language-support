@@ -124,24 +124,14 @@ describe('Method Variable Declaration', () => {
 
       expect(methodScope).toBeDefined();
 
-      // Variables in method body are now in block scopes (children of method scope)
-      // Get the method's block scope first (the generic block that contains method body)
-      const methodBlockScope = methodScope
-        ? (symbolTable
-            .getSymbolsInScope(methodScope.id)
-            .find(
-              (s) =>
-                isBlockSymbol(s) &&
-                s.scopeType === 'block' &&
-                s.parentId === methodScope.id,
-            ) as ScopeSymbol | undefined)
-        : undefined;
-
-      // Get variables from the method block scope
-      const methodVariables = methodBlockScope
+      // Variables in method body are directly in method block scope (method body block omitted)
+      const methodVariables = methodScope
         ? symbolTable
-            .getSymbolsInScope(methodBlockScope.id)
-            .filter((s) => s.kind === SymbolKind.Variable)
+            .getSymbolsInScope(methodScope.id)
+            .filter(
+              (s) =>
+                s.kind === SymbolKind.Variable && s.parentId === methodScope.id,
+            )
         : [];
 
       // Get all block scopes (if any) - nested blocks like if, for, etc.
@@ -288,22 +278,14 @@ describe('Method Variable Declaration', () => {
         symbolTable,
       );
 
-      // Also get variables from method block scope (outerVar is in method body block)
-      // Find the method body block (generic block that's a direct child of method scope)
-      const methodBodyBlock = methodScope
+      // Get variables directly from method block scope (method body block is omitted)
+      const methodVariables = methodScope
         ? (symbolTable
             .getSymbolsInScope(methodScope.id)
-            .find(
+            .filter(
               (s) =>
-                isBlockSymbol(s) &&
-                s.scopeType === 'block' &&
-                s.parentId === methodScope.id,
-            ) as ScopeSymbol | undefined)
-        : undefined;
-      const methodVariables = methodBodyBlock
-        ? (symbolTable
-            .getSymbolsInScope(methodBodyBlock.id)
-            .filter((s) => s.kind === SymbolKind.Variable) as VariableSymbol[])
+                s.kind === SymbolKind.Variable && s.parentId === methodScope.id,
+            ) as VariableSymbol[])
         : [];
 
       // Combine method variables and block variables

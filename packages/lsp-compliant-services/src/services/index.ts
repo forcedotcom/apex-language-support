@@ -27,6 +27,7 @@ export * from './HoverProcessingService';
 export * from './BackgroundProcessingInitializationService';
 export * from './CompletionProcessingService';
 export * from './LayerEnrichmentService';
+export * from './DiagnosticRefreshService';
 
 // Queue and registry are now exported from @salesforce/apex-lsp-parser-ast
 export * from '../factories';

@@ -24,8 +24,18 @@ import {
 } from './workspace-batch-compressor';
 
 // --- Configuration ---
-export const EXCLUDE_GLOB =
-  '**/{node_modules,.sfdx/tools/*/StandardApexLibrary}/**';
+export function getExcludeGlob(includeSfdxToolsCustomObjects: boolean): string {
+  const exclude = [
+    'node_modules',
+    '.sfdx/tools/*/StandardApexLibrary',
+    '.sfdx/tools/sobjects/standardObjects',
+    ...(includeSfdxToolsCustomObjects
+      ? []
+      : ['.sfdx/tools/sobjects/customObjects']),
+  ];
+  return `**/{${exclude.join(',')}}/**`;
+}
+export const EXCLUDE_GLOB = getExcludeGlob(false);
 
 // --- Effect-wrapped VSCode API ---
 /**
@@ -99,6 +109,9 @@ export async function loadWorkspaceForServer(
         // Get settings from configuration
         const settings = getWorkspaceSettings();
         const maxConcurrency = settings.apex.loadWorkspace.maxConcurrency;
+        const excludeGlob = getExcludeGlob(
+          settings.apex.loadWorkspace.includeSfdxToolsCustomObjects ?? false,
+        );
 
         // Send progress begin notification (LSP)
         if (workDoneToken) {
@@ -133,7 +146,7 @@ export async function loadWorkspaceForServer(
 
             const uris = yield* _(
               Effect.tryPromise({
-                try: () => vscode.workspace.findFiles(pattern, EXCLUDE_GLOB),
+                try: () => vscode.workspace.findFiles(pattern, excludeGlob),
                 catch: (e: unknown) =>
                   new Error(
                     `Failed to find workspace files with pattern ${pattern}: ${String(formattedError(e))}`,

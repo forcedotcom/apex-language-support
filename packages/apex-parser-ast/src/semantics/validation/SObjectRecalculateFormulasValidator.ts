@@ -7,7 +7,6 @@
  */
 
 import type { ValidationResult, ValidationScope } from './ValidationResult';
-import { STANDARD_SOBJECT_TYPES } from '../../constants/constants';
 
 /**
  * Information about a method call parameter
@@ -339,13 +338,6 @@ export class SObjectRecalculateFormulasValidator {
       return true;
     }
 
-    // Standard SObject types
-    const standardSObjectTypes = Array.from(STANDARD_SOBJECT_TYPES);
-
-    if (standardSObjectTypes.includes(type)) {
-      return true;
-    }
-
     // Custom SObject types (end with __c, __kav, __ka, __x)
     if (
       type.endsWith('__c') ||
@@ -356,6 +348,8 @@ export class SObjectRecalculateFormulasValidator {
       return true;
     }
 
-    return false;
+    // Unknown type — cannot confirm it is NOT an SObject without org access.
+    // Permissive to avoid false positives.
+    return true;
   }
 }

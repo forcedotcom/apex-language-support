@@ -402,6 +402,9 @@ export class LayerEnrichmentService {
           }
         } catch (error) {
           self.logger.error(() => `Error enriching file ${uri}: ${error}`);
+          // Record the failure so callers can avoid redundant re-enrichment attempts.
+          // The flag is cleared automatically when the document version changes.
+          cache.markEnrichmentFailed(uri);
         }
       }
     });

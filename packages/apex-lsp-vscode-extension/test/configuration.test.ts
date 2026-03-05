@@ -195,6 +195,7 @@ describe('Configuration Module', () => {
             yieldDelayMs: 25,
             yieldInterval: 10,
             batchSize: 100,
+            includeSfdxToolsCustomObjects: false,
           },
           worker: {
             logLevel: 'info',
@@ -256,6 +257,9 @@ describe('Configuration Module', () => {
       expect(settings.apex.loadWorkspace.yieldInterval).toBe(10); // Default
       expect(settings.apex.loadWorkspace.yieldDelayMs).toBe(25); // Default
       expect(settings.apex.loadWorkspace.batchSize).toBe(100); // Default
+      expect(settings.apex.loadWorkspace.includeSfdxToolsCustomObjects).toBe(
+        false,
+      ); // Default
     });
 
     it('should merge user loadWorkspace settings with defaults', () => {
@@ -285,6 +289,9 @@ describe('Configuration Module', () => {
       expect(settings.apex.loadWorkspace.yieldInterval).toBe(10); // Default
       expect(settings.apex.loadWorkspace.yieldDelayMs).toBe(25); // Default
       expect(settings.apex.loadWorkspace.batchSize).toBe(100); // Default
+      expect(settings.apex.loadWorkspace.includeSfdxToolsCustomObjects).toBe(
+        false,
+      ); // Default
     });
   });
 

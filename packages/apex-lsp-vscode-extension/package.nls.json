@@ -39,6 +39,7 @@
   "configuration.apex-ls-ts.loadWorkspace.yieldInterval.description": "Number of file operations before yielding control to prevent UI blocking",
   "configuration.apex-ls-ts.loadWorkspace.yieldDelayMs.description": "Delay in milliseconds when yielding control during workspace loading",
   "configuration.apex-ls-ts.loadWorkspace.batchSize.description": "Number of files to include in each batch during workspace loading",
+  "configuration.apex-ls-ts.loadWorkspace.includeSfdxToolsCustomObjects.description": "Include .sfdx/tools/sobjects/customObjects in workspace scan. When false (default), custom object stubs are excluded.",
   "configuration.apex-ls-ts.queueProcessing.description": "Queue processing settings. Controls task scheduling and concurrency per priority level.",
   "configuration.apex-ls-ts.queueProcessing.maxConcurrency.description": "Maximum number of concurrent tasks per priority level",
   "configuration.apex-ls-ts.queueProcessing.maxConcurrency.CRITICAL.description": "Maximum concurrent tasks for CRITICAL priority (ephemeral system tasks)",

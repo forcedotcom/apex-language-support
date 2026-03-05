@@ -101,6 +101,39 @@ export interface ValidationOptions extends ArtifactLoadingOptions {
    * (e.g., source size validation)
    */
   sourceContent?: string;
+
+  /**
+   * Optional cached parse tree for validators that need to walk the AST
+   * Provided when available from DocumentStateCache to avoid redundant parsing
+   * Validators should use this if available, falling back to parsing sourceContent if not
+   */
+  parseTree?:
+    | import('@apexdevtools/apex-parser').CompilationUnitContext
+    | import('@apexdevtools/apex-parser').TriggerUnitContext
+    | import('@apexdevtools/apex-parser').BlockContext;
+
+  /**
+   * Whether version-specific validation is enabled
+   * When false, version checks are skipped entirely
+   * Extracted from settings (apex.validation.versionSpecificValidation.enabled)
+   */
+  enableVersionSpecificValidation?: boolean;
+
+  /**
+   * Optional API version for version-specific validation rules
+   * Extracted from project settings (apex.version) - uses major version only
+   * Format: major.minor (e.g., "65.0", "20.8") - only major version is extracted
+   * If not provided, validators should use DEFAULT_SALESFORCE_API_VERSION
+   * Only used when enableVersionSpecificValidation is true
+   */
+  apiVersion?: number; // Major version number (e.g., 65, 20)
+
+  /**
+   * Optional compilation unit namespace (e.g. "Canvas" for managed package).
+   * From sfdx-project.json or package.xml. When null/undefined, default namespace
+   * resolution applies (e.g. Test -> System.Test).
+   */
+  namespace?: string;
 }
 
 /**
