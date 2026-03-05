@@ -7,39 +7,35 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { Layer } from 'effect';
 import {
-  initializeTracing,
+  enableTracing,
   isTracingEnabled,
   disableTracing,
-  shutdownTracing,
   runWithSpan,
   runSyncWithSpan,
   withTracing,
   LSP_SPAN_NAMES,
 } from '../../src/observability/tracing';
 
-const mockLayer = Layer.empty as unknown as Layer.Layer<never, never, never>;
-
 describe('tracing', () => {
-  beforeEach(async () => {
-    await shutdownTracing();
+  beforeEach(() => {
+    disableTracing();
   });
 
-  afterEach(async () => {
-    await shutdownTracing();
+  afterEach(() => {
+    disableTracing();
   });
 
-  describe('initializeTracing', () => {
-    it('enables tracing when a layer is provided', () => {
-      initializeTracing(mockLayer);
+  describe('enableTracing', () => {
+    it('enables tracing', () => {
+      enableTracing();
       expect(isTracingEnabled()).toBe(true);
     });
   });
 
   describe('disableTracing', () => {
     it('disables tracing', () => {
-      initializeTracing(mockLayer);
+      enableTracing();
       expect(isTracingEnabled()).toBe(true);
 
       disableTracing();
@@ -73,7 +69,7 @@ describe('tracing', () => {
 
   describe('runWithSpan (tracing enabled)', () => {
     beforeEach(() => {
-      initializeTracing(mockLayer);
+      enableTracing();
     });
 
     it('executes and returns result with tracing active', async () => {
@@ -114,7 +110,7 @@ describe('tracing', () => {
 
   describe('runSyncWithSpan (tracing enabled)', () => {
     beforeEach(() => {
-      initializeTracing(mockLayer);
+      enableTracing();
     });
 
     it('executes and returns result with tracing active', () => {
@@ -153,7 +149,7 @@ describe('tracing', () => {
     });
 
     it('works with tracing enabled', async () => {
-      initializeTracing(mockLayer);
+      enableTracing();
       const originalFn = async (x: number) => x * 2;
       const tracedFn = withTracing('double', originalFn);
 

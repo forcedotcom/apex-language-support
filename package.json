@@ -14,6 +14,7 @@
     "test:quality": "wireit",
     "test:coverage:report": "wireit",
     "test:web": "wireit",
+    "test:web:full": "wireit",
     "test:e2e": "wireit",
     "test:e2e:debug": "npm run test:debug --workspace=e2e-tests",
     "test:e2e:server": "npm run server --workspace=e2e-tests",
@@ -213,6 +214,13 @@
     },
     "test:web": {
       "command": "node scripts/test-web-ext.js",
+      "dependencies": [
+        "bundle"
+      ],
+      "cache": false
+    },
+    "test:web:full": {
+      "command": "node scripts/test-web-ext.js --with-services",
       "dependencies": [
         "bundle"
       ],
