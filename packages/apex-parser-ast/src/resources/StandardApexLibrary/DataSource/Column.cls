@@ -113,9 +113,9 @@ global class Column {
    */
   public static DataSource.Column lookup(String name, String domain) {}
 
-  public static DataSource.Column multipicklist(String name, String>> picklistValues, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
+  public static DataSource.Column multipicklist(String name, List<Map<String,String>> picklistValues, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
 
-  public static DataSource.Column multipicklist(String name, String>> picklistValues) {}
+  public static DataSource.Column multipicklist(String name, List<Map<String,String>> picklistValues) {}
 
   /**
    * Returns a new column of data type NUMBER_TYPE .
@@ -130,9 +130,9 @@ global class Column {
 
   public static DataSource.Column phone(String name) {}
 
-  public static DataSource.Column picklist(String name, String>> picklistValues, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
+  public static DataSource.Column picklist(String name, List<Map<String,String>> picklistValues, Boolean isPicklistAlphabeticallySorted, Boolean isPicklistRestricted) {}
 
-  public static DataSource.Column picklist(String name, String>> picklistValues) {}
+  public static DataSource.Column picklist(String name, List<Map<String,String>> picklistValues) {}
 
   /**
    * Returns a new column of data type STRING_SHORT_TYPE or STRING_LONG_TYPE , with the specified name, label, and length.

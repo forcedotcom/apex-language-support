@@ -3,6 +3,8 @@
  */
 global class AuthConfiguration {
 
+  public AuthConfiguration(String communityOrCustomUrl, String startUrl) {}
+
   /**
    * Indicates whether the Experience Cloud site allows internal users to log in using the Experience Cloud site login page. To enable, admins configure the setting Allow internal users to log in directly to the experience on the Login & Registration page in Experience Workspaces. It’s disabled by default.
    * @return Boolean

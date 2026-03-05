@@ -17,15 +17,15 @@ global class MergeResult {
 
   /**
    * Returns the IDs of the records merged into the master record.
-   * @return List< String >
+   * @return List<String>
    */
-  public List< String > getMergedRecordIds() {}
+  public List<String> getMergedRecordIds() {}
 
   /**
    * Returns the IDs of all related records that were reparented as a result of the merge that are viewable by the user sending the merge call.
-   * @return List< String >
+   * @return List<String>
    */
-  public List< String > getUpdatedRelatedIds() {}
+  public List<String> getUpdatedRelatedIds() {}
 
   /**
    * Indicates whether the merge was successful ( true ) or not ( false ).

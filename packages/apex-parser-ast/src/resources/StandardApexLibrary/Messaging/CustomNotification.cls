@@ -3,11 +3,13 @@
  */
 global class CustomNotification {
 
+  public CustomNotification(String typeId, String sender, String title, String body, String targetId, String targetPageRef) {}
+
   /**
    * Sends a custom notification to the specified users.
    * @param users Required. A set of recipient IDs. Each recipient ID corresponds to a recipient or recipient type that the notification should be sent to. Valid recipient or recipient type values are: UserId — The notification is sent to this user, if this user is active. AccountId — The notification is sent to all active users who are members of this account’s Account Team. Note This recipient type is valid if account teams are enabled for your org. OpportunityId — The notification is sent to all active users who are members of this opportunity’s Opportunity Team. Note This recipient type is valid if team selling is enabled for your org. GroupId — The notification is sent to all active users who are members of this group. QueueId — The notification is sent to all active users who are members of this queue. Values can be combined in a set, up to the maximum of 500 values.
    */
-  public void send(Set< String > users) {}
+  public void send(Set<String> users) {}
 
   /**
    * Sets the type of the custom notification.

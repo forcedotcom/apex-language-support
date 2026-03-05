@@ -15,9 +15,9 @@ global class GetAppointmentCandidatesInputBuilder {
 
   public lxscheduler.GetAppointmentCandidatesInputBuilder setEndTime(String endTime) {}
 
-  public lxscheduler.GetAppointmentCandidatesInputBuilder setEngagementChannelTypeIds(List< String > engagementChannelTypeIds) {}
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setEngagementChannelTypeIds(List<String> engagementChannelTypeIds) {}
 
-  public lxscheduler.GetAppointmentCandidatesInputBuilder setFilterByResources(List< String > filterByResources) {}
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setFilterByResources(List<String> filterByResources) {}
 
   public lxscheduler.GetAppointmentCandidatesInputBuilder setResourceLimitApptDistribution(Integer resourceLimitApptDistribution) {}
 
@@ -25,7 +25,7 @@ global class GetAppointmentCandidatesInputBuilder {
 
   public lxscheduler.GetAppointmentCandidatesInputBuilder setStartTime(String startTime) {}
 
-  public lxscheduler.GetAppointmentCandidatesInputBuilder setTerritoryIds(List< String > territoryIds) {}
+  public lxscheduler.GetAppointmentCandidatesInputBuilder setTerritoryIds(List<String> territoryIds) {}
 
   public lxscheduler.GetAppointmentCandidatesInputBuilder setWorkType(lxscheduler.WorkType workType) {}
 

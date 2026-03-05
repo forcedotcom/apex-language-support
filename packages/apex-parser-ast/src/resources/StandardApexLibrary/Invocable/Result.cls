@@ -7,11 +7,11 @@ global class Result {
 
   public Invocable.Action getAction() {}
 
-  public List < Invocable.Action.Error > getErrors() {}
+  public List<Invocable.Action.Error> getErrors() {}
 
-  public Map< String , Object > getInvocationParameters() {}
+  public Map<String,Object> getInvocationParameters() {}
 
-  public Map< String , Object > getOutputParameters() {}
+  public Map<String,Object> getOutputParameters() {}
 
   public Boolean isSuccess() {}
 

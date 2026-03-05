@@ -88,6 +88,13 @@ const generateClassContent = (apexClass: ApexClass): string => {
   lines.push(`global ${keyword} ${apexClass.name} {`);
   lines.push("");
 
+  for (const ctor of apexClass.constructors ?? []) {
+    const vis = ctor.visibility ?? "global";
+    const params = ctor.parameters.map((p) => `${normalizeUrlType(p.type)} ${p.name}`).join(", ");
+    lines.push(`  ${vis} ${apexClass.name}(${params}) {}`);
+    lines.push("");
+  }
+
   for (const prop of apexClass.properties) {
     if (prop.description) {
       lines.push("  /**");

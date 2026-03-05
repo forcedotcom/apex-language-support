@@ -3,6 +3,6 @@
  */
 global interface HeadlessUserDiscoveryHandler {
 
-  Auth.HeadlessUserDiscoveryResponse discoverUserFromLoginHint(Id networkId, String loginHint, Auth.VerificationAction verificationAction, String customDataJson, String> requestAttributes);
+  Auth.HeadlessUserDiscoveryResponse discoverUserFromLoginHint(Id networkId, String loginHint, Auth.VerificationAction verificationAction, String customDataJson, Map<String,String> requestAttributes);
 
 }

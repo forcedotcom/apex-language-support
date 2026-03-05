@@ -3,4 +3,6 @@
  */
 global class AuthApiPaymentMethodRequest {
 
+  global AuthApiPaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) {}
+
 }

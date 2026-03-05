@@ -37,6 +37,6 @@ global class QueryBuilder {
    * @param groups The type of grouping.
    * @return Wave.QueryNode
    */
-  global static Wave.QueryNode cogroup(List<Wave.QueryNode> cogroupNodes, List<List< String >> groups) {}
+  global static Wave.QueryNode cogroup(List<Wave.QueryNode> cogroupNodes, List<List<String>> groups) {}
 
 }

@@ -3,6 +3,8 @@
  */
 global class PaymentMethodTokenizationRequest {
 
+  global PaymentMethodTokenizationRequest(String paymentGatewayId) {}
+
   /**
    * Maintains the integrity of lists of type PaymentMethodTokenizationRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.
    * @param obj External object whose key is to be validated.

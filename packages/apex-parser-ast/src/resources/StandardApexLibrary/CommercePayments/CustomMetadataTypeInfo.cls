@@ -3,4 +3,6 @@
  */
 global class CustomMetadataTypeInfo {
 
+  global CustomMetadataTypeInfo(String cmtRecordId, String cmtSfResultCodeFieldName) {}
+
 }

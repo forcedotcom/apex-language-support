@@ -17,7 +17,7 @@ global class NamedCredentials {
 
   public static void deleteCredential(String externalCredential, String principalName, ConnectApi.CredentialPrincipalType principalType) {}
 
-  public static void deleteCredential(String externalCredential, String principalName, ConnectApi.CredentialPrincipalType principalType, List< String > authenticationParameters) {}
+  public static void deleteCredential(String externalCredential, String principalName, ConnectApi.CredentialPrincipalType principalType, List<String> authenticationParameters) {}
 
   public static void deleteExternalAuthIdentityProvider(String developerName) {}
 

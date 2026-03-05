@@ -3,7 +3,7 @@
  */
 global class Test {
 
-  public static void calculatePermissionSetGroup(List< String > psgIds) {}
+  public static void calculatePermissionSetGroup(List<String> psgIds) {}
 
   public static void calculatePermissionSetGroup(String psgId) {}
 
@@ -22,9 +22,9 @@ global class Test {
    */
   public static Object createStub(System.Type parentType, System.StubProvider stubProvider) {}
 
-  public static SObject createStubQueryRow(Schema.SObjectType targetType, Object> fieldMapWithRelationshipKeys) {}
+  public static SObject createStubQueryRow(Schema.SObjectType targetType, Map<String,Object> fieldMapWithRelationshipKeys) {}
 
-  public static List<SObject> createStubQueryRows(Schema.SObjectType targetType, Object>> fieldMapWithRelationshipKeysForMultipleRows) {}
+  public static List<SObject> createStubQueryRows(Schema.SObjectType targetType, List<Map<String,Object>> fieldMapWithRelationshipKeysForMultipleRows) {}
 
   /**
    * Use this method in an Apex test so that change event notifications are generated for all supported Change Data Capture entities. Call this method at the beginning of your test before performing DML operations and calling Test.getEventBus().deliver(); .
@@ -118,7 +118,7 @@ global class Test {
    * Defines a list of fixed search results to be returned by all subsequent SOSL statements in a test method.
    * @param fixedSearchResults The list of record IDs specified by opt_set_search_results replaces the results that would normally be returned by the SOSL queries if they were not subject to any WHERE or LIMIT clauses. If these clauses exist in the SOSL queries, they are applied to the list of fixed search results.
    */
-  public static void setFixedSearchResults(ID [] fixedSearchResults) {}
+  public static void setFixedSearchResults(ID[] fixedSearchResults) {}
 
   /**
    * Sets the response mock mode and instructs the Apex runtime to send a mock response whenever a callout is made through the HTTP classes or the auto-generated code from WSDLs.

@@ -3,4 +3,6 @@
  */
 global class UnavailableTimeslot {
 
+  public UnavailableTimeslot(Datetime timeMin, Datetime timeMax) {}
+
 }

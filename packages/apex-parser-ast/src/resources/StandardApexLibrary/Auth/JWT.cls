@@ -11,9 +11,9 @@ global class JWT {
 
   /**
    * Returns a map of additional claims in the JWT, where the key string contains the name of the claim, and the value contains the value of the claim.
-   * @return Map< String , Object >
+   * @return Map<String,Object>
    */
-  public Map< String , Object > getAdditionalClaims() {}
+  public Map<String,Object> getAdditionalClaims() {}
 
   /**
    * Returns the audience ( aud ) claim that identifies the intended recipients of the JWT.
@@ -47,10 +47,9 @@ global class JWT {
 
   /**
    * Sets the additional claims in the JWT. Returned by the getAdditionalClaims method.
-   * @param String 
    * @param additionalClaims 
    */
-  public void setAdditionalClaims(Map< String, Object > additionalClaims) {}
+  public void setAdditionalClaims(Map<String,Object> additionalClaims) {}
 
   /**
    * Sets the audience ( aud ) claim in the JWT. Returned by the getAud method.

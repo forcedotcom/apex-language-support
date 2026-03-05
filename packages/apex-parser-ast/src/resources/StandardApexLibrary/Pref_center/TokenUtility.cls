@@ -7,8 +7,8 @@ global class TokenUtility {
 
   public static String generateToken(String tokenValue) {}
 
-  public static Map< String , String > generateTokens(List< String > tokenValues, pref_center.TokenType tokenType) {}
+  public static Map<String,String> generateTokens(List<String> tokenValues, pref_center.TokenType tokenType) {}
 
-  public static Map< String , String > generateTokens(List< String > tokenValues) {}
+  public static Map<String,String> generateTokens(List<String> tokenValues) {}
 
 }

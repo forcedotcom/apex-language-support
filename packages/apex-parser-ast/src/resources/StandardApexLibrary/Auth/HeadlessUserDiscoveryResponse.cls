@@ -3,4 +3,6 @@
  */
 global class HeadlessUserDiscoveryResponse {
 
+  public HeadlessUserDiscoveryResponse(Set<Id> userIds, String customErrorMessage) {}
+
 }

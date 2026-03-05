@@ -3,6 +3,6 @@
  */
 global class SoqlStubProvider {
 
-  public List<SObject> handleSoqlQuery(Schema.SObjectType targetType, String stubbedQuery, Object> bindMap) {}
+  public List<SObject> handleSoqlQuery(Schema.SObjectType targetType, String stubbedQuery, Map<String,Object> bindMap) {}
 
 }

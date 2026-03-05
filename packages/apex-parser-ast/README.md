@@ -1141,30 +1141,25 @@ The Standard Apex Library is located in `src/resources/StandardApexLibrary/` and
 
 **⚠️ CRITICAL WARNING: DO NOT REMOVE BUILTIN CLASSES**
 
-The following 15 classes are **essential builtin classes** stored in `src/resources/builtins/` and merged into `StandardApexLibrary/System/` during ZIP creation. These classes are fundamental to Apex type resolution and **MUST NOT BE REMOVED**:
+The following 5 classes are **hand-crafted builtin classes** stored in `src/resources/builtins/` and merged into `StandardApexLibrary/System/` during ZIP creation. These override the StandardApexLibrary versions because they include methods not fully documented in the public API reference:
 
-- `Blob.cls` - Blob primitive type wrapper
-- `Boolean.cls` - Boolean primitive type wrapper
-- `Date.cls` - Date primitive type wrapper (contains instance methods)
-- `DateTime.cls` - DateTime primitive type wrapper
-- `Decimal.cls` - Decimal primitive type wrapper
-- `Double.cls` - Double primitive type wrapper
-- `Id.cls` - Id primitive type wrapper
-- `Integer.cls` - Integer primitive type wrapper
-- `List.cls` - List collection type
-- `Long.cls` - Long primitive type wrapper
-- `Map.cls` - Map collection type
-- `Object.cls` - Object base type
-- `Set.cls` - Set collection type
-- `String.cls` - String primitive type wrapper
-- `Time.cls` - Time primitive type wrapper (contains instance methods)
+- `Blob.cls` - Hand-crafted: append(), subBlob(), toHexString(), valueOf(String, encoding)
+- `DateTime.cls` - Temporarily retained until added to StandardApexLibrary
+- `Integer.cls` - Hand-crafted: decimalValue(), doubleValue(), longValue()
+- `Long.cls` - Hand-crafted: decimalValue(), doubleValue()
+- `Object.cls` - Hand-crafted: equals(), hashCode(), toString() (minimal in docs)
+
+**Other builtin classes:**
+
+The following 10 classes are sourced from `StandardApexLibrary/System/` (generated from public API docs) and should NOT be in `builtins/`:
+
+- `Boolean.cls`, `Date.cls`, `Decimal.cls`, `Double.cls`, `Id.cls`, `List.cls`, `Map.cls`, `Set.cls`, `String.cls`, `Time.cls`
 
 **Why these classes are critical:**
 
 - These classes provide the foundation for type resolution in the Apex language server
 - They enable proper symbol resolution for primitive types and collections
 - Removing them will break type checking, code completion, and symbol resolution
-- The `Date.cls` and `Time.cls` files contain important instance methods that differ from the static-only versions
 
 **Maintenance Guidelines:**
 
@@ -1181,26 +1176,27 @@ The following 15 classes are **essential builtin classes** stored in `src/resour
 ```
 src/resources/
 ├── builtins/
-│   ├── Blob.cls
-│   ├── Boolean.cls
-│   ├── Date.cls
-│   ├── DateTime.cls
-│   ├── Decimal.cls
-│   ├── Double.cls
-│   ├── Id.cls
-│   ├── Integer.cls
-│   ├── List.cls
-│   ├── Long.cls
-│   ├── Map.cls
-│   ├── Object.cls
-│   ├── Set.cls
-│   ├── String.cls
-│   └── Time.cls
+│   ├── Blob.cls          (hand-crafted)
+│   ├── DateTime.cls      (temporary, until added to StandardApexLibrary)
+│   ├── Integer.cls       (hand-crafted)
+│   ├── Long.cls          (hand-crafted)
+│   └── Object.cls        (hand-crafted)
 └── StandardApexLibrary/
     ├── System/
+    │   ├── Boolean.cls   (from public docs)
+    │   ├── Date.cls      (from public docs)
+    │   ├── Decimal.cls    (from public docs)
+    │   ├── Double.cls    (from public docs)
+    │   ├── Id.cls         (from public docs)
+    │   ├── Integer.cls    (filtered out - uses builtins version)
+    │   ├── List.cls      (from public docs)
+    │   ├── Map.cls       (from public docs)
+    │   ├── Set.cls       (from public docs)
+    │   ├── String.cls    (from public docs)
+    │   ├── Time.cls      (from public docs)
     │   ├── Assert.cls
     │   ├── Database.cls
-    │   └── [other System namespace classes, NO builtin classes]
+    │   └── [other System namespace classes]
     ├── Database/
     │   └── [Database namespace classes]
     ├── Schema/

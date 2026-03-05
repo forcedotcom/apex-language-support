@@ -3,4 +3,6 @@
  */
 global class AuthProviderCallbackState {
 
+  public AuthProviderCallbackState(Map<String,String> headers, String body, Map<String,String> queryParameters) {}
+
 }

@@ -57,7 +57,7 @@ global class Topics {
 
   public static ConnectApi.TopicPage getTrendingTopics(String communityId, Integer maxResults) {}
 
-  public static ConnectApi.Topic mergeTopics(String communityId, String topicId, List< String > idsToMerge) {}
+  public static ConnectApi.Topic mergeTopics(String communityId, String topicId, List<String> idsToMerge) {}
 
   public static ConnectApi.TopicPage reassignTopicDataCategoryRules(String communityId, String dataCategoryGroup, String dataCategory, ConnectApi.TopicNamesInput topicNames) {}
 

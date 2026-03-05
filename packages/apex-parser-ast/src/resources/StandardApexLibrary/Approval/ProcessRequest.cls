@@ -11,9 +11,9 @@ global class ProcessRequest {
 
   /**
    * Returns the list of user IDs of user specified as approvers.
-   * @return ID []
+   * @return ID[]
    */
-  public ID [] getNextApproverIds() {}
+  public ID[] getNextApproverIds() {}
 
   /**
    * Sets the comments to be added to the approval request.
@@ -25,6 +25,6 @@ global class ProcessRequest {
    * If the next step in your approval process is another Apex approval process, you specify exactly one user ID as the next approver. If not, you cannot specify a user ID and this method must be null . This method sets the ActorId field of the associated ProcessInstanceWorkItem.
    * @param nextApproverIds Must be a single-entry list.
    */
-  public void setNextApproverIds(ID [] nextApproverIds) {}
+  public void setNextApproverIds(ID[] nextApproverIds) {}
 
 }

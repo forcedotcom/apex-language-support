@@ -3,6 +3,8 @@
  */
 global class CardPaymentMethodRequest {
 
+  global CardPaymentMethodRequest(commercepayments.CardCategory cardCategory) {}
+
   /**
    * Maintains the integrity of lists of type CardPaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.
    * @param obj External object whose key is to be validated.

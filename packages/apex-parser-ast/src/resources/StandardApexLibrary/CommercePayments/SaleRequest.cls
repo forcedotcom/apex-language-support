@@ -3,6 +3,8 @@
  */
 global class SaleRequest {
 
+  global SaleRequest(Double amount) {}
+
   /**
    * Compares this object with the specified object and returns true if both objects are equal; otherwise, returns false .
    * @param obj 

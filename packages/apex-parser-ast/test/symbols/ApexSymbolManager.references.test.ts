@@ -442,7 +442,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       // Find the ChainedSymbolReference for System.URL
       const systemUrlRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(systemUrlRefs.length).toBeGreaterThanOrEqual(1);
 

@@ -17,9 +17,9 @@ global class ReportMetadata {
 
   /**
    * Returns information about custom summary formulas in a report.
-   * @return Map< String ,Reports.ReportCsf>
+   * @return Map<String,Reports.ReportCsf>
    */
-  public Map< String ,Reports.ReportCsf> getCustomSummaryFormula() {}
+  public Map<String,Reports.ReportCsf> getCustomSummaryFormula() {}
 
   /**
    * Returns the description of the report.
@@ -91,7 +91,7 @@ global class ReportMetadata {
    * Sets unique identifiers for standard or custom summary formula fields in the report.
    * @param aggregates 
    */
-  public void setAggregates(List< String > aggregates) {}
+  public void setAggregates(List<String> aggregates) {}
 
   /**
    * Creates bucket fields in a report.
@@ -113,10 +113,9 @@ global class ReportMetadata {
 
   /**
    * Adds a custom summary formula to a report.
-   * @param String 
    * @param customSummaryFormula 
    */
-  public void setCustomSummaryFormula(MAP< String, Reports.ReportCsf> customSummaryFormula) {}
+  public void setCustomSummaryFormula(MAP<String,Reports.ReportCsf> customSummaryFormula) {}
 
   /**
    * Sets the description of the report.
@@ -128,7 +127,7 @@ global class ReportMetadata {
    * Sets the unique API names for the fields that contain detailed data—for example, OPPORTUNITY_NAME , TYPE , LEAD_SOURCE , or AMOUNT .
    * @param detailColumns 
    */
-  public void setDetailColumns(List< String > detailColumns) {}
+  public void setDetailColumns(List<String> detailColumns) {}
 
   /**
    * Sets the report API name—for example, Closed_Sales_This_Quarter .

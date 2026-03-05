@@ -25,27 +25,27 @@ global class ManagedContent {
 
   public static ConnectApi.ManagedContentVersionCollection getAllManagedContent(String communityId, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) {}
 
-  public static ConnectApi.ManagedContentVersionCollection getContentByContentKeys(String channelId, List< String > contentKeys, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean includeMetadata, String startDate, String endDate, Boolean showAbsoluteUrl) {}
+  public static ConnectApi.ManagedContentVersionCollection getContentByContentKeys(String channelId, List<String> contentKeys, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean includeMetadata, String startDate, String endDate, Boolean showAbsoluteUrl) {}
 
-  public static ConnectApi.ManagedContentVersionCollection getContentByIds(String channelId, List< String > managedContentIds, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean includeMetadata, String startDate, String endDate) {}
+  public static ConnectApi.ManagedContentVersionCollection getContentByIds(String channelId, List<String> managedContentIds, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean includeMetadata, String startDate, String endDate) {}
 
-  public static ConnectApi.ManagedContentVersionCollection getContentByIds(String channelId, List< String > managedContentIds, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean includeMetadata, String startDate, String endDate, Boolean showAbsoluteUrl) {}
+  public static ConnectApi.ManagedContentVersionCollection getContentByIds(String channelId, List<String> managedContentIds, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean includeMetadata, String startDate, String endDate, Boolean showAbsoluteUrl) {}
 
-  public static ConnectApi.ManagedContentVersionCollection getManagedContentByContentKeys(String communityId, List< String > contentKeys, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) {}
+  public static ConnectApi.ManagedContentVersionCollection getManagedContentByContentKeys(String communityId, List<String> contentKeys, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) {}
 
-  public static ConnectApi.ManagedContentVersionCollection getManagedContentByIds(String communityId, List< String > managedContentIds, Integer pageParam, Integer pageSize, String language, String managedContentType) {}
+  public static ConnectApi.ManagedContentVersionCollection getManagedContentByIds(String communityId, List<String> managedContentIds, Integer pageParam, Integer pageSize, String language, String managedContentType) {}
 
-  public static ConnectApi.ManagedContentVersionCollection getManagedContentByIds(String communityId, List< String > managedContentIds, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) {}
+  public static ConnectApi.ManagedContentVersionCollection getManagedContentByIds(String communityId, List<String> managedContentIds, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) {}
 
-  public static ConnectApi.ManagedContentVersionCollection getManagedContentByTopics(String communityId, List< String > topics, Integer pageParam, Integer pageSize, String language, String managedContentType) {}
+  public static ConnectApi.ManagedContentVersionCollection getManagedContentByTopics(String communityId, List<String> topics, Integer pageParam, Integer pageSize, String language, String managedContentType) {}
 
-  public static ConnectApi.ManagedContentVersionCollection getManagedContentByTopics(String communityId, List< String > topics, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) {}
+  public static ConnectApi.ManagedContentVersionCollection getManagedContentByTopics(String communityId, List<String> topics, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) {}
 
-  public static ConnectApi.ManagedContentVersionCollection getManagedContentByTopicsAndContentKeys(String communityId, List< String > contentKeys, List< String > topics, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) {}
+  public static ConnectApi.ManagedContentVersionCollection getManagedContentByTopicsAndContentKeys(String communityId, List<String> contentKeys, List<String> topics, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) {}
 
-  public static ConnectApi.ManagedContentVersionCollection getManagedContentByTopicsAndIds(String communityId, List< String > managedContentIds, List< String > topics, Integer pageParam, Integer pageSize, String language, String managedContentType) {}
+  public static ConnectApi.ManagedContentVersionCollection getManagedContentByTopicsAndIds(String communityId, List<String> managedContentIds, List<String> topics, Integer pageParam, Integer pageSize, String language, String managedContentType) {}
 
-  public static ConnectApi.ManagedContentVersionCollection getManagedContentByTopicsAndIds(String communityId, List< String > managedContentIds, List< String > topics, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) {}
+  public static ConnectApi.ManagedContentVersionCollection getManagedContentByTopicsAndIds(String communityId, List<String> managedContentIds, List<String> topics, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) {}
 
   public static ConnectApi.ManagedContentProviderCollection getManagedContentProviders() {}
 

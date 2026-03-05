@@ -3,6 +3,8 @@
  */
 global class NotificationActionContext {
 
+  public NotificationActionContext(Reports.ReportInstance reportInstance, Reports.ThresholdInformation thresholdInformation) {}
+
   /**
    * Returns the report instance associated with the notification.
    * @return Reports.ReportInstance

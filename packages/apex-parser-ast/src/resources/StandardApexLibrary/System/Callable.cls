@@ -6,10 +6,9 @@ global interface Callable {
   /**
    * Provides functionality that other classes or packages can utilize and build upon.
    * @param action The behavior for the method to exhibit.
-   * @param String 
    * @param args Arguments to be used by the specified action.
    * @return Object
    */
-  Object call(String action, Map< String, Object > args);
+  Object call(String action, Map<String,Object> args);
 
 }

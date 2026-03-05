@@ -3,6 +3,8 @@
  */
 global class ZipReader {
 
+  global ZipReader(Blob data) {}
+
   public blob extract(string name) {}
 
   public blob extract(Compression.ZipEntry entry) {}

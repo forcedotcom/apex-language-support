@@ -5,6 +5,6 @@ global class Records {
 
   public static ConnectApi.Motif getMotif(String communityId, String idOrPrefix) {}
 
-  public static ConnectApi.BatchResult[] getMotifBatch(String communityId, List< String > idOrPrefixList) {}
+  public static ConnectApi.BatchResult[] getMotifBatch(String communityId, List<String> idOrPrefixList) {}
 
 }

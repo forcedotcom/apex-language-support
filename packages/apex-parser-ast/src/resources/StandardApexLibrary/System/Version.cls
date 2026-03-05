@@ -3,6 +3,10 @@
  */
 global class Version {
 
+  public Version(Integer major, Integer minor) {}
+
+  public Version(Integer major, Integer minor, Integer patch) {}
+
   /**
    * Compares the current version with the specified version.
    * @param version 

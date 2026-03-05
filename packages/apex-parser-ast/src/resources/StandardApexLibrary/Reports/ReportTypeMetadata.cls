@@ -23,8 +23,8 @@ global class ReportTypeMetadata {
 
   /**
    * Returns information about standard date filters that can be applied to this type of report.
-   * @return Map< String ,Reports.StandardFilterInfo>
+   * @return Map<String,Reports.StandardFilterInfo>
    */
-  public Map< String ,Reports.StandardFilterInfo> getStandardFilterInfos() {}
+  public Map<String,Reports.StandardFilterInfo> getStandardFilterInfos() {}
 
 }

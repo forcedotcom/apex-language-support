@@ -3,6 +3,6 @@
  */
 global class FlowApprovalProcesses {
 
-  public static ConnectApi.FlowApprovalProcessCollection getFlowApprovalProcessWithStatus(String relatedRecordId, List< String > processNames) {}
+  public static ConnectApi.FlowApprovalProcessCollection getFlowApprovalProcessWithStatus(String relatedRecordId, List<String> processNames) {}
 
 }

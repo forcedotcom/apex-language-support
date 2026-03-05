@@ -3,4 +3,8 @@
  */
 global class TimeSlotOption {
 
+  public TimeSlotOption(Datetime startTime, Datetime endTime) {}
+
+  public TimeSlotOption(Datetime startTime, Integer duration) {}
+
 }

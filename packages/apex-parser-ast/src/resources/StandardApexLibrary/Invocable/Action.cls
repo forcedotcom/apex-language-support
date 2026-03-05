@@ -27,6 +27,6 @@ global class Action {
 
   public Invocable.Action setInvocationParameter(String parameterName, Object parameterValue) {}
 
-  public Invocable.Action setInvocations(List<Map< String, ANY>> invocations) {}
+  public Invocable.Action setInvocations(List<Map<String,ANY>> invocations) {}
 
 }

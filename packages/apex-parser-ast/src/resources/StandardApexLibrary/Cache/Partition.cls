@@ -13,9 +13,9 @@ global class Partition {
   /**
    * Returns true if the cache partition contains a cached value corresponding to the specified key.
    * @param keys 
-   * @return Map < String , Boolean >
+   * @return Map <String, Boolean>
    */
-  public Map < String , Boolean > contains(Set< String > keys) {}
+  public Map <String, Boolean> contains(Set<String> keys) {}
 
   /**
    * Generates a fully qualified key from the passed-in key components. The format of the generated key string is namespace.partition.key .
@@ -44,9 +44,9 @@ global class Partition {
   /**
    * Returns the cached value corresponding to the specified key from the cache partition.
    * @param keys 
-   * @return Map < String , Object >
+   * @return Map <String, Object>
    */
-  public Map < String , Object > get(Set < String > keys) {}
+  public Map <String, Object> get(Set <String> keys) {}
 
   /**
    * Returns the cached value corresponding to the specified key from the cache partition.
@@ -82,9 +82,9 @@ global class Partition {
 
   /**
    * Returns a set of all keys that are stored in the cache partition and visible to the invoking namespace.
-   * @return Set< String >
+   * @return Set<String>
    */
-  public Set< String > getKeys() {}
+  public Set<String> getKeys() {}
 
   /**
    * Returns the maximum item size of all the keys fetched from the partition, in bytes.
@@ -202,7 +202,7 @@ global class Partition {
    * @param isDefault Set to true if the key references a default partition. Otherwise, set to false .
    * @param keys A set of key string values to validate.
    */
-  public static void validateKeys(Boolean isDefault, Set< String > keys) {}
+  public static void validateKeys(Boolean isDefault, Set<String> keys) {}
 
   /**
    * Validates the partition name — for example, that it is not null.

@@ -3,6 +3,8 @@
  */
 global class LoadFormData {
 
+  public LoadFormData(Map<String,pref_center.FieldProperties> data) {}
+
   public void addOption(String fieldId, String value, String label) {}
 
   public void addOption(String fieldId, System.SelectOption option) {}
@@ -15,7 +17,7 @@ global class LoadFormData {
 
   public void setSelectedOption(String fieldId, String optionValue) {}
 
-  public void setSelectedOptions(String fieldId, List< String > options) {}
+  public void setSelectedOptions(String fieldId, List<String> options) {}
 
   public void setTextHint(String fieldId, String hintText) {}
 

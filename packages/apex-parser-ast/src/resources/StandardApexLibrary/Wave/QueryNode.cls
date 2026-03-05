@@ -22,7 +22,7 @@ global class QueryNode {
    * @param groups A list of expressions.
    * @return wave.QueryNode
    */
-  public wave.QueryNode group(List< String > groups) {}
+  public wave.QueryNode group(List<String> groups) {}
 
   /**
    * Groups matched records (group by specific dataset attributes).
@@ -35,7 +35,7 @@ global class QueryNode {
    * @param groups A list of expressions.
    * @return wave.QueryNode
    */
-  public wave.QueryNode group(List< String > groups) {}
+  public wave.QueryNode group(List<String> groups) {}
 
   /**
    * Limits the number of results that are returned.
@@ -56,7 +56,7 @@ global class QueryNode {
    * @param filterCondition For example: filter('Name != \'My Name\'')
    * @return wave.QueryNode
    */
-  public wave.QueryNode filter(List< String > filterCondition) {}
+  public wave.QueryNode filter(List<String> filterCondition) {}
 
   /**
    * Execute the query and return rows as JSON.

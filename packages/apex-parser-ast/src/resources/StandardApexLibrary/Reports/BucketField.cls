@@ -3,6 +3,8 @@
  */
 global class BucketField {
 
+  public BucketField(Reports.BucketType bucketType, String devloperName, String label, Boolean nullTreatedAsZero, String otherBucketLabel, String sourceColumnName, List<Reports.BucketFieldValue> values) {}
+
   /**
    * Returns the bucket type.
    * @return Reports.BucketType

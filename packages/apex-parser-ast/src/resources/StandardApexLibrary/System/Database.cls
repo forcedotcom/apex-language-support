@@ -34,7 +34,7 @@ global class Database {
    */
   public static Integer countQuery(String query, System.AccessLevel accessLevel) {}
 
-  public static Integer countQueryWithBinds(String query, Object> bindMap, System.AccessLevel accessLevel) {}
+  public static Integer countQueryWithBinds(String query, Map<String, Object> bindMap, System.AccessLevel accessLevel) {}
 
   /**
    * Deletes an existing sObject record, such as an individual account or contact, from your organization's data.
@@ -66,7 +66,7 @@ global class Database {
    * @param allOrNone (Optional) The allOrNone parameter specifies whether the operation allows partial success. If allOrNone is set to false and a record fails, the remainder of the DML operation can still succeed. You must iterate through the returned results to identify which records succeeded or failed. If allOrNone is set to true and the method isn’t successful, an exception is thrown. The default for the parameter is true .
    * @return Database.DeleteResult[]
    */
-  public static Database.DeleteResult[] delete(ID [] recordIDs, Boolean allOrNone) {}
+  public static Database.DeleteResult[] delete(ID[] recordIDs, Boolean allOrNone) {}
 
   /**
    * Deletes an existing sObject record, such as an individual account or contact, from your organization's data.
@@ -293,9 +293,9 @@ global class Database {
   /**
    * Creates a QueryLocator object used in batch Apex or Visualforce.
    * @param staticSoqlQueryResult The staticSoqlQueryResult parameter must be a static, inline SOQL query.
-   * @return Database. QueryLocator
+   * @return Database.QueryLocator
    */
-  public static Database. QueryLocator getQueryLocator(sObject [] staticSoqlQueryResult) {}
+  public static Database.QueryLocator getQueryLocator(sObject [] staticSoqlQueryResult) {}
 
   /**
    * Creates a QueryLocator object used in batch Apex or Visualforce.
@@ -320,7 +320,7 @@ global class Database {
    */
   public static Database.QueryLocator getQueryLocator(String query, System.AccessLevel accessLevel) {}
 
-  public static Database.QueryLocator getQueryLocatorWithBinds(String query, Object> bindMap, System.AccessLevel accessLevel) {}
+  public static Database.QueryLocator getQueryLocatorWithBinds(String query, Map<String, Object> bindMap, System.AccessLevel accessLevel) {}
 
   /**
    * Returns the list of individual records that have been updated for an sObject type within the specified start and end dates and times.
@@ -643,7 +643,7 @@ global class Database {
    */
   public static List<SObject> query(String queryString, System.AccessLevel accessLevel) {}
 
-  public static List<SObject> queryWithBinds(String queryString, Object> bindMap, System.AccessLevel accessLevel) {}
+  public static List<SObject> queryWithBinds(String queryString, Map<String, Object> bindMap, System.AccessLevel accessLevel) {}
 
   public static void releaseSavepoint(System.Savepoint databaseSavepoint) {}
 
@@ -689,7 +689,7 @@ global class Database {
    * @param allOrNone (Optional) The allOrNone parameter specifies whether the operation allows partial success. If allOrNone is set to false and a record fails, the remainder of the DML operation can still succeed. You must iterate through the returned results to identify which records succeeded or failed. If allOrNone is set to true and the method isn’t successful, an exception is thrown. The default for the parameter is true .
    * @return Database.UndeleteResult[]
    */
-  public static Database.UndeleteResult[] undelete(ID [] recordIDs, Boolean allOrNone) {}
+  public static Database.UndeleteResult[] undelete(ID[] recordIDs, Boolean allOrNone) {}
 
   /**
    * Restores an existing sObject record, such as an individual account or contact, from your organization's Recycle Bin.

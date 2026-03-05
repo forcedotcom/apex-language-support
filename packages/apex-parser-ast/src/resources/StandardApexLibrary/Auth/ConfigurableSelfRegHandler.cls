@@ -11,6 +11,6 @@ global interface ConfigurableSelfRegHandler {
    * @param password The password entered by the user if “Include Password” is selected on the L&R page. (If a password isn’t entered, the handler must generate one because a password is required to create a user.)
    * @return Id
    */
-  Id createUser(Id accountId, Id profileId, String > registrationAttributes, String password);
+  Id createUser(Id accountId, Id profileId, Map<Schema.SObjectField,String> registrationAttributes, String password);
 
 }

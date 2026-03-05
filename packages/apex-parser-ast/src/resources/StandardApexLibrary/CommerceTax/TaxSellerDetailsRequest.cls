@@ -3,6 +3,8 @@
  */
 global class TaxSellerDetailsRequest {
 
+  global TaxSellerDetailsRequest(String code) {}
+
   global Boolean equals(Object obj) {}
 
   global Integer hashCode() {}

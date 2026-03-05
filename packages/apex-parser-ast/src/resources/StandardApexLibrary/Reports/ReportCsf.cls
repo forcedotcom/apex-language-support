@@ -3,6 +3,8 @@
  */
 global class ReportCsf {
 
+  public ReportCsf(String label, String description, Reports.FormulaType formulaType, Integer decimalPlaces, String downGroup, Reports.CsfGroupType downGroupType, String acrossGroup, Reports.CsfGroupType acrossGroupType, String formula) {}
+
   /**
    * Returns the name of a column grouping when the acrossGroupType is CUSTOM . Otherwise, returns null .
    * @return String

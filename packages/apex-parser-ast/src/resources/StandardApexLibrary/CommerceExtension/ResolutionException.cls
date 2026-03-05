@@ -3,6 +3,12 @@
  */
 global class ResolutionException {
 
+  public ResolutionException(String errorMessage, Exception exception) {}
+
+  public ResolutionException(Exception exception) {}
+
+  public ResolutionException(String errorMessage) {}
+
   public String getTypeName() {}
 
 }

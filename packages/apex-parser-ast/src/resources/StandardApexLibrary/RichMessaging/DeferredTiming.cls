@@ -3,4 +3,6 @@
  */
 global class DeferredTiming {
 
+  public DeferredTiming(Datetime deferredDate) {}
+
 }

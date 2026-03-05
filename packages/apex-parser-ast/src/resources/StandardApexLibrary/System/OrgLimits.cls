@@ -11,8 +11,8 @@ global class OrgLimits {
 
   /**
    * Returns a map of all OrgLimit instances with the limit name as key.
-   * @return Map< String ,System.OrgLimit>
+   * @return Map<String,System.OrgLimit>
    */
-  public static Map< String ,System.OrgLimit> getMap() {}
+  public static Map<String,System.OrgLimit> getMap() {}
 
 }

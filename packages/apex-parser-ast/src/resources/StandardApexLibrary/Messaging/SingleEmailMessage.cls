@@ -15,13 +15,13 @@ global class SingleEmailMessage {
    * Optional. A list of blind carbon copy (BCC) addresses or object IDs of the contacts, leads, and users you’re sending the email to. The maximum size for this field is 4,000 bytes. The maximum total of toAddresses , ccAddresses , and bccAddresses per email is 150. All recipients in these three fields count against the limit for email sent using Apex or the API.
    * @param bccAddresses 
    */
-  public void setBccAddresses(String [] bccAddresses) {}
+  public void setBccAddresses(String[] bccAddresses) {}
 
   /**
    * Optional. A list of carbon copy (CC) addresses or object IDs of the contacts, leads, and users you’re sending the email to. The maximum size for this field is 4,000 bytes. The maximum total of toAddresses , ccAddresses , and bccAddresses per email is 150. All recipients in these three fields count against the limit for email sent using Apex or the API.
    * @param ccAddresses 
    */
-  public void setCcAddresses(String [] ccAddresses) {}
+  public void setCcAddresses(String[] ccAddresses) {}
 
   /**
    * Optional. The character set for the email. If this value is null, the user's default value is used.
@@ -33,13 +33,13 @@ global class SingleEmailMessage {
    * (Deprecated. Use setEntityAttachments() instead.) Optional. A list containing the ID of each document object you want to attach to the email.
    * @param documentIds 
    */
-  public void setDocumentAttachments(ID [] documentIds) {}
+  public void setDocumentAttachments(ID[] documentIds) {}
 
   /**
    * Optional. Array of IDs of Document , ContentVersion , or Attachment items to attach to the email.
    * @param ids 
    */
-  public void setEntityAttachments(List< String > ids) {}
+  public void setEntityAttachments(List<String> ids) {}
 
   /**
    * Optional. A list containing the file names of the binary and text files you want to attach to the email.
@@ -107,7 +107,7 @@ global class SingleEmailMessage {
    * Optional. A list of email addresses or object IDs of the contacts, leads, and users you’re sending the email to. The maximum size for this field is 4,000 bytes. The maximum total of toAddresses , ccAddresses , and bccAddresses per email is 150. All recipients in these three fields count against the limit for email sent using Apex or the API.
    * @param toAddresses 
    */
-  public void setToAddresses(String [] toAddresses) {}
+  public void setToAddresses(String[] toAddresses) {}
 
   /**
    * Optional. If set to true , the subject, plain text, and HTML text bodies of the email are treated as template data. The merge fields are resolved using the renderEmailTemplate method. Default is false .

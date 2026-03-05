@@ -15,14 +15,14 @@ global class Set {
    * @param fromList 
    * @return Boolean
    */
-  public Boolean addAll(List< Object > fromList) {}
+  public Boolean addAll(List<Object> fromList) {}
 
   /**
    * Adds all of the elements in the specified list to the set if they are not already present.
    * @param fromSet 
    * @return Boolean
    */
-  public Boolean addAll(Set< Object > fromSet) {}
+  public Boolean addAll(Set<Object> fromSet) {}
 
   /**
    * Removes all of the elements from the set.
@@ -31,9 +31,9 @@ global class Set {
 
   /**
    * Makes a duplicate copy of the set.
-   * @return Set< Object >
+   * @return Set<Object>
    */
-  public Set< Object > clone() {}
+  public Set<Object> clone() {}
 
   /**
    * Returns true if the set contains the specified element.
@@ -47,21 +47,21 @@ global class Set {
    * @param listToCompare 
    * @return Boolean
    */
-  public Boolean containsAll(List< Object > listToCompare) {}
+  public Boolean containsAll(List<Object> listToCompare) {}
 
   /**
    * Returns true if the set contains all of the elements in the specified list. The list must be of the same type as the set that calls the method.
    * @param setToCompare 
    * @return Boolean
    */
-  public Boolean containsAll(Set< Object > setToCompare) {}
+  public Boolean containsAll(Set<Object> setToCompare) {}
 
   /**
    * Compares this set with the specified set and returns true if both sets are equal; otherwise, returns false .
    * @param set2 The set2 argument is the set to compare this set with.
    * @return Boolean
    */
-  public Boolean equals(Set< Object > set2) {}
+  public Boolean equals(Set<Object> set2) {}
 
   /**
    * Returns the hashcode corresponding to this set and its contents.
@@ -87,21 +87,21 @@ global class Set {
    * @param listOfElementsToRemove 
    * @return Boolean
    */
-  public Boolean removeAll(List< Object > listOfElementsToRemove) {}
+  public Boolean removeAll(List<Object> listOfElementsToRemove) {}
 
   /**
    * Removes the elements in the specified list from the set if they are present.
    * @param setOfElementsToRemove 
    * @return Boolean
    */
-  public Boolean removeAll(Set< Object > setOfElementsToRemove) {}
+  public Boolean removeAll(Set<Object> setOfElementsToRemove) {}
 
   /**
    * Retains only the elements in this set that are contained in the specified list.
    * @param listOfElementsToRetain 
    * @return Boolean
    */
-  public Boolean retainAll(List< Object > listOfElementsToRetain) {}
+  public Boolean retainAll(List<Object> listOfElementsToRetain) {}
 
   /**
    * Retains only the elements in this set that are contained in the specified list.

@@ -3,4 +3,6 @@
  */
 global class ShippingMethod {
 
+  public ShippingMethod(String label, Double amount, String detail, String identifier) {}
+
 }

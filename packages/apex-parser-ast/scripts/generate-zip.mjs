@@ -41,14 +41,16 @@ async function generateZip() {
     // Builtin classes that override StandardApexLibrary/System/ equivalents.
     // These are hand-crafted stubs retained because the docs don't fully cover them
     // (e.g. operator overloads, implicit constructors, conversion methods not on the docs site).
-    // The remaining 11 System classes (Boolean, Date, DateTime, Decimal, Double, Id,
+    // The remaining 10 System classes (Boolean, Date, Decimal, Double, Id,
     // List, Map, Set, String, Time) have been retired from builtins and are now sourced
     // directly from StandardApexLibrary/System/ as generated stubs.
+    // DateTime.cls is temporarily retained in builtins until it's added to StandardApexLibrary.
     const builtinClasses = new Set([
-      'Blob.cls',    // hand-crafted: append(), subBlob(), toHexString(), valueOf(String, encoding)
-      'Integer.cls', // hand-crafted: decimalValue(), doubleValue(), longValue()
-      'Long.cls',    // hand-crafted: decimalValue(), doubleValue()
-      'Object.cls',  // hand-crafted: equals(), hashCode(), toString() (minimal in docs)
+      'Blob.cls',     // hand-crafted: append(), subBlob(), toHexString(), valueOf(String, encoding)
+      'DateTime.cls', // temporarily in builtins until added to StandardApexLibrary
+      'Integer.cls',  // hand-crafted: decimalValue(), doubleValue(), longValue()
+      'Long.cls',     // hand-crafted: decimalValue(), doubleValue()
+      'Object.cls',   // hand-crafted: equals(), hashCode(), toString() (minimal in docs)
     ]);
 
     // Get all files from the StandardApexLibrary directory

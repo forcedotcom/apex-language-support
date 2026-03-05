@@ -29,7 +29,7 @@ global class ChatterUsers {
 
   public static ConnectApi.UserSummary getUser(String communityId, String userId) {}
 
-  public static ConnectApi.BatchResult[] getUserBatch(String communityId, List< String > userIds) {}
+  public static ConnectApi.BatchResult[] getUserBatch(String communityId, List<String> userIds) {}
 
   public static ConnectApi.UserGroupDetailPage getUserGroups(String communityId, String userId) {}
 

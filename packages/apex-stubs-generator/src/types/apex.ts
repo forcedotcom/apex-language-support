@@ -28,12 +28,18 @@ export class ApexInnerException extends Schema.Class<ApexInnerException>("ApexIn
   name: Schema.String,
 }) {}
 
+export class ApexConstructor extends Schema.Class<ApexConstructor>("ApexConstructor")({
+  parameters: Schema.Array(ApexParameter),
+  visibility: Schema.optional(Schema.String),
+}) {}
+
 export class ApexClass extends Schema.Class<ApexClass>("ApexClass")({
   name: Schema.String,
   namespace: Schema.String,
   description: Schema.optional(Schema.String),
   methods: Schema.Array(ApexMethod),
   properties: Schema.Array(ApexProperty),
+  constructors: Schema.optional(Schema.Array(ApexConstructor)),
   isInterface: Schema.optional(Schema.Boolean),
   innerExceptions: Schema.optional(Schema.Array(ApexInnerException)),
 }) {}

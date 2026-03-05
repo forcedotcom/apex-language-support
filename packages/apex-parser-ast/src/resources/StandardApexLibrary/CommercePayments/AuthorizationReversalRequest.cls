@@ -3,6 +3,8 @@
  */
 global class AuthorizationReversalRequest {
 
+  global AuthorizationReversalRequest(Double amount, String authorizationId) {}
+
   /**
    * Maintains the integrity of lists of type AuthorizationReversalRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.
    * @param obj External object whose key is to be validated.

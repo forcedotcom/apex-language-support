@@ -15,17 +15,17 @@ global class GetAppointmentSlotsInputBuilder {
 
   public lxscheduler.GetAppointmentSlotsInputBuilder setEndTime(String endTime) {}
 
-  public lxscheduler.GetAppointmentSlotsInputBuilder setEngagementChannelTypeIds(List< String > engagementChannelTypeIds) {}
+  public lxscheduler.GetAppointmentSlotsInputBuilder setEngagementChannelTypeIds(List<String> engagementChannelTypeIds) {}
 
   public lxscheduler.GetAppointmentSlotsInputBuilder setPrimaryResourceId(String primaryResourceId) {}
 
-  public lxscheduler.GetAppointmentSlotsInputBuilder setRequiredResourceIds(List< String > requiredResourceIds) {}
+  public lxscheduler.GetAppointmentSlotsInputBuilder setRequiredResourceIds(List<String> requiredResourceIds) {}
 
   public lxscheduler.GetAppointmentSlotsInputBuilder setSchedulingPolicyId(String schedulingPolicyId) {}
 
   public lxscheduler.GetAppointmentSlotsInputBuilder setStartTime(String startTime) {}
 
-  public lxscheduler.GetAppointmentSlotsInputBuilder setTerritoryIds(List< String > territoryIds) {}
+  public lxscheduler.GetAppointmentSlotsInputBuilder setTerritoryIds(List<String> territoryIds) {}
 
   public lxscheduler.GetAppointmentSlotsInputBuilder setWorkType(lxscheduler.WorkType workType) {}
 

@@ -13,6 +13,6 @@ global interface StubProvider {
    * @param listOfArgs The actual argument values passed into this method at runtime.
    * @return Object
    */
-  Object handleMethodCall(Object stubbedObject, String stubbedMethodName, System.Type returnType, List<System.Type> listOfParamTypes, List< String > listOfParamNames, List< Object > listOfArgs);
+  Object handleMethodCall(Object stubbedObject, String stubbedMethodName, System.Type returnType, List<System.Type> listOfParamTypes, List<String> listOfParamNames, List<Object> listOfArgs);
 
 }

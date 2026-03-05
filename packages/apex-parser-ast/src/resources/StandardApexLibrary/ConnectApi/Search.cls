@@ -7,7 +7,7 @@ global class Search {
 
   public static ConnectApi.SearchAnswer answer(String q, String objectApiName) {}
 
-  public static ConnectApi.SearchAnswer answer(String q, String objectApiName, List< String > displayFields) {}
+  public static ConnectApi.SearchAnswer answer(String q, String objectApiName, List<String> displayFields) {}
 
   public static ConnectApi.SearchResultGroups findAndGroup(String q) {}
 
@@ -21,7 +21,7 @@ global class Search {
 
   public static void setTestAnswer(String q, String objectApiName, ConnectApi.SearchAnswer result) {}
 
-  public static void setTestAnswer(String q, String objectApiName, List< String > displayFields, ConnectApi.SearchAnswer result) {}
+  public static void setTestAnswer(String q, String objectApiName, List<String> displayFields, ConnectApi.SearchAnswer result) {}
 
   public static void setTestFindAndGroup(String q, ConnectApi.SearchResultGroups result) {}
 

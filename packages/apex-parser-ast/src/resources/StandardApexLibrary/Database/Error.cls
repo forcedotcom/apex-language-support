@@ -5,9 +5,9 @@ global class Error {
 
   /**
    * Returns an array of one or more field names. Identifies which fields in the object, if any, affected the error condition.
-   * @return String []
+   * @return String[]
    */
-  public String [] getFields() {}
+  public String[] getFields() {}
 
   /**
    * Returns the error message text.

@@ -3,4 +3,6 @@
  */
 global class JsonValueOutput {
 
+  public JsonValueOutput(String stringValue, Boolean booleanValue, Integer integerValue, Double doubleValue, String jsonStringValue, String jsonArrayValue) {}
+
 }

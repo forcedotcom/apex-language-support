@@ -3,4 +3,8 @@
  */
 global class OAuthRefreshResult {
 
+  public OAuthRefreshResult(String accessToken, String refreshToken, String error) {}
+
+  public OAuthRefreshResult(String accessToken, String refreshToken) {}
+
 }

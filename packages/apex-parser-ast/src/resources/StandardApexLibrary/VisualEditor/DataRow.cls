@@ -3,6 +3,10 @@
  */
 global class DataRow {
 
+  public DataRow(String label, Object value, Boolean selected) {}
+
+  public DataRow(String label, Object value) {}
+
   /**
    * Makes a duplicate copy of the VisualEditor.DataRow object.
    * @return Object

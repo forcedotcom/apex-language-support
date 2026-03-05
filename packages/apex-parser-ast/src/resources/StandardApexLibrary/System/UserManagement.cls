@@ -58,11 +58,10 @@ global class UserManagement {
    * Initiates a verification service for email, phone (SMS), and the Salesforce Authenticator verification methods.
    * @param method Method used to initiate a verification service for EMAIL , SMS , or SALESFORCE_AUTHENTICATOR verification methods.
    * @param actionName 
-   * @param String 
    * @param extras 
    * @return String
    */
-  public static String initVerificationMethod(Auth.VerificationMethod method, String actionName, Map< String, String > extras) {}
+  public static String initVerificationMethod(Auth.VerificationMethod method, String actionName, Map<String,String> extras) {}
 
   /**
    * Scrambles users’ data on their request when they no longer want their personal data recognized in Salesforce. When you invoke the method for the user, the data becomes anonymous, and you can never recover it. Use this method to set the username to a specific value after it’s scrambled.

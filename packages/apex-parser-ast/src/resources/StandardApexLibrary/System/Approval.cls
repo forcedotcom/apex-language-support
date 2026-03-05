@@ -13,9 +13,9 @@ global class Approval {
   /**
    * Returns true if the record with the ID id is locked, or false if it’s not.
    * @param ids 
-   * @return Map<Id, Boolean >
+   * @return Map<Id,Boolean>
    */
-  public static Map<Id, Boolean > isLocked(List<Id> ids) {}
+  public static Map<Id,Boolean> isLocked(List<Id> ids) {}
 
   /**
    * Returns true if the record with the ID id is locked, or false if it’s not.
@@ -27,9 +27,9 @@ global class Approval {
   /**
    * Returns true if the record with the ID id is locked, or false if it’s not.
    * @param sobjects 
-   * @return Map<Id, Boolean >
+   * @return Map<Id,Boolean>
    */
-  public static Map<Id, Boolean > isLocked(List<SObject> sobjects) {}
+  public static Map<Id,Boolean> isLocked(List<SObject> sobjects) {}
 
   /**
    * Locks an object, and returns the lock results.

@@ -3,6 +3,8 @@
  */
 global class PaymentGatewayContext {
 
+  global PaymentGatewayContext(commercepayments.PaymentGatewayRequest request, String requestType) {}
+
   /**
    * Returns the payment request object.
    * @return commercepayments.PaymentGatewayRequest

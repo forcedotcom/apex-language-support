@@ -1,5 +1,5 @@
 import { Effect, Console } from "effect";
-import { ApexMethod, ApexParameter, ApexEnumValue } from "../types/apex";
+import { ApexConstructor, ApexMethod, ApexParameter, ApexEnumValue } from "../types/apex";
 
 export class HtmlParsingError {
   readonly _tag = "HtmlParsingError";
@@ -7,7 +7,8 @@ export class HtmlParsingError {
 }
 
 /**
- * Strip HTML tags and decode HTML entities to get clean text content
+ * Strip HTML tags and decode HTML entities to get clean text content.
+ * Tags are replaced with a space so adjacent words don't merge.
  */
 export const stripHtmlTags = (html: string): string => {
   return html
@@ -23,6 +24,47 @@ export const stripHtmlTags = (html: string): string => {
     .trim();
 };
 
+/**
+ * Strip HTML tags from inline code content (e.g. inside <samp>) without inserting
+ * spaces. This prevents artifacts like `Database. QueryLocator` from anchor tags,
+ * or `describeDataCategory GroupStructures` from <wbr> elements.
+ *
+ * Order is critical: HTML tags must be stripped BEFORE entity decoding so that
+ * `List&lt;Schema.X&gt;` is not confused with an HTML element.
+ */
+const stripCodeTags = (html: string): string =>
+  html
+    .replace(/\s*<wbr\s*\/?>\s*/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\.\s+/g, '.')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * Split a parameter list string by commas, respecting angle-bracket nesting so that
+ * generic type arguments like `Map<String, Object>` are not split at the inner comma.
+ */
+const splitParams = (str: string): string[] => {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < str.length; i++) {
+    if (str[i] === '<') depth++;
+    else if (str[i] === '>') depth--;
+    else if (str[i] === ',' && depth === 0) {
+      parts.push(str.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(str.slice(start));
+  return parts;
+};
+
 const extractSignatures = (html: string): string[] => {
   const signatures: string[] = [];
   // Some pages use class="codeph apex_code", others use class="codeph " (no apex_code).
@@ -31,7 +73,7 @@ const extractSignatures = (html: string): string[] => {
 
   let match;
   while ((match = signaturePattern.exec(html)) !== null) {
-    signatures.push(stripHtmlTags(match[1]));
+    signatures.push(stripCodeTags(match[1]));
   }
 
   return signatures;
@@ -52,14 +94,29 @@ const parseMethodSignature = (signature: string): ApexMethod | null => {
 
   const visibility = match[1];
   const isStatic = !!match[2];
+
+  let rawReturn = match[3].trim();
+  let methodName = match[4];
+
+  // Docs sometimes insert a spurious space inside a camelCase method name (e.g. from
+  // <wbr> or line-wrap artifacts), causing the regex to absorb the first fragment into
+  // the return type. Detect this: if the return type ends with a lowercase-starting word
+  // AND the parsed method name starts with an uppercase letter, the last word of the
+  // return type is actually the start of the real method name.
+  const returnTypeParts = rawReturn.split(/\s+/);
+  const lastReturnPart = returnTypeParts[returnTypeParts.length - 1] ?? '';
+  if (returnTypeParts.length > 1 && /^[a-z]/.test(lastReturnPart) && /^[A-Z]/.test(methodName)) {
+    rawReturn = returnTypeParts.slice(0, -1).join(' ').trim();
+    methodName = lastReturnPart + methodName;
+  }
+
   // Normalize 'Void' to 'void' — docs capitalize it but Apex uses lowercase
-  const returnType = match[3].trim() === 'Void' ? 'void' : match[3].trim();
-  const methodName = match[4];
+  const returnType = rawReturn === 'Void' ? 'void' : rawReturn;
   const paramsStr = match[5].trim();
 
   const parameters: ApexParameter[] = [];
   if (paramsStr) {
-    for (const paramPart of paramsStr.split(',')) {
+    for (const paramPart of splitParams(paramsStr)) {
       const trimmed = paramPart.trim();
       if (!trimmed) continue;
 
@@ -156,6 +213,60 @@ export const extractMethodsFromHtml = (html: string, className: string) =>
 
     yield* Console.log(`Extracted ${methods.length} methods from ${className}`);
     return methods;
+  });
+
+/**
+ * Parse a constructor signature string into an ApexConstructor.
+ * Constructors have no return type: `(public|global|private) ClassName(params)`.
+ * Returns null for no-arg constructors (those are omitted from stubs).
+ */
+const parseConstructorSignature = (signature: string, className: string): ApexConstructor | null => {
+  const normalized = signature.replace(/\s+/g, ' ').trim();
+  const ctorPattern = /^(public|global|private)\s+([A-Za-z][A-Za-z0-9_]*)\s*\(([^)]*)\)$/;
+  const match = normalized.match(ctorPattern);
+  if (!match) return null;
+
+  const visibility = match[1];
+  const name = match[2];
+  const paramsStr = match[3].trim();
+
+  if (name !== className) return null;
+  if (!paramsStr) return null;
+
+  const parameters: ApexParameter[] = [];
+  for (const paramPart of splitParams(paramsStr)) {
+    const trimmed = paramPart.trim();
+    if (!trimmed) continue;
+    const paramMatch = trimmed.match(/^([A-Za-z0-9_.<>,\[\]\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)$/);
+    if (paramMatch) {
+      parameters.push(new ApexParameter({ type: paramMatch[1].trim(), name: paramMatch[2].trim() }));
+    }
+  }
+
+  if (parameters.length === 0) return null;
+
+  return new ApexConstructor({ parameters, visibility });
+};
+
+/**
+ * Extract constructors with parameters from HTML content.
+ * No-arg constructors are intentionally excluded.
+ */
+export const extractConstructorsFromHtml = (html: string, className: string) =>
+  Effect.gen(function* () {
+    const constructors: ApexConstructor[] = [];
+    const signatures = extractSignatures(html);
+
+    for (const signature of signatures) {
+      const ctor = parseConstructorSignature(signature, className);
+      if (ctor) {
+        constructors.push(ctor);
+        yield* Console.log(`    Parsed constructor: ${className}(${ctor.parameters.map(p => p.type).join(', ')})`);
+      }
+    }
+
+    yield* Console.log(`Extracted ${constructors.length} constructors from ${className}`);
+    return constructors;
   });
 
 /**

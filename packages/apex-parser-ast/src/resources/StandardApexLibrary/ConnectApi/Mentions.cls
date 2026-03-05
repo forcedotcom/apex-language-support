@@ -7,7 +7,7 @@ global class Mentions {
 
   public static ConnectApi.Mentions getMentionCompletions(String communityId, String q, String contextId, ConnectApi.MentionCompletionType type, Integer pageParam, Integer pageSize) {}
 
-  public static ConnectApi.Mentions getMentionValidations(String communityId, String parentId, List< String > recordIds, ConnectApi.FeedItemVisibilityType visibility) {}
+  public static ConnectApi.Mentions getMentionValidations(String communityId, String parentId, List<String> recordIds, ConnectApi.FeedItemVisibilityType visibility) {}
 
   public static void setTestGetMentionCompletions(String communityId, String q, String contextId, ConnectApi.MentionCompletionPage result) {}
 

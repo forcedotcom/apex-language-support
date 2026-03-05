@@ -3,6 +3,10 @@
  */
 global class StandardSetController {
 
+  public StandardSetController(Database.QueryLocator queryLocator) {}
+
+  public StandardSetController(List<sObject> controllerSObjects) {}
+
   /**
    * Returns the PageReference of the original page, if known, or the home page.
    * @return System.PageReference

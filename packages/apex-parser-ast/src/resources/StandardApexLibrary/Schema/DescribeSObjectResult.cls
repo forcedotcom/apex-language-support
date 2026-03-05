@@ -81,9 +81,9 @@ global class DescribeSObjectResult {
 
   /**
    * Returns a map that matches developer names to their associated record type. The current user is not required to have access to a record type to see it in this map.
-   * @return Map< String , Schema.RecordTypeInfo>
+   * @return Map<String, Schema.RecordTypeInfo>
    */
-  public Map< String , Schema.RecordTypeInfo> getRecordTypeInfosByDeveloperName() {}
+  public Map<String, Schema.RecordTypeInfo> getRecordTypeInfosByDeveloperName() {}
 
   /**
    * Returns a map that matches record IDs to their associated record types. The current user is not required to have access to a record type to see it in this map.

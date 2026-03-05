@@ -3,6 +3,6 @@
  */
 global class CustomTaxAttributesResponse {
 
-  global void setData(Map< String, Object > data) {}
+  global void setData(Map<String, Object> data) {}
 
 }

@@ -31,7 +31,7 @@ global class Messaging {
    */
   public Messaging.SendEmailResult[] sendEmail(Messaging.Email[] emails, Boolean allOrNothing) {}
 
-  public Messaging.SendEmailResult[] sendEmailMessage(List< ID > emailMessageIds, Boolean allOrNothing) {}
+  public Messaging.SendEmailResult[] sendEmailMessage(List<ID> emailMessageIds, Boolean allOrNothing) {}
 
   /**
    * Replaces merge fields in text bodies of email templates with values from Salesforce records. Returns an array of RenderEmailTemplateBodyResult objects, each of which corresponds to an element in the supplied array of text bodies. Each RenderEmailTemplateBodyResult provides a success or failure indication, along with either an error code or the rendered text.
@@ -40,7 +40,7 @@ global class Messaging {
    * @param bodies An array of strings that are examined for merge field references. The corresponding data from the object referenced by the whoId or whatId replaces the merge field reference.
    * @return List<Messaging.RenderEmailTemplateBodyResult>
    */
-  public static List<Messaging.RenderEmailTemplateBodyResult> renderEmailTemplate(String whoId, String whatId, List< String > bodies) {}
+  public static List<Messaging.RenderEmailTemplateBodyResult> renderEmailTemplate(String whoId, String whatId, List<String> bodies) {}
 
   /**
    * Renders a text, custom, HTML, or Visualforce email template that exists in the database into an instance of Messaging.SingleEmailMessage . Includes all attachment content in the returned email message.

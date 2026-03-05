@@ -3,6 +3,8 @@
  */
 global class AlternativePaymentMethodRequest {
 
+  public AlternativePaymentMethodRequest(String gatewayToken) {}
+
   public Boolean equals(Object obj) {}
 
   public Integer hashCode() {}

@@ -3,6 +3,8 @@
  */
 global class CrossFilter {
 
+  public CrossFilter(List<Reports.ReportFilter> criteria, Boolean includesObject, String primaryEntityField, String relatedEntity, String relatedEntityJoinField) {}
+
   /**
    * Returns information about how to filter the relatedEntity . Describes the subset of the relatedEntity which the primary entity is evaluated against.
    * @return List<Reports.ReportFilter>

@@ -15,7 +15,7 @@ global class ChatterFeeds {
 
   public static ConnectApi.Comment getComment(String communityId, String commentId) {}
 
-  public static ConnectApi.BatchResult[] getCommentBatch(String communityId, List< String > commentIds) {}
+  public static ConnectApi.BatchResult[] getCommentBatch(String communityId, List<String> commentIds) {}
 
   public static ConnectApi.FeedElement getCommentInContext(String communityId, String commentId, Integer pageSize) {}
 
@@ -63,7 +63,7 @@ global class ChatterFeeds {
 
   public static ConnectApi.FeedElement getFeedElement(String communityId, String feedElementId, Integer recentCommentCount, Integer elementsPerBundle, ConnectApi.FeedCommentSortOrder commentSort) {}
 
-  public static ConnectApi.BatchResult[] getFeedElementBatch(String communityId, List< String > feedElementIds) {}
+  public static ConnectApi.BatchResult[] getFeedElementBatch(String communityId, List<String> feedElementIds) {}
 
   public static ConnectApi.PollCapability getFeedElementPoll(String communityId, String feedElementId) {}
 
@@ -305,9 +305,9 @@ global class ChatterFeeds {
 
   public static ConnectApi.BookmarksCapability updateFeedElementBookmarks(String communityId, String feedElementId, Boolean isBookmarkedByCurrentUser) {}
 
-  public static ConnectApi.BatchResult[] updateFeedElementReadByCapabilityBatch(String communityId, List< String > feedElementIds, ConnectApi.ReadByCapabilityInput readBy) {}
+  public static ConnectApi.BatchResult[] updateFeedElementReadByCapabilityBatch(String communityId, List<String> feedElementIds, ConnectApi.ReadByCapabilityInput readBy) {}
 
-  public static ConnectApi.BatchResult[] updateFeedElementReadByCapabilityBatch(String communityId, List< String > feedElementIds, Boolean isReadByMe) {}
+  public static ConnectApi.BatchResult[] updateFeedElementReadByCapabilityBatch(String communityId, List<String> feedElementIds, Boolean isReadByMe) {}
 
   public static ConnectApi.ChatterLikePage updateLikeForComment(String communityId, String commentId, Boolean isLikedByCurrentUser) {}
 
@@ -451,7 +451,7 @@ global class ChatterFeeds {
 
   public static ConnectApi.FeedItem getFeedItem(String communityId, String feedItemId) {}
 
-  public static ConnectApi.BatchResult[] getFeedItemBatch(String communityId, List< String > feedItemIds) {}
+  public static ConnectApi.BatchResult[] getFeedItemBatch(String communityId, List<String> feedItemIds) {}
 
   public static ConnectApi.FeedItemPage getFeedItemsFromFeed(String communityId, ConnectApi.FeedType feedType) {}
 

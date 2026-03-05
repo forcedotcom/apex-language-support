@@ -138,9 +138,9 @@ global class SObject {
 
   /**
    * Returns a map of populated field names and their corresponding values. The map contains only the fields that have been populated in memory for the SObject instance.
-   * @return Map< String , Object >
+   * @return Map<String,Object>
    */
-  public Map< String , Object > getPopulatedFieldsAsMap() {}
+  public Map<String,Object> getPopulatedFieldsAsMap() {}
 
   /**
    * Returns the value for the specified field. This method is primarily used with dynamic DML to access values for external IDs.

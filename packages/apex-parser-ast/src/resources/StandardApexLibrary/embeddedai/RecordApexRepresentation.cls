@@ -3,6 +3,8 @@
  */
 global class RecordApexRepresentation {
 
+  public RecordApexRepresentation(String objectType, List<embeddedai.ApexMap> recordData, List<embeddedai.RecordApexRepresentation> relatedRecordData) {}
+
   public static embeddedai.RecordApexRepresentation toRecordApexRep(String jsonString) {}
 
   public String toString() {}

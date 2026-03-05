@@ -55,7 +55,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
 
       // Find the chained type reference for System.URL
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs).toHaveLength(1);
 
@@ -89,7 +89,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
 
       // Find the chained type reference for System.URL parameter
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs).toHaveLength(1);
 
@@ -121,7 +121,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
 
       // Find the chained type reference for System.URL field
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs).toHaveLength(1);
 
@@ -155,7 +155,7 @@ describe('ApexSymbolManager - Precise Location Tracking', () => {
 
       // Find all chained type references for System.URL (return type and method call)
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 

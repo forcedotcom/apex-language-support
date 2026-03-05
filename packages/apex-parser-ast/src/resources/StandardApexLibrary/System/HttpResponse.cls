@@ -30,9 +30,9 @@ global class HttpResponse {
 
   /**
    * Retrieves an array of header keys returned in the response.
-   * @return String []
+   * @return String[]
    */
-  public String [] getHeaderKeys() {}
+  public String[] getHeaderKeys() {}
 
   /**
    * Retrieves the status message returned for the response.

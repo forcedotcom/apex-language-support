@@ -27,7 +27,7 @@ global class ChatterGroups {
 
   public static ConnectApi.ChatterGroupDetail getGroup(String communityId, String groupId) {}
 
-  public static ConnectApi.BatchResult[] getGroupBatch(String communityId, List< String > groupIds) {}
+  public static ConnectApi.BatchResult[] getGroupBatch(String communityId, List<String> groupIds) {}
 
   public static ConnectApi.GroupMembershipRequest getGroupMembershipRequest(String communityId, String requestId) {}
 
@@ -47,7 +47,7 @@ global class ChatterGroups {
 
   public static ConnectApi.GroupMemberPage getMembers(String communityId, String groupId, Integer pageParam, Integer pageSize) {}
 
-  public static ConnectApi.BatchResult[] getMembershipBatch(String communityId, List< String > membershipIds) {}
+  public static ConnectApi.BatchResult[] getMembershipBatch(String communityId, List<String> membershipIds) {}
 
   public static ConnectApi.GroupChatterSettings getMyChatterSettings(String communityId, String groupId) {}
 

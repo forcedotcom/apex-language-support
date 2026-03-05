@@ -7,7 +7,7 @@ global class LearningEvaluation {
 
   public String getLearningItemId() {}
 
-  public void setDetails(Object> details) {}
+  public void setDetails(Map<String,Object> details) {}
 
   public void setLearningItemId(String learningItemId) {}
 

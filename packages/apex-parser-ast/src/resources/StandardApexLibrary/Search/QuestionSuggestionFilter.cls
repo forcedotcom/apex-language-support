@@ -25,13 +25,13 @@ global class QuestionSuggestionFilter {
    * Sets a new list of groups to replace the current list of groups where the group IDs are passed in as an argument. This filter is optional.
    * @param groupIds A list of group IDs.
    */
-  public void setGroupIds(List< String > groupIds) {}
+  public void setGroupIds(List<String> groupIds) {}
 
   /**
    * Sets a new list of networks to replace the current list of networks where the network IDs are passed in as an argument. This filter is optional.
    * @param networkIds A list of network IDs.
    */
-  public void setNetworkIds(List< String > networkIds) {}
+  public void setNetworkIds(List<String> networkIds) {}
 
   /**
    * Sets a filter to display questions associated with the single specified topic whose ID is passed in as an argument. This filter is optional.
@@ -43,6 +43,6 @@ global class QuestionSuggestionFilter {
    * Sets a new list of users to replace the current list of users where the users IDs are passed in as an argument. This filter is optional.
    * @param userIds A list of user IDs.
    */
-  public void setUserIds(List< String > userIds) {}
+  public void setUserIds(List<String> userIds) {}
 
 }

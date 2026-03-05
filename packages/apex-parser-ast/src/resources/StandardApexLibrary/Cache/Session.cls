@@ -13,9 +13,9 @@ global class Session {
   /**
    * Returns true if the session cache contains a cached value corresponding to the specified key.
    * @param keys 
-   * @return Map < String , Boolean >
+   * @return Map <String, Boolean>
    */
-  public static Map < String , Boolean > contains(Set< String > keys) {}
+  public static Map <String, Boolean> contains(Set<String> keys) {}
 
   /**
    * Returns the cached value corresponding to the specified key from the session cache.
@@ -27,9 +27,9 @@ global class Session {
   /**
    * Returns the cached value corresponding to the specified key from the session cache.
    * @param keys 
-   * @return Map < String , Object >
+   * @return Map <String, Object>
    */
-  public static Map < String , Object > get(Set < String > keys) {}
+  public static Map <String, Object> get(Set <String> keys) {}
 
   /**
    * Returns the cached value corresponding to the specified key from the session cache.
@@ -65,9 +65,9 @@ global class Session {
 
   /**
    * Returns all keys that are stored in the session cache and visible to the invoking namespace.
-   * @return Set< String >
+   * @return Set<String>
    */
-  public static Set< String > getKeys() {}
+  public static Set<String> getKeys() {}
 
   /**
    * Returns the maximum item size of all the keys fetched from the session cache, in bytes.

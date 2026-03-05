@@ -15,6 +15,6 @@ global class Operations {
    * @param fullNames A list of component names to retrieve. For information on component name formats, see Metadata.fullName() .
    * @return List<Metadata.Metadata>
    */
-  public static List<Metadata.Metadata> retrieve(Metadata.MetadataType type, List< String > fullNames) {}
+  public static List<Metadata.Metadata> retrieve(Metadata.MetadataType type, List<String> fullNames) {}
 
 }

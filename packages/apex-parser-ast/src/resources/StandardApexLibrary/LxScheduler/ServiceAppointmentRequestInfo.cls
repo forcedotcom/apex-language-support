@@ -3,6 +3,8 @@
  */
 global class ServiceAppointmentRequestInfo {
 
+  public ServiceAppointmentRequestInfo(Datetime startDate, Datetime endDate, List<lxscheduler.ServiceResourceInfo> ServiceResources, String SchedulingPolicyId, String workTypeGroupId, String accountId, String primaryResourceId, String workTypeId, String correlationId) {}
+
   /**
    * Returns the account ID of the customer if the API request contains one.
    * @return String

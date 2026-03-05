@@ -5,9 +5,9 @@ global class SendEmailQuickActionDefaults {
 
   /**
    * Returns a list of email addresses that are available in the From: address drop-down menu for the standard Email Action.
-   * @return List< String >
+   * @return List<String>
    */
-  public List< String > getFromAddressList() {}
+  public List<String> getFromAddressList() {}
 
   /**
    * Returns the email message ID of the email to which the reply/reply all action has been invoked.

@@ -3,6 +3,8 @@
  */
 global class KnowledgeArticleVersionStandardController {
 
+  public KnowledgeArticleVersionStandardController(SObject article) {}
+
   /**
    * Returns the ID for the source object record when creating a new article from another object.
    * @return String

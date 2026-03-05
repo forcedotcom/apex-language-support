@@ -3,6 +3,10 @@
  */
 global class Resolution {
 
+  public Resolution(CommerceExtension.ResolutionStates resolutionState) {}
+
+  public Resolution(String providerName) {}
+
   public String getProviderName() {}
 
   public CommerceExtension.ResolutionStates getResolutionState() {}

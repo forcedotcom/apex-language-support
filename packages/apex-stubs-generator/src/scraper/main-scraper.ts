@@ -3,6 +3,7 @@ import { fetchDocumentStructure, fetchPageContent, ApiScrapingError } from "./js
 import { parseTocStructure, type NamespaceInfo, type ClassReference } from "../parser/toc-parser";
 import {
   extractMethodsFromHtml,
+  extractConstructorsFromHtml,
   extractClassDescriptionFromHtml,
   extractEnumValuesFromHtml,
   extractExceptionClassNamesFromHtml,
@@ -53,8 +54,9 @@ const scrapeClass = (ref: ClassReference) =>
 
     const classDescription = yield* extractClassDescriptionFromHtml(content.content);
     const methods = yield* extractMethodsFromHtml(content.content, ref.name);
+    const constructors = yield* extractConstructorsFromHtml(content.content, ref.name);
 
-    return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, methods, properties: [], isInterface: false })];
+    return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, methods, constructors, properties: [], isInterface: false })];
   });
 
 const scrapeInterface = (ref: ClassReference) =>
@@ -69,8 +71,9 @@ const scrapeInterface = (ref: ClassReference) =>
 
     const classDescription = yield* extractClassDescriptionFromHtml(content.content);
     const methods = yield* extractMethodsFromHtml(content.content, ref.name);
+    const constructors = yield* extractConstructorsFromHtml(content.content, ref.name);
 
-    return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, methods, properties: [], isInterface: true })];
+    return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, methods, constructors, properties: [], isInterface: true })];
   });
 
 type ExceptionScrapeResult =

@@ -3,6 +3,8 @@
  */
 global class EvaluatedCondition {
 
+  public EvaluatedCondition(String aggregateName, String aggregateLabel, Double compareToValue, Double aggregateValue, String displayCompareTo, String displayValue, Reports.EvaluatedConditionOperator operator) {}
+
   /**
    * Returns the localized display name of the aggregate.
    * @return String

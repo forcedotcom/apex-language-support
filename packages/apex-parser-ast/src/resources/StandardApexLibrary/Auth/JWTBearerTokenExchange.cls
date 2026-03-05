@@ -3,6 +3,8 @@
  */
 global class JWTBearerTokenExchange {
 
+  public JWTBearerTokenExchange(String tokenEndpoint, Auth.JWS jws) {}
+
   /**
    * Makes a duplicate copy of the JWTBearerTokenExchange object.
    * @return Object

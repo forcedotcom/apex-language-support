@@ -3,4 +3,6 @@
  */
 global class GatewayErrorResponse {
 
+  global GatewayErrorResponse(String errorCode, String errorMessage) {}
+
 }

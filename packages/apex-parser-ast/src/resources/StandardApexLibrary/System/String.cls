@@ -221,27 +221,27 @@ global class String {
    * @param formattingArguments 
    * @return String
    */
-  public static String format(String stringToFormat, List< Object > formattingArguments) {}
+  public static String format(String stringToFormat, List<Object> formattingArguments) {}
 
   /**
    * Returns a String from the values of the list of integers.
    * @param charArray 
    * @return String
    */
-  public static String fromCharArray(List< Integer > charArray) {}
+  public static String fromCharArray(List<Integer> charArray) {}
 
   /**
    * Returns an array of character values that represent the characters in this string.
-   * @return List< Integer >
+   * @return List<Integer>
    */
-  public List< Integer > getChars() {}
+  public List<Integer> getChars() {}
 
   /**
    * Returns the initial sequence of characters as a String that is common to all the specified Strings.
    * @param strings 
    * @return String
    */
-  public static String getCommonPrefix(List< String > strings) {}
+  public static String getCommonPrefix(List<String> strings) {}
 
   /**
    * Returns the Levenshtein distance between the current String and the specified String.
@@ -626,29 +626,29 @@ global class String {
   /**
    * Returns a list that contains each substring of the String that is terminated by either the regular expression regExp or the end of the String.
    * @param regExp 
-   * @return String []
+   * @return String[]
    */
-  public String [] split(String regExp) {}
+  public String[] split(String regExp) {}
 
   /**
    * Returns a list that contains each substring of the String that is terminated by either the regular expression regExp or the end of the String.
    * @param regExp 
    * @param limit 
-   * @return String []
+   * @return String[]
    */
-  public String [] split(String regExp, Integer limit) {}
+  public String[] split(String regExp, Integer limit) {}
 
   /**
    * Splits the current String by character type and returns a list of contiguous character groups of the same type as complete tokens.
-   * @return List< String >
+   * @return List<String>
    */
-  public List< String > splitByCharacterType() {}
+  public List<String> splitByCharacterType() {}
 
   /**
    * Splits the current String by character type and returns a list of contiguous character groups of the same type as complete tokens, with the following exception: the uppercase character, if any, immediately preceding a lowercase character token belongs to the following character token rather than to the preceding.
-   * @return List< String >
+   * @return List<String>
    */
-  public List< String > splitByCharacterTypeCamelCase() {}
+  public List<String> splitByCharacterTypeCamelCase() {}
 
   /**
    * Returns true if the String that called the method begins with the specified prefix .

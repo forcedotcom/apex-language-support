@@ -3,6 +3,8 @@
  */
 global class ServiceResourceInfo {
 
+  public ServiceResourceInfo(String userId, String userName, String email, String serviceResourceId, List<String> territoryIds, String resourceType) {}
+
   /**
    * Returns the email ID of the service resource.
    * @return String
@@ -23,9 +25,9 @@ global class ServiceResourceInfo {
 
   /**
    * Returns a list of requested service territories for the service resource.
-   * @return List< String >
+   * @return List<String>
    */
-  public List< String > getTerritoryIds() {}
+  public List<String> getTerritoryIds() {}
 
   /**
    * Returns the user ID of the service resource.

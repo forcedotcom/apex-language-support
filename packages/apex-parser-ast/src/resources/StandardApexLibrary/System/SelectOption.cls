@@ -3,6 +3,10 @@
  */
 global class SelectOption {
 
+  public SelectOption(String value, String label) {}
+
+  public SelectOption(String value, String label, Boolean isDisabled) {}
+
   /**
    * Returns the current value of the SelectOption object's isDisabled attribute.
    * @return Boolean

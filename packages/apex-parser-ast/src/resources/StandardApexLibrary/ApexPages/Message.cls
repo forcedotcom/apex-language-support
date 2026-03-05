@@ -3,6 +3,12 @@
  */
 global class Message {
 
+  public Message(ApexPages.Severity severity, String summary) {}
+
+  public Message(ApexPages.Severity severity, String summary, String detail) {}
+
+  public Message(ApexPages.Severity severity, String summary, String detail, String id) {}
+
   /**
    * Returns the label of the associated inputField component. If no label is defined, this method returns null .
    * @return String

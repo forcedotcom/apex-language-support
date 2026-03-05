@@ -3,6 +3,10 @@
  */
 global class DynamicPickListRows {
 
+  public DynamicPickListRows(List<VisualEditor.DataRow> rows, Boolean containsAllRows) {}
+
+  public DynamicPickListRows(List<VisualEditor.DataRow> rows) {}
+
   /**
    * Adds a list of picklist items to a dynamic picklist rendered in a Lightning component on a Lightning page.
    * @param rows List of picklist items.

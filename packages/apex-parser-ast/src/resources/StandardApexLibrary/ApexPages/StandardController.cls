@@ -3,11 +3,13 @@
  */
 global class StandardController {
 
+  public StandardController(SObject controllerSObject) {}
+
   /**
    * When a Visualforce page is loaded, the fields accessible to the page are based on the fields referenced in the Visualforce markup. This method adds a reference to each field specified in fieldNames so that the controller can explicitly access those fields as well.
    * @param fieldNames 
    */
-  public void addFields(List< String > fieldNames) {}
+  public void addFields(List<String> fieldNames) {}
 
   /**
    * Returns the PageReference of the cancel page.

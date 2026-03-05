@@ -3,6 +3,10 @@
  */
 global class TokenValidationResult {
 
+  public TokenValidationResult(Boolean isValid, Object data, Auth.UserData userData, String token, Auth.OAuth2TokenExchangeType tokenType, String customErrorMsg) {}
+
+  public TokenValidationResult(Boolean valid) {}
+
   public String getCustomErrorMessage() {}
 
   public Object getData() {}

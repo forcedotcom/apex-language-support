@@ -159,7 +159,7 @@ describe('ApexSymbolManager - Edge Cases', () => {
 
       // Should have chained type references for System.URL (two-part type)
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 

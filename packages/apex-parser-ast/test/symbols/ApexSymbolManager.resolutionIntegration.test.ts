@@ -55,7 +55,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
 
       // Find the chained type reference for System.URL return type
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 
@@ -119,7 +119,7 @@ describe('ApexSymbolManager - Resolution Integration', () => {
 
       // Find the chained type reference for System.URL field
       const chainedTypeRefs = references.filter(
-        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.Url',
+        (ref) => isChainedSymbolReference(ref) && ref.name === 'System.URL',
       );
       expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
 

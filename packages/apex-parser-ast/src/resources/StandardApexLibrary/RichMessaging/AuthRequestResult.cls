@@ -3,4 +3,6 @@
  */
 global class AuthRequestResult {
 
+  public AuthRequestResult(System.PageReference redirectPageReference, RichMessaging.AuthRequestResultStatus resultStatus, Datetime expirationDateTime) {}
+
 }

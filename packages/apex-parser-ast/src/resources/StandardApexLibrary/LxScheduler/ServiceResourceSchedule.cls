@@ -3,4 +3,6 @@
  */
 global class ServiceResourceSchedule {
 
+  public ServiceResourceSchedule(String serviceResourceId, Set<lxscheduler.UnavailableTimeslot> unavailableTimeslots) {}
+
 }

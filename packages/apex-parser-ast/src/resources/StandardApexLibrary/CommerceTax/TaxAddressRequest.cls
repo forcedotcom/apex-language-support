@@ -3,6 +3,8 @@
  */
 global class TaxAddressRequest {
 
+  global TaxAddressRequest(String city, String country, Double latitude, Double longitude, String postalCode, String state, String street, String locationCode) {}
+
   global Boolean equals(Object obj) {}
 
   global Integer hashCode() {}

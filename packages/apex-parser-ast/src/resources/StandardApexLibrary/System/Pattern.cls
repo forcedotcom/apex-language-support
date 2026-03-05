@@ -41,16 +41,16 @@ global class Pattern {
   /**
    * Returns a list that contains each substring of the String that matches this pattern.
    * @param regExp 
-   * @return String []
+   * @return String[]
    */
-  public String [] split(String regExp) {}
+  public String[] split(String regExp) {}
 
   /**
    * Returns a list that contains each substring of the String that matches this pattern.
    * @param regExp 
    * @param limit 
-   * @return String []
+   * @return String[]
    */
-  public String [] split(String regExp, Integer limit) {}
+  public String[] split(String regExp, Integer limit) {}
 
 }

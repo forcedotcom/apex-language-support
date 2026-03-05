@@ -3,4 +3,8 @@
  */
 global class TaxApiException {
 
+  global TaxApiException(String var1, Exception var2) {}
+
+  global TaxApiException(Exception var1) {}
+
 }

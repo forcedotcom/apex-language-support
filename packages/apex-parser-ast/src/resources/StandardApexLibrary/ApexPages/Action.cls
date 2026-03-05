@@ -3,6 +3,8 @@
  */
 global class Action {
 
+  public Action(String action) {}
+
   /**
    * Returns the expression that is evaluated when the action is invoked.
    * @return String

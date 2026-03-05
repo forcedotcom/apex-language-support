@@ -3,6 +3,8 @@
  */
 global class SaleApiPaymentMethodRequest {
 
+  global SaleApiPaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) {}
+
   /**
    * Maintains the integrity of lists of type SaleApiPaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.
    * @param obj 

@@ -3,6 +3,8 @@
  */
 global class Continuation {
 
+  public Continuation(Integer timeout) {}
+
   /**
    * Adds the HTTP request for the callout that is associated with this continuation.
    * @param request The HTTP request to be sent to the external service by this continuation.
@@ -12,9 +14,9 @@ global class Continuation {
 
   /**
    * Returns all labels and requests that are associated with this continuation as key-value pairs.
-   * @return Map< String ,System.HttpRequest>
+   * @return Map<String,System.HttpRequest>
    */
-  public Map< String ,System.HttpRequest> getRequests() {}
+  public Map<String,System.HttpRequest> getRequests() {}
 
   /**
    * Returns the response for the request that corresponds to the specified label.

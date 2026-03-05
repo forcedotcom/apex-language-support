@@ -15,7 +15,7 @@ global class QuickAction {
    * @param sObjectNames The names of the quick actions. The quick action name can contain the entity name if it is at the entity level ('Account.QuickCreateContact'), or 'Global' if used for the action at the global level ('Global.CreateNewContact').
    * @return List<QuickAction.DescribeQuickActionResult>
    */
-  public static List<QuickAction.DescribeQuickActionResult> describeQuickActions(List< String > sObjectNames) {}
+  public static List<QuickAction.DescribeQuickActionResult> describeQuickActions(List<String> sObjectNames) {}
 
   /**
    * Performs the quick action specified in the quick action request and returns the action result.

@@ -257,9 +257,9 @@ global class System {
    * @param workItemIds 
    * @param comments 
    * @param nextApprover 
-   * @return List< ID >
+   * @return List<ID>
    */
-  public static List< ID > submit(List< ID > workItemIds, String comments, String nextApprover) {}
+  public static List<ID> submit(List<ID> workItemIds, String comments, String nextApprover) {}
 
   /**
    * Returns the current date in the current user's time zone.

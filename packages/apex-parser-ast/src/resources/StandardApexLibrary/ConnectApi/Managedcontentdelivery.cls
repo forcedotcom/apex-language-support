@@ -27,14 +27,14 @@ global class ManagedContentDelivery {
 
   public static ConnectApi.ManagedContentDeliveryDocument getManagedContentForSite(String siteId, String contentKeyOrId, String language, Boolean showAbsoluteUrl, Integer referenceDepth, Boolean expandReferences, Boolean referencesAsList) {}
 
-  public static ConnectApi.ManagedContentDeliveryDocumentCollection getManagedContentsForChannel(String channelId, List< String > managedContentIds, List< String > contentKeys, String contentTypeFQN, String language, String publishStartDate, String publishEndDate, Boolean includeContentBody, Integer referenceDepth, Boolean expandReferences, Boolean referencesAsList, Integer pageParam, Integer pageSize, Boolean showAbsoluteUrl) {}
+  public static ConnectApi.ManagedContentDeliveryDocumentCollection getManagedContentsForChannel(String channelId, List<String> managedContentIds, List<String> contentKeys, String contentTypeFQN, String language, String publishStartDate, String publishEndDate, Boolean includeContentBody, Integer referenceDepth, Boolean expandReferences, Boolean referencesAsList, Integer pageParam, Integer pageSize, Boolean showAbsoluteUrl) {}
 
-  public static ConnectApi.ManagedContentDeliveryDocumentCollection getManagedContentsForSite(String siteId, List< String > managedContentIds, List< String > contentKeys, String contentTypeFQN, String language, String publishStartDate, String publishEndDate, Boolean includeContentBody, Integer referenceDepth, Boolean expandReferences, Boolean referencesAsList, Integer pageParam, Integer pageSize, Boolean showAbsoluteUrl) {}
+  public static ConnectApi.ManagedContentDeliveryDocumentCollection getManagedContentsForSite(String siteId, List<String> managedContentIds, List<String> contentKeys, String contentTypeFQN, String language, String publishStartDate, String publishEndDate, Boolean includeContentBody, Integer referenceDepth, Boolean expandReferences, Boolean referencesAsList, Integer pageParam, Integer pageSize, Boolean showAbsoluteUrl) {}
 
   public static ConnectApi.ManagedContentChannelDetail getManagedContentChannel(String channelId) {}
 
-  public static ConnectApi.ManagedContentDeliveryDocumentCollection getManagedContentsForChannel(String channelId, List< String > managedContentIds, List< String > contentKeys, String contentTypeFQN, String language, String publishStartDate, String publishEndDate, Boolean includeContentBody, Integer referenceDepth, Boolean expandReferences, Boolean referencesAsList, Integer pageParam, Integer pageSize) {}
+  public static ConnectApi.ManagedContentDeliveryDocumentCollection getManagedContentsForChannel(String channelId, List<String> managedContentIds, List<String> contentKeys, String contentTypeFQN, String language, String publishStartDate, String publishEndDate, Boolean includeContentBody, Integer referenceDepth, Boolean expandReferences, Boolean referencesAsList, Integer pageParam, Integer pageSize) {}
 
-  public static ConnectApi.ManagedContentDeliveryDocumentCollection getManagedContentsForSite(String siteId, List< String > managedContentIds, List< String > contentKeys, String contentTypeFQN, String language, String publishStartDate, String publishEndDate, Boolean includeContentBody, Integer referenceDepth, Boolean expandReferences, Boolean referencesAsList, Integer pageParam, Integer pageSize) {}
+  public static ConnectApi.ManagedContentDeliveryDocumentCollection getManagedContentsForSite(String siteId, List<String> managedContentIds, List<String> contentKeys, String contentTypeFQN, String language, String publishStartDate, String publishEndDate, Boolean includeContentBody, Integer referenceDepth, Boolean expandReferences, Boolean referencesAsList, Integer pageParam, Integer pageSize) {}
 
 }

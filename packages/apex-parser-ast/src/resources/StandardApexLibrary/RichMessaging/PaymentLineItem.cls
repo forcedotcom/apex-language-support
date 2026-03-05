@@ -3,4 +3,8 @@
  */
 global class PaymentLineItem {
 
+  public PaymentLineItem(String label, Double amount, RichMessaging.AbstractTiming timing) {}
+
+  public PaymentLineItem(String label, Double amount) {}
+
 }

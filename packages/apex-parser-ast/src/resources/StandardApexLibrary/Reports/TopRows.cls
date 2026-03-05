@@ -3,6 +3,8 @@
  */
 global class TopRows {
 
+  public TopRows(Integer rowLimit, Reports.ColumnSortOrder direction) {}
+
   /**
    * Returns the sort order of the report rows.
    * @return Reports.ColumnSortOrder

@@ -3,6 +3,10 @@
  */
 global class JWS {
 
+  public JWS(Auth.JWT jwt, String certDevName) {}
+
+  public JWS(String payload, String certDevName) {}
+
   /**
    * Makes a duplicate copy of the JWS object.
    * @return Object

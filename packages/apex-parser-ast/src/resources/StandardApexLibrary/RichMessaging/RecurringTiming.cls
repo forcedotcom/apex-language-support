@@ -3,4 +3,6 @@
  */
 global class RecurringTiming {
 
+  public RecurringTiming(Date startDate, Date endDate, Integer intervalCount, RichMessaging.TimingIntervalUnit intervalUnit) {}
+
 }

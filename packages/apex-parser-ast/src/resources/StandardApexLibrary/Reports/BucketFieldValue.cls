@@ -3,6 +3,8 @@
  */
 global class BucketFieldValue {
 
+  public BucketFieldValue(String label, List<String> sourceDimensionValues, Double rangeUpperBound) {}
+
   /**
    * Returns the user-facing name of the bucket category.
    * @return String
@@ -17,9 +19,9 @@ global class BucketFieldValue {
 
   /**
    * Returns a list of the values from the source field included in this bucket category (in buckets of type PICKLIST and buckets of type TEXT ).
-   * @return List< String >
+   * @return List<String>
    */
-  public List< String > getSourceDimensionValues() {}
+  public List<String> getSourceDimensionValues() {}
 
   /**
    * Set the user-facing name of the bucket category.
@@ -37,7 +39,7 @@ global class BucketFieldValue {
    * Specifies the values from the source field included in this bucket category (in buckets of type PICKLIST and buckets of type TEXT ).
    * @param sourceDimensionValues 
    */
-  public void setSourceDimensionValues(List< String > sourceDimensionValues) {}
+  public void setSourceDimensionValues(List<String> sourceDimensionValues) {}
 
   /**
    * Returns a string.

@@ -29,9 +29,9 @@ global class ProcessResult {
 
   /**
    * The IDs of the new items submitted to the approval process. There can be 0 or 1 approval processes.
-   * @return ID []
+   * @return ID[]
    */
-  public ID [] getNewWorkitemIds() {}
+  public ID[] getNewWorkitemIds() {}
 
   /**
    * A Boolean value that is set to true if the approval process completed successfully; otherwise, it is set to false .

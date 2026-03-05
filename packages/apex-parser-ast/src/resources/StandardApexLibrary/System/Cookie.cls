@@ -3,6 +3,10 @@
  */
 global class Cookie {
 
+  public Cookie(String name, String value, String path, Integer maxAge, Boolean isSecure) {}
+
+  public Cookie(String name, String value, String path, Integer maxAge, Boolean isSecure, String SameSite, Boolean isHttpOnly) {}
+
   /**
    * Returns the name of the server making the request.
    * @return String

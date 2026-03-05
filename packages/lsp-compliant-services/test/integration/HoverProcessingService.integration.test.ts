@@ -20,6 +20,7 @@ import {
   SymbolTable,
   ResourceLoader,
   ApexSymbolProcessingManager,
+  STANDARD_APEX_LIBRARY_URI,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   enableConsoleLogging,
@@ -900,7 +901,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         expect(content).toContain('void System.debug');
-        expect(content).toMatch(/\*\*Modifiers:\*\* .*static.*global/);
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*static.*public/);
       }
     });
   });

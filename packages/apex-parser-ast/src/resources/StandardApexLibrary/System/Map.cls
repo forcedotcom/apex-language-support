@@ -10,9 +10,9 @@ global class Map {
 
   /**
    * Makes a duplicate copy of the map.
-   * @return Map< Object , Object >
+   * @return Map<Object, Object>
    */
-  public Map< Object , Object > clone() {}
+  public Map<Object, Object> clone() {}
 
   /**
    * Returns true if the map contains a mapping for the specified key.
@@ -23,9 +23,9 @@ global class Map {
 
   /**
    * Makes a duplicate copy of a map, including sObject records if this is a map with sObject record values.
-   * @return Map< Object , Object >
+   * @return Map<Object, Object>
    */
-  public Map< Object , Object > deepClone() {}
+  public Map<Object, Object> deepClone() {}
 
   /**
    * Compares this map with the specified map and returns true if both maps are equal; otherwise, returns false .
@@ -61,9 +61,9 @@ global class Map {
 
   /**
    * Returns a set that contains all of the keys in the map.
-   * @return Set< Object >
+   * @return Set<Object>
    */
-  public Set< Object > keySet() {}
+  public Set<Object> keySet() {}
 
   /**
    * Associates the specified value with the specified key in the map.
@@ -106,8 +106,8 @@ global class Map {
 
   /**
    * Returns a list that contains all the values in the map.
-   * @return List< Object >
+   * @return List<Object>
    */
-  public List< Object > values() {}
+  public List<Object> values() {}
 
 }

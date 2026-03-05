@@ -35,9 +35,9 @@ global class List {
 
   /**
    * Makes a duplicate copy of a list.
-   * @return List< Object >
+   * @return List<Object>
    */
-  public List< Object > clone() {}
+  public List<Object> clone() {}
 
   /**
    * Returns true if the list contains the specified element.
@@ -51,9 +51,9 @@ global class List {
    * @param preserveId The optional preserveId argument determines whether the IDs of the original objects are preserved or cleared in the duplicates. If set to true , the IDs are copied to the cloned objects. The default is false , that is, the IDs are cleared.
    * @param preserveReadonlyTimestamps The optional preserveReadonlyTimestamps argument determines whether the read-only timestamp and user ID fields are preserved or cleared in the duplicates. If set to true , the read-only fields CreatedById , CreatedDate , LastModifiedById , and LastModifiedDate are copied to the cloned objects. The default is false , that is, the values are cleared.
    * @param preserveAutonumber The optional preserveAutonumber argument determines whether the autonumber fields of the original objects are preserved or cleared in the duplicates. If set to true , auto number fields are copied to the cloned objects. The default is false , that is, auto number fields are cleared.
-   * @return List< Object >
+   * @return List<Object>
    */
-  public List< Object > deepClone(Boolean preserveId, Boolean preserveReadonlyTimestamps, Boolean preserveAutonumber) {}
+  public List<Object> deepClone(Boolean preserveId, Boolean preserveReadonlyTimestamps, Boolean preserveAutonumber) {}
 
   /**
    * Compares this list with the specified list and returns true if both lists are equal; otherwise, returns false .

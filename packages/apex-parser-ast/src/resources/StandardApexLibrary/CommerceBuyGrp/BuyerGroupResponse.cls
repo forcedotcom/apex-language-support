@@ -3,6 +3,8 @@
  */
 global class BuyerGroupResponse {
 
+  public BuyerGroupResponse(Set<String> buyerGroupIds) {}
+
   public Set<String> getBuyerGroupIds() {}
 
   public void setBuyerGroupIds(Set<String> buyerGroupIds) {}

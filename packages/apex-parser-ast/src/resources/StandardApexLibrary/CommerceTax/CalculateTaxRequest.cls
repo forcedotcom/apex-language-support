@@ -3,6 +3,8 @@
  */
 global class CalculateTaxRequest {
 
+  global CalculateTaxRequest(commercetax.CalculateTaxType taxType) {}
+
   global Boolean equals(Object obj) {}
 
   global Integer hashCode() {}

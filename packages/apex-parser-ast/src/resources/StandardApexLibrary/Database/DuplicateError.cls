@@ -11,9 +11,9 @@ global class DuplicateError {
 
   /**
    * Returns an array of one or more field names. Identifies which fields in the object, if any, affected the error condition.
-   * @return List< String >
+   * @return List<String>
    */
-  public List< String > getFields() {}
+  public List<String> getFields() {}
 
   /**
    * Returns the error message text.

@@ -35,9 +35,9 @@ global class SessionManagement {
 
   /**
    * Returns a map of attributes for the current session.
-   * @return Map< String , String >
+   * @return Map<String, String>
    */
-  public static Map< String , String > getCurrentSession() {}
+  public static Map<String, String> getCurrentSession() {}
 
   /**
    * Returns the eligibility status for a user who’s logging in with Lightning Login when you set up your org with My Domain and use the Login Discovery page type. Use this method to redirect the user to a custom login flow. For example, use after a login attempt to redirect the user to password flow if the user is ineligible for Lightning Login.
@@ -48,9 +48,9 @@ global class SessionManagement {
 
   /**
    * Returns a map containing a URL to a quick response (QR) code and a time-based one-time password (TOTP) shared secret to configure authenticator apps or devices for multi-factor authentication (MFA).
-   * @return Map< String , String >
+   * @return Map<String, String>
    */
-  public static Map< String , String > getQrCode() {}
+  public static Map<String, String> getQrCode() {}
 
   /**
    * Indicates the required login security session level for the given profile.
@@ -59,7 +59,7 @@ global class SessionManagement {
    */
   public static Auth.SessionLevel getRequiredSessionLevelForProfile(String profileId) {}
 
-  public static Map< String , String > ignoreForConcurrentSessionLimit(Object sessions) {}
+  public static Map<String,String> ignoreForConcurrentSessionLimit(Object sessions) {}
 
   /**
    * Indicates whether the given IP address is within the organization's trusted IP range according to the organization's Network Access settings.
