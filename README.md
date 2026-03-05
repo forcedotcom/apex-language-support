@@ -218,7 +218,7 @@ This project uses GitHub Actions for continuous integration and automated releas
 
 ##### VS Code Extensions Release
 
-The `release-extensions.yml` workflow handles automated releases of VS Code extensions:
+The `nightly-extensions.yml` workflow handles automated releases of VS Code extensions:
 
 - **Supported Extensions**:
   - `apex-lsp-vscode-extension` (VS Code Marketplace and OpenVSX Registry)

@@ -86,5 +86,5 @@ playwright-report/
 /packages/apex-parser-ast/resources
 /.graph
 
-# Synced testbed fixtures (generated from parser-ast fixtures)
-/packages/apex-lsp-testbed/test/fixtures/i-have-problems/force-app/main/default/classes/**
+# Test fixtures cloned at test time from remote repos
+packages/apex-lsp-testbed/test/fixtures/eda
