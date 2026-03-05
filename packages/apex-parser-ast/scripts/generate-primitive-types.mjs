@@ -14,12 +14,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..');
 
 /**
- * Generate primitive type constants from builtins/ directory and primitive-metadata.json
+ * Generate primitive type constants from builtins/ directory, StandardApexLibrary/System/, and primitive-metadata.json
  * Single source of truth for primitive type resolution across the codebase
  */
 async function generatePrimitiveTypes() {
   try {
     const builtinsDir = path.join(projectRoot, 'src', 'resources', 'builtins');
+    const standardLibrarySystemDir = path.join(
+      projectRoot,
+      'src',
+      'resources',
+      'StandardApexLibrary',
+      'System',
+    );
     const configPath = path.join(builtinsDir, 'primitive-metadata.json');
 
     // Read config
@@ -33,14 +40,36 @@ async function generatePrimitiveTypes() {
     const numeric = (config.numeric ?? []).map((s) => s.toLowerCase());
 
     // Read builtins
-    const entries = await readdir(builtinsDir, { withFileTypes: true });
-    const builtinNames = entries
+    const builtinEntries = await readdir(builtinsDir, { withFileTypes: true });
+    const builtinNames = builtinEntries
       .filter((entry) => entry.isFile() && entry.name.endsWith('.cls'))
-      .map((entry) => entry.name.replace('.cls', '').toLowerCase())
-      .sort();
+      .map((entry) => entry.name.replace('.cls', '').toLowerCase());
 
-    // Scalar primitives = builtins minus collections
-    const scalarPrimitives = builtinNames.filter((n) => !collections.has(n));
+    // Read StandardApexLibrary/System/ for primitive types that moved there
+    let standardLibraryNames = [];
+    try {
+      const stdLibEntries = await readdir(standardLibrarySystemDir, {
+        withFileTypes: true,
+      });
+      standardLibraryNames = stdLibEntries
+        .filter((entry) => entry.isFile() && entry.name.endsWith('.cls'))
+        .map((entry) => entry.name.replace('.cls', '').toLowerCase());
+    } catch (error) {
+      // Directory might not exist, that's okay
+      console.warn(
+        `Warning: Could not read StandardApexLibrary/System/: ${error.message}`,
+      );
+    }
+
+    // Combine both sources and remove duplicates
+    const allPrimitiveNames = [
+      ...new Set([...builtinNames, ...standardLibraryNames]),
+    ];
+
+    // Scalar primitives = all primitives minus collections
+    const scalarPrimitives = allPrimitiveNames.filter(
+      (n) => !collections.has(n),
+    );
     const allPrimitives = [...new Set([...scalarPrimitives, ...special])].sort();
 
     // Validate config
@@ -69,12 +98,12 @@ async function generatePrimitiveTypes() {
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// This file is auto-generated during build from builtins/ and primitive-metadata.json
+// This file is auto-generated during build from builtins/, StandardApexLibrary/System/, and primitive-metadata.json
 // DO NOT EDIT - This file is generated automatically
 
 /**
  * Canonical list of all Apex primitive types (lowercase)
- * Generated from builtins/ (excluding collections) + special types (void, null)
+ * Generated from builtins/ and StandardApexLibrary/System/ (excluding collections) + special types (void, null)
  */
 export const APEX_PRIMITIVE_TYPES_ARRAY = [
 ${allPrimitives.map((t) => `  '${t}',`).join('\n')}
