@@ -58,8 +58,24 @@ function findVsixFiles(extension: string, artifactsPath: string): string[] {
         vsixPattern = `*${extension}*.vsix`;
     }
 
-    const pattern = join(artifactsPath, vsixPattern);
-    return glob.sync(pattern);
+    // Artifacts are organized in subdirectories: vsix-artifacts/extension-name/file.vsix
+    // Try both the subdirectory and root level
+    const patterns = [
+      join(artifactsPath, extension, vsixPattern), // Subdirectory structure
+      join(artifactsPath, '**', vsixPattern), // Recursive search as fallback
+      join(artifactsPath, vsixPattern), // Root level as fallback
+    ];
+
+    const foundFiles: string[] = [];
+    for (const pattern of patterns) {
+      const files = glob.sync(pattern);
+      if (files.length > 0) {
+        foundFiles.push(...files);
+        break; // Found files, no need to check other patterns
+      }
+    }
+
+    return foundFiles;
   } catch (error) {
     console.warn(`Warning: Could not find VSIX files for ${extension}:`, error);
     return [];
@@ -350,7 +366,33 @@ function createGitHubReleases(options: GitHubReleaseOptions): void {
     console.log(`Processing extension: ${ext}`);
     console.log(`Current version: ${packageDetails.version}`);
 
+    // #region agent log
+    console.log(`🔍 DEBUG: Looking for VSIX files for ${ext}`);
+    console.log(`  Artifacts path: ${vsixArtifactsPath}`);
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      if (fs.existsSync(vsixArtifactsPath)) {
+        const files = fs.readdirSync(vsixArtifactsPath, { recursive: true });
+        console.log(`  Files in artifacts directory: ${files.slice(0, 20).join(', ')}${files.length > 20 ? '...' : ''}`);
+        const vsixFilesFound = files.filter((f: string) => f.endsWith('.vsix'));
+        console.log(`  VSIX files found: ${vsixFilesFound.join(', ')}`);
+      } else {
+        console.log(`  ⚠️ Artifacts directory does not exist!`);
+      }
+    } catch (error) {
+      console.log(`  ⚠️ Error listing files: ${error}`);
+    }
+    // #endregion
+
     const vsixFiles = findVsixFiles(ext, vsixArtifactsPath);
+    // #region agent log
+    console.log(`🔍 DEBUG: VSIX file search results`);
+    console.log(`  Pattern searched: ${ext === 'apex-lsp-vscode-extension' ? '*apex-language-server-extension-*.vsix' : `*${ext}*.vsix`}`);
+    console.log(`  Files found: ${vsixFiles.length}`);
+    vsixFiles.forEach((file: string) => console.log(`    - ${file}`));
+    // #endregion
+
     if (vsixFiles.length === 0) {
       console.warn(`No VSIX files found for ${ext} in ${vsixArtifactsPath}`);
       continue;
