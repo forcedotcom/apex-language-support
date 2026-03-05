@@ -1,4 +1,4 @@
-name: Release VS Code Extensions
+name: Nightly VS Code Extension Release
 
 on:
   workflow_call:
@@ -75,70 +75,11 @@ permissions:
   actions: read
 
 jobs:
-  determine-build-type:
-    runs-on: ubuntu-latest
-    outputs:
-      is-nightly: ${{ steps.check.outputs.is-nightly }}
-      version-bump: ${{ steps.check.outputs.version-bump }}
-      pre-release: ${{ steps.check.outputs.pre-release }}
-      is-promotion: ${{ steps.check.outputs.is-promotion }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-
-      - name: Install dependencies
-        uses: ./.github/actions/npm-install-with-retries
-
-      - name: Check build type
-        id: check
-        env:
-          INPUT_VERSION_BUMP: ${{ inputs.version-bump || 'auto' }}
-          INPUT_PRE_RELEASE: ${{ inputs.pre-release || 'false' }}
-        run: |
-          npx tsx .github/scripts/index.ts ext-build-type
-
-  find-promotion-candidate:
-    needs: determine-build-type
-    runs-on: ubuntu-latest
-    if: needs.determine-build-type.outputs.is-promotion == 'true'
-    outputs:
-      promotion-commit-sha: ${{ steps.find.outputs.commit-sha }}
-      promotion-nightly-tag: ${{ steps.find.outputs.nightly-tag }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-
-      - name: Install dependencies
-        uses: ./.github/actions/npm-install-with-retries
-
-      - name: Find nightly build to promote
-        id: find
-        run: |
-          npx tsx .github/scripts/index.ts ext-promotion-finder
-
-      - name: Set promotion commit SHA
-        run: |
-          echo "PROMOTION_COMMIT_SHA=${{ steps.find.outputs.commit-sha }}" >> $GITHUB_ENV
-
   determine-changes:
-    needs: [determine-build-type]
     runs-on: ubuntu-latest
     outputs:
       selected-extensions: ${{ steps.changes.outputs.selected-extensions }}
       version-bumps: ${{ steps.changes.outputs.version-bumps }}
-      promotion-commit-sha: ${{ steps.changes.outputs.promotion-commit-sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -156,17 +97,16 @@ jobs:
       - name: Determine changes and version bumps
         id: changes
         env:
-          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
-          VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
-          PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
-          IS_PROMOTION: ${{ needs.determine-build-type.outputs.is-promotion }}
-          PROMOTION_COMMIT_SHA: ${{ env.PROMOTION_COMMIT_SHA || '' }}
+          IS_NIGHTLY: 'true'
+          VERSION_BUMP: 'auto'
+          PRE_RELEASE: 'true'
+          IS_PROMOTION: 'false'
           SELECTED_EXTENSIONS: ${{ inputs.extensions }}
         run: |
           npx tsx .github/scripts/index.ts ext-change-detector
 
   display-release-plan:
-    needs: [determine-build-type, determine-changes]
+    needs: [determine-changes]
     runs-on: ubuntu-latest
     if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
@@ -187,16 +127,16 @@ jobs:
         env:
           BRANCH: ${{ inputs.branch || github.ref_name }}
           BUILD_TYPE: ${{ github.event_name }}
-          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
-          VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
+          IS_NIGHTLY: 'true'
+          VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
           REGISTRIES: ${{ inputs.registries }}
-          PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
+          PRE_RELEASE: 'true'
           SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
         run: |
           npx tsx .github/scripts/index.ts ext-release-plan
 
   bump-versions:
-    needs: [determine-build-type, determine-changes]
+    needs: [determine-changes]
     runs-on: ubuntu-latest
     if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
@@ -204,6 +144,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.IDEE_GH_TOKEN }}
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -218,9 +159,8 @@ jobs:
           VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
           SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
           PRE_RELEASE: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
-          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
-          IS_PROMOTION: ${{ needs.determine-build-type.outputs.is-promotion }}
-          PROMOTION_COMMIT_SHA: ${{ needs.determine-changes.outputs.promotion-commit-sha }}
+          IS_NIGHTLY: 'true'
+          IS_PROMOTION: 'false'
         run: |
           npx tsx .github/scripts/index.ts ext-version-bumper
 
@@ -250,61 +190,61 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
           DRY_RUN: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
         run: |
-          IS_PROMOTION="${{ needs.determine-build-type.outputs.is-promotion }}"
-          PROMOTION_COMMIT_SHA="${{ needs.determine-changes.outputs.promotion-commit-sha }}"
-
-          if [ "$IS_PROMOTION" = "true" ] && [ -n "$PROMOTION_COMMIT_SHA" ]; then
-            if [ "$DRY_RUN" = "true" ]; then
-              echo "🔄 PROMOTION DRY RUN: Would push tags created by version bumper script"
-              echo "✅ DRY RUN: Promotion tags would be pushed"
-            else
-              echo "🔄 PROMOTION: Tags already created by version bumper script"
-              echo "✅ Promotion tags are ready for pushing"
-            fi
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "🔄 DRY RUN: Would commit and push version bumps..."
+            echo "📋 DRY RUN: Changes that would be committed:"
+            git status --porcelain
+            echo "📋 DRY RUN: Tags that would be pushed:"
+            git tag --list | tail -10 || echo "No tags found"
+            echo "✅ DRY RUN: Would commit version bumps and push tags"
           else
-            if [ "$DRY_RUN" = "true" ]; then
-              echo "🔄 REGULAR DRY RUN: Would commit and push version bumps..."
-              
-              # Show what would be committed
-              echo "📋 DRY RUN: Changes that would be committed:"
-              git status --porcelain
-              
-              # Show what tags would be pushed
-              echo "📋 DRY RUN: Tags that would be pushed:"
-              git tag --list | tail -10 || echo "No tags found"
-              
-              echo "✅ DRY RUN: Would commit version bumps and push tags"
+            echo "🔄 Committing version bumps..."
+
+            # Configure git for the action
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+
+            # Configure git to use the PAT for authentication
+            git remote set-url origin https://x-access-token:${{ secrets.IDEE_GH_TOKEN }}@github.com/${{ github.repository }}.git
+
+            # Add all changes
+            git add .
+
+            if git diff --staged --quiet; then
+              # Nothing to stage — check whether the bump was already committed to remote
+              # (idempotent rerun: version bumper ran, committed, pushed, then a later step failed)
+              git fetch origin ${{ inputs.branch || github.ref_name }}
+              REMOTE_MSG=$(git log -1 --format='%s' origin/${{ inputs.branch || github.ref_name }})
+              if echo "$REMOTE_MSG" | grep -q "chore: bump versions for release"; then
+                echo "⏭️ Version bump already committed to remote — skipping commit (idempotent rerun)"
+              else
+                echo "❌ Error: No staged changes and no prior bump commit found on remote. Version bumper may have failed silently."
+                exit 1
+              fi
             else
-              echo "🔄 REGULAR: Committing version bumps..."
-              
-              # Configure git for the action
-              git config --local user.email "action@github.com"
-              git config --local user.name "GitHub Action"
-              
-              # Configure git to use the PAT for authentication
-              git remote set-url origin https://x-access-token:${{ secrets.IDEE_GH_TOKEN }}@github.com/${{ github.repository }}.git
-              
-              # Add all changes (including version bumps and tags)
-              git add .
-              
               # Create commit with version bump message
               git commit -m "chore: bump versions for release [skip ci]"
 
-              # Push version bumps and tags - fail if branch protection blocks it
-              echo "Pushing version bumps and tags to ${{ inputs.branch || github.ref_name }}..."
+              # Push version bumps — retry once with rebase on non-fast-forward
+              echo "Pushing version bumps to ${{ inputs.branch || github.ref_name }}..."
               if ! git push origin HEAD:${{ inputs.branch || github.ref_name }}; then
-                echo "❌ Error: Direct push failed. This may be due to branch protection rules."
-                echo "The workflow requires direct push access to ${{ inputs.branch || github.ref_name }}"
-                echo "Please ensure the workflow has proper permissions or run manually."
-                exit 1
+                echo "⚠️ Push failed, attempting fetch+rebase and retry..."
+                git fetch origin
+                git rebase origin/${{ inputs.branch || github.ref_name }}
+                if ! git push origin HEAD:${{ inputs.branch || github.ref_name }}; then
+                  echo "❌ Error: Push failed after rebase. Check branch protection rules."
+                  exit 1
+                fi
               fi
-              
-              # Push all tags
-              echo "Pushing tags..."
-              git push origin --tags
-              
-              echo "✅ Version bumps and tags pushed successfully"
             fi
+
+            # Push all tags — tolerate already-existing tags (do not fail the job)
+            echo "Pushing tags..."
+            if ! git push origin --tags; then
+              echo "⚠️ Warning: Some tags may already exist on remote. Continuing."
+            fi
+
+            echo "✅ Version bumps and tags pushed successfully"
           fi
 
   calculate-artifact-name:
@@ -332,7 +272,7 @@ jobs:
       pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
 
   determine-publish-matrix:
-    needs: [determine-changes, calculate-artifact-name, determine-build-type]
+    needs: [determine-changes, calculate-artifact-name]
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -353,7 +293,7 @@ jobs:
         env:
           REGISTRIES: ${{ inputs.registries }}
           SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
-          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+          IS_NIGHTLY: 'true'
         run: |
           # Skip marketplace publishing for nightly builds
           if [ "$IS_NIGHTLY" = "true" ]; then
@@ -370,10 +310,9 @@ jobs:
         package,
         calculate-artifact-name,
         determine-publish-matrix,
-        determine-build-type,
       ]
     runs-on: ubuntu-latest
-    if: needs.determine-publish-matrix.outputs.matrix != '[]' && needs.determine-build-type.outputs.is-nightly != 'true'
+    if: needs.determine-publish-matrix.outputs.matrix != '[]'
     strategy:
       matrix:
         include: ${{ fromJson(needs.determine-publish-matrix.outputs.matrix) }}
@@ -490,7 +429,7 @@ jobs:
 
   create-github-releases:
     name: Create GitHub Releases
-    needs: [package, determine-changes, determine-build-type, calculate-artifact-name]
+    needs: [package, determine-changes, calculate-artifact-name]
     runs-on: ubuntu-latest
     if: needs.package.result == 'success' && needs.determine-changes.outputs.selected-extensions != '' && github.event_name != 'pull_request'
     steps:
@@ -499,6 +438,14 @@ jobs:
         with:
           ref: ${{ inputs.branch || github.ref }}
           token: ${{ secrets.IDEE_GH_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
 
       - name: Download VSIX artifacts
         uses: actions/download-artifact@v4
@@ -511,9 +458,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
-          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
-          PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
-          VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
+          IS_NIGHTLY: 'true'
+          PRE_RELEASE: 'true'
+          VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
           DRY_RUN: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
           BRANCH: ${{ inputs.branch || github.ref_name }}
           VSIX_ARTIFACTS_PATH: ./vsix-artifacts
@@ -523,7 +470,7 @@ jobs:
   slack-notify:
     name: Slack Notification
     needs:
-      [determine-build-type, determine-changes, bump-versions, package, publish]
+      [determine-changes, bump-versions, package, publish]
     runs-on: ubuntu-latest
     if: always() && needs.publish.result == 'success' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
@@ -537,8 +484,8 @@ jobs:
         run: |
           # Get selected extensions and their details
           SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
-          VERSION_BUMP="${{ needs.determine-build-type.outputs.version-bump }}"
-          PRE_RELEASE="${{ needs.determine-build-type.outputs.pre-release }}"
+          VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
+          PRE_RELEASE="true"
 
           # Initialize arrays for extension details
           EXTENSION_NAMES=""
@@ -630,7 +577,7 @@ jobs:
   slack-notify-failure:
     name: Slack Failure Notification
     needs:
-      [determine-build-type, determine-changes, bump-versions, package, publish]
+      [determine-changes, bump-versions, package, publish]
     runs-on: ubuntu-latest
     if: always() && needs.publish.result == 'failure' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
@@ -644,8 +591,8 @@ jobs:
         run: |
           # Get selected extensions and their details
           SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
-          VERSION_BUMP="${{ needs.determine-build-type.outputs.version-bump }}"
-          PRE_RELEASE="${{ needs.determine-build-type.outputs.pre-release }}"
+          VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
+          PRE_RELEASE="true"
 
           # Initialize arrays for extension details
           EXTENSION_NAMES=""

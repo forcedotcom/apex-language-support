@@ -45,12 +45,20 @@ function calculateNewVersion(
   const { major, minor, patch } = parseVersion(currentVersion);
 
   if (isNightly) {
-    // Nightly build strategy: ensure odd minor version
-    if (minor % 2 === 0) {
-      // Current is even, bump to next odd
-      return `${major}.${minor + 1}.0`;
+    // Nightly build strategy: respect conventional commit bump type, enforce odd minor
+    if (versionBump === 'major') {
+      // Breaking change: new major, start at first odd minor
+      return `${major + 1}.1.0`;
+    } else if (versionBump === 'minor') {
+      // New feature: skip to next odd minor (even minors reserved for stable)
+      const nextMinor = minor % 2 === 0 ? minor + 1 : minor + 2;
+      return `${major}.${nextMinor}.0`;
     } else {
-      // Current is already odd, just increment patch
+      // Patch / auto / default: ensure odd minor then increment patch
+      if (minor % 2 === 0) {
+        // Even minor — enter nightly track at next odd minor
+        return `${major}.${minor + 1}.0`;
+      }
       return `${major}.${minor}.${patch + 1}`;
     }
   } else if (isPromotion) {

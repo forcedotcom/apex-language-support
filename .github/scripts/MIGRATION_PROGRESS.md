@@ -6,7 +6,7 @@ This document tracks the migration of bash scripts in GitHub workflows to TypeSc
 
 ## Completed Migrations ✅
 
-### Extension Release Workflow (`release-extensions.yml`)
+### Extension Release Workflow (`nightly-extensions.yml`)
 
 - ✅ **ext-build-type**: Determine build type (nightly, promotion, regular)
 - ✅ **ext-promotion-finder**: Find promotion commits and determine promotion status

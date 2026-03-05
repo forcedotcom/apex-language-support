@@ -85,3 +85,6 @@ test-results/
 playwright-report/
 /packages/apex-parser-ast/resources
 /.graph
+
+# Test fixtures cloned at test time from remote repos
+packages/apex-lsp-testbed/test/fixtures/eda

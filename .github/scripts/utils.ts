@@ -118,10 +118,17 @@ export function parseEnvironment(): {
 }
 
 /**
- * Set GitHub Actions output using environment files
+ * Set GitHub Actions output using environment files (GITHUB_OUTPUT)
  */
 export function setOutput(name: string, value: string): void {
-  console.log(`::set-output name=${name}::${value}`);
+  const githubOutput = process.env['GITHUB_OUTPUT'];
+  if (githubOutput) {
+    const fs = require('fs');
+    fs.appendFileSync(githubOutput, `${name}=${value}\n`);
+  } else {
+    // Fallback for local development outside GitHub Actions
+    console.log(`[output] ${name}=${value}`);
+  }
 }
 
 /**

@@ -20,7 +20,7 @@ The scripts automatically filter packages based on their type:
 #### VS Code Extensions (ext-\* scripts)
 
 - **Scope**: Only packages with a `publisher` field in `package.json`
-- **Examples**: `apex-lsp-vscode-extension` (supports both desktop and web)
+- **Examples**: `apex-lsp-vscode-extension` (unified extension with browser and desktop entry points)
 - **Purpose**: VS Code Marketplace publishing
 
 #### NPM Packages (npm-\* scripts)

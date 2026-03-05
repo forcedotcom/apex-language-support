@@ -1,0 +1,630 @@
+name: Manual Publish
+
+# Publish a VS Code extension to the marketplace from either:
+#   - A nightly GitHub Release (version-tag path — normal workflow)
+#   - A branch CI build artifact (source-run-id path — out-of-band, bypass mandatory)
+#
+# Exactly one of version-tag or source-run-id must be provided.
+
+on:
+  workflow_dispatch:
+    inputs:
+      extension:
+        description: 'Extension to publish'
+        required: true
+        default: 'apex-lsp-vscode-extension'
+        type: choice
+        options:
+          - apex-lsp-vscode-extension
+      version-tag:
+        description: >
+          [Tag path] Nightly git tag to publish from
+          (e.g. apex-language-server-extension-v0.5.3-nightly.20260301).
+          Mutually exclusive with source-run-id.
+        required: false
+        default: ''
+        type: string
+      source-run-id:
+        description: >
+          [Run path] GitHub Actions run ID whose VSIX artifact to publish
+          (e.g. 12345678). Use for branch builds that don't produce a GH release.
+          Mutually exclusive with version-tag.
+          IMPORTANT: skip-quality-checks must be true and confirm-bypass must be BYPASS.
+        required: false
+        default: ''
+        type: string
+      slot:
+        description: 'Marketplace slot to publish to (pre-release or stable)'
+        required: true
+        default: 'pre-release'
+        type: choice
+        options:
+          - pre-release
+          - stable
+      registries:
+        description: 'Registries to publish to'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - vsce
+          - ovsx
+      target-stable-version:
+        description: >
+          Optional stable version override (e.g. 0.6.1 for a stable patch).
+          Must be valid semver with an EVEN minor. If omitted, auto-computed via
+          semver minor bump (e.g. 0.5.3 → 0.6.0). Only applies when slot is stable.
+          Required when using source-run-id with slot stable.
+        required: false
+        default: ''
+        type: string
+      skip-quality-checks:
+        description: 'Skip CI quality gate. REQUIRED when using source-run-id.'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      confirm-bypass:
+        description: 'Type BYPASS to confirm skipping CI quality gate (required when skip-quality-checks is true)'
+        required: false
+        default: ''
+        type: string
+      dry-run:
+        description: 'Run in dry-run mode (no actual publishing or tagging)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+concurrency:
+  group: manual-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
+jobs:
+  # ── prepare ────────────────────────────────────────────────────────────────
+  # Validates all inputs, resolves source VSIX and version information,
+  # uploads VSIX as artifact for downstream jobs.
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      source-type: ${{ steps.resolve.outputs.source-type }}
+      prerelease-version: ${{ steps.resolve.outputs.prerelease-version }}
+      stable-version: ${{ steps.resolve.outputs.stable-version }}
+      prerelease-flag: ${{ steps.resolve.outputs.prerelease-flag }}
+      commit-sha: ${{ steps.resolve.outputs.commit-sha }}
+    steps:
+      - name: Validate inputs — mutual exclusivity and bypass rules
+        run: |
+          VERSION_TAG="${{ inputs.version-tag }}"
+          SOURCE_RUN_ID="${{ inputs.source-run-id }}"
+          SKIP_QC="${{ inputs.skip-quality-checks }}"
+          BYPASS="${{ inputs.confirm-bypass }}"
+
+          # Exactly one source must be provided
+          if [ -z "$VERSION_TAG" ] && [ -z "$SOURCE_RUN_ID" ]; then
+            echo "ERROR: Provide either version-tag or source-run-id."
+            exit 1
+          fi
+          if [ -n "$VERSION_TAG" ] && [ -n "$SOURCE_RUN_ID" ]; then
+            echo "ERROR: version-tag and source-run-id are mutually exclusive."
+            exit 1
+          fi
+
+          # Run path requires bypass (branch CI profiles differ from main)
+          if [ -n "$SOURCE_RUN_ID" ]; then
+            if [ "$SKIP_QC" != "true" ]; then
+              echo "ERROR: source-run-id path requires skip-quality-checks=true (branch CI profiles differ from main)."
+              exit 1
+            fi
+          fi
+
+          # Bypass requires confirmation
+          if [ "$SKIP_QC" = "true" ]; then
+            if [ "$BYPASS" != "BYPASS" ]; then
+              echo "ERROR: skip-quality-checks is true but confirm-bypass is not 'BYPASS'."
+              exit 1
+            fi
+            echo "WARNING: CI quality gate bypassed by ${{ github.actor }} for run ${{ github.run_id }}"
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.IDEE_GH_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
+      - name: Resolve source and compute versions
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+          VERSION_TAG: ${{ inputs.version-tag }}
+          SOURCE_RUN_ID: ${{ inputs.source-run-id }}
+          SLOT: ${{ inputs.slot }}
+          TARGET_STABLE: ${{ inputs.target-stable-version }}
+        run: |
+          mkdir -p ./vsix-artifacts
+
+          # ── Resolve VSIX and pre-release version ─────────────────────────
+          if [ -n "$VERSION_TAG" ]; then
+            echo "Source: nightly GH release tag ($VERSION_TAG)"
+            echo "source-type=tag" >> $GITHUB_OUTPUT
+
+            # Get commit SHA from tag
+            git fetch --tags origin
+            COMMIT_SHA=$(git rev-list -n 1 "$VERSION_TAG" 2>/dev/null || echo "")
+            if [ -z "$COMMIT_SHA" ]; then
+              echo "ERROR: Could not resolve commit SHA for tag: $VERSION_TAG"
+              exit 1
+            fi
+            echo "commit-sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+            # Extract pre-release version from tag name
+            PRERELEASE_VERSION=$(echo "$VERSION_TAG" | grep -oP '\d+\.\d+\.\d+' | head -1)
+            if [ -z "$PRERELEASE_VERSION" ]; then
+              echo "ERROR: Could not extract semver from tag: $VERSION_TAG"
+              exit 1
+            fi
+
+            # Download VSIX from GH release
+            gh release download "$VERSION_TAG" \
+              --pattern "*.vsix" \
+              --dir ./vsix-artifacts \
+              --repo "${{ github.repository }}"
+
+          else
+            echo "Source: branch CI run ($SOURCE_RUN_ID)"
+            echo "source-type=run" >> $GITHUB_OUTPUT
+
+            # Get commit SHA from the run
+            COMMIT_SHA=$(gh api "repos/${{ github.repository }}/actions/runs/$SOURCE_RUN_ID" \
+              --jq '.head_sha')
+            if [ -z "$COMMIT_SHA" ]; then
+              echo "ERROR: Could not resolve head_sha for run $SOURCE_RUN_ID"
+              exit 1
+            fi
+            echo "commit-sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+            # Download VSIX from run artifact
+            gh run download "$SOURCE_RUN_ID" \
+              --name vsix-packages \
+              --dir ./vsix-artifacts \
+              --repo "${{ github.repository }}" 2>/dev/null || \
+            gh run download "$SOURCE_RUN_ID" \
+              --dir ./vsix-artifacts \
+              --repo "${{ github.repository }}"
+
+            # Extract pre-release version from the VSIX's package.json
+            VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+            if [ -z "$VSIX_FILE" ]; then
+              echo "ERROR: No VSIX found in run $SOURCE_RUN_ID artifacts"
+              exit 1
+            fi
+            PRERELEASE_VERSION=$(unzip -p "$VSIX_FILE" extension/package.json | \
+              node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>console.log(JSON.parse(d).version));")
+            if [ -z "$PRERELEASE_VERSION" ]; then
+              echo "ERROR: Could not extract version from VSIX package.json"
+              exit 1
+            fi
+            echo "Extracted version from VSIX: $PRERELEASE_VERSION"
+          fi
+
+          echo "prerelease-version=$PRERELEASE_VERSION" >> $GITHUB_OUTPUT
+
+          # ── Stable slot: determine and validate stable version ────────────
+          if [ "$SLOT" != "stable" ]; then
+            echo "stable-version=" >> $GITHUB_OUTPUT
+            echo "prerelease-flag=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          git fetch --tags origin
+
+          if [ -n "$TARGET_STABLE" ]; then
+            # User-supplied override — safeguards
+
+            # 1. Valid semver
+            VALID=$(node -e "const semver = require('semver'); console.log(semver.valid('$TARGET_STABLE') ? 'yes' : 'no');")
+            if [ "$VALID" != "yes" ]; then
+              echo "ERROR: target-stable-version '$TARGET_STABLE' is not valid semver"
+              exit 1
+            fi
+
+            # 2. Minor must be even
+            MINOR=$(node -e "const semver = require('semver'); console.log(semver.minor('$TARGET_STABLE'));")
+            if [ $(( MINOR % 2 )) -ne 0 ]; then
+              echo "ERROR: target-stable-version '$TARGET_STABLE' has odd minor ($MINOR). Stable versions require even minor."
+              exit 1
+            fi
+
+            # 3. Must be >= auto-computed floor (no downgrade)
+            AUTO_STABLE=$(node -e "const semver = require('semver'); console.log(semver.inc('$PRERELEASE_VERSION', 'minor'));")
+            IS_GTE=$(node -e "const semver = require('semver'); console.log(semver.gte('$TARGET_STABLE', '$AUTO_STABLE') ? 'yes' : 'no');")
+            if [ "$IS_GTE" != "yes" ]; then
+              echo "ERROR: target-stable-version '$TARGET_STABLE' is below the floor '$AUTO_STABLE' for pre-release series $PRERELEASE_VERSION."
+              exit 1
+            fi
+
+            # 4. Not already published
+            EXISTING="marketplace-stable-apex-lsp-vscode-extension-v${TARGET_STABLE}"
+            if git tag --list "$EXISTING" | grep -q .; then
+              echo "ERROR: Stable version '$TARGET_STABLE' already published ($EXISTING exists)."
+              exit 1
+            fi
+
+            STABLE_VERSION="$TARGET_STABLE"
+            echo "Stable version (user override): $STABLE_VERSION"
+          else
+            # Auto-compute via semver minor bump
+            if [ -n "$(echo "$SOURCE_RUN_ID")" ] && [ -z "$TARGET_STABLE" ] && [ "$SLOT" = "stable" ]; then
+              # For run path with stable slot, target-stable-version is required
+              # (no nightly tag to derive from reliably)
+              echo "ERROR: target-stable-version is required when using source-run-id with slot=stable."
+              exit 1
+            fi
+
+            STABLE_VERSION=$(node -e "const semver = require('semver'); console.log(semver.inc('$PRERELEASE_VERSION', 'minor'));")
+            if [ -z "$STABLE_VERSION" ] || [ "$STABLE_VERSION" = "null" ]; then
+              echo "ERROR: Could not compute stable version from $PRERELEASE_VERSION"
+              exit 1
+            fi
+
+            # Not already published
+            EXISTING="marketplace-stable-apex-lsp-vscode-extension-v${STABLE_VERSION}"
+            if git tag --list "$EXISTING" | grep -q .; then
+              echo "ERROR: Stable version '$STABLE_VERSION' (auto-computed from $PRERELEASE_VERSION) already published. Series exhausted — use target-stable-version for a patch or advance to a new nightly minor."
+              exit 1
+            fi
+
+            echo "Stable version (auto-computed): $PRERELEASE_VERSION → $STABLE_VERSION"
+          fi
+
+          echo "stable-version=$STABLE_VERSION" >> $GITHUB_OUTPUT
+          echo "prerelease-flag=false" >> $GITHUB_OUTPUT
+
+      - name: Upload VSIX for downstream jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-vsix
+          path: ./vsix-artifacts/*.vsix
+
+  # ── preview ────────────────────────────────────────────────────────────────
+  # Summarises every planned action — shown to the reviewer in the gate step.
+  preview:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summarise planned actions
+        env:
+          SOURCE_TYPE: ${{ needs.prepare.outputs.source-type }}
+          PRERELEASE_VERSION: ${{ needs.prepare.outputs.prerelease-version }}
+          STABLE_VERSION: ${{ needs.prepare.outputs.stable-version }}
+          COMMIT_SHA: ${{ needs.prepare.outputs.commit-sha }}
+          PRERELEASE_FLAG: ${{ needs.prepare.outputs.prerelease-flag }}
+        run: |
+          SLOT="${{ inputs.slot }}"
+          DRY_RUN="${{ inputs.dry-run }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          if [ "$SLOT" = "stable" ]; then
+            TRACKING_TAG="marketplace-stable-apex-lsp-vscode-extension-v${STABLE_VERSION}"
+            GH_RELEASE_TAG="apex-language-server-extension-v${STABLE_VERSION}"
+            VSIX_NAME="apex-language-server-extension-${STABLE_VERSION}.vsix"
+            SLOT_LABEL="stable (pre-release=false)"
+          else
+            TRACKING_TAG="marketplace-prerelease-apex-lsp-vscode-extension-v${PRERELEASE_VERSION}"
+            GH_RELEASE_TAG="(none — pre-release slot)"
+            VSIX_NAME="original nightly VSIX (no repackaging)"
+            SLOT_LABEL="pre-release (pre-release=true)"
+          fi
+
+          if [ "$SOURCE_TYPE" = "run" ]; then
+            SOURCE_LABEL="Branch CI run ${{ inputs.source-run-id }}"
+          else
+            SOURCE_LABEL="Nightly GH release tag ${{ inputs.version-tag }}"
+          fi
+
+          if [ "${{ inputs.registries }}" = "all" ]; then
+            REGISTRY_LABEL="VS Code Marketplace (vsce) + Open VSX (ovsx)"
+          else
+            REGISTRY_LABEL="${{ inputs.registries }}"
+          fi
+
+          echo "╔══════════════════════════════════════════════════════════════════╗"
+          echo "║              MANUAL PUBLISH — PLANNED ACTIONS                   ║"
+          echo "╚══════════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "  Timestamp        : $TIMESTAMP"
+          echo "  Initiated by     : ${{ github.actor }}"
+          echo "  Dry-run          : $DRY_RUN"
+          echo ""
+          echo "── Source ──────────────────────────────────────────────────────────"
+          echo "  Type             : $SOURCE_LABEL"
+          echo "  Commit SHA       : $COMMIT_SHA"
+          echo "  Pre-release ver  : $PRERELEASE_VERSION"
+          echo ""
+          echo "── Publish target ──────────────────────────────────────────────────"
+          echo "  Extension        : ${{ inputs.extension }}"
+          echo "  Slot             : $SLOT_LABEL"
+          if [ "$SLOT" = "stable" ]; then
+          echo "  Stable version   : $STABLE_VERSION"
+          echo "  VSIX (repacked)  : $VSIX_NAME"
+          else
+          echo "  VSIX             : $VSIX_NAME"
+          fi
+          echo "  Registries       : $REGISTRY_LABEL"
+          echo ""
+          echo "── Side effects ─────────────────────────────────────────────────────"
+          echo "  Tracking tag     : $TRACKING_TAG  →  $COMMIT_SHA  (pushed to origin)"
+          if [ "$SLOT" = "stable" ]; then
+          echo "  GitHub release   : $GH_RELEASE_TAG  (created with repacked VSIX as asset)"
+          fi
+          echo ""
+          echo "── Quality gate ─────────────────────────────────────────────────────"
+          if [ "${{ inputs.skip-quality-checks }}" = "true" ]; then
+          echo "  ⚠️  BYPASSED by ${{ github.actor }} (confirm-bypass=BYPASS)"
+          else
+          echo "  ✅  Will run against commit $COMMIT_SHA"
+          fi
+          echo ""
+          if [ "$DRY_RUN" = "true" ]; then
+          echo "  ℹ️  DRY-RUN MODE — no publishing, tagging, or releases will occur."
+          fi
+          echo "════════════════════════════════════════════════════════════════════"
+
+  # ── quality-gate ───────────────────────────────────────────────────────────
+  # Runs before the approval gate so reviewers only see a prompt when CI is green.
+  # Skipped for source-run-id path (bypass mandatory) and when explicitly bypassed.
+  quality-gate:
+    needs: [prepare, preview]
+    if: inputs.skip-quality-checks != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check CI status
+        uses: ./.github/actions/check-ci-status
+        with:
+          commit-sha: ${{ needs.prepare.outputs.commit-sha }}
+          token: ${{ secrets.IDEE_GH_TOKEN }}
+
+  # ── gate ───────────────────────────────────────────────────────────────────
+  # Pauses for human approval only after CI quality gate passes (or is bypassed).
+  # Configure 'manual-publish-gate' in repo Settings > Environments with required reviewers.
+  gate:
+    needs: [prepare, preview, quality-gate]
+    if: always() && needs.prepare.result == 'success' && needs.preview.result == 'success' && (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: manual-publish-gate
+    steps:
+      - name: Approved — proceeding with publish
+        run: echo "Manual publish approved by ${{ github.actor }} at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  # ── repackage ──────────────────────────────────────────────────────────────
+  repackage:
+    needs: [prepare, gate]
+    if: needs.prepare.result == 'success' && needs.gate.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      vsix-path: ${{ steps.prepare-vsix.outputs.vsix-path }}
+    steps:
+      - name: Download source VSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: source-vsix
+          path: ./vsix-artifacts
+
+      - name: Repackage for stable (if needed)
+        id: prepare-vsix
+        env:
+          SLOT: ${{ inputs.slot }}
+          PRERELEASE_VERSION: ${{ needs.prepare.outputs.prerelease-version }}
+          STABLE_VERSION: ${{ needs.prepare.outputs.stable-version }}
+        run: |
+          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          if [ -z "$VSIX_FILE" ]; then
+            echo "ERROR: No VSIX found in artifact"
+            exit 1
+          fi
+
+          if [ "$SLOT" = "stable" ]; then
+            echo "Repackaging VSIX: $PRERELEASE_VERSION → $STABLE_VERSION"
+
+            WORK_DIR="./vsix-repack"
+            mkdir -p "$WORK_DIR"
+            unzip -q "$VSIX_FILE" -d "$WORK_DIR"
+
+            PKG_JSON="$WORK_DIR/extension/package.json"
+            node -e "
+              const fs = require('fs');
+              const pkg = JSON.parse(fs.readFileSync('$PKG_JSON', 'utf8'));
+              pkg.version = '$STABLE_VERSION';
+              fs.writeFileSync('$PKG_JSON', JSON.stringify(pkg, null, 2) + '\n');
+            "
+
+            VSIX_MANIFEST="$WORK_DIR/extension.vsixmanifest"
+            if [ -f "$VSIX_MANIFEST" ]; then
+              sed -i "s/Version=\"$PRERELEASE_VERSION\"/Version=\"$STABLE_VERSION\"/" "$VSIX_MANIFEST"
+            fi
+
+            STABLE_VSIX="./vsix-artifacts/apex-language-server-extension-${STABLE_VERSION}.vsix"
+            cd "$WORK_DIR" && zip -qr "../$STABLE_VSIX" . && cd -
+            echo "vsix-path=$STABLE_VSIX" >> $GITHUB_OUTPUT
+          else
+            echo "vsix-path=$VSIX_FILE" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload publish-ready VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish-vsix
+          path: ${{ steps.prepare-vsix.outputs.vsix-path }}
+
+  # ── publish ────────────────────────────────────────────────────────────────
+  publish:
+    needs: [prepare, repackage]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include: ${{ fromJson(inputs.registries == 'vsce' && '[{"registry":"vsce","publish-tool":"vsce"}]' || inputs.registries == 'ovsx' && '[{"registry":"ovsx","publish-tool":"ovsx"}]' || '[{"registry":"vsce","publish-tool":"vsce"},{"registry":"ovsx","publish-tool":"ovsx"}]') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
+      - name: Download VSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: publish-vsix
+          path: ./vsix-artifacts
+
+      - name: Locate VSIX
+        run: |
+          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          echo "VSIX_PATH=$VSIX_FILE" >> $GITHUB_ENV
+
+      - name: Publish to ${{ matrix.registry }}
+        uses: ./.github/actions/publish-vsix
+        with:
+          vsix-path: ${{ env.VSIX_PATH }}
+          publish-tool: ${{ matrix.publish-tool }}
+          pre-release: ${{ needs.prepare.outputs.prerelease-flag }}
+          dry-run: ${{ inputs.dry-run || 'false' }}
+        env:
+          VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
+          OVSX_PAT: ${{ secrets.IDEE_OVSX_PAT }}
+
+  # ── create-github-release ──────────────────────────────────────────────────
+  create-github-release:
+    needs: [prepare, repackage, publish]
+    if: inputs.slot == 'stable'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.IDEE_GH_TOKEN }}
+
+      - name: Download VSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: publish-vsix
+          path: ./vsix-artifacts
+
+      - name: Create GitHub release for stable version
+        env:
+          GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+          STABLE_VERSION: ${{ needs.prepare.outputs.stable-version }}
+          PRERELEASE_VERSION: ${{ needs.prepare.outputs.prerelease-version }}
+          SOURCE_TYPE: ${{ needs.prepare.outputs.source-type }}
+          DRY_RUN: ${{ inputs.dry-run || 'false' }}
+        run: |
+          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          RELEASE_TAG="apex-language-server-extension-v${STABLE_VERSION}"
+          RELEASE_TITLE="Apex Language Server Extension v${STABLE_VERSION} (stable)"
+
+          if [ "$SOURCE_TYPE" = "run" ]; then
+            SOURCE_DESC="branch CI run ${{ inputs.source-run-id }}"
+          else
+            SOURCE_DESC="nightly tag ${{ inputs.version-tag }}"
+          fi
+
+          RELEASE_NOTES="## Stable Release v${STABLE_VERSION}
+
+          Manually promoted from pre-release v${PRERELEASE_VERSION} (source: ${SOURCE_DESC}) by ${{ github.actor }} (run ${{ github.run_id }}).
+
+          This is a stable release. Install from the VS Code Marketplace or Open VSX Registry."
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "DRY RUN: Would create GitHub release $RELEASE_TAG with $VSIX_FILE"
+          else
+            # Idempotent: check if release already exists
+            if gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" &>/dev/null; then
+              EXISTING_ASSETS=$(gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" --json assets --jq '.assets | length')
+              if [ "$EXISTING_ASSETS" -gt 0 ]; then
+                echo "⏭️ GitHub release $RELEASE_TAG already exists with assets — skipping (idempotent rerun)"
+              else
+                echo "GitHub release $RELEASE_TAG exists but has no assets — uploading VSIX"
+                gh release upload "$RELEASE_TAG" "$VSIX_FILE" --repo "${{ github.repository }}"
+                echo "VSIX uploaded to existing release: $RELEASE_TAG"
+              fi
+            else
+              gh release create "$RELEASE_TAG" \
+                "$VSIX_FILE" \
+                --title "$RELEASE_TITLE" \
+                --notes "$RELEASE_NOTES" \
+                --repo "${{ github.repository }}"
+              echo "GitHub release created: $RELEASE_TAG"
+            fi
+          fi
+
+  # ── tag-published ──────────────────────────────────────────────────────────
+  tag-published:
+    needs: [prepare, publish, create-github-release]
+    if: always() && needs.publish.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.IDEE_GH_TOKEN }}
+
+      - name: Create tracking tag
+        env:
+          SLOT: ${{ inputs.slot }}
+          PRERELEASE_VERSION: ${{ needs.prepare.outputs.prerelease-version }}
+          STABLE_VERSION: ${{ needs.prepare.outputs.stable-version }}
+          COMMIT_SHA: ${{ needs.prepare.outputs.commit-sha }}
+          DRY_RUN: ${{ inputs.dry-run || 'false' }}
+          GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+        run: |
+          if [ "$SLOT" = "stable" ]; then
+            TRACKING_TAG="marketplace-stable-apex-lsp-vscode-extension-v${STABLE_VERSION}"
+          else
+            TRACKING_TAG="marketplace-prerelease-apex-lsp-vscode-extension-v${PRERELEASE_VERSION}"
+          fi
+
+          echo "Creating tracking tag: $TRACKING_TAG → $COMMIT_SHA"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "DRY RUN: Would create and push tag $TRACKING_TAG pointing to $COMMIT_SHA"
+          else
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
+            git fetch --tags origin
+            if git tag --list "$TRACKING_TAG" | grep -q .; then
+              echo "⏭️ Tracking tag $TRACKING_TAG already exists — skipping (idempotent rerun)"
+            else
+              git tag "$TRACKING_TAG" "$COMMIT_SHA"
+              git push origin "$TRACKING_TAG"
+              echo "Tracking tag pushed: $TRACKING_TAG"
+            fi
+          fi
