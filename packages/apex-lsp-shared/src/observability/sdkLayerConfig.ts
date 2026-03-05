@@ -12,9 +12,6 @@
 export interface TelemetrySettings {
   /** Enable telemetry collection (respects VS Code global setting) */
   readonly enabled: boolean;
-
-  /** Enable local file-based telemetry export */
-  readonly localTracingEnabled: boolean;
 }
 
 /**
@@ -22,5 +19,4 @@ export interface TelemetrySettings {
  */
 export const DEFAULT_TELEMETRY_SETTINGS: TelemetrySettings = {
   enabled: false,
-  localTracingEnabled: false,
 };
