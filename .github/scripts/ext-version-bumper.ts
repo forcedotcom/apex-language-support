@@ -156,6 +156,28 @@ function createGitTag(
   }
 
   try {
+    // Check if tag already exists locally or remotely (idempotency)
+    let tagExists = false;
+    try {
+      // Check local tags first
+      execSync(`git rev-parse "${tagName}"`, { encoding: 'utf8', stdio: 'pipe' });
+      tagExists = true;
+    } catch {
+      // Tag doesn't exist locally, check remote
+      try {
+        execSync(`git ls-remote --tags origin "${tagName}"`, { encoding: 'utf8', stdio: 'pipe' });
+        tagExists = true;
+      } catch {
+        // Tag doesn't exist locally or remotely, proceed to create
+        tagExists = false;
+      }
+    }
+
+    if (tagExists) {
+      console.log(`⏭️ Tag ${tagName} already exists — skipping (idempotent rerun)`);
+      return;
+    }
+
     if (promotionCommitSha) {
       // For promotions, create tag on specific commit
       console.log(
