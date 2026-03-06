@@ -114,29 +114,14 @@ function copyFixturesRecursive(sourceDir, destDir, relativePath = '') {
 
 /**
  * Clean the testbed fixtures directory
+ * Note: We don't actually clean anymore to avoid Wireit issues with tracked outputs.
+ * Instead, we overwrite files during copy, which is safer for Wireit's output tracking.
  */
 function cleanTestbedFixtures() {
+  // Skip cleaning to avoid Wireit "deleted unexpectedly" errors
+  // Files will be overwritten during copy, which Wireit handles better
   if (!fs.existsSync(TESTBED_FIXTURES_ROOT)) {
-    return;
-  }
-  const entries = fs.readdirSync(TESTBED_FIXTURES_ROOT, {
-    withFileTypes: true,
-  });
-  for (const entry of entries) {
-    const entryPath = path.join(TESTBED_FIXTURES_ROOT, entry.name);
-    try {
-      if (entry.isDirectory()) {
-        shell.rm('-rf', entryPath);
-      } else if (entry.isFile() && entry.name.endsWith('.cls')) {
-        shell.rm('-f', entryPath);
-      }
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        continue; // Path vanished or unreadable (e.g. broken symlink); ok for cleanup
-      }
-      console.error(`Error removing ${entryPath}:`, error.message);
-      throw error;
-    }
+    fs.mkdirSync(TESTBED_FIXTURES_ROOT, { recursive: true });
   }
 }
 
@@ -146,8 +131,8 @@ function cleanTestbedFixtures() {
 function syncFixtures() {
   console.log('Syncing validation fixtures to testbed...\n');
 
-  // Clean existing fixtures first
-  console.log('Cleaning existing fixtures...');
+  // Ensure directory exists (but don't clean to avoid Wireit issues)
+  console.log('Ensuring fixtures directory exists...');
   cleanTestbedFixtures();
 
   const result = copyFixturesRecursive(

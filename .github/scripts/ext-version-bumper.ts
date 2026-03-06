@@ -26,6 +26,9 @@ interface VersionBumpOptions {
   promotionCommitSha?: string;
 }
 
+// Export for use in other modules
+export type { VersionBumpOptions };
+
 function parseVersion(version: string): {
   major: number;
   minor: number;
@@ -131,13 +134,50 @@ function createGitTag(
   version: string,
   isPreRelease: boolean,
   promotionCommitSha?: string,
+  isNightly?: boolean,
 ): void {
-  // Create tag name with pre-release suffix if applicable
-  const tagName = isPreRelease
-    ? `${packageName}-v${version}-pre-release`
-    : `${packageName}-v${version}`;
+  // For nightly builds, create tag in format: v{version}-nightly.{date}
+  // This matches what GitHub release creation expects
+  let tagName: string;
+  if (isNightly) {
+    const nightlyDate = new Date()
+      .toISOString()
+      .split('T')[0]
+      .replace(/-/g, '');
+    const branch = process.env.BRANCH || 'main';
+    const branchSuffix =
+      branch === 'main' ? '' : `.${branch.replace(/\//g, '-')}`;
+    tagName = `v${version}-nightly${branchSuffix}.${nightlyDate}`;
+  } else {
+    // For non-nightly builds, use package name format
+    tagName = isPreRelease
+      ? `${packageName}-v${version}-pre-release`
+      : `${packageName}-v${version}`;
+  }
 
   try {
+    // Check if tag already exists locally or remotely (idempotency)
+    let tagExists = false;
+    try {
+      // Check local tags first
+      execSync(`git rev-parse "${tagName}"`, { encoding: 'utf8', stdio: 'pipe' });
+      tagExists = true;
+    } catch {
+      // Tag doesn't exist locally, check remote
+      try {
+        execSync(`git ls-remote --tags origin "${tagName}"`, { encoding: 'utf8', stdio: 'pipe' });
+        tagExists = true;
+      } catch {
+        // Tag doesn't exist locally or remotely, proceed to create
+        tagExists = false;
+      }
+    }
+
+    if (tagExists) {
+      console.log(`⏭️ Tag ${tagName} already exists — skipping (idempotent rerun)`);
+      return;
+    }
+
     if (promotionCommitSha) {
       // For promotions, create tag on specific commit
       console.log(
@@ -211,11 +251,37 @@ function bumpVersions(options: VersionBumpOptions): void {
       process.chdir(originalDir);
 
       // Create git tag for this extension
+      // #region agent log
+      const isNightlyBuild = isNightly === 'true';
+      let expectedTagName: string;
+      if (isNightlyBuild) {
+        const nightlyDate = new Date()
+          .toISOString()
+          .split('T')[0]
+          .replace(/-/g, '');
+        const branch = process.env.BRANCH || 'main';
+        const branchSuffix =
+          branch === 'main' ? '' : `.${branch.replace(/\//g, '-')}`;
+        expectedTagName = `v${newVersion}-nightly${branchSuffix}.${nightlyDate}`;
+      } else {
+        expectedTagName = preRelease === 'true'
+          ? `${packageDetails.name}-v${newVersion}-pre-release`
+          : `${packageDetails.name}-v${newVersion}`;
+      }
+      console.log('🔍 DEBUG: Creating git tag');
+      console.log(`  Extension: ${ext}`);
+      console.log(`  Package name: ${packageDetails.name}`);
+      console.log(`  New version: ${newVersion}`);
+      console.log(`  Pre-release: ${preRelease}`);
+      console.log(`  Is nightly: ${isNightlyBuild}`);
+      console.log(`  Expected tag name: ${expectedTagName}`);
+      // #endregion
       createGitTag(
         packageDetails.name,
         newVersion,
         preRelease === 'true',
         promotionCommitSha,
+        isNightlyBuild,
       );
     } catch (error) {
       console.error(`Failed to bump version for ${ext}:`, error);
