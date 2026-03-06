@@ -13,6 +13,10 @@
  *   --devtools : Open browser devtools during tests
  *   --headless : Run in headless mode (browser hidden)
  *
+ * VS Code version is pinned to the version defined in:
+ *   https://github.com/forcedotcom/code-builder-web/blob/main/.vscode-version
+ * Falls back to 'stable' on failure.
+ *
  * The test will timeout after 45 seconds if the extension fails to activate.
  */
 
@@ -23,6 +27,45 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 
 const execAsync = promisify(exec);
+
+/**
+ * Fetches the pinned VS Code version from the Code Builder Web repo using `gh api`.
+ * Relies on the GitHub CLI being authenticated (via `gh auth login`).
+ * Falls back to 'stable' if the fetch fails.
+ * @returns {Promise<string>} The VS Code version string (e.g. '1.108.0') or 'stable'
+ */
+async function fetchCodeBuilderVSCodeVersion() {
+  try {
+    const { stdout } = await execAsync(
+      'gh api repos/forcedotcom/code-builder-web/contents/.vscode-version --jq .content',
+    );
+
+    const content = Buffer.from(stdout.trim(), 'base64')
+      .toString('utf-8')
+      .trim();
+
+    if (/^\d+\.\d+\.\d+$/.test(content)) {
+      console.log(
+        `📌 Pinning VS Code version to ${content} (from code-builder-web/.vscode-version)`,
+      );
+      return content;
+    }
+
+    console.warn(
+      `⚠️  Unexpected .vscode-version content: "${content}", falling back to 'stable'`,
+    );
+    return 'stable';
+  } catch (error) {
+    console.warn(
+      `⚠️  Failed to fetch .vscode-version via gh CLI: ${error.message}`,
+    );
+    console.warn(
+      `   Ensure 'gh' is installed and authenticated (gh auth login)`,
+    );
+    console.warn(`   Falling back to 'stable'`);
+    return 'stable';
+  }
+}
 
 /**
  * Creates a test Apex class with @isTest annotations for testing CodeLens functionality
@@ -750,6 +793,9 @@ async function runWebExtensionTests() {
     console.log(`📁 Extension source path: ${extensionSourcePath}`);
     console.log(`📂 Workspace path: ${workspacePath}`);
 
+    // Fetch the pinned VS Code version from Code Builder Web
+    const vsCodeVersion = await fetchCodeBuilderVSCodeVersion();
+
     // Setup output file for extension host logs
     const outputLogPath = path.resolve(
       __dirname,
@@ -777,7 +823,7 @@ async function runWebExtensionTests() {
       // No extensionTestsPath - just test extension loading and activation
       headless: process.argv.includes('--headless'), // Browser visible by default
       browserType: 'chromium',
-      version: 'stable',
+      version: vsCodeVersion,
       waitForDebugger: process.argv.includes('--debug'),
       printServerLog: true, // Enable server logs for capture
       verbose: true, // Enable verbose logging
