@@ -19,11 +19,7 @@
     "src/**/*.ts",
     "src/**/*.worker.ts",
     "src/**/*.browser.ts",
-    "src/**/*.node.ts",
-    "src/communication/BrowserClient.ts",
-    "src/server/ApexLanguageServer.ts",
-    "src/communication/NodeBridge.ts",
-    "src/communication/PlatformBridges.ts"
+    "src/**/*.node.ts"
   ],
   "exclude": [
     "src/index.ts",
