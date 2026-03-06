@@ -218,7 +218,6 @@ export function activate(context: vscode.ExtensionContext): void {
  */
 export async function deactivate(): Promise<void> {
   logToOutputChannel('Deactivating Apex Language Server extension', 'info');
-
   await stopLanguageServer();
   await shutdownExtensionTracing();
 }
