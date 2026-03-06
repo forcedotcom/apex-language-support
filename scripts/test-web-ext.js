@@ -778,9 +778,6 @@ async function runWebExtensionTests() {
       headless: process.argv.includes('--headless'), // Browser visible by default
       browserType: 'chromium',
       version: 'stable',
-      // Pin to VS Code 1.108.0 (December 2025) to avoid 1.109 breaking changes
-      // Commit hash for 1.108.0: 94e8ae2b28cb5cc932b86e1070569c4463565c37
-      commit: '94e8ae2b28cb5cc932b86e1070569c4463565c37',
       waitForDebugger: process.argv.includes('--debug'),
       printServerLog: true, // Enable server logs for capture
       verbose: true, // Enable verbose logging
