@@ -20,7 +20,11 @@ import {
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import type { BaseLanguageClient } from 'vscode-languageclient';
 import { Trace } from 'vscode-languageclient';
-import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
+import {
+  logToOutputChannel,
+  getWorkerServerOutputChannel,
+  createSafeOutputChannel,
+} from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
 import { handleFindMissingArtifact } from './missing-artifact-handler';
 import {
@@ -357,8 +361,12 @@ async function createWebLanguageClient(
         },
         initializationOptions: initOptions,
         // Use our consolidated worker/server output channel to prevent LanguageClient
-        // from creating its own default output channel (which causes duplicate tabs)
-        outputChannel: getWorkerServerOutputChannel() || undefined,
+        // from creating its own default output channel (which causes duplicate tabs).
+        // Wrapped to swallow "Channel has been closed" errors during shutdown.
+        outputChannel: (() => {
+          const ch = getWorkerServerOutputChannel();
+          return ch ? createSafeOutputChannel(ch) : undefined;
+        })(),
       },
       worker,
     );
@@ -1221,7 +1229,6 @@ export async function restartLanguageServer(
  */
 export async function stopLanguageServer(): Promise<void> {
   logToOutputChannel('🛑 Stopping Apex Language Server...', 'info');
-
   if (Client) {
     try {
       await Client.dispose();
