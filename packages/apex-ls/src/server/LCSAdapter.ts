@@ -695,7 +695,9 @@ export class LCSAdapter {
             LSP_SPAN_NAMES.FIND_MISSING_ARTIFACT,
             () => dispatchProcessOnFindMissingArtifact(params),
             {
-              'apex.identifier': params.identifier,
+              'apex.identifier': params.identifiers
+                .map((i) => i.name)
+                .join(','),
               'apex.origin.uri': params.origin.uri,
               'apex.origin.requestKind': params.origin.requestKind,
               'apex.mode': params.mode,
