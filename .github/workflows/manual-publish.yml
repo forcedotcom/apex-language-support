@@ -138,13 +138,13 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           token: ${{ secrets.IDEE_GH_TOKEN }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20.x'
 
@@ -398,7 +398,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Check CI status
         uses: ./.github/actions/check-ci-status
@@ -427,7 +427,7 @@ jobs:
       vsix-path: ${{ steps.prepare-vsix.outputs.vsix-path }}
     steps:
       - name: Download source VSIX
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: source-vsix
           path: ./vsix-artifacts
@@ -487,10 +487,10 @@ jobs:
         include: ${{ fromJson(inputs.registries == 'vsce' && '[{"registry":"vsce","publish-tool":"vsce"}]' || inputs.registries == 'ovsx' && '[{"registry":"ovsx","publish-tool":"ovsx"}]' || '[{"registry":"vsce","publish-tool":"vsce"},{"registry":"ovsx","publish-tool":"ovsx"}]') }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20.x'
 
@@ -498,7 +498,7 @@ jobs:
         uses: ./.github/actions/npm-install-with-retries
 
       - name: Download VSIX
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: publish-vsix
           path: ./vsix-artifacts
@@ -526,13 +526,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           token: ${{ secrets.IDEE_GH_TOKEN }}
 
       - name: Download VSIX
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: publish-vsix
           path: ./vsix-artifacts
@@ -591,7 +591,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           token: ${{ secrets.IDEE_GH_TOKEN }}

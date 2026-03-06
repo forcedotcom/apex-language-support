@@ -25,10 +25,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
@@ -76,10 +76,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
@@ -125,7 +125,7 @@ jobs:
     if: always() && github.event_name == 'push' && (needs.test.result == 'failure' || needs.package.result == 'failure')
     steps:
       - name: Notify Slack
-        uses: slackapi/slack-github-action@v1.22.0
+        uses: slackapi/slack-github-action@v2.1.1
         with:
           payload: |
             {
