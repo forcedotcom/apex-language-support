@@ -17,20 +17,9 @@ export * from './utils/Logging';
 export * from './factories/ConnectionFactory';
 export * from './communication/Interfaces';
 export * from './server/ApexLanguageServerSettings';
-export {
-  setLogNotificationHandler,
-  getLogNotificationHandler,
-} from './notification';
-export type {
-  LogMessageType,
-  LogMessageParams,
-  LogNotificationHandler,
-} from './notification';
 
-// Export enum utilities
 export * from './enumUtils';
 
-// Export optimized enum utilities for memory efficiency (excluding duplicates)
 export {
   defineOptimizedEnum,
   getOptimizedEnumKeys,
@@ -42,22 +31,10 @@ export {
   compareEnumMemoryUsage,
 } from './optimizedEnumUtils';
 
-// Export logger functionality
 export * from './logger';
 
-// Export testing and metrics utilities
 export * from './testing/performance-utils';
 export * from './testing/performance-metrics';
-
-// Explicitly export commonly used functions
-export {
-  defineEnum,
-  isValidEnumKey,
-  isValidEnumValue,
-  getEnumKeys,
-  getEnumValues,
-  getEnumEntries,
-} from './enumUtils';
 
 // Export smaller numeric types for memory optimization
 export * from './smallNumericTypes';
@@ -83,6 +60,28 @@ export * from './types/priority';
 
 // Export document selector utilities
 export * from './document/DocumentSelectorUtils';
+
+export {
+  DEFAULT_TELEMETRY_SETTINGS,
+  enableTracing,
+  isTracingEnabled,
+  disableTracing,
+  runWithSpan,
+  runSyncWithSpan,
+  withTracing,
+  LSP_SPAN_NAMES,
+  type LspSpanAttributes,
+  type TelemetrySettings,
+  CommandPerformanceAggregator,
+  collectStartupSnapshot,
+  generateSessionId,
+  type StartupSnapshotParams,
+  type TelemetryEventType,
+  type StartupSnapshotEvent,
+  type CommandSummary,
+  type CommandPerformanceEvent,
+  type TelemetryEvent,
+} from './observability';
 
 // Experimental protocol: Missing Artifact Resolution
 export type RequestKind =
@@ -189,6 +188,15 @@ export interface IdentifierSpec {
   };
 }
 
+/**
+ * Lightweight summary of an ApexSymbol, used to avoid coupling the shared
+ * package to the full ApexSymbol type from the parser.
+ */
+export interface SymbolSummary {
+  readonly name: string;
+  readonly kind: string;
+}
+
 export interface FindMissingArtifactParams {
   readonly identifiers: IdentifierSpec[];
   readonly origin: {
@@ -202,6 +210,24 @@ export interface FindMissingArtifactParams {
   readonly timeoutMsHint?: number;
   readonly workDoneToken?: unknown;
   readonly correlationId?: string;
+  // Simply pass the TypeReference object directly - much cleaner!
+  readonly typeReference?: TypeReference;
+  readonly parentContext?: {
+    readonly containingType?: SymbolSummary;
+    readonly ancestorChain?: SymbolSummary[];
+    readonly parentSymbol?: SymbolSummary;
+    readonly contextualHierarchy?: string;
+  };
+  // New: Pre-resolved search hints from LSP services
+  readonly searchHints?: SearchHint[];
+  // New: Resolved qualifier information
+  readonly resolvedQualifier?: {
+    readonly type: 'class' | 'interface' | 'enum' | 'variable' | 'unknown';
+    readonly name: string;
+    readonly namespace?: string;
+    readonly isStatic: boolean;
+    readonly filePath?: string; // If already known
+  };
 }
 
 export type FindMissingArtifactResult =

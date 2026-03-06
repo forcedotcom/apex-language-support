@@ -25,6 +25,9 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "extensionDependencies": [
+    "salesforce.salesforcedx-vscode-services"
+  ],
   "contributes": {
     "languages": [
       {
@@ -823,6 +826,7 @@
     "web-worker": "^1.5.0"
   },
   "devDependencies": {
+    "@salesforce/vscode-services": "^65.18.0",
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@salesforce/apex-tmlanguage": "2.0.1",

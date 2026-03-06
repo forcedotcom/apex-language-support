@@ -48,6 +48,19 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
     Low: 4,
     Background: 5,
   },
+  runWithSpan: jest.fn((_name: string, fn: () => any) => fn()),
+  LSP_SPAN_NAMES: {},
+  CommandPerformanceAggregator: jest.fn().mockImplementation(() => ({
+    record: jest.fn(),
+    flush: jest
+      .fn()
+      .mockReturnValue({ type: 'command_performance', commands: [] }),
+    reset: jest.fn(),
+  })),
+  collectStartupSnapshot: jest.fn().mockReturnValue({
+    type: 'startup_snapshot',
+    sessionId: 'mock-session',
+  }),
 }));
 
 // Skip DiagnosticProcessor mock since it's not essential for this test
