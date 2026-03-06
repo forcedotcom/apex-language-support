@@ -3,4 +3,24 @@
  */
 global class FulfillmentGroupInputRepresentation {
 
+  /**
+   * ID of the fulfillment location.
+   */
+  global String fulfilledFromLocationId;
+
+  /**
+   * Fulfillment type. One of the Type field values defined for FulfillmentOrders.
+   */
+  global String fulfillmentType;
+
+  /**
+   * List of OrderItemSummaries.
+   */
+  global List < ConnectApi.OrderItemSummaryInputRepresentation > orderItemSummaries;
+
+  /**
+   * Reference to this input for use in troubleshooting failures. This value is only used by the APIs for creating fulfillment orders for multiple order delivery group summaries.
+   */
+  global String referenceId;
+
 }

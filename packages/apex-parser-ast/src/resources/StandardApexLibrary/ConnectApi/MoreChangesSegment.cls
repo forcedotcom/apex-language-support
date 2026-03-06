@@ -3,4 +3,14 @@
  */
 global class MoreChangesSegment {
 
+  /**
+   * Complete list of tracked changes.
+   */
+  global List < ConnectApi.FieldChangeSegment > moreChanges;
+
+  /**
+   * Number of additional changes.
+   */
+  global Integer moreChangesCount;
+
 }

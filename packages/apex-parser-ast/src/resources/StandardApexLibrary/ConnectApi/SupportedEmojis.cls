@@ -3,4 +3,9 @@
  */
 global class SupportedEmojis {
 
+  /**
+   * A collection of supported emoji.
+   */
+  global ConnectApi.EmojiCollection supportedEmojis;
+
 }

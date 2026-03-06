@@ -3,4 +3,14 @@
  */
 global class CommerceAddressFieldInput {
 
+  /**
+   * The name of the custom address field.
+   */
+  global String dataName;
+
+  /**
+   * The value of the custom address field.
+   */
+  global String text;
+
 }

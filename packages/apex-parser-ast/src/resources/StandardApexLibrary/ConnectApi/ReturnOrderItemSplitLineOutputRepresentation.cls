@@ -3,4 +3,14 @@
  */
 global class ReturnOrderItemSplitLineOutputRepresentation {
 
+  /**
+   * ID of the new ReturnOrderLineItem that holds the remaining return quantity.
+   */
+  global String newReturnOrderItemId;
+
+  /**
+   * ID of the original ReturnOrderLineItem.
+   */
+  global String originalReturnOrderItemId;
+
 }

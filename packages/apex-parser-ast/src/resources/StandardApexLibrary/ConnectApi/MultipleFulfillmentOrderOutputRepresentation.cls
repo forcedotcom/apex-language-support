@@ -3,4 +3,9 @@
  */
 global class MultipleFulfillmentOrderOutputRepresentation {
 
+  /**
+   * A list of response data for created and failed FulfillmentOrders.
+   */
+  global List < ConnectApi.FulfillmentGroupOutputRepresentation > fulfillmentOrders;
+
 }

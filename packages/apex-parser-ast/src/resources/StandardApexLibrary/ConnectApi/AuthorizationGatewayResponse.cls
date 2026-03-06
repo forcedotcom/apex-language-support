@@ -3,4 +3,9 @@
  */
 global class AuthorizationGatewayResponse {
 
+  /**
+   * Gateway authorization code.
+   */
+  global String gatewayAuthorizationCode;
+
 }

@@ -3,4 +3,9 @@
  */
 global class EnsurePaymentCreditOutputRepresentation {
 
+  /**
+   * The list of payment credits that were created.
+   */
+  global List < ConnectApi.PaymentCreditOutputRepresentation > paymentCredits;
+
 }

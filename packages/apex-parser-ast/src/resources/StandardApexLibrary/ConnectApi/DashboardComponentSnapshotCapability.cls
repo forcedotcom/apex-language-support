@@ -3,4 +3,9 @@
  */
 global class DashboardComponentSnapshotCapability {
 
+  /**
+   * The dashboard component snapshot.
+   */
+  global ConnectApi.DashboardComponentSnapshot dashboardComponentSnapshot;
+
 }

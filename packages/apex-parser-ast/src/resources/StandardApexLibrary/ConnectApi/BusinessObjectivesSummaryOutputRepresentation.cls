@@ -3,4 +3,9 @@
  */
 global class BusinessObjectivesSummaryOutputRepresentation {
 
+  /**
+   * List of business objective summaries.
+   */
+  global List < ConnectApi.BusObjSummaryOutputRepresentation > businessObjectivesSummary;
+
 }

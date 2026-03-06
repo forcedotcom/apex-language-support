@@ -3,4 +3,9 @@
  */
 global class CartPromotionList {
 
+  /**
+   * Promotions associated with a cart.
+   */
+  global List < ConnectApi.CartPromotionOutputRepresentation > promotions;
+
 }

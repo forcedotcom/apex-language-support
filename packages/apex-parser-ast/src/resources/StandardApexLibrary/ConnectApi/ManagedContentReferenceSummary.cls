@@ -3,4 +3,9 @@
  */
 global class ManagedContentReferenceSummary {
 
+  /**
+   * Title of the managed content reference.
+   */
+  global String title;
+
 }

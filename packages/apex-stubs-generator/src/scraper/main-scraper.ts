@@ -5,6 +5,7 @@ import {
   extractMethodsFromHtml,
   extractConstructorsFromHtml,
   extractClassDescriptionFromHtml,
+  extractPropertiesFromHtml,
   extractEnumValuesFromHtml,
   extractExceptionClassNamesFromHtml,
   extractMultipleEnumsFromHtml,
@@ -55,8 +56,9 @@ const scrapeClass = (ref: ClassReference) =>
     const classDescription = yield* extractClassDescriptionFromHtml(content.content);
     const methods = yield* extractMethodsFromHtml(content.content, ref.name);
     const constructors = yield* extractConstructorsFromHtml(content.content, ref.name);
+    const properties = yield* extractPropertiesFromHtml(content.content, ref.name);
 
-    return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, methods, constructors, properties: [], isInterface: false })];
+    return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, methods, constructors, properties, isInterface: false })];
   });
 
 const scrapeInterface = (ref: ClassReference) =>
@@ -72,8 +74,9 @@ const scrapeInterface = (ref: ClassReference) =>
     const classDescription = yield* extractClassDescriptionFromHtml(content.content);
     const methods = yield* extractMethodsFromHtml(content.content, ref.name);
     const constructors = yield* extractConstructorsFromHtml(content.content, ref.name);
+    const properties = yield* extractPropertiesFromHtml(content.content, ref.name);
 
-    return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, methods, constructors, properties: [], isInterface: true })];
+    return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, methods, constructors, properties, isInterface: true })];
   });
 
 type ExceptionScrapeResult =

@@ -3,4 +3,9 @@
  */
 global class BaseInvoiceOutputRepresentation {
 
+  /**
+   * ID of the created invoice.
+   */
+  global String invoiceId;
+
 }

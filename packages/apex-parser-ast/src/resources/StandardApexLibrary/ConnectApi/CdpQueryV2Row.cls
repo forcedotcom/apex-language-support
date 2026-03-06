@@ -3,4 +3,9 @@
  */
 global class CdpQueryV2Row {
 
+  /**
+   * Row values.
+   */
+  global List <Object> rowData;
+
 }

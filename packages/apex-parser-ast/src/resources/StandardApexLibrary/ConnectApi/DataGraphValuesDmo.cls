@@ -3,4 +3,14 @@
  */
 global class DataGraphValuesDmo {
 
+  /**
+   * Developer name of the DMO.
+   */
+  global String developerName;
+
+  /**
+   * List of fields for the DMO.
+   */
+  global List < ConnectApi.DataGraphValuesDmoField > fields;
+
 }

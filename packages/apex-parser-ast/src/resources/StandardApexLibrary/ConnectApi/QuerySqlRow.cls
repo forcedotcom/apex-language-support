@@ -3,4 +3,9 @@
  */
 global class QuerySqlRow {
 
+  /**
+   * List of column values.
+   */
+  global List < Object > row;
+
 }

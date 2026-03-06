@@ -3,4 +3,9 @@
  */
 global class CommentsCapability {
 
+  /**
+   * The comments information for this feed element or comment. Threaded comments are supported in version 44.0 and later.
+   */
+  global ConnectApi.CommentPage page;
+
 }

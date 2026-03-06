@@ -3,4 +3,9 @@
  */
 global class OrderItemSummaryAdjustmentList {
 
+  /**
+   * Adjustments associated with an order item summary.
+   */
+  global List < ConnectApi.OrderSummaryAdjustment > adjustments;
+
 }

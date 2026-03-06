@@ -3,4 +3,9 @@
  */
 global class RecordSnapshotCapability {
 
+  /**
+   * A record representation that includes metadata and data so you can display the record easily.
+   */
+  global ConnectApi.RecordView recordView;
+
 }

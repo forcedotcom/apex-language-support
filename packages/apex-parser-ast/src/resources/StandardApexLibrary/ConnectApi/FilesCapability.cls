@@ -3,4 +3,9 @@
  */
 global class FilesCapability {
 
+  /**
+   * Collection of files.
+   */
+  global List < ConnectApi.Content > items;
+
 }

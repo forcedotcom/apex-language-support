@@ -3,4 +3,9 @@
  */
 global class TextClassificationsBulkResultsOutputRepresentation {
 
+  /**
+   * List of results for passed request IDs.
+   */
+  global List < ConnectApi.TextClassificationsResultWithIdOutputRepresentation > resultsList;
+
 }

@@ -3,4 +3,9 @@
  */
 global class RecordsetFilterCriteriaCollection {
 
+  /**
+   * Collection of recordset filter criteria IDs and filtered record IDs.
+   */
+  global List < ConnectApi.RecordsetFilterCriteria > recordsetFilters;
+
 }

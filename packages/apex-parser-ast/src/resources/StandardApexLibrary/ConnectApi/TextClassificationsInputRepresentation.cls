@@ -3,4 +3,14 @@
  */
 global class TextClassificationsInputRepresentation {
 
+  /**
+   * List of classifiers according to which text has to be classified.
+   */
+  global List < String > String;
+
+  /**
+   * List of text to be classified.
+   */
+  global List < String > String;
+
 }

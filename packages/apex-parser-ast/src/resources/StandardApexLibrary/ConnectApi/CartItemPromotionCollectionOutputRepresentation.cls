@@ -3,4 +3,14 @@
  */
 global class CartItemPromotionCollectionOutputRepresentation {
 
+  /**
+   * Currency code associated with the cart.
+   */
+  global String currencyIsoCode;
+
+  /**
+   * Collection of promotions.
+   */
+  global Map < String , ConnectApi.CartPromotionListRepresentation > items;
+
 }

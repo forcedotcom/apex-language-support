@@ -3,4 +3,9 @@
  */
 global class QueryPathInputConfig {
 
+  /**
+   * List of query path configurations.
+   */
+  global List < ConnectApi.QueryPathInput > queryPaths;
+
 }

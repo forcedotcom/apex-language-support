@@ -3,4 +3,9 @@
  */
 global class RecordView {
 
+  /**
+   * List of record view sections.
+   */
+  global List < ConnectApi.RecordViewSection > sections;
+
 }

@@ -3,4 +3,9 @@
  */
 global class OutOfOffice {
 
+  /**
+   * Out-of-office message for the user.
+   */
+  global String message;
+
 }

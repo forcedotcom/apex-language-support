@@ -3,4 +3,9 @@
  */
 global class ContactPointFilterExpression {
 
+  /**
+   * List of contact point DMO filter expressions.
+   */
+  global List < ConnectApi.DmoFilter > contactPointDmoFilters;
+
 }

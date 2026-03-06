@@ -3,4 +3,9 @@
  */
 global class CancelAllOrderItemsAsyncOutputRepresentation {
 
+  /**
+   * ID of the background operation.
+   */
+  global String asyncOperationLogId;
+
 }

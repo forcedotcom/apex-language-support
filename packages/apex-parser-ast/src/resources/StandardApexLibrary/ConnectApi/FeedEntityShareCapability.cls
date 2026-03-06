@@ -3,4 +3,9 @@
  */
 global class FeedEntityShareCapability {
 
+  /**
+   * The summary of the feed entity that is shared with the feed element or comment.
+   */
+  global ConnectApi.FeedEntitySummary feedEntity;
+
 }

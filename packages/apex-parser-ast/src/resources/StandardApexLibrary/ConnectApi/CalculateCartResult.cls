@@ -3,4 +3,9 @@
  */
 global class CalculateCartResult {
 
+  /**
+   * A cart summary with calculated cart values.
+   */
+  global ConnectApi.CartSummary data;
+
 }

@@ -3,4 +3,14 @@
  */
 global class PromotionCartItemKey {
 
+  /**
+   * ID of the cart item.
+   */
+  global String cartItemId;
+
+  /**
+   * Quantity ID of the cart item.
+   */
+  global String cartItemQuantityIdentifier;
+
 }

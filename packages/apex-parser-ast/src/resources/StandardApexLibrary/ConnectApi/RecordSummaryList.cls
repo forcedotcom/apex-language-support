@@ -3,4 +3,14 @@
  */
 global class RecordSummaryList {
 
+  /**
+   * A list of records.
+   */
+  global List < ConnectApi.ActorWithId > records;
+
+  /**
+   * The URL to this list of records.
+   */
+  global String url;
+
 }

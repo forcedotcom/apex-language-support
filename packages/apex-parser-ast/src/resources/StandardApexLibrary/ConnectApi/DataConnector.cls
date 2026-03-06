@@ -3,4 +3,9 @@
  */
 global class DataConnector {
 
+  /**
+   * Output format for the activation target.
+   */
+  global String outputFormat;
+
 }

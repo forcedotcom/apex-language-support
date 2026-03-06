@@ -3,4 +3,9 @@
  */
 global class RecommendationsCapability {
 
+  /**
+   * A list of recommendations.
+   */
+  global List < ConnectApi.AbstractRecommendation > items;
+
 }

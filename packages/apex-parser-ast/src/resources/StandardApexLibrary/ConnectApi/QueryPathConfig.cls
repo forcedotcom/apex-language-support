@@ -3,4 +3,9 @@
  */
 global class QueryPathConfig {
 
+  /**
+   * Query path.
+   */
+  global List < ConnectApi.QueryPath > queryPath;
+
 }

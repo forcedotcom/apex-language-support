@@ -3,4 +3,14 @@
  */
 global class RankAverageDistanceOutputRepresentation {
 
+  /**
+   * The specified unit of distance (miles or kilometers).
+   */
+  global String distanceUnit;
+
+  /**
+   * The results of the shipping distance calculations.
+   */
+  global List < ConnectApi.AverageDistanceResultOutputRepresentation > results;
+
 }

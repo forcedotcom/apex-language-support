@@ -3,4 +3,14 @@
  */
 global class CallCollaborationCapability {
 
+  /**
+   * End time of the comment on the media player, in seconds.
+   */
+  global Integer commentEndTime;
+
+  /**
+   * Start time of the comment on the media player, in seconds.
+   */
+  global Integer commentStartTime;
+
 }

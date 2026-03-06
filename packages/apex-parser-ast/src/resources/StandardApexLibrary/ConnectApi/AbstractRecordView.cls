@@ -3,4 +3,9 @@
  */
 global class AbstractRecordView {
 
+  /**
+   * The localized name of the record.
+   */
+  global String name;
+
 }

@@ -3,4 +3,9 @@
  */
 global class CreateCreditMemoInputRepresentation {
 
+  /**
+   * List of IDs of the change orders.
+   */
+  global List < String > changeOrderIds;
+
 }

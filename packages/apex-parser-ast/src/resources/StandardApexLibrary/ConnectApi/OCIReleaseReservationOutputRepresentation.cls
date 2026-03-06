@@ -3,4 +3,14 @@
  */
 global class OCIReleaseReservationOutputRepresentation {
 
+  /**
+   * Responses for the individual reservations in the release request.
+   */
+  global List < ConnectApi.OCIReleaseReservationErrorOutputRepresentation > errors;
+
+  /**
+   * Indicates whether the request was successful.
+   */
+  global Boolean success;
+
 }

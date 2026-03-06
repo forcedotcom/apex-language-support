@@ -3,4 +3,19 @@
  */
 global class PaymentCreditOutputRepresentation {
 
+  /**
+   * The amount in the payment credit.
+   */
+  global Double amount;
+
+  /**
+   * The order payment summary’s ID.
+   */
+  global String orderPaymentSummaryId;
+
+  /**
+   * The created payment credit’s ID.
+   */
+  global String paymentCreditId;
+
 }

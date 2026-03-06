@@ -3,4 +3,9 @@
  */
 global class WishlistUpdateInput {
 
+  /**
+   * Wishlist name to update.
+   */
+  global String name;
+
 }

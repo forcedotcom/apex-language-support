@@ -3,4 +3,9 @@
  */
 global class WrappedValue {
 
+  /**
+   * Value to wrap.
+   */
+  global Object value;
+
 }

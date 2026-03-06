@@ -3,4 +3,9 @@
  */
 global class DataStreamActionResponseOutput {
 
+  /**
+   * Job Id of the data stream.
+   */
+  global String jobId;
+
 }

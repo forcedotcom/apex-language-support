@@ -3,4 +3,9 @@
  */
 global class ContentAttachmentInput {
 
+  /**
+   * ID of the existing content.
+   */
+  global String contentDocumentId;
+
 }

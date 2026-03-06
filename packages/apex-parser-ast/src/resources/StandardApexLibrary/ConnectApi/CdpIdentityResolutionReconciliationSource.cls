@@ -3,4 +3,9 @@
  */
 global class CdpIdentityResolutionReconciliationSource {
 
+  /**
+   * If the ruleType for a reconciliation rule is SourceSequence , API name of a source Data Lake Object.
+   */
+  global String name;
+
 }

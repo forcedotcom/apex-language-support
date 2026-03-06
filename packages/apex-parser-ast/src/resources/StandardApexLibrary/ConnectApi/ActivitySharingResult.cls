@@ -3,4 +3,9 @@
  */
 global class ActivitySharingResult {
 
+  /**
+   * Whether the share operation succeeded or not.
+   */
+  global Boolean success;
+
 }

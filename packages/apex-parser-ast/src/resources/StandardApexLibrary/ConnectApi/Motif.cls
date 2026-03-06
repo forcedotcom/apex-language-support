@@ -3,4 +3,29 @@
  */
 global class Motif {
 
+  /**
+   * A hex value representing the base color of the record type, or null .
+   */
+  global String color;
+
+  /**
+   * A large icon indicating the record type.
+   */
+  global String largeIconUrl;
+
+  /**
+   * A medium icon indicating the record type.
+   */
+  global String mediumIconUrl;
+
+  /**
+   * A small icon indicating the record type.
+   */
+  global String smallIconUrl;
+
+  /**
+   * An icon in SVG format indicating the record type, or null if the icon doesn’t exist.
+   */
+  global String svgIconUrl;
+
 }

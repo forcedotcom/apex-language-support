@@ -3,4 +3,14 @@
  */
 global class RecordsetFilterCriteria {
 
+  /**
+   * Recordset filter criteria ID.
+   */
+  global String criteriaId;
+
+  /**
+   * List of filtered record IDs.
+   */
+  global List < String > recordIds;
+
 }

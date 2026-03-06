@@ -3,4 +3,19 @@
  */
 global class NBANativeRecommendation {
 
+  /**
+   * ID of the recommendation.
+   */
+  global String id;
+
+  /**
+   * Name of the recommendation.
+   */
+  global String name;
+
+  /**
+   * URL to the recommendation.
+   */
+  global String url;
+
 }

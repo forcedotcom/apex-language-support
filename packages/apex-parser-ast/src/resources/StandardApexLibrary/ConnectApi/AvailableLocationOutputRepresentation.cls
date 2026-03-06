@@ -3,4 +3,9 @@
  */
 global class AvailableLocationOutputRepresentation {
 
+  /**
+   * A list of inventory locations.
+   */
+  global List < String > locations;
+
 }

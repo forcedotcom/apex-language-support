@@ -3,4 +3,14 @@
  */
 global class ExtensionsCapabilityInput {
 
+  /**
+   * List of extensions to associate with the feed element.
+   */
+  global List < ConnectApi.ExtensionInput > itemsToAdd;
+
+  /**
+   * List of attachment IDs to remove from the feed element.
+   */
+  global List < String > itemsToRemove;
+
 }

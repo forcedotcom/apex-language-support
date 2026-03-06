@@ -3,4 +3,14 @@
  */
 global class CdpIdentityResolutionMatchCriterionPartyIdentificationInfo {
 
+  /**
+   * Party identification name.
+   */
+  global String partyName;
+
+  /**
+   * Party identification type.
+   */
+  global String partyType;
+
 }

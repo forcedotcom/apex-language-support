@@ -3,4 +3,9 @@
  */
 global class BookmarksCapabilityInput {
 
+  /**
+   * Specifies if the feed element should be bookmarked for the user ( true ) or not ( false ).
+   */
+  global Boolean isBookmarkedByCurrentUser;
+
 }

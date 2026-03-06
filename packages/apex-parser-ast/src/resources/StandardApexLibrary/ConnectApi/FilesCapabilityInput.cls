@@ -3,4 +3,9 @@
  */
 global class FilesCapabilityInput {
 
+  /**
+   * List of file IDs and operations to be carried out on those files.
+   */
+  global List < ConnectApi.FileIdInput > items;
+
 }

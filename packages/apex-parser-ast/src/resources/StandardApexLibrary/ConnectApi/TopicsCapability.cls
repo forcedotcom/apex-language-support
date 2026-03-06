@@ -3,4 +3,14 @@
  */
 global class TopicsCapability {
 
+  /**
+   * true if a topic can be assigned to the feed element, false otherwise.
+   */
+  global Boolean canAssignTopics;
+
+  /**
+   * A collection of topics associated with this feed element.
+   */
+  global List < ConnectApi.Topic > items;
+
 }

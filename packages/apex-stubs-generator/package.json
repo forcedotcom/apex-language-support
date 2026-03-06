@@ -12,7 +12,7 @@
   },
   "scripts": {
     "compile": "wireit",
-    "clean": "rimraf out .wireit tsconfig.tsbuildinfo",
+    "clean": "rimraf out .wireit tsconfig.tsbuildinfo output-test",
     "clean:all": "npm run clean && rimraf node_modules",
     "generate": "tsx src/commands/generate.ts",
     "validate": "tsx src/commands/validate.ts",

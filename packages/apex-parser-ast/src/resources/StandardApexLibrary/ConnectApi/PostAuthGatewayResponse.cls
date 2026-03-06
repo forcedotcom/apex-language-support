@@ -3,4 +3,14 @@
  */
 global class PostAuthGatewayResponse {
 
+  /**
+   * Code used to authorize the payment that the payment gateway is processing.
+   */
+  global String gatewayAuthorizationCode;
+
+  /**
+   * Details about the payment method.
+   */
+  global ConnectApi.PaymentMethodDetails paymentMethodDetails;
+
 }

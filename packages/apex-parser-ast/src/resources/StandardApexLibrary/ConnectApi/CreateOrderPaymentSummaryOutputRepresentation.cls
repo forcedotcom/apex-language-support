@@ -3,4 +3,9 @@
  */
 global class CreateOrderPaymentSummaryOutputRepresentation {
 
+  /**
+   * ID of the Order Payment Summary.
+   */
+  global String orderPaymentSummaryId;
+
 }

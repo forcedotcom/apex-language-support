@@ -3,4 +3,9 @@
  */
 global class FieldValue {
 
+  /**
+   * Value of the field.
+   */
+  global String value;
+
 }

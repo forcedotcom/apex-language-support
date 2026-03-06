@@ -3,4 +3,9 @@
  */
 global class AverageDistanceResultOutputRepresentation {
 
+  /**
+   * Results of the shipping distance calculations.
+   */
+  global ConnectApi.DistanceCalculationOutputRepresentation distanceCalculation;
+
 }

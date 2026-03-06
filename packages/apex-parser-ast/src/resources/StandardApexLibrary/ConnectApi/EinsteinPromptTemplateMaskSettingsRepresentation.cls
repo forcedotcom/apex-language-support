@@ -3,4 +3,9 @@
  */
 global class EinsteinPromptTemplateMaskSettingsRepresentation {
 
+  /**
+   * Specifies whether data masking is enabled (true) or not (false) .
+   */
+  global Boolean enableModeration;
+
 }

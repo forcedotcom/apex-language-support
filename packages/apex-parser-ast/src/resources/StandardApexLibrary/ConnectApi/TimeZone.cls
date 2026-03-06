@@ -3,4 +3,14 @@
  */
 global class TimeZone {
 
+  /**
+   * Signed offset, in hours, from GMT.
+   */
+  global Double gmtOffset;
+
+  /**
+   * Display name of this time zone.
+   */
+  global String name;
+
 }

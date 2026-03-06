@@ -3,4 +3,14 @@
  */
 global class RefundSequenceItemOutputRepresentation {
 
+  /**
+   * The amount that was refunded.
+   */
+  global Double amount;
+
+  /**
+   * The order payment summary’s ID.
+   */
+  global String orderPaymentSummaryId;
+
 }

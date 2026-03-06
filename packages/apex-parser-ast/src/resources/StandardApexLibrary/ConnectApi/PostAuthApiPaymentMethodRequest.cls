@@ -3,4 +3,14 @@
  */
 global class PostAuthApiPaymentMethodRequest {
 
+  /**
+   * Alternative payment method.
+   */
+  global ConnectApi.AlternativePaymentMethod alternativePaymentMethod;
+
+  /**
+   * Card payment method.
+   */
+  global ConnectApi.CardPaymentMethodRequest cardPaymentMethod;
+
 }

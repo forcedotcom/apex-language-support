@@ -3,4 +3,9 @@
  */
 global class OrderSummaryOutputRepresentation {
 
+  /**
+   * ID of the Order Summary.
+   */
+  global String orderSummaryId;
+
 }

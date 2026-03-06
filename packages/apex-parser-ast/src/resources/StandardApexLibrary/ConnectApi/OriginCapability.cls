@@ -3,4 +3,14 @@
  */
 global class OriginCapability {
 
+  /**
+   * The user who executed the feed action.
+   */
+  global ConnectApi.UserSummary actor;
+
+  /**
+   * A reference to the feed element containing the feed action.
+   */
+  global ConnectApi.Reference originRecord;
+
 }

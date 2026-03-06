@@ -3,4 +3,19 @@
  */
 global class UpDownVoteCapability {
 
+  /**
+   * Number of downvotes.
+   */
+  global Long downVoteCount;
+
+  /**
+   * Specifies the context user’s vote. Values are: Down None Up
+   */
+  global ConnectApi.UpDownVoteValue myVote;
+
+  /**
+   * Number of upvotes.
+   */
+  global Long upVoteCount;
+
 }

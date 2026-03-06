@@ -3,4 +3,14 @@
  */
 global class GroupInformation {
 
+  /**
+   * The text of the “Information” section of the group.
+   */
+  global String text;
+
+  /**
+   * The title of the “Information” section of the group.
+   */
+  global String title;
+
 }

@@ -3,4 +3,9 @@
  */
 global class RecordSnapshotAttachment {
 
+  /**
+   * The representation of the record.
+   */
+  global ConnectApi.RecordView recordView;
+
 }

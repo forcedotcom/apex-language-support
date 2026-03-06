@@ -3,4 +3,9 @@
  */
 global class EntityLinkSegmentInput {
 
+  /**
+   * ID of the entity to link to. Only users with access to the entity see it. It’s hidden for users without access.
+   */
+  global String entityId;
+
 }

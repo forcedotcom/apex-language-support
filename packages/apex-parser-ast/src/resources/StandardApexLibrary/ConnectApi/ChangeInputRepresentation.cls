@@ -3,4 +3,9 @@
  */
 global class ChangeInputRepresentation {
 
+  /**
+   * List of changes to OrderItemSummaries.
+   */
+  global List < ConnectApi.ChangeItemInputRepresentation > changeItems;
+
 }

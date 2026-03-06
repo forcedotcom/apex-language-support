@@ -3,4 +3,9 @@
  */
 global class TrackedChangesCapability {
 
+  /**
+   * Collection of feed tracked changes.
+   */
+  global List < ConnectApi.TrackedChangeItem > changes;
+
 }

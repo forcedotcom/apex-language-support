@@ -3,4 +3,9 @@
  */
 global class MultipleAsyncOutputRepresentation {
 
+  /**
+   * List of IDs of background operations.
+   */
+  global List < ConnectApi.AsyncOutputRepresentation > asyncOutputs;
+
 }

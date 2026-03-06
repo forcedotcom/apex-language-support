@@ -3,4 +3,9 @@
  */
 global class ActivationContactPointsFieldConfig {
 
+  /**
+   * List of contact point fields.
+   */
+  global List < ConnectApi.ActivationContactPointFieldConfig > contactPointFields;
+
 }

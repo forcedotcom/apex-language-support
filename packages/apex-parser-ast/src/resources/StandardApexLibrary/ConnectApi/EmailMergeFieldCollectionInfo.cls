@@ -3,4 +3,9 @@
  */
 global class EmailMergeFieldCollectionInfo {
 
+  /**
+   * List of merge fields for a single object.
+   */
+  global List < String > mergeFields;
+
 }

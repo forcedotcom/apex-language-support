@@ -3,4 +3,9 @@
  */
 global class ActivationContactPointsSourceConfig {
 
+  /**
+   * List of contact point source configurations.
+   */
+  global List < ConnectApi.ActivationContactPointSourceConfig > contactPointSources;
+
 }

@@ -3,4 +3,9 @@
  */
 global class OrderItemSummaryAdjustmentCollection {
 
+  /**
+   * Order item summaries and their associated adjustments.
+   */
+  global Map < String , ConnectApi.OrderItemSummaryAdjustmentList > orderItemSummaries;
+
 }

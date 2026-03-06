@@ -3,4 +3,14 @@
  */
 global class FulfillmentOrderLineItemInputRepresentation {
 
+  /**
+   * ID of the FulfillmentOrderLineItem.
+   */
+  global String fulfillmentOrderLineItemId;
+
+  /**
+   * Quantity to cancel.
+   */
+  global Double quantity;
+
 }

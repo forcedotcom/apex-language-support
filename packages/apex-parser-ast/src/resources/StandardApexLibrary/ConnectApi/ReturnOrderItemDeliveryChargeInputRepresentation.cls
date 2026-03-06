@@ -3,4 +3,9 @@
  */
 global class ReturnOrderItemDeliveryChargeInputRepresentation {
 
+  /**
+   * ID of a ReturnOrderLineItem to return.
+   */
+  global String returnOrderLineItemId;
+
 }

@@ -3,4 +3,9 @@
  */
 global class ActivationDataSources {
 
+  /**
+   * List of activation data source configurations.
+   */
+  global List < ConnectApi.ActivationDataSourceConfig > dataSources;
+
 }

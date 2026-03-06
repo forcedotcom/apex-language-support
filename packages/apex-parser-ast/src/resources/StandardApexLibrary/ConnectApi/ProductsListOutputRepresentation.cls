@@ -3,4 +3,9 @@
  */
 global class ProductsListOutputRepresentation {
 
+  /**
+   * The product’s identifier.
+   */
+  global List ConnectApi.ProductOutputRepresentation <> product;
+
 }

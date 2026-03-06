@@ -3,4 +3,14 @@
  */
 global class EnsurePaymentCreditInputRepresentation {
 
+  /**
+   * The credit memo that’s being credited.
+   */
+  global CreditMemoInputRepresentation creditMemo;
+
+  /**
+   * The ordering sequence of payments being used for the payment credit application.
+   */
+  global List < ConnectApi.PaymentCreditSequenceInputRepresentation > paymentCreditSequence;
+
 }

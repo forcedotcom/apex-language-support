@@ -3,4 +3,9 @@
  */
 global class TrackedChangeAttachment {
 
+  /**
+   * A list of tracked changes.
+   */
+  global List < ConnectApi.TrackedChangeItem > changes;
+
 }

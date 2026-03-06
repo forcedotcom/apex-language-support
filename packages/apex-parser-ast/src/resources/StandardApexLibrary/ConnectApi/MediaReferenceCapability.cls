@@ -3,4 +3,9 @@
  */
 global class MediaReferenceCapability {
 
+  /**
+   * Collection of media references.
+   */
+  global List < ConnectApi.MediaReference > media;
+
 }

@@ -3,4 +3,9 @@
  */
 global class OrderSummaryAdjustmentAggregatesAsyncOutput {
 
+  /**
+   * Status URL.
+   */
+  global String statusURL;
+
 }

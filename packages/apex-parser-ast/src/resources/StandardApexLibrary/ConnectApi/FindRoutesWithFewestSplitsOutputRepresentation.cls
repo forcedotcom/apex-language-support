@@ -3,4 +3,9 @@
  */
 global class FindRoutesWithFewestSplitsOutputRepresentation {
 
+  /**
+   * Each element of the list is a set of inventory locations that together can fulfill the order being routed.
+   */
+  global List < ConnectApi.AvailableLocationOutputRepresentation > targetLocations;
+
 }

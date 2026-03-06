@@ -3,4 +3,14 @@
  */
 global class OCIGetInventoryAvailabilityOutputRepresentation {
 
+  /**
+   * A list of inventory availability data for individual location groups.
+   */
+  global List < ConnectApi.OCILocationGroupAvailabilityOutputRepresentation > locationGroups;
+
+  /**
+   * A list of inventory availability data for individual locations.
+   */
+  global List < ConnectApi.OCILocationAvailabilityOutputRepresentation > locations;
+
 }

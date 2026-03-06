@@ -354,6 +354,7 @@ async function main() {
   console.log('\n4. Parsing classes...');
   const namespaceData = [];
   let parsedCount = 0;
+  const emptyStubs = []; // { namespace, className } — stubs with no member symbols
 
   for (const [namespace, files] of namespaceMap) {
     const symbolTables = new Map();
@@ -394,6 +395,18 @@ async function main() {
           // Progress indicator
           if (parsedCount % 500 === 0) {
             console.log(`   Parsed ${parsedCount}/${totalClasses} classes...`);
+          }
+
+          // Content quality check: flag stubs whose symbol table has no semantic member symbols.
+          // Block-scope symbols (kind === 'block') are structural containers created for every
+          // class/method body — they are NOT members. Any actual member (method, constructor,
+          // property, field, inner class, enum value) produces a non-block child symbol with a
+          // non-null parentId. A stub whose only children are block scopes is considered empty.
+          const hasSemanticMember = allSymbols.some(
+            s => s.parentId !== null && s.parentId !== 'null' && s.kind !== 'block'
+          );
+          if (!hasSemanticMember) {
+            emptyStubs.push({ namespace, className: file.className });
           }
         } else {
           // result.result is null - should never happen as parser always returns SymbolTable
@@ -485,6 +498,21 @@ async function main() {
   );
   console.log(`   ✅ ${CACHE_MD5_FILE}`);
   console.log(`   ✅ ${REGISTRY_MD5_FILE}`);
+
+  // Empty stub content quality report
+  console.log('\n10. Content quality check...');
+  const EMPTY_STUBS_FILE = join(OUTPUT_DIR, 'empty-stubs-report.json');
+  writeFileSync(EMPTY_STUBS_FILE, JSON.stringify(emptyStubs, null, 2));
+  if (emptyStubs.length === 0) {
+    console.log('   ✅ All stubs have at least one member symbol.');
+  } else {
+    console.warn(`   ⚠️  ${emptyStubs.length} stub(s) have no member symbols (methods, properties, fields, constructors, inner classes, or enum values):`);
+    for (const { namespace, className } of emptyStubs) {
+      console.warn(`      ${namespace}/${className}`);
+    }
+    console.warn(`   Written: ${EMPTY_STUBS_FILE}`);
+    console.warn('   These may indicate scraper gaps or unexpected page structures.');
+  }
 
   // Summary
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);

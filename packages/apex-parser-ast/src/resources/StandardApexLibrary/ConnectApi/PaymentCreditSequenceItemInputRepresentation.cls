@@ -3,4 +3,9 @@
  */
 global class PaymentCreditSequenceItemInputRepresentation {
 
+  /**
+   * The type of payment credit that will be issued. Must be a valid value on the Credit Type picklist.
+   */
+  global String creditType;
+
 }

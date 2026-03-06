@@ -3,4 +3,9 @@
  */
 global class DataSpaceCollectionRepresentation {
 
+  /**
+   * List of all data spaces.
+   */
+  global List < ConnectApi.DataSpaceInfoRepresentation > dataSpaces;
+
 }

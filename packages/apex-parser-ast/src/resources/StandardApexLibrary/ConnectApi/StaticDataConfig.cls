@@ -3,4 +3,9 @@
  */
 global class StaticDataConfig {
 
+  /**
+   * List of activation static attributes.
+   */
+  global List < ConnectApi.StaticData > staticDataList;
+
 }

@@ -3,4 +3,9 @@
  */
 global class ReleaseHeldFOCapacityResponseOutputRepresentation {
 
+  /**
+   * List of responses to the requests to release held fulfillment order capacity at individual locations.
+   */
+  global List < ConnectApi.CapacityResponseOutputRepresentation > capacityResponses;
+
 }

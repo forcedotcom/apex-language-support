@@ -3,4 +3,14 @@
  */
 global class OCITransferReservationOutputRepresentation {
 
+  /**
+   * Responses for the individual reservations in the transfer request.
+   */
+  global List < ConnectApi.OCITransferReservationErrorOutputRepresentation > errors;
+
+  /**
+   * Indicates whether the request was successful.
+   */
+  global Boolean success;
+
 }

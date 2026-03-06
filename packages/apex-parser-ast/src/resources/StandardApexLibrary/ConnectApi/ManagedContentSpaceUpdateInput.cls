@@ -3,4 +3,14 @@
  */
 global class ManagedContentSpaceUpdateInput {
 
+  /**
+   * Description of the managed content space.
+   */
+  global String description;
+
+  /**
+   * Name of the managed content space.
+   */
+  global String name;
+
 }

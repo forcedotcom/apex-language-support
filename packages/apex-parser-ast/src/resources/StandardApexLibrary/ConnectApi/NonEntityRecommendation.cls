@@ -3,4 +3,14 @@
  */
 global class NonEntityRecommendation {
 
+  /**
+   * Localized label of the non-entity object.
+   */
+  global String displayLabel;
+
+  /**
+   * Motif for the non-entity object.
+   */
+  global ConnectApi.Motif motif;
+
 }

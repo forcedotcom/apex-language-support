@@ -3,4 +3,9 @@
  */
 global class LinkSegmentInput {
 
+  /**
+   * URL to be used for the link
+   */
+  global String url;
+
 }

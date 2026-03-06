@@ -3,4 +3,9 @@
  */
 global class MuteCapability {
 
+  /**
+   * Indicates whether the context user muted the feed element.
+   */
+  global Boolean isMutedByMe;
+
 }

@@ -1,5 +1,5 @@
 import { Effect, Console } from "effect";
-import { ApexConstructor, ApexMethod, ApexParameter, ApexEnumValue } from "../types/apex";
+import { ApexConstructor, ApexMethod, ApexParameter, ApexEnumValue, ApexProperty } from "../types/apex";
 
 export class HtmlParsingError {
   readonly _tag = "HtmlParsingError";
@@ -309,6 +309,27 @@ export const extractEnumValuesFromHtml = (html: string, enumName: string) =>
       }
     }
 
+    // Format 3: data-title="Value" table (e.g. CommercePayments, Auth, CommerceTax enums).
+    // Values are in <samp class="codeph "> (no apex_code class) with mixed-case names
+    // like "Business", "Individual", "Visa". Only run if previous patterns found nothing.
+    if (values.length === 0 && /<th[^>]*>Value<\/th>/i.test(html)) {
+      const trPattern = /<tr>([\s\S]*?)<\/tr>/gi;
+      let trMatch;
+      while ((trMatch = trPattern.exec(html)) !== null) {
+        const rowHtml = trMatch[1];
+        const valueMatch = rowHtml.match(
+          /data-title="Value"[^>]*>[\s\S]*?<samp[^>]*codeph[^>]*>([^<]+)<\/samp>/i
+        );
+        if (valueMatch) {
+          const valueName = valueMatch[1].trim();
+          if (valueName && !seen.has(valueName)) {
+            seen.add(valueName);
+            values.push(new ApexEnumValue({ name: valueName }));
+          }
+        }
+      }
+    }
+
     yield* Console.log(`  Found ${values.length} enum values for ${enumName}`);
     return values;
   });
@@ -369,6 +390,77 @@ export const extractExceptionClassNamesFromHtml = (html: string, namespace: stri
 
     yield* Console.log(`  Found ${results.length} exception classes`);
     return results;
+  });
+
+/**
+ * Extract properties from a documentation page that uses a property table.
+ *
+ * Three table variants exist in the Salesforce docs:
+ *   - Input classes:           <th>Property</th>      / <td data-title="Property">
+ *   - Output classes:          <th>Property Name</th>  / <td data-title="Property Name">
+ *   - Abstract/output classes: <th>Name</th>           / <td data-title="Name">
+ *
+ * All variants use <samp class="codeph apex_code">propName</samp> for the property name
+ * and a sibling <td data-title="Type"> for the type. The presence of both a name-like
+ * column AND a Type column distinguishes property tables from other tables (e.g. enum
+ * value tables). Method/constructor pages have neither header and are unaffected.
+ */
+export const extractPropertiesFromHtml = (html: string, className: string) =>
+  Effect.gen(function* () {
+    yield* Console.log(`Parsing properties for: ${className}`);
+
+    const properties: ApexProperty[] = [];
+
+    // Only process pages that have a property name column AND a Type column.
+    // Requiring both prevents false-positives on enum/value tables.
+    const hasNameColumn = /<th[^>]*>(?:Property(?:\s+Name)?|Name)<\/th>/i.test(html);
+    const hasTypeColumn = /<th[^>]*>Type<\/th>/i.test(html);
+    if (!hasNameColumn || !hasTypeColumn) {
+      return properties;
+    }
+
+    // Match each <tr>…</tr> in the document
+    const trPattern = /<tr>([\s\S]*?)<\/tr>/gi;
+    let trMatch;
+
+    while ((trMatch = trPattern.exec(html)) !== null) {
+      const rowHtml = trMatch[1];
+
+      // Property name: td with data-title="Property", "Property Name", or "Name" containing a <samp>
+      const nameMatch = rowHtml.match(
+        /data-title="(?:Property(?:\s+Name)?|Name)"[^>]*>[\s\S]*?<samp[^>]*codeph[^>]*>([\s\S]*?)<\/samp>/i
+      );
+      if (!nameMatch) continue;
+
+      // Use stripCodeTags-style cleaning: strip tags without inserting spaces, remove zero-width chars
+      const name = nameMatch[1]
+        .replace(/\s*<wbr\s*\/?>\s*/gi, '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\u200b/g, '')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+        .replace(/\s+/g, ' ').trim();
+
+      if (!name) continue;
+
+      // Type: td with data-title="Type"
+      const typeMatch = rowHtml.match(/data-title="Type"[^>]*>([\s\S]*?)<\/td>/i);
+      if (!typeMatch) continue;
+
+      const type = stripHtmlTags(typeMatch[1]).replace(/\u200b/g, '').replace(/\s+/g, ' ').trim();
+      if (!type) continue;
+
+      // Description: td with data-title="Description" (optional)
+      const descMatch = rowHtml.match(/data-title="Description"[^>]*>([\s\S]*?)<\/td>/i);
+      const description = descMatch
+        ? (stripHtmlTags(descMatch[1]).replace(/\u200b/g, '').replace(/\s+/g, ' ').trim() || undefined)
+        : undefined;
+
+      properties.push(new ApexProperty({ name, type, isStatic: false, visibility: 'global', description }));
+      yield* Console.log(`    Property: ${type} ${name}`);
+    }
+
+    yield* Console.log(`Extracted ${properties.length} properties from ${className}`);
+    return properties;
   });
 
 /**

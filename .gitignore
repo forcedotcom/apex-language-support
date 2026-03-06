@@ -89,3 +89,4 @@ playwright-report/
 # Test fixtures cloned at test time from remote repos
 packages/apex-lsp-testbed/test/fixtures/eda
 /packages/apex-lsp-testbed/test/fixtures/i-have-problems/force-app
+/packages/apex-stubs-generator/output-test

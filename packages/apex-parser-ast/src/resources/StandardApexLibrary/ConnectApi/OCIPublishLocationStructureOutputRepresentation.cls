@@ -3,4 +3,9 @@
  */
 global class OCIPublishLocationStructureOutputRepresentation {
 
+  /**
+   * Identifier of the publish job. Use this value to retrieve the status of the job.
+   */
+  global String uploadId;
+
 }

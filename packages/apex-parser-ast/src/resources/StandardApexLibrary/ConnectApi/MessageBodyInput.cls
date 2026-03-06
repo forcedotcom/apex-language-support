@@ -3,4 +3,9 @@
  */
 global class MessageBodyInput {
 
+  /**
+   * List of message segments contained in the body
+   */
+  global List < ConnectApi.MessageSegmentInput > messageSegments;
+
 }

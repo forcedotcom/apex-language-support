@@ -3,4 +3,9 @@
  */
 global class CdpDgMetadata {
 
+  /**
+   * List of metadata from data graphs.
+   */
+  global List < ConnectApi.CdpQueryDataGraphMetadata > dataGraphMetadata;
+
 }

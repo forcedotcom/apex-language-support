@@ -3,4 +3,9 @@
  */
 global class ConnectionDbSchemaCollection {
 
+  /**
+   * List of database schemas.
+   */
+  global List < String > databaseSchemas;
+
 }
