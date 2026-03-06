@@ -9,6 +9,9 @@
 const { runTests } = require('@vscode/test-web');
 const path = require('path');
 const fs = require('fs');
+const {
+  fetchCodeBuilderVSCodeVersion,
+} = require('../scripts/fetch-vscode-version');
 
 async function startTestServer() {
   try {
@@ -97,6 +100,9 @@ async function startTestServer() {
     console.log(`📂 Workspace path: ${workspacePath}`);
     console.log(`🔍 CI environment: ${process.env.CI ? 'Yes' : 'No'}`);
 
+    // Fetch the pinned VS Code version from Code Builder Web
+    const vsCodeVersion = await fetchCodeBuilderVSCodeVersion();
+
     // Log extension files for debugging
     console.log('📋 Extension files:');
     const distFiles = fs.readdirSync(extensionDevelopmentPath);
@@ -125,7 +131,7 @@ async function startTestServer() {
       folderPath: workspacePath,
       headless: true, // Always headless - Playwright will open its own browser window
       browserType: 'chromium',
-      version: 'stable',
+      version: vsCodeVersion,
       printServerLog: true,
       verbose: true,
       coi: true, // Cross-origin isolation for SharedArrayBuffer support
