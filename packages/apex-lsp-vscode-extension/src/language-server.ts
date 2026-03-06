@@ -90,11 +90,11 @@ function detectEnvironment(): 'desktop' | 'web' {
  * @param serverMode - The server mode (already determined to avoid duplicate logging)
  * @returns Enhanced initialization options
  */
-const createEnhancedInitializationOptions = (
+const createEnhancedInitializationOptions = async (
   context: vscode.ExtensionContext,
   runtimePlatform: RuntimePlatform,
   serverMode: ServerMode,
-): ApexLanguageServerSettings => {
+): Promise<ApexLanguageServerSettings> => {
   const settings = getWorkspaceSettings();
 
   // Get standard Apex library path
@@ -104,6 +104,27 @@ const createEnhancedInitializationOptions = (
   // Use settings directly without deep cloning to avoid serialization issues
   const safeSettings = settings || {};
 
+  const extensionVersion =
+    (context.extension.packageJSON?.version as string) ?? '0.0.0';
+
+  // Count workspace files for startup telemetry (best-effort, non-blocking)
+  let workspaceFileCount = 0;
+  let apexFileCount = 0;
+  try {
+    const [allFiles, apexFiles] = await Promise.all([
+      vscode.workspace.findFiles('**/*', '**/node_modules/**', 50_000),
+      vscode.workspace.findFiles(
+        '**/*.{cls,trigger,apex}',
+        '**/node_modules/**',
+        50_000,
+      ),
+    ]);
+    workspaceFileCount = allFiles.length;
+    apexFileCount = apexFiles.length;
+  } catch {
+    // Best-effort: leave counts at 0 if findFiles fails
+  }
+
   const enhancedOptions: ApexLanguageServerSettings = {
     apex: {
       ...safeSettings.apex,
@@ -111,6 +132,10 @@ const createEnhancedInitializationOptions = (
         ...safeSettings.apex?.environment,
         runtimePlatform,
         serverMode,
+        vscodeVersion: vscode.version,
+        extensionVersion,
+        workspaceFileCount,
+        apexFileCount,
       },
       resources: {
         ...safeSettings.apex?.resources,
@@ -135,11 +160,11 @@ const createEnhancedInitializationOptions = (
  * @param serverMode - The server mode (already determined to avoid duplicate logging)
  * @returns LSP initialization parameters
  */
-export const createInitializeParams = (
+export const createInitializeParams = async (
   context: vscode.ExtensionContext,
   environment: 'desktop' | 'web',
   serverMode: ServerMode,
-): InitializeParams => {
+): Promise<InitializeParams> => {
   const workspaceFolders = vscode.workspace.workspaceFolders;
 
   // Get mode-appropriate client capabilities
@@ -166,7 +191,7 @@ export const createInitializeParams = (
         : (workspaceFolders?.[0]?.uri.fsPath ?? null),
     rootUri: workspaceFolders?.[0]?.uri.toString() ?? null,
     capabilities: clientCapabilities, // Use mode-aware capabilities
-    initializationOptions: createEnhancedInitializationOptions(
+    initializationOptions: await createEnhancedInitializationOptions(
       context,
       environment,
       serverMode,
@@ -336,7 +361,7 @@ async function createWebLanguageClient(
   logToOutputChannel('🔗 Creating Language Client for web...', 'info');
 
   // Create initialization options with debugging
-  const initOptions = createEnhancedInitializationOptions(
+  const initOptions = await createEnhancedInitializationOptions(
     context,
     environment,
     serverMode,
@@ -782,7 +807,7 @@ async function createWebLanguageClient(
 
   let initParams: InitializeParams;
   try {
-    initParams = createInitializeParams(context, environment, serverMode);
+    initParams = await createInitializeParams(context, environment, serverMode);
     logToOutputChannel(
       'Initialization parameters created successfully',
       'debug',
@@ -837,7 +862,7 @@ async function createDesktopLanguageClient(
   // Create server and client options
   const serverOptions = createServerOptions(context, serverMode);
   const clientOptions = createClientOptions(
-    createEnhancedInitializationOptions(context, environment, serverMode),
+    await createEnhancedInitializationOptions(context, environment, serverMode),
   );
 
   logToOutputChannel(

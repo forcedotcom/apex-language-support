@@ -124,6 +124,10 @@ export class LCSAdapter {
   private readonly getHeapUsedBytes?: () => Promise<number | null>;
   private sessionId = '';
   private workspaceRootUri = '';
+  private clientExtensionVersion = '';
+  private clientVscodeVersion = '';
+  private clientWorkspaceFileCount = 0;
+  private clientApexFileCount = 0;
 
   private readonly onExit: () => void;
 
@@ -1179,6 +1183,15 @@ export class LCSAdapter {
     // Set initial settings from client (includes serverMode from initializationOptions)
     configManager.setInitialSettings(params.initializationOptions);
 
+    // Extract telemetry metadata passed by the client
+    const envSettings = (params.initializationOptions as any)?.apex
+      ?.environment;
+    this.clientExtensionVersion =
+      params.clientInfo?.version ?? envSettings?.extensionVersion ?? '';
+    this.clientVscodeVersion = envSettings?.vscodeVersion ?? '';
+    this.clientWorkspaceFileCount = envSettings?.workspaceFileCount ?? 0;
+    this.clientApexFileCount = envSettings?.apexFileCount ?? 0;
+
     const serverModeAfter = configManager.getCapabilitiesManager().getMode();
 
     // Log mode determination for transparency
@@ -1514,10 +1527,10 @@ export class LCSAdapter {
       const snapshot = collectStartupSnapshot({
         activationDurationMs: 0,
         serverStartDurationMs: performance.now(),
-        workspaceFileCount: 0,
-        apexFileCount: 0,
-        extensionVersion: '', // filled by client-side enricher
-        vscodeVersion: '', // filled by client-side enricher
+        workspaceFileCount: this.clientWorkspaceFileCount,
+        apexFileCount: this.clientApexFileCount,
+        extensionVersion: this.clientExtensionVersion,
+        vscodeVersion: this.clientVscodeVersion,
         platform: typeof process !== 'undefined' ? 'desktop' : 'web',
         workspaceRootUri: this.workspaceRootUri,
       });
