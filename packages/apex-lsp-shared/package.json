@@ -119,7 +119,7 @@
     }
   },
   "dependencies": {
-    "vscode-jsonrpc": "^8.2.0",
+    "vscode-jsonrpc": "^8.2.1",
     "vscode-languageserver": "^9.0.1",
     "zod": "^3.22.4"
   },
