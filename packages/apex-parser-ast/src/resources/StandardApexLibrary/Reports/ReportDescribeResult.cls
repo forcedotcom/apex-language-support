@@ -1,8 +1,6 @@
+/**
+ * Contains report, report type, and extended metadata for a tabular, summary, or matrix report.
+ */
 global class ReportDescribeResult {
-	global Object clone() { }
-	global reports.ReportExtendedMetadata getReportExtendedMetadata() { }
-	global reports.ReportMetadata getReportMetadata() { }
-	global reports.ReportTypeMetadata getReportTypeMetadata() { }
-	global String toString() { }
 
 }

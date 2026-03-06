@@ -1,11 +1,6 @@
+/**
+ * If a feed element has this capability, users with permission can close it.
+ */
 global class CloseCapability {
-	global Boolean canContextUserUpdateIsClosed;
-	global Boolean isClosed;
-	global CloseCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

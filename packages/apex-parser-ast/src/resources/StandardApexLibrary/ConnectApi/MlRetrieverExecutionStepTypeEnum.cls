@@ -1,6 +1,0 @@
-global enum MlRetrieverExecutionStepTypeEnum {
-EXPANDQUERY,
-RETRIEVEDRESULTS,
-REWRITEQUERY,
-USERQUERY
-}

@@ -1,15 +1,6 @@
+/**
+ * An announcement displays in a designated location in the Salesforce UI until 11:59 p.m. on its expiration date, unless it’s deleted or replaced by another announcement.
+ */
 global class Announcement {
-	global Datetime expirationDate;
-	global ConnectApi.FeedElement feedElement;
-	global String id;
-	global Boolean isArchived;
-	global Boolean sendEmails;
-	global String url;
-	global Announcement() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

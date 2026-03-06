@@ -1,7 +1,6 @@
+/**
+ * Contains information about a filter value, such as the display name and API name.
+ */
 global class FilterValue {
-	global Object clone() { }
-	global String getLabel() { }
-	global String getName() { }
-	global String toString() { }
 
 }

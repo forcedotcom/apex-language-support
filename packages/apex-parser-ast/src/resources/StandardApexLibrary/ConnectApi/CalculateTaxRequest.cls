@@ -1,14 +1,6 @@
+/**
+ * Request to sent through the tax adapter to the external tax engine. Inputs with a TaxTransactionType of Debit represent a tax calculation request. Inputs with a TaxTransactionType of Credit represent a tax cancellation request.
+ */
 global class CalculateTaxRequest {
-	global Boolean isCommit;
-	global Boolean isHeaderTaxRequested;
-	global Boolean shouldVoidTax;
-	global String taxEngineId;
-	global ConnectApi.TaxTransactionType taxTransactionType;
-	global ConnectApi.CalculateTaxTypeRequest taxType;
-	global CalculateTaxRequest() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

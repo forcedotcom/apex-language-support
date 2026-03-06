@@ -1,4 +1,4 @@
 global enum SurveyEmailStatusEnum {
-FAILED,
-QUEUED
+  Failed,
+  Queued
 }

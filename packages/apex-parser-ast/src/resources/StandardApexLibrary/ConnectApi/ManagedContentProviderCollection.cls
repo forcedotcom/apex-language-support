@@ -1,14 +1,6 @@
+/**
+ * Collection of managed content providers.
+ */
 global class ManagedContentProviderCollection {
-	global String contentSpaceId;
-	global String currentPageUrl;
-	global String nextPageUrl;
-	global List<ConnectApi.ManagedContentProvider> providers;
-	global Integer total;
-	global ManagedContentProviderCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

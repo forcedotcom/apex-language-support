@@ -1,16 +1,6 @@
+/**
+ * An order from which to create an OrderSummary. Optionally, you can specify OrderSummary-specific information such as its Status and whether it is managed in Salesforce Order Management.
+ */
 global class OrderSummaryInputRepresentation {
-	global String businessModel;
-	global String externalCustomerIdReference;
-	global String externalReferenceIdentifier;
-	global String name;
-	global String orderId;
-	global String orderLifeCycleType;
-	global String sourceProcess;
-	global String status;
-	global OrderSummaryInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

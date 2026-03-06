@@ -1,10 +1,6 @@
+/**
+ * If a feed element has this capability, it contains all the snapshotted fields of a record for a single create record event.
+ */
 global class RecordSnapshotCapability {
-	global ConnectApi.RecordView recordView;
-	global RecordSnapshotCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

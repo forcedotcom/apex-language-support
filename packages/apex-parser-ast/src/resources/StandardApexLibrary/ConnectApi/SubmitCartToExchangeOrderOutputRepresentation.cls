@@ -1,10 +1,6 @@
+/**
+ * Exhange order summary resulting from a submit cart to exchange order action.
+ */
 global class SubmitCartToExchangeOrderOutputRepresentation {
-	global String exchangeOrderSummaryId;
-	global SubmitCartToExchangeOrderOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

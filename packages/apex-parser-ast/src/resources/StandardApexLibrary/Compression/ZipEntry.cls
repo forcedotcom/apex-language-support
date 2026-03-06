@@ -1,19 +1,36 @@
+/**
+ * Contains methods to get and set information about a zip file entry.
+ */
 global class ZipEntry {
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global String getComment() { }
-	global Long getCompressedSize() { }
-	global Blob getContent() { }
-	global Long getCrc() { }
-	global Datetime getLastModifiedTime() { }
-	global compression.Method getMethod() { }
-	global String getName() { }
-	global Long getUncompressedSize() { }
-	global Integer hashCode() { }
-	global compression.ZipEntry setComment(String comment) { }
-	global compression.ZipEntry setContent(Blob b) { }
-	global compression.ZipEntry setLastModifiedTime(Datetime modTime) { }
-	global compression.ZipEntry setMethod(compression.Method m) { }
-	global String toString() { }
+
+  public Boolean equals(Object obj) {}
+
+  public Integer hashcode() {}
+
+  public string getComment() {}
+
+  public long getCompressedSize() {}
+
+  public blob getContent() {}
+
+  public long getCrc() {}
+
+  public Datetime getLastModifiedTime() {}
+
+  public Compression.Method getMethod() {}
+
+  public string getName() {}
+
+  public long getUncompressedSize() {}
+
+  public Compression.ZipEntry setComment(String comment) {}
+
+  public Compression.ZipEntry setContent(Blob blob) {}
+
+  public Compression.ZipEntry setLastModifiedTime(Datetime modTime) {}
+
+  public Compression.ZipEntry setMethod(Compression.Method method) {}
+
+  public string toString() {}
 
 }

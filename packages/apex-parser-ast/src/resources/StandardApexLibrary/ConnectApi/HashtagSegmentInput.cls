@@ -1,9 +1,6 @@
+/**
+ * Include a hashtag in a feed item or comment.
+ */
 global class HashtagSegmentInput {
-	global String tag;
-	global HashtagSegmentInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

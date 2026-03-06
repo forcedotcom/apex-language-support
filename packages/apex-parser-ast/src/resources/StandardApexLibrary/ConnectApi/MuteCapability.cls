@@ -1,10 +1,6 @@
+/**
+ * If a feed element has this capability, users can mute it. Muted feed elements are visible in the muted feed, and invisible in all other feeds that respect mute.
+ */
 global class MuteCapability {
-	global Boolean isMutedByMe;
-	global MuteCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

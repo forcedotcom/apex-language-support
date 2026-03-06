@@ -1,9 +1,6 @@
+/**
+ * Extension information.
+ */
 global class AbstractExtensionInformation {
-	global ConnectApi.ExtensionInformationType extensionInformationType;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

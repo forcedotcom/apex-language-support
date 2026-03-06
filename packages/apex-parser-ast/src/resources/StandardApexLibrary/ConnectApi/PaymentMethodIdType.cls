@@ -1,4 +1,0 @@
-global enum PaymentMethodIdType {
-CARDPAYMENTMETHOD,
-SAVEDPAYMENTMETHOD
-}

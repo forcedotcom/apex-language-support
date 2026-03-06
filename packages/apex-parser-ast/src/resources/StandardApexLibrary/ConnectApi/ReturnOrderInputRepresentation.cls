@@ -1,13 +1,6 @@
+/**
+ * Data for creating a ReturnOrder and ReturnOrderLineItems.
+ */
 global class ReturnOrderInputRepresentation {
-	global String orderSummaryId;
-	global ConnectApi.RefundInstructionsHintInputRepresentation refundInstructionsHint;
-	global String returnOrderLifeCycleType;
-	global List<ConnectApi.ReturnOrderLineItemInputRepresentation> returnOrderLineItems;
-	global String status;
-	global ReturnOrderInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

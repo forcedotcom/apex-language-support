@@ -1,4 +1,4 @@
 global enum CdpMlPredictAggregateFunctionStatusEnum {
-ERROR,
-SUCCESS
+  Error,
+  Success
 }

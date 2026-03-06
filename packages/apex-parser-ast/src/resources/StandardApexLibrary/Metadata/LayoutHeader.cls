@@ -1,4 +1,5 @@
+/**
+ * Represents tagging types used for Metadata.Layout.headers
+ */
 global enum LayoutHeader {
-PERSONALTAGGING,
-PUBLICTAGGING
 }

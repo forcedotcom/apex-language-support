@@ -83,7 +83,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
 
     // Find the chained expression reference directly
     const target = refs.find(
-      (r) => r.name === 'System.Url.getOrgDomainUrl.toExternalForm',
+      (r) => r.name === 'System.URL.getOrgDomainUrl.toExternalForm',
     );
 
     expect(target).toBeDefined();
@@ -107,7 +107,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
     expect(symbol?.name).toBe('toExternalForm');
   });
 
-  it('should resolve System.Url.getOrgDomainUrl().toExternalForm method call', async () => {
+  it('should resolve System.URL.getOrgDomainUrl().toExternalForm method call', async () => {
     await addTestClass();
 
     const testClassPath = path.resolve(
@@ -118,7 +118,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
 
     // Find the chained expression that contains getOrgDomainUrl
     const target = refs.find(
-      (r) => r.name === 'System.Url.getOrgDomainUrl.toExternalForm',
+      (r) => r.name === 'System.URL.getOrgDomainUrl.toExternalForm',
     );
 
     expect(target).toBeDefined();
@@ -131,7 +131,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
     expect(symbol?.name).toBe('toExternalForm');
   });
 
-  it('should resolve System.Url as chained type reference', async () => {
+  it('should resolve System.URL as chained type reference', async () => {
     await addTestClass();
 
     const testClassPath = path.resolve(
@@ -140,8 +140,8 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
     const testClassUri = URI.file(testClassPath).toString();
     const refs = symbolManager.getAllReferencesInFile(testClassUri);
 
-    // Find the System.Url chained reference
-    const target = refs.find((r) => r.name === 'System.Url');
+    // Find the System.URL chained reference
+    const target = refs.find((r) => r.name === 'System.URL');
 
     expect(target).toBeDefined();
     // Note: CHAINED_TYPE enum removed, now using chainNodes property
@@ -153,6 +153,6 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
     );
     expect(urlSymbol).toBeDefined();
     expect(urlSymbol?.kind).toBe(SymbolKind.Class);
-    expect(urlSymbol?.name).toBe('Url');
+    expect(urlSymbol?.name).toBe('URL');
   });
 });

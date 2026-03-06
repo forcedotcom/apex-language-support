@@ -1,10 +1,6 @@
+/**
+ * Create or edit a question feed element or set the best answer of the existing question feed element.
+ */
 global class QuestionAndAnswersCapabilityInput {
-	global String bestAnswerId;
-	global String questionTitle;
-	global QuestionAndAnswersCapabilityInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

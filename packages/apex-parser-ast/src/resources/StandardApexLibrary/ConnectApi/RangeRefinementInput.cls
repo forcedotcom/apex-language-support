@@ -1,10 +1,6 @@
+/**
+ * Attribute-based refinement with minimum or maximum numeric values for product search.
+ */
 global class RangeRefinementInput {
-	global String max;
-	global String min;
-	global RangeRefinementInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

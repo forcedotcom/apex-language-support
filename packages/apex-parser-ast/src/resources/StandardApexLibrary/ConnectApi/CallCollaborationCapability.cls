@@ -1,11 +1,6 @@
+/**
+ * If a feed element has this capability, it has a recording comment.
+ */
 global class CallCollaborationCapability {
-	global Integer commentEndTime;
-	global Integer commentStartTime;
-	global CallCollaborationCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

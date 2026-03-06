@@ -1,14 +1,6 @@
+/**
+ * ID of a ReturnOrderLineItem and instructions for updating it. After the update, the ReturnOrderLineItem is read-only. Any remaining quantity to be returned is added to a new ReturnOrderLineItem.
+ */
 global class ReturnOrderItemInputRepresentation {
-	global Double quantityReceived;
-	global Double quantityRejected;
-	global Double quantityReturned;
-	global Double quantityToCancel;
-	global String reasonForRejection;
-	global String returnOrderLineItemId;
-	global ReturnOrderItemInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

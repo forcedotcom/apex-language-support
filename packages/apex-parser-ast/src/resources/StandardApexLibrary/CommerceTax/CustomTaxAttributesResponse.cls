@@ -1,6 +1,8 @@
+/**
+ * Sets additional data or custom attributes in the tax response.
+ */
 global class CustomTaxAttributesResponse {
-	global CustomTaxAttributesResponse() { }
-	global Object clone() { }
-	global void setData(Map<String,Object> data) { }
+
+  global void setData(Map<String, Object> data) {}
 
 }

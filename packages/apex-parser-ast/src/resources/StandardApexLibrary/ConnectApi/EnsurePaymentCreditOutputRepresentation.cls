@@ -1,10 +1,6 @@
+/**
+ * A list of payment credits created from the credit memo with success status and error information. Shows all payment credits successfully issued to the customer's payment methods and any errors encountered during processing.
+ */
 global class EnsurePaymentCreditOutputRepresentation {
-	global List<ConnectApi.PaymentCreditOutputRepresentation> paymentCredits;
-	global EnsurePaymentCreditOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

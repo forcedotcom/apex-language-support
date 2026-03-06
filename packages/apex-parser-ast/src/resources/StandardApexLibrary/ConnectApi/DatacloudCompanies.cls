@@ -1,14 +1,6 @@
+/**
+ * Lists all companies that were purchased in a specific order, page URLs, and the number of companies in the order.
+ */
 global class DatacloudCompanies {
-	global List<ConnectApi.DatacloudCompany> companies;
-	global String currentPageUrl;
-	global String nextPageUrl;
-	global String previousPageUrl;
-	global Integer total;
-	global DatacloudCompanies() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

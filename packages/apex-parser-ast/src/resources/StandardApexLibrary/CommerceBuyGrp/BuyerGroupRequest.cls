@@ -1,8 +1,12 @@
+/**
+ * Contains methods to retrieve account and store details used to identify the buyer groups associated with a user.
+ */
 global class BuyerGroupRequest {
-	global BuyerGroupRequest(String storeId, String accountId, Map<String,Object> requestContextParameters) { }
-	global Object clone() { }
-	global String getAccountId() { }
-	global Map<String,Object> getRequestContextParameters() { }
-	global String getStoreId() { }
+
+  public String getAccountId() {}
+
+  public String getStoreId() {}
+
+  public Map<String,Object> getRequestContextParameters() {}
 
 }

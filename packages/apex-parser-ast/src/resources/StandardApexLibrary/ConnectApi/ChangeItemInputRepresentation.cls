@@ -1,14 +1,6 @@
+/**
+ * Change to an order item summary, such as a return or cancel. You specify whether to prorate the associated shipping charge based on the price change. The order item summary can’t be a shipping charge.
+ */
 global class ChangeItemInputRepresentation {
-	global List<ConnectApi.ChangeItemFeeInputRepresentation> changeItemFees;
-	global String orderItemSummaryId;
-	global Double quantity;
-	global String reason;
-	global String reasonForChangeText;
-	global Boolean shippingReductionFlag;
-	global ChangeItemInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

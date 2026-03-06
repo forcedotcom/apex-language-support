@@ -1,10 +1,6 @@
+/**
+ * Source for an identity resolution default reconciliation rule or field-specific rule using the SourceSequence match method.
+ */
 global class CdpIdentityResolutionReconciliationSourceOutput {
-	global String name;
-	global CdpIdentityResolutionReconciliationSourceOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

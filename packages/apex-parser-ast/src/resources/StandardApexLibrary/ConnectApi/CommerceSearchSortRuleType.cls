@@ -1,7 +1,6 @@
 global enum CommerceSearchSortRuleType {
-CUSTOM,
-PRODUCTATTRIBUTEBASED,
-PRODUCTBASED,
-RELEVANCY,
-SORTBYPRICEBOOK
+  ProductAttributeBased,
+  ProductBased,
+  Relevancy,
+  SortByPricebook
 }

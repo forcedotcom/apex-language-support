@@ -1,12 +1,6 @@
+/**
+ * A quantity of a product and a location group or location assigned to fulfill it.
+ */
 global class FindRoutesWithFewestSplitsUsingOCIItemInputRepresentation {
-	global List<String> expand;
-	global String locationGroupIdentifier;
-	global Double quantity;
-	global String stockKeepingUnit;
-	global FindRoutesWithFewestSplitsUsingOCIItemInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

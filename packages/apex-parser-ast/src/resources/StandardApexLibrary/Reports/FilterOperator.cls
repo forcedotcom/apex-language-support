@@ -1,7 +1,6 @@
+/**
+ * Contains information about a filter operator, such as display name and API name.
+ */
 global class FilterOperator {
-	global Object clone() { }
-	global String getLabel() { }
-	global String getName() { }
-	global String toString() { }
 
 }

@@ -1,10 +1,6 @@
+/**
+ * The payment credit sequence, credit types, and refund sequence that provide information for optimal refund processing.
+ */
 global class RefundInstructionsHintInputRepresentation {
-	global List<ConnectApi.PaymentCreditSequenceItemInputRepresentation> paymentCreditSequenceItems;
-	global List<ConnectApi.RefundSequenceItemInputRepresentation> refundSequenceItems;
-	global RefundInstructionsHintInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

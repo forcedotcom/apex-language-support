@@ -1,10 +1,6 @@
+/**
+ * Contains detailed report type metadata about a field, including data type, display name, and filter values.
+ */
 global class ReportTypeColumn {
-	global Object clone() { }
-	global reports.ColumnDataType getDataType() { }
-	global List<reports.FilterValue> getFilterValues() { }
-	global Boolean getFilterable() { }
-	global String getLabel() { }
-	global String getName() { }
-	global String toString() { }
 
 }

@@ -1,8 +1,5 @@
+/**
+ * Specifies the credit card issuer.
+ */
 global enum CardType {
-AMERICANEXPRESS,
-DINERSCLUB,
-JCB,
-MAESTRO,
-MASTERCARD,
-VISA
 }

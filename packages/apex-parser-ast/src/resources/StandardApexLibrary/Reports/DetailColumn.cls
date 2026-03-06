@@ -1,8 +1,6 @@
+/**
+ * Contains methods for describing fields that contain detailed data. Detailed data fields are also listed in the report metadata.
+ */
 global class DetailColumn {
-	global Object clone() { }
-	global reports.ColumnDataType getDataType() { }
-	global String getLabel() { }
-	global String getName() { }
-	global String toString() { }
 
 }

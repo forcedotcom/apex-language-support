@@ -1,9 +1,6 @@
+/**
+ * Data used to calculate order fulfillment routes involving the fewest number of shipment splits, taking into account inventory availability.
+ */
 global class FindRoutesWithFewestSplitsUsingOCIInputRepresentation {
-	global List<ConnectApi.FindRoutesWithFewestSplitsGroupUsingOCIInputRepresentation> findRoutesWithFewestSplitsUsingOCIInputs;
-	global FindRoutesWithFewestSplitsUsingOCIInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

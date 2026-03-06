@@ -1,4 +1,0 @@
-global enum FilterConjunction {
-FILTERCONJUNCTIONAND,
-FILTERCONJUNCTIONOR
-}

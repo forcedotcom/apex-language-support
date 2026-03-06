@@ -1,7 +1,6 @@
+/**
+ * Contains summary data for a cell of the report.
+ */
 global class SummaryValue {
-	global Object clone() { }
-	global String getLabel() { }
-	global Object getValue() { }
-	global String toString() { }
 
 }

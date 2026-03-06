@@ -1,10 +1,6 @@
+/**
+ * Include an @mention of a user or group in a feed post or comment. When creating a feed post or comment, you can include up to 25 mentions.
+ */
 global class MentionSegmentInput {
-	global String id;
-	global String username;
-	global MentionSegmentInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

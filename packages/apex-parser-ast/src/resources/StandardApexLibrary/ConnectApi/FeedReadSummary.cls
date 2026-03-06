@@ -1,11 +1,6 @@
+/**
+ * Summary of the feed that was read.
+ */
 global class FeedReadSummary {
-	global String containerId;
-	global ConnectApi.FeedType feedType;
-	global FeedReadSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

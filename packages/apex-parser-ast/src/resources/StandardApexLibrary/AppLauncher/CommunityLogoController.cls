@@ -1,7 +1,6 @@
+/**
+ * This class and its methods are for internal use only.
+ */
 global class CommunityLogoController {
-	global CommunityLogoController() { }
-	global Object clone() { }
-	global static String getCommunityName() { }
-	global static String getLogoURL() { }
 
 }

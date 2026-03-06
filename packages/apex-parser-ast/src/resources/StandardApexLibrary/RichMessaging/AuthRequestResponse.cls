@@ -1,8 +1,14 @@
+/**
+ * This class contains authorization request response data.
+ */
 global class AuthRequestResponse {
-	global AuthRequestResponse(String accessToken, String contextRecordId, String authProviderName) { }
-	global Object clone() { }
-	global String getAccessToken() { }
-	global String getAuthProviderName() { }
-	global String getContextRecordId() { }
+
+  public AuthRequestResponse(String accessToken, String contextRecordId, String authProviderName) {}
+
+  public String getAccessToken() {}
+
+  public String getAuthProviderName() {}
+
+  public String getContextRecordId() {}
 
 }

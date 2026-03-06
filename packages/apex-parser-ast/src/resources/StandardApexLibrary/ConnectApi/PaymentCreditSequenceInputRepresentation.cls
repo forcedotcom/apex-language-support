@@ -1,11 +1,6 @@
+/**
+ * The order in which the credit amount is applied to specified payment methods. The sequence determines the order that the credit is applied to each payment during processing. The amount credited to each payment method is determined in each order payment summary.
+ */
 global class PaymentCreditSequenceInputRepresentation {
-	global Double amount;
-	global String creditType;
-	global String orderPaymentSummaryId;
-	global PaymentCreditSequenceInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

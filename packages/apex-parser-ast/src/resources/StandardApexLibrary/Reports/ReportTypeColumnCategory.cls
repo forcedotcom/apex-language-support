@@ -1,7 +1,6 @@
+/**
+ * Information about categories of fields in a report type.
+ */
 global class ReportTypeColumnCategory {
-	global Object clone() { }
-	global Map<String,reports.ReportTypeColumn> getColumns() { }
-	global String getLabel() { }
-	global String toString() { }
 
 }

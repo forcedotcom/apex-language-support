@@ -1,0 +1,78 @@
+name: Generate Apex Stubs
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run weekly on Mondays at 06:00 UTC
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate:
+    name: Generate and Validate Stubs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
+      - name: Generate Apex stubs
+        # Always scrapes fresh from the Salesforce docs — no caching of the TOC or page
+        # content, so any additions/removals/changes in the docs are detected each run.
+        working-directory: packages/apex-stubs-generator
+        run: npm run generate
+
+      - name: Validate stub counts
+        working-directory: packages/apex-stubs-generator
+        run: npm run validate
+
+      - name: Generate manifest
+        working-directory: packages/apex-stubs-generator
+        run: npm run validate:manifest
+
+      - name: Recompile apex-parser-ast (rebuild ZIP and protobuf artifacts)
+        run: npm run compile -w packages/apex-parser-ast
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add packages/apex-parser-ast/src/resources/StandardApexLibrary/ \
+                  packages/apex-parser-ast/resources/
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/update-apex-stubs
+          delete-branch: true
+          title: 'chore: update generated Apex standard library stubs'
+          body: |
+            Automated update of Apex standard library stubs generated from the
+            Salesforce Apex Reference Guide documentation.
+
+            **Changes:**
+            - Updated `.cls` stub files in `packages/apex-parser-ast/src/resources/StandardApexLibrary/`
+            - Rebuilt `StandardApexLibrary.zip` and protobuf artifacts
+            - Updated `manifest.json` with current namespace/class counts
+
+            **Triggered by:** ${{ github.event_name == 'schedule' && 'weekly schedule' || 'manual dispatch' }}
+          commit-message: 'chore: update generated Apex standard library stubs'
+          labels: automated, stubs

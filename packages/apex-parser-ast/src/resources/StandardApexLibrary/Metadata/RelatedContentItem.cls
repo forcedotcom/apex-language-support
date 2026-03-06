@@ -1,6 +1,12 @@
+/**
+ * Represents an individual item in the RelatedContent list.
+ */
 global class RelatedContentItem {
-	global Metadata.LayoutItem layoutItem;
-	global RelatedContentItem() { }
-	global Object clone() { }
+
+  /**
+   * Makes a duplicate copy of the Metadata.RelatedContentItem .
+   * @return Object
+   */
+  public Object clone() {}
 
 }

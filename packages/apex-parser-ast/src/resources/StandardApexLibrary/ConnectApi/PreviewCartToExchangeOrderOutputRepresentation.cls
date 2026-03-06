@@ -1,9 +1,6 @@
+/**
+ * Expected change order financial values for the preview cart to exchange order action.
+ */
 global class PreviewCartToExchangeOrderOutputRepresentation {
-	global PreviewCartToExchangeOrderOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

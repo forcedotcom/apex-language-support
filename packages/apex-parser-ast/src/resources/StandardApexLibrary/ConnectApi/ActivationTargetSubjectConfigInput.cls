@@ -1,10 +1,6 @@
+/**
+ * Represents the activation target subject configuration input.
+ */
 global class ActivationTargetSubjectConfigInput {
-	global String developerName;
-	global List<ConnectApi.QueryPathInputConfig> queryPathConfig;
-	global ActivationTargetSubjectConfigInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

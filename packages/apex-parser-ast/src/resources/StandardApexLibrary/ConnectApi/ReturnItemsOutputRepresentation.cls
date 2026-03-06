@@ -1,13 +1,6 @@
+/**
+ * Output of Return Items. Includes the ID of the generated change order for items and delivery charges being returned, as well as the ID of the generated change order for any charged return fees. Also includes information about any ReturnOrderLineItems that were created to represent remaining return quantities.
+ */
 global class ReturnItemsOutputRepresentation {
-	global String changeOrderId;
-	global String feeChangeOrderId;
-	global ConnectApi.RefundInstructionsHintOutputRepresentation refundInstructionsHint;
-	global List<ConnectApi.ReturnOrderItemSplitLineOutputRepresentation> returnLineItemSplits;
-	global ReturnItemsOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

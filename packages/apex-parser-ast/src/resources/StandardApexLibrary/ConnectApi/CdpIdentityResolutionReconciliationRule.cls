@@ -1,13 +1,6 @@
+/**
+ * Input representation for an identity resolution ruleset's default reconciliation rule for an object.
+ */
 global class CdpIdentityResolutionReconciliationRule {
-	global String entityName;
-	global List<ConnectApi.CdpIdentityResolutionReconciliationFieldRule> fields;
-	global ConnectApi.CdpIdentityResolutionReconciliationRuleType ruleType;
-	global Boolean shouldIgnoreEmptyValue;
-	global List<ConnectApi.CdpIdentityResolutionReconciliationSource> sources;
-	global CdpIdentityResolutionReconciliationRule() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

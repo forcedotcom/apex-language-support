@@ -1,14 +1,6 @@
+/**
+ * A payment method that doesn't have a defined Salesforce entity such as CardPaymentMethod or DigitalWallet. Common examples of alternative payment methods include CashOnDeliver, Klarna, and Direct Debit. AlternativePaymentMethod functions the same as any other type of payment method for processing transactions in the payment gateway.
+ */
 global class AlternativePaymentMethod {
-	global String accountId;
-	global String comments;
-	global String email;
-	global String gatewayToken;
-	global String gatewayTokenDetails;
-	global String name;
-	global AlternativePaymentMethod() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

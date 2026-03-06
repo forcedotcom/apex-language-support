@@ -1,14 +1,6 @@
+/**
+ * ID of a credit memo to ensure refunds for, an amount of excess funds to refund, or both. At least one is required. Also includes any invoices for fees that reduce the refund amount, such as return fees. If multiple payment methods are available, you can specify how to distribute the refund.
+ */
 global class EnsureRefundsAsyncInputRepresentation {
-	global String creditMemoId;
-	global Double excessFundsAmount;
-	global List<ConnectApi.InvoiceToPayInputRepresentation> invoicesToPay;
-	global Boolean isAllowPartial;
-	global Boolean isReservedBalanceAmountConsidered;
-	global List<ConnectApi.SequenceOrderPaymentSummaryInputRepresentation> sequences;
-	global EnsureRefundsAsyncInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

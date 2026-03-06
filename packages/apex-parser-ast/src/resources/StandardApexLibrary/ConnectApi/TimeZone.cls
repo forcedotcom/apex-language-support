@@ -1,11 +1,6 @@
+/**
+ * User's time zone as selected in the user’s personal settings in Salesforce. This value doesn’t reflect a device's current location.
+ */
 global class TimeZone {
-	global Double gmtOffset;
-	global String name;
-	global TimeZone() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

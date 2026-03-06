@@ -1,5 +1,7 @@
 global enum PreDeterminedFileNameEnum {
-ACTIVATION,
-SEGMENT,
-SEGMENTACTIVATION
+  customFilename,
+  predeterminedFilename,
+  Activation,
+  Segment,
+  SegmentActivation
 }

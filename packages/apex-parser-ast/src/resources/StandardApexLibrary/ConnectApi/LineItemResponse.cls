@@ -1,18 +1,6 @@
+/**
+ * Response class that stores information about a list of one or more line items on which the tax engine has calculated tax.
+ */
 global class LineItemResponse {
-	global ConnectApi.AdditionalDataResponse additionalData;
-	global ConnectApi.TaxAddressesResponse addresses;
-	global ConnectApi.TaxAmountDetailsResponse amountDetails;
-	global Datetime effectiveDate;
-	global String lineNumber;
-	global String productCode;
-	global Double quantity;
-	global String taxCode;
-	global List<ConnectApi.TaxDetailsResponse> taxes;
-	global LineItemResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

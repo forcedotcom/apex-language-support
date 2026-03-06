@@ -1,9 +1,6 @@
+/**
+ * Base Order Management Invoice output class.
+ */
 global class BaseInvoiceOutputRepresentation {
-	global String invoiceId;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

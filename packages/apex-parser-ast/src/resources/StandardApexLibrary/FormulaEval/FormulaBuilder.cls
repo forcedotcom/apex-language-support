@@ -1,12 +1,22 @@
+/**
+ * Contains methods to build and validate user-defined formulas.
+ */
 global class FormulaBuilder {
-	global formulaeval.FormulaInstance build() { }
-	global Object clone() { }
-	global formulaeval.FormulaBuilder parseAsTemplate(Boolean templateMode) { }
-	global formulaeval.FormulaBuilder treatNumericNullAsZero(Boolean treatNumericNullAsZero) { }
-	global formulaeval.FormulaBuilder withFormula(String formulaText) { }
-	global formulaeval.FormulaBuilder withGlobalVariables(List<formulaeval.FormulaGlobal> formulaGlobals) { }
-	global formulaeval.FormulaBuilder withReturnType(formulaeval.FormulaReturnType returnType) { }
-	global formulaeval.FormulaBuilder withType(Schema.SObjectType contextToken) { }
-	global formulaeval.FormulaBuilder withType(System.Type contextType) { }
+
+  public FormulaEval.FormulaInstance build() {}
+
+  public formulaeval.FormulaBuilder parseAsTemplate(Boolean templateMode) {}
+
+  public FormulaEval.FormulaBuilder treatNumericNullAsZero(Boolean isNumericNullZero) {}
+
+  public FormulaEval.FormulaBuilder withFormula(String formulaText) {}
+
+  public FormulaEval.FormulaBuilder withGlobalVariables(List<formulaeval.FormulaGlobal> formulaGlobals) {}
+
+  public FormulaEval.FormulaBuilder withReturnType(formulaeval.FormulaReturnType returnType) {}
+
+  public formulaeval.FormulaBuilder withType(System.Type contextType) {}
+
+  public formulaeval.FormulaBuilder withType(Schema.SObjectType contextSObjectType) {}
 
 }

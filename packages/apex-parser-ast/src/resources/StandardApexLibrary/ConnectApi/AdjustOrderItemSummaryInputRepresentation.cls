@@ -1,11 +1,6 @@
+/**
+ * Price adjustments to order item summaries that together make up a price adjustment to an order, with options for adjusting items in the process of being fulfilled.
+ */
 global class AdjustOrderItemSummaryInputRepresentation {
-	global List<ConnectApi.AdjustItemInputRepresentation> adjustItems;
-	global String allocatedItemsChangeOrderType;
-	global Boolean individualLineItemTaxAdjustments;
-	global AdjustOrderItemSummaryInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

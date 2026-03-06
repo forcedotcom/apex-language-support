@@ -1,6 +1,10 @@
+/**
+ * Contains a method to evaluate the formula instance.
+ */
 global class FormulaInstance {
-	global Object clone() { }
-	global Object evaluate(Object contextObject) { }
-	global Set<String> getReferencedFields() { }
+
+  public Object evaluate(Object contextObject) {}
+
+  public Set<String> getReferencedFields() {}
 
 }

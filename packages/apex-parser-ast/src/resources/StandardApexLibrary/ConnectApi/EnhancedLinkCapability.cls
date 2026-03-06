@@ -1,14 +1,6 @@
+/**
+ * If a feed element has this capability, it has a link that may contain supplemental information like an icon, a title, and a description.
+ */
 global class EnhancedLinkCapability {
-	global String description;
-	global ConnectApi.Icon icon;
-	global String linkRecordId;
-	global String linkUrl;
-	global String title;
-	global EnhancedLinkCapability() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

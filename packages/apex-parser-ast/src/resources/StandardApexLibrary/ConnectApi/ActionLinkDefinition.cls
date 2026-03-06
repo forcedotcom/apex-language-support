@@ -1,24 +1,6 @@
+/**
+ * The definition of an action link. Action link definition can be sensitive to a third party (for example, OAuth bearer token headers). For this reason, only calls made from the Apex namespace that created the action link definition can read, modify, or delete the definition. In addition, the user making the call must have created the definition or have View All Data permission.
+ */
 global class ActionLinkDefinition {
-	global String actionUrl;
-	global Datetime createdDate;
-	global String excludedUserId;
-	global Boolean groupDefault;
-	global List<ConnectApi.RequestHeader> headers;
-	global String id;
-	global String label;
-	global String labelKey;
-	global ConnectApi.HttpRequestMethod method;
-	global Datetime modifiedDate;
-	global String requestBody;
-	global Boolean requiresConfirmation;
-	global String templateId;
-	global ConnectApi.ActionLinkType type;
-	global String userId;
-	global ActionLinkDefinition() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

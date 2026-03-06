@@ -1,9 +1,6 @@
+/**
+ * A list of changes to OrderItemSummaries that make up an order change, such as a cancel or return.
+ */
 global class ChangeInputRepresentation {
-	global List<ConnectApi.ChangeItemInputRepresentation> changeItems;
-	global ChangeInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

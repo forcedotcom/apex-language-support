@@ -1,10 +1,6 @@
+/**
+ * List of an external auth identity provider's credentials.
+ */
 global class ExternalAuthIdentityProviderCredentials {
-	global List<ConnectApi.ExternalAuthIdentityProviderCredential> credentials;
-	global ExternalAuthIdentityProviderCredentials() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

@@ -1,10 +1,6 @@
+/**
+ * The credit memo that’s being issued as credit. The specified amount from the credit memo balance is issued as payment credit.
+ */
 global class CreditMemoInputRepresentation {
-	global Double amount;
-	global String id;
-	global CreditMemoInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

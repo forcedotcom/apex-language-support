@@ -1,10 +1,6 @@
+/**
+ * The details of an item type associated with a repository folder.
+ */
 global class ContentHubItemTypeDetail {
-	global List<ConnectApi.ContentHubFieldDefinition> fields;
-	global ContentHubItemTypeDetail() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

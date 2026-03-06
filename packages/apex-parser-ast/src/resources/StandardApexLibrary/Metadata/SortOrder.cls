@@ -1,4 +1,5 @@
+/**
+ * Describes the sort order of a related list.
+ */
 global enum SortOrder {
-ASC_X,
-DESC_X
 }

@@ -1,19 +1,6 @@
+/**
+ * Represents both dashboard component snapshots and alerts you receive when a dashboard component value crosses a threshold.
+ */
 global class DashboardComponentSnapshot {
-	global String componentId;
-	global String componentName;
-	global String dashboardBodyText;
-	global String dashboardId;
-	global String dashboardName;
-	global String fullSizeImageUrl;
-	global Datetime lastRefreshDate;
-	global String lastRefreshDateDisplayText;
-	global ConnectApi.UserSummary runningUser;
-	global String thumbnailUrl;
-	global DashboardComponentSnapshot() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

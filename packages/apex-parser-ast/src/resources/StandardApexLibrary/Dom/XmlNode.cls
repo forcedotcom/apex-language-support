@@ -1,106 +1,183 @@
+/**
+ * Use the XmlNode class to work with a node in an XML document.
+ */
 global class XmlNode {
-	/**
-	 * Creates a child element node. name can not be null. if namespace is not null and prefix is null, namespace is set as default ns
-	 */
-	global dom.XmlNode addChildElement(String name, String namespace, String prefix) { }
-	/**
-	 * Creates a child comment node. text can not be null.
-	 */
-	global dom.XmlNode addCommentNode(String text) { }
-	/**
-	 * Creates a child text node. text can not be null.
-	 */
-	global dom.XmlNode addTextNode(String text) { }
-	global Boolean equals(Object obj) { }
-	/**
-	 * get raw attribute value. eg: 'foo:bar' 
-	 */
-	global String getAttribute(String key, String keyNamespace) { }
-	/**
-	 * get attribute count.
-	 */
-	global Integer getAttributeCount() { }
-	/**
-	 * get attribute key at the given index.
-	 */
-	global String getAttributeKeyAt(Integer index) { }
-	/**
-	 * get attribute key namespace at the given index.
-	 */
-	global String getAttributeKeyNsAt(Integer index) { }
-	/**
-	 * get attribute value.
-	 */
-	global String getAttributeValue(String key, String keyNamespace) { }
-	/**
-	 * get attribute namespace.
-	 */
-	global String getAttributeValueNs(String key, String keyNamespace) { }
-	/**
-	 * Returns the child with specified name and namespace
-	 */
-	global dom.XmlNode getChildElement(String name, String namespace) { }
-	/**
-	 * Returns the child ELEMENTS of this node
-	 */
-	global List<dom.XmlNode> getChildElements() { }
-	/**
-	 * Returns the child nodes of this node
-	 */
-	global List<dom.XmlNode> getChildren() { }
-	/**
-	 * Returns the name of the element
-	 */
-	global String getName() { }
-	/**
-	 * Returns the namespace of the element
-	 */
-	global String getNamespace() { }
-	/**
-	 * Returns the namespace of the element
-	 */
-	global String getNamespaceFor(String prefix) { }
-	/**
-	 * Returns enumeration code that indicates the type of the XmlNode.
-	 */
-	global Dom.XmlNodeType getNodeType() { }
-	/**
-	 * Returns the parent of this element
-	 */
-	global dom.XmlNode getParent() { }
-	/**
-	 * Returns the prefix for of the given namespace. Input namespace should not be null.
-	 */
-	global String getPrefixFor(String namespace) { }
-	/**
-	 * returns the text.
-	 */
-	global String getText() { }
-	global Integer hashCode() { }
-	/**
-	 * Inserts an element before the given reference element 
-	 */
-	global dom.XmlNode insertBefore(Object newChild, Object refChild) { }
-	/**
-	 * remove attribute with the given key and namespace.
-	 */
-	global Boolean removeAttribute(String key, String keyNamespace) { }
-	/**
-	 * removes the child node
-	 */
-	global Boolean removeChild(Object child) { }
-	/**
-	 * Sets attribute on the element.
-	 */
-	global void setAttribute(String key, String value) { }
-	/**
-	 * Sets attribute on the element.
-	 */
-	global void setAttributeNs(String key, String value, String keyNamespace, String valueNamespace) { }
-	/**
-	 * Returns the namespace of the element
-	 */
-	global void setNamespace(String prefix, String namespace) { }
-	global String toString() { }
+
+  /**
+   * Creates a child element node for this node.
+   * @param name The name argument can't have a null value.
+   * @param namespace 
+   * @param prefix 
+   * @return Dom.XmlNode
+   */
+  public Dom.XmlNode addChildElement(String name, String namespace, String prefix) {}
+
+  /**
+   * Creates a child comment node for this node.
+   * @param text The text argument can't have a null value.
+   * @return Dom.XmlNode
+   */
+  public Dom.XmlNode addCommentNode(String text) {}
+
+  /**
+   * Creates a child text node for this node.
+   * @param text The text argument can't have a null value.
+   * @return Dom.XmlNode
+   */
+  public Dom.XmlNode addTextNode(String text) {}
+
+  /**
+   * Returns namespacePrefix:attributeValue for the given key and key namespace.
+   * @param key 
+   * @param keyNamespace 
+   * @return String
+   */
+  public String getAttribute(String key, String keyNamespace) {}
+
+  /**
+   * Returns the number of attributes for this node.
+   * @return Integer
+   */
+  public Integer getAttributeCount() {}
+
+  /**
+   * Returns the attribute key for the given index. Index values start at 0.
+   * @param index 
+   * @return String
+   */
+  public String getAttributeKeyAt(Integer index) {}
+
+  /**
+   * Returns the attribute key namespace for the given index.
+   * @param index 
+   * @return String
+   */
+  public String getAttributeKeyNsAt(Integer index) {}
+
+  /**
+   * Returns the attribute value for the given key and key namespace.
+   * @param key 
+   * @param keyNamespace 
+   * @return String
+   */
+  public String getAttributeValue(String key, String keyNamespace) {}
+
+  /**
+   * Returns the attribute value namespace for the given key and key namespace.
+   * @param key 
+   * @param keyNamespace 
+   * @return String
+   */
+  public String getAttributeValueNs(String key, String keyNamespace) {}
+
+  /**
+   * Returns the child element node for the node with the given name and namespace.
+   * @param name 
+   * @param namespace 
+   * @return Dom.XmlNode
+   */
+  public Dom.XmlNode getChildElement(String name, String namespace) {}
+
+  /**
+   * Returns the child element nodes for this node. This doesn't include child text or comment nodes.
+   * @return Dom.XmlNode[]
+   */
+  public Dom.XmlNode[] getChildElements() {}
+
+  /**
+   * Returns the child nodes for this node. This includes all node types.
+   * @return Dom.XmlNode[]
+   */
+  public Dom.XmlNode[] getChildren() {}
+
+  /**
+   * Returns the element name.
+   * @return String
+   */
+  public String getName() {}
+
+  /**
+   * Returns the namespace of the element.
+   * @return String
+   */
+  public String getNamespace() {}
+
+  /**
+   * Returns the namespace of the element for the given prefix.
+   * @param prefix 
+   * @return String
+   */
+  public String getNamespaceFor(String prefix) {}
+
+  /**
+   * Returns the node type.
+   * @return Dom.XmlNodeType
+   */
+  public Dom.XmlNodeType getNodeType() {}
+
+  /**
+   * Returns the parent of this element.
+   * @return Dom.XmlNode
+   */
+  public Dom.XmlNode getParent() {}
+
+  /**
+   * Returns the prefix of the given namespace.
+   * @param namespace The namespace argument can't have a null value.
+   * @return String
+   */
+  public String getPrefixFor(String namespace) {}
+
+  /**
+   * Returns the text for this node.
+   * @return String
+   */
+  public String getText() {}
+
+  /**
+   * Inserts a new child node before the specified node.
+   * @param newChild The node to insert.
+   * @param refChild The node before the new node.
+   * @return Dom.XmlNode
+   */
+  public Dom.XmlNode insertBefore(Dom.XmlNode newChild, Dom.XmlNode refChild) {}
+
+  /**
+   * Removes the attribute with the given key and key namespace. Returns true if successful, false otherwise.
+   * @param key 
+   * @param keyNamespace 
+   * @return Boolean
+   */
+  public Boolean removeAttribute(String key, String keyNamespace) {}
+
+  /**
+   * Removes the given child node.
+   * @param childNode 
+   * @return Boolean
+   */
+  public Boolean removeChild(Dom.XmlNode childNode) {}
+
+  /**
+   * Sets the key attribute value.
+   * @param key 
+   * @param value 
+   */
+  public void setAttribute(String key, String value) {}
+
+  /**
+   * Sets the key attribute value.
+   * @param key 
+   * @param value 
+   * @param keyNamespace 
+   * @param valueNamespace 
+   */
+  public void setAttributeNs(String key, String value, String keyNamespace, String valueNamespace) {}
+
+  /**
+   * Sets the namespace for the given prefix.
+   * @param prefix 
+   * @param namespace 
+   */
+  public void setNamespace(String prefix, String namespace) {}
 
 }

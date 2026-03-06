@@ -1,10 +1,6 @@
+/**
+ * Fields of a record at the point in time when the record was created.
+ */
 global class RecordSnapshotAttachment {
-	global ConnectApi.RecordView recordView;
-	global RecordSnapshotAttachment() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

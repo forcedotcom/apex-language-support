@@ -1,14 +1,6 @@
+/**
+ * Input representation for Change Item Fee Input
+ */
 global class ChangeItemFeeInputRepresentation {
-	global Double amount;
-	global String amountType;
-	global String description;
-	global String priceBookEntryId;
-	global String product2Id;
-	global String reason;
-	global ChangeItemFeeInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }

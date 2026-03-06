@@ -1,9 +1,6 @@
+/**
+ * A list of FulfillmentOrderLineItems and quantities to cancel.
+ */
 global class FulfillmentOrderLineItemsToCancelInputRepresentation {
-	global List<ConnectApi.FulfillmentOrderLineItemInputRepresentation> fulfillmentOrderLineItemsToCancel;
-	global FulfillmentOrderLineItemsToCancelInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
 
 }
