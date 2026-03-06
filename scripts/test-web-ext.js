@@ -13,6 +13,10 @@
  *   --devtools : Open browser devtools during tests
  *   --headless : Run in headless mode (browser hidden)
  *
+ * VS Code version is pinned to the version defined in:
+ *   https://github.com/forcedotcom/code-builder-web/blob/main/.vscode-version
+ * Falls back to 'stable' on failure.
+ *
  * The test will timeout after 45 seconds if the extension fails to activate.
  */
 
@@ -21,6 +25,9 @@ const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
 const { promisify } = require('util');
+const {
+  fetchCodeBuilderVSCodeVersion,
+} = require('./fetch-vscode-version');
 
 const execAsync = promisify(exec);
 
@@ -750,6 +757,9 @@ async function runWebExtensionTests() {
     console.log(`📁 Extension source path: ${extensionSourcePath}`);
     console.log(`📂 Workspace path: ${workspacePath}`);
 
+    // Fetch the pinned VS Code version from Code Builder Web
+    const vsCodeVersion = await fetchCodeBuilderVSCodeVersion();
+
     // Setup output file for extension host logs
     const outputLogPath = path.resolve(
       __dirname,
@@ -777,10 +787,7 @@ async function runWebExtensionTests() {
       // No extensionTestsPath - just test extension loading and activation
       headless: process.argv.includes('--headless'), // Browser visible by default
       browserType: 'chromium',
-      version: 'stable',
-      // Pin to VS Code 1.108.0 (December 2025) to avoid 1.109 breaking changes
-      // Commit hash for 1.108.0: 94e8ae2b28cb5cc932b86e1070569c4463565c37
-      commit: '94e8ae2b28cb5cc932b86e1070569c4463565c37',
+      version: vsCodeVersion,
       waitForDebugger: process.argv.includes('--debug'),
       printServerLog: true, // Enable server logs for capture
       verbose: true, // Enable verbose logging
