@@ -17,10 +17,17 @@ import {
   TransportKind,
 } from 'vscode-languageclient/lib/node/main';
 import { getDebugConfig, getWorkspaceSettings } from './configuration';
-import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
+import {
+  logToOutputChannel,
+  getWorkerServerOutputChannel,
+  createSafeOutputChannel,
+} from './logging';
 import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
 import { ServerMode } from './utils/serverUtils';
-import { getDocumentSelectorsFromSettings } from '@salesforce/apex-lsp-shared';
+import {
+  getDocumentSelectorsFromSettings,
+  type ApexLanguageServerSettings,
+} from '@salesforce/apex-lsp-shared';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -62,10 +69,7 @@ export const getDebugOptions = (): string[] | undefined => {
  * @param context The extension context to get workspace path
  * @returns Array of profiling flags or empty array if profiling is disabled
  */
-const getProfilingFlags = (
-  runtimePlatform: 'desktop' | 'web',
-  context: vscode.ExtensionContext,
-): string[] => {
+const getProfilingFlags = (runtimePlatform: 'desktop' | 'web'): string[] => {
   // Profiling is only available on desktop
   if (runtimePlatform !== 'desktop') {
     return [];
@@ -233,7 +237,7 @@ export const createServerOptions = (
     vscode.env.uiKind === vscode.UIKind.Web ? 'web' : 'desktop';
 
   // Get profiling flags
-  const profilingFlags = getProfilingFlags(runtimePlatform, context);
+  const profilingFlags = getProfilingFlags(runtimePlatform);
 
   // Get heap size flag
   const heapSizeFlag = getHeapSizeFlag(runtimePlatform);
@@ -259,16 +263,18 @@ export const createServerOptions = (
     debugExecArgv.push(...debugOptions);
   }
 
+  const serverEnv = {
+    ...process.env,
+    NODE_OPTIONS: '--enable-source-maps',
+    APEX_LS_MODE: serverMode,
+  };
+
   return {
     run: {
       module: serverModule,
-      transport: TransportKind.ipc,
+      transport: TransportKind.stdio,
       options: {
-        env: {
-          ...process.env, // Inherit parent environment (includes launch.json env vars)
-          NODE_OPTIONS: '--enable-source-maps',
-          APEX_LS_MODE: serverMode,
-        },
+        env: serverEnv,
         ...(runExecArgv.length > 0 && {
           execArgv: runExecArgv,
         }),
@@ -276,13 +282,9 @@ export const createServerOptions = (
     },
     debug: {
       module: serverModule,
-      transport: TransportKind.ipc,
+      transport: TransportKind.stdio,
       options: {
-        env: {
-          ...process.env, // Inherit parent environment (includes launch.json env vars)
-          NODE_OPTIONS: '--enable-source-maps',
-          APEX_LS_MODE: serverMode,
-        },
+        env: serverEnv,
         ...(debugExecArgv.length > 0 && {
           execArgv: debugExecArgv,
         }),
@@ -297,68 +299,30 @@ export const createServerOptions = (
  * @returns Client options configuration
  */
 export const createClientOptions = (
-  initializationOptions: any,
-): LanguageClientOptions => ({
-  documentSelector: getDocumentSelectorsFromSettings(
-    'all',
-    initializationOptions,
-  ),
-  synchronize: {
-    fileEvents: vscode.workspace.createFileSystemWatcher(
-      '**/*.{cls,trigger,apex}',
+  initializationOptions: ApexLanguageServerSettings,
+): LanguageClientOptions => {
+  const rawChannel = getWorkerServerOutputChannel();
+  return {
+    documentSelector: getDocumentSelectorsFromSettings(
+      'all',
+      initializationOptions,
     ),
-    configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
-  },
-  // Provide outputChannel for built-in window/logMessage handler
-  // Server sends raw messages; VS Code adds timestamp and log level prefix
-  outputChannel: getWorkerServerOutputChannel(),
-  // Add error handling with proper retry logic
-  errorHandler: {
-    error: handleClientError,
-    closed: () => handleClientClosed(),
-  },
-  // Use middleware to intercept hover requests for logging
-  middleware: {
-    provideHover: async (document, position, token, next) => {
-      const requestStartTime = Date.now();
-      const uri = document.uri.toString();
-      const line = position.line;
-      const character = position.character;
-
-      logToOutputChannel(
-        `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
-        'debug',
-      );
-
-      try {
-        const sendStartTime = Date.now();
-        const result = await next(document, position, token);
-        const sendTime = Date.now() - sendStartTime;
-        const totalTime = Date.now() - requestStartTime;
-
-        logToOutputChannel(
-          `✅ [CLIENT] Hover request completed: ${uri} ` +
-            `total=${totalTime}ms, send=${sendTime}ms, ` +
-            `result=${result ? 'success' : 'null'}`,
-          'debug',
-        );
-
-        return result;
-      } catch (error) {
-        const totalTime = Date.now() - requestStartTime;
-        logToOutputChannel(
-          `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${error}`,
-          'error',
-        );
-        throw error;
-      }
+    synchronize: {
+      configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
     },
-  },
-  // Use the enhanced initialization options that include all necessary configuration
-  initializationOptions,
-  // Explicitly enable workspace configuration capabilities
-  workspaceFolder: vscode.workspace.workspaceFolders?.[0],
-});
+    outputChannel: rawChannel ? createSafeOutputChannel(rawChannel) : undefined,
+    errorHandler: {
+      error: handleClientError,
+      closed: () => handleClientClosed(),
+    },
+    middleware: {
+      provideHover: async (document, position, token, next) =>
+        next(document, position, token),
+    },
+    initializationOptions,
+    workspaceFolder: vscode.workspace.workspaceFolders?.[0],
+  };
+};
 
 /**
  * Handles errors from the language client
@@ -392,7 +356,6 @@ const handleClientClosed = (): { action: CloseAction } => {
     `Connection to server closed - ${new Date().toISOString()}`,
     'info',
   );
-
   // Always return DoNotRestart since we handle restart logic separately
   return { action: CloseAction.DoNotRestart };
 };

@@ -197,6 +197,13 @@ describe('Configuration Module', () => {
             batchSize: 100,
             includeSfdxToolsCustomObjects: false,
           },
+          symbolGraph: {
+            enabled: true,
+            preloadNamespaces: ['Database', 'System'],
+          },
+          telemetry: {
+            enabled: false,
+          },
           worker: {
             logLevel: 'info',
           },

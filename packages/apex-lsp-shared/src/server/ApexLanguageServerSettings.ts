@@ -108,6 +108,18 @@ export interface EnvironmentSettings {
     /** Optional array of capability names to exclude this scheme from */
     excludeCapabilities?: string[];
   }>;
+
+  /** VS Code version string, passed from the client for telemetry */
+  vscodeVersion?: string;
+
+  /** Extension version string, passed from the client for telemetry */
+  extensionVersion?: string;
+
+  /** Total workspace file count, passed from the client for telemetry */
+  workspaceFileCount?: number;
+
+  /** Apex file count in the workspace, passed from the client for telemetry */
+  apexFileCount?: number;
 }
 
 /**
@@ -289,6 +301,9 @@ export interface ValidationSettings {
   };
 }
 
+import type { TelemetrySettings } from '../observability/sdkLayerConfig';
+export type { TelemetrySettings } from '../observability/sdkLayerConfig';
+
 /**
  * Complete Apex Language Server settings
  */
@@ -326,6 +341,9 @@ export interface ApexLanguageServerSettings {
 
     /** Validation configuration */
     validation?: ValidationSettings;
+
+    /** Telemetry settings for OpenTelemetry-based observability */
+    telemetry?: TelemetrySettings;
 
     /** Server version for compatibility checks */
     version?: string;

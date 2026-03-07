@@ -42,6 +42,7 @@ export async function startApexNodeServer(): Promise<void> {
   await LCSAdapter.create({
     connection,
     logger,
+    getHeapUsedBytes: async () => process.memoryUsage().heapUsed,
   });
 
   connection.listen();
