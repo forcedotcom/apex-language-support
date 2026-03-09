@@ -44,6 +44,10 @@ import {
 } from './language-server';
 import { getWorkspaceSettings } from './configuration';
 import { formattedError } from '@salesforce/apex-lsp-shared';
+import {
+  initializeExtensionTracing,
+  shutdownExtensionTracing,
+} from './observability/extensionTracing';
 
 /**
  * Wrapper function for restart that matches the expected signature
@@ -68,13 +72,17 @@ const handleStart = async (context: vscode.ExtensionContext): Promise<void> => {
  * @param context The extension context
  */
 export function activate(context: vscode.ExtensionContext): void {
-  console.log('🚀 [APEX-EXT] Extension activation started');
-  console.log('Extension activation called - checking for existing client');
-
   // Initialize simple extension logging
   initializeExtensionLogging(context);
 
-  logToOutputChannel('🔧 Extension logging system initialized', 'info');
+  // Set up OTEL tracing in the extension-host process via dx-services.
+  // Fire-and-forget; tracing failure must not block extension activation.
+  initializeExtensionTracing(context).catch((error) => {
+    logToOutputChannel(
+      `Extension tracing init error: ${formattedError(error)}`,
+      'warning',
+    );
+  });
   const extensionMode =
     context.extensionMode === vscode.ExtensionMode.Development
       ? 'Development'
@@ -210,6 +218,6 @@ export function activate(context: vscode.ExtensionContext): void {
  */
 export async function deactivate(): Promise<void> {
   logToOutputChannel('Deactivating Apex Language Server extension', 'info');
-
   await stopLanguageServer();
+  await shutdownExtensionTracing();
 }

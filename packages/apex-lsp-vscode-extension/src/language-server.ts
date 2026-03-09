@@ -20,7 +20,11 @@ import {
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import type { BaseLanguageClient } from 'vscode-languageclient';
 import { Trace } from 'vscode-languageclient';
-import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
+import {
+  logToOutputChannel,
+  getWorkerServerOutputChannel,
+  createSafeOutputChannel,
+} from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
 import { handleFindMissingArtifact } from './missing-artifact-handler';
 import {
@@ -33,6 +37,7 @@ import {
   updateApexServerStatusStarting,
   updateApexServerStatusReady,
   updateApexServerStatusError,
+  updateApexServerStatusStopped,
 } from './status-bar';
 import {
   getWorkspaceSettings,
@@ -45,6 +50,7 @@ import {
   getStdApexClassesPathFromContext,
   ServerMode,
 } from './utils/serverUtils';
+import { emitTelemetrySpan } from './observability/extensionTracing';
 
 /**
  * Global language client instance
@@ -84,11 +90,11 @@ function detectEnvironment(): 'desktop' | 'web' {
  * @param serverMode - The server mode (already determined to avoid duplicate logging)
  * @returns Enhanced initialization options
  */
-const createEnhancedInitializationOptions = (
+const createEnhancedInitializationOptions = async (
   context: vscode.ExtensionContext,
   runtimePlatform: RuntimePlatform,
   serverMode: ServerMode,
-): ApexLanguageServerSettings => {
+): Promise<ApexLanguageServerSettings> => {
   const settings = getWorkspaceSettings();
 
   // Get standard Apex library path
@@ -98,6 +104,27 @@ const createEnhancedInitializationOptions = (
   // Use settings directly without deep cloning to avoid serialization issues
   const safeSettings = settings || {};
 
+  const extensionVersion =
+    (context.extension.packageJSON?.version as string) ?? '0.0.0';
+
+  // Count workspace files for startup telemetry (best-effort, non-blocking)
+  let workspaceFileCount = 0;
+  let apexFileCount = 0;
+  try {
+    const [allFiles, apexFiles] = await Promise.all([
+      vscode.workspace.findFiles('**/*', '**/node_modules/**', 50_000),
+      vscode.workspace.findFiles(
+        '**/*.{cls,trigger,apex}',
+        '**/node_modules/**',
+        50_000,
+      ),
+    ]);
+    workspaceFileCount = allFiles.length;
+    apexFileCount = apexFiles.length;
+  } catch {
+    // Best-effort: leave counts at 0 if findFiles fails
+  }
+
   const enhancedOptions: ApexLanguageServerSettings = {
     apex: {
       ...safeSettings.apex,
@@ -105,6 +132,10 @@ const createEnhancedInitializationOptions = (
         ...safeSettings.apex?.environment,
         runtimePlatform,
         serverMode,
+        vscodeVersion: vscode.version,
+        extensionVersion,
+        workspaceFileCount,
+        apexFileCount,
       },
       resources: {
         ...safeSettings.apex?.resources,
@@ -129,11 +160,11 @@ const createEnhancedInitializationOptions = (
  * @param serverMode - The server mode (already determined to avoid duplicate logging)
  * @returns LSP initialization parameters
  */
-export const createInitializeParams = (
+export const createInitializeParams = async (
   context: vscode.ExtensionContext,
   environment: 'desktop' | 'web',
   serverMode: ServerMode,
-): InitializeParams => {
+): Promise<InitializeParams> => {
   const workspaceFolders = vscode.workspace.workspaceFolders;
 
   // Get mode-appropriate client capabilities
@@ -145,11 +176,13 @@ export const createInitializeParams = (
     'info',
   );
 
+  const extensionVersion =
+    (context.extension.packageJSON?.version as string) ?? '0.0.0';
   const baseParams = {
     processId: null, // Web environments don't have process IDs
     clientInfo: {
       name: 'Apex Language Server Extension',
-      version: '1.0.0',
+      version: extensionVersion,
     },
     locale: vscode.env.language,
     rootPath:
@@ -158,7 +191,7 @@ export const createInitializeParams = (
         : (workspaceFolders?.[0]?.uri.fsPath ?? null),
     rootUri: workspaceFolders?.[0]?.uri.toString() ?? null,
     capabilities: clientCapabilities, // Use mode-aware capabilities
-    initializationOptions: createEnhancedInitializationOptions(
+    initializationOptions: await createEnhancedInitializationOptions(
       context,
       environment,
       serverMode,
@@ -220,6 +253,13 @@ export const createAndStartClient = async (
     }
 
     logToOutputChannel('✅ Client initialized successfully', 'info');
+
+    // Forward LSP telemetry/event notifications as OTEL spans
+    if (LanguageClientInstance) {
+      LanguageClientInstance.onTelemetry((event: unknown) => {
+        emitTelemetrySpan(event as Record<string, unknown>);
+      });
+    }
 
     // Set up client state monitoring
     updateApexServerStatusReady();
@@ -321,7 +361,7 @@ async function createWebLanguageClient(
   logToOutputChannel('🔗 Creating Language Client for web...', 'info');
 
   // Create initialization options with debugging
-  const initOptions = createEnhancedInitializationOptions(
+  const initOptions = await createEnhancedInitializationOptions(
     context,
     environment,
     serverMode,
@@ -346,8 +386,12 @@ async function createWebLanguageClient(
         },
         initializationOptions: initOptions,
         // Use our consolidated worker/server output channel to prevent LanguageClient
-        // from creating its own default output channel (which causes duplicate tabs)
-        outputChannel: getWorkerServerOutputChannel() || undefined,
+        // from creating its own default output channel (which causes duplicate tabs).
+        // Wrapped to swallow "Channel has been closed" errors during shutdown.
+        outputChannel: (() => {
+          const ch = getWorkerServerOutputChannel();
+          return ch ? createSafeOutputChannel(ch) : undefined;
+        })(),
       },
       worker,
     );
@@ -612,21 +656,7 @@ async function createWebLanguageClient(
           logToOutputChannel(`Sending notification: ${method}`, 'debug');
         }
 
-        // Ensure params are serializable before sending
-        let cleanParams = params;
-        if (params) {
-          try {
-            cleanParams = JSON.parse(JSON.stringify(params));
-          } catch (error) {
-            logToOutputChannel(
-              `Failed to clean params for notification: ${error}`,
-              'error',
-            );
-            cleanParams = {};
-          }
-        }
-
-        languageClient.sendNotification(method, cleanParams);
+        languageClient.sendNotification(method, params);
 
         if (isDidOpen) {
           const uri = params?.textDocument?.uri || 'unknown';
@@ -684,9 +714,7 @@ async function createWebLanguageClient(
       return disposable;
     },
     isDisposed: () => !languageClient.isRunning(),
-    dispose: () => {
-      languageClient.stop();
-    },
+    dispose: () => languageClient.stop(),
   } as ClientInterface;
 
   // Initialize ApexLib for standard library support
@@ -779,7 +807,7 @@ async function createWebLanguageClient(
 
   let initParams: InitializeParams;
   try {
-    initParams = createInitializeParams(context, environment, serverMode);
+    initParams = await createInitializeParams(context, environment, serverMode);
     logToOutputChannel(
       'Initialization parameters created successfully',
       'debug',
@@ -834,7 +862,7 @@ async function createDesktopLanguageClient(
   // Create server and client options
   const serverOptions = createServerOptions(context, serverMode);
   const clientOptions = createClientOptions(
-    createEnhancedInitializationOptions(context, environment, serverMode),
+    await createEnhancedInitializationOptions(context, environment, serverMode),
   );
 
   logToOutputChannel(
@@ -1226,10 +1254,9 @@ export async function restartLanguageServer(
  */
 export async function stopLanguageServer(): Promise<void> {
   logToOutputChannel('🛑 Stopping Apex Language Server...', 'info');
-
   if (Client) {
     try {
-      Client.dispose();
+      await Client.dispose();
       Client = undefined;
       LanguageClientInstance = undefined;
       logToOutputChannel('✅ Language server stopped', 'info');
@@ -1241,7 +1268,7 @@ export async function stopLanguageServer(): Promise<void> {
     }
   }
 
-  updateApexServerStatusError();
+  updateApexServerStatusStopped();
 }
 
 /**

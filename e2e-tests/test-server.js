@@ -135,6 +135,13 @@ async function startTestServer() {
       printServerLog: true,
       verbose: true,
       coi: true, // Cross-origin isolation for SharedArrayBuffer support
+      ...(process.argv.includes('--with-services')
+        ? {
+            extensionIds: [
+              { id: 'salesforce.salesforcedx-vscode-services' },
+            ],
+          }
+        : {}),
       // Don't run any tests, just keep server running
       extensionTestsPath: undefined,
       port: 3000, // Fixed port for Playwright

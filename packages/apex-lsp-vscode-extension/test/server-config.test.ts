@@ -52,6 +52,7 @@ jest.mock('../src/logging', () => ({
   getWorkerServerOutputChannel: jest.fn().mockReturnValue({
     appendLine: jest.fn(),
   }),
+  createSafeOutputChannel: jest.fn().mockImplementation((ch: any) => ch),
   getOutputChannel: jest.fn().mockReturnValue({
     appendLine: jest.fn(),
   }),
@@ -209,11 +210,11 @@ describe('Server Config Module', () => {
       expect(getRunModule(serverOptions)).toBe(
         path.join('/mock', 'apex-ls', 'out', 'node', 'server.node.js'),
       );
-      expect(getRunTransport(serverOptions)).toBe('ipc');
+      expect(getRunTransport(serverOptions)).toBe('stdio');
       expect(getDebugModule(serverOptions)).toBe(
         path.join('/mock', 'apex-ls', 'out', 'node', 'server.node.js'),
       );
-      expect(getDebugTransport(serverOptions)).toBe('ipc');
+      expect(getDebugTransport(serverOptions)).toBe('stdio');
     });
 
     it('should use bundled files when APEX_LS_DEBUG_USE_INDIVIDUAL_FILES is false', () => {
