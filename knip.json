@@ -7,16 +7,8 @@
     "packages/apex-ls": {
       "entry": [
         "src/server.*.ts",
-        "src/index.browser.ts",
         "src/server.ts",
-        "src/server/webWorkerServer.ts",
-        "src/communication/BrowserClient.ts",
-        "src/communication/PlatformBridges.ts",
-        "src/launcher/WorkerLauncher.ts",
-        "src/server/NodeConnectionFactory.ts",
-        "src/server/UnifiedConnectionFactory.ts",
-        "src/storage/IndexedDBStorage.ts",
-        "src/utils/WorkerLogNotificationHandler.ts"
+        "src/server/webWorkerServer.ts"
       ],
       "ignoreDependencies": [
         "assert",

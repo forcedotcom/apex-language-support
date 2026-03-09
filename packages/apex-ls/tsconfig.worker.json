@@ -22,8 +22,6 @@
     "src/**/*.node.ts"
   ],
   "exclude": [
-    "src/index.ts",
-    "src/server/index.node.ts",
     "node_modules",
     "out",
     "dist",

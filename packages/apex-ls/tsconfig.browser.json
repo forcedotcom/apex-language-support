@@ -16,19 +16,12 @@
     "tsBuildInfoFile": "./out/browser/.tsbuildinfo"
   },
   "include": [
-    "src/index.browser.ts",
-    "src/storage/StorageImplementations.ts",
-    "src/storage/StorageFactory.ts",
-    "src/utils/BrowserLogNotificationHandler.ts",
     "src/utils/EnvironmentUtils.ts",
     "src/types/**/*.ts"
   ],
   "exclude": [
     "src/**/*.node.ts",
     "src/**/*.worker.ts",
-    "src/worker.ts",
-    "src/index.ts",
-    "src/utils/WorkerLogNotificationHandler.ts",
     "node_modules",
     "out",
     "dist",
