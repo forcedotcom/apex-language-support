@@ -3,4 +3,8 @@
  */
 global class NlpResponse {
 
+  public industriesNlpSvc.NlpSummarizationResult summarizationResult;
+
+  public List<String> errors;
+
 }

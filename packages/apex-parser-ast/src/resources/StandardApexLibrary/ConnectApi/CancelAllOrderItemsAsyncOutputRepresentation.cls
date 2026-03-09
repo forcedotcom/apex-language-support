@@ -1,7 +1,7 @@
 /**
  * ID of the asynchronous background operation.
  */
-global class CancelAllOrderItemsAsyncOutputRepresentation {
+global class CancelAllOrderItemsAsyncOutputRepresentation extends ConnectApi.BaseAsyncOutputRepresentation {
 
   /**
    * ID of the background operation.

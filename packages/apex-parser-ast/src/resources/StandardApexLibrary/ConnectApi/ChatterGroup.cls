@@ -1,7 +1,7 @@
 /**
  * Chatter group.
  */
-global class ChatterGroup {
+global class ChatterGroup extends ConnectApi.ActorWithId {
 
   /**
    * An extra label for the group, for example, “Archived,” “Private,” or “Private With Customers.” If there isn’t an extra label, the value is null .

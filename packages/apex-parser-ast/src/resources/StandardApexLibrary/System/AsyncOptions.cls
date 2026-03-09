@@ -3,4 +3,10 @@
  */
 global class AsyncOptions {
 
+  global QueueableDuplicateSignature Class DuplicateSignature;
+
+  global Integer MaximumQueueableStackDepth;
+
+  global Integer MinimumQueueableDelayInMinutes;
+
 }

@@ -1,6 +1,6 @@
 /**
  * A file summary.
  */
-global class FileSummary {
+global class FileSummary extends ConnectApi.File {
 
 }

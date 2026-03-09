@@ -1,7 +1,7 @@
 /**
  * User feed entity activity summary.
  */
-global class UserFeedEntityActivitySummary {
+global class UserFeedEntityActivitySummary extends ConnectApi.UserActivitySummary {
 
   /**
    * ID of the feed entity.

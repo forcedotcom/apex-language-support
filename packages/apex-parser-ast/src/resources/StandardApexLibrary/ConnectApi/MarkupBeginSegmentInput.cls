@@ -1,7 +1,7 @@
 /**
  * The beginning tag for rich text markup.
  */
-global class MarkupBeginSegmentInput {
+global class MarkupBeginSegmentInput extends ConnectApi.MessageSegmentInput {
 
   /**
    * Alternative text for the Hyperlink segment.

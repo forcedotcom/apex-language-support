@@ -1,6 +1,6 @@
 /**
  * Sale gateway response.
  */
-global class SaleGatewayResponse {
+global class SaleGatewayResponse extends ConnectApi.AbstractGatewayResponse {
 
 }

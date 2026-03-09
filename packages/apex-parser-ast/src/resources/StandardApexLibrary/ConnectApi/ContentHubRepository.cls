@@ -1,7 +1,7 @@
 /**
  * A repository.
  */
-global class ContentHubRepository {
+global class ContentHubRepository extends ConnectApi.ActorWithId {
 
   /**
    * Repository authentication information.

@@ -1,7 +1,7 @@
 /**
  * A feed item summary.
  */
-global class FeedItemSummary {
+global class FeedItemSummary extends ConnectApi.FeedEntitySummary {
 
   /**
    * Container for all capabilities that can be included with a feed item.

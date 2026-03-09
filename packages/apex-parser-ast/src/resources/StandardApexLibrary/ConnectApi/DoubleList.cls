@@ -1,7 +1,7 @@
 /**
  * List of double values.
  */
-global class DoubleList {
+global class DoubleList extends ConnectApi.AbstractList {
 
   /**
    * List of Double values to filter on.

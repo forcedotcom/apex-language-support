@@ -1,7 +1,7 @@
 /**
  * Mark feed elements as read by the context user.
  */
-global class ReadByCapabilityInput {
+global class ReadByCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
   /**
    * Specifies to mark the feed element as read ( true ) for the context user.

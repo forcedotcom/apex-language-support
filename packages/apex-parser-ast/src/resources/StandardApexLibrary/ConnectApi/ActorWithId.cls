@@ -1,7 +1,7 @@
 /**
  * Actor with ID.
  */
-global class ActorWithId {
+global class ActorWithId extends ConnectApi.Actor {
 
   /**
    * Actor’s 18-character ID

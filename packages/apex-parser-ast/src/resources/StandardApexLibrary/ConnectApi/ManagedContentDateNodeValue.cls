@@ -1,7 +1,7 @@
 /**
  * Managed content node of date type.
  */
-global class ManagedContentDateNodeValue {
+global class ManagedContentDateNodeValue extends ConnectApi.ManagedContentNodeValue {
 
   /**
    * Date value of the managed content node.

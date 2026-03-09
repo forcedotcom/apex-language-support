@@ -1,7 +1,7 @@
 /**
  * Base Order Management async output class.
  */
-global class BaseAsyncOutputRepresentation {
+global class BaseAsyncOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
   /**
    * ID of the background operation.

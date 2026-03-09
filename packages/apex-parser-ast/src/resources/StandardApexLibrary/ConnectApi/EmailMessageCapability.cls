@@ -1,7 +1,7 @@
 /**
  * If a feed element has this capability, it has an email message from a case.
  */
-global class EmailMessageCapability {
+global class EmailMessageCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * Attachments in the email message.

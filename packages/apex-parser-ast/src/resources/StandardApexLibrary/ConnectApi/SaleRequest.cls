@@ -1,7 +1,7 @@
 /**
  * Payment sale input consumed by the payment sale service.
  */
-global class SaleRequest {
+global class SaleRequest extends ConnectApi.BaseRequest {
 
   /**
    * Reference to account.

@@ -1,6 +1,6 @@
 /**
  * Summary of a downvote.
  */
-global class DownVoteSummary {
+global class DownVoteSummary extends ConnectApi.UserFeedEntityActivitySummary {
 
 }

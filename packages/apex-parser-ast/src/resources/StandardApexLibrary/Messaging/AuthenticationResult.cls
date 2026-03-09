@@ -3,4 +3,10 @@
  */
 global class AuthenticationResult {
 
+  global InboundEmail.AuthenticationResultField authenticationResultFields;
+
+  global String method;
+
+  global String result;
+
 }

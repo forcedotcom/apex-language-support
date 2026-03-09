@@ -1,7 +1,7 @@
 /**
  * Managed content reference.
  */
-global class ManagedContentReference {
+global class ManagedContentReference extends ConnectApi.AbstractManagedContentReference {
 
   /**
    * Map of properties of the managed content reference with their values.

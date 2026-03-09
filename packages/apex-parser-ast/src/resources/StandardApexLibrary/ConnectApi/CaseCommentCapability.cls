@@ -1,7 +1,7 @@
 /**
  * If a feed element has this capability, it has a case comment on the case feed.
  */
-global class CaseCommentCapability {
+global class CaseCommentCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * Specifies the type of user who made the comment.

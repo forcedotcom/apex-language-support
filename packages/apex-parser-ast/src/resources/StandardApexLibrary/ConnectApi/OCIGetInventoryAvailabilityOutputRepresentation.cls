@@ -1,7 +1,7 @@
 /**
  * Response to a request for inventory availability data.
  */
-global class OCIGetInventoryAvailabilityOutputRepresentation {
+global class OCIGetInventoryAvailabilityOutputRepresentation extends ConnectApi.OCIBaseOutputRepresentation {
 
   /**
    * A list of inventory availability data for individual location groups.

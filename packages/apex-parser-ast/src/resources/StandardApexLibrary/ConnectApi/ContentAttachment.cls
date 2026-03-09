@@ -1,7 +1,7 @@
 /**
  * Attachments in feed items with the type ContentPost .
  */
-global class ContentAttachment {
+global class ContentAttachment extends ConnectApi.FeedItemAttachment {
 
   /**
    * MD5 checksum for the file.

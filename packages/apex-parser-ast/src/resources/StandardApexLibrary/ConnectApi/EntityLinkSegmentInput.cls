@@ -1,7 +1,7 @@
 /**
  * An entity link segment.
  */
-global class EntityLinkSegmentInput {
+global class EntityLinkSegmentInput extends ConnectApi.MessageSegmentInput {
 
   /**
    * ID of the entity to link to. Only users with access to the entity see it. It’s hidden for users without access.

@@ -1,6 +1,6 @@
 /**
  * Message body.
  */
-global class MessageBody {
+global class MessageBody extends ConnectApi.AbstractMessageBody {
 
 }

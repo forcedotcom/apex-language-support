@@ -1,7 +1,7 @@
 /**
  * ID of the created ReturnOrder.
  */
-global class ReturnOrderOutputRepresentation {
+global class ReturnOrderOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
   /**
    * ID of the created ReturnOrder.

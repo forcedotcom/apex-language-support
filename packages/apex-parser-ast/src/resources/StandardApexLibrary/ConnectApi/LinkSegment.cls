@@ -1,7 +1,7 @@
 /**
  * Link segment.
  */
-global class LinkSegment {
+global class LinkSegment extends ConnectApi.MessageSegment {
 
   /**
    * The link URL.

@@ -1,7 +1,7 @@
 /**
  * A recommended flow.
  */
-global class NBAFlowAction {
+global class NBAFlowAction extends ConnectApi.AbstractNBAAction {
 
   /**
    * Label of the recommended flow.

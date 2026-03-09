@@ -1,7 +1,7 @@
 /**
  * Payment method request for sale.
  */
-global class SaleApiPaymentMethodRequest {
+global class SaleApiPaymentMethodRequest extends ConnectApi.BaseApiPaymentMethodRequest {
 
   /**
    * Payment method used in a sale request.

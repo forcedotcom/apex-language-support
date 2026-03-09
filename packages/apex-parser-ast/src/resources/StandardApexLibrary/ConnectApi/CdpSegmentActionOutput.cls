@@ -1,7 +1,7 @@
 /**
  * Segment action.
  */
-global class CdpSegmentActionOutput {
+global class CdpSegmentActionOutput extends ConnectApi.CdpActionResponse {
 
   /**
    * Error code associated with the action, if any.

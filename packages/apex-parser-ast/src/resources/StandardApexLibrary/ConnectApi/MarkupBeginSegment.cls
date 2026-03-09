@@ -1,7 +1,7 @@
 /**
  * The beginning of rich text markup.
  */
-global class MarkupBeginSegment {
+global class MarkupBeginSegment extends ConnectApi.MessageSegment {
 
   /**
    * Alternative text for the segment, if available.

@@ -1,7 +1,7 @@
 /**
  * ID of the change order created for a cancel action, and a set of its financial values.
  */
-global class SubmitCancelOutputRepresentation {
+global class SubmitCancelOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
   /**
    * Financial values resulting from the cancel.

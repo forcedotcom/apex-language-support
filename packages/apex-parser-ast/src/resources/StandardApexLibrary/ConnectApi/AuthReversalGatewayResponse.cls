@@ -1,6 +1,6 @@
 /**
  * Authorization Reversal Gateway Response Representation.
  */
-global class AuthReversalGatewayResponse {
+global class AuthReversalGatewayResponse extends ConnectApi.AbstractGatewayResponse {
 
 }

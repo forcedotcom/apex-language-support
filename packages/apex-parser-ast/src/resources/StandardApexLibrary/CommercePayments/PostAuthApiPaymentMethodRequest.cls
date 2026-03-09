@@ -3,4 +3,10 @@
  */
 global class PostAuthApiPaymentMethodRequest {
 
+  global PostAuthApiPaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) {}
+
+  global commercepayments.CardPaymentMethodRequest cardPaymentMethod;
+
+  global commercepayments.AlternativePaymentMethodRequest PaymentMethod;
+
 }

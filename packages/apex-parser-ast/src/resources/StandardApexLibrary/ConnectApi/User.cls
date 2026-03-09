@@ -1,7 +1,7 @@
 /**
  * User.
  */
-global class User {
+global class User extends ConnectApi.ActionWithId {
 
   /**
    * If one exists, an extra label for the user, for example, “Customer,” “Partner,” or “Acme Corporation.”

@@ -1,6 +1,6 @@
 /**
  * Field change segment.
  */
-global class FieldChangeSegment {
+global class FieldChangeSegment extends ConnectApi.ComplexSegment {
 
 }

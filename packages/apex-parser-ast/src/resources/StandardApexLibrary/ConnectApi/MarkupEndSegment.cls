@@ -1,7 +1,7 @@
 /**
  * The end of rich text markup.
  */
-global class MarkupEndSegment {
+global class MarkupEndSegment extends ConnectApi.MessageSegment {
 
   /**
    * The HTML tag for this markup.

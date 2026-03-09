@@ -1,7 +1,7 @@
 /**
  * If a feed element has this capability, the context user can mark it as read.
  */
-global class ReadByCapability {
+global class ReadByCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * Specifies whether the feed element has been read ( true ) or not ( false ) by the context user.

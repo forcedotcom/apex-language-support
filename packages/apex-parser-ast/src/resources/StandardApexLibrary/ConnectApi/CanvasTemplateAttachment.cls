@@ -1,7 +1,7 @@
 /**
  * Attachments in feed items with type CanvasPost .
  */
-global class CanvasTemplateAttachment {
+global class CanvasTemplateAttachment extends ConnectApi.FeedItemAttachment {
 
   /**
    * Optional. Description of the canvas app. The maximum length of this field is 500 characters.

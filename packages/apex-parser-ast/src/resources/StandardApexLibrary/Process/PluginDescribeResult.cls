@@ -3,4 +3,12 @@
  */
 global class PluginDescribeResult {
 
+  global String description;
+
+  global List inputParameters;
+
+  global String name;
+
+  global List outputParameters;
+
 }

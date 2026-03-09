@@ -1,7 +1,7 @@
 /**
  * Expected financial values for a proposed return action.
  */
-global class PreviewReturnOutputRepresentation {
+global class PreviewReturnOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
   /**
    * Expected financial values for the proposed return action.

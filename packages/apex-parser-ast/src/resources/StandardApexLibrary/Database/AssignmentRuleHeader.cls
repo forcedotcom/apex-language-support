@@ -3,4 +3,8 @@
  */
 global class AssignmentRuleHeader {
 
+  global ID assignmentRuleID;
+
+  global Boolean useDefaultRule;
+
 }

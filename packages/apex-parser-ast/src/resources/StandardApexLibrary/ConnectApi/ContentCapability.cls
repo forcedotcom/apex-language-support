@@ -1,7 +1,7 @@
 /**
  * If a comment has this capability, it has a file attachment.
  */
-global class ContentCapability {
+global class ContentCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * MD5 checksum for the file.

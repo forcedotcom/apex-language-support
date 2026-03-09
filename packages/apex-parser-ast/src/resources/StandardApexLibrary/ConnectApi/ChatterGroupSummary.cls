@@ -1,7 +1,7 @@
 /**
  * Chatter group summary.
  */
-global class ChatterGroupSummary {
+global class ChatterGroupSummary extends ConnectApi.ChatterGroup {
 
   /**
    * The number of files posted to the group.

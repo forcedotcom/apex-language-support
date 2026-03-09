@@ -3,4 +3,8 @@
  */
 global class TableSelection {
 
+  global DataSource.Filter filter;
+
+  global String tableSelected;
+
 }

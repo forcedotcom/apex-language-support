@@ -1,7 +1,7 @@
 /**
  * Criteria for the custom list type of custom recommendation audience.
  */
-global class CustomListAudienceCriteriaInput {
+global class CustomListAudienceCriteriaInput extends ConnectApi.AudienceCriteriaInput {
 
   /**
    * The operation to carry out on the audience members. Values are: Add —Adds specified members to the audience. Remove —Removes specified members from the audience.

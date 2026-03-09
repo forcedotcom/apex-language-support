@@ -1,7 +1,7 @@
 /**
  * Managed content node of media type.
  */
-global class ManagedContentMediaNodeValue {
+global class ManagedContentMediaNodeValue extends ConnectApi.ManagedContentNodeValue {
 
   /**
    * Alternative text for the managed content node.

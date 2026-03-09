@@ -1,7 +1,7 @@
 /**
  * Authorization reversal input consumed by authorization reversal service.
  */
-global class AuthorizationReversalRequest {
+global class AuthorizationReversalRequest extends ConnectApi.BaseRequest {
 
   /**
    * Account for the payment authorization reversal. Must match the payment authorization's account.

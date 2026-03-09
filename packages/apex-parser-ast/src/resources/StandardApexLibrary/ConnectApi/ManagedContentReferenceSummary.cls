@@ -1,7 +1,7 @@
 /**
  * Summary of the managed content reference.
  */
-global class ManagedContentReferenceSummary {
+global class ManagedContentReferenceSummary extends ConnectApi.AbstractManagedContentReference {
 
   /**
    * Title of the managed content reference.

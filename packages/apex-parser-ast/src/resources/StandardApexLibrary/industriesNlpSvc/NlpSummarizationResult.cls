@@ -3,4 +3,6 @@
  */
 global class NlpSummarizationResult {
 
+  public String summary;
+
 }

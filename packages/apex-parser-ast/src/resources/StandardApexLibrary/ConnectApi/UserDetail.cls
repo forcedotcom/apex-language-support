@@ -1,7 +1,7 @@
 /**
  * Details about a user in an org.
  */
-global class UserDetail {
+global class UserDetail extends ConnectApi.User {
 
   /**
    * Text from user's profile.

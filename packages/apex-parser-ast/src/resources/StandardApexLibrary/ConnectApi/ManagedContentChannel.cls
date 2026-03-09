@@ -1,7 +1,7 @@
 /**
  * Managed content channel.
  */
-global class ManagedContentChannel {
+global class ManagedContentChannel extends ConnectApi.AbstractManagedContentChannelRepresentation {
 
   /**
    * HTTP cache control max age response header for content delivered from the channel.

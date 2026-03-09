@@ -1,6 +1,6 @@
 /**
  * Record field containing a currency value.
  */
-global class CurrencyRecordField {
+global class CurrencyRecordField extends ConnectApi.LabeledRecordField {
 
 }

@@ -1,7 +1,7 @@
 /**
  * A related question.
  */
-global class RelatedQuestion {
+global class RelatedQuestion extends ConnectApi.RelatedFeedPost {
 
   /**
    * Indicates whether the question has a best answer.

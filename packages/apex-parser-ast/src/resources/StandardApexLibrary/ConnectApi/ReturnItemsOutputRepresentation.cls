@@ -1,7 +1,7 @@
 /**
  * Output of Return Items. Includes the ID of the generated change order for items and delivery charges being returned, as well as the ID of the generated change order for any charged return fees. Also includes information about any ReturnOrderLineItems that were created to represent remaining return quantities.
  */
-global class ReturnItemsOutputRepresentation {
+global class ReturnItemsOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
   /**
    * ID of the change order created by processing the ReturnOrderLineItems representing returned items and delivery charges. Use this change order to create a credit memo.

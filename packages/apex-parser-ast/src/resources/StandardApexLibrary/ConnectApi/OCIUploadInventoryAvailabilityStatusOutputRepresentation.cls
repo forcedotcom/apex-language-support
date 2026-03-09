@@ -1,7 +1,7 @@
 /**
  * Detailed status of an upload inventory availability job.
  */
-global class OCIUploadInventoryAvailabilityStatusOutputRepresentation {
+global class OCIUploadInventoryAvailabilityStatusOutputRepresentation extends ConnectApi.OCIBaseOutputRepresentation {
 
   /**
    * The UTC time when the job finished. (for example: "2020-07-06T22:54:08.012Z")

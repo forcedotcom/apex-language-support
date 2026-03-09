@@ -1,6 +1,6 @@
 /**
  * Refund gateway response.
  */
-global class RefundGatewayResponse {
+global class RefundGatewayResponse extends ConnectApi.AbstractGatewayResponse {
 
 }

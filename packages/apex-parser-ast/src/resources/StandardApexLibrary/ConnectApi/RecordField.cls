@@ -1,6 +1,6 @@
 /**
  * Generic record field containing a label and text value.
  */
-global class RecordField {
+global class RecordField extends ConnectApi.LabeledRecordField {
 
 }

@@ -1,7 +1,7 @@
 /**
  * Managed content in delivery scope.
  */
-global class ManagedContentDeliveryDocument {
+global class ManagedContentDeliveryDocument extends ConnectApi.AbstractManagedContentDeliveryDocument {
 
   /**
    * Information about the managed content channel.

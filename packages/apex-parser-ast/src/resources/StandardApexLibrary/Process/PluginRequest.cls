@@ -3,4 +3,6 @@
  */
 global class PluginRequest {
 
+  global Map inputParameters;
+
 }

@@ -1,7 +1,7 @@
 /**
  * Attachments in feed items with type CaseCommentPost .
  */
-global class CaseComment {
+global class CaseComment extends ConnectApi.FeedItemAttachment {
 
   /**
    * Type of user who made the comment. Customer —if a Chatter customer made the comment CustomerService —if a service representative made the comment

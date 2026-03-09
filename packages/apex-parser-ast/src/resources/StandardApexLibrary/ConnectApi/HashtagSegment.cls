@@ -1,7 +1,7 @@
 /**
  * Hashtag segment.
  */
-global class HashtagSegment {
+global class HashtagSegment extends ConnectApi.MessageSegment {
 
   /**
    * Text of the topic without the hash symbol (#).

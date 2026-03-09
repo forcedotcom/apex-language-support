@@ -1,6 +1,6 @@
 /**
  * Response of the calculated insight run action.
  */
-global class CdpCalculatedInsightStandardActionResponseRepresentation {
+global class CdpCalculatedInsightStandardActionResponseRepresentation extends ConnectApi.CdpActionResponse {
 
 }

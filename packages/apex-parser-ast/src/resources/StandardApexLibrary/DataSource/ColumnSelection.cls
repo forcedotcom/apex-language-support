@@ -3,4 +3,10 @@
  */
 global class ColumnSelection {
 
+  global DataSource.QueryAggregation aggregation;
+
+  global String columnName;
+
+  global String tableName;
+
 }

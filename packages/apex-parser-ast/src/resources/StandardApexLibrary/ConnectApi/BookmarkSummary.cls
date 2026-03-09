@@ -1,6 +1,6 @@
 /**
  * Summary of a bookmark.
  */
-global class BookmarkSummary {
+global class BookmarkSummary extends ConnectApi.UserFeedEntityActivitySummary {
 
 }

@@ -1,7 +1,7 @@
 /**
  * If a comment has this capability, users with permission can mark it as verified or unverified.
  */
-global class VerifiedCapability {
+global class VerifiedCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * Specifies whether the context user has permission to mark comments as verified or unverified ( true ) or not ( false ).

@@ -85,7 +85,8 @@ const generateClassContent = (apexClass: ApexClass): string => {
     lines.push(" */");
   }
 
-  lines.push(`global ${keyword} ${apexClass.name} {`);
+  const extendsClause = apexClass.superClass ? ` extends ${apexClass.superClass}` : "";
+  lines.push(`global ${keyword} ${apexClass.name}${extendsClause} {`);
   lines.push("");
 
   for (const ctor of apexClass.constructors ?? []) {

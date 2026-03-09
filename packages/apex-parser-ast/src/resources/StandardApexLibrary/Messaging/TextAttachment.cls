@@ -3,4 +3,16 @@
  */
 global class TextAttachment {
 
+  global String body;
+
+  global Boolean bodyIsTruncated;
+
+  global String charset;
+
+  global String fileName;
+
+  global List headers;
+
+  global String mimeTypeSubType;
+
 }

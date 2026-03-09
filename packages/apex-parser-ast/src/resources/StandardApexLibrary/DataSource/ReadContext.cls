@@ -3,4 +3,8 @@
  */
 global class ReadContext {
 
+  global Integer maxResults;
+
+  global Integer offset;
+
 }

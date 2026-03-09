@@ -1,7 +1,7 @@
 /**
  * Lightning extension information.
  */
-global class LightningExtensionInformation {
+global class LightningExtensionInformation extends ConnectApi.AbstractExtensionInformation {
 
   /**
    * Component to use in compose state.

@@ -1,6 +1,6 @@
 /**
  * Unauthenticated user.
  */
-global class UnauthenticatedUser {
+global class UnauthenticatedUser extends ConnectApi.Actor {
 
 }

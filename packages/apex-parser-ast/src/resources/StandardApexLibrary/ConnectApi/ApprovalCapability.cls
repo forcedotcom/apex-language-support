@@ -1,7 +1,7 @@
 /**
  * If a feed element has this capability, it includes information about an approval.
  */
-global class ApprovalCapability {
+global class ApprovalCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * The work item ID. The work item ID is null if there isn’t a pending work item associated with the approval record.

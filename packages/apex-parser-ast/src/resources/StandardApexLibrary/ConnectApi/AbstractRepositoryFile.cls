@@ -1,7 +1,7 @@
 /**
  * A repository file.
  */
-global class AbstractRepositoryFile {
+global class AbstractRepositoryFile extends ConnectApi.AbstractRepositoryItem {
 
   /**
    * Checkin comment of the file.

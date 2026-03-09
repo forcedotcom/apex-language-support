@@ -1,7 +1,7 @@
 /**
  * Detailed status of a publish location structure job.
  */
-global class OCIPublishLocationStructureStatusOutputRepresentation {
+global class OCIPublishLocationStructureStatusOutputRepresentation extends ConnectApi.OCIBaseOutputRepresentation {
 
   /**
    * The UTC time when the job finished. (for example: "2020-07-06T22:54:08.012Z")

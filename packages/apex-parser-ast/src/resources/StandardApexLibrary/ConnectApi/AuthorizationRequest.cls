@@ -1,7 +1,7 @@
 /**
  * Payment Authorization input consumed by the Payment Authorization service.
  */
-global class AuthorizationRequest {
+global class AuthorizationRequest extends ConnectApi.BaseRequest {
 
   /**
    * Salesforce account that contains the payment transaction being authorized.

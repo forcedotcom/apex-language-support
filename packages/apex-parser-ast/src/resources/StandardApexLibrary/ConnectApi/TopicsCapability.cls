@@ -1,7 +1,7 @@
 /**
  * If a feed element has this capability, the context user can add topics to it. Topics help users organize and discover conversations.
  */
-global class TopicsCapability {
+global class TopicsCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * true if a topic can be assigned to the feed element, false otherwise.

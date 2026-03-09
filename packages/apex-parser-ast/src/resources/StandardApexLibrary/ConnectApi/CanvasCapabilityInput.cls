@@ -1,7 +1,7 @@
 /**
  * Create or update a canvas app associated with a feed element.
  */
-global class CanvasCapabilityInput {
+global class CanvasCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
   /**
    * A description of the canvas app. The maximum size is 255 characters.

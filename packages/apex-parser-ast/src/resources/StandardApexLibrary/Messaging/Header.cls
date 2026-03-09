@@ -3,4 +3,8 @@
  */
 global class Header {
 
+  global String name;
+
+  global String value;
+
 }

@@ -1,7 +1,7 @@
 /**
  * Used to create rich feed items, for example, feed items that include @mentions or files.
  */
-global class FeedItemInput {
+global class FeedItemInput extends ConnectApi.FeedElementInput {
 
   /**
    * Specifies the attachment for the feed item. The feed item type is inferred based on the provided attachment. Important As of API version 32.0, use the inherited capabilities property.

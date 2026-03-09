@@ -3,4 +3,14 @@
  */
 global class AuditParamsRequest {
 
+  global AuditParamsRequest(String email, String macAddress, String ipAddress, String phone) {}
+
+  global String email;
+
+  global String ipAddress;
+
+  global String macAddress;
+
+  global String phone;
+
 }

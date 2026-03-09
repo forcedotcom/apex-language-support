@@ -3,42 +3,6 @@
 exports[`Empty stub snapshot — known stubs with no members matches the accepted list of empty stubs across all namespaces 1`] = `
 [
   {
-    "className": "Component",
-    "namespace": "ApexPages",
-  },
-  {
-    "className": "ChangePasswordController",
-    "namespace": "AppLauncher",
-  },
-  {
-    "className": "CommunityLogoController",
-    "namespace": "AppLauncher",
-  },
-  {
-    "className": "EmployeeLoginLinkController",
-    "namespace": "AppLauncher",
-  },
-  {
-    "className": "ForgotPasswordController",
-    "namespace": "AppLauncher",
-  },
-  {
-    "className": "IdentityHeaderController",
-    "namespace": "AppLauncher",
-  },
-  {
-    "className": "LoginFormController",
-    "namespace": "AppLauncher",
-  },
-  {
-    "className": "SelfRegisterController",
-    "namespace": "AppLauncher",
-  },
-  {
-    "className": "SocialLoginController",
-    "namespace": "AppLauncher",
-  },
-  {
     "className": "AuthProviderPluginException",
     "namespace": "Auth",
   },
@@ -87,55 +51,11 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "Cache",
   },
   {
-    "className": "ApplicationContext",
-    "namespace": "Canvas",
-  },
-  {
-    "className": "CanvasLifecycleHandler",
-    "namespace": "Canvas",
-  },
-  {
     "className": "CanvasRenderException",
     "namespace": "Canvas",
   },
   {
-    "className": "EnvironmentContext",
-    "namespace": "Canvas",
-  },
-  {
-    "className": "RenderContext",
-    "namespace": "Canvas",
-  },
-  {
-    "className": "Test",
-    "namespace": "Canvas",
-  },
-  {
-    "className": "AuditParamsRequest",
-    "namespace": "CommercePayments",
-  },
-  {
-    "className": "CaptureRequest",
-    "namespace": "CommercePayments",
-  },
-  {
     "className": "GatewayResponse",
-    "namespace": "CommercePayments",
-  },
-  {
-    "className": "PostAuthApiPaymentMethodRequest",
-    "namespace": "CommercePayments",
-  },
-  {
-    "className": "PostAuthorizationRequest",
-    "namespace": "CommercePayments",
-  },
-  {
-    "className": "PostAuthorizationResponse",
-    "namespace": "CommercePayments",
-  },
-  {
-    "className": "ReferencedRefundRequest",
     "namespace": "CommercePayments",
   },
   {
@@ -176,10 +96,6 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
   },
   {
     "className": "BatchInput",
-    "namespace": "ConnectApi",
-  },
-  {
-    "className": "BatchResult",
     "namespace": "ConnectApi",
   },
   {
@@ -343,10 +259,6 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "ConnectApi",
   },
   {
-    "className": "Omsanalytics",
-    "namespace": "ConnectApi",
-  },
-  {
     "className": "PickTicket",
     "namespace": "ConnectApi",
   },
@@ -427,60 +339,12 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "ConnectApi",
   },
   {
-    "className": "ColumnSelection",
-    "namespace": "DataSource",
-  },
-  {
-    "className": "ConnectionParams",
-    "namespace": "DataSource",
-  },
-  {
     "className": "DataSourceException",
-    "namespace": "DataSource",
-  },
-  {
-    "className": "DeleteContext",
-    "namespace": "DataSource",
-  },
-  {
-    "className": "Filter",
     "namespace": "DataSource",
   },
   {
     "className": "OAuthTokenExpiredException",
     "namespace": "DataSource",
-  },
-  {
-    "className": "ReadContext",
-    "namespace": "DataSource",
-  },
-  {
-    "className": "TableSelection",
-    "namespace": "DataSource",
-  },
-  {
-    "className": "UpsertContext",
-    "namespace": "DataSource",
-  },
-  {
-    "className": "AssignmentRuleHeader",
-    "namespace": "Database",
-  },
-  {
-    "className": "DMLOptions",
-    "namespace": "Database",
-  },
-  {
-    "className": "DuplicateRuleHeader",
-    "namespace": "Database",
-  },
-  {
-    "className": "EmailHeader",
-    "namespace": "Database",
-  },
-  {
-    "className": "ChangeEventHeader",
-    "namespace": "EventBus",
   },
   {
     "className": "GetAppointmentCandidatesInput",
@@ -499,107 +363,11 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "LxScheduler",
   },
   {
-    "className": "AuthenticationResult",
-    "namespace": "Messaging",
-  },
-  {
-    "className": "AuthenticationResultField",
-    "namespace": "Messaging",
-  },
-  {
-    "className": "BinaryAttachment",
-    "namespace": "Messaging",
-  },
-  {
-    "className": "EmailFileAttachment",
-    "namespace": "Messaging",
-  },
-  {
-    "className": "Header",
-    "namespace": "Messaging",
-  },
-  {
-    "className": "InboundEmail",
-    "namespace": "Messaging",
-  },
-  {
-    "className": "InboundEmailResult",
-    "namespace": "Messaging",
-  },
-  {
-    "className": "InboundEnvelope",
-    "namespace": "Messaging",
-  },
-  {
-    "className": "PushNotification",
-    "namespace": "Messaging",
-  },
-  {
-    "className": "PushNotificationPayload",
-    "namespace": "Messaging",
-  },
-  {
-    "className": "TextAttachment",
-    "namespace": "Messaging",
-  },
-  {
     "className": "ValidationResult",
     "namespace": "Pref_center",
   },
   {
-    "className": "InputParameter",
-    "namespace": "Process",
-  },
-  {
-    "className": "OutputParameter",
-    "namespace": "Process",
-  },
-  {
-    "className": "PluginDescribeResult",
-    "namespace": "Process",
-  },
-  {
-    "className": "PluginRequest",
-    "namespace": "Process",
-  },
-  {
-    "className": "PluginResult",
-    "namespace": "Process",
-  },
-  {
-    "className": "AggregateColumn",
-    "namespace": "Reports",
-  },
-  {
-    "className": "DetailColumn",
-    "namespace": "Reports",
-  },
-  {
-    "className": "Dimension",
-    "namespace": "Reports",
-  },
-  {
     "className": "FeatureNotSupportedException",
-    "namespace": "Reports",
-  },
-  {
-    "className": "FilterOperator",
-    "namespace": "Reports",
-  },
-  {
-    "className": "FilterValue",
-    "namespace": "Reports",
-  },
-  {
-    "className": "GroupingColumn",
-    "namespace": "Reports",
-  },
-  {
-    "className": "GroupingInfo",
-    "namespace": "Reports",
-  },
-  {
-    "className": "GroupingValue",
     "namespace": "Reports",
   },
   {
@@ -623,63 +391,7 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "Reports",
   },
   {
-    "className": "ReportCurrency",
-    "namespace": "Reports",
-  },
-  {
-    "className": "ReportDataCell",
-    "namespace": "Reports",
-  },
-  {
-    "className": "ReportDescribeResult",
-    "namespace": "Reports",
-  },
-  {
-    "className": "ReportDetailRow",
-    "namespace": "Reports",
-  },
-  {
-    "className": "ReportExtendedMetadata",
-    "namespace": "Reports",
-  },
-  {
-    "className": "ReportFact",
-    "namespace": "Reports",
-  },
-  {
-    "className": "ReportFactWithDetails",
-    "namespace": "Reports",
-  },
-  {
-    "className": "ReportInstance",
-    "namespace": "Reports",
-  },
-  {
-    "className": "ReportManager",
-    "namespace": "Reports",
-  },
-  {
-    "className": "ReportResults",
-    "namespace": "Reports",
-  },
-  {
     "className": "ReportRunException",
-    "namespace": "Reports",
-  },
-  {
-    "className": "ReportType",
-    "namespace": "Reports",
-  },
-  {
-    "className": "ReportTypeColumn",
-    "namespace": "Reports",
-  },
-  {
-    "className": "ReportTypeColumnCategory",
-    "namespace": "Reports",
-  },
-  {
-    "className": "SummaryValue",
     "namespace": "Reports",
   },
   {
@@ -691,10 +403,6 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "RichMessaging",
   },
   {
-    "className": "MessageDefinitionInputParameter",
-    "namespace": "RichMessaging",
-  },
-  {
     "className": "ProcessFormHandler",
     "namespace": "RichMessaging",
   },
@@ -703,24 +411,8 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "Schema",
   },
   {
-    "className": "ContentDownloadHandler",
-    "namespace": "Sfc",
-  },
-  {
-    "className": "IntegrationInfo",
-    "namespace": "Sfdc_Checkout",
-  },
-  {
-    "className": "IntegrationStatus",
-    "namespace": "Sfdc_Checkout",
-  },
-  {
     "className": "ExternalUserCreateException",
     "namespace": "Site",
-  },
-  {
-    "className": "MilestoneTriggerTimeCalculator",
-    "namespace": "Support",
   },
   {
     "className": "AssertException",
@@ -728,10 +420,6 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
   },
   {
     "className": "AsyncException",
-    "namespace": "System",
-  },
-  {
-    "className": "AsyncOptions",
     "namespace": "System",
   },
   {
@@ -847,15 +535,7 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "System",
   },
   {
-    "className": "PageReference",
-    "namespace": "System",
-  },
-  {
     "className": "QueryException",
-    "namespace": "System",
-  },
-  {
-    "className": "RestContext",
     "namespace": "System",
   },
   {
@@ -911,14 +591,6 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "TxnSecurity",
   },
   {
-    "className": "Event",
-    "namespace": "TxnSecurity",
-  },
-  {
-    "className": "TemplatesSearchOptions",
-    "namespace": "Wave",
-  },
-  {
     "className": "ComplexObjectFieldDetails",
     "namespace": "flowuiruntime",
   },
@@ -933,18 +605,6 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
   {
     "className": "FSCCashFlowUtil",
     "namespace": "fsccashflow",
-  },
-  {
-    "className": "NlpResponse",
-    "namespace": "industriesNlpSvc",
-  },
-  {
-    "className": "NlpSummarizationResult",
-    "namespace": "industriesNlpSvc",
-  },
-  {
-    "className": "DynamicMenuItem",
-    "namespace": "ise_bots_apex",
   },
   {
     "className": "FlowPerformanceSetupDetails",

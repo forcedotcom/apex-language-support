@@ -1,7 +1,7 @@
 /**
  * A Chatter, custom, or static recommendation.
  */
-global class EntityRecommendation {
+global class EntityRecommendation extends ConnectApi.AbstractRecommendation {
 
   /**
    * For user, file, group, topic, and record entity types, use this Connect REST URL with a POST request to take action on the recommendation. For ConnectApi.RecommendedObject entity types, such as custom recommendations, use the actionUrl property of the ConnectApi.PlatformAction to take action on the recommendation.

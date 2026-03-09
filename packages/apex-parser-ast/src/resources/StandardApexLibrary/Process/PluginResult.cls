@@ -3,4 +3,6 @@
  */
 global class PluginResult {
 
+  global Map outputParameters;
+
 }

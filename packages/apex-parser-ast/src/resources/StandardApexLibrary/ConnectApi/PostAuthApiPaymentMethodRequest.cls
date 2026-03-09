@@ -1,7 +1,7 @@
 /**
  * Payment method input for post authorization.
  */
-global class PostAuthApiPaymentMethodRequest {
+global class PostAuthApiPaymentMethodRequest extends ConnectApi.BaseApiPaymentMethodRequest {
 
   /**
    * Alternative payment method.

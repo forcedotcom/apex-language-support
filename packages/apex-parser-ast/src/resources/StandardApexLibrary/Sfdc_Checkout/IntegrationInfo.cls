@@ -3,4 +3,8 @@
  */
 global class IntegrationInfo {
 
+  global String integrationId;
+
+  global String jobId;
+
 }

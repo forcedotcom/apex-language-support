@@ -1,7 +1,7 @@
 /**
  * User summary.
  */
-global class UserSummary {
+global class UserSummary extends ConnectApi.User {
 
   /**
    * true if user is active; false otherwise.

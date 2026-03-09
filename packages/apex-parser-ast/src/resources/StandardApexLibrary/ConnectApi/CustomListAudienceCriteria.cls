@@ -1,7 +1,7 @@
 /**
  * Criteria for the custom list type of custom recommendation audience.
  */
-global class CustomListAudienceCriteria {
+global class CustomListAudienceCriteria extends ConnectApi.AudienceCriteria {
 
   /**
    * Total number of members in the custom recommendation audience.

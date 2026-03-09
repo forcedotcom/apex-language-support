@@ -1,7 +1,7 @@
 /**
  * If a feed element has this capability, it has a question and comments on the feed element are answers to the question.
  */
-global class QuestionAndAnswersCapability {
+global class QuestionAndAnswersCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * Comment selected as the best answer for the question.

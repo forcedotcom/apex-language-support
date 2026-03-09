@@ -1,7 +1,7 @@
 /**
  * ID of the created Order Payment Summary.
  */
-global class CreateOrderPaymentSummaryOutputRepresentation {
+global class CreateOrderPaymentSummaryOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
   /**
    * ID of the Order Payment Summary.

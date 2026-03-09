@@ -1,7 +1,7 @@
 /**
  * Details about a product.
  */
-global class ProductDetailsOutputRepresentation {
+global class ProductDetailsOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
   /**
    * List of variation attributes that define variations of the product.

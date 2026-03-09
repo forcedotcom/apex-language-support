@@ -1,7 +1,7 @@
 /**
  * Output representation of the financial changes for an adjust items action. For a preview action, these values are the expected output. For a submit action, these values are the actual output.
  */
-global class AdjustOrderSummaryOutputRepresentation {
+global class AdjustOrderSummaryOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
   /**
    * Expected (for preview) or actual (for submit) financial values for the price adjustment action. Most of the values match the change order values. If two change orders are returned, then these values combine them. The sign of a value in this output is the opposite of the corresponding value on a change order record. For example, a discount is a positive value in changeBalances and a negative value on a change order record.

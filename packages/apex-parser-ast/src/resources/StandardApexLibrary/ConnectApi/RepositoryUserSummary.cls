@@ -1,7 +1,7 @@
 /**
  * A user summary.
  */
-global class RepositoryUserSummary {
+global class RepositoryUserSummary extends ConnectApi.AbstractDirectoryEntrySummary {
 
   /**
    * First name of the user.

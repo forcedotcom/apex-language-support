@@ -1,7 +1,7 @@
 /**
  * Managed content channel.
  */
-global class ManagedContentChannelSummary {
+global class ManagedContentChannelSummary extends ConnectApi.AbstractManagedContentChannelRepresentation {
 
   /**
    * Domain URL of the channel.

@@ -1,7 +1,7 @@
 /**
  * Opportunity stage picklist value attributes.
  */
-global class OpportunityStagePicklistValueAttributes {
+global class OpportunityStagePicklistValueAttributes extends ConnectApi.AbstractPicklistValueAttributes {
 
   /**
    * Specifies whether the opportunity has a stage of closed ( true ) or not ( false ). Multiple opportunity stage values can represent a closed opportunity.

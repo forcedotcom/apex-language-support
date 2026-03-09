@@ -1,7 +1,7 @@
 /**
  * List of Boolean values.
  */
-global class BooleanList {
+global class BooleanList extends ConnectApi.AbstractList {
 
   /**
    * List of Boolean values to filter on, for example, [true, false] .

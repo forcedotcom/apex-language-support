@@ -3,4 +3,6 @@
  */
 global class UpsertContext {
 
+  global String tableSelected;
+
 }

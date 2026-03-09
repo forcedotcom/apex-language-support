@@ -1,7 +1,7 @@
 /**
  * Attach a new file to a feed item.
  */
-global class NewFileAttachmentInput {
+global class NewFileAttachmentInput extends ConnectApi.FeedItemAttachmentInput {
 
   /**
    * Description of the file to be uploaded.

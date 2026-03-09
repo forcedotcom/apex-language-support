@@ -1,7 +1,7 @@
 /**
  * Summary of a like.
  */
-global class LikeSummary {
+global class LikeSummary extends ConnectApi.UserFeedEntityActivitySummary {
 
   /**
    * ID of the like.

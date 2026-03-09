@@ -1,7 +1,7 @@
 /**
  * If a feed element has this capability, it has a recording comment.
  */
-global class CallCollaborationCapability {
+global class CallCollaborationCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * End time of the comment on the media player, in seconds.

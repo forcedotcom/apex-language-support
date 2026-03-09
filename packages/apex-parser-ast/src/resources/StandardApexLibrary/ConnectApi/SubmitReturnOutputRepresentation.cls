@@ -1,7 +1,7 @@
 /**
  * ID of the change order created for a return action, and a set of its financial values.
  */
-global class SubmitReturnOutputRepresentation {
+global class SubmitReturnOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
   /**
    * Financial values resulting from the return.

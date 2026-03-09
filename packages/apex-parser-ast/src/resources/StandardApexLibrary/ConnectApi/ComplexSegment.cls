@@ -1,7 +1,7 @@
 /**
  * Complex segments of field changes.
  */
-global class ComplexSegment {
+global class ComplexSegment extends ConnectApi.MessageSegment {
 
   /**
    * List of message segments.

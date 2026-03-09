@@ -1,6 +1,6 @@
 /**
  * Refund input.
  */
-global class RefundRequest {
+global class RefundRequest extends ConnectApi.BaseRequest {
 
 }

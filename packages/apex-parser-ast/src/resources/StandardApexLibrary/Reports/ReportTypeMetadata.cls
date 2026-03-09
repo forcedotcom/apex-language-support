@@ -4,6 +4,12 @@
 global class ReportTypeMetadata {
 
   /**
+   * Returns all fields in the report type. The fields are organized by section.
+   * @return LIST<Reports.ReportTypeColumnCategory>
+   */
+  public LIST<Reports.ReportTypeColumnCategory> getCategories() {}
+
+  /**
    * Returns the default division and a list of all possible divisions that can be applied to this type of report.
    * @return Reports.ReportDivisionInfo
    */

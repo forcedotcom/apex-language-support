@@ -3,4 +3,8 @@
  */
 global class DuplicateRuleHeader {
 
+  global Boolean allowSave;
+
+  global Boolean runAsCurrentUser;
+
 }

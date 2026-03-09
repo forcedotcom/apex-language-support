@@ -10,6 +10,12 @@ global class DescribeQuickActionResult {
   public String getActionEnumOrId() {}
 
   /**
+   * Returns the name of the Canvas application, if used.
+   * @return String
+   */
+  public String getCanvasApplicationName() {}
+
+  /**
    * Returns an array of color information. Each color is associated with a theme.
    * @return List<Schema.DescribeColorResult>
    */

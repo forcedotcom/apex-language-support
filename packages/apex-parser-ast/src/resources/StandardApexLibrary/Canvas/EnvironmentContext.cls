@@ -3,4 +3,20 @@
  */
 global interface EnvironmentContext {
 
+  void addEntityField(String fieldName);
+
+  void addEntityFields(Set<String> fieldNames);
+
+  String getDisplayLocation();
+
+  List<String> getEntityFields();
+
+  String getLocationUrl();
+
+  String getParametersAsJSON();
+
+  String getSublocation();
+
+  void setParametersAsJSON(String jsonString);
+
 }

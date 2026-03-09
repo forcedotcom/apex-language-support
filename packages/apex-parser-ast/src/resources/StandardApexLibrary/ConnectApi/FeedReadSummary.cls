@@ -1,7 +1,7 @@
 /**
  * Summary of the feed that was read.
  */
-global class FeedReadSummary {
+global class FeedReadSummary extends ConnectApi.UserActivitySummary {
 
   /**
    * ID of the parent of the feed.

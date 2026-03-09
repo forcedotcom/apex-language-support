@@ -4,6 +4,12 @@
 global class ReportMetadata {
 
   /**
+   * Returns unique identifiers for summary or custom summary formula fields in the report.
+   * @return LIST<String>
+   */
+  public LIST<String> getAggregates() {}
+
+  /**
    * Returns a list of bucket fields in the report.
    * @return List<Reports.BucketField>
    */
@@ -14,6 +20,12 @@ global class ReportMetadata {
    * @return Reports.CrossFilter
    */
   public Reports.CrossFilter getCrossFilters() {}
+
+  /**
+   * Returns report currency, such as USD, EUR, or GBP, for an organization that has multicurrency enabled. The value is null if the organization does not have multicurrency enabled.
+   * @return String
+   */
+  public String getCurrencyCode() {}
 
   /**
    * Returns information about custom summary formulas in a report.
@@ -28,10 +40,34 @@ global class ReportMetadata {
   public String getDescription() {}
 
   /**
+   * Returns unique API names (column names) for the fields that contain detailed data. For example, the method might return the following values: “OPPORTUNITY_NAME, TYPE, LEAD_SOURCE, AMOUNT.”
+   * @return LIST<String>
+   */
+  public LIST<String> getDetailColumns() {}
+
+  /**
+   * Returns the report API name. For example, the method might return the following value: “Closed_Sales_This_Quarter.”
+   * @return String
+   */
+  public String getDeveloperName() {}
+
+  /**
    * Returns the division specified in the report.
    * @return String
    */
   public String getDivision() {}
+
+  /**
+   * Returns column groupings in a report.
+   * @return LIST<Reports.GroupingInfo>
+   */
+  public LIST<Reports.GroupingInfo> getGroupingsAcross() {}
+
+  /**
+   * Returns row groupings for a report.
+   * @return LIST<Reports.GroupingInfo>
+   */
+  public LIST<Reports.GroupingInfo> getGroupingsDown() {}
 
   /**
    * Indicates whether the report has detail rows.
@@ -44,6 +80,48 @@ global class ReportMetadata {
    * @return Boolean
    */
   public Boolean getHasRecordCount() {}
+
+  /**
+   * Returns a list of historical snapshot dates.
+   * @return LIST<String>
+   */
+  public LIST<String> getHistoricalSnapshotDates() {}
+
+  /**
+   * Returns the unique report ID.
+   * @return Id
+   */
+  public Id getId() {}
+
+  /**
+   * Returns the report name.
+   * @return String
+   */
+  public String getName() {}
+
+  /**
+   * Returns logic to parse custom field filters. The value is null when filter logic is not specified.
+   * @return String
+   */
+  public String getReportBooleanFilter() {}
+
+  /**
+   * Returns a list of each custom filter in the report along with the field name, filter operator, and filter value.
+   * @return LIST<Reports.ReportFilter>
+   */
+  public LIST<Reports.ReportFilter> getReportFilters() {}
+
+  /**
+   * Returns the format of the report.
+   * @return Reports.ReportFormat
+   */
+  public Reports.ReportFormat getReportFormat() {}
+
+  /**
+   * Returns the unique API name and display name for the report type.
+   * @return Reports.ReportType
+   */
+  public Reports.ReportType getReportType() {}
 
   /**
    * Returns the API name for the scope defined for the report. Scope values depend on the report type.
@@ -166,6 +244,12 @@ global class ReportMetadata {
   public void setHasRecordCount(Boolean hasRecordCount) {}
 
   /**
+   * Sets a list of historical snapshot dates.
+   * @param historicalSnapshot 
+   */
+  public void setHistoricalSnapshotDates(LIST<String> historicalSnapshot) {}
+
+  /**
    * Sets the unique report ID.
    * @param id 
    */
@@ -176,6 +260,18 @@ global class ReportMetadata {
    * @param name 
    */
   public void setName(String name) {}
+
+  /**
+   * Sets logic to parse custom field filters.
+   * @param reportBooleanFilter 
+   */
+  public void setReportBooleanFilter(String reportBooleanFilter) {}
+
+  /**
+   * Sets a list of each custom filter in the report along with the field name, filter operator, and filter value.
+   * @param reportFilters 
+   */
+  public void setReportFilters(LIST<Reports.ReportFilter> reportFilters) {}
 
   /**
    * Sets the format of the report.

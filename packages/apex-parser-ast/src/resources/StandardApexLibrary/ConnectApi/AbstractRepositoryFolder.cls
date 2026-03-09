@@ -1,7 +1,7 @@
 /**
  * A repository folder.
  */
-global class AbstractRepositoryFolder {
+global class AbstractRepositoryFolder extends ConnectApi.AbstractRepositoryItem {
 
   /**
    * URL of this folder in the external system.

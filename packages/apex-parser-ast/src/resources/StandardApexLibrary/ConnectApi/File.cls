@@ -1,7 +1,7 @@
 /**
  * File.
  */
-global class File {
+global class File extends ConnectApi.ActorWithId {
 
   /**
    * MD5 checksum for the file.

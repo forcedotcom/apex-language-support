@@ -1,7 +1,7 @@
 /**
  * Mission details for a user.
  */
-global class UserMission {
+global class UserMission extends ConnectApi.AbstractUserMissionActivity {
 
   /**
    * Name of the mission.

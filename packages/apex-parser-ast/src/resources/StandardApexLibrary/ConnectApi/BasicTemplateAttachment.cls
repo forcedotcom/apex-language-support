@@ -1,7 +1,7 @@
 /**
  * Attachments in feed items with type BasicTemplate .
  */
-global class BasicTemplateAttachment {
+global class BasicTemplateAttachment extends ConnectApi.FeedItemAttachment {
 
   /**
    * An optional description with a 500 character limit.

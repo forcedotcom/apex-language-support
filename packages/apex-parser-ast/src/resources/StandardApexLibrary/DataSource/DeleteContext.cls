@@ -3,4 +3,6 @@
  */
 global class DeleteContext {
 
+  global String tableSelected;
+
 }

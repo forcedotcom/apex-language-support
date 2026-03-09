@@ -1,7 +1,7 @@
 /**
  * Managed content node of text type.
  */
-global class ManagedContentTextNodeValue {
+global class ManagedContentTextNodeValue extends ConnectApi.ManagedContentNodeValue {
 
   /**
    * Text value of the managed content node.

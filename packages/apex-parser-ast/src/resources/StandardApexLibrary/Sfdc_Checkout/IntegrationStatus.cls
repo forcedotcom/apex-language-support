@@ -3,4 +3,6 @@
  */
 global class IntegrationStatus {
 
+  global sfdc_checkout.IntegrationStatus.Status status;
+
 }

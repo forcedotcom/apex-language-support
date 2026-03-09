@@ -1,7 +1,7 @@
 /**
  * Mention segment.
  */
-global class MentionSegment {
+global class MentionSegment extends ConnectApi.MessageSegment {
 
   /**
    * Specifies whether the mentioned user or group can see the post in which they are mentioned ( true ) or not ( false ).

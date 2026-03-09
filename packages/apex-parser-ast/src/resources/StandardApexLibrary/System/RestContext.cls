@@ -3,4 +3,8 @@
  */
 global class RestContext {
 
+  global System.RestRequest request;
+
+  global System.RestResponse response;
+
 }

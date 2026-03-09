@@ -1,6 +1,6 @@
 /**
  * Feed body.
  */
-global class FeedBody {
+global class FeedBody extends ConnectApi.AbstractMessageBody {
 
 }

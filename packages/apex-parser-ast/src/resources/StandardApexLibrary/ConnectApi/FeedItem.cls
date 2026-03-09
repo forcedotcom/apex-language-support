@@ -1,7 +1,7 @@
 /**
  * Feed item.
  */
-global class FeedItem {
+global class FeedItem extends ConnectApi.FeedElement Class {
 
   /**
    * The entity that created the feed item.

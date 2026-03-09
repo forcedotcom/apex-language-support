@@ -1,7 +1,7 @@
 /**
  * Indicates success or failure of a register guest buyer action.
  */
-global class RegisterGuestBuyerOutputRepresentation {
+global class RegisterGuestBuyerOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
   /**
    * Any errors that were returned.

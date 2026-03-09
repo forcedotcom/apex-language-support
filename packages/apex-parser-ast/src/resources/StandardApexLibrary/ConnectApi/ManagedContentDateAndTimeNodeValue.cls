@@ -1,7 +1,7 @@
 /**
  * Managed content node of date and time type.
  */
-global class ManagedContentDateAndTimeNodeValue {
+global class ManagedContentDateAndTimeNodeValue extends ConnectApi.ManagedContentNodeValue {
 
   /**
    * UTC date and time value of the managed content node.

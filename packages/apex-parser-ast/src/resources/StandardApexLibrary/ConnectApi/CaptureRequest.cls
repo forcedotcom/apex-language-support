@@ -1,7 +1,7 @@
 /**
  * Payment capture input consumed by the payment capture service.
  */
-global class CaptureRequest {
+global class CaptureRequest extends ConnectApi.BaseRequest {
 
   /**
    * ID of the account linked to the capture request.

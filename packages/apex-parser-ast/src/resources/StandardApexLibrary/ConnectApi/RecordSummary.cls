@@ -1,7 +1,7 @@
 /**
  * Record summary.
  */
-global class RecordSummary {
+global class RecordSummary extends ConnectApi.AbstractRecordView {
 
   /**
    * Label of the record’s entity.

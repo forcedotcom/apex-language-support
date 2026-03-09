@@ -1,7 +1,7 @@
 /**
  * Email message from a case.
  */
-global class EmailMessage {
+global class EmailMessage extends ConnectApi.FeedItemAttachment {
 
   /**
    * The direction of the email message. Inbound —An inbound message (sent by a customer). Outbound —An outbound message (sent to a customer by a support agent).

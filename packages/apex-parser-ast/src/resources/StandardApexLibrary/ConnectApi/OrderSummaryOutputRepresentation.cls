@@ -1,7 +1,7 @@
 /**
  * ID of the created Order Summary.
  */
-global class OrderSummaryOutputRepresentation {
+global class OrderSummaryOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
   /**
    * ID of the Order Summary.

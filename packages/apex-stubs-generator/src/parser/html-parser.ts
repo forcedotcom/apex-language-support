@@ -68,8 +68,10 @@ const splitParams = (str: string): string[] => {
 const extractSignatures = (html: string): string[] => {
   const signatures: string[] = [];
   // Some pages use class="codeph apex_code", others use class="codeph " (no apex_code).
-  // Match any <samp class="codeph..."> after a Signature heading.
-  const signaturePattern = /<h4[^>]*>Signature<\/h4>\s*<p[^>]*><samp[^>]*codeph[^>]*>([\s\S]*?)<\/samp><\/p>/gi;
+  // Match any <samp class="codeph..."> after a Signature/Syntax heading.
+  // h4: used on multi-member pages (methods listing pages) and inline nested topics (Reports namespace uses "Syntax").
+  // h2: used on individual sub-pages (constructor/property/method detail pages).
+  const signaturePattern = /<h(?:2|4)[^>]*>(?:Signature|Syntax)<\/h(?:2|4)>\s*<p[^>]*><samp[^>]*codeph[^>]*>([\s\S]*?)<\/samp><\/p>/gi;
 
   let match;
   while ((match = signaturePattern.exec(html)) !== null) {
@@ -278,6 +280,49 @@ export const extractClassDescriptionFromHtml = (html: string) =>
   });
 
 /**
+ * Returns true when the page's shortdesc marks the class as internal-use only.
+ *
+ * Known variants in Salesforce docs:
+ *   - "This class and its methods are for internal use only."
+ *   - "The methods and properties in this class are for internal use only."
+ */
+export const isInternalUseOnly = (html: string): boolean => {
+  const desc = extractClassDescription(html) ?? "";
+  return /for internal use only/i.test(desc);
+};
+
+/**
+ * Extract the superclass name from a class/interface documentation page.
+ *
+ * Three variants appear in Salesforce docs:
+ *   1. `extends <a ...><samp class="codeph nolang">BaseRequest</samp></a>`
+ *      — used by most namespaces (e.g. CommercePayments)
+ *   2. `extends <a ...>Cache.Partition</a>`
+ *      — plain link text, no <samp> wrapper (e.g. Cache namespace)
+ *   3. `Subclass of <a ...>ConnectApi.AbstractContentHubItemType</a>`
+ *      — uses "Subclass of" prose instead of "extends" keyword (e.g. ConnectApi)
+ *
+ * Returns the class name as written in the docs (may be namespace-qualified,
+ * e.g. "Cache.Partition"). Apex accepts both qualified and unqualified forms.
+ */
+export const extractSuperClassFromHtml = (html: string): string | undefined => {
+  // Variant 1: link wraps a <samp> element
+  const sampPattern = /\bextends\s+(?:<a[^>]*>)?<samp[^>]*codeph[^>]*>([^<]+)<\/samp>/i;
+  const sampMatch = html.match(sampPattern);
+  if (sampMatch) return stripCodeTags(sampMatch[1]) || undefined;
+
+  // Variant 2: "extends" keyword with plain link text
+  const linkPattern = /\bextends\s+<a[^>]*>([^<]+)<\/a>/i;
+  const linkMatch = html.match(linkPattern);
+  if (linkMatch) return stripHtmlTags(linkMatch[1]).trim() || undefined;
+
+  // Variant 3: "Subclass of <a>TypeName</a>" prose (used by ConnectApi and others)
+  const subclassPattern = /\bSubclass of\s+<a[^>]*>([^<]+)<\/a>/i;
+  const subclassMatch = html.match(subclassPattern);
+  return subclassMatch ? stripHtmlTags(subclassMatch[1]).trim() || undefined : undefined;
+};
+
+/**
  * Extract enum values from an enum documentation page
  */
 export const extractEnumValuesFromHtml = (html: string, enumName: string) =>
@@ -461,6 +506,164 @@ export const extractPropertiesFromHtml = (html: string, className: string) =>
 
     yield* Console.log(`Extracted ${properties.length} properties from ${className}`);
     return properties;
+  });
+
+/**
+ * Extract properties from the single-page inline nested topic structure.
+ *
+ * Some Salesforce doc pages (e.g. CommercePayments AuditParamsRequest, CaptureRequest,
+ * ReferencedRefundRequest) embed all member sections in one HTML document using
+ * anchor-fragment seealso links rather than separate pages. Each property appears in a
+ * <div class="topic reference nested2"> section:
+ *
+ *   <h3 class="helpHead3">propName</h3>
+ *   ...
+ *   <h4 class="helpHead4">Property Value</h4>
+ *   <p class="p">Type: <a ...>TypeName</a></p>
+ */
+export const extractPropertiesFromInlineNestedHtml = (html: string, className: string) =>
+  Effect.gen(function* () {
+    yield* Console.log(`Parsing inline nested properties for: ${className}`);
+    const properties: ApexProperty[] = [];
+
+    // Split on nested2 topic divs — each is one member (property or constructor)
+    const sections = html.split('<div class="topic reference nested2"');
+    for (const section of sections.slice(1)) {
+      // h3 content may be plain text or wrapped in <span class="titlecodeph">
+      const h3Match = section.match(/<h3[^>]*>([\s\S]*?)<\/h3>/);
+      if (!h3Match) continue;
+      const name = stripHtmlTags(h3Match[1]).trim();
+      // Skip constructor sections (their h3 names contain '(')
+      if (!name || name.includes('(')) continue;
+
+      const propValueMatch = section.match(/<h4[^>]*>Property Value<\/h4>[\s\S]*?Type:\s*<a[^>]*>([^<]+)<\/a>/i);
+      if (!propValueMatch) continue;
+      const type = stripHtmlTags(propValueMatch[1]).trim();
+      if (!type) continue;
+
+      properties.push(new ApexProperty({ name, type, isStatic: false, visibility: 'global' }));
+      yield* Console.log(`    Property (inline nested): ${type} ${name}`);
+    }
+
+    yield* Console.log(`Extracted ${properties.length} inline nested properties from ${className}`);
+    return properties;
+  });
+
+/**
+ * Extract constructors from the single-page inline nested topic structure.
+ *
+ * Each constructor is in a <div class="topic reference nested2"> section. The constructor
+ * name (without visibility prefix) is in <h3>, and parameter names/types come from the
+ * <h4>Parameters</h4> DL. A <h4>Signature</h4> may or may not be present (AuditParamsRequest
+ * has one; CaptureRequest and ReferencedRefundRequest do not).
+ *
+ *   <h3 class="helpHead3">CtorName(param1, param2)</h3>
+ *   ...
+ *   <h4 class="helpHead4">Parameters</h4>
+ *   <dl class="dl detailList">
+ *     <dt ...><var ...>paramName</var></dt>
+ *     <dd ...>Type: <a ...>TypeName</a></dd>
+ *   </dl>
+ */
+export const extractConstructorsFromInlineNestedHtml = (html: string, className: string) =>
+  Effect.gen(function* () {
+    yield* Console.log(`Parsing inline nested constructors for: ${className}`);
+    const constructors: ApexConstructor[] = [];
+
+    const sections = html.split('<div class="topic reference nested2"');
+    for (const section of sections.slice(1)) {
+      // h3 content may be plain text or wrapped in <span class="titlecodeph">
+      const h3Match = section.match(/<h3[^>]*>([\s\S]*?)<\/h3>/);
+      if (!h3Match) continue;
+      const h3Text = stripHtmlTags(h3Match[1]).trim();
+      // Only process constructor sections: h3 starts with ClassName(
+      if (!h3Text.startsWith(`${className}(`)) continue;
+
+      const dlMatch = section.match(/<h4[^>]*>Parameters<\/h4>[\s\S]*?<dl[^>]*>([\s\S]*?)<\/dl>/i);
+      if (!dlMatch) continue;
+
+      const parameters: ApexParameter[] = [];
+      const dlHtml = dlMatch[1];
+      // Each param: <var>name</var> followed by Type: <a>TypeName</a>
+      const paramPattern = /<var[^>]*>([^<]+)<\/var>[\s\S]*?Type:\s*<a[^>]*>([^<]+)<\/a>/gi;
+      let paramMatch;
+      while ((paramMatch = paramPattern.exec(dlHtml)) !== null) {
+        const paramName = stripHtmlTags(paramMatch[1]).trim();
+        const paramType = stripHtmlTags(paramMatch[2]).trim();
+        if (paramName && paramType) {
+          parameters.push(new ApexParameter({ name: paramName, type: paramType }));
+        }
+      }
+
+      if (parameters.length > 0) {
+        constructors.push(new ApexConstructor({ parameters, visibility: 'global' }));
+        yield* Console.log(`    Constructor (inline nested): ${className}(${parameters.map((p) => p.type).join(', ')})`);
+      }
+    }
+
+    yield* Console.log(`Extracted ${constructors.length} inline nested constructors from ${className}`);
+    return constructors;
+  });
+
+/**
+ * Extract child page IDs from the sfdc:seealso related-links section.
+ *
+ * Some class pages (e.g. CommercePayments) list no members inline. Instead they
+ * link to listing pages (_constructors.htm, _properties.htm, _methods.htm) which
+ * in turn link to individual member detail pages. This function extracts those
+ * linked page IDs so the scraper can follow them.
+ */
+export const extractChildPageIdsFromHtml = (html: string): string[] => {
+  const seealsoStart = html.indexOf('id="sfdc:seealso"');
+  if (seealsoStart < 0) return [];
+
+  const seealsoHtml = html.slice(seealsoStart);
+  const pageIds: string[] = [];
+
+  // Links are: href="atlas.en-us.apexref.meta/apexref/apex_PAGEID.htm"
+  const hrefPattern = /href="(?:[^"]*\/)?(apex_[^"/]+\.htm)"/gi;
+  let match;
+  while ((match = hrefPattern.exec(seealsoHtml)) !== null) {
+    pageIds.push(match[1]);
+  }
+  return pageIds;
+};
+
+/**
+ * Parse a property from a signature string of the form:
+ *   `global|public|private Type name { get; set; }`
+ *
+ * Individual property sub-pages (e.g. PostAuthorizationRequest_amount.htm) carry
+ * their signature in an <h2>Signature</h2> block rather than a property table.
+ * This parser handles that format.
+ */
+const parsePropertyFromSignature = (signature: string): ApexProperty | null => {
+  const normalized = signature.replace(/\s+/g, ' ').trim();
+  // Match: visibility Type name {  (lazy type so the last word before { is the name)
+  const propPattern = /^(public|global|private)\s+([\w.<>,\[\]\s]+?)\s+(\w+)\s*\{/;
+  const match = normalized.match(propPattern);
+  if (!match) return null;
+  return new ApexProperty({ name: match[3], type: match[2].trim(), isStatic: false, visibility: match[1] });
+};
+
+/**
+ * Extract a single property from an individual property sub-page.
+ *
+ * These pages use <h2>Signature</h2> (handled by the updated extractSignatures)
+ * with a property accessor signature: `global Type name { get; set; }`.
+ */
+export const extractPropertyFromSubPageHtml = (html: string, className: string) =>
+  Effect.gen(function* () {
+    yield* Console.log(`Parsing property sub-page for: ${className}`);
+    const signatures = extractSignatures(html);
+    for (const sig of signatures) {
+      const prop = parsePropertyFromSignature(sig);
+      if (prop) {
+        yield* Console.log(`    Property: ${prop.type} ${prop.name}`);
+        return prop as ApexProperty | null;
+      }
+    }
+    return null as ApexProperty | null;
   });
 
 /**

@@ -1,7 +1,7 @@
 /**
  * Contains methods to create a custom OAuth-based authentication provider plug-in for single sign-on in to Salesforce. Use this class to create a custom authentication provider plug-in if you can’t use one of the authentication providers that Salesforce provides.
  */
-global class AuthProviderPluginClass {
+global class AuthProviderPluginClass extends Auth.AuthProviderPluginClass {
 
   /**
    * Returns the custom metadata type API name for a custom OAuth-based authentication provider for single sign-on to Salesforce.

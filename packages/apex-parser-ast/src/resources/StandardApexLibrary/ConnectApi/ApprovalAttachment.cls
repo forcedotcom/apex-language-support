@@ -1,6 +1,6 @@
 /**
  * Attach an approval to a feed item.
  */
-global class ApprovalAttachment {
+global class ApprovalAttachment extends ConnectApi.FeedItemAttachment {
 
 }

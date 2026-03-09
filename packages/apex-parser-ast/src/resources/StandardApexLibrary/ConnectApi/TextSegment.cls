@@ -1,6 +1,6 @@
 /**
  * Text segment.
  */
-global class TextSegment {
+global class TextSegment extends ConnectApi.MessageSegment {
 
 }

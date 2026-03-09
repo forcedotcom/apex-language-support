@@ -1,7 +1,7 @@
 /**
  * Create or update extensions associated with a feed element.
  */
-global class ExtensionsCapabilityInput {
+global class ExtensionsCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
   /**
    * List of extensions to associate with the feed element.

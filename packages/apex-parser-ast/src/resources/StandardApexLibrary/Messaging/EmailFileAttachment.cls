@@ -3,4 +3,14 @@
  */
 global class EmailFileAttachment {
 
+  global Blob body;
+
+  global String contenttype;
+
+  global String filename;
+
+  global Id id;
+
+  global Boolean inline;
+
 }

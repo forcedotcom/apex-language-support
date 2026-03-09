@@ -1,7 +1,7 @@
 /**
  * Referenced refund input.
  */
-global class ReferencedRefundRequest {
+global class ReferencedRefundRequest extends ConnectApi.RefundRequest {
 
   /**
    * ID of the account linked to the referenced refund request.

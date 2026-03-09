@@ -1,6 +1,6 @@
 /**
  * Gateway capture response.
  */
-global class CaptureGatewayResponse {
+global class CaptureGatewayResponse extends ConnectApi.AbstractGatewayResponse {
 
 }

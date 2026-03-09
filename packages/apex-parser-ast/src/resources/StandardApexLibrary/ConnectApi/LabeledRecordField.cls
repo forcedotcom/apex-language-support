@@ -1,7 +1,7 @@
 /**
  * Record field containing a label and a text value.
  */
-global class LabeledRecordField {
+global class LabeledRecordField extends ConnectApi.AbstractRecordField {
 
   /**
    * Localized string describing the record field.

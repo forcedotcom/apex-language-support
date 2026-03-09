@@ -1,7 +1,7 @@
 /**
  * Distinct facet value.
  */
-global class DistinctFacetValue {
+global class DistinctFacetValue extends ConnectApi.FacetValue {
 
   /**
    * Map of metadata required for rendering the facet value.

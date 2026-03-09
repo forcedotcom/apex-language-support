@@ -1,7 +1,7 @@
 /**
  * Create, update, or vote on a poll on a feed element.
  */
-global class PollCapabilityInput {
+global class PollCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
   /**
    * The choices used to create a new poll. You must specify 2–10 poll choices for each poll.

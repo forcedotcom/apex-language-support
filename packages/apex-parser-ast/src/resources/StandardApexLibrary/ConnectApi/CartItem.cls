@@ -1,7 +1,7 @@
 /**
  * An item in a cart.
  */
-global class CartItem {
+global class CartItem extends ConnectApi.AbstractCartItem {
 
   /**
    * Currency ISO code of the cart.

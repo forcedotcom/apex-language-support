@@ -1,7 +1,7 @@
 /**
  * Payment gateway authorization response representation.
  */
-global class AuthorizationGatewayResponse {
+global class AuthorizationGatewayResponse extends ConnectApi.AbstractGatewayResponse {
 
   /**
    * Gateway authorization code.

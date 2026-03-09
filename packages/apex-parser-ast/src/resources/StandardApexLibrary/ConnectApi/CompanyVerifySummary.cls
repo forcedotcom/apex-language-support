@@ -1,6 +1,6 @@
 /**
  * Company verify summary.
  */
-global class CompanyVerifySummary {
+global class CompanyVerifySummary extends ConnectApi.UserFeedEntityActivitySummary {
 
 }

@@ -1,7 +1,7 @@
 /**
  * The details of an item type associated with a repository folder.
  */
-global class ContentHubItemTypeDetail {
+global class ContentHubItemTypeDetail extends ConnectApi.AbstractContentHubItemType {
 
   /**
    * A list of fields that the context user is allowed to set in the metadata of this item type.

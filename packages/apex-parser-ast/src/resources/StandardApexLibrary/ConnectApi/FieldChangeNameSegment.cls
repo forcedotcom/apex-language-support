@@ -1,6 +1,6 @@
 /**
  * Field change name segment.
  */
-global class FieldChangeNameSegment {
+global class FieldChangeNameSegment extends ConnectApi.MessageSegment {
 
 }

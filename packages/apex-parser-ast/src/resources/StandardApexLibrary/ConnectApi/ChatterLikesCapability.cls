@@ -1,7 +1,7 @@
 /**
  * If a feed element has this capability, the context user can like it. Exposes information about existing likes.
  */
-global class ChatterLikesCapability {
+global class ChatterLikesCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * Indicates whether the feed element is liked by the context user ( true ) or not ( false ).

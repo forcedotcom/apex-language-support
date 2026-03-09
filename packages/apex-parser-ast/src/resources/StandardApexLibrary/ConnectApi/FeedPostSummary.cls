@@ -1,7 +1,7 @@
 /**
  * Summary of the post.
  */
-global class FeedPostSummary {
+global class FeedPostSummary extends ConnectApi.UserActivitySummary {
 
   /**
    * ID of the post.

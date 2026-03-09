@@ -1,7 +1,7 @@
 /**
  * An inline image in the feed body.
  */
-global class InlineImageSegment {
+global class InlineImageSegment extends ConnectApi.MessageSegment {
 
   /**
    * Alt text for the inline image.

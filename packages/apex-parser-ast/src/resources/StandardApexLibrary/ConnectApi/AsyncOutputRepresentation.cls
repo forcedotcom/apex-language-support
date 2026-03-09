@@ -1,6 +1,6 @@
 /**
  * Output representation of the async operation.
  */
-global class AsyncOutputRepresentation {
+global class AsyncOutputRepresentation extends ConnectApi.BaseAsyncOutputRepresentation {
 
 }

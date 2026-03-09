@@ -3,4 +3,8 @@
  */
 global class AuthenticationResultField {
 
+  global String name;
+
+  global String value;
+
 }

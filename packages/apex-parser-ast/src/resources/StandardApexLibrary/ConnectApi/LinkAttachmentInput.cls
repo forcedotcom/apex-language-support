@@ -1,7 +1,7 @@
 /**
  * Add links to a feed item.
  */
-global class LinkAttachmentInput {
+global class LinkAttachmentInput extends ConnectApi.FeedItemAttachmentInput {
 
   /**
    * URL to be used for the link

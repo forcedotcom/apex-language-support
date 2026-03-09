@@ -1,6 +1,6 @@
 /**
  * List of IDs of invoices created for change orders.
  */
-global class ChangeOrdersInvoiceOutputRepresentation {
+global class ChangeOrdersInvoiceOutputRepresentation extends ConnectApi.BaseInvoiceOutputRepresentation {
 
 }

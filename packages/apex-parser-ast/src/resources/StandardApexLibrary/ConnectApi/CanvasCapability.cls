@@ -1,7 +1,7 @@
 /**
  * If a feed element has this capability, it renders a canvas app.
  */
-global class CanvasCapability {
+global class CanvasCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * A description of the canvas app. The maximum size is 255 characters.

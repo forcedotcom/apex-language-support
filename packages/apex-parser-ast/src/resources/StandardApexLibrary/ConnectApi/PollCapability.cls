@@ -1,7 +1,7 @@
 /**
  * If a feed element has this capability, it includes a poll.
  */
-global class PollCapability {
+global class PollCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * Collection of poll choices that make up the poll.

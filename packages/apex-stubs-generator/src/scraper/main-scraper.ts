@@ -9,9 +9,15 @@ import {
   extractEnumValuesFromHtml,
   extractExceptionClassNamesFromHtml,
   extractMultipleEnumsFromHtml,
+  extractChildPageIdsFromHtml,
+  extractPropertyFromSubPageHtml,
+  extractSuperClassFromHtml,
+  isInternalUseOnly,
+  extractConstructorsFromInlineNestedHtml,
+  extractPropertiesFromInlineNestedHtml,
 } from "../parser/html-parser";
 import { extractSlackClassReferences, scrapeSlackClass } from "./slack-scraper";
-import { ApexClass, ApexEnum, ApexEnumValue, ApexInnerException, ApexNamespace } from "../types/apex";
+import { ApexClass, ApexConstructor, ApexEnum, ApexEnumValue, ApexInnerException, ApexMethod, ApexNamespace, ApexProperty } from "../types/apex";
 import { readFile, writeFile } from "node:fs/promises";
 
 export class ScrapingError {
@@ -42,6 +48,75 @@ const getDocumentStructure = (cacheFile: string) =>
     return structure;
   });
 
+/** Page IDs whose content is a listing of members rather than a member detail page. */
+const isListingPage = (pageId: string): boolean =>
+  /_constructors\.htm$/.test(pageId) ||
+  /_properties\.htm$/.test(pageId) ||
+  /_methods\.htm$/.test(pageId);
+
+/**
+ * Scrape member pages linked from a class page that uses the sub-page pattern.
+ *
+ * Some Salesforce doc pages (e.g. CommercePayments classes) list no constructors,
+ * methods, or properties inline. Instead they link via sfdc:seealso to listing pages
+ * (_constructors.htm, _properties.htm, _methods.htm) which in turn link to individual
+ * member detail pages. This function follows both levels of links and extracts members
+ * from the individual pages.
+ */
+const scrapeSubPageMembers = (mainPageHtml: string, className: string, namespace: string) =>
+  Effect.gen(function* () {
+    const topLevelIds = extractChildPageIdsFromHtml(mainPageHtml);
+    if (topLevelIds.length === 0) {
+      return { methods: [] as ApexMethod[], constructors: [] as ApexConstructor[], properties: [] as ApexProperty[] };
+    }
+
+    yield* Console.log(`  Found ${topLevelIds.length} child page link(s) for ${namespace}.${className} — following sub-page pattern`);
+
+    // Expand listing pages to individual member page IDs
+    const memberPageIds: string[] = [];
+    for (const pageId of topLevelIds) {
+      if (isListingPage(pageId)) {
+        yield* Console.log(`    Expanding listing page: ${pageId}`);
+        const listingContent = yield* fetchPageContent(pageId);
+        if (listingContent.content) {
+          const memberIds = extractChildPageIdsFromHtml(listingContent.content);
+          yield* Console.log(`      Found ${memberIds.length} member page(s)`);
+          memberPageIds.push(...memberIds);
+        }
+      } else {
+        memberPageIds.push(pageId);
+      }
+    }
+
+    yield* Console.log(`  Fetching ${memberPageIds.length} individual member page(s) for ${className}`);
+
+    const results = yield* Effect.forEach(
+      memberPageIds,
+      (pageId) =>
+        Effect.gen(function* () {
+          const content = yield* fetchPageContent(pageId);
+          if (!content.content) {
+            return { methods: [] as ApexMethod[], constructors: [] as ApexConstructor[], properties: [] as ApexProperty[] };
+          }
+          const pageCtors = yield* extractConstructorsFromHtml(content.content, className);
+          const pageMethods = yield* extractMethodsFromHtml(content.content, className);
+          const pageProp = yield* extractPropertyFromSubPageHtml(content.content, className);
+          return {
+            methods: pageMethods as ApexMethod[],
+            constructors: pageCtors as ApexConstructor[],
+            properties: (pageProp ? [pageProp] : []) as ApexProperty[],
+          };
+        }),
+      { concurrency: SCRAPE_CONCURRENCY },
+    );
+
+    return {
+      methods: results.flatMap((r) => r.methods),
+      constructors: results.flatMap((r) => r.constructors),
+      properties: results.flatMap((r) => r.properties),
+    };
+  });
+
 const scrapeClass = (ref: ClassReference) =>
   Effect.gen(function* () {
     yield* Console.log(`  Scraping class: ${ref.namespace}.${ref.name} (${ref.pageId})`);
@@ -53,12 +128,40 @@ const scrapeClass = (ref: ClassReference) =>
       return [new ApexClass({ name: ref.name, namespace: ref.namespace, methods: [], properties: [], isInterface: false })];
     }
 
+    if (isInternalUseOnly(content.content)) {
+      yield* Console.log(`    Skipping ${ref.name}: marked as internal use only`);
+      return [] as ApexClass[];
+    }
+
     const classDescription = yield* extractClassDescriptionFromHtml(content.content);
+    const superClass = extractSuperClassFromHtml(content.content);
     const methods = yield* extractMethodsFromHtml(content.content, ref.name);
     const constructors = yield* extractConstructorsFromHtml(content.content, ref.name);
     const properties = yield* extractPropertiesFromHtml(content.content, ref.name);
 
-    return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, methods, constructors, properties, isInterface: false })];
+    if (methods.length === 0 && constructors.length === 0 && properties.length === 0) {
+      // Stage 2: follow linked sub-pages (class page → listing page → detail page)
+      const sub = yield* scrapeSubPageMembers(content.content, ref.name, ref.namespace);
+      if (sub.methods.length > 0 || sub.constructors.length > 0 || sub.properties.length > 0) {
+        return [new ApexClass({
+          name: ref.name, namespace: ref.namespace, description: classDescription, superClass,
+          methods: sub.methods, constructors: sub.constructors, properties: sub.properties,
+          isInterface: false,
+        })];
+      }
+
+      // Stage 3: single-page inline nested topic pattern (seealso links are anchor fragments;
+      // constructors/properties are embedded in the same page using nested2 topic divs)
+      const inlineCtors = yield* extractConstructorsFromInlineNestedHtml(content.content, ref.name);
+      const inlineProps = yield* extractPropertiesFromInlineNestedHtml(content.content, ref.name);
+      return [new ApexClass({
+        name: ref.name, namespace: ref.namespace, description: classDescription, superClass,
+        methods: [], constructors: inlineCtors, properties: inlineProps,
+        isInterface: false,
+      })];
+    }
+
+    return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, superClass, methods, constructors, properties, isInterface: false })];
   });
 
 const scrapeInterface = (ref: ClassReference) =>
@@ -71,12 +174,39 @@ const scrapeInterface = (ref: ClassReference) =>
       return [new ApexClass({ name: ref.name, namespace: ref.namespace, methods: [], properties: [], isInterface: true })];
     }
 
+    if (isInternalUseOnly(content.content)) {
+      yield* Console.log(`    Skipping ${ref.name}: marked as internal use only`);
+      return [] as ApexClass[];
+    }
+
     const classDescription = yield* extractClassDescriptionFromHtml(content.content);
+    const superClass = extractSuperClassFromHtml(content.content);
     const methods = yield* extractMethodsFromHtml(content.content, ref.name);
     const constructors = yield* extractConstructorsFromHtml(content.content, ref.name);
     const properties = yield* extractPropertiesFromHtml(content.content, ref.name);
 
-    return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, methods, constructors, properties, isInterface: true })];
+    if (methods.length === 0 && constructors.length === 0 && properties.length === 0) {
+      // Stage 2: follow linked sub-pages (e.g. Canvas.ApplicationContext → _methods.htm)
+      const sub = yield* scrapeSubPageMembers(content.content, ref.name, ref.namespace);
+      if (sub.methods.length > 0 || sub.constructors.length > 0 || sub.properties.length > 0) {
+        return [new ApexClass({
+          name: ref.name, namespace: ref.namespace, description: classDescription, superClass,
+          methods: sub.methods, constructors: sub.constructors, properties: sub.properties,
+          isInterface: true,
+        })];
+      }
+
+      // Stage 3: single-page inline nested topic pattern
+      const inlineCtors = yield* extractConstructorsFromInlineNestedHtml(content.content, ref.name);
+      const inlineProps = yield* extractPropertiesFromInlineNestedHtml(content.content, ref.name);
+      return [new ApexClass({
+        name: ref.name, namespace: ref.namespace, description: classDescription, superClass,
+        methods: [], constructors: inlineCtors, properties: inlineProps,
+        isInterface: true,
+      })];
+    }
+
+    return [new ApexClass({ name: ref.name, namespace: ref.namespace, description: classDescription, superClass, methods, constructors, properties, isInterface: true })];
   });
 
 type ExceptionScrapeResult =

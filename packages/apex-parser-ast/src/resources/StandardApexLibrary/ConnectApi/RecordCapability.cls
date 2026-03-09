@@ -1,7 +1,7 @@
 /**
  * If a comment has this capability, it has a record attachment.
  */
-global class RecordCapability {
+global class RecordCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * ID of the record.

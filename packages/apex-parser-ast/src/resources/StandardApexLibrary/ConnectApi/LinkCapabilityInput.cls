@@ -1,7 +1,7 @@
 /**
  * Create or update a link on a feed element.
  */
-global class LinkCapabilityInput {
+global class LinkCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
   /**
    * Link URL. The URL can be to an external site.

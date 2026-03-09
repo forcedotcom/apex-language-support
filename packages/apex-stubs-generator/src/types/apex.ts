@@ -37,6 +37,7 @@ export class ApexClass extends Schema.Class<ApexClass>("ApexClass")({
   name: Schema.String,
   namespace: Schema.String,
   description: Schema.optional(Schema.String),
+  superClass: Schema.optional(Schema.String),
   methods: Schema.Array(ApexMethod),
   properties: Schema.Array(ApexProperty),
   constructors: Schema.optional(Schema.Array(ApexConstructor)),

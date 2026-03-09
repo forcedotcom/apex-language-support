@@ -1,7 +1,7 @@
 /**
  * Summary of Chatter activity.
  */
-global class ChatterActivitySummary {
+global class ChatterActivitySummary extends ConnectApi.UserFeedEntityActivitySummary {
 
   /**
    * Total number of comments in the org or site made by the user.

@@ -1,7 +1,7 @@
 /**
  * A knowledge article summary.
  */
-global class ArticleSummary {
+global class ArticleSummary extends ConnectApi.ActorWithId {
 
   /**
    * Type of the knowledge article.

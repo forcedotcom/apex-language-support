@@ -1,7 +1,7 @@
 /**
  * A record the user is recommended to take action on.
  */
-global class NBANativeRecommendation {
+global class NBANativeRecommendation extends ConnectApi.AbstractNBATarget {
 
   /**
    * ID of the recommendation.

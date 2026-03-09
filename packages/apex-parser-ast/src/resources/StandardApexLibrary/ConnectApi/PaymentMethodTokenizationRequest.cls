@@ -1,7 +1,7 @@
 /**
  * Payment method tokenization input consumed by the payment tokenization service.
  */
-global class PaymentMethodTokenizationRequest {
+global class PaymentMethodTokenizationRequest extends ConnectApi.BaseRequest {
 
   /**
    * Address of the payment method.

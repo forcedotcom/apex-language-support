@@ -1,7 +1,7 @@
 /**
  * If a feed element has this capability, it was created by a feed action.
  */
-global class OriginCapability {
+global class OriginCapability extends ConnectApi.FeedElementCapability {
 
   /**
    * The user who executed the feed action.

@@ -1,7 +1,7 @@
 /**
  * Attachment of ConnectApi.FeedItem objects where the type property is PollPost .
  */
-global class FeedPoll {
+global class FeedPoll extends ConnectApi.FeedItemAttachment {
 
   /**
    * List of choices for poll.

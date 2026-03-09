@@ -1,7 +1,7 @@
 /**
  * The payment gateway adapter sends this response for the capture request type. This class extends AbstractResponse and inherits its methods.
  */
-global class CaptureResponse {
+global class CaptureResponse extends AbstractResponse {
 
   /**
    * Sets the transaction amount.

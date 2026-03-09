@@ -1,7 +1,7 @@
 /**
  * Card payment method input representation.
  */
-global class CardPaymentMethodRequest {
+global class CardPaymentMethodRequest extends ConnectApi.BasePaymentMethodRequest {
 
   /**
    * Salesforce Payments account to which this payment method is linked.

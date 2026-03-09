@@ -1,6 +1,6 @@
 /**
  * A summary of a repository folder.
  */
-global class RepositoryFolderSummary {
+global class RepositoryFolderSummary extends ConnectApi.AbstractRepositoryFolder {
 
 }

@@ -1,7 +1,7 @@
 /**
  * Payment post authorization input consumed by the payment post authorization service.
  */
-global class PostAuthRequest {
+global class PostAuthRequest extends ConnectApi.BaseRequest {
 
   /**
    * ID of the account of the customer for the authorized payment.

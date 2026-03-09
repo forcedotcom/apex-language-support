@@ -1,7 +1,7 @@
 /**
  * Create or edit a question feed element or set the best answer of the existing question feed element.
  */
-global class QuestionAndAnswersCapabilityInput {
+global class QuestionAndAnswersCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
   /**
    * A comment ID to use as a best answer for a question feed element. The best answer comment must already exist on the question feed element.

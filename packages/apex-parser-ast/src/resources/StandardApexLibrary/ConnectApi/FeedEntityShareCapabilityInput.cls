@@ -1,7 +1,7 @@
 /**
  * Share a feed entity with a feed post or comment.
  */
-global class FeedEntityShareCapabilityInput {
+global class FeedEntityShareCapabilityInput extends ConnectApi.FeedElementCapabilityInput {
 
   /**
    * ID of the feed entity to share with the feed post or comment.

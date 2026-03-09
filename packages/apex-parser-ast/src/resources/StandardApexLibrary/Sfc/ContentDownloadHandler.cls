@@ -3,4 +3,10 @@
  */
 global class ContentDownloadHandler {
 
+  global String downloadErrorMessage;
+
+  global Boolean isDownloadAllowed;
+
+  global String redirectUrl;
+
 }

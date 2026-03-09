@@ -1,7 +1,7 @@
 /**
  * Attachments in feed items with type DashboardSnapshot .
  */
-global class DashboardComponentAttachment {
+global class DashboardComponentAttachment extends ConnectApi.FeedItemAttachment {
 
   /**
    * Component’s 18–character ID.

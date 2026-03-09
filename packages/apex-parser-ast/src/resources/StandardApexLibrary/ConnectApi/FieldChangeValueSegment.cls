@@ -1,7 +1,7 @@
 /**
  * Field change value segment.
  */
-global class FieldChangeValueSegment {
+global class FieldChangeValueSegment extends ConnectApi.MessageSegment {
 
   /**
    * Value type of a field change. NewValue —A new value OldValue —An old value

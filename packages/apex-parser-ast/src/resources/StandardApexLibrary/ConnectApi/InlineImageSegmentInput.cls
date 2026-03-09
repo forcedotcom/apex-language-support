@@ -1,7 +1,7 @@
 /**
  * An inline image segment.
  */
-global class InlineImageSegmentInput {
+global class InlineImageSegmentInput extends ConnectApi.MessageSegmentInput {
 
   /**
    * Alt text for the inline image.

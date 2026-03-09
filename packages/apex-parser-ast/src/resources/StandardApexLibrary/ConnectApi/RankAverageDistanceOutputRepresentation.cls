@@ -1,7 +1,7 @@
 /**
  * The results of calculating the average distances from sets of inventory locations to an order recipient.
  */
-global class RankAverageDistanceOutputRepresentation {
+global class RankAverageDistanceOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
 
   /**
    * The specified unit of distance (miles or kilometers).

@@ -1,6 +1,6 @@
 /**
  * Summary of a mute.
  */
-global class MuteSummary {
+global class MuteSummary extends ConnectApi.UserFeedEntityActivitySummary {
 
 }

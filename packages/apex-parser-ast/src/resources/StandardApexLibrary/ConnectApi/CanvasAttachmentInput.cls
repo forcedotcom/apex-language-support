@@ -1,7 +1,7 @@
 /**
  * Used to attach a canvas app to a feed item.
  */
-global class CanvasAttachmentInput {
+global class CanvasAttachmentInput extends Connectapi.FeedItemAttachmentInput {
 
   /**
    * Optional. The description of the canvas app.
