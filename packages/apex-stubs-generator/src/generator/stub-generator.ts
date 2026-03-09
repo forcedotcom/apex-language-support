@@ -48,23 +48,9 @@ const generateNamespaceStubs = (namespace: ApexNamespace, outputDir: string) =>
     );
   });
 
-const isEmptyClass = (apexClass: ApexClass): boolean =>
-  apexClass.methods.length === 0 &&
-  apexClass.properties.length === 0 &&
-  (apexClass.constructors?.length ?? 0) === 0 &&
-  (apexClass.innerExceptions?.length ?? 0) === 0;
-
 const generateClassStub = (apexClass: ApexClass, outputPath: string) =>
   Effect.gen(function* () {
     const filePath = join(outputPath, `${apexClass.name}.cls`);
-
-    if (isEmptyClass(apexClass)) {
-      const kind = apexClass.isInterface ? "interface" : "class";
-      yield* Console.warn(
-        `  Warning: empty ${kind} stub: ${apexClass.namespace}.${apexClass.name} — no methods, properties, constructors, or inner classes`
-      );
-    }
-
     const stubContent = generateClassContent(apexClass);
 
     yield* Effect.tryPromise({
@@ -79,13 +65,6 @@ const generateClassStub = (apexClass: ApexClass, outputPath: string) =>
 const generateEnumStub = (apexEnum: ApexEnum, outputPath: string) =>
   Effect.gen(function* () {
     const filePath = join(outputPath, `${apexEnum.name}.cls`);
-
-    if (apexEnum.values.length === 0) {
-      yield* Console.warn(
-        `  Warning: empty enum stub: ${apexEnum.namespace}.${apexEnum.name} — no enum values`
-      );
-    }
-
     const stubContent = generateEnumContent(apexEnum);
 
     yield* Effect.tryPromise({

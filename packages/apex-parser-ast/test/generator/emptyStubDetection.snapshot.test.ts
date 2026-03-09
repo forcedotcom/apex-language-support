@@ -76,43 +76,39 @@ describe('Empty stub snapshot — known stubs with no members', () => {
     setLogLevel('error');
   });
 
-  it(
-    'matches the accepted list of empty stubs across all namespaces',
-    () => {
-      if (!fs.existsSync(STDLIB_DIR)) {
-        console.warn(
-          'StandardApexLibrary not found — skipping snapshot test.\n' +
-            'Run "npm run generate" in packages/apex-stubs-generator first.',
-        );
-        return;
-      }
+  it('matches the accepted list of empty stubs across all namespaces', () => {
+    if (!fs.existsSync(STDLIB_DIR)) {
+      console.warn(
+        'StandardApexLibrary not found — skipping snapshot test.\n' +
+          'Run "npm run generate" in packages/apex-stubs-generator first.',
+      );
+      return;
+    }
 
-      const emptyStubs: { namespace: string; className: string }[] = [];
+    const emptyStubs: { namespace: string; className: string }[] = [];
 
-      const namespaceDirs = fs
-        .readdirSync(STDLIB_DIR, { withFileTypes: true })
-        .filter((d) => d.isDirectory())
-        .map((d) => d.name)
+    const namespaceDirs = fs
+      .readdirSync(STDLIB_DIR, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .sort();
+
+    for (const namespace of namespaceDirs) {
+      const nsDir = path.join(STDLIB_DIR, namespace);
+      const files = fs
+        .readdirSync(nsDir)
+        .filter((f) => f.endsWith('.cls'))
         .sort();
 
-      for (const namespace of namespaceDirs) {
-        const nsDir = path.join(STDLIB_DIR, namespace);
-        const files = fs
-          .readdirSync(nsDir)
-          .filter((f) => f.endsWith('.cls'))
-          .sort();
-
-        for (const file of files) {
-          const className = file.replace('.cls', '');
-          const symbolTable = compileStub(path.join(nsDir, file), namespace);
-          if (symbolTable && !hasSemanticMember(symbolTable)) {
-            emptyStubs.push({ namespace, className });
-          }
+      for (const file of files) {
+        const className = file.replace('.cls', '');
+        const symbolTable = compileStub(path.join(nsDir, file), namespace);
+        if (symbolTable && !hasSemanticMember(symbolTable)) {
+          emptyStubs.push({ namespace, className });
         }
       }
+    }
 
-      expect(emptyStubs).toMatchSnapshot();
-    },
-    300_000, // 5 minutes — compiling ~5,500 stubs
-  );
+    expect(emptyStubs).toMatchSnapshot();
+  }, 300_000); // 5 minutes — compiling ~5,500 stubs
 });

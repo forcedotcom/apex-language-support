@@ -90,9 +90,7 @@ describe('Empty stub detection — hasSemanticMember()', () => {
     it('class with only a constructor has semantic members', () => {
       expect(
         hasSemanticMember(
-          compile(
-            'global class WithCtor { public WithCtor(String s) {} }',
-          ),
+          compile('global class WithCtor { public WithCtor(String s) {} }'),
         ),
       ).toBe(true);
     });
@@ -108,9 +106,9 @@ describe('Empty stub detection — hasSemanticMember()', () => {
 
   describe('interface stubs', () => {
     it('empty interface has no semantic members', () => {
-      expect(
-        hasSemanticMember(compile('global interface EmptyIface {}')),
-      ).toBe(false);
+      expect(hasSemanticMember(compile('global interface EmptyIface {}'))).toBe(
+        false,
+      );
     });
 
     it('interface with a method signature has semantic members', () => {
@@ -124,16 +122,14 @@ describe('Empty stub detection — hasSemanticMember()', () => {
 
   describe('enum stubs', () => {
     it('empty enum has no semantic members', () => {
-      expect(
-        hasSemanticMember(compile('global enum EmptyEnum {}')),
-      ).toBe(false);
+      expect(hasSemanticMember(compile('global enum EmptyEnum {}'))).toBe(
+        false,
+      );
     });
 
     it('enum with values has semantic members', () => {
       expect(
-        hasSemanticMember(
-          compile('global enum Status { ACTIVE, INACTIVE }'),
-        ),
+        hasSemanticMember(compile('global enum Status { ACTIVE, INACTIVE }')),
       ).toBe(true);
     });
   });

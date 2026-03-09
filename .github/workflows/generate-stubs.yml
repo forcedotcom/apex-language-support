@@ -45,11 +45,19 @@ jobs:
       - name: Recompile apex-parser-ast (rebuild ZIP and protobuf artifacts)
         run: npm run compile -w packages/apex-parser-ast
 
+      - name: Update empty-stub snapshot
+        # Regenerates the snapshot against the freshly compiled stubs so the PR
+        # includes an updated baseline. --forceExit prevents Jest hanging after
+        # the long compile-all-stubs test completes.
+        working-directory: packages/apex-parser-ast
+        run: npx jest emptyStubDetection.snapshot --updateSnapshot --testTimeout=300000 --forceExit
+
       - name: Check for changes
         id: changes
         run: |
           git add packages/apex-parser-ast/src/resources/StandardApexLibrary/ \
-                  packages/apex-parser-ast/resources/
+                  packages/apex-parser-ast/resources/ \
+                  packages/apex-parser-ast/test/generator/__snapshots__/emptyStubDetection.snapshot.test.ts.snap
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -72,6 +80,7 @@ jobs:
             - Updated `.cls` stub files in `packages/apex-parser-ast/src/resources/StandardApexLibrary/`
             - Rebuilt `StandardApexLibrary.zip` and protobuf artifacts
             - Updated `manifest.json` with current namespace/class counts
+            - Updated empty-stub snapshot baseline (`emptyStubDetection.snapshot.test.ts.snap`)
 
             **Triggered by:** ${{ github.event_name == 'schedule' && 'weekly schedule' || 'manual dispatch' }}
           commit-message: 'chore: update generated Apex standard library stubs'
