@@ -43,5 +43,7 @@
     "coverage-final.json"
   ],
   "coverage-gutters.lcovname": "lcov.info",
-  "coverage-gutters.watch": true
+  "coverage-gutters.watch": true,
+  // Enable OTEL console span output while developing the extension
+  "salesforcedx-vscode-salesforcedx.enableConsoleTraces": true
 }

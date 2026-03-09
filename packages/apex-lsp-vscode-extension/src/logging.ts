@@ -222,6 +222,58 @@ const getLogLevelString = (messageType: LogMessageType): string => {
 };
 
 /**
+ * Wraps an OutputChannel so that write errors (e.g. "Channel has been closed" during
+ * extension deactivation) are swallowed rather than propagating into the vscode-languageclient
+ * JSON-RPC message handler. VS Code begins closing the output channel IPC backing before the
+ * async deactivate() function completes, so window/logMessage notifications from the server's
+ * shutdown handler arrive at the client after the channel is already dead. Without this wrapper
+ * those synchronous throws kill the LSP connection mid-handshake, preventing the exit
+ * notification from being sent and causing the server to exit with code 1.
+ */
+export const createSafeOutputChannel = (
+  ch: vscode.OutputChannel,
+): vscode.OutputChannel => ({
+  get name() {
+    return ch.name;
+  },
+  append(value: string) {
+    try {
+      ch.append(value);
+    } catch (_) {}
+  },
+  appendLine(value: string) {
+    try {
+      ch.appendLine(value);
+    } catch (_) {}
+  },
+  replace(value: string) {
+    try {
+      ch.replace(value);
+    } catch (_) {}
+  },
+  clear() {
+    try {
+      ch.clear();
+    } catch (_) {}
+  },
+  show(columnOrPreserveFocus?: any, preserveFocus?: boolean) {
+    try {
+      ch.show(columnOrPreserveFocus, preserveFocus);
+    } catch (_) {}
+  },
+  hide() {
+    try {
+      ch.hide();
+    } catch (_) {}
+  },
+  dispose() {
+    try {
+      ch.dispose();
+    } catch (_) {}
+  },
+});
+
+/**
  * Formats a log message with timestamp and log level prefix to match VS Code's LogOutputChannel
  * Format: YYYY-MM-DD HH:mm:ss.SSS [level] message
  * @param message The message to format
