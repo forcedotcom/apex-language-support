@@ -145,12 +145,13 @@ describe('CommandPerformanceAggregator', () => {
       aggregator.flush('s', '', null);
 
       const secondFlush = aggregator.flush('s', '', null);
-      expect(secondFlush).toBeUndefined();
+      expect(secondFlush.commands).toHaveLength(0);
     });
 
-    it('returns undefined when nothing has been recorded', () => {
+    it('returns empty commands when nothing has been recorded', () => {
       const event = aggregator.flush('s', '1.0.0', null);
-      expect(event).toBeUndefined();
+      expect(event).toBeDefined();
+      expect(event.commands).toHaveLength(0);
     });
 
     it('rounds mean to two decimal places', () => {
@@ -172,7 +173,7 @@ describe('CommandPerformanceAggregator', () => {
       aggregator.reset();
 
       const event = aggregator.flush('s', '', null);
-      expect(event).toBeUndefined();
+      expect(event.commands).toHaveLength(0);
     });
   });
 });
