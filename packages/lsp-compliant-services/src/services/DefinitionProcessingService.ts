@@ -28,7 +28,6 @@ import {
   transformLspToParserPosition,
   transformParserToLspPosition,
 } from '../utils/positionUtils';
-
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
@@ -126,7 +125,6 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         // Continue with definition even if prerequisites fail
       }
     }
-
     try {
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
@@ -233,7 +231,6 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
             params.position,
             'definition',
           );
-
         // If blocking resolution succeeded, retry symbol lookup
         if (resolutionResult === 'resolved') {
           this.logger.debug(

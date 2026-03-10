@@ -656,8 +656,10 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     });
 
     await test.step('Position on cross-file class reference and go-to-definition', async () => {
-      await apexEditor.positionCursorOnWord('CrossFileUtility');
+      // CrossFileUtility at line 11, col 27 in CrossFileCaller.cls
+      await apexEditor.goToPosition(11, 27);
       await apexEditor.goToDefinition();
+      await apexEditor.waitForNavigation('CrossFileCaller.cls');
 
       const content = await apexEditor.findAndGetViewportContent(
         'public class CrossFileUtility',
@@ -692,8 +694,10 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     });
 
     await test.step('Position on cross-file method call and go-to-definition', async () => {
-      await apexEditor.positionCursorOnWord('formatName');
+      // formatName at line 11, col 44 in CrossFileCaller.cls
+      await apexEditor.goToPosition(11, 44);
       await apexEditor.goToDefinition();
+      await apexEditor.waitForNavigation('CrossFileCaller.cls');
 
       const content = await apexEditor.findAndGetViewportContent(
         'public static String formatName',
@@ -727,8 +731,10 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     });
 
     await test.step('Position on cross-file base class reference and go-to-definition', async () => {
-      await apexEditor.positionCursorOnWord('CrossFileBaseClass');
+      // CrossFileBaseClass at line 6, col 42 in CrossFileChildClass.cls
+      await apexEditor.goToPosition(6, 42);
       await apexEditor.goToDefinition();
+      await apexEditor.waitForNavigation('CrossFileChildClass.cls');
 
       const content = await apexEditor.findAndGetViewportContent(
         'public virtual class CrossFileBaseClass',
@@ -763,11 +769,13 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     });
 
     await test.step('Call getBaseName to reference inherited method across files', async () => {
-      await apexEditor.positionCursorOnWord('getBaseName');
+      // getBaseName at line 43, col 16 in CrossFileChildClass.cls
+      await apexEditor.goToPosition(43, 16);
       await apexEditor.goToDefinition();
+      await apexEditor.waitForNavigation('CrossFileChildClass.cls');
 
       const content = await apexEditor.findAndGetViewportContent('getBaseName');
-      expect(content).toMatch(/getBaseName/);
+      expect(content).toMatch(/public\s+String\s+getBaseName/);
 
       console.log('✅ Navigated to inherited method in CrossFileBaseClass.cls');
     });

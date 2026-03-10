@@ -82,6 +82,40 @@ export class ApexEditorPage extends BasePage {
   }
 
   /**
+   * Wait for the active editor tab to change away from the given file.
+   * Use after goToDefinition() for cross-file navigation to ensure the LSP
+   * response has arrived and VS Code has opened the target file before
+   * asserting on editor content.
+   * @param fromFile - Filename that should NO LONGER be the active tab
+   * @param timeout - Max wait in ms (defaults to 8s desktop / 6s CI)
+   */
+  async waitForNavigation(fromFile: string, timeout?: number): Promise<void> {
+    const waitMs = timeout ?? (this.isDesktopMode ? 8000 : 6000);
+    await this.page
+      .waitForFunction(
+        (original: string) => {
+          // Try .label-name textContent first (most specific)
+          const labelEl = document.querySelector('.tab.active .label-name');
+          if (labelEl?.textContent?.trim()) {
+            const name = labelEl.textContent.trim();
+            return name !== '' && name !== original;
+          }
+          // Fallback: aria-label may include extra info like ", tab 1 of 4" —
+          // extract only the filename (the part before the first comma).
+          const ariaLabel =
+            document
+              .querySelector('.tab.active[aria-label]')
+              ?.getAttribute('aria-label') ?? '';
+          const name = ariaLabel.split(',')[0].trim();
+          return name !== '' && name !== original;
+        },
+        fromFile,
+        { timeout: waitMs },
+      )
+      .catch(() => {});
+  }
+
+  /**
    * Navigate to a specific line and column position in the editor.
    * @param line - Line number (1-indexed)
    * @param column - Column number (1-indexed), optional
@@ -98,23 +132,22 @@ export class ApexEditorPage extends BasePage {
    */
   async goToDefinition(): Promise<void> {
     await this.page.keyboard.press('F12');
-    // Wait for either peek widget or editor content to be ready
-    const peekWidget = this.page.locator('.editor-widget');
-    const settleTimeout = this.isDesktopMode
-      ? 5000
-      : process.env.CI
-        ? 5000
-        : 3000;
-    await Promise.race([
-      peekWidget.waitFor({ state: 'visible', timeout: settleTimeout }),
-      this.editorContent.waitFor({ state: 'visible', timeout: settleTimeout }),
-    ]).catch(() => {});
 
-    for (let i = 0; i < 3; i++) {
-      await this.page.keyboard.press('Escape');
-      await peekWidget
-        .waitFor({ state: 'hidden', timeout: 500 })
-        .catch(() => {});
+    // Wait only for an actual peek view widget (not the broad .editor-widget which
+    // is always visible). The broad selector caused Escapes to fire immediately after
+    // F12, canceling VS Code's pending cross-file definition request before the LSP
+    // responded. The .peekview-widget only appears for multi-result definitions.
+    const peekWidget = this.page.locator('.editor-widget.peekview-widget');
+    await peekWidget.waitFor({ state: 'visible', timeout: 200 }).catch(() => {});
+
+    // Only close the peek if it actually appeared
+    if (await peekWidget.isVisible()) {
+      for (let i = 0; i < 3; i++) {
+        await this.page.keyboard.press('Escape');
+        await peekWidget
+          .waitFor({ state: 'hidden', timeout: 500 })
+          .catch(() => {});
+      }
     }
 
     await this.editorContent
@@ -157,6 +190,15 @@ export class ApexEditorPage extends BasePage {
    * @returns Viewport content after find (includes the matched text)
    */
   async findAndGetViewportContent(searchText: string): Promise<string> {
+    // Ensure the active editor has keyboard focus before invoking Find (Cmd/Ctrl+F).
+    // After cross-file navigation, VS Code may not have transferred focus to the new
+    // editor yet. Without explicit focus, keyboard.type() can land in the Monaco editor
+    // body instead of the Find widget, silently inserting text into the file.
+    const activeEditor = this.page.locator(
+      '.editor-group-container.active .monaco-editor',
+    );
+    await activeEditor.click({ timeout: 5000 }).catch(() => {});
+
     await this.positionCursorOnWord(searchText);
     await this.editorContent.waitFor({ state: 'visible', timeout: 3000 });
     return this.getContent();
@@ -195,6 +237,34 @@ export class ApexEditorPage extends BasePage {
         '[id="workbench.parts.editor"]',
       );
       if (!editorPart) return '';
+
+      // Prefer the focused Monaco editor - this is the active editor after navigation.
+      // Inactive tab editors may retain cached .view-line elements in the DOM, causing
+      // the "most lines" heuristic to pick the wrong editor.
+      const focusedEditor = editorPart.querySelector('.monaco-editor.focused');
+      if (focusedEditor) {
+        const focusedLines = focusedEditor.querySelectorAll('.view-line');
+        if (focusedLines.length > 0) {
+          return Array.from(focusedLines)
+            .map((ln) => (ln as HTMLElement).innerText)
+            .join('\n');
+        }
+      }
+
+      // Second try: use active editor group container
+      const activeGroupEditor = editorPart.querySelector(
+        '.editor-group-container.active .monaco-editor',
+      );
+      if (activeGroupEditor) {
+        const activeLines = activeGroupEditor.querySelectorAll('.view-line');
+        if (activeLines.length > 0) {
+          return Array.from(activeLines)
+            .map((ln) => (ln as HTMLElement).innerText)
+            .join('\n');
+        }
+      }
+
+      // Fallback: pick the editor with the most view-lines
       const editors = Array.from(editorPart.querySelectorAll('.monaco-editor'));
       const mainEditor = editors.reduce(
         (best, ed) => {

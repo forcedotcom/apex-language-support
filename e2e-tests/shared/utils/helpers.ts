@@ -282,6 +282,13 @@ export const findInPage = async (
 ): Promise<void> => {
   const findTimeout = options?.findTimeout ?? 5000;
   const findWidget = await openFindWidget(page, findTimeout);
+  // Click the find widget to guarantee keyboard focus lands on its search input.
+  // keyboard.type() can misfire into the Monaco editor body if VS Code hasn't
+  // transferred focus to the find input yet (widget visible but not focused).
+  await page
+    .locator('.editor-widget.find-widget')
+    .click({ timeout: 2000 })
+    .catch(() => {});
   await page.keyboard.type(searchText);
   await page.keyboard.press('Enter');
   await page.keyboard.press('Escape');

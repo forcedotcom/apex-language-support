@@ -288,8 +288,8 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
     });
 
     await test.step('Hover on cross-file class reference', async () => {
-      await hoverHelper.hoverOnWord('CrossFileUtility');
-      const content = await hoverHelper.getHoverContent();
+      // CrossFileUtility at line 11, col 27; hover twice for cross-file resolution
+      const content = await hoverHelper.hoverAtWithResolution(11, 27);
       expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
       console.log(
@@ -321,8 +321,8 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
     });
 
     await test.step('Hover on cross-file static method reference', async () => {
-      await hoverHelper.hoverOnWord('formatName');
-      const content = await hoverHelper.getHoverContent();
+      // formatName at line 11, col 44; hover twice for cross-file resolution
+      const content = await hoverHelper.hoverAtWithResolution(11, 44);
       expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
       console.log('✅ Hover content shown for cross-file method formatName');
@@ -353,8 +353,8 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
     });
 
     await test.step('Hover on cross-file base class reference', async () => {
-      await hoverHelper.hoverOnWord('CrossFileBaseClass');
-      const content = await hoverHelper.getHoverContent();
+      // CrossFileBaseClass at line 6, col 42; hover twice for cross-file resolution
+      const content = await hoverHelper.hoverAtWithResolution(6, 42);
       expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
       console.log(
