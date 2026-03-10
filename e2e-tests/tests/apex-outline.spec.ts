@@ -55,6 +55,7 @@ test.describe('Apex Outline View', () => {
         EXPECTED_APEX_SYMBOLS,
       );
       expect(symbolValidation.classFound).toBe(true);
+      expect(symbolValidation.allExpectedMethodsFound).toBe(true);
     });
 
     await test.step('Validate LCS type parsing capabilities', async () => {
@@ -277,23 +278,17 @@ test.describe('Apex Outline View', () => {
     apexEditor,
     outlineView,
   }) => {
-    // Note: This test assumes complex-class.cls is available in test workspace
-    await test.step('Open complex class file', async () => {
-      // Try to open complex-class if available, otherwise skip
-      try {
-        await apexEditor.openFile('complex-class.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log(
-          '⚠️ complex-class.cls not available, using default file',
-          errStr,
-        );
-      }
-    });
+    const fileAvailable =
+      await test.step('Open complex class file', async () => {
+        try {
+          await apexEditor.openFile('complex-class.cls');
+          await apexEditor.waitForLanguageServerReady();
+          return true;
+        } catch {
+          return false;
+        }
+      });
+    test.skip(!fileAvailable, 'complex-class.cls not available in workspace');
 
     await test.step('Open outline and verify structure', async () => {
       await outlineView.open();
@@ -301,8 +296,6 @@ test.describe('Apex Outline View', () => {
 
       const symbols = await outlineView.getSymbols();
       expect(symbols.length).toBeGreaterThan(0);
-
-      console.log(`✅ Complex class outline has ${symbols.length} symbols`);
     });
   });
 });

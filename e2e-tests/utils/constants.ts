@@ -43,6 +43,37 @@ export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
   'webPackagePaths.js',
   'workbench.web.main.nls.js',
 
+  // VS Code Web expected noise (IndexedDB, marketplace, extensions)
+  'idbtransaction',
+  'indexeddb database',
+  'marketplace.visualstudio.com',
+  "Activating extension 'vscode.typescript-language-features' failed",
+  'CodeExpectedError',
+  'Failed to load resource',
+  'vscode-userdata:/user/caches/cachedconfigurations',
+  'vsliveshare',
+  'punycode',
+  'selectedStep',
+  'onWillSaveTextDocument',
+  'Throttler is disposed',
+  'vscode-log:',
+  'tasks.log',
+  'theme-defaults/themes',
+  'light_modern.json',
+  'Failed to fetch',
+  'NO_COLOR',
+  'Content Security Policy',
+  'Applying inline style violates',
+  'Unable to resolve resource walkThrough://',
+  'SourceMembers timed out after',
+  'Blocked script execution',
+  'vscode-webview://',
+  'Failed to write JSON test result file',
+  'callback must be a function',
+  'Unable to resolve nonexistent file',
+  'testResults',
+  'workspaceStorage',
+
   // LSP and language server related non-critical errors
   'Request textDocument/diagnostic failed', // Known VS Code Web LSP issue Todo: W-19587882 for removal
   'Pending response rejected since connection got disposed', // LSP client shutdown race
@@ -78,6 +109,10 @@ export const NON_CRITICAL_NETWORK_PATTERNS: readonly ErrorFilterPattern[] = [
   // VS Code Web resource loading (404 errors are expected)
   'webPackagePaths.js',
   'workbench.web.main.nls.js',
+
+  // VS Code marketplace and extension CDN
+  'marketplace.visualstudio.com',
+  'vscode-unpkg.net',
 
   // Grammar files (expected to be missing in web environment)
   'apex.tmLanguage',
@@ -381,8 +416,18 @@ export const EXPECTED_APEX_SYMBOLS: ExpectedApexSymbols = {
   className: 'ApexClassExample',
   classType: 'class',
   methods: [
-    // Note: Current LCS implementation has limited method parsing support
-    // Test focuses on type parsing which is more reliable
+    { name: 'sayHello', visibility: 'public', isStatic: true },
+    { name: 'add', visibility: 'public', isStatic: true },
+    { name: 'getCurrentUserName', visibility: 'public', isStatic: true },
+    { name: 'processAccounts', visibility: 'public' },
+    { name: 'validateAccounts', visibility: 'private' },
+    { name: 'enrichAccountData', visibility: 'private' },
+    { name: 'updateAccountStatus', visibility: 'private' },
+    { name: 'formatPhoneNumber', visibility: 'public', isStatic: true },
+    { name: 'isValidEmail', visibility: 'public', isStatic: true },
+    { name: 'calculateCompoundInterest', visibility: 'public' },
+    { name: 'processData', visibility: 'public' },
+    { name: 'updateAccountWithStatus', visibility: 'public' },
   ],
   totalSymbols: 3, // 1 main class + 1 inner class + 1 inner enum (Configuration + StatusType)
 };

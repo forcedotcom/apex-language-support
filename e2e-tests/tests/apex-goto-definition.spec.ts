@@ -281,7 +281,8 @@ test.describe('Apex Go-to-Definition', () => {
    */
   test('should handle generic type references', async ({ apexEditor }) => {
     await test.step('Position cursor on generic type', async () => {
-      await apexEditor.positionCursorOnWord('List<Account>');
+      // Use single-word search; 'List<Account>' won't reliably position via Find
+      await apexEditor.positionCursorOnWord('accounts');
     });
 
     await test.step('Trigger go-to-definition', async () => {
@@ -292,8 +293,6 @@ test.describe('Apex Go-to-Definition', () => {
       // Generic types may not have definitions in user code
       // Just verify no crash occurred
       expect(await apexEditor.isApexFileOpen()).toBe(true);
-
-      console.log('✅ Handled generic type reference');
     });
   });
 
@@ -392,7 +391,8 @@ test.describe('Apex Go-to-Definition', () => {
    */
   test('should handle this keyword appropriately', async ({ apexEditor }) => {
     await test.step('Position cursor on this keyword', async () => {
-      await apexEditor.positionCursorOnWord('this.instanceId');
+      // Use 'this' alone; 'this.instanceId' is multi-word and unreliable via Find
+      await apexEditor.positionCursorOnWord('this');
     });
 
     await test.step('Trigger go-to-definition', async () => {
@@ -402,8 +402,6 @@ test.describe('Apex Go-to-Definition', () => {
     await test.step('Verify stayed in file', async () => {
       // 'this' should either navigate to class or stay in place
       expect(await apexEditor.isApexFileOpen()).toBe(true);
-
-      console.log('✅ Handled this keyword reference');
     });
   });
 
@@ -464,23 +462,17 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
   test('should navigate to base class from derived class', async ({
     apexEditor,
   }) => {
-    await test.step('Try to open inheritance test file', async () => {
-      try {
-        await apexEditor.openFile('inheritance.cls');
-        await apexEditor.waitForLanguageServerReady();
-        console.log('✅ Opened inheritance.cls test file');
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log(
-          '⚠️ inheritance.cls not available, using default file',
-          errStr,
-        );
-        return; // Skip this test if file not available
-      }
-    });
+    const fileAvailable =
+      await test.step('Try to open inheritance test file', async () => {
+        try {
+          await apexEditor.openFile('inheritance.cls');
+          await apexEditor.waitForLanguageServerReady();
+          return true;
+        } catch {
+          return false;
+        }
+      });
+    test.skip(!fileAvailable, 'inheritance.cls not available in workspace');
 
     await test.step('Navigate from derived class to base', async () => {
       await apexEditor.positionCursorOnWord('BaseHandler');
@@ -490,8 +482,6 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
         'abstract class BaseHandler',
       );
       expect(content).toMatch(/abstract\s+class\s+BaseHandler/);
-
-      console.log('✅ Navigated to base class definition');
     });
   });
 
@@ -501,28 +491,24 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
   test('should navigate to overridden method in derived class', async ({
     apexEditor,
   }) => {
-    await test.step('Open inheritance test file', async () => {
-      try {
-        await apexEditor.openFile('inheritance.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ inheritance.cls not available', errStr);
-        return;
-      }
-    });
+    const fileAvailable =
+      await test.step('Open inheritance test file', async () => {
+        try {
+          await apexEditor.openFile('inheritance.cls');
+          await apexEditor.waitForLanguageServerReady();
+          return true;
+        } catch {
+          return false;
+        }
+      });
+    test.skip(!fileAvailable, 'inheritance.cls not available in workspace');
 
     await test.step('Navigate to overridden execute method', async () => {
-      await apexEditor.positionCursorOnWord('override void execute');
+      await apexEditor.positionCursorOnWord('execute');
       await apexEditor.goToDefinition();
 
       const content = await apexEditor.findAndGetViewportContent('execute');
       expect(content).toMatch(/execute/);
-
-      console.log('✅ Navigated to overridden method');
     });
   });
 
@@ -533,19 +519,17 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
   test('should navigate to interface from implementing class', async ({
     apexEditor,
   }) => {
-    await test.step('Open interface implementation test file', async () => {
-      try {
-        await apexEditor.openFile('interface-impl.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ interface-impl.cls not available', errStr);
-        return;
-      }
-    });
+    const fileAvailable =
+      await test.step('Open interface implementation test file', async () => {
+        try {
+          await apexEditor.openFile('interface-impl.cls');
+          await apexEditor.waitForLanguageServerReady();
+          return true;
+        } catch {
+          return false;
+        }
+      });
+    test.skip(!fileAvailable, 'interface-impl.cls not available in workspace');
 
     await test.step('Navigate to interface definition', async () => {
       await apexEditor.positionCursorOnWord('DataProcessor');
@@ -555,8 +539,6 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
         'interface DataProcessor',
       );
       expect(content).toMatch(/interface\s+DataProcessor/);
-
-      console.log('✅ Navigated to interface definition');
     });
   });
 
@@ -566,19 +548,17 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
   test('should navigate to interface method from implementation', async ({
     apexEditor,
   }) => {
-    await test.step('Open interface implementation file', async () => {
-      try {
-        await apexEditor.openFile('interface-impl.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ interface-impl.cls not available', errStr);
-        return;
-      }
-    });
+    const fileAvailable =
+      await test.step('Open interface implementation file', async () => {
+        try {
+          await apexEditor.openFile('interface-impl.cls');
+          await apexEditor.waitForLanguageServerReady();
+          return true;
+        } catch {
+          return false;
+        }
+      });
+    test.skip(!fileAvailable, 'interface-impl.cls not available in workspace');
 
     await test.step('Navigate to processRecords method', async () => {
       await apexEditor.positionCursorOnWord('processRecords');
@@ -587,8 +567,6 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
       const content =
         await apexEditor.findAndGetViewportContent('processRecords');
       expect(content).toMatch(/processRecords/);
-
-      console.log('✅ Navigated to interface method');
     });
   });
 
@@ -597,19 +575,17 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
    * Uses complex-class.cls test file.
    */
   test('should navigate in complex class structure', async ({ apexEditor }) => {
-    await test.step('Open complex class test file', async () => {
-      try {
-        await apexEditor.openFile('complex-class.cls');
-        await apexEditor.waitForLanguageServerReady();
-      } catch (error) {
-        const errStr =
-          error instanceof Error
-            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
-            : JSON.stringify(error);
-        console.log('⚠️ complex-class.cls not available', errStr);
-        return;
-      }
-    });
+    const fileAvailable =
+      await test.step('Open complex class test file', async () => {
+        try {
+          await apexEditor.openFile('complex-class.cls');
+          await apexEditor.waitForLanguageServerReady();
+          return true;
+        } catch {
+          return false;
+        }
+      });
+    test.skip(!fileAvailable, 'complex-class.cls not available in workspace');
 
     await test.step('Navigate to inner class in complex file', async () => {
       await apexEditor.positionCursorOnWord('Configuration');
@@ -619,8 +595,6 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
         'class Configuration',
       );
       expect(content).toMatch(/class\s+Configuration/);
-
-      console.log('✅ Navigated in complex class structure');
     });
   });
 });

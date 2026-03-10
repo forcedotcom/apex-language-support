@@ -191,21 +191,29 @@ test.describe('Apex LSP Integration', () => {
       await apexEditor.goToPosition(1, 1);
       await apexEditor.typeText('public class TestClass {\n');
       await apexEditor.typeText('  // Missing closing brace\n');
-
-      console.log('✅ Code with issue introduced');
     });
 
-    await test.step('Wait for diagnostics', async () => {
-      await apexEditor
+    await test.step('Wait for diagnostics to appear', async () => {
+      // Wait for error squiggles to appear in the editor
+      const errorDecoration = apexEditor
         .getPage()
-        .locator('.monaco-editor .view-lines')
+        .locator(
+          '.monaco-editor .squiggly-error, .monaco-editor .squiggly-warning',
+        );
+      const hasSquiggles = await errorDecoration
         .first()
-        .waitFor({ state: 'visible', timeout: 5000 });
+        .waitFor({ state: 'visible', timeout: 10000 })
+        .then(() => true)
+        .catch(() => false);
 
-      // LSP should still be functional
+      // LSP should still be functional regardless
       expect(await apexEditor.isApexFileOpen()).toBe(true);
 
-      console.log('✅ LSP provides diagnostics');
+      // If squiggles appeared, verify there's at least one diagnostic marker
+      if (hasSquiggles) {
+        const count = await errorDecoration.count();
+        expect(count).toBeGreaterThan(0);
+      }
     });
   });
 
@@ -276,22 +284,19 @@ test.describe('Apex LSP Integration', () => {
     await test.step('Cause temporary error state', async () => {
       await apexEditor.typeText('public class Test {');
       await apexEditor.waitForContentToInclude('{', 2000);
-      await apexEditor.typeText('}');
-
-      console.log('✅ Temporary error state introduced');
     });
 
-    await test.step('Verify recovery', async () => {
+    await test.step('Fix the error and verify recovery', async () => {
+      await apexEditor.typeText('}');
+
       await apexEditor
         .getPage()
         .locator('.monaco-editor .view-lines')
         .first()
         .waitFor({ state: 'visible', timeout: 5000 });
 
-      // Verify LSP is functional
+      // Verify LSP is functional after recovery
       expect(await apexEditor.isApexFileOpen()).toBe(true);
-
-      console.log('✅ LSP recovered from temporary error');
     });
   });
 
@@ -332,10 +337,21 @@ test.describe('Apex LSP Integration', () => {
       await apexEditor.typeText('String s = ');
     });
 
-    await test.step('Trigger completion', async () => {
+    await test.step('Trigger and verify completion', async () => {
       await apexEditor.triggerCompletion();
 
-      console.log('✅ Completion request handled');
+      // Verify suggest widget appeared
+      const page = apexEditor.getPage();
+      const suggestWidget = page.locator(
+        '.monaco-editor .suggest-widget, .editor-widget.suggest-widget',
+      );
+      const isVisible = await suggestWidget
+        .isVisible({ timeout: 5000 })
+        .catch(() => false);
+      // Widget appearing confirms the LSP handled the completion request
+      expect(isVisible).toBe(true);
+      // Dismiss completion widget
+      await page.keyboard.press('Escape');
     });
   });
 
@@ -348,10 +364,25 @@ test.describe('Apex LSP Integration', () => {
       await apexEditor.typeText('System.debug(');
     });
 
-    await test.step('Trigger signature help', async () => {
+    await test.step('Trigger and verify signature help', async () => {
       await apexEditor.triggerSignatureHelp();
 
-      console.log('✅ Signature help request handled');
+      // Verify parameter hints widget appeared
+      const hintWidget = apexEditor
+        .getPage()
+        .locator(
+          '.monaco-editor .parameter-hints-widget, .editor-widget.parameter-hints',
+        );
+      const isVisible = await hintWidget
+        .isVisible({ timeout: 5000 })
+        .catch(() => false);
+      // Signature help may not be available in all environments; verify no crash at minimum
+      expect(await apexEditor.isApexFileOpen()).toBe(true);
+      if (isVisible) {
+        const content = (await hintWidget.textContent().catch(() => '')) ?? '';
+        expect(content.length).toBeGreaterThan(0);
+      }
+      await apexEditor.getPage().keyboard.press('Escape');
     });
   });
 
@@ -378,27 +409,36 @@ test.describe('Apex LSP Integration', () => {
    * Test: LSP handles undo/redo operations.
    */
   test('should handle undo/redo operations', async ({ apexEditor }) => {
-    await test.step('Make an edit', async () => {
+    const page = apexEditor.getPage();
+    const normalize = (s: string) => s.replace(/\u00A0/g, ' ');
+
+    // Capture a known substring from the first visible line
+    const originalContent = normalize(await apexEditor.getContent());
+    const firstLine = originalContent.split('\n')[0]?.trim() ?? '';
+    expect(firstLine.length).toBeGreaterThan(0);
+
+    await test.step('Delete a line', async () => {
       await apexEditor.goToPosition(1, 1);
-      await apexEditor.typeText('// Original edit');
-      await apexEditor.getPage().keyboard.press('Enter');
-      await apexEditor.waitForContentToInclude('// Original edit', 5000);
-      // Scroll to the edit so it's in the viewport (Monaco virtualizes)
-      await apexEditor.findText('// Original edit');
-      const content = await apexEditor.getContent();
-      // Normalize spaces (Monaco may use \u00A0) and use regex for flexible match
-      expect(content.replace(/\u00A0/g, ' ')).toMatch(/\/\/ Original edit/);
+      // "Delete Line" (Ctrl/Cmd+Shift+K) is a single undo step.
+      // Using this instead of typeText, which creates per-character undo steps.
+      await page.keyboard.press(getModifierShortcut('Shift+K'));
+
+      await expect(async () => {
+        const content = normalize(await apexEditor.getContent());
+        expect(content).not.toContain(firstLine);
+      }).toPass({ timeout: 5000 });
     });
 
-    await test.step('Undo edit', async () => {
-      await apexEditor.getPage().keyboard.press(getModifierShortcut('Z'));
-      console.log('✅ Undo performed');
+    await test.step('Undo and verify content restored', async () => {
+      await page.keyboard.press(getModifierShortcut('Z'));
+      await expect(async () => {
+        const content = normalize(await apexEditor.getContent());
+        expect(content).toContain(firstLine);
+      }).toPass({ timeout: 5000 });
     });
 
     await test.step('Verify LSP still responsive', async () => {
       expect(await apexEditor.isApexFileOpen()).toBe(true);
-
-      console.log('✅ LSP handles undo/redo');
     });
   });
 

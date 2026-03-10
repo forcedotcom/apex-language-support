@@ -7,7 +7,6 @@
  */
 
 import type { Page } from '@playwright/test';
-import { expect } from '@playwright/test';
 import { getModifierShortcut } from '../shared/utils/helpers';
 import { OUTLINE_SELECTORS, type ExpectedApexSymbols } from './constants';
 
@@ -149,92 +148,129 @@ export const captureOutlineViewScreenshot = async (
 };
 
 /**
- * Ensures all outline tree symbols are visible by expanding the tree and scrolling.
+ * Ensures all outline tree symbols are visible by expanding collapsed nodes
+ * using keyboard navigation (ArrowRight expands, ArrowDown moves to next).
+ *
+ * Monaco's outline tree virtualises rows — only visible rows exist in the DOM.
+ * Clicking twistie icons is unreliable because child rows don't exist until
+ * the parent is expanded. Instead we focus the tree, press Home, then walk
+ * down with ArrowDown, pressing ArrowRight on each row to expand it.
  *
  * @param page - Playwright page instance
  */
 const ensureOutlineTreeFullyVisible = async (page: Page): Promise<void> => {
-  try {
-    // Find the outline tree container
-    const outlineTree = page
-      .locator('.outline-tree, .monaco-tree, .tree-explorer')
-      .first();
+  const outlineRows = page.locator(
+    '.outline-tree .monaco-list-row, .tree-explorer .monaco-list-row',
+  );
+  if ((await outlineRows.count()) === 0) return;
 
-    if (await outlineTree.isVisible()) {
-      // Expand all tree nodes by clicking expand icons
-      const expandIcons = page.locator(
-        [
-          '.outline-tree .codicon-chevron-right',
-          '.monaco-tree .codicon-chevron-right',
-          '.codicon-tree-item-expanded',
-          '.codicon-triangle-right',
-        ].join(', '),
-      );
-      const expandCount = await expandIcons.count();
+  // Focus the tree list container — avoids the sticky pane header
+  // intercepting clicks on partially-hidden rows.
+  const listContainer = page.locator(
+    '.outline-tree .monaco-list, .tree-explorer .monaco-list',
+  );
+  await listContainer.first().click({ force: true });
+  await page.keyboard.press('Home');
 
-      for (let i = 0; i < expandCount; i++) {
-        const icon = expandIcons.nth(i);
-        if (await icon.isVisible()) {
-          await icon.click().catch(() => {}); // Ignore errors if already expanded
-        }
-      }
+  const focused = page.locator(
+    '.outline-tree .monaco-list-row.focused, .tree-explorer .monaco-list-row.focused',
+  );
 
-      // Also try to expand by double-clicking on class names to reveal methods
-      const classElements = page.locator(
-        [
-          '.outline-tree .monaco-list-row:has-text("ApexClassExample")',
-          '.monaco-tree .monaco-list-row:has-text("ApexClassExample")',
-        ].join(', '),
-      );
-      const classCount = await classElements.count();
+  const getFocusedId = async (): Promise<string | null> =>
+    focused
+      .first()
+      .getAttribute('id')
+      .catch(() => null);
 
-      for (let i = 0; i < classCount; i++) {
-        const classElement = classElements.nth(i);
-        if (await classElement.isVisible()) {
-          await classElement.dblclick().catch(() => {}); // Double-click to expand
-        }
-      }
+  // Walk the tree: ArrowRight expands the focused node (no-op if leaf/already
+  // expanded), ArrowDown moves to the next visible row.
+  // We detect "end of tree" by checking whether the focused row's id stops
+  // changing after ArrowDown — the DOM row count is unreliable with
+  // virtualised lists because it stays roughly viewport-sized.
+  const maxSteps = 300;
+  let stableSteps = 0;
 
-      // Scroll to the bottom of the outline tree to ensure all symbols are rendered
-      await outlineTree.hover();
-      await page.keyboard.press('End'); // Scroll to bottom
+  for (let i = 0; i < maxSteps; i++) {
+    const beforeId = await getFocusedId();
 
-      // Wait for rendering to complete by checking for outline rows
-      await page
-        .waitForFunction(
-          () => {
-            const tree = document.querySelector(
-              '.outline-tree, .monaco-tree, .tree-explorer',
-            );
-            return tree && tree.querySelector('.monaco-list-row');
-          },
-          { timeout: 2000 },
-        )
-        .catch(() => {});
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowDown');
 
-      // Scroll back to top
-      await page.keyboard.press('Home'); // Scroll to top
+    const afterId = await getFocusedId();
 
-      // Wait for scroll to complete
-      await page
-        .waitForFunction(
-          () => {
-            const tree = document.querySelector(
-              '.outline-tree, .monaco-tree, .tree-explorer',
-            );
-            return tree && tree.scrollTop === 0;
-          },
-          { timeout: 1000 },
-        )
-        .catch(() => {});
+    if (afterId === beforeId) {
+      stableSteps++;
+      if (stableSteps >= 3) break;
+    } else {
+      stableSteps = 0;
     }
-  } catch (error) {
-    console.log(`⚠️  Failed to fully expand outline tree: ${error}`);
   }
 };
 
 /**
+ * Collects all row labels from a virtualised Monaco tree by walking it with
+ * keyboard navigation.  At each step the focused row's text is read.  This
+ * handles trees where only a viewport-sized slice of rows exists in the DOM.
+ */
+const collectAllTreeLabels = async (page: Page): Promise<string[]> => {
+  const outlineRows = page.locator(
+    '.outline-tree .monaco-list-row, .tree-explorer .monaco-list-row',
+  );
+  if ((await outlineRows.count()) === 0) return [];
+
+  // Focus the tree list container rather than a row — avoids the sticky
+  // pane header intercepting clicks on partially-hidden rows.
+  const listContainer = page.locator(
+    '.outline-tree .monaco-list, .tree-explorer .monaco-list',
+  );
+  await listContainer.first().click({ force: true });
+  await page.keyboard.press('Home');
+
+  const focused = page.locator(
+    '.outline-tree .monaco-list-row.focused, .tree-explorer .monaco-list-row.focused',
+  );
+
+  const labels: string[] = [];
+  const maxSteps = 300;
+  let stableSteps = 0;
+
+  for (let i = 0; i < maxSteps; i++) {
+    // Use the element id to detect end-of-tree — text can repeat
+    // (e.g. two constructors named "ApexClassExample").
+    const beforeId = await focused
+      .first()
+      .getAttribute('id')
+      .catch(() => null);
+
+    const text = await focused
+      .first()
+      .textContent()
+      .catch(() => null);
+    if (text?.trim()) labels.push(text.trim());
+
+    await page.keyboard.press('ArrowDown');
+
+    const afterId = await focused
+      .first()
+      .getAttribute('id')
+      .catch(() => null);
+    if (afterId === beforeId) {
+      stableSteps++;
+      if (stableSteps >= 2) break;
+    } else {
+      stableSteps = 0;
+    }
+  }
+
+  return labels;
+};
+
+/**
  * Validates specific Apex symbols are present in the outline view.
+ *
+ * Uses keyboard-driven tree walking to handle Monaco's virtualised list —
+ * rows not in the viewport don't exist in the DOM, so we navigate and read
+ * each focused row's text instead of querying all rows at once.
  *
  * @param page - Playwright page instance
  * @param expectedSymbols - The exact symbols we expect to find in the outline
@@ -251,152 +287,50 @@ export const validateApexSymbolsInOutline = async (
   allExpectedMethodsFound: boolean;
   exactMatch: boolean;
 }> => {
-  // Wait for LSP to populate symbols by checking for any outline content
-  await page.waitForSelector('.outline-tree .monaco-list-row', {
-    timeout: 10_000, // Outline generation timeout
-  });
+  const outlineRows = page.locator(
+    '.outline-tree .monaco-list-row, .tree-explorer .monaco-list-row',
+  );
 
-  // Ensure outline tree is fully expanded and all symbols are visible
+  // Wait for at least one outline row to appear
+  await outlineRows.first().waitFor({ state: 'visible', timeout: 10_000 });
+
+  // Expand all collapsed nodes so method symbols become reachable
   await ensureOutlineTreeFullyVisible(page);
 
-  // Debug: Log all visible text in the outline for troubleshooting
-  try {
-    const allOutlineText = await page
-      .locator('.outline-tree, .monaco-tree')
-      .first()
-      .textContent();
-    console.log('🔍 All outline text content:', allOutlineText);
+  // Walk the full tree to collect every label (handles virtualization)
+  const allLabels = await collectAllTreeLabels(page);
 
-    // Get all outline row elements for debugging
-    const outlineRows = page.locator(
-      '.outline-tree .monaco-list-row, .monaco-tree .monaco-list-row',
-    );
-    const rowCount = await outlineRows.count();
-    console.log(`🔍 Found ${rowCount} outline rows`);
+  console.log(`Outline labels (${allLabels.length}): ${allLabels.join(', ')}`);
 
-    for (let i = 0; i < Math.min(rowCount, 10); i++) {
-      const rowText = await outlineRows.nth(i).textContent();
-      console.log(`  Row ${i}: ${rowText}`);
-    }
-  } catch (_error) {
-    console.log('⚠️  Could not retrieve outline debug information');
-  }
+  // --- Validate class ---
+  const classFound = allLabels.some((label) =>
+    label.includes(expectedSymbols.className),
+  );
 
-  // Validate class exists
-  let classFound = false;
-  const classSelectors = [
-    '.codicon-symbol-class',
-    `[aria-label*="${expectedSymbols.className}"]`,
-    `text=${expectedSymbols.className}`,
-    `.outline-tree .monaco-list-row:has-text("${expectedSymbols.className}")`,
-  ];
-
-  for (const selector of classSelectors) {
-    const classElements = page.locator(selector);
-    const count = await classElements.count();
-    if (count > 0) {
-      classFound = true;
-
-      // Highlight the found class symbol in debug mode
-      if (process.env.DEBUG_MODE) {
-        await classElements.first().hover();
-      }
-      break;
-    }
-  }
-
-  // Validate each expected method exists
-  const exactMethodsFound: string[] = [];
+  // --- Validate methods ---
   const expectedMethodNames = expectedSymbols.methods.map((m) => m.name);
+  const exactMethodsFound: string[] = [];
 
   for (const method of expectedSymbols.methods) {
-    // Enhanced selectors that work better with scrollable content
-    const methodSelectors = [
-      `text=${method.name}`, // Direct text match (most reliable)
-      `.outline-tree .monaco-list-row:has-text("${method.name}")`, // Tree row with text
-      `.monaco-tree .monaco-list-row:has-text("${method.name}")`, // Alternative tree structure
-      `[aria-label*="${method.name}"]`, // Aria label match
-      `.codicon-symbol-method ~ span:has-text("${method.name}")`, // Method icon with text
-    ];
-
-    let methodFound = false;
-    for (const selector of methodSelectors) {
-      const methodElements = page.locator(selector);
-      const count = await methodElements.count();
-      if (count > 0) {
-        // Scroll the found element into view to ensure it's visible
-        try {
-          await methodElements.first().scrollIntoViewIfNeeded();
-          // Wait for scroll to complete by checking element is in view
-          await expect(methodElements.first())
-            .toBeInViewport()
-            .catch(() => {});
-        } catch (_error) {
-          // Ignore scroll errors
-        }
-
-        exactMethodsFound.push(method.name);
-        methodFound = true;
-
-        // Highlight the found method symbol in debug mode
-        if (process.env.DEBUG_MODE) {
-          await methodElements.first().hover();
-        }
-        console.log(`✅ Found method '${method.name}' in outline`);
-        break;
-      }
-    }
-
-    if (!methodFound) {
-      console.log(`❌ Expected method '${method.name}' not found in outline`);
-
-      // Try alternative approach: get all text content and search
-      try {
-        const outlineText = await page
-          .locator('.outline-tree, .monaco-tree')
-          .first()
-          .textContent();
-        if (outlineText && outlineText.includes(method.name)) {
-          console.log(
-            `ℹ️  Method '${method.name}' found in outline text but not via selectors`,
-          );
-          exactMethodsFound.push(method.name);
-          methodFound = true;
-        }
-      } catch (_error) {
-        // Ignore text search errors
-      }
+    if (allLabels.some((label) => label.includes(method.name))) {
+      exactMethodsFound.push(method.name);
     }
   }
 
-  // Calculate validation results
   const missingMethods = expectedMethodNames.filter(
     (name) => !exactMethodsFound.includes(name),
   );
-
-  // For now, we don't check for unexpected methods since the class might have additional methods
-  // This could be enhanced in the future if needed
   const unexpectedMethods: string[] = [];
-
   const allExpectedMethodsFound = missingMethods.length === 0;
   const exactMatch = classFound && allExpectedMethodsFound;
 
-  // Report results with specific details
-  console.log('📊 Symbol validation results (exact matching):');
   console.log(
-    `   - Class '${expectedSymbols.className}': ${classFound ? '✅' : '❌'}`,
+    `Symbol validation: class=${classFound ? 'found' : 'MISSING'}, ` +
+      `methods=${exactMethodsFound.length}/${expectedMethodNames.length}` +
+      (missingMethods.length > 0
+        ? `, missing=[${missingMethods.join(', ')}]`
+        : ''),
   );
-  console.log(`   - Expected methods: ${expectedMethodNames.join(', ')}`);
-  console.log(`   - Found methods: ${exactMethodsFound.join(', ')}`);
-
-  if (missingMethods.length > 0) {
-    console.log(`   - Missing methods: ❌ ${missingMethods.join(', ')}`);
-  }
-
-  console.log(
-    `   - All expected found: ${allExpectedMethodsFound ? '✅' : '❌'}`,
-  );
-  console.log(`   - Exact match: ${exactMatch ? '✅' : '❌'}`);
 
   return {
     classFound,
