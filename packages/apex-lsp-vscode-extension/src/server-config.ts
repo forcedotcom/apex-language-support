@@ -258,9 +258,13 @@ export const createServerOptions = (
     debugExecArgv.push(...heapSizeFlag);
   }
 
-  // Add debug flags only to debug
+  // Always enable debug port for debug mode (used by "Attach to Language Server")
+  const debugConfig = getDebugConfig();
+  debugExecArgv.push(DEBUG_CONFIG.NOLAZY_FLAG, `--inspect=${debugConfig.port}`);
+
+  // Only add debug flags to run mode if explicitly configured (apex.debug setting)
   if (debugOptions) {
-    debugExecArgv.push(...debugOptions);
+    runExecArgv.push(...debugOptions);
   }
 
   const serverEnv = {
