@@ -255,3 +255,111 @@ test.describe('Apex Hover Functionality', () => {
     console.log('✅ Hover screenshot captured successfully');
   });
 });
+
+/**
+ * Cross-File Workspace Hover tests.
+ * These tests verify hover where the hovered symbol is defined in a different
+ * user workspace file (not a standard Apex library type).
+ * Uses CrossFileCaller.cls → CrossFileUtility.cls and
+ * CrossFileChildClass.cls → CrossFileBaseClass.cls pairs.
+ */
+test.describe('Apex Hover - Cross-File Workspace Types', () => {
+  /**
+   * Test: Hover on a class type defined in another workspace file.
+   * Opens CrossFileCaller.cls and hovers on CrossFileUtility.
+   */
+  test('should show hover for class type defined in another workspace file', async ({
+    apexEditor,
+    hoverHelper,
+  }) => {
+    await test.step('Open the caller file', async () => {
+      try {
+        await apexEditor.openFile('CrossFileCaller.cls');
+        await apexEditor.waitForLanguageServerReady();
+        console.log('✅ Opened CrossFileCaller.cls');
+      } catch (error) {
+        const errStr =
+          error instanceof Error
+            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
+            : JSON.stringify(error);
+        console.log('⚠️ CrossFileCaller.cls not available', errStr);
+        return;
+      }
+    });
+
+    await test.step('Hover on cross-file class reference', async () => {
+      await hoverHelper.hoverOnWord('CrossFileUtility');
+      const content = await hoverHelper.getHoverContent();
+      expect(content).toBeTruthy();
+      expect(content.length).toBeGreaterThan(0);
+      console.log(
+        '✅ Hover content shown for cross-file class CrossFileUtility',
+      );
+    });
+  });
+
+  /**
+   * Test: Hover on a static method call defined in another workspace file.
+   * Opens CrossFileCaller.cls and hovers on the formatName call.
+   */
+  test('should show hover for static method defined in another workspace file', async ({
+    apexEditor,
+    hoverHelper,
+  }) => {
+    await test.step('Open the caller file', async () => {
+      try {
+        await apexEditor.openFile('CrossFileCaller.cls');
+        await apexEditor.waitForLanguageServerReady();
+      } catch (error) {
+        const errStr =
+          error instanceof Error
+            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
+            : JSON.stringify(error);
+        console.log('⚠️ CrossFileCaller.cls not available', errStr);
+        return;
+      }
+    });
+
+    await test.step('Hover on cross-file static method reference', async () => {
+      await hoverHelper.hoverOnWord('formatName');
+      const content = await hoverHelper.getHoverContent();
+      expect(content).toBeTruthy();
+      expect(content.length).toBeGreaterThan(0);
+      console.log('✅ Hover content shown for cross-file method formatName');
+    });
+  });
+
+  /**
+   * Test: Hover on an inherited base class type defined in another workspace file.
+   * Opens CrossFileChildClass.cls and hovers on CrossFileBaseClass.
+   */
+  test('should show hover for base class type defined in another workspace file', async ({
+    apexEditor,
+    hoverHelper,
+  }) => {
+    await test.step('Open the child class file', async () => {
+      try {
+        await apexEditor.openFile('CrossFileChildClass.cls');
+        await apexEditor.waitForLanguageServerReady();
+        console.log('✅ Opened CrossFileChildClass.cls');
+      } catch (error) {
+        const errStr =
+          error instanceof Error
+            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
+            : JSON.stringify(error);
+        console.log('⚠️ CrossFileChildClass.cls not available', errStr);
+        return;
+      }
+    });
+
+    await test.step('Hover on cross-file base class reference', async () => {
+      await hoverHelper.hoverOnWord('CrossFileBaseClass');
+      const content = await hoverHelper.getHoverContent();
+      expect(content).toBeTruthy();
+      expect(content.length).toBeGreaterThan(0);
+      console.log(
+        '✅ Hover content shown for cross-file base class CrossFileBaseClass',
+      );
+    });
+  });
+});

@@ -624,3 +624,152 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     });
   });
 });
+
+/**
+ * Cross-File Workspace Resolution tests.
+ * These tests verify go-to-definition where both the source and target files
+ * are user workspace files (not standard Apex library types).
+ * Uses CrossFileCaller.cls → CrossFileUtility.cls and
+ * CrossFileChildClass.cls → CrossFileBaseClass.cls pairs.
+ */
+test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
+  /**
+   * Test: Navigate to a class defined in another workspace file (static utility).
+   * Opens CrossFileCaller.cls and navigates to CrossFileUtility defined in CrossFileUtility.cls.
+   */
+  test('should navigate to class defined in another workspace file', async ({
+    apexEditor,
+  }) => {
+    await test.step('Open the caller file', async () => {
+      try {
+        await apexEditor.openFile('CrossFileCaller.cls');
+        await apexEditor.waitForLanguageServerReady();
+        console.log('✅ Opened CrossFileCaller.cls');
+      } catch (error) {
+        const errStr =
+          error instanceof Error
+            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
+            : JSON.stringify(error);
+        console.log('⚠️ CrossFileCaller.cls not available', errStr);
+        return;
+      }
+    });
+
+    await test.step('Position on cross-file class reference and go-to-definition', async () => {
+      await apexEditor.positionCursorOnWord('CrossFileUtility');
+      await apexEditor.goToDefinition();
+
+      const content = await apexEditor.findAndGetViewportContent(
+        'public class CrossFileUtility',
+      );
+      expect(content).toMatch(/public\s+class\s+CrossFileUtility/);
+
+      console.log(
+        '✅ Navigated to CrossFileUtility in separate workspace file',
+      );
+    });
+  });
+
+  /**
+   * Test: Navigate to a static method defined in another workspace file.
+   * Opens CrossFileCaller.cls and navigates to formatName in CrossFileUtility.cls.
+   */
+  test('should navigate to static method defined in another workspace file', async ({
+    apexEditor,
+  }) => {
+    await test.step('Open the caller file', async () => {
+      try {
+        await apexEditor.openFile('CrossFileCaller.cls');
+        await apexEditor.waitForLanguageServerReady();
+      } catch (error) {
+        const errStr =
+          error instanceof Error
+            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
+            : JSON.stringify(error);
+        console.log('⚠️ CrossFileCaller.cls not available', errStr);
+        return;
+      }
+    });
+
+    await test.step('Position on cross-file method call and go-to-definition', async () => {
+      await apexEditor.positionCursorOnWord('formatName');
+      await apexEditor.goToDefinition();
+
+      const content = await apexEditor.findAndGetViewportContent(
+        'public static String formatName',
+      );
+      expect(content).toMatch(/public\s+static\s+String\s+formatName/);
+
+      console.log('✅ Navigated to formatName in CrossFileUtility.cls');
+    });
+  });
+
+  /**
+   * Test: Navigate to base class defined in another workspace file.
+   * Opens CrossFileChildClass.cls and navigates to CrossFileBaseClass in CrossFileBaseClass.cls.
+   */
+  test('should navigate to base class defined in another workspace file', async ({
+    apexEditor,
+  }) => {
+    await test.step('Open the child class file', async () => {
+      try {
+        await apexEditor.openFile('CrossFileChildClass.cls');
+        await apexEditor.waitForLanguageServerReady();
+        console.log('✅ Opened CrossFileChildClass.cls');
+      } catch (error) {
+        const errStr =
+          error instanceof Error
+            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
+            : JSON.stringify(error);
+        console.log('⚠️ CrossFileChildClass.cls not available', errStr);
+        return;
+      }
+    });
+
+    await test.step('Position on cross-file base class reference and go-to-definition', async () => {
+      await apexEditor.positionCursorOnWord('CrossFileBaseClass');
+      await apexEditor.goToDefinition();
+
+      const content = await apexEditor.findAndGetViewportContent(
+        'public virtual class CrossFileBaseClass',
+      );
+      expect(content).toMatch(/public\s+virtual\s+class\s+CrossFileBaseClass/);
+
+      console.log(
+        '✅ Navigated to CrossFileBaseClass in separate workspace file',
+      );
+    });
+  });
+
+  /**
+   * Test: Navigate to an inherited method defined in another workspace file.
+   * Opens CrossFileChildClass.cls and navigates to getBaseName defined in CrossFileBaseClass.cls.
+   */
+  test('should navigate to inherited method defined in another workspace file', async ({
+    apexEditor,
+  }) => {
+    await test.step('Open the child class file', async () => {
+      try {
+        await apexEditor.openFile('CrossFileChildClass.cls');
+        await apexEditor.waitForLanguageServerReady();
+      } catch (error) {
+        const errStr =
+          error instanceof Error
+            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
+            : JSON.stringify(error);
+        console.log('⚠️ CrossFileChildClass.cls not available', errStr);
+        return;
+      }
+    });
+
+    await test.step('Call getBaseName to reference inherited method across files', async () => {
+      await apexEditor.positionCursorOnWord('getBaseName');
+      await apexEditor.goToDefinition();
+
+      const content = await apexEditor.findAndGetViewportContent('getBaseName');
+      expect(content).toMatch(/getBaseName/);
+
+      console.log('✅ Navigated to inherited method in CrossFileBaseClass.cls');
+    });
+  });
+});

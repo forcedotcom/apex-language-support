@@ -49,6 +49,27 @@ Interface implementation:
 - Hover on interface types
 - Outline showing interface members
 
+### CrossFileUtility.cls + CrossFileCaller.cls (cross-file pair)
+A purpose-built cross-file pair where both files are user workspace files:
+- `CrossFileUtility.cls` — target: static utility methods (`formatName`, `add`, `greet`)
+- `CrossFileCaller.cls` — source: calls `CrossFileUtility` methods from a separate file
+
+**Use for testing:**
+- Go-to-definition from one workspace file to a class defined in another workspace file
+- Go-to-definition to a static method defined in another workspace file
+- Hover on a class type resolved from another workspace file
+- Hover on a static method resolved from another workspace file
+
+### CrossFileBaseClass.cls + CrossFileChildClass.cls (cross-file pair)
+A purpose-built cross-file inheritance pair where both files are user workspace files:
+- `CrossFileBaseClass.cls` — target: virtual base class with `describe()` and `getBaseName()`
+- `CrossFileChildClass.cls` — source: extends `CrossFileBaseClass`, overrides `describe()`
+
+**Use for testing:**
+- Go-to-definition from a derived class to its base class defined in another workspace file
+- Go-to-definition to an inherited method resolved from another workspace file
+- Hover on a base class type resolved from another workspace file
+
 ## Expected Results
 
 Expected outcomes are currently asserted directly in the test specs (for example,

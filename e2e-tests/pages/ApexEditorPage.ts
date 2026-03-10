@@ -109,12 +109,14 @@ export class ApexEditorPage extends BasePage {
       peekWidget.waitFor({ state: 'visible', timeout: settleTimeout }),
       this.editorContent.waitFor({ state: 'visible', timeout: settleTimeout }),
     ]).catch(() => {});
+
     for (let i = 0; i < 3; i++) {
       await this.page.keyboard.press('Escape');
       await peekWidget
         .waitFor({ state: 'hidden', timeout: 500 })
         .catch(() => {});
     }
+
     await this.editorContent
       .waitFor({ state: 'visible', timeout: this.defaultTimeout })
       .catch(() => {});

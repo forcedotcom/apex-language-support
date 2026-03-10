@@ -375,3 +375,19 @@ export type WorkDoneProgress =
   | WorkDoneProgressBegin
   | WorkDoneProgressReport
   | WorkDoneProgressEnd;
+
+// Wire schemas for IdentifierSpec — safe for postMessage / structured clone
+export {
+  WireTypeReferenceSchema,
+  WireSearchHintSchema,
+  WireResolvedQualifierSchema,
+  WireParentContextSchema,
+  WireIdentifierSpecSchema,
+} from './wireSchemas';
+export type {
+  WireTypeReference,
+  WireSearchHint,
+  WireResolvedQualifier,
+  WireParentContext,
+  WireIdentifierSpec,
+} from './wireSchemas';
