@@ -61,6 +61,19 @@ function fixPackagePaths() {
         packageJson.contributes.standardApexLibrary.replace('./out/', './');
     }
 
+    if (packageJson.contributes?.languageServer) {
+      for (const envKey of Object.keys(packageJson.contributes.languageServer)) {
+        const env = packageJson.contributes.languageServer[envKey];
+        if (typeof env === 'object' && env !== null) {
+          for (const key of Object.keys(env)) {
+            if (typeof env[key] === 'string' && env[key].includes('./out/')) {
+              env[key] = env[key].replace('./out/', './');
+            }
+          }
+        }
+      }
+    }
+
     // Remove bundled dependencies (they're included in the bundle)
     const bundledDependencies = [
       '@salesforce/apex-lsp-shared',
