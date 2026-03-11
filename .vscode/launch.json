@@ -16,20 +16,13 @@
         "${workspaceFolder}/**",
         "!**/node_modules/**"
       ],
+      "outFiles": [
+        "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js"
+      ],
       "preLaunchTask": "npm: bundle",
       "env": {
         "NODE_OPTIONS": "--enable-source-maps",
         "APEX_LS_MODE": "development"
-      },
-      "sourceMapPathOverrides": {
-        // Universal package patterns (handles all packages with different relative depths)
-        "../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "../../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "../../../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        // General patterns for apex-ls source files (development mode specific)
-        "../*": "${workspaceFolder}/packages/apex-ls/src/*",
-        "../../src/*": "${workspaceFolder}/packages/apex-ls/src/*",
-        "../src/*": "${workspaceFolder}/packages/apex-ls/src/*"
       }
     },
     {
@@ -43,15 +36,10 @@
         "${workspaceFolder}/**",
         "!**/node_modules/**"
       ],
-      "sourceMapPathOverrides": {
-        // Universal package patterns (handles all packages with different relative depths)
-        "../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "../../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "../../../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "*/src/*": "${workspaceFolder}/packages/*/src/*",
-        // Extension-specific patterns (attach mode)
-        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*"
-      }
+      "outFiles": [
+        "${workspaceFolder}/packages/apex-ls/out/**/*.js",
+        "${workspaceFolder}/packages/apex-ls/dist/**/*.js"
+      ]
     },
     {
       "name": "Debug Jest Test (Prompt for Name)",
@@ -138,19 +126,13 @@
         "${workspaceFolder}/**",
         "!**/node_modules/**"
       ],
+      "outFiles": [
+        "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js"
+      ],
       "preLaunchTask": "npm: compile",
       "env": {
         "NODE_OPTIONS": "--enable-source-maps",
         "APEX_LS_MODE": "production"
-      },
-      "sourceMapPathOverrides": {
-        // Universal package patterns (handles all packages with different relative depths)
-        "../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "../../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "../../../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "*/src/*": "${workspaceFolder}/packages/*/src/*",
-        // Extension-specific patterns (production mode)
-        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*"
       }
     },
     {
