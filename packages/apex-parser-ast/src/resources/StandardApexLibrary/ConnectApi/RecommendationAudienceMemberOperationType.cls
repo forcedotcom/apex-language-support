@@ -1,4 +1,4 @@
 global enum RecommendationAudienceMemberOperationType {
-ADD,
-REMOVE
+  Add,
+  Remove
 }

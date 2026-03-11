@@ -1,12 +1,24 @@
+/**
+ * Contains the deleted records retrieved for a specific sObject type and time window.
+ */
 global class GetDeletedResult {
-	global List<Database.DeletedRecord> deletedrecords;
-	global Date earliestdateavailable;
-	global Date latestdatecovered;
-	global Boolean equals(Object obj) { }
-	global List<Database.DeletedRecord> getDeletedRecords() { }
-	global Date getEarliestDateAvailable() { }
-	global Date getLatestDateCovered() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Returns a list of deleted records for the time window specified in the Database.getDeleted method call.
+   * @return List<Database.DeletedRecord>
+   */
+  public List<Database.DeletedRecord> getDeletedRecords() {}
+
+  /**
+   * Returns the date in Coordinated Universal Time (UTC) of the earliest physically deleted object for the sObject type specified in Database.getDeleted .
+   * @return Date
+   */
+  public Date getEarliestDateAvailable() {}
+
+  /**
+   * Returns the date in Coordinated Universal Time (UTC) of the last date covered in the Database.getDeleted call.
+   * @return Date
+   */
+  public Date getLatestDateCovered() {}
 
 }

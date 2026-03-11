@@ -1,10 +1,11 @@
+/**
+ * A user’s Chatter settings for a specific group.
+ */
 global class GroupChatterSettings {
-	global ConnectApi.GroupEmailFrequency emailFrequency;
-	global GroupChatterSettings() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The frequency with which a group member receives email from a group.
+   */
+  global ConnectApi.GroupEmailFrequency emailFrequency;
 
 }

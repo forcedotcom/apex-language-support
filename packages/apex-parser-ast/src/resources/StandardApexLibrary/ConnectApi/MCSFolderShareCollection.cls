@@ -1,11 +1,16 @@
+/**
+ * Collection of targets that a managed content space folder is shared with.
+ */
 global class MCSFolderShareCollection {
-	global String folderId;
-	global List<ConnectApi.MCSFolderShare> shares;
-	global MCSFolderShareCollection() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the managed content space folder.
+   */
+  global String folderId;
+
+  /**
+   * List of targets that a managed content space folder is shared with.
+   */
+  global List < ConnectApi.MCSFolderShare > shares;
 
 }

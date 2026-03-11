@@ -1,13 +1,26 @@
+/**
+ * Page of groups.
+ */
 global class ChatterGroupPage {
-	global String currentPageUrl;
-	global List<ConnectApi.ChatterGroupDetail> groups;
-	global String nextPageUrl;
-	global String previousPageUrl;
-	global ChatterGroupPage() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Connect REST API URL identifying the current page.
+   */
+  global String currentPageUrl;
+
+  /**
+   * List of group details.
+   */
+  global List < ConnectApi.ChatterGroupDetail > groups;
+
+  /**
+   * Connect REST API URL identifying the next page, or null if there isn’t a next page.
+   */
+  global String nextPageUrl;
+
+  /**
+   * Connect REST API URL identifying the previous page, or null if there isn’t a previous page.
+   */
+  global String previousPageUrl;
 
 }

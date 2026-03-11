@@ -1,11 +1,16 @@
-global class RelatedQuestion {
-	global Boolean hasBestAnswer;
-	global ConnectApi.InteractionsCapability interactions;
-	global RelatedQuestion() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * A related question.
+ */
+global class RelatedQuestion extends ConnectApi.RelatedFeedPost {
+
+  /**
+   * Indicates whether the question has a best answer.
+   */
+  global Boolean hasBestAnswer;
+
+  /**
+   * The number of individual views, likes, and comments on a question.
+   */
+  global ConnectApi.InteractionsCapability interactions;
 
 }

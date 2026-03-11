@@ -1,13 +1,26 @@
+/**
+ * Output representation of where the quantities were distributed in orders and any remaining quantity
+ */
 global class DistributePickedQuantitiesOutputRepresentation {
-	global List<ConnectApi.OrderQuantitiesOutputRepresentation> fullyDistributedOrdersList;
-	global List<ConnectApi.OrderQuantitiesOutputRepresentation> notDistributedOrdersList;
-	global List<ConnectApi.OrderQuantitiesOutputRepresentation> partiallyDistributedOrdersList;
-	global List<ConnectApi.ItemQuantityOutputRepresentation> quantitiesRemainingList;
-	global DistributePickedQuantitiesOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Orders that have all quantities distributed.
+   */
+  global List < ConnectApi.OrderQuantitiesOutputRepresentation > fullyDistributedOrdersList;
+
+  /**
+   * Orders that have no quantities available after distribution.
+   */
+  global List < ConnectApi.OrderQuantitiesOutputRepresentation > notDistributedOrdersList;
+
+  /**
+   * Orders that have partially distributed quantities after distribution.
+   */
+  global List < ConnectApi.OrderQuantitiesOutputRepresentation > partiallyDistributedOrdersList;
+
+  /**
+   * Quantities remaining after the distribution.
+   */
+  global List < ConnectApi.ItemQuantityOutputRepresentation > quantitiesRemainingList;
 
 }

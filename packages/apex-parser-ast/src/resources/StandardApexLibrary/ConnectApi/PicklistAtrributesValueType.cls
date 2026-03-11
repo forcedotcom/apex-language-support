@@ -1,7 +1,0 @@
-global enum PicklistAtrributesValueType {
-CASESTATUS,
-LEADSTATUS,
-OPPORTUNITYSTAGE,
-STANDARD,
-WORKSTEPSTATUS
-}

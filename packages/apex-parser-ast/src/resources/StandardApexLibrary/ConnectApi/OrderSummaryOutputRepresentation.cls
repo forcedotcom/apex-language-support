@@ -1,10 +1,11 @@
-global class OrderSummaryOutputRepresentation {
-	global String orderSummaryId;
-	global OrderSummaryOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * ID of the created Order Summary.
+ */
+global class OrderSummaryOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
+
+  /**
+   * ID of the Order Summary.
+   */
+  global String orderSummaryId;
 
 }

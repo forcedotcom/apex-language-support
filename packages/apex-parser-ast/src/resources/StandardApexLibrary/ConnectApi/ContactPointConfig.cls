@@ -1,17 +1,46 @@
+/**
+ * Represents an activation contact point configuration output.
+ */
 global class ContactPointConfig {
-	global String contactPointEntityId;
-	global String contactPointEntityName;
-	global String contactPointPath;
-	global ConnectApi.ActivationContactPointsFieldConfig fieldConfig;
-	global ConnectApi.ContactPointFilterExpression filterExpression;
-	global ConnectApi.QueryPathConfigList queryPathConfig;
-	global ConnectApi.ActivationContactPointsSourceConfig sourceConfig;
-	global ConnectApi.ContactPointType type;
-	global ContactPointConfig() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Contact point field configurations.
+   */
+  global ConnectApi.ActivationContactPointsFieldConfig activationContactPointFieldConfig;
+
+  /**
+   * Contact point source configurations.
+   */
+  global ConnectApi.ActivationContactPointsSourceConfig activationContactPointSourcesConfig;
+
+  /**
+   * Contact point filter expression.
+   */
+  global ConnectApi.ContactPointFilterExpression contactPointFilterExpression;
+
+  /**
+   * Contact point path.
+   */
+  global String contactPointPath;
+
+  /**
+   * Type of contact point. Email Maid Ott Phone Push Subscriber_Key_Email Subscriber_Key_Phone WhatsApp
+   */
+  global ContactPointTypeRepresentationEnum contactPointType;
+
+  /**
+   * ID of the entity.
+   */
+  global String entityId;
+
+  /**
+   * Name of the entity.
+   */
+  global String entityName;
+
+  /**
+   * List of query path configurations.
+   */
+  global List < ConnectApi.QueryPathConfigList > queryPathConfigList;
 
 }

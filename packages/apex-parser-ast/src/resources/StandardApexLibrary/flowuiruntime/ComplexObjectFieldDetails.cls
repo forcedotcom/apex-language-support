@@ -1,9 +1,6 @@
+/**
+ * The methods and properties in this class are for internal use only.
+ */
 global class ComplexObjectFieldDetails {
-	global String apiName;
-	global String label;
-	global Integer scale;
-	global String type;
-	global ComplexObjectFieldDetails() { }
-	global Object clone() { }
 
 }

@@ -1,10 +1,11 @@
-global class TopicEndorsementSummary {
-	global String endorsementId;
-	global TopicEndorsementSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Topic endorsement summary.
+ */
+global class TopicEndorsementSummary extends ConnectApi.UserActivitySummary {
+
+  /**
+   * ID of the topic endorsement.
+   */
+  global ID endorsementId;
 
 }

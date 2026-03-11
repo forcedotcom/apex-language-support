@@ -1,12 +1,21 @@
+/**
+ * Shipping distance data for a set of inventory locations.
+ */
 global class DistanceCalculationOutputRepresentation {
-	global Double averageDistance;
-	global List<ConnectApi.LocationOutputRepresentation> locations;
-	global Integer rank;
-	global DistanceCalculationOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The average distance from the locations to the order recipient.
+   */
+  global Double averageDistance;
+
+  /**
+   * The list of locations and their distances to the order recipient.
+   */
+  global List < ConnectApi.LocationOutputRepresentation > locations;
+
+  /**
+   * This result’s rank among all results by average distance to the order recipient.
+   */
+  global Integer rank;
 
 }

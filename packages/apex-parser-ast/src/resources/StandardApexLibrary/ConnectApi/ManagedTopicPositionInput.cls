@@ -1,10 +1,16 @@
+/**
+ * Relative position of a managed topic.
+ */
 global class ManagedTopicPositionInput {
-	global String managedTopicId;
-	global Integer position;
-	global ManagedTopicPositionInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of existing managed topic.
+   */
+  global String managedTopicId;
+
+  /**
+   * Relative position of the managed topic, indicated by zero-indexed, ascending whole numbers.
+   */
+  global Integer position;
 
 }

@@ -1,16 +1,41 @@
+/**
+ * Represents a preserved cart.
+ */
 global class PreserveCart {
-	global String cartId;
-	global String currencyIsoCode;
-	global List<ConnectApi.CartItemBasicResult> failedCartItems;
-	global Integer numberOfProducts;
-	global Integer numberOfProductsWithError;
-	global Integer numberOfProductsWithSuccess;
-	global List<ConnectApi.CartItemBasicResult> succeededCartItems;
-	global PreserveCart() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the authenticated cart.
+   */
+  global String cartId;
+
+  /**
+   * Currency ISO code for the authenticated cart.
+   */
+  global String currencyIsoCode;
+
+  /**
+   * List of products that weren’t successfully transferred from the guest cart to the authenticated cart.
+   */
+  global List < ConnectApi.CartItemBasicResult > failedCartItems;
+
+  /**
+   * Total number of products in the guest cart.
+   */
+  global Integer numberOfProducts;
+
+  /**
+   * Total number of products that weren’t successfully transferred from the guest cart to the authenticated cart.
+   */
+  global Integer numberOfProductsWithError;
+
+  /**
+   * Total number of products successfully transferred from the guest cart to the authenticated cart.
+   */
+  global Integer numberOfProductsWithSuccess;
+
+  /**
+   * List of products successfully transferred from the guest cart to the authenticated cart.
+   */
+  global List < ConnectApi.CartItemBasicResult > succeededCartItems;
 
 }

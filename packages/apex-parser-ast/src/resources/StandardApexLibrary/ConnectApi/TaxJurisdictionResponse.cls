@@ -1,15 +1,36 @@
+/**
+ * Represents the address or jurisdiction of the primary business used for calculating tax.
+ */
 global class TaxJurisdictionResponse {
-	global String country;
-	global String id;
-	global String level;
-	global String name;
-	global String region;
-	global String stateAssignedNo;
-	global TaxJurisdictionResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Country of the tax jurisdiction address.
+   */
+  global String country;
+
+  /**
+   * ID of the tax jurisdiction address.
+   */
+  global String id;
+
+  /**
+   * Level of the tax jurisdiction address.
+   */
+  global String level;
+
+  /**
+   * Name of the tax jurisdiction address.
+   */
+  global String name;
+
+  /**
+   * Region of the tax jurisdiction address.
+   */
+  global String region;
+
+  /**
+   * State-assigned number of the tax jurisdiction address.
+   */
+  global String stateAssignedNo;
 
 }

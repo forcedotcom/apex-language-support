@@ -1,9 +1,12 @@
+/**
+ * Represents an action in the platform action list for a layout.
+ */
 global class PlatformActionListItem {
-	global String actionName;
-	global Metadata.PlatformActionTypeEnum actionType;
-	global Integer sortOrder;
-	global String subtype;
-	global PlatformActionListItem() { }
-	global Object clone() { }
+
+  /**
+   * Makes a duplicate copy of the Metadata.PlatformActionListItem .
+   * @return Object
+   */
+  public Object clone() {}
 
 }

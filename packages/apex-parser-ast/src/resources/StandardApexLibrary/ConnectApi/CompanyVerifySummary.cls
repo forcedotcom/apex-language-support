@@ -1,9 +1,6 @@
-global class CompanyVerifySummary {
-	global CompanyVerifySummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Company verify summary.
+ */
+global class CompanyVerifySummary extends ConnectApi.UserFeedEntityActivitySummary {
 
 }

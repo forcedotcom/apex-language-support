@@ -1,12 +1,21 @@
+/**
+ * Cart delivery group for a promotion.
+ */
 global class PromotionCartDeliveryGroup {
-	global String cartDeliveryGroupId;
-	global List<ConnectApi.PromotionCartDeliveryGroupMethod> cartDeliveryGroupMethods;
-	global String id;
-	global PromotionCartDeliveryGroup() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the cart delivery group.
+   */
+  global String cartDeliveryGroupId;
+
+  /**
+   * List of methods for the delivery group.
+   */
+  global List < ConnectApi.PromotionCartDeliveryGroupMethod > cartDeliveryGroupMethods;
+
+  /**
+   * ID of the cart.
+   */
+  global String id;
 
 }

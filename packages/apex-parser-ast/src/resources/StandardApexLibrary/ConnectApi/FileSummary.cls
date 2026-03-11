@@ -1,9 +1,6 @@
-global class FileSummary {
-	global FileSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * A file summary.
+ */
+global class FileSummary extends ConnectApi.File {
 
 }

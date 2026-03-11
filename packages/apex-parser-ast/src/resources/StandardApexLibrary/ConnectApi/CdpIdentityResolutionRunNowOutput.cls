@@ -1,10 +1,11 @@
+/**
+ * Identity resolution ruleset run now output.
+ */
 global class CdpIdentityResolutionRunNowOutput {
-	global ConnectApi.CdpIdentityResolutionRunNowResultCode resultCode;
-	global CdpIdentityResolutionRunNowOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Result of an identity resolution ruleset job run. Values are: ExceededMaximumNumberOfSuccessfulRunsAllowedIn24Hours IdentityResolutionJobIsAlreadyRunning NoPendingChangesJobRunSkipped SuccessfullySubmittedIdentityResolutionJobRunRequest
+   */
+  global ConnectApi.CdpIdentityResolutionRunNowResultCode resultCode;
 
 }

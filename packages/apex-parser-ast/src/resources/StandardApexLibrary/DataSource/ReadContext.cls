@@ -1,10 +1,10 @@
+/**
+ * Abstract base class for the QueryContext and SearchContext classes.
+ */
 global class ReadContext {
-	global Integer maxResults;
-	global List<DataSource.Table> metadata;
-	global Integer offset;
-	global Integer startRowNumZeroOffset;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
+
+  global Integer maxResults;
+
+  global Integer offset;
 
 }

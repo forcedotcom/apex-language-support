@@ -1,16 +1,41 @@
+/**
+ * Record results for the keyword search.
+ */
 global class SearchObject {
-	global List<String> displayFields;
-	global String objectApiName;
-	global List<ConnectApi.SearchAppliedOrderBy> orderBy;
-	global ConnectApi.PageInfo pageInfo;
-	global List<ConnectApi.SearchResult> searchResults;
-	global ConnectApi.SpellCorrectionInfo spellCorrectionInfo;
-	global ConnectApi.SearchStatus status;
-	global SearchObject() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Fields to display from the response.
+   */
+  global List < String > displayFields;
+
+  /**
+   * Object API name.
+   */
+  global String objectApiName;
+
+  /**
+   * Applied order for object search.
+   */
+  global List < ConnectApi.SearchAppliedOrderBy > orderBy;
+
+  /**
+   * Page position information for the object search.
+   */
+  global ConnectApi.PageInfo pageInfo;
+
+  /**
+   * Search results from the query.
+   */
+  global List < ConnectApi.SearchResult > searchResults;
+
+  /**
+   * Spell correction information for the object search.
+   */
+  global ConnectApi.SpellCorrectionInfo spellCorrectionInfo;
+
+  /**
+   * Provides status on the object search such as error messages and warnings.
+   */
+  global ConnectApi.SearchStatus status;
 
 }

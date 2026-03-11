@@ -1,10 +1,21 @@
+/**
+ * Payment method API input representation.
+ */
 global class BaseApiPaymentMethodRequest {
-	global ConnectApi.AddressRequest address;
-	global String id;
-	global Boolean saveForFuture;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Payment method address.
+   */
+  global ConnectApi.AddressRequest address;
+
+  /**
+   * Payment method record ID. Used in payment transactions.
+   */
+  global String id;
+
+  /**
+   * Shows whether Salesforce saves the payment method for future use.
+   */
+  global Boolean saveForFuture;
 
 }

@@ -1,11 +1,16 @@
+/**
+ * An HTTP request header name and value pair.
+ */
 global class RequestHeader {
-	global String name;
-	global String value;
-	global RequestHeader() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The name of the request header.
+   */
+  global String name;
+
+  /**
+   * The value of the request header.
+   */
+  global String value;
 
 }

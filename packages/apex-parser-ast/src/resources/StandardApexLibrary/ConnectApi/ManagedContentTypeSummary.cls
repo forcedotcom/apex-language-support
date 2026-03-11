@@ -1,11 +1,16 @@
+/**
+ * Managed content type.
+ */
 global class ManagedContentTypeSummary {
-	global String fullyQualifiedName;
-	global String name;
-	global ManagedContentTypeSummary() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Fully qualified name of the managed content type.
+   */
+  global String fullyQualifiedName;
+
+  /**
+   * Reserved for future use.
+   */
+  global String name;
 
 }

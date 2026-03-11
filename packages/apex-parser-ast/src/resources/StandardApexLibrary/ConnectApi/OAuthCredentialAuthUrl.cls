@@ -1,13 +1,26 @@
+/**
+ * OAuth authentication URL for a credential.
+ */
 global class OAuthCredentialAuthUrl {
-	global String authenticationUrl;
-	global String externalCredential;
-	global String principalName;
-	global ConnectApi.CredentialPrincipalType principalType;
-	global OAuthCredentialAuthUrl() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Authentication URL for the user external credential. Authentication URLs have encoded and escaped special characters. Before using the URL, undo the encoded and escaped characters.
+   */
+  global String authenticationUrl;
+
+  /**
+   * Fully qualified developer name of the external credential.
+   */
+  global String externalCredential;
+
+  /**
+   * Name of the external credential named principal.
+   */
+  global String principalName;
+
+  /**
+   * Type of credential principal. Values are: AwsStsPrincipal NamedPrincipal PerUserPrincipal
+   */
+  global ConnectApi.CredentialPrincipalType principalType;
 
 }

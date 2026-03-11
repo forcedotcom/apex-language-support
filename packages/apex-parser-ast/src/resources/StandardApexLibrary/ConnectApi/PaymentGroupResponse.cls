@@ -1,12 +1,21 @@
+/**
+ * Payment group.
+ */
 global class PaymentGroupResponse {
-	global String currencyIsoCode;
-	global String id;
-	global String sourceObjectId;
-	global PaymentGroupResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Three-letter ISO 4217 currency code associated with the payment group record.
+   */
+  global String currencyIsoCode;
+
+  /**
+   * ID of the payment group record.
+   */
+  global String id;
+
+  /**
+   * Source object ID of the payment group record. Supports only OrderId.
+   */
+  global String sourceObjectId;
 
 }

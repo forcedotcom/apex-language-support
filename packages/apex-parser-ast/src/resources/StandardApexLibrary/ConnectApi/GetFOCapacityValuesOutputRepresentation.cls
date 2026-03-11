@@ -1,10 +1,11 @@
-global class GetFOCapacityValuesOutputRepresentation {
-	global List<ConnectApi.LocationCapacityOutputRepresentation> locations;
-	global GetFOCapacityValuesOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Response to a request for fulfillment order capacity values for one or more locations.
+ */
+global class GetFOCapacityValuesOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
+
+  /**
+   * List of fulfillment order capacity values for one or more locations.
+   */
+  global List < ConnectApi.LocationCapacityOutputRepresentation > locations;
 
 }

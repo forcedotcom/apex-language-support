@@ -1,6 +1,8 @@
+/**
+ * Contains methods to retrieve record Id information for parameters passed into the load-form handler.
+ */
 global class LoadParameters {
-	global LoadParameters() { }
-	global Object clone() { }
-	global String getRecordId() { }
+
+  public String getRecordId() {}
 
 }

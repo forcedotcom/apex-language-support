@@ -1,13 +1,15 @@
 global enum FeedFilter {
-ALLQUESTIONS,
-AUTHOREDBY,
-COMMUNITYSCOPED,
-QUESTIONSWITHCANDIDATEANSWERS,
-QUESTIONSWITHCANDIDATEANSWERSREVIEWEDPUBLISHED,
-READ,
-SOLVEDQUESTIONS,
-UNANSWEREDQUESTIONS,
-UNANSWEREDQUESTIONSWITHCANDIDATEANSWERS,
-UNREAD,
-UNSOLVEDQUESTIONS
+  AllQuestions,
+  AuthoredBy,
+  UserProfile,
+  CommunityScoped,
+  UserProfile,
+  QuestionsWithCandidateAnswers,
+  Read,
+  Record,
+  SolvedQuestions,
+  UnansweredQuestions,
+  Unread,
+  Record,
+  UnsolvedQuestions
 }

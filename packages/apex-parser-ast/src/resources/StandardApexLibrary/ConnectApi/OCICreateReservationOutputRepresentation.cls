@@ -1,14 +1,31 @@
+/**
+ * Result of an Omnichannel Inventory reservation creation request.
+ */
 global class OCICreateReservationOutputRepresentation {
-	global List<ConnectApi.OCICreateReservationSingleOutputRepresentation> details;
-	global List<ConnectApi.OCICreateReservationErrorOutputRepresentation> errors;
-	global String expirationTime;
-	global String reservationTime;
-	global Boolean success;
-	global OCICreateReservationOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Details for each product in the reservation.
+   */
+  global List < ConnectApi.OCICreateReservationSingleOutputRepresentation > details;
+
+  /**
+   * Any errors returned by the reservation request.
+   */
+  global List < ConnectApi.OCICreateReservationErrorOutputRepresentation > errors;
+
+  /**
+   * The time at which the reservation would expire.
+   */
+  global String expirationTime;
+
+  /**
+   * The time when the reservation was recorded.
+   */
+  global String reservationTime;
+
+  /**
+   * Indicates whether the reservation was successfully created.
+   */
+  global Boolean success;
 
 }

@@ -1,14 +1,31 @@
+/**
+ * List of managed content space channels.
+ */
 global class ManagedContentSpaceChannelsRepresentation {
-	global String currentPageUrl;
-	global String nextPageUrl;
-	global String previousPageUrl;
-	global List<ConnectApi.ManagedContentSpaceChannelRepresentation> spaceChannels;
-	global Integer totalSpaceChannels;
-	global ManagedContentSpaceChannelsRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * URL to the current page of managed content space channels.
+   */
+  global String currentPageUrl;
+
+  /**
+   * URL to the next page of Mmanaged content space channels.
+   */
+  global String nextPageUrl;
+
+  /**
+   * URL to the previous page of managed content space channels.
+   */
+  global String previousPageUrl;
+
+  /**
+   * List of managed content space channels.
+   */
+  global List < ConnectApi.ManagedContentSpaceChannelRepresentation > spaceChannels;
+
+  /**
+   * Total count of managed content space channels returned for the request.
+   */
+  global Integer totalSpaceChannels;
 
 }

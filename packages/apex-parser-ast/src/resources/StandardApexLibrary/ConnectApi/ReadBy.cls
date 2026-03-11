@@ -1,11 +1,16 @@
+/**
+ * Information about who read the feed element and when.
+ */
 global class ReadBy {
-	global Datetime lastReadDateByUser;
-	global ConnectApi.UserSummary user;
-	global ReadBy() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * When the user last read the feed element in ISO 8601 format.
+   */
+  global Datetime lastReadDateByUser;
+
+  /**
+   * Information about the user who read the feed element.
+   */
+  global ConnectApi.UserSummary user;
 
 }

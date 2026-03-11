@@ -1,11 +1,16 @@
+/**
+ * Information about a managed content variant's status in the authoring space.
+ */
 global class ManagedContentVariantStatusOutput {
-	global String label;
-	global ConnectApi.ManagedContentVariantStatus status;
-	global ManagedContentVariantStatusOutput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Localized label for the status.
+   */
+  global String label;
+
+  /**
+   * Status of the managed content variant. Values are: Draft —Content isn’t published. Published —Content is published and available for use in your live sites. Revised —Content that’s published and edited. Publish this content to make the changes available for use in your live sites.
+   */
+  global ConnectApi.ManagedContentVariantStatus status;
 
 }

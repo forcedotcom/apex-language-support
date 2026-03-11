@@ -1,5 +1,14 @@
+/**
+ * Use FunctionInvocationError to get detailed error information about a failed Function invocation.
+ */
 global interface FunctionInvocationError {
-	String getMessage();
-	functions.FunctionErrorType getType();
+
+  /**
+   * Returns the error message from a Function invocation error.
+   * @return String
+   */
+  String getMessage();
+
+  functions.FunctionErrorType getType();
 
 }

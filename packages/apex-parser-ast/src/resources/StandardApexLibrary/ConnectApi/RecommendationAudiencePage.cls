@@ -1,14 +1,31 @@
+/**
+ * A list of custom recommendation audiences.
+ */
 global class RecommendationAudiencePage {
-	global Integer audienceCount;
-	global String currentPageUrl;
-	global String nextPageUrl;
-	global String previousPageUrl;
-	global List<ConnectApi.RecommendationAudience> recommendationAudiences;
-	global RecommendationAudiencePage() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The total number of custom recommendation audiences.
+   */
+  global Integer audienceCount;
+
+  /**
+   * URL to the current page.
+   */
+  global String currentPageUrl;
+
+  /**
+   * URL to the next page.
+   */
+  global String nextPageUrl;
+
+  /**
+   * URL to the previous page.
+   */
+  global String previousPageUrl;
+
+  /**
+   * A list of custom recommendation audiences.
+   */
+  global List < ConnectApi.RecommendationAudience > recommendationAudiences;
 
 }

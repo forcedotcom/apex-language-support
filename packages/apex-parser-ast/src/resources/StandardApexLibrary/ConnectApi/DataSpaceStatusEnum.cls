@@ -1,5 +1,5 @@
 global enum DataSpaceStatusEnum {
-ACTIVE,
-ERROR,
-PROCESSING
+  Active,
+  Error,
+  Processing
 }

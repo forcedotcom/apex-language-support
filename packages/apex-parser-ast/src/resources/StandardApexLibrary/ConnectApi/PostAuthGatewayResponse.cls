@@ -1,11 +1,16 @@
+/**
+ * Gateway response after confirmation that the merchant is ready to capture payment of an existing pre-authorized transaction.
+ */
 global class PostAuthGatewayResponse {
-	global String gatewayAuthorizationCode;
-	global ConnectApi.PaymentMethodDetails paymentMethodDetails;
-	global PostAuthGatewayResponse() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Code used to authorize the payment that the payment gateway is processing.
+   */
+  global String gatewayAuthorizationCode;
+
+  /**
+   * Details about the payment method.
+   */
+  global ConnectApi.PaymentMethodDetails paymentMethodDetails;
 
 }

@@ -1,10 +1,16 @@
+/**
+ * Create a wishlist.
+ */
 global class WishlistInput {
-	global String name;
-	global List<ConnectApi.WishlistItemInput> products;
-	global WishlistInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Name of the wishlist.
+   */
+  global String name;
+
+  /**
+   * List of products to add to the wishlist.
+   */
+  global List < ConnectApi.WishlistItemInput > products;
 
 }

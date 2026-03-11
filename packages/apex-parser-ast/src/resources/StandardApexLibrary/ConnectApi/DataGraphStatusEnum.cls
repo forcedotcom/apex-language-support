@@ -1,8 +1,8 @@
 global enum DataGraphStatusEnum {
-ERROR,
-INPROGRESS,
-PUBLISHED,
-READY,
-STATUSUNSPECIFIED,
-UNRECOGNIZED
+  Error,
+  Inprogress,
+  Published,
+  Ready,
+  StatusUnspecified,
+  Unrecognized
 }

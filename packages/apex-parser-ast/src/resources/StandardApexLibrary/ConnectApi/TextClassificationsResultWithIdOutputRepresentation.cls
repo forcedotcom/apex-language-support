@@ -1,12 +1,21 @@
+/**
+ * Classified text with status and text classification request IDs.
+ */
 global class TextClassificationsResultWithIdOutputRepresentation {
-	global String id;
-	global ConnectApi.TextClassificationsResultOutputRepresentation result;
-	global String status;
-	global TextClassificationsResultWithIdOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Request ID for text classifications.
+   */
+  global String id;
+
+  /**
+   * Result for text classifications.
+   */
+  global ConnectApi.TextClassificationsResultOutputRepresentation result;
+
+  /**
+   * Request status for text classification.
+   */
+  global String status;
 
 }

@@ -1,18 +1,51 @@
+/**
+ * A Next Best Action recommendation object.
+ */
 global class Recommendation {
-	global String acceptanceLabel;
-	global String actionReference;
-	global String description;
-	global String externalId;
-	global String id;
-	global ConnectApi.FileAsset image;
-	global String name;
-	global String rejectionLabel;
-	global String url;
-	global Recommendation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Text indicating user acceptance of the recommendation.
+   */
+  global String acceptanceLabel;
+
+  /**
+   * Reference to the action to perform, for example, launching a flow.
+   */
+  global String actionReference;
+
+  /**
+   * Description of the recommendation.
+   */
+  global String description;
+
+  /**
+   * External ID of the recommendation. This ID doesn’t need to be a Salesforce 18-character ID. For example, it can be a product number from an external system.
+   */
+  global String externalId;
+
+  /**
+   * ID of the recommendation.
+   */
+  global String id;
+
+  /**
+   * Image to display.
+   */
+  global ConnectApi.FileAsset image;
+
+  /**
+   * Name of the recommendation.
+   */
+  global String name;
+
+  /**
+   * Text indicating user rejection of the recommendation.
+   */
+  global String rejectionLabel;
+
+  /**
+   * URL to the recommendation.
+   */
+  global String url;
 
 }

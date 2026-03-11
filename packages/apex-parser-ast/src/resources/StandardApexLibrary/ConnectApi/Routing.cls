@@ -1,3 +1,20 @@
+/**
+ * Route orders to inventory locations in Order Management.
+ */
 global class Routing {
+
+  public static ConnectApi.ConfirmHeldFOCapacityOutputRepresentation confirmHeldFOCapacity(ConnectApi.ConfirmHeldFOCapacityInputRepresentation confirmHeldFOCapacityInput) {}
+
+  public static ConnectApi.FindRoutesWithFewestSplitsOutputRepresentation findRoutesWithFewestSplits(ConnectApi.FindRoutesWithFewestSplitsInputRepresentation findRoutesWithFewestSplitsInputRepresentation) {}
+
+  public static ConnectApi.FindRoutesWithFewestSplitsUsingOCIOutputRepresentation findRoutesWithFewestSplitsUsingOCI(ConnectApi.FindRoutesWithFewestSplitsUsingOCIInputRepresentation findRoutesWithFewestSplitsUsingOCIInput) {}
+
+  public static ConnectApi.GetFOCapacityValuesOutputRepresentation getFOCapacityValues(ConnectApi.GetFOCapacityValuesRequestInputRepresentation getFOCapacityValuesInput) {}
+
+  public static ConnectApi.HoldFOCapacityOutputRepresentation holdFOCapacity(ConnectApi.HoldFOCapacityInputRepresentation holdFOCapacityInput) {}
+
+  public static ConnectApi.RankAverageDistanceOutputRepresentation rankAverageDistance(ConnectApi.RankAverageDistanceInputRepresentation rankAverageDistanceInputRepresentation) {}
+
+  public static ConnectApi.ReleaseHeldFOCapacityOutputRepresentation releaseHeldFOCapacity(ConnectApi.ReleaseHeldFOCapacityInputRepresentation releaseHeldFOCapacityInput) {}
 
 }

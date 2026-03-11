@@ -1,12 +1,21 @@
+/**
+ * Data category metadata for the object.
+ */
 global class DataCategoryMetadata {
-	global String groupName;
-	global String label;
-	global Map<String,ConnectApi.DataCategoryValueMetadata> values;
-	global DataCategoryMetadata() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Group name of the data category.
+   */
+  global String groupName;
+
+  /**
+   * Label of the data category.
+   */
+  global String label;
+
+  /**
+   * Map of values for the current data category.
+   */
+  global Map < String , ConnectApi.DataCategoryValueMetadata > values;
 
 }

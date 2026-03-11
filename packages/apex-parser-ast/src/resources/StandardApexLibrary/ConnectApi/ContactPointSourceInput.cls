@@ -1,13 +1,31 @@
+/**
+ * Represents the configuration input for contact point sources.
+ */
 global class ContactPointSourceInput {
-	global String dataSourceId;
-	global ConnectApi.ContactPointPref dataSourcePreference;
-	global Integer dataSourcePriority;
-	global String id;
-	global String name;
-	global ContactPointSourceInput() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Record ID of the data source.
+   */
+  global String dataSourceId;
+
+  /**
+   * Type of contact point. ContactPointPrefAny ContactPointPrefBusiness ContactPointPrefPersonal ContactPointPrefPrimary
+   */
+  global ContactPointPrefEnum dataSourcePreference;
+
+  /**
+   * Priority of the data source.
+   */
+  global Integer dataSourcePriority;
+
+  /**
+   * ID of the data source.
+   */
+  global String id;
+
+  /**
+   * Name of the data source.
+   */
+  global String name;
 
 }

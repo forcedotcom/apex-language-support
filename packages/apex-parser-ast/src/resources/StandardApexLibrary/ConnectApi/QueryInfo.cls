@@ -1,13 +1,21 @@
+/**
+ * Query execution information.
+ */
 global class QueryInfo {
-	global String queryId;
-	global Map<String,ConnectApi.ObjectQueryInfo> sobjects;
-	global List<ConnectApi.SourceQueryInfo> sources;
-	global ConnectApi.SearchStatus status;
-	global QueryInfo() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Unique identifier assigned to a search query to enable tracking usage and analysis of user interactions with search results.
+   */
+  global String queryId;
+
+  /**
+   * Query execution information for the object.
+   */
+  global Map < String , ConnectApi.ObjectQueryInfo > sobjects;
+
+  /**
+   * Status on the object search such as error messages and warnings.
+   */
+  global ConnectApi.SearchStatus status;
 
 }

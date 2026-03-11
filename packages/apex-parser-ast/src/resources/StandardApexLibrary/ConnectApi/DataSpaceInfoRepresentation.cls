@@ -1,12 +1,21 @@
+/**
+ * Represents a data space.
+ */
 global class DataSpaceInfoRepresentation {
-	global String description;
-	global String prefix;
-	global ConnectApi.DataSpaceStatusEnum status;
-	global DataSpaceInfoRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Description of the data space.
+   */
+  global String description;
+
+  /**
+   * Prefix of the data space.
+   */
+  global String prefix;
+
+  /**
+   * Status of the data space. Active —The data space is active. Error —The data space has an error. Processing —The data space is being processed.
+   */
+  global DataSpaceStatusEnum status;
 
 }

@@ -1,9 +1,11 @@
-global class BooleanList {
-	global List<Boolean> values;
-	global BooleanList() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * List of Boolean values.
+ */
+global class BooleanList extends ConnectApi.AbstractList {
+
+  /**
+   * List of Boolean values to filter on, for example, [true, false] .
+   */
+  global List < Boolean > values;
 
 }

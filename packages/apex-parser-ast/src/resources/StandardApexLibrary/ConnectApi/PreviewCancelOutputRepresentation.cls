@@ -1,9 +1,16 @@
-global class PreviewCancelOutputRepresentation {
-	global PreviewCancelOutputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+/**
+ * Expected financial values for a proposed cancel action.
+ */
+global class PreviewCancelOutputRepresentation extends ConnectApi.BaseOutputRepresentation {
+
+  /**
+   * Expected financial values for the proposed cancel action.
+   */
+  global ConnectApi.ChangeItemOutputRepresentation changeBalances;
+
+  /**
+   * ID of the OrderSummary.
+   */
+  global String orderSummaryId;
 
 }

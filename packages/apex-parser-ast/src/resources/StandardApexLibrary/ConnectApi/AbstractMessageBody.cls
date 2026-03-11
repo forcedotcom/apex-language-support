@@ -1,11 +1,21 @@
+/**
+ * Abstract message body.
+ */
 global class AbstractMessageBody {
-	global Boolean isRichText;
-	global List<ConnectApi.MessageSegment> messageSegments;
-	global String text;
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Indicates whether the body is rich text.
+   */
+  global Boolean isRichText;
+
+  /**
+   * List of message segments
+   */
+  global List < ConnectApi.MessageSegment > messageSegments;
+
+  /**
+   * Display-ready text. Use this text if you don’t want to process the message segments.
+   */
+  global String text;
 
 }

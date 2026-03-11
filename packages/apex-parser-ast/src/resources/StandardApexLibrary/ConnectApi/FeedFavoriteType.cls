@@ -1,5 +1,5 @@
 global enum FeedFavoriteType {
-LISTVIEW,
-SEARCH,
-TOPIC
+  ListView,
+  Search,
+  Topic
 }

@@ -1,11 +1,11 @@
+/**
+ * Represents the static data output.
+ */
 global class StaticData {
-	global String name;
-	global String value;
-	global StaticData() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Column value of the static data.
+   */
+  global String value;
 
 }

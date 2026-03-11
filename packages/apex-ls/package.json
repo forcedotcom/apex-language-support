@@ -167,15 +167,12 @@
     "@salesforce/apex-lsp-shared": "1.0.0",
     "effect": "^3.18.4",
     "fflate": "^0.8.1",
-    "vscode-jsonrpc": "^8.2.1",
     "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-textdocument": "^1.0.12",
-    "web-worker": "^1.5.0"
+    "vscode-languageserver-textdocument": "^1.0.12"
   },
   "devDependencies": {
     "@salesforce/esbuild-presets": "^0.1.0",
     "@types/node": "^20.19.4",
-    "@types/vscode": "^1.109.0",
     "assert": "^2.1.0",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",

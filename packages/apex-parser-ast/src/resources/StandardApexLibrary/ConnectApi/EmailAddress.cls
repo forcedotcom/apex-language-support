@@ -1,12 +1,21 @@
+/**
+ * Email address.
+ */
 global class EmailAddress {
-	global String displayName;
-	global String emailAddress;
-	global ConnectApi.RecordSummary relatedRecord;
-	global EmailAddress() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The display name for the email address.
+   */
+  global String displayName;
+
+  /**
+   * The email address.
+   */
+  global String emailAddress;
+
+  /**
+   * The summary of a related record, for example, a contact or user summary.
+   */
+  global ConnectApi.RecordSummary relatedRecord;
 
 }

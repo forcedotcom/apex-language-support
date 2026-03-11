@@ -1,12 +1,21 @@
+/**
+ * An emoji.
+ */
 global class Emoji {
-	global String category;
-	global String shortcut;
-	global String unicodeCharacter;
-	global Emoji() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Emoji category.
+   */
+  global String category;
+
+  /**
+   * Emoji shortcut.
+   */
+  global String shortcut;
+
+  /**
+   * Emoji’s unicode character.
+   */
+  global String unicodeCharacter;
 
 }

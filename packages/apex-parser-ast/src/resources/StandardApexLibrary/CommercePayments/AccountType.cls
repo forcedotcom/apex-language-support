@@ -1,4 +1,7 @@
+/**
+ * Specifies the account type.
+ */
 global enum AccountType {
-CHECKING,
-SAVINGS
+  Checking,
+  Savings
 }

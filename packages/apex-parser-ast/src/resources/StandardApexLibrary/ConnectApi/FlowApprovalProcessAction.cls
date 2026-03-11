@@ -1,13 +1,26 @@
+/**
+ * Available actions for a flow approval process.
+ */
 global class FlowApprovalProcessAction {
-	global String actionLabel;
-	global String actionName;
-	global List<String> inProgressApprovalSubmissionIds;
-	global String url;
-	global FlowApprovalProcessAction() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * The label of an available action.
+   */
+  global String actionLabel;
+
+  /**
+   * The name of an available action.
+   */
+  global String actionName;
+
+  /**
+   * List of in-progress approval submission IDs.
+   */
+  global List < String > inProgressApprovalSubmissionIds;
+
+  /**
+   * The URL of an available action.
+   */
+  global String url;
 
 }

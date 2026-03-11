@@ -1,6 +1,9 @@
+/**
+ * Specifies the bank type.
+ */
 global enum BankType {
-ACH,
-BACS,
-BECS,
-SEPADEBIT
+  Ach,
+  Bacs,
+  Becs,
+  SepaDebit
 }

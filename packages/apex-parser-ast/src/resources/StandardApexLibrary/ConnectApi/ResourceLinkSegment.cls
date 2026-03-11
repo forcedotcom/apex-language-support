@@ -1,10 +1,11 @@
+/**
+ * Resource link segment.
+ */
 global class ResourceLinkSegment {
-	global String url;
-	global ResourceLinkSegment() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * URL to a resource not otherwise identified by an ID field, for example, a link to a list of users.
+   */
+  global String url;
 
 }

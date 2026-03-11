@@ -1,13 +1,26 @@
+/**
+ * Result of a creating a named credential for a social external channel.
+ */
 global class CreateSocialNamedCredential {
-	global String authUrl;
-	global String externalCredentialDeveloperName;
-	global String namedCredentialDeveloperName;
-	global ConnectApi.SocialStatusRepresentation status;
-	global CreateSocialNamedCredential() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Authentication URL.
+   */
+  global String authUrl;
+
+  /**
+   * Developer name of the external credential.
+   */
+  global String externalCredentialDeveloperName;
+
+  /**
+   * Developer name of the named credential.
+   */
+  global String namedCredentialDeveloperName;
+
+  /**
+   * Status response specifiying whether the Webstore Meta Config entity was successfully created.
+   */
+  global ConnectApi.SocialStatusRepresentation status;
 
 }

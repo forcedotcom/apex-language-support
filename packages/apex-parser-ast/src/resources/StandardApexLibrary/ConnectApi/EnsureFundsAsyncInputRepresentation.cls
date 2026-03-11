@@ -1,12 +1,26 @@
+/**
+ * ID of an Invoice to ensure funds for and apply them to.
+ */
 global class EnsureFundsAsyncInputRepresentation {
-	global String invoiceId;
-	global Boolean isAllowPartial;
-	global Boolean isReservedBalanceAmountConsidered;
-	global List<ConnectApi.SequenceOrderPaymentSummaryInputRepresentation> sequences;
-	global EnsureFundsAsyncInputRepresentation() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * ID of the Invoice.
+   */
+  global String invoiceId;
+
+  /**
+   * If true, the invoice can be funded through multiple, partial payments. Optionally, define a sequence to capture multiple payments. If false, the invoice must be funded through a single payment. Default value is false.
+   */
+  global Boolean isAllowPartial;
+
+  /**
+   * If true, the reserved balance amount is used for the Order Summary to fund the invoice. If not enough reserved balance amount, any available balance that isn’t reserved by another Order Summary is used. If false, any available balance is used.
+   */
+  global Boolean isConsiderReservedBalanceAmount;
+
+  /**
+   * The payment sequence in which the funds are captured for the invoice.
+   */
+  global String sequences;
 
 }

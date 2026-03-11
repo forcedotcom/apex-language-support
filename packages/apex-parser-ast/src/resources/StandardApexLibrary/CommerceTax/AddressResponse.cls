@@ -1,6 +1,8 @@
+/**
+ * Contains a location code sent from the external tax engine.
+ */
 global class AddressResponse {
-	global AddressResponse() { }
-	global Object clone() { }
-	global void setLocationCode(String locationCode) { }
+
+  global void setLocationCode(String locationCode) {}
 
 }

@@ -1,8 +1,11 @@
+/**
+ * The type of action for a PlatformActionListItem .
+ */
 global enum PlatformActionTypeEnum {
-ACTIONLINK,
-CUSTOMBUTTON,
-INVOCABLEACTION,
-PRODUCTIVITYACTION,
-QUICKACTION,
-STANDARDBUTTON
+  ActionLink,
+  CustomButton,
+  InvocableAction,
+  ProductivityAction,
+  QuickAction,
+  StandardButton
 }

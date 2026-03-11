@@ -1,14 +1,31 @@
+/**
+ * Article item in question and answers suggestions.
+ */
 global class ArticleItem {
-	global String id;
-	global Double rating;
-	global String title;
-	global String urlLink;
-	global Integer viewCount;
-	global ArticleItem() { }
-	global Object clone() { }
-	global Boolean equals(Object obj) { }
-	global Double getBuildVersion() { }
-	global Integer hashCode() { }
-	global String toString() { }
+
+  /**
+   * Id of the article.
+   */
+  global String id;
+
+  /**
+   * The rating of the article.
+   */
+  global Double rating;
+
+  /**
+   * Title of the article.
+   */
+  global String title;
+
+  /**
+   * Link URL of the article.
+   */
+  global String urlLink;
+
+  /**
+   * Number of votes given to the article.
+   */
+  global Integer viewCount;
 
 }
