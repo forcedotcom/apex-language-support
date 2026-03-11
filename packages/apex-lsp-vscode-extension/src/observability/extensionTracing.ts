@@ -8,7 +8,7 @@
 
 import * as vscode from 'vscode';
 import type { SalesforceVSCodeServicesApi } from '@salesforce/vscode-services';
-import { Effect, ManagedRuntime } from 'effect';
+import { Data, Effect, ManagedRuntime } from 'effect';
 import { logToOutputChannel } from '../logging';
 
 const ACTIVATION_SPAN = 'apex-language-server-extension.activate';
@@ -16,53 +16,80 @@ const ACTIVATION_SPAN = 'apex-language-server-extension.activate';
 const SERVICES_EXT_ID = 'salesforce.salesforcedx-vscode-services';
 const SALESFORCE_DX_SECTION = 'salesforcedx-vscode-salesforcedx';
 
+class ServicesExtensionNotFoundError extends Data.TaggedError(
+  'ServicesExtensionNotFoundError',
+) {}
+
+class ServicesExtensionActivationError extends Data.TaggedError(
+  'ServicesExtensionActivationError',
+)<{ cause: unknown }> {}
+
 let extensionTracingRuntime:
   | ManagedRuntime.ManagedRuntime<never, never>
   | undefined;
+
+/** Effect that resolves the services extension API, activating it if needed. */
+const getServicesApi = Effect.sync(() =>
+  vscode.extensions.getExtension<SalesforceVSCodeServicesApi>(SERVICES_EXT_ID),
+).pipe(
+  Effect.flatMap((ext) =>
+    ext
+      ? Effect.succeed(ext)
+      : Effect.fail(new ServicesExtensionNotFoundError()),
+  ),
+  Effect.flatMap((ext) =>
+    ext.isActive
+      ? Effect.sync(() => ext.exports)
+      : Effect.tryPromise({
+          try: () => ext.activate(),
+          catch: (cause) => new ServicesExtensionActivationError({ cause }),
+        }),
+  ),
+);
 
 /** Build or rebuild the ManagedRuntime. Called at activation and on setting changes. */
 async function buildTracingRuntime(
   context: vscode.ExtensionContext,
 ): Promise<void> {
-  try {
-    const ext =
-      vscode.extensions.getExtension<SalesforceVSCodeServicesApi>(
-        SERVICES_EXT_ID,
-      );
-
-    if (!ext) {
-      logToOutputChannel(
-        `${SERVICES_EXT_ID} not found; extension-host OTEL tracing disabled`,
-        'warning',
-      );
-      return;
-    }
-
-    const api: SalesforceVSCodeServicesApi = ext.isActive
-      ? ext.exports
-      : await ext.activate();
-
-    const sdkLayer = api.services.SdkLayerFor(context);
-    extensionTracingRuntime = ManagedRuntime.make(sdkLayer);
-
-    // Eagerly build the layer (ManagedRuntime is lazy).
-    await extensionTracingRuntime.runPromise(Effect.void);
-
-    // Emit the activation span.
-    await extensionTracingRuntime.runPromise(
-      Effect.withSpan(ACTIVATION_SPAN)(Effect.void),
-    );
-
-    logToOutputChannel(
-      'Extension-host OTEL tracing initialized via salesforcedx-vscode-services',
-      'info',
-    );
-  } catch (error) {
-    logToOutputChannel(
-      `Failed to initialize extension-host OTEL tracing: ${error}`,
-      'warning',
-    );
-  }
+  await Effect.runPromise(
+    getServicesApi.pipe(
+      Effect.flatMap((api) =>
+        Effect.tryPromise({
+          try: async () => {
+            const sdkLayer = api.services.SdkLayerFor(context);
+            extensionTracingRuntime = ManagedRuntime.make(sdkLayer);
+            // Eagerly build the layer (ManagedRuntime is lazy).
+            await extensionTracingRuntime.runPromise(Effect.void);
+            // Emit the activation span.
+            await extensionTracingRuntime.runPromise(
+              Effect.withSpan(ACTIVATION_SPAN)(Effect.void),
+            );
+            logToOutputChannel(
+              'Extension-host OTEL tracing initialized via salesforcedx-vscode-services',
+              'info',
+            );
+          },
+          catch: (cause) => new ServicesExtensionActivationError({ cause }),
+        }),
+      ),
+      Effect.catchTag('ServicesExtensionNotFoundError', () =>
+        Effect.sync(() =>
+          logToOutputChannel(
+            `${SERVICES_EXT_ID} not found; extension-host OTEL tracing disabled`,
+            'warning',
+          ),
+        ),
+      ),
+      Effect.catchAll((error) =>
+        Effect.sync(() =>
+          logToOutputChannel(
+            `Failed to initialize extension-host OTEL tracing: ${error}`,
+            'warning',
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /**

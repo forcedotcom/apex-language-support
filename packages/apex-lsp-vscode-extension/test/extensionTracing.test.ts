@@ -11,19 +11,22 @@ jest.mock('../src/logging', () => ({
   logToOutputChannel: jest.fn(),
 }));
 
-jest.mock('effect', () => ({
-  Effect: {
-    void: undefined,
-    withSpan: jest.fn(() => (effect: unknown) => effect),
-    annotateCurrentSpan: jest.fn(() => ({
-      pipe: jest.fn(() => Promise.resolve()),
-    })),
-    runPromise: jest.fn().mockResolvedValue(undefined),
-  },
-  ManagedRuntime: {
-    make: jest.fn(),
-  },
-}));
+jest.mock('effect', () => {
+  const actual = jest.requireActual<typeof import('effect')>('effect');
+  return {
+    ...actual,
+    Effect: {
+      ...actual.Effect,
+      // Spy wrappers preserve real behaviour while recording calls
+      withSpan: jest.fn(actual.Effect.withSpan),
+      annotateCurrentSpan: jest.fn(actual.Effect.annotateCurrentSpan),
+      runPromise: jest.fn(actual.Effect.runPromise),
+    },
+    ManagedRuntime: {
+      make: jest.fn(),
+    },
+  };
+});
 
 // Provide a complete vscode mock that includes `workspace.onDidChangeConfiguration`
 // and `extensions.getExtension` — both required by extensionTracing.ts.
@@ -65,11 +68,13 @@ describe('extensionTracing', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Reset ManagedRuntime.make to return a usable runtime by default
-    const { ManagedRuntime } = require('effect') as typeof import('effect');
+    // Reset ManagedRuntime.make to return a usable runtime by default.
+    // disposeEffect must be a real Effect so Effect.runPromise can interpret it.
+    const { Effect, ManagedRuntime } =
+      require('effect') as typeof import('effect');
     (ManagedRuntime.make as jest.Mock).mockReturnValue({
       runPromise: jest.fn().mockResolvedValue(undefined),
-      disposeEffect: Symbol('disposeEffect'),
+      disposeEffect: Effect.void,
     });
 
     // Reset onDidChangeConfiguration to return a disposable
@@ -292,6 +297,7 @@ describe('extensionTracing', () => {
 
       await shutdownExtensionTracing();
 
+      // rt.disposeEffect === Effect.void — verify the spy was called with it
       expect(Effect.runPromise).toHaveBeenCalledWith(rt.disposeEffect);
     });
 

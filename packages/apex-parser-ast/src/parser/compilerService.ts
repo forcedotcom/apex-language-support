@@ -65,13 +65,25 @@ export interface CompilationResultWithAssociations<T>
   commentAssociations: CommentAssociation[];
 }
 
+export type RawParseTree =
+  | CompilationUnitContext
+  | TriggerUnitContext
+  | BlockContext;
+
 export interface ParseTreeResult {
   fileName: string;
-  parseTree: CompilationUnitContext | TriggerUnitContext | BlockContext;
+  parseTree: RawParseTree;
   errorListener: ApexErrorListener;
-  lexer: ApexLexer;
+}
+
+interface InternalParseResult extends ParseTreeResult {
   tokenStream: CommonTokenStream;
-  parser: ApexParser;
+}
+
+function isParseTreeResult(
+  tree: ParseTreeResult | RawParseTree,
+): tree is ParseTreeResult {
+  return (tree as ParseTreeResult).errorListener !== undefined;
 }
 
 export interface CompilationOptions {
@@ -106,7 +118,7 @@ export class CompilerService {
   private createParseTree(
     fileContent: string,
     fileName: string = 'unknown.cls',
-  ): ParseTreeResult {
+  ): InternalParseResult {
     this.logger.debug(() => `Creating parse tree for ${fileName}`);
     const errorListener = new ApexErrorListener(fileName);
     const isTrigger = fileName.endsWith('.trigger');
@@ -133,7 +145,7 @@ export class CompilerService {
       parseTree = parser.compilationUnit();
     }
 
-    return { fileName, parseTree, errorListener, lexer, tokenStream, parser };
+    return { fileName, parseTree, errorListener, tokenStream };
   }
 
   public compile<T>(
@@ -511,7 +523,7 @@ export class CompilerService {
     layers: DetailLevel[],
     existingSymbolTable?: SymbolTable,
     options: LayeredCompilationOptions = {},
-    cachedParseTree?: ParseTreeResult,
+    cachedParseTree?: ParseTreeResult | RawParseTree,
   ): CompilationResult<SymbolTable> {
     this.logger.debug(
       () =>
@@ -531,8 +543,20 @@ export class CompilerService {
       );
 
       // Create or reuse parse tree
-      const parseTreeResult =
-        cachedParseTree || this.createParseTree(fileContent, fileName);
+      let parseTreeResult: ParseTreeResult;
+      if (cachedParseTree) {
+        if (isParseTreeResult(cachedParseTree)) {
+          parseTreeResult = cachedParseTree;
+        } else {
+          parseTreeResult = {
+            fileName,
+            parseTree: cachedParseTree,
+            errorListener: new ApexErrorListener(fileName),
+          };
+        }
+      } else {
+        parseTreeResult = this.createParseTree(fileContent, fileName);
+      }
       const { parseTree, errorListener } = parseTreeResult;
 
       if (cachedParseTree) {
