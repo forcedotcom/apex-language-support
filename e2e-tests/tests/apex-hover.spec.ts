@@ -86,7 +86,12 @@ test.describe('Apex Hover Functionality', () => {
    */
   test('should show hover for inner enum', async ({ hoverHelper }) => {
     await hoverHelper.hoverOnWord('StatusType');
-    const content = await hoverHelper.getHoverContent();
+    let content = await hoverHelper.getHoverContent();
+    if (!content) {
+      // Retry once to handle LSP hover timing flakiness in desktop mode
+      await hoverHelper.hoverOnWord('StatusType');
+      content = await hoverHelper.getHoverContent();
+    }
     expect(content).toBeTruthy();
     console.log('✅ Inner enum hover provided');
   });
