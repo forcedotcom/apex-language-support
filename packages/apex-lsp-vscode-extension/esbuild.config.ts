@@ -61,17 +61,10 @@ function fixPackagePaths() {
         packageJson.contributes.standardApexLibrary.replace('./out/', './');
     }
 
-    if (packageJson.contributes?.languageServer) {
-      for (const envKey of Object.keys(
-        packageJson.contributes.languageServer,
-      )) {
-        const env = packageJson.contributes.languageServer[envKey];
-        if (typeof env === 'object' && env !== null) {
-          for (const key of Object.keys(env)) {
-            if (typeof env[key] === 'string' && env[key].includes('./out/')) {
-              env[key] = env[key].replace('./out/', './');
-            }
-          }
+    if (Array.isArray(packageJson.contributes?.sfWebConsoleRequiredFiles)) {
+      for (const entry of packageJson.contributes.sfWebConsoleRequiredFiles) {
+        if (typeof entry?.uri === 'string' && entry.uri.includes('./out/')) {
+          entry.uri = entry.uri.replace('./out/', './');
         }
       }
     }

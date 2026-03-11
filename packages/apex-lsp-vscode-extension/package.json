@@ -103,14 +103,11 @@
       }
     ],
     "standardApexLibrary": "./out/resources/StandardApexLibrary.zip",
-    "languageServer": {
-      "desktop": {
-        "module": "./out/server.node.js"
-      },
-      "web": {
-        "module": "./out/worker.global.js"
+    "sfWebConsoleRequiredFiles": [
+      {
+        "uri": "./out/worker.global.js"
       }
-    },
+    ],
     "configuration": {
       "title": "%configuration.apex.title%",
       "properties": {
