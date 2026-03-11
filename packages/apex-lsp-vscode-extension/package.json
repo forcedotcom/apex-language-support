@@ -274,7 +274,7 @@
             "log",
             "debug"
           ],
-          "default": "info",
+          "default": "error",
           "description": "%configuration.apex-ls-ts.logLevel.description%"
         },
         "apex.worker.logLevel": {
@@ -684,6 +684,7 @@
     "precompile": "wireit",
     "compile": "wireit",
     "bundle": "wireit",
+    "vscode:bundle": "npm run bundle",
     "package": "wireit",
     "rebuild": "npm run clean && npm run build",
     "test": "wireit",

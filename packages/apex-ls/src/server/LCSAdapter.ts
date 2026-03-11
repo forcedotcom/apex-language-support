@@ -1911,6 +1911,7 @@ export class LCSAdapter {
           `📝 Preparing to register ${registrations.length}` +
           ` capabilities: ${registrations.map((r) => r.method).join(', ')}`,
       );
+
       try {
         await this.connection.sendRequest('client/registerCapability', {
           registrations,

@@ -9,7 +9,7 @@
 import * as vscode from 'vscode';
 import { DebugConfig } from './types';
 import { EXTENSION_CONSTANTS } from './constants';
-import { logToOutputChannel } from './logging';
+import { logToOutputChannel, updateLogLevel } from './logging';
 import {
   ApexLanguageServerSettings,
   mergeWithDefaults,
@@ -117,6 +117,16 @@ export const registerConfigurationChangeListener = (
           EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
         )
       ) {
+        // Update client-side log level filter if apex.logLevel changed
+        if (event.affectsConfiguration('apex.logLevel')) {
+          const config = vscode.workspace.getConfiguration(
+            EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
+          );
+          const newLogLevel = config.get<string>('logLevel') ?? 'info';
+          updateLogLevel(newLogLevel);
+          logToOutputChannel(`🔍 Log level updated to: ${newLogLevel}`, 'info');
+        }
+
         // Get updated settings
         const settings = getWorkspaceSettings();
         try {

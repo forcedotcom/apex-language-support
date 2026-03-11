@@ -27,7 +27,9 @@ describe('DocumentSelectorUtils', () => {
       expect(schemes).toContain('file');
       expect(schemes).toContain('apexlib');
       expect(schemes).toContain('vscode-test-web');
-      expect(schemes.length).toBe(3);
+      expect(schemes).toContain('memfs');
+      expect(schemes).toContain('reefs');
+      expect(schemes.length).toBe(5);
     });
   });
 

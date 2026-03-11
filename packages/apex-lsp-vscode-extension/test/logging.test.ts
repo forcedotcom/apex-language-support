@@ -84,7 +84,7 @@ describe('Logging Module', () => {
 
       initializeExtensionLogging(mockContext);
 
-      expect(mockGet).toHaveBeenCalledWith('apex.logLevel');
+      expect(mockGet).toHaveBeenCalledWith('logLevel');
     });
   });
 

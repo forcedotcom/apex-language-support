@@ -20,6 +20,14 @@ let extensionTracingRuntime:
   | ManagedRuntime.ManagedRuntime<never, never>
   | undefined;
 
+let salesforceServicesApi: SalesforceVSCodeServicesApi | undefined;
+
+export function getSalesforceServicesApi():
+  | SalesforceVSCodeServicesApi
+  | undefined {
+  return salesforceServicesApi;
+}
+
 /** Build or rebuild the ManagedRuntime. Called at activation and on setting changes. */
 async function buildTracingRuntime(
   context: vscode.ExtensionContext,
@@ -41,6 +49,8 @@ async function buildTracingRuntime(
     const api: SalesforceVSCodeServicesApi = ext.isActive
       ? ext.exports
       : await ext.activate();
+
+    salesforceServicesApi = api;
 
     const sdkLayer = api.services.SdkLayerFor(context);
     extensionTracingRuntime = ManagedRuntime.make(sdkLayer);
