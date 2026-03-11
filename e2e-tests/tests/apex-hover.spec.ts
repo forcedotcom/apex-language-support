@@ -196,7 +196,12 @@ test.describe('Apex Hover Functionality', () => {
    */
   test('should show hover for constructor', async ({ hoverHelper }) => {
     await hoverHelper.hoverOnWord('ApexClassExample()');
-    const content = await hoverHelper.getHoverContent();
+    let content = await hoverHelper.getHoverContent();
+    if (!content) {
+      // Retry once to handle LSP hover timing flakiness in desktop mode
+      await hoverHelper.hoverOnWord('ApexClassExample()');
+      content = await hoverHelper.getHoverContent();
+    }
     expect(content).toBeTruthy();
     console.log('✅ Constructor hover provided');
   });

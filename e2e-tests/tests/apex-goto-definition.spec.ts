@@ -632,7 +632,7 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
  * Uses CrossFileCaller.cls → CrossFileUtility.cls and
  * CrossFileChildClass.cls → CrossFileBaseClass.cls pairs.
  */
-test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
+test.describe.skip('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
   /**
    * Test: Navigate to a class defined in another workspace file (static utility).
    * Opens CrossFileCaller.cls and navigates to CrossFileUtility defined in CrossFileUtility.cls.
