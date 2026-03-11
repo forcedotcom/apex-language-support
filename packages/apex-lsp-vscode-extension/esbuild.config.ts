@@ -62,7 +62,6 @@ function fixPackagePaths() {
     }
 
     if (packageJson.contributes?.languageServer) {
-     if (packageJson.contributes?.languageServer) {
       for (const envKey of Object.keys(
         packageJson.contributes.languageServer,
       )) {

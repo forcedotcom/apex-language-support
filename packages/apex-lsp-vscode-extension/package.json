@@ -105,10 +105,10 @@
     "standardApexLibrary": "./out/resources/StandardApexLibrary.zip",
     "languageServer": {
       "desktop": {
-        "serverModule": "./out/server.node.js"
+        "module": "./out/server.node.js"
       },
       "web": {
-        "workerModule": "./out/worker.global.js"
+        "module": "./out/worker.global.js"
       }
     },
     "configuration": {
