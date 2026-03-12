@@ -42,6 +42,7 @@ import {
 import {
   getWorkspaceSettings,
   registerConfigurationChangeListener,
+  sendInitialConfiguration,
   getTraceServerConfig,
 } from './configuration';
 import { EXTENSION_CONSTANTS } from './constants';
@@ -273,6 +274,7 @@ export const createAndStartClient = async (
         'debug',
       );
       registerConfigurationChangeListener(Client, context);
+      sendInitialConfiguration(Client);
     }
 
     logToOutputChannel('🎉 Apex Language Server is ready!', 'info');
