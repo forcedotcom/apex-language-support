@@ -67,6 +67,8 @@ export const DEFAULT_SCHEMES_FOR_MOST: readonly string[] = [
   'file',
   'apexlib',
   'vscode-test-web',
+  'memfs',
+  'reefs',
 ] as const;
 
 /**

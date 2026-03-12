@@ -114,11 +114,11 @@ describe('ApexCapabilitiesManager', () => {
 
       const capabilities = manager.getCapabilities();
 
-      // profilingProvider should be undefined on web (listed in WEB_DISABLED_CAPABILITIES)
+      // profilingProvider requires Node.js — always disabled on web
       expect(capabilities.experimental?.profilingProvider).toBeUndefined();
-      // TDX26: publishDiagnostics and diagnosticProvider filtered for web
-      expect(capabilities.publishDiagnostics).toBeUndefined();
-      expect(capabilities.diagnosticProvider).toBeUndefined();
+      // Diagnostics ARE enabled for development/web
+      expect(capabilities.publishDiagnostics).toBe(true);
+      expect(capabilities.diagnosticProvider).toBeDefined();
     });
   });
 
@@ -141,16 +141,16 @@ describe('ApexCapabilitiesManager', () => {
       expect(caps.diagnosticProvider).toBeUndefined();
     });
 
-    it('should disable diagnostics for development/web', () => {
+    it('should enable diagnostics for development/web', () => {
       const caps = manager.getCapabilitiesForModeAndPlatform(
         'development',
         'web',
       );
-      expect(caps.publishDiagnostics).toBeUndefined();
-      expect(caps.diagnosticProvider).toBeUndefined();
+      expect(caps.publishDiagnostics).toBe(true);
+      expect(caps.diagnosticProvider).toBeDefined();
     });
 
-    it('should enable diagnostics for development/desktop only', () => {
+    it('should enable diagnostics for development/desktop', () => {
       const caps = manager.getCapabilitiesForModeAndPlatform(
         'development',
         'desktop',
@@ -161,22 +161,34 @@ describe('ApexCapabilitiesManager', () => {
   });
 
   describe('Capability Validation', () => {
-    it('should correctly identify enabled capabilities in production mode', () => {
+    it('should correctly identify enabled capabilities in production mode (desktop)', () => {
       manager.setMode('production');
-
-      // Production mode should have these enabled (released features)
+      // Default platform is desktop — only documentSymbolProvider is released for desktop production
       expect(manager.isCapabilityEnabled('textDocumentSync')).toBe(true);
       expect(manager.isCapabilityEnabled('documentSymbolProvider')).toBe(true);
-      expect(manager.isCapabilityEnabled('foldingRangeProvider')).toBe(true);
-      expect(manager.isCapabilityEnabled('hoverProvider')).toBe(true);
-      expect(manager.isCapabilityEnabled('definitionProvider')).toBe(true);
-      expect(manager.isCapabilityEnabled('diagnosticProvider')).toBe(false); // TDX26: production never gets diagnostics
       expect(manager.isCapabilityEnabled('workspace')).toBe(true);
 
-      // Production mode should have these disabled (dev-only)
+      // All other language features are disabled on desktop/production
+      expect(manager.isCapabilityEnabled('foldingRangeProvider')).toBe(false);
+      expect(manager.isCapabilityEnabled('hoverProvider')).toBe(false);
+      expect(manager.isCapabilityEnabled('definitionProvider')).toBe(false);
+      expect(manager.isCapabilityEnabled('diagnosticProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('completionProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('implementationProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('executeCommandProvider')).toBe(false);
+    });
+
+    it('should correctly identify enabled capabilities in production mode (web)', () => {
+      manager.setMode('production');
+      manager.setPlatform('web');
+      // Web production exposes released language features
+      expect(manager.isCapabilityEnabled('documentSymbolProvider')).toBe(true);
+      expect(manager.isCapabilityEnabled('hoverProvider')).toBe(true);
+      expect(manager.isCapabilityEnabled('definitionProvider')).toBe(true);
+      expect(manager.isCapabilityEnabled('foldingRangeProvider')).toBe(true);
+      expect(manager.isCapabilityEnabled('completionProvider')).toBe(false);
+      expect(manager.isCapabilityEnabled('implementationProvider')).toBe(false);
+      manager.setPlatform('desktop'); // restore default
     });
 
     it('should correctly identify enabled capabilities in development mode', () => {
@@ -198,10 +210,10 @@ describe('ApexCapabilitiesManager', () => {
     });
 
     it('should check capabilities for specific modes', () => {
-      // Check production mode capabilities
+      // Check production mode capabilities — default platform is desktop, so only documentSymbol
       expect(
         manager.isCapabilityEnabledForMode('production', 'hoverProvider'),
-      ).toBe(true);
+      ).toBe(false);
       expect(
         manager.isCapabilityEnabledForMode('production', 'completionProvider'),
       ).toBe(false);
@@ -268,10 +280,19 @@ describe('ApexCapabilitiesManager', () => {
       expect(capabilities.completionProvider).toBeUndefined();
     });
 
-    it('should have definitionProvider in production mode', () => {
+    it('should not have definitionProvider in desktop production mode', () => {
       manager.setMode('production');
+      // Default platform is desktop — definitionProvider is not released for desktop production
+      const capabilities = manager.getCapabilities();
+      expect(capabilities.definitionProvider).toBeUndefined();
+    });
+
+    it('should have definitionProvider in web production mode', () => {
+      manager.setMode('production');
+      manager.setPlatform('web');
       const capabilities = manager.getCapabilities();
       expect(capabilities.definitionProvider).toBe(true);
+      manager.setPlatform('desktop'); // restore default
     });
 
     it('should have valid workspace configuration', () => {

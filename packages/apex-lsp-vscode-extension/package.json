@@ -269,7 +269,7 @@
             "log",
             "debug"
           ],
-          "default": "info",
+          "default": "error",
           "description": "%configuration.apex-ls-ts.logLevel.description%"
         },
         "apex.worker.logLevel": {
