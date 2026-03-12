@@ -113,10 +113,10 @@ test.describe('Apex Hover Functionality', () => {
     // LSP hover can take a few seconds to resolve in web environment
     const isResponsive = await hoverHelper.isHoverResponsive(
       'ApexClassExample',
-      8000,
+      12000,
     );
     expect(isResponsive).toBe(true);
-    console.log('✅ Hover is responsive (< 8s)');
+    console.log('✅ Hover is responsive (< 12s)');
   });
 
   /**

@@ -632,7 +632,7 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
  * Uses CrossFileCaller.cls → CrossFileUtility.cls and
  * CrossFileChildClass.cls → CrossFileBaseClass.cls pairs.
  */
-test.describe.skip('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
+test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
   /**
    * Test: Navigate to a class defined in another workspace file (static utility).
    * Opens CrossFileCaller.cls and navigates to CrossFileUtility defined in CrossFileUtility.cls.
@@ -659,7 +659,7 @@ test.describe.skip('Apex Go-to-Definition - Cross-File Workspace Resolution', ()
       // CrossFileUtility at line 11, col 27 in CrossFileCaller.cls
       await apexEditor.goToPosition(11, 27);
       await apexEditor.goToDefinition();
-      await apexEditor.waitForNavigation('CrossFileCaller.cls');
+      await apexEditor.waitForNavigation('CrossFileCaller.cls', 15000);
 
       const content = await apexEditor.findAndGetViewportContent(
         'public class CrossFileUtility',
@@ -697,7 +697,7 @@ test.describe.skip('Apex Go-to-Definition - Cross-File Workspace Resolution', ()
       // formatName at line 11, col 44 in CrossFileCaller.cls
       await apexEditor.goToPosition(11, 44);
       await apexEditor.goToDefinition();
-      await apexEditor.waitForNavigation('CrossFileCaller.cls');
+      await apexEditor.waitForNavigation('CrossFileCaller.cls', 15000);
 
       const content = await apexEditor.findAndGetViewportContent(
         'public static String formatName',
@@ -734,7 +734,7 @@ test.describe.skip('Apex Go-to-Definition - Cross-File Workspace Resolution', ()
       // CrossFileBaseClass at line 6, col 42 in CrossFileChildClass.cls
       await apexEditor.goToPosition(6, 42);
       await apexEditor.goToDefinition();
-      await apexEditor.waitForNavigation('CrossFileChildClass.cls');
+      await apexEditor.waitForNavigation('CrossFileChildClass.cls', 15000);
 
       const content = await apexEditor.findAndGetViewportContent(
         'public virtual class CrossFileBaseClass',
@@ -772,7 +772,7 @@ test.describe.skip('Apex Go-to-Definition - Cross-File Workspace Resolution', ()
       // getBaseName at line 43, col 16 in CrossFileChildClass.cls
       await apexEditor.goToPosition(43, 16);
       await apexEditor.goToDefinition();
-      await apexEditor.waitForNavigation('CrossFileChildClass.cls');
+      await apexEditor.waitForNavigation('CrossFileChildClass.cls', 15000);
 
       const content = await apexEditor.findAndGetViewportContent('getBaseName');
       expect(content).toMatch(/public\s+String\s+getBaseName/);

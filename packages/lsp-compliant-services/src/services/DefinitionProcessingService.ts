@@ -11,6 +11,24 @@ import {
   Location,
   Range,
 } from 'vscode-languageserver-protocol';
+// #region agent log
+import { appendFileSync } from 'fs';
+const DBG_LOG =
+  '/Users/peter.hale/git/apex-language-support-my-work/.cursor/debug-3514e2.log';
+const dbgLog = (msg: string, data?: unknown) => {
+  try {
+    appendFileSync(
+      DBG_LOG,
+      JSON.stringify({
+        sessionId: '3514e2',
+        timestamp: Date.now(),
+        message: msg,
+        data,
+      }) + '\n',
+    );
+  } catch {}
+};
+// #endregion
 import {
   LoggerInterface,
   ApexSettingsManager,
@@ -20,6 +38,7 @@ import {
   ApexSymbolProcessingManager,
   ISymbolManager,
   ApexSymbol,
+  SymbolKind,
   inTypeSymbolGroup,
   TypeSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
@@ -205,6 +224,21 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         'precise',
       );
 
+      // #region agent log
+      const srcFile = params.textDocument.uri.split('/').pop();
+      dbgLog('symbol-at-pos', {
+        srcFile,
+        parserPos: `${parserPosition.line}:${parserPosition.character}`,
+        symbol: symbol
+          ? {
+              name: symbol.name,
+              kind: symbol.kind,
+              fileUri: symbol.fileUri?.split('/').pop(),
+            }
+          : null,
+      });
+      // #endregion
+
       let wasResolvedFromMissingArtifact = false;
 
       if (!symbol) {
@@ -244,9 +278,74 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
           wasResolvedFromMissingArtifact = true;
         }
 
-        // If still no symbol found after resolution attempt, return empty results
+        // If still no symbol found after resolution attempt, try chained ref fallback
         if (!symbol) {
-          return [];
+          // #region agent log
+          dbgLog('null-symbol-chained-fallback', {
+            srcFile,
+            parserPos: `${parserPosition.line}:${parserPosition.character}`,
+            refsCount: references?.length,
+          });
+          // #endregion
+          symbol = await this.tryResolveFromChainedRef(
+            references,
+            parserPosition,
+            params.textDocument.uri,
+          );
+          // #region agent log
+          dbgLog('null-symbol-chained-result', {
+            srcFile,
+            result: symbol
+              ? {
+                  name: symbol.name,
+                  kind: symbol.kind,
+                  fileUri: symbol.fileUri?.split('/').pop(),
+                }
+              : null,
+          });
+          // #endregion
+          if (!symbol) {
+            return [];
+          }
+        }
+      }
+
+      // Fallback: if symbol resolved to a local variable (wrong cross-file resolution),
+      // try chained reference resolution to get the actual cross-file target
+      if (
+        symbol &&
+        symbol.kind === SymbolKind.Variable &&
+        symbol.fileUri === params.textDocument.uri
+      ) {
+        // #region agent log
+        dbgLog('var-symbol-chained-fallback', {
+          srcFile,
+          parserPos: `${parserPosition.line}:${parserPosition.character}`,
+          varName: symbol.name,
+        });
+        // #endregion
+        const crossFileSymbol = await this.tryResolveFromChainedRef(
+          references,
+          parserPosition,
+          params.textDocument.uri,
+        );
+        // #region agent log
+        dbgLog('var-symbol-chained-result', {
+          srcFile,
+          result: crossFileSymbol
+            ? {
+                name: crossFileSymbol.name,
+                kind: crossFileSymbol.kind,
+                fileUri: crossFileSymbol.fileUri?.split('/').pop(),
+              }
+            : null,
+        });
+        // #endregion
+        if (
+          crossFileSymbol &&
+          crossFileSymbol.fileUri !== params.textDocument.uri
+        ) {
+          symbol = crossFileSymbol;
         }
       }
 
@@ -527,6 +626,87 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     }
 
     return locations;
+  }
+
+  /**
+   * Fallback resolver for chained static references (e.g., CrossFileUtility.formatName()).
+   * When the standard symbol manager resolution picks the wrong symbol or returns null
+   * for a qualified static call, this method extracts the qualifier and member from
+   * the chainNodes and looks them up directly in the symbol table.
+   */
+  private async tryResolveFromChainedRef(
+    references: any[],
+    position: { line: number; character: number },
+    sourceUri: string,
+  ): Promise<ApexSymbol | null> {
+    const chainedRefs = references.filter(
+      (r: any) => r.chainNodes?.length >= 2,
+    );
+    // #region agent log
+    dbgLog('chained-refs-found', {
+      pos: `${position.line}:${position.character}`,
+      total: references?.length,
+      chained: chainedRefs.length,
+      refKinds: references?.map((r: any) => ({
+        kind: r.kind,
+        chainLen: r.chainNodes?.length ?? 0,
+      })),
+    });
+    // #endregion
+    for (const chainedRef of chainedRefs) {
+      const chainNodes: any[] = chainedRef.chainNodes;
+      const firstNode = chainNodes[0];
+      if (!firstNode?.location?.identifierRange) continue;
+
+      const firstRange = firstNode.location.identifierRange;
+      const onQualifier =
+        position.line === firstRange.startLine &&
+        position.character >= firstRange.startColumn &&
+        position.character <= firstRange.endColumn;
+
+      if (onQualifier) {
+        // Cursor is on the qualifier class name — return the class symbol
+        const candidates = this.symbolManager.findSymbolByName(firstNode.name);
+        const cls = candidates.find(
+          (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+        );
+        if (cls && cls.fileUri !== sourceUri) return cls;
+        continue;
+      }
+
+      // Check if cursor is on a later chain node (member/method)
+      for (let i = 1; i < chainNodes.length; i++) {
+        const node = chainNodes[i];
+        if (!node?.location?.identifierRange) continue;
+        const nodeRange = node.location.identifierRange;
+        const onMember =
+          position.line === nodeRange.startLine &&
+          position.character >= nodeRange.startColumn &&
+          position.character <= nodeRange.endColumn;
+        if (!onMember) continue;
+
+        // Find the qualifier class then find the member within it
+        const qualifierCandidates = this.symbolManager.findSymbolByName(
+          firstNode.name,
+        );
+        const qualifierClass = qualifierCandidates.find(
+          (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+        );
+        if (!qualifierClass) break;
+
+        const memberCandidates = this.symbolManager.findSymbolByName(node.name);
+        const member = memberCandidates.find(
+          (s) =>
+            s.parentId === qualifierClass.id ||
+            (s.fileUri === qualifierClass.fileUri && s.name === node.name),
+        );
+        if (member && member.fileUri !== sourceUri) return member;
+        // Fallback: return qualifier class if member not found
+        if (qualifierClass.fileUri !== sourceUri) return qualifierClass;
+        break;
+      }
+    }
+    return null;
   }
 
   /**

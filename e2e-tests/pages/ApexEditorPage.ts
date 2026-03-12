@@ -138,7 +138,9 @@ export class ApexEditorPage extends BasePage {
     // F12, canceling VS Code's pending cross-file definition request before the LSP
     // responded. The .peekview-widget only appears for multi-result definitions.
     const peekWidget = this.page.locator('.editor-widget.peekview-widget');
-    await peekWidget.waitFor({ state: 'visible', timeout: 200 }).catch(() => {});
+    await peekWidget
+      .waitFor({ state: 'visible', timeout: 200 })
+      .catch(() => {});
 
     // Only close the peek if it actually appeared
     if (await peekWidget.isVisible()) {
