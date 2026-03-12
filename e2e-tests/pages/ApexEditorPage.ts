@@ -91,7 +91,6 @@ export class ApexEditorPage extends BasePage {
    */
   async waitForNavigation(fromFile: string, timeout?: number): Promise<void> {
     const waitMs = timeout ?? (this.isDesktopMode ? 8000 : 6000);
-    let navigated = false;
     await this.page
       .waitForFunction(
         (original: string) => {
@@ -144,7 +143,9 @@ export class ApexEditorPage extends BasePage {
     const findWidget = this.page.locator('.editor-widget.find-widget');
     if (await findWidget.isVisible()) {
       await this.page.keyboard.press('Escape');
-      await findWidget.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+      await findWidget
+        .waitFor({ state: 'hidden', timeout: 3000 })
+        .catch(() => {});
     }
 
     await this.page.keyboard.press('F12');
