@@ -411,9 +411,9 @@ async function runWebExtensionTests() {
 
     const extensionDevelopmentPath = path.resolve(
       __dirname,
-      '../packages/apex-lsp-vscode-extension',
+      '../packages/apex-lsp-vscode-extension/extension',
     );
-    const extensionDistPath = path.resolve(extensionDevelopmentPath, 'dist');
+    const extensionDistPath = path.join(extensionDevelopmentPath, 'dist');
     const workspacePath = path.resolve(__dirname, './test-workspace');
 
     // Verify required paths exist
@@ -423,7 +423,7 @@ async function runWebExtensionTests() {
       );
     }
 
-    // Verify extension is built (dist/ must exist with bundled artifacts)
+    // Verify extension is built (extension/dist/ must exist with bundled artifacts)
     if (!fs.existsSync(extensionDistPath)) {
       throw new Error(
         `Extension dist directory not found: ${extensionDistPath}. Run 'npm run bundle' first.`,
@@ -735,9 +735,9 @@ async function runWebExtensionTests() {
 
     console.log(`📝 Extension logs will be saved to: ${outputLogPath}`);
 
-    // extensionDevelopmentPath points to the extension source root (contains package.json
-    // with ./dist/ paths). @vscode/test-web reads package.json from this location and
-    // resolves the browser entry point (./dist/extension.web.js) relative to it.
+    // extensionDevelopmentPath points to extension/ (VSIX root with package.json).
+    // @vscode/test-web reads package.json from this location and resolves the
+    // browser entry point (./dist/extension.web.js) relative to it.
     console.log('🚀 Starting VS Code Web server...');
     const testPromise = runTests({
       extensionDevelopmentPath: extensionDevelopmentPath,

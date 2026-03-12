@@ -102,7 +102,7 @@
         "path": "./snippets/soql.json"
       }
     ],
-    "standardApexLibrary": "./dist/resources/StandardApexLibrary.zip",
+    "standardApexLibrary": "./resources/StandardApexLibrary.zip",
     "sfWebConsoleRequiredFiles": [
       {
         "uri": "./dist/worker.global.js"
@@ -736,9 +736,7 @@
       ],
       "output": [
         "extension/**",
-        "dist/**",
-        "server-bundle/**",
-        "dist/package.json"
+        "server-bundle/**"
       ],
       "files": [
         "src/**/*.ts",
@@ -759,15 +757,16 @@
       ]
     },
     "package": {
-      "command": "cd dist && vsce package --out ../ --no-dependencies",
+      "command": "cd extension && npx vsce package --no-dependencies",
       "dependencies": [
         "bundle"
       ],
       "output": [
-        "*.vsix"
+        "extension/*.vsix"
       ],
       "files": [
-        "dist/package.json"
+        "package.json",
+        "extension/.vscodeignore"
       ]
     },
     "test": {

@@ -12,8 +12,8 @@ import * as path from 'path';
 describe('StandardApexLibrary.zip Resource Copying', () => {
   const projectRoot = path.resolve(__dirname, '../../..');
   const extensionRoot = path.resolve(__dirname, '..');
-  const distDir = path.join(extensionRoot, 'dist');
-  const resourcesDir = path.join(distDir, 'resources');
+  const extensionDir = path.join(extensionRoot, 'extension');
+  const resourcesDir = path.join(extensionDir, 'resources');
   const standardLibZipDest = path.join(resourcesDir, 'StandardApexLibrary.zip');
   const standardLibZipSrc = path.join(
     projectRoot,
@@ -46,19 +46,19 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
   });
 
   describe('Destination ZIP File (after build)', () => {
-    it('should have dist directory after build', () => {
-      if (fs.existsSync(distDir)) {
-        expect(fs.statSync(distDir).isDirectory()).toBe(true);
+    it('should have extension directory after build', () => {
+      if (fs.existsSync(extensionDir)) {
+        expect(fs.statSync(extensionDir).isDirectory()).toBe(true);
       }
     });
 
-    it('should have resources directory in dist after build', () => {
+    it('should have resources directory in extension after build', () => {
       if (fs.existsSync(resourcesDir)) {
         expect(fs.statSync(resourcesDir).isDirectory()).toBe(true);
       }
     });
 
-    it('should have copied StandardApexLibrary.zip to dist/resources after build', () => {
+    it('should have copied StandardApexLibrary.zip to extension/resources after build', () => {
       if (fs.existsSync(standardLibZipDest)) {
         expect(fs.existsSync(standardLibZipDest)).toBe(true);
         expect(fs.statSync(standardLibZipDest).isFile()).toBe(true);
@@ -111,8 +111,8 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
 
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
-        // The plugin uses './dist/resources/StandardApexLibrary.zip' as destination
-        expect(configContent).toContain('./dist/resources');
+        // The plugin uses './extension/resources/StandardApexLibrary.zip' as destination
+        expect(configContent).toContain('./extension/resources');
         expect(configContent).toContain('StandardApexLibrary.zip');
       }
     });
@@ -175,7 +175,7 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
           '../apex-parser-ast/resources/StandardApexLibrary.zip',
         );
         expect(configContent).toContain(
-          './dist/resources/StandardApexLibrary.zip',
+          './extension/resources/StandardApexLibrary.zip',
         );
       }
     });
@@ -198,9 +198,9 @@ describe('StandardApexLibrary.zip Resource Copying', () => {
 
       if (fs.existsSync(esbuildConfigPath)) {
         const configContent = fs.readFileSync(esbuildConfigPath, 'utf8');
-        // Plugin uses relative paths like '../apex-parser-ast' and './dist'
+        // Plugin uses relative paths like '../apex-parser-ast' and './extension'
         expect(configContent).toContain('../apex-parser-ast');
-        expect(configContent).toContain('./dist');
+        expect(configContent).toContain('./extension');
       }
     });
   });

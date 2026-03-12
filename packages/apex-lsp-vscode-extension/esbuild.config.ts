@@ -20,34 +20,16 @@ import {
 } from '@salesforce/esbuild-presets';
 
 /**
- * Create .vscodeignore file in dist directory
- * This ensures worker.global.js, server.node.js, and their .map files are included
- * Note: When packaging from dist/, vsce uses this .vscodeignore file
+ * Clean extension/package.json for the Code Builder Web consumption path.
+ * Removes bundled dependencies and development-only fields so CBW gets
+ * a minimal package manifest when it copies files from extension/.
  */
-function createVscodeIgnore() {
-  const distDir = path.resolve(__dirname, 'dist');
-  const vscodeignorePath = path.join(distDir, '.vscodeignore');
-  const vscodeignoreContent = '# Include all files - no exclusions';
-  try {
-    fs.writeFileSync(vscodeignorePath, vscodeignoreContent);
-    console.log('✅ Created .vscodeignore in dist');
-  } catch (error) {
-    console.warn('Failed to create .vscodeignore:', (error as Error).message);
-  }
-}
-
-/**
- * Fix package.json paths for dist directory and remove development-only fields.
- * The dist/package.json is used for VSIX packaging and should only contain
- * runtime metadata, not build configuration or dev dependencies.
- */
-function fixPackagePaths() {
-  const packagePath = path.resolve(__dirname, 'dist/package.json');
+function cleanExtensionPackageJson() {
+  const packagePath = path.resolve(__dirname, 'extension/package.json');
   try {
     const content = fs.readFileSync(packagePath, 'utf8');
     const packageJson = JSON.parse(content);
 
-    // Remove bundled dependencies (they're included in the bundle)
     const bundledDependencies = [
       '@salesforce/apex-lsp-shared',
       'vscode-languageclient',
@@ -63,45 +45,30 @@ function fixPackagePaths() {
       }
     }
 
-    // Remove development-only fields not needed in VSIX package
-    const devOnlyFields = [
-      'scripts', // Build scripts not needed in installed extension
-      'devDependencies', // Dev dependencies not needed
-      'wireit', // Build configuration not needed
-    ];
-
+    const devOnlyFields = ['scripts', 'devDependencies', 'wireit'];
     devOnlyFields.forEach((field) => {
-      if (packageJson[field]) {
-        delete packageJson[field];
-      }
+      delete packageJson[field];
     });
 
     fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
   } catch (error) {
     console.error(
-      '❌ Failed to fix package.json paths:',
+      '❌ Failed to clean extension/package.json:',
       (error as Error).message,
     );
     throw error;
   }
 }
 
-/**
- * Execute immediate post-build tasks (non-dependent on other packages)
- * Note: File copying is handled by esbuild-plugin-copy, so we only need to:
- * - Fix package.json paths (transform, not copy)
- * - Create .vscodeignore file (generated content)
- */
 function executePostBuildTasks(): void {
-  fixPackagePaths();
-  createVscodeIgnore();
+  cleanExtensionPackageJson();
 }
 
 const builds: BuildOptions[] = [
   {
     ...nodeBaseConfig,
     entryPoints: ['out/extension.js'],
-    outdir: 'dist',
+    outdir: 'extension/dist',
     format: 'cjs',
     outExtension: { '.js': '.js' },
     sourcemap: true,
@@ -122,64 +89,69 @@ const builds: BuildOptions[] = [
         // Use cwd as base path so we can specify paths relative to project root
         resolveFrom: 'cwd',
         assets: [
-          // Copy manifest and configuration files to dist (preserve filenames)
+          // Copy manifest and configuration files to extension/ (preserve filenames)
           {
             from: ['package.json'],
-            to: ['./dist/package.json'],
+            to: ['./extension/package.json'],
           },
           {
             from: ['package.nls.json'],
-            to: ['./dist/package.nls.json'],
+            to: ['./extension/package.nls.json'],
           },
           {
             from: ['language-configuration.json'],
-            to: ['./dist/language-configuration.json'],
+            to: ['./extension/language-configuration.json'],
           },
           {
             from: ['LICENSE.txt'],
-            to: ['./dist/LICENSE.txt'],
+            to: ['./extension/LICENSE.txt'],
           },
-          // Copy directories (grammars, snippets, resources) to dist
+          // Copy .vscodeignore for VSIX packaging (extension/ is the VSIX root)
+          {
+            from: ['extension.vscodeignore'],
+            to: ['./extension/.vscodeignore'],
+          },
+          // Copy directories (grammars, snippets, resources) to extension/
           {
             from: ['grammars/**/*'],
-            to: ['./dist/grammars'],
+            to: ['./extension/grammars'],
           },
           {
             from: ['snippets/**/*'],
-            to: ['./dist/snippets'],
+            to: ['./extension/snippets'],
           },
           {
             from: ['resources/**/*'],
-            to: ['./dist/resources'],
+            to: ['./extension/resources'],
           },
-          // Copy StandardApexLibrary.zip from apex-parser-ast package to dist/resources
+          // Copy StandardApexLibrary.zip from apex-parser-ast package to extension/resources
           {
             from: ['../apex-parser-ast/resources/StandardApexLibrary.zip'],
-            to: ['./dist/resources/StandardApexLibrary.zip'],
+            to: ['./extension/resources/StandardApexLibrary.zip'],
           },
-          // Copy webview scripts from compiled output to dist/webview
+          // Copy webview scripts from compiled output to extension/dist/webview
           // Note: The glob pattern 'out/webviews/*.js' already filters to .js files
           {
             from: ['out/webviews/*.js'],
-            to: ['./dist/webview'],
+            to: ['./extension/dist/webview'],
           },
-          // Copy worker and server files from apex-ls package to dist
+          // Copy worker and server files from apex-ls package to extension/dist
           // Note: Wireit dependency ensures ../apex-ls:bundle completes before this runs
           {
             from: ['../apex-ls/dist/worker.global.js'],
-            to: ['./dist/worker.global.js'],
+            to: ['./extension/dist/worker.global.js'],
           },
           {
             from: ['../apex-ls/dist/worker.global.js.map'],
-            to: ['./dist/worker.global.js.map'],
+            to: ['./extension/dist/worker.global.js.map'],
           },
           {
             from: ['../apex-ls/dist/server.node.js'],
-            to: ['./dist/server.node.js'],
+            to: ['./extension/dist/server.node.js'],
           },
           {
             from: ['../apex-ls/dist/server.node.js.map'],
-            to: ['./dist/server.node.js.map'],
+            to: ['./extension/dist/server.node.js.map'],
           },
         ],
         watch: true,
@@ -190,7 +162,7 @@ const builds: BuildOptions[] = [
   {
     ...browserBaseConfig,
     entryPoints: ['out/extension.js'],
-    outdir: 'dist',
+    outdir: 'extension/dist',
     format: 'cjs',
     outExtension: { '.js': '.web.js' },
     sourcemap: true,
@@ -212,7 +184,7 @@ const builds: BuildOptions[] = [
   },
   {
     entryPoints: ['src/webviews/graphScript.ts'],
-    outdir: 'dist/webview',
+    outdir: 'extension/dist/webview',
     format: 'iife',
     platform: 'browser',
     target: 'es2020',
@@ -229,7 +201,7 @@ const builds: BuildOptions[] = [
   },
   {
     entryPoints: ['src/webviews/performanceSettingsScript.ts'],
-    outdir: 'dist/webview',
+    outdir: 'extension/dist/webview',
     format: 'iife',
     platform: 'browser',
     target: 'es2020',

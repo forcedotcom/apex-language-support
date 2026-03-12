@@ -6,7 +6,7 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}/packages/apex-lsp-vscode-extension"
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/apex-lsp-vscode-extension/extension"
       ],
       "sourceMaps": true,
       "smartStep": true,
@@ -117,7 +117,7 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}/packages/apex-lsp-vscode-extension"
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/apex-lsp-vscode-extension/extension"
       ],
       "sourceMaps": true,
       "smartStep": true,
@@ -140,7 +140,7 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}/packages/apex-lsp-vscode-extension",
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/apex-lsp-vscode-extension/extension",
         "--extensionTestsPath=${workspaceFolder}/packages/apex-lsp-vscode-extension/out/test/suite/index"
       ],
       "outFiles": [

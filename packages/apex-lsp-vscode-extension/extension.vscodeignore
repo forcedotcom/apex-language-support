@@ -1,0 +1,6 @@
+# Source maps (optional - exclude to reduce VSIX size)
+*.map
+
+# Build artifacts
+*.vsix
+*.log

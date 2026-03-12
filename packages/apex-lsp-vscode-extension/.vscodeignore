@@ -1,46 +1,42 @@
-# Source files
+# Source and test files
 src/**
 test/**
 scripts/**
+docs/**
+out/**
+coverage/**
+server-bundle/**
 
-# Development files
-.vscode/**
-.vscode-test/**
-.gitignore
-.eslintrc.json
-.eslintignore
-.prettierrc
-.prettierignore
+# Build tooling and config
+esbuild.config.ts
 tsconfig.json
 tsconfig.*.json
+jest.config.cjs
+eslint.config.mjs
+.eslintcache
+.eslintrc*
 webpack.config.js
-jest.config.js
-.turbo/**
-
-# Node modules and build artifacts
-node_modules
-**/node_modules
-node_modules/**/*
-**/node_modules/**/*
-out/**
-dist/**
-coverage/**
-*.vsix
-*.log
+.prettierrc
+.prettierignore
 *.tsbuildinfo
-bundle/**
 
-# Parent directory files
-../../**/*
-../**/*
-extension/../../**/*
-extension/../**/*
-
-# Workspace files
+# IDE / workspace
+.vscode/**
+.vscode-test/**
 .idea/**
 *.iml
 .DS_Store
+.gitignore
+.wireit/**
+.turbo/**
 
-# Keep resources
-!resources/
-!resources/** 
+# Node modules
+node_modules/**
+
+# Build artifacts that shouldn't ship
+*.vsix
+*.log
+bundle/**
+
+# Build output (VSIX is packaged from extension/ via wireit package)
+extension/**

@@ -30,7 +30,7 @@ echo "Workspace: ${WORKSPACE_PATH}"
 NODE_OPTIONS="--enable-source-maps" \
 APEX_LS_MODE="development" \
 /Applications/Visual\ Studio\ Code\ -\ Insiders.app/Contents/MacOS/Electron \
-  --extensionDevelopmentPath="${SCRIPT_DIR}/packages/apex-lsp-vscode-extension" \
+  --extensionDevelopmentPath="${SCRIPT_DIR}/packages/apex-lsp-vscode-extension/extension" \
   --inspect-brk-extensions=9222 \
   "${WORKSPACE_PATH}"
 
