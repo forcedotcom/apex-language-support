@@ -41,6 +41,21 @@ export async function startApexWebWorker(): Promise<void> {
     throw new Error('Worker context not available');
   }
 
+  // Sanitize LSP messages to strip non-cloneable values (functions, etc.).
+  // postMessage uses structured clone which fails on functions; LSP is JSON-based.
+  const origPostMessage = workerSelf.postMessage.bind(workerSelf);
+  workerSelf.postMessage = function (msg: unknown, transfer?: Transferable[]) {
+    let sanitized = msg;
+    if (msg && typeof msg === 'object') {
+      try {
+        sanitized = JSON.parse(JSON.stringify(msg));
+      } catch {
+        // Fallback to original if sanitization fails
+      }
+    }
+    origPostMessage(sanitized, transfer);
+  };
+
   const connection = createConnection(
     new BrowserMessageReader(workerSelf),
     new BrowserMessageWriter(workerSelf),

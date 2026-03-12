@@ -92,16 +92,6 @@ const builds: BuildOptions[] = [
       copy({
         resolveFrom: 'cwd',
         assets: [
-          // Copy type definition files from out/ to dist/ if they exist
-          // Note: These files may not always exist depending on TypeScript compilation output
-          {
-            from: ['out/index.d.ts'],
-            to: ['./dist/index.d.ts'],
-          },
-          {
-            from: ['out/browser.d.ts'],
-            to: ['./dist/browser.d.ts'],
-          },
           {
             from: ['out/worker.d.ts'],
             to: ['./dist/worker.d.ts'],

@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.5.7",
+  "version": "0.5.10",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -823,7 +823,7 @@
     "web-worker": "^1.5.0"
   },
   "devDependencies": {
-    "@salesforce/vscode-services": "^65.18.0",
+    "@salesforce/vscode-services": "^66.0.3",
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@salesforce/apex-tmlanguage": "2.0.1",

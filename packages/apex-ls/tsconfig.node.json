@@ -8,26 +8,19 @@
     "tsBuildInfoFile": "./out/node/.tsbuildinfo"
   },
   "include": [
-    "src/index.ts",
     "src/**/*.node.ts",
     "src/server.node.ts",
     "src/server/nodeServer.ts",
     "src/server/LCSAdapter.ts",
     "src/server/WorkspaceBatchHandler.ts",
-    "src/storage/StorageImplementations.ts",
-    "src/storage/StorageFactory.ts",
     "src/utils/EnvironmentUtils.ts",
     "src/profiling/ProfilingService.ts",
     "src/types/**/*.ts",
     "src/polyfills/**/*.ts"
   ],
   "exclude": [
-    "src/index.browser.ts",
-    "src/worker.ts",
     "src/**/*.browser.ts",
     "src/**/*.worker.ts",
-    "src/utils/BrowserLogNotificationHandler.ts",
-    "src/utils/WorkerLogNotificationHandler.ts",
     "node_modules",
     "out",
     "dist",

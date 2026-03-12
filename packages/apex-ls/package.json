@@ -4,11 +4,9 @@
   "description": "Apex Language Server - provides server.node.js for desktop and worker.global.js for web environments",
   "exports": {
     "./server.node": {
-      "types": "./dist/index.d.ts",
       "require": "./dist/server.node.js"
     },
     "./worker": {
-      "types": "./dist/worker.d.ts",
       "import": "./dist/worker.global.js",
       "require": "./dist/worker.global.js"
     }
