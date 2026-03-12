@@ -11,24 +11,6 @@ import {
   Location,
   Range,
 } from 'vscode-languageserver-protocol';
-// #region agent log
-import { appendFileSync } from 'fs';
-const DBG_LOG =
-  '/Users/peter.hale/git/apex-language-support-my-work/.cursor/debug-3514e2.log';
-const dbgLog = (msg: string, data?: unknown) => {
-  try {
-    appendFileSync(
-      DBG_LOG,
-      JSON.stringify({
-        sessionId: '3514e2',
-        timestamp: Date.now(),
-        message: msg,
-        data,
-      }) + '\n',
-    );
-  } catch {}
-};
-// #endregion
 import {
   LoggerInterface,
   ApexSettingsManager,
@@ -224,21 +206,6 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         'precise',
       );
 
-      // #region agent log
-      const srcFile = params.textDocument.uri.split('/').pop();
-      dbgLog('symbol-at-pos', {
-        srcFile,
-        parserPos: `${parserPosition.line}:${parserPosition.character}`,
-        symbol: symbol
-          ? {
-              name: symbol.name,
-              kind: symbol.kind,
-              fileUri: symbol.fileUri?.split('/').pop(),
-            }
-          : null,
-      });
-      // #endregion
-
       let wasResolvedFromMissingArtifact = false;
 
       if (!symbol) {
@@ -280,30 +247,11 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
         // If still no symbol found after resolution attempt, try chained ref fallback
         if (!symbol) {
-          // #region agent log
-          dbgLog('null-symbol-chained-fallback', {
-            srcFile,
-            parserPos: `${parserPosition.line}:${parserPosition.character}`,
-            refsCount: references?.length,
-          });
-          // #endregion
           symbol = await this.tryResolveFromChainedRef(
             references,
             parserPosition,
             params.textDocument.uri,
           );
-          // #region agent log
-          dbgLog('null-symbol-chained-result', {
-            srcFile,
-            result: symbol
-              ? {
-                  name: symbol.name,
-                  kind: symbol.kind,
-                  fileUri: symbol.fileUri?.split('/').pop(),
-                }
-              : null,
-          });
-          // #endregion
           if (!symbol) {
             return [];
           }
@@ -317,30 +265,11 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         symbol.kind === SymbolKind.Variable &&
         symbol.fileUri === params.textDocument.uri
       ) {
-        // #region agent log
-        dbgLog('var-symbol-chained-fallback', {
-          srcFile,
-          parserPos: `${parserPosition.line}:${parserPosition.character}`,
-          varName: symbol.name,
-        });
-        // #endregion
         const crossFileSymbol = await this.tryResolveFromChainedRef(
           references,
           parserPosition,
           params.textDocument.uri,
         );
-        // #region agent log
-        dbgLog('var-symbol-chained-result', {
-          srcFile,
-          result: crossFileSymbol
-            ? {
-                name: crossFileSymbol.name,
-                kind: crossFileSymbol.kind,
-                fileUri: crossFileSymbol.fileUri?.split('/').pop(),
-              }
-            : null,
-        });
-        // #endregion
         if (
           crossFileSymbol &&
           crossFileSymbol.fileUri !== params.textDocument.uri
@@ -642,17 +571,6 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     const chainedRefs = references.filter(
       (r: any) => r.chainNodes?.length >= 2,
     );
-    // #region agent log
-    dbgLog('chained-refs-found', {
-      pos: `${position.line}:${position.character}`,
-      total: references?.length,
-      chained: chainedRefs.length,
-      refKinds: references?.map((r: any) => ({
-        kind: r.kind,
-        chainLen: r.chainNodes?.length ?? 0,
-      })),
-    });
-    // #endregion
     for (const chainedRef of chainedRefs) {
       const chainNodes: any[] = chainedRef.chainNodes;
       const firstNode = chainNodes[0];

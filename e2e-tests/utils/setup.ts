@@ -7,7 +7,7 @@
  */
 import path from 'path';
 import fs from 'fs';
-import { ALL_SAMPLE_FILES, type SampleFile } from './test-helpers';
+import type { SampleFile } from './test-helpers';
 
 /**
  * Options for setting up the test workspace.
@@ -44,8 +44,7 @@ const WORKSPACE_SETTINGS = {
 export async function setupTestWorkspace(
   options: SetupOptions = {},
 ): Promise<string> {
-  const { sampleFiles = ALL_SAMPLE_FILES, workspacePath: customWorkspacePath } =
-    options;
+  const { sampleFiles = [], workspacePath: customWorkspacePath } = options;
 
   // Determine workspace path
   const workspacePath =
@@ -89,7 +88,7 @@ export async function setupTestWorkspace(
     fs.writeFileSync(filePath, sampleFile.content);
   });
 
-  // Copy test-data Apex samples (inheritance.cls, interface-impl.cls, complex-class.cls)
+  // Copy test-data Apex samples (AccountHandler.cls, BaseHandler.cls, AccountProcessor.cls, ComplexClass.cls, etc.)
   // for goto-definition and other tests that need multi-file scenarios
   const testDataSamplesDir = path.resolve(
     __dirname,

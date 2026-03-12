@@ -279,12 +279,6 @@ async function openFiles(
   const openedFiles: string[] = [];
 
   for (const file of files) {
-    // #region agent log
-    logToOutputChannel(
-      `[DBG-C] openFiles: attempting openTextDocument uri=${file.toString()} scheme=${file.scheme}`,
-      'error',
-    );
-    // #endregion
     try {
       const doc = await vscode.workspace.openTextDocument(file);
 
@@ -299,12 +293,6 @@ async function openFiles(
         `❌ Failed to open file ${file.toString()}: ${error}`,
         'error',
       );
-      // #region agent log
-      logToOutputChannel(
-        `[DBG-E] openFiles: FAILED uri=${file.toString()} error=${String(error)}`,
-        'error',
-      );
-      // #endregion
     }
   }
 

@@ -459,23 +459,23 @@ test.describe('Apex Go-to-Definition', () => {
 test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
   /**
    * Test: Navigate across inheritance hierarchy.
-   * Uses inheritance.cls test file.
+   * Uses AccountHandler.cls test file.
    */
   test('should navigate to base class from derived class', async ({
     apexEditor,
   }) => {
     await test.step('Try to open inheritance test file', async () => {
       try {
-        await apexEditor.openFile('inheritance.cls');
+        await apexEditor.openFile('AccountHandler.cls');
         await apexEditor.waitForLanguageServerReady();
-        console.log('✅ Opened inheritance.cls test file');
+        console.log('✅ Opened AccountHandler.cls test file');
       } catch (error) {
         const errStr =
           error instanceof Error
             ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
             : JSON.stringify(error);
         console.log(
-          '⚠️ inheritance.cls not available, using default file',
+          '⚠️ AccountHandler.cls not available, using default file',
           errStr,
         );
         return; // Skip this test if file not available
@@ -485,6 +485,7 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     await test.step('Navigate from derived class to base', async () => {
       await apexEditor.positionCursorOnWord('BaseHandler');
       await apexEditor.goToDefinition();
+      await apexEditor.waitForNavigation('AccountHandler.cls', 12000);
 
       const content = await apexEditor.findAndGetViewportContent(
         'abstract class BaseHandler',
@@ -503,14 +504,14 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
   }) => {
     await test.step('Open inheritance test file', async () => {
       try {
-        await apexEditor.openFile('inheritance.cls');
+        await apexEditor.openFile('AccountHandler.cls');
         await apexEditor.waitForLanguageServerReady();
       } catch (error) {
         const errStr =
           error instanceof Error
             ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
             : JSON.stringify(error);
-        console.log('⚠️ inheritance.cls not available', errStr);
+        console.log('⚠️ AccountHandler.cls not available', errStr);
         return;
       }
     });
@@ -528,21 +529,21 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
 
   /**
    * Test: Navigate to interface definition from implementation.
-   * Uses interface-impl.cls test file.
+   * Uses AccountProcessor.cls test file.
    */
   test('should navigate to interface from implementing class', async ({
     apexEditor,
   }) => {
     await test.step('Open interface implementation test file', async () => {
       try {
-        await apexEditor.openFile('interface-impl.cls');
+        await apexEditor.openFile('AccountProcessor.cls');
         await apexEditor.waitForLanguageServerReady();
       } catch (error) {
         const errStr =
           error instanceof Error
             ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
             : JSON.stringify(error);
-        console.log('⚠️ interface-impl.cls not available', errStr);
+        console.log('⚠️ AccountProcessor.cls not available', errStr);
         return;
       }
     });
@@ -550,6 +551,7 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     await test.step('Navigate to interface definition', async () => {
       await apexEditor.positionCursorOnWord('DataProcessor');
       await apexEditor.goToDefinition();
+      await apexEditor.waitForNavigation('AccountProcessor.cls', 12000);
 
       const content = await apexEditor.findAndGetViewportContent(
         'interface DataProcessor',
@@ -568,14 +570,14 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
   }) => {
     await test.step('Open interface implementation file', async () => {
       try {
-        await apexEditor.openFile('interface-impl.cls');
+        await apexEditor.openFile('AccountProcessor.cls');
         await apexEditor.waitForLanguageServerReady();
       } catch (error) {
         const errStr =
           error instanceof Error
             ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
             : JSON.stringify(error);
-        console.log('⚠️ interface-impl.cls not available', errStr);
+        console.log('⚠️ AccountProcessor.cls not available', errStr);
         return;
       }
     });
@@ -594,19 +596,19 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
 
   /**
    * Test: Navigate in complex class with multiple nested types.
-   * Uses complex-class.cls test file.
+   * Uses ComplexClass.cls test file.
    */
   test('should navigate in complex class structure', async ({ apexEditor }) => {
     await test.step('Open complex class test file', async () => {
       try {
-        await apexEditor.openFile('complex-class.cls');
+        await apexEditor.openFile('ComplexClass.cls');
         await apexEditor.waitForLanguageServerReady();
       } catch (error) {
         const errStr =
           error instanceof Error
             ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
             : JSON.stringify(error);
-        console.log('⚠️ complex-class.cls not available', errStr);
+        console.log('⚠️ ComplexClass.cls not available', errStr);
         return;
       }
     });

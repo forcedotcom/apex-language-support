@@ -91,6 +91,7 @@ export class ApexEditorPage extends BasePage {
    */
   async waitForNavigation(fromFile: string, timeout?: number): Promise<void> {
     const waitMs = timeout ?? (this.isDesktopMode ? 8000 : 6000);
+    let navigated = false;
     await this.page
       .waitForFunction(
         (original: string) => {
@@ -131,6 +132,21 @@ export class ApexEditorPage extends BasePage {
    * Waits for peek widget or editor to update, then closes peek if open.
    */
   async goToDefinition(): Promise<void> {
+    // Ensure the Find widget is fully closed and the editor has keyboard focus before
+    // pressing F12. If positionCursorOnWord left the Find widget open (e.g. Escape
+    // didn't dismiss it within 2 s), F12 lands in the Find input rather than the
+    // editor and no go-to-definition is triggered.
+    // Ensure the Find widget is fully closed before pressing F12. If
+    // positionCursorOnWord left the widget open, F12 lands in the Find input
+    // rather than triggering go-to-definition. Escape closes the widget and
+    // returns focus + cursor to the editor at the found position — no click
+    // needed (clicking the editor would move the cursor off the target word).
+    const findWidget = this.page.locator('.editor-widget.find-widget');
+    if (await findWidget.isVisible()) {
+      await this.page.keyboard.press('Escape');
+      await findWidget.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+    }
+
     await this.page.keyboard.press('F12');
 
     // Wait only for an actual peek view widget (not the broad .editor-widget which

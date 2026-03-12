@@ -55,7 +55,6 @@ export {
   waitForLSPInitialization,
   verifyVSCodeStability,
   verifyApexFileContentLoaded,
-  ALL_SAMPLE_FILES,
   type SampleFile,
   type TestSessionResult,
 } from './vscode-interaction';
