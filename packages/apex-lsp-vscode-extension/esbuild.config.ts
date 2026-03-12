@@ -61,14 +61,6 @@ function fixPackagePaths() {
         packageJson.contributes.standardApexLibrary.replace('./out/', './');
     }
 
-    if (Array.isArray(packageJson.contributes?.sfWebConsoleRequiredFiles)) {
-      for (const entry of packageJson.contributes.sfWebConsoleRequiredFiles) {
-        if (typeof entry?.uri === 'string' && entry.uri.includes('./out/')) {
-          entry.uri = entry.uri.replace('./out/', './');
-        }
-      }
-    }
-
     // Remove bundled dependencies (they're included in the bundle)
     const bundledDependencies = [
       '@salesforce/apex-lsp-shared',

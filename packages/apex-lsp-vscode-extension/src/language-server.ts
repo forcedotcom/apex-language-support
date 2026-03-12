@@ -355,7 +355,6 @@ async function createWebLanguageClient(
     'debug',
   );
 
-  // The actual worker file is worker.global.js, not worker.js
   const workerFile = 'worker.global.js';
 
   // In web environment, since we're serving from the dist directory itself,
