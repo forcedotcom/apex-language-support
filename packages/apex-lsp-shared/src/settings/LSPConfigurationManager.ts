@@ -20,6 +20,7 @@ import {
 import {
   generateStartupSummary,
   generateChangeSummary,
+  generateCapabilitiesSummary,
 } from './ConfigurationSummary';
 import {
   mergeWithDefaults,
@@ -499,6 +500,17 @@ export class LSPConfigurationManager {
         serverMode,
       );
       getLogger().alwaysLog(startupSummary);
+
+      // Log capabilities after syncCapabilitiesWithSettings has run
+      this.syncCapabilitiesWithSettings();
+      const caps = this.capabilitiesManager.getCapabilities();
+      const additionalSchemes =
+        currentSettings.apex.environment?.additionalDocumentSchemes?.map(
+          (s) => s.scheme,
+        );
+      getLogger().alwaysLog(
+        generateCapabilitiesSummary(caps, additionalSchemes),
+      );
 
       return true;
     } catch (error) {

@@ -48,8 +48,9 @@ type CapabilityPath =
  */
 export const WEB_DISABLED_CAPABILITIES: ReadonlySet<CapabilityPath> = new Set([
   'experimental.profilingProvider', // Requires Node.js inspector API
-  'publishDiagnostics', // TDX26: diagnostics disabled for web
-  'diagnosticProvider', // TDX26: diagnostics disabled for web
+  // publishDiagnostics and diagnosticProvider are intentionally absent here:
+  // production web already has them as false/undefined in PRODUCTION_CAPABILITIES,
+  // and development web needs diagnostics enabled.
 ]);
 
 /**
@@ -67,8 +68,11 @@ export const DESKTOP_DISABLED_CAPABILITIES: ReadonlySet<CapabilityPath> =
  * Configuration for different server modes
  */
 export interface CapabilitiesConfiguration {
-  /** Production mode capabilities - optimized for performance */
+  /** Production mode capabilities for web environments */
   production: ExtendedServerCapabilities;
+
+  /** Production mode capabilities for desktop environments (minimal — document symbols only) */
+  productionDesktop: ExtendedServerCapabilities;
 
   /** Development mode capabilities - full feature set */
   development: ExtendedServerCapabilities;
@@ -121,8 +125,31 @@ export interface ClientCapabilitiesConfiguration {
 }
 
 /**
- * Production capabilities - exposes which features are available in production
- * Only includes released features for stability
+ * Production capabilities for desktop environments.
+ * Intentionally minimal — only document symbols are released for desktop production.
+ * Other features (hover, definition, etc.) require further validation before desktop release.
+ */
+export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
+  publishDiagnostics: false,
+  textDocumentSync: {
+    openClose: true,
+    change: 1,
+    save: true,
+    willSave: false,
+    willSaveWaitUntil: false,
+  },
+  documentSymbolProvider: true,
+  workspace: {
+    workspaceFolders: {
+      supported: true,
+      changeNotifications: true,
+    },
+  },
+};
+
+/**
+ * Production capabilities for web (browser) environments.
+ * Exposes the full set of released language features available on the web platform.
  */
 export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   publishDiagnostics: false,
@@ -238,5 +265,6 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
  */
 export const CAPABILITIES_CONFIGURATION: CapabilitiesConfiguration = {
   production: PRODUCTION_CAPABILITIES,
+  productionDesktop: PRODUCTION_DESKTOP_CAPABILITIES,
   development: DEVELOPMENT_CAPABILITIES,
 };
