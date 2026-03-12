@@ -355,11 +355,11 @@ async function createWebLanguageClient(
     'debug',
   );
 
-  const workerFile = 'worker.global.js';
-
-  // In web environment, since we're serving from the dist directory itself,
-  // the worker file is directly in the extension root, not in a dist subdirectory
-  const workerUri = vscode.Uri.joinPath(context.extensionUri, workerFile);
+  const workerUri = vscode.Uri.joinPath(
+    context.extensionUri,
+    'dist',
+    'worker.global.js',
+  );
   logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
 
   // Check if worker file exists/is accessible

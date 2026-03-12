@@ -20,7 +20,7 @@
     "Linters",
     "Snippets"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "browser": "./dist/extension.web.js",
   "activationEvents": [
     "onStartupFinished"
@@ -102,7 +102,7 @@
         "path": "./snippets/soql.json"
       }
     ],
-    "standardApexLibrary": "./out/resources/StandardApexLibrary.zip",
+    "standardApexLibrary": "./dist/resources/StandardApexLibrary.zip",
     "sfWebConsoleRequiredFiles": [
       {
         "uri": "./dist/worker.global.js"

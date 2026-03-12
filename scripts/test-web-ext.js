@@ -409,26 +409,24 @@ async function runWebExtensionTests() {
     // Kill any processes running on port 3000 before starting the web server
     await killProcessesOnPort3000();
 
-    const extensionSourcePath = path.resolve(
+    const extensionDevelopmentPath = path.resolve(
       __dirname,
       '../packages/apex-lsp-vscode-extension',
     );
-    const extensionDevelopmentPath = path.resolve(extensionSourcePath, 'dist');
+    const extensionDistPath = path.resolve(extensionDevelopmentPath, 'dist');
     const workspacePath = path.resolve(__dirname, './test-workspace');
 
     // Verify required paths exist
-    if (!fs.existsSync(extensionSourcePath)) {
+    if (!fs.existsSync(extensionDevelopmentPath)) {
       throw new Error(
-        `Extension source path not found: ${extensionSourcePath}`,
+        `Extension path not found: ${extensionDevelopmentPath}`,
       );
     }
 
-    // Verify extension is built (dist directory should exist)
-    // For web extensions, VS Code needs to load from the dist directory
-    // where the bundled extension.web.js file is located
-    if (!fs.existsSync(extensionDevelopmentPath)) {
+    // Verify extension is built (dist/ must exist with bundled artifacts)
+    if (!fs.existsSync(extensionDistPath)) {
       throw new Error(
-        `Extension dist directory not found: ${extensionDevelopmentPath}. Run 'npm run bundle' first.`,
+        `Extension dist directory not found: ${extensionDistPath}. Run 'npm run bundle' first.`,
       );
     }
 
@@ -666,13 +664,13 @@ async function runWebExtensionTests() {
       ensureTestFilesExist(workspacePath);
     }
 
-    // Check if extension is built (extensionDevelopmentPath now points to dist)
-    if (!fs.existsSync(extensionDevelopmentPath)) {
+    // Check if extension is built
+    if (!fs.existsSync(extensionDistPath)) {
       console.log('🔨 Extension not built yet, building...');
       const { execSync } = require('child_process');
       try {
         execSync('npm run compile && npm run bundle', {
-          cwd: extensionSourcePath,
+          cwd: extensionDevelopmentPath,
           stdio: 'inherit',
         });
       } catch (buildError) {
@@ -680,28 +678,20 @@ async function runWebExtensionTests() {
       }
     }
 
-    // Worker files should already be in the dist directory from the extension build
-    // Since extensionDevelopmentPath now points to dist, worker files are directly in it
-    const workerSrc = path.resolve(
-      extensionDevelopmentPath,
-      'worker.global.js',
-    );
-    const workerMapSrc = path.resolve(
-      extensionDevelopmentPath,
-      'worker.global.js.map',
-    );
+    // Worker files live inside dist/ — package.json references them as ./dist/worker.global.js
+    const workerSrc = path.resolve(extensionDistPath, 'worker.global.js');
+    const workerMapSrc = path.resolve(extensionDistPath, 'worker.global.js.map');
 
-    // If worker files don't exist in extension dist, copy them from apex-ls dist
     if (!fs.existsSync(workerSrc) || !fs.existsSync(workerMapSrc)) {
       console.log(
         '⚠️ Worker files not found in extension dist, copying from apex-ls...',
       );
       const apexLsWorkerSrc = path.resolve(
-        extensionSourcePath,
+        extensionDevelopmentPath,
         '../apex-ls/dist/worker.global.js',
       );
       const apexLsWorkerMapSrc = path.resolve(
-        extensionSourcePath,
+        extensionDevelopmentPath,
         '../apex-ls/dist/worker.global.js.map',
       );
 
@@ -723,39 +713,11 @@ async function runWebExtensionTests() {
       console.log('✅ worker.global.js.map found in dist directory');
     }
 
-    console.log('✅ Worker files found in extension dist directory');
     console.log(`   - Extension worker: ${workerSrc}`);
 
-    // The @vscode/test-web server serves from a specific structure
-    // Create a dist directory in the extension path so it will be served under /static/devextensions/dist/
-    // But the extension URI resolves to /static/ instead of /static/devextensions/
-    // This might be a limitation of @vscode/test-web or VS Code Web extension loading
-
-    console.log('⚠️ VS Code Web extension URI resolution issue detected');
-    console.log(
-      '   Extension is looking for worker at: /static/dist/worker.global.js',
-    );
-    console.log(
-      '   But files are served from: /static/devextensions/dist/worker.global.js',
-    );
-    console.log(
-      '   This is a known limitation of VS Code Web extension testing',
-    );
-
-    // For now, let's document this as a test environment limitation
-    console.log('ℹ️ To test worker loading manually:');
-    console.log('   1. Open browser to http://localhost:3000');
-    console.log('   2. Open Developer Tools → Console');
-    console.log('   3. Look for worker loading errors');
-    console.log(
-      '   4. Check if /static/devextensions/dist/worker.global.js loads correctly',
-    );
-
     console.log('🌐 Starting VS Code Web Extension Tests...');
-    console.log(
-      `📁 Extension development path (dist): ${extensionDevelopmentPath}`,
-    );
-    console.log(`📁 Extension source path: ${extensionSourcePath}`);
+    console.log(`📁 Extension development path: ${extensionDevelopmentPath}`);
+    console.log(`📁 Extension dist path: ${extensionDistPath}`);
     console.log(`📂 Workspace path: ${workspacePath}`);
 
     // Fetch the pinned VS Code version from Code Builder Web
@@ -773,15 +735,9 @@ async function runWebExtensionTests() {
 
     console.log(`📝 Extension logs will be saved to: ${outputLogPath}`);
 
-    // Run the web extension tests (without test files - just load the extension)
-    // IMPORTANT: @vscode/test-web requires extensionDevelopmentPath to point to the
-    // extension directory containing package.json. For web extensions, this should be
-    // the dist directory where the bundled extension.web.js file is located, since
-    // VS Code Web reads the package.json from that location to find the browser entry point.
-    //
-    // Note: runTests() starts the VS Code Web server and opens a browser.
-    // If extensionTestsPath is undefined, it will keep the server running.
-    // The function may not resolve until tests complete or the server stops.
+    // extensionDevelopmentPath points to the extension source root (contains package.json
+    // with ./dist/ paths). @vscode/test-web reads package.json from this location and
+    // resolves the browser entry point (./dist/extension.web.js) relative to it.
     console.log('🚀 Starting VS Code Web server...');
     const testPromise = runTests({
       extensionDevelopmentPath: extensionDevelopmentPath,

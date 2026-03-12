@@ -47,20 +47,6 @@ function fixPackagePaths() {
     const content = fs.readFileSync(packagePath, 'utf8');
     const packageJson = JSON.parse(content);
 
-    // Fix entry point paths (remove ./out/ prefix)
-    if (packageJson.main?.includes('./out/')) {
-      packageJson.main = packageJson.main.replace('./out/', './');
-    }
-
-    if (packageJson.browser?.includes('./out/')) {
-      packageJson.browser = packageJson.browser.replace('./out/', './');
-    }
-
-    if (packageJson.contributes?.standardApexLibrary?.includes('./out/')) {
-      packageJson.contributes.standardApexLibrary =
-        packageJson.contributes.standardApexLibrary.replace('./out/', './');
-    }
-
     // Remove bundled dependencies (they're included in the bundle)
     const bundledDependencies = [
       '@salesforce/apex-lsp-shared',
