@@ -469,6 +469,47 @@ jobs:
         run: |
           npx tsx .github/scripts/index.ts ext-github-releases
 
+  publish-to-cbweb-marketplace:
+    name: Publish to CBWeb Internal Marketplace
+    needs: [package, create-github-releases, calculate-artifact-name]
+    runs-on: ubuntu-latest
+    if: >-
+      needs.package.result == 'success' &&
+      (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
+    steps:
+      - name: Download VSIX artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
+          path: ./vsix-artifacts
+
+      - name: Publish VSIX to CBWeb marketplace
+        run: |
+          VSIX_FILE=$(find ./vsix-artifacts -name "*.vsix" | head -1)
+          if [ -z "$VSIX_FILE" ]; then
+            echo "No VSIX file found in artifacts"
+            exit 1
+          fi
+          echo "Publishing $VSIX_FILE to CBWeb marketplace..."
+
+          HTTP_CODE=$(curl -s -o response.json -w '%{http_code}' \
+            -X POST "${MARKETPLACE_URL}/api/internal/publish" \
+            -H "Authorization: Bearer ${MARKETPLACE_DEPLOY_TOKEN}" \
+            -F "vsix=@${VSIX_FILE}")
+
+          echo "HTTP response code: $HTTP_CODE"
+          cat response.json
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Successfully published to CBWeb marketplace"
+          else
+            echo "Failed to publish to CBWeb marketplace (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+        env:
+          MARKETPLACE_URL: ${{ vars.MARKETPLACE_URL }}
+          MARKETPLACE_DEPLOY_TOKEN: ${{ secrets.MARKETPLACE_DEPLOY_TOKEN }}
+
   slack-notify:
     name: Slack Notification
     needs:
