@@ -181,7 +181,7 @@
     "crypto-browserify": "^3.12.1",
     "esbuild-plugin-copy": "^2.1.1",
     "events": "^3.3.0",
-    "jest-environment-jsdom": "^30.0.5",
+    "jest-environment-jsdom": "^30.3.0",
     "memfs": "^4.56.11",
     "memfs-browser": "^3.5.10302",
     "node-dir": "^0.1.17",
