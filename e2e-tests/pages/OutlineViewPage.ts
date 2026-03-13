@@ -165,11 +165,23 @@ export class OutlineViewPage extends BasePage {
 
     // Phase 2: Symbol not found by polling — try keyboard navigation
     // (it may be off-screen in the virtualized list)
-    const treeContainer = this.outlineItems.first();
+    //
+    // Target only non-sticky rows inside the scrollable container. After keyboard
+    // navigation the Monaco tree creates a sticky-scroll header row at the top of
+    // the panel (same DOM parent as the real rows). That sticky row has a lower DOM
+    // index than the regular rows so this.outlineItems.first() resolves to it —
+    // which is visually covered by the "Outline Section" pane-header. Targeting
+    // .monaco-scrollable-element skips the sticky container entirely.
+    const scrollableRow = this.page
+      .locator('.outline-tree .monaco-scrollable-element .monaco-list-row')
+      .first();
+    const fallbackRow = this.outlineItems.first();
+    const treeContainer =
+      (await scrollableRow.count()) > 0 ? scrollableRow : fallbackRow;
     const isTreeVisible = await treeContainer.isVisible().catch(() => false);
     if (!isTreeVisible) return null;
 
-    await treeContainer.click();
+    await treeContainer.click({ force: true });
     await this.page.keyboard.press('Home');
 
     const maxNavigationSteps = 80;
