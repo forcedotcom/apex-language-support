@@ -68,31 +68,55 @@ async function startTestServer() {
 
     fs.mkdirSync(workspacePath, { recursive: true });
 
-    // Copy test workspace files in CI environment
-    if (process.env.CI) {
-      const sourceWorkspace = path.resolve(__dirname, './test-workspace');
-      if (fs.existsSync(sourceWorkspace)) {
-        console.log(
-          `📋 Copying test workspace from ${sourceWorkspace} to ${workspacePath}`,
-        );
-        const entries = fs.readdirSync(sourceWorkspace, {
-          withFileTypes: true,
-        });
-        entries.forEach((entry) => {
-          const src = path.join(sourceWorkspace, entry.name);
-          const dest = path.join(workspacePath, entry.name);
-          if (entry.isDirectory()) {
-            fs.cpSync(src, dest, { recursive: true });
-          } else if (entry.isFile()) {
-            fs.copyFileSync(src, dest);
-          }
-        });
-        console.log('✅ Test workspace files copied successfully');
-      } else {
-        console.warn(
-          '⚠️ Source test workspace not found, creating empty workspace',
-        );
+    // Populate workspace from test-data/apex-samples. This is the source of truth for
+    // .cls fixtures; test-workspace is gitignored and may not exist on a fresh checkout.
+    const testDataSamplesDir = path.resolve(__dirname, './test-data/apex-samples');
+    if (fs.existsSync(testDataSamplesDir)) {
+      console.log(`📋 Copying apex samples from ${testDataSamplesDir} to ${workspacePath}`);
+      const sampleFiles = fs.readdirSync(testDataSamplesDir);
+      for (const file of sampleFiles) {
+        if (file.endsWith('.cls')) {
+          fs.copyFileSync(
+            path.join(testDataSamplesDir, file),
+            path.join(workspacePath, file),
+          );
+        }
       }
+      console.log('✅ Apex sample files copied successfully');
+    } else {
+      console.warn('⚠️ test-data/apex-samples not found — workspace will be empty');
+    }
+
+    // Ensure sfdx-project.json exists so the Apex LSP recognises all .cls files
+    const sfdxProjectPath = path.join(workspacePath, 'sfdx-project.json');
+    if (!fs.existsSync(sfdxProjectPath)) {
+      fs.writeFileSync(
+        sfdxProjectPath,
+        JSON.stringify(
+          { packageDirectories: [{ path: '.', default: true }], namespace: '', sourceApiVersion: '62.0' },
+          null,
+          2,
+        ),
+      );
+    }
+
+    // Ensure .vscode/settings.json exists with test-appropriate settings
+    const vscodeDir = path.join(workspacePath, '.vscode');
+    fs.mkdirSync(vscodeDir, { recursive: true });
+    const settingsPath = path.join(vscodeDir, 'settings.json');
+    if (!fs.existsSync(settingsPath)) {
+      fs.writeFileSync(
+        settingsPath,
+        JSON.stringify(
+          {
+            'apex.logLevel': 'error',
+            'apex.worker.logLevel': 'error',
+            'apex.environment.serverMode': 'development',
+          },
+          null,
+          2,
+        ),
+      );
     }
 
     console.log('🌐 Starting VS Code Web Test Server...');
