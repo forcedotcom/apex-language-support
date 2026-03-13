@@ -103,12 +103,9 @@
       }
     ],
     "standardApexLibrary": "./resources/StandardApexLibrary.zip",
-    "sfWebConsoleRequiredFiles": [
+    "sfWebConsoleAdditionalRequiredFiles": [
       {
         "uri": "./dist/server.web.js"
-      },
-      {
-        "uri": "./dist/extension.web.js"
       }
     ],
     "configuration": {
