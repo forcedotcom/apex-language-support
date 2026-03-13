@@ -139,7 +139,7 @@
       "command": "node scripts/sync-vscode-version.js",
       "files": [
         "scripts/sync-vscode-version.js",
-        "scripts/fetch-vscode-version.js"
+        ".vscode-version"
       ],
       "output": [],
       "cache": false

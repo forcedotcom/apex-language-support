@@ -14,9 +14,8 @@
  *   --headless      : Run in headless mode (browser hidden)
  *   --with-services : Install salesforcedx-vscode-services extension from Marketplace
  *
- * VS Code version is pinned to the version defined in:
- *   https://github.com/forcedotcom/code-builder-web/blob/main/.vscode-version
- * Falls back to 'stable' on failure.
+ * VS Code version is read from the local `.vscode-version` file,
+ * which mirrors code-builder-web. Falls back to 'stable' if missing.
  *
  * The test will timeout after 45 seconds if the extension fails to activate.
  */
@@ -27,8 +26,8 @@ const fs = require('fs');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const {
-  fetchCodeBuilderVSCodeVersion,
-} = require('./fetch-vscode-version');
+  readLocalVSCodeVersion,
+} = require('./sync-vscode-version');
 
 const execAsync = promisify(exec);
 
@@ -718,8 +717,7 @@ async function runWebExtensionTests() {
     console.log(`📁 Extension dist path: ${extensionDistPath}`);
     console.log(`📂 Workspace path: ${workspacePath}`);
 
-    // Fetch the pinned VS Code version from Code Builder Web
-    const vsCodeVersion = await fetchCodeBuilderVSCodeVersion();
+    const vsCodeVersion = readLocalVSCodeVersion();
 
     // Setup output file for extension host logs
     const outputLogPath = path.resolve(
