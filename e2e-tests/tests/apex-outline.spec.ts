@@ -60,6 +60,10 @@ test.describe('Apex Outline View', () => {
     await test.step('Validate LCS type parsing capabilities', async () => {
       console.log('🏗️ Validating LCS type parsing capabilities...');
 
+      // Expand the main class so inner types become visible in the outline tree.
+      // detectSymbols searches visible DOM text; collapsed nodes are not in the DOM.
+      await outlineView.expandSymbol('ApexClassExample');
+
       const expectedLCSSymbols = [
         'ApexClassExample', // Main class
         'Configuration', // Inner class
