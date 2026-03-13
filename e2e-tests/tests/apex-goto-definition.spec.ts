@@ -644,6 +644,10 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
   }) => {
     await test.step('Open the caller file', async () => {
       try {
+        // Open CrossFileUtility.cls first so the LSP indexes it before we attempt
+        // cross-file go-to-definition from CrossFileCaller.cls.
+        await apexEditor.openFile('CrossFileUtility.cls');
+        await apexEditor.waitForLanguageServerReady();
         await apexEditor.openFile('CrossFileCaller.cls');
         await apexEditor.waitForLanguageServerReady();
         console.log('✅ Opened CrossFileCaller.cls');
@@ -683,6 +687,10 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
   }) => {
     await test.step('Open the caller file', async () => {
       try {
+        // Open CrossFileUtility.cls first so the LSP indexes it before we attempt
+        // cross-file go-to-definition from CrossFileCaller.cls.
+        await apexEditor.openFile('CrossFileUtility.cls');
+        await apexEditor.waitForLanguageServerReady();
         await apexEditor.openFile('CrossFileCaller.cls');
         await apexEditor.waitForLanguageServerReady();
       } catch (error) {

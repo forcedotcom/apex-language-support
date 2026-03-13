@@ -60,18 +60,26 @@ test.describe('Apex Outline View', () => {
     await test.step('Validate LCS type parsing capabilities', async () => {
       console.log('🏗️ Validating LCS type parsing capabilities...');
 
-      // Expand the main class so inner types become visible in the outline tree.
-      // detectSymbols searches visible DOM text; collapsed nodes are not in the DOM.
-      await outlineView.expandSymbol('ApexClassExample');
-
+      // Use findSymbol (not detectSymbols) because the outline is a virtualized Monaco
+      // tree — items scrolled off-screen are not in the DOM and won't match page-level
+      // text selectors. findSymbol polls and uses keyboard navigation to find any symbol.
       const expectedLCSSymbols = [
         'ApexClassExample', // Main class
         'Configuration', // Inner class
         'StatusType', // Inner enum
       ];
 
-      const { foundSymbols, foundCount } =
-        await outlineView.detectSymbols(expectedLCSSymbols);
+      const foundSymbols: string[] = [];
+      for (const symbolName of expectedLCSSymbols) {
+        const symbol = await outlineView.findSymbol(symbolName);
+        if (symbol) {
+          foundSymbols.push(symbolName);
+          console.log(`✅ Found LCS symbol: ${symbolName}`);
+        } else {
+          console.log(`❌ LCS symbol not found: ${symbolName}`);
+        }
+      }
+      const foundCount = foundSymbols.length;
 
       // Verify LCS type parsing capabilities
       expect(foundSymbols).toContain('ApexClassExample');
