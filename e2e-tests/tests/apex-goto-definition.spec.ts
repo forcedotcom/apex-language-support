@@ -641,13 +641,10 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
    */
   test('should navigate to class defined in another workspace file', async ({
     apexEditor,
+    hoverHelper,
   }) => {
     await test.step('Open the caller file', async () => {
       try {
-        // Open CrossFileUtility.cls first so the LSP indexes it before we attempt
-        // cross-file go-to-definition from CrossFileCaller.cls.
-        await apexEditor.openFile('CrossFileUtility.cls');
-        await apexEditor.waitForLanguageServerReady();
         await apexEditor.openFile('CrossFileCaller.cls');
         await apexEditor.waitForLanguageServerReady();
         console.log('✅ Opened CrossFileCaller.cls');
@@ -659,6 +656,16 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
         console.log('⚠️ CrossFileCaller.cls not available', errStr);
         return;
       }
+    });
+
+    await test.step('Warm up cross-file LSP resolution via hover', async () => {
+      // The Apex LSP uses "missing artifact resolution" to lazily load cross-file
+      // types. hoverAtWithResolution triggers this: first hover fires the resolver,
+      // waits 3s for the background load, then re-hovers to confirm resolution.
+      // Without this warm-up, go-to-definition fires before the LSP has indexed
+      // CrossFileUtility.cls and returns no result.
+      await hoverHelper.hoverAtWithResolution(11, 27);
+      console.log('✅ Cross-file LSP resolution warmed up');
     });
 
     await test.step('Position on cross-file class reference and go-to-definition', async () => {
@@ -684,13 +691,10 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
    */
   test('should navigate to static method defined in another workspace file', async ({
     apexEditor,
+    hoverHelper,
   }) => {
     await test.step('Open the caller file', async () => {
       try {
-        // Open CrossFileUtility.cls first so the LSP indexes it before we attempt
-        // cross-file go-to-definition from CrossFileCaller.cls.
-        await apexEditor.openFile('CrossFileUtility.cls');
-        await apexEditor.waitForLanguageServerReady();
         await apexEditor.openFile('CrossFileCaller.cls');
         await apexEditor.waitForLanguageServerReady();
       } catch (error) {
@@ -701,6 +705,13 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
         console.log('⚠️ CrossFileCaller.cls not available', errStr);
         return;
       }
+    });
+
+    await test.step('Warm up cross-file LSP resolution via hover', async () => {
+      // Same warm-up as the class test: hover triggers missing-artifact resolution
+      // so the LSP indexes CrossFileUtility.cls before go-to-definition fires.
+      await hoverHelper.hoverAtWithResolution(11, 27);
+      console.log('✅ Cross-file LSP resolution warmed up');
     });
 
     await test.step('Position on cross-file method call and go-to-definition', async () => {

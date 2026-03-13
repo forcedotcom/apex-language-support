@@ -176,11 +176,20 @@ export class OutlineViewPage extends BasePage {
       .locator('.outline-tree .monaco-scrollable-element .monaco-list-row')
       .first();
     const fallbackRow = this.outlineItems.first();
+    const scrollableCount = await scrollableRow.count();
+    // #region agent log
+    fetch('http://127.0.0.1:7249/ingest/29f89d0c-19ed-4b5a-909c-36e438644d55',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5f1a4c'},body:JSON.stringify({sessionId:'5f1a4c',location:'OutlineViewPage.ts:findSymbol:phase2',message:'selector-counts',data:{scrollableCount,symbolName,outlineItemsCount:await this.outlineItems.count()},timestamp:Date.now(),hypothesisId:'H-F'})}).catch(()=>{});
+    // #endregion
     const treeContainer =
-      (await scrollableRow.count()) > 0 ? scrollableRow : fallbackRow;
+      scrollableCount > 0 ? scrollableRow : fallbackRow;
     const isTreeVisible = await treeContainer.isVisible().catch(() => false);
     if (!isTreeVisible) return null;
 
+    // #region agent log
+    const resolvedAriaLabel = await treeContainer.getAttribute('aria-label').catch(()=>'?');
+    const resolvedDataIndex = await treeContainer.getAttribute('data-index').catch(()=>'?');
+    fetch('http://127.0.0.1:7249/ingest/29f89d0c-19ed-4b5a-909c-36e438644d55',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5f1a4c'},body:JSON.stringify({sessionId:'5f1a4c',location:'OutlineViewPage.ts:findSymbol:phase2',message:'click-target',data:{usingStickyFallback:scrollableCount===0,ariaLabel:resolvedAriaLabel,dataIndex:resolvedDataIndex,symbolName},timestamp:Date.now(),hypothesisId:'H-F'})}).catch(()=>{});
+    // #endregion
     await treeContainer.click({ force: true });
     await this.page.keyboard.press('Home');
 
