@@ -102,10 +102,10 @@ const builds: BuildOptions[] = [
       }),
     ],
   },
-  // Worker build - used by web VSCode extension
-  // Produces worker.global.js as an IIFE bundle for Web Worker context
+  // Web worker build - used by the web VSCode extension
+  // Produces server.web.js as an IIFE bundle for Web Worker context
   {
-    entryPoints: { worker: 'src/server.ts' },
+    entryPoints: { server: 'src/server.ts' },
     outdir: 'dist',
     platform: 'browser',
     format: 'iife',
@@ -117,7 +117,7 @@ const builds: BuildOptions[] = [
     keepNames: true,
     splitting: false,
     bundle: true,
-    outExtension: { '.js': '.global.js' },
+    outExtension: { '.js': '.web.js' },
     treeShaking: true,
     conditions: ['browser', 'worker', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],

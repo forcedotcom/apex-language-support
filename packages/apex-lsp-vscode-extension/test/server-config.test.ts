@@ -164,8 +164,6 @@ describe('Server Config Module', () => {
       },
     });
 
-    // Create mock context
-    // extensionPath required for apex-ls path resolution (e.g. E2E loads from dist/)
     mockContext = {
       subscriptions: [],
       extensionPath: '/mock/path',
@@ -251,10 +249,14 @@ describe('Server Config Module', () => {
       );
 
       expect(productionContext.asAbsolutePath).toHaveBeenCalledWith(
-        'server.node.js',
+        path.join('dist', 'server.node.js'),
       );
-      expect(getRunModule(serverOptions)).toBe('/mock/path/server.node.js');
-      expect(getDebugModule(serverOptions)).toBe('/mock/path/server.node.js');
+      expect(getRunModule(serverOptions)).toBe(
+        '/mock/path/dist/server.node.js',
+      );
+      expect(getDebugModule(serverOptions)).toBe(
+        '/mock/path/dist/server.node.js',
+      );
     });
 
     it('should include debug options when debug is enabled', () => {
