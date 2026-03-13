@@ -109,7 +109,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-web-${{ matrix.test_file }}-${{ github.run_number }}
           path: e2e-tests/test-results/
@@ -118,7 +118,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-web-${{ matrix.test_file }}-${{ github.run_number }}
           path: e2e-tests/playwright-report/
@@ -127,7 +127,7 @@ jobs:
 
       - name: Upload screenshots and videos
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-artifacts-web-${{ matrix.test_file }}-${{ github.run_number }}
           path: |
@@ -206,7 +206,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-desktop-${{ matrix.browser }}-${{ matrix.os }}-${{ github.run_number }}
           path: |
@@ -216,7 +216,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-desktop-${{ matrix.browser }}-${{ matrix.os }}-${{ github.run_number }}
           path: e2e-tests/playwright-report/
@@ -225,7 +225,7 @@ jobs:
 
       - name: Upload screenshots and videos
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-artifacts-desktop-${{ matrix.browser }}-${{ matrix.os }}-${{ github.run_number }}
           path: |

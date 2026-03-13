@@ -42,14 +42,14 @@ jobs:
           SERVER_TYPE: ${{ matrix.server-type }}
 
       - name: Upload testbed benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results-${{ matrix.server-type }}
           path: packages/apex-lsp-testbed/test/${{ matrix.server-type }}-benchmark-results.json
           retention-days: 30
 
       - name: Upload apex-parser-ast benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results-apex-parser-ast-${{ matrix.server-type }}
           path: packages/apex-parser-ast/test/apex-parser-ast-benchmark-results.json
@@ -57,7 +57,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload lsp-compliant-services benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results-lsp-compliant-services-${{ matrix.server-type }}
           path: packages/lsp-compliant-services/test/lsp-compliant-services-benchmark-results.json
