@@ -13,7 +13,7 @@
     "directory": "packages/apex-lsp-vscode-extension"
   },
   "engines": {
-    "vscode": "^1.109.0"
+    "vscode": "^1.108.0"
   },
   "categories": [
     "Programming Languages",
@@ -836,7 +836,7 @@
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@salesforce/apex-tmlanguage": "2.0.1",
     "@salesforce/esbuild-presets": "^0.1.0",
-    "@types/vscode": "^1.109.0",
+    "@types/vscode": "^1.108.0",
     "@vscode/vsce": "^2.15.0",
     "buffer": "^6.0.3",
     "esbuild-plugin-copy": "^2.1.1",

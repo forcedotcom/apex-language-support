@@ -41,7 +41,8 @@
     "bundle": "wireit",
     "package": "wireit",
     "package:packages": "npm run package",
-    "rebuild": "npm run clean && npm run compile && npm run bundle"
+    "rebuild": "npm run clean && npm run compile && npm run bundle",
+    "sync:vscode-version": "wireit"
   },
   "keywords": [
     "salesforce",
@@ -134,8 +135,18 @@
         "./packages/apex-lsp-testbed:typecheck"
       ]
     },
+    "sync:vscode-version": {
+      "command": "node scripts/sync-vscode-version.js",
+      "files": [
+        "scripts/sync-vscode-version.js",
+        "scripts/fetch-vscode-version.js"
+      ],
+      "output": [],
+      "cache": false
+    },
     "compile": {
       "dependencies": [
+        "sync:vscode-version",
         "./packages/apex-ls:compile",
         "./packages/apex-lsp-shared:compile",
         "./packages/apex-parser-ast:compile:tsc",
