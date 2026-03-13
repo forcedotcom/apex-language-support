@@ -50,6 +50,7 @@ export * from './settings/LSPConfigurationManager';
 export {
   generateStartupSummary,
   generateChangeSummary,
+  generateCapabilitiesSummary,
 } from './settings/ConfigurationSummary';
 
 // Export client capabilities

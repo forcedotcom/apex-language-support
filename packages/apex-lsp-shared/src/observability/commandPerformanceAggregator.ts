@@ -43,7 +43,7 @@ export class CommandPerformanceAggregator {
     extensionVersion: string,
     heapUsedBytes: number | null,
     flushReason: 'session_end' | 'periodic' = 'session_end',
-  ): CommandPerformanceEvent | undefined {
+  ): CommandPerformanceEvent {
     const commands: CommandSummary[] = [];
 
     for (const [command, entry] of this.stats) {
@@ -69,10 +69,6 @@ export class CommandPerformanceAggregator {
     }
 
     this.stats.clear();
-
-    if (commands.length === 0) {
-      return undefined;
-    }
 
     return {
       type: 'command_performance',

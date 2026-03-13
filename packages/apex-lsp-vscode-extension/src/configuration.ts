@@ -9,9 +9,15 @@
 import * as vscode from 'vscode';
 import { DebugConfig } from './types';
 import { EXTENSION_CONSTANTS } from './constants';
-import { logToOutputChannel, updateLogLevel } from './logging';
+import {
+  alwaysLogToOutputChannel,
+  logToOutputChannel,
+  updateLogLevel,
+} from './logging';
 import {
   ApexLanguageServerSettings,
+  generateChangeSummary,
+  generateStartupSummary,
   mergeWithDefaults,
 } from '@salesforce/apex-lsp-shared';
 
@@ -109,6 +115,9 @@ export const registerConfigurationChangeListener = (
   },
   context: vscode.ExtensionContext,
 ): void => {
+  // Track last known settings to produce before/after change diffs
+  let previousSettings = getWorkspaceSettings();
+
   // Listen for configuration changes
   const configListener = vscode.workspace.onDidChangeConfiguration(
     async (event) => {
@@ -131,15 +140,19 @@ export const registerConfigurationChangeListener = (
         const settings = getWorkspaceSettings();
         try {
           logToOutputChannel(
-            `🔍 Configuration changed: ${JSON.stringify(settings, null, 2)}`,
+            `Configuration changed: ${JSON.stringify(settings, null, 2)}`,
             'debug',
           );
         } catch (_error) {
           logToOutputChannel(
-            '🔍 Configuration changed: [unable to serialize settings]',
+            'Configuration changed: [unable to serialize settings]',
             'debug',
           );
         }
+        alwaysLogToOutputChannel(
+          generateChangeSummary(previousSettings, settings),
+        );
+        previousSettings = settings;
 
         // Update trace level if trace.server configuration changed
         if (
@@ -221,20 +234,23 @@ export const sendInitialConfiguration = (client: {
 }): void => {
   const settings = getWorkspaceSettings();
   logToOutputChannel(
-    '🚀 Sending initial configuration to language server',
+    'Sending initial configuration to language server',
     'debug',
   );
   try {
     logToOutputChannel(
-      `🔍 Initial settings: ${JSON.stringify(settings, null, 2)}`,
+      `Initial settings: ${JSON.stringify(settings, null, 2)}`,
       'debug',
     );
   } catch (_error) {
     logToOutputChannel(
-      '🔍 Initial settings: [unable to serialize settings]',
+      'Initial settings: [unable to serialize settings]',
       'debug',
     );
   }
+  alwaysLogToOutputChannel(
+    generateStartupSummary(settings, settings.apex.environment.serverMode),
+  );
 
   // Send initial configuration to the server
   try {

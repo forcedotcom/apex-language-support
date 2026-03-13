@@ -34,12 +34,21 @@ export const initializeExtensionLogging = (
 
   context.subscriptions.push(clientOutputChannel, workerServerOutputChannel);
 
-  // Set initial log level from workspace settings
-  const config = vscode.workspace.getConfiguration(
-    EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
-  );
-  const logLevel = config.get<string>('logLevel') ?? 'info';
+  // Use the full config path 'apex.logLevel' to match package.json definition
+  const config = vscode.workspace.getConfiguration();
+  const logLevel = config.get<string>('apex.logLevel') ?? 'error';
   setLogLevel(logLevel);
+};
+
+/**
+ * Logs a message to the client output channel unconditionally, bypassing log level filtering.
+ * Use for always-visible diagnostics such as configuration summaries emitted on init and change.
+ * @param message The message to log
+ */
+export const alwaysLogToOutputChannel = (message: string): void => {
+  clientOutputChannel.appendLine(
+    formatLogMessageWithTimestamp(message, 'info'),
+  );
 };
 
 /**

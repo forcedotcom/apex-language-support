@@ -363,9 +363,7 @@ export class LCSAdapter {
           '', // extensionVersion filled by client-side enricher
           heapUsedBytes,
         );
-        if (event) {
-          this.connection.telemetry.logEvent(event);
-        }
+        this.connection.telemetry.logEvent(event);
       } catch (e) {
         this.logger.debug(() => `Failed to flush telemetry: ${e}`);
       }

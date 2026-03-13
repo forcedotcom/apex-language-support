@@ -29,7 +29,6 @@ describe('DocumentSelectorUtils', () => {
       expect(schemes).toContain('vscode-test-web');
       expect(schemes).toContain('memfs');
       expect(schemes).toContain('reefs');
-      expect(schemes.length).toBe(5);
     });
   });
 

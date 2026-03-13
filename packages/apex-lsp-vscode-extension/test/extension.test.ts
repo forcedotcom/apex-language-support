@@ -84,7 +84,7 @@ describe('Apex Language Server Extension ()', () => {
 
   it('sets log level from workspace settings', async () => {
     const mockGet = jest.fn((key: string, def: any) => {
-      if (key === 'logLevel') return 'debug';
+      if (key === 'apex.logLevel') return 'debug';
       if (key === 'apex') return {};
       return def;
     });
@@ -100,8 +100,8 @@ describe('Apex Language Server Extension ()', () => {
       await Promise.resolve();
       // getConfiguration is called with no arguments
       expect(mockGetConfiguration).toHaveBeenCalled();
-      // config.get('logLevel') is called for logging initialization
-      expect(mockGet).toHaveBeenCalledWith('logLevel');
+      // config.get('apex.logLevel') is called for logging initialization
+      expect(mockGet).toHaveBeenCalledWith('apex.logLevel');
       // config.get('apex') is called for workspace settings
       expect(mockGet).toHaveBeenCalledWith('apex');
     } finally {

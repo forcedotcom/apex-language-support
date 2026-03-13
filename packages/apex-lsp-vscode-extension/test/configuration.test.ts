@@ -39,6 +39,7 @@ jest.mock('vscode-languageclient/node', () => ({
 jest.mock('../src/logging', () => ({
   updateLogLevel: jest.fn(),
   logToOutputChannel: jest.fn(),
+  alwaysLogToOutputChannel: jest.fn(),
 }));
 
 describe('Configuration Module', () => {
