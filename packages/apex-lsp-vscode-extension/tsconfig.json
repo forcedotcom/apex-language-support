@@ -10,7 +10,6 @@
     "node_modules",
     "out",
     "dist",
-    "extension",
     "esbuild.config.ts",
     "**/*.test.ts",
     "test/**/*"

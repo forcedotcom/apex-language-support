@@ -194,14 +194,7 @@ export const createServerOptions = (
   logToOutputChannel(`isDevelopment = ${isDevelopment}`, 'debug');
   logToOutputChannel(`useIndividualFiles = ${useIndividualFiles}`, 'debug');
 
-  // When extension loads from extension/ (e.g. E2E with --extensionDevelopmentPath=.../extension),
-  // extensionPath is extension; apex-ls is sibling at packages/apex-ls, so we need ../../apex-ls.
-  // When extension loads from package root (e.g. launch.json), ../apex-ls suffices.
-  const extensionRoot =
-    path.basename(context.extensionPath) === 'extension'
-      ? path.dirname(context.extensionPath)
-      : context.extensionPath;
-  const apexLsRoot = path.join(extensionRoot, '..', 'apex-ls');
+  const apexLsRoot = path.join(context.extensionPath, '..', 'apex-ls');
 
   let serverModule: string;
   if (useIndividualFiles && isDevelopment) {
@@ -218,7 +211,6 @@ export const createServerOptions = (
       'debug',
     );
   } else {
-    // In production, server.node.js is in dist/ (extension root is extension/)
     serverModule = context.asAbsolutePath(path.join('dist', 'server.node.js'));
     logToOutputChannel(`Using production files: ${serverModule}`, 'debug');
   }

@@ -411,7 +411,7 @@ async function runWebExtensionTests() {
 
     const extensionDevelopmentPath = path.resolve(
       __dirname,
-      '../packages/apex-lsp-vscode-extension/extension',
+      '../packages/apex-lsp-vscode-extension',
     );
     const extensionDistPath = path.join(extensionDevelopmentPath, 'dist');
     const workspacePath = path.resolve(__dirname, './test-workspace');
@@ -423,7 +423,6 @@ async function runWebExtensionTests() {
       );
     }
 
-    // Verify extension is built (extension/dist/ must exist with bundled artifacts)
     if (!fs.existsSync(extensionDistPath)) {
       throw new Error(
         `Extension dist directory not found: ${extensionDistPath}. Run 'npm run bundle' first.`,
@@ -678,9 +677,8 @@ async function runWebExtensionTests() {
       }
     }
 
-    // Worker files live inside dist/ — package.json references them as ./dist/worker.global.js
-    const workerSrc = path.resolve(extensionDistPath, 'worker.global.js');
-    const workerMapSrc = path.resolve(extensionDistPath, 'worker.global.js.map');
+    const workerSrc = path.resolve(extensionDistPath, 'server.web.js');
+    const workerMapSrc = path.resolve(extensionDistPath, 'server.web.js.map');
 
     if (!fs.existsSync(workerSrc) || !fs.existsSync(workerMapSrc)) {
       console.log(
@@ -688,29 +686,29 @@ async function runWebExtensionTests() {
       );
       const apexLsWorkerSrc = path.resolve(
         extensionDevelopmentPath,
-        '../apex-ls/dist/worker.global.js',
+        '../apex-ls/dist/server.web.js',
       );
       const apexLsWorkerMapSrc = path.resolve(
         extensionDevelopmentPath,
-        '../apex-ls/dist/worker.global.js.map',
+        '../apex-ls/dist/server.web.js.map',
       );
 
       if (fs.existsSync(apexLsWorkerSrc)) {
         fs.copyFileSync(apexLsWorkerSrc, workerSrc);
-        console.log('✅ Copied worker.global.js from apex-ls');
+        console.log('✅ Copied server.web.js from apex-ls');
       } else {
         throw new Error(`Worker file not found: ${apexLsWorkerSrc}`);
       }
 
       if (fs.existsSync(apexLsWorkerMapSrc)) {
         fs.copyFileSync(apexLsWorkerMapSrc, workerMapSrc);
-        console.log('✅ Copied worker.global.js.map from apex-ls');
+        console.log('✅ Copied server.web.js.map from apex-ls');
       } else {
         console.warn('⚠️ Worker source map not found, continuing without it');
       }
     } else {
-      console.log('✅ worker.global.js found in dist directory');
-      console.log('✅ worker.global.js.map found in dist directory');
+      console.log('✅ server.web.js found in dist directory');
+      console.log('✅ server.web.js.map found in dist directory');
     }
 
     console.log(`   - Extension worker: ${workerSrc}`);
@@ -735,9 +733,8 @@ async function runWebExtensionTests() {
 
     console.log(`📝 Extension logs will be saved to: ${outputLogPath}`);
 
-    // extensionDevelopmentPath points to extension/ (VSIX root with package.json).
-    // @vscode/test-web reads package.json from this location and resolves the
-    // browser entry point (./dist/extension.web.js) relative to it.
+    // @vscode/test-web reads package.json from extensionDevelopmentPath and
+    // resolves the browser entry point (./dist/extension.web.js) relative to it.
     console.log('🚀 Starting VS Code Web server...');
     const testPromise = runTests({
       extensionDevelopmentPath: extensionDevelopmentPath,

@@ -358,7 +358,7 @@ async function createWebLanguageClient(
   const workerUri = vscode.Uri.joinPath(
     context.extensionUri,
     'dist',
-    'worker.global.js',
+    'server.web.js',
   );
   logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
 

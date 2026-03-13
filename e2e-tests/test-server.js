@@ -17,7 +17,7 @@ async function startTestServer() {
   try {
     const extensionDevelopmentPath = path.resolve(
       __dirname,
-      '../packages/apex-lsp-vscode-extension/extension',
+      '../packages/apex-lsp-vscode-extension',
     );
     const workspacePath = process.env.CI
       ? path.join(
@@ -33,8 +33,6 @@ async function startTestServer() {
       );
     }
 
-    // Verify extension is built (check for critical files)
-    // extensionDevelopmentPath points to extension/ (VSIX root with dist/ subdir)
     const packageJsonPath = path.join(extensionDevelopmentPath, 'package.json');
     const extensionJsPath = path.join(
       extensionDevelopmentPath,
@@ -49,7 +47,7 @@ async function startTestServer() {
 
     if (!fs.existsSync(extensionDevelopmentPath)) {
       throw new Error(
-        `Extension directory not found: ${extensionDevelopmentPath}. Run 'npm run bundle' in the extension package first.`,
+        `Extension directory not found: ${extensionDevelopmentPath}. Run 'npm run bundle' first.`,
       );
     }
 

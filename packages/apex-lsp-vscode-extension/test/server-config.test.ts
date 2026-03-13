@@ -164,8 +164,6 @@ describe('Server Config Module', () => {
       },
     });
 
-    // Create mock context
-    // extensionPath required for apex-ls path resolution (e.g. E2E loads from extension/)
     mockContext = {
       subscriptions: [],
       extensionPath: '/mock/path',

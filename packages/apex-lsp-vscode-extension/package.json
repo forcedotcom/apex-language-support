@@ -105,7 +105,7 @@
     "standardApexLibrary": "./resources/StandardApexLibrary.zip",
     "sfWebConsoleRequiredFiles": [
       {
-        "uri": "./dist/worker.global.js"
+        "uri": "./dist/server.web.js"
       },
       {
         "uri": "./dist/extension.web.js"
@@ -693,7 +693,7 @@
     "test": "wireit",
     "test:coverage": "wireit",
     "typecheck": "wireit",
-    "clean": "rimraf out dist extension .wireit coverage grammars tsconfig.tsbuildinfo server-bundle",
+    "clean": "rimraf out dist .wireit coverage grammars tsconfig.tsbuildinfo server-bundle",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "wireit"
   },
@@ -735,7 +735,7 @@
         "../apex-ls:bundle"
       ],
       "output": [
-        "extension/**",
+        "dist/**",
         "server-bundle/**"
       ],
       "files": [
@@ -757,16 +757,16 @@
       ]
     },
     "package": {
-      "command": "cd extension && npx vsce package --no-dependencies",
+      "command": "npx vsce package --no-dependencies",
       "dependencies": [
         "bundle"
       ],
       "output": [
-        "extension/*.vsix"
+        "*.vsix"
       ],
       "files": [
         "package.json",
-        "extension/.vscodeignore"
+        ".vscodeignore"
       ]
     },
     "test": {

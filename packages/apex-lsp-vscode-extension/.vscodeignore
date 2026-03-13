@@ -3,9 +3,9 @@ src/**
 test/**
 scripts/**
 docs/**
+
+# Intermediate build output (tsc)
 out/**
-coverage/**
-server-bundle/**
 
 # Build tooling and config
 esbuild.config.ts
@@ -27,16 +27,20 @@ webpack.config.js
 *.iml
 .DS_Store
 .gitignore
+
+# Build caches
 .wireit/**
 .turbo/**
 
-# Node modules
+# Node modules (all deps are bundled by esbuild)
 node_modules/**
 
-# Build artifacts that shouldn't ship
+# Artifacts and logs
 *.vsix
 *.log
 bundle/**
+server-bundle/**
+coverage/**
 
-# Build output (VSIX is packaged from extension/ via wireit package)
-extension/**
+# Source maps (exclude to reduce VSIX size)
+*.map
