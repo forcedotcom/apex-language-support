@@ -248,15 +248,14 @@ describe('Server Config Module', () => {
         'production',
       );
 
+      const expectedArg = path.join('dist', 'server.node.js');
+      const expectedPath = `/mock/path/${expectedArg}`;
+
       expect(productionContext.asAbsolutePath).toHaveBeenCalledWith(
-        path.join('dist', 'server.node.js'),
+        expectedArg,
       );
-      expect(getRunModule(serverOptions)).toBe(
-        '/mock/path/dist/server.node.js',
-      );
-      expect(getDebugModule(serverOptions)).toBe(
-        '/mock/path/dist/server.node.js',
-      );
+      expect(getRunModule(serverOptions)).toBe(expectedPath);
+      expect(getDebugModule(serverOptions)).toBe(expectedPath);
     });
 
     it('should include debug options when debug is enabled', () => {

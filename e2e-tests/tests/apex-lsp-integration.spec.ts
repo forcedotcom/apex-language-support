@@ -317,6 +317,7 @@ test.describe('Apex LSP Integration', () => {
     await test.step('Verify no errors accumulated', async () => {
       const validation = performStrictValidation(consoleErrors, networkErrors);
 
+      console.log(validation.summary);
       expect(validation.consoleValidation.allErrorsAllowed).toBe(true);
 
       console.log('✅ No errors accumulated over time');
