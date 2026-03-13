@@ -11,8 +11,10 @@ import {
   LSPConfigurationManager,
   ApexSettingsManager,
   Priority,
+  WireIdentifierSpecSchema,
 } from '@salesforce/apex-lsp-shared';
 import type { FindMissingArtifactParams } from '@salesforce/apex-lsp-shared';
+import { Schema } from 'effect';
 import { LSPQueueManager } from '../queue';
 import type { Connection } from 'vscode-languageserver';
 
@@ -153,9 +155,28 @@ export class EnhancedMissingArtifactResolutionService
         return;
       }
 
+      // Sanitize params before sending via postMessage (structured clone).
+      // Symbol manager class instances (typeReference, parentContext.*) are not
+      // cloneable. Schema.decodeUnknownSync creates a new plain object containing
+      // only the declared wire-schema fields, stripping all class extras.
+      const decodeIdentifier = Schema.decodeUnknownSync(
+        WireIdentifierSpecSchema,
+      );
+      const safeParams = {
+        ...params,
+        identifiers: params.identifiers.map((id) => {
+          try {
+            return decodeIdentifier(id);
+          } catch {
+            // Fallback: name-only if the identifier deviates from the wire schema
+            return { name: id.name };
+          }
+        }),
+      };
+
       // Send request directly to client (fire-and-forget for background mode)
       connection
-        .sendRequest('apex/findMissingArtifact', params)
+        .sendRequest('apex/findMissingArtifact', safeParams)
         .catch((error) => {
           this.logger.debug(
             () => `Background resolution request failed for ${names}: ${error}`,

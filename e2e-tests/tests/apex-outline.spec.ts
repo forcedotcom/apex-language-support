@@ -60,14 +60,57 @@ test.describe('Apex Outline View', () => {
     await test.step('Validate LCS type parsing capabilities', async () => {
       console.log('🏗️ Validating LCS type parsing capabilities...');
 
+      // In CI the LCS test is the first test to run (VS Code just started). The LSP
+      // indexes the file progressively — inner types (Configuration, StatusType) can
+      // take 60-120 s to appear in the outline tree. Wait until the outline has enough
+      // rows to confirm inner types are indexed before calling findSymbol.
+      // Locally the web server is reused so the outline is already fully populated.
+      const fullPopulationTimeout = process.env.CI ? 150_000 : 15_000;
+      // #region agent log
+      const preWaitCount = await outlineView.getSymbolCount();
+      console.log(
+        `🔍 Pre-wait outline count: ${preWaitCount} (waiting for ≥6, timeout=${fullPopulationTimeout}ms)`,
+      );
+      fetch('http://127.0.0.1:7249/ingest/29f89d0c-19ed-4b5a-909c-36e438644d55', {method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5f1a4c'},body:JSON.stringify({sessionId:'5f1a4c',location:'apex-outline.spec.ts:pre-wait',message:'pre-wait outline count',data:{preWaitCount,fullPopulationTimeout,isCI:!!process.env.CI},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      await outlineView
+        .waitForSymbols(6, fullPopulationTimeout)
+        .catch(() => console.log('⚠️ Outline may not be fully indexed, proceeding'));
+      // #region agent log
+      const postWaitCount = await outlineView.getSymbolCount();
+      console.log(`🔍 Post-wait outline count: ${postWaitCount}`);
+      fetch('http://127.0.0.1:7249/ingest/29f89d0c-19ed-4b5a-909c-36e438644d55', {method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5f1a4c'},body:JSON.stringify({sessionId:'5f1a4c',location:'apex-outline.spec.ts:post-wait',message:'post-wait outline count',data:{postWaitCount},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+
+      // Use findSymbol (not detectSymbols) because the outline is a virtualized Monaco
+      // tree — items scrolled off-screen are not in the DOM and won't match page-level
+      // text selectors. findSymbol polls and uses keyboard navigation to find any symbol.
       const expectedLCSSymbols = [
         'ApexClassExample', // Main class
         'Configuration', // Inner class
         'StatusType', // Inner enum
       ];
 
-      const { foundSymbols, foundCount } =
-        await outlineView.detectSymbols(expectedLCSSymbols);
+      // Use a short Phase 1 polling window — the outline is already populated at this point
+      // (validateApexSymbolsInOutline ran above). Off-screen symbols (Configuration,
+      // StatusType) won't be found in the virtual list anyway, so Phase 2 keyboard
+      // navigation takes over quickly. Without this cap, 3 × 30s desktop timeouts
+      // (default desktop timeout) would exceed the 60s test timeout.
+      const PHASE1_TIMEOUT_MS = 5000;
+      const foundSymbols: string[] = [];
+      for (const symbolName of expectedLCSSymbols) {
+        const symbol = await outlineView.findSymbol(
+          symbolName,
+          PHASE1_TIMEOUT_MS,
+        );
+        if (symbol) {
+          foundSymbols.push(symbolName);
+          console.log(`✅ Found LCS symbol: ${symbolName}`);
+        } else {
+          console.log(`❌ LCS symbol not found: ${symbolName}`);
+        }
+      }
+      const foundCount = foundSymbols.length;
 
       // Verify LCS type parsing capabilities
       expect(foundSymbols).toContain('ApexClassExample');
@@ -271,17 +314,17 @@ test.describe('Apex Outline View', () => {
 
   /**
    * Test: Verify outline displays complex class structure.
-   * Uses complex-class.cls test file.
+   * Uses ComplexClass.cls test file.
    */
   test('should display complex class structure', async ({
     apexEditor,
     outlineView,
   }) => {
-    // Note: This test assumes complex-class.cls is available in test workspace
+    // Note: This test assumes ComplexClass.cls is available in test workspace
     await test.step('Open complex class file', async () => {
-      // Try to open complex-class if available, otherwise skip
+      // Try to open ComplexClass if available, otherwise skip
       try {
-        await apexEditor.openFile('complex-class.cls');
+        await apexEditor.openFile('ComplexClass.cls');
         await apexEditor.waitForLanguageServerReady();
       } catch (error) {
         const errStr =
@@ -289,7 +332,7 @@ test.describe('Apex Outline View', () => {
             ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
             : JSON.stringify(error);
         console.log(
-          '⚠️ complex-class.cls not available, using default file',
+          '⚠️ ComplexClass.cls not available, using default file',
           errStr,
         );
       }

@@ -9,10 +9,12 @@
  *   node scripts/test-web-ext.js [web]
  *
  * Options:
- *   --debug         : Wait for debugger attachment
- *   --devtools      : Open browser devtools during tests
- *   --headless      : Run in headless mode (browser hidden)
- *   --with-services : Install salesforcedx-vscode-services extension from Marketplace
+ *   --debug           : Wait for debugger attachment
+ *   --devtools        : Open browser devtools during tests
+ *   --headless        : Run in headless mode (browser hidden)
+ *   --with-services   : Install salesforcedx-vscode-services extension from Marketplace
+ *   --clone-url=<url> : Clone a remote git repo as the workspace (uses a temp dir, cleaned up after)
+ *   --workspace=<rel> : Use a local path (relative to repo root) as the workspace
  *
  * VS Code version is pinned to the version defined in:
  *   https://github.com/forcedotcom/code-builder-web/blob/main/.vscode-version
@@ -24,6 +26,7 @@
 const { runTests } = require('@vscode/test-web');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const {
@@ -405,6 +408,8 @@ async function killProcessesOnPort3000() {
 }
 
 async function runWebExtensionTests() {
+  let tempDir = null;
+
   try {
     // Kill any processes running on port 3000 before starting the web server
     await killProcessesOnPort3000();
@@ -414,7 +419,23 @@ async function runWebExtensionTests() {
       '../packages/apex-lsp-vscode-extension',
     );
     const extensionDevelopmentPath = path.resolve(extensionSourcePath, 'dist');
-    const workspacePath = path.resolve(__dirname, './test-workspace');
+    const workspaceArg = process.argv.find(a => a.startsWith('--workspace='));
+    const cloneUrlArg = process.argv.find(a => a.startsWith('--clone-url='));
+
+    let workspacePath;
+
+    if (cloneUrlArg) {
+      const repoUrl = cloneUrlArg.slice('--clone-url='.length);
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-web-test-'));
+      console.log(`Cloning ${repoUrl} into ${tempDir}...`);
+      await execAsync(`git clone "${repoUrl}" "${tempDir}"`);
+      console.log('Clone complete.');
+      workspacePath = tempDir;
+    } else if (workspaceArg) {
+      workspacePath = path.resolve(__dirname, '..', workspaceArg.slice('--workspace='.length));
+    } else {
+      workspacePath = path.resolve(__dirname, './test-workspace');
+    }
 
     // Verify required paths exist
     if (!fs.existsSync(extensionSourcePath)) {
@@ -845,13 +866,9 @@ async function runWebExtensionTests() {
       console.log('   4. Watch for extension activation messages');
       console.log('');
       console.log(
-        '⏳ Server will keep running. Close the browser when done testing.',
+        '⏳ Server will keep running until you press Ctrl+C or close the browser.',
       );
-      console.log('   (Press Ctrl+C in this terminal to stop the server)');
-      console.log('');
-      console.log(
-        '⏳ Waiting 30 seconds for you to verify (or until you close browser)...',
-      );
+      console.log('   Press Ctrl+C in this terminal to stop and clean up.');
     } else {
       console.log(
         '⏳ Running in headless mode, waiting 5 seconds then exiting...',
@@ -859,13 +876,23 @@ async function runWebExtensionTests() {
     }
 
     // Wait for user to verify (or timeout in headless mode)
-    // Note: In non-headless mode, the server keeps running until browser closes
-    const waitTime = process.argv.includes('--headless') ? 5000 : 30000;
-    await new Promise((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, waitTime);
-    });
+    if (process.argv.includes('--headless')) {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    } else {
+      // Non-headless: wait until the user presses Ctrl+C or the test runner stops on its own.
+      // This keeps the temp dir (and the vscode-test-web server) alive for the full session.
+      await new Promise((resolve) => {
+        const cleanup = () => {
+          console.log('\n🛑 Stopping test server...');
+          resolve();
+        };
+        process.once('SIGINT', cleanup);
+        // Also stop if the @vscode/test-web runner exits on its own (e.g. browser closed)
+        testPromise
+          .then(() => { process.removeListener('SIGINT', cleanup); resolve(); })
+          .catch(() => { process.removeListener('SIGINT', cleanup); resolve(); });
+      });
+    }
 
     // Note: testPromise may not resolve if extensionTestsPath is undefined
     // The server keeps running until manually stopped or browser closes
@@ -891,13 +918,21 @@ async function runWebExtensionTests() {
       console.error('Full error:', error);
     }
     process.exit(1);
+  } finally {
+    if (tempDir) {
+      console.log(`Cleaning up temp dir: ${tempDir}`);
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    // Ensure process exits after SIGINT-triggered cleanup
+    process.exit(0);
   }
 }
 
 // Handle command line arguments
 const command = process.argv[2];
 
-if (command === 'web' || !command) {
+// Accept: no argument, 'web', or a flag (--with-services, --headless, etc.)
+if (!command || command === 'web' || command.startsWith('--')) {
   runWebExtensionTests();
 } else {
   console.log(`Usage: node ${path.basename(__filename)} [web]`);

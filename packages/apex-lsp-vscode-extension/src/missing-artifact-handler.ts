@@ -10,21 +10,39 @@ import { logToOutputChannel } from './logging';
 import {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
-  IdentifierSpec,
+  WireIdentifierSpec,
 } from '@salesforce/apex-lsp-shared';
+import { findFilesAcrossWorkspaceFolders } from './workspace-find-files';
+
+/** sObject suffix patterns — these types have no .cls file. */
+const SOBJECT_SUFFIX_RE = /__[cCrReEbBmMxX]$/;
 
 export async function handleFindMissingArtifact(
   params: FindMissingArtifactParams,
   _context: vscode.ExtensionContext,
 ): Promise<FindMissingArtifactResult> {
-  const names = params.identifiers.map((s) => s.name).join(', ');
+  // Strip sObject identifiers (e.g. Property__c) — they have no .cls file.
+  const filtered = params.identifiers.filter(
+    (s) => !SOBJECT_SUFFIX_RE.test(s.name),
+  );
+  const effectiveParams =
+    filtered.length < params.identifiers.length
+      ? { ...params, identifiers: filtered }
+      : params;
+
+  const names = effectiveParams.identifiers.map((s) => s.name).join(', ');
   logToOutputChannel(
     `🔍 Handling missing artifact request for: ${names}`,
     'debug',
   );
 
+  if (effectiveParams.identifiers.length === 0) {
+    // All identifiers were sObjects — nothing to search for
+    return { notFound: true };
+  }
+
   try {
-    const workspaceResult = await resolveFromWorkspace(params);
+    const workspaceResult = await resolveFromWorkspace(effectiveParams);
     if (workspaceResult) {
       return workspaceResult;
     }
@@ -44,8 +62,10 @@ export async function handleFindMissingArtifact(
 }
 
 /** Dedupe specs by name; prefer spec with hints over minimal { name } */
-function dedupeByIdentifierName(specs: IdentifierSpec[]): IdentifierSpec[] {
-  const byName = new Map<string, IdentifierSpec>();
+function dedupeByIdentifierName(
+  specs: WireIdentifierSpec[],
+): WireIdentifierSpec[] {
+  const byName = new Map<string, WireIdentifierSpec>();
   for (const spec of specs) {
     const existing = byName.get(spec.name);
     const hasHints =
@@ -106,17 +126,17 @@ async function resolveFromWorkspace(
 }
 
 interface SearchStrategy {
-  searchPatterns: string[];
+  searchPatterns: readonly string[];
   priority: 'exact' | 'high' | 'medium' | 'low';
   reasoning: string;
   expectedFileType: string;
   confidence: number;
-  fallbackPatterns?: string[];
+  fallbackPatterns?: readonly string[];
   namespace?: string;
 }
 
 function generateSearchStrategiesForSpec(
-  spec: IdentifierSpec,
+  spec: WireIdentifierSpec,
 ): SearchStrategy[] {
   const strategies: SearchStrategy[] = [];
   const identifier = spec.name;
@@ -207,7 +227,7 @@ async function searchWithStrategy(
 
   for (const pattern of strategy.searchPatterns) {
     try {
-      const files = await vscode.workspace.findFiles(
+      const files = await findFilesAcrossWorkspaceFolders(
         pattern,
         null,
         maxCandidates,
@@ -228,7 +248,7 @@ async function searchWithStrategy(
   if (allFiles.length < maxCandidates && strategy.fallbackPatterns) {
     for (const pattern of strategy.fallbackPatterns) {
       try {
-        const files = await vscode.workspace.findFiles(
+        const files = await findFilesAcrossWorkspaceFolders(
           pattern,
           null,
           maxCandidates - allFiles.length,

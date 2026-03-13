@@ -2674,10 +2674,141 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           symbolTable,
           normalizedUri,
         );
+
+        // Resolve unqualified METHOD_CALL references through the superclass chain.
+        // Same-file resolution (ApexReferenceResolver) only looks within the current
+        // file's symbol table. Inherited method calls like getBaseName() — where the
+        // method is defined in a cross-file base class — require walking the superclass
+        // hierarchy using the global symbol graph, which is only possible here.
+        yield* self.resolveInheritedMethodCallsEffect(
+          symbolTable,
+          normalizedUri,
+        );
       } finally {
         self.resolvingCrossFileRefs.delete(normalizedUri);
       }
     });
+  }
+
+  /**
+   * Resolve unqualified METHOD_CALL references through the superclass chain.
+   *
+   * Same-file resolution (ApexReferenceResolver.resolveSameFileReferences) only searches
+   * the current file's symbol table. Inherited method calls — e.g. getBaseName() called
+   * inside CrossFileChildClass when the method is defined in CrossFileBaseClass — are not
+   * resolvable there. This step runs after cross-file graph processing and looks up the
+   * containing class's superClass chain in the global symbol graph.
+   */
+  private resolveInheritedMethodCallsEffect(
+    symbolTable: SymbolTable,
+    fileUri: string,
+  ): Effect.Effect<void, never, never> {
+    const self = this;
+    return Effect.gen(function* () {
+      const refs = symbolTable.getAllReferences();
+      for (const ref of refs) {
+        // Only unresolved, non-chained, unqualified METHOD_CALL references
+        if (
+          ref.resolvedSymbolId ||
+          isChainedSymbolReference(ref) ||
+          ref.context !== ReferenceContext.METHOD_CALL
+        ) {
+          continue;
+        }
+
+        // Find the class scope containing this reference
+        const position = {
+          line: ref.location.identifierRange.startLine,
+          character: ref.location.identifierRange.startColumn,
+        };
+        const scopeHierarchy = symbolTable.getScopeHierarchy(position);
+        const classBlock = scopeHierarchy.find(
+          (s) => isBlockSymbol(s) && (s as any).scopeType === 'class',
+        );
+        if (!classBlock) continue;
+
+        // Find the TypeSymbol (class declaration) that owns this class block
+        const allSymbolsInFile = symbolTable.getAllSymbols();
+        const classSymbol = allSymbolsInFile.find(
+          (s) => s.id === classBlock.parentId && s.kind === SymbolKind.Class,
+        ) as TypeSymbol | undefined;
+        if (!classSymbol?.superClass) continue;
+
+        // Walk the superclass chain until we find the method
+        const resolved = self.findMethodInSuperclassChain(
+          ref.name,
+          classSymbol.superClass,
+        );
+        if (resolved) {
+          ref.resolvedSymbolId = resolved.id;
+          self.logger.debug(
+            () =>
+              `[resolveInheritedMethodCalls] Resolved "${ref.name}" in ${fileUri} ` +
+              `to inherited method in ${resolved.fileUri ?? 'unknown'}`,
+          );
+          yield* Effect.yieldNow();
+        }
+      }
+    });
+  }
+
+  /**
+   * Search for a method with the given name in the superclass chain.
+   * Uses the global symbol graph so it works across files.
+   * @param methodName The unqualified method name to find
+   * @param superClassName The immediate superclass name to start from
+   * @param visited Guard against circular inheritance
+   */
+  private findMethodInSuperclassChain(
+    methodName: string,
+    superClassName: string,
+    visited: Set<string> = new Set(),
+  ): ApexSymbol | null {
+    if (visited.has(superClassName)) return null;
+    visited.add(superClassName);
+
+    // Locate the superclass in the global symbol graph
+    const superClassCandidates = this.findSymbolByName(superClassName);
+    const superClass = superClassCandidates.find(
+      (s) => s.kind === SymbolKind.Class,
+    ) as TypeSymbol | undefined;
+    if (!superClass?.fileUri) return null;
+
+    const superTable = this.symbolGraph.getSymbolTableForFile(
+      superClass.fileUri,
+    );
+    if (!superTable) return null;
+
+    const superSymbols = superTable.getAllSymbols();
+
+    // Find the class block inside the superclass
+    const superClassBlock = superSymbols.find(
+      (s) =>
+        isBlockSymbol(s) &&
+        (s as any).scopeType === 'class' &&
+        s.parentId === superClass.id,
+    );
+    if (!superClassBlock) return null;
+
+    // Look for the method directly under the class block
+    const method = superSymbols.find(
+      (s) =>
+        s.name === methodName &&
+        s.kind === SymbolKind.Method &&
+        s.parentId === superClassBlock.id,
+    );
+    if (method) return method;
+
+    // Recurse into the superclass's own superclass
+    if (superClass.superClass) {
+      return this.findMethodInSuperclassChain(
+        methodName,
+        superClass.superClass,
+        visited,
+      );
+    }
+
+    return null;
   }
 
   /**

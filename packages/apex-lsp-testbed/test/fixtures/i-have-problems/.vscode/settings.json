@@ -1,4 +1,9 @@
 {
   "apex.trace.server": "messages",
-  "apex.logLevel": "debug"
+  "apex.logLevel": "error",
+  "apex.worker.logLevel": "error",
+  "apex.environment.serverMode": "development",
+  "apex.loadWorkspace": {
+    "enabled": false
+  }
 }

@@ -205,38 +205,6 @@ function createGitHubRelease(
       const repo = process.env.GITHUB_REPOSITORY;
       const vsixArgs = vsixFiles.map((file) => `"${file}"`).join(' ');
 
-      // #region agent log
-      console.log('🔍 DEBUG: Release creation start');
-      console.log(`  Extension: ${extension}`);
-      console.log(`  Current version: ${currentVersion}`);
-      console.log(`  Expected release tag: ${releaseTag}`);
-      console.log(`  Repo: ${repo}`);
-      console.log(`  Is nightly: ${isNightly}`);
-      console.log(`  Pre-release: ${preRelease}`);
-      // #endregion
-
-      // Check what tags exist locally and remotely
-      // #region agent log
-      console.log('🔍 DEBUG: Checking existing tags...');
-      try {
-        const localTags = execSync('git tag --list', { encoding: 'utf8' }).trim();
-        const remoteTags = execSync('git ls-remote --tags origin', { encoding: 'utf8' }).trim();
-        const localTagList = localTags.split('\n').filter(Boolean).slice(-10);
-        const remoteTagList = remoteTags
-          .split('\n')
-          .map((t) => t.split('refs/tags/')[1])
-          .filter(Boolean)
-          .slice(-10);
-        console.log(`  Local tags (last 10): ${localTagList.join(', ')}`);
-        console.log(`  Remote tags (last 10): ${remoteTagList.join(', ')}`);
-        console.log(`  Looking for tag: ${releaseTag}`);
-        console.log(`  Tag exists locally: ${localTagList.includes(releaseTag)}`);
-        console.log(`  Tag exists remotely: ${remoteTagList.includes(releaseTag)}`);
-      } catch (tagError) {
-        console.error(`  ⚠️ Tag check failed: ${tagError}`);
-      }
-      // #endregion
-
       // Check if release already exists (idempotency)
       let releaseExists = false;
       let hasAssets = false;
@@ -249,15 +217,8 @@ function createGitHubRelease(
         releaseExists = true;
         hasAssets =
           Array.isArray(releaseData.assets) && releaseData.assets.length > 0;
-        // #region agent log
-        console.log(`🔍 DEBUG: Release ${releaseTag} already exists`);
-        console.log(`  Has assets: ${hasAssets}`);
-        // #endregion
       } catch {
         // Release does not exist — proceed to create
-        // #region agent log
-        console.log(`🔍 DEBUG: Release ${releaseTag} does not exist — will create`);
-        // #endregion
       }
 
       if (releaseExists && hasAssets) {
@@ -274,26 +235,11 @@ function createGitHubRelease(
         );
         console.log(`✅ Assets uploaded to existing release for ${extension}`);
       } else {
-        // #region agent log
-        console.log('🔍 DEBUG: About to create release');
-        console.log(`  Release tag: ${releaseTag}`);
-        console.log(`  Release title: ${releaseTitle}`);
-        // #endregion
-
-        // Check if tag exists before creating release
-        let tagExists = false;
+        // Verify the tag exists locally before attempting release creation
         try {
           execSync(`git rev-parse "${releaseTag}"`, { encoding: 'utf8', stdio: 'pipe' });
-          tagExists = true;
-          // #region agent log
-          console.log(`🔍 DEBUG: Tag ${releaseTag} exists locally`);
-          // #endregion
         } catch {
-          // Tag doesn't exist - need to create it or use HEAD
-          // #region agent log
-          console.log(`🔍 DEBUG: Tag ${releaseTag} does NOT exist locally`);
-          console.log(`  ⚠️ WARNING: gh release create requires an existing tag or will create one from HEAD`);
-          // #endregion
+          // Tag doesn't exist locally — gh release create will create one from HEAD
         }
 
         // Write release notes to a temporary file to avoid shell escaping issues
@@ -309,26 +255,16 @@ function createGitHubRelease(
           `gh release create "${releaseTag}" --title "${releaseTitle}" ` +
           `--notes-file "${notesFile}" --prerelease="${preRelease}" ` +
           `--repo "${repo}" ${vsixArgs}`;
-        
-        // #region agent log
-        console.log('🔍 DEBUG: Executing gh release create command');
-        console.log(`  Command: ${command.substring(0, 200)}...`);
-        console.log(`  Tag exists: ${tagExists}`);
-        console.log(`  Notes file: ${notesFile}`);
-        // #endregion
 
         try {
           execSync(command, { stdio: 'inherit' });
-          
+
           // Clean up notes file after successful creation
           try {
             unlinkSync(notesFile);
           } catch (cleanupError) {
             console.warn(`Warning: Failed to clean up notes file ${notesFile}: ${cleanupError}`);
           }
-          // #region agent log
-          console.log(`🔍 DEBUG: gh release create command completed successfully`);
-          // #endregion
           console.log(`✅ Release created for ${extension}`);
         } catch (createError) {
           // Clean up notes file even on error
@@ -337,25 +273,10 @@ function createGitHubRelease(
           } catch (cleanupError) {
             console.warn(`Warning: Failed to clean up notes file ${notesFile}: ${cleanupError}`);
           }
-          
-          // #region agent log
-          const errorObj = createError as any;
-          console.error(`🔍 DEBUG: gh release create FAILED`);
-          console.error(`  Error: ${createError}`);
-          console.error(`  Exit code: ${errorObj?.status || 'unknown'}`);
-          console.error(`  Stdout: ${errorObj?.stdout || 'none'}`);
-          console.error(`  Stderr: ${errorObj?.stderr || 'none'}`);
-          // #endregion
           throw createError;
         }
       }
     } catch (error) {
-      // #region agent log
-      console.error(`🔍 DEBUG: Release creation failed with error`);
-      console.error(`  Extension: ${extension}`);
-      console.error(`  Release tag: ${releaseTag}`);
-      console.error(`  Error: ${error}`);
-      // #endregion
       console.error(`Failed to create release for ${extension}:`, error);
       throw error;
     }
@@ -390,33 +311,7 @@ function createGitHubReleases(options: GitHubReleaseOptions): void {
     console.log(`Processing extension: ${ext}`);
     console.log(`Current version: ${packageDetails.version}`);
 
-    // #region agent log
-    console.log(`🔍 DEBUG: Looking for VSIX files for ${ext}`);
-    console.log(`  Artifacts path: ${vsixArtifactsPath}`);
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      if (fs.existsSync(vsixArtifactsPath)) {
-        const files = fs.readdirSync(vsixArtifactsPath, { recursive: true });
-        console.log(`  Files in artifacts directory: ${files.slice(0, 20).join(', ')}${files.length > 20 ? '...' : ''}`);
-        const vsixFilesFound = files.filter((f: string) => f.endsWith('.vsix'));
-        console.log(`  VSIX files found: ${vsixFilesFound.join(', ')}`);
-      } else {
-        console.log(`  ⚠️ Artifacts directory does not exist!`);
-      }
-    } catch (error) {
-      console.log(`  ⚠️ Error listing files: ${error}`);
-    }
-    // #endregion
-
     const vsixFiles = findVsixFiles(ext, vsixArtifactsPath);
-    // #region agent log
-    console.log(`🔍 DEBUG: VSIX file search results`);
-    console.log(`  Pattern searched: ${ext === 'apex-lsp-vscode-extension' ? '*apex-language-server-extension-*.vsix' : `*${ext}*.vsix`}`);
-    console.log(`  Files found: ${vsixFiles.length}`);
-    vsixFiles.forEach((file: string) => console.log(`    - ${file}`));
-    // #endregion
-
     if (vsixFiles.length === 0) {
       console.warn(`No VSIX files found for ${ext} in ${vsixArtifactsPath}`);
       continue;

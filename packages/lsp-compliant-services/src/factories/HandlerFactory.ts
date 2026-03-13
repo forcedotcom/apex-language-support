@@ -255,7 +255,18 @@ export class HandlerFactory {
    */
   static createDefinitionHandler(): DefinitionHandler {
     const logger = getLogger();
-    const definitionProcessor = new DefinitionProcessingService(logger);
+    const symbolManager =
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
+    const definitionProcessor = new DefinitionProcessingService(
+      logger,
+      symbolManager,
+    );
+
+    const layerEnrichmentService = new LayerEnrichmentService(
+      logger,
+      symbolManager,
+    );
+    definitionProcessor.setLayerEnrichmentService(layerEnrichmentService);
 
     return new DefinitionHandler(logger, definitionProcessor);
   }
