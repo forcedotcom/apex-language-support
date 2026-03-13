@@ -69,9 +69,18 @@ test.describe('Apex Outline View', () => {
         'StatusType', // Inner enum
       ];
 
+      // Use a short Phase 1 polling window — the outline is already populated at this point
+      // (validateApexSymbolsInOutline ran above). Off-screen symbols (Configuration,
+      // StatusType) won't be found in the virtual list anyway, so Phase 2 keyboard
+      // navigation takes over quickly. Without this cap, 3 × 30s desktop timeouts
+      // (default desktop timeout) would exceed the 60s test timeout.
+      const PHASE1_TIMEOUT_MS = 5000;
       const foundSymbols: string[] = [];
       for (const symbolName of expectedLCSSymbols) {
-        const symbol = await outlineView.findSymbol(symbolName);
+        const symbol = await outlineView.findSymbol(
+          symbolName,
+          PHASE1_TIMEOUT_MS,
+        );
         if (symbol) {
           foundSymbols.push(symbolName);
           console.log(`✅ Found LCS symbol: ${symbolName}`);

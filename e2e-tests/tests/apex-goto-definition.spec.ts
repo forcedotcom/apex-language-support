@@ -735,6 +735,7 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
    */
   test('should navigate to base class defined in another workspace file', async ({
     apexEditor,
+    hoverHelper,
   }) => {
     await test.step('Open the child class file', async () => {
       try {
@@ -749,6 +750,12 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
         console.log('⚠️ CrossFileChildClass.cls not available', errStr);
         return;
       }
+    });
+
+    await test.step('Warm up cross-file LSP resolution via hover', async () => {
+      // CrossFileBaseClass at line 6, col 42 — trigger missing artifact resolution
+      await hoverHelper.hoverAtWithResolution(6, 42);
+      console.log('✅ Cross-file LSP resolution warmed up');
     });
 
     await test.step('Position on cross-file base class reference and go-to-definition', async () => {
@@ -774,6 +781,7 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
    */
   test('should navigate to inherited method defined in another workspace file', async ({
     apexEditor,
+    hoverHelper,
   }) => {
     await test.step('Open the child class file', async () => {
       try {
@@ -787,6 +795,13 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
         console.log('⚠️ CrossFileChildClass.cls not available', errStr);
         return;
       }
+    });
+
+    await test.step('Warm up cross-file LSP resolution via hover', async () => {
+      // Hover at base class reference (line 6, col 42) to trigger missing artifact resolution
+      // for CrossFileBaseClass.cls, which is needed for getBaseName to resolve.
+      await hoverHelper.hoverAtWithResolution(6, 42);
+      console.log('✅ Cross-file LSP resolution warmed up');
     });
 
     await test.step('Call getBaseName to reference inherited method across files', async () => {

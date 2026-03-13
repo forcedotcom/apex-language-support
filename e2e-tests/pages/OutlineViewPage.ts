@@ -172,25 +172,24 @@ export class OutlineViewPage extends BasePage {
     // index than the regular rows so this.outlineItems.first() resolves to it —
     // which is visually covered by the "Outline Section" pane-header. Targeting
     // .monaco-scrollable-element skips the sticky container entirely.
+    // Check there's a visible row to anchor focus; fall back to the global first row if needed.
     const scrollableRow = this.page
       .locator('.outline-tree .monaco-scrollable-element .monaco-list-row')
       .first();
     const fallbackRow = this.outlineItems.first();
     const scrollableCount = await scrollableRow.count();
-    // #region agent log
-    fetch('http://127.0.0.1:7249/ingest/29f89d0c-19ed-4b5a-909c-36e438644d55',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5f1a4c'},body:JSON.stringify({sessionId:'5f1a4c',location:'OutlineViewPage.ts:findSymbol:phase2',message:'selector-counts',data:{scrollableCount,symbolName,outlineItemsCount:await this.outlineItems.count()},timestamp:Date.now(),hypothesisId:'H-F'})}).catch(()=>{});
-    // #endregion
-    const treeContainer =
-      scrollableCount > 0 ? scrollableRow : fallbackRow;
+    const treeContainer = scrollableCount > 0 ? scrollableRow : fallbackRow;
     const isTreeVisible = await treeContainer.isVisible().catch(() => false);
     if (!isTreeVisible) return null;
 
-    // #region agent log
-    const resolvedAriaLabel = await treeContainer.getAttribute('aria-label').catch(()=>'?');
-    const resolvedDataIndex = await treeContainer.getAttribute('data-index').catch(()=>'?');
-    fetch('http://127.0.0.1:7249/ingest/29f89d0c-19ed-4b5a-909c-36e438644d55',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5f1a4c'},body:JSON.stringify({sessionId:'5f1a4c',location:'OutlineViewPage.ts:findSymbol:phase2',message:'click-target',data:{usingStickyFallback:scrollableCount===0,ariaLabel:resolvedAriaLabel,dataIndex:resolvedDataIndex,symbolName},timestamp:Date.now(),hypothesisId:'H-F'})}).catch(()=>{});
-    // #endregion
-    await treeContainer.click({ force: true });
+    // Focus the Monaco list widget directly via JS — clicking a specific row is unreliable
+    // because the topmost visible row may be covered by the "OUTLINE" pane header, causing
+    // the pane header to receive focus instead of the list. The pane header responds to
+    // ArrowDown by collapsing the outline panel, leaving 0 rows in the DOM.
+    await this.page.evaluate(() => {
+      const el = document.querySelector('.outline-tree .monaco-list');
+      if (el instanceof HTMLElement) el.focus();
+    });
     await this.page.keyboard.press('Home');
 
     const maxNavigationSteps = 80;
