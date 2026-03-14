@@ -305,7 +305,7 @@ test.describe('Apex LSP Integration', () => {
   }) => {
     await test.step('Perform extended operations', async () => {
       for (let i = 0; i < 10; i++) {
-        const marker = `// STABILITY_${i}`;
+        const marker = `// STABILITY_${i}\n`;
         await apexEditor.goToPosition(i + 5, 1);
         await apexEditor.typeText(marker);
         await apexEditor.waitForContentToInclude(marker, 5000);

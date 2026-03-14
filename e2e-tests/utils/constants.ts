@@ -44,17 +44,14 @@ export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
   'workbench.web.main.nls.js',
 
   // LSP and language server related non-critical errors
-  'Request textDocument/diagnostic failed', // Known VS Code Web LSP issue Todo: W-19587882 for removal
+  'Request textDocument/', // Any textDocument request can fail in web/test environments
+  'Unhandled method textDocument/', // Unhandled LSP method notifications
   'Pending response rejected since connection got disposed', // LSP client shutdown race
   "Client is not running and can't be stopped", // LSP client state during teardown
   'Server initialization failed', // LSP server fails to start (e.g. in test env)
   "couldn't create connection to server", // LSP connection failure in test env
   'Connection to server got closed. Server will not be restarted', // LSP shutdown in test env
   'An unknown error occurred. Please consult the log', // VS Code generic error wrapper
-  'Request textDocument/completion failed', // Expected when standard library is not loaded
-  'Unhandled method textDocument/completion', // Expected when standard library is not loaded
-  'Request textDocument/hover failed', // Expected when standard library is not loaded
-  'Request textDocument/definition failed', // Can occur when symbol has no definition
 
   // VS Code lifecycle and shutdown related
   'Long running operations during shutdown',

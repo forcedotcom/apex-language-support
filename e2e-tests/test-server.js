@@ -10,14 +10,14 @@ const { runTests } = require('@vscode/test-web');
 const path = require('path');
 const fs = require('fs');
 const {
-  fetchCodeBuilderVSCodeVersion,
-} = require('../scripts/fetch-vscode-version');
+  readLocalVSCodeVersion,
+} = require('../scripts/sync-vscode-version');
 
 async function startTestServer() {
   try {
     const extensionDevelopmentPath = path.resolve(
       __dirname,
-      '../packages/apex-lsp-vscode-extension/dist',
+      '../packages/apex-lsp-vscode-extension',
     );
     const workspacePath = process.env.CI
       ? path.join(
@@ -33,24 +33,27 @@ async function startTestServer() {
       );
     }
 
-    // Verify extension is built (check for critical files)
-    // extensionDevelopmentPath now points to the dist directory
     const packageJsonPath = path.join(extensionDevelopmentPath, 'package.json');
-    const extensionJsPath = path.join(extensionDevelopmentPath, 'extension.js');
+    const extensionJsPath = path.join(
+      extensionDevelopmentPath,
+      'dist',
+      'extension.js',
+    );
     const extensionWebJsPath = path.join(
       extensionDevelopmentPath,
+      'dist',
       'extension.web.js',
     );
 
     if (!fs.existsSync(extensionDevelopmentPath)) {
       throw new Error(
-        `Extension dist directory not found: ${extensionDevelopmentPath}. Run 'npm run build' in the extension directory first.`,
+        `Extension directory not found: ${extensionDevelopmentPath}. Run 'npm run bundle' first.`,
       );
     }
 
     if (!fs.existsSync(packageJsonPath)) {
       throw new Error(
-        `Extension package.json not found in dist: ${packageJsonPath}. Extension build may be incomplete.`,
+        `Extension package.json not found: ${packageJsonPath}. Extension build may be incomplete.`,
       );
     }
 
@@ -124,8 +127,7 @@ async function startTestServer() {
     console.log(`📂 Workspace path: ${workspacePath}`);
     console.log(`🔍 CI environment: ${process.env.CI ? 'Yes' : 'No'}`);
 
-    // Fetch the pinned VS Code version from Code Builder Web
-    const vsCodeVersion = await fetchCodeBuilderVSCodeVersion();
+    const vsCodeVersion = readLocalVSCodeVersion();
 
     // Log extension files for debugging
     console.log('📋 Extension files:');

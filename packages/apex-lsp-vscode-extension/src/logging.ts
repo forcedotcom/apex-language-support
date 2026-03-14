@@ -34,7 +34,6 @@ export const initializeExtensionLogging = (
 
   context.subscriptions.push(clientOutputChannel, workerServerOutputChannel);
 
-  // Set initial log level from workspace settings
   // Use the full config path 'apex.logLevel' to match package.json definition
   const config = vscode.workspace.getConfiguration();
   const logLevel = config.get<string>('apex.logLevel') ?? 'error';
