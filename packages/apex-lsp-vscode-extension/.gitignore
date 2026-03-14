@@ -3,4 +3,5 @@ dist
 node_modules
 *.vsix
 .vscode-test/
-*.tsbuildinfo 
+*.tsbuildinfo
+resources/StandardApexLibrary.zip

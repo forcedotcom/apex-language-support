@@ -1,14 +1,14 @@
 {
   "name": "@salesforce/apex-ls",
   "version": "1.0.0",
-  "description": "Apex Language Server - provides server.node.js for desktop and worker.global.js for web environments",
+  "description": "Apex Language Server - provides server.node.js for desktop and server.web.js for web environments",
   "exports": {
     "./server.node": {
       "require": "./dist/server.node.js"
     },
-    "./worker": {
-      "import": "./dist/worker.global.js",
-      "require": "./dist/worker.global.js"
+    "./server.web": {
+      "import": "./dist/server.web.js",
+      "require": "./dist/server.web.js"
     }
   },
   "sideEffects": false,
@@ -175,7 +175,7 @@
   "devDependencies": {
     "@salesforce/esbuild-presets": "^0.1.0",
     "@types/node": "^20.19.4",
-    "@types/vscode": "^1.109.0",
+    "@types/vscode": "^1.108.0",
     "assert": "^2.1.0",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
