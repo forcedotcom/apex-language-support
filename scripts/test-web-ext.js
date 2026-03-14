@@ -417,7 +417,8 @@ async function runWebExtensionTests() {
       __dirname,
       '../packages/apex-lsp-vscode-extension',
     );
-    const extensionDevelopmentPath = path.resolve(extensionSourcePath, 'dist');
+    const extensionDevelopmentPath = extensionSourcePath;
+    const extensionDistPath = path.resolve(extensionSourcePath, 'dist');
     const workspaceArg = process.argv.find(a => a.startsWith('--workspace='));
     const cloneUrlArg = process.argv.find(a => a.startsWith('--clone-url='));
 

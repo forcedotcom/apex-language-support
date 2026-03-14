@@ -71,15 +71,55 @@ test.describe('Apex Outline View', () => {
       console.log(
         `🔍 Pre-wait outline count: ${preWaitCount} (waiting for ≥6, timeout=${fullPopulationTimeout}ms)`,
       );
-      fetch('http://127.0.0.1:7249/ingest/29f89d0c-19ed-4b5a-909c-36e438644d55', {method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5f1a4c'},body:JSON.stringify({sessionId:'5f1a4c',location:'apex-outline.spec.ts:pre-wait',message:'pre-wait outline count',data:{preWaitCount,fullPopulationTimeout,isCI:!!process.env.CI},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
+      fetch(
+        'http://127.0.0.1:7249/ingest/29f89d0c-19ed-4b5a-909c-36e438644d55',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '5f1a4c',
+          },
+          body: JSON.stringify({
+            sessionId: '5f1a4c',
+            location: 'apex-outline.spec.ts:pre-wait',
+            message: 'pre-wait outline count',
+            data: {
+              preWaitCount,
+              fullPopulationTimeout,
+              isCI: !!process.env.CI,
+            },
+            hypothesisId: 'H-A',
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
       // #endregion
       await outlineView
         .waitForSymbols(6, fullPopulationTimeout)
-        .catch(() => console.log('⚠️ Outline may not be fully indexed, proceeding'));
+        .catch(() =>
+          console.log('⚠️ Outline may not be fully indexed, proceeding'),
+        );
       // #region agent log
       const postWaitCount = await outlineView.getSymbolCount();
       console.log(`🔍 Post-wait outline count: ${postWaitCount}`);
-      fetch('http://127.0.0.1:7249/ingest/29f89d0c-19ed-4b5a-909c-36e438644d55', {method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5f1a4c'},body:JSON.stringify({sessionId:'5f1a4c',location:'apex-outline.spec.ts:post-wait',message:'post-wait outline count',data:{postWaitCount},hypothesisId:'H-A',timestamp:Date.now()})}).catch(()=>{});
+      fetch(
+        'http://127.0.0.1:7249/ingest/29f89d0c-19ed-4b5a-909c-36e438644d55',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '5f1a4c',
+          },
+          body: JSON.stringify({
+            sessionId: '5f1a4c',
+            location: 'apex-outline.spec.ts:post-wait',
+            message: 'post-wait outline count',
+            data: { postWaitCount },
+            hypothesisId: 'H-A',
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
       // #endregion
 
       // Use findSymbol (not detectSymbols) because the outline is a virtualized Monaco
