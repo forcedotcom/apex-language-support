@@ -100,7 +100,7 @@
     "prettier": "^3.5.3",
     "rimraf": "^5.0.5",
     "semantic-release": "^22.0.12",
-    "semver": "^7.7.2",
+    "semver": "^7.7.4",
     "shelljs": "^0.10.0",
     "simple-git": "^3.32.3",
     "ts-jest": "^29.3.0",
