@@ -181,23 +181,25 @@ export const generateSymbolId = (
  * @returns The base file URI without symbol parts
  */
 export const extractFilePathFromUri = (uri: string): string => {
-  // If it's a built-in URI, return as-is (only special case)
-  if (uri.startsWith('built-in://')) {
-    return uri;
-  }
-
   const protocol = getProtocolType(uri);
 
   // For known double-slash protocols, find the symbol separator after the authority
   if (protocol === 'file' || protocol === 'apexlib' || protocol === 'builtin') {
     // file:///path/to/file.cls:ClassName  ->  file:///path/to/file.cls
-    // Find the colon after the protocol+authority (skip "scheme://")
+    // built-in://apex:SomeName            ->  built-in://apex
     const protocolEnd = uri.indexOf('://');
     if (protocolEnd !== -1) {
-      // Find the next colon after the path portion (skip past authority)
-      const pathStart = uri.indexOf('/', protocolEnd + 3);
+      const afterScheme = protocolEnd + 3; // Skip "://"
+      const pathStart = uri.indexOf('/', afterScheme);
       if (pathStart !== -1) {
+        // Has path component: symbol separator is a colon within the path
         const symbolSep = uri.indexOf(':', pathStart);
+        if (symbolSep !== -1) {
+          return uri.substring(0, symbolSep);
+        }
+      } else {
+        // No path component (e.g., built-in://apex:Name) — colon in authority
+        const symbolSep = uri.indexOf(':', afterScheme);
         if (symbolSep !== -1) {
           return uri.substring(0, symbolSep);
         }
@@ -209,9 +211,9 @@ export const extractFilePathFromUri = (uri: string): string => {
   // For 'other' protocols (memfs:, vscode-test-web://, etc.) and plain paths,
   // find the colon that separates URI from symbol parts.
   // A symbol separator colon appears AFTER the last path segment (after the file extension).
-  // Use file-extension heuristic: if the URI contains a recognized extension (.cls, .trigger,
-  // .apex), the symbol separator is the first colon after that extension.
-  const extMatch = uri.match(/\.(cls|trigger|apex|soql)/);
+  // Use file-extension heuristic: if the URI contains a recognized extension, the symbol
+  // separator is the first colon after that extension.
+  const extMatch = uri.match(/\.(cls|trigger|apex|soql|page|component|app)/);
   if (extMatch) {
     const extEnd = extMatch.index! + extMatch[0].length;
     const symbolSep = uri.indexOf(':', extEnd);
@@ -236,21 +238,14 @@ export const parseSymbolId = (
   name: string;
   lineNumber?: number;
 } => {
-  // Find the first colon that separates the URI from the symbol part
-  // This works for all supported protocols (file://, apexlib://, builtin://)
-  const uriEnd = id.indexOf(':');
-  if (uriEnd === -1) {
-    throw new Error(`Invalid ID format - no URI separator found: ${id}`);
-  }
-
-  // Find the second colon to determine where the URI ends
-  const secondColon = id.indexOf(':', uriEnd + 1);
-  if (secondColon === -1) {
+  // Use extractFilePathFromUri to find the URI portion — this handles all
+  // protocols consistently (file://, apexlib://, built-in://, memfs:/, etc.)
+  const uri = extractFilePathFromUri(id);
+  if (uri === id) {
     throw new Error(`Invalid ID format - no symbol part found: ${id}`);
   }
 
-  const uri = id.substring(0, secondColon);
-  const symbolPart = id.substring(secondColon + 1); // Skip the colon
+  const symbolPart = id.substring(uri.length + 1); // Skip the colon separator
 
   const parsed = parseSymbolPart(symbolPart);
   parsed.uri = uri;

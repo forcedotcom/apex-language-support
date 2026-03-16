@@ -33,7 +33,7 @@ class MemFSProvider {
       return {
         type: vscode.FileType.File,
         ctime: 0,
-        mtime: Date.now(),
+        mtime: 0,
         size: content.byteLength,
       };
     }
@@ -63,7 +63,16 @@ class MemFSProvider {
     return result;
   }
 
+  /** Ensure all ancestor directories exist for a given path. */
+  _ensureParentDirs(filePath) {
+    const parts = filePath.split('/').filter(Boolean);
+    for (let i = 1; i < parts.length; i++) {
+      this._dirs.add('/' + parts.slice(0, i).join('/'));
+    }
+  }
+
   createDirectory(uri) {
+    this._ensureParentDirs(uri.path);
     this._dirs.add(uri.path);
   }
 
@@ -76,6 +85,7 @@ class MemFSProvider {
   }
 
   writeFile(uri, content, _options) {
+    this._ensureParentDirs(uri.path);
     this._files.set(uri.path, content);
     this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
   }

@@ -199,9 +199,29 @@ describe('UriBasedIdGenerator', () => {
       ).toBe('vscode-test-web://mount/path/File.cls');
     });
 
-    it('should return built-in URI as-is', () => {
+    it('should return built-in URI as-is when no symbol part', () => {
       expect(extractFilePathFromUri('built-in://Object')).toBe(
         'built-in://Object',
+      );
+    });
+
+    it('should extract built-in URI when symbol part present', () => {
+      expect(extractFilePathFromUri('built-in://apex:SomeName')).toBe(
+        'built-in://apex',
+      );
+    });
+
+    it('should extract vscode-test-web URI when symbol part present', () => {
+      expect(
+        extractFilePathFromUri(
+          'vscode-test-web://mount/path/File.cls:ClassName',
+        ),
+      ).toBe('vscode-test-web://mount/path/File.cls');
+    });
+
+    it('should extract plain path when symbol part present', () => {
+      expect(extractFilePathFromUri('/Users/me/File.cls:ClassName')).toBe(
+        '/Users/me/File.cls',
       );
     });
 

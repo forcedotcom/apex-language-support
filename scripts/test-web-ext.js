@@ -774,14 +774,20 @@ async function runWebExtensionTests() {
 
       // Generate workspace-files.json inside the memfs extension dir so the
       // browser-based extension can read it via vscode.workspace.fs.
+      // Recursively walks the workspace directory to include nested files.
       const workspaceFiles = {};
-      const entries = fs.readdirSync(workspacePath);
-      for (const entry of entries) {
-        const fullPath = path.join(workspacePath, entry);
-        if (fs.statSync(fullPath).isFile()) {
-          workspaceFiles[entry] = fs.readFileSync(fullPath, 'utf-8');
+      function collectFiles(dir, prefix) {
+        for (const entry of fs.readdirSync(dir)) {
+          const fullPath = path.join(dir, entry);
+          const relativeName = prefix ? `${prefix}/${entry}` : entry;
+          if (fs.statSync(fullPath).isDirectory()) {
+            collectFiles(fullPath, relativeName);
+          } else if (fs.statSync(fullPath).isFile()) {
+            workspaceFiles[relativeName] = fs.readFileSync(fullPath, 'utf-8');
+          }
         }
       }
+      collectFiles(workspacePath, '');
       const manifestPath = path.join(memfsProviderPath, 'workspace-files.json');
       fs.writeFileSync(manifestPath, JSON.stringify(workspaceFiles, null, 2));
       console.log(`   Generated workspace-files.json (${Object.keys(workspaceFiles).length} files)`);

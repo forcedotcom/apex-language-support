@@ -26,8 +26,8 @@ describe('ProtocolHandler', () => {
       ).toBe('apexlib');
     });
 
-    it('should recognize builtin:// URIs', () => {
-      expect(getProtocolType('builtin://Object')).toBe('builtin');
+    it('should recognize built-in:// URIs', () => {
+      expect(getProtocolType('built-in://Object')).toBe('builtin');
     });
 
     it('should recognize double-slash other protocols', () => {
@@ -56,6 +56,10 @@ describe('ProtocolHandler', () => {
       expect(getProtocolType('C:\\Users\\me\\File.cls')).toBeNull();
     });
 
+    it('should return null for Windows drive letters (forward slash)', () => {
+      expect(getProtocolType('C:/Users/me/File.cls')).toBeNull();
+    });
+
     it('should return null for empty string', () => {
       expect(getProtocolType('')).toBeNull();
     });
@@ -79,6 +83,10 @@ describe('ProtocolHandler', () => {
 
     it('should not detect other for known protocols', () => {
       expect(hasProtocol('file:///path/File.cls', 'other')).toBe(false);
+    });
+
+    it('should not detect other for Windows forward-slash paths', () => {
+      expect(hasProtocol('C:/Users/me/File.cls', 'other')).toBe(false);
     });
   });
 
