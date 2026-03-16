@@ -12,6 +12,7 @@ import {
   isStandardApexId,
   isUserCodeId,
   getFilePathFromId,
+  extractFilePathFromUri,
 } from '../../src/types/UriBasedIdGenerator';
 import {
   createFileUri,
@@ -170,6 +171,49 @@ describe('UriBasedIdGenerator', () => {
         0,
       );
       expect(id).toBe(`${createFileUri('/path/to/MyClass.cls')}:MyClass:0`);
+    });
+  });
+
+  describe('extractFilePathFromUri', () => {
+    it('should extract file path from file URI with symbol part', () => {
+      expect(extractFilePathFromUri('file:///path/File.cls:ClassName')).toBe(
+        'file:///path/File.cls',
+      );
+    });
+
+    it('should return memfs URI as-is when no symbol part', () => {
+      expect(extractFilePathFromUri('memfs:/MyProject/path/File.cls')).toBe(
+        'memfs:/MyProject/path/File.cls',
+      );
+    });
+
+    it('should extract memfs URI path when symbol part present', () => {
+      expect(
+        extractFilePathFromUri('memfs:/MyProject/path/File.cls:ClassName'),
+      ).toBe('memfs:/MyProject/path/File.cls');
+    });
+
+    it('should handle vscode-test-web URI without symbol part', () => {
+      expect(
+        extractFilePathFromUri('vscode-test-web://mount/path/File.cls'),
+      ).toBe('vscode-test-web://mount/path/File.cls');
+    });
+
+    it('should return built-in URI as-is', () => {
+      expect(extractFilePathFromUri('built-in://Object')).toBe(
+        'built-in://Object',
+      );
+    });
+
+    it('should not produce file://memfs collision (regression guard)', () => {
+      // After Fix 1, memfs: URIs should never be wrapped in file://
+      // This test guards against the old behavior where all memfs: URIs
+      // would collapse to "file://memfs"
+      const uri1 = 'memfs:/MyProject/path/Arrrrg.cls';
+      const uri2 = 'memfs:/MyProject/path/Bar.cls';
+      expect(extractFilePathFromUri(uri1)).not.toBe(
+        extractFilePathFromUri(uri2),
+      );
     });
   });
 });

@@ -1,0 +1,111 @@
+// @ts-check
+/// <reference types="vscode" />
+
+const vscode = require('vscode');
+
+/**
+ * Minimal in-memory FileSystemProvider for testing memfs: URI handling.
+ * Implements only the subset of the API needed by VS Code's workbench.
+ */
+class MemFSProvider {
+  constructor() {
+    /** @type {Map<string, Uint8Array>} */
+    this._files = new Map();
+    /** @type {Set<string>} */
+    this._dirs = new Set();
+    this._emitter = new vscode.EventEmitter();
+    this.onDidChangeFile = this._emitter.event;
+
+    // Root always exists
+    this._dirs.add('/');
+  }
+
+  stat(uri) {
+    const path = uri.path;
+    if (this._dirs.has(path)) {
+      return { type: vscode.FileType.Directory, ctime: 0, mtime: 0, size: 0 };
+    }
+    const content = this._files.get(path);
+    if (content !== undefined) {
+      return {
+        type: vscode.FileType.File,
+        ctime: 0,
+        mtime: Date.now(),
+        size: content.byteLength,
+      };
+    }
+    throw vscode.FileSystemError.FileNotFound(uri);
+  }
+
+  readDirectory(uri) {
+    const dirPath = uri.path.endsWith('/') ? uri.path : uri.path + '/';
+    const result = [];
+
+    for (const d of this._dirs) {
+      if (d !== uri.path && d.startsWith(dirPath)) {
+        const rest = d.slice(dirPath.length);
+        if (!rest.includes('/')) {
+          result.push([rest, vscode.FileType.Directory]);
+        }
+      }
+    }
+    for (const [filePath] of this._files) {
+      if (filePath.startsWith(dirPath)) {
+        const rest = filePath.slice(dirPath.length);
+        if (!rest.includes('/')) {
+          result.push([rest, vscode.FileType.File]);
+        }
+      }
+    }
+    return result;
+  }
+
+  createDirectory(uri) {
+    this._dirs.add(uri.path);
+  }
+
+  readFile(uri) {
+    const content = this._files.get(uri.path);
+    if (content !== undefined) {
+      return content;
+    }
+    throw vscode.FileSystemError.FileNotFound(uri);
+  }
+
+  writeFile(uri, content, _options) {
+    this._files.set(uri.path, content);
+    this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+  }
+
+  delete(uri, _options) {
+    if (this._files.has(uri.path)) {
+      this._files.delete(uri.path);
+    } else if (this._dirs.has(uri.path)) {
+      this._dirs.delete(uri.path);
+    } else {
+      throw vscode.FileSystemError.FileNotFound(uri);
+    }
+    this._emitter.fire([{ type: vscode.FileChangeType.Deleted, uri }]);
+  }
+
+  rename(oldUri, newUri, _options) {
+    const content = this._files.get(oldUri.path);
+    if (content !== undefined) {
+      this._files.delete(oldUri.path);
+      this._files.set(newUri.path, content);
+    } else {
+      throw vscode.FileSystemError.FileNotFound(oldUri);
+    }
+    this._emitter.fire([
+      { type: vscode.FileChangeType.Deleted, uri: oldUri },
+      { type: vscode.FileChangeType.Created, uri: newUri },
+    ]);
+  }
+
+  watch(_uri, _options) {
+    // No-op for testing
+    return new vscode.Disposable(() => {});
+  }
+}
+
+module.exports = { MemFSProvider };

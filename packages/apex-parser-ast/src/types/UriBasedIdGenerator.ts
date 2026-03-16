@@ -186,24 +186,41 @@ export const extractFilePathFromUri = (uri: string): string => {
     return uri;
   }
 
-  // Use the same logic as parseSymbolId() to extract URI portion
-  // Find the first colon (protocol separator)
-  const uriEnd = uri.indexOf(':');
-  if (uriEnd === -1) {
-    // No protocol separator, return as-is
+  const protocol = getProtocolType(uri);
+
+  // For known double-slash protocols, find the symbol separator after the authority
+  if (protocol === 'file' || protocol === 'apexlib' || protocol === 'builtin') {
+    // file:///path/to/file.cls:ClassName  ->  file:///path/to/file.cls
+    // Find the colon after the protocol+authority (skip "scheme://")
+    const protocolEnd = uri.indexOf('://');
+    if (protocolEnd !== -1) {
+      // Find the next colon after the path portion (skip past authority)
+      const pathStart = uri.indexOf('/', protocolEnd + 3);
+      if (pathStart !== -1) {
+        const symbolSep = uri.indexOf(':', pathStart);
+        if (symbolSep !== -1) {
+          return uri.substring(0, symbolSep);
+        }
+      }
+    }
     return uri;
   }
 
-  // Find the second colon (URI/symbol separator)
-  const secondColon = uri.indexOf(':', uriEnd + 1);
-  if (secondColon === -1) {
-    // No symbol part, return the full URI
-    return uri;
+  // For 'other' protocols (memfs:, vscode-test-web://, etc.) and plain paths,
+  // find the colon that separates URI from symbol parts.
+  // A symbol separator colon appears AFTER the last path segment (after the file extension).
+  // Use file-extension heuristic: if the URI contains a recognized extension (.cls, .trigger,
+  // .apex), the symbol separator is the first colon after that extension.
+  const extMatch = uri.match(/\.(cls|trigger|apex|soql)/);
+  if (extMatch) {
+    const extEnd = extMatch.index! + extMatch[0].length;
+    const symbolSep = uri.indexOf(':', extEnd);
+    if (symbolSep !== -1) {
+      return uri.substring(0, symbolSep);
+    }
   }
 
-  // Extract everything up to the second colon as the URI
-  // This works for all protocols: file://, apexlib://, etc.
-  return uri.substring(0, secondColon);
+  return uri;
 };
 
 /**

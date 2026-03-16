@@ -44,6 +44,12 @@ export const getProtocolType = (uri: string): UriProtocol | null => {
   if (uri.includes('://')) {
     return 'other';
   }
+  // Recognize single-slash URI schemes (e.g., memfs:/path, vscode-vfs:/path).
+  // Per RFC 3986, a scheme is [a-zA-Z][a-zA-Z0-9+.-]* followed by ':'.
+  // The path component after ':' typically starts with '/' for hierarchical URIs.
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\//.test(uri)) {
+    return 'other';
+  }
   return null;
 };
 
@@ -56,11 +62,12 @@ export const getProtocolType = (uri: string): UriProtocol | null => {
 export const hasProtocol = (uri: string, protocol: UriProtocol): boolean => {
   if (protocol === 'other') {
     // For 'other', check if it has any protocol but not our known ones
+    // Supports both double-slash (vscode-test-web://) and single-slash (memfs:/) schemes
     return (
-      uri.includes('://') &&
       !uri.startsWith(PROTOCOL_PREFIXES.file) &&
       !uri.startsWith(PROTOCOL_PREFIXES.apexlib) &&
-      !uri.startsWith(PROTOCOL_PREFIXES.builtin)
+      !uri.startsWith(PROTOCOL_PREFIXES.builtin) &&
+      (uri.includes('://') || /^[a-zA-Z][a-zA-Z0-9+.-]*:\//.test(uri))
     );
   }
   return uri.startsWith(PROTOCOL_PREFIXES[protocol]);

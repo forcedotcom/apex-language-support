@@ -12,6 +12,7 @@
  *   --debug           : Wait for debugger attachment
  *   --devtools        : Open browser devtools during tests
  *   --headless        : Run in headless mode (browser hidden)
+ *   --memfs           : Use memfs: URI scheme (simulates Code Builder Web environment)
  *   --with-services   : Install salesforcedx-vscode-services extension from Marketplace
  *   --clone-url=<url> : Clone a remote git repo as the workspace (uses a temp dir, cleaned up after)
  *   --workspace=<rel> : Use a local path (relative to repo root) as the workspace
@@ -756,6 +757,16 @@ async function runWebExtensionTests() {
     // @vscode/test-web reads package.json from extensionDevelopmentPath and
     // resolves the browser entry point (./dist/extension.web.js) relative to it.
     console.log('🚀 Starting VS Code Web server...');
+    const useMemfs = process.argv.includes('--memfs');
+    const memfsProviderPath = path.resolve(__dirname, 'test-extensions/memfs-provider');
+
+    if (useMemfs && !fs.existsSync(memfsProviderPath)) {
+      throw new Error(
+        `memfs provider extension not found: ${memfsProviderPath}. ` +
+        'Create the test extension under scripts/test-extensions/memfs-provider/'
+      );
+    }
+
     const testPromise = runTests({
       extensionDevelopmentPath: extensionDevelopmentPath,
       // No extensionTestsPath - just test extension loading and activation
@@ -766,7 +777,16 @@ async function runWebExtensionTests() {
       printServerLog: true, // Enable server logs for capture
       verbose: true, // Enable verbose logging
       devtools: process.argv.includes('--devtools'),
-      folderPath: workspacePath,
+      // When --memfs is used, pass folderUri instead of folderPath and load the
+      // memfs FileSystemProvider test extension so the scheme is registered.
+      ...(useMemfs
+        ? {
+            folderUri: 'memfs:/MyProject/force-app/main/default/classes',
+            extensionPaths: [memfsProviderPath],
+          }
+        : {
+            folderPath: workspacePath,
+          }),
       ...(process.argv.includes('--with-services')
         ? {
             extensionIds: [
