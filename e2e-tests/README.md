@@ -94,9 +94,12 @@ e2e-tests/
 │   └── setup.ts                         # Workspace setup
 ├── test-data/                      # Sample Apex files
 │   └── apex-samples/
-│       ├── complex-class.cls            # Complex nested structures
-│       ├── inheritance.cls               # Class hierarchies
-│       └── interface-impl.cls            # Interface implementations
+│       ├── ComplexClass.cls              # Complex nested structures
+│       ├── AccountHandler.cls            # Derived handler class (extends BaseHandler)
+│       ├── BaseHandler.cls               # Base abstract handler class
+│       ├── AccountProcessor.cls          # AccountProcessor implements DataProcessor
+│       ├── DataProcessor.cls             # DataProcessor interface
+│       └── ContactProcessor.cls         # ContactProcessor implements DataProcessor
 ├── playwright.config.ts            # Default config (re-exports web)
 ├── playwright.config.web.ts        # Web-only configuration
 ├── playwright.config.desktop.ts    # Desktop (Electron) configuration

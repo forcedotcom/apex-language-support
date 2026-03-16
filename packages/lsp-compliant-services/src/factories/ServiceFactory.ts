@@ -94,10 +94,12 @@ export class ServiceFactory {
    * Create definition processing service
    */
   createDefinitionService(): DefinitionProcessingService {
-    return new DefinitionProcessingService(
+    const service = new DefinitionProcessingService(
       this.dependencies.logger,
       this.dependencies.symbolManager,
     );
+    service.setLayerEnrichmentService(this.getLayerEnrichmentService());
+    return service;
   }
 
   /**

@@ -164,6 +164,31 @@ export class HoverPage extends BasePage {
   }
 
   /**
+   * Hover at a position twice to handle cross-file resolution.
+   * The first hover triggers background missing artifact resolution.
+   * After waiting for the resolution to complete, the second hover
+   * returns the fully resolved content from the target file.
+   * @param line - Line number (1-indexed)
+   * @param column - Column number (1-indexed)
+   * @param resolutionWaitMs - Time to wait between hovers for background resolution (default 3000ms)
+   * @returns Hover content from the second (resolved) hover
+   */
+  async hoverAtWithResolution(
+    line: number,
+    column: number,
+    resolutionWaitMs = 3000,
+  ): Promise<string> {
+    // First hover triggers background missing artifact resolution
+    await this.hoverAt(line, column);
+    await this.dismissHover();
+    // Wait for background resolution to open and index the target file
+    await this.page.waitForTimeout(resolutionWaitMs);
+    // Second hover should return resolved content
+    await this.hoverAt(line, column);
+    return await this.getHoverContent();
+  }
+
+  /**
    * Test a specific hover scenario.
    * Uses the existing utility function for scenario testing.
    * @param scenario - The hover test scenario to execute
