@@ -94,3 +94,6 @@ playwright-report/
 packages/apex-lsp-testbed/test/fixtures/eda
 /packages/apex-lsp-testbed/test/fixtures/i-have-problems/force-app
 /slopdocs
+
+# Generated at runtime by test-web-ext.js --memfs
+scripts/test-extensions/memfs-provider/workspace-files.json

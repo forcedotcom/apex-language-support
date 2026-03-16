@@ -209,7 +209,7 @@ describe('UriBasedIdGenerator', () => {
       // After Fix 1, memfs: URIs should never be wrapped in file://
       // This test guards against the old behavior where all memfs: URIs
       // would collapse to "file://memfs"
-      const uri1 = 'memfs:/MyProject/path/Arrrrg.cls';
+      const uri1 = 'memfs:/MyProject/path/BuzzoBonk.cls';
       const uri2 = 'memfs:/MyProject/path/Bar.cls';
       expect(extractFilePathFromUri(uri1)).not.toBe(
         extractFilePathFromUri(uri2),

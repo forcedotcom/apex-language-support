@@ -12,7 +12,7 @@
  *   --debug           : Wait for debugger attachment
  *   --devtools        : Open browser devtools during tests
  *   --headless        : Run in headless mode (browser hidden)
- *   --memfs           : Use memfs: URI scheme (simulates Code Builder Web environment)
+ *   --no-memfs        : Disable memfs: URI scheme (use local folderPath instead of memfs provider)
  *   --with-services   : Install salesforcedx-vscode-services extension from Marketplace
  *   --clone-url=<url> : Clone a remote git repo as the workspace (uses a temp dir, cleaned up after)
  *   --workspace=<rel> : Use a local path (relative to repo root) as the workspace
@@ -757,7 +757,8 @@ async function runWebExtensionTests() {
     // @vscode/test-web reads package.json from extensionDevelopmentPath and
     // resolves the browser entry point (./dist/extension.web.js) relative to it.
     console.log('🚀 Starting VS Code Web server...');
-    const useMemfs = process.argv.includes('--memfs');
+    // memfs is the default to match Code Builder Web. Use --no-memfs to fall back to local folderPath.
+    const useMemfs = !process.argv.includes('--no-memfs');
     const memfsProviderPath = path.resolve(__dirname, 'test-extensions/memfs-provider');
 
     if (useMemfs && !fs.existsSync(memfsProviderPath)) {
@@ -765,6 +766,25 @@ async function runWebExtensionTests() {
         `memfs provider extension not found: ${memfsProviderPath}. ` +
         'Create the test extension under scripts/test-extensions/memfs-provider/'
       );
+    }
+
+    if (useMemfs) {
+      console.log('🗂️  Using memfs: URI scheme (Code Builder Web mode)');
+      console.log(`   Source files from: ${workspacePath}`);
+
+      // Generate workspace-files.json inside the memfs extension dir so the
+      // browser-based extension can read it via vscode.workspace.fs.
+      const workspaceFiles = {};
+      const entries = fs.readdirSync(workspacePath);
+      for (const entry of entries) {
+        const fullPath = path.join(workspacePath, entry);
+        if (fs.statSync(fullPath).isFile()) {
+          workspaceFiles[entry] = fs.readFileSync(fullPath, 'utf-8');
+        }
+      }
+      const manifestPath = path.join(memfsProviderPath, 'workspace-files.json');
+      fs.writeFileSync(manifestPath, JSON.stringify(workspaceFiles, null, 2));
+      console.log(`   Generated workspace-files.json (${Object.keys(workspaceFiles).length} files)`);
     }
 
     const testPromise = runTests({
@@ -777,11 +797,11 @@ async function runWebExtensionTests() {
       printServerLog: true, // Enable server logs for capture
       verbose: true, // Enable verbose logging
       devtools: process.argv.includes('--devtools'),
-      // When --memfs is used, pass folderUri instead of folderPath and load the
-      // memfs FileSystemProvider test extension so the scheme is registered.
+      // By default, use memfs: URI scheme with a FileSystemProvider test extension
+      // to match Code Builder Web. The provider reads files from the test-workspace dir.
       ...(useMemfs
         ? {
-            folderUri: 'memfs:/MyProject/force-app/main/default/classes',
+            folderUri: 'memfs:/workspace',
             extensionPaths: [memfsProviderPath],
           }
         : {
