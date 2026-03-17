@@ -13,7 +13,7 @@
     "directory": "packages/apex-lsp-vscode-extension"
   },
   "engines": {
-    "vscode": "^1.108.0"
+    "vscode": "^1.105.0"
   },
   "categories": [
     "Programming Languages",
