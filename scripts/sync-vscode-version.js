@@ -11,8 +11,11 @@
  * and syncs package.json files.
  *
  * Updates:
- *   - engines.vscode (e.g. "^1.108.0")
  *   - devDependencies["@types/vscode"] (e.g. "^1.108.0")
+ *
+ * Note: engines.vscode is NOT synced here. It represents the minimum VS Code
+ * runtime required by the extension and must be set independently based on
+ * actual API usage — not coupled to the test harness version.
  *
  * Usage: node scripts/sync-vscode-version.js [--check]
  *
@@ -31,6 +34,7 @@ const { readFileSync, writeFileSync } = require('fs');
 const { join } = require('path');
 const { exec } = require('child_process');
 const { promisify } = require('util');
+const semver = require('semver');
 
 const execAsync = promisify(exec);
 
@@ -119,9 +123,20 @@ function syncPackageJson(relPath, target) {
   const caretTarget = `^${target}`;
   const changes = [];
 
-  if (pkg.engines?.vscode && pkg.engines.vscode !== caretTarget) {
-    changes.push(`engines.vscode: ${pkg.engines.vscode} -> ${caretTarget}`);
-    pkg.engines.vscode = caretTarget;
+  const enginesVscode = pkg.engines?.vscode;
+  if (enginesVscode) {
+    const minVersion = semver.minVersion(enginesVscode)?.version;
+    if (minVersion && semver.gt(minVersion, target)) {
+      const msg =
+        `${relPath}: engines.vscode minimum (${minVersion}) exceeds the test harness version (${target}). ` +
+        `The extension requires APIs not covered by the current test harness — lower engines.vscode or update .vscode-version.`;
+      if (CHECK_ONLY) {
+        console.error(`ERROR: ${msg}`);
+        process.exitCode = 1;
+      } else {
+        console.warn(`WARNING: ${msg}`);
+      }
+    }
   }
 
   if (pkg.devDependencies?.['@types/vscode'] && pkg.devDependencies['@types/vscode'] !== caretTarget) {
