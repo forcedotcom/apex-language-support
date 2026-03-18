@@ -7,23 +7,19 @@
  * That file is committed and used as-is in CI.
  *
  * When run locally (without --check), fetches the latest value from the
- * code-builder-web repo (via `gh api`), writes it to `.vscode-version`,
- * and syncs package.json files.
+ * code-builder-web repo (via `gh api`) and writes it to `.vscode-version`.
  *
- * Updates:
- *   - devDependencies["@types/vscode"] (e.g. "^1.108.0")
- *
- * Note: engines.vscode is NOT synced here. It represents the minimum VS Code
- * runtime required by the extension and must be set independently based on
- * actual API usage — not coupled to the test harness version.
+ * Note: Neither engines.vscode nor @types/vscode are synced here. Both must
+ * be set independently based on actual requirements. The script only validates
+ * that engines.vscode minimum does not exceed the test harness version.
  *
  * Usage: node scripts/sync-vscode-version.js [--check]
  *
  *   --check   Report drift without writing changes (useful in CI).
  *             Reads the committed `.vscode-version` file only.
  *
- *   (default) Fetches the latest version from the Code Builder Web repo,
- *             writes it to `.vscode-version`, and updates package.json files.
+ *   (default) Fetches the latest version from the Code Builder Web repo
+ *             and writes it to `.vscode-version`.
  *
  * Other scripts can import `readLocalVSCodeVersion` to read the pinned version.
  *
@@ -111,44 +107,44 @@ async function updateVSCodeVersionFromCBWeb() {
 }
 
 /**
- * Update a single package.json, returning a list of fields that changed.
- * @param {string} relPath - Relative path from repo root
- * @param {string} target  - Target version (e.g. "1.108.0")
- * @returns {string[]} List of changed field descriptions
+ * Emit a warning or CI error for a version that exceeds the test harness version.
+ * @param {string} label   - Human-readable field name for the message
+ * @param {string} version - The version string to check (e.g. "^1.110.0" or "1.110.0")
+ * @param {string} target  - Test harness version (e.g. "1.108.0")
+ * @param {string} relPath - Package path, for context in the message
  */
-function syncPackageJson(relPath, target) {
-  const filePath = join(ROOT, relPath);
-  const raw = readFileSync(filePath, 'utf-8');
-  const pkg = JSON.parse(raw);
-  const caretTarget = `^${target}`;
-  const changes = [];
-
-  const enginesVscode = pkg.engines?.vscode;
-  if (enginesVscode) {
-    const minVersion = semver.minVersion(enginesVscode)?.version;
-    if (minVersion && semver.gt(minVersion, target)) {
-      const msg =
-        `${relPath}: engines.vscode minimum (${minVersion}) exceeds the test harness version (${target}). ` +
-        `The extension requires APIs not covered by the current test harness — lower engines.vscode or update .vscode-version.`;
-      if (CHECK_ONLY) {
-        console.error(`ERROR: ${msg}`);
-        process.exitCode = 1;
-      } else {
-        console.warn(`WARNING: ${msg}`);
-      }
+function guardVersion(label, version, target, relPath) {
+  const minVersion = semver.minVersion(version)?.version;
+  if (minVersion && semver.gt(minVersion, target)) {
+    const msg =
+      `${relPath}: ${label} (${minVersion}) exceeds the test harness version (${target}). ` +
+      `Lower ${label} or update .vscode-version.`;
+    if (CHECK_ONLY) {
+      console.error(`ERROR: ${msg}`);
+      process.exitCode = 1;
+    } else {
+      console.warn(`WARNING: ${msg}`);
     }
   }
+}
 
-  if (pkg.devDependencies?.['@types/vscode'] && pkg.devDependencies['@types/vscode'] !== caretTarget) {
-    changes.push(`@types/vscode: ${pkg.devDependencies['@types/vscode']} -> ${caretTarget}`);
-    pkg.devDependencies['@types/vscode'] = caretTarget;
+/**
+ * Guard: warn (or error in CI/--check) if engines.vscode or @types/vscode
+ * exceed the test harness version. Does not modify any files.
+ * @param {string} relPath - Relative path from repo root
+ * @param {string} target  - Test harness version (e.g. "1.108.0")
+ */
+function checkPackageJson(relPath, target) {
+  const filePath = join(ROOT, relPath);
+  const pkg = JSON.parse(readFileSync(filePath, 'utf-8'));
+
+  if (pkg.engines?.vscode) {
+    guardVersion('engines.vscode', pkg.engines.vscode, target, relPath);
   }
 
-  if (changes.length > 0 && !CHECK_ONLY) {
-    writeFileSync(filePath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
+  if (pkg.devDependencies?.['@types/vscode']) {
+    guardVersion('@types/vscode', pkg.devDependencies['@types/vscode'], target, relPath);
   }
-
-  return changes;
 }
 
 async function main() {
@@ -166,33 +162,9 @@ async function main() {
   }
 
   console.log(`Target VS Code version: ${version}`);
-  console.log(CHECK_ONLY ? '(check-only mode — no files will be written)\n' : '');
-
-  let totalChanges = 0;
 
   for (const relPath of PACKAGE_JSONS) {
-    const changes = syncPackageJson(relPath, version);
-    if (changes.length > 0) {
-      console.log(`${relPath}:`);
-      for (const c of changes) {
-        console.log(`  ${c}`);
-      }
-      totalChanges += changes.length;
-    } else {
-      console.log(`${relPath}: up to date`);
-    }
-  }
-
-  console.log('');
-
-  if (totalChanges === 0) {
-    console.log('All VS Code versions are in sync.');
-  } else if (CHECK_ONLY) {
-    console.error(`${totalChanges} version(s) out of sync. Run "npm run sync:vscode-version" to fix.`);
-    process.exit(1);
-  } else {
-    console.log(`Updated ${totalChanges} version reference(s).`);
-    console.log('Run "npm install" to update the lockfile.');
+    checkPackageJson(relPath, version);
   }
 }
 
