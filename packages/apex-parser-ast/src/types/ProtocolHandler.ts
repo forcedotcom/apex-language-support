@@ -14,7 +14,7 @@ export type UriProtocol = 'file' | 'apexlib' | 'builtin' | 'other';
 const PROTOCOL_PREFIXES = {
   file: 'file://',
   apexlib: 'apexlib://',
-  builtin: 'builtin://',
+  builtin: 'built-in://',
 } as const;
 
 export const APEXLIB_RESOURCE_PREFIX =
@@ -44,6 +44,12 @@ export const getProtocolType = (uri: string): UriProtocol | null => {
   if (uri.includes('://')) {
     return 'other';
   }
+  // Recognize single-slash URI schemes with 2+ char names (e.g., memfs:/path, vscode-vfs:/path).
+  // Per RFC 3986, a scheme is [a-zA-Z][a-zA-Z0-9+.-]* followed by ':'.
+  // Using '+' (not '*') to require at least 2-char schemes, excluding Windows drive letters (C:/).
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]+:\//.test(uri)) {
+    return 'other';
+  }
   return null;
 };
 
@@ -56,11 +62,12 @@ export const getProtocolType = (uri: string): UriProtocol | null => {
 export const hasProtocol = (uri: string, protocol: UriProtocol): boolean => {
   if (protocol === 'other') {
     // For 'other', check if it has any protocol but not our known ones
+    // Supports both double-slash (vscode-test-web://) and single-slash (memfs:/) schemes
     return (
-      uri.includes('://') &&
       !uri.startsWith(PROTOCOL_PREFIXES.file) &&
       !uri.startsWith(PROTOCOL_PREFIXES.apexlib) &&
-      !uri.startsWith(PROTOCOL_PREFIXES.builtin)
+      !uri.startsWith(PROTOCOL_PREFIXES.builtin) &&
+      (uri.includes('://') || /^[a-zA-Z][a-zA-Z0-9+.-]+:\//.test(uri))
     );
   }
   return uri.startsWith(PROTOCOL_PREFIXES[protocol]);

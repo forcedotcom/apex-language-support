@@ -12,6 +12,7 @@
  *   --debug           : Wait for debugger attachment
  *   --devtools        : Open browser devtools during tests
  *   --headless        : Run in headless mode (browser hidden)
+ *   --no-memfs        : Disable memfs: URI scheme (use local folderPath instead of memfs provider)
  *   --with-services   : Install salesforcedx-vscode-services extension from Marketplace
  *   --clone-url=<url> : Clone a remote git repo as the workspace (uses a temp dir, cleaned up after)
  *   --workspace=<rel> : Use a local path (relative to repo root) as the workspace
@@ -756,6 +757,42 @@ async function runWebExtensionTests() {
     // @vscode/test-web reads package.json from extensionDevelopmentPath and
     // resolves the browser entry point (./dist/extension.web.js) relative to it.
     console.log('🚀 Starting VS Code Web server...');
+    // memfs is the default to match Code Builder Web. Use --no-memfs to fall back to local folderPath.
+    const useMemfs = !process.argv.includes('--no-memfs');
+    const memfsProviderPath = path.resolve(__dirname, 'test-extensions/memfs-provider');
+
+    if (useMemfs && !fs.existsSync(memfsProviderPath)) {
+      throw new Error(
+        `memfs provider extension not found: ${memfsProviderPath}. ` +
+        'Create the test extension under scripts/test-extensions/memfs-provider/'
+      );
+    }
+
+    if (useMemfs) {
+      console.log('🗂️  Using memfs: URI scheme (Code Builder Web mode)');
+      console.log(`   Source files from: ${workspacePath}`);
+
+      // Generate workspace-files.json inside the memfs extension dir so the
+      // browser-based extension can read it via vscode.workspace.fs.
+      // Recursively walks the workspace directory to include nested files.
+      const workspaceFiles = {};
+      function collectFiles(dir, prefix) {
+        for (const entry of fs.readdirSync(dir)) {
+          const fullPath = path.join(dir, entry);
+          const relativeName = prefix ? `${prefix}/${entry}` : entry;
+          if (fs.statSync(fullPath).isDirectory()) {
+            collectFiles(fullPath, relativeName);
+          } else if (fs.statSync(fullPath).isFile()) {
+            workspaceFiles[relativeName] = fs.readFileSync(fullPath, 'utf-8');
+          }
+        }
+      }
+      collectFiles(workspacePath, '');
+      const manifestPath = path.join(memfsProviderPath, 'workspace-files.json');
+      fs.writeFileSync(manifestPath, JSON.stringify(workspaceFiles, null, 2));
+      console.log(`   Generated workspace-files.json (${Object.keys(workspaceFiles).length} files)`);
+    }
+
     const testPromise = runTests({
       extensionDevelopmentPath: extensionDevelopmentPath,
       // No extensionTestsPath - just test extension loading and activation
@@ -766,7 +803,16 @@ async function runWebExtensionTests() {
       printServerLog: true, // Enable server logs for capture
       verbose: true, // Enable verbose logging
       devtools: process.argv.includes('--devtools'),
-      folderPath: workspacePath,
+      // By default, use memfs: URI scheme with a FileSystemProvider test extension
+      // to match Code Builder Web. The provider reads files from the test-workspace dir.
+      ...(useMemfs
+        ? {
+            folderUri: 'memfs:/workspace',
+            extensionPaths: [memfsProviderPath],
+          }
+        : {
+            folderPath: workspacePath,
+          }),
       ...(process.argv.includes('--with-services')
         ? {
             extensionIds: [
