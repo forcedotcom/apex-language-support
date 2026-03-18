@@ -7,7 +7,7 @@
  */
 
 import type { Page } from '@playwright/test';
-import { SELECTORS, APEX_CLASS_EXAMPLE_CONTENT } from './constants';
+import { SELECTORS } from './constants';
 import {
   waitForVSCodeWorkbench,
   closeWelcomeTabs,
@@ -32,31 +32,6 @@ export interface TestSessionResult {
   readonly consoleErrors: ConsoleError[];
   readonly networkErrors: NetworkError[];
 }
-
-/**
- * Creates a sample file object for testing.
- *
- * @param filename - The file name with extension
- * @param content - The file content
- * @returns Sample file object for test workspace
- */
-const createSampleFile = (filename: string, content: string): SampleFile => ({
-  filename,
-  content,
-});
-
-/**
- * Creates the comprehensive Apex class example file.
- *
- * @returns Sample file with comprehensive Apex class content
- */
-const createApexClassExampleFile = (): SampleFile =>
-  createSampleFile('ApexClassExample.cls', APEX_CLASS_EXAMPLE_CONTENT);
-
-/**
- * All sample files for workspace creation.
- */
-export const ALL_SAMPLE_FILES = [createApexClassExampleFile()] as const;
 
 /**
  * Starts VS Code Web and waits for it to load.

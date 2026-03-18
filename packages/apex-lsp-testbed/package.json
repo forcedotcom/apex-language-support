@@ -115,7 +115,8 @@
     "test:quality": {
       "command": "jest --testMatch \"**/test/**/*.quality.ts\"",
       "dependencies": [
-        "compile"
+        "compile",
+        "../apex-ls:bundle"
       ],
       "files": [
         "src/**/*.ts",

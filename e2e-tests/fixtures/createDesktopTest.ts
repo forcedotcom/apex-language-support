@@ -74,7 +74,6 @@ export const createDesktopTest = (options: CreateDesktopTestOptions) => {
         repoRoot,
         'packages',
         'apex-lsp-vscode-extension',
-        'dist',
       );
 
       const videosDir = path.join(

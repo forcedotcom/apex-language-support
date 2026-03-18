@@ -28,6 +28,14 @@ let extensionTracingRuntime:
   | ManagedRuntime.ManagedRuntime<never, never>
   | undefined;
 
+let salesforceServicesApi: SalesforceVSCodeServicesApi | undefined;
+
+export function getSalesforceServicesApi():
+  | SalesforceVSCodeServicesApi
+  | undefined {
+  return salesforceServicesApi;
+}
+
 /** Effect that resolves the services extension API, activating it if needed. */
 const getServicesApi = Effect.sync(() =>
   vscode.extensions.getExtension<SalesforceVSCodeServicesApi>(SERVICES_EXT_ID),
@@ -56,6 +64,8 @@ async function buildTracingRuntime(
       Effect.flatMap((api) =>
         Effect.tryPromise({
           try: async () => {
+            salesforceServicesApi = api;
+
             const sdkLayer = api.services.SdkLayerFor(context);
             extensionTracingRuntime = ManagedRuntime.make(sdkLayer);
             // Eagerly build the layer (ManagedRuntime is lazy).

@@ -17,7 +17,6 @@ import {
   createMissingArtifactResolutionService,
 } from '../services/MissingArtifactResolutionService';
 import { transformLspToParserPosition } from './positionUtils';
-
 /**
  * Utility functions for handling missing artifact resolution
  * Can be used by any LSP service handler that needs to resolve missing artifacts
@@ -99,7 +98,12 @@ export class MissingArtifactUtils {
 
       // Build parent context for better search hints
       const parentContext = this.extractParentContext(uri, reference);
-      const searchHints = this.generateSearchHints(reference, parentContext);
+      const superClass = this.extractSuperClassForRef(uri, reference);
+      const searchHints = this.generateSearchHints(
+        reference,
+        parentContext,
+        superClass,
+      );
 
       // Try to resolve the missing artifact
       const resolvedQualifier = this.resolveQualifierInfo(
@@ -171,7 +175,12 @@ export class MissingArtifactUtils {
 
       // Build parent context for better search hints
       const parentContext = this.extractParentContext(uri, reference);
-      const searchHints = this.generateSearchHints(reference, parentContext);
+      const superClass = this.extractSuperClassForRef(uri, reference);
+      const searchHints = this.generateSearchHints(
+        reference,
+        parentContext,
+        superClass,
+      );
 
       // Try to resolve the missing artifact
       const resolvedQualifier = this.resolveQualifierInfo(
@@ -389,9 +398,51 @@ export class MissingArtifactUtils {
   }
 
   /**
+   * Extract the superclass name for a METHOD_CALL reference by examining the enclosing
+   * class symbol in the file. Falls back to parentContext if available.
+   */
+  private extractSuperClassForRef(uri: string, reference: any): string | null {
+    try {
+      const refLine: number = reference.location.identifierRange.startLine; // 1-based
+      const fileSymbols = this.symbolManager.findSymbolsInFile(uri);
+      // Find the most-specific (smallest) class whose range contains the ref line
+      let best: { superClass: string; size: number } | null = null;
+      for (const sym of fileSymbols) {
+        if (sym.kind !== 'class') continue;
+        const range = sym.location?.symbolRange;
+        if (!range) continue;
+        if (range.startLine <= refLine && range.endLine >= refLine) {
+          const superClass = (sym as any).superClass as string | undefined;
+          if (!superClass) continue;
+          const size =
+            (range.endLine - range.startLine) * 1000 +
+            (range.endColumn - range.startColumn);
+          if (!best || size < best.size) {
+            best = { superClass, size };
+          }
+        }
+      }
+      if (best) {
+        // Strip any namespace prefix (e.g., "NS.Foo" → "Foo")
+        const name = best.superClass.includes('.')
+          ? best.superClass.split('.').pop()!
+          : best.superClass;
+        return name;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Generate enhanced search hints based on TypeReference context and parent information
    */
-  private generateSearchHints(reference: any, parentContext: any): any[] {
+  private generateSearchHints(
+    reference: any,
+    parentContext: any,
+    superClass?: string | null,
+  ): any[] {
     const hints: any[] = [];
 
     try {
@@ -438,13 +489,25 @@ export class MissingArtifactUtils {
 
         if (context === 0 || context === 1 || context === 4) {
           // METHOD_CALL, CLASS_REFERENCE, CONSTRUCTOR_CALL
-          hints.push({
-            searchPatterns: [`**/${reference.name}.cls`],
-            priority: 'high',
-            reasoning: 'Method/class reference suggests class definition',
-            expectedFileType: 'class',
-            confidence: 0.8,
-          });
+          if (context === 0 && superClass) {
+            // Unqualified method call with a known superclass: the method is likely
+            // inherited. Load the superclass file first so the symbol graph can find it.
+            hints.push({
+              searchPatterns: [`**/${superClass}.cls`],
+              priority: 'high',
+              reasoning: `Unqualified method '${reference.name}' may be inherited from superclass '${superClass}'`,
+              expectedFileType: 'class',
+              confidence: 0.9,
+            });
+          } else {
+            hints.push({
+              searchPatterns: [`**/${reference.name}.cls`],
+              priority: 'high',
+              reasoning: 'Method/class reference suggests class definition',
+              expectedFileType: 'class',
+              confidence: 0.8,
+            });
+          }
         } else if (context === 3) {
           // FIELD_ACCESS
           hints.push({

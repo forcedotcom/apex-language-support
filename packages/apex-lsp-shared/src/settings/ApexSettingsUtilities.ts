@@ -129,11 +129,11 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     },
 
     worker: {
-      logLevel: 'info',
+      logLevel: 'error',
     },
 
     version: undefined,
-    logLevel: 'info',
+    logLevel: 'error',
   },
 };
 
