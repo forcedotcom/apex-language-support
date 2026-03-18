@@ -145,9 +145,8 @@ export class SchedulerInitializationService {
 
     try {
       // Reset the scheduler first
-      const { reset, shutdown } = await import(
-        '../queue/priority-scheduler-utils'
-      );
+      const { reset, shutdown } =
+        await import('../queue/priority-scheduler-utils');
       await Effect.runPromise(shutdown());
       await Effect.runPromise(reset());
 

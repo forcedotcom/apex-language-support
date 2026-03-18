@@ -41,9 +41,7 @@ export interface IDocumentSymbolProcessor {
 /**
  * Service for processing document symbol requests using ApexSymbolManager
  */
-export class DocumentSymbolProcessingService
-  implements IDocumentSymbolProcessor
-{
+export class DocumentSymbolProcessingService implements IDocumentSymbolProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private layerEnrichmentService: LayerEnrichmentService | null = null;

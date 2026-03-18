@@ -305,9 +305,8 @@ export const dispatchProcessOnFindMissingArtifact = async (
   params: FindMissingArtifactParams,
 ): Promise<FindMissingArtifactResult> => {
   // Import the function dynamically to avoid circular dependencies
-  const { processApexFindMissingArtifact } = await import(
-    './handlers/MissingArtifactHandler'
-  );
+  const { processApexFindMissingArtifact } =
+    await import('./handlers/MissingArtifactHandler');
   return await processApexFindMissingArtifact(params);
 };
 

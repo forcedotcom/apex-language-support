@@ -52,9 +52,7 @@ export interface WorkspaceSymbolContext {
 /**
  * Service for processing workspace symbol requests using ApexSymbolManager
  */
-export class WorkspaceSymbolProcessingService
-  implements IWorkspaceSymbolProcessor
-{
+export class WorkspaceSymbolProcessingService implements IWorkspaceSymbolProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private layerEnrichmentService: LayerEnrichmentService | null = null;
