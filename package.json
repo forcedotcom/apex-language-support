@@ -98,7 +98,7 @@
     "jsonc-eslint-parser": "^2.4.0",
     "knip": "^5.85.0",
     "playwright": "^1.55.0",
-    "prettier": "^3.5.3",
+    "prettier": "^3.8.1",
     "rimraf": "^5.0.5",
     "semantic-release": "^22.0.12",
     "semver": "^7.7.2",
