@@ -56,7 +56,7 @@ jobs:
           echo "Building from branch: $TARGET_BRANCH"
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.determine-branch.outputs.branch }}
 
