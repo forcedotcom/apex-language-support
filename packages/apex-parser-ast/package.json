@@ -58,6 +58,7 @@
     },
     "precompile": {
       "command": "node scripts/generate-proto.mjs && node scripts/generate-keywords.mjs && node scripts/generate-primitive-types.mjs && node scripts/generate-zip.mjs && node scripts/generate-messages.mjs",
+      "clean": false,
       "output": [
         "src/generated/**",
         "resources/StandardApexLibrary.zip"
