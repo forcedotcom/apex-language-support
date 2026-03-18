@@ -146,7 +146,6 @@
     },
     "compile": {
       "dependencies": [
-        "sync:vscode-version",
         "./packages/apex-ls:compile",
         "./packages/apex-lsp-shared:compile",
         "./packages/apex-parser-ast:compile:tsc",
