@@ -1,46 +1,46 @@
-# Source files
+# Source and test files
 src/**
 test/**
 scripts/**
+docs/**
 
-# Development files
-.vscode/**
-.vscode-test/**
-.gitignore
-.eslintrc.json
-.eslintignore
-.prettierrc
-.prettierignore
+# Intermediate build output (tsc)
+out/**
+
+# Build tooling and config
+esbuild.config.ts
 tsconfig.json
 tsconfig.*.json
+jest.config.cjs
+eslint.config.mjs
+.eslintcache
+.eslintrc*
 webpack.config.js
-jest.config.js
-.turbo/**
-
-# Node modules and build artifacts
-node_modules
-**/node_modules
-node_modules/**/*
-**/node_modules/**/*
-out/**
-dist/**
-coverage/**
-*.vsix
-*.log
+.prettierrc
+.prettierignore
 *.tsbuildinfo
-bundle/**
 
-# Parent directory files
-../../**/*
-../**/*
-extension/../../**/*
-extension/../**/*
-
-# Workspace files
+# IDE / workspace
+.vscode/**
+.vscode-test/**
 .idea/**
 *.iml
 .DS_Store
+.gitignore
 
-# Keep resources
-!resources/
-!resources/** 
+# Build caches
+.wireit/**
+.turbo/**
+
+# Node modules (all deps are bundled by esbuild)
+node_modules/**
+
+# Artifacts and logs
+*.vsix
+*.log
+bundle/**
+server-bundle/**
+coverage/**
+
+# Source maps (exclude to reduce VSIX size)
+*.map

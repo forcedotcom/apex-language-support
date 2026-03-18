@@ -46,16 +46,19 @@ export const createFileWithContents = async (
 };
 
 /**
- * Open a file using Quick Open.
- * On web, this only works with files that have already been opened in the editor.
+ * Open a file by name.
+ *
+ * Desktop: uses "Go to File" (Ctrl+P with full workspace indexing).
+ * Web: clicks the file in the Explorer sidebar. vscode-test-web's Ctrl+P only
+ * surfaces recently-opened files, not workspace files, so Quick Open is not
+ * usable for the initial open of an arbitrary workspace file.
  */
 export const openFileByName = async (
   page: Page,
   fileName: string,
 ): Promise<void> => {
-  const widget = page.locator(QUICK_INPUT_WIDGET);
-
   if (isDesktop()) {
+    const widget = page.locator(QUICK_INPUT_WIDGET);
     await executeCommandWithCommandPalette(page, 'Go to File');
     await expect(widget).toBeVisible({ timeout: 10_000 });
     const input = widget.locator('input.input');
@@ -63,69 +66,78 @@ export const openFileByName = async (
     await input.click({ timeout: 5000 });
     await page.keyboard.press(getModifierShortcut('a'));
     await page.keyboard.press('Delete');
-  } else {
-    await page.locator(WORKBENCH).click();
-    await page.keyboard.press(getModifierShortcut('p'));
-    await widget.waitFor({ state: 'visible', timeout: 10_000 });
-    const input = widget.locator('input.input');
-    await expect(input).toBeVisible({ timeout: 5000 });
-  }
+    await page.keyboard.type(fileName);
 
-  await page.keyboard.type(fileName);
+    await page.locator(QUICK_INPUT_LIST_ROW).first().waitFor({
+      state: 'visible',
+      timeout: 10_000,
+    });
+    await widget.waitFor({ state: 'visible', timeout: 1000 });
 
-  await page.locator(QUICK_INPUT_LIST_ROW).first().waitFor({
-    state: 'visible',
-    timeout: 10_000,
-  });
-  await page
-    .locator(QUICK_INPUT_WIDGET)
-    .waitFor({ state: 'visible', timeout: 1000 });
-
-  const results = page.locator(QUICK_INPUT_LIST_ROW);
-  const resultCount = await results.count();
-  let foundMatch = false;
-  let matchIndex = 0;
-  for (let i = 0; i < resultCount; i++) {
-    const resultText = await results.nth(i).textContent();
-    if (
-      resultText &&
-      (resultText.includes(`/${fileName}`) ||
-        resultText.includes(`\\${fileName}`) ||
-        resultText.startsWith(fileName))
-    ) {
-      matchIndex = i;
-      foundMatch = true;
-      break;
+    const results = page.locator(QUICK_INPUT_LIST_ROW);
+    const resultCount = await results.count();
+    let foundMatch = false;
+    let matchIndex = 0;
+    for (let i = 0; i < resultCount; i++) {
+      const resultText = await results.nth(i).textContent();
+      if (
+        resultText &&
+        (resultText.includes(`/${fileName}`) ||
+          resultText.includes(`\\${fileName}`) ||
+          resultText.startsWith(fileName))
+      ) {
+        matchIndex = i;
+        foundMatch = true;
+        break;
+      }
     }
-  }
 
-  if (!foundMatch) {
-    const allResults: string[] = [];
-    for (let i = 0; i < Math.min(resultCount, 10); i++) {
-      const text = await results.nth(i).textContent();
-      if (text) allResults.push(text.trim());
-    }
-    const firstResult = allResults[0] || '';
-    if (
-      firstResult.toLowerCase().includes('similar commands') ||
-      firstResult.toLowerCase().includes('no matching')
-    ) {
+    if (!foundMatch) {
+      const allResults: string[] = [];
+      for (let i = 0; i < Math.min(resultCount, 10); i++) {
+        const text = await results.nth(i).textContent();
+        if (text) allResults.push(text.trim());
+      }
+      const firstResult = allResults[0] || '';
+      if (
+        firstResult.toLowerCase().includes('similar commands') ||
+        firstResult.toLowerCase().includes('no matching')
+      ) {
+        throw new Error(
+          'Quick Open appears to be showing command palette results instead of files. ' +
+            `Found ${resultCount} results. First few: ${allResults.join(' | ')}`,
+        );
+      }
       throw new Error(
-        'Quick Open appears to be showing command palette results instead of files. ' +
+        `No exact match found for "${fileName}" in Quick Open. ` +
           `Found ${resultCount} results. First few: ${allResults.join(' | ')}`,
       );
     }
-    throw new Error(
-      `No exact match found for "${fileName}" in Quick Open. ` +
-        `Found ${resultCount} results. First few: ${allResults.join(' | ')}`,
-    );
-  }
 
-  for (let i = 0; i < matchIndex; i++) {
-    await page.keyboard.press('ArrowDown');
-  }
+    for (let i = 0; i < matchIndex; i++) {
+      await page.keyboard.press('ArrowDown');
+    }
+    await page.keyboard.press('Enter');
+  } else {
+    // On web, use the Explorer sidebar — it shows all workspace files regardless
+    // of whether they have been opened before in this session.
+    const explorerView = page.locator('[id="workbench.view.explorer"]');
+    await explorerView.waitFor({ state: 'visible', timeout: 10_000 });
 
-  await page.keyboard.press('Enter');
+    const fileRow = explorerView
+      .locator('.monaco-list-row')
+      .filter({ hasText: fileName });
+
+    const rowCount = await fileRow.count();
+    if (rowCount === 0) {
+      throw new Error(
+        `File "${fileName}" not found in Explorer sidebar. ` +
+          'Ensure the file exists in the workspace.',
+      );
+    }
+
+    await fileRow.first().click();
+  }
 
   await page.locator(EDITOR_WITH_URI).first().waitFor({
     state: 'visible',

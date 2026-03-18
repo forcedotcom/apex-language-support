@@ -165,11 +165,31 @@ export class OutlineViewPage extends BasePage {
 
     // Phase 2: Symbol not found by polling — try keyboard navigation
     // (it may be off-screen in the virtualized list)
-    const treeContainer = this.outlineItems.first();
+    //
+    // Target only non-sticky rows inside the scrollable container. After keyboard
+    // navigation the Monaco tree creates a sticky-scroll header row at the top of
+    // the panel (same DOM parent as the real rows). That sticky row has a lower DOM
+    // index than the regular rows so this.outlineItems.first() resolves to it —
+    // which is visually covered by the "Outline Section" pane-header. Targeting
+    // .monaco-scrollable-element skips the sticky container entirely.
+    // Check there's a visible row to anchor focus; fall back to the global first row if needed.
+    const scrollableRow = this.page
+      .locator('.outline-tree .monaco-scrollable-element .monaco-list-row')
+      .first();
+    const fallbackRow = this.outlineItems.first();
+    const scrollableCount = await scrollableRow.count();
+    const treeContainer = scrollableCount > 0 ? scrollableRow : fallbackRow;
     const isTreeVisible = await treeContainer.isVisible().catch(() => false);
     if (!isTreeVisible) return null;
 
-    await treeContainer.click();
+    // Focus the Monaco list widget directly via JS — clicking a specific row is unreliable
+    // because the topmost visible row may be covered by the "OUTLINE" pane header, causing
+    // the pane header to receive focus instead of the list. The pane header responds to
+    // ArrowDown by collapsing the outline panel, leaving 0 rows in the DOM.
+    await this.page.evaluate(() => {
+      const el = document.querySelector('.outline-tree .monaco-list');
+      if (el instanceof HTMLElement) el.focus();
+    });
     await this.page.keyboard.press('Home');
 
     const maxNavigationSteps = 80;

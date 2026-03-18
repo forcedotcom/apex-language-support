@@ -16,6 +16,7 @@ import {
   verifyApexFileContentLoaded,
   type TestSessionResult,
 } from './vscode-interaction';
+import { openFileByName } from '../shared/utils/fileHelpers';
 import {
   setupConsoleMonitoring,
   setupNetworkMonitoring,
@@ -92,6 +93,29 @@ export const setupApexTestEnvironment = async (
 
   // Setup complete test session
   const sessionResult = await setupFullTestSession(page);
+
+  // Explicitly open the expected file so VS Code doesn't auto-open a different
+  // file based on workspace alphabetical ordering
+  await openFileByName(page, `${expectedContent}.cls`);
+
+  // Wait for the opened file's content to be rendered before verifying
+  await page
+    .waitForFunction(
+      (content: string) => {
+        const lines = document.querySelectorAll(
+          '.monaco-editor .view-lines .view-line',
+        );
+        const text = Array.from(lines)
+          .map((l) => l.textContent ?? '')
+          .join(' ');
+        return text.includes(content);
+      },
+      expectedContent,
+      { timeout: 10_000 },
+    )
+    .catch(() => {
+      // verifyApexFileContentLoaded will produce the proper error if content is missing
+    });
 
   // Verify Apex file content is loaded
   await verifyApexFileContentLoaded(page, expectedContent);

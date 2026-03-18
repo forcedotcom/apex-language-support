@@ -51,7 +51,11 @@ import {
   getStdApexClassesPathFromContext,
   ServerMode,
 } from './utils/serverUtils';
-import { emitTelemetrySpan } from './observability/extensionTracing';
+import {
+  emitTelemetrySpan,
+  getSalesforceServicesApi,
+} from './observability/extensionTracing';
+import { EXCLUDE_GLOB } from './workspace-loader';
 
 /**
  * Global language client instance
@@ -85,6 +89,38 @@ function detectEnvironment(): 'desktop' | 'web' {
 }
 
 /**
+ * Returns glob patterns constrained to the DX project's packageDirectories.
+ * Uses ProjectService from salesforcedx-vscode-services as the canonical source.
+ * Returns undefined if the services extension is unavailable or the workspace is not a DX project.
+ */
+async function getPackageDirectoryGlobs(): Promise<string | undefined> {
+  const api = getSalesforceServicesApi();
+  if (!api) return undefined;
+
+  try {
+    // api.services types are re-exported from an unresolvable sibling path,
+    // so we cast to access the Effect service tag and its Default layer.
+    const ProjectService = api.services.ProjectService as any;
+    const project: any = await Effect.runPromise(
+      Effect.flatMap(ProjectService, (svc: any) =>
+        Effect.tryPromise(() => svc.getSfProject() as Promise<unknown>),
+      ).pipe(Effect.provide(ProjectService.Default)) as Effect.Effect<
+        unknown,
+        unknown,
+        never
+      >,
+    );
+    const dirs: string[] = project
+      .getPackageDirectories()
+      .map((d: any) => d.fullPath as string);
+    if (dirs.length === 0) return undefined;
+    return dirs.length === 1 ? `${dirs[0]}/**` : `{${dirs.join(',')}}/**`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Creates enhanced initialization options that incorporate benefits from server-config.ts.
  * @param context - VS Code extension context
  * @param runtimePlatform - The detected environment (desktop or web)
@@ -108,22 +144,33 @@ const createEnhancedInitializationOptions = async (
   const extensionVersion =
     (context.extension.packageJSON?.version as string) ?? '0.0.0';
 
-  // Count workspace files for startup telemetry (best-effort, non-blocking)
+  // Count workspace files for startup telemetry (best-effort, non-blocking).
+  // Constrained to packageDirectories from sfdx-project.json via ProjectService.
+  // If the services extension is unavailable or this is not a DX project, counts remain 0.
   let workspaceFileCount = 0;
   let apexFileCount = 0;
-  try {
-    const [allFiles, apexFiles] = await Promise.all([
-      vscode.workspace.findFiles('**/*', '**/node_modules/**', 50_000),
-      vscode.workspace.findFiles(
-        '**/*.{cls,trigger,apex}',
-        '**/node_modules/**',
-        50_000,
-      ),
-    ]);
-    workspaceFileCount = allFiles.length;
-    apexFileCount = apexFiles.length;
-  } catch {
-    // Best-effort: leave counts at 0 if findFiles fails
+  const includeGlob = await getPackageDirectoryGlobs();
+  if (includeGlob) {
+    try {
+      const timeout = new Promise<[vscode.Uri[], vscode.Uri[]]>((resolve) =>
+        setTimeout(() => resolve([[], []]), 3000),
+      );
+      const [allFiles, apexFiles] = await Promise.race([
+        Promise.all([
+          vscode.workspace.findFiles(`${includeGlob}/*`, EXCLUDE_GLOB, 50_000),
+          vscode.workspace.findFiles(
+            `${includeGlob}/*.{cls,trigger,apex}`,
+            EXCLUDE_GLOB,
+            50_000,
+          ),
+        ]),
+        timeout,
+      ]);
+      workspaceFileCount = allFiles.length;
+      apexFileCount = apexFiles.length;
+    } catch {
+      // Best-effort: leave counts at 0
+    }
   }
 
   const enhancedOptions: ApexLanguageServerSettings = {
@@ -310,12 +357,11 @@ async function createWebLanguageClient(
     'debug',
   );
 
-  // The actual worker file is worker.global.js, not worker.js
-  const workerFile = 'worker.global.js';
-
-  // In web environment, since we're serving from the dist directory itself,
-  // the worker file is directly in the extension root, not in a dist subdirectory
-  const workerUri = vscode.Uri.joinPath(context.extensionUri, workerFile);
+  const workerUri = vscode.Uri.joinPath(
+    context.extensionUri,
+    'dist',
+    'server.web.js',
+  );
   logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
 
   // Check if worker file exists/is accessible

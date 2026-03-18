@@ -9,14 +9,16 @@
  *   node scripts/test-web-ext.js [web]
  *
  * Options:
- *   --debug         : Wait for debugger attachment
- *   --devtools      : Open browser devtools during tests
- *   --headless      : Run in headless mode (browser hidden)
- *   --with-services : Install salesforcedx-vscode-services extension from Marketplace
+ *   --debug           : Wait for debugger attachment
+ *   --devtools        : Open browser devtools during tests
+ *   --headless        : Run in headless mode (browser hidden)
+ *   --no-memfs        : Disable memfs: URI scheme (use local folderPath instead of memfs provider)
+ *   --with-services   : Install salesforcedx-vscode-services extension from Marketplace
+ *   --clone-url=<url> : Clone a remote git repo as the workspace (uses a temp dir, cleaned up after)
+ *   --workspace=<rel> : Use a local path (relative to repo root) as the workspace
  *
- * VS Code version is pinned to the version defined in:
- *   https://github.com/forcedotcom/code-builder-web/blob/main/.vscode-version
- * Falls back to 'stable' on failure.
+ * VS Code version is read from the local `.vscode-version` file,
+ * which mirrors code-builder-web. Falls back to 'stable' if missing.
  *
  * The test will timeout after 45 seconds if the extension fails to activate.
  */
@@ -24,11 +26,12 @@
 const { runTests } = require('@vscode/test-web');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const {
-  fetchCodeBuilderVSCodeVersion,
-} = require('./fetch-vscode-version');
+  readLocalVSCodeVersion,
+} = require('./sync-vscode-version');
 
 const execAsync = promisify(exec);
 
@@ -405,6 +408,8 @@ async function killProcessesOnPort3000() {
 }
 
 async function runWebExtensionTests() {
+  let tempDir = null;
+
   try {
     // Kill any processes running on port 3000 before starting the web server
     await killProcessesOnPort3000();
@@ -413,22 +418,36 @@ async function runWebExtensionTests() {
       __dirname,
       '../packages/apex-lsp-vscode-extension',
     );
-    const extensionDevelopmentPath = path.resolve(extensionSourcePath, 'dist');
-    const workspacePath = path.resolve(__dirname, './test-workspace');
+    const extensionDevelopmentPath = extensionSourcePath;
+    const extensionDistPath = path.resolve(extensionSourcePath, 'dist');
+    const workspaceArg = process.argv.find(a => a.startsWith('--workspace='));
+    const cloneUrlArg = process.argv.find(a => a.startsWith('--clone-url='));
+
+    let workspacePath;
+
+    if (cloneUrlArg) {
+      const repoUrl = cloneUrlArg.slice('--clone-url='.length);
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-web-test-'));
+      console.log(`Cloning ${repoUrl} into ${tempDir}...`);
+      await execAsync(`git clone "${repoUrl}" "${tempDir}"`);
+      console.log('Clone complete.');
+      workspacePath = tempDir;
+    } else if (workspaceArg) {
+      workspacePath = path.resolve(__dirname, '..', workspaceArg.slice('--workspace='.length));
+    } else {
+      workspacePath = path.resolve(__dirname, './test-workspace');
+    }
 
     // Verify required paths exist
-    if (!fs.existsSync(extensionSourcePath)) {
+    if (!fs.existsSync(extensionDevelopmentPath)) {
       throw new Error(
-        `Extension source path not found: ${extensionSourcePath}`,
+        `Extension path not found: ${extensionDevelopmentPath}`,
       );
     }
 
-    // Verify extension is built (dist directory should exist)
-    // For web extensions, VS Code needs to load from the dist directory
-    // where the bundled extension.web.js file is located
-    if (!fs.existsSync(extensionDevelopmentPath)) {
+    if (!fs.existsSync(extensionDistPath)) {
       throw new Error(
-        `Extension dist directory not found: ${extensionDevelopmentPath}. Run 'npm run bundle' first.`,
+        `Extension dist directory not found: ${extensionDistPath}. Run 'npm run bundle' first.`,
       );
     }
 
@@ -666,13 +685,13 @@ async function runWebExtensionTests() {
       ensureTestFilesExist(workspacePath);
     }
 
-    // Check if extension is built (extensionDevelopmentPath now points to dist)
-    if (!fs.existsSync(extensionDevelopmentPath)) {
+    // Check if extension is built
+    if (!fs.existsSync(extensionDistPath)) {
       console.log('🔨 Extension not built yet, building...');
       const { execSync } = require('child_process');
       try {
         execSync('npm run compile && npm run bundle', {
-          cwd: extensionSourcePath,
+          cwd: extensionDevelopmentPath,
           stdio: 'inherit',
         });
       } catch (buildError) {
@@ -680,86 +699,48 @@ async function runWebExtensionTests() {
       }
     }
 
-    // Worker files should already be in the dist directory from the extension build
-    // Since extensionDevelopmentPath now points to dist, worker files are directly in it
-    const workerSrc = path.resolve(
-      extensionDevelopmentPath,
-      'worker.global.js',
-    );
-    const workerMapSrc = path.resolve(
-      extensionDevelopmentPath,
-      'worker.global.js.map',
-    );
+    const workerSrc = path.resolve(extensionDistPath, 'server.web.js');
+    const workerMapSrc = path.resolve(extensionDistPath, 'server.web.js.map');
 
-    // If worker files don't exist in extension dist, copy them from apex-ls dist
     if (!fs.existsSync(workerSrc) || !fs.existsSync(workerMapSrc)) {
       console.log(
         '⚠️ Worker files not found in extension dist, copying from apex-ls...',
       );
       const apexLsWorkerSrc = path.resolve(
-        extensionSourcePath,
-        '../apex-ls/dist/worker.global.js',
+        extensionDevelopmentPath,
+        '../apex-ls/dist/server.web.js',
       );
       const apexLsWorkerMapSrc = path.resolve(
-        extensionSourcePath,
-        '../apex-ls/dist/worker.global.js.map',
+        extensionDevelopmentPath,
+        '../apex-ls/dist/server.web.js.map',
       );
 
       if (fs.existsSync(apexLsWorkerSrc)) {
         fs.copyFileSync(apexLsWorkerSrc, workerSrc);
-        console.log('✅ Copied worker.global.js from apex-ls');
+        console.log('✅ Copied server.web.js from apex-ls');
       } else {
         throw new Error(`Worker file not found: ${apexLsWorkerSrc}`);
       }
 
       if (fs.existsSync(apexLsWorkerMapSrc)) {
         fs.copyFileSync(apexLsWorkerMapSrc, workerMapSrc);
-        console.log('✅ Copied worker.global.js.map from apex-ls');
+        console.log('✅ Copied server.web.js.map from apex-ls');
       } else {
         console.warn('⚠️ Worker source map not found, continuing without it');
       }
     } else {
-      console.log('✅ worker.global.js found in dist directory');
-      console.log('✅ worker.global.js.map found in dist directory');
+      console.log('✅ server.web.js found in dist directory');
+      console.log('✅ server.web.js.map found in dist directory');
     }
 
-    console.log('✅ Worker files found in extension dist directory');
     console.log(`   - Extension worker: ${workerSrc}`);
 
-    // The @vscode/test-web server serves from a specific structure
-    // Create a dist directory in the extension path so it will be served under /static/devextensions/dist/
-    // But the extension URI resolves to /static/ instead of /static/devextensions/
-    // This might be a limitation of @vscode/test-web or VS Code Web extension loading
-
-    console.log('⚠️ VS Code Web extension URI resolution issue detected');
-    console.log(
-      '   Extension is looking for worker at: /static/dist/worker.global.js',
-    );
-    console.log(
-      '   But files are served from: /static/devextensions/dist/worker.global.js',
-    );
-    console.log(
-      '   This is a known limitation of VS Code Web extension testing',
-    );
-
-    // For now, let's document this as a test environment limitation
-    console.log('ℹ️ To test worker loading manually:');
-    console.log('   1. Open browser to http://localhost:3000');
-    console.log('   2. Open Developer Tools → Console');
-    console.log('   3. Look for worker loading errors');
-    console.log(
-      '   4. Check if /static/devextensions/dist/worker.global.js loads correctly',
-    );
-
     console.log('🌐 Starting VS Code Web Extension Tests...');
-    console.log(
-      `📁 Extension development path (dist): ${extensionDevelopmentPath}`,
-    );
-    console.log(`📁 Extension source path: ${extensionSourcePath}`);
+    console.log(`📁 Extension development path: ${extensionDevelopmentPath}`);
+    console.log(`📁 Extension dist path: ${extensionDistPath}`);
     console.log(`📂 Workspace path: ${workspacePath}`);
 
-    // Fetch the pinned VS Code version from Code Builder Web
-    const vsCodeVersion = await fetchCodeBuilderVSCodeVersion();
+    const vsCodeVersion = readLocalVSCodeVersion();
 
     // Setup output file for extension host logs
     const outputLogPath = path.resolve(
@@ -773,16 +754,45 @@ async function runWebExtensionTests() {
 
     console.log(`📝 Extension logs will be saved to: ${outputLogPath}`);
 
-    // Run the web extension tests (without test files - just load the extension)
-    // IMPORTANT: @vscode/test-web requires extensionDevelopmentPath to point to the
-    // extension directory containing package.json. For web extensions, this should be
-    // the dist directory where the bundled extension.web.js file is located, since
-    // VS Code Web reads the package.json from that location to find the browser entry point.
-    //
-    // Note: runTests() starts the VS Code Web server and opens a browser.
-    // If extensionTestsPath is undefined, it will keep the server running.
-    // The function may not resolve until tests complete or the server stops.
+    // @vscode/test-web reads package.json from extensionDevelopmentPath and
+    // resolves the browser entry point (./dist/extension.web.js) relative to it.
     console.log('🚀 Starting VS Code Web server...');
+    // memfs is the default to match Code Builder Web. Use --no-memfs to fall back to local folderPath.
+    const useMemfs = !process.argv.includes('--no-memfs');
+    const memfsProviderPath = path.resolve(__dirname, 'test-extensions/memfs-provider');
+
+    if (useMemfs && !fs.existsSync(memfsProviderPath)) {
+      throw new Error(
+        `memfs provider extension not found: ${memfsProviderPath}. ` +
+        'Create the test extension under scripts/test-extensions/memfs-provider/'
+      );
+    }
+
+    if (useMemfs) {
+      console.log('🗂️  Using memfs: URI scheme (Code Builder Web mode)');
+      console.log(`   Source files from: ${workspacePath}`);
+
+      // Generate workspace-files.json inside the memfs extension dir so the
+      // browser-based extension can read it via vscode.workspace.fs.
+      // Recursively walks the workspace directory to include nested files.
+      const workspaceFiles = {};
+      function collectFiles(dir, prefix) {
+        for (const entry of fs.readdirSync(dir)) {
+          const fullPath = path.join(dir, entry);
+          const relativeName = prefix ? `${prefix}/${entry}` : entry;
+          if (fs.statSync(fullPath).isDirectory()) {
+            collectFiles(fullPath, relativeName);
+          } else if (fs.statSync(fullPath).isFile()) {
+            workspaceFiles[relativeName] = fs.readFileSync(fullPath, 'utf-8');
+          }
+        }
+      }
+      collectFiles(workspacePath, '');
+      const manifestPath = path.join(memfsProviderPath, 'workspace-files.json');
+      fs.writeFileSync(manifestPath, JSON.stringify(workspaceFiles, null, 2));
+      console.log(`   Generated workspace-files.json (${Object.keys(workspaceFiles).length} files)`);
+    }
+
     const testPromise = runTests({
       extensionDevelopmentPath: extensionDevelopmentPath,
       // No extensionTestsPath - just test extension loading and activation
@@ -793,7 +803,16 @@ async function runWebExtensionTests() {
       printServerLog: true, // Enable server logs for capture
       verbose: true, // Enable verbose logging
       devtools: process.argv.includes('--devtools'),
-      folderPath: workspacePath,
+      // By default, use memfs: URI scheme with a FileSystemProvider test extension
+      // to match Code Builder Web. The provider reads files from the test-workspace dir.
+      ...(useMemfs
+        ? {
+            folderUri: 'memfs:/workspace',
+            extensionPaths: [memfsProviderPath],
+          }
+        : {
+            folderPath: workspacePath,
+          }),
       ...(process.argv.includes('--with-services')
         ? {
             extensionIds: [
@@ -845,13 +864,9 @@ async function runWebExtensionTests() {
       console.log('   4. Watch for extension activation messages');
       console.log('');
       console.log(
-        '⏳ Server will keep running. Close the browser when done testing.',
+        '⏳ Server will keep running until you press Ctrl+C or close the browser.',
       );
-      console.log('   (Press Ctrl+C in this terminal to stop the server)');
-      console.log('');
-      console.log(
-        '⏳ Waiting 30 seconds for you to verify (or until you close browser)...',
-      );
+      console.log('   Press Ctrl+C in this terminal to stop and clean up.');
     } else {
       console.log(
         '⏳ Running in headless mode, waiting 5 seconds then exiting...',
@@ -859,13 +874,23 @@ async function runWebExtensionTests() {
     }
 
     // Wait for user to verify (or timeout in headless mode)
-    // Note: In non-headless mode, the server keeps running until browser closes
-    const waitTime = process.argv.includes('--headless') ? 5000 : 30000;
-    await new Promise((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, waitTime);
-    });
+    if (process.argv.includes('--headless')) {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    } else {
+      // Non-headless: wait until the user presses Ctrl+C or the test runner stops on its own.
+      // This keeps the temp dir (and the vscode-test-web server) alive for the full session.
+      await new Promise((resolve) => {
+        const cleanup = () => {
+          console.log('\n🛑 Stopping test server...');
+          resolve();
+        };
+        process.once('SIGINT', cleanup);
+        // Also stop if the @vscode/test-web runner exits on its own (e.g. browser closed)
+        testPromise
+          .then(() => { process.removeListener('SIGINT', cleanup); resolve(); })
+          .catch(() => { process.removeListener('SIGINT', cleanup); resolve(); });
+      });
+    }
 
     // Note: testPromise may not resolve if extensionTestsPath is undefined
     // The server keeps running until manually stopped or browser closes
@@ -891,13 +916,21 @@ async function runWebExtensionTests() {
       console.error('Full error:', error);
     }
     process.exit(1);
+  } finally {
+    if (tempDir) {
+      console.log(`Cleaning up temp dir: ${tempDir}`);
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    // Ensure process exits after SIGINT-triggered cleanup
+    process.exit(0);
   }
 }
 
 // Handle command line arguments
 const command = process.argv[2];
 
-if (command === 'web' || !command) {
+// Accept: no argument, 'web', or a flag (--with-services, --headless, etc.)
+if (!command || command === 'web' || command.startsWith('--')) {
   runWebExtensionTests();
 } else {
   console.log(`Usage: node ${path.basename(__filename)} [web]`);

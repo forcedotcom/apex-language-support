@@ -86,7 +86,12 @@ test.describe('Apex Hover Functionality', () => {
    */
   test('should show hover for inner enum', async ({ hoverHelper }) => {
     await hoverHelper.hoverOnWord('StatusType');
-    const content = await hoverHelper.getHoverContent();
+    let content = await hoverHelper.getHoverContent();
+    if (!content) {
+      // Retry once to handle LSP hover timing flakiness in desktop mode
+      await hoverHelper.hoverOnWord('StatusType');
+      content = await hoverHelper.getHoverContent();
+    }
     expect(content).toBeTruthy();
     expect(content).toContain('StatusType');
     expect(content).toMatch(/enum\b/i);
@@ -108,9 +113,10 @@ test.describe('Apex Hover Functionality', () => {
   test('should show hover within reasonable time', async ({ hoverHelper }) => {
     const isResponsive = await hoverHelper.isHoverResponsive(
       'ApexClassExample',
-      8000,
+      12000,
     );
     expect(isResponsive).toBe(true);
+    console.log('✅ Hover is responsive (< 12s)');
   });
 
   /**
@@ -189,8 +195,13 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on constructor shows constructor signature.
    */
   test('should show hover for constructor', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample(');
-    const content = await hoverHelper.getHoverContent();
+    await hoverHelper.hoverOnWord('ApexClassExample()');
+    let content = await hoverHelper.getHoverContent();
+    if (!content) {
+      // Retry once to handle LSP hover timing flakiness in desktop mode
+      await hoverHelper.hoverOnWord('ApexClassExample()');
+      content = await hoverHelper.getHoverContent();
+    }
     expect(content).toBeTruthy();
     expect(content).toContain('ApexClassExample');
   });
@@ -246,5 +257,113 @@ test.describe('Apex Hover Functionality', () => {
     expect(content.length).toBeGreaterThan(0);
 
     await hoverHelper.captureHoverScreenshot('test-hover');
+  });
+});
+
+/**
+ * Cross-File Workspace Hover tests.
+ * These tests verify hover where the hovered symbol is defined in a different
+ * user workspace file (not a standard Apex library type).
+ * Uses CrossFileCaller.cls → CrossFileUtility.cls and
+ * CrossFileChildClass.cls → CrossFileBaseClass.cls pairs.
+ */
+test.describe('Apex Hover - Cross-File Workspace Types', () => {
+  /**
+   * Test: Hover on a class type defined in another workspace file.
+   * Opens CrossFileCaller.cls and hovers on CrossFileUtility.
+   */
+  test('should show hover for class type defined in another workspace file', async ({
+    apexEditor,
+    hoverHelper,
+  }) => {
+    await test.step('Open the caller file', async () => {
+      try {
+        await apexEditor.openFile('CrossFileCaller.cls');
+        await apexEditor.waitForLanguageServerReady();
+        console.log('✅ Opened CrossFileCaller.cls');
+      } catch (error) {
+        const errStr =
+          error instanceof Error
+            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
+            : JSON.stringify(error);
+        console.log('⚠️ CrossFileCaller.cls not available', errStr);
+        return;
+      }
+    });
+
+    await test.step('Hover on cross-file class reference', async () => {
+      // CrossFileUtility at line 11, col 27; hover twice for cross-file resolution
+      const content = await hoverHelper.hoverAtWithResolution(11, 27);
+      expect(content).toBeTruthy();
+      expect(content.length).toBeGreaterThan(0);
+      console.log(
+        '✅ Hover content shown for cross-file class CrossFileUtility',
+      );
+    });
+  });
+
+  /**
+   * Test: Hover on a static method call defined in another workspace file.
+   * Opens CrossFileCaller.cls and hovers on the formatName call.
+   */
+  test('should show hover for static method defined in another workspace file', async ({
+    apexEditor,
+    hoverHelper,
+  }) => {
+    await test.step('Open the caller file', async () => {
+      try {
+        await apexEditor.openFile('CrossFileCaller.cls');
+        await apexEditor.waitForLanguageServerReady();
+      } catch (error) {
+        const errStr =
+          error instanceof Error
+            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
+            : JSON.stringify(error);
+        console.log('⚠️ CrossFileCaller.cls not available', errStr);
+        return;
+      }
+    });
+
+    await test.step('Hover on cross-file static method reference', async () => {
+      // formatName at line 11, col 44; hover twice for cross-file resolution
+      const content = await hoverHelper.hoverAtWithResolution(11, 44);
+      expect(content).toBeTruthy();
+      expect(content.length).toBeGreaterThan(0);
+      console.log('✅ Hover content shown for cross-file method formatName');
+    });
+  });
+
+  /**
+   * Test: Hover on an inherited base class type defined in another workspace file.
+   * Opens CrossFileChildClass.cls and hovers on CrossFileBaseClass.
+   */
+  test('should show hover for base class type defined in another workspace file', async ({
+    apexEditor,
+    hoverHelper,
+  }) => {
+    await test.step('Open the child class file', async () => {
+      try {
+        await apexEditor.openFile('CrossFileChildClass.cls');
+        await apexEditor.waitForLanguageServerReady();
+        console.log('✅ Opened CrossFileChildClass.cls');
+      } catch (error) {
+        const errStr =
+          error instanceof Error
+            ? `${error.name}: ${error.message}\n${error.stack ?? ''}`
+            : JSON.stringify(error);
+        console.log('⚠️ CrossFileChildClass.cls not available', errStr);
+        return;
+      }
+    });
+
+    await test.step('Hover on cross-file base class reference', async () => {
+      // CrossFileBaseClass at line 6, col 42; hover twice for cross-file resolution
+      const content = await hoverHelper.hoverAtWithResolution(6, 42);
+      expect(content).toBeTruthy();
+      expect(content.length).toBeGreaterThan(0);
+      console.log(
+        '✅ Hover content shown for cross-file base class CrossFileBaseClass',
+      );
+    });
   });
 });

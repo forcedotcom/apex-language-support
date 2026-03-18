@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.5.10",
+  "version": "0.5.16",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -20,8 +20,8 @@
     "Linters",
     "Snippets"
   ],
-  "main": "./out/extension.js",
-  "browser": "./out/extension.web.js",
+  "main": "./dist/extension.js",
+  "browser": "./dist/extension.web.js",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -102,7 +102,12 @@
         "path": "./snippets/soql.json"
       }
     ],
-    "standardApexLibrary": "./out/resources/StandardApexLibrary.zip",
+    "standardApexLibrary": "./resources/StandardApexLibrary.zip",
+    "sfWebConsoleAdditionalRequiredFiles": [
+      {
+        "uri": "./dist/server.web.js"
+      }
+    ],
     "configuration": {
       "title": "%configuration.apex.title%",
       "properties": {
@@ -679,12 +684,13 @@
     "precompile": "wireit",
     "compile": "wireit",
     "bundle": "wireit",
+    "vscode:bundle": "npm run bundle",
     "package": "wireit",
     "rebuild": "npm run clean && npm run build",
     "test": "wireit",
     "test:coverage": "wireit",
     "typecheck": "wireit",
-    "clean": "rimraf out dist extension .wireit coverage grammars tsconfig.tsbuildinfo server-bundle",
+    "clean": "rimraf out dist .wireit coverage grammars tsconfig.tsbuildinfo server-bundle",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "wireit"
   },
@@ -726,10 +732,8 @@
         "../apex-ls:bundle"
       ],
       "output": [
-        "extension/**",
         "dist/**",
-        "server-bundle/**",
-        "dist/package.json"
+        "server-bundle/**"
       ],
       "files": [
         "src/**/*.ts",
@@ -750,7 +754,7 @@
       ]
     },
     "package": {
-      "command": "cd dist && vsce package --out ../ --no-dependencies",
+      "command": "npx vsce package --no-dependencies",
       "dependencies": [
         "bundle"
       ],
@@ -758,7 +762,8 @@
         "*.vsix"
       ],
       "files": [
-        "dist/package.json"
+        "package.json",
+        ".vscodeignore"
       ]
     },
     "test": {
@@ -828,7 +833,7 @@
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@salesforce/apex-tmlanguage": "2.0.1",
     "@salesforce/esbuild-presets": "^0.1.0",
-    "@types/vscode": "^1.109.0",
+    "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^2.15.0",
     "buffer": "^6.0.3",
     "esbuild-plugin-copy": "^2.1.1",

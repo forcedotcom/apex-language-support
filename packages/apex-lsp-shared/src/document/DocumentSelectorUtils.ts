@@ -62,6 +62,11 @@ export const DEFAULT_LANGUAGES: readonly string[] = [
 /**
  * Immutable default schemes for most LSP capabilities
  * Includes: documentSymbol, hover, foldingRange, diagnostic, completion, definition
+ *
+ * 'memfs' is VS Code for the Web's in-memory filesystem scheme used in local dev
+ * mode for Code Builder Web. 'reefs' is the Salesforce org filesystem scheme used
+ * in all production Code Builder Web deployments. Without these, LSP requests are
+ * not routed for workspace files in browser-based environments.
  */
 export const DEFAULT_SCHEMES_FOR_MOST: readonly string[] = [
   'file',
@@ -78,6 +83,8 @@ export const DEFAULT_SCHEMES_FOR_MOST: readonly string[] = [
 export const DEFAULT_SCHEMES_FOR_CODELENS: readonly string[] = [
   'file',
   'vscode-test-web',
+  'memfs',
+  'reefs',
 ] as const;
 
 /**
