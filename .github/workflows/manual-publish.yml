@@ -427,7 +427,7 @@ jobs:
       vsix-path: ${{ steps.prepare-vsix.outputs.vsix-path }}
     steps:
       - name: Download source VSIX
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: source-vsix
           path: ./vsix-artifacts
@@ -498,7 +498,7 @@ jobs:
         uses: ./.github/actions/npm-install-with-retries
 
       - name: Download VSIX
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: publish-vsix
           path: ./vsix-artifacts
@@ -532,7 +532,7 @@ jobs:
           token: ${{ secrets.IDEE_GH_TOKEN }}
 
       - name: Download VSIX
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: publish-vsix
           path: ./vsix-artifacts

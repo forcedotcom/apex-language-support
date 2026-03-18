@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Download all benchmark artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           path: benchmark-artifacts
 
@@ -141,7 +141,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Download all benchmark artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           path: benchmark-artifacts
 
