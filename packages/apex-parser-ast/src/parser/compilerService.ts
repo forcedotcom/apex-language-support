@@ -60,8 +60,9 @@ export interface CompilationResultWithComments<T> extends CompilationResult<T> {
   comments: ApexComment[];
 }
 
-export interface CompilationResultWithAssociations<T>
-  extends CompilationResultWithComments<T> {
+export interface CompilationResultWithAssociations<
+  T,
+> extends CompilationResultWithComments<T> {
   commentAssociations: CommentAssociation[];
 }
 

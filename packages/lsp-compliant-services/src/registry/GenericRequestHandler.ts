@@ -14,9 +14,10 @@ import { LSPRequestHandler } from './ServiceRegistry';
 /**
  * Generic request handler that wraps any service
  */
-export class GenericRequestHandler<T = any, R = any>
-  implements LSPRequestHandler<T, R>
-{
+export class GenericRequestHandler<
+  T = any,
+  R = any,
+> implements LSPRequestHandler<T, R> {
   constructor(
     public readonly requestType: LSPRequestType,
     private readonly service: any,

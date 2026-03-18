@@ -321,12 +321,10 @@ describe('ApexKeywords', () => {
 
     beforeAll(async () => {
       // Dynamic imports to avoid circular dependencies
-      const { ApexSymbolManager } = await import(
-        '../../src/symbols/ApexSymbolManager'
-      );
-      const { ApexSymbolGraph } = await import(
-        '../../src/symbols/ApexSymbolGraph'
-      );
+      const { ApexSymbolManager } =
+        await import('../../src/symbols/ApexSymbolManager');
+      const { ApexSymbolGraph } =
+        await import('../../src/symbols/ApexSymbolGraph');
       symbolManager = new ApexSymbolManager();
       symbolGraph = new ApexSymbolGraph();
     });

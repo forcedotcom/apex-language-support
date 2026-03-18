@@ -166,12 +166,10 @@ export function shouldSuppressDiagnostics(uri: string): boolean {
  */
 export async function dispatchProcessOnQueueState(params: any): Promise<any> {
   const { QueueStateHandler } = await import('../handlers/QueueStateHandler');
-  const { QueueStateProcessingService } = await import(
-    '../services/QueueStateProcessingService'
-  );
-  const { getLogger, ApexCapabilitiesManager } = await import(
-    '@salesforce/apex-lsp-shared'
-  );
+  const { QueueStateProcessingService } =
+    await import('../services/QueueStateProcessingService');
+  const { getLogger, ApexCapabilitiesManager } =
+    await import('@salesforce/apex-lsp-shared');
 
   const logger = getLogger();
   const capabilitiesManager = ApexCapabilitiesManager.getInstance();

@@ -971,9 +971,8 @@ export class LCSAdapter {
     let profilingServiceInstance: any = null;
     const getProfilingService = async () => {
       if (!profilingServiceInstance) {
-        const { ProfilingService } = await import(
-          '../profiling/ProfilingService'
-        );
+        const { ProfilingService } =
+          await import('../profiling/ProfilingService');
         profilingServiceInstance = ProfilingService.getInstance();
         profilingServiceInstance.initialize(this.logger, process.cwd());
       }
@@ -1117,9 +1116,8 @@ export class LCSAdapter {
 
     try {
       // Lazy-load ProfilingService
-      const { ProfilingService } = await import(
-        '../profiling/ProfilingService'
-      );
+      const { ProfilingService } =
+        await import('../profiling/ProfilingService');
       const profilingService = ProfilingService.getInstance();
 
       profilingService.initialize(this.logger, process.cwd());

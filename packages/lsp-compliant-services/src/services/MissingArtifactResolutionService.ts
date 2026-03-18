@@ -52,9 +52,7 @@ export interface MissingArtifactResolutionService {
  * Enhanced implementation of MissingArtifactResolutionService
  * Integrates with the LSP queue system and communicates with the client
  */
-export class EnhancedMissingArtifactResolutionService
-  implements MissingArtifactResolutionService
-{
+export class EnhancedMissingArtifactResolutionService implements MissingArtifactResolutionService {
   private queueManager: LSPQueueManager | null = null;
 
   constructor(

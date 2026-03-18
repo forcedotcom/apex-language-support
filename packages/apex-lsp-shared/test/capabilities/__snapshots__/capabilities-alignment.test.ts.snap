@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`Capabilities Alignment Tests Capabilities Manager Integration should return development capabilities in development mode: capabilities-manager-development 1`] = `
 {

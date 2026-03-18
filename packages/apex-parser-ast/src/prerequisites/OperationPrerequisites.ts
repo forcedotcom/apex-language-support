@@ -32,16 +32,14 @@ export interface ValidatorPrerequisites extends OperationPrerequisites {}
  * Prerequisites for single-file symbol lookup operations
  * Used for operations that work on a single file/symbol (hover, definition)
  */
-export interface SingleFileSymbolLookupPrerequisites
-  extends OperationPrerequisites {}
+export interface SingleFileSymbolLookupPrerequisites extends OperationPrerequisites {}
 
 /**
  * Prerequisites for workspace-wide operations
  * Used for operations that require the entire workspace to be loaded
  * (references, completion, workspace symbol)
  */
-export interface WorkspaceWideOperationPrerequisites
-  extends OperationPrerequisites {
+export interface WorkspaceWideOperationPrerequisites extends OperationPrerequisites {
   /** Whether the entire workspace must be loaded */
   requiresWorkspaceLoad: boolean;
 
