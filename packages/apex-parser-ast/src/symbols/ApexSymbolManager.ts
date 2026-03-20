@@ -40,9 +40,8 @@ import {
   PatternAnalysis,
 } from '../types/metrics';
 import {
-  getProtocolType,
+  hasUriScheme,
   createFileUri,
-  isUserCodeUri,
   extractFilePath,
   isStandardApexUri,
   extractApexLibPath,
@@ -315,8 +314,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable?: SymbolTable,
   ): void {
     // Convert fileUri to proper URI format to match symbol ID generation
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    const properUri = hasUriScheme(fileUri) ? fileUri : createFileUri(fileUri);
 
     // Generate unified ID for the symbol if not already present
     if (!symbol.key.unifiedId) {
@@ -514,8 +512,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Convert fileUri to proper URI format to match how symbols are stored
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    const properUri = hasUriScheme(fileUri) ? fileUri : createFileUri(fileUri);
 
     // Normalize URI using the same logic as getSymbolsInFile() to ensure consistency
     // This ensures we use the same normalized URI that was used when registering SymbolTables
@@ -534,8 +531,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   getSymbolTableForFile(fileUri: string): SymbolTable | undefined {
     // Convert fileUri to proper URI format to match how symbols are stored
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    const properUri = hasUriScheme(fileUri) ? fileUri : createFileUri(fileUri);
 
     // Normalize URI using the same logic as getSymbolsInFile() to ensure consistency
     const normalizedUri = extractFilePathFromUri(properUri);
@@ -588,7 +584,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const fileUri = this.symbolGraph['symbolFileMap'].get(symbolId);
       if (fileUri) {
         // Convert URI back to clean file path for consistency with test expectations
-        const cleanPath = isUserCodeUri(fileUri)
+        const cleanPath = fileUri.startsWith('file://')
           ? extractFilePath(fileUri)
           : fileUri;
         files.add(cleanPath);
@@ -1124,8 +1120,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   removeFile(fileUri: string): void {
     // Convert fileUri to proper URI format to match how symbols are stored
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    const properUri = hasUriScheme(fileUri) ? fileUri : createFileUri(fileUri);
 
     // Normalize URI using extractFilePathFromUri to match how symbols are stored
     // This ensures consistency with addSymbolTable which uses normalized URIs
@@ -1756,8 +1751,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const addStartTime = Date.now();
 
       // Convert fileUri to proper URI format to match symbol ID generation
-      const properUri =
-        getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+      const properUri = hasUriScheme(fileUri)
+        ? fileUri
+        : createFileUri(fileUri);
 
       // Normalize URI using extractFilePathFromUri to ensure consistency with SymbolTable registration
       // This ensures that fileIndex lookups will find the symbols
@@ -2646,8 +2642,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): Effect.Effect<void, never, never> {
     const self = this;
     return Effect.gen(function* () {
-      const properUri =
-        getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+      const properUri = hasUriScheme(fileUri)
+        ? fileUri
+        : createFileUri(fileUri);
       const normalizedUri = extractFilePathFromUri(properUri);
 
       // Skip if already resolving this file (prevents redundant work from overlapping LSP requests)
@@ -3063,10 +3060,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             typeRef.resolvedSymbolId = targetSymbol.id;
 
             // Find source symbol for graph edge
-            const properUri =
-              getProtocolType(fileUri) !== null
-                ? fileUri
-                : createFileUri(fileUri);
+            const properUri = hasUriScheme(fileUri)
+              ? fileUri
+              : createFileUri(fileUri);
             const normalizedUri = extractFilePathFromUri(properUri);
             let sourceSymbol = self.findContainingSymbolForReference(
               typeRef,
@@ -3119,10 +3115,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           // If resolution failed (artifact not loaded), defer for later
           // For cross-file references, we still need a source symbol for deferral
-          const properUri =
-            getProtocolType(fileUri) !== null
-              ? fileUri
-              : createFileUri(fileUri);
+          const properUri = hasUriScheme(fileUri)
+            ? fileUri
+            : createFileUri(fileUri);
           const normalizedUri = extractFilePathFromUri(properUri);
           let sourceSymbol = self.findContainingSymbolForReference(
             typeRef,
@@ -3672,9 +3667,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // 'this' can only reference class-scoped members, so we must look in the containing class
         if (containingClass && fileUri) {
           const normalizedUri = extractFilePathFromUri(
-            getProtocolType(fileUri) !== null
-              ? fileUri
-              : createFileUri(fileUri),
+            hasUriScheme(fileUri) ? fileUri : createFileUri(fileUri),
           );
 
           // Find all symbols with the member name
@@ -3718,9 +3711,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           // If fileUri is provided, prefer same-file symbols
           if (fileUri) {
             const normalizedUri = extractFilePathFromUri(
-              getProtocolType(fileUri) !== null
-                ? fileUri
-                : createFileUri(fileUri),
+              hasUriScheme(fileUri) ? fileUri : createFileUri(fileUri),
             );
             const sameFileSymbol = symbols.find(
               (s) => s.fileUri === normalizedUri,
@@ -6257,8 +6248,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): ApexSymbol | null {
     // Normalize URI to match how symbols are stored in the graph
     // This ensures consistency with addSymbolTable which uses normalized URIs
-    const properUri =
-      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
+    const properUri = hasUriScheme(fileUri) ? fileUri : createFileUri(fileUri);
     const normalizedUri = extractFilePathFromUri(properUri);
 
     // Invalidate cache to ensure we get fresh symbols (they were just added)
@@ -8513,10 +8503,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // If symbol table not found, try alternative URI formats before loading
         if (!symbolTable) {
           // Try with proper URI format if contextFile is not already a URI
-          const properUri =
-            getProtocolType(contextFile) !== null
-              ? contextFile
-              : createFileUri(contextFile);
+          const properUri = hasUriScheme(contextFile)
+            ? contextFile
+            : createFileUri(contextFile);
           if (properUri !== contextFile) {
             symbolTable = this.symbolGraph.getSymbolTableForFile(properUri);
           }
@@ -8531,7 +8520,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         ) {
           // Check if we're already loading this file to prevent recursive loops
           const normalizedUri = extractFilePathFromUri(
-            getProtocolType(contextFile) !== null
+            hasUriScheme(contextFile)
               ? contextFile
               : createFileUri(contextFile),
           );
@@ -8551,7 +8540,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             // Prevent recursive loops - if we're already loading this file, skip
             // Use normalized URI for the check to match what addSymbolTable uses
             const normalizedUri = extractFilePathFromUri(
-              getProtocolType(contextFile) !== null
+              hasUriScheme(contextFile)
                 ? contextFile
                 : createFileUri(contextFile),
             );
