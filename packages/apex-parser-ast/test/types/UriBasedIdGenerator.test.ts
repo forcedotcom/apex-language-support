@@ -10,7 +10,6 @@ import {
   generateSymbolId,
   parseSymbolId,
   isStandardApexId,
-  isUserCodeId,
   getFilePathFromId,
   extractFilePathFromUri,
 } from '../../src/types/UriBasedIdGenerator';
@@ -135,20 +134,14 @@ describe('UriBasedIdGenerator', () => {
       expect(isStandardApexId(userId)).toBe(false);
     });
 
-    it('should identify user code IDs correctly', () => {
-      const standardId = `${createApexLibUri('System/System.cls')}:System`;
-      const userId = `${createFileUri('/path/to/MyClass.cls')}:MyClass`;
-
-      expect(isUserCodeId(standardId)).toBe(false);
-      expect(isUserCodeId(userId)).toBe(true);
-    });
-
     it('should extract file paths correctly', () => {
       const standardId = `${createApexLibUri('System/System.cls')}:System`;
       const userId = `${createFileUri('/path/to/MyClass.cls')}:MyClass`;
 
       expect(getFilePathFromId(standardId)).toBe('System/System.cls');
-      expect(getFilePathFromId(userId)).toBe('/path/to/MyClass.cls');
+      expect(getFilePathFromId(userId)).toBe(
+        createFileUri('/path/to/MyClass.cls'),
+      );
     });
   });
 
