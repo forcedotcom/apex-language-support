@@ -40,7 +40,8 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       };
 
       const unifiedId = generateUnifiedId(key);
-      expect(unifiedId).toBe('file://unknown:file:TestClass:class:TestClass');
+      // Stable ID format uses # separator and dot-qualified names
+      expect(unifiedId).toBe('file://unknown#file.TestClass.TestClass$class');
     });
 
     it('should generate unified IDs without FQN', () => {
@@ -52,8 +53,9 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       };
 
       const unifiedId = generateUnifiedId(key);
+      // Stable ID format uses # separator and dot-qualified names
       expect(unifiedId).toBe(
-        'file://unknown:file:TestClass:testMethod:method:testMethod',
+        'file://unknown#file.TestClass.testMethod.testMethod$method',
       );
     });
 
@@ -67,8 +69,9 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       };
 
       const unifiedId = generateUnifiedId(key, 'TestFile.cls');
+      // Stable ID format uses # separator and dot-qualified names
       expect(unifiedId).toBe(
-        'file://TestFile.cls:file:TestClass:class:TestClass',
+        'file://TestFile.cls#file.TestClass.TestClass$class',
       );
     });
 
@@ -139,8 +142,9 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       expect(unifiedKey.kind).toBe(SymbolKind.Class);
       expect(unifiedKey.fqn).toBe('TestClass');
       expect(unifiedKey.fileUri).toBe('TestFile.cls');
+      // Stable ID format uses # separator and dot-qualified names
       expect(unifiedKey.unifiedId).toBe(
-        'file://TestFile.cls:file:TestClass:class:TestClass',
+        'file://TestFile.cls#file.TestClass.TestClass$class',
       );
     });
 
@@ -203,14 +207,15 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       };
 
       const unifiedId = getUnifiedId(key, 'TestFile.cls');
+      // Stable ID format uses # separator and dot-qualified names
       expect(unifiedId).toBe(
-        'file://TestFile.cls:file:TestClass:class:TestClass',
+        'file://TestFile.cls#file.TestClass.TestClass$class',
       );
 
       // Should return cached value
       const cachedId = getUnifiedId(key, 'TestFile.cls');
       expect(cachedId).toBe(
-        'file://TestFile.cls:file:TestClass:class:TestClass',
+        'file://TestFile.cls#file.TestClass.TestClass$class',
       );
     });
   });
@@ -263,8 +268,9 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       manager.addSymbol(symbol, 'TestFile.cls');
 
       // Verify unified ID was generated and cached
+      // Stable ID format uses # separator and dot-qualified names
       expect(symbol.key.unifiedId).toBe(
-        'file://TestFile.cls:file:TestClass:class:TestClass',
+        'file://TestFile.cls#file.TestClass.TestClass$class',
       );
     });
 
@@ -367,8 +373,9 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       manager.addSymbol(symbol, 'TestFile.cls');
 
       // Verify unified ID was generated without FQN
+      // Stable ID format uses # separator and dot-qualified names
       expect(symbol.key.unifiedId).toBe(
-        'file://TestFile.cls:file:TestClass:testMethod:method:testMethod',
+        'file://TestFile.cls#file.TestClass.testMethod.testMethod$method',
       );
     });
   });

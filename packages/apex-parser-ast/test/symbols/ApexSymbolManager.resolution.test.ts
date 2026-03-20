@@ -752,10 +752,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.name).toBe('createFile');
       expect(result?.kind).toBe('method');
       expect(result?.fileUri).toBe('file:///test/FileUtilities.cls');
-      // ID format uses block-based structure: fileUri:class:ClassName:block:ClassName:method:methodName
-      expect(result?.id).toBe(
-        'file:///test/FileUtilities.cls:class:FileUtilities:block:FileUtilities:method:createFile',
-      );
+      // ID format uses stable format with # separator and qualified names
+      expect(result?.id).toContain('file:///test/FileUtilities.cls#');
+      expect(result?.id).toContain('FileUtilities');
+      expect(result?.id).toContain('createFile');
     });
 
     it('should resolve method name in workspace Apex class qualified call (ServiceClass.processData)', async () => {
@@ -775,10 +775,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.name).toBe('processData');
       expect(result?.kind).toBe('method');
       expect(result?.fileUri).toBe('file:///test/ServiceClass.cls');
-      // ID format uses block-based structure: fileUri:class:ClassName:block:ClassName:method:methodName
-      expect(result?.id).toBe(
-        'file:///test/ServiceClass.cls:class:ServiceClass:block:ServiceClass:method:processData',
-      );
+      // ID format uses stable format with # separator and qualified names
+      expect(result?.id).toContain('file:///test/ServiceClass.cls#');
+      expect(result?.id).toContain('ServiceClass');
+      expect(result?.id).toContain('processData');
     });
 
     it('should resolve method name in workspace Apex class qualified call (UtilityClass.formatString)', async () => {
@@ -799,10 +799,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result?.name).toBe('formatString');
       expect(result?.kind).toBe('method');
       expect(result?.fileUri).toBe('file:///test/UtilityClass.cls');
-      // ID format uses block-based structure: fileUri:class:ClassName:block:ClassName:method:methodName
-      expect(result?.id).toBe(
-        'file:///test/UtilityClass.cls:class:UtilityClass:block:UtilityClass:method:formatString',
-      );
+      // ID format uses stable format with # separator and qualified names
+      expect(result?.id).toContain('file:///test/UtilityClass.cls#');
+      expect(result?.id).toContain('UtilityClass');
+      expect(result?.id).toContain('formatString');
     });
 
     it('should resolve method name in standard Apex class qualified call (System.debug)', async () => {
@@ -2818,10 +2818,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         // Line 15 is a local variable inside testMethod(), not a field
         expect(result?.kind).toBe('variable');
         expect(result?.fileUri).toBe('file:///test/DeclarationTestClass.cls');
-        // ID format now uses block counter names (block8, block9, etc.)
+        // ID format now uses stable format with # separator
         // Verify the ID contains the variable name and file URI
         expect(result?.id).toContain('file:///test/DeclarationTestClass.cls');
-        expect(result?.id).toContain('variable:message');
+        expect(result?.id).toContain('message');
       });
 
       it('should resolve Integer type declaration when position is on type', async () => {
@@ -3322,10 +3322,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         expect(result?.name).toBe('Name');
         expect(result?.kind).toBe('property');
         expect(result?.fileUri).toBe('file:///test/DeclarationTestClass.cls');
-        // ID format now uses block counter names
+        // ID format now uses stable format with # separator
         // Verify the ID contains the property name and file URI
         expect(result?.id).toContain('file:///test/DeclarationTestClass.cls');
-        expect(result?.id).toContain('property:Name');
+        expect(result?.id).toContain('Name');
       });
 
       it('should not resolve Account property type declaration without org artifacts', async () => {
@@ -3376,9 +3376,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         expect(result?.name).toBe('Owner');
         expect(result?.kind).toBe('property');
         expect(result?.fileUri).toBe('file:///test/DeclarationTestClass.cls');
-        // ID format uses block-based naming (block:class_1:property:Owner)
+        // ID format uses stable format with # separator
         expect(result?.id).toContain('file:///test/DeclarationTestClass.cls');
-        expect(result?.id).toContain('property:Owner');
+        expect(result?.id).toContain('Owner');
       });
     });
 

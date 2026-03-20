@@ -1022,36 +1022,32 @@ describe('ApexSymbolGraph', () => {
       // Check that the cycle contains both classes
       const cycle = cycles[0];
       // The cycle contains URI-based symbol IDs, so we need to check if they contain the class names
-      // Format: file:///path/to/file.cls:prefix:name or file:///path/to/file.cls:prefix:name:lineNumber
+      // Extract symbol names from stable IDs
       const cycleSymbolNames = cycle.map((symbolId) => {
-        // Extract the symbol name from the URI-based symbol ID
-        // Format examples:
-        // - "file:///test/ClassA.cls:class:ClassA" -> "ClassA"
-        // - "file:///test/ClassA.cls:class:ClassA:5" -> "ClassA"
-        // - "apexlib://ClassA:class:ClassA" -> "ClassA"
+        // New stable format: file:///path/to/file.cls#QualifiedName or file:///path/to/file.cls#QualifiedName$prefix
+        // Extract just the top-level class name from the qualified name
+        if (symbolId.includes('#')) {
+          const afterHash = symbolId.split('#')[1];
+          // Remove prefix if present (e.g., $class)
+          const withoutPrefix = afterHash.split('$')[0];
+          // Get the first part of the qualified name (e.g., ClassA from ClassA.InnerClass)
+          const parts = withoutPrefix.split('.');
+          return parts[0];
+        }
+        // Fallback for old format
         const parts = symbolId.split(':');
         if (
           symbolId.startsWith('file://') ||
           symbolId.startsWith('apexlib://')
         ) {
-          // For file:// or apexlib://, the name is the last part (or second-to-last if there's a line number)
-          // Format: protocol://path:prefix:name or protocol://path:prefix:name:lineNumber
-          // After splitting by ':', we have: [protocol, //path, prefix, name]
-          // or [protocol, //path, prefix, name, lineNumber]
-          // So the name is either parts[parts.length - 1]
-          // (if no line number) or parts[parts.length - 2] (if line number)
-          // But we need to check if the last part is a number (line number)
           const lastPart = parts[parts.length - 1];
           if (!isNaN(Number(lastPart))) {
-            // Last part is a line number, so name is second-to-last
             return parts[parts.length - 2];
           } else {
-            // Last part is the name
             return lastPart;
           }
         } else {
-          // Fallback for old format: name:kind:path
-          return parts[0]; // Take the first part (the symbol name)
+          return parts[0];
         }
       });
       expect(cycleSymbolNames).toContain('ClassA');

@@ -54,6 +54,7 @@ import {
   ScopeType,
   SymbolKey,
 } from '../../types/symbol';
+import { type ParameterInfo } from '../../types/UriBasedIdGenerator';
 import { IdentifierValidator } from '../../semantics/validation/IdentifierValidator';
 import { isBlockSymbol, isEnumSymbol } from '../../utils/symbolNarrowing';
 import {
@@ -487,6 +488,7 @@ export class VisibilitySymbolListener
         name,
         modifiers,
         returnType,
+        parameters,
       );
 
       // Check if method has a body block
@@ -594,6 +596,7 @@ export class VisibilitySymbolListener
         name,
         implicitModifiers,
         returnType,
+        parameters,
       );
 
       // Interface methods never have bodies (they end with ';' not '{...}')
@@ -785,6 +788,7 @@ export class VisibilitySymbolListener
         ctx,
         name,
         modifiers,
+        parameters,
       );
 
       constructorSymbol.parameters = parameters;
@@ -1474,6 +1478,28 @@ export class VisibilitySymbolListener
       scopePath = [rootPrefix, rootSymbol.name, ...baseScopePath];
     }
 
+    // For stable ID generation, filter scopePath to only include actual symbol names
+    // Remove kinds and block names
+    const cleanScopePath = scopePath.filter((part, index) => {
+      if (
+        part === 'class' ||
+        part === 'interface' ||
+        part === 'enum' ||
+        part === 'trigger' ||
+        part === 'method' ||
+        part === 'block' ||
+        part === 'constructor' ||
+        part === 'field' ||
+        part === 'property'
+      ) {
+        return false;
+      }
+      if (index > 0 && scopePath[index - 1] && part === scopePath[index - 1]) {
+        return false;
+      }
+      return true;
+    });
+
     // For inner types, use class block as parent (consistent with methods/constructors/fields)
     const parentId =
       kind === SymbolKind.Trigger
@@ -1494,7 +1520,7 @@ export class VisibilitySymbolListener
       undefined,
       namespace,
       this.getCurrentAnnotations(),
-      scopePath,
+      cleanScopePath, // Use cleaned scope path for stable ID generation
     ) as TypeSymbol;
 
     return typeSymbol;
@@ -1505,6 +1531,7 @@ export class VisibilitySymbolListener
     name: string,
     modifiers: SymbolModifiers,
     returnType: TypeInfo,
+    parameters: VariableSymbol[] = [],
   ): MethodSymbol {
     const location = this.getLocation(ctx);
     const parent = this.getCurrentType();
@@ -1552,6 +1579,34 @@ export class VisibilitySymbolListener
       scopePath = ['class', currentScope.name, ...baseScopePath];
     }
 
+    // For stable ID generation, filter scopePath to only include actual symbol names
+    // Remove kinds ('class', 'method', 'block', etc.) and block names
+    // Example: ['class', 'MyClass', 'block', 'MyClass'] -> ['MyClass']
+    const cleanScopePath = scopePath.filter((part, index) => {
+      // Skip symbol kind names
+      if (
+        part === 'class' ||
+        part === 'interface' ||
+        part === 'enum' ||
+        part === 'trigger' ||
+        part === 'method' ||
+        part === 'block' ||
+        part === 'constructor' ||
+        part === 'field' ||
+        part === 'property'
+      ) {
+        return false;
+      }
+      // Skip if this is a duplicate of the previous symbol name (block names often duplicate parent)
+      if (index > 0 && scopePath[index - 1] && part === scopePath[index - 1]) {
+        return false;
+      }
+      return true;
+    });
+
+    // Convert parameters to ParameterInfo for stable ID generation
+    const parameterInfo = this.convertToParameterInfo(parameters);
+
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       SymbolKind.Method,
@@ -1559,10 +1614,10 @@ export class VisibilitySymbolListener
       this.currentFilePath,
       modifiers,
       parentId,
-      undefined,
+      { parameters: parameterInfo }, // Pass parameters as typeData
       namespace instanceof Namespace ? namespace : null,
       this.getCurrentAnnotations(),
-      scopePath,
+      cleanScopePath, // Use cleaned scope path for stable ID generation
     ) as MethodSymbol;
 
     methodSymbol.returnType = returnType;
@@ -1575,6 +1630,7 @@ export class VisibilitySymbolListener
     ctx: ParserRuleContext,
     name: string,
     modifiers: SymbolModifiers,
+    parameters: VariableSymbol[] = [],
   ): MethodSymbol {
     const location = this.getLocation(ctx);
     const parent = this.getCurrentType();
@@ -1588,6 +1644,31 @@ export class VisibilitySymbolListener
     const currentScope = this.getCurrentScopeSymbol();
     const scopePath = this.symbolTable.getCurrentScopePath(currentScope);
 
+    // For stable ID generation, filter scopePath to only include actual symbol names
+    // Remove kinds and block names (same as createMethodSymbol)
+    const cleanScopePath = scopePath.filter((part, index) => {
+      if (
+        part === 'class' ||
+        part === 'interface' ||
+        part === 'enum' ||
+        part === 'trigger' ||
+        part === 'method' ||
+        part === 'block' ||
+        part === 'constructor' ||
+        part === 'field' ||
+        part === 'property'
+      ) {
+        return false;
+      }
+      if (index > 0 && scopePath[index - 1] && part === scopePath[index - 1]) {
+        return false;
+      }
+      return true;
+    });
+
+    // Convert parameters to ParameterInfo for stable ID generation
+    const parameterInfo = this.convertToParameterInfo(parameters);
+
     const constructorSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       SymbolKind.Constructor,
@@ -1595,10 +1676,10 @@ export class VisibilitySymbolListener
       this.currentFilePath,
       modifiers,
       parentId,
-      undefined,
+      { parameters: parameterInfo }, // Pass parameters as typeData
       namespace instanceof Namespace ? namespace : null,
       this.getCurrentAnnotations(),
-      scopePath,
+      cleanScopePath, // Use cleaned scope path for stable ID generation
     ) as MethodSymbol;
 
     constructorSymbol.returnType = createPrimitiveType('void');
@@ -1946,6 +2027,18 @@ export class VisibilitySymbolListener
     }
 
     return params;
+  }
+
+  /**
+   * Convert VariableSymbol parameters to ParameterInfo format for ID generation
+   */
+  private convertToParameterInfo(
+    parameters: VariableSymbol[],
+  ): ParameterInfo[] {
+    return parameters.map((param) => ({
+      type: param.type?.name || 'Object',
+      name: param.name,
+    }));
   }
 
   private applyModifier(modifiers: SymbolModifiers, modifier: string): void {

@@ -640,7 +640,8 @@ describe('StandardLibraryDeserializer', () => {
       // Tests the enrichment bug fix where blocks had parentId with :class:unknownClass
       // instead of the correct type symbol ID
       const fileUri = 'apex://stdlib/System/List';
-      const typeSymbolId = `${fileUri}:class:List`;
+      // Stable ID format uses # separator
+      const typeSymbolId = `${fileUri}#List$class`;
 
       const proto = StandardLibrary.create({
         generatedAt: new Date().toISOString(),
