@@ -8,11 +8,10 @@
 
 import { normalizeApexPath } from '../utils/PathUtils';
 import {
-  getProtocolType,
+  hasUriScheme,
   createApexLibUri,
   createFileUri,
   isStandardApexUri,
-  isUserCodeUri,
   getFilePathFromUri,
 } from './ProtocolHandler';
 
@@ -22,10 +21,8 @@ import {
  * @returns Proper URI string
  */
 const convertToUri = (fileUri: string): string => {
-  // If the fileUri is already a URI (has protocol), return it as-is
-  const protocol = getProtocolType(fileUri);
-  if (protocol !== null) {
-    return fileUri; // Valid URI, return as-is
+  if (hasUriScheme(fileUri)) {
+    return fileUri;
   }
 
   // Normalize the path to ensure consistent standard Apex path detection
@@ -175,50 +172,38 @@ export const generateSymbolId = (
 };
 
 /**
- * Extract just the file path from a URI that may contain symbol name and line number
- * Uses the same logic as parseSymbolId() to handle all protocols consistently
- * @param uri The URI that may contain symbol information
- * @returns The base file URI without symbol parts
+ * Extract just the file path from a URI that may contain symbol name and line number.
+ * Scheme-agnostic: treats file://, memfs:, vscode-test-web://, built-in://, apexlib://,
+ * and plain paths the same. Only {@link getFilePathFromUri} in ProtocolHandler
+ * rewrites apexlib:// (stdlib resource path).
+ *
+ * Order: extension heuristic (works for memfs:/…/Foo.cls:Symbol and file:///…/Foo.cls:Symbol),
+ * then hierarchical :// URIs (path colon or authority colon, e.g. built-in://apex:Name).
  */
 export const extractFilePathFromUri = (uri: string): string => {
-  const protocol = getProtocolType(uri);
-
-  // For known double-slash protocols, find the symbol separator after the authority
-  if (protocol === 'file' || protocol === 'apexlib' || protocol === 'builtin') {
-    // file:///path/to/file.cls:ClassName  ->  file:///path/to/file.cls
-    // built-in://apex:SomeName            ->  built-in://apex
-    const protocolEnd = uri.indexOf('://');
-    if (protocolEnd !== -1) {
-      const afterScheme = protocolEnd + 3; // Skip "://"
-      const pathStart = uri.indexOf('/', afterScheme);
-      if (pathStart !== -1) {
-        // Has path component: symbol separator is a colon within the path
-        const symbolSep = uri.indexOf(':', pathStart);
-        if (symbolSep !== -1) {
-          return uri.substring(0, symbolSep);
-        }
-      } else {
-        // No path component (e.g., built-in://apex:Name) — colon in authority
-        const symbolSep = uri.indexOf(':', afterScheme);
-        if (symbolSep !== -1) {
-          return uri.substring(0, symbolSep);
-        }
-      }
-    }
-    return uri;
-  }
-
-  // For 'other' protocols (memfs:, vscode-test-web://, etc.) and plain paths,
-  // find the colon that separates URI from symbol parts.
-  // A symbol separator colon appears AFTER the last path segment (after the file extension).
-  // Use file-extension heuristic: if the URI contains a recognized extension, the symbol
-  // separator is the first colon after that extension.
-  const extMatch = uri.match(/\.(cls|trigger|apex|soql|page|component|app)/);
+  const extMatch = uri.match(/\.(cls|trigger|apex)/);
   if (extMatch) {
     const extEnd = extMatch.index! + extMatch[0].length;
     const symbolSep = uri.indexOf(':', extEnd);
     if (symbolSep !== -1) {
       return uri.substring(0, symbolSep);
+    }
+  }
+
+  const protocolEnd = uri.indexOf('://');
+  if (protocolEnd !== -1) {
+    const afterScheme = protocolEnd + 3;
+    const pathStart = uri.indexOf('/', afterScheme);
+    if (pathStart !== -1) {
+      const symbolSep = uri.indexOf(':', pathStart);
+      if (symbolSep !== -1) {
+        return uri.substring(0, symbolSep);
+      }
+    } else {
+      const symbolSep = uri.indexOf(':', afterScheme);
+      if (symbolSep !== -1) {
+        return uri.substring(0, symbolSep);
+      }
     }
   }
 
@@ -260,16 +245,6 @@ export const parseSymbolId = (
 export const isStandardApexId = (id: string): boolean => {
   const parsed = parseSymbolId(id);
   return isStandardApexUri(parsed.uri);
-};
-
-/**
- * Check if an ID is a user code ID
- * @param id The ID to check
- * @returns True if this is a user code ID
- */
-export const isUserCodeId = (id: string): boolean => {
-  const parsed = parseSymbolId(id);
-  return isUserCodeUri(parsed.uri);
 };
 
 /**
