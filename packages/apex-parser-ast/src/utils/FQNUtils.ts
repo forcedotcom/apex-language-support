@@ -10,7 +10,7 @@
  * Utilities for working with Fully Qualified Names (FQNs) in Apex
  */
 
-import { ApexSymbol, SymbolKind } from '../types/symbol';
+import { ApexSymbol, SymbolKind, inTypeSymbolGroup } from '../types/symbol';
 import { isBlockSymbol } from './symbolNarrowing';
 import { ResourceLoader } from './resourceLoader';
 
@@ -122,12 +122,7 @@ export function calculateFQN(
  * @returns True if the symbol is a type, false otherwise
  */
 export function isType(symbol: ApexSymbol): boolean {
-  return (
-    symbol.kind === SymbolKind.Class ||
-    symbol.kind === SymbolKind.Interface ||
-    symbol.kind === SymbolKind.Enum ||
-    symbol.kind === SymbolKind.Trigger
-  );
+  return inTypeSymbolGroup(symbol);
 }
 
 /**

@@ -92,6 +92,7 @@ import type {
 } from '../parser/listeners/ApexCommentCollectorListener';
 import { CommentAssociator } from '../utils/CommentAssociator';
 import {
+  inTypeSymbolGroup,
   isChainedSymbolReference,
   isBlockSymbol,
   isMethodSymbol,
@@ -2979,13 +2980,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 // Qualifier is not a variable - try to resolve as type
                 const containingClass = symbolTable
                   .getAllSymbols()
-                  .find(
-                    (s) =>
-                      s.kind === SymbolKind.Class ||
-                      s.kind === SymbolKind.Interface ||
-                      s.kind === SymbolKind.Enum ||
-                      s.kind === SymbolKind.Trigger,
-                  ) as TypeSymbol | undefined;
+                  .find(inTypeSymbolGroup) as TypeSymbol | undefined;
 
                 if (containingClass) {
                   const rawNs = containingClass.namespace;
@@ -3080,14 +3075,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             if (!sourceSymbol) {
               // Fallback: Try to find the class symbol in the file
               const symbolsInFile = self.findSymbolsInFile(normalizedUri);
-              sourceSymbol =
-                symbolsInFile.find(
-                  (s) =>
-                    s.kind === SymbolKind.Class ||
-                    s.kind === SymbolKind.Interface ||
-                    s.kind === SymbolKind.Enum ||
-                    s.kind === SymbolKind.Trigger,
-                ) || null;
+              sourceSymbol = symbolsInFile.find(inTypeSymbolGroup) || null;
             }
 
             // Add reference to graph if both symbols found
@@ -3143,14 +3131,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           if (!sourceSymbol) {
             // Fallback: Try to find the class symbol in the file
             const symbolsInFile = self.findSymbolsInFile(normalizedUri);
-            sourceSymbol =
-              symbolsInFile.find(
-                (s) =>
-                  s.kind === SymbolKind.Class ||
-                  s.kind === SymbolKind.Interface ||
-                  s.kind === SymbolKind.Enum ||
-                  s.kind === SymbolKind.Trigger,
-              ) || null;
+            sourceSymbol = symbolsInFile.find(inTypeSymbolGroup) || null;
           }
 
           if (sourceSymbol) {
@@ -3377,13 +3358,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const parent = allSymbols.find((s) => s.id === blockSymbol.parentId);
         if (parent) {
           // Check if parent is a semantic symbol (method, class, interface, enum, trigger)
-          if (
-            parent.kind === SymbolKind.Method ||
-            parent.kind === SymbolKind.Class ||
-            parent.kind === SymbolKind.Interface ||
-            parent.kind === SymbolKind.Enum ||
-            parent.kind === SymbolKind.Trigger
-          ) {
+          if (parent.kind === SymbolKind.Method || inTypeSymbolGroup(parent)) {
             return parent;
           }
 
@@ -3404,10 +3379,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               // Found a semantic symbol
               if (
                 ancestor.kind === SymbolKind.Method ||
-                ancestor.kind === SymbolKind.Class ||
-                ancestor.kind === SymbolKind.Interface ||
-                ancestor.kind === SymbolKind.Enum ||
-                ancestor.kind === SymbolKind.Trigger
+                inTypeSymbolGroup(ancestor)
               ) {
                 return ancestor;
               }
@@ -3426,13 +3398,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Fallback: If no containing semantic symbol found in scope hierarchy,
     // find the top-level type symbol (class, interface, enum, trigger)
-    const topLevelSymbol = allSymbols.find(
-      (s) =>
-        s.kind === SymbolKind.Class ||
-        s.kind === SymbolKind.Interface ||
-        s.kind === SymbolKind.Enum ||
-        s.kind === SymbolKind.Trigger,
-    );
+    const topLevelSymbol = allSymbols.find(inTypeSymbolGroup);
 
     return topLevelSymbol || null;
   }
@@ -6327,13 +6293,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // This ensures references are still processed even if position matching fails
     if (!bestMatch && symbolsInFile.length > 0) {
       // Find the top-level type symbol (class, interface, enum, trigger)
-      const topLevelSymbol = symbolsInFile.find(
-        (s) =>
-          s.kind === SymbolKind.Class ||
-          s.kind === SymbolKind.Interface ||
-          s.kind === SymbolKind.Enum ||
-          s.kind === SymbolKind.Trigger,
-      );
+      const topLevelSymbol = symbolsInFile.find(inTypeSymbolGroup);
       if (topLevelSymbol) {
         return topLevelSymbol;
       }

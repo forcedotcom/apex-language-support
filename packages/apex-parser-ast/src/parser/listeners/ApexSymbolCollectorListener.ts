@@ -88,6 +88,7 @@ import {
   createCollectionTypeInfo,
   createMapTypeInfo,
 } from '../../utils/TypeInfoFactory';
+import { applyModifierKeyword } from '../utils/applyModifierKeyword';
 import { createTypeInfoFromTypeRef as createTypeInfoFromTypeRefUtil } from '../utils/createTypeInfoFromTypeRef';
 import {
   SymbolReferenceFactory,
@@ -129,6 +130,7 @@ import { localizeTyped } from '../../i18n/messageInstance';
 import { ErrorCodes } from '../../generated/ErrorCodes';
 import {
   hasIdMethod,
+  inTypeSymbolGroup,
   isEnumSymbol,
   isMethodSymbol,
   isClassSymbol,
@@ -352,14 +354,7 @@ export class ApexSymbolCollectorListener
           // Block's parentId points to the class/interface/enum/trigger symbol
           const typeSymbol = this.symbolTable
             .getAllSymbols()
-            .find(
-              (s) =>
-                s.id === owner.parentId &&
-                (s.kind === SymbolKind.Class ||
-                  s.kind === SymbolKind.Interface ||
-                  s.kind === SymbolKind.Enum ||
-                  s.kind === SymbolKind.Trigger),
-            );
+            .find((s) => s.id === owner.parentId && inTypeSymbolGroup(s));
           if (typeSymbol) return typeSymbol as TypeSymbol;
         }
       }
@@ -470,14 +465,7 @@ export class ApexSymbolCollectorListener
       );
       if (semanticSymbol) {
         // Verify it's the right kind
-        if (
-          !(
-            semanticSymbol.kind === SymbolKind.Class ||
-            semanticSymbol.kind === SymbolKind.Interface ||
-            semanticSymbol.kind === SymbolKind.Enum ||
-            semanticSymbol.kind === SymbolKind.Trigger
-          )
-        ) {
+        if (!inTypeSymbolGroup(semanticSymbol)) {
           semanticSymbol = undefined;
         }
       }
@@ -490,10 +478,7 @@ export class ApexSymbolCollectorListener
           if (
             s.name === searchName &&
             s.kind !== SymbolKind.Block &&
-            (s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum ||
-              s.kind === SymbolKind.Trigger)
+            inTypeSymbolGroup(s)
           ) {
             semanticSymbol = s;
             break;
@@ -693,13 +678,7 @@ export class ApexSymbolCollectorListener
       visited.add(current.id);
 
       // If this symbol is a root (parentId === null) and is a type, return it
-      if (
-        current.parentId === null &&
-        (current.kind === SymbolKind.Class ||
-          current.kind === SymbolKind.Interface ||
-          current.kind === SymbolKind.Enum ||
-          current.kind === SymbolKind.Trigger)
-      ) {
+      if (current.parentId === null && inTypeSymbolGroup(current)) {
         return current;
       }
 
@@ -998,7 +977,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Apply the modifier to the current modifiers
-      this.applyModifier(this.currentModifiers, modifier);
+      applyModifierKeyword(this.currentModifiers, modifier);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error processing modifier: ${errorMessage}`, ctx);
@@ -5625,50 +5604,6 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Apply a modifier to the modifiers object
-   */
-  private applyModifier(modifiers: SymbolModifiers, modifier: string): void {
-    switch (modifier.toLowerCase()) {
-      case 'public':
-        modifiers.visibility = SymbolVisibility.Public;
-        break;
-      case 'private':
-        modifiers.visibility = SymbolVisibility.Private;
-        break;
-      case 'protected':
-        modifiers.visibility = SymbolVisibility.Protected;
-        break;
-      case 'global':
-        modifiers.visibility = SymbolVisibility.Global;
-        break;
-      case 'static':
-        modifiers.isStatic = true;
-        break;
-      case 'final':
-        modifiers.isFinal = true;
-        break;
-      case 'abstract':
-        modifiers.isAbstract = true;
-        break;
-      case 'virtual':
-        modifiers.isVirtual = true;
-        break;
-      case 'override':
-        modifiers.isOverride = true;
-        break;
-      case 'transient':
-        modifiers.isTransient = true;
-        break;
-      case 'testmethod':
-        modifiers.isTestMethod = true;
-        break;
-      case 'webservice':
-        modifiers.isWebService = true;
-        break;
-    }
-  }
-
-  /**
    * Extract text from a parser context
    */
   private getTextFromContext(ctx: any): string {
@@ -5786,14 +5721,7 @@ export class ApexSymbolCollectorListener
       // Block's parentId points to the class symbol
       const classSymbol = this.symbolTable
         .getAllSymbols()
-        .find(
-          (s) =>
-            s.id === parent.parentId &&
-            (s.kind === SymbolKind.Class ||
-              s.kind === SymbolKind.Interface ||
-              s.kind === SymbolKind.Enum ||
-              s.kind === SymbolKind.Trigger),
-        );
+        .find((s) => s.id === parent.parentId && inTypeSymbolGroup(s));
       return classSymbol !== null && classSymbol !== undefined;
     }
 

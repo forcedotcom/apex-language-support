@@ -550,6 +550,21 @@ export interface TypeSymbol extends ApexSymbol {
 }
 
 /**
+ * Type predicate: symbol is a class, interface, enum, or trigger
+ */
+export function inTypeSymbolGroup(
+  symbol: ApexSymbol | undefined | null,
+): symbol is TypeSymbol {
+  return (
+    !!symbol &&
+    (symbol.kind === SymbolKind.Class ||
+      symbol.kind === SymbolKind.Enum ||
+      symbol.kind === SymbolKind.Interface ||
+      symbol.kind === SymbolKind.Trigger)
+  );
+}
+
+/**
  * Represents a method or constructor
  */
 export interface MethodSymbol extends ApexSymbol {
@@ -1339,14 +1354,7 @@ export class SymbolTable {
         semanticSymbol = this.findSymbolInScope(currentScopeId, name);
         if (semanticSymbol) {
           // Verify it's the right kind
-          if (
-            !(
-              semanticSymbol.kind === SymbolKind.Class ||
-              semanticSymbol.kind === SymbolKind.Interface ||
-              semanticSymbol.kind === SymbolKind.Enum ||
-              semanticSymbol.kind === SymbolKind.Trigger
-            )
-          ) {
+          if (!inTypeSymbolGroup(semanticSymbol)) {
             semanticSymbol = undefined;
           }
         }
@@ -1358,10 +1366,7 @@ export class SymbolTable {
             if (
               s.name === name &&
               s.kind !== SymbolKind.Block &&
-              (s.kind === SymbolKind.Class ||
-                s.kind === SymbolKind.Interface ||
-                s.kind === SymbolKind.Enum ||
-                s.kind === SymbolKind.Trigger)
+              inTypeSymbolGroup(s)
             ) {
               semanticSymbol = s;
               break;

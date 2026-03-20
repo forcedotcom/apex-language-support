@@ -15,7 +15,7 @@ import {
   reset as schedulerReset,
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
-import { SymbolKind } from '../../src/types/symbol';
+import { SymbolKind, inTypeSymbolGroup } from '../../src/types/symbol';
 import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
 
 describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
@@ -204,10 +204,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
             expect(ref.sourceSymbol.kind).not.toBe(SymbolKind.Block);
             expect(
               ref.sourceSymbol.kind === SymbolKind.Method ||
-                ref.sourceSymbol.kind === SymbolKind.Class ||
-                ref.sourceSymbol.kind === SymbolKind.Interface ||
-                ref.sourceSymbol.kind === SymbolKind.Enum ||
-                ref.sourceSymbol.kind === SymbolKind.Trigger,
+                inTypeSymbolGroup(ref.sourceSymbol),
             ).toBe(true);
           }
         }

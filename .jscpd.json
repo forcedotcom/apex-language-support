@@ -1,0 +1,25 @@
+{
+  "threshold": 6,
+  "reporters": ["console", "json"],
+  "output": "./jscpd-report",
+  "ignore": [
+    "**/node_modules/**",
+    "**/out/**",
+    "**/dist/**",
+    "**/bundle/**",
+    "**/coverage/**",
+    "**/.wireit/**",
+    "**/.vscode-test/**",
+    "**/.vscode-test-web*/**",
+    "**/*.d.ts",
+    "**/test/**",
+    "**/__tests__/**",
+    "e2e-tests/**",
+    "packages/apex-parser-ast/src/generated/**",
+    "packages/apex-parser-ast/resources/**",
+    "packages/apex-lsp-vscode-extension/server-bundle/**"
+  ],
+  "minLines": 5,
+  "minTokens": 50,
+  "format": ["typescript", "javascript"]
+}
