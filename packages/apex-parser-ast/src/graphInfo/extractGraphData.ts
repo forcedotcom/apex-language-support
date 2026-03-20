@@ -29,6 +29,41 @@ function getGraph(): ApexSymbolGraph {
 }
 
 /**
+ * Helper function to create a GraphNode from a symbol with reference count
+ */
+function createGraphNode(
+  symbol: ApexSymbol,
+  reverseIndex: Map<string, Set<string>>,
+): GraphNode {
+  const refKeys = reverseIndex.get(symbol.id);
+  const referenceCount = refKeys ? refKeys.size : 0;
+
+  return {
+    id: symbol.id,
+    name: symbol.name,
+    kind: symbol.kind,
+    fileUri: symbol.fileUri,
+    fqn: symbol.fqn,
+    location: symbol.location,
+    modifiers: symbol.modifiers,
+    parentId: symbol.parentId,
+    namespace:
+      typeof symbol.namespace === 'string'
+        ? symbol.namespace
+        : symbol.namespace?.toString() || null,
+    annotations: symbol.annotations?.map((ann) => ({
+      name: ann.name,
+      parameters: ann.parameters?.map((param) => ({
+        name: param.name || '',
+        value: param.value,
+      })),
+    })),
+    nodeId: 0, // Deprecated: no longer used
+    referenceCount: referenceCount,
+  };
+}
+
+/**
  * Extract all graph nodes as JSON-serializable data (synchronous version)
  * For better performance with large graphs, use getAllNodesEffect() instead
  */
@@ -113,34 +148,8 @@ export function getAllNodesEffect(): Effect.Effect<GraphNode[], never, never> {
           }
         }
 
-        // Calculate reference count from reverse index (how many references point to this symbol)
-        const refKeys = reverseIndex.get(symbol.id);
-        const referenceCount = refKeys ? refKeys.size : 0;
-
-        // Create proper GraphNode structure (without deprecated graph properties)
-        const graphNode: GraphNode = {
-          id: symbol.id,
-          name: symbol.name,
-          kind: symbol.kind,
-          fileUri: symbol.fileUri,
-          fqn: symbol.fqn,
-          location: symbol.location,
-          modifiers: symbol.modifiers,
-          parentId: symbol.parentId,
-          namespace:
-            typeof symbol.namespace === 'string'
-              ? symbol.namespace
-              : symbol.namespace?.toString() || null,
-          annotations: symbol.annotations?.map((ann) => ({
-            name: ann.name,
-            parameters: ann.parameters?.map((param) => ({
-              name: param.name || '',
-              value: param.value,
-            })),
-          })),
-          nodeId: 0, // Deprecated: no longer used
-          referenceCount: referenceCount,
-        };
+        // Create GraphNode with reference count
+        const graphNode = createGraphNode(symbol, reverseIndex);
 
         seenNodeIds.set(symbol.id, graphNode);
         seenByKey.set(semanticKey, graphNode);
@@ -398,23 +407,12 @@ export function getGraphDataForFile(fileUri: string): FileGraphData {
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
 
-  // Calculate reference count from reverse index
-  const cleanSymbol = (symbol: ApexSymbol): GraphNode => {
-    const cleaned = { ...symbol } as any;
-
-    const refKeys = reverseIndex.get(symbol.id);
-    cleaned.nodeId = 0; // Deprecated: no longer used
-    cleaned.referenceCount = refKeys ? refKeys.size : 0;
-
-    return cleaned;
-  };
-
   // Get nodes for this file
   for (const symbolId of fileSymbolIds) {
     const symbol = graph.getSymbol(symbolId);
     if (symbol) {
       // Include all symbols including blocks - embrace the structural nature of SymbolTable
-      nodes.push(cleanSymbol(symbol));
+      nodes.push(createGraphNode(symbol, reverseIndex));
     }
   }
 
@@ -494,23 +492,12 @@ export function getGraphDataByType(symbolType: string): TypeGraphData {
   const refStore = graph.getRefStore();
   const fileIndex = graph.getFileIndex();
 
-  // Calculate reference count from reverse index
-  const cleanSymbol = (symbol: ApexSymbol): GraphNode => {
-    const cleaned = { ...symbol } as any;
-
-    const refKeys = reverseIndex.get(symbol.id);
-    cleaned.nodeId = 0; // Deprecated: no longer used
-    cleaned.referenceCount = refKeys ? refKeys.size : 0;
-
-    return cleaned;
-  };
-
   // Get all nodes of the specified type
   for (const symbolId of symbolIds) {
     const symbol = graph.getSymbol(symbolId);
     if (symbol && symbol.kind === symbolType) {
       // Include all symbols including blocks - embrace the structural nature of SymbolTable
-      filteredNodes.push(cleanSymbol(symbol));
+      filteredNodes.push(createGraphNode(symbol, reverseIndex));
       nodeIds.add(symbolId);
     }
   }

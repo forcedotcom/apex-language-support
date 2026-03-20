@@ -747,6 +747,50 @@ export class ApexSymbolGraph {
   }
 
   /**
+   * Helper method to create a RefStoreEntry and add it to indexes
+   */
+  private createAndAddReference(
+    sourceFileUri: string,
+    sourceSymbolId: string,
+    targetFileUri: string,
+    targetSymbolId: string,
+    referenceType: EnumValue<typeof ReferenceType>,
+    location: SymbolLocation,
+    context?: {
+      methodName?: string;
+      parameterIndex?: number;
+      isStatic?: boolean;
+      namespace?: string;
+    },
+  ): void {
+    const refEntry: RefStoreEntry = {
+      sourceFileUri,
+      sourceSymbolId,
+      targetFileUri,
+      targetSymbolId,
+      referenceType,
+      location,
+      context: context
+        ? {
+            methodName: context.methodName,
+            parameterIndex: context.parameterIndex
+              ? toUint16(context.parameterIndex)
+              : undefined,
+            isStatic: context.isStatic,
+            namespace: context.namespace,
+          }
+        : undefined,
+    };
+
+    this.addReferenceToIndexes(
+      sourceFileUri,
+      sourceSymbolId,
+      targetSymbolId,
+      refEntry,
+    );
+  }
+
+  /**
    * Remove all references from a file (used during file replacement)
    */
   private removeReferencesFromFile(fileUri: string): void {
@@ -1621,32 +1665,15 @@ export class ApexSymbolGraph {
       targetSymbolInGraph.fileUri,
     );
 
-    // Create reference entry
-    const refEntry: RefStoreEntry = {
-      sourceFileUri: sourceSymbolInGraph.fileUri,
-      sourceSymbolId: sourceId,
-      targetFileUri: targetSymbolInGraph.fileUri,
-      targetSymbolId: targetId,
-      referenceType,
-      location,
-      context: context
-        ? {
-            methodName: context.methodName,
-            parameterIndex: context.parameterIndex
-              ? toUint16(context.parameterIndex)
-              : undefined,
-            isStatic: context.isStatic,
-            namespace: context.namespace,
-          }
-        : undefined,
-    };
-
-    // Add reference to indexes
-    this.addReferenceToIndexes(
+    // Create reference entry and add to indexes
+    this.createAndAddReference(
       sourceSymbolInGraph.fileUri,
       sourceId,
+      targetSymbolInGraph.fileUri,
       targetId,
-      refEntry,
+      referenceType,
+      location,
+      context,
     );
 
     this.memoryStats.totalEdges++;
@@ -2966,32 +2993,15 @@ export class ApexSymbolGraph {
           sourceSymbolInGraph.fileUri,
         );
 
-        // Create reference entry
-        const refEntry: RefStoreEntry = {
-          sourceFileUri: sourceSymbolInGraph.fileUri,
-          sourceSymbolId: sourceId,
-          targetFileUri: targetSymbol.fileUri,
-          targetSymbolId: targetId,
-          referenceType: ref.referenceType,
-          location: ref.location,
-          context: ref.context
-            ? {
-                methodName: ref.context.methodName,
-                parameterIndex: ref.context.parameterIndex
-                  ? toUint16(ref.context.parameterIndex)
-                  : undefined,
-                isStatic: ref.context.isStatic,
-                namespace: ref.context.namespace,
-              }
-            : undefined,
-        };
-
-        // Add reference to indexes
-        self.addReferenceToIndexes(
+        // Create reference entry and add to indexes
+        self.createAndAddReference(
           sourceSymbolInGraph.fileUri,
           sourceId,
+          targetSymbol.fileUri,
           targetId,
-          refEntry,
+          ref.referenceType,
+          ref.location,
+          ref.context,
         );
 
         self.memoryStats.totalEdges++;
@@ -3158,32 +3168,15 @@ export class ApexSymbolGraph {
         sourceSymbolInGraph.fileUri,
       );
 
-      // Create reference entry
-      const refEntry: RefStoreEntry = {
-        sourceFileUri: sourceSymbolInGraph.fileUri,
-        sourceSymbolId: sourceId,
-        targetFileUri: targetSymbol.fileUri,
-        targetSymbolId: targetId,
-        referenceType: ref.referenceType,
-        location: ref.location,
-        context: ref.context
-          ? {
-              methodName: ref.context.methodName,
-              parameterIndex: ref.context.parameterIndex
-                ? toUint16(ref.context.parameterIndex)
-                : undefined,
-              isStatic: ref.context.isStatic,
-              namespace: ref.context.namespace,
-            }
-          : undefined,
-      };
-
-      // Add reference to indexes
-      this.addReferenceToIndexes(
+      // Create reference entry and add to indexes
+      this.createAndAddReference(
         sourceSymbolInGraph.fileUri,
         sourceId,
+        targetSymbol.fileUri,
         targetId,
-        refEntry,
+        ref.referenceType,
+        ref.location,
+        ref.context,
       );
 
       this.memoryStats.totalEdges++;
@@ -3309,32 +3302,15 @@ export class ApexSymbolGraph {
         const targetSymbol = targetSymbols[0];
         const targetId = self.getSymbolId(targetSymbol, targetSymbol.fileUri);
 
-        // Create reference entry
-        const refEntry: RefStoreEntry = {
-          sourceFileUri: sourceSymbol.fileUri,
-          sourceSymbolId: sourceId,
-          targetFileUri: targetSymbol.fileUri,
-          targetSymbolId: targetId,
-          referenceType: ref.referenceType,
-          location: ref.location,
-          context: ref.context
-            ? {
-                methodName: ref.context.methodName,
-                parameterIndex: ref.context.parameterIndex
-                  ? toUint16(ref.context.parameterIndex)
-                  : undefined,
-                isStatic: ref.context.isStatic,
-                namespace: ref.context.namespace,
-              }
-            : undefined,
-        };
-
-        // Add reference to indexes
-        self.addReferenceToIndexes(
+        // Create reference entry and add to indexes
+        self.createAndAddReference(
           sourceSymbol.fileUri,
           sourceId,
+          targetSymbol.fileUri,
           targetId,
-          refEntry,
+          ref.referenceType,
+          ref.location,
+          ref.context,
         );
 
         self.memoryStats.totalEdges++;
@@ -3434,32 +3410,15 @@ export class ApexSymbolGraph {
       const targetSymbol = targetSymbols[0];
       const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
 
-      // Create reference entry
-      const refEntry: RefStoreEntry = {
-        sourceFileUri: sourceSymbol.fileUri,
-        sourceSymbolId: sourceId,
-        targetFileUri: targetSymbol.fileUri,
-        targetSymbolId: targetId,
-        referenceType: ref.referenceType,
-        location: ref.location,
-        context: ref.context
-          ? {
-              methodName: ref.context.methodName,
-              parameterIndex: ref.context.parameterIndex
-                ? toUint16(ref.context.parameterIndex)
-                : undefined,
-              isStatic: ref.context.isStatic,
-              namespace: ref.context.namespace,
-            }
-          : undefined,
-      };
-
-      // Add reference to indexes
-      this.addReferenceToIndexes(
+      // Create reference entry and add to indexes
+      this.createAndAddReference(
         sourceSymbol.fileUri,
         sourceId,
+        targetSymbol.fileUri,
         targetId,
-        refEntry,
+        ref.referenceType,
+        ref.location,
+        ref.context,
       );
 
       this.memoryStats.totalEdges++;
