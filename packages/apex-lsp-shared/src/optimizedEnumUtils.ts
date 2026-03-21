@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { z } from 'zod';
+import { z, util } from 'zod';
 import {
   toUint8,
   toUint16,
@@ -53,6 +53,13 @@ export type OptimizedEnumSchemas = {
   keySchema: z.ZodType<any>;
   valueSchema: z.ZodType<any>;
 };
+
+/** Zod 4 `z.literal` accepts `util.Literal` only (no `symbol`); handle symbols separately. */
+function schemaForEnumValue(value: EnumPrimitive): z.ZodTypeAny {
+  return typeof value === 'symbol'
+    ? z.custom<EnumPrimitive>((v) => v === value)
+    : z.literal(value as util.Literal);
+}
 
 /**
  * Determines the optimal numeric type for a given value
@@ -146,7 +153,7 @@ export function defineOptimizedEnum<
 
   // Create Zod validation schemas with proper type handling
   const keyLiterals = keys.map((key) => z.literal(key));
-  const valueLiterals = values.map((value) => z.literal(value));
+  const valueLiterals = values.map((value) => schemaForEnumValue(value));
 
   // Handle empty arrays and ensure proper union types
   const keySchema =
