@@ -822,7 +822,7 @@
   "dependencies": {
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "@salesforce/apex-lsp-shared": "1.0.0",
-    "effect": "^3.18.4",
+    "effect": "^3.20.0",
     "fflate": "^0.8.1",
     "vscode-languageclient": "^9.0.1",
     "web-worker": "^1.5.0"
