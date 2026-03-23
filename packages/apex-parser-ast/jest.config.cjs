@@ -38,6 +38,9 @@ module.exports = {
   automock: false,
   resetMocks: false,
   testTimeout:  120_000, // 2 minutes default timeout for tests
+  // Recycle workers after they retain too much heap (stdlib/protobuf loads per suite).
+  // Without this, parallel runs can hit SIGSEGV in heavy suites (e.g. ApexSymbolManager.references).
+  workerIdleMemoryLimit: '512MB',
   globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
   // Enable open handle detection when DETECT_OPEN_HANDLES env var is set to 'true'
   // This can be very verbose, so it's opt-in for debugging purposes
