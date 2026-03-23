@@ -214,7 +214,7 @@
     "@salesforce/vscode-i18n": "^66.1.1",
     "antlr4ts": "0.5.0-alpha.4",
     "data-structure-typed": "^2.0.4",
-    "effect": "^3.18.4",
+    "effect": "^3.20.0",
     "fflate": "^0.8.1"
   },
   "devDependencies": {
