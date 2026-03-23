@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { z } from 'zod';
+import { z, util } from 'zod';
 
 /**
  * Primitive types that can be used as enum values
@@ -38,6 +38,13 @@ export type EnumSchemas = {
   keySchema: z.ZodType<any>;
   valueSchema: z.ZodType<any>;
 };
+
+/** Zod 4 `z.literal` accepts `util.Literal` only (no `symbol`); handle symbols separately. */
+function schemaForEnumValue(value: EnumPrimitive): z.ZodTypeAny {
+  return typeof value === 'symbol'
+    ? z.custom<EnumPrimitive>((v) => v === value)
+    : z.literal(value as util.Literal);
+}
 
 /**
  * Creates a memory-efficient, type-safe enum with bidirectional mapping
@@ -98,7 +105,7 @@ export function defineEnum<const T extends readonly EnumEntry[]>(
 
   // Create Zod validation schemas with proper type handling
   const keyLiterals = keys.map((key) => z.literal(key));
-  const valueLiterals = values.map((value) => z.literal(value));
+  const valueLiterals = values.map((value) => schemaForEnumValue(value));
 
   // Handle empty arrays and ensure proper union types
   const keySchema =
