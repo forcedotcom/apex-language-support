@@ -453,9 +453,9 @@ describe('ApexSymbolGraph', () => {
 
       await compileAndAddToManager(testCode, 'file:///test/TestClass.cls');
 
-      // Get symbol by ID
-      const symbolId = 'file:///test/TestClass.cls:TestClass';
-      const found = graph.getSymbol(symbolId);
+      const [classSymbol] = graph.lookupSymbolByName('TestClass');
+      expect(classSymbol).toBeDefined();
+      const found = graph.getSymbol(classSymbol!.id);
 
       expect(found).toBeDefined();
       expect(found!.location.symbolRange).toBeDefined();
@@ -629,11 +629,11 @@ describe('ApexSymbolGraph', () => {
 
       // Try to add reference to non-existent symbol (should be deferred)
       const nonExistentSymbol = {
-        id: 'file:///test/NonExistent.cls:NonExistent',
+        id: 'file:///test/NonExistent.cls#NonExistent.NonExistent$class',
         name: 'NonExistent',
         kind: SymbolKind.Class,
         fqn: 'NonExistent',
-        fileUri: 'file:///test/NonExistent.cls:NonExistent',
+        fileUri: 'file:///test/NonExistent.cls',
         parentId: null,
         location: {
           symbolRange: {
@@ -1024,31 +1024,11 @@ describe('ApexSymbolGraph', () => {
       // The cycle contains URI-based symbol IDs, so we need to check if they contain the class names
       // Extract symbol names from stable IDs
       const cycleSymbolNames = cycle.map((symbolId) => {
-        // New stable format: file:///path/to/file.cls#QualifiedName or file:///path/to/file.cls#QualifiedName$prefix
-        // Extract just the top-level class name from the qualified name
-        if (symbolId.includes('#')) {
-          const afterHash = symbolId.split('#')[1];
-          // Remove prefix if present (e.g., $class)
-          const withoutPrefix = afterHash.split('$')[0];
-          // Get the first part of the qualified name (e.g., ClassA from ClassA.InnerClass)
-          const parts = withoutPrefix.split('.');
-          return parts[0];
-        }
-        // Fallback for old format
-        const parts = symbolId.split(':');
-        if (
-          symbolId.startsWith('file://') ||
-          symbolId.startsWith('apexlib://')
-        ) {
-          const lastPart = parts[parts.length - 1];
-          if (!isNaN(Number(lastPart))) {
-            return parts[parts.length - 2];
-          } else {
-            return lastPart;
-          }
-        } else {
-          return parts[0];
-        }
+        // Stable format: file:///path/to/file.cls#QualifiedName or ...#QualifiedName$prefix
+        const afterHash = symbolId.split('#')[1];
+        const withoutPrefix = afterHash.split('$')[0];
+        const parts = withoutPrefix.split('.');
+        return parts[0];
       });
       expect(cycleSymbolNames).toContain('ClassA');
       expect(cycleSymbolNames).toContain('ClassB');
@@ -1496,11 +1476,11 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent symbol (should be deferred)
       const nonExistentSymbol = {
-        id: 'file:///test/NonExistent.cls:NonExistent',
+        id: 'file:///test/NonExistent.cls#NonExistent.NonExistent$class',
         name: 'NonExistent',
         kind: SymbolKind.Class,
         fqn: 'NonExistent',
-        fileUri: 'file:///test/NonExistent.cls:NonExistent',
+        fileUri: 'file:///test/NonExistent.cls',
         parentId: null,
         location: {
           symbolRange: {
@@ -1629,11 +1609,11 @@ describe('ApexSymbolGraph', () => {
 
       // Try to find references to non-existent symbol
       const nonExistentSymbol = {
-        id: 'file:///test/NonExistent.cls:NonExistent',
+        id: 'file:///test/NonExistent.cls#NonExistent.NonExistent$class',
         name: 'NonExistent',
         kind: SymbolKind.Class,
         fqn: 'NonExistent',
-        fileUri: 'file:///test/NonExistent.cls:NonExistent',
+        fileUri: 'file:///test/NonExistent.cls',
         parentId: null,
         location: {
           symbolRange: {
@@ -1786,7 +1766,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target (should be deferred)
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -1873,7 +1853,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -1989,7 +1969,7 @@ describe('ApexSymbolGraph', () => {
       // Add multiple references to non-existent targets
       for (let i = 0; i < 5; i++) {
         const targetSymbol = {
-          id: `file:///test/TargetClass${i}.cls:TargetClass${i}`,
+          id: `file:///test/TargetClass${i}.cls#TargetClass${i}.TargetClass${i}$class`,
           name: `TargetClass${i}`,
           kind: SymbolKind.Class,
           fqn: `TargetClass${i}`,
@@ -2074,7 +2054,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -2178,7 +2158,7 @@ describe('ApexSymbolGraph', () => {
       // Add many deferred references
       for (let i = 0; i < 100; i++) {
         const targetSymbol = {
-          id: `file:///test/TargetClass${i}.cls:TargetClass${i}`,
+          id: `file:///test/TargetClass${i}.cls#TargetClass${i}.TargetClass${i}$class`,
           name: `TargetClass${i}`,
           kind: SymbolKind.Class,
           fqn: `TargetClass${i}`,
@@ -2274,7 +2254,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -2371,7 +2351,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -2465,7 +2445,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -2562,7 +2542,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',
@@ -2665,7 +2645,7 @@ describe('ApexSymbolGraph', () => {
 
       // Add reference to non-existent target
       const targetSymbol = {
-        id: 'file:///test/TargetClass.cls:TargetClass',
+        id: 'file:///test/TargetClass.cls#TargetClass.TargetClass$class',
         name: 'TargetClass',
         kind: SymbolKind.Class,
         fqn: 'TargetClass',

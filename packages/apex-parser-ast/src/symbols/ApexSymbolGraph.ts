@@ -254,7 +254,7 @@ export class ApexSymbolGraph {
 
   /**
    * Maps symbol ID to file uri for quick file location lookups
-   * Key: Symbol ID (e.g., "file:///path/MyClass.cls:MyClass")
+   * Key: Symbol ID (e.g., "file:///path/MyClass.cls#MyClass.MyClass$class")
    * Value: File uri (e.g., "file:///path/MyClass.cls")
    * Used by: File-based operations, symbol removal, dependency analysis
    */
@@ -288,7 +288,7 @@ export class ApexSymbolGraph {
 
   /**
    * Maps symbol IDs to symbol objects for O(1) lookups
-   * Key: Symbol ID (e.g., "file:///path/MyClass.cls:MyClass")
+   * Key: Symbol ID (e.g., "file:///path/MyClass.cls#MyClass.MyClass$class")
    * Value: ApexSymbol object
    * Used by: getParent() helper, optimized parent resolution
    */
@@ -1640,12 +1640,14 @@ export class ApexSymbolGraph {
         context,
       );
 
-      // For built-in types, create a virtual symbol and add the reference immediately
+      // Scalar keywords (void, null) use apexlib URIs but are not loaded as graph vertices;
+      // create a virtual symbol and add the reference immediately
       if (
         targetSymbol.fileUri &&
-        targetSymbol.fileUri.startsWith('built-in://')
+        targetSymbol.fileUri.startsWith('apexlib://') &&
+        (targetSymbol.name === 'void' || targetSymbol.name === 'null')
       ) {
-        this.createVirtualSymbolForBuiltInType(
+        this.createVirtualSymbolForStdlibScalarKeyword(
           targetSymbol,
           sourceSymbol,
           referenceType,
@@ -2662,10 +2664,9 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Create a virtual symbol for built-in types and add the reference immediately
-   * TODO: remove once all apex classes are converted to use file uris
+   * Create a virtual symbol for stdlib scalar keywords (void, null) and add the reference immediately.
    */
-  private createVirtualSymbolForBuiltInType(
+  private createVirtualSymbolForStdlibScalarKeyword(
     targetSymbol: ApexSymbol,
     sourceSymbol: ApexSymbol,
     referenceType: EnumValue<typeof ReferenceType>,
@@ -2677,8 +2678,10 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
-    // Create a virtual symbol ID for the built-in type
-    const virtualSymbolId = `built-in://apex:${targetSymbol.name}`;
+    const virtualSymbolId = generateSymbolId(
+      targetSymbol.name,
+      targetSymbol.fileUri!,
+    );
 
     // Check if we already have this virtual symbol
     if (this.symbolIds.has(virtualSymbolId)) {

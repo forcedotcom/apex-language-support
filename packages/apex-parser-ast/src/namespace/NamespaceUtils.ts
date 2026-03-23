@@ -215,7 +215,8 @@ export interface ResolutionRule {
  */
 export interface SymbolProvider {
   find(referencingType: ApexSymbol, fullName: string): ApexSymbol | null;
-  findBuiltInType(name: string): ApexSymbol | null;
+  /** Scalar keywords void/null (synthetic apexlib URIs); not wrapper types like String */
+  findScalarKeywordType(name: string): ApexSymbol | null;
   findSObjectType(name: string): ApexSymbol | null;
   findExternalType(name: string, packageName: string): ApexSymbol | null;
 }
@@ -245,11 +246,8 @@ export interface NamespaceResolutionResult {
 }
 
 /**
- * Built-in type tables
- * Maps to Java TypeInfoTables
- * Note: Wrapper types, collection types (List, Set, Map), System types,
- * and Schema types are now resolved via ResourceLoader
- * This interface only includes types that aren't real classes (scalar, sObject)
+ * Scalar keyword types (void, null) not backed by real .cls files.
+ * Wrapper types, collections, System/Schema types resolve via ResourceLoader.
  */
 export interface BuiltInTypeTables {
   readonly scalarTypes: Map<string, ApexSymbol>;

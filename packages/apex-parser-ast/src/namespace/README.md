@@ -189,7 +189,7 @@ symbolTable.addSymbol(variableSymbol);
 const compilationContext = createCompilationContext('MyNamespace');
 const symbolProvider = createSymbolProvider();
 const mockResolvedSymbol = createMockSymbol('List', SymbolKind.Class);
-symbolProvider.findBuiltInType.mockReturnValue(mockResolvedSymbol);
+symbolProvider.findScalarKeywordType.mockReturnValue(mockResolvedSymbol);
 
 namespaceResolutionService.resolveDeferredReferences(
   symbolTable,

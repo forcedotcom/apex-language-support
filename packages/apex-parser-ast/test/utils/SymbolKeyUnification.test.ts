@@ -85,7 +85,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
       const stringKey = keyToString(key);
       // keyToString now always uses unifiedId (generated if missing)
-      // unifiedId format: fileUri:scopePath:prefix:name
+      // unifiedId uses file URI + # + qualified name (+ optional $prefix)
       expect(stringKey).toContain('TestClass');
       expect(stringKey).toContain('class');
       // Should be a unifiedId format, not path-based
@@ -94,7 +94,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
     it('should create SymbolKey from ApexSymbol with unified ID', () => {
       const symbol: ApexSymbol = {
-        id: 'TestFile.cls:TestClass',
+        id: 'file:///TestFile.cls#file.TestClass.TestClass$class',
         name: 'TestClass',
         kind: SymbolKind.Class,
         location: {
@@ -153,21 +153,22 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         prefix: 'class',
         name: 'TestClass',
         path: ['file', 'TestClass'],
-        unifiedId: 'TestClass:TestFile.cls',
+        unifiedId: 'file://TestFile.cls#file.TestClass.TestClass$class',
       };
 
       const key2: SymbolKey = {
         prefix: 'class',
         name: 'TestClass',
         path: ['file', 'TestClass'],
-        unifiedId: 'TestClass:TestFile.cls',
+        unifiedId: 'file://TestFile.cls#file.TestClass.TestClass$class',
       };
 
       const key3: SymbolKey = {
         prefix: 'class',
         name: 'DifferentClass',
         path: ['file', 'DifferentClass'],
-        unifiedId: 'DifferentClass:TestFile.cls',
+        unifiedId:
+          'file://TestFile.cls#file.DifferentClass.DifferentClass$class',
       };
 
       expect(areEquivalent(key1, key2)).toBe(true);
@@ -223,7 +224,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
   describe('ApexSymbolManager Integration', () => {
     it('should use unified key system in getSymbolId', () => {
       const symbol: ApexSymbol = {
-        id: 'file:///TestFile.cls:TestClass',
+        id: 'file:///TestFile.cls#file.TestClass.TestClass$class',
         name: 'TestClass',
         kind: SymbolKind.Class,
         location: {
@@ -276,7 +277,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
     it('should maintain backward compatibility with existing SymbolKey usage', () => {
       const symbol: ApexSymbol = {
-        id: 'file:///TestFile.cls:TestClass',
+        id: 'file:///TestFile.cls#file.TestClass.TestClass$class',
         name: 'TestClass',
         kind: SymbolKind.Class,
         location: {
@@ -330,7 +331,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
     it('should handle symbols without FQN correctly', () => {
       const symbol: ApexSymbol = {
-        id: 'file:///TestFile.cls:testMethod',
+        id: 'file:///TestFile.cls#file.TestClass.testMethod.testMethod$method',
         name: 'testMethod',
         kind: SymbolKind.Method,
         location: {
@@ -383,7 +384,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
   describe('Performance and Consistency', () => {
     it('should generate consistent unified IDs for same symbols', () => {
       const symbol1: ApexSymbol = {
-        id: 'TestFile.cls:TestClass',
+        id: 'file:///TestFile.cls#file.TestClass.TestClass$class',
         name: 'TestClass',
         kind: SymbolKind.Class,
         location: {
@@ -425,7 +426,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       };
 
       const symbol2: ApexSymbol = {
-        id: 'TestFile.cls:TestClass',
+        id: 'file:///TestFile.cls#file.TestClass.TestClass$class',
         name: 'TestClass',
         kind: SymbolKind.Class,
         location: {
@@ -480,7 +481,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       // Create 1000 symbols
       for (let i = 0; i < 1000; i++) {
         const symbol: ApexSymbol = {
-          id: `TestFile.cls:TestClass${i}`,
+          id: `file:///TestFile.cls#file.TestClass${i}.TestClass${i}$class`,
           name: `TestClass${i}`,
           kind: SymbolKind.Class,
           location: {

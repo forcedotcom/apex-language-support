@@ -522,7 +522,7 @@ export class ApexSymbolCollectorListener
   ): string[] {
     // Extract method path from method symbol's ID
     // Method symbol ID format: fileUri:scopePath:prefix:name
-    // e.g., 'file:///test/TestClass.cls:class:MyClass:block_1:method:myMethod'
+    // e.g., stable URI-based unified IDs (file URI + # + qualified name + optional $prefix)
     const methodIdStr = methodSymbol.id;
     const fileUriEnd = methodIdStr.indexOf(':', methodIdStr.indexOf('://') + 3);
     // Extract method path from method symbol's ID

@@ -1340,7 +1340,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
       it('should resolve System class through full CLASS_REFERENCE resolution flow', async () => {
         // Test the full resolution flow:
-        // CLASS_REFERENCE → resolveSymbolReferenceToSymbol → resolveBuiltInType → resolveStandardApexClass
+        // CLASS_REFERENCE → resolveSymbolReferenceToSymbol → resolveStandardLibraryType → resolveStandardApexClass
         // This verifies the entire chain works end-to-end
         const testClassPath = path.join(
           __dirname,
@@ -1396,7 +1396,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         );
 
         // Should resolve through:
-        // CLASS_REFERENCE → resolveSymbolReferenceToSymbol → resolveBuiltInType → resolveStandardApexClass
+        // CLASS_REFERENCE → resolveSymbolReferenceToSymbol → resolveStandardLibraryType → resolveStandardApexClass
         expect(result).toBeDefined();
         expect(result?.name).toBe('System');
         expect(result?.kind).toBe('class');

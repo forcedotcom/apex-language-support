@@ -454,10 +454,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // Check if it's a standard namespace or class before short-circuiting
     const isStandardNamespace =
       this.resourceLoader && this.resourceLoader.isStdApexNamespace(name);
-    const isBuiltInType = BUILTIN_TYPE_NAMES.has(name.toLowerCase());
+    const isStdlibPrimitiveTypeName = BUILTIN_TYPE_NAMES.has(
+      name.toLowerCase(),
+    );
 
-    // Only short-circuit keywords that are NOT standard namespaces/classes/built-in types
-    if (isApexKeyword(name) && !isStandardNamespace && !isBuiltInType) {
+    // Only short-circuit keywords that are NOT standard namespaces/classes/stdlib primitive names
+    if (
+      isApexKeyword(name) &&
+      !isStandardNamespace &&
+      !isStdlibPrimitiveTypeName
+    ) {
       return [];
     }
 
@@ -3589,7 +3595,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Try to resolve as built-in type
-    const builtInSymbol = await this.resolveBuiltInType(typeRef);
+    const builtInSymbol = await this.resolveStandardLibraryType(typeRef);
     if (builtInSymbol) {
       return builtInSymbol;
     }
@@ -3751,7 +3757,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             resolvedSymbolId: undefined,
           };
         }
-        const builtInQualifier = await this.resolveBuiltInType(qualifierRef);
+        const builtInQualifier =
+          await this.resolveStandardLibraryType(qualifierRef);
         if (builtInQualifier) {
           qualifierSymbols = [builtInQualifier];
         }
@@ -3919,7 +3926,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           resolvedSymbolId: undefined,
         };
       }
-      const builtInQualifier = await this.resolveBuiltInType(qualifierRef);
+      const builtInQualifier =
+        await this.resolveStandardLibraryType(qualifierRef);
       if (builtInQualifier) {
         return true;
       }
@@ -3975,7 +3983,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           };
         }
         const builtInQualifier = yield* Effect.tryPromise({
-          try: () => self.resolveBuiltInType(qualifierRef),
+          try: () => self.resolveStandardLibraryType(qualifierRef),
           catch: (error) => error as Error,
         }).pipe(Effect.catchAll(() => Effect.succeed(null)));
         if (builtInQualifier) {
@@ -4317,7 +4325,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         };
 
         // Resolve using the literalType name
-        const builtInSymbol = await this.resolveBuiltInType(builtInTypeRef);
+        const builtInSymbol =
+          await this.resolveStandardLibraryType(builtInTypeRef);
         if (builtInSymbol) {
           // Store the resolved symbol ID in the original LITERAL reference
           typeReference.resolvedSymbolId = builtInSymbol.id;
@@ -4446,7 +4455,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // not to built-in types or standard classes
       if (typeReference.context !== ReferenceContext.VARIABLE_DECLARATION) {
         // Try built-in type resolution for the name itself
-        const builtInSymbol = await this.resolveBuiltInType(typeReference);
+        const builtInSymbol =
+          await this.resolveStandardLibraryType(typeReference);
         if (builtInSymbol) {
           this.logger.debug(
             () =>
@@ -4676,7 +4686,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // If no class candidates found, try built-in type resolution
         // This handles cases like Integer, String, etc. in GENERIC_PARAMETER_TYPE references
-        const builtInSymbol = await this.resolveBuiltInType(typeReference);
+        const builtInSymbol =
+          await this.resolveStandardLibraryType(typeReference);
         if (builtInSymbol) {
           this.logger.debug(
             () =>
@@ -4859,7 +4870,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return !!(name && name.length > 0);
   }
 
-  private async resolveBuiltInType(
+  private async resolveStandardLibraryType(
     typeRef: SymbolReference,
   ): Promise<ApexSymbol | null> {
     const name = typeRef.name;
@@ -4878,8 +4889,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           const qualifierNode = chainNodes[0]; // System
           const memberNode = chainNodes[1]; // Url
 
-          // Resolve qualifier as built-in type (recursive call with qualifier node)
-          const qualifierSymbol = await this.resolveBuiltInType(qualifierNode);
+          // Resolve qualifier as standard library type (recursive call with qualifier node)
+          const qualifierSymbol =
+            await this.resolveStandardLibraryType(qualifierNode);
           if (qualifierSymbol) {
             // Resolve member within qualifier namespace/class
             const fqn = `${qualifierNode.name}.${memberNode.name}`;
@@ -4936,22 +4948,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Step 3: For unqualified names, try to find FQN even if isStandardApexClass returned false
       // This handles wrapper types like Integer, String, etc. that are in System namespace
-      // However, builtin types like void/null should be resolved via builtInTypeTables first
-      // Only try standard class resolution if builtin type lookup fails
+      // Scalar keywords void/null (synthetic apexlib) before FQN for System types
       if (!name.includes('.')) {
-        // First check builtin types (scalar only: void, null)
-        const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
-        if (builtInType) {
+        const scalarKeyword = this.findScalarKeywordType(name);
+        if (scalarKeyword) {
           return {
-            ...builtInType,
+            ...scalarKeyword,
             modifiers: {
-              ...builtInType.modifiers,
+              ...scalarKeyword.modifiers,
               isBuiltIn: true,
             },
           };
         }
 
-        // If not a builtin type, try to find FQN for standard class
+        // If not a scalar keyword, try to find FQN for standard class
         const fqn = this.findFQNForStandardClass(name);
         if (fqn) {
           const standardClass = await this.resolveStandardApexClass(fqn);
@@ -4961,13 +4971,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
       }
 
-      // Step 4: Check other built-in types (scalar: void, null) — fallback for qualified names
-      const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
-      if (builtInType) {
+      // Step 4: Scalar keywords void/null — fallback for qualified names
+      const scalarKeywordFallback = this.findScalarKeywordType(name);
+      if (scalarKeywordFallback) {
         return {
-          ...builtInType,
+          ...scalarKeywordFallback,
           modifiers: {
-            ...builtInType.modifiers,
+            ...scalarKeywordFallback.modifiers,
             isBuiltIn: true,
           },
         };
@@ -5705,8 +5715,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return symbols.length > 0 ? symbols[0] : null;
   }
 
-  findBuiltInType(name: string): ApexSymbol | null {
-    // Use cached built-in type tables instance
+  findScalarKeywordType(name: string): ApexSymbol | null {
     return this.builtInTypeTables.findType(name.toLowerCase());
   }
 
@@ -5792,7 +5801,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   public isStandardLibraryType(name: string): boolean {
     // Check if it's a built-in type (String, Integer, etc.)
-    const builtInType = this.findBuiltInType(name);
+    const builtInType = this.findScalarKeywordType(name);
     if (builtInType) {
       return true;
     }
@@ -7401,7 +7410,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Strategy 4: Try built-in type resolution
-    const builtInSymbol = await this.resolveBuiltInType(step);
+    const builtInSymbol = await this.resolveStandardLibraryType(step);
     if (builtInSymbol) {
       resolutions.push({ type: 'symbol', symbol: builtInSymbol });
     }
@@ -8194,7 +8203,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Try built-in type resolution
     // Create a minimal SymbolReference from the string name
-    // Since resolveBuiltInType only uses typeRef.name, we can use dummy ranges
+    // Since resolveStandardLibraryType only uses typeRef.name, we can use dummy ranges
     const dummyLocation: SymbolLocation = {
       symbolRange: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
       identifierRange: {
@@ -8210,7 +8219,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       ReferenceContext.CLASS_REFERENCE,
       undefined, // resolvedSymbolId - will be set during second-pass resolution
     );
-    const builtInSymbol = await this.resolveBuiltInType(typeRef);
+    const builtInSymbol = await this.resolveStandardLibraryType(typeRef);
     if (builtInSymbol) {
       this.logger.debug(
         () =>
@@ -8834,7 +8843,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
                 // Try built-in type resolution
                 const builtInTypeSymbol =
-                  await this.resolveBuiltInType(typeRef);
+                  await this.resolveStandardLibraryType(typeRef);
                 if (builtInTypeSymbol) {
                   // Recursively resolve the member on the built-in type
                   const resolvedMember = await this.resolveMemberInContext(
@@ -8957,7 +8966,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
                 // Try built-in type resolution
                 const builtInTypeSymbol =
-                  await this.resolveBuiltInType(typeRef);
+                  await this.resolveStandardLibraryType(typeRef);
                 if (builtInTypeSymbol) {
                   const resolvedMember = await this.resolveMemberInContext(
                     { type: 'symbol', symbol: builtInTypeSymbol },
@@ -9440,7 +9449,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         },
         resolvedSymbolId: undefined,
       };
-      const builtInSymbol = await this.resolveBuiltInType(memberRef);
+      const builtInSymbol = await this.resolveStandardLibraryType(memberRef);
       if (builtInSymbol) {
         return builtInSymbol;
       }

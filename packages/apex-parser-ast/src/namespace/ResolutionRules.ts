@@ -31,7 +31,7 @@ export const NamedScalarOrVoid: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
-    return symbols.findBuiltInType(name);
+    return symbols.findScalarKeywordType(name);
   },
 };
 
@@ -82,11 +82,11 @@ export const BuiltInSystemSchema: ResolutionRule = {
     const name = context.adjustedNameParts[0];
 
     // Check System types
-    const systemType = symbols.findBuiltInType(`System.${name}`);
+    const systemType = symbols.findScalarKeywordType(`System.${name}`);
     if (systemType) return systemType;
 
     // Check Schema types
-    const schemaType = symbols.findBuiltInType(`Schema.${name}`);
+    const schemaType = symbols.findScalarKeywordType(`Schema.${name}`);
     if (schemaType) return schemaType;
 
     return null;
@@ -248,7 +248,7 @@ export const BuiltInNamespace: ResolutionRule = {
     // Check if first part is a built-in namespace
     if (firstPart === 'system' || firstPart === 'schema') {
       const fullName = `${firstPart}.${secondPart}`;
-      return symbols.findBuiltInType(fullName);
+      return symbols.findScalarKeywordType(fullName);
     }
 
     return null;

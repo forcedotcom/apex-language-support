@@ -98,17 +98,17 @@ describe('UriBasedIdGenerator', () => {
 
   describe('parseSymbolId', () => {
     it('should parse file:// URIs correctly', () => {
-      const id = `${createFileUri('/path/to/MyClass.cls')}:MyClass:42`;
+      const id = `${createFileUri('/path/to/MyClass.cls')}#MyClass`;
       const parsed = parseSymbolId(id);
 
       expect(parsed.uri).toBe(createFileUri('/path/to/MyClass.cls'));
       expect(parsed.name).toBe('MyClass');
-      expect(parsed.lineNumber).toBe(42);
+      expect(parsed.lineNumber).toBeUndefined();
       expect(parsed.scopePath).toBeUndefined();
     });
 
     it('should parse apexlib:// URIs correctly', () => {
-      const id = `${createApexLibUri('System/System.cls')}:System`;
+      const id = `${createApexLibUri('System/System.cls')}#System`;
       const parsed = parseSymbolId(id);
 
       expect(parsed.uri).toBe(createApexLibUri('System/System.cls'));
@@ -118,28 +118,28 @@ describe('UriBasedIdGenerator', () => {
     });
 
     it('should parse scope paths correctly', () => {
-      const id = `${createFileUri('/path/to/MyClass.cls')}:MyClass.myMethod:myVariable:15`;
+      const id = `${createFileUri('/path/to/MyClass.cls')}#MyClass.myMethod.myVariable`;
       const parsed = parseSymbolId(id);
 
       expect(parsed.uri).toBe(createFileUri('/path/to/MyClass.cls'));
       expect(parsed.scopePath).toEqual(['MyClass', 'myMethod']);
       expect(parsed.name).toBe('myVariable');
-      expect(parsed.lineNumber).toBe(15);
+      expect(parsed.lineNumber).toBeUndefined();
     });
   });
 
   describe('utility methods', () => {
     it('should identify standard Apex IDs correctly', () => {
-      const standardId = `${createApexLibUri('System/System.cls')}:System`;
-      const userId = `${createFileUri('/path/to/MyClass.cls')}:MyClass`;
+      const standardId = `${createApexLibUri('System/System.cls')}#System`;
+      const userId = `${createFileUri('/path/to/MyClass.cls')}#MyClass`;
 
       expect(isStandardApexId(standardId)).toBe(true);
       expect(isStandardApexId(userId)).toBe(false);
     });
 
     it('should extract file paths correctly', () => {
-      const standardId = `${createApexLibUri('System/System.cls')}:System`;
-      const userId = `${createFileUri('/path/to/MyClass.cls')}:MyClass`;
+      const standardId = `${createApexLibUri('System/System.cls')}#System`;
+      const userId = `${createFileUri('/path/to/MyClass.cls')}#MyClass`;
 
       expect(getFilePathFromId(standardId)).toBe('System/System.cls');
       expect(getFilePathFromId(userId)).toBe(
@@ -173,7 +173,7 @@ describe('UriBasedIdGenerator', () => {
 
   describe('extractFilePathFromUri', () => {
     it('should extract file path from file URI with symbol part', () => {
-      expect(extractFilePathFromUri('file:///path/File.cls:ClassName')).toBe(
+      expect(extractFilePathFromUri('file:///path/File.cls#ClassName')).toBe(
         'file:///path/File.cls',
       );
     });
@@ -186,7 +186,7 @@ describe('UriBasedIdGenerator', () => {
 
     it('should extract memfs URI path when symbol part present', () => {
       expect(
-        extractFilePathFromUri('memfs:/MyProject/path/File.cls:ClassName'),
+        extractFilePathFromUri('memfs:/MyProject/path/File.cls#ClassName'),
       ).toBe('memfs:/MyProject/path/File.cls');
     });
 
@@ -196,28 +196,26 @@ describe('UriBasedIdGenerator', () => {
       ).toBe('vscode-test-web://mount/path/File.cls');
     });
 
-    it('should return built-in URI as-is when no symbol part', () => {
-      expect(extractFilePathFromUri('built-in://Object')).toBe(
-        'built-in://Object',
-      );
+    it('should return arbitrary scheme URI as-is when no symbol part', () => {
+      expect(extractFilePathFromUri('vscode://Object')).toBe('vscode://Object');
     });
 
-    it('should extract built-in URI when symbol part present', () => {
-      expect(extractFilePathFromUri('built-in://apex:SomeName')).toBe(
-        'built-in://apex',
+    it('should keep scheme authority intact when no hash fragment', () => {
+      expect(extractFilePathFromUri('vscode://apex:SomeName')).toBe(
+        'vscode://apex:SomeName',
       );
     });
 
     it('should extract vscode-test-web URI when symbol part present', () => {
       expect(
         extractFilePathFromUri(
-          'vscode-test-web://mount/path/File.cls:ClassName',
+          'vscode-test-web://mount/path/File.cls#ClassName',
         ),
       ).toBe('vscode-test-web://mount/path/File.cls');
     });
 
     it('should extract plain path when symbol part present', () => {
-      expect(extractFilePathFromUri('/Users/me/File.cls:ClassName')).toBe(
+      expect(extractFilePathFromUri('/Users/me/File.cls#ClassName')).toBe(
         '/Users/me/File.cls',
       );
     });
@@ -436,17 +434,6 @@ describe('UriBasedIdGenerator', () => {
         expect(parsed.name).toBe('method');
         expect(parsed.scopePath).toEqual(['Outer', 'Inner']);
         expect(parsed.signature).toBeUndefined();
-      });
-
-      it('should parse old format for backward compatibility', () => {
-        const parsed = parseSymbolId(
-          'file:///workspace/MyClass.cls:MyClass:method:myMethod',
-        );
-
-        expect(parsed.uri).toBe('file:///workspace/MyClass.cls');
-        expect(parsed.name).toBe('myMethod');
-        // Old format: 'method' is treated as a prefix, so scope is just ['MyClass']
-        expect(parsed.scopePath).toEqual(['MyClass']);
       });
     });
 

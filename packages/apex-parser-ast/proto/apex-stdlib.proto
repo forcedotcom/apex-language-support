@@ -101,6 +101,7 @@ message TypeReference {
   bool is_array = 3;
   bool is_collection = 4;
   bool is_primitive = 5;
+  // Legacy name: standard Apex library / primitive (not a separate "builtin" protocol)
   bool is_built_in = 6;
   repeated TypeReference type_parameters = 7;
   TypeReference key_type = 8;  // For Map types
@@ -118,6 +119,7 @@ message Modifiers {
   bool is_transient = 7;
   bool is_test_method = 8;
   bool is_web_service = 9;
+  // Legacy name: standard Apex library symbol
   bool is_built_in = 10;
 }
 

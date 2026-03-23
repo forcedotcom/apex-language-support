@@ -27,8 +27,8 @@ describe('ProtocolHandler', () => {
       ).toBe(true);
     });
 
-    it('should return true for built-in:// URIs', () => {
-      expect(hasUriScheme('built-in://Object')).toBe(true);
+    it('should return true for arbitrary scheme:// URIs', () => {
+      expect(hasUriScheme('vscode-remote://host/path/File.cls')).toBe(true);
     });
 
     it('should return true for double-slash other protocols', () => {

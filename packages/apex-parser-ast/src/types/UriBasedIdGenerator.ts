@@ -56,17 +56,11 @@ const convertToUri = (fileUri: string): string => {
 };
 
 /**
- * Parse the symbol part of an ID (everything after the URI).
- * Handles both new format (# separator, dot-qualified names) and
- * old format (: separator, colon-separated paths).
- *
- * @param symbolPart The symbol part to parse
- * @param separator The separator used (':#' for new, ':' for old)
- * @returns Parsed symbol components
+ * Parse the symbol fragment of an ID (everything after the first `#` that follows the file URI).
+ * Format: qualifiedName[#signature]$prefix — signature uses `#` when present; `$` disambiguates.
  */
 const parseSymbolPart = (
   symbolPart: string,
-  separator: string,
 ): {
   uri: string;
   scopePath?: string[];
@@ -75,93 +69,26 @@ const parseSymbolPart = (
   signature?: string;
   qualifiedName?: string;
 } => {
-  if (separator === '#') {
-    // NEW FORMAT: qualifiedName#signature$prefix
-    // Example: OuterClass.InnerClass.method#(String,Integer)$block
-    const parts = symbolPart.split('#');
+  const parts = symbolPart.split('#');
 
-    if (parts.length === 0) {
-      throw new Error(`Invalid symbol part: ${symbolPart}`);
-    }
-
-    const qualifiedName = parts[0];
-    const signature = parts.length > 1 ? parts[1].split('$')[0] : undefined;
-
-    // Extract simple name and scope path from qualified name
-    const nameParts = qualifiedName.split('.');
-    const name = nameParts[nameParts.length - 1];
-    const scopePath = nameParts.length > 1 ? nameParts.slice(0, -1) : undefined;
-
-    return {
-      uri: '', // Set by caller
-      scopePath,
-      name,
-      signature,
-      qualifiedName,
-    };
-  } else {
-    // OLD FORMAT (backward compatibility): scope:prefix:name:lineNumber
-    // Example: MyClass:method:myMethod:42
-    const symbolParts = symbolPart.split(':');
-
-    // The last part might be a line number if it's just a number
-    let lineNumber: number | undefined;
-    let cleanName: string;
-    let scopeParts: string[];
-
-    const lastPart = symbolParts[symbolParts.length - 1];
-    const hasLineNumber = /^\d+$/.test(lastPart);
-    const partsWithoutLine = hasLineNumber
-      ? symbolParts.slice(0, -1)
-      : symbolParts;
-
-    if (hasLineNumber) {
-      lineNumber = parseInt(lastPart, 10);
-    }
-
-    if (partsWithoutLine.length === 1) {
-      cleanName = partsWithoutLine[0];
-      scopeParts = [];
-    } else if (partsWithoutLine.length === 2) {
-      const firstPart = partsWithoutLine[0];
-      if (!firstPart.includes('.')) {
-        cleanName = partsWithoutLine[1];
-        scopeParts = [];
-      } else {
-        cleanName = partsWithoutLine[1];
-        scopeParts = [partsWithoutLine[0]];
-      }
-    } else {
-      cleanName = partsWithoutLine[partsWithoutLine.length - 1];
-      const secondToLast = partsWithoutLine[partsWithoutLine.length - 2];
-
-      if (!secondToLast.includes('.')) {
-        scopeParts = partsWithoutLine.slice(0, -2);
-      } else {
-        scopeParts = partsWithoutLine.slice(0, -1);
-      }
-    }
-
-    // Process scope parts to handle dots
-    let scopePath: string[] | undefined;
-    if (scopeParts.length > 0) {
-      scopePath = [];
-      for (const part of scopeParts) {
-        if (part.includes('.')) {
-          scopePath.push(...part.split('.'));
-        } else {
-          scopePath.push(part);
-        }
-      }
-    }
-
-    return {
-      uri: '',
-      scopePath,
-      name: cleanName,
-      lineNumber,
-    };
+  if (parts.length === 0) {
+    throw new Error(`Invalid symbol part: ${symbolPart}`);
   }
+
+  const qualifiedName = parts[0];
+  const signature = parts.length > 1 ? parts[1].split('$')[0] : undefined;
+
+  const nameParts = qualifiedName.split('.');
+  const name = nameParts[nameParts.length - 1];
+  const scopePath = nameParts.length > 1 ? nameParts.slice(0, -1) : undefined;
+
+  return {
+    uri: '',
+    scopePath,
+    name,
+    signature,
+    qualifiedName,
+  };
 };
 
 /**
@@ -234,16 +161,10 @@ function removeNamespace(typeName: string): string {
  *     - Method: `file:///MyClass.cls#MyClass.myMethod#(String,Integer)`
  *     - Nested: `file:///Outer.cls#Outer.Inner.method`
  *
- * OLD FORMAT (deprecated, backward compat in parsing):
- *   - Separator: `:` (colon)
- *   - Paths: colon-separated
- *   - Line numbers: included
- *   - Example: `file:///MyClass.cls:MyClass:method:myMethod:42`
- *
  * @param name The symbol name
  * @param fileUri The file URI
  * @param scopePath Optional scope path for uniqueness (e.g., ["TestClass", "method1"])
- * @param lineNumber Optional line number - DEPRECATED, not used in stable IDs
+ * @param lineNumber Unused; kept for call-site compatibility
  * @param prefix Optional symbol prefix/kind for uniqueness (e.g., "method", "block")
  *   - used for duplicate disambiguation only
  * @param parameters Optional parameters for method/constructor signatures
@@ -291,22 +212,15 @@ export const generateSymbolId = (
     symbolId += `$${prefix}`;
   }
 
-  // lineNumber is deprecated - not used in stable IDs
-  // Kept as parameter for backward compatibility during migration
-
   return symbolId;
 };
 
 /**
- * Extract just the file path from a URI that may contain symbol name and line number.
- * Handles both old format (`:` separator) and new format (`#` separator).
+ * Extract the base URI from a compound symbol ID string.
+ * Symbol metadata is separated from the file URI only by `#` (never by `:` outside the URI scheme).
  *
- * Scheme-agnostic: treats file://, memfs:, vscode-test-web://, built-in://, apexlib://,
- * and plain paths the same. Only {@link getFilePathFromUri} in ProtocolHandler
- * rewrites apexlib:// (stdlib resource path).
- *
- * Order: extension heuristic (works for memfs:/…/Foo.cls:Symbol and file:///…/Foo.cls:Symbol),
- * then hierarchical :// URIs (path colon or authority colon, e.g. built-in://apex:Name).
+ * Scheme colons (e.g. `file://`, `vscode://path`) are preserved; only a `#` after the
+ * resource path starts the symbol fragment.
  *
  * @param uri The URI that may contain symbol information
  * @returns The base file URI without symbol parts
@@ -316,30 +230,23 @@ export const extractFilePathFromUri = (uri: string): string => {
   if (extMatch) {
     const extEnd = extMatch.index! + extMatch[0].length;
     const hashSep = uri.indexOf('#', extEnd);
-    const colonSep = uri.indexOf(':', extEnd);
-
-    if (hashSep !== -1 && (colonSep === -1 || hashSep < colonSep)) {
+    if (hashSep !== -1) {
       return uri.substring(0, hashSep);
-    } else if (colonSep !== -1) {
-      return uri.substring(0, colonSep);
     }
   }
 
   const protocolEnd = uri.indexOf('://');
   if (protocolEnd !== -1) {
     const afterScheme = protocolEnd + 3;
-    const pathStart = uri.indexOf('/', afterScheme);
-    if (pathStart !== -1) {
-      const symbolSep = uri.indexOf(':', pathStart);
-      if (symbolSep !== -1) {
-        return uri.substring(0, symbolSep);
-      }
-    } else {
-      const symbolSep = uri.indexOf(':', afterScheme);
-      if (symbolSep !== -1) {
-        return uri.substring(0, symbolSep);
-      }
+    const hashSep = uri.indexOf('#', afterScheme);
+    if (hashSep !== -1) {
+      return uri.substring(0, hashSep);
     }
+  }
+
+  const hashSep = uri.indexOf('#');
+  if (hashSep !== -1) {
+    return uri.substring(0, hashSep);
   }
 
   return uri;
@@ -347,7 +254,7 @@ export const extractFilePathFromUri = (uri: string): string => {
 
 /**
  * Parse a URI-based ID back into its components.
- * Handles both new format (# separator) and old format (: separator).
+ * Requires `#` between the file URI and the symbol fragment.
  *
  * @param id The URI-based ID to parse
  * @returns Parsed ID components
@@ -362,23 +269,20 @@ export const parseSymbolId = (
   signature?: string;
   qualifiedName?: string;
 } => {
-  // Use extractFilePathFromUri to find the URI portion
   const uri = extractFilePathFromUri(id);
   if (uri === id) {
     throw new Error(`Invalid ID format - no symbol part found: ${id}`);
   }
 
-  // Detect separator: # for new format, : for old format
-  const separatorChar = id.charAt(uri.length);
-  if (separatorChar !== '#' && separatorChar !== ':') {
+  if (id.charAt(uri.length) !== '#') {
     throw new Error(
-      `Invalid ID format - expected # or : separator at position ${uri.length}: ${id}`,
+      `Invalid ID format - expected # separator at position ${uri.length}: ${id}`,
     );
   }
 
-  const symbolPart = id.substring(uri.length + 1); // Skip the separator
+  const symbolPart = id.substring(uri.length + 1);
 
-  const parsed = parseSymbolPart(symbolPart, separatorChar);
+  const parsed = parseSymbolPart(symbolPart);
   parsed.uri = uri;
   return parsed;
 };
