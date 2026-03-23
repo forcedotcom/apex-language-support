@@ -767,9 +767,8 @@ async function createWebLanguageClient(
 
   // Initialize ApexLib for standard library support
   try {
-    const { createApexLibManager } = await import(
-      '@salesforce/apex-lsp-compliant-services'
-    );
+    const { createApexLibManager } =
+      await import('@salesforce/apex-lsp-compliant-services');
     const { VSCodeLanguageClientAdapter, VSCodeEditorContextAdapter } =
       await import('./apexlib/vscode-adapters');
 
@@ -1150,9 +1149,8 @@ async function createDesktopLanguageClient(
 
   // Initialize ApexLib for standard library support
   try {
-    const { createApexLibManager } = await import(
-      '@salesforce/apex-lsp-compliant-services'
-    );
+    const { createApexLibManager } =
+      await import('@salesforce/apex-lsp-compliant-services');
     const { VSCodeLanguageClientAdapter, VSCodeEditorContextAdapter } =
       await import('./apexlib/vscode-adapters');
 

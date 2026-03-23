@@ -99,9 +99,8 @@ export class ApexLibProtocolHandler implements TextDocumentContentProvider {
     try {
       // Import the ResourceLoader from the parser package
       // This will be available when the package is properly linked
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
+      const { ResourceLoader } =
+        await import('@salesforce/apex-lsp-parser-ast');
 
       if (!ResourceLoader) {
         this.logger.debug(

@@ -249,9 +249,8 @@ private class FileUtilitiesTest {
       `;
       const compilerService = new CompilerService();
       const table = new SymbolTable();
-      const { VisibilitySymbolListener } = await import(
-        '../../../../src/parser/listeners/VisibilitySymbolListener'
-      );
+      const { VisibilitySymbolListener } =
+        await import('../../../../src/parser/listeners/VisibilitySymbolListener');
       const initialListener = new VisibilitySymbolListener('public-api', table);
       const initialResult = compilerService.compile(
         source,

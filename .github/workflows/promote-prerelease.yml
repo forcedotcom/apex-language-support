@@ -37,7 +37,7 @@ jobs:
       nightly-tag: ${{ steps.find.outputs.nightly-tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.IDEE_GH_TOKEN }}
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Check CI status for candidate commit
         uses: ./.github/actions/check-ci-status
@@ -88,7 +88,7 @@ jobs:
             publish-tool: ovsx
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.IDEE_GH_TOKEN }}
 
@@ -136,7 +136,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.IDEE_GH_TOKEN }}

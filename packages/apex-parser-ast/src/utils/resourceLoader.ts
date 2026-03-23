@@ -758,17 +758,15 @@ export class ResourceLoader {
     checksumContent: string;
   } | null> {
     // Import checksum validator
-    const { ChecksumFileMissingError, ChecksumValidationError } = await import(
-      './checksum-validator'
-    );
+    const { ChecksumFileMissingError, ChecksumValidationError } =
+      await import('./checksum-validator');
 
     // Try embedded data URL first (production builds)
     // Note: For embedded builds, checksums should be validated at build time
     // TODO: Embed checksum in data URL or separate module for production validation
     try {
-      const { getEmbeddedStandardLibraryTypeRegistryDataUrl } = await import(
-        '../cache/stdlib-type-registry-data'
-      );
+      const { getEmbeddedStandardLibraryTypeRegistryDataUrl } =
+        await import('../cache/stdlib-type-registry-data');
       const dataUrl = getEmbeddedStandardLibraryTypeRegistryDataUrl();
       if (dataUrl) {
         // Parse data URL and return binary
