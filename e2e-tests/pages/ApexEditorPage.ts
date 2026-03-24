@@ -383,7 +383,6 @@ export class ApexEditorPage extends BasePage {
       '.cls-ext-file-icon',
       '[aria-label*=".cls"]',
       '.tab [title*=".cls"]',
-      '.monaco-editor',
     ];
 
     const timeout = this.isDesktopMode ? 5000 : 3000;

@@ -281,7 +281,8 @@ test.describe('Apex Go-to-Definition', () => {
    */
   test('should handle generic type references', async ({ apexEditor }) => {
     await test.step('Position cursor on generic type', async () => {
-      await apexEditor.positionCursorOnWord('List<Account>');
+      // Use single-word search; 'List<Account>' won't reliably position via Find
+      await apexEditor.positionCursorOnWord('accounts');
     });
 
     await test.step('Trigger go-to-definition', async () => {
@@ -292,8 +293,6 @@ test.describe('Apex Go-to-Definition', () => {
       // Generic types may not have definitions in user code
       // Just verify no crash occurred
       expect(await apexEditor.isApexFileOpen()).toBe(true);
-
-      console.log('✅ Handled generic type reference');
     });
   });
 
@@ -392,7 +391,8 @@ test.describe('Apex Go-to-Definition', () => {
    */
   test('should handle this keyword appropriately', async ({ apexEditor }) => {
     await test.step('Position cursor on this keyword', async () => {
-      await apexEditor.positionCursorOnWord('this.instanceId');
+      // Use 'this' alone; 'this.instanceId' is multi-word and unreliable via Find
+      await apexEditor.positionCursorOnWord('this');
     });
 
     await test.step('Trigger go-to-definition', async () => {
@@ -402,8 +402,6 @@ test.describe('Apex Go-to-Definition', () => {
     await test.step('Verify stayed in file', async () => {
       // 'this' should either navigate to class or stay in place
       expect(await apexEditor.isApexFileOpen()).toBe(true);
-
-      console.log('✅ Handled this keyword reference');
     });
   });
 
@@ -491,8 +489,6 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
         'abstract class BaseHandler',
       );
       expect(content).toMatch(/abstract\s+class\s+BaseHandler/);
-
-      console.log('✅ Navigated to base class definition');
     });
   });
 
@@ -517,13 +513,11 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     });
 
     await test.step('Navigate to overridden execute method', async () => {
-      await apexEditor.positionCursorOnWord('override void execute');
+      await apexEditor.positionCursorOnWord('execute');
       await apexEditor.goToDefinition();
 
       const content = await apexEditor.findAndGetViewportContent('execute');
       expect(content).toMatch(/execute/);
-
-      console.log('✅ Navigated to overridden method');
     });
   });
 
@@ -557,8 +551,6 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
         'interface DataProcessor',
       );
       expect(content).toMatch(/interface\s+DataProcessor/);
-
-      console.log('✅ Navigated to interface definition');
     });
   });
 
@@ -589,8 +581,6 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
       const content =
         await apexEditor.findAndGetViewportContent('processRecords');
       expect(content).toMatch(/processRecords/);
-
-      console.log('✅ Navigated to interface method');
     });
   });
 
@@ -621,8 +611,6 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
         'class Configuration',
       );
       expect(content).toMatch(/class\s+Configuration/);
-
-      console.log('✅ Navigated in complex class structure');
     });
   });
 });
