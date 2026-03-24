@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
+import { ApexSymbolRefManager } from '../../src/symbols/ApexSymbolRefManager';
 import {
   SymbolTable,
   SymbolKind,
@@ -15,13 +15,13 @@ import {
   SymbolFactory,
 } from '../../src/types/symbol';
 
-describe('ApexSymbolGraph Duplicate Handling', () => {
-  let symbolGraph: ApexSymbolGraph;
+describe('ApexSymbolRefManager Duplicate Handling', () => {
+  let symbolGraph: ApexSymbolRefManager;
   let symbolTable: SymbolTable;
 
   beforeEach(() => {
-    symbolGraph = new ApexSymbolGraph();
-    ApexSymbolGraph.setInstance(symbolGraph);
+    symbolGraph = new ApexSymbolRefManager();
+    ApexSymbolRefManager.setInstance(symbolGraph);
     symbolTable = new SymbolTable();
     symbolTable.setFileUri('file:///test/TestClass.cls');
   });

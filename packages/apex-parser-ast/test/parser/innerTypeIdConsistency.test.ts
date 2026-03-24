@@ -130,9 +130,11 @@ public class Foo {
   });
 
   it('registerSymbolTable merge (full then public-api) should produce single FooB in merged table', () => {
-    const { ApexSymbolGraph } = require('../../src/symbols/ApexSymbolGraph');
+    const {
+      ApexSymbolRefManager,
+    } = require('../../src/symbols/ApexSymbolRefManager');
 
-    const graph = new ApexSymbolGraph();
+    const graph = new ApexSymbolRefManager();
 
     // First: compile with full (ApexSymbolCollectorListener)
     const table1 = new SymbolTable();
@@ -281,9 +283,11 @@ public class Foo {
     });
 
     it('registerSymbolTable merge should produce single Foo class symbol (no duplicates)', () => {
-      const { ApexSymbolGraph } = require('../../src/symbols/ApexSymbolGraph');
+      const {
+        ApexSymbolRefManager,
+      } = require('../../src/symbols/ApexSymbolRefManager');
 
-      const graph = new ApexSymbolGraph();
+      const graph = new ApexSymbolRefManager();
 
       const table1 = new SymbolTable();
       const listener1 = new ApexSymbolCollectorListener(table1, 'full');

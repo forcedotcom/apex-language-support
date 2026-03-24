@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
+import { ApexSymbolRefManager } from '../../src/symbols/ApexSymbolRefManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
@@ -18,8 +18,8 @@ import {
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 
-describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
-  let symbolGraph: ApexSymbolGraph;
+describe('ApexSymbolRefManager FQN Bug Fix Tests', () => {
+  let symbolGraph: ApexSymbolRefManager;
   let compilerService: CompilerService;
 
   beforeAll(async () => {
@@ -49,7 +49,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
   });
 
   beforeEach(() => {
-    symbolGraph = new ApexSymbolGraph();
+    symbolGraph = new ApexSymbolRefManager();
     compilerService = new CompilerService();
     enableConsoleLogging();
     setLogLevel('error');

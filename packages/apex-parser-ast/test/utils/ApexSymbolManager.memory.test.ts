@@ -14,7 +14,7 @@ import {
   SymbolFactory,
   SymbolLocation,
 } from '../../src/types/symbol';
-import { ReferenceType } from '../../src/symbols/ApexSymbolGraph';
+import { ReferenceType } from '../../src/symbols/ApexSymbolRefManager';
 import { disableLogging } from '@salesforce/apex-lsp-shared';
 
 // Disable logging for performance tests

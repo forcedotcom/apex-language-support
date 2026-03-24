@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
+import { ApexSymbolRefManager } from '../../src/symbols/ApexSymbolRefManager';
 import { SymbolTable, SymbolFactory, SymbolKind } from '../../src/types/symbol';
 import {
   getAllNodes,
@@ -27,7 +27,7 @@ import {
 import { Effect } from 'effect';
 
 describe('extractGraphData', () => {
-  let symbolGraph: ApexSymbolGraph;
+  let symbolGraph: ApexSymbolRefManager;
   let symbolTable: SymbolTable;
 
   beforeAll(async () => {
@@ -57,9 +57,9 @@ describe('extractGraphData', () => {
   });
 
   beforeEach(() => {
-    symbolGraph = new ApexSymbolGraph();
+    symbolGraph = new ApexSymbolRefManager();
     // Set up singleton instance for extracted functions
-    ApexSymbolGraph.setInstance(symbolGraph);
+    ApexSymbolRefManager.setInstance(symbolGraph);
     symbolTable = new SymbolTable();
   });
 
@@ -90,7 +90,7 @@ describe('extractGraphData', () => {
     // Clear the graph (this also shuts down deferred worker and clears timers)
     symbolGraph.clear();
     // Clear singleton instance
-    ApexSymbolGraph.setInstance(null as any);
+    ApexSymbolRefManager.setInstance(null as any);
     // Final delay to ensure all cleanup completes
     await new Promise((resolve) => setTimeout(resolve, 100));
   });
@@ -516,13 +516,13 @@ describe('extractGraphData', () => {
 
   describe('singleton pattern', () => {
     it('should throw error if instance is not set', () => {
-      ApexSymbolGraph.setInstance(null as any);
+      ApexSymbolRefManager.setInstance(null as any);
       expect(() => getAllNodes()).toThrow();
     });
 
     it('should work with singleton instance', () => {
-      const newGraph = new ApexSymbolGraph();
-      ApexSymbolGraph.setInstance(newGraph);
+      const newGraph = new ApexSymbolRefManager();
+      ApexSymbolRefManager.setInstance(newGraph);
       const newTable = new SymbolTable();
       const symbol = SymbolFactory.createMinimalSymbol(
         'NewClass',

@@ -53,11 +53,11 @@ import {
   EnhancedSymbolReference,
 } from '../types/symbolReference';
 import {
-  ApexSymbolGraph,
+  ApexSymbolRefManager,
   ReferenceType,
   ReferenceResult,
   DependencyAnalysis,
-} from './ApexSymbolGraph';
+} from './ApexSymbolRefManager';
 import {
   ISymbolManager,
   SymbolResolutionContext,
@@ -140,7 +140,7 @@ type ParentLookupCache = HashMap<string, HashMap<string, ApexSymbol>>;
  */
 export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private readonly logger = getLogger();
-  private symbolGraph: ApexSymbolGraph;
+  private symbolGraph: ApexSymbolRefManager;
   private fileMetadata: HashMap<string, FileMetadata>;
   private unifiedCache: UnifiedCache;
   private readonly MAX_CACHE_SIZE = 5000;
@@ -238,9 +238,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     this.initialReferenceBatchSize =
       deferredReferenceSettings.initialReferenceBatchSize ?? 50;
 
-    // Initialize ApexSymbolGraph with deferred reference processing settings
-    this.symbolGraph = new ApexSymbolGraph(deferredReferenceSettings);
-    ApexSymbolGraph.setInstance(this.symbolGraph);
+    // Initialize ApexSymbolRefManager with deferred reference processing settings
+    this.symbolGraph = new ApexSymbolRefManager(deferredReferenceSettings);
+    ApexSymbolRefManager.setInstance(this.symbolGraph);
 
     // Initialize compiler service for enrichment operations
     this.compilerService = new CompilerService();
@@ -428,7 +428,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Get symbol by ID
-   * Delegates to ApexSymbolGraph for O(1) lookup via symbolIdIndex
+   * Delegates to ApexSymbolRefManager for O(1) lookup via symbolIdIndex
    */
   getSymbol(symbolId: string): ApexSymbol | null {
     // First check cache for performance
@@ -9652,7 +9652,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Get graph data as JSON-serializable data
-   * Delegates to ApexSymbolGraph
+   * Delegates to ApexSymbolRefManager
    */
   getGraphData(): import('../types/graph').GraphData {
     return this.symbolGraph.getGraphData();
@@ -9660,7 +9660,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Get graph data filtered by file as JSON-serializable data
-   * Delegates to ApexSymbolGraph
+   * Delegates to ApexSymbolRefManager
    */
   getGraphDataForFile(fileUri: string): import('../types/graph').FileGraphData {
     return this.symbolGraph.getGraphDataForFile(fileUri);
@@ -9668,7 +9668,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Get graph data filtered by symbol type as JSON-serializable data
-   * Delegates to ApexSymbolGraph
+   * Delegates to ApexSymbolRefManager
    */
   getGraphDataByType(
     symbolType: string,
@@ -9678,7 +9678,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Get graph data as a JSON string (for direct wire transmission)
-   * Delegates to ApexSymbolGraph
+   * Delegates to ApexSymbolRefManager
    */
   getGraphDataAsJSON(): string {
     return this.symbolGraph.getGraphDataAsJSON();
@@ -9686,7 +9686,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Get graph data for a file as a JSON string
-   * Delegates to ApexSymbolGraph
+   * Delegates to ApexSymbolRefManager
    */
   getGraphDataForFileAsJSON(fileUri: string): string {
     return this.symbolGraph.getGraphDataForFileAsJSON(fileUri);
@@ -9694,7 +9694,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Get graph data by type as a JSON string
-   * Delegates to ApexSymbolGraph
+   * Delegates to ApexSymbolRefManager
    */
   getGraphDataByTypeAsJSON(symbolType: string): string {
     return this.symbolGraph.getGraphDataByTypeAsJSON(symbolType);

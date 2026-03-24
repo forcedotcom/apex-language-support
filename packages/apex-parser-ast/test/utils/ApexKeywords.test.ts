@@ -323,10 +323,10 @@ describe('ApexKeywords', () => {
       // Dynamic imports to avoid circular dependencies
       const { ApexSymbolManager } =
         await import('../../src/symbols/ApexSymbolManager');
-      const { ApexSymbolGraph } =
-        await import('../../src/symbols/ApexSymbolGraph');
+      const { ApexSymbolRefManager: ApexSymbolRefManager } =
+        await import('../../src/symbols/ApexSymbolRefManager');
       symbolManager = new ApexSymbolManager();
-      symbolGraph = new ApexSymbolGraph();
+      symbolGraph = new ApexSymbolRefManager();
     });
 
     describe('findSymbolByName short-circuit', () => {
@@ -338,7 +338,7 @@ describe('ApexKeywords', () => {
         });
       });
 
-      it('should return empty array for keywords in ApexSymbolGraph', () => {
+      it('should return empty array for keywords in ApexSymbolRefManager', () => {
         const keywords = ['if', 'for', 'while', 'class', 'try', 'catch'];
         keywords.forEach((keyword) => {
           const result = symbolGraph.findSymbolByName(keyword);

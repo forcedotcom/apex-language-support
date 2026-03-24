@@ -7,9 +7,9 @@
  */
 
 import {
-  ApexSymbolGraph,
+  ApexSymbolRefManager,
   ReferenceType,
-} from '../../src/symbols/ApexSymbolGraph';
+} from '../../src/symbols/ApexSymbolRefManager';
 import { SymbolTable, SymbolKind, ApexSymbol } from '../../src/types/symbol';
 import {
   initialize as schedulerInitialize,
@@ -21,8 +21,8 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import * as fs from 'fs';
 import * as path from 'path';
 
-describe('ApexSymbolGraph - Optimized Architecture', () => {
-  let symbolGraph: ApexSymbolGraph;
+describe('ApexSymbolRefManager - Optimized Architecture', () => {
+  let symbolGraph: ApexSymbolRefManager;
   let symbolTable: SymbolTable;
   let compilerService: CompilerService;
 
@@ -43,7 +43,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
   });
 
   beforeEach(() => {
-    symbolGraph = new ApexSymbolGraph();
+    symbolGraph = new ApexSymbolRefManager();
     symbolTable = new SymbolTable();
     compilerService = new CompilerService();
   });

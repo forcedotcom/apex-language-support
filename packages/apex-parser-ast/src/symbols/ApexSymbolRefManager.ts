@@ -65,6 +65,31 @@ import {
   getGraphDataByTypeAsJSON as extractGetGraphDataByTypeAsJSON,
 } from '../graphInfo/extractGraphData';
 
+// #region agent log
+function agentDebugLog(
+  message: string,
+  data: Record<string, unknown>,
+  hypothesisId: string,
+): void {
+  fetch('http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': 'dc5b81',
+    },
+    body: JSON.stringify({
+      sessionId: 'dc5b81',
+      runId: 'symbolids-case-regression',
+      hypothesisId,
+      location: 'src/symbols/ApexSymbolRefManager.ts',
+      message,
+      data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+}
+// #endregion
+
 /**
  * Context for symbol resolution
  */
@@ -228,23 +253,26 @@ interface BatchProcessingResult {
 }
 
 /**
- * OPTIMIZED: ApexSymbolGraph with SymbolTable as primary storage
+ * OPTIMIZED: ApexSymbolRefManager with SymbolTable as primary storage
  * Eliminates duplicate symbol storage and delegates to SymbolTable
  */
-export class ApexSymbolGraph {
-  private static instance: ApexSymbolGraph | null = null;
+export class ApexSymbolRefManager {
+  private static instance: ApexSymbolRefManager | null = null;
 
   private readonly logger = getLogger();
 
   // OPTIMIZED: Index-based reference tracking (replaces DirectedGraph)
   // reverseIndex: Who references this symbol? (for findReferencesTo)
-  private reverseIndex: Map<string, Set<string>> = new Map();
+  private reverseIndex: CaseInsensitiveHashMap<Set<string>> =
+    new CaseInsensitiveHashMap();
 
   // forwardIndex: What refs originate from this file? (for file cleanup)
-  private forwardIndex: Map<string, Set<string>> = new Map();
+  private forwardIndex: CaseInsensitiveHashMap<Set<string>> =
+    new CaseInsensitiveHashMap();
 
   // refStore: Full reference details keyed by refKey
-  private refStore: Map<string, RefStoreEntry> = new Map();
+  private refStore: CaseInsensitiveHashMap<RefStoreEntry> =
+    new CaseInsensitiveHashMap();
 
   // OPTIMIZED: Track symbol existence only
   private symbolIds: Set<string> = new Set();
@@ -258,7 +286,8 @@ export class ApexSymbolGraph {
    * Value: File uri (e.g., "file:///path/MyClass.cls")
    * Used by: File-based operations, symbol removal, dependency analysis
    */
-  private symbolFileMap: HashMap<string, string> = new HashMap();
+  private symbolFileMap: CaseInsensitiveHashMap<string> =
+    new CaseInsensitiveHashMap();
 
   /**
    * Maps symbol names to arrays of symbol IDs for name-based lookups
@@ -275,7 +304,8 @@ export class ApexSymbolGraph {
    * Value: Array of symbol IDs in that file
    * Used by: getSymbolsInFile(), file-based symbol enumeration, file removal
    */
-  private fileIndex: HashMap<string, string[]> = new HashMap();
+  private fileIndex: CaseInsensitiveHashMap<string[]> =
+    new CaseInsensitiveHashMap();
 
   /**
    * Maps fully qualified names to symbol IDs for hierarchical lookups
@@ -292,11 +322,14 @@ export class ApexSymbolGraph {
    * Value: ApexSymbol object
    * Used by: getParent() helper, optimized parent resolution
    */
-  private symbolIdIndex: HashMap<string, ApexSymbol> = new HashMap();
+  private symbolIdIndex: CaseInsensitiveHashMap<ApexSymbol> =
+    new CaseInsensitiveHashMap();
 
   // OPTIMIZED: SymbolTable references for delegation
-  private fileToSymbolTable: HashMap<string, SymbolTable> = new HashMap();
-  private symbolToFiles: HashMap<string, string[]> = new HashMap();
+  private fileToSymbolTable: CaseInsensitiveHashMap<SymbolTable> =
+    new CaseInsensitiveHashMap();
+  private symbolToFiles: CaseInsensitiveHashMap<string[]> =
+    new CaseInsensitiveHashMap();
 
   // OPTIMIZED: Simple cache for frequently accessed symbols (case-insensitive for Apex)
   private symbolCache: CaseInsensitiveHashMap<ApexSymbol[]> =
@@ -368,7 +401,8 @@ export class ApexSymbolGraph {
   private MAX_QUEUE_FULL_RETRY_DELAY_MS = 30000; // Cap queue-full retry delay at 30 seconds
   private CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5; // Activate after 5 consecutive failures
   private CIRCUIT_BREAKER_RESET_THRESHOLD = 50; // Reset when queue < 50% full
-  private failedReferences: Map<string, DeferredProcessingTask> = new Map();
+  private failedReferences: CaseInsensitiveHashMap<DeferredProcessingTask> =
+    new CaseInsensitiveHashMap();
   private activeRetryFibers: Set<Fiber.RuntimeFiber<void, Error>> = new Set();
   // Track symbols with pending retries to prevent duplicate retry scheduling
   private pendingRetrySymbols: Set<string> = new Set();
@@ -434,7 +468,7 @@ export class ApexSymbolGraph {
     const serviceImpl: DeferredReferenceProcessorService.Impl = {
       addEdge: (sourceId, targetId, weight, edge) => {
         throw new Error(
-          'Graph-based addEdge removed. Use ApexSymbolGraph.addReferenceToIndexes instead.',
+          'Graph-based addEdge removed. Use ApexSymbolRefManager.addReferenceToIndexes instead.',
         );
       },
       getVertex: (symbolId) => {
@@ -501,7 +535,7 @@ export class ApexSymbolGraph {
       const serviceImpl: DeferredReferenceProcessorService.Impl = {
         addEdge: (sourceId, targetId, weight, edge) => {
           throw new Error(
-            'Graph-based addEdge removed. Use ApexSymbolGraph.addReferenceToIndexes instead.',
+            'Graph-based addEdge removed. Use ApexSymbolRefManager.addReferenceToIndexes instead.',
           );
         },
         getVertex: (symbolId) => {
@@ -554,7 +588,7 @@ export class ApexSymbolGraph {
       const serviceImpl: DeferredReferenceProcessorService.Impl = {
         addEdge: (sourceId, targetId, weight, edge) => {
           throw new Error(
-            'Graph-based addEdge removed. Use ApexSymbolGraph.addReferenceToIndexes instead.',
+            'Graph-based addEdge removed. Use ApexSymbolRefManager.addReferenceToIndexes instead.',
           );
         },
         getVertex: (symbolId) => {
@@ -670,7 +704,8 @@ export class ApexSymbolGraph {
   }
 
   // Counter for generating unique refKeys within each source symbol
-  private refIndexCounters: Map<string, number> = new Map();
+  private refIndexCounters: CaseInsensitiveHashMap<number> =
+    new CaseInsensitiveHashMap();
 
   /**
    * Generate a unique refKey for a reference
@@ -822,21 +857,21 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Get the singleton instance of ApexSymbolGraph
+   * Get the singleton instance of ApexSymbolRefManager
    */
-  static getInstance(): ApexSymbolGraph {
+  static getInstance(): ApexSymbolRefManager {
     if (!this.instance) {
       throw new Error(
-        'ApexSymbolGraph instance not set. Call setInstance() first.',
+        'ApexSymbolRefManager instance not set. Call setInstance() first.',
       );
     }
     return this.instance;
   }
 
   /**
-   * Set the singleton instance of ApexSymbolGraph
+   * Set the singleton instance of ApexSymbolRefManager
    */
-  static setInstance(graph: ApexSymbolGraph): void {
+  static setInstance(graph: ApexSymbolRefManager): void {
     this.instance = graph;
   }
 
@@ -1190,6 +1225,24 @@ export class ApexSymbolGraph {
       this.symbolIds.add(symbolId);
       // Add to symbolIdIndex for O(1) lookups by ID (store first symbol for this ID)
       this.symbolIdIndex.set(symbolId, symbol);
+      if (
+        normalizedFileUri.includes('DeclarationTestClass.cls') &&
+        symbol.name.toLowerCase() === 'name'
+      ) {
+        // #region agent log
+        agentDebugLog(
+          'addSymbol tracks Name symbol id casing',
+          {
+            normalizedFileUri,
+            symbolName: symbol.name,
+            symbolId,
+            symbolIdLower: symbolId.toLowerCase(),
+            symbolIdsHasOriginal: this.symbolIds.has(symbolId),
+          },
+          'H1',
+        );
+        // #endregion
+      }
     }
 
     // Add to indexes for fast lookups (use normalized URI)
@@ -1338,6 +1391,20 @@ export class ApexSymbolGraph {
   getSymbol(symbolId: string): ApexSymbol | null {
     // First try symbolIdIndex for O(1) lookup
     const symbol = this.symbolIdIndex.get(symbolId);
+    if (symbolId.includes('DeclarationTestClass.cls#') && symbolId.includes('Name')) {
+      // #region agent log
+      agentDebugLog(
+        'getSymbol symbolIdIndex lookup for Name id',
+        {
+          symbolId,
+          symbolIdLower: symbolId.toLowerCase(),
+          hit: Boolean(symbol),
+          hitName: symbol?.name,
+        },
+        'H2',
+      );
+      // #endregion
+    }
     if (symbol) {
       return symbol;
     }
@@ -1356,6 +1423,23 @@ export class ApexSymbolGraph {
     const matchingSymbol = symbolTable.findSymbolWith(
       (s) => s.name === symbolName,
     );
+    if (
+      symbolId.includes('DeclarationTestClass.cls#') &&
+      symbolId.toLowerCase().includes('name')
+    ) {
+      // #region agent log
+      agentDebugLog(
+        'getSymbol fallback findSymbolWith result',
+        {
+          symbolId,
+          parsedSymbolName: symbolName,
+          normalizedUri,
+          matchedName: matchingSymbol?.name,
+        },
+        'H3',
+      );
+      // #endregion
+    }
 
     if (matchingSymbol) {
       // Always create a deep copy to avoid mutating the original symbol
@@ -3576,21 +3660,21 @@ export class ApexSymbolGraph {
   /**
    * Get the reference store (maps refKey -> RefStoreEntry)
    */
-  public getRefStore(): Map<string, RefStoreEntry> {
+  public getRefStore(): CaseInsensitiveHashMap<RefStoreEntry> {
     return this.refStore;
   }
 
   /**
    * Get the reverse index (maps targetSymbolId -> Set<refKey>)
    */
-  public getReverseIndex(): Map<string, Set<string>> {
+  public getReverseIndex(): CaseInsensitiveHashMap<Set<string>> {
     return this.reverseIndex;
   }
 
   /**
    * Get the forward index (maps sourceFileUri -> Set<refKey>)
    */
-  public getForwardIndex(): Map<string, Set<string>> {
+  public getForwardIndex(): CaseInsensitiveHashMap<Set<string>> {
     return this.forwardIndex;
   }
 

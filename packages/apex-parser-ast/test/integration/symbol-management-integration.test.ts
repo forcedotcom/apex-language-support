@@ -7,21 +7,21 @@
  */
 
 import {
-  ApexSymbolGraph,
+  ApexSymbolRefManager,
   ReferenceType,
-} from '../../src/symbols/ApexSymbolGraph';
+} from '../../src/symbols/ApexSymbolRefManager';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolKind } from '../../src/types/symbol';
 
 describe.skip('Symbol Management - Integration Tests', () => {
-  let symbolGraph: ApexSymbolGraph;
+  let symbolGraph: ApexSymbolRefManager;
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
 
   beforeEach(() => {
-    symbolGraph = new ApexSymbolGraph();
+    symbolGraph = new ApexSymbolRefManager();
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
   });

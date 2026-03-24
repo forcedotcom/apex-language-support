@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
-import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
+import { ApexSymbolRefManager } from '../../src/symbols/ApexSymbolRefManager';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
 import {
@@ -49,7 +49,7 @@ describe('System.debug Resolution Bug Fix', () => {
     }
     // Clear the singleton instance to prevent timers from keeping the process alive
     try {
-      ApexSymbolGraph.setInstance(null as any);
+      ApexSymbolRefManager.setInstance(null as any);
     } catch (_error) {
       // Ignore errors
     }

@@ -7,7 +7,11 @@
  */
 
 import { Effect } from 'effect';
-import { ApexSymbolGraph, ReferenceType } from '../symbols/ApexSymbolGraph';
+import { CaseInsensitiveHashMap } from '../utils/CaseInsensitiveMap';
+import {
+  ApexSymbolRefManager,
+  ReferenceType,
+} from '../symbols/ApexSymbolRefManager';
 import {
   GraphNode,
   GraphEdge,
@@ -24,8 +28,8 @@ import {
 /**
  * Helper function to get the graph instance via singleton
  */
-function getGraph(): ApexSymbolGraph {
-  return ApexSymbolGraph.getInstance();
+function getGraph(): ApexSymbolRefManager {
+  return ApexSymbolRefManager.getInstance();
 }
 
 /**
@@ -33,7 +37,7 @@ function getGraph(): ApexSymbolGraph {
  */
 function createGraphNode(
   symbol: ApexSymbol,
-  reverseIndex: Map<string, Set<string>>,
+  reverseIndex: CaseInsensitiveHashMap<Set<string>>,
 ): GraphNode {
   const refKeys = reverseIndex.get(symbol.id);
   const referenceCount = refKeys ? refKeys.size : 0;

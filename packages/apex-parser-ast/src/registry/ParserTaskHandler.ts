@@ -8,7 +8,7 @@
 
 import { Priority } from '@salesforce/apex-lsp-shared';
 import { ApexSymbolManager } from '../symbols/ApexSymbolManager';
-import { ApexSymbolGraph } from '../symbols/ApexSymbolGraph';
+import { ApexSymbolRefManager } from '../symbols/ApexSymbolRefManager';
 import { ParserTaskType } from './ParserTaskType';
 
 /**
@@ -16,7 +16,7 @@ import { ParserTaskType } from './ParserTaskType';
  */
 export interface ParserTaskContext {
   symbolManager: ApexSymbolManager;
-  symbolGraph?: ApexSymbolGraph;
+  symbolGraph?: ApexSymbolRefManager;
 }
 
 /**

@@ -16,7 +16,7 @@ import {
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 import { SymbolKind, inTypeSymbolGroup } from '../../src/types/symbol';
-import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
+import { ApexSymbolRefManager } from '../../src/symbols/ApexSymbolRefManager';
 
 describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
   let symbolManager: ApexSymbolManager;
@@ -193,7 +193,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       // (This would indicate the optimization isn't working)
       // Note: We access private properties for testing - these casts bypass TypeScript's
       // access control to verify internal implementation details
-      const graph = (symbolManager as any).symbolGraph as ApexSymbolGraph;
+      const graph = (symbolManager as any).symbolGraph as ApexSymbolRefManager;
       const deferredRefs = (graph as any).deferredReferences;
 
       // If there are deferred references, none should have block symbols as source
@@ -376,7 +376,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       // They're skipped entirely and will be resolved on-demand when resolveCrossFileReferencesForFile is called
       // Note: We access private properties for testing - these casts bypass TypeScript's
       // access control to verify internal implementation details
-      const graph = (symbolManager as any).symbolGraph as ApexSymbolGraph;
+      const graph = (symbolManager as any).symbolGraph as ApexSymbolRefManager;
       const deferredRefs = (graph as any).deferredReferences;
 
       // Account and System are cross-file references, so they're skipped during addSymbolTable, not deferred
@@ -501,7 +501,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       // Instead, they should be directly in the graph
       // Note: We access private properties for testing - these casts bypass TypeScript's
       // access control to verify internal implementation details
-      const graph = (symbolManager as any).symbolGraph as ApexSymbolGraph;
+      const graph = (symbolManager as any).symbolGraph as ApexSymbolRefManager;
       const deferredRefs = (graph as any).deferredReferences;
 
       // field1 and method2 should not be in deferred references (they're same-file)
@@ -682,7 +682,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
       // field1 doesn't exist in the file, so it's a cross-file reference that gets skipped
       // Note: We access private properties for testing - these casts bypass TypeScript's
       // access control to verify internal implementation details
-      const graph = (symbolManager as any).symbolGraph as ApexSymbolGraph;
+      const graph = (symbolManager as any).symbolGraph as ApexSymbolRefManager;
       const deferredRefs = (graph as any).deferredReferences;
 
       // field1 is a cross-file reference (doesn't exist in current file), so it's skipped, not deferred

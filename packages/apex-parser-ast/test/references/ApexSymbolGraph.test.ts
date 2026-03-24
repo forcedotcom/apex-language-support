@@ -7,9 +7,9 @@
  */
 
 import {
-  ApexSymbolGraph,
+  ApexSymbolRefManager,
   ReferenceType,
-} from '../../src/symbols/ApexSymbolGraph';
+} from '../../src/symbols/ApexSymbolRefManager';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
@@ -28,8 +28,8 @@ import {
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 
-describe('ApexSymbolGraph', () => {
-  let graph: ApexSymbolGraph;
+describe('ApexSymbolRefManager', () => {
+  let graph: ApexSymbolRefManager;
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
 
@@ -60,7 +60,7 @@ describe('ApexSymbolGraph', () => {
   });
 
   beforeEach(() => {
-    graph = new ApexSymbolGraph();
+    graph = new ApexSymbolRefManager();
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
     enableConsoleLogging();
@@ -84,7 +84,7 @@ describe('ApexSymbolGraph', () => {
     }
     // Clear the singleton instance to prevent timers from keeping the process alive
     try {
-      ApexSymbolGraph.setInstance(null as any);
+      ApexSymbolRefManager.setInstance(null as any);
     } catch (_error) {
       // Ignore errors
     }
