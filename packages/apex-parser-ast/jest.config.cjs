@@ -42,8 +42,9 @@ module.exports = {
   // Without this, parallel runs can hit SIGSEGV in heavy suites (e.g. ApexSymbolManager.references).
   workerIdleMemoryLimit: '512MB',
   // Full-suite parallel runs occasionally SIGSEGV a worker (native parser/V8); cap concurrency.
+  // 4 workers × ~2 GB stdlib each saturates the 16 GB CI runner; 2 workers stay safely within limits.
   // Override with JEST_MAX_WORKERS (number or Jest string like "50%") when needed.
-  maxWorkers: process.env.JEST_MAX_WORKERS || 4,
+  maxWorkers: process.env.JEST_MAX_WORKERS || 2,
   globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
   // Enable open handle detection when DETECT_OPEN_HANDLES env var is set to 'true'
   // This can be very verbose, so it's opt-in for debugging purposes
