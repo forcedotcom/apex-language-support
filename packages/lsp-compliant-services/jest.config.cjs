@@ -24,9 +24,10 @@ module.exports = {
   // Recycle workers after they retain too much heap (stdlib/protobuf loads per suite).
   // Without this, parallel runs can hit OOM in heavy integration suites (e.g. HoverProcessingService).
   workerIdleMemoryLimit: '512MB',
-  // 4 workers × ~2 GB stdlib each saturates the 16 GB CI runner; 2 workers stay safely within limits.
+  // maxWorkers: 1 ensures each test file completes before the next starts, giving workerIdleMemoryLimit
+  // a chance to recycle the worker and free accumulated heap between suites on Node 20.x.
   // Override with JEST_MAX_WORKERS (number or Jest string like "50%") when needed.
-  maxWorkers: process.env.JEST_MAX_WORKERS || 2,
+  maxWorkers: process.env.JEST_MAX_WORKERS || 1,
   // Enable open handle detection when DETECT_OPEN_HANDLES env var is set to 'true'
   // This can be very verbose, so it's opt-in for debugging purposes
   detectOpenHandles: process.env.DETECT_OPEN_HANDLES === 'true',
