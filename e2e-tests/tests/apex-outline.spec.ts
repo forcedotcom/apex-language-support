@@ -54,6 +54,7 @@ test.describe('Apex Outline View', () => {
         EXPECTED_APEX_SYMBOLS,
       );
       expect(symbolValidation.classFound).toBe(true);
+      expect(symbolValidation.allExpectedMethodsFound).toBe(true);
     });
 
     await test.step('Validate LCS type parsing capabilities', async () => {
@@ -298,8 +299,6 @@ test.describe('Apex Outline View', () => {
 
       const symbols = await outlineView.getSymbols();
       expect(symbols.length).toBeGreaterThan(0);
-
-      console.log(`✅ Complex class outline has ${symbols.length} symbols`);
     });
   });
 });

@@ -261,6 +261,7 @@
       "cache": false
     },
     "lint": {
+      "command": "prettier --check \"packages/**/*.ts\"",
       "dependencies": [
         "compile",
         "typecheck",
@@ -275,6 +276,7 @@
       ]
     },
     "lint:fix": {
+      "command": "prettier --write \"packages/**/*.ts\"",
       "dependencies": [
         "compile",
         "typecheck",
