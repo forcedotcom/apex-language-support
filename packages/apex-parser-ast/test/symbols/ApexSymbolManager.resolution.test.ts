@@ -107,7 +107,6 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     fileName: string = 'file:///test/test.cls',
   ): Promise<void> => {
     listener = new ApexSymbolCollectorListener(undefined, 'full');
-
     const result = compilerService.compile(apexCode, fileName, listener);
 
     if (result.errors.length > 0) {

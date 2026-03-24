@@ -71,8 +71,10 @@ export function getPrerequisitesForLspRequestType(
         requiredDetailLevel: 'full', // Need full type info for hover
         requiresReferences: true,
         requiresReferenceResolution: true,
-        requiresCrossFileResolution: true, // May need cross-file types
-        executionMode: 'blocking', // Block for accurate hover info
+        // Keep hover responsive: cross-file/missing-artifact flows are handled
+        // opportunistically in the hover service itself via background resolution.
+        requiresCrossFileResolution: false,
+        executionMode: 'async',
         skipDuringWorkspaceLoad: true,
         missingArtifactResolution: {
           enabled: true, // Hover should attempt missing artifact resolution

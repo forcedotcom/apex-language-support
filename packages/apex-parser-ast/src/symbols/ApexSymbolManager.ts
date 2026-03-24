@@ -311,6 +311,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbol: ApexSymbol,
     fileUri: string,
     symbolTable?: SymbolTable,
+    skipPostAddBookkeeping = false,
   ): void {
     // Convert fileUri to proper URI format to match symbol ID generation
     const properUri = createFileUri(fileUri);
@@ -360,8 +361,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     const symbolId = this.getSymbolId(symbol, fileUri);
 
-    // Get the count before adding
-    const symbolsBefore = this.symbolGraph.findSymbolByName(symbol.name).length;
+    // Fast duplicate pre-check by unified ID; avoids expensive name-index scans.
+    const existingSymbolById = this.symbolGraph.getSymbol(
+      symbol.key?.unifiedId || symbol.id,
+    );
 
     // If no SymbolTable provided, create or reuse a temporary one for backward compatibility
     let tempSymbolTable: SymbolTable | undefined = symbolTable;
@@ -389,11 +392,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     // Add to symbol graph (it has its own duplicate detection)
     this.symbolGraph.addSymbol(symbol, properUri, tempSymbolTable);
 
-    // Check if the symbol was actually added by comparing counts
-    const symbolsAfter = this.symbolGraph.findSymbolByName(symbol.name).length;
-    const symbolWasAdded = symbolsAfter > symbolsBefore;
+    // If the symbol ID already existed, this add is effectively a no-op.
+    const symbolWasAdded = !existingSymbolById;
 
-    if (symbolWasAdded) {
+    if (symbolWasAdded && !skipPostAddBookkeeping) {
       // Sync totalSymbols from graph to ensure consistency
       // The graph is the source of truth for symbol counts
       const graphStats = this.symbolGraph.getStats();
@@ -1784,7 +1786,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // Only add to graph if not already present (registerSymbolTable already handled SymbolTable)
         // Pass the registered SymbolTable to avoid creating a new one
-        self.addSymbol(symbol, normalizedUri, finalSymbolTable);
+        self.addSymbol(symbol, normalizedUri, finalSymbolTable, true);
         symbolNamesAdded.add(symbol.name);
 
         // Yield every batchSize symbols to allow other tasks to run
@@ -1832,6 +1834,23 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // The graph is the source of truth for symbol counts
       const graphStats = self.symbolGraph.getStats();
       self.memoryStats.totalSymbols = graphStats.totalSymbols;
+      // Preserve file-level bookkeeping that per-symbol path normally updates.
+      // Bulk add skips per-symbol bookkeeping for performance, so we update once.
+      if (symbols.length > 0) {
+        const existingFileMeta = self.fileMetadata.get(normalizedUri);
+        if (existingFileMeta) {
+          existingFileMeta.symbolCount += symbols.length;
+          existingFileMeta.lastUpdated = Date.now();
+        } else {
+          self.fileMetadata.set(normalizedUri, {
+            fileUri: normalizedUri,
+            symbolCount: symbols.length,
+            lastUpdated: Date.now(),
+          });
+        }
+      } else {
+        self.fileMetadata.delete(normalizedUri);
+      }
 
       // Register user types to GlobalTypeRegistry for O(1) lookup
       const symbolTableForRegistry =
@@ -1883,7 +1902,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           );
         }
       }
-
       // Re-run cross-file resolution for source files that had deferred references
       // This updates SymbolReference objects with resolvedSymbolId
       for (const sourceFileUri of sourceFilesToReResolve) {
@@ -6138,7 +6156,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
         // Add the symbol table to the symbol manager to get all symbols including methods
         await Effect.runPromise(this.addSymbolTable(symbolTable, fileUri));
-
         // Find the class symbol from the loaded symbol table
         const symbols = symbolTable.getAllSymbols();
         // Try to find by name first (case-insensitive for Apex)
