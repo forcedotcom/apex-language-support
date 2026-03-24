@@ -41,9 +41,11 @@ module.exports = {
   // Recycle workers after they retain too much heap (stdlib/protobuf loads per suite).
   // Without this, parallel runs can hit SIGSEGV in heavy suites (e.g. ApexSymbolManager.references).
   workerIdleMemoryLimit: '512MB',
-  // Full-suite parallel runs occasionally SIGSEGV a worker (native parser/V8); cap concurrency.
+  // Full-suite parallel runs accumulate heap across suites in the same worker, causing OOM on Node 20.x.
+  // maxWorkers: 1 ensures each test file completes before the next starts, giving workerIdleMemoryLimit
+  // a chance to recycle the worker and free accumulated heap between suites.
   // Override with JEST_MAX_WORKERS (number or Jest string like "50%") when needed.
-  maxWorkers: process.env.JEST_MAX_WORKERS || 4,
+  maxWorkers: process.env.JEST_MAX_WORKERS || 1,
   globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
   // Enable open handle detection when DETECT_OPEN_HANDLES env var is set to 'true'
   // This can be very verbose, so it's opt-in for debugging purposes
