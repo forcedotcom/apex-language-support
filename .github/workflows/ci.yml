@@ -48,6 +48,10 @@ jobs:
 
       - name: Run tests (20.x, no coverage)
         if: ${{ matrix.node-version == '20.x' }}
+        env:
+          # Node 20 defaults to ~4 GB old-space, which is too low for heavy stdlib suites.
+          # Keep this scoped to 20.x and non-coverage runs only.
+          NODE_OPTIONS: --max-old-space-size=6144
         run: npm run test
 
       - name: Merge coverage reports
