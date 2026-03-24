@@ -88,20 +88,20 @@ export function getAllNodesEffect(): Effect.Effect<GraphNode[], never, never> {
     // Also track by name+kind+fileUri+location to catch duplicates with different IDs
     const seenByKey = new Map<string, GraphNode>();
 
-    const symbolIds = graph.getSymbolIds();
+    const symbolIds = Array.from(graph.getSymbolIds());
     const reverseIndex = graph.getReverseIndex();
     const fileToSymbolTable = graph.getFileToSymbolTable();
     const logger = graph.getLoggerInstance();
 
     // Diagnostic tracking
-    const totalSymbolIds = symbolIds.size;
+    const totalSymbolIds = symbolIds.length;
     let successfulRetrievals = 0;
     let failedRetrievals = 0;
     const failedUris = new Set<string>();
     const userFileUris = new Set<string>();
     const apexLibUris = new Set<string>();
 
-    const symbolIdsArray = Array.from(symbolIds);
+    const symbolIdsArray = symbolIds;
     const batchSize = 100;
 
     // Iterate through all symbol IDs with yielding
@@ -491,7 +491,7 @@ export function getGraphDataByType(symbolType: string): TypeGraphData {
   const filteredNodes: GraphNode[] = [];
   const nodeIds = new Set<string>();
 
-  const symbolIds = graph.getSymbolIds();
+  const symbolIds = Array.from(graph.getSymbolIds());
   const reverseIndex = graph.getReverseIndex();
   const refStore = graph.getRefStore();
   const fileIndex = graph.getFileIndex();

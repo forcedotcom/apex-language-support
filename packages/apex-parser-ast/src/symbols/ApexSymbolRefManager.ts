@@ -65,31 +65,6 @@ import {
   getGraphDataByTypeAsJSON as extractGetGraphDataByTypeAsJSON,
 } from '../graphInfo/extractGraphData';
 
-// #region agent log
-function agentDebugLog(
-  message: string,
-  data: Record<string, unknown>,
-  hypothesisId: string,
-): void {
-  fetch('http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': 'dc5b81',
-    },
-    body: JSON.stringify({
-      sessionId: 'dc5b81',
-      runId: 'symbolids-case-regression',
-      hypothesisId,
-      location: 'src/symbols/ApexSymbolRefManager.ts',
-      message,
-      data,
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-}
-// #endregion
-
 /**
  * Context for symbol resolution
  */
@@ -274,9 +249,6 @@ export class ApexSymbolRefManager {
   private refStore: CaseInsensitiveHashMap<RefStoreEntry> =
     new CaseInsensitiveHashMap();
 
-  // OPTIMIZED: Track symbol existence only
-  private symbolIds: Set<string> = new Set();
-
   // OPTIMIZED: Indexes for fast lookups (delegate to SymbolTable for actual data)
   // These maps provide O(1) lookup performance for common symbol operations
 
@@ -322,8 +294,7 @@ export class ApexSymbolRefManager {
    * Value: ApexSymbol object
    * Used by: getParent() helper, optimized parent resolution
    */
-  private symbolIdIndex: CaseInsensitiveHashMap<ApexSymbol> =
-    new CaseInsensitiveHashMap();
+  private symbolIdIndex: HashMap<string, ApexSymbol> = new HashMap();
 
   // OPTIMIZED: SymbolTable references for delegation
   private fileToSymbolTable: CaseInsensitiveHashMap<SymbolTable> =
@@ -1218,31 +1189,10 @@ export class ApexSymbolRefManager {
     // Add the symbol to the SymbolTable (handles duplicates via union type)
     targetSymbolTable.addSymbol(symbol);
 
-    // Track symbolId (duplicates will have same symbolId, but that's okay)
-    // symbolIds Set tracks which IDs have been seen, not individual symbol instances
-    const isNewSymbolId = !this.symbolIds.has(symbolId);
+    const isNewSymbolId = !this.symbolIdIndex.has(symbolId);
+    // Add to symbolIdIndex for O(1) lookups by ID (store first symbol for this ID)
     if (isNewSymbolId) {
-      this.symbolIds.add(symbolId);
-      // Add to symbolIdIndex for O(1) lookups by ID (store first symbol for this ID)
       this.symbolIdIndex.set(symbolId, symbol);
-      if (
-        normalizedFileUri.includes('DeclarationTestClass.cls') &&
-        symbol.name.toLowerCase() === 'name'
-      ) {
-        // #region agent log
-        agentDebugLog(
-          'addSymbol tracks Name symbol id casing',
-          {
-            normalizedFileUri,
-            symbolName: symbol.name,
-            symbolId,
-            symbolIdLower: symbolId.toLowerCase(),
-            symbolIdsHasOriginal: this.symbolIds.has(symbolId),
-          },
-          'H1',
-        );
-        // #endregion
-      }
     }
 
     // Add to indexes for fast lookups (use normalized URI)
@@ -1391,70 +1341,54 @@ export class ApexSymbolRefManager {
   getSymbol(symbolId: string): ApexSymbol | null {
     // First try symbolIdIndex for O(1) lookup
     const symbol = this.symbolIdIndex.get(symbolId);
-    if (symbolId.includes('DeclarationTestClass.cls#') && symbolId.includes('Name')) {
-      // #region agent log
-      agentDebugLog(
-        'getSymbol symbolIdIndex lookup for Name id',
-        {
-          symbolId,
-          symbolIdLower: symbolId.toLowerCase(),
-          hit: Boolean(symbol),
-          hitName: symbol?.name,
-        },
-        'H2',
-      );
-      // #endregion
-    }
     if (symbol) {
       return symbol;
     }
 
-    // Fallback to SymbolTable delegation for backward compatibility
-    const parsed = parseSymbolId(symbolId);
-    const symbolName = parsed.name;
-    // Normalize URI to ensure consistent lookup (matches how SymbolTables are registered)
-    const normalizedUri = extractFilePathFromUri(parsed.uri);
+    // Fallback to SymbolTable delegation for backward compatibility.
+    // Prefer exact ID matches to avoid returning similarly named block symbols.
+    const normalizedUri = extractFilePathFromUri(symbolId);
     const symbolTable = this.fileToSymbolTable.get(normalizedUri);
     if (!symbolTable) {
       return null;
     }
 
-    // Get all symbols from the SymbolTable and find by name
-    const matchingSymbol = symbolTable.findSymbolWith(
-      (s) => s.name === symbolName,
-    );
-    if (
-      symbolId.includes('DeclarationTestClass.cls#') &&
-      symbolId.toLowerCase().includes('name')
-    ) {
-      // #region agent log
-      agentDebugLog(
-        'getSymbol fallback findSymbolWith result',
-        {
-          symbolId,
-          parsedSymbolName: symbolName,
-          normalizedUri,
-          matchedName: matchingSymbol?.name,
-        },
-        'H3',
-      );
-      // #endregion
+    // Try exact lookup by ID first (covers unifiedId and synchronized symbol.id)
+    const directById = symbolTable.getSymbolById(symbolId);
+    if (directById) {
+      this.symbolIdIndex.set(symbolId, directById);
+      return directById;
     }
 
+    // Then try exhaustive exact matching in case legacy IDs are present in symbolArray
+    const allSymbols = symbolTable.getAllSymbols();
+    const exactMatch =
+      allSymbols.find((s) => s.id === symbolId) ||
+      allSymbols.find((s) => s.key?.unifiedId === symbolId);
+    if (exactMatch) {
+      this.symbolIdIndex.set(symbolId, exactMatch);
+      return exactMatch;
+    }
+
+    // Last-resort compatibility fallback for older callers that may use non-canonical IDs.
+    // Parse the name and prefer non-block symbols with matching name.
+    let symbolName: string | null = null;
+    try {
+      const parsed = parseSymbolId(symbolId);
+      symbolName = parsed.name;
+    } catch (_error) {
+      symbolName = null;
+    }
+    if (!symbolName) {
+      return null;
+    }
+    const matchingSymbol =
+      allSymbols.find((s) => s.name === symbolName && !isBlockSymbol(s)) ||
+      allSymbols.find((s) => s.name === symbolName);
+
     if (matchingSymbol) {
-      // Always create a deep copy to avoid mutating the original symbol
-      const symbolCopy = {
-        ...matchingSymbol,
-        fileUri: normalizedUri,
-        location: {
-          ...matchingSymbol.location,
-          symbolRange: { ...matchingSymbol.location.symbolRange },
-          identifierRange: { ...matchingSymbol.location.identifierRange },
-        },
-      };
-      // Cache in symbolIdIndex for future lookups
-      this.symbolIdIndex.set(symbolId, symbolCopy);
-      return symbolCopy;
+      this.symbolIdIndex.set(symbolId, matchingSymbol);
+      return matchingSymbol;
     }
 
     return null;
@@ -1887,8 +1821,8 @@ export class ApexSymbolRefManager {
     const visited = new Set<string>();
     const recursionStack = new Set<string>();
 
-    // Get all symbol IDs from the symbolIds set
-    const symbolIds = Array.from(this.symbolIds);
+    // Get all symbol IDs from the symbol ID index
+    const symbolIds = Array.from(this.symbolIdIndex.keys());
 
     for (const symbolId of symbolIds) {
       if (!visited.has(symbolId)) {
@@ -1909,7 +1843,7 @@ export class ApexSymbolRefManager {
     const recursionStack = new Set<string>();
 
     // Start DFS from the specific symbol
-    if (this.symbolIds.has(symbolId)) {
+    if (this.symbolIdIndex.has(symbolId)) {
       this.detectCyclesDFS(symbolId, visited, recursionStack, [], cycles);
     }
 
@@ -2020,7 +1954,8 @@ export class ApexSymbolRefManager {
    */
   getStats() {
     return {
-      totalSymbols: this.memoryStats.totalSymbols,
+      // Derive from authoritative index to avoid drift/negative counts.
+      totalSymbols: this.symbolIdIndex.size,
       totalFiles: this.fileIndex.size, // Count actual files, not just SymbolTables
       totalReferences: this.memoryStats.totalEdges,
       circularDependencies: this.detectCircularDependencies().length,
@@ -2534,7 +2469,6 @@ export class ApexSymbolRefManager {
     this.forwardIndex.clear();
     this.refStore.clear();
     this.refIndexCounters.clear();
-    this.symbolIds.clear();
     this.symbolFileMap.clear();
     this.nameIndex.clear();
     this.fileIndex.clear();
@@ -2648,9 +2582,18 @@ export class ApexSymbolRefManager {
     for (const symbolId of symbolIds) {
       // Remove from indexes
       this.symbolFileMap.delete(symbolId);
-      this.fqnIndex.delete(symbolId);
-      this.symbolIds.delete(symbolId);
       this.symbolIdIndex.delete(symbolId);
+
+      // Remove symbolId from every FQN bucket (fqnIndex is keyed by FQN, not symbolId)
+      for (const [fqn, ids] of this.fqnIndex.entries()) {
+        if (!ids) continue;
+        const filteredIds = ids.filter((id) => id !== symbolId);
+        if (filteredIds.length === 0) {
+          this.fqnIndex.delete(fqn);
+        } else if (filteredIds.length !== ids.length) {
+          this.fqnIndex.set(fqn, filteredIds);
+        }
+      }
 
       // Update name index
       for (const [name, ids] of this.nameIndex.entries()) {
@@ -2671,7 +2614,8 @@ export class ApexSymbolRefManager {
     // Remove SymbolTable reference (use normalized URI)
     this.fileToSymbolTable.delete(normalizedUri);
 
-    this.memoryStats.totalSymbols -= symbolIds.length;
+    // Re-sync from authoritative source to prevent negative totals/drift.
+    this.memoryStats.totalSymbols = this.symbolIdIndex.size;
   }
 
   /**
@@ -2703,7 +2647,7 @@ export class ApexSymbolRefManager {
   private findSymbolId(symbol: ApexSymbol): string | null {
     const fileUri = symbol.fileUri || 'unknown';
     const symbolId = this.getSymbolId(symbol, fileUri);
-    return this.symbolIds.has(symbolId) ? symbolId : null;
+    return this.symbolIdIndex.has(symbolId) ? symbolId : null;
   }
 
   /**
@@ -2768,7 +2712,7 @@ export class ApexSymbolRefManager {
     );
 
     // Check if we already have this virtual symbol
-    if (this.symbolIds.has(virtualSymbolId)) {
+    if (this.symbolIdIndex.has(virtualSymbolId)) {
       // Symbol already exists, just add the reference
       this.addReferenceToGraph(
         sourceSymbol,
@@ -2789,7 +2733,7 @@ export class ApexSymbolRefManager {
     };
 
     // Add the virtual symbol to the graph
-    this.symbolIds.add(virtualSymbolId);
+    this.symbolIdIndex.set(virtualSymbolId, virtualSymbol);
     this.symbolFileMap.set(virtualSymbolId, virtualSymbol.fileUri);
 
     // Add to name index
@@ -3636,7 +3580,19 @@ export class ApexSymbolRefManager {
    * Public accessor methods for graph data extraction functions
    */
   public getSymbolIds(): Set<string> {
-    return this.symbolIds;
+    return new Set(this.symbolIdIndex.keys());
+  }
+
+  public findFilesForSymbolName(name: string): string[] {
+    const symbolIds = this.nameIndex.get(name) || [];
+    const files = new Set<string>();
+    for (const symbolId of symbolIds) {
+      const fileUri = this.symbolFileMap.get(symbolId);
+      if (fileUri) {
+        files.add(fileUri);
+      }
+    }
+    return Array.from(files);
   }
 
   /**

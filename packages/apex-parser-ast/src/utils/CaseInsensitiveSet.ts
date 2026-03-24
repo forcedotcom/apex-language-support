@@ -14,32 +14,6 @@ export class CaseInsensitiveStringSet implements Iterable<string> {
   private readonly inner = new Set<string>();
 
   private normalize(value: string): string {
-    if (
-      value.includes('DeclarationTestClass.cls#') &&
-      value.includes('Name')
-    ) {
-      // #region agent log
-      fetch('http://127.0.0.1:7522/ingest/00fd3460-7687-40b5-9741-4c8292cdd38f', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Debug-Session-Id': 'dc5b81',
-        },
-        body: JSON.stringify({
-          sessionId: 'dc5b81',
-          runId: 'symbolids-case-regression',
-          hypothesisId: 'H4',
-          location: 'src/utils/CaseInsensitiveSet.ts',
-          message: 'CaseInsensitiveStringSet normalize called',
-          data: {
-            original: value,
-            normalized: value.toLowerCase(),
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
-    }
     return value.toLowerCase();
   }
 

@@ -581,22 +581,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Find files containing a symbol with the given name
    */
   findFilesForSymbol(name: string): string[] {
-    // OPTIMIZED: Get files from symbol table references
-    const symbolIds = this.symbolGraph['nameIndex'].get(name) || [];
-    const files = new Set<string>();
-
-    for (const symbolId of symbolIds) {
-      const fileUri = this.symbolGraph['symbolFileMap'].get(symbolId);
-      if (fileUri) {
-        // Convert URI back to clean file path for consistency with test expectations
-        const cleanPath = fileUri.startsWith('file://')
-          ? extractFilePath(fileUri)
-          : fileUri;
-        files.add(cleanPath);
-      }
-    }
-
-    return Array.from(files);
+    const fileUris = this.symbolGraph.findFilesForSymbolName(name);
+    return fileUris.map((fileUri) =>
+      fileUri.startsWith('file://') ? extractFilePath(fileUri) : fileUri,
+    );
   }
 
   /**
