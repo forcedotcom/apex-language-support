@@ -115,8 +115,8 @@ jobs:
         run: |
           echo "Generating MD5 checksums for VSIX files..."
           
-          # Find all VSIX files and generate MD5 checksums
-          VSIX_FILES=$(find packages -name "*.vsix" -type f)
+          # Find non-web VSIX files and generate MD5 checksums
+          VSIX_FILES=$(find packages -name "*.vsix" -type f ! -name "*-web-*")
           
           if [ -z "$VSIX_FILES" ]; then
             echo "No VSIX files found to generate checksums for"
@@ -188,17 +188,9 @@ jobs:
           name: ${{ steps.calc-artifact-name.outputs.artifact-name }}
           path: |
             packages/**/*.vsix
-            !packages/**/*-web-*.vsix
             packages/**/*.vsix.md5
             packages/checksums.md5
             packages/checksums.json
-          retention-days: 5
-
-      - name: Upload web VSIX artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.calc-artifact-name.outputs.artifact-name }}-web
-          path: packages/**/*-web-*.vsix
           retention-days: 5
 
       - name: List VSIX files
