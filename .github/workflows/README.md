@@ -163,12 +163,12 @@ graph LR
     B --> C[vsix-packages]
 
     subgraph "Test Matrix"
-        D[ubuntu-latest, 20.x]
+        D[ubuntu-latest, lts/-1]
         E[ubuntu-latest, lts/*]
-        F[ubuntu-latest, node]
-        G[windows-latest, 20.x]
+        F[ubuntu-latest, current]
+        G[windows-latest, lts/-1]
         H[windows-latest, lts/*]
-        I[windows-latest, node]
+        I[windows-latest, current]
     end
 ```
 
