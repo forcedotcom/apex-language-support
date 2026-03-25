@@ -10,6 +10,7 @@ import { CaseInsensitivePathMap } from '../../src/utils/CaseInsensitiveMap';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
 import { SymbolTable } from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
+import { resetResourceLoader } from '../helpers/testHelpers';
 
 describe('ResourceLoader', () => {
   let loader: ResourceLoader;
@@ -20,8 +21,8 @@ describe('ResourceLoader', () => {
     setLogLevel('error');
   });
 
-  afterEach(async () => {
-    ResourceLoader.resetInstance();
+  afterEach(() => {
+    resetResourceLoader();
   });
 
   describe('getInstance', () => {
@@ -254,7 +255,7 @@ describe('ResourceLoader', () => {
   describe('enhanced statistics', () => {
     it('should provide comprehensive statistics', async () => {
       // Ensure singleton is reset before creating new instance
-      ResourceLoader.resetInstance();
+      resetResourceLoader();
       loader = ResourceLoader.getInstance();
       await loader.initialize();
 
@@ -279,12 +280,12 @@ describe('ResourceLoader On-Demand Loading from Protobuf Cache', () => {
 
   beforeEach(() => {
     // Reset the singleton to ensure we get a fresh instance
-    ResourceLoader.resetInstance();
+    resetResourceLoader();
     resourceLoader = ResourceLoader.getInstance();
   });
 
   afterAll(() => {
-    ResourceLoader.resetInstance();
+    resetResourceLoader();
   });
 
   it('should have symbol tables available after initialization', async () => {
@@ -339,13 +340,13 @@ describe('ResourceLoader Lazy Loading', () => {
 
   beforeEach(async () => {
     // Reset singleton for each test
-    ResourceLoader.resetInstance();
+    resetResourceLoader();
     loader = ResourceLoader.getInstance();
     await loader.initialize();
   });
 
   afterEach(() => {
-    ResourceLoader.resetInstance();
+    resetResourceLoader();
   });
 
   describe('getSymbolTable', () => {
@@ -538,7 +539,7 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
 
   beforeAll(async () => {
     // Set up a loader that loads classes from protobuf cache
-    ResourceLoader.resetInstance();
+    resetResourceLoader();
     singleClassLoader = ResourceLoader.getInstance();
     await singleClassLoader.initialize();
 
@@ -551,7 +552,7 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
   });
 
   afterAll(() => {
-    ResourceLoader.resetInstance();
+    resetResourceLoader();
     singleClassLoader = null;
   });
 

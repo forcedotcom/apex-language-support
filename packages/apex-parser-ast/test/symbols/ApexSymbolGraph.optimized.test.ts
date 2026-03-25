@@ -14,6 +14,7 @@ import { SymbolTable, SymbolKind, ApexSymbol } from '../../src/types/symbol';
 import {
   initialize as schedulerInitialize,
   shutdown as schedulerShutdown,
+  reset as schedulerReset,
 } from '../../src/queue/priority-scheduler-utils';
 import { Effect } from 'effect';
 import { CompilerService } from '../../src/parser/compilerService';
@@ -40,6 +41,7 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
   afterAll(async () => {
     // Shutdown scheduler after all tests to prevent hanging
     await Effect.runPromise(schedulerShutdown());
+    schedulerReset();
   });
 
   beforeEach(() => {

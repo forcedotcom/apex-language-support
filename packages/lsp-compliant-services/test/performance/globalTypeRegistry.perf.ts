@@ -65,9 +65,8 @@ describe('GlobalTypeRegistry Benchmarks', () => {
         ...benchmarkSettings,
         fn: async (deferred: any) => {
           try {
-            // Reinitialize to measure cache load time
-            const freshLoader = ResourceLoader.getInstance();
-            await freshLoader.initialize();
+            // Reinitialize the same singleton to avoid per-iteration state growth.
+            await resourceLoader.initialize();
             deferred.resolve();
           } catch (err) {
             console.error('Error in initialization benchmark:', err);

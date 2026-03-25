@@ -18,8 +18,12 @@
 
 import {
   ApexSymbolProcessingManager,
+  GlobalTypeRegistry,
+  GlobalTypeRegistryLive,
+  ResourceLoader,
   SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 import { LSPQueueManager } from '../../src/queue/LSPQueueManager';
 
 /**
@@ -89,7 +93,25 @@ export async function cleanupTestResources(): Promise<void> {
     // Ignore errors - service might not be initialized
   }
 
-  // 5. Give Effect-TS resources time to clean up
+  // 5. Reset parser-level singletons that can retain memory across suites
+  try {
+    ResourceLoader.resetInstance();
+  } catch (_error) {
+    // Ignore errors during cleanup
+  }
+
+  try {
+    Effect.runSync(
+      Effect.gen(function* () {
+        const registry = yield* GlobalTypeRegistry;
+        yield* registry.clear();
+      }).pipe(Effect.provide(GlobalTypeRegistryLive)),
+    );
+  } catch (_error) {
+    // Ignore errors during cleanup
+  }
+
+  // 6. Give Effect-TS resources time to clean up
   // This allows fibers to complete their cleanup and queues to fully shutdown
   // Also allows any setTimeout-based monitoring tasks to complete
   await new Promise((resolve) => setTimeout(resolve, 100));

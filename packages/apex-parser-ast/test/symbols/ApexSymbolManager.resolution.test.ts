@@ -33,6 +33,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
   let listener: ApexSymbolCollectorListener;
+  let useSharedManager = false;
 
   beforeAll(async () => {
     // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
@@ -66,10 +67,18 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
   });
 
   beforeEach(() => {
-    symbolManager = new ApexSymbolManager();
-    compilerService = new CompilerService();
+    if (!useSharedManager) {
+      symbolManager = new ApexSymbolManager();
+      compilerService = new CompilerService();
+    }
     enableConsoleLogging();
     setLogLevel('error'); // Set to error to avoid busy logs in CI/CD
+  });
+
+  afterEach(() => {
+    if (!useSharedManager && symbolManager) {
+      symbolManager.clear();
+    }
   });
 
   // Helper function to load fixture files
@@ -369,8 +378,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
   });
 
   describe('Qualified Name Hover Resolution', () => {
-    beforeEach(async () => {
+    beforeAll(async () => {
       // Initialize services for this describe block
+      useSharedManager = true;
       symbolManager = new ApexSymbolManager();
       compilerService = new CompilerService();
 
@@ -386,6 +396,11 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         const content = loadFixtureFile(fileName);
         await compileAndAddToManager(content, fileName);
       }
+    });
+
+    afterAll(() => {
+      symbolManager.clear();
+      useSharedManager = false;
     });
 
     it('should resolve hover on custom Apex class qualified name (FileUtilities)', async () => {
@@ -2161,7 +2176,10 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
   });
 
   describe('Method Signature Parameter Type Resolution', () => {
-    beforeEach(async () => {
+    beforeAll(async () => {
+      useSharedManager = true;
+      symbolManager = new ApexSymbolManager();
+      compilerService = new CompilerService();
       // Compile and add all fixture classes to the symbol manager
       const fixtureClasses = [
         {
@@ -2284,6 +2302,11 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       for (const fixture of fixtureClasses) {
         await compileAndAddToManager(fixture.content, fixture.fileName);
       }
+    });
+
+    afterAll(() => {
+      symbolManager.clear();
+      useSharedManager = false;
     });
 
     describe('Builtin Type Parameter Resolution', () => {
@@ -2746,6 +2769,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
   describe('Field/Property/Variable Declaration Type Resolution', () => {
     beforeAll(async () => {
       // Initialize services for this describe block
+      useSharedManager = true;
       symbolManager = new ApexSymbolManager();
       compilerService = new CompilerService();
 
@@ -2762,6 +2786,11 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         const content = loadFixtureFile(fixture);
         await compileAndAddToManager(content, fixture);
       }
+    });
+
+    afterAll(() => {
+      symbolManager.clear();
+      useSharedManager = false;
     });
 
     describe('Builtin Type Declaration Resolution', () => {
@@ -3333,15 +3362,31 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         // is no org connection, so the type is unresolvable and the result is undefined.
         const testCode = loadFixtureFile('DeclarationTestClass.cls');
 
-        await compileAndAddToManager(
+        // Use an isolated manager without shared fixtures so Account is not preloaded.
+        const isolatedManager = new ApexSymbolManager();
+        const isolatedCompiler = new CompilerService();
+        const isolatedListener = new ApexSymbolCollectorListener(
+          undefined,
+          'full',
+        );
+        const isolatedResult = isolatedCompiler.compile(
           testCode,
           'file:///test/DeclarationTestClass.cls',
+          isolatedListener,
         );
+        if (isolatedResult.result) {
+          await Effect.runPromise(
+            isolatedManager.addSymbolTable(
+              isolatedResult.result,
+              'file:///test/DeclarationTestClass.cls',
+            ),
+          );
+        }
 
         // Position cursor on "Account" type in "public Account Owner { get; set; }"
         // Line 10 (1-based) = "    public Account Owner { get; set; }"
         // "Account" type starts at character 12
-        const result = await symbolManager.getSymbolAtPosition(
+        const result = await isolatedManager.getSymbolAtPosition(
           'file:///test/DeclarationTestClass.cls',
           { line: 10, character: 12 }, // Position on "Account" type
           'precise',
@@ -3349,6 +3394,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
         // Without org-loaded SObject stubs Account is not in the graph — no result.
         expect(result).toBeNull();
+        isolatedManager.clear();
       });
 
       it('should resolve Account property type declaration when position is on property name', async () => {

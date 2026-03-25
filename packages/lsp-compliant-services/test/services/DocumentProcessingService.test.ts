@@ -158,6 +158,10 @@ describe('DocumentProcessingService - Batch Processing', () => {
     service = new DocumentProcessingService(logger);
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   const createMockEvent = (
     uri: string,
     version: number = 1,
