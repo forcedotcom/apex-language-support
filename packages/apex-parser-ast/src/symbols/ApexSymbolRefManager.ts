@@ -711,7 +711,7 @@ export class ApexSymbolRefManager {
     sourceSymbolId: string,
     targetSymbolId: string,
     entry: RefStoreEntry,
-  ): void {
+  ): boolean {
     // Check if reference already exists (prevent duplicates)
     // A duplicate is defined as same source, target, type, and location
     const existingRefKeys = this.reverseIndex.get(targetSymbolId);
@@ -729,7 +729,7 @@ export class ApexSymbolRefManager {
             entry.location.identifierRange.startColumn
         ) {
           // Duplicate found, skip adding
-          return;
+          return false;
         }
       }
     }
@@ -750,6 +750,7 @@ export class ApexSymbolRefManager {
 
     // Store full reference details
     this.refStore.set(refKey, entry);
+    return true;
   }
 
   /**
@@ -768,7 +769,7 @@ export class ApexSymbolRefManager {
       isStatic?: boolean;
       namespace?: string;
     },
-  ): void {
+  ): boolean {
     const refEntry: RefStoreEntry = {
       sourceFileUri,
       sourceSymbolId,
@@ -788,12 +789,38 @@ export class ApexSymbolRefManager {
         : undefined,
     };
 
-    this.addReferenceToIndexes(
+    return this.addReferenceToIndexes(
       sourceFileUri,
       sourceSymbolId,
       targetSymbolId,
       refEntry,
     );
+  }
+
+  private removeReferenceKey(refKey: string): void {
+    const entry = this.refStore.get(refKey);
+    if (!entry) {
+      return;
+    }
+
+    const reverseSet = this.reverseIndex.get(entry.targetSymbolId);
+    if (reverseSet) {
+      reverseSet.delete(refKey);
+      if (reverseSet.size === 0) {
+        this.reverseIndex.delete(entry.targetSymbolId);
+      }
+    }
+
+    const forwardSet = this.forwardIndex.get(entry.sourceFileUri);
+    if (forwardSet) {
+      forwardSet.delete(refKey);
+      if (forwardSet.size === 0) {
+        this.forwardIndex.delete(entry.sourceFileUri);
+      }
+    }
+
+    this.refStore.delete(refKey);
+    this.resetRefIndexCounter(entry.sourceFileUri, entry.sourceSymbolId);
   }
 
   /**
@@ -805,26 +832,30 @@ export class ApexSymbolRefManager {
       return;
     }
 
-    // Remove each reference from reverse index and refStore
-    for (const refKey of refKeys) {
-      const entry = this.refStore.get(refKey);
-      if (entry) {
-        const reverseSet = this.reverseIndex.get(entry.targetSymbolId);
-        if (reverseSet) {
-          reverseSet.delete(refKey);
-          if (reverseSet.size === 0) {
-            this.reverseIndex.delete(entry.targetSymbolId);
-          }
-        }
-        this.refStore.delete(refKey);
+    for (const refKey of [...refKeys]) {
+      this.removeReferenceKey(refKey);
+    }
+  }
 
-        // Reset refIndex counter for this source symbol
-        this.resetRefIndexCounter(entry.sourceFileUri, entry.sourceSymbolId);
+  private removeIncomingReferencesToSymbols(symbolIds: Set<string>): void {
+    for (const symbolId of symbolIds) {
+      const refKeys = this.reverseIndex.get(symbolId);
+      if (!refKeys) {
+        continue;
+      }
+      for (const refKey of [...refKeys]) {
+        this.removeReferenceKey(refKey);
       }
     }
+  }
 
-    // Clear forward index for this file
-    this.forwardIndex.delete(fileUri);
+  clearReferenceStateForFile(fileUri: string): void {
+    const normalizedUri = extractFilePathFromUri(fileUri);
+    const symbolIds = new Set(this.fileIndex.get(normalizedUri) || []);
+
+    this.removeReferencesFromFile(normalizedUri);
+    this.removeIncomingReferencesToSymbols(symbolIds);
+    this.memoryStats.totalEdges = this.refStore.size;
   }
 
   /**
@@ -1686,17 +1717,19 @@ export class ApexSymbolRefManager {
     );
 
     // Create reference entry and add to indexes
-    this.createAndAddReference(
-      sourceSymbolInGraph.fileUri,
-      sourceId,
-      targetSymbolInGraph.fileUri,
-      targetId,
-      referenceType,
-      location,
-      context,
-    );
-
-    this.memoryStats.totalEdges++;
+    if (
+      this.createAndAddReference(
+        sourceSymbolInGraph.fileUri,
+        sourceId,
+        targetSymbolInGraph.fileUri,
+        targetId,
+        referenceType,
+        location,
+        context,
+      )
+    ) {
+      this.memoryStats.totalEdges++;
+    }
   }
 
   /**
@@ -2129,7 +2162,11 @@ export class ApexSymbolRefManager {
    * Register SymbolTable for a file
    * Ensures URI is normalized consistently with getSymbolId() to avoid lookup mismatches
    */
-  registerSymbolTable(symbolTable: SymbolTable, fileUri: string): void {
+  registerSymbolTable(
+    symbolTable: SymbolTable,
+    fileUri: string,
+    options?: { mergeReferences?: boolean },
+  ): void {
     // Normalize URI the same way getSymbolId() does to ensure consistency
     // This ensures SymbolTable lookup in getSymbol() will succeed
     const normalizedUri = extractFilePathFromUri(fileUri);
@@ -2232,7 +2269,12 @@ export class ApexSymbolRefManager {
       // If the new SymbolTable has no references but the old one does, merge them
       // This ensures hover/definition requests work even if workspace batch processing
       // creates a new SymbolTable without references (e.g., if collectReferences wasn't set)
-      if (existingReferences.length > 0 && newReferences.length === 0) {
+      const shouldMergeReferences = options?.mergeReferences ?? true;
+      if (
+        shouldMergeReferences &&
+        existingReferences.length > 0 &&
+        newReferences.length === 0
+      ) {
         this.logger.debug(
           () =>
             `[registerSymbolTable] Merging ${existingReferences.length} references from existing SymbolTable`,
@@ -2241,7 +2283,11 @@ export class ApexSymbolRefManager {
         for (const ref of existingReferences) {
           symbolTable.addTypeReference(ref);
         }
-      } else if (existingReferences.length > 0 && newReferences.length > 0) {
+      } else if (
+        shouldMergeReferences &&
+        existingReferences.length > 0 &&
+        newReferences.length > 0
+      ) {
         // Both have references - merge unique ones (avoid duplicates)
         const newRefSet = new Set(
           newReferences.map(
@@ -2575,9 +2621,11 @@ export class ApexSymbolRefManager {
   removeFile(fileUri: string): void {
     const normalizedUri = extractFilePathFromUri(fileUri);
     const symbolIds = this.fileIndex.get(normalizedUri) || [];
+    const symbolIdSet = new Set(symbolIds);
 
     // Remove all references from/to symbols in this file
     this.removeReferencesFromFile(normalizedUri);
+    this.removeIncomingReferencesToSymbols(symbolIdSet);
 
     for (const symbolId of symbolIds) {
       // Remove from indexes
@@ -2616,6 +2664,7 @@ export class ApexSymbolRefManager {
 
     // Re-sync from authoritative source to prevent negative totals/drift.
     this.memoryStats.totalSymbols = this.symbolIdIndex.size;
+    this.memoryStats.totalEdges = this.refStore.size;
   }
 
   /**

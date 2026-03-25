@@ -1156,11 +1156,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const graphStats = this.symbolGraph.getStats();
     this.memoryStats.totalSymbols = graphStats.totalSymbols;
 
-    // Remove from file metadata (use original fileUri for metadata lookup)
-    this.fileMetadata.delete(fileUri);
+    // Remove from file metadata (normalized key)
+    this.fileMetadata.delete(normalizedUri);
 
     // Clear cache entries for this file
-    this.unifiedCache.invalidatePattern(fileUri);
+    this.unifiedCache.invalidatePattern(normalizedUri);
   }
 
   /**
@@ -1752,10 +1752,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // This ensures that fileIndex lookups will find the symbols
       const normalizedUri = extractFilePathFromUri(properUri);
 
+      const existingSymbolTable =
+        self.symbolGraph.getSymbolTableForFile(normalizedUri);
+      if (existingSymbolTable) {
+        // Replacement mode for an already indexed file: keep symbol enrichment semantics,
+        // but rebuild this file's reference edges from fresh parse output.
+        self.symbolGraph.clearReferenceStateForFile(normalizedUri);
+      }
+
       // Register SymbolTable once for the entire file before processing symbols
       // This avoids redundant registration calls for each symbol
       // NOTE: registerSymbolTable may merge symbols from an existing table, modifying symbolTable
-      self.symbolGraph.registerSymbolTable(symbolTable, normalizedUri);
+      self.symbolGraph.registerSymbolTable(symbolTable, normalizedUri, {
+        mergeReferences: false,
+      });
 
       // After registerSymbolTable, get the final symbol table (may have been merged)
       const finalSymbolTable =
