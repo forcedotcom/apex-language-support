@@ -558,7 +558,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
 
   describe('symbol table analysis', () => {
     it('should analyze symbol tables from cache', async () => {
-      await resourceLoader.initialize();
       const symbolTables = resourceLoader.getAllSymbolTables();
 
       const analysis = {
@@ -582,7 +581,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
     });
 
     it('should identify symbol patterns in standard classes', async () => {
-      await resourceLoader.initialize();
       const symbolTables = resourceLoader.getAllSymbolTables();
       const symbolPatterns = new Map<
         string,
@@ -625,7 +623,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
 
   describe('symbol quality metrics', () => {
     it('should assess symbol completeness and structure', async () => {
-      await resourceLoader.initialize();
       const symbolTables = resourceLoader.getAllSymbolTables();
 
       const symbolQualityMetrics = {
@@ -709,7 +706,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
     });
 
     it('should validate symbol location accuracy', async () => {
-      await resourceLoader.initialize();
       const symbolTables = resourceLoader.getAllSymbolTables();
       const locationQualityMetrics = {
         totalSymbols: 0,
@@ -797,7 +793,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
 
   describe('symbol table health indicators', () => {
     it('should provide comprehensive symbol table health score', async () => {
-      await resourceLoader.initialize();
       const symbolTables = resourceLoader.getAllSymbolTables();
       const healthMetrics = {
         totalFiles: symbolTables.size,
@@ -830,7 +825,6 @@ describe('ResourceLoader Symbol Table Quality Analysis', () => {
     });
 
     it('should identify symbol quality trends across namespaces', async () => {
-      await resourceLoader.initialize();
       const symbolTables = resourceLoader.getAllSymbolTables();
       const namespaceQuality = new Map<
         string,
