@@ -40,7 +40,10 @@ module.exports = {
   testTimeout:  120_000, // 2 minutes default timeout for tests
   // Recycle workers after they retain too much heap (stdlib/protobuf loads per suite).
   // Without this, parallel runs can hit SIGSEGV in heavy suites (e.g. ApexSymbolManager.references).
-  workerIdleMemoryLimit: '512MB',
+  workerIdleMemoryLimit: '1024MB',
+  // Cap parallelism to reduce aggregate memory pressure in CI while keeping some concurrency.
+  // Override with JEST_MAX_WORKERS (number or Jest string like "75%") when needed.
+  maxWorkers: process.env.JEST_MAX_WORKERS || '50%',
   globalTeardown: '<rootDir>/../../scripts/jest-teardown.js',
   // Enable open handle detection when DETECT_OPEN_HANDLES env var is set to 'true'
   // This can be very verbose, so it's opt-in for debugging purposes
