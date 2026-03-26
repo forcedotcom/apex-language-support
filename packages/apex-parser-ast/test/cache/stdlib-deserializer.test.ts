@@ -57,7 +57,6 @@ function createProtoModifiers(overrides: Partial<Modifiers> = {}): Modifiers {
     isTransient: false,
     isTestMethod: false,
     isWebService: false,
-    isBuiltIn: true,
     ...overrides,
   });
 }
@@ -68,7 +67,6 @@ function createTypeReference(name: string, isPrimitive = false): TypeReference {
     name,
     originalTypeString: name,
     isPrimitive,
-    isBuiltIn: true,
     isArray: false,
     isCollection: false,
     typeParameters: [],
@@ -473,7 +471,6 @@ describe('StandardLibraryDeserializer', () => {
                   isTransient: true,
                   isTestMethod: true,
                   isWebService: true,
-                  isBuiltIn: true,
                 }),
               }),
             ],
@@ -492,7 +489,6 @@ describe('StandardLibraryDeserializer', () => {
       expect(modifiers.isTransient).toBe(true);
       expect(modifiers.isTestMethod).toBe(true);
       expect(modifiers.isWebService).toBe(true);
-      expect(modifiers.isBuiltIn).toBe(true);
     });
   });
 

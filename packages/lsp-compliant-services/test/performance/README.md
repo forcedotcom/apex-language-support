@@ -5,7 +5,7 @@ This directory contains performance benchmarks for the `lsp-compliant-services` 
 ## Benchmark Files
 
 - `didOpen-performance.perf.ts` - didOpen complexity scaling and blocking analysis (merged from BenchmarkSuite + DocumentProcessing)
-- `symbolGraph-prepopulation.perf.ts` - Symbol graph startup costs for namespace pre-population
+- `symbolRefManager-prepopulation.perf.ts` - Symbol graph startup costs for namespace pre-population
 - `globalTypeRegistry.perf.ts` - O(1) type lookup performance
 - `multiFile-penalty.perf.ts` - Per-file vs one-time first-open penalty analysis
 

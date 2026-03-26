@@ -23,7 +23,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 describe('ApexSymbolRefManager - Optimized Architecture', () => {
-  let symbolGraph: ApexSymbolRefManager;
+  let symbolRefManager: ApexSymbolRefManager;
   let symbolTable: SymbolTable;
   let compilerService: CompilerService;
 
@@ -45,7 +45,7 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
   });
 
   beforeEach(() => {
-    symbolGraph = new ApexSymbolRefManager();
+    symbolRefManager = new ApexSymbolRefManager();
     symbolTable = new SymbolTable();
     compilerService = new CompilerService();
   });
@@ -105,10 +105,10 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       symbolTable.addSymbol(symbol);
 
       // Add symbol to graph (should only store reference)
-      symbolGraph.addSymbol(symbol, fileUri, symbolTable);
+      symbolRefManager.addSymbol(symbol, fileUri, symbolTable);
 
       // Verify symbol exists in graph
-      const foundSymbol = symbolGraph.getSymbol(symbol.id);
+      const foundSymbol = symbolRefManager.getSymbol(symbol.id);
       expect(foundSymbol).toBeDefined();
       expect(foundSymbol?.name).toBe('TestClass');
 
@@ -169,12 +169,12 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       // Add all symbols
       symbols.forEach((symbol) => {
         symbolTable.addSymbol(symbol);
-        symbolGraph.addSymbol(symbol, symbol.fileUri, symbolTable);
+        symbolRefManager.addSymbol(symbol, symbol.fileUri, symbolTable);
       });
 
       // Find all symbols and verify position data
       symbols.forEach((originalSymbol, index) => {
-        const foundSymbol = symbolGraph.getSymbol(originalSymbol.id);
+        const foundSymbol = symbolRefManager.getSymbol(originalSymbol.id);
         expect(foundSymbol).toBeDefined();
         expect(foundSymbol!.location).toEqual(originalLocations[index]);
       });
@@ -205,10 +205,10 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
 
       // Add to SymbolTable and graph
       symbolTable.addSymbol(symbol);
-      symbolGraph.addSymbol(symbol, fileUri, symbolTable);
+      symbolRefManager.addSymbol(symbol, fileUri, symbolTable);
 
       // Find symbol
-      const foundSymbol = symbolGraph.getSymbol(symbol.id);
+      const foundSymbol = symbolRefManager.getSymbol(symbol.id);
       expect(foundSymbol).toBeDefined();
 
       // Verify position data is unchanged despite FQN calculation
@@ -245,13 +245,13 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
 
       // Add symbol
       symbolTable.addSymbol(symbol);
-      symbolGraph.addSymbol(symbol, fileUri, symbolTable);
+      symbolRefManager.addSymbol(symbol, fileUri, symbolTable);
 
       // Test different retrieval methods
-      const byId = symbolGraph.getSymbol(symbol.id);
-      const byName = symbolGraph.lookupSymbolByName('TestClass');
-      const byFQN = symbolGraph.lookupSymbolByFQN('TestClass');
-      const inFile = symbolGraph.getSymbolsInFile(fileUri);
+      const byId = symbolRefManager.getSymbol(symbol.id);
+      const byName = symbolRefManager.lookupSymbolByName('TestClass');
+      const byFQN = symbolRefManager.lookupSymbolByFQN('TestClass');
+      const inFile = symbolRefManager.getSymbolsInFile(fileUri);
 
       // All should return the same symbol with identical position data
       expect(byId).toBeDefined();
@@ -291,10 +291,10 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       symbolTable.addSymbol(symbol);
 
       // Add symbol to graph (should only store reference)
-      symbolGraph.addSymbol(symbol, fileUri, symbolTable);
+      symbolRefManager.addSymbol(symbol, fileUri, symbolTable);
 
       // Verify symbol exists in graph
-      const foundSymbol = symbolGraph.getSymbol(symbol.id);
+      const foundSymbol = symbolRefManager.getSymbol(symbol.id);
       expect(foundSymbol).toBeDefined();
       expect(foundSymbol?.name).toBe('TestClass');
 
@@ -338,16 +338,16 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       symbolTable.addSymbol(methodSymbol);
 
       // Add to graph
-      symbolGraph.addSymbol(classSymbol, fileUri, symbolTable);
-      symbolGraph.addSymbol(methodSymbol, fileUri, symbolTable);
+      symbolRefManager.addSymbol(classSymbol, fileUri, symbolTable);
+      symbolRefManager.addSymbol(methodSymbol, fileUri, symbolTable);
 
       // Test findSymbolByName delegation
-      const symbolsByName = symbolGraph.findSymbolByName('myMethod');
+      const symbolsByName = symbolRefManager.findSymbolByName('myMethod');
       expect(symbolsByName).toHaveLength(1);
       expect(symbolsByName[0].name).toBe('myMethod');
 
       // Test getSymbolsInFile delegation
-      const symbolsInFile = symbolGraph.getSymbolsInFile(fileUri);
+      const symbolsInFile = symbolRefManager.getSymbolsInFile(fileUri);
       expect(symbolsInFile.length).toBeGreaterThanOrEqual(2);
       expect(symbolsInFile.map((s) => s.name)).toContain('TestClassWithMethod');
       expect(symbolsInFile.map((s) => s.name)).toContain('myMethod');
@@ -386,16 +386,22 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       }
 
       // Register SymbolTables
-      symbolGraph.registerSymbolTable(sourceTable, 'file:///source/file.cls');
-      symbolGraph.registerSymbolTable(targetTable, 'file:///target/file.cls');
+      symbolRefManager.registerSymbolTable(
+        sourceTable,
+        'file:///source/file.cls',
+      );
+      symbolRefManager.registerSymbolTable(
+        targetTable,
+        'file:///target/file.cls',
+      );
 
       // Add symbols to graph
-      symbolGraph.addSymbol(
+      symbolRefManager.addSymbol(
         sourceSymbol,
         'file:///source/file.cls',
         sourceTable,
       );
-      symbolGraph.addSymbol(
+      symbolRefManager.addSymbol(
         targetSymbol,
         'file:///target/file.cls',
         targetTable,
@@ -411,7 +417,7 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       expect(targetReference?.location).toBeDefined();
 
       // Add cross-file reference using the actual reference location
-      symbolGraph.addReference(
+      symbolRefManager.addReference(
         sourceSymbol,
         targetSymbol,
         ReferenceType.TYPE_REFERENCE,
@@ -419,11 +425,11 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       );
 
       // Verify reference tracking
-      const referencesTo = symbolGraph.findReferencesTo(targetSymbol);
+      const referencesTo = symbolRefManager.findReferencesTo(targetSymbol);
       expect(referencesTo.length).toBeGreaterThanOrEqual(1);
       expect(referencesTo[0].symbol.name).toBe('SourceClass');
 
-      const referencesFrom = symbolGraph.findReferencesFrom(sourceSymbol);
+      const referencesFrom = symbolRefManager.findReferencesFrom(sourceSymbol);
       expect(referencesFrom.length).toBeGreaterThanOrEqual(1);
       expect(referencesFrom[0].symbol.name).toBe('TargetClass');
     });
@@ -457,17 +463,20 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       }
 
       // Use the compiled SymbolTable which already has proper scoping
-      symbolGraph.registerSymbolTable(compiledTable, fileUri);
+      symbolRefManager.registerSymbolTable(compiledTable, fileUri);
 
       // Add symbols to graph
-      symbolGraph.addSymbol(classSymbol, fileUri, compiledTable);
-      symbolGraph.addSymbol(methodSymbol, fileUri, compiledTable);
+      symbolRefManager.addSymbol(classSymbol, fileUri, compiledTable);
+      symbolRefManager.addSymbol(methodSymbol, fileUri, compiledTable);
 
       // Test context-based lookup
-      const lookupResult = symbolGraph.lookupSymbolWithContext('myMethod', {
-        fileUri: fileUri,
-        currentScope: 'TestClassWithMethod',
-      });
+      const lookupResult = symbolRefManager.lookupSymbolWithContext(
+        'myMethod',
+        {
+          fileUri: fileUri,
+          currentScope: 'TestClassWithMethod',
+        },
+      );
 
       expect(lookupResult).toBeDefined();
       expect(lookupResult?.symbol.name).toBe('myMethod');
@@ -503,12 +512,12 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
           fileUri,
         );
         if (symbolTable) {
-          symbolGraph.addSymbol(symbol, fileUri, symbolTable);
+          symbolRefManager.addSymbol(symbol, fileUri, symbolTable);
         }
       }
 
       // Verify memory stats
-      const memoryStats = symbolGraph.getMemoryStats();
+      const memoryStats = symbolRefManager.getMemoryStats();
       expect(memoryStats.totalSymbols).toBeGreaterThan(0);
       expect(memoryStats.estimatedMemorySavings).toBeGreaterThan(0);
       expect(memoryStats.memoryOptimizationLevel).toBe('OPTIMAL');
@@ -549,14 +558,14 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       }
 
       // Register SymbolTables
-      symbolGraph.registerSymbolTable(tableA, 'file:///fileA.cls');
-      symbolGraph.registerSymbolTable(tableB, 'file:///fileB.cls');
-      symbolGraph.registerSymbolTable(tableC, 'file:///fileC.cls');
+      symbolRefManager.registerSymbolTable(tableA, 'file:///fileA.cls');
+      symbolRefManager.registerSymbolTable(tableB, 'file:///fileB.cls');
+      symbolRefManager.registerSymbolTable(tableC, 'file:///fileC.cls');
 
       // Add to graph
-      symbolGraph.addSymbol(classA, 'file:///fileA.cls', tableA);
-      symbolGraph.addSymbol(classB, 'file:///fileB.cls', tableB);
-      symbolGraph.addSymbol(classC, 'file:///fileC.cls', tableC);
+      symbolRefManager.addSymbol(classA, 'file:///fileA.cls', tableA);
+      symbolRefManager.addSymbol(classB, 'file:///fileB.cls', tableB);
+      symbolRefManager.addSymbol(classC, 'file:///fileC.cls', tableC);
 
       // Find actual references from compiled tables
       const refsAtoB = tableA
@@ -572,14 +581,14 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       expect(refsBtoC?.location).toBeDefined();
 
       // Create dependency chain: A -> B -> C using actual reference locations
-      symbolGraph.addReference(
+      symbolRefManager.addReference(
         classA,
         classB,
         ReferenceType.TYPE_REFERENCE,
         refsAtoB!.location,
       );
 
-      symbolGraph.addReference(
+      symbolRefManager.addReference(
         classB,
         classC,
         ReferenceType.TYPE_REFERENCE,
@@ -587,11 +596,11 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       );
 
       // Verify dependency analysis
-      const analysis = symbolGraph.analyzeDependencies(classA);
+      const analysis = symbolRefManager.analyzeDependencies(classA);
       expect(analysis.dependencies.length).toBeGreaterThanOrEqual(1);
       expect(analysis.dependencies[0].name).toBe('ClassB');
 
-      const analysisB = symbolGraph.analyzeDependencies(classB);
+      const analysisB = symbolRefManager.analyzeDependencies(classB);
       expect(analysisB.dependencies.length).toBeGreaterThanOrEqual(1);
       expect(analysisB.dependencies[0].name).toBe('ClassC');
       expect(analysisB.dependents.length).toBeGreaterThanOrEqual(1);
@@ -624,8 +633,8 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
             .getAllSymbols()
             .find((s) => s.kind === SymbolKind.Class);
           if (classSymbol) {
-            symbolGraph.registerSymbolTable(compiledTable, fileUri);
-            symbolGraph.addSymbol(classSymbol, fileUri, compiledTable);
+            symbolRefManager.registerSymbolTable(compiledTable, fileUri);
+            symbolRefManager.addSymbol(classSymbol, fileUri, compiledTable);
           }
         }
       }
@@ -637,11 +646,11 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       expect(duration).toBeLessThan(10000); // 10 seconds for real compilation
 
       // Verify symbols are accessible
-      const allSymbols = symbolGraph.findSymbolByName('TestClass');
+      const allSymbols = symbolRefManager.findSymbolByName('TestClass');
       expect(allSymbols.length).toBeGreaterThan(0);
 
       // Verify memory optimization
-      const stats = symbolGraph.getStats();
+      const stats = symbolRefManager.getStats();
       expect(stats.totalSymbols).toBeGreaterThan(0);
     });
   });
@@ -656,7 +665,7 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
         'file:///test/FileUtilities.cls',
       );
       if (fileUtilitiesTable) {
-        symbolGraph.registerSymbolTable(
+        symbolRefManager.registerSymbolTable(
           fileUtilitiesTable,
           'file:///test/FileUtilities.cls',
         );
@@ -664,7 +673,7 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
           .getAllSymbols()
           .find((s) => s.name === 'FileUtilities');
         if (fileUtilitiesSymbol) {
-          symbolGraph.addSymbol(
+          symbolRefManager.addSymbol(
             fileUtilitiesSymbol,
             'file:///test/FileUtilities.cls',
             fileUtilitiesTable,
@@ -697,13 +706,17 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       expect(createFileRef).toBeDefined();
 
       // Register the initial SymbolTable
-      symbolGraph.registerSymbolTable(initialSymbolTable, fileUri);
+      symbolRefManager.registerSymbolTable(initialSymbolTable, fileUri);
       if (testClassSymbol) {
-        symbolGraph.addSymbol(testClassSymbol, fileUri, initialSymbolTable);
+        symbolRefManager.addSymbol(
+          testClassSymbol,
+          fileUri,
+          initialSymbolTable,
+        );
       }
 
       // Verify references exist in the registered SymbolTable
-      const registeredTable1 = symbolGraph.getSymbolTableForFile(fileUri);
+      const registeredTable1 = symbolRefManager.getSymbolTableForFile(fileUri);
       expect(registeredTable1).toBe(initialSymbolTable);
       expect(registeredTable1!.getAllReferences().length).toBeGreaterThan(0);
 
@@ -723,10 +736,10 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
 
       // Step 3: Register the new SymbolTable (replacing the old one)
       // This should preserve references from initialSymbolTable
-      symbolGraph.registerSymbolTable(newSymbolTable, fileUri);
+      symbolRefManager.registerSymbolTable(newSymbolTable, fileUri);
 
       // Step 4: Verify references are preserved in the new SymbolTable
-      const registeredTable2 = symbolGraph.getSymbolTableForFile(fileUri);
+      const registeredTable2 = symbolRefManager.getSymbolTableForFile(fileUri);
       expect(registeredTable2).toBe(newSymbolTable);
       // References should be preserved (merged from initialSymbolTable)
       expect(registeredTable2!.getAllReferences().length).toBeGreaterThan(0);
@@ -761,7 +774,7 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
         'file:///test/FileUtilities.cls',
       );
       if (fileUtilitiesTable) {
-        symbolGraph.registerSymbolTable(
+        symbolRefManager.registerSymbolTable(
           fileUtilitiesTable,
           'file:///test/FileUtilities.cls',
         );
@@ -769,7 +782,7 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
           .getAllSymbols()
           .find((s) => s.name === 'FileUtilities');
         if (fileUtilitiesSymbol) {
-          symbolGraph.addSymbol(
+          symbolRefManager.addSymbol(
             fileUtilitiesSymbol,
             'file:///test/FileUtilities.cls',
             fileUtilitiesTable,
@@ -800,9 +813,13 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       );
       expect(createFileRef).toBeDefined();
 
-      symbolGraph.registerSymbolTable(initialSymbolTable, fileUri);
+      symbolRefManager.registerSymbolTable(initialSymbolTable, fileUri);
       if (testClassSymbol) {
-        symbolGraph.addSymbol(testClassSymbol, fileUri, initialSymbolTable);
+        symbolRefManager.addSymbol(
+          testClassSymbol,
+          fileUri,
+          initialSymbolTable,
+        );
       }
 
       // Create new SymbolTable with references (compile again - should have same references)
@@ -824,10 +841,10 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       expect(propertyRef).toBeDefined();
 
       // Register the new SymbolTable (should merge references)
-      symbolGraph.registerSymbolTable(newSymbolTable, fileUri);
+      symbolRefManager.registerSymbolTable(newSymbolTable, fileUri);
 
       // Verify both references are present (merged)
-      const registeredTable = symbolGraph.getSymbolTableForFile(fileUri);
+      const registeredTable = symbolRefManager.getSymbolTableForFile(fileUri);
       expect(registeredTable).toBe(newSymbolTable);
       const allReferences = registeredTable!.getAllReferences();
       expect(allReferences.length).toBeGreaterThanOrEqual(2);
@@ -852,7 +869,7 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
         'file:///test/FileUtilities.cls',
       );
       if (fileUtilitiesTable) {
-        symbolGraph.registerSymbolTable(
+        symbolRefManager.registerSymbolTable(
           fileUtilitiesTable,
           'file:///test/FileUtilities.cls',
         );
@@ -860,7 +877,7 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
           .getAllSymbols()
           .find((s) => s.name === 'FileUtilities');
         if (fileUtilitiesSymbol) {
-          symbolGraph.addSymbol(
+          symbolRefManager.addSymbol(
             fileUtilitiesSymbol,
             'file:///test/FileUtilities.cls',
             fileUtilitiesTable,
@@ -885,12 +902,12 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
       expect(initialReferenceCount).toBeGreaterThan(0);
 
       // Register the same SymbolTable multiple times
-      symbolGraph.registerSymbolTable(symbolTable, fileUri);
-      symbolGraph.registerSymbolTable(symbolTable, fileUri);
-      symbolGraph.registerSymbolTable(symbolTable, fileUri);
+      symbolRefManager.registerSymbolTable(symbolTable, fileUri);
+      symbolRefManager.registerSymbolTable(symbolTable, fileUri);
+      symbolRefManager.registerSymbolTable(symbolTable, fileUri);
 
       // Verify references are not duplicated
-      const registeredTable = symbolGraph.getSymbolTableForFile(fileUri);
+      const registeredTable = symbolRefManager.getSymbolTableForFile(fileUri);
       expect(registeredTable).toBe(symbolTable);
       expect(registeredTable!.getAllReferences().length).toBe(
         initialReferenceCount,

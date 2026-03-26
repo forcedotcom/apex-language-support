@@ -390,7 +390,6 @@ describe('StandardLibrarySerializer', () => {
       expect(modifiers.isTransient).toBe(true);
       expect(modifiers.isTestMethod).toBe(true);
       expect(modifiers.isWebService).toBe(true);
-      expect(modifiers.isBuiltIn).toBe(true);
     });
   });
 

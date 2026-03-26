@@ -27,7 +27,7 @@ import {
 import { Effect } from 'effect';
 
 describe('extractGraphData', () => {
-  let symbolGraph: ApexSymbolRefManager;
+  let symbolRefManager: ApexSymbolRefManager;
   let symbolTable: SymbolTable;
 
   beforeAll(async () => {
@@ -57,9 +57,9 @@ describe('extractGraphData', () => {
   });
 
   beforeEach(() => {
-    symbolGraph = new ApexSymbolRefManager();
+    symbolRefManager = new ApexSymbolRefManager();
     // Set up singleton instance for extracted functions
-    ApexSymbolRefManager.setInstance(symbolGraph);
+    ApexSymbolRefManager.setInstance(symbolRefManager);
     symbolTable = new SymbolTable();
   });
 
@@ -88,7 +88,7 @@ describe('extractGraphData', () => {
       attempts++;
     }
     // Clear the graph (this also shuts down deferred worker and clears timers)
-    symbolGraph.clear();
+    symbolRefManager.clear();
     // Clear singleton instance
     ApexSymbolRefManager.setInstance(null as any);
     // Final delay to ensure all cleanup completes
@@ -144,8 +144,16 @@ describe('extractGraphData', () => {
 
       symbolTable.addSymbol(symbol1);
       symbolTable.addSymbol(symbol2);
-      symbolGraph.addSymbol(symbol1, 'file:///test/TestClass.cls', symbolTable);
-      symbolGraph.addSymbol(symbol2, 'file:///test/TestClass.cls', symbolTable);
+      symbolRefManager.addSymbol(
+        symbol1,
+        'file:///test/TestClass.cls',
+        symbolTable,
+      );
+      symbolRefManager.addSymbol(
+        symbol2,
+        'file:///test/TestClass.cls',
+        symbolTable,
+      );
 
       const nodes = getAllNodes();
       expect(nodes.length).toBeGreaterThanOrEqual(2);
@@ -175,9 +183,17 @@ describe('extractGraphData', () => {
       );
 
       symbolTable.addSymbol(symbol);
-      symbolGraph.addSymbol(symbol, 'file:///test/TestClass.cls', symbolTable);
+      symbolRefManager.addSymbol(
+        symbol,
+        'file:///test/TestClass.cls',
+        symbolTable,
+      );
       // Add same symbol again (should be deduplicated)
-      symbolGraph.addSymbol(symbol, 'file:///test/TestClass.cls', symbolTable);
+      symbolRefManager.addSymbol(
+        symbol,
+        'file:///test/TestClass.cls',
+        symbolTable,
+      );
 
       const nodes = getAllNodes();
       const testClassNodes = nodes.filter((n) => n.name === 'TestClass');
@@ -235,12 +251,12 @@ describe('extractGraphData', () => {
 
       symbolTable.addSymbol(classSymbol);
       symbolTable.addSymbol(methodSymbol);
-      symbolGraph.addSymbol(
+      symbolRefManager.addSymbol(
         classSymbol,
         'file:///test/TestClass.cls',
         symbolTable,
       );
-      symbolGraph.addSymbol(
+      symbolRefManager.addSymbol(
         methodSymbol,
         'file:///test/TestClass.cls',
         symbolTable,
@@ -278,7 +294,11 @@ describe('extractGraphData', () => {
       );
 
       symbolTable.addSymbol(symbol);
-      symbolGraph.addSymbol(symbol, 'file:///test/TestClass.cls', symbolTable);
+      symbolRefManager.addSymbol(
+        symbol,
+        'file:///test/TestClass.cls',
+        symbolTable,
+      );
 
       const graphData = getGraphData();
       expect(graphData).toHaveProperty('nodes');
@@ -340,8 +360,8 @@ describe('extractGraphData', () => {
       const table2 = new SymbolTable();
       table1.addSymbol(symbol1);
       table2.addSymbol(symbol2);
-      symbolGraph.addSymbol(symbol1, file1, table1);
-      symbolGraph.addSymbol(symbol2, file2, table2);
+      symbolRefManager.addSymbol(symbol1, file1, table1);
+      symbolRefManager.addSymbol(symbol2, file2, table2);
 
       const fileData = getGraphDataForFile(file1);
       expect(fileData.fileUri).toBe(file1);
@@ -395,12 +415,12 @@ describe('extractGraphData', () => {
 
       symbolTable.addSymbol(classSymbol);
       symbolTable.addSymbol(methodSymbol);
-      symbolGraph.addSymbol(
+      symbolRefManager.addSymbol(
         classSymbol,
         'file:///test/TestClass.cls',
         symbolTable,
       );
-      symbolGraph.addSymbol(
+      symbolRefManager.addSymbol(
         methodSymbol,
         'file:///test/TestClass.cls',
         symbolTable,
@@ -436,7 +456,11 @@ describe('extractGraphData', () => {
       );
 
       symbolTable.addSymbol(symbol);
-      symbolGraph.addSymbol(symbol, 'file:///test/TestClass.cls', symbolTable);
+      symbolRefManager.addSymbol(
+        symbol,
+        'file:///test/TestClass.cls',
+        symbolTable,
+      );
 
       const json = getGraphDataAsJSON();
       expect(typeof json).toBe('string');
@@ -471,7 +495,7 @@ describe('extractGraphData', () => {
       );
 
       symbolTable.addSymbol(symbol);
-      symbolGraph.addSymbol(symbol, fileUri, symbolTable);
+      symbolRefManager.addSymbol(symbol, fileUri, symbolTable);
 
       const json = getGraphDataForFileAsJSON(fileUri);
       expect(typeof json).toBe('string');
@@ -504,7 +528,11 @@ describe('extractGraphData', () => {
       );
 
       symbolTable.addSymbol(symbol);
-      symbolGraph.addSymbol(symbol, 'file:///test/TestClass.cls', symbolTable);
+      symbolRefManager.addSymbol(
+        symbol,
+        'file:///test/TestClass.cls',
+        symbolTable,
+      );
 
       const json = getGraphDataByTypeAsJSON('class');
       expect(typeof json).toBe('string');

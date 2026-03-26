@@ -17,7 +17,7 @@
  * - Single type lookup: Sub-millisecond (O(1))
  * - Memory overhead: ~100KB vs ~50MB for full symbol graph pre-loading
  *
- * Extracted from: SymbolGraphPrePopulation.performance.test.ts (lines 414-536)
+ * Extracted from: symbolRefManager-prepopulation.perf.ts (lines 414-536)
  */
 
 import Benchmark from 'benchmark';

@@ -449,7 +449,7 @@ export class StandardLibraryDeserializer {
       isArray: proto.isArray,
       isCollection: proto.isCollection,
       isPrimitive: proto.isPrimitive,
-      isBuiltIn: proto.isBuiltIn,
+      isBuiltIn: proto.isPrimitive,
       typeParameters: typeParameters.length > 0 ? typeParameters : undefined,
       keyType: proto.keyType
         ? this.convertTypeReference(proto.keyType)
@@ -493,7 +493,7 @@ export class StandardLibraryDeserializer {
       isTransient: proto.isTransient,
       isTestMethod: proto.isTestMethod,
       isWebService: proto.isWebService,
-      isBuiltIn: proto.isBuiltIn,
+      isBuiltIn: false,
     };
   }
 

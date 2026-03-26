@@ -16,12 +16,12 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import { SymbolKind } from '../../src/types/symbol';
 
 describe.skip('Symbol Management - Integration Tests', () => {
-  let symbolGraph: ApexSymbolRefManager;
+  let symbolRefManager: ApexSymbolRefManager;
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
 
   beforeEach(() => {
-    symbolGraph = new ApexSymbolRefManager();
+    symbolRefManager = new ApexSymbolRefManager();
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
   });
@@ -88,24 +88,27 @@ describe.skip('Symbol Management - Integration Tests', () => {
 
       // Add all symbols to the graph
       for (const symbol of symbols) {
-        symbolGraph.addSymbol(symbol, 'AccountService.cls', symbolTable);
+        symbolRefManager.addSymbol(symbol, 'AccountService.cls', symbolTable);
       }
 
       // Verify symbols are accessible
-      const accountService = symbolGraph.findSymbolByName('AccountService');
+      const accountService =
+        symbolRefManager.findSymbolByName('AccountService');
       expect(accountService).toHaveLength(1);
       expect(accountService[0].kind).toBe(SymbolKind.Class);
 
-      const contactService = symbolGraph.findSymbolByName('ContactService');
+      const contactService =
+        symbolRefManager.findSymbolByName('ContactService');
       expect(contactService).toHaveLength(1);
       expect(contactService[0].kind).toBe(SymbolKind.Class);
 
       // Verify method symbols
-      const createAccountMethod = symbolGraph.findSymbolByName('createAccount');
+      const createAccountMethod =
+        symbolRefManager.findSymbolByName('createAccount');
       expect(createAccountMethod.length).toBeGreaterThan(0);
 
       // Verify scope-based resolution using context
-      const lookupResult = symbolGraph.lookupSymbolWithContext(
+      const lookupResult = symbolRefManager.lookupSymbolWithContext(
         'createAccount',
         {
           fileUri: 'AccountService.cls',
@@ -177,11 +180,19 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const contactSymbols = contactSymbolTable.getAllSymbols();
 
       for (const symbol of accountSymbols) {
-        symbolGraph.addSymbol(symbol, 'AccountService.cls', accountSymbolTable);
+        symbolRefManager.addSymbol(
+          symbol,
+          'AccountService.cls',
+          accountSymbolTable,
+        );
       }
 
       for (const symbol of contactSymbols) {
-        symbolGraph.addSymbol(symbol, 'ContactService.cls', contactSymbolTable);
+        symbolRefManager.addSymbol(
+          symbol,
+          'ContactService.cls',
+          contactSymbolTable,
+        );
       }
 
       // Add cross-file references
@@ -189,7 +200,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const accountServiceSymbol = accountSymbolTable.lookup('AccountService');
 
       if (contactServiceSymbol && accountServiceSymbol) {
-        symbolGraph.addReference(
+        symbolRefManager.addReference(
           contactServiceSymbol,
           accountServiceSymbol,
           ReferenceType.TYPE_REFERENCE,
@@ -211,13 +222,11 @@ describe.skip('Symbol Management - Integration Tests', () => {
       }
 
       // Verify cross-file symbol resolution
-      const accountServiceFromContact = symbolGraph.lookupSymbolWithContext(
-        'AccountService',
-        {
+      const accountServiceFromContact =
+        symbolRefManager.lookupSymbolWithContext('AccountService', {
           fileUri: 'ContactService.cls',
           currentScope: 'ContactService',
-        },
-      );
+        });
 
       expect(accountServiceFromContact).toBeDefined();
       expect(accountServiceFromContact?.symbol.name).toBe('AccountService');
@@ -228,7 +237,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       // Verify dependency analysis
       const contactService = contactSymbolTable.lookup('ContactService');
       if (contactService) {
-        const analysis = symbolGraph.analyzeDependencies(contactService);
+        const analysis = symbolRefManager.analyzeDependencies(contactService);
         expect(analysis.dependencies.length).toBeGreaterThan(0);
         expect(
           analysis.dependencies.some((dep) => dep.name === 'AccountService'),
@@ -282,11 +291,11 @@ describe.skip('Symbol Management - Integration Tests', () => {
 
       // Add to graph
       for (const symbol of symbols) {
-        symbolGraph.addSymbol(symbol, 'ComplexService.cls', symbolTable);
+        symbolRefManager.addSymbol(symbol, 'ComplexService.cls', symbolTable);
       }
 
       // Test scope-based resolution with context
-      const innerClassLookup = symbolGraph.lookupSymbolWithContext(
+      const innerClassLookup = symbolRefManager.lookupSymbolWithContext(
         'InnerClass',
         {
           fileUri: 'ComplexService.cls',
@@ -295,7 +304,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       );
       expect(innerClassLookup).toBeDefined();
 
-      const nestedClassLookup = symbolGraph.lookupSymbolWithContext(
+      const nestedClassLookup = symbolRefManager.lookupSymbolWithContext(
         'NestedClass',
         {
           fileUri: 'ComplexService.cls',
@@ -305,7 +314,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       expect(nestedClassLookup).toBeDefined();
 
       // Test method resolution within scope
-      const getInnerFieldLookup = symbolGraph.lookupSymbolWithContext(
+      const getInnerFieldLookup = symbolRefManager.lookupSymbolWithContext(
         'getInnerField',
         {
           fileUri: 'ComplexService.cls',
@@ -473,7 +482,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       // Add to graph
       const graphStartTime = Date.now();
       for (const symbol of symbols) {
-        symbolGraph.addSymbol(symbol, 'LargeClasses.cls', symbolTable);
+        symbolRefManager.addSymbol(symbol, 'LargeClasses.cls', symbolTable);
       }
       const graphTime = Date.now() - graphStartTime;
 
@@ -482,7 +491,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       // Test symbol lookups
       const lookupStartTime = Date.now();
       for (let i = 0; i < 10; i++) {
-        const found = symbolGraph.findSymbolByName(`LargeClass${i}`);
+        const found = symbolRefManager.findSymbolByName(`LargeClass${i}`);
         expect(found.length).toBeGreaterThan(0);
       }
       const lookupTime = Date.now() - lookupStartTime;
@@ -490,7 +499,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       expect(lookupTime).toBeLessThan(100); // Should lookup within 100ms
 
       // Verify memory optimization
-      const stats = symbolGraph.getStats();
+      const stats = symbolRefManager.getStats();
       expect(stats.totalSymbols).toBeGreaterThan(0);
       expect(stats.totalFiles).toBe(1);
     });
@@ -523,11 +532,11 @@ describe.skip('Symbol Management - Integration Tests', () => {
 
       // Should still be able to add valid symbols to graph
       for (const symbol of symbols) {
-        symbolGraph.addSymbol(symbol, 'InvalidClass.cls', symbolTable);
+        symbolRefManager.addSymbol(symbol, 'InvalidClass.cls', symbolTable);
       }
 
       // Graph should still function with partial data
-      const stats = symbolGraph.getStats();
+      const stats = symbolRefManager.getStats();
       expect(stats.totalSymbols).toBeGreaterThanOrEqual(0);
     });
 
@@ -554,12 +563,12 @@ describe.skip('Symbol Management - Integration Tests', () => {
 
       // Add symbols multiple times
       for (const symbol of symbols) {
-        symbolGraph.addSymbol(symbol, 'TestClass.cls', symbolTable);
-        symbolGraph.addSymbol(symbol, 'TestClass.cls', symbolTable); // Duplicate
+        symbolRefManager.addSymbol(symbol, 'TestClass.cls', symbolTable);
+        symbolRefManager.addSymbol(symbol, 'TestClass.cls', symbolTable); // Duplicate
       }
 
       // Should handle duplicates gracefully
-      const testClassSymbols = symbolGraph.findSymbolByName('TestClass');
+      const testClassSymbols = symbolRefManager.findSymbolByName('TestClass');
       expect(testClassSymbols).toHaveLength(1); // Should not have duplicates
     });
   });

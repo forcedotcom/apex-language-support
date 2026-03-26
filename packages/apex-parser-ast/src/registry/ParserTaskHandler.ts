@@ -16,7 +16,7 @@ import { ParserTaskType } from './ParserTaskType';
  */
 export interface ParserTaskContext {
   symbolManager: ApexSymbolManager;
-  symbolGraph?: ApexSymbolRefManager;
+  symbolRefManager?: ApexSymbolRefManager;
 }
 
 /**

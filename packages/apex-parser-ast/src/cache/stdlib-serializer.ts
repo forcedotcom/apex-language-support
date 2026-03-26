@@ -345,7 +345,6 @@ export class StandardLibrarySerializer {
 
   /**
    * Convert TypeInfo to protobuf TypeReference.
-   * Field `isBuiltIn` is the wire name for standard-library / primitive types.
    */
   private convertTypeReference(typeInfo?: TypeInfo): ProtoTypeReference {
     if (!typeInfo) {
@@ -355,7 +354,6 @@ export class StandardLibrarySerializer {
         isArray: false,
         isCollection: false,
         isPrimitive: true,
-        isBuiltIn: true,
       });
     }
 
@@ -372,7 +370,6 @@ export class StandardLibrarySerializer {
       isArray: typeInfo.isArray,
       isCollection: typeInfo.isCollection,
       isPrimitive: typeInfo.isPrimitive,
-      isBuiltIn: typeInfo.isBuiltIn || false,
       typeParameters,
       keyType: typeInfo.keyType
         ? this.convertTypeReference(typeInfo.keyType)
@@ -398,7 +395,6 @@ export class StandardLibrarySerializer {
       isTransient: modifiers.isTransient,
       isTestMethod: modifiers.isTestMethod,
       isWebService: modifiers.isWebService,
-      isBuiltIn: modifiers.isBuiltIn,
     });
   }
 
