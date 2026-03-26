@@ -18,7 +18,12 @@ import {
   setLogLevel,
   Priority,
 } from '@salesforce/apex-lsp-shared';
-import { SymbolKind, SymbolVisibility } from '../../src/types/symbol';
+import {
+  type ApexSymbol,
+  SymbolKind,
+  SymbolTable,
+  SymbolVisibility,
+} from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 import {
   initialize as schedulerInitialize,
@@ -111,6 +116,47 @@ describe('ApexSymbolRefManager', () => {
 
     return result;
   };
+
+  const createTestSymbol = (
+    name: string,
+    kind: SymbolKind,
+    fileUri: string,
+    id: string,
+    parentId: string | null = null,
+  ): ApexSymbol => ({
+    id,
+    name,
+    kind,
+    fileUri,
+    parentId,
+    location: {
+      symbolRange: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 1,
+        endLine: 1,
+        endColumn: 10,
+      },
+    },
+    key: {
+      prefix: kind,
+      name,
+      path: [fileUri, name],
+    },
+    modifiers: {
+      visibility: SymbolVisibility.Public,
+      isStatic: false,
+      isFinal: false,
+      isAbstract: false,
+      isVirtual: false,
+      isOverride: false,
+      isTransient: false,
+      isTestMethod: false,
+      isWebService: false,
+      isBuiltIn: false,
+    },
+    _isLoaded: true,
+  });
 
   // Debug test to check basic DST functionality
   it('should debug basic DST operations', async () => {
@@ -500,6 +546,147 @@ describe('ApexSymbolRefManager', () => {
   });
 
   describe('Reference Tracking', () => {
+    it('attributes deep block-origin references to nearest enclosing declaration', async () => {
+      await compileAndAddToManager(
+        `
+        public class Owner {
+          public void run() {
+            if (true) {
+              for (Integer i = 0; i < 1; i++) {
+                Integer x = i;
+              }
+            }
+          }
+        }
+      `,
+        'file:///test/Owner.cls',
+      );
+      await compileAndAddToManager(
+        'public class Target {}',
+        'file:///test/Target.cls',
+      );
+
+      const methodSymbol = graph.lookupSymbolByName('run')[0];
+      const blocks = graph
+        .getSymbolsInFile('file:///test/Owner.cls')
+        .filter((s) => isBlockSymbol(s));
+      const deepBlock =
+        blocks.find(
+          (block) =>
+            !!block.parentId &&
+            blocks.some((candidate) => candidate.id === block.parentId),
+        ) || blocks[blocks.length - 1];
+      const targetClass = graph.lookupSymbolByName('Target')[0];
+
+      expect(methodSymbol).toBeDefined();
+      expect(deepBlock).toBeDefined();
+      expect(targetClass).toBeDefined();
+
+      graph.addReference(deepBlock!, targetClass, ReferenceType.METHOD_CALL, {
+        symbolRange: { startLine: 4, startColumn: 3, endLine: 4, endColumn: 9 },
+        identifierRange: {
+          startLine: 4,
+          startColumn: 3,
+          endLine: 4,
+          endColumn: 9,
+        },
+      });
+
+      const refs = graph.findReferencesTo(targetClass!);
+      expect(refs).toHaveLength(1);
+      expect(refs[0].symbol.name).toBe('run');
+      expect(refs[0].symbol.kind).toBe(SymbolKind.Method);
+    });
+
+    it('does not add references when source fileUri invariant is violated', () => {
+      const source = createTestSymbol(
+        'SourceClass',
+        SymbolKind.Class,
+        'file:///test/SourceClass.cls',
+        'shared#source-class',
+      );
+      const target = createTestSymbol(
+        'TargetClass',
+        SymbolKind.Class,
+        'file:///test/TargetClass.cls',
+        'shared#target-class',
+      );
+      graph.addSymbol(source, source.fileUri, new SymbolTable());
+      graph.addSymbol(target, target.fileUri, new SymbolTable());
+
+      const invalidSource = { ...source, fileUri: '' } as ApexSymbol;
+      graph.addReference(invalidSource, target, ReferenceType.TYPE_REFERENCE, {
+        symbolRange: { startLine: 2, startColumn: 1, endLine: 2, endColumn: 8 },
+        identifierRange: {
+          startLine: 2,
+          startColumn: 1,
+          endLine: 2,
+          endColumn: 8,
+        },
+      });
+
+      expect(graph.findReferencesTo(target)).toHaveLength(0);
+    });
+
+    it('keeps reverse lookups isolated when symbol IDs collide across artifacts', () => {
+      const collisionId = 'collision#symbol-id';
+      const targetA = createTestSymbol(
+        'DupTarget',
+        SymbolKind.Class,
+        'file:///artifactA/DupTarget.cls',
+        collisionId,
+      );
+      const targetB = createTestSymbol(
+        'DupTarget',
+        SymbolKind.Class,
+        'file:///artifactB/DupTarget.cls',
+        collisionId,
+      );
+      graph.addSymbol(targetA, targetA.fileUri, new SymbolTable());
+      graph.addSymbol(targetB, targetB.fileUri, new SymbolTable());
+
+      const sourceA = createTestSymbol(
+        'SourceA',
+        SymbolKind.Method,
+        'file:///artifactA/SourceA.cls',
+        'source#a',
+      );
+      const sourceB = createTestSymbol(
+        'SourceB',
+        SymbolKind.Method,
+        'file:///artifactB/SourceB.cls',
+        'source#b',
+      );
+      graph.addSymbol(sourceA, sourceA.fileUri, new SymbolTable());
+      graph.addSymbol(sourceB, sourceB.fileUri, new SymbolTable());
+
+      graph.addReference(sourceA, targetA, ReferenceType.TYPE_REFERENCE, {
+        symbolRange: { startLine: 2, startColumn: 1, endLine: 2, endColumn: 8 },
+        identifierRange: {
+          startLine: 2,
+          startColumn: 1,
+          endLine: 2,
+          endColumn: 8,
+        },
+      });
+      graph.addReference(sourceB, targetB, ReferenceType.TYPE_REFERENCE, {
+        symbolRange: { startLine: 3, startColumn: 1, endLine: 3, endColumn: 8 },
+        identifierRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 8,
+        },
+      });
+
+      const refsToA = graph.findReferencesTo(targetA);
+      const refsToB = graph.findReferencesTo(targetB);
+      expect(refsToA).toHaveLength(1);
+      expect(refsToB).toHaveLength(1);
+      expect(refsToA[0].symbol.name).toBe('SourceA');
+      expect(refsToB[0].symbol.name).toBe('SourceB');
+    });
+
     it('should add references between symbols', async () => {
       const testCode = `
         public class MyClass {

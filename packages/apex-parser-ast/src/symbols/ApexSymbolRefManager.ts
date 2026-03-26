@@ -296,6 +296,8 @@ export class ApexSymbolRefManager {
    * Used by: getParent() helper, optimized parent resolution
    */
   private symbolIdIndex: HashMap<string, ApexSymbol> = new HashMap();
+  private symbolQualifiedIndex: CaseInsensitiveHashMap<ApexSymbol> =
+    new CaseInsensitiveHashMap();
 
   // OPTIMIZED: SymbolTable references for delegation
   private fileToSymbolTable: CaseInsensitiveHashMap<SymbolTable> =
@@ -703,6 +705,14 @@ export class ApexSymbolRefManager {
     return this.makeInternalKey(sourceFileUri, sourceSymbolId, refIndex);
   }
 
+  /**
+   * Build an artifact-qualified symbol key for index lookups.
+   * This prevents collisions when identical symbol IDs exist across artifacts.
+   */
+  private makeQualifiedSymbolKey(fileUri: string, symbolId: string): string {
+    return this.makeInternalKey(extractFilePathFromUri(fileUri), symbolId);
+  }
+
   // Counter for generating unique refKeys within each source symbol
   private refIndexCounters: CaseInsensitiveHashMap<number> =
     new CaseInsensitiveHashMap();
@@ -741,9 +751,14 @@ export class ApexSymbolRefManager {
     targetSymbolId: string,
     entry: RefStoreEntry,
   ): boolean {
+    const targetIndexKey = this.makeQualifiedSymbolKey(
+      entry.targetFileUri,
+      targetSymbolId,
+    );
+
     // Check if reference already exists (prevent duplicates)
     // A duplicate is defined as same source, target, type, and location
-    const existingRefKeys = this.reverseIndex.get(targetSymbolId);
+    const existingRefKeys = this.reverseIndex.get(targetIndexKey);
     if (existingRefKeys) {
       for (const existingRefKey of existingRefKeys) {
         const existingEntry = this.refStore.get(existingRefKey);
@@ -766,10 +781,10 @@ export class ApexSymbolRefManager {
     const refKey = this.generateRefKey(sourceFileUri, sourceSymbolId);
 
     // Add to reverse index (for findReferencesTo)
-    if (!this.reverseIndex.has(targetSymbolId)) {
-      this.reverseIndex.set(targetSymbolId, new Set());
+    if (!this.reverseIndex.has(targetIndexKey)) {
+      this.reverseIndex.set(targetIndexKey, new Set());
     }
-    this.reverseIndex.get(targetSymbolId)!.add(refKey);
+    this.reverseIndex.get(targetIndexKey)!.add(refKey);
 
     // Add to forward index (for file cleanup)
     if (!this.forwardIndex.has(sourceFileUri)) {
@@ -832,11 +847,15 @@ export class ApexSymbolRefManager {
       return;
     }
 
-    const reverseSet = this.reverseIndex.get(entry.targetSymbolId);
+    const targetIndexKey = this.makeQualifiedSymbolKey(
+      entry.targetFileUri,
+      entry.targetSymbolId,
+    );
+    const reverseSet = this.reverseIndex.get(targetIndexKey);
     if (reverseSet) {
       reverseSet.delete(refKey);
       if (reverseSet.size === 0) {
-        this.reverseIndex.delete(entry.targetSymbolId);
+        this.reverseIndex.delete(targetIndexKey);
       }
     }
 
@@ -865,9 +884,17 @@ export class ApexSymbolRefManager {
     }
   }
 
-  private removeIncomingReferencesToSymbols(symbolIds: Set<string>): void {
+  private removeIncomingReferencesToSymbols(
+    symbolIds: Set<string>,
+    fileUri: string,
+  ): void {
+    const normalizedFileUri = extractFilePathFromUri(fileUri);
     for (const symbolId of symbolIds) {
-      const refKeys = this.reverseIndex.get(symbolId);
+      const reverseIndexKey = this.makeQualifiedSymbolKey(
+        normalizedFileUri,
+        symbolId,
+      );
+      const refKeys = this.reverseIndex.get(reverseIndexKey);
       if (!refKeys) {
         continue;
       }
@@ -882,7 +909,7 @@ export class ApexSymbolRefManager {
     const symbolIds = new Set(this.fileIndex.get(normalizedUri) || []);
 
     this.removeReferencesFromFile(normalizedUri);
-    this.removeIncomingReferencesToSymbols(symbolIds);
+    this.removeIncomingReferencesToSymbols(symbolIds, normalizedUri);
     this.memoryStats.totalEdges = this.refStore.size;
   }
 
@@ -1254,6 +1281,10 @@ export class ApexSymbolRefManager {
     if (isNewSymbolId) {
       this.symbolIdIndex.set(symbolId, symbol);
     }
+    this.symbolQualifiedIndex.set(
+      this.makeQualifiedSymbolKey(normalizedFileUri, symbolId),
+      symbol,
+    );
 
     // Add to indexes for fast lookups (use normalized URI)
     this.symbolFileMap.set(symbolId, normalizedFileUri);
@@ -1648,6 +1679,34 @@ export class ApexSymbolRefManager {
   }
 
   /**
+   * Resolve symbol by artifact-qualified identity first, then by global ID.
+   */
+  private getSymbolByIdAndFile(
+    symbolId: string,
+    fileUri: string,
+  ): ApexSymbol | null {
+    const qualifiedKey = this.makeQualifiedSymbolKey(fileUri, symbolId);
+    const symbol = this.symbolQualifiedIndex.get(qualifiedKey);
+    if (symbol) {
+      return symbol;
+    }
+    return this.getSymbol(symbolId);
+  }
+
+  private findSymbolInFileByName(
+    fileUri: string,
+    symbolName: string,
+  ): ApexSymbol | null {
+    const normalizedFileUri = extractFilePathFromUri(fileUri);
+    const symbolsInFile = this.getSymbolsInFile(normalizedFileUri);
+    return (
+      symbolsInFile.find(
+        (symbol) => symbol.name === symbolName && !isBlockSymbol(symbol),
+      ) || null
+    );
+  }
+
+  /**
    * OPTIMIZED: Add reference between symbols using IDs only
    */
   addReference(
@@ -1662,56 +1721,51 @@ export class ApexSymbolRefManager {
       namespace?: string;
     },
   ): void {
-    // Don't create reference edges to/from scope symbols (they're structural, not semantic)
-    if (isBlockSymbol(sourceSymbol) || isBlockSymbol(targetSymbol)) {
+    // Enforce source artifact invariant and normalize URI for stable matching.
+    if (!sourceSymbol.fileUri) {
+      this.logger.warn(
+        () =>
+          `Skipping addReference for source ${sourceSymbol.name}: missing fileUri`,
+      );
+      return;
+    }
+    sourceSymbol.fileUri = extractFilePathFromUri(sourceSymbol.fileUri);
+
+    // Don't create reference edges to block targets (they're structural, not semantic).
+    if (isBlockSymbol(targetSymbol)) {
       return;
     }
 
-    // Find the actual symbols in the graph by name and file path
-    const sourceSymbols = this.findSymbolByName(sourceSymbol.name);
-    const targetSymbols = this.findSymbolByName(targetSymbol.name);
+    // If source is a block symbol, resolve to nearest enclosing non-block declaration.
+    let normalizedSourceSymbol = sourceSymbol;
+    if (isBlockSymbol(sourceSymbol)) {
+      const containingSymbol = this.findContainingSymbolForBlock(
+        sourceSymbol,
+        sourceSymbol.fileUri,
+      );
+      if (!containingSymbol) {
+        this.logger.debug(
+          () =>
+            `Skipping reference with block source ${sourceSymbol.name} (no containing declaration found)`,
+        );
+        return;
+      }
+      normalizedSourceSymbol = containingSymbol;
+    }
 
-    // If fileUri is undefined, match any symbol with the same name
-    // Otherwise, require exact fileUri match
-    const sourceSymbolInGraph = sourceSymbol.fileUri
-      ? sourceSymbols.find((s) => s.fileUri === sourceSymbol.fileUri)
-      : sourceSymbols[0]; // Take the first symbol with matching name
-
+    const sourceSymbolInGraph = this.findSymbolInFileByName(
+      normalizedSourceSymbol.fileUri,
+      normalizedSourceSymbol.name,
+    );
     const targetSymbolInGraph = targetSymbol.fileUri
-      ? targetSymbols.find((s) => s.fileUri === targetSymbol.fileUri)
-      : targetSymbols[0]; // Take the first symbol with matching name
+      ? this.findSymbolInFileByName(targetSymbol.fileUri, targetSymbol.name)
+      : null;
 
     if (!sourceSymbolInGraph || !targetSymbolInGraph) {
       // If symbols don't exist yet, add deferred reference
-      // But first, if sourceSymbol is a block, find the containing method/class
-      let actualSourceSymbol = sourceSymbol;
-      if (isBlockSymbol(sourceSymbol) && sourceSymbol.fileUri) {
-        const containingSymbol = this.findContainingSymbolForBlock(
-          sourceSymbol,
-          sourceSymbol.fileUri,
-        );
-        if (containingSymbol) {
-          actualSourceSymbol = containingSymbol;
-          this.logger.debug(
-            () =>
-              `Replacing block symbol ${sourceSymbol.name} with containing symbol ` +
-              `${containingSymbol.name} (kind=${containingSymbol.kind}) for deferred reference`,
-          );
-        } else {
-          // If we can't find a containing symbol, skip this reference
-          // Block symbols shouldn't be used as source symbols
-          this.logger.debug(
-            () =>
-              `Skipping deferred reference with block symbol source ${sourceSymbol.name} ` +
-              '(no containing method/class found)',
-          );
-          return;
-        }
-      }
-
       // Use symbol name as key since we don't know the exact fileUri
       this.addDeferredReference(
-        actualSourceSymbol,
+        normalizedSourceSymbol,
         targetSymbol.name,
         referenceType,
         location,
@@ -1727,7 +1781,7 @@ export class ApexSymbolRefManager {
       ) {
         this.createVirtualSymbolForStdlibScalarKeyword(
           targetSymbol,
-          sourceSymbol,
+          normalizedSourceSymbol,
           referenceType,
           location,
           context,
@@ -1767,14 +1821,19 @@ export class ApexSymbolRefManager {
    * an async context or using the async variant if available.
    */
   findReferencesTo(symbol: ApexSymbol): ReferenceResult[] {
-    // Find the actual symbol by name and file path
-    const targetSymbols = this.findSymbolByName(symbol.name);
+    if (!symbol.fileUri) {
+      this.logger.warn(
+        () =>
+          `findReferencesTo requires fileUri for symbol ${symbol.name}; returning empty`,
+      );
+      return [];
+    }
+    const normalizedSymbolFileUri = extractFilePathFromUri(symbol.fileUri);
 
-    // If fileUri is undefined, match any symbol with the same name
-    // Otherwise, require exact fileUri match
-    const targetSymbolInGraph = symbol.fileUri
-      ? targetSymbols.find((s) => s.fileUri === symbol.fileUri)
-      : targetSymbols[0]; // Take the first symbol with matching name
+    const targetSymbolInGraph = this.findSymbolInFileByName(
+      normalizedSymbolFileUri,
+      symbol.name,
+    );
 
     if (!targetSymbolInGraph) {
       return [];
@@ -1787,7 +1846,11 @@ export class ApexSymbolRefManager {
     const results: ReferenceResult[] = [];
 
     // Get refKeys from reverse index
-    const refKeys = this.reverseIndex.get(targetId);
+    const targetIndexKey = this.makeQualifiedSymbolKey(
+      targetSymbolInGraph.fileUri,
+      targetId,
+    );
+    const refKeys = this.reverseIndex.get(targetIndexKey);
     if (!refKeys) {
       return results;
     }
@@ -1797,7 +1860,10 @@ export class ApexSymbolRefManager {
       const entry = this.refStore.get(refKey);
       if (!entry) continue;
 
-      const sourceSymbol = this.getSymbol(entry.sourceSymbolId);
+      const sourceSymbol = this.getSymbolByIdAndFile(
+        entry.sourceSymbolId,
+        entry.sourceFileUri,
+      );
       if (!sourceSymbol) {
         continue;
       }
@@ -1823,14 +1889,19 @@ export class ApexSymbolRefManager {
    * an async context or using the async variant if available.
    */
   findReferencesFrom(symbol: ApexSymbol): ReferenceResult[] {
-    // Find the actual symbol by name and file path
-    const sourceSymbols = this.findSymbolByName(symbol.name);
+    if (!symbol.fileUri) {
+      this.logger.warn(
+        () =>
+          `findReferencesFrom requires fileUri for symbol ${symbol.name}; returning empty`,
+      );
+      return [];
+    }
+    const normalizedSymbolFileUri = extractFilePathFromUri(symbol.fileUri);
 
-    // If fileUri is undefined, match any symbol with the same name
-    // Otherwise, require exact fileUri match
-    const sourceSymbolInGraph = symbol.fileUri
-      ? sourceSymbols.find((s) => s.fileUri === symbol.fileUri)
-      : sourceSymbols[0]; // Take the first symbol with matching name
+    const sourceSymbolInGraph = this.findSymbolInFileByName(
+      normalizedSymbolFileUri,
+      symbol.name,
+    );
 
     if (!sourceSymbolInGraph) {
       return [];
@@ -1855,7 +1926,10 @@ export class ApexSymbolRefManager {
         continue;
       }
 
-      const targetSymbol = this.getSymbol(entry.targetSymbolId);
+      const targetSymbol = this.getSymbolByIdAndFile(
+        entry.targetSymbolId,
+        entry.targetFileUri,
+      );
       if (!targetSymbol) {
         continue;
       }
@@ -2549,6 +2623,7 @@ export class ApexSymbolRefManager {
     this.fileIndex.clear();
     this.fqnIndex.clear();
     this.symbolIdIndex.clear();
+    this.symbolQualifiedIndex.clear();
     this.deferredReferences.clear();
     this.pendingDeferredReferences.clear();
 
@@ -2654,12 +2729,15 @@ export class ApexSymbolRefManager {
 
     // Remove all references from/to symbols in this file
     this.removeReferencesFromFile(normalizedUri);
-    this.removeIncomingReferencesToSymbols(symbolIdSet);
+    this.removeIncomingReferencesToSymbols(symbolIdSet, normalizedUri);
 
     for (const symbolId of symbolIds) {
       // Remove from indexes
       this.symbolFileMap.delete(symbolId);
       this.symbolIdIndex.delete(symbolId);
+      this.symbolQualifiedIndex.delete(
+        this.makeQualifiedSymbolKey(normalizedUri, symbolId),
+      );
 
       // Remove symbolId from every FQN bucket (fqnIndex is keyed by FQN, not symbolId)
       for (const [fqn, ids] of this.fqnIndex.entries()) {
@@ -2743,6 +2821,13 @@ export class ApexSymbolRefManager {
       namespace?: string;
     },
   ): void {
+    if (!sourceSymbol.fileUri) {
+      this.logger.warn(
+        () =>
+          `Skipping deferred reference for source ${sourceSymbol.name}: missing fileUri`,
+      );
+      return;
+    }
     const existing = this.deferredReferences.get(targetSymbolName) || [];
     existing.push({
       sourceSymbol,
@@ -2813,6 +2898,10 @@ export class ApexSymbolRefManager {
     // Add the virtual symbol to the graph
     this.symbolIdIndex.set(virtualSymbolId, virtualSymbol);
     this.symbolFileMap.set(virtualSymbolId, virtualSymbol.fileUri);
+    this.symbolQualifiedIndex.set(
+      this.makeQualifiedSymbolKey(virtualSymbol.fileUri, virtualSymbolId),
+      virtualSymbol,
+    );
 
     // Add to name index
     const existingNames = this.nameIndex.get(virtualSymbol.name) || [];
@@ -2864,12 +2953,21 @@ export class ApexSymbolRefManager {
     if (isBlockSymbol(sourceSymbol) || isBlockSymbol(targetSymbol)) {
       return;
     }
+    if (!sourceSymbol.fileUri) {
+      this.logger.warn(
+        () =>
+          `Skipping addReferenceToGraph for source ${sourceSymbol.name}: missing fileUri`,
+      );
+      return;
+    }
+    const normalizedSourceFileUri = extractFilePathFromUri(
+      sourceSymbol.fileUri,
+    );
 
-    // Find the source symbol
-    const sourceSymbols = this.findSymbolByName(sourceSymbol.name);
-    const sourceSymbolInGraph = sourceSymbol.fileUri
-      ? sourceSymbols.find((s) => s.fileUri === sourceSymbol.fileUri)
-      : sourceSymbols[0];
+    const sourceSymbolInGraph = this.findSymbolInFileByName(
+      normalizedSourceFileUri,
+      sourceSymbol.name,
+    );
 
     if (!sourceSymbolInGraph) {
       return;
@@ -2923,9 +3021,18 @@ export class ApexSymbolRefManager {
       namespace?: string;
     },
   ): void {
+    if (!sourceSymbol.fileUri) {
+      this.logger.warn(
+        () =>
+          `Skipping enqueueDeferredReference for source ${sourceSymbol.name}: missing fileUri`,
+      );
+      return;
+    }
+    sourceSymbol.fileUri = extractFilePathFromUri(sourceSymbol.fileUri);
+
     // If sourceSymbol is a block, find the containing method/class
     let actualSourceSymbol = sourceSymbol;
-    if (isBlockSymbol(sourceSymbol) && sourceSymbol.fileUri) {
+    if (isBlockSymbol(sourceSymbol)) {
       const containingSymbol = this.findContainingSymbolForBlock(
         sourceSymbol,
         sourceSymbol.fileUri,
