@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`LCSAdapter Capabilities Alignment Capability Registration Logic should correctly determine which capabilities to register dynamically: capability-registration-logic-development-mode-full-dynamic 1`] = `
 {

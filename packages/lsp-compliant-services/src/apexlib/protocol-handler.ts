@@ -6,8 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
-
 import {
   TextDocumentContentProvider,
   LanguageServerClient,
@@ -101,9 +99,8 @@ export class ApexLibProtocolHandler implements TextDocumentContentProvider {
     try {
       // Import the ResourceLoader from the parser package
       // This will be available when the package is properly linked
-      const { ResourceLoader } = await import(
-        '@salesforce/apex-lsp-parser-ast'
-      );
+      const { ResourceLoader } =
+        await import('@salesforce/apex-lsp-parser-ast');
 
       if (!ResourceLoader) {
         this.logger.debug(
@@ -164,18 +161,13 @@ export class ApexLibProtocolHandler implements TextDocumentContentProvider {
    * @param content The content of the document
    */
   private notifyDocumentOpened(uri: string, content: string): void {
-    const textDocument: TextDocument = {
-      uri,
-      languageId: this.config.languageId,
-      version: 1,
-      getText: () => content,
-      positionAt: () => ({ line: 0, character: 0 }),
-      offsetAt: () => 0,
-      lineCount: content.split('\n').length,
-    };
-
     this.client.sendNotification('textDocument/didOpen', {
-      textDocument,
+      textDocument: {
+        uri,
+        languageId: this.config.languageId,
+        version: 1,
+        text: content,
+      },
     });
   }
 }

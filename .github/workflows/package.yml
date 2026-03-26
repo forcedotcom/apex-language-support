@@ -68,7 +68,7 @@ jobs:
       artifact-name: ${{ steps.calc-artifact-name.outputs.artifact-name }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.branch || github.head_ref || github.ref }}
 
@@ -88,13 +88,35 @@ jobs:
             npm run package:packages
           fi
 
+      - name: Package web-only VSIX
+        working-directory: packages/apex-lsp-vscode-extension
+        run: |
+          if [ "${{ inputs.pre-release }}" = "true" ]; then
+            npx vsce package --target web --no-dependencies --pre-release
+          else
+            npx vsce package --target web --no-dependencies
+          fi
+
+          WEB_VSIX=$(find . -maxdepth 1 -name "*-web-*.vsix" | head -1)
+          if [ -n "$WEB_VSIX" ]; then
+            BEFORE_SIZE=$(stat -c%s "$WEB_VSIX" 2>/dev/null || stat -f%z "$WEB_VSIX" 2>/dev/null)
+            zip -d "$WEB_VSIX" \
+              "extension/dist/extension.js" \
+              "extension/dist/server.node.js" \
+              "extension/dist/*.map" \
+              "extension/dist/webview/*.map" \
+              2>/dev/null || true
+            AFTER_SIZE=$(stat -c%s "$WEB_VSIX" 2>/dev/null || stat -f%z "$WEB_VSIX" 2>/dev/null)
+            echo "Optimized web VSIX: ${BEFORE_SIZE} -> ${AFTER_SIZE} bytes"
+          fi
+
       - name: Generate MD5 checksums
         id: md5-checksums
         run: |
           echo "Generating MD5 checksums for VSIX files..."
           
-          # Find all VSIX files and generate MD5 checksums
-          VSIX_FILES=$(find packages -name "*.vsix" -type f)
+          # Find non-web VSIX files and generate MD5 checksums
+          VSIX_FILES=$(find packages -name "*.vsix" -type f ! -name "*-web-*")
           
           if [ -z "$VSIX_FILES" ]; then
             echo "No VSIX files found to generate checksums for"
@@ -161,7 +183,7 @@ jobs:
 
       - name: Upload VSIX artifacts
         id: upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.calc-artifact-name.outputs.artifact-name }}
           path: |

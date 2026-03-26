@@ -51,7 +51,7 @@ export class WorkerDetectionService {
   private static isWorkerUrl(url: string): boolean {
     return (
       (url.includes('worker.js') ||
-        url.includes('worker.global.js') ||
+        url.includes('server.web.js') ||
         url.includes('server-bundle')) &&
       (url.includes('devextensions') ||
         url.includes('static') ||
@@ -98,7 +98,7 @@ export class WorkerDetectionService {
         const workerEntry = entries.find(
           (e) =>
             (e.name.includes('worker.js') ||
-              e.name.includes('worker.global.js') ||
+              e.name.includes('server.web.js') ||
               e.name.includes('server-bundle')) &&
             (e.name.includes('devextensions') ||
               e.name.includes('static') ||
@@ -206,7 +206,7 @@ export const detectLCSIntegration = async (
         const messages = entries.some(
           (entry) =>
             (entry.name.includes('worker.js') ||
-              entry.name.includes('worker.global.js') ||
+              entry.name.includes('server.web.js') ||
               entry.name.includes('server-bundle')) &&
             (entry.name.includes('devextensions') ||
               entry.name.includes('static') ||

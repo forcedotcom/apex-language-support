@@ -363,9 +363,7 @@ export class LCSAdapter {
           '', // extensionVersion filled by client-side enricher
           heapUsedBytes,
         );
-        if (event) {
-          this.connection.telemetry.logEvent(event);
-        }
+        this.connection.telemetry.logEvent(event);
       } catch (e) {
         this.logger.debug(() => `Failed to flush telemetry: ${e}`);
       }
@@ -973,9 +971,8 @@ export class LCSAdapter {
     let profilingServiceInstance: any = null;
     const getProfilingService = async () => {
       if (!profilingServiceInstance) {
-        const { ProfilingService } = await import(
-          '../profiling/ProfilingService'
-        );
+        const { ProfilingService } =
+          await import('../profiling/ProfilingService');
         profilingServiceInstance = ProfilingService.getInstance();
         profilingServiceInstance.initialize(this.logger, process.cwd());
       }
@@ -1119,9 +1116,8 @@ export class LCSAdapter {
 
     try {
       // Lazy-load ProfilingService
-      const { ProfilingService } = await import(
-        '../profiling/ProfilingService'
-      );
+      const { ProfilingService } =
+        await import('../profiling/ProfilingService');
       const profilingService = ProfilingService.getInstance();
 
       profilingService.initialize(this.logger, process.cwd());
@@ -1911,6 +1907,7 @@ export class LCSAdapter {
           `📝 Preparing to register ${registrations.length}` +
           ` capabilities: ${registrations.map((r) => r.method).join(', ')}`,
       );
+
       try {
         await this.connection.sendRequest('client/registerCapability', {
           registrations,

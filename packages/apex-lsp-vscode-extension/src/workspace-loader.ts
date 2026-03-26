@@ -7,6 +7,7 @@
  */
 import { Effect, Duration } from 'effect';
 import * as vscode from 'vscode';
+import { findFilesAcrossWorkspaceFolders } from './workspace-find-files';
 import { logToOutputChannel } from './logging';
 import {
   formattedError,
@@ -146,7 +147,8 @@ export async function loadWorkspaceForServer(
 
             const uris = yield* _(
               Effect.tryPromise({
-                try: () => vscode.workspace.findFiles(pattern, excludeGlob),
+                try: () =>
+                  findFilesAcrossWorkspaceFolders(pattern, excludeGlob),
                 catch: (e: unknown) =>
                   new Error(
                     `Failed to find workspace files with pattern ${pattern}: ${String(formattedError(e))}`,

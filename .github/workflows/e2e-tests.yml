@@ -41,7 +41,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -59,10 +59,6 @@ jobs:
 
       - name: Verify extension build
         run: |
-          if [ ! -f "packages/apex-lsp-vscode-extension/dist/package.json" ]; then
-            echo "❌ package.json not found in dist"
-            exit 1
-          fi
           if [ ! -f "packages/apex-lsp-vscode-extension/dist/extension.js" ]; then
             echo "❌ extension.js not found in dist"
             exit 1
@@ -109,7 +105,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-web-${{ matrix.test_file }}-${{ github.run_number }}
           path: e2e-tests/test-results/
@@ -118,7 +114,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-web-${{ matrix.test_file }}-${{ github.run_number }}
           path: e2e-tests/playwright-report/
@@ -127,7 +123,7 @@ jobs:
 
       - name: Upload screenshots and videos
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-artifacts-web-${{ matrix.test_file }}-${{ github.run_number }}
           path: |
@@ -150,7 +146,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -169,8 +165,8 @@ jobs:
       - name: Verify extension build (Unix)
         if: runner.os != 'Windows'
         run: |
-          if [ ! -f "packages/apex-lsp-vscode-extension/dist/package.json" ]; then
-            echo "❌ package.json not found in dist"
+          if [ ! -f "packages/apex-lsp-vscode-extension/dist/extension.js" ]; then
+            echo "❌ extension.js not found in dist"
             exit 1
           fi
           echo "✅ Extension build verified"
@@ -179,8 +175,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          if (-not (Test-Path "packages/apex-lsp-vscode-extension/dist/package.json")) {
-            Write-Host "❌ package.json not found in dist"
+          if (-not (Test-Path "packages/apex-lsp-vscode-extension/dist/extension.js")) {
+            Write-Host "❌ extension.js not found in dist"
             exit 1
           }
           Write-Host "✅ Extension build verified"
@@ -206,7 +202,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-desktop-${{ matrix.browser }}-${{ matrix.os }}-${{ github.run_number }}
           path: |
@@ -216,7 +212,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-desktop-${{ matrix.browser }}-${{ matrix.os }}-${{ github.run_number }}
           path: e2e-tests/playwright-report/
@@ -225,7 +221,7 @@ jobs:
 
       - name: Upload screenshots and videos
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-artifacts-desktop-${{ matrix.browser }}-${{ matrix.os }}-${{ github.run_number }}
           path: |
@@ -242,7 +238,7 @@ jobs:
 
     steps:
       - name: Download all test results
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           pattern: test-results-*
           path: test-results/
@@ -377,7 +373,8 @@ jobs:
 
       - name: Comment PR with test results
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        continue-on-error: true
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');

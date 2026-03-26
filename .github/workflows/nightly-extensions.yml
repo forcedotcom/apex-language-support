@@ -82,7 +82,7 @@ jobs:
       version-bumps: ${{ steps.changes.outputs.version-bumps }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -111,7 +111,7 @@ jobs:
     if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.branch || github.ref }}
 
@@ -141,7 +141,7 @@ jobs:
     if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.IDEE_GH_TOKEN }}
           fetch-depth: 0
@@ -255,7 +255,7 @@ jobs:
       artifact-name: ${{ steps.calc.outputs.artifact-name }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Calculate artifact name
         id: calc
@@ -280,7 +280,7 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -346,13 +346,13 @@ jobs:
           echo "  Dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.IDEE_GH_TOKEN }}
           ref: ${{ inputs.branch || github.ref }}
 
       - name: Download VSIX artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
@@ -436,7 +436,7 @@ jobs:
     if: needs.package.result == 'success' && needs.determine-changes.outputs.selected-extensions != '' && github.event_name != 'pull_request'
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.branch || github.ref }}
           token: ${{ secrets.IDEE_GH_TOKEN }}
@@ -450,7 +450,7 @@ jobs:
         uses: ./.github/actions/npm-install-with-retries
 
       - name: Download VSIX artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
@@ -469,6 +469,62 @@ jobs:
         run: |
           npx tsx .github/scripts/index.ts ext-github-releases
 
+  publish-to-cbweb-marketplace:
+    name: Publish to CBWeb Internal Marketplace
+    needs: [package, create-github-releases, calculate-artifact-name]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    if: needs.package.result == 'success'
+    steps:
+      - name: Download VSIX artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
+          path: ./vsix-artifacts
+
+      - name: Find web VSIX
+        id: find-web-vsix
+        run: |
+          VSIX_FILE=$(find ./vsix-artifacts -name "*-web-*.vsix" | head -1)
+          if [ -z "$VSIX_FILE" ]; then
+            echo "::error::No web VSIX file found in artifacts"
+            exit 1
+          fi
+
+          FILE_SIZE=$(stat -c%s "$VSIX_FILE" 2>/dev/null || stat -f%z "$VSIX_FILE" 2>/dev/null || echo "unknown")
+          echo "Found web VSIX: $VSIX_FILE (${FILE_SIZE} bytes)"
+          echo "vsix_file=$VSIX_FILE" >> $GITHUB_OUTPUT
+
+      - name: Publish web VSIX to CBWeb marketplace
+        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+        run: |
+          echo "Publishing $VSIX_FILE to CBWeb marketplace..."
+
+          HTTP_CODE=$(curl -s -o response.json -w '%{http_code}' \
+            --retry 2 --retry-delay 5 \
+            -X POST "${MARKETPLACE_URL}/api/internal/publish" \
+            -H "Authorization: Bearer ${MARKETPLACE_DEPLOY_TOKEN}" \
+            -F "vsix=@${VSIX_FILE}")
+
+          echo "HTTP response code: $HTTP_CODE"
+          cat response.json
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Successfully published to CBWeb marketplace"
+          else
+            echo "::warning::Failed to publish to CBWeb marketplace (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+        env:
+          VSIX_FILE: ${{ steps.find-web-vsix.outputs.vsix_file }}
+          MARKETPLACE_URL: ${{ vars.MARKETPLACE_URL }}
+          MARKETPLACE_DEPLOY_TOKEN: ${{ secrets.MARKETPLACE_DEPLOY_TOKEN }}
+
+      - name: Dry-run summary
+        if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'
+        run: |
+          echo "🔄 DRY RUN: Would publish ${{ steps.find-web-vsix.outputs.vsix_file }} to CBWeb marketplace"
+
   slack-notify:
     name: Slack Notification
     needs:
@@ -477,7 +533,7 @@ jobs:
     if: always() && needs.publish.result == 'success' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.branch || github.ref }}
 
@@ -522,7 +578,7 @@ jobs:
           echo "pre_release=$PRE_RELEASE" >> $GITHUB_OUTPUT
 
       - name: Notify Slack
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: slackapi/slack-github-action@v3.0.1
         with:
           payload: |
             {
@@ -584,7 +640,7 @@ jobs:
     if: always() && needs.publish.result == 'failure' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.branch || github.ref }}
 
@@ -629,7 +685,7 @@ jobs:
           echo "pre_release=$PRE_RELEASE" >> $GITHUB_OUTPUT
 
       - name: Notify Slack
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: slackapi/slack-github-action@v3.0.1
         with:
           payload: |
             {

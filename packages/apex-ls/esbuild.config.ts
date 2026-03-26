@@ -92,16 +92,6 @@ const builds: BuildOptions[] = [
       copy({
         resolveFrom: 'cwd',
         assets: [
-          // Copy type definition files from out/ to dist/ if they exist
-          // Note: These files may not always exist depending on TypeScript compilation output
-          {
-            from: ['out/index.d.ts'],
-            to: ['./dist/index.d.ts'],
-          },
-          {
-            from: ['out/browser.d.ts'],
-            to: ['./dist/browser.d.ts'],
-          },
           {
             from: ['out/worker.d.ts'],
             to: ['./dist/worker.d.ts'],
@@ -112,10 +102,10 @@ const builds: BuildOptions[] = [
       }),
     ],
   },
-  // Worker build - used by web VSCode extension
-  // Produces worker.global.js as an IIFE bundle for Web Worker context
+  // Web worker build - used by the web VSCode extension
+  // Produces server.web.js as an IIFE bundle for Web Worker context
   {
-    entryPoints: { worker: 'src/server.ts' },
+    entryPoints: { server: 'src/server.ts' },
     outdir: 'dist',
     platform: 'browser',
     format: 'iife',
@@ -127,7 +117,7 @@ const builds: BuildOptions[] = [
     keepNames: true,
     splitting: false,
     bundle: true,
-    outExtension: { '.js': '.global.js' },
+    outExtension: { '.js': '.web.js' },
     treeShaking: true,
     conditions: ['browser', 'worker', 'import', 'module', 'default'],
     mainFields: ['browser', 'module', 'main'],

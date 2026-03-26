@@ -1,0 +1,20 @@
+{
+  "name": "memfs-provider-test",
+  "displayName": "MemFS Provider (Test)",
+  "description": "Minimal in-memory FileSystemProvider for testing memfs: URI handling",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onFileSystem:memfs"],
+  "browser": "./src/extension.js",
+  "contributes": {
+    "filesystemProviders": [
+      {
+        "scheme": "memfs",
+        "label": "MemFS (Test)"
+      }
+    ]
+  }
+}

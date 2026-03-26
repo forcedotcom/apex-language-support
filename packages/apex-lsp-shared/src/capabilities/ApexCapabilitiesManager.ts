@@ -120,6 +120,10 @@ export class ApexCapabilitiesManager {
     mode: ServerMode,
     platform: RuntimePlatform,
   ): ExtendedServerCapabilities {
+    // Desktop production has its own minimal capability set
+    if (mode === 'production' && platform === 'desktop') {
+      return this.capabilities.productionDesktop;
+    }
     return this.filterByPlatform(this.capabilities[mode], platform);
   }
 

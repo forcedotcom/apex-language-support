@@ -498,8 +498,6 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
   setQueueStateChangeCallback: jest.fn(),
 }));
 
-// Import the LogNotificationHandler after mocking
-import { LogNotificationHandler } from '../src/utils/BrowserLogNotificationHandler';
 import { LCSAdapter } from '../src/server/LCSAdapter';
 import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
 
@@ -509,9 +507,6 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
   beforeEach(async () => {
     // Reset all mocks
     jest.clearAllMocks();
-
-    // Reset the singleton instance
-    LogNotificationHandler.resetInstances();
 
     // Reset mock handlers
     Object.keys(mockHandlers).forEach((key) => {

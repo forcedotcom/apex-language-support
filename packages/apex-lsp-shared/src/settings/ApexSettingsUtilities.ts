@@ -129,11 +129,11 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     },
 
     worker: {
-      logLevel: 'info',
+      logLevel: 'error',
     },
 
     version: undefined,
-    logLevel: 'info',
+    logLevel: 'error',
   },
 };
 
@@ -324,11 +324,19 @@ export function mergeWithDefaults(
         ...baseApex.performance,
         ...userSettings.apex?.performance,
       },
-      environment: {
-        ...baseApex.environment,
-        runtimePlatform: environment,
-        ...userSettings.apex?.environment,
-      },
+      environment: (() => {
+        const env = {
+          ...baseApex.environment,
+          runtimePlatform: environment,
+          ...userSettings.apex?.environment,
+        };
+        // VSCode returns 0 for an unset numeric field with no schema default.
+        // Treat 0 (and null) as "not configured" — keep jsHeapSizeGB undefined.
+        if (!env.jsHeapSizeGB) {
+          env.jsHeapSizeGB = undefined;
+        }
+        return env;
+      })(),
       resources: {
         ...baseApex.resources,
         ...userSettings.apex?.resources,
@@ -435,10 +443,16 @@ export function mergeWithExisting(
         ...existingSettings.apex.performance,
         ...partialSettings.apex?.performance,
       },
-      environment: {
-        ...existingSettings.apex.environment,
-        ...partialSettings.apex?.environment,
-      },
+      environment: (() => {
+        const env = {
+          ...existingSettings.apex.environment,
+          ...partialSettings.apex?.environment,
+        };
+        if (!env.jsHeapSizeGB) {
+          env.jsHeapSizeGB = undefined;
+        }
+        return env;
+      })(),
       resources: {
         ...existingSettings.apex.resources,
         ...partialSettings.apex?.resources,

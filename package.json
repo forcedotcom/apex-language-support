@@ -41,7 +41,8 @@
     "bundle": "wireit",
     "package": "wireit",
     "package:packages": "npm run package",
-    "rebuild": "npm run clean && npm run compile && npm run bundle"
+    "rebuild": "npm run clean && npm run compile && npm run bundle",
+    "sync:vscode-version": "wireit"
   },
   "keywords": [
     "salesforce",
@@ -61,31 +62,32 @@
   },
   "homepage": "https://github.com/forcedotcom/apex-language-support#readme",
   "devDependencies": {
-    "@commitlint/cli": "^19.2.1",
-    "@commitlint/config-conventional": "^19.1.0",
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.4.4",
     "@playwright/test": "^1.55.0",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@semantic-release/git": "^10.0.1",
     "@tony.ganchev/eslint-plugin-header": "^3.1.2",
     "@types/benchmark": "^2.1.5",
-    "@types/jest": "^29.5.14",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.11.30",
     "@types/semver": "^7.7.0",
+    "@types/vscode": "1.90.0",
     "@typescript-eslint/eslint-plugin": "^8.28.0",
     "@typescript-eslint/parser": "^8.28.0",
     "@vscode/test-web": "^0.0.79",
     "benchmark": "^2.1.4",
     "chalk": "^5.3.0",
-    "commander": "^11.1.0",
+    "commander": "^14.0.3",
     "commitizen": "^4.3.1",
     "cz-conventional-changelog": "^3.3.0",
-    "effect": "^3.18.4",
+    "effect": "^3.20.0",
     "esbuild": "^0.24.0",
     "eslint": "^9.23.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-import": "^2.31.0",
-    "eslint-plugin-jsdoc": "^50.6.9",
+    "eslint-plugin-jsdoc": "^62.8.0",
     "eslint-plugin-prettier": "^5.2.5",
     "eslint-plugin-unused-imports": "^4.1.4",
     "glob": "^10.3.10",
@@ -93,21 +95,21 @@
     "istanbul-lib-coverage": "^3.2.2",
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.1.7",
-    "jest": "^29.7.0",
+    "jest": "^30.3.0",
     "jsonc-eslint-parser": "^2.4.0",
-    "knip": "^5.85.0",
-    "playwright": "^1.55.0",
-    "prettier": "^3.5.3",
+    "knip": "^6.0.1",
+    "playwright": "^1.58.2",
+    "prettier": "^3.8.1",
     "rimraf": "^5.0.5",
     "semantic-release": "^22.0.12",
-    "semver": "^7.7.2",
+    "semver": "^7.7.4",
     "shelljs": "^0.10.0",
     "simple-git": "^3.32.3",
-    "ts-jest": "^29.3.0",
-    "tsx": "^4.7.0",
+    "ts-jest": "^29.4.6",
+    "tsx": "^4.21.0",
     "typescript": "^5.8.2",
     "wireit": "^0.14.12",
-    "zod": "^3.22.4"
+    "zod": "^4.3.6"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.59.0",
@@ -134,8 +136,18 @@
         "./packages/apex-lsp-testbed:typecheck"
       ]
     },
+    "sync:vscode-version": {
+      "command": "node scripts/sync-vscode-version.js",
+      "files": [
+        "scripts/sync-vscode-version.js",
+        ".vscode-version"
+      ],
+      "output": [],
+      "cache": false
+    },
     "compile": {
       "dependencies": [
+        "sync:vscode-version",
         "./packages/apex-ls:compile",
         "./packages/apex-lsp-shared:compile",
         "./packages/apex-parser-ast:compile:tsc",
@@ -249,6 +261,7 @@
       "cache": false
     },
     "lint": {
+      "command": "prettier --check \"packages/**/*.ts\"",
       "dependencies": [
         "compile",
         "typecheck",
@@ -263,6 +276,7 @@
       ]
     },
     "lint:fix": {
+      "command": "prettier --write \"packages/**/*.ts\"",
       "dependencies": [
         "compile",
         "typecheck",

@@ -36,9 +36,7 @@ export interface IExecuteCommandProcessor {
 /**
  * Service for processing execute command requests
  */
-export class ExecuteCommandProcessingService
-  implements IExecuteCommandProcessor
-{
+export class ExecuteCommandProcessingService implements IExecuteCommandProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private readonly commandHandlers: Map<string, CommandHandler>;

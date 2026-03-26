@@ -30,9 +30,7 @@ export interface IDocumentChangeProcessor {
 /**
  * Service for processing document change events
  */
-export class DocumentChangeProcessingService
-  implements IDocumentChangeProcessor
-{
+export class DocumentChangeProcessingService implements IDocumentChangeProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
 

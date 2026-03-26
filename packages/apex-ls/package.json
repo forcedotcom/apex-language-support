@@ -1,16 +1,14 @@
 {
   "name": "@salesforce/apex-ls",
   "version": "1.0.0",
-  "description": "Apex Language Server - provides server.node.js for desktop and worker.global.js for web environments",
+  "description": "Apex Language Server - provides server.node.js for desktop and server.web.js for web environments",
   "exports": {
     "./server.node": {
-      "types": "./dist/index.d.ts",
       "require": "./dist/server.node.js"
     },
-    "./worker": {
-      "types": "./dist/worker.d.ts",
-      "import": "./dist/worker.global.js",
-      "require": "./dist/worker.global.js"
+    "./server.web": {
+      "import": "./dist/server.web.js",
+      "require": "./dist/server.web.js"
     }
   },
   "sideEffects": false,
@@ -167,7 +165,7 @@
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@salesforce/apex-lsp-shared": "1.0.0",
-    "effect": "^3.18.4",
+    "effect": "^3.20.0",
     "fflate": "^0.8.1",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12"
@@ -175,12 +173,13 @@
   "devDependencies": {
     "@salesforce/esbuild-presets": "^0.1.0",
     "@types/node": "^20.19.4",
+    "@types/vscode": "^1.90.0",
     "assert": "^2.1.0",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "esbuild-plugin-copy": "^2.1.1",
     "events": "^3.3.0",
-    "jest-environment-jsdom": "^30.0.5",
+    "jest-environment-jsdom": "^30.3.0",
     "memfs": "^4.56.11",
     "memfs-browser": "^3.5.10302",
     "node-dir": "^0.1.17",

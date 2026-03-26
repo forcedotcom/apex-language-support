@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`Capabilities Alignment Tests Capabilities Manager Integration should return development capabilities in development mode: capabilities-manager-development 1`] = `
 {
@@ -2493,6 +2493,23 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
         },
         "workspaceSymbolProvider": undefined,
       },
+      "productionDesktop": {
+        "documentSymbolProvider": true,
+        "publishDiagnostics": false,
+        "textDocumentSync": {
+          "change": 1,
+          "openClose": true,
+          "save": true,
+          "willSave": false,
+          "willSaveWaitUntil": false,
+        },
+        "workspace": {
+          "workspaceFolders": {
+            "changeNotifications": true,
+            "supported": true,
+          },
+        },
+      },
     },
   },
   "serverCapabilities": {
@@ -2831,6 +2848,23 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
       },
     },
     "workspaceSymbolProvider": undefined,
+  },
+  "productionDesktop": {
+    "documentSymbolProvider": true,
+    "publishDiagnostics": false,
+    "textDocumentSync": {
+      "change": 1,
+      "openClose": true,
+      "save": true,
+      "willSave": false,
+      "willSaveWaitUntil": false,
+    },
+    "workspace": {
+      "workspaceFolders": {
+        "changeNotifications": true,
+        "supported": true,
+      },
+    },
   },
 }
 `;

@@ -39,6 +39,7 @@ jest.mock('vscode-languageclient/node', () => ({
 jest.mock('../src/logging', () => ({
   updateLogLevel: jest.fn(),
   logToOutputChannel: jest.fn(),
+  alwaysLogToOutputChannel: jest.fn(),
 }));
 
 describe('Configuration Module', () => {
@@ -83,29 +84,9 @@ describe('Configuration Module', () => {
       // Mock configuration values
       mockGetConfiguration.mockImplementation(
         (key: string, defaultValue: any) => {
-          if (key === 'logLevel') return 'info';
-          if (key === 'worker.logLevel') return 'info';
-          if (key === 'commentCollection.enableCommentCollection') return true;
-          if (key === 'commentCollection.includeSingleLineComments')
-            return false;
-          if (key === 'commentCollection.associateCommentsWithSymbols')
-            return false;
-          if (key === 'commentCollection.enableForDocumentChanges') return true;
-          if (key === 'commentCollection.enableForDocumentOpen') return false;
-          if (key === 'commentCollection.enableForDocumentSymbols')
-            return false;
-          if (key === 'commentCollection.enableForFoldingRanges') return false;
-          if (key === 'performance.commentCollectionMaxFileSize') return 102400;
-          if (key === 'performance.useAsyncCommentProcessing') return true;
-          if (key === 'performance.documentChangeDebounceMs') return 300;
-          if (key === 'environment.profilingMode') return 'none';
-          if (key === 'environment.profilingType') return 'cpu';
-          if (key === 'findMissingArtifact.enabled') return false;
-          if (key === 'findMissingArtifact.blockingWaitTimeoutMs') return 2000;
-          if (key === 'findMissingArtifact.indexingBarrierPollMs') return 100;
-          if (key === 'findMissingArtifact.maxCandidatesToOpen') return 3;
-          if (key === 'findMissingArtifact.timeoutMsHint') return 1500;
-          if (key === 'findMissingArtifact.enablePerfMarks') return false;
+          if (key === 'apex') {
+            return { logLevel: 'info', worker: { logLevel: 'info' } };
+          }
           return defaultValue;
         },
       );

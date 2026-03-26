@@ -20,6 +20,7 @@ import {
   ApexSymbolProcessingManager,
   ISymbolManager,
   ApexSymbol,
+  SymbolKind,
   inTypeSymbolGroup,
   TypeSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
@@ -28,7 +29,6 @@ import {
   transformLspToParserPosition,
   transformParserToLspPosition,
 } from '../utils/positionUtils';
-
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 import { isWorkspaceLoaded } from './WorkspaceLoadCoordinator';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
@@ -126,7 +126,6 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         // Continue with definition even if prerequisites fail
       }
     }
-
     try {
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
@@ -233,7 +232,6 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
             params.position,
             'definition',
           );
-
         // If blocking resolution succeeded, retry symbol lookup
         if (resolutionResult === 'resolved') {
           this.logger.debug(
@@ -247,9 +245,36 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
           wasResolvedFromMissingArtifact = true;
         }
 
-        // If still no symbol found after resolution attempt, return empty results
+        // If still no symbol found after resolution attempt, try chained ref fallback
         if (!symbol) {
-          return [];
+          symbol = await this.tryResolveFromChainedRef(
+            references,
+            parserPosition,
+            params.textDocument.uri,
+          );
+          if (!symbol) {
+            return [];
+          }
+        }
+      }
+
+      // Fallback: if symbol resolved to a local variable (wrong cross-file resolution),
+      // try chained reference resolution to get the actual cross-file target
+      if (
+        symbol &&
+        symbol.kind === SymbolKind.Variable &&
+        symbol.fileUri === params.textDocument.uri
+      ) {
+        const crossFileSymbol = await this.tryResolveFromChainedRef(
+          references,
+          parserPosition,
+          params.textDocument.uri,
+        );
+        if (
+          crossFileSymbol &&
+          crossFileSymbol.fileUri !== params.textDocument.uri
+        ) {
+          symbol = crossFileSymbol;
         }
       }
 
@@ -530,6 +555,76 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     }
 
     return locations;
+  }
+
+  /**
+   * Fallback resolver for chained static references (e.g., CrossFileUtility.formatName()).
+   * When the standard symbol manager resolution picks the wrong symbol or returns null
+   * for a qualified static call, this method extracts the qualifier and member from
+   * the chainNodes and looks them up directly in the symbol table.
+   */
+  private async tryResolveFromChainedRef(
+    references: any[],
+    position: { line: number; character: number },
+    sourceUri: string,
+  ): Promise<ApexSymbol | null> {
+    const chainedRefs = references.filter(
+      (r: any) => r.chainNodes?.length >= 2,
+    );
+    for (const chainedRef of chainedRefs) {
+      const chainNodes: any[] = chainedRef.chainNodes;
+      const firstNode = chainNodes[0];
+      if (!firstNode?.location?.identifierRange) continue;
+
+      const firstRange = firstNode.location.identifierRange;
+      const onQualifier =
+        position.line === firstRange.startLine &&
+        position.character >= firstRange.startColumn &&
+        position.character <= firstRange.endColumn;
+
+      if (onQualifier) {
+        // Cursor is on the qualifier class name — return the class symbol
+        const candidates = this.symbolManager.findSymbolByName(firstNode.name);
+        const cls = candidates.find(
+          (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+        );
+        if (cls && cls.fileUri !== sourceUri) return cls;
+        continue;
+      }
+
+      // Check if cursor is on a later chain node (member/method)
+      for (let i = 1; i < chainNodes.length; i++) {
+        const node = chainNodes[i];
+        if (!node?.location?.identifierRange) continue;
+        const nodeRange = node.location.identifierRange;
+        const onMember =
+          position.line === nodeRange.startLine &&
+          position.character >= nodeRange.startColumn &&
+          position.character <= nodeRange.endColumn;
+        if (!onMember) continue;
+
+        // Find the qualifier class then find the member within it
+        const qualifierCandidates = this.symbolManager.findSymbolByName(
+          firstNode.name,
+        );
+        const qualifierClass = qualifierCandidates.find(
+          (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+        );
+        if (!qualifierClass) break;
+
+        const memberCandidates = this.symbolManager.findSymbolByName(node.name);
+        const member = memberCandidates.find(
+          (s) =>
+            s.parentId === qualifierClass.id ||
+            (s.fileUri === qualifierClass.fileUri && s.name === node.name),
+        );
+        if (member && member.fileUri !== sourceUri) return member;
+        // Fallback: return qualifier class if member not found
+        if (qualifierClass.fileUri !== sourceUri) return qualifierClass;
+        break;
+      }
+    }
+    return null;
   }
 
   /**

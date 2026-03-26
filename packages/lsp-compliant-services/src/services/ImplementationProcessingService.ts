@@ -46,9 +46,7 @@ export interface IImplementationProcessor {
  * Service for processing implementation requests using ApexSymbolManager
  * Finds all classes that implement an interface or all methods that implement an abstract method
  */
-export class ImplementationProcessingService
-  implements IImplementationProcessor
-{
+export class ImplementationProcessingService implements IImplementationProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private readonly missingArtifactUtils: MissingArtifactUtils;

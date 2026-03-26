@@ -72,9 +72,7 @@ export interface ApexDocumentSymbolProvider {
  * Implementation of Apex document symbol provider
  * Converts Apex symbols from the parser into LSP DocumentSymbol format
  */
-export class DefaultApexDocumentSymbolProvider
-  implements ApexDocumentSymbolProvider
-{
+export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProvider {
   private readonly compilerService: CompilerService;
 
   constructor(

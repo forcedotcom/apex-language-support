@@ -31,9 +31,7 @@ export interface IDocumentDeleteProcessor {
  * Service for processing file delete events
  * This is the ONLY place where symbols should be removed from the symbol manager/graph.
  */
-export class DocumentDeleteProcessingService
-  implements IDocumentDeleteProcessor
-{
+export class DocumentDeleteProcessingService implements IDocumentDeleteProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
 

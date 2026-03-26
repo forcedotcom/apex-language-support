@@ -81,7 +81,18 @@ describe('ConfigurationSummary', () => {
         },
         environment: {
           serverMode: 'development',
+          runtimePlatform: 'desktop',
+          profilingMode: 'none',
+          profilingType: 'cpu',
+          commentCollectionLogLevel: 'info',
           additionalDocumentSchemes: [],
+        },
+        loadWorkspace: {
+          enabled: true,
+          maxConcurrency: 4,
+          yieldInterval: 50,
+          yieldDelayMs: 10,
+          batchSize: 100,
         },
         resources: {
           loadMode: 'lazy',
@@ -107,6 +118,7 @@ describe('ConfigurationSummary', () => {
       expect(summary).toContain('Apex Language Server initialized');
       expect(summary).toContain('Server Mode: development');
       expect(summary).toContain('Log Level: info');
+      expect(summary).toContain('Load Workspace: enabled');
       expect(summary).toContain(
         'Comment Collection: enabled (associate with symbols)',
       );

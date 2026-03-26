@@ -125,9 +125,8 @@ describe('GlobalTypeRegistry Benchmarks', () => {
         fn: async (deferred: any) => {
           try {
             const { Effect } = await import('effect');
-            const { GlobalTypeRegistry, GlobalTypeRegistryLive } = await import(
-              '@salesforce/apex-lsp-parser-ast'
-            );
+            const { GlobalTypeRegistry, GlobalTypeRegistryLive } =
+              await import('@salesforce/apex-lsp-parser-ast');
 
             // Lookup a random type from our test set
             const typeName =
@@ -179,9 +178,8 @@ describe('GlobalTypeRegistry Benchmarks', () => {
   // Informational test to show registry statistics
   it('displays GlobalTypeRegistry statistics', async () => {
     const { Effect } = await import('effect');
-    const { GlobalTypeRegistry, GlobalTypeRegistryLive } = await import(
-      '@salesforce/apex-lsp-parser-ast'
-    );
+    const { GlobalTypeRegistry, GlobalTypeRegistryLive } =
+      await import('@salesforce/apex-lsp-parser-ast');
 
     logger.info('\n========================================');
     logger.info('GlobalTypeRegistry Statistics');

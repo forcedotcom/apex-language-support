@@ -34,7 +34,7 @@ jobs:
       commit-sha: ${{ steps.find.outputs.commit-sha }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.IDEE_GH_TOKEN }}
@@ -116,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Check CI status for candidate commit
         uses: ./.github/actions/check-ci-status
@@ -196,7 +196,7 @@ jobs:
           echo "stable-vsix-path=$STABLE_VSIX" >> $GITHUB_OUTPUT
 
       - name: Upload stable VSIX as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: stable-vsix
           path: ${{ steps.repack.outputs.stable-vsix-path }}
@@ -213,7 +213,7 @@ jobs:
             publish-tool: ovsx
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -224,7 +224,7 @@ jobs:
         uses: ./.github/actions/npm-install-with-retries
 
       - name: Download stable VSIX artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: stable-vsix
           path: ./vsix-artifacts
@@ -254,13 +254,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.IDEE_GH_TOKEN }}
 
       - name: Download stable VSIX artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: stable-vsix
           path: ./vsix-artifacts
@@ -310,7 +310,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.IDEE_GH_TOKEN }}

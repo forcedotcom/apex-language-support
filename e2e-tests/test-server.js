@@ -10,14 +10,14 @@ const { runTests } = require('@vscode/test-web');
 const path = require('path');
 const fs = require('fs');
 const {
-  fetchCodeBuilderVSCodeVersion,
-} = require('../scripts/fetch-vscode-version');
+  readLocalVSCodeVersion,
+} = require('../scripts/sync-vscode-version');
 
 async function startTestServer() {
   try {
     const extensionDevelopmentPath = path.resolve(
       __dirname,
-      '../packages/apex-lsp-vscode-extension/dist',
+      '../packages/apex-lsp-vscode-extension',
     );
     const workspacePath = process.env.CI
       ? path.join(
@@ -33,24 +33,27 @@ async function startTestServer() {
       );
     }
 
-    // Verify extension is built (check for critical files)
-    // extensionDevelopmentPath now points to the dist directory
     const packageJsonPath = path.join(extensionDevelopmentPath, 'package.json');
-    const extensionJsPath = path.join(extensionDevelopmentPath, 'extension.js');
+    const extensionJsPath = path.join(
+      extensionDevelopmentPath,
+      'dist',
+      'extension.js',
+    );
     const extensionWebJsPath = path.join(
       extensionDevelopmentPath,
+      'dist',
       'extension.web.js',
     );
 
     if (!fs.existsSync(extensionDevelopmentPath)) {
       throw new Error(
-        `Extension dist directory not found: ${extensionDevelopmentPath}. Run 'npm run build' in the extension directory first.`,
+        `Extension directory not found: ${extensionDevelopmentPath}. Run 'npm run bundle' first.`,
       );
     }
 
     if (!fs.existsSync(packageJsonPath)) {
       throw new Error(
-        `Extension package.json not found in dist: ${packageJsonPath}. Extension build may be incomplete.`,
+        `Extension package.json not found: ${packageJsonPath}. Extension build may be incomplete.`,
       );
     }
 
@@ -68,31 +71,55 @@ async function startTestServer() {
 
     fs.mkdirSync(workspacePath, { recursive: true });
 
-    // Copy test workspace files in CI environment
-    if (process.env.CI) {
-      const sourceWorkspace = path.resolve(__dirname, './test-workspace');
-      if (fs.existsSync(sourceWorkspace)) {
-        console.log(
-          `📋 Copying test workspace from ${sourceWorkspace} to ${workspacePath}`,
-        );
-        const entries = fs.readdirSync(sourceWorkspace, {
-          withFileTypes: true,
-        });
-        entries.forEach((entry) => {
-          const src = path.join(sourceWorkspace, entry.name);
-          const dest = path.join(workspacePath, entry.name);
-          if (entry.isDirectory()) {
-            fs.cpSync(src, dest, { recursive: true });
-          } else if (entry.isFile()) {
-            fs.copyFileSync(src, dest);
-          }
-        });
-        console.log('✅ Test workspace files copied successfully');
-      } else {
-        console.warn(
-          '⚠️ Source test workspace not found, creating empty workspace',
-        );
+    // Populate workspace from test-data/apex-samples. This is the source of truth for
+    // .cls fixtures; test-workspace is gitignored and may not exist on a fresh checkout.
+    const testDataSamplesDir = path.resolve(__dirname, './test-data/apex-samples');
+    if (fs.existsSync(testDataSamplesDir)) {
+      console.log(`📋 Copying apex samples from ${testDataSamplesDir} to ${workspacePath}`);
+      const sampleFiles = fs.readdirSync(testDataSamplesDir);
+      for (const file of sampleFiles) {
+        if (file.endsWith('.cls')) {
+          fs.copyFileSync(
+            path.join(testDataSamplesDir, file),
+            path.join(workspacePath, file),
+          );
+        }
       }
+      console.log('✅ Apex sample files copied successfully');
+    } else {
+      console.warn('⚠️ test-data/apex-samples not found — workspace will be empty');
+    }
+
+    // Ensure sfdx-project.json exists so the Apex LSP recognises all .cls files
+    const sfdxProjectPath = path.join(workspacePath, 'sfdx-project.json');
+    if (!fs.existsSync(sfdxProjectPath)) {
+      fs.writeFileSync(
+        sfdxProjectPath,
+        JSON.stringify(
+          { packageDirectories: [{ path: '.', default: true }], namespace: '', sourceApiVersion: '62.0' },
+          null,
+          2,
+        ),
+      );
+    }
+
+    // Ensure .vscode/settings.json exists with test-appropriate settings
+    const vscodeDir = path.join(workspacePath, '.vscode');
+    fs.mkdirSync(vscodeDir, { recursive: true });
+    const settingsPath = path.join(vscodeDir, 'settings.json');
+    if (!fs.existsSync(settingsPath)) {
+      fs.writeFileSync(
+        settingsPath,
+        JSON.stringify(
+          {
+            'apex.logLevel': 'error',
+            'apex.worker.logLevel': 'error',
+            'apex.environment.serverMode': 'development',
+          },
+          null,
+          2,
+        ),
+      );
     }
 
     console.log('🌐 Starting VS Code Web Test Server...');
@@ -100,8 +127,7 @@ async function startTestServer() {
     console.log(`📂 Workspace path: ${workspacePath}`);
     console.log(`🔍 CI environment: ${process.env.CI ? 'Yes' : 'No'}`);
 
-    // Fetch the pinned VS Code version from Code Builder Web
-    const vsCodeVersion = await fetchCodeBuilderVSCodeVersion();
+    const vsCodeVersion = readLocalVSCodeVersion();
 
     // Log extension files for debugging
     console.log('📋 Extension files:');
