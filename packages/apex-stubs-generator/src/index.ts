@@ -1,1 +1,1 @@
-import "./commands/generate";
+import './commands/generate';

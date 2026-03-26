@@ -56,11 +56,7 @@ global class Star {
 
   global String getTs() {}
 
-  global String getUser() {}
-
   global void setTs(String ts) {}
-
-  global void setUser(String user) {}
 
   global String getChannel() {}
 
@@ -122,21 +118,13 @@ global class Star {
 
   global String getThreadTs() {}
 
-  global String getTs() {}
-
-  global String getType() {}
-
   global Boolean getUpload() {}
-
-  global String getUser() {}
 
   global String getUsername() {}
 
   global Boolean isLocked() {}
 
   global Boolean isSubscribed() {}
-
-  global Boolean isStarred() {}
 
   global void setBotId(String botId) {}
 
@@ -168,8 +156,6 @@ global class Star {
 
   global void setReplyUsersCount(Integer replyUsersCount) {}
 
-  global void setStarred(Boolean starred) {}
-
   global void setSubscribed(Boolean subscribed) {}
 
   global void setSubtype(String subtype) {}
@@ -180,22 +166,8 @@ global class Star {
 
   global void setThreadTs(String threadTs) {}
 
-  global void setTs(String ts) {}
-
-  global void setType(String type) {}
-
   global void setUpload(Boolean upload) {}
 
-  global void setUser(String user) {}
-
   global void setUsername(String username) {}
-
-  global String getTs() {}
-
-  global String getUser() {}
-
-  global void setTs(String ts) {}
-
-  global void setUser(String user) {}
 
 }

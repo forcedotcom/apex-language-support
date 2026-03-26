@@ -1,8 +1,11 @@
-import { Effect, Console } from "effect";
+import { Effect, Console } from 'effect';
 
 export class ApiScrapingError {
-  readonly _tag = "ApiScrapingError";
-  constructor(readonly message: string, readonly cause?: unknown) {}
+  readonly _tag = 'ApiScrapingError';
+  constructor(
+    readonly message: string,
+    readonly cause?: unknown,
+  ) {}
 }
 
 /**
@@ -10,9 +13,10 @@ export class ApiScrapingError {
  */
 export const fetchDocumentStructure = () =>
   Effect.gen(function* () {
-    yield* Console.log("Fetching document structure...");
+    yield* Console.log('Fetching document structure...');
 
-    const url = "https://developer.salesforce.com/docs/get_document/atlas.en-us.apexref.meta";
+    const url =
+      'https://developer.salesforce.com/docs/get_document/atlas.en-us.apexref.meta';
 
     const response = yield* Effect.tryPromise({
       try: () => fetch(url),
@@ -24,7 +28,9 @@ export const fetchDocumentStructure = () =>
       catch: (error) => new ApiScrapingError(`Failed to parse JSON: ${error}`),
     });
 
-    yield* Console.log(`Fetched document structure: ${JSON.stringify(json).length} chars`);
+    yield* Console.log(
+      `Fetched document structure: ${JSON.stringify(json).length} chars`,
+    );
 
     return json;
   });
@@ -32,7 +38,7 @@ export const fetchDocumentStructure = () =>
 /**
  * Fetch content for a specific page
  */
-export const fetchPageContent = (pageId: string, version: string = "260.0") =>
+export const fetchPageContent = (pageId: string, version: string = '260.0') =>
   Effect.gen(function* () {
     yield* Console.log(`Fetching content for: ${pageId}`);
 
@@ -40,14 +46,16 @@ export const fetchPageContent = (pageId: string, version: string = "260.0") =>
 
     const response = yield* Effect.tryPromise({
       try: () => fetch(url),
-      catch: (error) => new ApiScrapingError(`Failed to fetch content: ${error}`),
+      catch: (error) =>
+        new ApiScrapingError(`Failed to fetch content: ${error}`),
     });
 
-    const contentType = response.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
       const text = yield* Effect.tryPromise({
         try: () => response.text(),
-        catch: (error) => new ApiScrapingError(`Failed to read response: ${error}`),
+        catch: (error) =>
+          new ApiScrapingError(`Failed to read response: ${error}`),
       });
       return { content: text };
     }

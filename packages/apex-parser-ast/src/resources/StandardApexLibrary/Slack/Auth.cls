@@ -18,8 +18,6 @@ global class Auth {
 
   global Slack.AuthTeamsListRequest.Builder includeIcon(Boolean includeIcon) {}
 
-  global Slack.AuthTeamsListRequest.Builder cursor(String cursor) {}
-
   global Slack.AuthTeamsListRequest.Builder limitValue(Integer limitValue) {}
 
   global Slack.ResponseMetadata getResponseMetadata() {}

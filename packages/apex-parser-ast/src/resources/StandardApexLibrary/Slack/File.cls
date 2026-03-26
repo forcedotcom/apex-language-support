@@ -420,13 +420,9 @@ global class File {
 
   global String getAddress() {}
 
-  global String getName() {}
-
   global String getOriginal() {}
 
   global void setAddress(String address) {}
-
-  global void setName(String name) {}
 
   global void setOriginal(String original) {}
 
@@ -502,31 +498,15 @@ global class File {
 
   global String getComment() {}
 
-  global Integer getCreated() {}
-
-  global String getId() {}
-
-  global Integer getTimestamp() {}
-
-  global String getUser() {}
-
   global Boolean isIntro() {}
 
   global void setChannel(String channel) {}
 
   global void setComment(String comment) {}
 
-  global void setCreated(Integer created) {}
-
   global void setDeanimate(String deanimate) {}
 
-  global void setId(String id) {}
-
   global void setIntro(Boolean intro) {}
-
-  global void setTimestamp(Integer timestamp) {}
-
-  global void setUser(String user) {}
 
   global static Slack.FilesDeleteRequest.Builder builder() {}
 
@@ -606,10 +586,6 @@ global class File {
 
   global Slack.FilesRemoteAddRequest.Builder title(String title) {}
 
-  global Slack.File getFile() {}
-
-  global void setFile(Slack.File file) {}
-
   global static Slack.FilesRemoteInfoRequest.Builder builder() {}
 
   global Slack.FilesRemoteInfoRequest build() {}
@@ -617,10 +593,6 @@ global class File {
   global Slack.FilesRemoteInfoRequest.Builder externalId(String externalId) {}
 
   global Slack.FilesRemoteInfoRequest.Builder file(String file) {}
-
-  global Slack.File getFile() {}
-
-  global void setFile(Slack.File file) {}
 
   global static Slack.FilesRemoteListRequest.Builder builder() {}
 
@@ -636,11 +608,7 @@ global class File {
 
   global Slack.FilesRemoteListRequest.Builder tsTo(String tsTo) {}
 
-  global List<Slack.File> getFiles() {}
-
   global Slack.ResponseMetadata getResponseMetadata() {}
-
-  global void setFiles(List<Slack.File> files) {}
 
   global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
 
@@ -662,10 +630,6 @@ global class File {
 
   global Slack.FilesRemoteShareRequest.Builder file(String file) {}
 
-  global Slack.File getFile() {}
-
-  global void setFile(Slack.File file) {}
-
   global static Slack.FilesRemoteUpdateRequest.Builder builder() {}
 
   global Slack.FilesRemoteUpdateRequest build() {}
@@ -676,28 +640,16 @@ global class File {
 
   global Slack.FilesRemoteUpdateRequest.Builder filetype(String filetype) {}
 
-  global Slack.File getFile() {}
-
-  global void setFile(Slack.File file) {}
-
   global static Slack.FilesRevokePublicURLRequest.Builder builder() {}
 
   global Slack.FilesRevokePublicURLRequest build() {}
 
   global Slack.FilesRevokePublicURLRequest.Builder file(String file) {}
 
-  global Slack.File getFile() {}
-
-  global void setFile(Slack.File file) {}
-
   global static Slack.FilesSharedPublicURLRequest.Builder builder() {}
 
   global Slack.FilesSharedPublicURLRequest build() {}
 
   global Slack.FilesSharedPublicURLRequest.Builder file(String file) {}
-
-  global Slack.File getFile() {}
-
-  global void setFile(Slack.File file) {}
 
 }

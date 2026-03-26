@@ -120,21 +120,13 @@ global class User {
 
   global String getEnterpriseName() {}
 
-  global String getId() {}
-
   global List<String> getTeams() {}
-
-  global Boolean isAdmin() {}
-
-  global Boolean isOwner() {}
 
   global void setAdmin(Boolean isAdmin) {}
 
   global void setEnterpriseId(String enterpriseId) {}
 
   global void setEnterpriseName(String enterpriseName) {}
-
-  global void setId(String id) {}
 
   global void setOwner(Boolean isOwner) {}
 
@@ -191,8 +183,6 @@ global class User {
   global String getPhone() {}
 
   global String getPronouns() {}
-
-  global String getRealName() {}
 
   global String getRealNameNormalized() {}
 
@@ -262,8 +252,6 @@ global class User {
 
   global void setPronouns(String pronouns) {}
 
-  global void setRealName(String realName) {}
-
   global void setRealNameNormalized(String realNameNormalized) {}
 
   global void setSkype(String skype) {}
@@ -332,8 +320,6 @@ global class User {
 
   global Integer getLastActivity() {}
 
-  global String getPresence() {}
-
   global Boolean isAutoAway() {}
 
   global Boolean isManualAway() {}
@@ -350,55 +336,9 @@ global class User {
 
   global void setOnline(Boolean online) {}
 
-  global void setPresence(String presence) {}
-
   global Slack.UsersIdentityRequest build() {}
 
   global static Slack.UsersIdentityRequest.Builder builder() {}
-
-  global String getId() {}
-
-  global String getName() {}
-
-  global void setId(String id) {}
-
-  global void setName(String name) {}
-
-  global String getEmail() {}
-
-  global String getId() {}
-
-  global String getImage24() {}
-
-  global String getImage32() {}
-
-  global String getImage48() {}
-
-  global String getImage72() {}
-
-  global String getImage192() {}
-
-  global String getImage512() {}
-
-  global String getName() {}
-
-  global void setEmail(String email) {}
-
-  global void setId(String id) {}
-
-  global void setImage24(String image24) {}
-
-  global void setImage32(String image32) {}
-
-  global void setImage48(String image48) {}
-
-  global void setImage72(String image72) {}
-
-  global void setImage192(String image192) {}
-
-  global void setImage512(String image512) {}
-
-  global void setName(String name) {}
 
   global Slack.UsersIdentityResponse.Team getTeam() {}
 
@@ -438,8 +378,6 @@ global class User {
 
   global String getOffset() {}
 
-  global Slack.ResponseMetadata getResponseMetadata() {}
-
   global void setCacheTs(String cacheTs) {}
 
   global void setMembers(List<Slack.User> members) {}
@@ -451,10 +389,6 @@ global class User {
   global Slack.UsersLookupByEmailRequest build() {}
 
   global Slack.UsersLookupByEmailRequest.Builder email(String email) {}
-
-  global Slack.User getUser() {}
-
-  global void setUser(Slack.User user) {}
 
   global static Slack.UsersProfileGetRequest.Builder builder() {}
 

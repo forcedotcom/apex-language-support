@@ -1,9 +1,9 @@
-import { Effect, Console, pipe } from "effect";
-import { chromium } from "playwright";
-import { writeFile } from "node:fs/promises";
+import { Effect, Console, pipe } from 'effect';
+import { chromium } from 'playwright';
+import { writeFile } from 'node:fs/promises';
 
 const program = Effect.gen(function* () {
-  yield* Console.log("=== Detailed Scraping Analysis ===\n");
+  yield* Console.log('=== Detailed Scraping Analysis ===\n');
 
   const browser = yield* Effect.tryPromise({
     try: () => chromium.launch({ headless: false }),
@@ -15,11 +15,12 @@ const program = Effect.gen(function* () {
     catch: (error) => new Error(`Failed to create page: ${error}`),
   });
 
-  const url = "https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm";
+  const url =
+    'https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm';
   yield* Console.log(`Loading: ${url}`);
 
   yield* Effect.tryPromise({
-    try: () => page.goto(url, { waitUntil: "networkidle", timeout: 60000 }),
+    try: () => page.goto(url, { waitUntil: 'networkidle', timeout: 60000 }),
     catch: (error) => new Error(`Failed to load: ${error}`),
   });
 
@@ -29,16 +30,16 @@ const program = Effect.gen(function* () {
     try: async () => {
       await page.waitForFunction(
         "document.body.textContent && document.body.textContent.includes('abbreviate')",
-        { timeout: 30000 }
+        { timeout: 30000 },
       );
     },
     catch: (error) => new Error(`Timeout waiting for content: ${error}`),
   });
 
-  yield* Console.log("Content appeared! Extracting...");
+  yield* Console.log('Content appeared! Extracting...');
 
   const bodyText = yield* Effect.tryPromise({
-    try: () => page.$eval('body', (el) => el.textContent || ""),
+    try: () => page.$eval('body', (el) => el.textContent || ''),
     catch: (error) => new Error(`Failed to get body text: ${error}`),
   });
 
@@ -47,7 +48,8 @@ const program = Effect.gen(function* () {
   yield* Console.log(`Found 'capitalize': ${bodyText.includes('capitalize')}`);
 
   const headings = yield* Effect.tryPromise({
-    try: () => page.$$eval('h1, h2, h3, h4', els => els.map(el => el.textContent)),
+    try: () =>
+      page.$$eval('h1, h2, h3, h4', (els) => els.map((el) => el.textContent)),
     catch: (error) => new Error(`Failed to get headings: ${error}`),
   });
 
@@ -68,20 +70,20 @@ const program = Effect.gen(function* () {
 
   yield* Console.log(`\nSaved HTML to scraped-detailed.html`);
 
-  yield* Console.log("\nWaiting 5 seconds before closing...");
+  yield* Console.log('\nWaiting 5 seconds before closing...');
   yield* Effect.tryPromise({
-    try: () => new Promise<void>(resolve => setTimeout(resolve, 5000)),
-    catch: () => new Error("Wait failed"),
+    try: () => new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+    catch: () => new Error('Wait failed'),
   });
 
   yield* Effect.tryPromise({
     try: () => browser.close(),
-    catch: () => new Error("Failed to close browser"),
+    catch: () => new Error('Failed to close browser'),
   });
 });
 
 pipe(
   program,
   Effect.catchAll((error) => Console.log(`Error: ${JSON.stringify(error)}`)),
-  Effect.runPromise
+  Effect.runPromise,
 );

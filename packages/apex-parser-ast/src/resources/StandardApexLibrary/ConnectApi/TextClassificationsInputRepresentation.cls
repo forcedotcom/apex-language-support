@@ -8,9 +8,4 @@ global class TextClassificationsInputRepresentation {
    */
   global List < String > String;
 
-  /**
-   * List of text to be classified.
-   */
-  global List < String > String;
-
 }

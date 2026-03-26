@@ -70,8 +70,6 @@ global class Reaction {
 
   global String getTs() {}
 
-  global String getType() {}
-
   global String getUser() {}
 
   global String getUsername() {}
@@ -89,8 +87,6 @@ global class Reaction {
   global void setTeam(String team) {}
 
   global void setTs(String ts) {}
-
-  global void setType(String type) {}
 
   global void setUser(String user) {}
 
@@ -140,17 +136,7 @@ global class Reaction {
 
   global Slack.ReactionsListResponse.Message getMessage() {}
 
-  global String getType() {}
-
-  global void setChannel(String channel) {}
-
   global void setMessage(Slack.ReactionsListResponse.Message message) {}
-
-  global void setType(String type) {}
-
-  global String getBotId() {}
-
-  global Slack.BotProfile getBotProfile() {}
 
   global String getClientMsgId() {}
 
@@ -166,10 +152,6 @@ global class Reaction {
 
   global String getParentUserId() {}
 
-  global String getPermalink() {}
-
-  global List<Slack.Reaction> getReactions() {}
-
   global Integer getReplyCount() {}
 
   global List<String> getReplyUsers() {}
@@ -178,21 +160,7 @@ global class Reaction {
 
   global String getSourceTeam() {}
 
-  global String getSubtype() {}
-
-  global String getTeam() {}
-
-  global String getText() {}
-
   global String getThreadTs() {}
-
-  global String getTs() {}
-
-  global String getType() {}
-
-  global String getUser() {}
-
-  global String getUsername() {}
 
   global Slack.ReactionsListResponse.UserProfile getUserProfile() {}
 
@@ -205,10 +173,6 @@ global class Reaction {
   global Boolean isSubscribed() {}
 
   global Boolean isUpload() {}
-
-  global void setBotId(String botId) {}
-
-  global void setBotProfile(Slack.BotProfile botProfile) {}
 
   global void setClientMsgId(String clientMsgId) {}
 
@@ -228,10 +192,6 @@ global class Reaction {
 
   global void setParentUserId(String parentUserId) {}
 
-  global void setPermalink(String permalink) {}
-
-  global void setReactions(List<Slack.Reaction> reactions) {}
-
   global void setReplyCount(Integer replyCount) {}
 
   global void setReplyUsers(List<String> replyUsers) {}
@@ -242,35 +202,15 @@ global class Reaction {
 
   global void setSubscribed(Boolean subscribed) {}
 
-  global void setSubtype(String subtype) {}
-
-  global void setTeam(String team) {}
-
   global void setText(String text) {}
 
   global void setThreadTs(String threadTs) {}
 
-  global void setTs(String ts) {}
-
-  global void setType(String type) {}
-
   global void setUpload(Boolean upload) {}
-
-  global void setUser(String user) {}
-
-  global void setUsername(String username) {}
 
   global void setUserProfile(Slack.ReactionsListResponse.UserProfile userProfile) {}
 
   global void setUserTeam(String userTeam) {}
-
-  global String getTs() {}
-
-  global String getUser() {}
-
-  global void setTs(String ts) {}
-
-  global void setUser(String user) {}
 
   global String getAvatarHash() {}
 
@@ -278,13 +218,7 @@ global class Reaction {
 
   global String getFirstName() {}
 
-  global String getImage72() {}
-
-  global String getName() {}
-
   global String getRealName() {}
-
-  global String getTeam() {}
 
   global Boolean isRestricted() {}
 
@@ -296,15 +230,9 @@ global class Reaction {
 
   global void setFirstName(String firstName) {}
 
-  global void setImage72(String image72) {}
-
-  global void setName(String name) {}
-
   global void setRealName(String realName) {}
 
   global void setRestricted(Boolean restricted) {}
-
-  global void setTeam(String team) {}
 
   global void setUltraRestricted(Boolean ultraRestricted) {}
 

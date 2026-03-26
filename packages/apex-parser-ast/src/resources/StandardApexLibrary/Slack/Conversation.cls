@@ -288,10 +288,6 @@ global class Conversation {
 
   global Slack.ConversationsInfoRequest.Builder includeNumMembers(Boolean includeNumMembers) {}
 
-  global Slack.Conversation getChannel() {}
-
-  global void setChannel(Slack.Conversation channel) {}
-
   global static Slack.ConversationsInviteRequest.Builder builder() {}
 
   global Slack.ConversationsInviteRequest build() {}
@@ -300,11 +296,7 @@ global class Conversation {
 
   global Slack.ConversationsInviteRequest.Builder users(List<String> users) {}
 
-  global Slack.Conversation getChannel() {}
-
   global List<Slack.ConversationsInviteResponse.Error> getErrors() {}
-
-  global void setChannel(Slack.Conversation channel) {}
 
   global void setErrors(List<Slack.ConversationsInviteResponse.Error> errors) {}
 
@@ -322,11 +314,7 @@ global class Conversation {
 
   global Slack.ConversationsJoinRequest.Builder channel(String channel) {}
 
-  global Slack.Conversation getChannel() {}
-
   global Slack.WarningResponseMetadata getResponseMetadata() {}
-
-  global void setChannel(Slack.Conversation channel) {}
 
   global void setResponseMetadata(Slack.WarningResponseMetadata responseMetadata) {}
 
@@ -364,11 +352,7 @@ global class Conversation {
 
   global List<Slack.Conversation> getChannels() {}
 
-  global Slack.ResponseMetadata getResponseMetadata() {}
-
   global void setChannels(List<Slack.Conversation> channels) {}
-
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
 
   global static Slack.ConversationsMarkRequest.Builder builder() {}
 
@@ -377,10 +361,6 @@ global class Conversation {
   global Slack.ConversationsMarkRequest.Builder channel(String channel) {}
 
   global Slack.ConversationsMarkRequest.Builder ts(String ts) {}
-
-  global Slack.ResponseMetadata getResponseMetadata() {}
-
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
 
   global static Slack.ConversationsMembersRequest.Builder builder() {}
 
@@ -394,11 +374,7 @@ global class Conversation {
 
   global List<String> getMembers() {}
 
-  global Slack.ResponseMetadata getResponseMetadata() {}
-
   global void setMembers(List<String> members) {}
-
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
 
   global static Slack.ConversationsOpenRequest.Builder builder() {}
 
@@ -410,17 +386,11 @@ global class Conversation {
 
   global Slack.ConversationsOpenRequest.Builder users(List<String> users) {}
 
-  global Slack.Conversation getChannel() {}
-
   global Boolean isAlreadyOpen() {}
 
   global Boolean isNoOp() {}
 
   global void setAlreadyOpen(Boolean alreadyOpen) {}
-
-  global void setChannel(Slack.Conversation channel) {}
-
-  global void setNoOp(Boolean noOp) {}
 
   global static Slack.ConversationsRenameRequest.Builder builder() {}
 
@@ -429,10 +399,6 @@ global class Conversation {
   global Slack.ConversationsRenameRequest.Builder channel(String channel) {}
 
   global Slack.ConversationsRenameRequest.Builder name(String name) {}
-
-  global Slack.Conversation getChannel() {}
-
-  global void setChannel(Slack.Conversation channel) {}
 
   global static Slack.ConversationsRepliesRequest.Builder builder() {}
 
@@ -452,18 +418,6 @@ global class Conversation {
 
   global Slack.ConversationsRepliesRequest.Builder ts(String ts) {}
 
-  global List<Slack.Message> getMessages() {}
-
-  global Slack.ResponseMetadata getResponseMetadata() {}
-
-  global Boolean isHasMore() {}
-
-  global void setHasMore(Boolean hasMore) {}
-
-  global void setMessages(List<Slack.Message> messages) {}
-
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
-
   global static Slack.ConversationsSetPurposeRequest.Builder builder() {}
 
   global Slack.ConversationsSetPurposeRequest build() {}
@@ -472,10 +426,6 @@ global class Conversation {
 
   global Slack.ConversationsSetPurposeRequest.Builder purpose(String purpose) {}
 
-  global Slack.Conversation getChannel() {}
-
-  global void setChannel(Slack.Conversation channel) {}
-
   global static Slack.ConversationsSetTopicRequest.Builder builder() {}
 
   global Slack.ConversationsSetTopicRequest build() {}
@@ -483,10 +433,6 @@ global class Conversation {
   global Slack.ConversationsSetTopicRequest.Builder channel(String channel) {}
 
   global Slack.ConversationsSetTopicRequest.Builder topic(String topic) {}
-
-  global Slack.Conversation getChannel() {}
-
-  global void setChannel(Slack.Conversation channel) {}
 
   global static Slack.ConversationsUnarchiveRequest.Builder builder() {}
 

@@ -10,6 +10,4 @@ global class Options {
 
   global String getLabel() {}
 
-  global List<Slack.Option> getOptions() {}
-
 }

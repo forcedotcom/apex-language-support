@@ -54,16 +54,6 @@ global class Reminder {
 
   global Slack.RemindersCompleteRequest.Builder teamId(String teamId) {}
 
-  global Slack.RemindersCompleteRequest.Builder teamId(String teamId) {}
-
-  global Slack.RemindersCompleteRequest.Builder teamId(String teamId) {}
-
-  global Slack.Reminder getReminder() {}
-
-  global void setReminder(Slack.Reminder reminder) {}
-
-  global Slack.RemindersCompleteRequest.Builder teamId(String teamId) {}
-
   global List<Slack.Reminder> getReminders() {}
 
   global void setReminders(List<Slack.Reminder> reminders) {}

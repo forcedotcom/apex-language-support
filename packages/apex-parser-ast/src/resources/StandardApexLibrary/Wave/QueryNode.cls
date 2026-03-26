@@ -31,13 +31,6 @@ global class QueryNode {
   public wave.QueryNode group() {}
 
   /**
-   * Groups matched records (group by specific dataset attributes).
-   * @param groups A list of expressions.
-   * @return wave.QueryNode
-   */
-  public wave.QueryNode group(List<String> groups) {}
-
-  /**
    * Limits the number of results that are returned.
    * @param cap The maximum number of rows to return.
    * @return Wave.QueryNode

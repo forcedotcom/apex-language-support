@@ -1,8 +1,8 @@
-import { Effect, Console, pipe } from "effect";
-import { chromium } from "playwright";
+import { Effect, Console, pipe } from 'effect';
+import { chromium } from 'playwright';
 
 const program = Effect.gen(function* () {
-  yield* Console.log("=== Intercepting Network Requests ===\n");
+  yield* Console.log('=== Intercepting Network Requests ===\n');
 
   const browser = yield* Effect.tryPromise({
     try: () => chromium.launch({ headless: true }),
@@ -18,7 +18,11 @@ const program = Effect.gen(function* () {
     try: async () => {
       page.on('response', async (response) => {
         const url = response.url();
-        if (url.includes('apexref') || url.includes('.json') || url.includes('.xml')) {
+        if (
+          url.includes('apexref') ||
+          url.includes('.json') ||
+          url.includes('.xml')
+        ) {
           console.log(`\nResponse: ${url}`);
           console.log(`  Status: ${response.status()}`);
           console.log(`  Type: ${response.headers()['content-type']}`);
@@ -40,30 +44,31 @@ const program = Effect.gen(function* () {
     catch: (error) => new Error(`Failed to setup listener: ${error}`),
   });
 
-  const url = "https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm";
+  const url =
+    'https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm';
   yield* Console.log(`Loading: ${url}\n`);
 
   yield* Effect.tryPromise({
-    try: () => page.goto(url, { waitUntil: "networkidle", timeout: 60000 }),
+    try: () => page.goto(url, { waitUntil: 'networkidle', timeout: 60000 }),
     catch: (error) => new Error(`Failed to load: ${error}`),
   });
 
-  yield* Console.log("\nWaiting 5 seconds for all requests...");
+  yield* Console.log('\nWaiting 5 seconds for all requests...');
   yield* Effect.tryPromise({
-    try: () => new Promise<void>(resolve => setTimeout(resolve, 5000)),
-    catch: () => new Error("Wait failed"),
+    try: () => new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+    catch: () => new Error('Wait failed'),
   });
 
   yield* Effect.tryPromise({
     try: () => browser.close(),
-    catch: () => new Error("Failed to close browser"),
+    catch: () => new Error('Failed to close browser'),
   });
 
-  yield* Console.log("\nDone!");
+  yield* Console.log('\nDone!');
 });
 
 pipe(
   program,
   Effect.catchAll((error) => Console.log(`Error: ${JSON.stringify(error)}`)),
-  Effect.runPromise
+  Effect.runPromise,
 );

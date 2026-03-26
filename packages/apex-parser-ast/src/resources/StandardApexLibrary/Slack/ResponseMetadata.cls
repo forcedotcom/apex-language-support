@@ -16,12 +16,4 @@ global class ResponseMetadata {
 
   global void setWarnings(List<String> warnings) {}
 
-  global List<String> getMessages() {}
-
-  global void setMessages(List<String> messages) {}
-
-  global List<String> getWarnings() {}
-
-  global void setWarnings(List<String> warnings) {}
-
 }

@@ -67,8 +67,6 @@ global class ManagedContent {
 
   public static ConnectApi.ManagedContentProviderInstance updateManagedContentProviderInstance(String providerInstanceId, ConnectApi.ManagedContentProviderInput providerInstanceInput) {}
 
-  public static ConnectApi.ManagedContentChannelCollection getAllDeliveryChannels(Integer pageParam, Integer pageSize) {}
-
   public static ConnectApi.ManagedContentSpace getManagedContentSpace(String contentSpaceId) {}
 
 }

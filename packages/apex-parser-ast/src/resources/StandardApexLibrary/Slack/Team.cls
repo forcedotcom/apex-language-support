@@ -52,8 +52,6 @@ global class Team {
 
   global String getHint() {}
 
-  global String getId() {}
-
   global String getLabel() {}
 
   global Slack.Team.ProfileOptions getOptions() {}
@@ -71,8 +69,6 @@ global class Team {
   global void setHidden(Boolean hidden) {}
 
   global void setHint(String hintValue) {}
-
-  global void setId(String id) {}
 
   global void setLabel(String label) {}
 
@@ -208,8 +204,6 @@ global class Team {
 
   global String getUserAgent() {}
 
-  global String getUserId() {}
-
   global String getUsername() {}
 
   global void setCount(Integer count) {}
@@ -227,8 +221,6 @@ global class Team {
   global void setRegion(String region) {}
 
   global void setUserAgent(String userAgent) {}
-
-  global void setUserId(String userId) {}
 
   global void setUsername(String username) {}
 
@@ -294,11 +286,7 @@ global class Team {
 
   global List<Slack.IntegrationLog> getLogs() {}
 
-  global Slack.Paging getPaging() {}
-
   global void setLogs(List<Slack.IntegrationLog> logs) {}
-
-  global void setPaging(Slack.Paging paging) {}
 
   global static Slack.TeamProfileGetRequest.Builder builder() {}
 

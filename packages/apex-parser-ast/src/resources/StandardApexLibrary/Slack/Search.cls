@@ -450,43 +450,11 @@ global class Search {
 
   global String getAddress() {}
 
-  global String getName() {}
-
   global String getOriginal() {}
 
   global void setAddress(String address) {}
 
-  global void setName(String name) {}
-
   global void setOriginal(String original) {}
-
-  global String getIid() {}
-
-  global String getPermalink() {}
-
-  global String getText() {}
-
-  global String getTs() {}
-
-  global String getType() {}
-
-  global String getUser() {}
-
-  global String getUsername() {}
-
-  global void setIid(String iid) {}
-
-  global void setPermalink(String permalink) {}
-
-  global void setText(String text) {}
-
-  global void setTs(String ts) {}
-
-  global void setType(String type) {}
-
-  global void setUser(String user) {}
-
-  global void setUsername(String username) {}
 
   global List<Slack.MatchedItem> getMatches() {}
 
@@ -540,14 +508,6 @@ global class Search {
 
   global void setMessages(Slack.SearchResult messages) {}
 
-  global Slack.SearchResult getFiles() {}
-
-  global void setFiles(Slack.SearchResult files) {}
-
   global Slack.SearchMessagesRequest.Builder cursor(String cursor) {}
-
-  global Slack.SearchResult getMessages() {}
-
-  global void setMessages(Slack.SearchResult messages) {}
 
 }

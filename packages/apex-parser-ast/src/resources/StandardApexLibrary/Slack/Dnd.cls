@@ -32,25 +32,9 @@ global class Dnd {
 
   global Slack.DndInfoRequest.Builder teamId(String teamId) {}
 
-  global Integer getNextDndEndTs() {}
-
-  global Integer getNextDndStartTs() {}
-
   global Integer getSnoozeEndtime() {}
 
   global Integer getSnoozeRemaining() {}
-
-  global Boolean isDndEnabled() {}
-
-  global Boolean isSnoozeEnabled() {}
-
-  global void setDndEnabled(Boolean dndEnabled) {}
-
-  global void setNextDndEndTs(Integer nextDndEndTs) {}
-
-  global void setNextDndStartTs(Integer nextDndStartTs) {}
-
-  global void setSnoozeEnabled(Boolean snoozeEnabled) {}
 
   global void setSnoozeEndtime(Integer snoozeEndtime) {}
 
@@ -61,18 +45,6 @@ global class Dnd {
   global Slack.DndSetSnoozeRequest build() {}
 
   global Slack.DndSetSnoozeRequest.Builder numMinutes(Integer numMinutes) {}
-
-  global Integer getSnoozeEndtime() {}
-
-  global Integer getSnoozeRemaining() {}
-
-  global Boolean isSnoozeEnabled() {}
-
-  global void setSnoozeEnabled(Boolean snoozeEnabled) {}
-
-  global void setSnoozeEndtime(Integer snoozeEndtime) {}
-
-  global void setSnoozeRemaining(Integer snoozeRemaining) {}
 
   global static Slack.DndTeamInfoRequest.Builder builder() {}
 
@@ -85,13 +57,5 @@ global class Dnd {
   global Map<String,Slack.DndTeamInfoResponse.DndTeamMemberInfo> getUsers() {}
 
   global void setUsers(Slack.DndTeamInfoResponse.DndTeamMemberInfo> users) {}
-
-  global Integer getNextDndEndTs() {}
-
-  global Integer getNextDndStartTs() {}
-
-  global Boolean isDndEnabled() {}
-
-  global void setDndEnabled(Boolean dndEnabled) {}
 
 }

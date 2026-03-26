@@ -122,23 +122,13 @@ global class Usergroup {
 
   global static Slack.UsergroupsDisableRequest.Builder builder() {}
 
-  global Slack.Usergroup getUsergroup() {}
-
-  global void setUsergroup(Slack.Usergroup usergroup) {}
-
   global Slack.UsergroupsEnableRequest build() {}
-
-  global Slack.UsergroupsEnableRequest.Builder usergroup(String usergroup) {}
 
   global Slack.UsergroupsEnableRequest.Builder usergroup(String usergroup) {}
 
   global static Slack.UsergroupsEnableRequest.Builder builder() {}
 
   global Slack.UsergroupsEnableRequest.Builder teamId(String teamId) {}
-
-  global Slack.Usergroup getUsergroup() {}
-
-  global void setUsergroup(Slack.Usergroup usergroup) {}
 
   global Slack.UsergroupsListRequest build() {}
 
@@ -174,10 +164,6 @@ global class Usergroup {
 
   global static Slack.UsergroupsUpdateRequest.Builder builder() {}
 
-  global Slack.Usergroup getUsergroup() {}
-
-  global void setUsergroup(Slack.Usergroup usergroup) {}
-
   global Slack.UsergroupsUsersListRequest build() {}
 
   global Slack.UsergroupsUsersListRequest.Builder includeDisabled(Boolean includeDisabled) {}
@@ -187,10 +173,6 @@ global class Usergroup {
   global Slack.UsergroupsUsersListRequest.Builder usergroup(String usergroup) {}
 
   global static Slack.UsergroupsUsersListRequest.Builder builder() {}
-
-  global List<String> getUsers() {}
-
-  global void setUsers(List<String> users) {}
 
   global Slack.UsergroupsUsersUpdateRequest build() {}
 
@@ -203,9 +185,5 @@ global class Usergroup {
   global Slack.UsergroupsUsersUpdateRequest.Builder users(List<String> users) {}
 
   global static Slack.UsergroupsUsersUpdateRequest.Builder builder() {}
-
-  global Slack.Usergroup getUsergroup() {}
-
-  global void setUsergroup(Slack.Usergroup usergroup) {}
 
 }

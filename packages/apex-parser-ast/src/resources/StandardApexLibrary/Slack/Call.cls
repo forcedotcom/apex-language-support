@@ -90,27 +90,11 @@ global class Call {
 
   global Slack.CallsEndRequest.Builder id(String id) {}
 
-  global Slack.Call getCall() {}
-
-  global Slack.ResponseMetadata getResponseMetadata() {}
-
-  global void setCall(Slack.Call call) {}
-
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
-
   global static Slack.CallsInfoRequest.Builder builder() {}
 
   global Slack.CallsInfoRequest build() {}
 
   global Slack.CallsInfoRequest.Builder id(String id) {}
-
-  global Slack.Call getCall() {}
-
-  global Slack.ResponseMetadata getResponseMetadata() {}
-
-  global void setCall(Slack.Call call) {}
-
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
 
   global static Slack.CallsParticipantsAddRequest.Builder builder() {}
 
@@ -120,14 +104,6 @@ global class Call {
 
   global Slack.CallsParticipantsAddRequest.Builder users(List<Slack.CallParticipant> users) {}
 
-  global Slack.Call getCall() {}
-
-  global Slack.ResponseMetadata getResponseMetadata() {}
-
-  global void setCall(Slack.Call call) {}
-
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
-
   global static Slack.CallsParticipantsRemoveRequest.Builder builder() {}
 
   global Slack.CallsParticipantsRemoveRequest build() {}
@@ -135,14 +111,6 @@ global class Call {
   global Slack.CallsParticipantsRemoveRequest.Builder id(String id) {}
 
   global Slack.CallsParticipantsRemoveRequest.Builder users(List<Slack.CallParticipant> users) {}
-
-  global Slack.Call getCall() {}
-
-  global Slack.ResponseMetadata getResponseMetadata() {}
-
-  global void setCall(Slack.Call call) {}
-
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
 
   global static Slack.CallsUpdateRequest.Builder builder() {}
 
@@ -155,13 +123,5 @@ global class Call {
   global Slack.CallsUpdateRequest.Builder joinUrl(String joinUrl) {}
 
   global Slack.CallsUpdateRequest.Builder title(String title) {}
-
-  global Slack.Call getCall() {}
-
-  global Slack.ResponseMetadata getResponseMetadata() {}
-
-  global void setCall(Slack.Call call) {}
-
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
 
 }

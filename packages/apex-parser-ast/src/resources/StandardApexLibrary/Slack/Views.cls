@@ -38,19 +38,11 @@ global class Views {
 
   global Slack.HomeView.Builder viewReference(Slack.ViewReference viewReference) {}
 
-  global Slack.ErrorResponseMetadata getResponseMetadata() {}
-
-  global void setResponseMetadata(Slack.ErrorResponseMetadata responseMetadata) {}
-
   global static Slack.ViewsPushRequest.Builder builder() {}
 
   global Slack.ViewsPushRequest.Builder triggerId(String triggerId) {}
 
   global Slack.ViewsPushRequest.Builder view(Slack.ModalView view) {}
-
-  global Slack.ErrorResponseMetadata getResponseMetadata() {}
-
-  global void setResponseMetadata(Slack.ErrorResponseMetadata responseMetadata) {}
 
   global static Slack.ViewsUpdateRequest.Builder builder() {}
 
@@ -63,11 +55,5 @@ global class Views {
   global Slack.ViewsUpdateRequest.Builder view(Slack.ModalView view) {}
 
   global Slack.ViewsUpdateRequest.Builder viewId(String viewId) {}
-
-  global Slack.View getRenderedView() {}
-
-  global Slack.ErrorResponseMetadata getResponseMetadata() {}
-
-  global void setResponseMetadata(Slack.ErrorResponseMetadata responseMetadata) {}
 
 }

@@ -3,7 +3,6 @@ global enum Capi_FeedItemAttachmentType {
   BasicTemplate,
   Canvas,
   CaseComment,
-  CaseComment,
   Content,
   DashboardComponent,
   EmailMessage,

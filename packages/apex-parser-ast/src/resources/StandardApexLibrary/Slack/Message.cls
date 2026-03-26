@@ -72,8 +72,6 @@ global class Message {
 
   global Boolean isIntro() {}
 
-  global Boolean isIntro() {}
-
   global Boolean isStarred() {}
 
   global Boolean isSubscribed() {}
@@ -176,14 +174,6 @@ global class Message {
 
   global void setXFiles(List<String> xFiles) {}
 
-  global String getTs() {}
-
-  global String getUser() {}
-
-  global void setTs(String ts) {}
-
-  global void setUser(String user) {}
-
   global String getEmoji() {}
 
   global String getImage36() {}
@@ -242,17 +232,9 @@ global class Message {
 
   global String getUrlPrivate() {}
 
-  global String getUser() {}
-
-  global String getUsername() {}
-
-  global Boolean isDisplayAsBot() {}
-
   global Boolean isEditable() {}
 
   global Boolean isExternal() {}
-
-  global Boolean isHasRichPreview() {}
 
   global Boolean isHasRichPreview() {}
 
@@ -264,15 +246,11 @@ global class Message {
 
   global Boolean isPublicUrlShared() {}
 
-  global Boolean isStarred() {}
-
   global Boolean isUrlPrivateDownload() {}
 
   global void setComment(String comment) {}
 
   global void setCreated(String created) {}
-
-  global void setDisplayAsBot(Boolean displayAsBot) {}
 
   global void setEditable(Boolean editable) {}
 
@@ -287,8 +265,6 @@ global class Message {
   global void setHasRichPreview(Boolean hasRichPreview) {}
 
   global void setId(String id) {}
-
-  global void setIntro(Boolean intro) {}
 
   global void setLines(Integer lines) {}
 
@@ -318,8 +294,6 @@ global class Message {
 
   global void setSize(Integer size) {}
 
-  global void setStarred(Boolean starred) {}
-
   global void setTimestamp(String timestamp) {}
 
   global void setTitle(String title) {}
@@ -328,100 +302,12 @@ global class Message {
 
   global void setUrlPrivateDownload(Boolean urlPrivateDownload) {}
 
-  global void setUser(String user) {}
-
-  global void setUsername(String username) {}
-
-  global String getBotId() {}
-
-  global Slack.BotProfile getBotProfile() {}
-
-  global Slack.Message.Edited getEdited() {}
-
-  global Slack.Message.Icons getIcons() {}
-
-  global String getLastRead() {}
-
-  global String getLatestReply() {}
-
-  global String getParentUserId() {}
-
-  global Integer getReplyCount() {}
-
-  global List<String> getReplyUsers() {}
-
-  global Integer getReplyUsersCount() {}
-
-  global String getSubtype() {}
-
-  global String getTeam() {}
-
-  global String getText() {}
-
-  global String getThreadTs() {}
-
-  global String getTs() {}
-
-  global String getType() {}
-
   global Integer getUnreadCount() {}
-
-  global String getUser() {}
-
-  global String getUsername() {}
 
   global Boolean isMrkdwn() {}
 
-  global Boolean isSubscribed() {}
-
-  global void setBotId(String botId) {}
-
-  global void setBotProfile(Slack.BotProfile botProfile) {}
-
-  global void setEdited(Slack.Message.Edited edited) {}
-
-  global void setIcons(Slack.Message.Icons icons) {}
-
-  global void setLastRead(String lastRead) {}
-
-  global void setLatestReply(String latestReply) {}
-
   global void setMrkdwn(Boolean mrkdwn) {}
 
-  global void setParentUserId(String parentUserId) {}
-
-  global void setReplyCount(Integer replyCount) {}
-
-  global void setReplyUsers(List<String> replyUsers) {}
-
-  global void setReplyUsersCount(Integer replyUsersCount) {}
-
-  global void setSubscribed(Boolean subscribed) {}
-
-  global void setSubtype(String subtype) {}
-
-  global void setTeam(String team) {}
-
-  global void setText(String text) {}
-
-  global void setThreadTs(String threadTs) {}
-
-  global void setTs(String ts) {}
-
-  global void setType(String type) {}
-
   global void setUnreadCount(Integer unreadCount) {}
-
-  global void setUser(String user) {}
-
-  global void setUsername(String username) {}
-
-  global String getTs() {}
-
-  global String getUser() {}
-
-  global void setTs(String ts) {}
-
-  global void setUser(String user) {}
 
 }

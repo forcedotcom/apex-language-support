@@ -27,8 +27,6 @@ global class PageReference {
 
   public Integer getRedirectCode() {}
 
-  public Boolean getRedirect() {}
-
   public String getUrl() {}
 
   public System.PageReference setAnchor(String anchor) {}
@@ -38,7 +36,5 @@ global class PageReference {
   public System.PageReference setRedirect(Boolean redirect) {}
 
   public System.PageReference setRedirectCode(Integer redirectCode) {}
-
-  public System.PageReference setRedirect(Boolean redirect) {}
 
 }

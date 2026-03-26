@@ -35,6 +35,12 @@ global class CdpQuery {
 
   public static ConnectApi.CdpQueryMetadataOutput getInsightsMetadata(String ciName, String dataspace) {}
 
+  public static ConnectApi.CdpQueryMetadataEntitiesOutput getMetadataEntities() {}
+
+  public static ConnectApi.CdpQueryMetadataEntitiesOutput getMetadataEntities(String entityCategory, String entityType) {}
+
+  public static ConnectApi.CdpQueryMetadataEntitiesOutput getMetadataEntities(String entityCategory, String entityType, String dataspace) {}
+
   public static ConnectApi.CdpQueryMetadataOutput getProfileMetadata() {}
 
   public static ConnectApi.CdpQueryMetadataOutput getProfileMetadata(String dataModelName) {}

@@ -1,10 +1,15 @@
-import { Effect, Console } from "effect";
-import { chromium } from "playwright";
-import { ApexMethod, ApexParameter, ApexClass } from "../types/apex";
+import { Effect, Console } from 'effect';
+import { chromium } from 'playwright';
+import { access } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { ApexMethod, ApexParameter, ApexClass } from '../types/apex';
 
 export class SlackScrapingError {
-  readonly _tag = "SlackScrapingError";
-  constructor(readonly message: string, readonly cause?: unknown) {}
+  readonly _tag = 'SlackScrapingError';
+  constructor(
+    readonly message: string,
+    readonly cause?: unknown,
+  ) {}
 }
 
 interface SlackClassRef {
@@ -12,13 +17,67 @@ interface SlackClassRef {
   url: string;
 }
 
+const runPlaywrightInstall = () =>
+  Effect.tryPromise({
+    try: () =>
+      new Promise<void>((resolve, reject) => {
+        const child = spawn('npx', ['playwright', 'install', 'chromium'], {
+          stdio: 'inherit',
+          shell: process.platform === 'win32',
+        });
+        child.on('error', reject);
+        child.on('exit', (code) => {
+          if (code === 0) {
+            resolve();
+            return;
+          }
+          reject(
+            new Error(`playwright install exited with code ${String(code)}`),
+          );
+        });
+      }),
+    catch: (error) =>
+      new SlackScrapingError(
+        `Failed to install Playwright Chromium: ${String(error)}`,
+      ),
+  });
+
+/**
+ * Ensure Playwright Chromium executable exists before scraping Slack docs.
+ */
+export const ensureSlackScraperReady = () =>
+  Effect.gen(function* () {
+    const executablePath = chromium.executablePath();
+    const hasChromium = yield* Effect.tryPromise({
+      try: async () => {
+        await access(executablePath);
+        return true;
+      },
+      catch: (error) =>
+        new SlackScrapingError(
+          `Playwright Chromium missing or inaccessible at ${executablePath}: ${String(error)}`,
+        ),
+    }).pipe(Effect.catchAll(() => Effect.succeed(false)));
+
+    if (hasChromium) {
+      return;
+    }
+
+    yield* Console.log(
+      `Slack scraper browser not found at ${executablePath}; installing Playwright Chromium...`,
+    );
+    yield* runPlaywrightInstall();
+    yield* Console.log('Playwright Chromium installed for Slack scraping.');
+  });
+
 /**
  * Extract Slack class references from the Slack namespace page HTML
  */
 export const extractSlackClassReferences = (html: string): SlackClassRef[] => {
   const classes: SlackClassRef[] = [];
 
-  const pattern = /<a class="xref" href="(https:\/\/developer\.salesforce\.com\/docs\/platform\/salesforce-slack-sdk\/guide\/[^"]+)"[^>]*>([^<]+)<\/a>/g;
+  const pattern =
+    /<a class="xref" href="(https:\/\/developer\.salesforce\.com\/docs\/platform\/salesforce-slack-sdk\/guide\/[^"]+)"[^>]*>([^<]+)<\/a>/g;
 
   let match;
   while ((match = pattern.exec(html)) !== null) {
@@ -47,7 +106,10 @@ const stripHtmlTags = (html: string): string => {
     .trim();
 };
 
-const extractSlackMethods = (html: string, _className: string): ApexMethod[] => {
+const extractSlackMethods = (
+  html: string,
+  _className: string,
+): ApexMethod[] => {
   const methods: ApexMethod[] = [];
   const pattern = /<dx-code-block[^>]+code-block="([^"]+)"[^>]*>/g;
 
@@ -57,7 +119,8 @@ const extractSlackMethods = (html: string, _className: string): ApexMethod[] => 
 
     if (!signature.includes('(') || !signature.includes(')')) continue;
 
-    const methodPattern = /^(public|global|private)\s+(static\s+)?([A-Za-z0-9_.<>,\[\]\s]+?)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)$/;
+    const methodPattern =
+      /^(public|global|private)\s+(static\s+)?([A-Za-z0-9_.<>,\[\]\s]+?)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)$/;
     const methodMatch = signature.match(methodPattern);
 
     if (methodMatch) {
@@ -72,14 +135,29 @@ const extractSlackMethods = (html: string, _className: string): ApexMethod[] => 
           const trimmed = paramPart.trim();
           if (!trimmed) continue;
 
-          const paramMatch = trimmed.match(/^([A-Za-z0-9_.<>,\[\]\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)$/);
+          const paramMatch = trimmed.match(
+            /^([A-Za-z0-9_.<>,\[\]\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)$/,
+          );
           if (paramMatch) {
-            parameters.push(new ApexParameter({ type: paramMatch[1].trim(), name: paramMatch[2].trim() }));
+            parameters.push(
+              new ApexParameter({
+                type: paramMatch[1].trim(),
+                name: paramMatch[2].trim(),
+              }),
+            );
           }
         }
       }
 
-      methods.push(new ApexMethod({ name: methodName, returnType, parameters, isStatic, signature }));
+      methods.push(
+        new ApexMethod({
+          name: methodName,
+          returnType,
+          parameters,
+          isStatic,
+          signature,
+        }),
+      );
     }
   }
 
@@ -96,33 +174,42 @@ export const scrapeSlackClass = (className: string, url: string) =>
 
     const browser = yield* Effect.tryPromise({
       try: () => chromium.launch({ headless: true }),
-      catch: (error) => new SlackScrapingError(`Failed to launch browser: ${error}`),
+      catch: (error) =>
+        new SlackScrapingError(`Failed to launch browser: ${error}`),
     });
 
     try {
       const page = yield* Effect.tryPromise({
         try: () => browser.newPage(),
-        catch: (error) => new SlackScrapingError(`Failed to create page: ${error}`),
+        catch: (error) =>
+          new SlackScrapingError(`Failed to create page: ${error}`),
       });
 
       yield* Effect.tryPromise({
-        try: () => page.goto(url, { waitUntil: "networkidle", timeout: 60000 }),
-        catch: (error) => new SlackScrapingError(`Failed to load page: ${error}`),
+        try: () => page.goto(url, { waitUntil: 'networkidle', timeout: 60000 }),
+        catch: (error) =>
+          new SlackScrapingError(`Failed to load page: ${error}`),
       });
 
       const html = yield* Effect.tryPromise({
         try: () => page.content(),
-        catch: (error) => new SlackScrapingError(`Failed to get HTML: ${error}`),
+        catch: (error) =>
+          new SlackScrapingError(`Failed to get HTML: ${error}`),
       });
 
       const methods = extractSlackMethods(html, className);
       yield* Console.log(`    Found ${methods.length} methods`);
 
-      return new ApexClass({ name: className, namespace: "Slack", methods, properties: [] });
+      return new ApexClass({
+        name: className,
+        namespace: 'Slack',
+        methods,
+        properties: [],
+      });
     } finally {
       yield* Effect.tryPromise({
         try: () => browser.close(),
-        catch: () => new SlackScrapingError("Failed to close browser"),
+        catch: () => new SlackScrapingError('Failed to close browser'),
       });
     }
   });

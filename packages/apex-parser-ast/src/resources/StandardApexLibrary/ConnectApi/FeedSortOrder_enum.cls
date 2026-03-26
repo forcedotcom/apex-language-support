@@ -12,6 +12,5 @@ global enum FeedSortOrder_enum {
   UnansweredQuestions,
   Relevance,
   Company,
-  Home,
   Topics
 }

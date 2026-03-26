@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`Empty stub snapshot — known stubs with no members matches the accepted list of empty stubs across all namespaces 1`] = `
 [
@@ -315,7 +315,7 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "ConnectApi",
   },
   {
-    "className": "Smartdatadiscovery",
+    "className": "SmartDataDiscovery",
     "namespace": "ConnectApi",
   },
   {
@@ -407,7 +407,7 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "RichMessaging",
   },
   {
-    "className": "SoapType",
+    "className": "SOAPType",
     "namespace": "Schema",
   },
   {
@@ -591,24 +591,12 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
     "namespace": "TxnSecurity",
   },
   {
-    "className": "ComplexObjectFieldDetails",
-    "namespace": "flowuiruntime",
-  },
-  {
-    "className": "PropertyTypeDetails",
-    "namespace": "flowuiruntime",
-  },
-  {
     "className": "ToastLink",
     "namespace": "flowuiruntime",
   },
   {
     "className": "FSCCashFlowUtil",
     "namespace": "fsccashflow",
-  },
-  {
-    "className": "FlowPerformanceSetupDetails",
-    "namespace": "setup_flow_performance",
   },
 ]
 `;

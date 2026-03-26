@@ -31,19 +31,6 @@ global class SObject {
 
   /**
    * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
-   * @param errorMsg The error message to mark the record with.
-   */
-  public void addError(String errorMsg) {}
-
-  /**
-   * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
-   * @param errorMsg The error message to mark the record with.
-   * @param escape 
-   */
-  public void addError(String errorMsg, Boolean escape) {}
-
-  /**
-   * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
    * @param fieldName 
    * @param errorMsg The error message to mark the record with.
    */

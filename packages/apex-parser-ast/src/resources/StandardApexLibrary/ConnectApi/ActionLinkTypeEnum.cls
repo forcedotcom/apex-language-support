@@ -4,8 +4,6 @@ global enum ActionLinkTypeEnum {
   FailedStatus,
   ApiAsync,
   PendingStatus,
-  SuccessfulStatus,
-  FailedStatus,
   Download,
   Ui
 }

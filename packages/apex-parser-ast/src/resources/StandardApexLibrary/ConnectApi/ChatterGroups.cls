@@ -103,6 +103,4 @@ global class ChatterGroups {
 
   public static void setTestSearchGroups(String communityId, String q, Integer pageParam, Integer pageSize, ConnectApi.ChatterGroupPage result) {}
 
-  public static void setTestSearchGroups(String communityId, String q, Integer pageParam, Integer pageSize, ConnectApi.ChatterGroupPage result) {}
-
 }

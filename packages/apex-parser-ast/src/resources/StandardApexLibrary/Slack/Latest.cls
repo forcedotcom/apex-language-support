@@ -80,12 +80,4 @@ global class Latest {
 
   global void setXFiles(List<String> xFiles) {}
 
-  global String getTs() {}
-
-  global String getUser() {}
-
-  global void setTs(String ts) {}
-
-  global void setUser(String user) {}
-
 }

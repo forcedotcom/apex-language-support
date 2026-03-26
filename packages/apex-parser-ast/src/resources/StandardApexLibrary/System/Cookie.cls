@@ -5,6 +5,8 @@ global class Cookie {
 
   public Cookie(String name, String value, String path, Integer maxAge, Boolean isSecure) {}
 
+  public Cookie(String name, String value, String path, Integer maxAge, Boolean isSecure, String SameSite) {}
+
   public Cookie(String name, String value, String path, Integer maxAge, Boolean isSecure, String SameSite, Boolean isHttpOnly) {}
 
   /**

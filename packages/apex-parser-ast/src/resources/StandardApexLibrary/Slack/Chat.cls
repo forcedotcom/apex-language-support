@@ -30,11 +30,7 @@ global class Chat {
 
   global Slack.ChatGetPermalinkRequest.Builder messageTs(String messageTs) {}
 
-  global String getChannel() {}
-
   global String getPermalink() {}
-
-  global void setChannel(String channel) {}
 
   global void setPermalink(String permalink) {}
 
@@ -45,14 +41,6 @@ global class Chat {
   global Slack.ChatMeMessageRequest.Builder channel(String channel) {}
 
   global Slack.ChatMeMessageRequest.Builder text(String text) {}
-
-  global String getChannel() {}
-
-  global String getTs() {}
-
-  global void setChannel(String channel) {}
-
-  global void setTs(String ts) {}
 
   global static Slack.ChatPostEphemeralRequest.Builder builder() {}
 
@@ -80,11 +68,7 @@ global class Chat {
 
   global Slack.ChatPostEphemeralRequest.Builder viewReference(Slack.ViewReference viewReference) {}
 
-  global String getDeprecatedArgument() {}
-
   global String getMessageTs() {}
-
-  global void setDeprecatedArgument(String deprecatedArgument) {}
 
   global void setMessageTs(String messageTs) {}
 
@@ -118,25 +102,13 @@ global class Chat {
 
   global Slack.ChatPostMessageRequest.Builder viewReference(Slack.ViewReference viewReference) {}
 
-  global String getChannel() {}
-
-  global String getDeprecatedArgument() {}
-
   global Slack.Message getMessage() {}
 
   global Slack.ErrorResponseMetadata getResponseMetadata() {}
 
-  global String getTs() {}
-
-  global void setChannel(String channel) {}
-
-  global void setDeprecatedArgument(String deprecatedArgument) {}
-
   global void setMessage(Slack.Message message) {}
 
   global void setResponseMetadata(Slack.ErrorResponseMetadata responseMetadata) {}
-
-  global void setTs(String ts) {}
 
   global static Slack.ChatScheduledMessagesListRequest.Builder builder() {}
 
@@ -208,15 +180,9 @@ global class Chat {
 
   global Slack.ChatScheduleMessageRequest.Builder viewReference(Slack.ViewReference viewReference) {}
 
-  global String getChannel() {}
-
   global Slack.ChatScheduleMessageResponse.ScheduledMessage getMessage() {}
 
-  global Integer getPostAt() {}
-
   global String getScheduledMessageId() {}
-
-  global void setChannel(String channel) {}
 
   global void setMessage(Slack.ChatScheduleMessageResponse.ScheduledMessage message) {}
 
@@ -230,8 +196,6 @@ global class Chat {
 
   global String getTeam() {}
 
-  global String getText() {}
-
   global String getType() {}
 
   global String getUser() {}
@@ -241,8 +205,6 @@ global class Chat {
   global void setBotProfile(Slack.BotProfile botProfile) {}
 
   global void setTeam(String team) {}
-
-  global void setText(String text) {}
 
   global void setType(String type) {}
 
@@ -266,22 +228,6 @@ global class Chat {
 
   global Slack.ChatUpdateRequest.Builder viewReference(Slack.ViewReference viewReference) {}
 
-  global String getChannel() {}
-
-  global String getDeprecatedArgument() {}
-
-  global Slack.Message getMessage() {}
-
   global string getText() {}
-
-  global String getTs() {}
-
-  global void setChannel(String channel) {}
-
-  global void setDeprecatedArgument(String deprecatedArgument) {}
-
-  global void setMessage(Slack.Message message) {}
-
-  global void setTs(String ts) {}
 
 }
