@@ -14,6 +14,7 @@ import {
   ApexSymbolProcessingManager,
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
+import { getDocumentStateCache } from './DocumentStateCache';
 
 /**
  * Interface for document delete processing functionality
@@ -91,6 +92,16 @@ export class DocumentDeleteProcessingService implements IDocumentDeleteProcessor
           this.logger.error(
             () =>
               `Error removing file ${file.uri} from symbol manager: ${error}`,
+          );
+        }
+
+        // Invalidate document state cache (both cache and symbols are removed on delete)
+        try {
+          getDocumentStateCache().invalidate(file.uri);
+        } catch (error) {
+          this.logger.error(
+            () =>
+              `Error invalidating cache for deleted file ${file.uri}: ${error}`,
           );
         }
       } catch (error) {

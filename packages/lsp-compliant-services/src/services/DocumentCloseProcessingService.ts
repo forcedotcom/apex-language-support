@@ -11,6 +11,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { getDocumentStateCache } from './DocumentStateCache';
 
 /**
  * Interface for document close processing functionality
@@ -73,6 +74,17 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
               `Error deleting document ${event.document.uri} from storage: ${error}`,
           );
         }
+      }
+
+      // Invalidate document state cache so stale compilation data is not reused
+      // when the file is reopened. Symbols remain in SymbolManager for
+      // cross-file operations (Go to Definition, Find References).
+      try {
+        getDocumentStateCache().invalidate(event.document.uri);
+      } catch (error) {
+        this.logger.error(
+          () => `Error invalidating cache for ${event.document.uri}: ${error}`,
+        );
       }
 
       this.logger.debug(

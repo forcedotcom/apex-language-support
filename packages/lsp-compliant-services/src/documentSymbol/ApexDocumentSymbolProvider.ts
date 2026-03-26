@@ -177,7 +177,11 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
           symbolTable = result.result;
 
           // Also ensure symbols are in symbol manager (replace if exists to ensure fresh data)
-          yield* symbolManager.addSymbolTable(symbolTable, documentUri);
+          yield* symbolManager.addSymbolTable(
+            symbolTable,
+            documentUri,
+            document.version,
+          );
           logger.debug(
             () =>
               `Added SymbolTable to manager for ${documentUri} during document symbols`,

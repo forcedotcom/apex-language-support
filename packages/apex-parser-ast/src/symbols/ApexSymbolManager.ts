@@ -1741,6 +1741,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   addSymbolTable(
     symbolTable: SymbolTable,
     fileUri: string,
+    documentVersion?: number,
   ): Effect.Effect<void, never, never> {
     const self = this;
     return Effect.gen(function* () {
@@ -1764,8 +1765,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Register SymbolTable once for the entire file before processing symbols
       // This avoids redundant registration calls for each symbol
       // NOTE: registerSymbolTable may merge symbols from an existing table, modifying symbolTable
+      // Pass documentVersion to enable version-aware replace vs merge semantics
       self.symbolRefManager.registerSymbolTable(symbolTable, normalizedUri, {
         mergeReferences: false,
+        documentVersion,
       });
 
       // After registerSymbolTable, get the final symbol table (may have been merged)

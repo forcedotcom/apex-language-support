@@ -40,6 +40,8 @@ import { LSPQueueManager, LSPQueueManagerDependencies } from './queue';
 import { ServiceFactory } from './factories/ServiceFactory';
 import { DEFAULT_SERVICE_CONFIG } from './config/ServiceConfiguration';
 import { ApexStorageManager } from './storage/ApexStorageManager';
+import { DocumentChangeBatcher } from './services/DocumentChangeBatcher';
+import { DocumentChangeProcessingService } from './services/DocumentChangeProcessingService';
 
 // Export storage interfaces and classes
 export * from './storage/ApexStorageBase';
@@ -80,6 +82,7 @@ export * from './services/DocumentProcessingService';
 // to avoid duplicate exports
 export * from './services/DocumentLoadProcessingService';
 export * from './services/DocumentSaveProcessingService';
+export * from './services/DocumentChangeBatcher';
 export * from './services/DocumentStateCache';
 export * from './services/DocumentCloseProcessingService';
 export * from './services/DocumentDeleteProcessingService';
@@ -165,16 +168,32 @@ export const dispatchProcessOnOpenDocument = (
   queueManager.submitDocumentOpenNotification(event);
 };
 
+// Singleton DocumentChangeBatcher – created lazily on first didChange event.
+// Debounces per-URI so rapid typing collapses to a single parse of the latest version.
+let changeBatcher: DocumentChangeBatcher | null = null;
+
 /**
  * Dispatch function for document change events (LSP notification - fire-and-forget)
+ * Routes through DocumentChangeBatcher for per-URI debounce, then delegates
+ * to the shared tier-1 pipeline (same as didOpen).
  * @param event The document change event
  */
 export const dispatchProcessOnChangeDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
 ): void => {
-  const handler = HandlerFactory.createDidChangeDocumentHandler();
-  // Error handling is done internally in handleDocumentChange
-  handler.handleDocumentChange(event);
+  if (!changeBatcher) {
+    const logger = getLogger();
+    const processor = new DocumentChangeProcessingService(logger);
+    changeBatcher = new DocumentChangeBatcher(
+      logger,
+      (ev) =>
+        new Promise<void>((resolve) => {
+          processor.processDocumentChange(ev);
+          resolve();
+        }),
+    );
+  }
+  changeBatcher.enqueue(event);
 };
 
 /**
