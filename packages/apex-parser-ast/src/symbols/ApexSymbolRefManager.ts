@@ -2275,7 +2275,11 @@ export class ApexSymbolRefManager {
   registerSymbolTable(
     symbolTable: SymbolTable,
     fileUri: string,
-    options?: { mergeReferences?: boolean; documentVersion?: number },
+    options?: {
+      mergeReferences?: boolean;
+      documentVersion?: number;
+      hasErrors?: boolean;
+    },
   ): void {
     // Normalize URI the same way getSymbolId() does to ensure consistency
     // This ensures SymbolTable lookup in getSymbol() will succeed
@@ -2308,12 +2312,16 @@ export class ApexSymbolRefManager {
       newVersion > storedVersion;
 
     // Parser-error safeguard: avoid destructive replacement when new parse is incomplete
-    // If the new SymbolTable has zero symbols but the existing one has some,
-    // the parse likely failed completely — fall back to merge to avoid data loss
+    // Case 1: Zero symbols from new parse but existing table has some → parse failed completely
+    // Case 2: Parse has errors AND produced fewer symbols than before → mid-file error truncated output
+    // In both cases, fall back to merge to avoid data loss
     const newSymbolCount = symbolTable.getAllSymbols().length;
     const existingSymbolCount = existing ? existing.getAllSymbols().length : 0;
     const isIncompleteParse =
-      isNewerVersion && newSymbolCount === 0 && existingSymbolCount > 0;
+      isNewerVersion &&
+      (newSymbolCount === 0 ||
+        (options?.hasErrors && newSymbolCount < existingSymbolCount)) &&
+      existingSymbolCount > 0;
 
     const useReplace = isNewerVersion && !isIncompleteParse;
 

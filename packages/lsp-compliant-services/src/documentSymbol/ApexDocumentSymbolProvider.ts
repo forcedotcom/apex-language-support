@@ -181,6 +181,7 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
             symbolTable,
             documentUri,
             document.version,
+            result.errors.length > 0,
           );
           logger.debug(
             () =>

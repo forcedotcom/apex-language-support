@@ -176,11 +176,26 @@ let changeBatcher: DocumentChangeBatcher | null = null;
  * Dispatch function for document change events (LSP notification - fire-and-forget)
  * Routes through DocumentChangeBatcher for per-URI debounce, then delegates
  * to the shared tier-1 pipeline (same as didOpen).
+ *
+ * The document is stored in ApexStorage immediately so that LSP requests
+ * (documentSymbol, hover, etc.) that arrive before the debounce timer fires
+ * can still find the latest document content.
  * @param event The document change event
  */
 export const dispatchProcessOnChangeDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
 ): void => {
+  // Store the document immediately so it is available for LSP requests
+  // that arrive before the debounce timer fires.
+  try {
+    const storage = ApexStorageManager.getInstance().getStorage();
+    // setDocument is sync or returns a promise we can ignore (fire-and-forget)
+    void storage.setDocument(event.document.uri, event.document);
+  } catch {
+    // Storage may not be initialised yet during early startup — the batcher
+    // pipeline will store the document when it fires.
+  }
+
   if (!changeBatcher) {
     const logger = getLogger();
     const processor = new DocumentChangeProcessingService(logger);

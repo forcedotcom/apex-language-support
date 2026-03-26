@@ -1742,6 +1742,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolTable: SymbolTable,
     fileUri: string,
     documentVersion?: number,
+    hasErrors?: boolean,
   ): Effect.Effect<void, never, never> {
     const self = this;
     return Effect.gen(function* () {
@@ -1769,6 +1770,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       self.symbolRefManager.registerSymbolTable(symbolTable, normalizedUri, {
         mergeReferences: false,
         documentVersion,
+        hasErrors,
       });
 
       // After registerSymbolTable, get the final symbol table (may have been merged)

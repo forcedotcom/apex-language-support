@@ -16,10 +16,13 @@ import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
 export interface DocumentChangeBatchConfig {
   /** Debounce window in milliseconds (default 150) */
   debounceMs: number;
+  /** Maximum number of concurrent processor invocations (default 4) */
+  maxConcurrentParses: number;
 }
 
 export const DEFAULT_CHANGE_BATCH_CONFIG: DocumentChangeBatchConfig = {
   debounceMs: 150,
+  maxConcurrentParses: 4,
 };
 
 /**
@@ -37,6 +40,9 @@ export type ChangeProcessor = (
  * timer is reset and only the latest event is kept. When the timer fires the
  * latest event is forwarded to the provided processor callback.
  *
+ * A concurrency semaphore limits the number of simultaneous processor calls
+ * (e.g., during branch switches or multi-file saves) to avoid saturating the CPU.
+ *
  * This prevents excessive parsing during rapid typing while ensuring the
  * latest document content is always processed.
  */
@@ -53,6 +59,12 @@ export class DocumentChangeBatcher {
 
   /** Active timer handles per URI */
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  /** Concurrency semaphore: number of currently running processor calls */
+  private running = 0;
+
+  /** Queue of flush callbacks waiting for a semaphore slot */
+  private readonly waitQueue: Array<() => void> = [];
 
   constructor(
     logger: LoggerInterface,
@@ -95,6 +107,8 @@ export class DocumentChangeBatcher {
 
   /**
    * Flush a single URI immediately (called by timer or externally).
+   * Acquires a semaphore slot before invoking the processor; queues
+   * the invocation if the concurrency limit has been reached.
    */
   private flush(uri: string): void {
     this.timers.delete(uri);
@@ -110,12 +124,39 @@ export class DocumentChangeBatcher {
         `[DocumentChangeBatcher] Flushing change for ${uri} (version: ${event.document.version})`,
     );
 
-    this.processor(event).catch((error) => {
-      this.logger.error(
-        () =>
-          `[DocumentChangeBatcher] Error processing change for ${uri}: ${error}`,
-      );
-    });
+    const invoke = (): void => {
+      this.running++;
+      this.processor(event)
+        .catch((error) => {
+          this.logger.error(
+            () =>
+              `[DocumentChangeBatcher] Error processing change for ${uri}: ${error}`,
+          );
+        })
+        .finally(() => {
+          this.running--;
+          this.drainWaitQueue();
+        });
+    };
+
+    if (this.running < this.config.maxConcurrentParses) {
+      invoke();
+    } else {
+      this.waitQueue.push(invoke);
+    }
+  }
+
+  /**
+   * Drain the wait queue: invoke the next pending flush if a slot is available.
+   */
+  private drainWaitQueue(): void {
+    while (
+      this.waitQueue.length > 0 &&
+      this.running < this.config.maxConcurrentParses
+    ) {
+      const next = this.waitQueue.shift()!;
+      next();
+    }
   }
 
   /**
@@ -138,5 +179,13 @@ export class DocumentChangeBatcher {
     }
     this.timers.clear();
     this.pending.clear();
+    this.waitQueue.length = 0;
+  }
+
+  /**
+   * Number of currently running processor calls (for testing/monitoring).
+   */
+  get concurrentCount(): number {
+    return this.running;
   }
 }
